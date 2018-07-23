@@ -1,8 +1,10 @@
-# Unpythonic
+# Unpythonic: `let`, dynamic scoping, and more!
 
-Constructs that change the rules.
+## Tour
 
-## Examples
+```python
+from unpythonic import *
+```
 
 **TODO**
 
@@ -14,43 +16,37 @@ Constructs that change the rules.
 
 Summary
 
-The forms "let" and "letrec" are supported(-ish). As a bonus, we provide the
-"begin" and "begin0" sequencing forms, like Racket.
+The forms `let` and `letrec` are supported(-ish).
 
-In the basic parallel binding "let" form, bindings are independent
-(do not see each other).
+We provide the `begin` and `begin0` sequencing forms, like [Racket](http://racket-lang.org/).
 
-In "letrec", any binding can refer to any other. However, this implementation
-of letrec is only intended for locally defining mutually recursive functions.
+In the basic *parallel binding* `let` form, bindings are independent (do not see each other).
 
-Finally, since we don't depend on MacroPy, we obviously have implemented
-everything as run-of-the-mill functions, not actual syntactic forms.
+In `letrec`, any binding can refer to any other. However, this implementation of `letrec` is only intended for locally defining mutually recursive functions.
+
+Finally, since we don't depend on MacroPy, we obviously have implemented everything as run-of-the-mill functions, not actual syntactic forms.
 
 
-Wait, no let*?
+Wait, no `let*`?
 
 In Python, name lookup always occurs at runtime. Hence, if we allow using
 the environment instance in the RHS of the bindings, that automatically
-gives us letrec. (Each binding is only looked up when we attempt to use it.)
+gives us `letrec`. (Each binding is only looked up when we attempt to use it.)
 
 Also, Python gives us no compile-time guarantees that no binding refers
 to a later one - in Racket, this guarantee is the main difference between
-let* and letrec.
+`let*` and `letrec`.
 
-Even letrec processes the bindings sequentially, left-to-right, but **it makes
-all the bindings available to all of the bindings**. Hence a binding may
-contain a lambda that, when eventually called, uses a binding defined
-further down in the letrec form, and that's ok.
+Even `letrec` processes the bindings sequentially, left-to-right, but *it makes all the bindings available to all of the bindings*. Hence a binding may
+contain a lambda that, when eventually called, uses a binding defined further down in the `letrec` form, and that's ok.
 
-In contrast, in a let* form, attempting such a definition is a compile-time
-error, because at any point in the sequence of bindings, only names found
-earlier in the sequence have been bound. See
-    https://docs.racket-lang.org/guide/let.html
+In contrast, in a `let*` form, attempting such a definition *is a compile-time error*, because at any point in the sequence of bindings, only names found
+earlier in the sequence have been bound. See [TRG on `let`](https://docs.racket-lang.org/guide/let.html).
 
 This behavior cannot be easily (if at all) supported in Python.
 
 
-Why does this letrec work only with functions?
+Why does this `letrec` work only with functions?
 
 We abuse kwargs to provide a pythonic assignment syntax for the bindings.
 
@@ -124,7 +120,8 @@ Inspiration:
 
 ### Wait, no monads?
 
-See PyMonad or OSlash, or this silly hack.
+Already done elsewhere. See PyMonad or OSlash, or if you want to roll your own, [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py).
+
 
 ### License
 
