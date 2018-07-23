@@ -10,7 +10,7 @@ from norebind import norebind
 
 with norebind() as e:
     e.foo = "bar"       # new name, ok
-    e.foo <<= "tavern"  # rebind "foo" in e
+    e.foo <<= "tavern"  # explicitly rebind "foo" in e
     e.foo = "quux"      # AttributeError, foo already defined.
 """
 

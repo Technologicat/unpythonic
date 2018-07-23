@@ -5,6 +5,10 @@
 This module exports a single object instance, dyn, which emulates dynamic scoping
 (Lisp's special variables; Racket's parameterize).
 
+For implicitly passing stuff through several layers of function calls,
+in cases where a lexical closure is not the right tool for the job
+(i.e. when some of the functions are defined elsewhere in the code).
+
   - Dynamic variables are created by 'with dyn.let()'.
 
   - The created dynamic variables exist while the with block is executing,
@@ -12,6 +16,8 @@ This module exports a single object instance, dyn, which emulates dynamic scopin
     exist during the dynamic extent of the with block.)
 
   - The blocks can be nested. Inner scopes mask outer ones, as usual.
+
+  - Each thread has its own dynamic scope stack.
 
 Example:
 

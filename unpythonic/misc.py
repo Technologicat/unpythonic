@@ -61,7 +61,7 @@ def immediate(thunk):
     """Decorator: run immediately, overwrite function by its return value.
 
     Can be used to make lispy not-quite-functions where the def just delimits
-    a block of code that runs immediately (like call-with-something in Lisp).
+    a block of code that runs immediately (think call-with-something in Lisp).
 
     The function will be called with zero arguments.
 
@@ -78,7 +78,7 @@ def immediate(thunk):
         @immediate
         def x():
             a = 2  #    many temporaries that help readability...
-            b = 3  # ...of this calculation, but are no longer needed...
+            b = 3  # ...of this calculation, but just pollute locals...
             c = 5  # ...after the block exits
             return a * b * c
 
@@ -89,6 +89,9 @@ def immediate(thunk):
                     if x * y == 42:
                         return  # "multi-break" out of both loops!
                     ...
+
+    (Note, however, that in the multi-break case, "x" and "y" are
+     no longer in scope outside the block, since the block is a function.)
     """
     return thunk()
 
