@@ -240,9 +240,9 @@ def dlet(**bindings):
         def counter(*, env=None):
             env.count += 1
             return env.count
-        print(counter())  # --> 1
-        print(counter())  # --> 2
-        print(counter())  # --> 3
+        counter()  # --> 1
+        counter()  # --> 2
+        counter()  # --> 3
 
     The named argument `env` is an env instance that contains the let bindings;
     all other args and kwargs are passed through.
