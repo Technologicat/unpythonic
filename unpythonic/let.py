@@ -88,6 +88,7 @@ class env:
 
     # other
     #
+    # TODO: use << for set!
     def set(self, name, value):
         """Convenience method to allow assignment in expression contexts.
 
