@@ -128,8 +128,8 @@ def let(body, **bindings):
 
         from unpythonic.misc import begin
         counter = let(x=0,
-                  body=lambda e: lambda: begin(e.set("x", e.x + 1),
-                                               e.x))
+                      body=lambda e: lambda: begin(e.set("x", e.x + 1),
+                                                   e.x))
         counter()  # --> 1
         counter()  # --> 2
         counter()  # --> 3
