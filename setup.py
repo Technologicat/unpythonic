@@ -30,7 +30,7 @@ libname="unpythonic"
 
 # Short description for package list on PyPI
 #
-SHORTDESC="Constructs that change the rules: let, dynamic scoping, and more."
+SHORTDESC="Constructs that change the rules: let, assign-once, dynamic scoping."
 
 # Long description for package homepage on PyPI
 #
@@ -144,7 +144,7 @@ setup(
     #
     # e.g. the keywords your project uses as topics on GitHub, minus "python" (if there)
     #
-    keywords = ["assign-once begin begin0 let letrec dynamic-scoping functional-programming"],
+    keywords = ["functional-programming"],
 
     # Declare packages so that  python -m setup build  will copy .py files (especially __init__.py).
     #

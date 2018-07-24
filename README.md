@@ -1,4 +1,4 @@
-# Unpythonic: `let`, dynamic scoping, and more!
+# Unpythonic: `let`, assign-once, dynamic scoping
 
 Constructs that change the rules.
 
