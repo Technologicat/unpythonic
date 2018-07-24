@@ -24,4 +24,4 @@ from .let import *        # no guarantees on evaluation order, nice syntax
 #from .lispylet import *  # guaranteed evaluation order, clunky syntax
 from .misc import *
 
-__version__ = '1.0.0'
+__version__ = '0.1.0'
