@@ -24,7 +24,7 @@ class assignonce:
 
         with assignonce() as e:
             e.foo = "bar"       # new definition, ok
-            e.foo <<= "tavern"  # explicitly rebind e.foo, ok
+            e.foo << "tavern"   # explicitly rebind e.foo, ok
             e.foo = "quux"      # AttributeError, e.foo already defined.
     """
     def __init__(self):
@@ -36,9 +36,8 @@ class assignonce:
 
         env = self._env
         if name not in env:
-            env[name] = self._make_rebindable(value)
-        elif value.__class__.__name__ == "_wrapper":  # from <<=, allow rebind
-            env[name] = value
+            env[name] = self._wrap(value, name)
+#            env[name] = value  # to disable the rebind syntax, use this instead.
         else:
             raise AttributeError("name '{:s}' is already defined".format(name))
 
@@ -55,22 +54,33 @@ class assignonce:
     def __exit__(self, exctype, excvalue, traceback):
         pass
 
-    def _make_rebindable(self, obj):
-        # TODO: use << for set!
-        # For some types (such as int), __ilshift__ does not exist and cannot be
-        # written to. Also __lshift__ is read-only, so it's not a possible syntax either.
-        #
-        # Hence we wrap obj, just adding an (or overriding the) __ilshift__ method.
-        env_instance = self
-        class _wrapper(obj.__class__):  # new _wrapper type each time we are called!
-            def __ilshift__(self, newval):
-                return env_instance._make_rebindable(unwrap(newval))
+    # For rebind syntax: "e.foo << newval" --> "e.foo.__lshift__(newval)",
+    # so foo.__lshift__() must be set up to rebind e.foo.
+    #
+    # For some types (such as int), __lshift__ is read-only.
+    # Also, __ilshift__ does not exist and new attributes cannot be added.
+    # Hence we wrap obj, just adding (or overriding) __lshift__.
+    #
+    # The first call to _wrap(), from setattr(), tells foo its name in e,
+    # capturing it (as well as a reference to e) in the closure of
+    # _assignonce_wrapper. Any re-wrapping (triggered by <<) then
+    # just passes on the same name and e.
+    #
+    # We use << instead of <<= for consistency with let's env, because
+    # there rebind needs to be an expression.
+    def _wrap(self, obj, name):
+        e = self
+        class _assignonce_wrapper(obj.__class__):  # new type each time we are called!
+            def __lshift__(self, newval):
+                rewrapped = e._wrap(unwrap(newval), name)  # avoid wrapper stacking.
+                e._env[name] = rewrapped  # bypass setattr() so that it can always refuse updates.
+                return rewrapped
         def unwrap(obj):  # find first parent class that is not a _wrapper
             for cls in obj.__class__.__mro__:
-                if cls.__name__ != "_wrapper":
-                    return cls(obj)  # rebuild obj without wrapper
+                if cls.__name__ != "_assignonce_wrapper":
+                    return cls(obj)  # copy-construct obj without wrapper
             assert False, "wrapped value missing in {} {}".format(type(obj), obj)
-        return _wrapper(obj)  # rebuild obj with wrapper
+        return _assignonce_wrapper(obj)  # copy-construct obj with wrapper
 
 def test():
     with assignonce() as e:
@@ -90,20 +100,27 @@ def test():
             print('Test 2 FAILED')
 
         try:
-            e.a <<= 42     # rebind
-            e.a <<= 2*e.a  # type(newval) is int also in this case
-            e.a <<= e.b    # but here type(newval) is a _wrapper
+            e.a << 42     # rebind
+            e.a << 2*e.a  # type(newval) is int also in this case
+            e.a << e.b    # but here type(newval) is an _assignonce_wrapper
         except AttributeError as err:
             print('Test 3 FAILED: {}'.format(err))
         else:
             print('Test 3 PASSED')
 
         try:
-            e.c <<= 3  # fail, e.c not bound
+            e.c << 3  # fail, e.c not bound
         except AttributeError as err:
             print('Test 4 PASSED')
         else:
             print('Test 4 FAILED')
+
+        try:
+            e.a = e.b  # any correct implementation must refuse this.
+        except AttributeError:
+            print('Test 5 PASSED')
+        else:
+            print('Test 5 FAILED')
 
 if __name__ == '__main__':
     test()

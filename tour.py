@@ -18,7 +18,7 @@ def main():
     #
     with assignonce() as e:
         e.foo = "bar"       # new definition, ok
-        e.foo <<= "tavern"  # explicitly rebind e.foo, ok
+        e.foo << "tavern"   # explicitly rebind e.foo, ok
 
         try:
             e.foo = "quux"  # AttributeError, e.foo already defined.
