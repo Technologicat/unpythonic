@@ -23,9 +23,9 @@ class assignonce:
     In Scheme terms, this makes ``define`` and ``set!`` look different::
 
         with assignonce() as e:
-            e.foo = "bar"       # new definition, ok
-            e.foo << "tavern"   # explicitly rebind e.foo, ok
-            e.foo = "quux"      # AttributeError, e.foo already defined.
+            e.foo = "bar"            # new definition, ok
+            e.set("foo", "tavern")   # explicitly rebind e.foo, ok
+            e.foo = "quux"           # AttributeError, e.foo already defined.
     """
     def __init__(self):
         self._env = {}      # should be private...
@@ -36,8 +36,8 @@ class assignonce:
 
         env = self._env
         if name not in env:
-            env[name] = self._wrap(name, value)
-#            env[name] = value  # to disable the rebind syntax, use this instead.
+#            env[name] = self._wrap(name, value)  # with "e.x << newval" rebind syntax.
+            env[name] = value  # no "e.x << newval" rebind syntax.
         else:
             raise AttributeError("name '{:s}' is already defined".format(name))
 
@@ -47,6 +47,14 @@ class assignonce:
             return env[name]
         else:
             raise AttributeError("name '{:s}' is not defined".format(name))
+
+    def set(self, name, newval):
+        """Rebind an existing name to a new value."""
+        env = self._env
+        if name not in env:
+            raise AttributeError("name '{:s}' is not defined".format(name))
+#        env[name] = self._wrap(name, newval)  # with "e.x << newval" rebind syntax.
+        env[name] = newval  # no "e.x << newval" rebind syntax.
 
     def __enter__(self):
         return self
@@ -69,21 +77,25 @@ class assignonce:
     # We use << instead of <<= for consistency with let's env, because
     # there rebind needs to be an expression.
     #
-    # TODO: this doesn't currently work if obj is a function. Need a different
-    # approach; or just remove this and add e.set(name, value) like let() has.
-    def _wrap(self, name, obj):
-        e = self
-        class _assignonce_wrapper(obj.__class__):  # new type each time we are called!
-            def __lshift__(self, newval):
-                rewrapped = e._wrap(name, unwrap(newval))  # avoid wrapper stacking.
-                e._env[name] = rewrapped  # bypass setattr() so that it can always refuse updates.
-                return rewrapped
-        def unwrap(obj):  # find first parent class that is not a _wrapper
-            for cls in obj.__class__.__mro__:
-                if cls.__name__ != "_assignonce_wrapper":
-                    return cls(obj)  # copy-construct obj without wrapper
-            assert False, "wrapped value missing in {} {}".format(type(obj), obj)
-        return _assignonce_wrapper(obj)  # copy-construct obj with wrapper
+    # TODO: doesn't work if obj is a function (not an acceptable base type).
+    #   - Could set up a proxy object providing __lshift__(), and make its
+    #     __call__() call the original function. (Also @functools.wraps it
+    #     to preserve docstring etc.)
+    #   - Then unwrap() needs to know which kind of wrapper it is unwrapping.
+    #   - There may also be other pitfalls beside functions?
+#    def _wrap(self, name, obj):
+#        e = self
+#        class _assignonce_wrapper(obj.__class__):  # new type each time we are called!
+#            def __lshift__(self, newval):
+#                rewrapped = e._wrap(name, unwrap(newval))  # avoid wrapper stacking.
+#                e._env[name] = rewrapped  # bypass setattr() so that it can always refuse updates.
+#                return rewrapped
+#        def unwrap(obj):  # find first parent class that is not a _wrapper
+#            for cls in obj.__class__.__mro__:
+#                if cls.__name__ != "_assignonce_wrapper":
+#                    return cls(obj)  # copy-construct obj without wrapper
+#            assert False, "wrapped value missing in {} {}".format(type(obj), obj)
+#        return _assignonce_wrapper(obj)  # copy-construct obj with wrapper
 
 def test():
     with assignonce() as e:
@@ -103,27 +115,18 @@ def test():
             print('Test 2 FAILED')
 
         try:
-            e.a << 42     # rebind
-            e.a << 2*e.a  # type(newval) is int also in this case
-            e.a << e.b    # but here type(newval) is an _assignonce_wrapper
+            e.set("a", 42)  # rebind
         except AttributeError as err:
             print('Test 3 FAILED: {}'.format(err))
         else:
             print('Test 3 PASSED')
 
         try:
-            e.c << 3  # fail, e.c not bound
+            e.set("c", 3)  # fail, e.c not bound
         except AttributeError as err:
             print('Test 4 PASSED')
         else:
             print('Test 4 FAILED')
-
-        try:
-            e.a = e.b  # any correct implementation must refuse this.
-        except AttributeError:
-            print('Test 5 PASSED')
-        else:
-            print('Test 5 FAILED')
 
 if __name__ == '__main__':
     test()

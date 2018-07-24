@@ -10,9 +10,9 @@ from unpythonic import *
 
 ```python
 with assignonce() as e:
-    e.foo = "bar"      # new definition, ok
-    e.foo << "tavern"  # explicitly rebind e.foo, ok
-    e.foo = "quux"     # AttributeError, e.foo already defined.
+    e.foo = "bar"           # new definition, ok
+    e.set("foo", "tavern")  # explicitly rebind e.foo, ok
+    e.foo = "quux"          # AttributeError, e.foo already defined.
 ```
 
 ### Multiple expressions in a lambda

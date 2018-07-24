@@ -17,11 +17,11 @@ def main():
     # assign-once environment
     #
     with assignonce() as e:
-        e.foo = "bar"       # new definition, ok
-        e.foo << "tavern"   # explicitly rebind e.foo, ok
+        e.foo = "bar"           # new definition, ok
+        e.set("foo", "tavern")  # explicitly rebind e.foo, ok
 
         try:
-            e.foo = "quux"  # AttributeError, e.foo already defined.
+            e.foo = "quux"      # AttributeError, e.foo already defined.
         except AttributeError:
             pass
 
