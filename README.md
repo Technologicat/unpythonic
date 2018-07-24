@@ -12,6 +12,10 @@ from unpythonic import *
 
 **TODO**
 
+## Rationale
+
+**TODO**
+
 ### On `let` and Python
 
 Summary
