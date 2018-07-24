@@ -6,15 +6,13 @@ For defensive programming, to avoid accidentally overwriting existing names.
 
 Usage:
 
-from norebind import norebind
-
-with norebind() as e:
-    e.foo = "bar"       # new name, ok
-    e.foo <<= "tavern"  # explicitly rebind "foo" in e
+with assignonce() as e:
+    e.foo = "bar"       # new definition, ok
+    e.foo <<= "tavern"  # explicitly rebind foo in e
     e.foo = "quux"      # AttributeError, foo already defined.
 """
 
-__all__ = ["norebind"]
+__all__ = ["assignonce"]
 
 # To be able to create _env, in __setattr__ we must special-case it,
 # falling back to default behaviour (which is object.__setattr__,
@@ -29,7 +27,7 @@ __all__ = ["norebind"]
 # https://docs.python.org/3/reference/datamodel.html#object.__setattr__
 # https://docs.python.org/3/reference/datamodel.html#object.__getattr__
 
-class norebind:
+class assignonce:
     def __init__(self):
         self._env = {}      # should be private...
 
@@ -76,7 +74,7 @@ class norebind:
         return _wrapper(obj)  # rebuild obj with wrapper
 
 def test():
-    with norebind() as e:
+    with assignonce() as e:
         try:
             e.a = 2
             e.b = 3
