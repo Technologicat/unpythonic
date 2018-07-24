@@ -36,7 +36,7 @@ class assignonce:
 
         env = self._env
         if name not in env:
-            env[name] = self._wrap(value, name)
+            env[name] = self._wrap(name, value)
 #            env[name] = value  # to disable the rebind syntax, use this instead.
         else:
             raise AttributeError("name '{:s}' is already defined".format(name))
@@ -68,11 +68,11 @@ class assignonce:
     #
     # We use << instead of <<= for consistency with let's env, because
     # there rebind needs to be an expression.
-    def _wrap(self, obj, name):
+    def _wrap(self, name, obj):
         e = self
         class _assignonce_wrapper(obj.__class__):  # new type each time we are called!
             def __lshift__(self, newval):
-                rewrapped = e._wrap(unwrap(newval), name)  # avoid wrapper stacking.
+                rewrapped = e._wrap(name, unwrap(newval))  # avoid wrapper stacking.
                 e._env[name] = rewrapped  # bypass setattr() so that it can always refuse updates.
                 return rewrapped
         def unwrap(obj):  # find first parent class that is not a _wrapper
