@@ -74,10 +74,10 @@ counter()  # --> 2
 counter()  # --> 3
 ```
 
-**CAUTION**: bindings are initialized in an arbitrary order, also in ``letrec``. This is a limitation of the kwargs abuse. If you need left-to-right initialization, ``unpythonic.lispylet`` provides another implementation with positional syntax:
+**CAUTION**: bindings are initialized in an arbitrary order, also in ``letrec``. This is a limitation of the kwargs abuse. If you need left-to-right initialization, ``unpythonic.lispylet`` provides an alternative implementation with positional syntax:
 
 ```python
-from unpythonic.lispylet import *
+from unpythonic.lispylet import *  # override the default "let" implementation
 
 letrec((('a', 1),
         ('b', lambda e: e.a + 1)),
@@ -111,17 +111,17 @@ def result():
 assert result == (6, 7)
 ```
 
-This is purely a convenience feature, with the following aims:
+This is purely a convenience feature, which:
 
- - To make it explicit right at the definition site that this block is going to be run ``@immediate``ly (in contrast to an explicit call and assignment *after* the definition). Collects related information into one place. Aligns the ordering of the presentation with the ordering of the thought process, reducing the need to skip back and forth.
+ - Makes it explicit right at the definition site that this block is going to be run ``@immediate``ly (in contrast to an explicit call and assignment *after* the definition). Collects related information into one place. Aligns the ordering of the presentation with the ordering of the thought process, reducing the need to skip back and forth.
 
- - To help eliminate errors, in the same way as the habit of typing parentheses only in pairs. There's no risk of forgetting to call the block after the possibly lengthy process of thinking through and writing the definition.
+ - Helps eliminate errors, in the same way as the habit of typing parentheses only in pairs. There's no risk of forgetting to call the block after the possibly lengthy process of thinking through and writing the definition.
 
- - To document that the block is going to be used only once, and not called from elsewhere possibly much later. Tells the reader there's no need to remember this definition.
+ - Documents that the block is going to be used only once, and not called from elsewhere possibly much later. Tells the reader there's no need to remember this definition.
 
 ### Dynamic scoping
 
-By creative application of lexical scoping. There's a singleton, `dyn`:
+Via creative application of lexical scoping. There's a singleton, `dyn`:
 
 ```python
 def f():
@@ -176,12 +176,31 @@ Already done elsewhere, see [PyMonad](https://bitbucket.org/jason_delaat/pymonad
 
 If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
 
-## Python-related FP resources
+## Installation
 
-[Awesome Functional Python](https://github.com/sfermigier/awesome-functional-python), especially a list of useful libraries.
+Not yet available on PyPI; clone from GitHub.
 
-[List of languages that compile to Python](https://github.com/vindarel/languages-that-compile-to-python) including Hy, a Lisp that can use Python libraries.
+### Install
 
+Usually one of:
+
+```
+python3 setup.py install --user
+```
+
+```
+sudo python3 setup.py install
+```
+
+depending on what you want.
+
+### Uninstall
+
+```
+pip3 uninstall unpythonic
+```
+
+while outside the `unpythonic` folder, so that `pip` recognizes it as a package name (instead of a filename).
 
 ## License
 
@@ -190,4 +209,10 @@ If you want to roll your own monads for whatever reason, there's [this silly hac
 Dynamic scoping based on [StackOverflow answer by Jason Orendorff (2010)](https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python), used under CC-BY-SA.
 
 Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
+
+## Python-related FP resources
+
+[Awesome Functional Python](https://github.com/sfermigier/awesome-functional-python), especially a list of useful libraries.
+
+[List of languages that compile to Python](https://github.com/vindarel/languages-that-compile-to-python) including Hy, a Lisp that can use Python libraries.
 
