@@ -13,7 +13,7 @@ def begin(*vals):
                             42*x)
         print(f(1))  # 42
     """
-    return vals[-1]
+    return vals[-1] if len(vals) else None
 
 def begin0(*vals):  # eager, bodys already evaluated when this is called
     """Racket-like begin0: return the first value.
@@ -24,7 +24,7 @@ def begin0(*vals):  # eager, bodys already evaluated when this is called
                              print("hi"))
         print(g(1))  # 23
     """
-    return vals[0]
+    return vals[0] if len(vals) else None
 
 def lazy_begin(*bodys):
     """Racket-like begin: run bodys in sequence, return the last return value.
@@ -36,7 +36,13 @@ def lazy_begin(*bodys):
                                  lambda: 42*x)
         print(f(1))  # 42
     """
-    *rest,last = bodys
+    l = len(bodys)
+    if not l:
+        return None
+    if l == 1:
+        b = bodys[0]
+        return b()
+    *rest, last = bodys
     for body in rest:
         body()
     return last()
@@ -51,7 +57,13 @@ def lazy_begin0(*bodys):
                                   lambda: print("hi"))
         print(g(1))  # 23
     """
-    first,*rest = bodys
+    l = len(bodys)
+    if not l:
+        return None
+    if l == 1:
+        b = bodys[0]
+        return b()
+    first, *rest = bodys
     out = first()
     for body in rest:
         body()
@@ -90,8 +102,8 @@ def immediate(thunk):
                         return  # "multi-break" out of both loops!
                     ...
 
-    (Note, however, that in the multi-break case, "x" and "y" are
-     no longer in scope outside the block, since the block is a function.)
+    (In the multi-break case, "x" and "y" are no longer in scope outside
+     the block, since the block is a function.)
     """
     return thunk()
 

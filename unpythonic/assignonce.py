@@ -1,16 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""In Scheme terms, make define and set! look different.
-
-For defensive programming, to avoid accidentally overwriting existing names.
-
-Usage:
-
-with assignonce() as e:
-    e.foo = "bar"       # new definition, ok
-    e.foo <<= "tavern"  # explicitly rebind foo in e
-    e.foo = "quux"      # AttributeError, foo already defined.
-"""
+"""Assign-once names."""
 
 __all__ = ["assignonce"]
 
@@ -28,6 +18,15 @@ __all__ = ["assignonce"]
 # https://docs.python.org/3/reference/datamodel.html#object.__getattr__
 
 class assignonce:
+    """Environment with assign-once names.
+
+    In Scheme terms, this makes ``define`` and ``set!`` look different::
+
+        with assignonce() as e:
+            e.foo = "bar"       # new definition, ok
+            e.foo <<= "tavern"  # explicitly rebind e.foo, ok
+            e.foo = "quux"      # AttributeError, e.foo already defined.
+    """
     def __init__(self):
         self._env = {}      # should be private...
 

@@ -1,48 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Dynamic scoping.
-
-This module exports a single object instance, dyn, which emulates dynamic scoping
-(Lisp's special variables; Racket's parameterize).
-
-For implicitly passing stuff through several layers of function calls,
-in cases where a lexical closure is not the right tool for the job
-(i.e. when some of the functions are defined elsewhere in the code).
-
-  - Dynamic variables are created by 'with dyn.let()'.
-
-  - The created dynamic variables exist while the with block is executing,
-    and fall out of scope when the with block exits. (I.e. dynamic variables
-    exist during the dynamic extent of the with block.)
-
-  - The blocks can be nested. Inner scopes mask outer ones, as usual.
-
-  - Each thread has its own dynamic scope stack.
-
-Example:
-
-    from dynscope import dyn
-
-    def f():
-        print(dyn.a)
-
-    def main():
-        with dyn.let(a=2, b="foo"):
-            print(dyn.a)  # 2
-            f()           # note f is defined outside the lexical scope of main()!
-
-            with dyn.let(a=3):
-                print(dyn.a)  # 3
-
-            print(dyn.a)  # 2
-
-        print(dyn.b)      # AttributeError, dyn.b no longer exists
-
-    main()
-
-Based on StackOverflow answer by Jason Orendorff (2010):
-    https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python
-"""
+"""Dynamic scoping."""
 
 __all__ = ["dyn"]
 
@@ -60,6 +18,48 @@ class _EnvBlock(object):
         _L._stack.pop()
 
 class _Env(object):
+    """This module exports a single object instance, ``dyn``, which emulates dynamic
+    scoping (Lisp's special variables; Racket's ``parameterize``).
+
+    For implicitly passing stuff through several layers of function calls,
+    in cases where a lexical closure is not the right tool for the job
+    (i.e. when some of the functions are defined elsewhere in the code).
+
+      - Dynamic variables are created by ``with dyn.let()``.
+
+      - The created dynamic variables exist while the with block is executing,
+        and fall out of scope when the with block exits. (I.e. dynamic variables
+        exist during the dynamic extent of the with block.)
+
+      - The blocks can be nested. Inner scopes mask outer ones, as usual.
+
+      - Each thread has its own dynamic scope stack.
+
+    Example::
+
+        from dynscope import dyn
+
+        def f():
+            print(dyn.a)
+
+        def main():
+            with dyn.let(a=2, b="foo"):
+                print(dyn.a)  # 2
+                f()           # note f is defined outside the lexical scope of main()!
+
+                with dyn.let(a=3):
+                    print(dyn.a)  # 3
+
+                print(dyn.a)  # 2
+
+            print(dyn.b)      # AttributeError, dyn.b no longer exists
+
+        main()
+
+    Based on StackOverflow answer by Jason Orendorff (2010).
+
+    https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python
+    """
     def __getattr__(self, name):
         for scope in reversed(_L._stack):
             if name in scope:

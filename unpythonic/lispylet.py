@@ -1,83 +1,88 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Introduce local bindings. Lispy syntax.
-
-The forms "let" and "letrec" are supported(-ish).
-
-This version uses a lispy syntax. Left-to-right eager evaluation of tuples
-in Python allows us to provide sequential assignments.
-
-Core idea of _let() based on StackOverflow answer by divs1210 (2017),
-used under the MIT license:
-    https://stackoverflow.com/a/44737147
-"""
+"""Introduce local bindings. Lispy syntax."""
 
 __all__ = ["let", "letrec", "dlet", "dletrec", "blet", "bletrec"]
+
+from functools import wraps
 
 from unpythonic.misc import immediate
 
 def let(bindings, body):
-    """let expression.
+    """``let`` expression.
 
-    The bindings are independent (do not see each other).
+    The bindings are independent (do not see each other); only the body may
+    refer to the bindings.
 
     Parameters:
-        bindings: iterable
-            (name, value) pairs
+        bindings: tuple of (name, value) pairs
+            name: str
+            value: anything
         body: function
             One-argument function that takes in the environment.
 
     Returns:
         Return value of body.
 
-    Example:
+    Example::
 
         let((('a', 1),
              ('b', 2)),
             lambda e: [e.a, e.b])  # --> [1, 2]
 
-    Bindings must be an iterable even if there is only one pair:
+    Bindings must be an iterable even if there is only one pair::
 
         let((('a', 1),),
             lambda e: e.a)  # --> 1
 
-    A let-over-lambda is also possible:
+    *Let over lambda*. The inner lambda is the definition of the function ``counter``::
 
         from unpythonic.misc import begin
-        lc = let((('count', 0),),
-                 lambda e: lambda: begin(e.set('count', e.count + 1),
-                                         e.count))
-        lc()  # --> 1
-        lc()  # --> 2
-        lc()  # --> 3
-
-    The  lambda e: ...  handles the environment; the rest is the definition.
+        counter = let((('x', 0),),
+                      lambda e: lambda: begin(e.set('x', e.x + 1),
+                                              e.x))
+        counter()  # --> 1
+        counter()  # --> 2
+        counter()  # --> 3
     """
     return _let(bindings, body)
 
 def letrec(bindings, body):
-    """letrec expression.
+    """``letrec`` expression.
 
-    Like ``let``, but bindings can see each other.
-
-    A binding may depend on an earlier one:
+    Like ``let``, but bindings can see each other. To make a binding use the
+    value of an earlier one::
 
         letrec((('a', 1),
                 ('b', lambda e: e.a + 1)),
                lambda e: e.b)  # --> 2
 
-    DANGER: **any** callable as a value for a binding is interpreted as a
-    one-argument function that takes an environment.
+    Each RHS is evaluated just once, and the result is bound to the name on
+    the LHS. So even if 'a' is ``e.set()`` to a different value later,
+    'b' **won't** be updated.
 
-    Hence, if you need to define a function (lambda) in a ``letrec``, wrap it
-    in a  lambda e: ...  even if it doesn't need the environment, like this:
+    DANGER:
+        **any** callable as a value for a binding is interpreted as a
+        one-argument function that takes an environment.
+
+    If you need to define a function (lambda) in a ``letrec``, wrap it in a
+    ``lambda e: ...``  even if it doesn't need the environment, like this::
 
         letrec((('a', 1),
                 ('b', lambda e: e.a + 1),          # just a value, uses env
-                ('f', lambda e: lambda x: 42*x)),  # a function, whether or not uses env
+                ('f', lambda e: lambda x: 42*x)),  # function, whether or not uses env
                lambda e: e.b * e.f(1))  # --> 84
 
-    Also possible: mutually recursive functions:
+    Order-preserving list uniqifier::
+
+        from unpythonic.misc import begin
+        u = lambda lst: letrec((("seen", set()),
+                                ("see", lambda e: lambda x: begin(e.seen.add(x), x))),
+                               lambda e: [e.see(x) for x in lst if x not in e.seen])
+        L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
+        print(u(L))  # [1, 3, 2, 4]
+
+    Mutually recursive functions are also possible:
 
         letrec((('evenp', lambda e: lambda x: (x == 0) or  e.oddp(x - 1)),
                 ('oddp',  lambda e: lambda x: (x != 0) and e.evenp(x - 1))),
@@ -86,19 +91,19 @@ def letrec(bindings, body):
     return _let(bindings, body, mode="letrec")
 
 def dlet(bindings):
-    """let decorator.
+    """``let`` decorator.
 
-    The environment is passed in by name, as "env". The function can take
+    The environment is passed in by name, as ``env``. The function can take
     any other arguments as usual.
 
-    For let-over-def; think "let over lambda" in Lisp:
+    For let-over-def; think *let over lambda* in Lisp::
 
         @dlet((('x', 17),))
         def f(*, env):
             return env.x
         f()  # --> 17
 
-    ``dlet`` provides a local storage that persists across calls:
+    ``dlet`` provides a local storage that persists across calls::
 
         @dlet((('count', 0),))
         def counter(*, env):
@@ -111,9 +116,9 @@ def dlet(bindings):
     return _dlet(bindings)
 
 def dletrec(bindings):
-    """letrec decorator.
+    """``letrec`` decorator.
 
-    Like ``dlet``, but with ``letrec`` instead of ``let``.
+    Like ``dlet``, but with ``letrec`` instead of ``let``::
 
         @dletrec((('x', 2),
                   ('y', lambda e: e.x + 3)))
@@ -124,21 +129,27 @@ def dletrec(bindings):
     return _dlet(bindings, mode="letrec")
 
 def blet(bindings):
-    """let block, chaining @dlet and @immediate.
+    """``let`` block.
+
+    This chains ``@dlet`` and ``@immediate``::
 
         @blet((('x', 9001),))
         def result(*, env):
             return env.x
-        print(result)  # 9001
+            print(result)  # --> 9001
     """
     return _blet(bindings)
 
 def bletrec(bindings):
-    """letrec block, chaining @dletrec and @immediate."""
+    """``letrec`` block.
+
+    This chains ``@dletrec`` and ``@immediate``."""
     return _blet(bindings, mode="letrec")
 
 class _env:
-    """Environment; used as storage for local bindings."""
+    """Environment.
+
+    Used as storage for local bindings."""
 
     # TODO: use << for set!
     def set(self, k, v):
@@ -146,11 +157,14 @@ class _env:
 
         For extra convenience, return the assigned value.
 
-        DANGER: avoid the name k="set"; it will happily shadow this method,
-        because instance attributes are seen before class attributes."""
+        DANGER:
+            avoid the name ``k="set"``; it will happily shadow this method,
+            because instance attributes are seen before class attributes."""
         setattr(self, k, v)
         return v
 
+# Core idea based on StackOverflow answer by divs1210 (2017),
+# used under the MIT license.  https://stackoverflow.com/a/44737147
 def _let(bindings, body, *, env=None, mode="let"):
     assert mode in ("let", "letrec")
 
@@ -171,7 +185,7 @@ def _let(bindings, body, *, env=None, mode="let"):
 def _dlet(bindings, mode="let"):  # let and letrec decorator factory
     def deco(body):
         env = _let(bindings, body=None, mode=mode)  # set up env, don't run yet
-        # TODO: functools.wraps? wrapt?
+        @wraps(body)
         def decorated(*args, **kwargs):
             kwargs_with_env = kwargs.copy()
             kwargs_with_env["env"] = env
@@ -180,25 +194,14 @@ def _dlet(bindings, mode="let"):  # let and letrec decorator factory
     return deco
 
 def _blet(bindings, mode="let"):
-    """let block, chaining @_dlet and @immediate.
-
-        @_blet(x=17, y=23)
-        def result(env=None):
-            print(env.x, env.y)
-            return env.x + env.y
-        print(result)  # 40
-
-        # if the return value is of no interest:
-        @_blet(s="hello")
-        def _(env=None):
-            print(env.s)
-    """
     dlet_deco = _dlet(bindings, mode)
     def deco(body):
         return immediate(dlet_deco(body))
     return deco
 
 def test():
+    from unpythonic.misc import begin
+
     x = let((('a', 1),
              ('b', 2)),
             lambda o: o.a + o.b)
@@ -213,6 +216,12 @@ def test():
                 ('oddp',  lambda o: lambda x: (x != 0) and o.evenp(x - 1))),
                lambda o: o.evenp(42))
     assert t == True
+
+    f = lambda lst: letrec((("seen", set()),
+                            ("see", lambda e: lambda x: begin(e.seen.add(x), x))),
+                           lambda e: [e.see(x) for x in lst if x not in e.seen])
+    L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
+    assert f(L) == [1, 3, 2, 4]
 
     @dlet((('x', 17),))
     def foo(*, env):
@@ -234,7 +243,6 @@ def test():
     assert counter() == 3
 
     # let-over-lambda
-    from unpythonic.misc import begin
     lc = let((('count', 0),),
              lambda o: lambda: begin(o.set('count', o.count + 1),
                                      o.count))

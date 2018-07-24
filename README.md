@@ -131,5 +131,7 @@ Already done elsewhere. See PyMonad or OSlash, or if you want to roll your own, 
 
 BSD.
 
-Dynamic scoping based on [StackOverflow answer by Jason Orendorff (2010)], used under CC-BY-SA.
+Dynamic scoping based on [StackOverflow answer by Jason Orendorff (2010)](https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python), used under CC-BY-SA.
+
+Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
 
