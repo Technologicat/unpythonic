@@ -68,6 +68,9 @@ class assignonce:
     #
     # We use << instead of <<= for consistency with let's env, because
     # there rebind needs to be an expression.
+    #
+    # TODO: this doesn't currently work if obj is a function. Need a different
+    # approach; or just remove this and add e.set(name, value) like let() has.
     def _wrap(self, name, obj):
         e = self
         class _assignonce_wrapper(obj.__class__):  # new type each time we are called!
