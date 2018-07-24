@@ -1,135 +1,191 @@
 # Unpythonic: `let`, dynamic scoping, and more!
 
-## Tour
+Constructs that change the rules.
 
 ```python
 from unpythonic import *
 ```
 
-**TODO**
+### Assign-once environment
 
-## Features
+```python
+with assignonce() as e:
+    e.foo = "bar"       # new definition, ok
+    e.foo <<= "tavern"  # explicitly rebind e.foo, ok
+    e.foo = "quux"      # AttributeError, e.foo already defined.
+```
 
-**TODO**
+### Multiple expressions in a lambda
 
-## Rationale
+```python
+f1 = lambda x: begin(print("cheeky side effect"), 42*x)
+f1(2)  # --> 84
 
-**TODO**
+f2 = lambda x: begin0(42*x, print("cheeky side effect"))
+f2(2)  # --> 84
+```
 
-### On `let` and Python
+### ``let``, ``letrec``
 
-Summary
+```python
+u = lambda lst: let(seen=set(),
+                    body=lambda e: [e.seen.add(x) or x for x in lst if x not in e.seen])
+L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
+u(L)  # --> [1, 3, 2, 4]
 
-The forms `let` and `letrec` are supported(-ish).
+t = letrec(evenp=lambda e: lambda x: (x == 0) or e.oddp(x - 1),
+           oddp=lambda e: lambda x: (x != 0) and e.evenp(x - 1),
+           body=lambda e: e.evenp(42))  # --> True
+```
 
-We provide the `begin` and `begin0` sequencing forms, like [Racket](http://racket-lang.org/).
+Traditional *let over lambda*. The inner ``lambda`` is the definition of the function ``counter``:
 
-In the basic *parallel binding* `let` form, bindings are independent (do not see each other).
+```python
+counter = let(x=0,
+          body=lambda e: lambda: begin(e.set("x", e.x + 1),
+                                       e.x))
+counter()  # --> 1
+counter()  # --> 2
+counter()  # --> 3
+```
 
-In `letrec`, any binding can refer to any other. However, this implementation of `letrec` is only intended for locally defining mutually recursive functions.
+Compare this [Racket](http://racket-lang.org/) equivalent (here using `sweet-exp` [[1]](https://srfi.schemers.org/srfi-110/srfi-110.html) [[2]](https://docs.racket-lang.org/sweet/)):
 
-Finally, since we don't depend on MacroPy, we obviously have implemented everything as run-of-the-mill functions, not actual syntactic forms.
+```racket
+define counter
+  let ([x 0])
+    λ ()
+      set! x {x + 1}
+      x
+counter()  ; --> 1
+counter()  ; --> 2
+counter()  ; --> 3
+```
 
+*Let over def* decorator ``@dlet``:
 
-Wait, no `let*`?
+```python
+@dlet(x=0)
+def counter(*, env=None):  # named argument "env" filled in by decorator
+    env.x += 1
+    return env.x
+counter()  # --> 1
+counter()  # --> 2
+counter()  # --> 3
+```
 
-In Python, name lookup always occurs at runtime. Hence, if we allow using
-the environment instance in the RHS of the bindings, that automatically
-gives us `letrec`. (Each binding is only looked up when we attempt to use it.)
+**CAUTION**: bindings are initialized in an arbitrary order, also in ``letrec``. This is a limitation of the kwargs abuse. If you need left-to-right initialization, ``unpythonic.lispylet`` provides another implementation with positional syntax:
 
-Also, Python gives us no compile-time guarantees that no binding refers
-to a later one - in Racket, this guarantee is the main difference between
-`let*` and `letrec`.
+```python
+from unpythonic.lispylet import *
 
-Even `letrec` processes the bindings sequentially, left-to-right, but *it makes all the bindings available to all of the bindings*. Hence a binding may
-contain a lambda that, when eventually called, uses a binding defined further down in the `letrec` form, and that's ok.
+letrec((('a', 1),
+        ('b', lambda e: e.a + 1)),
+       lambda e: e.b)  # --> 2
+```
 
-In contrast, in a `let*` form, attempting such a definition *is a compile-time error*, because at any point in the sequence of bindings, only names found
-earlier in the sequence have been bound. See [TRG on `let`](https://docs.racket-lang.org/guide/let.html).
+### ``def`` as a code block
 
-This behavior cannot be easily (if at all) supported in Python.
+Make temporaries fall out of scope as soon as no longer needed:
 
+```python
+@immediate
+def x():
+    a = 2  #    many temporaries that help readability...
+    b = 3  # ...of this calculation, but would just pollute locals...
+    c = 5  # ...after the block exits
+    return a * b * c
+assert x == 30
+```
 
-Why does this `letrec` work only with functions?
+Multi-break out of nested loops:
 
-We abuse kwargs to provide a pythonic assignment syntax for the bindings.
+```python
+@immediate
+def result():
+    for x in range(10):
+        for y in range(10):
+            if x * y == 42:
+                return (x, y)
+            ... # more code here
+assert result == (6, 7)
+```
 
-Because Python evaluates kwargs in an arbitrary order, this approach
-**cannot** support bare variable definitions that depend on earlier
-definitions in the same let* or letrec block - since "earlier" is not defined.
+This is purely a convenience feature, with the following aims:
 
-It is possible to nest let forms manually, or to implement a different
-(more lispy than pythonic) syntax that enforces a left-to-right ordering.
-For the latter, see the following example on SO (it's actually a letrec,
-with the syntax reminiscent of Racket and MATLAB):
-    https://stackoverflow.com/a/44737147
+ - To make it explicit right at the definition site that this block is going to be run ``@immediate``ly (in contrast to an explicit call and assignment *after* the definition). Collects related information into one place. Aligns the ordering of the presentation with the ordering of the thought process, reducing the need to skip back and forth.
 
+ - To help eliminate errors, in the same way as the habit of typing parentheses only in pairs. There's no risk of forgetting to call the block after the possibly lengthy process of thinking through and writing the definition.
 
-Why write yet another implementation?
+ - To document that the block is going to be used only once, and not called from elsewhere possibly much later. Tells the reader there's no need to remember this definition.
 
-Teaching.
+### Dynamic scoping
 
-Also, the SO solution linked above is more perlish than pythonic, as it
-attempts to DWIM based on the type of the value in each binding. This may fail
-if we want attempt to bind a lambda that doesn't need the env. If we accidentally
-write  foo=lambda x: ...  instead of  foo=lambda env: lambda x: ...,  we still
-have an instance of types.FunctionType, but its API is not what the LET construct
-expects.
+By creative application of lexical scoping. There's a singleton, `dyn`:
 
-It's probably hard to do better, while keeping the implementation concise and the
-cognitive overhead at the use sites minimal. To anyone with some FP experience,
-it's obvious what a let (or a letrec) with a  lambda env: ...  does, but
-anything more than that requires reading the docs.
+```python
+def f():
+    assert dyn.a == 2
 
-The usability issue - in the Python world, where explicit is considered better
-than implicit - is that the operation mode of LET depends on the type of the
-value being bound.
+def g():
+    with dyn.let(a=2, b="foo"):
+        assert dyn.a == 2
 
-A pythonic solution is to support let and letrec, separately - so that we can
-explictly mark whether the bindings should have the  lambda env: ...  or not.
+        f()  # defined outside the lexical scope of g()!
 
-As a bonus, we provide decorator versions to allow let-over-defs for named functions.
+        with dyn.let(a=3):  # dynamic scopes can be nested
+            assert dyn.a == 3
 
-This gets us 90% there, and is what this implementation is about.
+        assert dyn.a == 2
 
+    print(dyn.b)  # AttributeError, dyn.b no longer exists
+g()
+```
 
-Python is not a Lisp
+Each thread gets its own dynamic scope stack.
 
-The ultimate reason behind this module is to make Python lambdas more useful.
+## Notes
 
-Having support for only a single expression is, ultimately, a herring - it can
-be fixed with a suitable begin form - or a function to approximate one.
-(Besides, multiple expressions in a function are mostly useful with side
-effects, which are not very FP; with the possible exception of "define".)
+Since we **don't** depend on [MacroPy](https://github.com/azazel75/macropy), we provide run-of-the-mill functions and classes, not actual syntactic forms.
 
-However, in Python, looping constructs, the full power of if, and return
-are statements, so they cannot be used in lambdas. The expression form of if
-(and "and" and "or") can be used to a limited extent, and functional looping
-is possible for short loops - where the lack of tail call elimination does not
-yet crash the program - but still, ultimately one must keep in mind that Python
-is not a Lisp.
+For more examples, see [``tour.py``](tour.py), the `test()` function in each submodule, and the docstrings of the individual features.
 
-Yet another factor here is that not all of Python's standard library is
-expression-friendly. Some standard functions lack return values. For example,
-set.add(x) returns None, whereas in an expression context, returning x would be
-much more useful. (This can be worked around like the similar situation with
-set! in Scheme, using a begin(), hence its inclusion here.)
+### On ``let`` and Python
 
+Why no `let*`? In Python, name lookup always occurs at runtime. Hence, if we allow using the environment instance in the RHS of the bindings, that automatically gives us `letrec`. Each binding is only looked up when we attempt to use it, and at that point they all already exist.
 
-Inspiration:
-    https://nvbn.github.io/2014/09/25/let-statement-in-python/
-    https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let
-    http://sigusr2.net/more-about-let-in-python.html
+Python gives us no compile-time guarantees that no binding refers to a later one - in [Racket](http://racket-lang.org/), this guarantee is the main difference between `let*` and `letrec`.
 
+Even Racket's `letrec` processes the bindings sequentially, left-to-right, but *the scoping of the names is mutually recursive*. Hence a binding may contain a lambda that, when eventually called, uses a binding defined further down in the `letrec` form.
+
+In contrast, in a `let*` form, attempting such a definition is *a compile-time error*, because at any point in the sequence of bindings, only names found earlier in the sequence have been bound. See [TRG on `let`](https://docs.racket-lang.org/guide/let.html).
+
+Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
+
+### Python is not a Lisp
+
+The point behind providing `let` and `begin` is to make Python lambdas slightly more useful. The oft-quoted single-expression limitation is ultimately a herring - it can be fixed with a suitable `begin` form, or a function to approximate one.
+
+The real problem is that in Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. The expression form of `if` (and `and` and `or`) can be used to a limited extent, and functional looping (via tail recursion) is possible for short loops - where the lack of tail call elimination does not yet crash the program - but still, ultimately one must keep in mind that Python is not a Lisp.
+
+Another factor here is that not all of Python's standard library is expression-friendly; some standard functions and methods lack return values. For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful. This can be worked around like the similar situation with `set!` in Scheme, using `begin()`.
 
 ### Wait, no monads?
 
-Already done elsewhere. See PyMonad or OSlash, or if you want to roll your own, [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py).
+Already done elsewhere, see [PyMonad](https://bitbucket.org/jason_delaat/pymonad/) or [OSlash](https://github.com/dbrattli/OSlash) if you need them. (The `List` monad can be useful also in Python - e.g. to make an [`amb`](https://rosettacode.org/wiki/Amb) without `call/cc`. Compare [this solution in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/), with `call/cc`.)
+
+If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
+
+## Python-related FP resources
+
+[Awesome Functional Python](https://github.com/sfermigier/awesome-functional-python), especially a list of useful libraries.
+
+[List of languages that compile to Python](https://github.com/vindarel/languages-that-compile-to-python) including Hy, a Lisp that can use Python libraries.
 
 
-### License
+## License
 
-BSD.
+2-clause [BSD](LICENSE.md).
 
 Dynamic scoping based on [StackOverflow answer by Jason Orendorff (2010)](https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python), used under CC-BY-SA.
 
