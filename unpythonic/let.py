@@ -229,15 +229,15 @@ def dlet(**bindings):
 
     For let-over-def; think *let over lambda* in Lisp::
 
-        @dlet(y = 23, z = 42)
-        def foo(x, env=None):  # env is filled in by the decorator
+        @dlet(y=23, z=42)
+        def foo(x, *, env=None):  # env is filled in by the decorator
             print(x, env.y, env.z)
         foo(17)  # --> "17, 23, 42"
 
     ``dlet`` provides a local storage that persists across calls::
 
-        @dlet(count = 0)
-        def counter(env=None):
+        @dlet(count=0)
+        def counter(*, env=None):
             env.count += 1
             return env.count
         print(counter())  # --> 1
@@ -280,14 +280,14 @@ def blet(**bindings):
     This chains ``@dlet`` and ``@immediate``::
 
         @blet(x=17, y=23)
-        def result(env=None):
+        def result(*, env=None):
             print(env.x, env.y)
             return env.x + env.y
         print(result)  # 40
 
         # if the return value is of no interest:
         @blet(s="hello")
-        def _(env=None):
+        def _(*, env=None):
             print(env.s)
     """
     dlet_deco = dlet(**bindings)

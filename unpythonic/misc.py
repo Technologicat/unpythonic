@@ -90,14 +90,14 @@ def immediate(thunk):
         @immediate
         def x():
             a = 2  #    many temporaries that help readability...
-            b = 3  # ...of this calculation, but just pollute locals...
+            b = 3  # ...of this calculation, but would just pollute locals...
             c = 5  # ...after the block exits
             return a * b * c
 
         @immediate
         def _():
             for x in range(10):
-                for y in range(10).
+                for y in range(10):
                     if x * y == 42:
                         return  # "multi-break" out of both loops!
                     ...
