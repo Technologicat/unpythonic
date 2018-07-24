@@ -1,6 +1,6 @@
 # Unpythonic: `let`, assign-once, dynamic scoping
 
-Constructs that change the rules.
+Constructs that change the rules. A study in what we can or cannot bend Python to do, while keeping things simple.
 
 ```python
 from unpythonic import *
@@ -25,13 +25,27 @@ f2 = lambda x: begin0(42*x, print("cheeky side effect"))
 f2(2)  # --> 84
 ```
 
+Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`tour.py`](tour.py).
+
+Note also it's only for side effects, since there's no way to define new names, except...
+
 ### ``let``, ``letrec``
+
+Use a `lambda e: ...` to supply the environment to the body:
 
 ```python
 u = lambda lst: let(seen=set(),
                     body=lambda e: [e.seen.add(x) or x for x in lst if x not in e.seen])
 L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
 u(L)  # --> [1, 3, 2, 4]
+```
+
+In case of `letrec`, the same applies to each binding, too:
+
+```python
+u = lambda lst: letrec(seen=lambda e: set(),
+                       see=lambda e: lambda x: begin(e.seen.add(x), x),
+                       body=lambda e: [e.see(x) for x in lst if x not in e.seen])
 
 t = letrec(evenp=lambda e: lambda x: (x == 0) or e.oddp(x - 1),
            oddp=lambda e: lambda x: (x != 0) and e.evenp(x - 1),
@@ -42,11 +56,10 @@ Traditional *let over lambda*. The inner ``lambda`` is the definition of the fun
 
 ```python
 counter = let(x=0,
-          body=lambda e: lambda: begin(e.set("x", e.x + 1),
-                                       e.x))
+              body=lambda e: lambda: begin(e.set("x", e.x + 1),
+                                           e.x))
 counter()  # --> 1
 counter()  # --> 2
-counter()  # --> 3
 ```
 
 Compare this [Racket](http://racket-lang.org/) equivalent (here using `sweet-exp` [[1]](https://srfi.schemers.org/srfi-110/srfi-110.html) [[2]](https://docs.racket-lang.org/sweet/)):
@@ -54,12 +67,11 @@ Compare this [Racket](http://racket-lang.org/) equivalent (here using `sweet-exp
 ```racket
 define counter
   let ([x 0])
-    λ ()
+    λ ()  ; <-- λ has an implicit begin(), so we don't need to explicitly have one
       set! x {x + 1}
       x
 counter()  ; --> 1
 counter()  ; --> 2
-counter()  ; --> 3
 ```
 
 *Let over def* decorator ``@dlet``:
@@ -71,15 +83,14 @@ def counter(*, env=None):  # named argument "env" filled in by decorator
     return env.x
 counter()  # --> 1
 counter()  # --> 2
-counter()  # --> 3
 ```
 
-**CAUTION**: bindings are initialized in an arbitrary order, also in ``letrec``. This is a limitation of the kwargs abuse. If you need left-to-right initialization, ``unpythonic.lispylet`` provides an alternative implementation with positional syntax:
+**CAUTION**: bindings are initialized in an arbitrary order, also in ``letrec``. This is a limitation of the kwargs abuse. If you need left-to-right initialization, ``unpythonic.lispylet`` provides an alternative implementation with positional syntax (and more parentheses):
 
 ```python
 from unpythonic.lispylet import *  # override the default "let" implementation
 
-letrec((('a', 1),
+letrec((('a', 1),  # needs "lambda e: ..." only if the RHS uses the environment or is a function
         ('b', lambda e: e.a + 1)),
        lambda e: e.b)  # --> 2
 ```
@@ -121,7 +132,7 @@ This is purely a convenience feature, which:
 
 ### Dynamic scoping
 
-Via creative application of lexical scoping. There's a singleton, `dyn`:
+Via lexical scoping in disguise. There's a singleton, `dyn`, which emulates dynamic scoping:
 
 ```python
 def f():
@@ -146,19 +157,21 @@ Each thread gets its own dynamic scope stack.
 
 ## Notes
 
+The main design consideration in this package is to not need `inspect`, keeping these modules simple and robust.
+
 Since we **don't** depend on [MacroPy](https://github.com/azazel75/macropy), we provide run-of-the-mill functions and classes, not actual syntactic forms.
 
 For more examples, see [``tour.py``](tour.py), the `test()` function in each submodule, and the docstrings of the individual features.
 
 ### On ``let`` and Python
 
-Why no `let*`? In Python, name lookup always occurs at runtime. Hence, if we allow using the environment instance in the RHS of the bindings, that automatically gives us `letrec`. Each binding is only looked up when we attempt to use it, and at that point they all already exist.
+Why no `let*`? In Python, name lookup always occurs at runtime. Python gives us no compile-time guarantees that no binding refers to a later one - in [Racket](http://racket-lang.org/), this guarantee is the main difference between `let*` and `letrec`.
 
-Python gives us no compile-time guarantees that no binding refers to a later one - in [Racket](http://racket-lang.org/), this guarantee is the main difference between `let*` and `letrec`.
-
-Even Racket's `letrec` processes the bindings sequentially, left-to-right, but *the scoping of the names is mutually recursive*. Hence a binding may contain a lambda that, when eventually called, uses a binding defined further down in the `letrec` form.
+Even Racket's `letrec` processes the bindings sequentially, left-to-right, but *the scoping of the names is mutually recursive*. Hence a binding may contain a lambda that, when eventually called, uses a binding defined further down in the `letrec` form. We similarly allow this.
 
 In contrast, in a `let*` form, attempting such a definition is *a compile-time error*, because at any point in the sequence of bindings, only names found earlier in the sequence have been bound. See [TRG on `let`](https://docs.racket-lang.org/guide/let.html).
+
+The ``unpythonic.lispylet`` version of `letrec` behaves slightly more like `let*` in that if the RHS is not a function, it may only refer to previous bindings. But it still allows mutually recursive function definitions.
 
 Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
 
@@ -169,6 +182,19 @@ The point behind providing `let` and `begin` is to make Python lambdas slightly 
 The real problem is that in Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. The expression form of `if` (and `and` and `or`) can be used to a limited extent, and functional looping (via tail recursion) is possible for short loops - where the lack of tail call elimination does not yet crash the program - but still, ultimately one must keep in mind that Python is not a Lisp.
 
 Another factor here is that not all of Python's standard library is expression-friendly; some standard functions and methods lack return values. For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful. This can be worked around like the similar situation with `set!` in Scheme, using `begin()`.
+
+### Assignment syntax
+
+Why the clunky `e.set(name, newval)`? Mainly because in Python, the language itself is not customizable. If we could define a new operator that transforms to `e.set(...)`, this would be easily solved.
+
+We could abuse `e.foo << newval`, which transforms to `e.foo.__lshift__(newval)`, to essentially perform `e.set("foo", newval)`, but this requires some magic, because we then need to monkey-patch each incoming value (including the first one when the name is defined) to set up the redirect and keep it working.
+
+ - Methods of builtin types such as `int` are read-only, so we can't just override `__lshift__` in any given `newval`.
+ - For many types of objects, at the price of some copy-constructing, we can provide a wrapper object that inherits from the original's type, and just adds an `__lshift__` method to catch and redirect the appropriate call. See commented-out proof-of-concept in [`unpythonic/assignonce.py`](unpythonic/assignonce.py).
+ - But that approach doesn't work for function values, because `function` is not an acceptable base type (to inherit from). In this case we could set up a proxy object, whose `__call__` method calls the original function (but what about the docstring and such? Is `@functools.wraps` enough?). But then there are two kinds of wrappers, and the re-wrapping logic (which is needed to avoid stacking wrappers when someone does `e.a << e.b`) needs to know about that.
+ - It's still difficult to be sure these two approaches cover all cases; and this already violates [Zen of Python](https://www.python.org/dev/peps/pep-0020/) #1, #2 and #3.
+
+If we later choose go this route nevertheless, `<<` is a better choice for the syntax than `<<=`, because `let` needs `e.set(...)` to be valid in an expression context.
 
 ### Wait, no monads?
 
