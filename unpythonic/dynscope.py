@@ -10,6 +10,7 @@ import threading
 # dynamic scope stack.
 #
 # TODO: preferable to use the parent thread's current stack, but difficult to get.
+# Could monkey-patch threading.Thread.__init__ to record this information in self...
 class MyLocal(threading.local):  # see help(_threading_local)
     initialized = False
     def __init__(self, **kw):
