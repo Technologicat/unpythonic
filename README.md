@@ -1,6 +1,6 @@
 # Unpythonic: `let`, assign-once, dynamic scoping
 
-Constructs that change the rules. A study in what we can or cannot bend Python to do, while keeping things simple.
+Simple constructs that change the rules.
 
 ```python
 from unpythonic import *
@@ -144,6 +144,8 @@ g()
 ```
 
 Dynamic variables can only be set using `with dyn.let(...)`. No `set`, `<<`, unlike in the other `unpythonic` environments.
+
+Once set, a dynamic variable exists for the dynamic extent of the `with` block (i.e. until the block exits). Inner dynamic scopes shadow outer ones. Dynamic variables are seen also by code that is outside the lexical scope where the `with dyn.let` resides.
 
 The dynamic scope stack is thread-local. Any newly spawned threads inherit the then-current state of the dynamic scope stack from **the main thread** (not the parent thread). This is mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a solution, PRs welcome!)
 
