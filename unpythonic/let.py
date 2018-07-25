@@ -88,7 +88,6 @@ class env:
 
     # other
     #
-    # TODO: use << for set!
     def set(self, name, value):
         """Convenience method to allow assignment in expression contexts.
 
@@ -98,6 +97,18 @@ class env:
         """
         setattr(self, name, value)
         return value  # for convenience
+
+    def __lshift__(self, arg):
+        """Alternative syntax for assignment.
+
+        ``e << ("x", 42)`` is otherwise the same as ``e.set("x", 42)``, except
+        it returns `self`, so that it can be chained::
+
+            e << ("x", 42) << ("y", 23)
+        """
+        name, value = arg
+        self.set(name, value)
+        return self
 
 def let(body, **bindings):
     """``let`` expression.

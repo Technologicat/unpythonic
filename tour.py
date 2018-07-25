@@ -19,6 +19,7 @@ def main():
     with assignonce() as e:
         e.foo = "bar"           # new definition, ok
         e.set("foo", "tavern")  # explicitly rebind e.foo, ok
+        e << ("foo", "tavern")  # same thing (but returns e instead of new value)
 
         try:
             e.foo = "quux"      # AttributeError, e.foo already defined.
@@ -61,7 +62,7 @@ def main():
 
     # let-over-lambda
     counter = let(x=0,
-              body=lambda e: lambda: begin(e.set("x", e.x + 1),
+              body=lambda e: lambda: begin(e << ("x", e.x + 1),
                                            e.x))
     counter()  # --> 1
     counter()  # --> 2

@@ -55,6 +55,19 @@ class assignonce:
             raise AttributeError("name '{:s}' is not defined".format(name))
 #        env[name] = self._wrap(name, newval)  # with "e.x << newval" rebind syntax.
         env[name] = newval  # no "e.x << newval" rebind syntax.
+        return newval
+
+    def __lshift__(self, arg):
+        """Alternative syntax for rebinding.
+
+        ``e << ("x", 42)`` is otherwise the same as ``e.set("x", 42)``, except
+        it returns `self`, so that it can be chained::
+
+            e << ("x", 42) << ("y", 23)
+        """
+        name, newval = arg
+        self.set(name, newval)
+        return self
 
     def __enter__(self):
         return self

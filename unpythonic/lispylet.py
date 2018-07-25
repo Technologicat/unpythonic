@@ -151,7 +151,6 @@ class _env:
 
     Used as storage for local bindings."""
 
-    # TODO: use << for set!
     def set(self, k, v):
         """Convenience method to allow assignment in expression contexts.
 
@@ -162,6 +161,18 @@ class _env:
             because instance attributes are seen before class attributes."""
         setattr(self, k, v)
         return v
+
+    def __lshift__(self, arg):
+        """Alternative syntax for assignment.
+
+        ``e << ("x", 42)`` is otherwise the same as ``e.set("x", 42)``, except
+        it returns `self`, so that it can be chained::
+
+            e << ("x", 42) << ("y", 23)
+        """
+        name, value = arg
+        self.set(name, value)
+        return self
 
 # Core idea based on StackOverflow answer by divs1210 (2017),
 # used under the MIT license.  https://stackoverflow.com/a/44737147
