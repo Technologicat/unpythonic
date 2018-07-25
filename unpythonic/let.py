@@ -309,6 +309,14 @@ def test():
                body=lambda e: e.evenp(42))
     assert t is True
 
+    # somewhat pythonic solution:
+    @immediate
+    def t():
+        def evenp(x): return x == 0 or oddp(x - 1)
+        def oddp(x): return x != 0 and evenp(x - 1)
+        return evenp(42)
+    assert t is True
+
     @dletrec(evenp=lambda e: lambda x: (x == 0) or e.oddp(x - 1),
              oddp=lambda e: lambda x: (x != 0) and e.evenp(x - 1))
     def is_even(x, *, env):
