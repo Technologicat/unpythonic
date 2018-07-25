@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 """Unpythonic constructs that change the rules.
 
-There are two ``let`` constructs provided:
+We provide two submodules which implement the ``let`` construct:
 
     - ``unpythonic.let``:
         Pythonic syntax, but no guarantees on evaluation order of the bindings.
