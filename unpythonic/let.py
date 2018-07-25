@@ -7,7 +7,7 @@ __all__ = ["let", "letrec", "dlet", "dletrec", "blet", "bletrec"]
 from functools import wraps
 
 from unpythonic.misc import immediate
-from unpythonic.letenv import env as _env
+from unpythonic.env import env as _envcls
 
 def let(body, **bindings):
     """``let`` expression.
@@ -184,7 +184,7 @@ def bletrec(**bindings):
 
 def _let(mode, body, **bindings):
     assert mode in ("let", "letrec")
-    env = _env(**bindings)
+    env = _envcls(**bindings)
     if mode == "letrec":  # supply the environment instance to the letrec bindings.
         for k in env:
             env[k] = env[k](env)

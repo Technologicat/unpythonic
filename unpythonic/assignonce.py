@@ -4,7 +4,7 @@
 
 __all__ = ["assignonce"]
 
-from unpythonic.letenv import env as _envcls
+from unpythonic.env import env as _envcls
 
 class assignonce(_envcls):
     """Environment with assign-once names.
