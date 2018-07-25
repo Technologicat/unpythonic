@@ -4,18 +4,36 @@
 
 __all__ = ["dyn"]
 
-from threading import local
+import threading
 
-_L = local()  # each thread gets its own stack
-_L._stack = []
+# Each new thread, when spawned, inherits the contents of the main thread's
+# dynamic scope stack.
+#
+# TODO: preferable to use the parent thread's current stack, but difficult to get.
+class MyLocal(threading.local):  # see help(_threading_local)
+    initialized = False
+    def __init__(self, **kw):
+        if self.initialized:
+            raise SystemError('__init__ called too many times')
+        self.initialized = True
+        self.__dict__.update(kw)
+
+_mainthread_stack = []
+_L = MyLocal(default_stack=_mainthread_stack)
+def _getstack():
+    if threading.current_thread() is threading.main_thread():
+        return _mainthread_stack
+    if not hasattr(_L, "_stack"):
+        _L._stack = _L.default_stack.copy()  # copy main thread's current stack
+    return _L._stack
 
 class _EnvBlock(object):
     def __init__(self, kwargs):
         self.kwargs = kwargs
     def __enter__(self):
-        _L._stack.append(self.kwargs)
+        _getstack().append(self.kwargs)
     def __exit__(self, t, v, tb):
-        _L._stack.pop()
+        _getstack().pop()
 
 class _Env(object):
     """This module exports a single object instance, ``dyn``, which emulates dynamic
@@ -61,7 +79,7 @@ class _Env(object):
     https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python
     """
     def __getattr__(self, name):
-        for scope in reversed(_L._stack):
+        for scope in reversed(_getstack()):
             if name in scope:
                 return scope[name]
         raise AttributeError("dynamic variable '{:s}' is not defined".format(name))
@@ -94,6 +112,34 @@ def test():
             print("Test 2 PASSED")
         else:
             print("Test 2 FAILED")
+
+        from queue import Queue
+        comm = Queue()
+        def threadtest(q):
+            try:
+                dyn.c  # just access dyn.c
+            except AttributeError as err:
+                q.put(err)
+            q.put(None)
+
+        with dyn.let(c=42):
+            t1 = threading.Thread(target=threadtest, args=(comm,), kwargs={})
+            t1.start()
+            t1.join()
+        v = comm.get()
+        if v is None:
+            print("Test 3 PASSED")
+        else:
+            print("Test 3 FAILED: {}".format(v))
+
+        t2 = threading.Thread(target=threadtest, args=(comm,), kwargs={})
+        t2.start()  # should crash, dyn.c no longer exists in the main thread
+        t2.join()
+        v = comm.get()
+        if v is not None:
+            print("Test 4 PASSED")
+        else:
+            print("Test 4 FAILED")
 
     runtest()
 
