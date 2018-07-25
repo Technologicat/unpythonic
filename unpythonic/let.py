@@ -126,16 +126,6 @@ def letrec(body, **bindings):
     """
     return _let("letrec", body, **bindings)
 
-def _let(mode, body, **bindings):
-    assert mode in ("let", "letrec")
-    env = _env(**bindings)
-    if mode == "letrec":  # supply the environment instance to the letrec bindings.
-        for k in env:
-            env[k] = env[k](env)
-    # decorators need just the final env; else run body now
-    return env if body is None else body(env)
-
-# decorator factory: almost as fun as macros?
 def dlet(**bindings):
     """``let`` decorator.
 
@@ -168,21 +158,6 @@ def dletrec(**bindings):
     """
     return _dlet("letrec", **bindings)
 
-def _dlet(mode, **bindings):
-    assert mode in ("let", "letrec")
-    def deco(body):
-        # evaluate env when the function def runs!
-        # (so that any mutations to its state are preserved
-        #  between calls to the decorated function)
-        e = _let(mode, body=None, **bindings)
-        @wraps(body)
-        def decorated(*args, **kwargs):
-            kwargs_with_env = kwargs.copy()
-            kwargs_with_env["env"] = e
-            return body(*args, **kwargs_with_env)
-        return decorated
-    return deco
-
 def blet(**bindings):
     """``let`` block.
 
@@ -199,18 +174,42 @@ def blet(**bindings):
         def _(*, env=None):
             print(env.s)
     """
-    dlet_deco = dlet(**bindings)
-    def deco(body):
-        return immediate(dlet_deco(body))
-    return deco
+    return _blet("let", **bindings)
 
 def bletrec(**bindings):
     """``letrec`` block.
 
     This chains ``@dletrec`` and ``@immediate``."""
-    dletrec_deco = dletrec(**bindings)
+    return _blet("letrec", **bindings)
+
+def _let(mode, body, **bindings):
+    assert mode in ("let", "letrec")
+    env = _env(**bindings)
+    if mode == "letrec":  # supply the environment instance to the letrec bindings.
+        for k in env:
+            env[k] = env[k](env)
+    # decorators need just the final env; else run body now
+    return env if body is None else body(env)
+
+# decorator factory: almost as fun as macros?
+def _dlet(mode, **bindings):
+    assert mode in ("let", "letrec")
     def deco(body):
-        return immediate(dletrec_deco(body))
+        # evaluate env only once, when the function def runs
+        # (to preserve state between calls to the decorated function)
+        env = _let(mode, body=None, **bindings)
+        @wraps(body)
+        def decorated(*args, **kwargs):
+            kwargs_with_env = kwargs.copy()
+            kwargs_with_env["env"] = env
+            return body(*args, **kwargs_with_env)
+        return decorated
+    return deco
+
+def _blet(mode, **bindings):
+    dlet_deco = _dlet(mode, **bindings)
+    def deco(body):
+        return immediate(dlet_deco(body))
     return deco
 
 def test():
