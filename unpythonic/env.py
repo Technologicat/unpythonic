@@ -42,10 +42,13 @@ class env:
     When the `with` block exits, `e2` forgets all its bindings. The `e2`
     instance itself will remain alive due to Python's scoping rules.
     """
+    # do not allow bindings that would break functionality.
+    reserved_names = ("_env", "set", "clear")
+
     def __init__(self, **bindings):
         self._env = {}
-        for name,value in bindings.items():
-            self._env[name] = value
+        for name, value in bindings.items():
+            setattr(self, name, value)
 
     # item access by name
     # https://docs.python.org/3/reference/datamodel.html#object.__setattr__
@@ -53,6 +56,8 @@ class env:
     def __setattr__(self, name, value):
         if name == "_env":  # hook to allow creating _env directly in self
             return super().__setattr__(name, value)
+        if name in self.reserved_names:
+            raise AttributeError("cannot overwrite reserved name '{:s}'; complete list: {}".format(name, self.reserved_names))
 #        value = self._wrap(name, value)  # for "e.x << value" rebind syntax.
         self._env[name] = value  # make all other attrs else live inside _env
 
@@ -92,7 +97,7 @@ class env:
         self.clear()
 
     # pretty-printing
-    def __str__(self):
+    def __repr__(self):
         bindings = ["{:s}={}".format(name,repr(value)) for name,value in self._env.items()]
         return "<env object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
 
