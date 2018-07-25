@@ -67,7 +67,7 @@ In ``lispylet``, bindings are a list of `(name, value)` pairs.
 
 In ``lispylet.letrec``, if `value` is callable, it will be called with the environment as its only argument when the environment is being set up, and the result of the call is bound to `name`.
 
-Hence to store a function `f` (which can be a named function or a lambda expression) into a ``lispylet.letrec`` binding, the `value` must be ``lambda e: f``, whether or not `f` actually uses the environment. Otherwise `f` itself will be called with the environment as its argument (likely not what was intended). Examples of correct usage:
+Hence to store a function `f` into a ``lispylet.letrec`` binding, the `value` must be ``lambda e: f``, whether or not `f` actually uses the environment. Otherwise `f` itself will be called with the environment as its argument (likely not what was intended). Here `f` itself may be any callable. Examples of correct usage:
 
 ```python
 u = lambda lst: letrec((("seen", set()),
