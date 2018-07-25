@@ -119,6 +119,20 @@ counter()  # --> 1
 counter()  # --> 2
 ```
 
+The **environment** implementation used by all the ``let`` constructs (but **not** by `assignonce` and `dyn`) is essentially a bunch with iteration and subscripting support. For details, see `unpythonic.letenv` (not imported by default). This allows things like:
+
+```python
+let(x=1, y=2, z=3, body=lambda e: [(name, 2*e[name]) for name in e])  # --> [('y', 4), ('z', 6), ('x', 2)]
+```
+
+It also works as a bare bunch, and supports printing for debugging:
+
+```python
+from unpythonic.letenv import env
+e = env(s="hello", orange="fruit", answer=42)
+print(e)  # --> <env: <s: hello, answer: 42, orange: fruit>>
+```
+
 ### Dynamic scoping
 
 Via lexical scoping in disguise. There's a singleton, `dyn`, which emulates dynamic scoping (like [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html)):
