@@ -7,7 +7,7 @@ __all__ = ["let", "letrec", "dlet", "dletrec", "blet", "bletrec"]
 from functools import wraps
 
 from unpythonic.misc import immediate
-from unpythonic._let_support import env as _env
+from unpythonic.letenv import env as _env
 
 def let(body, **bindings):
     """``let`` expression.

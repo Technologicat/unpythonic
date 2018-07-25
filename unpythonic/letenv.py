@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Environment for let constructs. Internal module."""
+"""Environment for let constructs."""
 
 class env:
     """Bunch with context manager, iterator and subscripting support.
