@@ -7,7 +7,7 @@ __all__ = ["let", "letrec", "dlet", "dletrec", "blet", "bletrec"]
 from functools import wraps
 
 from unpythonic.misc import immediate
-from unpythonic._let_support import env
+from unpythonic._let_support import env as _env
 
 def let(body, **bindings):
     """``let`` expression.
@@ -128,11 +128,12 @@ def letrec(body, **bindings):
 
 def _let(mode, body, **bindings):
     assert mode in ("let", "letrec")
-    e = env(**bindings)
+    env = _env(**bindings)
     if mode == "letrec":  # supply the environment instance to the letrec bindings.
-        for k in e:
-            e[k] = e[k](e)
-    return body(e)
+        for k in env:
+            env[k] = env[k](env)
+    # decorators need just the final env; else run body now
+    return env if body is None else body(env)
 
 # decorator factory: almost as fun as macros?
 def dlet(**bindings):
@@ -173,10 +174,7 @@ def _dlet(mode, **bindings):
         # evaluate env when the function def runs!
         # (so that any mutations to its state are preserved
         #  between calls to the decorated function)
-        e = env(**bindings)
-        if mode == "letrec":  # supply the environment instance to the letrec bindings.
-            for k in e:
-                e[k] = e[k](e)
+        e = _let(mode, body=None, **bindings)
         @wraps(body)
         def decorated(*args, **kwargs):
             kwargs_with_env = kwargs.copy()
@@ -232,7 +230,7 @@ def test():
 
         # context manager only
         def f3(lst):
-            with env(seen = set()) as myenv:
+            with _env(seen = set()) as myenv:
                 return [myenv.seen.add(x) or x for x in lst if x not in myenv.seen]
             # myenv still lives due to Python's scoping rules.
             # This is why we provide a separate let construct
