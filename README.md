@@ -261,7 +261,7 @@ depending on what you want.
 pip3 uninstall unpythonic
 ```
 
-while outside the `unpythonic` folder, so that `pip` recognizes it as a package name (instead of a filename).
+Must be invoked in a folder which has no subfolder called `unpythonic`, so that `pip` recognizes it as a package name (instead of a filename).
 
 ## License
 
