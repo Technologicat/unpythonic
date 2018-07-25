@@ -193,7 +193,6 @@ def _let(mode, body, **bindings):
 
 # decorator factory: almost as fun as macros?
 def _dlet(mode, **bindings):
-    assert mode in ("let", "letrec")
     def deco(body):
         # evaluate env only once, when the function def runs
         # (to preserve state between calls to the decorated function)
