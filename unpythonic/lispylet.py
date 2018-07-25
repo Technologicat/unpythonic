@@ -146,6 +146,7 @@ def bletrec(bindings):
     This chains ``@dletrec`` and ``@immediate``."""
     return _blet(bindings, mode="letrec")
 
+# TODO: switch to the same env implementation as let.py to avoid the k=set issue?
 class _env:
     """Environment.
 
@@ -154,11 +155,15 @@ class _env:
     def set(self, k, v):
         """Convenience method to allow assignment in expression contexts.
 
-        For extra convenience, return the assigned value.
+        Like Scheme's set! function. Only rebinding is allowed.
+
+        For convenience, returns the `value` argument.
 
         DANGER:
             avoid the name ``k="set"``; it will happily shadow this method,
             because instance attributes are seen before class attributes."""
+        if not hasattr(self, k):  # allow only rebinding
+            raise AttributeError("name '{:s}' is not defined".format(k))
         setattr(self, k, v)
         return v
 
@@ -271,6 +276,14 @@ def test():
     def result(*, env):
         return env.evenp(42)
     assert result is True
+
+    try:
+        let((('x', 0),),
+            lambda e: e.set('y', 3))  # error, y is not defined
+    except AttributeError:
+        pass
+    else:
+        assert False
 
     print("All tests passed")
 

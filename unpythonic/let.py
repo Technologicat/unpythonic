@@ -91,10 +91,12 @@ class env:
     def set(self, name, value):
         """Convenience method to allow assignment in expression contexts.
 
-        Like Scheme's set! function.
+        Like Scheme's set! function. Only rebinding is allowed.
 
         For convenience, returns the `value` argument.
         """
+        if not hasattr(self, name):  # allow only rebinding
+            raise AttributeError("name '{:s}' is not defined".format(name))
         setattr(self, name, value)
         return value  # for convenience
 
@@ -425,6 +427,14 @@ def test():
     def result(*, env):
         return env.evenp(23)
     assert result is False
+
+    try:
+        let(x=0,
+            body=lambda e: e.set('y', 3))  # error, y is not defined
+    except AttributeError as err:
+        pass
+    else:
+        assert False
 
     print("All tests PASSED")
 
