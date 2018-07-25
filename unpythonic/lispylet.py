@@ -7,6 +7,7 @@ __all__ = ["let", "letrec", "dlet", "dletrec", "blet", "bletrec"]
 from functools import wraps
 
 from unpythonic.misc import immediate
+from unpythonic._let_support import env as _env
 
 def let(bindings, body):
     """``let`` expression.
@@ -146,39 +147,6 @@ def bletrec(bindings):
     This chains ``@dletrec`` and ``@immediate``."""
     return _blet(bindings, mode="letrec")
 
-# TODO: switch to the same env implementation as let.py to avoid the k=set issue?
-class _env:
-    """Environment.
-
-    Used as storage for local bindings."""
-
-    def set(self, k, v):
-        """Convenience method to allow assignment in expression contexts.
-
-        Like Scheme's set! function. Only rebinding is allowed.
-
-        For convenience, returns the `value` argument.
-
-        DANGER:
-            avoid the name ``k="set"``; it will happily shadow this method,
-            because instance attributes are seen before class attributes."""
-        if not hasattr(self, k):  # allow only rebinding
-            raise AttributeError("name '{:s}' is not defined".format(k))
-        setattr(self, k, v)
-        return v
-
-    def __lshift__(self, arg):
-        """Alternative syntax for assignment.
-
-        ``e << ("x", 42)`` is otherwise the same as ``e.set("x", 42)``, except
-        it returns `self`, so that it can be chained::
-
-            e << ("x", 42) << ("y", 23)
-        """
-        name, value = arg
-        self.set(name, value)
-        return self
-
 # Core idea based on StackOverflow answer by divs1210 (2017),
 # used under the MIT license.  https://stackoverflow.com/a/44737147
 def _let(bindings, body, *, env=None, mode="let"):
@@ -285,7 +253,7 @@ def test():
     else:
         assert False
 
-    print("All tests passed")
+    print("All tests PASSED")
 
 if __name__ == '__main__':
     test()
