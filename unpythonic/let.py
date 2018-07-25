@@ -227,18 +227,10 @@ def test():
         # one-liner
         f2 = lambda lst: (lambda seen: [seen.add(x) or x for x in lst if x not in seen])(seen=set())
 
-        # context manager only
-        def f3(lst):
-            with _env(seen = set()) as myenv:
-                return [myenv.seen.add(x) or x for x in lst if x not in myenv.seen]
-            # myenv still lives due to Python's scoping rules.
-            # This is why we provide a separate let construct
-            # and not just the env class.
-
-        f4 = lambda lst: let(seen=set(),
+        f3 = lambda lst: let(seen=set(),
                              body=lambda e: [e.seen.add(x) or x for x in lst if x not in e.seen])
 
-        f5 = lambda lst: letrec(seen=lambda e: set(),
+        f4 = lambda lst: letrec(seen=lambda e: set(),
                                 see=lambda e: lambda x: begin(e.seen.add(x), x),
                                 body=lambda e: [e.see(x) for x in lst if x not in e.seen])
 
@@ -250,9 +242,8 @@ def test():
         assert f2(L) == f2(L)
         assert f3(L) == f3(L)
         assert f4(L) == f4(L)
-        assert f5(L) == f5(L)
 
-        assert f(L) == f2(L) == f3(L) == f4(L) == f5(L) == [1, 3, 2, 4]
+        assert f(L) == f2(L) == f3(L) == f4(L) == [1, 3, 2, 4]
 
     uniqify_test()
 

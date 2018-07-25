@@ -3,18 +3,13 @@
 """Environment for let constructs."""
 
 class env:
-    """Bunch with context manager, iterator and subscripting support.
+    """Bunch with iterator and subscripting support.
 
     Iteration and subscripting just expose the underlying dict.
 
     Also works as a bare bunch.
 
     Usage:
-        # with context manager:
-        with env(x = 0) as myenv:
-            print(myenv.x)
-        # DANGER: myenv still exists due to Python's scoping rules.
-
         # bare bunch:
         myenv2 = env(s="hello", orange="fruit", answer=42)
         print(myenv2.s)
@@ -44,16 +39,6 @@ class env:
             return env[name]
         else:
             raise AttributeError("Name '{:s}' not in environment".format(name))
-
-    # context manager
-    #
-    def __enter__(self):
-        return self
-
-    def __exit__(self, et, ev, tb):
-        # we could nuke our *contents* to make all names in the environment
-        # disappear, but it's simpler and more predictable not to.
-        pass
 
     # iteration
     #
