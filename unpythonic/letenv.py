@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Environment for let constructs."""
+"""Environment for let-like constructs."""
+
+__all__ = ["env"]
 
 class env:
     """Bunch with iterator and subscripting support.
