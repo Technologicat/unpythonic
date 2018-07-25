@@ -119,7 +119,7 @@ counter()  # --> 1
 counter()  # --> 2
 ```
 
-The **environment** implementation used by all the ``let`` constructs and ``assignonce`` (but **not** by `dyn`) is essentially a bunch with iteration and subscripting support. For details, see `unpythonic.letenv` (not imported by default). This allows things like:
+The **environment** implementation used by all the ``let`` constructs and ``assignonce`` (but **not** by `dyn`) is essentially a bunch with iteration and subscripting support. For details, see `unpythonic.env` (not imported by default). This allows things like:
 
 ```python
 let(x=1, y=2, z=3, body=lambda e: [(name, 2*e[name]) for name in e])  # --> [('y', 4), ('z', 6), ('x', 2)]
@@ -128,7 +128,7 @@ let(x=1, y=2, z=3, body=lambda e: [(name, 2*e[name]) for name in e])  # --> [('y
 It also works as a bare bunch, and supports printing for debugging:
 
 ```python
-from unpythonic.letenv import env
+from unpythonic.env import env
 e = env(s="hello", orange="fruit", answer=42)
 print(e)  # --> <env object at 0x7f9b900a3e48: {s='hello', answer=42, orange='fruit'}>
 ```
@@ -249,7 +249,7 @@ Why the clunky `e.set("foo", newval)` or `e << ("foo", newval)`, which do not di
 We could abuse `e.foo << newval`, which transforms to `e.foo.__lshift__(newval)`, to essentially perform `e.set("foo", newval)`, but this requires some magic, because we then need to monkey-patch each incoming value (including the first one when the name "foo" is defined) to set up the redirect and keep it working.
 
  - Methods of builtin types such as `int` are read-only, so we can't just override `__lshift__` in any given `newval`.
- - For many types of objects, at the price of some copy-constructing, we can provide a wrapper object that inherits from the original's type, and just adds an `__lshift__` method to catch and redirect the appropriate call. See commented-out proof-of-concept in [`unpythonic/letenv.py`](unpythonic/letenv.py).
+ - For many types of objects, at the price of some copy-constructing, we can provide a wrapper object that inherits from the original's type, and just adds an `__lshift__` method to catch and redirect the appropriate call. See commented-out proof-of-concept in [`unpythonic/env.py`](unpythonic/env.py).
  - But that approach doesn't work for function values, because `function` is not an acceptable base type to inherit from. In this case we could set up a proxy object, whose `__call__` method calls the original function (but what about the docstring and such? Is `@functools.wraps` enough?). But then there are two kinds of wrappers, and the re-wrapping logic (which is needed to avoid stacking wrappers when someone does `e.a << e.b`) needs to know about that.
  - It's still difficult to be sure these two approaches cover all cases; a read of `e.foo` gets a wrapped value, not the original; and this already violates [Zen of Python](https://www.python.org/dev/peps/pep-0020/) #1, #2 and #3.
 
