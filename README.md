@@ -186,8 +186,15 @@ It also works as a bare bunch, and supports printing for debugging:
 
 ```python
 from unpythonic.env import env
+
 e = env(s="hello", orange="fruit", answer=42)
-print(e)  # --> <env object at 0x7f9b900a3e48: {s='hello', answer=42, orange='fruit'}>
+print(e)  # --> <env object at 0x7ff784bb4c88: {orange='fruit', s='hello', answer=42}>
+print(e.s)  # --> hello
+
+d = {'monty': 'python', 'pi': 3.14159}
+e = env(**d)
+print(e)  # --> <env object at 0x7ff784bb4c18: {pi=3.14159, monty='python'}>
+print(e.monty)  # --> python
 ```
 
 Finally, it supports the context manager:
