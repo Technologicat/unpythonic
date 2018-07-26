@@ -19,10 +19,12 @@ with assignonce() as e:
 ### Multiple expressions in a lambda
 
 ```python
-f1 = lambda x: begin(print("cheeky side effect"), 42*x)
+f1 = lambda x: begin(print("cheeky side effect"),
+                     42*x)
 f1(2)  # --> 84
 
-f2 = lambda x: begin0(42*x, print("cheeky side effect"))
+f2 = lambda x: begin0(42*x,
+                      print("cheeky side effect"))
 f2(2)  # --> 84
 ```
 
@@ -36,7 +38,8 @@ Use a `lambda e: ...` to supply the environment to the body:
 
 ```python
 u = lambda lst: let(seen=set(),
-                    body=lambda e: [e.seen.add(x) or x for x in lst if x not in e.seen])
+                    body=lambda e:
+                           [e.seen.add(x) or x for x in lst if x not in e.seen])
 L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
 u(L)  # --> [1, 3, 2, 4]
 ```
@@ -44,13 +47,23 @@ u(L)  # --> [1, 3, 2, 4]
 In case of `letrec`, each binding takes a `lambda e: ...`, too:
 
 ```python
-u = lambda lst: letrec(seen=lambda e: set(),
-                       see=lambda e: lambda x: begin(e.seen.add(x), x),
-                       body=lambda e: [e.see(x) for x in lst if x not in e.seen])
+u = lambda lst: letrec(seen=lambda e:
+                              set(),
+                       see=lambda e:
+                              lambda x:
+                                begin(e.seen.add(x),
+                                      x),
+                       body=lambda e:
+                              [e.see(x) for x in lst if x not in e.seen])
 
-t = letrec(evenp=lambda e: lambda x: (x == 0) or e.oddp(x - 1),
-           oddp=lambda e: lambda x: (x != 0) and e.evenp(x - 1),
-           body=lambda e: e.evenp(42))  # --> True
+letrec(evenp=lambda e:
+               lambda x:
+                 (x == 0) or e.oddp(x - 1),
+       oddp=lambda e:
+               lambda x:
+                 (x != 0) and e.evenp(x - 1),
+       body=lambda e:
+               e.evenp(42))  # --> True
 ```
 
 **CAUTION**: bindings are initialized in an arbitrary order, also in ``letrec``. This is a limitation of the kwargs abuse. If you need left-to-right initialization, ``unpythonic.lispylet`` provides an alternative implementation with positional syntax and more parentheses:
@@ -59,34 +72,52 @@ t = letrec(evenp=lambda e: lambda x: (x == 0) or e.oddp(x - 1),
 from unpythonic.lispylet import *  # override the default "let" implementation
 
 letrec((('a', 1),
-        ('b', lambda e: e.a + 1)),
-       lambda e: e.b)  # --> 2
+        ('b', lambda e:
+                e.a + 1)),
+       lambda e:
+         e.b)  # --> 2
+
+letrec((("evenp", lambda e:
+                    lambda x:
+                      (x == 0) or e.oddp(x - 1)),
+        ("oddp",  lambda e:
+                    lambda x:
+                      (x != 0) and e.evenp(x - 1))),
+       lambda e:
+         e.evenp(42))  # --> True
 ```
 
-In ``lispylet``, bindings are a list of `(name, value)` pairs.
+In ``lispylet``, the syntax is `let(bindings, body)`, where bindings is a list of `(name, value)` pairs.
 
-In ``lispylet.letrec``, if `value` is callable, it will be called with the environment as its only argument when the environment is being set up, and the result of the call is bound to `name`.
+In ``lispylet.letrec``, if `value` is callable, it will be called with the environment as its only argument when the environment is being set up, and the result of the call is bound to `name`. The expression may refer to bindings above it in the same ``letrec`` (this behaves like [Racket](http://racket-lang.org/)'s `let*`). Function definitions may be mutually recursive.
 
-Hence to store a callable `f` into a ``lispylet.letrec`` binding, the `value` must be ``lambda e: f``, whether or not `f` actually uses the environment. Otherwise `f` itself will be called with the environment as its argument (likely not what was intended). Here `f` itself may be any callable. Examples of correct usage:
+To store a callable `f` into a ``lispylet.letrec`` binding, `value` must be ``lambda e: f``, whether or not `f` actually uses the environment. Otherwise `f` itself will be called with the environment as its argument (likely not what was intended). Here `f` itself may be any callable. Examples of correct usage:
 
 ```python
 u = lambda lst: letrec((("seen", set()),
-                        ("see", lambda e: lambda x: begin(e.seen.add(x), x))),  # a function of x, uses env
-                       lambda e: [e.see(x) for x in lst if x not in e.seen])
+                        ("see",  lambda e:
+                                   lambda x:  # a function, needs "lambda e: ..."
+                                     begin(e.seen.add(x),
+                                           x))),
+                       lambda e:
+                         [e.see(x) for x in lst if x not in e.seen])
 
 letrec((('a', 2),
-        ('f', lambda e: lambda x: 42*x)),  # function, needs "lambda e: ..." even though doesn't use env
-       lambda e: e.a * e.f(1))  # --> 84
+        ('f', lambda e:
+                lambda x:  # a function, needs "lambda e: ..." even though it doesn't use e
+                  42*x)),
+       lambda e:
+         e.a * e.f(1))  # --> 84
 
 square = lambda x: x**2
 letrec((('a', 2),
-        ('f', lambda e: square)),  # same here, "square" is a callable
+        ('f', lambda e: square)),  # callable, needs "lambda e: ..."
        lambda e: e.a * e.f(10))  # --> 200
 
 def mul(x, y):
     return x * y
 letrec((('a', 2),
-        ('f', lambda e: mul)),  # "mul" is a callable
+        ('f', lambda e: mul)),  # same here, "mul" is a callable
        lambda e: e.a * e.f(3, 4))  # --> 24
 
 from functools import partial
@@ -112,13 +143,15 @@ The ``lambda e: ...`` receives the environment. The result of the call (where `e
 
 ```python
 counter = let(x=0,
-              body=lambda e: lambda: begin(e.set("x", e.x + 1),  # can also use e << ("x", e.x + 1)
-                                           e.x))
+              body=lambda e:
+                     lambda:
+                       begin(e.set("x", e.x + 1),  # can also use e << ("x", e.x + 1)
+                             e.x))
 counter()  # --> 1
 counter()  # --> 2
 ```
 
-Compare this [Racket](http://racket-lang.org/) equivalent (here using `sweet-exp` [[1]](https://srfi.schemers.org/srfi-110/srfi-110.html) [[2]](https://docs.racket-lang.org/sweet/)):
+Compare this [Racket](http://racket-lang.org/) equivalent (here using `sweet-exp` [[1]](https://srfi.schemers.org/srfi-110/srfi-110.html) [[2]](https://docs.racket-lang.org/sweet/) for pythonic layout):
 
 ```racket
 define counter
@@ -144,7 +177,9 @@ counter()  # --> 2
 The **environment** implementation used by all the ``let`` constructs and ``assignonce`` (but **not** by `dyn`) is essentially a bunch with iteration and subscripting support. For details, see `unpythonic.env` (not imported by default). This allows things like:
 
 ```python
-let(x=1, y=2, z=3, body=lambda e: [(name, 2*e[name]) for name in e])  # --> [('y', 4), ('z', 6), ('x', 2)]
+let(x=1, y=2, z=3,
+    body=lambda e:
+           [(name, 2*e[name]) for name in e])  # --> [('y', 4), ('z', 6), ('x', 2)]
 ```
 
 It also works as a bare bunch, and supports printing for debugging:
@@ -280,7 +315,7 @@ The point behind providing `let` and `begin` is to make Python lambdas slightly 
 
 The oft-quoted single-expression limitation is ultimately a herring - it can be fixed with a suitable `begin` form, or a function to approximate one.
 
-The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. The expression form of `if` can be used to a limited extent (actually [`and` and `or` are sufficient](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers), and functional looping (via tail recursion) is possible for short loops - where the lack of tail call elimination does not yet crash the program - but still, ultimately one must keep in mind that Python is not a Lisp.
+The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. The expression form of `if` can be used to a limited extent (actually [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers), and functional looping (via tail recursion) is possible for short loops - where the lack of tail call elimination does not yet crash the program - but still, ultimately one must keep in mind that Python is not a Lisp.
 
 Another factor here is that not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful.
 
@@ -339,11 +374,23 @@ Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https
 
 ## Python-related FP resources
 
-[Awesome Functional Python](https://github.com/sfermigier/awesome-functional-python), especially a list of useful libraries.
+- [Awesome Functional Python](https://github.com/sfermigier/awesome-functional-python), especially a list of useful libraries. Some picks:
 
-[List of languages that compile to Python](https://github.com/vindarel/languages-that-compile-to-python) including Hy, a Lisp that can use Python libraries.
+  - [fn.py: Missing functional features of fp in Python](https://github.com/fnpy/fn.py) (actively maintained fork). Includes e.g. tail call elimination by trampolining, and a very compact way to recursively define infinite streams.
 
-[Peter Norvig (2000): Python for Lisp Programmers](http://www.norvig.com/python-lisp.html)
+  - [more-itertools: More routines for operating on iterables, beyond itertools.](https://github.com/erikrose/more-itertools)
 
-[David Mertz (2001): Charming Python - Functional programming in Python, part 2](https://www.ibm.com/developerworks/library/l-prog2/index.html)
+  - [toolz: A functional standard library for Python](https://github.com/pytoolz/toolz)
+
+  - [funcy](https://github.com/suor/funcy/)
+
+  - [pyrsistent: Persistent/Immutable/Functional data structures for Python](https://github.com/tobgu/pyrsistent)
+
+- [List of languages that compile to Python](https://github.com/vindarel/languages-that-compile-to-python) including Hy, a Lisp (in the [Lisp-2](https://en.wikipedia.org/wiki/Lisp-1_vs._Lisp-2) family) that can use Python libraries.
+
+Old, but interesting:
+
+- [Peter Norvig (2000): Python for Lisp Programmers](http://www.norvig.com/python-lisp.html)
+
+- [David Mertz (2001): Charming Python - Functional programming in Python, part 2](https://www.ibm.com/developerworks/library/l-prog2/index.html)
 
