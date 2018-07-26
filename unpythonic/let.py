@@ -189,6 +189,7 @@ def _let(mode, body, **bindings):
         for k in env:
             env[k] = env[k](env)
     # decorators need just the final env; else run body now
+    env.finalize()
     return env if body is None else body(env)
 
 # decorator factory: almost as fun as macros?
@@ -332,6 +333,15 @@ def test():
     try:
         let(x=0,
             body=lambda e: e.set('y', 3))  # error, y is not defined
+    except AttributeError as err:
+        pass
+    else:
+        assert False
+
+    try:
+        @blet(x=1)
+        def error1(*, env):
+            env.y = 2  # cannot add new bindings to a let environment
     except AttributeError as err:
         pass
     else:

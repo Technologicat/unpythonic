@@ -152,18 +152,17 @@ def bletrec(bindings):
 def _let(bindings, body, *, env=None, mode="let"):
     assert mode in ("let", "letrec")
 
+    env = env or _envcls()
+
     if not bindings:
+        env.finalize()
         # decorators need just the final env; else run body now
         return env if body is None else body(env)
 
-    env = env or _envcls()
     (k, v), *more = bindings
-
     if mode == "letrec" and callable(v):
         v = v(env)
-
     setattr(env, k, v)
-
     return _let(more, body, env=env, mode=mode)
 
 def _dlet(bindings, mode="let"):  # let and letrec decorator factory
@@ -249,6 +248,15 @@ def test():
         let((('x', 0),),
             lambda e: e.set('y', 3))  # error, y is not defined
     except AttributeError:
+        pass
+    else:
+        assert False
+
+    try:
+        @blet((('x', 1),))
+        def error1(*, env):
+            env.y = 2  # cannot add new bindings to a let environment
+    except AttributeError as err:
         pass
     else:
         assert False

@@ -25,7 +25,7 @@ class assignonce(_envcls):
 
     """
     def __setattr__(self, name, value):
-        if name == "_env" or name not in self:
+        if name in self._reserved_names or name not in self:
             return super().__setattr__(name, value)
         else:
             raise AttributeError("name '{:s}' is already defined".format(name))
