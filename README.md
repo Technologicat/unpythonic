@@ -1,12 +1,12 @@
-# Unpythonic: `let`, assign-once, dynamic scoping
-
-Simple constructs that change the rules.
+# Unpythonic: Lispy convenience features for Python
 
 ```python
 from unpythonic import *
 ```
 
-### Assign-once environment
+### Assign-once
+
+Make `define` and `set!` look different:
 
 ```python
 with assignonce() as e:
@@ -30,7 +30,7 @@ f2(2)  # --> 84
 
 Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`tour.py`](tour.py) for details.
 
-Note also it's only for side effects, since there's no way to define new names, except...
+Note also it's only useful for side effects, since there's no way to define new names, except...
 
 ### ``let``, ``letrec``
 
@@ -42,6 +42,41 @@ u = lambda lst: let(seen=set(),
                            [e.seen.add(x) or x for x in lst if x not in e.seen])
 L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
 u(L)  # --> [1, 3, 2, 4]
+```
+
+*Let over lambda*. The inner ``lambda`` is the definition of the function ``counter``:
+
+```python
+counter = let(x=0,
+              body=lambda e:
+                     lambda:
+                       begin(e.set("x", e.x + 1),  # can also use e << ("x", e.x + 1)
+                             e.x))
+counter()  # --> 1
+counter()  # --> 2
+```
+
+The above compares almost favorably to this [Racket](http://racket-lang.org/) (here using `sweet-exp` [[1]](https://srfi.schemers.org/srfi-110/srfi-110.html) [[2]](https://docs.racket-lang.org/sweet/) for pythonic layout):
+
+```racket
+define counter
+  let ([x 0])
+    λ ()  ; λ has an implicit begin(), so we don't need to explicitly have one
+      set! x {x + 1}
+      x
+counter()  ; --> 1
+counter()  ; --> 2
+```
+
+*Let over def* decorator ``@dlet``, to *let over lambda* more pythonically:
+
+```python
+@dlet(x=0)
+def counter(*, env=None):  # named argument "env" filled in by decorator
+    env.x += 1
+    return env.x
+counter()  # --> 1
+counter()  # --> 2
 ```
 
 In case of `letrec`, each binding takes a `lambda e: ...`, too:
@@ -66,14 +101,20 @@ letrec(evenp=lambda e:
                e.evenp(42))  # --> True
 ```
 
-**CAUTION**: bindings are initialized in an arbitrary order, also in ``letrec``. This is a limitation of the kwargs abuse. If you need left-to-right initialization, ``unpythonic.lispylet`` provides an alternative implementation with positional syntax and more parentheses:
+**CAUTION**: bindings are **initialized in an arbitrary order**, also in `letrec`. This is a limitation of the kwargs abuse. Hence mutually recursive functions are possible, but simple data values cannot depend on other bindings in the same `letrec`.
+
+Trying to access `e.foo` from `e.bar` arbitrarily produces either the intended value of `e.foo`, or the uninitialized `lambda e: ...`, depending on whether `e.foo` has been initialized or not at the point of time when `e.bar` is being initialized.
+
+#### Lispylet
+
+There is also an alternative implementation for all the `let` constructs, with **guaranteed left-to-right initialization** using positional syntax and more parentheses:
 
 ```python
 from unpythonic.lispylet import *  # override the default "let" implementation
 
 letrec((('a', 1),
         ('b', lambda e:
-                e.a + 1)),
+                e.a + 1)),  # may refer to any bindings above it in the same letrec
        lambda e:
          e.b)  # --> 2
 
@@ -87,11 +128,15 @@ letrec((("evenp", lambda e:
          e.evenp(42))  # --> True
 ```
 
-In ``lispylet``, the syntax is `let(bindings, body)`, where bindings is a list of `(name, value)` pairs.
+Usage is `let(bindings, body)` (respectively `letrec(bindings, body)`), where `bindings` is `((name, value), ...)`, and `body` is a one-argument function that takes in the environment. In typical inline usage, `body` is `lambda e: expr`.
 
-In ``lispylet.letrec``, if `value` is callable, it will be called with the environment as its only argument when the environment is being set up, and the result of the call is bound to `name`. The expression may refer to bindings above it in the same ``letrec`` (this behaves like [Racket](http://racket-lang.org/)'s `let*`). Function definitions may be mutually recursive.
+Each `value` is bound to the corresponding `name`. As an exception, in the case of ``letrec``, if `value` is callable, it will be called with the environment as its only argument at environment setup time, and the result of the call is bound to `name`.
 
-To store a callable `f` into a ``lispylet.letrec`` binding, `value` must be ``lambda e: f``, whether or not `f` actually uses the environment. Otherwise `f` itself will be called with the environment as its argument (likely not what was intended). Here `f` itself may be any callable. Examples of correct usage:
+A callable `value`, of the form `lambda e: valexpr`, may refer to bindings above it in the same `letrec`. If `valexpr` itself is callable, it may refer to any binding (also later ones) in the same `letrec`, allowing mutually recursive function definitions (such as `evenp` and `oddp` above).
+
+Thus, to bind a callable, use ``lambda e: mycallable`` as `value`, whether or not `mycallable` actually uses the environment. If the ``lambda e: ...`` wrapper is missing, `mycallable` itself will be called at environment setup time, with the environment as its argument (likely not what was intended).
+
+Examples of binding callables:
 
 ```python
 u = lambda lst: letrec((("seen", set()),
@@ -117,7 +162,7 @@ letrec((('a', 2),
 def mul(x, y):
     return x * y
 letrec((('a', 2),
-        ('f', lambda e: mul)),  # same here, "mul" is a callable
+        ('f', lambda e: mul)),  # "mul" is a callable
        lambda e: e.a * e.f(3, 4))  # --> 24
 
 from functools import partial
@@ -136,45 +181,47 @@ letrec((('a', 2),
         ('f', lambda e: times5)),  # "times5" is a callable
        lambda e: e.a * e.f(3))  # --> 30
 ```
+### Dynamic scoping
 
-The ``lambda e: ...`` receives the environment. The result of the call (where `e` is now bound by closure) is bound to ``name``.
+A bit like global variables, but slightly better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Similar to [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html).
 
-**Back to the default implementation**. Traditional *let over lambda*. The inner ``lambda`` is the definition of the function ``counter``:
-
-```python
-counter = let(x=0,
-              body=lambda e:
-                     lambda:
-                       begin(e.set("x", e.x + 1),  # can also use e << ("x", e.x + 1)
-                             e.x))
-counter()  # --> 1
-counter()  # --> 2
-```
-
-Compare this [Racket](http://racket-lang.org/) equivalent (here using `sweet-exp` [[1]](https://srfi.schemers.org/srfi-110/srfi-110.html) [[2]](https://docs.racket-lang.org/sweet/) for pythonic layout):
-
-```racket
-define counter
-  let ([x 0])
-    λ ()  ; <-- λ has an implicit begin(), so we don't need to explicitly have one
-      set! x {x + 1}
-      x
-counter()  ; --> 1
-counter()  ; --> 2
-```
-
-*Let over def* decorator ``@dlet``:
+There's a singleton, `dyn`, which emulates dynamic scoping:
 
 ```python
-@dlet(x=0)
-def counter(*, env=None):  # named argument "env" filled in by decorator
-    env.x += 1
-    return env.x
-counter()  # --> 1
-counter()  # --> 2
+def f():  # no "a" in lexical scope here
+    assert dyn.a == 2
+
+def g():
+    with dyn.let(a=2, b="foo"):
+        assert dyn.a == 2
+
+        f()
+
+        with dyn.let(a=3):  # dynamic scopes can be nested
+            assert dyn.a == 3
+
+        # now "a" has reverted to its previous value
+        assert dyn.a == 2
+
+    print(dyn.b)  # AttributeError, dyn.b no longer exists
+g()
 ```
 
-The **environment** implementation used by all the ``let`` constructs and ``assignonce`` (but **not** by `dyn`) is essentially a bunch with iteration and subscripting support. For details, see `unpythonic.env` (not imported by default). This allows things like:
+Dynamic variables can only be set using `with dyn.let(...)`. No `set`, `<<`, unlike in the other `unpythonic` environments.
+
+The values of dynamic variables remain bound for the dynamic extent of the `with` block. Exiting the `with` block then pops the stack. Inner dynamic scopes shadow outer ones. Dynamic variables are seen also by code that is outside the lexical scope where the `with dyn.let` resides.
+
+Each thread has its own dynamic scope stack. A newly spawned thread automatically copies the then-current state of the dynamic scope stack **from the main thread** (not the parent thread!).
+
+Any copied bindings will remain on the stack for the full dynamic extent of the new thread. Because these bindings are not associated with any `with` block running in that thread, and because aside from the initial copying, the dynamic scope stacks are thread-local, any copied bindings will never be popped, even if the main thread pops its own instances of them.
+
+The source of the copy is always the main thread mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, PRs welcome!)
+
+### The environment
+
+The environment used by all the ``let`` constructs and ``assignonce`` (but **not** by `dyn`) is essentially a bunch with iteration, subscripting and context manager support. For details, see `unpythonic.env`.
+
+This allows things like:
 
 ```python
 let(x=1, y=2, z=3,
@@ -200,46 +247,17 @@ print(e.monty)  # --> python
 Finally, it supports the context manager:
 
 ```python
-with env(x=1, y=2, z=3) as e2:
-    ...  # ...code that uses e2...
-print(e2)  # empty!
+with env(x=1, y=2, z=3) as e:
+    print(e)  # --> <env object at 0x7fde7411b080: {x=1, z=3, y=2}>
+    print(e.x)  # --> 1
+print(e)  # empty!
 ```
 
-When the `with` block exits, the environment forgets all its bindings. The environment instance itself remains alive due to Python's scoping rules.
-
-### Dynamic scoping
-
-Via lexical scoping in disguise. There's a singleton, `dyn`, which emulates dynamic scoping (like [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html)):
-
-```python
-def f():  # no "a" in lexical scope here
-    assert dyn.a == 2
-
-def g():
-    with dyn.let(a=2, b="foo"):
-        assert dyn.a == 2
-
-        f()
-
-        with dyn.let(a=3):  # dynamic scopes can be nested
-            assert dyn.a == 3
-
-        # now "a" has reverted to its previous value
-        assert dyn.a == 2
-
-    print(dyn.b)  # AttributeError, dyn.b no longer exists
-g()
-```
-
-Dynamic variables can only be set using `with dyn.let(...)`. No `set`, `<<`, unlike in the other `unpythonic` environments.
-
-Once set, a dynamic variable exists for the dynamic extent of the `with` block (i.e. until the block exits). Inner dynamic scopes shadow outer ones. Dynamic variables are seen also by code that is outside the lexical scope where the `with dyn.let` resides.
-
-The dynamic scope stack is thread-local. Any newly spawned threads inherit the then-current state of the dynamic scope stack **from the main thread** (not the parent thread). This is mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, PRs welcome!)
+When the `with` block exits, the environment clears itself. The environment instance itself remains alive due to Python's scoping rules.
 
 ### ``def`` as a code block
 
-A convenience feature for fueling different thinking, compare the `something` in `call-with-something` in Lisps. A `def` is really just a new lexical scope to hold code to run later... or right now!
+Fuel for different thinking. Compare the `something` in `call-with-something` in Lisps. A `def` is really just a new lexical scope to hold code to run later... or right now!
 
 *Make temporaries fall out of scope as soon as no longer needed*:
 
@@ -253,7 +271,7 @@ def x():
 print(x)  # 30
 ```
 
-*Multi-break out of nested loops* - `continue`, `break` and `return` are really just second-class [ec](https://docs.racket-lang.org/reference/cont.html#%28def._%28%28lib._racket%2Fprivate%2Fletstx-scheme..rkt%29._call%2Fec%29%29)s:
+*Multi-break out of nested loops* - `continue`, `break` and `return` are really just second-class [ec](https://docs.racket-lang.org/reference/cont.html#%28def._%28%28lib._racket%2Fprivate%2Fletstx-scheme..rkt%29._call%2Fec%29%29)s. So `def` to make `return` escape to exactly where you want:
 
 ```python
 @immediate
@@ -262,8 +280,20 @@ def result():
         for y in range(10):
             if x * y == 42:
                 return (x, y)
-            ... # more code here
 print(result)  # (6, 7)
+```
+
+Compare this sweet-exp Racket:
+
+```racket
+define result
+  let/ec return  ; name the (first-class) ec to break out of this let/ec block
+    for ([x in-range(10)])
+      for ([y in-range(10)])
+        cond
+          {{x * y} = 42}
+            return (list x y)
+displayln result  ; (6 7)
 ```
 
 *Twist the meaning of `def` into a "let statement"* (but see `blet`, `bletrec`):
@@ -288,13 +318,13 @@ print(t)  # True
 
 Essentially the implementation is just `def immediate(thunk): return thunk()`. The point is to:
 
- - Make it explicit right at the definition site that this block is going to be run ``@immediate``ly (in contrast to an explicit call and assignment *after* the definition). Collect related information into one place. Align the ordering of the presentation with the ordering of the thought process, reducing the need to skip back and forth when reading and writing code.
+ - Make it explicit right at the definition site that this block is going to be run ``@immediate``ly (in contrast to an explicit call and assignment *after* the definition). Centralize the related information. Align the presentation order with the thought process.
 
- - Help eliminate errors, in the same way as the habit of typing parentheses only in pairs. There's no risk of forgetting to call the block after the possibly lengthy process of thinking through and writing the definition.
+ - Help eliminate errors, in the same way as the habit of typing parentheses only in pairs. No risk of forgetting to call the block after writing the definition.
 
- - Document that the block is going to be used only once, and not called from elsewhere possibly much later. Tell the reader there's no need to remember this definition.
+ - Document that the block is going to be used only once. Tell the reader there's no need to remember this definition.
 
-(Too bad [the grammar](https://docs.python.org/3/reference/grammar.html) requires a newline after a decorator; "`@immediate def`" would look nicer.)
+Too bad [the grammar](https://docs.python.org/3/reference/grammar.html) requires a newline after a decorator; "`@immediate def`" would look nicer.
 
 ## Notes
 
@@ -312,7 +342,7 @@ Even Racket's `letrec` processes the bindings sequentially, left-to-right, but *
 
 In contrast, in a `let*` form, attempting such a definition is *a compile-time error*, because at any point in the sequence of bindings, only names found earlier in the sequence have been bound. See [TRG on `let`](https://docs.racket-lang.org/guide/let.html).
 
-The ``lispylet`` version of `letrec` behaves slightly more like `let*` in that if the RHS is not a function, it may only refer to previous bindings. But ``lispylet.letrec`` still allows mutually recursive function definitions, hence the name.
+The ``lispylet`` version of `letrec` behaves slightly more like `let*` in that if `valexpr` is not a function, it may only refer to bindings above it. But ``lispylet.letrec`` still allows mutually recursive function definitions, hence the name.
 
 Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
 
@@ -375,7 +405,7 @@ Must be invoked in a folder which has no subfolder called `unpythonic`, so that 
 
 2-clause [BSD](LICENSE.md).
 
-Dynamic scoping based on [StackOverflow answer by Jason Orendorff (2010)](https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python), used under CC-BY-SA.
+Dynamic scoping based on [StackOverflow answer by Jason Orendorff (2010)](https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python), used under CC-BY-SA. The threading support is original to our version.
 
 Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
 
