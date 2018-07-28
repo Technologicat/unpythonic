@@ -204,7 +204,7 @@ Inside a trampolined function, a normal call `f(a, ..., kw=v, ...)` remains a no
 
 Here `jump` is **a noun, not a verb**. The `jump(f, ...)` part just evaluates to a `jump` instance, which on its own does nothing. Returning it to the trampoline actually performs the tail call.
 
-*Tail recursion in a lambda*, with special jump target `SELF` (all uppercase!):
+*Tail recursion in a lambda*:
 
 ```python
 t = trampolined(lambda n, acc=1:
@@ -212,7 +212,7 @@ t = trampolined(lambda n, acc=1:
 print(t(4))  # 24
 ```
 
-Here it's just `jump` instead of `return jump` since lambda does not use the `return` syntax.
+To denote tail recursion in an anonymous function, use the special jump target `SELF` (all uppercase!). Here it's just `jump` instead of `return jump` since lambda does not use the `return` syntax.
 
 *Mutual recursion*:
 
