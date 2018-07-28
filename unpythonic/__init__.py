@@ -23,5 +23,6 @@ from .dynscope import *
 from .let import *        # no guarantees on evaluation order, nice syntax
 #from .lispylet import *  # guaranteed evaluation order, clunky syntax
 from .misc import *
+from .tco import *
 
 __version__ = '0.1.0'
