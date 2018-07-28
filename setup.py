@@ -30,13 +30,14 @@ libname="unpythonic"
 
 # Short description for package list on PyPI
 #
-SHORTDESC="Constructs that change the rules: let, assign-once, dynamic scoping."
+SHORTDESC="Python meets Lisp; e.g. TCO, let & letrec, assign-once, dynamic scoping."
 
 # Long description for package homepage on PyPI
 #
-DESC="""Constructs that change the rules.
+DESC="""Lispy convenience features for Python.
 
-Assign-once environment; multiple expressions in a lambda; let, letrec; def as a code block; dynamic scoping."""
+Tail call optimization (TCO), let & letrec, assign-once, multiple-expression lambdas,
+def as a code block, dynamic scoping."""
 
 # Set up data files for packaging.
 #

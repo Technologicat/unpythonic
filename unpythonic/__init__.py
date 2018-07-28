@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*
-"""Unpythonic constructs that change the rules.
+"""Lispy convenience features for Python.
 
 We provide two submodules which implement the ``let`` construct:
 
