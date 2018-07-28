@@ -8,7 +8,8 @@ Tour of the features.
 from unpythonic import assignonce, \
                        dyn,        \
                        let, letrec, dlet, dletrec, blet, bletrec, \
-                       immediate, begin, begin0, lazy_begin, lazy_begin0
+                       immediate, begin, begin0, lazy_begin, lazy_begin0, \
+                       trampolined, jump, loop, SELF
 
 def dynscope_demo():
     assert dyn.a == 2
@@ -138,6 +139,78 @@ def main():
     f4 = lambda x: lazy_begin0(lambda: 42*x,
                                lambda: print("cheeky side effect"))
     assert f4(2) == 84
+
+    # tail recursion with tail call optimization (TCO)
+    @trampolined
+    def fact(n, acc=1):
+        if n == 0:
+            return acc
+        else:
+            return jump(fact, n - 1, n * acc)
+    assert fact(4) == 24
+
+    # tail recursion in a lambda
+    t = trampolined(lambda n, acc=1:
+                        acc if n == 0 else jump(SELF, n - 1, n * acc))
+    assert t(4) == 24
+
+    # mutual recursion
+    @trampolined
+    def even(n):
+        if n == 0:
+            return True
+        else:
+            return jump(odd, n - 1)
+    @trampolined
+    def odd(n):
+        if n == 0:
+            return False
+        else:
+            return jump(even, n - 1)
+    assert even(42) is True
+    assert odd(4) is False
+
+    # looping in FP style, with TCO
+
+    @loop
+    def s(acc=0, i=0):
+        if i == 10:
+            return acc
+        else:
+            return jump(SELF, acc + i, i + 1)
+    assert s == 45
+
+    @trampolined
+    def dowork(acc=0, i=0):
+        if i == 10:
+            return acc
+        else:
+            return jump(dowork, acc + i, i + 1)
+    s = dowork()  # must start loop by calling it
+    assert s == 45
+
+    out = []
+    @loop
+    def _(i=0):
+        if i < 3:
+            out.append(i)
+            return jump(SELF, i + 1)
+    assert out == [0, 1, 2]
+
+    # this old chestnut:
+    funcs = []
+    for i in range(3):
+        funcs.append(lambda x: i*x)  # always the same "i", which "for" just mutates
+    assert [f(10) for f in funcs] == [20, 20, 20]  # not what we wanted!
+
+    # with FP loop:
+    funcs = []
+    @loop
+    def iter(i=0):
+        if i < 3:
+            funcs.append(lambda x: i*x)  # new "i" each time, no mutation!
+            return jump(SELF, i + 1)
+    assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
 
 if __name__ == '__main__':

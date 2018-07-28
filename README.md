@@ -181,6 +181,114 @@ letrec((('a', 2),
         ('f', lambda e: times5)),  # "times5" is a callable
        lambda e: e.a * e.f(3))  # --> 30
 ```
+
+### Tail call optimization (TCO) / explicit continuations
+
+Express elegant algorithms without blowing the call stack - with explicit, clear syntax.
+
+*Tail recursion*:
+
+```python
+@trampolined
+def fact(n, acc=1):
+    if n == 0:
+        return acc
+    else:
+        return jump(fact, n - 1, n * acc)
+print(fact(4))  # 24
+```
+
+Functions that use TCO must be `@trampolined`.
+
+Inside a trampolined function, a normal call `f(a, ..., kw=v, ...)` remains a normal call. A tail call with target `f` is denoted `return jump(f, a, ..., kw=v, ...)`. The final result is just returned normally.
+
+Here `jump` is **a noun, not a verb**. The `jump(f, ...)` part just evaluates to a `jump` instance, which on its own does nothing. Returning it to the trampoline actually performs the tail call.
+
+*Tail recursion in a lambda*, with special jump target `SELF` (all uppercase!):
+
+```python
+t = trampolined(lambda n, acc=1:
+                    acc if n == 0 else jump(SELF, n - 1, n * acc))
+print(t(4))  # 24
+```
+
+Here it's just `jump` instead of `return jump` since lambda does not use the `return` syntax.
+
+*Mutual recursion*:
+
+```python
+@trampolined
+def even(n):
+    if n == 0:
+        return True
+    else:
+        return jump(odd, n - 1)
+@trampolined
+def odd(n):
+    if n == 0:
+        return False
+    else:
+        return jump(even, n - 1)
+print(even(42))  # True
+print(odd(4))  # False
+```
+
+*Looping in FP style*, with TCO:
+
+```python
+@loop
+def s(acc=0, i=0):
+    if i == 10:
+        return acc
+    else:
+        return jump(SELF, acc + i, i + 1)
+print(s)  # 45
+```
+
+Compare this sweet-exp Racket:
+
+```racket
+define s
+  let loop ([acc 0] [i 0])
+    cond
+      {i = 10}
+        acc
+      else
+        loop {acc + i} {i + 1}
+displayln s
+```
+
+Could also do this explicitly:
+
+```python
+@trampolined
+def dowork(acc, i):
+    if i == 10:
+        return acc
+    else:
+        return jump(dowork, acc + i, i + 1)
+s = dowork(0, 0)
+print(s)  # 45
+```
+
+Reinterpreting the same feature as *explicit continuations*:
+
+```python
+@trampolined
+def foo():
+    return jump(bar)
+@trampolined
+def bar():
+    return jump(baz)
+@trampolined
+def baz():
+    print("How's the spaghetti today?")
+foo()
+```
+
+Each function tells the trampoline where to go next (and with what parameters). All hail lambda, the ultimate GO TO!
+
+
 ### Dynamic scoping
 
 A bit like global variables, but slightly better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Similar to [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html).
@@ -296,7 +404,7 @@ define result
 displayln result  ; (6 7)
 ```
 
-*Twist the meaning of `def` into a "let statement"* (but see `blet`, `bletrec`):
+*Twist the meaning of `def` into a "let statement"* (but see `blet`, `bletrec` if you want an `env`):
 
 ```python
 @immediate
@@ -352,7 +460,7 @@ The point behind providing `let` and `begin` is to make Python lambdas slightly 
 
 The oft-quoted single-expression limitation is ultimately a herring - it can be fixed with a suitable `begin` form, or a function to approximate one.
 
-The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. The expression form of `if` can be used to a limited extent (actually [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers), and functional looping (via tail recursion) is possible for short loops - where the lack of tail call elimination does not yet crash the program - but still, ultimately one must keep in mind that Python is not a Lisp.
+The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. The expression form of `if` can be used to a limited extent (actually [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers), and functional looping (via tail recursion) is possible (for short loops, without tricks; for long ones, with explicit TCO) - but still, ultimately one must keep in mind that Python is not a Lisp.
 
 Another factor here is that not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful.
 
