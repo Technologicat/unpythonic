@@ -186,7 +186,7 @@ than Python's ``for``.
       over fn.py's is the more natural syntax for the client code.
 """
 
-__all__ = ["SELF", "jump", "trampolined", "looped"]
+__all__ = ["SELF", "jump", "trampolined", "looped", "looped_over"]
 
 from unpythonic.misc import immediate
 
@@ -250,12 +250,12 @@ class trampolined:
             else:  # final result, exit trampoline
                 return v
 
-def looped(f):
+def looped(body):
     """Decorator to make a functional loop and run it immediately.
 
     Parameters:
-        f: function
-          The function to decorate.
+        body: function
+          The function to decorate, representing the loop body.
 
     This essentially chains @trampolined and @immediate, with some extra magic::
 
@@ -276,8 +276,9 @@ def looped(f):
     The first positional parameter is the magic parameter ``loop``.
     It is "self-ish", representing a jump back to the loop body itself.
 
-    Here **loop is a noun, not a verb.**
-    return loop(...) is the same as return jump(SELF, ...).
+    Here **loop is a noun, not a verb.** The expression ``loop(...)`` is
+    otherwise the same as ``jump(SELF, ...)``, but it also inserts the magic
+    parameter ``loop``, which can only be set up via this mechanism.
 
     The initial values for any other parameters must be set as the defaults.
     @looped automatically starts the loop body by calling it with the magic
@@ -305,14 +306,80 @@ def looped(f):
         s = dowork(0, 0)
         print(s)
     """
-    tf = trampolined(f)
+    # The magic parameter that, when called, inserts itself into the
+    # positional args of the jump target.
     def loop(*args, **kwargs):
-        patched_args = (loop,) + args  # add the implicit magic "loop" parameter
-        # This works because SELF actually means "keep current target".
+        patched_args = (loop,) + args
+        # This jump works because SELF actually means "keep current target".
         # The client calls loop() normally, so the trampoline doesn't register us;
         # hence the client itself remains as the current target.
         return jump(SELF, *patched_args, **kwargs)
-    return tf(loop)
+    tb = trampolined(body)  # enable "return jump(...)"
+    return tb(loop)  # like @immediate, run the (now trampolined) body.
+
+def looped_over(iterable):  # decorator factory
+    """Functionally loop over an iterable.
+
+    Like ``@looped``, but the client now gets two positionally passed magic parameters:
+
+        `loop`: function
+            Like in ``@looped``.
+
+        `x`: anything
+            The current element, or the sentinel value ``StopIteration``
+            when the iterable has run out of elements.
+
+    The client code must handle the ``StopIteration`` case itself, because only
+    it knows what the final result of the loop is.
+
+    Here **loop is a noun, not a verb.** The expression ``loop(...)`` is
+    otherwise the same as ``jump(SELF, ...)``, but it also inserts the magic
+    parameters ``loop`` and ``x``, which can only be set up via this mechanism.
+
+    Examples::
+
+        @looped_over(range(10))
+        def s(loop, x, acc=0):
+            if x is StopIteration:
+                return acc
+            return loop(acc + x)
+        assert s == 45
+
+        def map(function, iterable):
+            @looped_over(iterable)
+            def out(loop, x, acc=[]):
+                if x is StopIteration:
+                    return acc
+                return loop(acc + [function(x)])
+            return out
+        assert map(lambda x: 2*x, range(3)) == [0, 2, 4]
+
+    For lambdas this is a bit unwieldy. Equivalent with the first example above::
+
+        r10 = looped_over(range(10))
+        s = r10(lambda loop, x, acc=0:
+                  acc if x is StopIteration else loop(acc + x))
+        assert s == 45
+
+    If you **really** need to make that into an expression, bind ``r10`` using ``let``,
+    or to make your code unreadable, just inline it.
+    """
+    # Decorator that plays the role of @immediate, with "iterable" bound by closure.
+    def run(body):
+        it = iter(iterable)
+        def x():
+            try:
+                return next(it)
+            except StopIteration:
+                return StopIteration  # sentinel for user to stop and return result
+        # The magic parameter that, when called, inserts the implicit parameters
+        # into the positional args of the jump target.
+        def loop(*args, **kwargs):
+            patched_args = (loop, x()) + args
+            return jump(SELF, *patched_args, **kwargs)
+        tb = trampolined(body)
+        return tb(loop, x())
+    return run
 
 def test():
     """Usage examples; see the source code."""

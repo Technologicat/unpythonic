@@ -9,7 +9,7 @@ from unpythonic import assignonce, \
                        dyn,        \
                        let, letrec, dlet, dletrec, blet, bletrec, \
                        immediate, begin, begin0, lazy_begin, lazy_begin0, \
-                       trampolined, jump, looped, SELF
+                       trampolined, jump, looped, looped_over, SELF
 
 def dynscope_demo():
     assert dyn.a == 2
@@ -175,7 +175,7 @@ def main():
     @looped
     def s(loop, acc=0, i=0):
         if i == 10:
-            return acc
+            return acc  # there's no "break"; loop terminates at the first normal return
         else:
             return loop(acc + i, i + 1)  # same as return jump(SELF, acc+i, i+1)
     assert s == 45
@@ -197,6 +197,7 @@ def main():
         if i < 3:
             out.append(i)
             return loop(i + 1)
+        # the implicit "return None" terminates the loop.
     assert out == [0, 1, 2]
 
     # same without using side effects - use an accumulator parameter:
@@ -209,6 +210,97 @@ def main():
             return acc
     assert out == [0, 1, 2]
 
+    # there's no "continue"; package your own:
+    @looped
+    def s(loop, acc=0, i=0):
+        cont = lambda newacc=acc: loop(newacc, i + 1)
+        if i <= 4:
+            return cont()
+        elif i == 10:
+            return acc
+        else:
+            return cont(acc + i)
+    assert s == 35
+
+    # Using iterators, we can also FP loop over a collection:
+    def map_fp(function, iterable):
+        it = iter(iterable)
+        @looped
+        def out(loop, acc=[]):
+            try:
+                x = next(it)
+                return loop(acc + [function(x)])
+            except StopIteration:
+                return acc
+        return out
+    assert map_fp(lambda x: 2*x, range(5)) == [0, 2, 4, 6, 8]
+
+    # There's a prepackaged @looped_over to simplify the client code:
+    def map_fp2(function, iterable):
+        @looped_over(iterable)
+        def out(loop, x, acc=[]):  # x is the current element, or StopIteration
+            if x is StopIteration:
+                return acc
+            else:
+                return loop(acc + [function(x)])
+        return out
+    assert map_fp2(lambda x: 2*x, range(5)) == [0, 2, 4, 6, 8]
+
+    @looped_over(range(10))
+    def s(loop, x, acc=0):
+        if x is StopIteration:
+            return acc
+        else:
+            return loop(acc + x)
+    assert s == 45
+
+    # similarly
+    def filter_fp(predicate, iterable):
+        predicate = predicate or (lambda x: x)  # None -> truth value test
+        @looped_over(iterable)
+        def out(loop, x, acc=[]):
+            if x is StopIteration:
+                return acc
+            elif predicate(x):
+                return loop(acc + [x])
+            else:
+                return loop(acc)
+        return out
+    assert filter_fp(lambda x: x % 2 == 0, range(10)) == [0, 2, 4, 6, 8]
+
+    # similarly
+    def reduce_fp(function, iterable, initial=None):  # foldl
+        it = iter(iterable)
+        if initial is None:
+            try:
+                initial = next(it)
+            except StopIteration:
+                return None  # empty iterable
+        @looped_over(it)  # either all elements, or all but first
+        def out(loop, x, acc=initial):
+            if x is StopIteration:
+                return acc
+            else:
+                return loop(function(acc, x))
+        return out
+    add = lambda acc, elt: acc + elt
+    assert reduce_fp(add, range(10), 0) == 45
+    assert reduce_fp(add, [], 0) == 0
+    assert reduce_fp(add, []) is None
+
+    # nested FP loops over collections
+    @looped_over(range(1, 4))
+    def outer_result(outer_loop, y, outer_acc=[]):
+        if y is StopIteration:
+            return outer_acc
+        @looped_over(range(1, 3))
+        def inner_result(inner_loop, x, inner_acc=[]):
+            if x is StopIteration:
+                return inner_acc
+            return inner_loop(inner_acc + [y*x])
+        return outer_loop(outer_acc + [inner_result])
+    assert outer_result == [[1, 2], [2, 4], [3, 6]]
+
     # this old chestnut:
     funcs = []
     for i in range(3):
@@ -218,12 +310,49 @@ def main():
     # with FP loop:
     funcs = []
     @looped
-    def iter(loop, i=0):
+    def _(loop, i=0):
         if i < 3:
             funcs.append(lambda x: i*x)  # new "i" each time, no mutation!
             return loop(i + 1)
     assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
+    # FP loop in a lambda, with TCO:
+    s = looped(lambda loop, acc=0, i=0:
+                 loop(acc + i, i + 1) if i < 10 else acc)
+    assert s == 45
+
+    # The same, using "let" to define a "cont":
+    s = looped(lambda loop, acc=0, i=0:
+                 let(cont=lambda newacc=acc:
+                            loop(newacc, i + 1),
+                     body=lambda e:
+                            e.cont(acc + i) if i < 10 else acc))
+    assert s == 45
+
+    # We can also use such expressions locally, like "s" here:
+    result = let(s=looped(lambda loop, acc=0, i=0:
+                            let(cont=lambda newacc=acc:
+                                       loop(newacc, i + 1),
+                                body=lambda e:
+                                       e.cont(acc + i) if i < 10 else acc)),
+                 body=lambda e:
+                        begin(print("s is {:d}".format(e.s)),
+                              2 * e.s))
+    assert result == 90
+
+    # but for readability, we can do the same more pythonically:
+    @immediate
+    def result():
+        @looped
+        def s(loop, acc=0, i=0):
+            cont = lambda newacc=acc: loop(newacc, i + 1)
+            if i < 10:
+                return cont(acc + i)
+            else:
+                return acc
+        print("s is {:d}".format(s))
+        return 2 * s
+    assert result == 90
 
 if __name__ == '__main__':
     main()
