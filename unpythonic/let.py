@@ -12,25 +12,37 @@ from unpythonic.env import env as _envcls
 def let(body, **bindings):
     """``let`` expression.
 
-    The bindings are independent (do not see each other); only the body may
-    refer to the bindings. Examples::
+    In ``let``, the bindings are independent (do not see each other); only
+    the body may refer to the bindings.
 
-        # order-preserving list uniqifier
+    Order-preserving list uniqifier::
+
         u = lambda lst: let(seen=set(),
-                            body=lambda e: [e.seen.add(x) or x for x in lst if x not in e.seen])
+                            body=lambda e:
+                                   [e.seen.add(x) or x for x in lst if x not in e.seen])
 
-        # a lambda using a locally defined lambda as a helper
-        g = let(square=lambda y: y**2,
-                body=lambda e: lambda x: 42 * e.square(x))
+    A lambda using a locally defined lambda as a helper::
+
+        g = let(square=lambda y:
+                         y**2,
+                body=lambda e:
+                         lambda x: 42 * e.square(x))
         g(10)  # --> 4200
+
+    Unlike in ``letrec``, no ``lambda e: ...`` is needed for ``square``.
+    Because in ``let``, the bindings do not see the environment, there is
+    no risk of misunderstanding the lambda in the environment initialization
+    procedure.
 
     Composability. As Lisp programmers know, the second example is subtly
     different from::
 
-        g = lambda x: let(square=lambda y: y**2,
-                          body=lambda e: 42 * e.square(x))
+        g = lambda x: let(square=lambda y:
+                                   y**2,
+                          body=lambda e:
+                                   42 * e.square(x))
 
-    (We only moved the ``lambda x:``.) In the original version, the let expression
+    We only moved the ``lambda x:``. In the original version, the let expression
     runs just once, when ``g`` is defined, whereas in this one, it re-runs
     whenever ``g`` is called.
 
@@ -38,8 +50,10 @@ def let(body, **bindings):
 
         from unpythonic.misc import begin
         counter = let(x=0,
-                      body=lambda e: lambda: begin(e.set("x", e.x + 1),
-                                                   e.x))
+                      body=lambda e:
+                             lambda:
+                               begin(e.set("x", e.x + 1),
+                                     e.x))
         counter()  # --> 1
         counter()  # --> 2
         counter()  # --> 3
@@ -47,19 +61,22 @@ def let(body, **bindings):
     Parameters:
         `body`: function
             One-argument function to run, taking an `env` instance that
-            contains the "let" bindings as its attributes.
+            contains the ``let`` bindings as its attributes. The environment
+            is passed as the first positional argument.
 
-            To pass in more stuff:
+            If you need to pass in more stuff:
 
-                - Use the closure property (free variables, lexical scoping)
-                - Make a nested lambda; only the outermost one is implicitly
-                  called with env as its only argument.
+                - Use the closure property (free variables, lexical scoping).
+                - Make a nested lambda, like above. Only the outermost one is
+                  "eaten" by the environment initialization procedure.
 
-        Everything else: ``let`` bindings; each argument name is bound to its value.
-        No ``lambda e: ...`` is needed, as the environment is not seen by the bindings.
+        `any other named arguments`: ``let`` bindings
+            Each argument name is bound to its value. Unlike in ``letrec``,
+            no ``lambda e: ...`` is needed, as the environment is not seen
+            by the bindings.
 
     Returns:
-        The value returned by body.
+        The return value of ``body``.
     """
     return _let("let", body, **bindings)
 
@@ -77,57 +94,82 @@ def letrec(body, **bindings):
     the LHS. So even if 'a' is ``e.set()`` to a different value later,
     'b' **won't** be updated.
 
-    If you need to define a function (lambda) in a ``letrec``, wrap it in a
-    ``lambda e: ...``  even if it doesn't need the environment, like this::
+    If your value is callable, wrap it in a ``lambda e: ...``
+    even if it doesn't need the environment, like this::
 
-        letrec(a=1,
-               b=lambda e: e.a + 1,          # just a value, uses env
-               f=lambda e: lambda x: 42*x,   # function, whether or not uses env
-               body=lambda e: e.b * e.f(1))  # --> 84
+        letrec(a=1,              # just a value, doesn't use env
+               b=lambda e:
+                      e.a + 1,   # just a value, uses env
+               f=lambda e:
+                      lambda x:  # callable, whether or not uses env
+                        42*x,
+               body=lambda e:
+                      e.b * e.f(1))  # --> 84
 
     **CAUTION**:
 
-      Up to Python 3.5.x, initialization of the bindings occurs
-      **in an arbitrary order**, because of the kwargs mechanism.
-      Hence simple data values (anything that is not a function) may depend
-      on earlier definitions in the same letrec **only in Python 3.6+**.
+        Simple values (non-callables) may depend on earlier definitions
+        in the same letrec **only in Python 3.6 and later**.
 
-      In older Pythons, in the first example above, trying to reference ``env.a``
-      on the RHS of ``b`` may get either the ``lambda e: ...``, or the value ``1``,
-      depending on whether the binding ``a`` has been initialized at that point or not.
+        Until Python 3.6, initialization of the bindings occurs
+        **in an arbitrary order**, because of the ``kwargs`` mechanism.
+        See PEP 468:
 
-      If you need left-to-right ordering in older Pythons, use the
-      ``unpythonic.lispylet`` module instead.
+            https://www.python.org/dev/peps/pep-0468/
 
-    Regardless of Python version:
+        In Python < 3.6, in the first example above, trying to reference ``env.a``
+        on the RHS of ``b`` may get either the ``lambda e: ...``, or the value ``1``,
+        depending on whether the binding ``a`` has been initialized at that point or not.
 
-    We can define mutually recursive functions::
+        If you need left-to-right initialization of bindings in Python < 3.6,
+        see ``unpythonic.lispylet``.
 
-        t = letrec(evenp=lambda e: lambda x: (x == 0) or e.oddp(x - 1),
-                   oddp=lambda e: lambda x: (x != 0) and e.evenp(x - 1),
-                   body=lambda e: e.evenp(42))
+    The following applies regardless of Python version.
 
-    Functions may use any bindings from ``e``. Order-preserving list uniqifier::
+    A callable value may depend on **any** binding, also later ones. This allows
+    mutually recursive functions::
+
+        t = letrec(evenp=lambda e:
+                           lambda x:
+                             (x == 0) or e.oddp(x - 1),
+                   oddp=lambda e:
+                           lambda x:
+                             (x != 0) and e.evenp(x - 1),
+                   body=lambda e:
+                           e.evenp(42))
+
+    Order-preserving list uniqifier::
 
         from unpythonic.misc import begin
         u = lambda lst: letrec(seen=set(),
-                               see=lambda e: lambda x: begin(e.seen.add(x), x),
-                               body=lambda e: [e.see(x) for x in lst if x not in e.seen])
+                               see=lambda e:
+                                      lambda x:
+                                        begin(e.seen.add(x),
+                                              x),
+                               body=lambda e:
+                                      [e.see(x) for x in lst if x not in e.seen])
         L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
         print(u(L))  # [1, 3, 2, 4]
 
-    This works also in older Pythons, because ``see`` is a function,
-    so ``e.seen`` doesn't have to yet exist at the time the definition
-    of ``see`` is evaluated.
+    Works also in Python < 3.6, because here ``see`` is a callable. Hence, ``e.seen``
+    doesn't have to exist when the *definition* of ``see`` is evaluated; it only has to
+    exist when ``e.see(x)`` is *called*.
 
     Parameters:
-        `body`: like in ``let``
+        `body`: function
+            Like in ``let``.
 
-        Everything else: ``letrec`` bindings, as one-argument functions.
-        The argument is the environment.
+        `any other named arguments`: ``let`` bindings
+            The RHS of each binding is either a simple value (non-callable,
+            doesn't use the environment), or an expression of the form
+            ``lambda e: valexpr``, providing access to the environment as ``e``.
+
+            If ``valexpr`` itself is callable, the RHS of its binding **must**
+            have the ``lambda e: ...`` wrapper to prevent any misunderstandings
+            in the environment initialization procedure.
 
     Returns:
-        The value returned by body.
+        The return value of ``body``.
     """
     return _let("letrec", body, **bindings)
 
@@ -159,7 +201,13 @@ def dlet(**bindings):
 def dletrec(**bindings):
     """``letrec`` decorator.
 
-    Like ``dlet``, but with ``letrec`` instead of ``let``.
+    Like ``dlet``, but with ``letrec`` instead of ``let``::
+
+        @dletrec(x=2,
+                 y=lambda e: e.x + 3)
+        def bar(a, *, env):
+            return a + env.y
+        bar(10)  # --> 15
     """
     return _dlet("letrec", **bindings)
 
@@ -168,16 +216,10 @@ def blet(**bindings):
 
     This chains ``@dlet`` and ``@immediate``::
 
-        @blet(x=17, y=23)
-        def result(*, env=None):
-            print(env.x, env.y)
-            return env.x + env.y
-        print(result)  # 40
-
-        # if the return value is of no interest:
-        @blet(s="hello")
-        def _(*, env=None):
-            print(env.s)
+        @blet(x=9001)
+        def result(*, env):
+            return env.x
+        print(result)  # --> 9001
     """
     return _blet("let", **bindings)
 
@@ -189,11 +231,23 @@ def bletrec(**bindings):
 
 def _let(mode, body, **bindings):
     assert mode in ("let", "letrec")
-    env = _envcls(**bindings)
-    if mode == "letrec":  # supply the environment instance to the letrec bindings.
-        for k, v in env.items():
-            if callable(v):
-                env[k] = v(env)
+    # Important for Python 3.6+, which preserves ordering of kwargs (PEP 468):
+    #
+    # Bind names sequentially to catch invalid reference errors. In letrec,
+    # a simple value (non-callable) can only refer to bindings above it.
+    #
+    # If we bind the names one by one - calling each value's  lambda e: ...
+    # wrapper when that name is bound, any reference to a yet unbound name
+    # will alert the user by raising an AttributeError.
+    #
+    # If we instead initialize as _envcls(**bindings), and then call the
+    # wrappers in a second pass, we lose this validation, because all names
+    # are then already bound when the wrappers are called.
+    env = _envcls()
+    for k, v in bindings.items():
+        if mode == "letrec" and callable(v):
+            v = v(env)
+        env[k] = v
     # decorators need just the final env; else run body now
     env.finalize()
     return env if body is None else body(env)
@@ -347,7 +401,7 @@ def test():
     try:
         @blet(x=1)
         def error1(*, env):
-            env.y = 2  # cannot add new bindings to a let environment
+            env.y = 2  # error, cannot introduce new bindings to a let environment
     except AttributeError as err:
         pass
     else:

@@ -12,39 +12,77 @@ from unpythonic.env import env as _envcls
 def let(bindings, body):
     """``let`` expression.
 
-    The bindings are independent (do not see each other); only the body may
-    refer to the bindings.
+    In ``let``, the bindings are independent (do not see each other); only
+    the body may refer to the bindings.
 
-    Parameters:
-        bindings: tuple of (name, value) pairs
-            name: str
-            value: anything
-        body: function
-            One-argument function that takes in the environment.
+    Order-preserving list uniqifier::
 
-    Returns:
-        Return value of body.
+        u = lambda lst: let((("seen", set()),),
+                            lambda e:
+                              [e.seen.add(x) or x for x in lst if x not in e.seen])
 
-    Example::
+    Bindings must be a sequence even if there is just one binding.
 
-        let((('a', 1),
-             ('b', 2)),
-            lambda e: [e.a, e.b])  # --> [1, 2]
+    A lambda using a locally defined lambda as a helper::
 
-    Bindings must be an iterable even if there is only one pair::
+        g = let((("square", lambda y:
+                              y**2),),
+                lambda e:
+                  lambda x: 42 * e.square(x))
+        g(10)  # --> 4200
 
-        let((('a', 1),),
-            lambda e: e.a)  # --> 1
+    Unlike in ``letrec``, no ``lambda e: ...`` is needed for ``square``.
+    Because in ``let``, the bindings do not see the environment, there is
+    no risk of misunderstanding the lambda in the environment initialization
+    procedure.
+
+    Composability. As Lisp programmers know, the second example is subtly
+    different from::
+
+        g = lambda x: let((("square", lambda y:
+                                        y**2),),
+                          lambda e:
+                            42 * e.square(x))
+
+    We only moved the ``lambda x:``. In the original version, the let expression
+    runs just once, when ``g`` is defined, whereas in this one, it re-runs
+    whenever ``g`` is called.
 
     *Let over lambda*. The inner lambda is the definition of the function ``counter``::
 
         from unpythonic.misc import begin
-        counter = let((('x', 0),),
-                      lambda e: lambda: begin(e.set('x', e.x + 1),
-                                              e.x))
+        counter = let((("x", 0),),
+                      lambda e:
+                        lambda:
+                          begin(e.set("x", e.x + 1),
+                                e.x))
         counter()  # --> 1
         counter()  # --> 2
         counter()  # --> 3
+
+    Parameters:
+        `bindings`: sequence of `(name, value)` pairs
+            `name`: str
+
+            `value`: anything
+
+            Each argument name is bound to its value. Unlike in ``letrec``,
+            no ``lambda e: ...`` is needed, as the environment is not seen
+            by the bindings.
+
+        `body`: function
+            One-argument function to run, taking an `env` instance that
+            contains the ``let`` bindings as its attributes. The environment
+            is passed as the first positional argument.
+
+            If you need to pass in more stuff:
+
+                - Use the closure property (free variables, lexical scoping).
+                - Make a nested lambda, like above. Only the outermost one is
+                  "eaten" by the environment initialization procedure.
+
+    Returns:
+        The return value of ``body``.
     """
     return _let(bindings, body)
 
@@ -62,40 +100,68 @@ def letrec(bindings, body):
     the LHS. So even if 'a' is ``e.set()`` to a different value later,
     'b' **won't** be updated.
 
-    DANGER:
-        **any** callable as a value for a binding is interpreted as a
-        one-argument function that takes an environment.
+    If your value is callable, wrap it in a ``lambda e: ...``
+    even if it doesn't need the environment, like this::
 
-    If you need to define a function (lambda) in a ``letrec``, wrap it in a
-    ``lambda e: ...``  even if it doesn't need the environment, like this::
+        letrec((('a', 1),          # just a value, doesn't use env
+                ('b', lambda e:
+                        e.a + 1),  # just a value, uses env
+                ('f', lambda e:
+                        lambda x:  # callable, whether or not uses env
+                          42*x)),
+               lambda e:
+                 e.b * e.f(1))  # --> 84
 
-        letrec((('a', 1),
-                ('b', lambda e: e.a + 1),          # just a value, uses env
-                ('f', lambda e: lambda x: 42*x)),  # function, whether or not uses env
-               lambda e: e.b * e.f(1))  # --> 84
+    A callable value may depend on **any** binding, also later ones. This allows
+    mutually recursive functions::
+
+        letrec((('evenp', lambda e:
+                            lambda x:
+                              (x == 0) or  e.oddp(x - 1)),
+                ('oddp',  lambda e:
+                            lambda x:
+                              (x != 0) and e.evenp(x - 1))),
+               lambda e:
+                 e.evenp(42))  # --> True
 
     Order-preserving list uniqifier::
 
         from unpythonic.misc import begin
         u = lambda lst: letrec((("seen", set()),
-                                ("see", lambda e: lambda x: begin(e.seen.add(x), x))),
-                               lambda e: [e.see(x) for x in lst if x not in e.seen])
+                                ("see", lambda e:
+                                          lambda x:
+                                            begin(e.seen.add(x),
+                                                  x))),
+                               lambda e:
+                                 [e.see(x) for x in lst if x not in e.seen])
         L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
         print(u(L))  # [1, 3, 2, 4]
 
-    Mutually recursive functions are also possible:
+    Parameters:
+        `bindings`: sequence of `(name, value)` pairs
 
-        letrec((('evenp', lambda e: lambda x: (x == 0) or  e.oddp(x - 1)),
-                ('oddp',  lambda e: lambda x: (x != 0) and e.evenp(x - 1))),
-               lambda e: e.evenp(42))  # --> True
+            `name`: str
+                The name to which the value will be bound.
+
+            `value`: anything
+                Either a simple value (non-callable, doesn't use the environment),
+                or an expression of the form ``lambda e: valexpr``, providing
+                access to the environment as ``e``.
+
+                If ``valexpr`` itself is callable, the value **must** have the
+                ``lambda e: ...`` wrapper to prevent any misunderstandings in the
+                environment initialization procedure.
+
+        `body`: function
+            Like in ``let``.
+
+    Returns:
+        The return value of ``body``.
     """
     return _let(bindings, body, mode="letrec")
 
 def dlet(bindings):
     """``let`` decorator.
-
-    The environment is passed in by name, as ``env``. The function can take
-    any other arguments as usual.
 
     For let-over-def; think *let over lambda* in Lisp::
 
@@ -113,6 +179,9 @@ def dlet(bindings):
         counter()  # --> 1
         counter()  # --> 2
         counter()  # --> 3
+
+    The named argument `env` is an env instance that contains the let bindings;
+    all other args and kwargs are passed through.
     """
     return _dlet(bindings)
 
@@ -137,7 +206,7 @@ def blet(bindings):
         @blet((('x', 9001),))
         def result(*, env):
             return env.x
-            print(result)  # --> 9001
+        print(result)  # --> 9001
     """
     return _blet(bindings)
 
@@ -162,8 +231,8 @@ def _let(bindings, body, *, env=None, mode="let"):
     (k, v), *more = bindings
     if mode == "letrec" and callable(v):
         v = v(env)
-    setattr(env, k, v)
-    return _let(more, body, env=env, mode=mode)
+    env[k] = v
+    return _let(more, body, env=env, mode=mode)  # FP loop (without TCO)
 
 def _dlet(bindings, mode="let"):  # let and letrec decorator factory
     def deco(body):
@@ -187,22 +256,45 @@ def test():
 
     x = let((('a', 1),
              ('b', 2)),
-            lambda o: o.a + o.b)
+            lambda e: e.a + e.b)
     assert x == 3
 
     x = letrec((('a', 1),
-                ('b', lambda o: o.a + 2)),  # hence, b = 3
-               lambda o: o.a + o.b)
+                ('b', lambda e:
+                        e.a + 2)),  # hence, b = 3
+               lambda e:
+                 e.a + e.b)
     assert x == 4
 
-    t = letrec((('evenp', lambda o: lambda x: (x == 0) or  o.oddp(x - 1)),
-                ('oddp',  lambda o: lambda x: (x != 0) and o.evenp(x - 1))),
-               lambda o: o.evenp(42))
+    try:
+        x = letrec((('a', lambda e:
+                            e.b + 1),  # error, simple value refers to binding below it
+                    ('b', 42)),
+                   lambda e:
+                     e.a)
+    except AttributeError:
+        pass
+    else:
+        assert False
+
+    # mutually recursive functions
+    t = letrec((('evenp', lambda e:
+                            lambda x:
+                              (x == 0) or  e.oddp(x - 1)),
+                ('oddp',  lambda e:
+                            lambda x:
+                              (x != 0) and e.evenp(x - 1))),
+               lambda e:
+                 e.evenp(42))
     assert t == True
 
     f = lambda lst: letrec((("seen", set()),
-                            ("see", lambda e: lambda x: begin(e.seen.add(x), x))),
-                           lambda e: [e.see(x) for x in lst if x not in e.seen])
+                            ("see", lambda e:
+                                      lambda x:
+                                        begin(e.seen.add(x),
+                                              x))),
+                           lambda e:
+                             [e.see(x) for x in lst if x not in e.seen])
     L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
     assert f(L) == [1, 3, 2, 4]
 
@@ -212,7 +304,7 @@ def test():
     assert foo() == 17
 
     @dletrec((('x', 2),
-              ('y', lambda o: o.x + 3)))
+              ('y', lambda e: e.x + 3)))
     def bar(a, *, env):
         return a + env.y
     assert bar(10) == 15
@@ -227,8 +319,8 @@ def test():
 
     # let-over-lambda
     lc = let((('count', 0),),
-             lambda o: lambda: begin(o.set('count', o.count + 1),
-                                     o.count))
+             lambda e: lambda: begin(e.set('count', e.count + 1),
+                                     e.count))
     lc()
     lc()
     assert lc() == 3
@@ -238,15 +330,20 @@ def test():
         return env.x
     assert result == 9001
 
-    @bletrec((('evenp', lambda e: lambda x: (x == 0) or  e.oddp(x - 1)),
-              ('oddp',  lambda e: lambda x: (x != 0) and e.evenp(x - 1)),))
+    @bletrec((('evenp', lambda e:
+                          lambda x:
+                            (x == 0) or  e.oddp(x - 1)),
+              ('oddp',  lambda e:
+                          lambda x:
+                            (x != 0) and e.evenp(x - 1)),))
     def result(*, env):
         return env.evenp(42)
     assert result is True
 
     try:
         let((('x', 0),),
-            lambda e: e.set('y', 3))  # error, y is not defined
+            lambda e:
+              e.set('y', 3))  # error, y is not defined
     except AttributeError:
         pass
     else:
@@ -255,7 +352,7 @@ def test():
     try:
         @blet((('x', 1),))
         def error1(*, env):
-            env.y = 2  # cannot add new bindings to a let environment
+            env.y = 2  # error, cannot introduce new bindings to a let environment
     except AttributeError as err:
         pass
     else:

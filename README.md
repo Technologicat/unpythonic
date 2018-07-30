@@ -34,7 +34,7 @@ Note also it's only useful for side effects, since there's no way to define new 
 
 ### ``let``, ``letrec``
 
-Use a `lambda e: ...` to supply the environment to the body:
+In ``let``, the bindings are independent (do not see each other); only the body may refer to the bindings. Use a `lambda e: ...` to supply the environment to the body:
 
 ```python
 u = lambda lst: let(seen=set(),
@@ -43,6 +43,8 @@ u = lambda lst: let(seen=set(),
 L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
 u(L)  # --> [1, 3, 2, 4]
 ```
+
+Generally speaking, `body` is a one-argument function, which takes in the environment instance as the first positional parameter (usually named `env` or `e` for readability). In typical inline usage, `body` is `lambda e: expr`.
 
 *Let over lambda*. The inner ``lambda`` is the definition of the function ``counter``:
 
@@ -60,8 +62,8 @@ Compare this [Racket](http://racket-lang.org/) (here using `sweet-exp` [[1]](htt
 
 ```racket
 define counter
-  let ([x 0])
-    λ ()  ; λ has an implicit begin(), so we don't need to explicitly have one
+  let ([x 0])  ; In Racket, the (λ (e) (...)) in "let" is implicit, and needs no explicit "e".
+    λ ()       ; Racket's λ has an implicit (begin ...), so we don't need a begin.
       set! x {x + 1}
       x
 counter()  ; --> 1
@@ -79,27 +81,21 @@ counter()  # --> 1
 counter()  # --> 2
 ```
 
-In `letrec`, bindings may depend on ones above them in the same `letrec` using `lambda e: ...` (**Python 3.6+**):
+In `letrec`, bindings may depend on ones above them in the same `letrec`, using `lambda e: ...` (**Python 3.6+**):
 
 ```python
 x = letrec(a=1,
-           b=lambda e: e.a + 1,
-           body=lambda e: e.b)  # --> 2
+           b=lambda e:
+                  e.a + 1,
+           body=lambda e:
+                  e.b)  # --> 2
 ```
 
-Regardless of Python version, function-valued bindings must be wrapped with `lambda e: ...` (to avoid misinterpretation), whether they use the environment or not. They may also use any values in the environment:
+In `letrec`, the RHS of each binding is either a simple value (non-callable, and doesn't use the environment), or an expression of the form ``lambda e: valexpr``, providing access to the environment as ``e``. If ``valexpr`` itself is callable, the binding **must** have the ``lambda e: ...`` wrapper to prevent any misunderstandings in the environment initialization procedure.
 
-```python
-u = lambda lst: letrec(seen=set(),
-                       see=lambda e:
-                              lambda x:
-                                begin(e.seen.add(x),
-                                      x),
-                       body=lambda e:
-                              [e.see(x) for x in lst if x not in e.seen])
-```
+In a non-callable ``valexpr``, trying to depend on a binding below it raises ``AttributeError``.
 
-Mutually recursive functions:
+But a callable ``valexpr`` may depend on any bindings (also later ones) in the same `letrec`. Mutually recursive functions:
 
 ```python
 letrec(evenp=lambda e:
@@ -112,7 +108,19 @@ letrec(evenp=lambda e:
                e.evenp(42))  # --> True
 ```
 
-**CAUTION**: up to Python 3.5.x, bindings are **initialized in an arbitrary order**, also in `letrec`. This is a limitation of the kwargs abuse. Hence mutually recursive functions are possible, but simple data values cannot depend on other bindings in the same `letrec`.
+Order-preserving list uniqifier:
+
+```python
+u = lambda lst: letrec(seen=set(),
+                       see=lambda e:
+                              lambda x:
+                                begin(e.seen.add(x),
+                                      x),
+                       body=lambda e:
+                              [e.see(x) for x in lst if x not in e.seen])
+```
+
+**CAUTION**: in Pythons older than 3.6, bindings are **initialized in an arbitrary order**, also in `letrec`. This is a limitation of the kwargs abuse. Hence mutually recursive functions are possible, but a non-callable `valexpr` cannot depend on other bindings in the same `letrec`.
 
 Trying to access `e.foo` from `e.bar` arbitrarily produces either the intended value of `e.foo`, or the uninitialized `lambda e: ...`, depending on whether `e.foo` has been initialized or not at the point of time when `e.bar` is being initialized.
 
@@ -120,18 +128,18 @@ This has been fixed in Python 3.6, see [PEP 468](https://www.python.org/dev/peps
 
 #### Lispylet
 
-There is also an alternative implementation for all the `let` constructs, with **guaranteed left-to-right initialization** (also in Pythons older than 3.6) using positional syntax and more parentheses.
+If you need **guaranteed left-to-right initialization** of `letrec` bindings in Pythons older than 3.6, there is also an alternative implementation for all the `let` constructs, with positional syntax and more parentheses. The only difference is the syntax; the behavior is identical with the default implementation.
 
-The `let` constructs from `lispylet` are available in the top-level `unpythonic` namespace, with the ``ordered_`` prefix: ``ordered_let``, ``ordered_letrec``, ``ordered_dlet``, ``ordered_dletrec``, ``ordered_blet``, ``ordered_bletrec``.
+These constructs are available in the top-level `unpythonic` namespace, with the ``ordered_`` prefix: ``ordered_let``, ``ordered_letrec``, ``ordered_dlet``, ``ordered_dletrec``, ``ordered_blet``, ``ordered_bletrec``.
 
-It is also possible to override the default `let` constructs by those from `lispylet`:
+It is also possible to override the default `let` constructs by the `ordered_` variants, like this:
 
 ```python
 from unpythonic.lispylet import *  # override the default "let" implementation
 
 letrec((('a', 1),
         ('b', lambda e:
-                e.a + 1)),  # may refer to any bindings above it in the same letrec
+                e.a + 1)),  # may refer to any bindings above it in the same letrec, also in Python < 3.6
        lambda e:
          e.b)  # --> 2
 
@@ -145,20 +153,16 @@ letrec((("evenp", lambda e:
          e.evenp(42))  # --> True
 ```
 
-Usage is `let(bindings, body)` (respectively `letrec(bindings, body)`), where `bindings` is `((name, value), ...)`, and `body` is a one-argument function that takes in the environment. In typical inline usage, `body` is `lambda e: expr`.
+The syntax is `let(bindings, body)` (respectively `letrec(bindings, body)`), where `bindings` is `((name, value), ...)`, and `body` is like in the default variants.
 
-Each `value` is bound to the corresponding `name`. As an exception, in the case of ``letrec``, if `value` is callable, it will be called with the environment as its only argument at environment setup time, and the result of the call is bound to `name`.
+Like in the default variant, in `letrec`, each `value` is either a simple value (non-callable, and doesn't use the environment), or an expression of the form ``lambda e: valexpr``, providing access to the environment as ``e``. If ``valexpr`` itself is callable, ``value`` **must** have the ``lambda e: ...`` wrapper to prevent any misunderstandings in the environment initialization procedure.
 
-A callable `value`, of the form `lambda e: valexpr`, may refer to bindings above it in the same `letrec`. If `valexpr` itself is callable, it may refer to any binding (also later ones) in the same `letrec`, allowing mutually recursive function definitions (such as `evenp` and `oddp` above).
-
-Thus, to bind a callable, use ``lambda e: mycallable`` as `value`, whether or not `mycallable` actually uses the environment. If the ``lambda e: ...`` wrapper is missing, `mycallable` itself will be called at environment setup time, with the environment as its argument (likely not what was intended).
-
-Examples of binding callables:
+Like in the default variant, a callable ``valexpr`` may depend on any bindings (also later ones) in the same `letrec`, allowing mutually recursive functions.
 
 ```python
 u = lambda lst: letrec((("seen", set()),
                         ("see",  lambda e:
-                                   lambda x:  # a function, needs "lambda e: ..."
+                                   lambda x:  # callable, needs "lambda e: ..."
                                      begin(e.seen.add(x),
                                            x))),
                        lambda e:
@@ -166,7 +170,7 @@ u = lambda lst: letrec((("seen", set()),
 
 letrec((('a', 2),
         ('f', lambda e:
-                lambda x:  # a function, needs "lambda e: ..." even though it doesn't use e
+                lambda x:  # callable, needs "lambda e: ..." even though it doesn't use e
                   42*x)),
        lambda e:
          e.a * e.f(1))  # --> 84
@@ -174,19 +178,22 @@ letrec((('a', 2),
 square = lambda x: x**2
 letrec((('a', 2),
         ('f', lambda e: square)),  # callable, needs "lambda e: ..."
-       lambda e: e.a * e.f(10))  # --> 200
+       lambda e:
+         e.a * e.f(10))  # --> 200
 
 def mul(x, y):
     return x * y
 letrec((('a', 2),
         ('f', lambda e: mul)),  # "mul" is a callable
-       lambda e: e.a * e.f(3, 4))  # --> 24
+       lambda e:
+         e.a * e.f(3, 4))  # --> 24
 
 from functools import partial
 double = partial(mul, 2)
 letrec((('a', 2),
         ('f', lambda e: double)),  # "double" is a callable
-       lambda e: e.a * e.f(3))  # --> 12
+       lambda e:
+         e.a * e.f(3))  # --> 12
 
 class TimesA:
     def __init__(self, a):
@@ -196,7 +203,8 @@ class TimesA:
 times5 = TimesA(5)
 letrec((('a', 2),
         ('f', lambda e: times5)),  # "times5" is a callable
-       lambda e: e.a * e.f(3))  # --> 30
+       lambda e:
+         e.a * e.f(3))  # --> 30
 ```
 
 ### Tail call optimization (TCO) / explicit continuations
@@ -215,7 +223,7 @@ def fact(n, acc=1):
 print(fact(4))  # 24
 ```
 
-Functions that use TCO must be `@trampolined`.
+Functions that use TCO **must** be `@trampolined`.
 
 Inside a trampolined function, a normal call `f(a, ..., kw=v, ...)` remains a normal call. A tail call with target `f` is denoted `return jump(f, a, ..., kw=v, ...)`. The final result is just returned normally.
 
@@ -231,7 +239,7 @@ print(t(4))  # 24
 
 To denote tail recursion in an anonymous function, use the special jump target `SELF` (all uppercase!). Here it's just `jump` instead of `return jump` since lambda does not use the `return` syntax.
 
-Technically, `SELF` means *keep current jump target*, so the last function that was explicitly named in that trampoline remains as the target of the upcoming jump. When the trampoline starts, the current target is set to the initial entry point (also for lambdas).
+Technically, `SELF` means *keep current jump target*, so the function that was last explicitly named in that particular trampoline remains as the target of the jump. When the trampoline starts, the current target is set to the initial entry point (also for lambdas).
 
 *Mutual recursion*:
 
@@ -265,12 +273,12 @@ letrec(evenp=lambda e:
                e.evenp(10000))
 ```
 
-*Looping in FP style*, with TCO:
+*Looping in FP style* with TCO:
 
 ```python
 @looped
 def s(loop, acc=0, i=0):
-    if i == 10:
+    if i == 10:  # fresh i in each iteration; nothing is mutated.
         return acc
     else:
         return loop(acc + i, i + 1)
@@ -287,12 +295,12 @@ define s
         acc
       else
         loop {acc + i} {i + 1}
-displayln s
+displayln s  ; 45
 ```
 
 In `@looped`, the function name of the loop body is the name of the final output, like in `@immediate`.
 
-The first parameter of the loop body is the magic parameter ``loop``. It is "self-ish", representing a jump back to the loop body itself (starting a new iteration). Just like Python's ``self``, ``loop`` can have any name; it is passed positionally.
+The first parameter of the loop body is the magic parameter ``loop``. It is *self-ish*, representing a jump back to the loop body itself (starting a new iteration). Just like Python's ``self``, ``loop`` can have any name; it is passed positionally.
 
 Just like ``jump``, here ``loop`` is **a noun, not a verb.** The expression ``loop(...)`` is the same as ``jump(SELF, ...)``.
 
@@ -328,8 +336,23 @@ def baz():
 foo()
 ```
 
-Each function tells the trampoline where to go next (and with what parameters). All hail lambda, the ultimate GO TO!
+Each function in the TCO call chain tells the trampoline where to go next (and with what parameters). All hail lambda, the ultimate GO TO!
 
+Each TCO call chain brings its own trampoline, so they nest as expected:
+
+```python
+@trampolined
+def foo():
+    return jump(bar)
+@trampolined
+def bar():
+    t = even(42)  # start another trampoline for even/odd, with SELF initially pointing to "even"
+    return jump(baz, t)
+@trampolined
+def baz(result):
+    print(result)
+foo()  # start trampoline, with SELF initially pointing to "foo"
+```
 
 ### Dynamic scoping
 
@@ -446,7 +469,7 @@ define result
 displayln result  ; (6 7)
 ```
 
-*Twist the meaning of `def` into a "let statement"* (but see `blet`, `bletrec` if you want an `env`):
+*Twist the meaning of `def` into a "let statement"* (but see `blet`, `bletrec` if you want an `env` instance):
 
 ```python
 @immediate
@@ -492,7 +515,7 @@ Even Racket's `letrec` processes the bindings sequentially, left-to-right, but *
 
 In contrast, in a `let*` form, attempting such a definition is *a compile-time error*, because at any point in the sequence of bindings, only names found earlier in the sequence have been bound. See [TRG on `let`](https://docs.racket-lang.org/guide/let.html).
 
-Our versions of `letrec` behave like `let*` in that if `valexpr` is not a function, it may only refer to bindings above it. But we still allow mutually recursive function definitions, hence the name.
+Our `letrec` behaves like `let*` in that if `valexpr` is not a function, it may only refer to bindings above it. But this is only enforced at run time, and we allow mutually recursive function definitions, hence `letrec`.
 
 Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
 
@@ -519,15 +542,15 @@ We could abuse `e.foo << newval`, which transforms to `e.foo.__lshift__(newval)`
 
 If we later choose go this route nevertheless, `<<` is a better choice for the syntax than `<<=`, because `let` needs `e.set(...)` to be valid in an expression context.
 
-### Wait, no monads?
-
-Already done elsewhere, see [PyMonad](https://bitbucket.org/jason_delaat/pymonad/) or [OSlash](https://github.com/dbrattli/OSlash) if you need them. Especially the `List` monad can be useful also in Python, e.g. to make an [`amb`](https://rosettacode.org/wiki/Amb) without `call/cc`. Compare [this solution in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/), with `call/cc`.
-
-If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
-
 ### Wait, no `cons` and friends?
 
 [If you insist](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/lisplists.py) (but that's a silly teaching example, not optimized for production use).
+
+### Wait, no monads?
+
+This is about Lisps, not Haskell. Besides, already done elsewhere, see [PyMonad](https://bitbucket.org/jason_delaat/pymonad/) or [OSlash](https://github.com/dbrattli/OSlash) if you need them. Especially the `List` monad can be useful also in Python, e.g. to make an [`amb`](https://rosettacode.org/wiki/Amb) without `call/cc`. Compare [this solution in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/), with `call/cc`.
+
+If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
 
 ## Installation
 
@@ -562,6 +585,10 @@ Must be invoked in a folder which has no subfolder called `unpythonic`, so that 
 Dynamic scoping based on [StackOverflow answer by Jason Orendorff (2010)](https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python), used under CC-BY-SA. The threading support is original to our version.
 
 Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
+
+## Acknowledgements
+
+Thanks to [TUT](http://www.tut.fi/en/home) for letting me teach [RAK-19006 in spring term 2018](https://github.com/Technologicat/python-3-scicomp-intro); early versions of parts of this library were originally developed as teaching examples for that course. Thanks to @AgenttiX for feedback.
 
 ## Python-related FP resources
 
