@@ -353,7 +353,7 @@ def main():
 main()
 ```
 
-We may also TCO-loop a function explicitly (e.g. if we want to re-use the loop body as a function):
+We may also use TCO to loop explicitly (e.g. if we want to re-use the loop body as a function):
 
 ```python
 @trampolined
@@ -367,6 +367,25 @@ print(s)  # 45
 ```
 
 This is slightly faster, because in `@looped` setting up ``loop`` at each iteration costs some magic (since it is not a macro). But in this variant, remember to start the loop after the definition is done!
+
+*Looping in FP style in a lambda*, with TCO:
+
+```python
+s = looped(lambda loop, acc=0, i=0:
+             loop(acc + i, i + 1) if i < 10 else acc)
+print(s)
+```
+
+The same, using ``let`` to define a ``cont``:
+
+```python
+s = looped(lambda loop, acc=0, i=0:
+             let(cont=lambda newacc=acc:
+                        loop(newacc, i + 1),
+                 body=lambda e:
+                        e.cont(acc + i) if i < 10 else acc)
+print(s)
+```
 
 Finally, reinterpreting the TCO feature as *explicit continuations*:
 
