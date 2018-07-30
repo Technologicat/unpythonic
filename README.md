@@ -32,7 +32,7 @@ Actually a tuple in disguise. If worried about memory consumption, use `lazy_beg
 
 Note also it's only useful for side effects, since there's no way to define new names, except...
 
-### ``let``, ``letrec``
+### Local bindings: ``let``, ``letrec``
 
 In ``let``, the bindings are independent (do not see each other); only the body may refer to the bindings. Use a `lambda e: ...` to supply the environment to the body:
 
@@ -223,11 +223,13 @@ def fact(n, acc=1):
 print(fact(4))  # 24
 ```
 
-Functions that use TCO **must** be `@trampolined`.
+Functions that use TCO **must** be `@trampolined`. Calling a trampolined function normally starts the trampoline.
 
-Inside a trampolined function, a normal call `f(a, ..., kw=v, ...)` remains a normal call. A tail call with target `f` is denoted `return jump(f, a, ..., kw=v, ...)`. The final result is just returned normally.
+Inside a trampolined function, a normal call `f(a, ..., kw=v, ...)` remains a normal call. A tail call with target `f` is denoted `return jump(f, a, ..., kw=v, ...)`.
 
 Here `jump` is **a noun, not a verb**. The `jump(f, ...)` part just evaluates to a `jump` instance, which on its own does nothing. Returning it to the trampoline actually performs the tail call.
+
+The final result is just returned normally. Returning a normal value (anything that is not a ``jump`` instance) to a trampoline shuts down that trampoline, and returns the given value from the initial call (to a ``@trampolined`` function) that originally started that trampoline.
 
 *Tail recursion in a lambda*:
 
@@ -278,12 +280,14 @@ letrec(evenp=lambda e:
 ```python
 @looped
 def s(loop, acc=0, i=0):
-    if i == 10:  # fresh i in each iteration; nothing is mutated.
+    if i == 10:
         return acc
     else:
         return loop(acc + i, i + 1)
 print(s)  # 45
 ```
+
+The loop counter ``i`` is visible only to the loop body; there is no ``i`` in the surrounding scope. Moreover, it's a fresh ``i`` at each iteration; nothing is mutated. (But be careful if you use a mutable object instance as a loop variable. The loop body is just a function call like any other.)
 
 Compare this sweet-exp Racket:
 
@@ -302,11 +306,54 @@ In `@looped`, the function name of the loop body is the name of the final output
 
 The first parameter of the loop body is the magic parameter ``loop``. It is *self-ish*, representing a jump back to the loop body itself (starting a new iteration). Just like Python's ``self``, ``loop`` can have any name; it is passed positionally.
 
-Just like ``jump``, here ``loop`` is **a noun, not a verb.** The expression ``loop(...)`` is the same as ``jump(SELF, ...)``.
-
 For any other parameters, their initial values must be set as defaults. The loop is automatically started by `@looped`, by calling the body with the magic ``loop`` as the only parameter.
 
-We may also do this explicitly (e.g. if we want to re-use the loop body as a function):
+Just like ``jump``, here ``loop`` is **a noun, not a verb.** The expression ``loop(...)`` is the same as ``jump(SELF, ...)``.
+
+**There is no** ``continue``; call ``loop(...)`` with the appropriate arguments to proceed. Or package that into your own ``cont``:
+
+```python
+@looped
+def s(loop, acc=0, i=0):
+    cont = lambda newacc=acc: loop(newacc, i + 1)
+    if i <= 4:
+        return cont()
+    elif i == 10:
+        return acc
+    else:
+        return cont(acc + i)
+print(s)  # 35
+```
+
+(This approach also separates the update of the iteration counter from the update of the accumulator.)
+
+**There is no** ``break``; just ``return`` your final result normally to terminate the loop.
+
+Because ``return`` is needed for this, barring the use of exceptions, there is no way to exit the function *containing* the loop from inside the loop. If you absolutely need to do that:
+
+```python
+class Exit(Exception):
+    def __init__(self, value):
+        self.value = value  # result of the computation
+
+def f():
+    @looped
+    def s(loop, acc=0, i=0):
+        if i > 5:
+            raise Exit(acc)
+        return loop(acc + i, i + 1)
+    print("never reached")
+
+def main():
+    try:
+        f()
+    except Exit as e:
+        print("hi from main()", e.value)  # e.value: 15
+
+main()
+```
+
+We may also TCO-loop a function explicitly (e.g. if we want to re-use the loop body as a function):
 
 ```python
 @trampolined
@@ -319,7 +366,7 @@ s = dowork(0, 0)
 print(s)  # 45
 ```
 
-This is slightly faster, because in `@looped` setting up ``loop`` at each iteration costs some magic (since it is not a macro).
+This is slightly faster, because in `@looped` setting up ``loop`` at each iteration costs some magic (since it is not a macro). But in this variant, remember to start the loop after the definition is done!
 
 Finally, reinterpreting the TCO feature as *explicit continuations*:
 
