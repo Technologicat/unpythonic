@@ -56,7 +56,7 @@ counter()  # --> 1
 counter()  # --> 2
 ```
 
-The above compares almost favorably to this [Racket](http://racket-lang.org/) (here using `sweet-exp` [[1]](https://srfi.schemers.org/srfi-110/srfi-110.html) [[2]](https://docs.racket-lang.org/sweet/) for pythonic layout):
+Compare this [Racket](http://racket-lang.org/) (here using `sweet-exp` [[1]](https://srfi.schemers.org/srfi-110/srfi-110.html) [[2]](https://docs.racket-lang.org/sweet/) for pythonic layout):
 
 ```racket
 define counter
@@ -79,18 +79,29 @@ counter()  # --> 1
 counter()  # --> 2
 ```
 
-In case of `letrec`, each binding takes a `lambda e: ...`, too:
+In `letrec`, bindings may depend on ones above them in the same `letrec` using `lambda e: ...` (**Python 3.6+**):
 
 ```python
-u = lambda lst: letrec(seen=lambda e:
-                              set(),
+x = letrec(a=1,
+           b=lambda e: e.a + 1,
+           body=lambda e: e.b)  # --> 2
+```
+
+Regardless of Python version, function-valued bindings must be wrapped with `lambda e: ...` (to avoid misinterpretation), whether they use the environment or not. They may also use any values in the environment:
+
+```python
+u = lambda lst: letrec(seen=set(),
                        see=lambda e:
                               lambda x:
                                 begin(e.seen.add(x),
                                       x),
                        body=lambda e:
                               [e.see(x) for x in lst if x not in e.seen])
+```
 
+Mutually recursive functions:
+
+```python
 letrec(evenp=lambda e:
                lambda x:
                  (x == 0) or e.oddp(x - 1),
@@ -239,6 +250,19 @@ def odd(n):
         return jump(even, n - 1)
 print(even(42))  # True
 print(odd(4))  # False
+```
+
+Mutual recursion in `letrec` with TCO:
+
+```python
+letrec(evenp=lambda e:
+               trampolined(lambda x:
+                             (x == 0) or jump(e.oddp, x - 1)),
+       oddp=lambda e:
+               trampolined(lambda x:
+                             (x != 0) and jump(e.evenp, x - 1)),
+       body=lambda e:
+               e.evenp(10000))
 ```
 
 *Looping in FP style*, with TCO:
@@ -468,7 +492,7 @@ Even Racket's `letrec` processes the bindings sequentially, left-to-right, but *
 
 In contrast, in a `let*` form, attempting such a definition is *a compile-time error*, because at any point in the sequence of bindings, only names found earlier in the sequence have been bound. See [TRG on `let`](https://docs.racket-lang.org/guide/let.html).
 
-The ``lispylet`` version of `letrec` behaves slightly more like `let*` in that if `valexpr` is not a function, it may only refer to bindings above it. But ``lispylet.letrec`` still allows mutually recursive function definitions, hence the name.
+Our versions of `letrec` behave like `let*` in that if `valexpr` is not a function, it may only refer to bindings above it. But we still allow mutually recursive function definitions, hence the name.
 
 Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
 

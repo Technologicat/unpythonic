@@ -66,38 +66,42 @@ def let(body, **bindings):
 def letrec(body, **bindings):
     """``letrec`` expression.
 
-    Like ``let``, but bindings can see each other.
+    Like ``let``, but bindings can see each other. To make a binding use the
+    value of an earlier one, use a ``lambda e: ...``::
 
-    The bindings must be wrapped with a ``lambda e: ...``, to delay their evaluation
-    until the environment instance has been created (and can thus be supplied
-    to them, just before the body starts).
+        x = letrec(a=1,
+                   b=lambda e: e.a + 1,
+                   body=lambda e: e.b)  # --> 2
 
-    The value inside each ``lambda e: ...`` wrapper **must** be either:
+    Each RHS is evaluated just once, and the result is bound to the name on
+    the LHS. So even if 'a' is ``e.set()`` to a different value later,
+    'b' **won't** be updated.
 
-        - an expression that **does not** use ``e``, just like in a regular ``let``, or
-        - a lambda, which may use ``e``. (Mutually recursive function example below.)
+    If you need to define a function (lambda) in a ``letrec``, wrap it in a
+    ``lambda e: ...``  even if it doesn't need the environment, like this::
 
-    Caveats:
-        - When the arguments to the ``letrec`` are evaluated (eagerly, by Python),
-          the environment has not yet been created. The ``lambda e: ...``
-          works around this.
+        letrec(a=1,
+               b=lambda e: e.a + 1,          # just a value, uses env
+               f=lambda e: lambda x: 42*x,   # function, whether or not uses env
+               body=lambda e: e.b * e.f(1))  # --> 84
 
-        - Initialization of the bindings occurs **in an arbitrary order**,
-          because of the kwargs mechanism and storage as a dictionary.
-          Hence the following **does not** work::
+    **CAUTION**:
 
-             x = letrec(a=lambda e: 1
-                        b=lambda e: e.a + 1,
-                        body=lambda e: e.b)
+      Up to Python 3.5.x, initialization of the bindings occurs
+      **in an arbitrary order**, because of the kwargs mechanism.
+      Hence simple data values (anything that is not a function) may depend
+      on earlier definitions in the same letrec **only in Python 3.6+**.
 
-          because trying to reference ``env.a`` on the RHS of ``b`` may get either the
-          ``lambda e: ...``, or the value ``1``, depending on whether the binding ``a``
-          has been initialized at that point or not.
+      In older Pythons, in the first example above, trying to reference ``env.a``
+      on the RHS of ``b`` may get either the ``lambda e: ...``, or the value ``1``,
+      depending on whether the binding ``a`` has been initialized at that point or not.
 
-          If you need left-to-right ordering, use the ``unpythonic.lispylet``
-          module instead.
+      If you need left-to-right ordering in older Pythons, use the
+      ``unpythonic.lispylet`` module instead.
 
-    The main use case of this ``letrec`` is mutually recursive functions::
+    Regardless of Python version:
+
+    We can define mutually recursive functions::
 
         t = letrec(evenp=lambda e: lambda x: (x == 0) or e.oddp(x - 1),
                    oddp=lambda e: lambda x: (x != 0) and e.evenp(x - 1),
@@ -106,14 +110,15 @@ def letrec(body, **bindings):
     Functions may use any bindings from ``e``. Order-preserving list uniqifier::
 
         from unpythonic.misc import begin
-        u = lambda lst: letrec(seen=lambda e: set(),
+        u = lambda lst: letrec(seen=set(),
                                see=lambda e: lambda x: begin(e.seen.add(x), x),
                                body=lambda e: [e.see(x) for x in lst if x not in e.seen])
         L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
         print(u(L))  # [1, 3, 2, 4]
 
-    This works, because ``see`` is a function, so ``e.seen`` doesn't have to
-    yet exist at the time the definition of ``see`` is evaluated.
+    This works also in older Pythons, because ``see`` is a function,
+    so ``e.seen`` doesn't have to yet exist at the time the definition
+    of ``see`` is evaluated.
 
     Parameters:
         `body`: like in ``let``
@@ -186,8 +191,9 @@ def _let(mode, body, **bindings):
     assert mode in ("let", "letrec")
     env = _envcls(**bindings)
     if mode == "letrec":  # supply the environment instance to the letrec bindings.
-        for k in env:
-            env[k] = env[k](env)
+        for k, v in env.items():
+            if callable(v):
+                env[k] = v(env)
     # decorators need just the final env; else run body now
     env.finalize()
     return env if body is None else body(env)
@@ -238,7 +244,7 @@ def test():
         f4 = lambda lst: let(seen=set(),
                              body=lambda e: [e.seen.add(x) or x for x in lst if x not in e.seen])
 
-        f5 = lambda lst: letrec(seen=lambda e: set(),
+        f5 = lambda lst: letrec(seen=set(),
                                 see=lambda e: lambda x: begin(e.seen.add(x), x),
                                 body=lambda e: [e.see(x) for x in lst if x not in e.seen])
 

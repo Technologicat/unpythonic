@@ -52,7 +52,7 @@ def letrec(bindings, body):
     """``letrec`` expression.
 
     Like ``let``, but bindings can see each other. To make a binding use the
-    value of an earlier one::
+    value of an earlier one, use a ``lambda e: ...``::
 
         letrec((('a', 1),
                 ('b', lambda e: e.a + 1)),

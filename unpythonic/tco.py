@@ -403,6 +403,17 @@ def test():
     except RuntimeError:
         pass
 
+    from unpythonic.let import letrec
+    t = letrec(evenp=lambda e:
+                     trampolined(lambda x:
+                                   (x == 0) or jump(e.oddp, x - 1)),
+             oddp=lambda e:
+                     trampolined(lambda x:
+                                   (x != 0) and jump(e.evenp, x - 1)),
+             body=lambda e:
+                     e.evenp(10000))
+    assert t is True
+
     print("All tests PASSED")
 
     # performance?

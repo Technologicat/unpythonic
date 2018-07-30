@@ -56,7 +56,7 @@ def main():
                body=lambda e: e.evenp(42))
     assert t is True
 
-    u2 = lambda lst: letrec(seen=lambda e: set(),
+    u2 = lambda lst: letrec(seen=set(),
                             see=lambda e: lambda x: begin(e.seen.add(x), x),
                             body=lambda e: [e.see(x) for x in lst if x not in e.seen])
     assert u2(L) == [1, 3, 2, 4]
