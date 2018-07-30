@@ -70,6 +70,10 @@ if it has one - making sure this remains a one-trampoline party even if
 the tail-call target is another ``@trampolined`` function. So just declare
 anything using TCO as ``@trampolined`` and don't worry about stacking trampolines.
 
+SELF actually means "keep current target", so the last function that was
+explicitly named in that trampoline remains as the target. When the trampoline
+starts, the current target is set to the initial entry point (also for lambdas).
+
 Beside TCO, trampolining can also be thought of as *explicit continuations*.
 Each trampolined function tells the trampoline where to go next, and with what
 parameters. All hail lambda, the ultimate GO TO!
@@ -111,12 +115,12 @@ than Python's ``for``.
 
     # looping in FP style, with TCO
 
-    @loop
-    def s(acc=0, i=0):
+    @looped
+    def s(loop, acc=0, i=0):
         if i == 10:
             return acc
         else:
-            return jump(SELF, acc + i, i + 1)
+            return loop(acc + i, i + 1)  # same as return jump(SELF, acc+i, i+1)
     assert s == 45
 
     @trampolined
@@ -129,11 +133,11 @@ than Python's ``for``.
     assert s == 45
 
     out = []
-    @loop
-    def _(i=0):
+    @looped
+    def _(loop, i=0):
         if i < 3:
             out.append(i)
-            return jump(SELF, i + 1)
+            return loop(i + 1)
     assert out == [0, 1, 2]
 
     # this old chestnut:
@@ -144,11 +148,11 @@ than Python's ``for``.
 
     # with FP loop:
     funcs = []
-    @loop
-    def iter(i=0):
+    @looped
+    def iter(loop, i=0):
         if i < 3:
             funcs.append(lambda x: i*x)  # new "i" each time, no mutation!
-            return jump(SELF, i + 1)
+            return loop(i + 1)
     assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
     # explicit continuations - DANGER: functional spaghetti code!
@@ -182,11 +186,14 @@ than Python's ``for``.
       over fn.py's is the more natural syntax for the client code.
 """
 
-__all__ = ["SELF", "jump", "trampolined", "loop"]
+__all__ = ["SELF", "jump", "trampolined", "looped"]
 
 from unpythonic.misc import immediate
 
-SELF = object()  # sentinel
+@immediate  # immediate a class to make a singleton
+class SELF:  # sentinel
+    def __repr__(self):
+        return "SELF"
 
 class jump:
     """A jump (noun, not verb).
@@ -243,41 +250,49 @@ class trampolined:
             else:  # final result, exit trampoline
                 return v
 
-def loop(f):
+def looped(f):
     """Decorator to make a functional loop and run it immediately.
 
-    Chains @trampolined and @immediate::
+    Parameters:
+        f: function
+          The function to decorate.
 
-        @loop
-        def s(acc=0, i=0):
+    This essentially chains @trampolined and @immediate, with some extra magic::
+
+        @looped
+        def result(loop, acc=0, i=0):
             if i == 10:
                 return acc
             else:
-                return jump(SELF, acc + i, i + 1)
-        print(s)
+                return loop(acc + i, i + 1)
+        print(result)
 
-        @loop
-        def _(i=0):
+        @looped
+        def _(loop, i=0):
             if i < 3:
                 print(i)
-                return jump(SELF, i + 1)
+                return loop(i + 1)
 
-    The initial values must be set as the defaults, since ``@immediate`` calls
-    the function with no arguments.
+    The first positional parameter is the magic parameter ``loop``.
+    It is "self-ish", representing a jump back to the loop body itself.
 
-    The loop body must use SELF instead of the def'd name, because the name
-    is not bound until the final decorator (here ``@immediate``) returns,
-    at which time it is already too late.
+    Here **loop is a noun, not a verb.**
+    return loop(...) is the same as return jump(SELF, ...).
 
-    If that feels inelegant, no need for ``@loop``. These explicit forms
-    are also legal::
+    The initial values for any other parameters must be set as the defaults.
+    @looped automatically starts the loop body by calling it with the magic
+    ``loop`` parameter as the only argument.
+
+    If this feels inelegant, no need for ``@looped``. These explicit forms
+    are also legal (and slightly faster since no work to set up the ``loop``
+    magic parameter at each iteration)::
 
         @trampolined
         def dowork(acc=0, i=0):
             if i == 10:
                 return acc
             else:
-                return jump(dowork, acc + i, i + 1)
+                return jump(dowork, acc + i, i + 1)  # or return jump(SELF, ...)
         s = dowork()  # when using just @trampolined, must start the loop manually
         print(s)
 
@@ -290,7 +305,14 @@ def loop(f):
         s = dowork(0, 0)
         print(s)
     """
-    return immediate(trampolined(f))
+    tf = trampolined(f)
+    def loop(*args, **kwargs):
+        patched_args = (loop,) + args  # add the implicit magic "loop" parameter
+        # This works because SELF actually means "keep current target".
+        # The client calls loop() normally, so the trampoline doesn't register us;
+        # hence the client itself remains as the current target.
+        return jump(SELF, *patched_args, **kwargs)
+    return tf(loop)
 
 def test():
     """Usage examples; see the source code."""
@@ -326,12 +348,12 @@ def test():
 
     # looping in FP style, with TCO
 
-    @loop
-    def s(acc=0, i=0):
+    @looped
+    def s(loop, acc=0, i=0):
         if i == 10:
             return acc
         else:
-            return jump(SELF, acc + i, i + 1)
+            return loop(acc + i, i + 1)
     assert s == 45
 
     @trampolined
@@ -344,11 +366,11 @@ def test():
     assert s == 45
 
     out = []
-    @loop
-    def _(i=0):
+    @looped
+    def _(loop, i=0):
         if i < 3:
             out.append(i)
-            return jump(SELF, i + 1)
+            return loop(i + 1)
     assert out == [0, 1, 2]
 
     # this old chestnut:
@@ -359,11 +381,11 @@ def test():
 
     # with FP loop:
     funcs = []
-    @loop
-    def iter(i=0):
+    @looped
+    def iter(loop, i=0):
         if i < 3:
             funcs.append(lambda x: i*x)  # new "i" each time, no mutation!
-            return jump(SELF, i + 1)
+            return loop(i + 1)
     assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
     # explicit continuations - DANGER: functional spaghetti code!
@@ -388,11 +410,19 @@ def test():
     import time
 
     t0 = time.time()
-    @loop
-    def _(i=0):
+    @looped
+    def _(loop, i=0):
         if i < n:
-            return jump(SELF, i + 1)
-    dt_fp = time.time() - t0
+            return loop(i + 1)
+    dt_fp1 = time.time() - t0
+
+    t0 = time.time()
+    @trampolined
+    def dowork(i=0):
+        if i < n:
+            return jump(dowork, i + 1)
+    dowork()
+    dt_fp2 = time.time() - t0
 
     t0 = time.time()
     for i in range(n):
@@ -400,9 +430,11 @@ def test():
     dt_ip = time.time() - t0
 
     print("do-nothing loop, {:d} iterations:".format(n))
-    print("  @loop {:g}s ({:g}s/iter)".format(dt_fp, dt_fp/n))
+    print("  @looped {:g}s ({:g}s/iter)".format(dt_fp1, dt_fp1/n))
+    print("  @trampolined {:g}s ({:g}s/iter)".format(dt_fp2, dt_fp2/n))
     print("  for {:g}s ({:g}s/iter)".format(dt_ip, dt_ip/n))
-    print("@loop slowdown {:g}x".format(dt_fp/dt_ip))
+    print("@looped slowdown {:g}x".format(dt_fp1/dt_ip))
+    print("@trampolined slowdown {:g}x".format(dt_fp2/dt_ip))
 
 if __name__ == '__main__':
     test()

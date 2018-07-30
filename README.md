@@ -101,13 +101,19 @@ letrec(evenp=lambda e:
                e.evenp(42))  # --> True
 ```
 
-**CAUTION**: bindings are **initialized in an arbitrary order**, also in `letrec`. This is a limitation of the kwargs abuse. Hence mutually recursive functions are possible, but simple data values cannot depend on other bindings in the same `letrec`.
+**CAUTION**: up to Python 3.5.x, bindings are **initialized in an arbitrary order**, also in `letrec`. This is a limitation of the kwargs abuse. Hence mutually recursive functions are possible, but simple data values cannot depend on other bindings in the same `letrec`.
 
 Trying to access `e.foo` from `e.bar` arbitrarily produces either the intended value of `e.foo`, or the uninitialized `lambda e: ...`, depending on whether `e.foo` has been initialized or not at the point of time when `e.bar` is being initialized.
 
+This has been fixed in Python 3.6, see [PEP 468](https://www.python.org/dev/peps/pep-0468/).
+
 #### Lispylet
 
-There is also an alternative implementation for all the `let` constructs, with **guaranteed left-to-right initialization** using positional syntax and more parentheses:
+There is also an alternative implementation for all the `let` constructs, with **guaranteed left-to-right initialization** (also in Pythons older than 3.6) using positional syntax and more parentheses.
+
+The `let` constructs from `lispylet` are available in the top-level `unpythonic` namespace, with the ``ordered_`` prefix: ``ordered_let``, ``ordered_letrec``, ``ordered_dlet``, ``ordered_dletrec``, ``ordered_blet``, ``ordered_bletrec``.
+
+It is also possible to override the default `let` constructs by those from `lispylet`:
 
 ```python
 from unpythonic.lispylet import *  # override the default "let" implementation
@@ -214,6 +220,8 @@ print(t(4))  # 24
 
 To denote tail recursion in an anonymous function, use the special jump target `SELF` (all uppercase!). Here it's just `jump` instead of `return jump` since lambda does not use the `return` syntax.
 
+Technically, `SELF` means *keep current jump target*, so the last function that was explicitly named in that trampoline remains as the target of the upcoming jump. When the trampoline starts, the current target is set to the initial entry point (also for lambdas).
+
 *Mutual recursion*:
 
 ```python
@@ -236,12 +244,12 @@ print(odd(4))  # False
 *Looping in FP style*, with TCO:
 
 ```python
-@loop
-def s(acc=0, i=0):
+@looped
+def s(loop, acc=0, i=0):
     if i == 10:
         return acc
     else:
-        return jump(SELF, acc + i, i + 1)
+        return loop(acc + i, i + 1)
 print(s)  # 45
 ```
 
@@ -258,7 +266,15 @@ define s
 displayln s
 ```
 
-Could also do this explicitly:
+In `@looped`, the function name of the loop body is the name of the final output, like in `@immediate`.
+
+The first parameter of the loop body is the magic parameter ``loop``. It is "self-ish", representing a jump back to the loop body itself (starting a new iteration). Just like Python's ``self``, ``loop`` can have any name; it is passed positionally.
+
+Just like ``jump``, here ``loop`` is **a noun, not a verb.** The expression ``loop(...)`` is the same as ``jump(SELF, ...)``.
+
+For any other parameters, their initial values must be set as defaults. The loop is automatically started by `@looped`, by calling the body with the magic ``loop`` as the only parameter.
+
+We may also do this explicitly (e.g. if we want to re-use the loop body as a function):
 
 ```python
 @trampolined
@@ -271,7 +287,9 @@ s = dowork(0, 0)
 print(s)  # 45
 ```
 
-Reinterpreting the same feature as *explicit continuations*:
+This is slightly faster, because in `@looped` setting up ``loop`` at each iteration costs some magic (since it is not a macro).
+
+Finally, reinterpreting the TCO feature as *explicit continuations*:
 
 ```python
 @trampolined
@@ -482,6 +500,10 @@ If we later choose go this route nevertheless, `<<` is a better choice for the s
 Already done elsewhere, see [PyMonad](https://bitbucket.org/jason_delaat/pymonad/) or [OSlash](https://github.com/dbrattli/OSlash) if you need them. Especially the `List` monad can be useful also in Python, e.g. to make an [`amb`](https://rosettacode.org/wiki/Amb) without `call/cc`. Compare [this solution in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/), with `call/cc`.
 
 If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
+
+### Wait, no `cons` and friends?
+
+[If you insist](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/lisplists.py) (but that's a silly teaching example, not optimized for production use).
 
 ## Installation
 

@@ -9,7 +9,7 @@ from unpythonic import assignonce, \
                        dyn,        \
                        let, letrec, dlet, dletrec, blet, bletrec, \
                        immediate, begin, begin0, lazy_begin, lazy_begin0, \
-                       trampolined, jump, loop, SELF
+                       trampolined, jump, looped, SELF
 
 def dynscope_demo():
     assert dyn.a == 2
@@ -172,29 +172,41 @@ def main():
 
     # looping in FP style, with TCO
 
-    @loop
-    def s(acc=0, i=0):
+    @looped
+    def s(loop, acc=0, i=0):
         if i == 10:
             return acc
         else:
-            return jump(SELF, acc + i, i + 1)
+            return loop(acc + i, i + 1)  # same as return jump(SELF, acc+i, i+1)
     assert s == 45
 
+    # or explicitly (faster, no setup of magic parameter "loop" at each iteration)
     @trampolined
     def dowork(acc=0, i=0):
         if i == 10:
             return acc
         else:
             return jump(dowork, acc + i, i + 1)
-    s = dowork()  # must start loop by calling it
+    s = dowork()  # when using just @trampolined, must start the loop manually
     assert s == 45
 
+    # FP looping with side effect
     out = []
-    @loop
-    def _(i=0):
+    @looped
+    def _(loop, i=0):
         if i < 3:
             out.append(i)
-            return jump(SELF, i + 1)
+            return loop(i + 1)
+    assert out == [0, 1, 2]
+
+    # same without using side effects - use an accumulator parameter:
+    @looped
+    def out(loop, i=0, acc=[]):
+        if i < 3:
+            acc.append(i)
+            return loop(i + 1)
+        else:
+            return acc
     assert out == [0, 1, 2]
 
     # this old chestnut:
@@ -205,11 +217,11 @@ def main():
 
     # with FP loop:
     funcs = []
-    @loop
-    def iter(i=0):
+    @looped
+    def iter(loop, i=0):
         if i < 3:
             funcs.append(lambda x: i*x)  # new "i" each time, no mutation!
-            return jump(SELF, i + 1)
+            return loop(i + 1)
     assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
 
