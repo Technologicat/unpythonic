@@ -293,6 +293,12 @@ def main():
     assert [f(10) for f in funcs] == [20, 20, 20]  # not what we wanted!
 
     # with FP loop:
+    @looped_over(range(3), acc=())
+    def funcs(loop, i, acc):
+        return loop(acc + ((lambda x: i*x),))  # new "i" each time, no mutation!
+    assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
+
+    # FP loop, using the more primitive @looped:
     funcs = []
     @looped
     def _(loop, i=0):
