@@ -19,6 +19,7 @@ To override, just import the other one; they define the same names.
 See ``dir(unpythonic)`` and submodule docstrings for more info.
 """
 
+from .arity import *
 from .assignonce import *
 from .dynscope import *
 from .let import *        # no guarantees on evaluation order (before Python 3.6), nice syntax

@@ -6,6 +6,8 @@ This module uses ``inspect`` out of necessity. The idea is to provide something
 like Racket's (arity-includes).
 """
 
+__all__ = ["arities", "arity_includes", "UnknownArity"]
+
 from inspect import signature, Parameter
 
 class UnknownArity(ValueError):
