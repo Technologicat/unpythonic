@@ -465,24 +465,21 @@ def looped_over(iterable, acc=None):  # decorator factory
     # Decorator that plays the role of @immediate, with "iterable" bound by closure.
     def run(body):
         it = iter(iterable)
-        def x():
-            try:
-                return next(it)
-            except StopIteration:
-                return StopIteration  # sentinel
         # The magic parameter that, when called, inserts the implicit parameters
-        # into the positional args of the jump target.
+        # into the positional args of the jump target. Runs between iterations.
         def loop(*args, **kwargs):
             newacc = args[0] if len(args) else acc
-            rest = args[1:] if len(args) >= 2 else ()
-            newx = x()
-            if newx is StopIteration:
+            try:
+                newx = next(it)
+            except StopIteration:
                 return newacc
+            rest = args[1:] if len(args) >= 2 else ()
             return _jump(SELF, (loop, newx, newacc) + rest, kwargs)  # already packed args, inst directly.
-        tb = trampolined(body)
-        x0 = x()
-        if x0 is StopIteration:  # empty iterable
+        try:
+            x0 = next(it)
+        except StopIteration:  # empty iterable
             return acc
+        tb = trampolined(body)
         return tb(loop, x0, acc)
     return run
 
