@@ -599,11 +599,11 @@ def test():
         return False
     assert f() == 15
 
-    # setescape point tag can be single value or tuple (tuples OR'd, like isinstance())
-    @setescape(tag="foo")
+    # setescape point tags can be single value or tuple (tuples OR'd, like isinstance())
+    @setescape(tags="foo")
     def foo():
         @immediate
-        @setescape(tag="bar")
+        @setescape(tags="bar")
         def bar():
             @looped
             def s(loop, acc=0, i=0):

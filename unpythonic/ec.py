@@ -24,7 +24,7 @@ class escape(Exception):
         self.value = value
         self.tag = tag
 
-def setescape(tag=None):
+def setescape(tags=None):
     """Decorator. Mark function as exitable by ``raise escape(value)``.
 
     In Lisp terms, this essentially captures the escape continuation (ec)
@@ -34,10 +34,12 @@ def setescape(tag=None):
     to ``return escape(value)``. The trampoline specifically detects ``escape``
     instances, and performs the ``raise``.
 
-    Technically, this is a decorator factory; the optional tag parameter can be
-    used to catch only those escapes with the same tag. ``tag`` can be a single
-    value, or a tuple. Single value means catch that specific tag; tuple means
-    catch any of those tags. Default is None, i.e. catch all.
+    Technically, this is a decorator factory; the optional ``tags`` parameter
+    can be used to catch only those escapes having one of the given tags.
+
+    ``tags`` can be a single value, or a tuple. Single value means catch only
+    that one tag; tuple means catch any of those tags. Default is None,
+    i.e. catch all instances of ``escape``.
 
     Multi-return using escape continuation::
 
@@ -83,12 +85,11 @@ def setescape(tag=None):
             return False
         assert f() == 15
     """
-    if tag is None:
-        tags = None
-    elif isinstance(tag, (tuple, list)):  # multiple tags
-        tags = set(tag)
-    else: # single tag
-        tags = set((tag,))
+    if tags is not None:
+        if isinstance(tags, (tuple, list)):  # multiple tags
+            tags = set(tags)
+        else: # single tag
+            tags = set((tags,))
 
     def decorator(f):
         @wraps(f)

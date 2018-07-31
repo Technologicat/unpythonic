@@ -560,10 +560,10 @@ To make this work with lambdas, and for uniformity of syntax, **in trampolined f
 For more control, both ``@setescape`` points and ``escape`` instances can be tagged:
 
 ```python
-@setescape(tag="foo")  # setescape point tag can be single value or tuple (tuples OR'd, like isinstance())
+@setescape(tags="foo")  # setescape point tags can be single value or tuple (tuples OR'd, like isinstance())
 def foo():
     @immediate
-    @setescape(tag="bar")
+    @setescape(tags="bar")
     def bar():
         @looped
         def s(loop, acc=0, i=0):
