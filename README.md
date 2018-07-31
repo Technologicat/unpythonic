@@ -411,9 +411,24 @@ def s(loop, x, acc):
 assert s == 45
 ```
 
-The loop body takes three magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element. The third parameter ``acc`` is initialized to the value given to ``@looped_over``, and then updated at each iteration from the first positional parameter sent to ``return loop(...)``, if any positional parameters were sent. If not, ``acc`` is reset to its initial value. The return value of the loop is always the final value of ``acc``.
+The loop body takes three magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element. The third parameter ``acc`` is initialized to the ``acc`` value given to ``@looped_over``, and then (functionally) updated at each iteration, taking as the new value the first positional parameter given to ``return loop(...)``, if any positional parameters were given. If no positional parameters were given, ``acc`` resets to its initial value.
 
-Additional arguments can be sent to ``return loop(...)``. When the body is called, they are appended to the three implicit ones, and can be anything. Their initial values must be set as defaults in the formal parameter list of the body.
+Additional arguments can be given to ``return loop(...)``. When the loop body is called, any additional positional arguments are appended to the implicit ones, and can be anything. Their initial values **must** be set as defaults in the formal parameter list of the body. Additional arguments can also be passed by name.
+
+This silly example has the additional parameters ``fruit`` and ``number``. Here the first one is passed positionally, and the second one by name.
+
+```python
+@looped_over(range(10), acc=0)
+def s(loop, x, acc, fruit="pear", number=23):
+    print(fruit, answer)
+    newfruit = "orange" if fruit == "pear" else "pear"
+    return loop(acc + x, newfruit, number=42)
+assert s == 45
+```
+
+The loop body is called once for each element in the iterable. When the iterable runs out of elements, the last ``acc`` value that was given to ``return loop(...)`` becomes the return value of the loop. If the iterable is empty, the body never runs; then the return value of the loop is the initial value of ``acc``.
+
+To terminate the loop early, just ``return`` your final result normally, like in ``@looped``. (It can be anything, does not need to be ``acc``.)
 
 Multiple input sequences work somewhat like in Python's ``for``, except any tuple unpacking must be performed inside the body:
 
@@ -723,7 +738,7 @@ Too bad [the grammar](https://docs.python.org/3/reference/grammar.html) requires
 
 ## Notes
 
-The main design consideration in this package is to not need `inspect`, keeping these modules simple and robust.
+The main design consideration in this package is to not need `inspect`, keeping these modules simple and robust. The sole exception is the ``arity`` module, which could not work without `inspect`.
 
 Since we **don't** depend on [MacroPy](https://github.com/azazel75/macropy), we provide run-of-the-mill functions and classes, not actual syntactic forms.
 

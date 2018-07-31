@@ -192,6 +192,9 @@ from functools import wraps
 
 from unpythonic.misc import immediate
 
+# evil inspect dependency, used only to provide informative error messages.
+from unpythonic.arity import arity_includes, UnknownArity
+
 # mainly for use with the looping constructs
 class escape(Exception):
     """Exception that essentially represents an escape continuation.
@@ -405,6 +408,11 @@ def looped(body):
         # The client calls loop() normally, so the trampoline doesn't register us;
         # hence the client itself remains as the current target.
         return _jump(SELF, (loop,) + args, kwargs)  # already packed args, inst directly.
+    try:
+        if not arity_includes(body, 1):
+            raise ValueError("Body arity mismatch. (Is loop declared? Do all extra parameters have their defaults set?)")
+    except UnknownArity:  # well, we tried!
+        pass
     tb = trampolined(body)  # enable "return jump(...)"
     return tb(loop)  # like @immediate, run the (now trampolined) body.
 
@@ -476,6 +484,11 @@ def looped_over(iterable, acc=None):  # decorator factory
             rest = args[1:] if len(args) >= 2 else ()
             return _jump(SELF, (loop, newx, newacc) + rest, kwargs)  # already packed args, inst directly.
         try:
+            if not arity_includes(body, 3):
+                raise ValueError("Body arity mismatch. (Are (loop, x, acc) declared? Do all extra parameters have their defaults set?)")
+        except UnknownArity:  # well, we tried!
+            pass
+        try:
             x0 = next(it)
         except StopIteration:  # empty iterable
             return acc
@@ -524,6 +537,52 @@ def test():
         else:
             return loop(acc + i, i + 1)
     assert s == 45
+
+    try:
+        @looped
+        def s():  # invalid definition, no loop parameter
+            pass
+    except ValueError:
+        pass
+    else:
+        assert False
+
+    try:
+        @looped
+        def s(loop, myextra):  # invalid definition, extra parameter not initialized
+            pass
+    except ValueError:
+        pass
+    else:
+        assert False
+
+    try:
+        @looped_over(range(10), acc=())
+        def s():  # invalid definition, no (loop, x, acc)
+            pass
+    except ValueError:
+        pass
+    else:
+        assert False
+
+    try:
+        @looped_over(range(10), acc=())
+        def s(loop, x):  # invalid definition, no acc
+            pass
+    except ValueError:
+        pass
+    else:
+        assert False
+
+    try:
+        @looped_over(range(10), acc=())
+        def s(loop, x, acc, myextra):  # invalid definition, myextra not initialized
+            pass
+    except ValueError:
+        pass
+    else:
+        assert False
+
 
     @trampolined
     def dowork(acc=0, i=0):
