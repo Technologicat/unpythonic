@@ -413,6 +413,8 @@ assert s == 45
 
 The loop body takes three magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element. The third parameter ``acc`` is initialized to the value given to ``@looped_over``, and then updated at each iteration from the first positional parameter sent to ``return loop(...)``, if any positional parameters were sent. If not, ``acc`` is reset to its initial value. The return value of the loop is always the final value of ``acc``.
 
+Additional arguments can be sent to ``return loop(...)``. When the body is called, they are appended to the three implicit ones, and can be anything. Their initial values must be set as defaults in the formal parameter list of the body.
+
 Multiple input sequences work somewhat like in Python's ``for``, except any tuple unpacking must be performed inside the body:
 
 ```python
