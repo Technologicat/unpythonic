@@ -596,7 +596,7 @@ def f():
 assert f() == "hello from g"
 ```
 
-#### First-class escape continuations (call/ec)
+### call/ec, first-class escape continuations
 
 We provide also ``call/ec`` (``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@immediate``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an escape point, and hands over a **first-class escape continuation** to the callee.
 
