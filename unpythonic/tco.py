@@ -186,9 +186,56 @@ than Python's ``for``.
       over fn.py's is the more natural syntax for the client code.
 """
 
-__all__ = ["SELF", "jump", "trampolined", "looped", "looped_over"]
+__all__ = ["SELF", "jump", "trampolined", "looped", "looped_over", "escape", "setescape"]
+
+from functools import wraps
 
 from unpythonic.misc import immediate
+
+# mainly for use with the looping constructs
+class escape(Exception):
+    """Exception that essentially represents an escape continuation.
+
+    Use ``raise escape(value)`` to escape to the nearest (dynamically) surrounding
+    ``@setescape``. The @setescape'd function immediately terminates, returning
+    ``value``.
+
+    Trampolined functions may also use ``return escape(value)``; the trampoline
+    will then raise the exception (this is to make it work also with lambdas).
+    """
+    def __init__(self, value):
+        self.value = value
+
+# mainly for use with the looping constructs
+def setescape(f):
+    """Decorator. Mark function as exitable by ``raise escape(value)``.
+
+    In Lisp terms, this essentially captures the escape continuation (ec)
+    of the decorated function. The ec can then be invoked by raising escape(value).
+
+    To make this work with lambdas, in trampolined functions it is also legal
+    to ``return escape(value)``. The trampoline specifically detects ``escape``
+    instances, and performs the ``raise``.
+
+    Example::
+
+        @setescape
+        def f():
+            @looped
+            def s(loop, acc=0, i=0):
+                if i > 5:
+                    return escape(acc)  # the argument becomes the return value of f()
+                return loop(acc + i, i + 1)
+            print("never reached")
+        assert f() == 15
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except escape as e:
+            return e.value
+    return decorated
 
 @immediate  # immediate a class to make a singleton
 class SELF:  # sentinel
@@ -223,6 +270,7 @@ class jump:
         self.args = args
         self.kwargs = kwargs
 
+# TODO: how to make this @wraps(f)?
 class trampolined:
     """Decorator to make a function trampolined.
 
@@ -247,6 +295,8 @@ class trampolined:
                     f = v.target
                 args = v.args
                 kwargs = v.kwargs
+            elif isinstance(v, escape):  # allow lambdas to use escape
+                raise v
             else:  # final result, exit trampoline
                 return v
 
@@ -480,6 +530,16 @@ def test():
              body=lambda e:
                      e.evenp(10000))
     assert t is True
+
+    @setescape
+    def f():
+        @looped
+        def s(loop, acc=0, i=0):
+            if i > 5:
+                return escape(acc)  # the argument becomes the return value of f()
+            return loop(acc + i, i + 1)
+        print("never reached")
+    assert f() == 15
 
     print("All tests PASSED")
 

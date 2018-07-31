@@ -9,7 +9,7 @@ from unpythonic import assignonce, \
                        dyn,        \
                        let, letrec, dlet, dletrec, blet, bletrec, \
                        immediate, begin, begin0, lazy_begin, lazy_begin0, \
-                       trampolined, jump, looped, looped_over, SELF
+                       trampolined, jump, looped, looped_over, SELF, setescape, escape
 
 def dynscope_demo():
     assert dyn.a == 2
@@ -353,6 +353,17 @@ def main():
         print("s is {:d}".format(s))
         return 2 * s
     assert result == 90
+
+    # how to terminate surrounding function from inside FP loop
+    @setescape  # <-- f() is the function we would like to exit from inside the loop
+    def f():
+        @looped
+        def s(loop, acc=0, i=0):
+            if i > 5:
+                return escape(acc)  # the argument becomes the return value of f()
+            return loop(acc + i, i + 1)
+        print("never reached")
+    assert f() == 15
 
 if __name__ == '__main__':
     main()
