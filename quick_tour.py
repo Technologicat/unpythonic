@@ -31,8 +31,8 @@ b(2)  # --> 84
 
 # let & letrec
 counter = let(x=0,
-              body=lambda e:  # <-- ympäristö
-                     lambda:  # <-- funktion "counter" määritelmä
+              body=lambda e:  # <-- environment
+                     lambda:  # <-- definition of the function "counter"
                        begin(e.set("x", e.x + 1),
                              e.x))
 counter()  # --> 1
