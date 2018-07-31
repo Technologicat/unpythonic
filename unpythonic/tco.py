@@ -408,48 +408,55 @@ def looped(body):
     tb = trampolined(body)  # enable "return jump(...)"
     return tb(loop)  # like @immediate, run the (now trampolined) body.
 
-def looped_over(iterable):  # decorator factory
+def looped_over(iterable, acc=None):  # decorator factory
     """Functionally loop over an iterable.
 
-    Like ``@looped``, but the client now gets two positionally passed magic parameters:
+    Like ``@looped``, but the client now gets three positionally passed magic parameters:
 
         `loop`: function
             Like in ``@looped``.
 
         `x`: anything
-            The current element, or the sentinel value ``StopIteration``
-            when the iterable has run out of elements.
+            The current element.
 
-    The client code must handle the ``StopIteration`` case itself, because only
-    it knows what the final result of the loop is.
+        `acc`: anything
+            The accumulator. Initially, this is set to the ``acc`` value
+            given to ``@looped_over``, and then reset at each iteration
+            to the first positional argument sent to ``return loop(...)``,
+            if any positional arguments were sent. (If not, ``acc``
+            is reset to its initial value.)
+
+    Additional arguments can be sent to ``return loop(...)``. When the body is
+    called, they are appended to the three implicit ones, and can be anything.
+    Their initial values must be set as defaults in the formal parameter list
+    of the body.
+
+    The return value of the loop is always the final value of ``acc``.
 
     Here **loop is a noun, not a verb.** The expression ``loop(...)`` is
     otherwise the same as ``jump(SELF, ...)``, but it also inserts the magic
-    parameters ``loop`` and ``x``, which can only be set up via this mechanism.
+    parameters ``loop``, ``x`` and ``acc``, which can only be set up via
+    this mechanism.
 
     Examples::
 
-        @looped_over(range(10))
-        def s(loop, x, acc=0):
-            if x is StopIteration:
-                return acc
+        @looped_over(range(10), acc=0)
+        def s(loop, x, acc):
             return loop(acc + x)
         assert s == 45
 
         def map(function, iterable):
-            @looped_over(iterable)
-            def out(loop, x, acc=[]):
-                if x is StopIteration:
-                    return acc
+            @looped_over(iterable, acc=[])
+            def out(loop, x, acc):
                 return loop(acc + [function(x)])
             return out
         assert map(lambda x: 2*x, range(3)) == [0, 2, 4]
 
     For lambdas this is a bit unwieldy. Equivalent with the first example above::
 
-        r10 = looped_over(range(10))
-        s = r10(lambda loop, x, acc=0:
-                  acc if x is StopIteration else loop(acc + x))
+        r10 = looped_over(range(10), acc=0)
+        s = r10(lambda loop, x, acc:
+                  loop(acc + x))
         assert s == 45
 
     If you **really** need to make that into an expression, bind ``r10`` using ``let``,
@@ -462,13 +469,21 @@ def looped_over(iterable):  # decorator factory
             try:
                 return next(it)
             except StopIteration:
-                return StopIteration  # sentinel for user to stop and return result
+                return StopIteration  # sentinel
         # The magic parameter that, when called, inserts the implicit parameters
         # into the positional args of the jump target.
         def loop(*args, **kwargs):
-            return _jump(SELF, (loop, x()) + args, kwargs)  # already packed args, inst directly.
+            newacc = args[0] if len(args) else acc
+            rest = args[1:] if len(args) >= 2 else ()
+            newx = x()
+            if newx is StopIteration:
+                return newacc
+            return _jump(SELF, (loop, newx, newacc) + rest, kwargs)  # already packed args, inst directly.
         tb = trampolined(body)
-        return tb(loop, x())
+        x0 = x()
+        if x0 is StopIteration:  # empty iterable
+            return acc
+        return tb(loop, x0, acc)
     return run
 
 def test():
@@ -529,6 +544,26 @@ def test():
             out.append(i)
             return loop(i + 1)
     assert out == [0, 1, 2]
+
+    @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
+    def p(loop, item, acc):
+        numb, lett = item
+        return loop(acc + ("{:d}{:s}".format(numb, lett),))
+    assert p == ('1a', '2b', '3c')
+
+    @looped_over(enumerate(zip((1, 2, 3), ('a', 'b', 'c'))), acc=())
+    def q(loop, item, acc):
+        idx, (numb, lett) = item
+        return loop(acc + ("Item {:d}: {:d}{:s}".format(idx, numb, lett),))
+    assert q == ('Item 0: 1a', 'Item 1: 2b', 'Item 2: 3c')
+
+    @looped_over(range(1, 4), acc=[])
+    def outer_result(outer_loop, y, outer_acc):
+        @looped_over(range(1, 3), acc=[])
+        def inner_result(inner_loop, x, inner_acc):
+            return inner_loop(inner_acc + [y*x])
+        return outer_loop(outer_acc + [inner_result])
+    assert outer_result == [[1, 2], [2, 4], [3, 6]]
 
     # this old chestnut:
     funcs = []
@@ -636,10 +671,8 @@ def test():
     dt_fp2 = time.time() - t0
 
     t0 = time.time()
-    @looped_over(range(n))
-    def _(loop, x):
-        if x is StopIteration:
-            return
+    @looped_over(range(n))  # no need for acc, not interested in it
+    def _(loop, x, acc):    # but body always takes at least these three parameters
         return loop()
     dt_fp3 = time.time() - t0
 

@@ -226,47 +226,39 @@ def main():
     def map_fp(function, iterable):
         it = iter(iterable)
         @looped
-        def out(loop, acc=[]):
+        def out(loop, acc=()):
             try:
                 x = next(it)
-                return loop(acc + [function(x)])
+                return loop(acc + (function(x),))
             except StopIteration:
                 return acc
         return out
-    assert map_fp(lambda x: 2*x, range(5)) == [0, 2, 4, 6, 8]
+    assert map_fp(lambda x: 2*x, range(5)) == (0, 2, 4, 6, 8)
 
     # There's a prepackaged @looped_over to simplify the client code:
     def map_fp2(function, iterable):
-        @looped_over(iterable)
-        def out(loop, x, acc=[]):  # x is the current element, or StopIteration
-            if x is StopIteration:
-                return acc
-            else:
-                return loop(acc + [function(x)])
+        @looped_over(iterable, acc=())
+        def out(loop, x, acc):  # body always takes at least these three parameters, in this order
+            return loop(acc + (function(x),))  # first argument is the new value of acc
         return out
-    assert map_fp2(lambda x: 2*x, range(5)) == [0, 2, 4, 6, 8]
+    assert map_fp2(lambda x: 2*x, range(5)) == (0, 2, 4, 6, 8)
 
-    @looped_over(range(10))
-    def s(loop, x, acc=0):
-        if x is StopIteration:
-            return acc
-        else:
-            return loop(acc + x)
+    @looped_over(range(10), acc=0)
+    def s(loop, x, acc):
+        return loop(acc + x)
     assert s == 45
 
     # similarly
     def filter_fp(predicate, iterable):
         predicate = predicate or (lambda x: x)  # None -> truth value test
-        @looped_over(iterable)
-        def out(loop, x, acc=[]):
-            if x is StopIteration:
-                return acc
-            elif predicate(x):
-                return loop(acc + [x])
+        @looped_over(iterable, acc=())
+        def out(loop, x, acc):
+            if predicate(x):
+                return loop(acc + (x,))
             else:
                 return loop(acc)
         return out
-    assert filter_fp(lambda x: x % 2 == 0, range(10)) == [0, 2, 4, 6, 8]
+    assert filter_fp(lambda x: x % 2 == 0, range(10)) == (0, 2, 4, 6, 8)
 
     # similarly
     def reduce_fp(function, iterable, initial=None):  # foldl
@@ -276,12 +268,9 @@ def main():
                 initial = next(it)
             except StopIteration:
                 return None  # empty iterable
-        @looped_over(it)  # either all elements, or all but first
-        def out(loop, x, acc=initial):
-            if x is StopIteration:
-                return acc
-            else:
-                return loop(function(acc, x))
+        @looped_over(it, acc=initial)  # either all elements, or all but first
+        def out(loop, x, acc):
+            return loop(function(acc, x))
         return out
     add = lambda acc, elt: acc + elt
     assert reduce_fp(add, range(10), 0) == 45
@@ -289,14 +278,10 @@ def main():
     assert reduce_fp(add, []) is None
 
     # nested FP loops over collections
-    @looped_over(range(1, 4))
-    def outer_result(outer_loop, y, outer_acc=[]):
-        if y is StopIteration:
-            return outer_acc
-        @looped_over(range(1, 3))
-        def inner_result(inner_loop, x, inner_acc=[]):
-            if x is StopIteration:
-                return inner_acc
+    @looped_over(range(1, 4), acc=[])
+    def outer_result(outer_loop, y, outer_acc):
+        @looped_over(range(1, 3), acc=[])
+        def inner_result(inner_loop, x, inner_acc):
             return inner_loop(inner_acc + [y*x])
         return outer_loop(outer_acc + [inner_result])
     assert outer_result == [[1, 2], [2, 4], [3, 6]]

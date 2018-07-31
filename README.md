@@ -405,32 +405,25 @@ def _(loop):
 In Python, many loops are *foreach* loops directly over the elements of an iterable, which gives a marked improvement in readability compared to dealing with indices. For that extremely common use case, we provide ``@looped_over``:
 
 ```python
-@looped_over(range(10))
-def s(loop, x, acc=0):
-    if x is StopIteration:
-        return acc
-    else:
-        return loop(acc + x)
+@looped_over(range(10), acc=0)
+def s(loop, x, acc):
+    return loop(acc + x)
 assert s == 45
 ```
 
-The loop body takes two magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element, or the sentinel value ``StopIteration`` when the iterable has run out of elements. The client code must handle the ``StopIteration`` case itself, because only it knows what the final result of the loop is.
+The loop body takes three magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element. The third parameter ``acc`` is initialized to the value given to ``@looped_over``, and then updated at each iteration from the first positional parameter sent to ``return loop(...)``, if any positional parameters were sent. If not, ``acc`` is reset to its initial value. The return value of the loop is always the final value of ``acc``.
 
-Multiple input sequences work somewhat like in Python's ``for``, except any tuple unpacking must wait until the current element has been checked for the sentinel:
+Multiple input sequences work somewhat like in Python's ``for``, except any tuple unpacking must be performed inside the body:
 
 ```python
-@looped_over(zip((1, 2, 3), ('a', 'b', 'c')))
-def p(loop, item, acc=()):
-    if item is StopIteration:
-        return acc
+@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
+def p(loop, item, acc):
     numb, lett = item
     return loop(acc + ("{:d}{:s}".format(numb, lett),))
 assert p == ('1a', '2b', '3c')
 
-@looped_over(enumerate(zip((1, 2, 3), ('a', 'b', 'c'))))
-def q(loop, item, acc=()):
-    if item is StopIteration:
-        return acc
+@looped_over(enumerate(zip((1, 2, 3), ('a', 'b', 'c'))), acc=())
+def q(loop, item, acc):
     idx, (numb, lett) = item
     return loop(acc + ("Item {:d}: {:d}{:s}".format(idx, numb, lett),))
 assert q == ('Item 0: 1a', 'Item 1: 2b', 'Item 2: 3c')
@@ -439,14 +432,10 @@ assert q == ('Item 0: 1a', 'Item 1: 2b', 'Item 2: 3c')
 FP loops can be nested (also those over iterables):
 
 ```python
-@looped_over(range(1, 4))
-def outer_result(outer_loop, y, outer_acc=[]):
-    if y is StopIteration:
-        return outer_acc
-    @looped_over(range(1, 3))
-    def inner_result(inner_loop, x, inner_acc=[]):
-        if x is StopIteration:
-            return inner_acc
+@looped_over(range(1, 4), acc=[])
+def outer_result(outer_loop, y, outer_acc):
+    @looped_over(range(1, 3), acc=[])
+    def inner_result(inner_loop, x, inner_acc):
         return inner_loop(inner_acc + [y*x])
     return outer_loop(outer_acc + [inner_result])
 assert outer_result == [[1, 2], [2, 4], [3, 6]]
@@ -495,9 +484,9 @@ print(s)
 The `looped_over()` decorator also works, if we just keep in mind that parameterized decorators in Python are actually decorator factories:
 
 ```python
-r10 = looped_over(range(10))
-s = r10(lambda loop, x, acc=0:
-          acc if x is StopIteration else loop(acc + x))
+r10 = looped_over(range(10), acc=0)
+s = r10(lambda loop, x, acc:
+          loop(acc + x))
 assert s == 45
 ```
 
