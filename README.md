@@ -572,6 +572,19 @@ Default tag is ``None``. An ``escape`` instance with ``tag=None`` can be caught 
 
 If an ``escape`` instance has a tag that is not ``None``, it can only be caught by ``@setescape`` points whose tags include that tag, and by untagged ``@setescape`` points (which catch everything).
 
+On their own, ecs can be used as a *multi-return*:
+
+```python
+@setescape()
+def f():
+    def g():
+        raise escape("hello from g")  # the argument becomes the return value of f()
+        print("not reached")
+    g()
+    print("not reached either")
+assert f() == "hello from g"
+```
+
 ### Dynamic scoping
 
 A bit like global variables, but slightly better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Similar to [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html).
