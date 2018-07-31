@@ -355,7 +355,7 @@ def main():
     assert result == 90
 
     # how to terminate surrounding function from inside FP loop
-    @setescape  # <-- f() is the function we would like to exit from inside the loop
+    @setescape()  # <-- f() is the function we would like to exit from inside the loop
     def f():
         @looped
         def s(loop, acc=0, i=0):
@@ -364,6 +364,23 @@ def main():
             return loop(acc + i, i + 1)
         print("never reached")
     assert f() == 15
+
+    # tagged escapes to control where it is sent:
+    @setescape(tag="foo")  # tag can be a single value or a tuple (values in a tuple are OR'd)
+    def foo():
+        @immediate
+        @setescape(tag="bar")
+        def bar():
+            @looped
+            def s(loop, acc=0, i=0):
+                if i > 5:
+                    return escape(acc, tag="foo")  # here tag must be a single value.
+                return loop(acc + i, i + 1)
+            print("never reached")
+            return False
+        print("never reached either")
+        return False
+    assert foo() == 15
 
 if __name__ == '__main__':
     main()

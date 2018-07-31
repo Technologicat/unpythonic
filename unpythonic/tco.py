@@ -202,12 +202,17 @@ class escape(Exception):
 
     Trampolined functions may also use ``return escape(value)``; the trampoline
     will then raise the exception (this is to make it work also with lambdas).
+
+    The optional ``tag`` parameter can be used to limit which ``@setescape``
+    points see this particular escape instance. Default is to be catchable
+    by any ``@setescape``.
     """
-    def __init__(self, value):
+    def __init__(self, value, tag=None):
         self.value = value
+        self.tag = tag
 
 # mainly for use with the looping constructs
-def setescape(f):
+def setescape(tag=None):
     """Decorator. Mark function as exitable by ``raise escape(value)``.
 
     In Lisp terms, this essentially captures the escape continuation (ec)
@@ -217,9 +222,14 @@ def setescape(f):
     to ``return escape(value)``. The trampoline specifically detects ``escape``
     instances, and performs the ``raise``.
 
+    Technically, this is a decorator factory; the optional tag parameter can be
+    used to catch only those escapes with the same tag. ``tag`` can be a single
+    value, or a tuple. Single value means catch that specific tag; tuple means
+    catch any of those tags. Default is None, i.e. catch all.
+
     Example::
 
-        @setescape
+        @setescape()  # no tag, catch any escape instance
         def f():
             @looped
             def s(loop, acc=0, i=0):
@@ -228,14 +238,41 @@ def setescape(f):
                 return loop(acc + i, i + 1)
             print("never reached")
         assert f() == 15
+
+    Tagged escape::
+
+        @setescape("foo")
+        def foo():
+            @immediate
+            @setescape("bar")
+            def bar():
+                @looped
+                def s(loop, acc=0, i=0):
+                    if i > 5:
+                        return escape(acc, tag="foo")
+                    return loop(acc + i, i + 1)
+                print("never reached")
+            print("never reached either")
+        assert f() == 15
     """
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        try:
-            return f(*args, **kwargs)
-        except escape as e:
-            return e.value
-    return decorated
+    if tag is None:
+        tags = None
+    elif isinstance(tag, (tuple, list)):  # multiple tags
+        tags = set(tag)
+    else: # single tag
+        tags = set((tag,))
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            try:
+                return f(*args, **kwargs)
+            except escape as e:
+                if tags is None or e.tag is None or e.tag in tags:
+                    return e.value
+                else:  # meant for someone else, pass it on
+                    raise
+        return decorated
+    return decorator
 
 @immediate  # immediate a class to make a singleton
 class SELF:  # sentinel
@@ -531,7 +568,7 @@ def test():
                      e.evenp(10000))
     assert t is True
 
-    @setescape
+    @setescape()
     def f():
         @looped
         def s(loop, acc=0, i=0):
@@ -540,6 +577,22 @@ def test():
             return loop(acc + i, i + 1)
         print("never reached")
     assert f() == 15
+
+    @setescape(tag="foo")  # tag can be a single value or a tuple (values in a tuple are OR'd)
+    def foo():
+        @immediate
+        @setescape(tag="bar")
+        def bar():
+            @looped
+            def s(loop, acc=0, i=0):
+                if i > 5:
+                    return escape(acc, tag="foo")  # here tag must be a single value.
+                return loop(acc + i, i + 1)
+            print("never reached")
+            return False
+        print("never reached either")
+        return False
+    assert foo() == 15
 
     print("All tests PASSED")
 
