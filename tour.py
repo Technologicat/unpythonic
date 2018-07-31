@@ -9,7 +9,8 @@ from unpythonic import assignonce, \
                        dyn,        \
                        let, letrec, dlet, dletrec, blet, bletrec, \
                        immediate, begin, begin0, lazy_begin, lazy_begin0, \
-                       trampolined, jump, looped, looped_over, SELF, setescape, escape
+                       trampolined, jump, looped, looped_over, SELF, \
+                       setescape, escape
 
 def dynscope_demo():
     assert dyn.a == 2

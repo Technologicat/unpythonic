@@ -22,6 +22,7 @@ See ``dir(unpythonic)`` and submodule docstrings for more info.
 from .arity import *
 from .assignonce import *
 from .dynscope import *
+from .ec import *
 from .let import *        # no guarantees on evaluation order (before Python 3.6), nice syntax
 
 # guaranteed evaluation order, clunky syntax
