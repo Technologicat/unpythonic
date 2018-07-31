@@ -1,9 +1,12 @@
 # Unpythonic: Lispy convenience features for Python
 
+Take the [quick tour](quick_tour.py) or the [full tour](tour.py). For additional examples, see the `test()` function in each submodule, and the docstrings of the individual features.
+
+User manual follows.
+
 ```python
 from unpythonic import *
 ```
-
 
 ### Assign-once
 
@@ -741,8 +744,6 @@ Too bad [the grammar](https://docs.python.org/3/reference/grammar.html) requires
 The main design consideration in this package is to not need `inspect`, keeping these modules simple and robust. The sole exception is the ``arity`` module, which could not work without `inspect`.
 
 Since we **don't** depend on [MacroPy](https://github.com/azazel75/macropy), we provide run-of-the-mill functions and classes, not actual syntactic forms.
-
-For more examples, see [``tour.py``](tour.py), the `test()` function in each submodule, and the docstrings of the individual features.
 
 ### On ``let`` and Python
 
