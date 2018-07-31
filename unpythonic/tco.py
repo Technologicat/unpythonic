@@ -261,6 +261,7 @@ def setescape(tag=None):
         tags = set(tag)
     else: # single tag
         tags = set((tag,))
+
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
@@ -275,7 +276,7 @@ def setescape(tag=None):
     return decorator
 
 @immediate  # immediate a class to make a singleton
-class SELF:  # sentinel
+class SELF:  # sentinel, could be any object but we want a nice __repr__.
     def __repr__(self):
         return "SELF"
 
@@ -303,28 +304,23 @@ class jump:
                 Named arguments to be passed to  `target`.
         """
         # IMPORTANT: don't let target bring along its trampoline if it has one
-        self.target = target.f if isinstance(target, trampolined) else target
+        self.target = target._entrypoint if hasattr(target, "_entrypoint") else target
         self.args = args
         self.kwargs = kwargs
 
-# TODO: how to make this @wraps(f)?
-class trampolined:
+# We want @wraps to preserve docstrings, so the decorator must be a function, not a class.
+# https://stackoverflow.com/questions/6394511/python-functools-wraps-equivalent-for-classes
+# https://stackoverflow.com/questions/25973376/functools-update-wrapper-doesnt-work-properly#25973438
+def trampolined(function):
     """Decorator to make a function trampolined.
 
     Trampolined functions can use ``return jump(f, a, ..., kw=v, ...)``
     to perform optimized tail calls. (*Optimized* in the sense of not
     increasing the call stack depth, not for speed.)
     """
-    def __init__(self, f):
-        """Constructor.
-
-        Parameters:
-            f: function
-              The function to decorate.
-        """
-        self.f = f
-    def __call__(self, *args, **kwargs):
-        f = self.f
+    @wraps(function)
+    def decorated(*args, **kwargs):
+        f = function
         while True:  # trampoline
             v = f(*args, **kwargs)
             if isinstance(v, jump):
@@ -336,6 +332,9 @@ class trampolined:
                 raise v
             else:  # final result, exit trampoline
                 return v
+    # fortunately functions in Python are just objects; stash for jump constructor
+    decorated._entrypoint = function
+    return decorated
 
 def looped(body):
     """Decorator to make a functional loop and run it immediately.
