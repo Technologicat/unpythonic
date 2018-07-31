@@ -382,7 +382,7 @@ print(s)  # 45
 
 This is slightly faster, because in `@looped` setting up ``loop`` costs some magic at each iteration (no macros in this package!). But if you do it manually like this, remember to start the loop after the definition is done!
 
-Keep in mind that this pure-Python FP looping mechanism is 50-60× slower than Python's builtin imperative ``for``, anyway, so in places where using these constructs makes sense, readability may be more important than speed.
+Keep in mind that this pure-Python FP looping mechanism is 40-80× slower than Python's builtin imperative ``for``, anyway, so in places where using these constructs makes sense, readability may be more important than speed.
 
 Also be aware that `@looped` is specifically neither a ``for`` loop nor a ``while`` loop. Instead, it is a general mechanism that can express both kinds of loops - i.e. it embodies the raw primitive essence of looping.
 

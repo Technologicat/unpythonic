@@ -354,19 +354,30 @@ def main():
         return 2 * s
     assert result == 90
 
+    # "multi-return" using escape continuation
+    @setescape()
+    def f():
+        def g():
+            raise escape("hello from g")  # the argument becomes the return value of f()
+            print("not reached")
+        g()
+        print("not reached either")
+    assert f() == "hello from g"
+
     # how to terminate surrounding function from inside FP loop
-    @setescape()  # <-- f() is the function we would like to exit from inside the loop
+    @setescape()
     def f():
         @looped
         def s(loop, acc=0, i=0):
             if i > 5:
-                return escape(acc)  # the argument becomes the return value of f()
+                return escape(acc)  # trampolined functions may also "return escape(...)"
             return loop(acc + i, i + 1)
         print("never reached")
     assert f() == 15
 
-    # tagged escapes to control where it is sent:
-    @setescape(tag="foo")  # tag can be a single value or a tuple (values in a tuple are OR'd)
+    # tagged escapes to control where the escape is sent:
+    # setescape point tag can be single value or tuple (tuples OR'd, like isinstance())
+    @setescape(tag="foo")
     def foo():
         @immediate
         @setescape(tag="bar")
@@ -374,7 +385,7 @@ def main():
             @looped
             def s(loop, acc=0, i=0):
                 if i > 5:
-                    return escape(acc, tag="foo")  # here tag must be a single value.
+                    return escape(acc, tag="foo")  # escape instance tag must be a single value
                 return loop(acc + i, i + 1)
             print("never reached")
             return False

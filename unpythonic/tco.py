@@ -567,17 +567,29 @@ def test():
                      e.evenp(10000))
     assert t is True
 
+    # "multi-return" using escape continuation
+    @setescape()
+    def f():
+        def g():
+            raise escape("hello from g")  # the argument becomes the return value of f()
+            print("not reached")
+        g()
+        print("not reached either")
+    assert f() == "hello from g"
+
+    # escape surrounding function from inside FP loop
     @setescape()
     def f():
         @looped
         def s(loop, acc=0, i=0):
             if i > 5:
-                return escape(acc)  # the argument becomes the return value of f()
+                return escape(acc)  # trampolined functions may also "return escape(...)"
             return loop(acc + i, i + 1)
         print("never reached")
     assert f() == 15
 
-    @setescape(tag="foo")  # tag can be a single value or a tuple (values in a tuple are OR'd)
+    # setescape point tag can be single value or tuple (tuples OR'd, like isinstance())
+    @setescape(tag="foo")
     def foo():
         @immediate
         @setescape(tag="bar")
@@ -585,7 +597,7 @@ def test():
             @looped
             def s(loop, acc=0, i=0):
                 if i > 5:
-                    return escape(acc, tag="foo")  # here tag must be a single value.
+                    return escape(acc, tag="foo")  # escape instance tag must be a single value
                 return loop(acc + i, i + 1)
             print("never reached")
             return False
@@ -595,16 +607,14 @@ def test():
 
     print("All tests PASSED")
 
-    # performance?
+    # loop performance?
     n = 100000
     import time
 
     t0 = time.time()
-    @looped
-    def _(loop, i=0):
-        if i < n:
-            return loop(i + 1)
-    dt_fp1 = time.time() - t0
+    for i in range(n):
+        pass
+    dt_ip = time.time() - t0
 
     t0 = time.time()
     @trampolined
@@ -612,19 +622,31 @@ def test():
         if i < n:
             return jump(dowork, i + 1)
     dowork()
+    dt_fp1 = time.time() - t0
+
+    t0 = time.time()
+    @looped
+    def _(loop, i=0):
+        if i < n:
+            return loop(i + 1)
     dt_fp2 = time.time() - t0
 
     t0 = time.time()
-    for i in range(n):
-        pass
-    dt_ip = time.time() - t0
+    @looped_over(range(n))
+    def _(loop, x):
+        if x is StopIteration:
+            return
+        return loop()
+    dt_fp3 = time.time() - t0
 
     print("do-nothing loop, {:d} iterations:".format(n))
-    print("  @looped {:g}s ({:g}s/iter)".format(dt_fp1, dt_fp1/n))
-    print("  @trampolined {:g}s ({:g}s/iter)".format(dt_fp2, dt_fp2/n))
-    print("  for {:g}s ({:g}s/iter)".format(dt_ip, dt_ip/n))
-    print("@looped slowdown {:g}x".format(dt_fp1/dt_ip))
-    print("@trampolined slowdown {:g}x".format(dt_fp2/dt_ip))
+    print("  builtin for {:g}s ({:g}s/iter)".format(dt_ip, dt_ip/n))
+    print("  @trampolined {:g}s ({:g}s/iter)".format(dt_fp1, dt_fp1/n))
+    print("  @looped {:g}s ({:g}s/iter)".format(dt_fp2, dt_fp2/n))
+    print("  @looped_over {:g}s ({:g}s/iter)".format(dt_fp3, dt_fp3/n))
+    print("@trampolined slowdown {:g}x".format(dt_fp1/dt_ip))
+    print("@looped slowdown {:g}x".format(dt_fp2/dt_ip))
+    print("@looped_over slowdown {:g}x".format(dt_fp3/dt_ip))
 
 if __name__ == '__main__':
     test()
