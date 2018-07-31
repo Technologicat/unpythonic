@@ -280,29 +280,35 @@ class SELF:  # sentinel, could be any object but we want a nice __repr__.
     def __repr__(self):
         return "SELF"
 
-class jump:
+def jump(target, *args, **kwargs):
     """A jump (noun, not verb).
 
-    Support class, used in the syntax `return jump(f, ...)` to request the
-    trampoline to perform a tail call.
+    Used in the syntax `return jump(f, ...)` to request the trampoline to
+    perform a tail call.
 
     Instances of `jump` are not callable, and do nothing on their own.
     This is just passive data.
-    """
-    def __init__(self, target, *args, **kwargs):
-        """Constructor.
 
-        Parameters:
-            target:
-                The function to be called. The special value SELF means
-                tail-recursion; useful with a ``lambda``. When the target
-                has a name, it is legal to explicitly give the name also
-                for tail-recursion.
-            *args:
-                Positional arguments to be passed to `target`.
-            **kwargs:
-                Named arguments to be passed to  `target`.
-        """
+    Parameters:
+        target:
+            The function to be called. The special value SELF means
+            tail-recursion; useful with a ``lambda``. When the target
+            has a name, it is legal to explicitly give the name also
+            for tail-recursion.
+        *args:
+            Positional arguments to be passed to `target`.
+        **kwargs:
+            Named arguments to be passed to  `target`.
+    """
+    return _jump(target, args, kwargs)
+
+class _jump:
+    """The actual class representing a jump.
+
+    If you have already packed args and kwargs, you can instantiate this
+    directly; the public API just performs the packing.
+    """
+    def __init__(self, target, args, kwargs):
         # IMPORTANT: don't let target bring along its trampoline if it has one
         self.target = target._entrypoint if hasattr(target, "_entrypoint") else target
         self.args = args
@@ -323,7 +329,7 @@ def trampolined(function):
         f = function
         while True:  # trampoline
             v = f(*args, **kwargs)
-            if isinstance(v, jump):
+            if isinstance(v, _jump):
                 if v.target is not SELF:  # if SELF, then keep current target
                     f = v.target
                 args = v.args
@@ -395,11 +401,10 @@ def looped(body):
     # The magic parameter that, when called, inserts itself into the
     # positional args of the jump target.
     def loop(*args, **kwargs):
-        patched_args = (loop,) + args
         # This jump works because SELF actually means "keep current target".
         # The client calls loop() normally, so the trampoline doesn't register us;
         # hence the client itself remains as the current target.
-        return jump(SELF, *patched_args, **kwargs)
+        return _jump(SELF, (loop,) + args, kwargs)  # already packed args, inst directly.
     tb = trampolined(body)  # enable "return jump(...)"
     return tb(loop)  # like @immediate, run the (now trampolined) body.
 
@@ -461,8 +466,7 @@ def looped_over(iterable):  # decorator factory
         # The magic parameter that, when called, inserts the implicit parameters
         # into the positional args of the jump target.
         def loop(*args, **kwargs):
-            patched_args = (loop, x()) + args
-            return jump(SELF, *patched_args, **kwargs)
+            return _jump(SELF, (loop, x()) + args, kwargs)  # already packed args, inst directly.
         tb = trampolined(body)
         return tb(loop, x())
     return run
