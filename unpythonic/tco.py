@@ -410,7 +410,7 @@ def looped(body):
         return _jump(SELF, (loop,) + args, kwargs)  # already packed args, inst directly.
     try:
         if not arity_includes(body, 1):
-            raise ValueError("Body arity mismatch. (Is loop declared? Do all extra parameters have their defaults set?)")
+            raise ValueError("Body arity mismatch. (Is 'loop' parameter declared? Do all extra parameters have their defaults set?)")
     except UnknownArity:  # well, we tried!
         pass
     tb = trampolined(body)  # enable "return jump(...)"
