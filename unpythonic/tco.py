@@ -55,7 +55,7 @@ profile first.
      will be missing from the call stack.
 
      This implementation retains the original entry point - due to entering
-     ``trampolined.__call__`` - and the final one where the uncaught exception
+     the decorator ``trampolined`` - and the final one where the uncaught exception
      actually occurred. Anything in between will have been zapped by TCO.
 
 **Notes**:
@@ -78,8 +78,8 @@ Beside TCO, trampolining can also be thought of as *explicit continuations*.
 Each trampolined function tells the trampoline where to go next, and with what
 parameters. All hail lambda, the ultimate GO TO!
 
-Based on a quick test, running a do-nothing loop with this is about 50x slower
-than Python's ``for``.
+Based on a quick test, running a do-nothing loop with this is about 40-80x
+slower than Python's ``for``.
 
 **Examples**::
 
@@ -140,6 +140,12 @@ than Python's ``for``.
             return loop(i + 1)
     assert out == [0, 1, 2]
 
+    # FP loop over iterable
+    @looped_over(range(10), acc=0)
+    def s(loop, x, acc):
+        return loop(acc + x)
+    assert s == 45
+
     # this old chestnut:
     funcs = []
     for i in range(3):
@@ -147,6 +153,12 @@ than Python's ``for``.
     assert [f(10) for f in funcs] == [20, 20, 20]  # not what we wanted!
 
     # with FP loop:
+    @looped_over(range(3), acc=())
+    def funcs(loop, i, acc):
+        return loop(acc + ((lambda x: i*x),))  # new "i" each time, no mutation!
+    assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
+
+    # with FP loop, using the more primitive @looped:
     funcs = []
     @looped
     def iter(loop, i=0):
@@ -182,8 +194,9 @@ than Python's ``for``.
 
   - https://github.com/fnpy/fn.py/blob/master/fn/recur.py
 
-    - Very clean and simple, same core idea as here. Our main improvement
-      over fn.py's is the more natural syntax for the client code.
+    - Very clean and simple, same core idea as here. Our main improvements
+      over fn.py's are the more natural syntax for the client code, and the
+      addition of the looping constructs.
 """
 
 __all__ = ["SELF", "jump", "trampolined", "looped", "looped_over"]
