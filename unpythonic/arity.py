@@ -35,12 +35,11 @@ def arities(f):
             If inspection failed.
     """
     try:
-        sig = signature(f)
         l = 0
         u = 0
         poskinds = set((Parameter.POSITIONAL_ONLY,
                         Parameter.POSITIONAL_OR_KEYWORD))
-        for k, v in sig.parameters.items():
+        for k, v in signature(f).parameters.items():
             if v.kind in poskinds:
                 u += 1
                 if v.default is Parameter.empty:
