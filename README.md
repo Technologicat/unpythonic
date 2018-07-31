@@ -553,7 +553,9 @@ def f():
 f()  # --> 15
 ```
 
-In Lisp terms, `@setescape` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `raise escape(value)`. The escaped function immediately terminates, returning ``value``.
+**CAUTION**: Because the implementation is based on exceptions, catch-all ``except:`` statements will intercept also ``escape`` instances, breaking the escape mechanism. As you already know, be specific in what you catch!
+
+In Lisp terms, `@setescape` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `raise escape(value)`. The escaped function immediately terminates, returning ``value``. In Python terms, an escape means just raising a specific type of exception; the usual rules concerning ``try``/``except``/``else``/``finally`` and ``with`` blocks apply.
 
 To make this work with lambdas, and for uniformity of syntax, **in trampolined functions** (such as FP loops) it is also legal to ``return escape(value)``. The trampoline specifically detects `escape` instances, and performs the ``raise``.
 
@@ -592,6 +594,67 @@ def f():
     g()
     print("not reached either")
 assert f() == "hello from g"
+```
+
+#### First-class escape continuations (call/ec)
+
+We provide also ``call/ec`` (``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@immediate``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an escape point, and hands over a **first-class escape continuation** to the callee.
+
+The function to be decorated **must** take one positional argument, the ec instance.
+
+The ec itself is another function, which takes one positional argument: the value to send to the escape point. Both the ec instance and the escape point are tagged with a temporary process-wide unique id that connects them. (Untagged ``@setescape`` points may still catch this escape; this may be subject to change in a later version.)
+
+A particular ec instance is only valid inside the dynamic extent of the ``call_ec`` invocation that created it. Attempting to call it later raises ``RuntimeError``.
+
+The above caution about catch-all ``except:`` statements applies here, too.
+
+```python
+@call_ec
+def result(ec):  # effectively, just a code block, capturing the ec as an argument
+    answer = 42
+    ec(answer)  # here this has the same effect as "return answer"...
+    print("never reached")
+    answer = 23
+    return answer
+assert result == 42
+
+@call_ec
+def result(ec):
+    answer = 42
+    def inner():
+        ec(answer)  # ...but here this directly escapes from the outer def
+        print("never reached")
+        return 23
+    answer = inner()
+    print("never reached either")
+    return answer
+assert result == 42
+```
+
+This also works with lambdas, by using ``call_ec()`` directly:
+
+```python
+result = call_ec(lambda ec:
+                   begin(print("hi from lambda"),
+                         ec(42),
+                         print("never reached")))
+assert result == 42
+```
+
+Normally ``begin()`` would return the last value, but the ec overrides that; it is effectively a ``return`` for multi-expression lambdas!
+
+And named functions, why not those too:
+
+```python
+def f(ec):
+    print("hi from f")
+    ec(42)
+    print("never reached")
+
+# ...possibly somewhere else, possibly much later...
+
+result = call_ec(f)
+assert result == 42
 ```
 
 ### Dynamic scoping

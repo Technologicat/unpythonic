@@ -84,6 +84,26 @@ def f():
     return False
 assert f() == "hello from g"
 
+# lispy call/ec (call-with-escape-continuation)
+@call_ec
+def result(ec):
+    answer = 42
+    def inner():
+        ec(answer)  # this directly escapes from the outer def
+        print("never reached")
+        return 23
+    answer = inner()
+    print("never reached either")
+    return answer
+assert result == 42
+
+# begin() returns the last value. What if we don't want that?
+result = call_ec(lambda ec:
+                   begin(print("hi from lambda"),
+                         ec(42),  # now we can effectively "return ..." at any point from a lambda!
+                         print("never reached")))
+assert result == 42
+
 # dynamic scoping
 def f1():  # no "a" in lexical scope here
     assert dyn.a == 2
