@@ -1,4 +1,4 @@
-# Unpythonic: Lispy convenience features for Python
+# Unpythonic: Lispy features for Python
 
 Take the [quick tour](quick_tour.py) or the [full tour](tour.py). For additional examples, see the `test()` function in each submodule, and the docstrings of the individual features.
 
