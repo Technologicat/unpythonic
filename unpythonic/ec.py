@@ -113,13 +113,28 @@ def call_ec(f):
             the first-class escape continuation (ec).
 
             The ec, in turn, takes one positional argument; the value
-            to send to the escape point (i.e. the return value of ``f``).
+            to send to the escape point. It becomes the return value
+            of the ``call_ec``.
 
             Both the ec and the escape point are tagged with a temporary
             process-wide unique id.
 
     Like in ``@immediate``, the function ``f`` is called immediately,
     and the def'd name is replaced by the return value of ``f(ec).``
+
+    Example::
+
+        @call_ec
+        def result(ec):
+            answer = 42
+            def inner():
+                ec(answer)  # directly escapes from the outer def
+                print("never reached")
+                return 23
+            answer = inner()
+            print("never reached either")
+            return answer
+        assert result == 42
 
     This can also be used directly, to provide a "return" for multi-expression
     lambdas::
@@ -130,6 +145,8 @@ def call_ec(f):
                                  ec(42),
                                  print("never reached")))
         assert result == 42
+
+    Similar usage is valid for named functions, too.
     """
     # We need a process-wide unique id to tag the ec:
     anchor = object()
