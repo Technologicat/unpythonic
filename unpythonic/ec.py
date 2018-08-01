@@ -16,15 +16,25 @@ class escape(Exception):
     Trampolined functions may also use ``return escape(value)``; the trampoline
     will then raise the exception (this is to make it work also with lambdas).
 
-    The optional ``tag`` parameter can be used to limit which ``@setescape``
-    points see this particular escape instance. Default is to be catchable
-    by any ``@setescape``.
+    Constructor parameters:
+
+        value: anything
+            The value to send to the escape point.
+
+        tag: anything comparable with ``==``
+            Can be used to restrict which ``@setescape`` points may catch
+            this escape instance.
+
+        allow_catchall: bool
+            Whether untagged "catch-all" ``@setescape`` points may catch
+            this escape instance (regardless of whether or not we have a tag!).
     """
-    def __init__(self, value, tag=None):
+    def __init__(self, value, tag=None, allow_catchall=True):
         self.value = value
         self.tag = tag
+        self.allow_catchall = allow_catchall
 
-def setescape(tags=None):
+def setescape(tags=None, catch_untagged=True):
     """Decorator. Mark function as exitable by ``raise escape(value)``.
 
     In Lisp terms, this essentially captures the escape continuation (ec)
@@ -34,12 +44,36 @@ def setescape(tags=None):
     to ``return escape(value)``. The trampoline specifically detects ``escape``
     instances, and performs the ``raise``.
 
-    Technically, this is a decorator factory; the optional ``tags`` parameter
-    can be used to catch only those escapes having one of the given tags.
+    Technically, this is a decorator factory, since we take parameters.
 
-    ``tags`` can be a single value, or a tuple. Single value means catch only
-    that one tag; tuple means catch any of those tags. Default is None,
-    i.e. catch all instances of ``escape``.
+    Parameters:
+        tags: ``t``, or tuple of ``t``
+          where ``t`` is anything comparable with ``==``
+            A tuple is OR'd, like in ``isinstance()``.
+
+            Restrict which escapes will be caught by this ``@setescape`` point.
+            If set, ignore any escapes **that have a tag**, which does not match
+            any of the given tags.
+
+        catch_untagged: bool
+            Choose whether this ``@setescape`` point catches untagged escapes.
+
+    The exact catch condition is::
+
+        # e is an escape instance
+        if (tags is None and e.allow_catchall) or
+           (e.tag is None and catch_untagged) or
+           (tags is not None and e.tag is not None and e.tag in tags):
+            # caught
+
+    The same in English:
+
+    - If we are an untagged "catch-all" point, catch any ``e`` that allows
+      catchall. Don't care about whether or not it has a tag.
+
+    - If ``e`` is untagged, catch if we should catch untagged escapes.
+
+    - Both us and ``e`` have tags. Catch if the tag of ``e`` matches one of ours.
 
     Multi-return using escape continuation::
 
@@ -97,7 +131,9 @@ def setescape(tags=None):
             try:
                 return f(*args, **kwargs)
             except escape as e:
-                if tags is None or e.tag is None or e.tag in tags:
+                if (tags is None and e.allow_catchall) or \
+                   (e.tag is None and catch_untagged) or \
+                   (tags is not None and e.tag is not None and e.tag in tags):
                     return e.value
                 else:  # meant for someone else, pass it on
                     raise
@@ -116,8 +152,11 @@ def call_ec(f):
             to send to the escape point. It becomes the return value
             of the ``call_ec``.
 
-            Both the ec and the escape point are tagged with a temporary
-            process-wide unique id.
+            The ec instance and the escape point are connected one-to-one.
+            Both are tagged with a process-wide unique id. The ec is set to
+            disallow catch-all (so that it will always reach its intended
+            destination), and the point is set to ignore any untagged escapes
+            (so that it catches only this particular ec).
 
     Like in ``@immediate``, the function ``f`` is called immediately,
     and the def'd name is replaced by the return value of ``f(ec).``
@@ -163,9 +202,12 @@ def call_ec(f):
     def ec(value):
         if not ec_valid:
             raise RuntimeError("Cannot escape after the dynamic extent of the call_ec invocation.")
-        raise escape(value, uid)
+        # Be catchable only by our own escape point.
+        raise escape(value, uid, allow_catchall=False)
     try:
-        @setescape(uid)  # Set up a tagged escape point here and call f.
+        # Set up a tagged escape point here and call f.
+        # Catch only the one specific ec we just set up.
+        @setescape(uid, catch_untagged=False)
         def wrapper():
             return f(ec)
         return wrapper()

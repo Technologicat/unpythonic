@@ -604,9 +604,9 @@ We provide ``call/ec`` (``call-with-escape-continuation``), in Python spelled as
 
 The function to be decorated **must** take one positional argument, the ec instance.
 
-The ec instance itself is another function, which takes one positional argument: the value to send to the escape point. Both the ec instance and the escape point are tagged with a temporary process-wide unique id that connects them. (Untagged ``@setescape`` points may still catch this escape; this may be subject to change in a later version.)
+The ec instance itself is another function, which takes one positional argument: the value to send to the escape point. The ec instance and the escape point are connected one-to-one. No other ``@setescape`` point will catch the ec instance, and the escape point catches only this particular ec instance and nothing else.
 
-A particular ec instance is only valid inside the dynamic extent of the ``call_ec`` invocation that created it. Attempting to call it later raises ``RuntimeError``.
+Any particular ec instance is only valid inside the dynamic extent of the ``call_ec`` invocation that created it. Attempting to call the ec later raises ``RuntimeError``.
 
 This builds on ``@setescape`` and ``escape``, so the caution about catch-all ``except:`` statements applies here, too.
 
