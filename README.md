@@ -539,7 +539,28 @@ Because ``return`` in FP loops is reserved for this, barring the use of exceptio
 
 ### Escape continuations (ec)
 
-To remedy the above issue, we provide a form of escape continuations with `@setescape` and `escape`:
+To remedy the above issue, we provide a form of escape continuations with `@setescape` and `escape`.
+
+On their own, ecs can be used as a *multi-return*:
+
+```python
+@setescape()
+def f():
+    def g():
+        raise escape("hello from g")  # the argument becomes the return value of f()
+        print("not reached")
+    g()
+    print("not reached either")
+assert f() == "hello from g"
+```
+
+**CAUTION**: The implementation is based on exceptions, so catch-all ``except:`` statements will intercept also ``escape`` instances, breaking the escape mechanism. As you already know, be specific in what you catch!
+
+In Lisp terms, `@setescape` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `raise escape(value)`. The escaped function immediately terminates, returning ``value``.
+
+In Python terms, an escape means just raising a specific type of exception; the usual rules concerning ``try/except/else/finally`` and ``with`` blocks apply.
+
+To make this work with lambdas, and for uniformity of syntax, **in trampolined functions** (such as FP loops) it is also legal to ``return escape(value)``. The trampoline specifically detects `escape` instances, and performs the ``raise``.
 
 ```python
 @setescape()  # note the parentheses
@@ -552,14 +573,6 @@ def f():
     print("never reached")
 f()  # --> 15
 ```
-
-**CAUTION**: The implementation is based on exceptions, so catch-all ``except:`` statements will intercept also ``escape`` instances, breaking the escape mechanism. As you already know, be specific in what you catch!
-
-In Lisp terms, `@setescape` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `raise escape(value)`. The escaped function immediately terminates, returning ``value``.
-
-In Python terms, an escape means just raising a specific type of exception; the usual rules concerning ``try/except/else/finally`` and ``with`` blocks apply.
-
-To make this work with lambdas, and for uniformity of syntax, **in trampolined functions** (such as FP loops) it is also legal to ``return escape(value)``. The trampoline specifically detects `escape` instances, and performs the ``raise``.
 
 For more control, both ``@setescape`` points and ``escape`` instances can be tagged:
 
@@ -584,19 +597,6 @@ assert foo() == 15
 Default tag is ``None``. An ``escape`` instance with ``tag=None`` can be caught by any ``@setescape`` point.
 
 If an ``escape`` instance has a tag that is not ``None``, it can only be caught by ``@setescape`` points whose tags include that tag, and by untagged ``@setescape`` points (which catch everything).
-
-On their own, ecs can be used as a *multi-return*:
-
-```python
-@setescape()
-def f():
-    def g():
-        raise escape("hello from g")  # the argument becomes the return value of f()
-        print("not reached")
-    g()
-    print("not reached either")
-assert f() == "hello from g"
-```
 
 ### First-class escape continuations: ``call/ec``
 
