@@ -23,11 +23,15 @@ class escape(Exception):
 
         tag: anything comparable with ``==``
             Can be used to restrict which ``@setescape`` points may catch
-            this escape instance.
+            this escape instance. Default ``None``, meaning "no tag".
 
         allow_catchall: bool
             Whether untagged "catch-all" ``@setescape`` points may catch
-            this escape instance (regardless of whether or not we have a tag!).
+            this escape instance (regardless of tag!).
+
+            Even if ``False``, if ``tag`` is ``None``, a ``@setescape``
+            point may still override this with ``catch_untagged=True``.
+            (See the table in ``help(setescape)``, case ``b0``.)
     """
     def __init__(self, value, tag=None, allow_catchall=True):
         self.value = value
@@ -52,28 +56,51 @@ def setescape(tags=None, catch_untagged=True):
             A tuple is OR'd, like in ``isinstance()``.
 
             Restrict which escapes will be caught by this ``@setescape`` point.
-            If set, ignore any escapes **that have a tag**, which does not match
-            any of the given tags.
 
         catch_untagged: bool
-            Choose whether this ``@setescape`` point catches untagged escapes.
+            Whether this ``@setescape`` point catches untagged escapes.
+
+            Even if ``False``, if ``tags`` is ``None``, an escape instance
+            may still override this with ``allow_catchall=True``. (See the
+            table below, case ``a1``.)
 
     The exact catch condition is::
 
         # e is an escape instance
         if (tags is None and e.allow_catchall) or
-           (e.tag is None and catch_untagged) or
+           (catch_untagged and e.tag is None) or
            (tags is not None and e.tag is not None and e.tag in tags):
             # caught
 
-    The same in English:
+    resulting in the following table. Here a ``@setescape`` point with no tags
+    is a "catch-all"::
 
-    - If we are an untagged "catch-all" point, catch any ``e`` that allows
-      catchall. Don't care about whether or not it has a tag.
+        escape instance                     @setescape point
+        0: no tag, ignore catch-alls        a: no tags
+        1: no tag, allow catch-alls         b: no tags, catch untagged
+        2: w/ tag, ignore catch-alls        c: w/ tags
+        3: w/ tag, allow catch-alls         d: w/ tags, catch untagged
 
-    - If ``e`` is untagged, catch if we should catch untagged escapes.
+          0 1 2 3
+        a   x   x
+        b x x   x
+        c     t t
+        d x x t t
 
-    - Both us and ``e`` have tags. Catch if the tag of ``e`` matches one of ours.
+          = do not catch, pass on
+        t = check tags, catch on match
+        x = catch
+
+    **How to use the table**:
+
+      - If setting a ``@setescape`` point, pick a row. Read off what you'll catch.
+
+      - If raising an ``escape`` instance, pick a column. Read off what will catch it.
+
+    Default settings for both ends give case ``b1``. For a guaranteed one-to-one
+    relationship, pick a unique tag, and use settings for case ``c2``.
+
+    **Examples**
 
     Multi-return using escape continuation::
 
@@ -132,7 +159,7 @@ def setescape(tags=None, catch_untagged=True):
                 return f(*args, **kwargs)
             except escape as e:
                 if (tags is None and e.allow_catchall) or \
-                   (e.tag is None and catch_untagged) or \
+                   (catch_untagged and e.tag is None) or \
                    (tags is not None and e.tag is not None and e.tag in tags):
                     return e.value
                 else:  # meant for someone else, pass it on
@@ -187,7 +214,7 @@ def call_ec(f):
 
     Similar usage is valid for named functions, too.
     """
-    # We need a process-wide unique id to tag the ec:
+    # Create a process-wide unique id to tag the ec:
     anchor = object()
     uid = id(anchor)
     # Closure property important here. "ec" itself lives as long as someone
@@ -205,8 +232,7 @@ def call_ec(f):
         # Be catchable only by our own escape point.
         raise escape(value, uid, allow_catchall=False)
     try:
-        # Set up a tagged escape point here and call f.
-        # Catch only the one specific ec we just set up.
+        # Set up a tagged escape point that catches only the ec we just set up.
         @setescape(uid, catch_untagged=False)
         def wrapper():
             return f(ec)
@@ -267,6 +293,29 @@ def test():
     assert result == 42
 
     # tests with @looped in tco.py to prevent cyclic dependency
+
+#    def catching_truth_table():
+#        def check(tags, catch_untagged, e):
+#            if (tags is None and e.allow_catchall) or \
+#               (catch_untagged and e.tag is None):
+#                return 2  # unconditional catch
+#            if (tags is not None and e.tag is not None): # and e.tag in tags):
+#                   return 1  # catch if tags match
+#            return 0  # don't catch, pass on
+#
+#        from itertools import product
+#        _ = None
+#        # @setescape point attributes
+#        ps = ((None, False), (None, True),
+#              (set(("tag",)), False), (set(("tag",)), True))
+#        # escape instance attributes
+#        es = (escape(_, None, False),  escape(_, None, True),
+#              escape(_, "tag", False), escape(_, "tag", True))
+#        table = [check(t, c, e) for (t, c), e in product(ps, es)]
+#        import numpy as np
+#        a = np.reshape(table, (4, 4))  # row = p, col = e
+#        print(a)
+#    catching_truth_table()
 
     print("All tests PASSED")
 
