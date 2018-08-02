@@ -1,18 +1,33 @@
-# Unpythonic: Lispy features for Python
+# Unpythonic: Lispy missing batteries for Python
 
-Take the [quick tour](quick_tour.py) or the [full tour](tour.py). For additional examples, see the `test()` function in each submodule, and the docstrings of the individual features.
+In the spirit of [toolz](https://github.com/pytoolz/toolz), missing features for Python from the list processing tradition. We place a special emphasis on **clear, pythonic syntax**, as far as possible without [MacroPy](https://github.com/azazel75/macropy).
 
-User manual follows.
+The other design considerations are simplicity, robustness, and minimal dependencies (currently none).
 
-```python
-from unpythonic import *
-```
+**Contents**:
+
+ - [Assign-once](#assign-once)
+ - [Multi-expression lambdas](#multi-expression-lambdas)
+ - [Local bindings: ``let``, ``letrec``](#local-bindings-let-letrec)
+   - [The environment](#the-environment) (details)
+ - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
+   - [Loops in FP style (with TCO)](#loops-in-fp-style-with-tco)
+ - [Escape continuations (ec)](#escape-continuations-ec)
+   - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
+ - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables)
+ - [``def`` as a code block](#def-as-a-code-block) (runs immediately, but has its own lexical scope)
+
+For highlights, we recommend **Loops in FP style** and **call/ec**, and possibly **Dynamic scoping**.
+
+You could also take the [quick tour](quick_tour.py) or the [full tour](tour.py). For additional examples, see the `test()` function in each submodule, and the docstrings of the individual features.
 
 ### Assign-once
 
 Make `define` and `set!` look different:
 
 ```python
+from unpythonic import assignonce
+
 with assignonce() as e:
     e.foo = "bar"           # new definition, ok
     e.set("foo", "tavern")  # explicitly rebind e.foo, ok
@@ -21,9 +36,11 @@ with assignonce() as e:
 ```
 
 
-### Multiple expressions in a lambda
+### Multi-expression lambdas
 
 ```python
+from unpythonic import begin, begin0
+
 f1 = lambda x: begin(print("cheeky side effect"),
                      42*x)
 f1(2)  # --> 84
@@ -43,6 +60,8 @@ Note also it's only useful for side effects, since there's no way to define new 
 In ``let``, the bindings are independent (do not see each other); only the body may refer to the bindings. Use a `lambda e: ...` to supply the environment to the body:
 
 ```python
+from unpythonic import let, letrec, dlet, dletrec, blet, bletrec
+
 u = lambda lst: let(seen=set(),
                     body=lambda e:
                            [e.seen.add(x) or x for x in lst if x not in e.seen])
@@ -214,6 +233,45 @@ letrec((('a', 2),
 ```
 
 
+### The environment
+
+The environment used by all the ``let`` constructs and ``assignonce`` (but **not** by `dyn`) is essentially a bunch with iteration, subscripting and context manager support. For details, see `unpythonic.env`.
+
+This allows things like:
+
+```python
+let(x=1, y=2, z=3,
+    body=lambda e:
+           [(name, 2*e[name]) for name in e])  # --> [('y', 4), ('z', 6), ('x', 2)]
+```
+
+It also works as a bare bunch, and supports printing for debugging:
+
+```python
+from unpythonic.env import env
+
+e = env(s="hello", orange="fruit", answer=42)
+print(e)  # --> <env object at 0x7ff784bb4c88: {orange='fruit', s='hello', answer=42}>
+print(e.s)  # --> hello
+
+d = {'monty': 'python', 'pi': 3.14159}
+e = env(**d)
+print(e)  # --> <env object at 0x7ff784bb4c18: {pi=3.14159, monty='python'}>
+print(e.monty)  # --> python
+```
+
+Finally, it supports the context manager:
+
+```python
+with env(x=1, y=2, z=3) as e:
+    print(e)  # --> <env object at 0x7fde7411b080: {x=1, z=3, y=2}>
+    print(e.x)  # --> 1
+print(e)  # empty!
+```
+
+When the `with` block exits, the environment clears itself. The environment instance itself remains alive due to Python's scoping rules.
+
+
 ### Tail call optimization (TCO) / explicit continuations
 
 Express elegant algorithms without blowing the call stack - with explicit, clear syntax.
@@ -221,6 +279,8 @@ Express elegant algorithms without blowing the call stack - with explicit, clear
 *Tail recursion*:
 
 ```python
+from unpythonic import trampolined, jump, SELF
+
 @trampolined
 def fact(n, acc=1):
     if n == 0:
@@ -323,6 +383,8 @@ foo()  # start trampoline, with SELF initially pointing to "foo"
 *Functional loop with automatic tail call optimization* (for calls re-invoking the loop body):
 
 ```python
+from unpythonic import looped, looped_over
+
 @looped
 def s(loop, acc=0, i=0):
     if i == 10:
@@ -537,6 +599,7 @@ This approach also separates the computations of the new values of the iteration
 
 Because ``return`` in FP loops is reserved for this, barring the use of exceptions, there is no direct way to exit the function *containing* the loop from inside the loop.
 
+
 ### Escape continuations (ec)
 
 To remedy the above issue, we provide a form of escape continuations with `@setescape` and `escape`.
@@ -544,6 +607,8 @@ To remedy the above issue, we provide a form of escape continuations with `@sete
 On their own, ecs can be used as a *multi-return*:
 
 ```python
+from unpythonic import setescape, escape
+
 @setescape()
 def f():
     def g():
@@ -598,9 +663,10 @@ Default tag is ``None``. An ``escape`` instance with ``tag=None`` can be caught 
 
 If an ``escape`` instance has a tag that is not ``None``, it can only be caught by ``@setescape`` points whose tags include that tag, and by untagged ``@setescape`` points (which catch everything).
 
+
 ### First-class escape continuations: ``call/ec``
 
-We provide ``call/ec`` (``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@immediate``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an escape point, and hands a **first-class escape continuation** to the callee.
+We provide ``call/ec`` (a.k.a. ``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@immediate``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an escape point, and hands a **first-class escape continuation** to the callee.
 
 The function to be decorated **must** take one positional argument, the ec instance.
 
@@ -611,6 +677,8 @@ Any particular ec instance is only valid inside the dynamic extent of the ``call
 This builds on ``@setescape`` and ``escape``, so the caution about catch-all ``except:`` statements applies here, too.
 
 ```python
+from unpythonic import call_ec
+
 @call_ec
 def result(ec):  # effectively, just a code block, capturing the ec as an argument
     answer = 42
@@ -675,11 +743,13 @@ assert result == 42
 
 ### Dynamic scoping
 
-A bit like global variables, but slightly better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Similar to [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html).
+A bit like global variables, but slightly better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Similar to [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html). Also known as *special variables* in some Lisps.
 
 There's a singleton, `dyn`, which emulates dynamic scoping:
 
 ```python
+from unpythonic import dyn
+
 def f():  # no "a" in lexical scope here
     assert dyn.a == 2
 
@@ -709,43 +779,6 @@ Any copied bindings will remain on the stack for the full dynamic extent of the 
 
 The source of the copy is always the main thread mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, PRs welcome!)
 
-### The environment
-
-The environment used by all the ``let`` constructs and ``assignonce`` (but **not** by `dyn`) is essentially a bunch with iteration, subscripting and context manager support. For details, see `unpythonic.env`.
-
-This allows things like:
-
-```python
-let(x=1, y=2, z=3,
-    body=lambda e:
-           [(name, 2*e[name]) for name in e])  # --> [('y', 4), ('z', 6), ('x', 2)]
-```
-
-It also works as a bare bunch, and supports printing for debugging:
-
-```python
-from unpythonic.env import env
-
-e = env(s="hello", orange="fruit", answer=42)
-print(e)  # --> <env object at 0x7ff784bb4c88: {orange='fruit', s='hello', answer=42}>
-print(e.s)  # --> hello
-
-d = {'monty': 'python', 'pi': 3.14159}
-e = env(**d)
-print(e)  # --> <env object at 0x7ff784bb4c18: {pi=3.14159, monty='python'}>
-print(e.monty)  # --> python
-```
-
-Finally, it supports the context manager:
-
-```python
-with env(x=1, y=2, z=3) as e:
-    print(e)  # --> <env object at 0x7fde7411b080: {x=1, z=3, y=2}>
-    print(e.x)  # --> 1
-print(e)  # empty!
-```
-
-When the `with` block exits, the environment clears itself. The environment instance itself remains alive due to Python's scoping rules.
 
 ### ``def`` as a code block
 
@@ -754,6 +787,8 @@ Fuel for different thinking. Compare the `something` in `call-with-something` in
 *Make temporaries fall out of scope as soon as no longer needed*:
 
 ```python
+from unpythonic import immediate
+
 @immediate
 def x():
     a = 2  #    many temporaries that help readability...
@@ -820,9 +855,9 @@ Too bad [the grammar](https://docs.python.org/3/reference/grammar.html) requires
 
 ## Notes
 
-The main design consideration in this package is to not need `inspect`, keeping these modules simple and robust. The sole exception is the ``arity`` module, which could not work without `inspect`.
+The trampoline implementation takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of FP looping constructs.
 
-Since we **don't** depend on [MacroPy](https://github.com/azazel75/macropy), we provide run-of-the-mill functions and classes, not actual syntactic forms.
+Otherwise there shouldn't be much overlap with other lispy or functional libraries, such as [toolz](https://github.com/pytoolz/toolz), [more-itertools](https://github.com/erikrose/more-itertools) or [funcy](https://github.com/suor/funcy/).
 
 ### On ``let`` and Python
 
@@ -919,7 +954,7 @@ Thanks to [TUT](http://www.tut.fi/en/home) for letting me teach [RAK-19006 in sp
 
   - [toolz: A functional standard library for Python](https://github.com/pytoolz/toolz)
 
-  - [funcy](https://github.com/suor/funcy/)
+  - [funcy: A fancy and practical functional tools](https://github.com/suor/funcy/)
 
   - [pyrsistent: Persistent/Immutable/Functional data structures for Python](https://github.com/tobgu/pyrsistent)
 
