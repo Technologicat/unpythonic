@@ -303,18 +303,20 @@ def test():
 #                   return 1  # catch if tags match
 #            return 0  # don't catch, pass on
 #
-#        from itertools import product
 #        _ = None
-#        # @setescape point attributes
-#        ps = ((None, False), (None, True),
+#        # we're essentially projecting bool**4 into two dimensions.
+#        ps = ((None, False), (None, True),  # @setescape points
 #              (set(("tag",)), False), (set(("tag",)), True))
-#        # escape instance attributes
-#        es = (escape(_, None, False),  escape(_, None, True),
+#        es = (escape(_, None, False),  escape(_, None, True),  # escape instances
 #              escape(_, "tag", False), escape(_, "tag", True))
-#        table = [check(t, c, e) for (t, c), e in product(ps, es)]
-#        import numpy as np
-#        a = np.reshape(table, (4, 4))  # row = p, col = e
-#        print(a)
+##        # the other reasonable projection:
+##        ps = ((None, False), (set(("tag",)), False),
+##              (None, True), (set(("tag",)), True))
+##        es = (escape(_, None, False), escape(_, "tag", False),
+##              escape(_, None, True), escape(_, "tag", True))
+#        table = [[check(t, c, e) for e in es] for (t, c) in ps]  # col = e, row = p
+#        for row in table:
+#            print(row)
 #    catching_truth_table()
 
     print("All tests PASSED")
