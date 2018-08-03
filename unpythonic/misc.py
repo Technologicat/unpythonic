@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0", "immediate"]
+__all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0", "immediate", "raisef"]
 
 def begin(*vals):
     """Racket-like begin: return the last value.
@@ -106,6 +106,29 @@ def immediate(thunk):
      the block, since the block is a function.)
     """
     return thunk()
+
+def raisef(exctype, *args, **kwargs):
+    """``raise`` as a function, to make it possible for lambdas to raise exceptions.
+
+    Example::
+
+        raisef(ValueError, "message")
+
+    is equivalent to::
+
+        raise ValueError("message")
+
+    Parameters:
+        exctype: type
+            The object type to raise as an exception.
+
+        *args: anything
+            Passed on to the constructor of exctype.
+
+        **kwargs: anything
+            Passed on to the constructor of exctype.
+    """
+    raise exctype(*args, **kwargs)
 
 def test():
     f = lambda x: begin(print("hi"),

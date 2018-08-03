@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Short quick tour. See tour.py for a full tour."""
+"""Lispy missing batteries for Python.
+
+Short quick tour; see tour.py for a full tour."""
 
 from unpythonic import *
 
@@ -55,7 +57,7 @@ def fact(n, acc=1):
         return acc
     else:
         return jump(fact, n - 1, n * acc)
-fact(10000)
+fact(10000)  # no crash
 
 # FP loop
 @looped
@@ -76,7 +78,7 @@ assert s == 45
 @setescape()
 def f():
     def g():
-        raise escape("hello from g")  # arg becomes the return value of f
+        escape("hello from g")  # arg becomes the return value of f
         print("not reached")
         return False
     g()

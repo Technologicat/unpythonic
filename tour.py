@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Unpythonic constructs that change the rules.
+"""Lispy missing batteries for Python.
 
 Tour of the features.
 """
@@ -170,6 +170,7 @@ def main():
             return jump(even, n - 1)
     assert even(42) is True
     assert odd(4) is False
+    assert even(10000) is True  # no crash
 
     # looping in FP style, with TCO
 
@@ -350,7 +351,7 @@ def main():
     @setescape()
     def f():
         def g():
-            raise escape("hello from g")  # the argument becomes the return value of f()
+            escape("hello from g")  # the argument becomes the return value of f()
             print("not reached")
         g()
         print("not reached either")
@@ -362,7 +363,7 @@ def main():
         @looped
         def s(loop, acc=0, i=0):
             if i > 5:
-                return escape(acc)  # trampolined functions may also "return escape(...)"
+                escape(acc)
             return loop(acc + i, i + 1)
         print("never reached")
     assert f() == 15
@@ -377,7 +378,7 @@ def main():
             @looped
             def s(loop, acc=0, i=0):
                 if i > 5:
-                    return escape(acc, tag="foo")  # escape instance tag must be a single value
+                    escape(acc, tag="foo")  # escape instance tag must be a single value
                 return loop(acc + i, i + 1)
             print("never reached")
             return False

@@ -6,17 +6,16 @@ __all__ = ["escape", "setescape", "call_ec"]
 
 from functools import wraps
 
-class escape(Exception):
-    """Exception that essentially represents an escape continuation.
+def escape(value, tag=None, allow_catchall=True):
+    """Escape to a ``@setescape`` point.
 
-    Use ``raise escape(value)`` to escape to the nearest (dynamically) surrounding
-    ``@setescape``. The @setescape'd function immediately terminates, returning
-    ``value``.
+    Essentially this just raises an ``Escape`` instance with the given arguments.
+    Wrapping the raise in a function call allows also lambdas to use escapes.
 
-    Trampolined functions may also use ``return escape(value)``; the trampoline
-    will then raise the exception (this is to make it work also with lambdas).
+    For the escape to work, we must be inside the dynamic extent
+    of the intended ``@setescape`` point.
 
-    Constructor parameters:
+    Parameters:
 
         value: anything
             The value to send to the escape point.
@@ -33,20 +32,26 @@ class escape(Exception):
             point may still override this with ``catch_untagged=True``.
             (See the table in ``help(setescape)``, case ``b0``.)
     """
+    raise Escape(value, tag, allow_catchall)
+
+class Escape(Exception):
+    """Exception that essentially represents an escape continuation.
+
+    Constructor parameters: see ``escape()``.
+    """
     def __init__(self, value, tag=None, allow_catchall=True):
         self.value = value
         self.tag = tag
         self.allow_catchall = allow_catchall
 
+        # Error message when uncaught
+        self.args = ("Not within the dynamic extent of a @setescape",)
+
 def setescape(tags=None, catch_untagged=True):
-    """Decorator. Mark function as exitable by ``raise escape(value)``.
+    """Decorator. Mark function as exitable by ``escape(value)``.
 
     In Lisp terms, this essentially captures the escape continuation (ec)
-    of the decorated function. The ec can then be invoked by raising escape(value).
-
-    To make this work with lambdas, in trampolined functions it is also legal
-    to ``return escape(value)``. The trampoline specifically detects ``escape``
-    instances, and performs the ``raise``.
+    of the decorated function. The ec can then be invoked by ``escape(value)``.
 
     Technically, this is a decorator factory, since we take parameters.
 
@@ -66,7 +71,7 @@ def setescape(tags=None, catch_untagged=True):
 
     The exact catch condition is::
 
-        # e is an escape instance
+        # e is an Escape instance
         if (tags is None and e.allow_catchall) or
            (catch_untagged and e.tag is None) or
            (tags is not None and e.tag is not None and e.tag in tags):
@@ -107,7 +112,7 @@ def setescape(tags=None, catch_untagged=True):
         @setescape()
         def f():
             def g():
-                raise escape("hello from g")  # the arg becomes the return value of f()
+                escape("hello from g")  # the arg becomes the return value of f()
                 print("not reached")
                 return False
             g()
@@ -122,7 +127,7 @@ def setescape(tags=None, catch_untagged=True):
             @looped
             def s(loop, acc=0, i=0):
                 if i > 5:
-                    return escape(acc)  # the argument becomes the return value of f()
+                    escape(acc)  # the argument becomes the return value of f()
                 return loop(acc + i, i + 1)
             print("never reached")
             return False
@@ -138,7 +143,7 @@ def setescape(tags=None, catch_untagged=True):
                 @looped
                 def s(loop, acc=0, i=0):
                     if i > 5:
-                        return escape(acc, tag="foo")
+                        escape(acc, tag="foo")
                     return loop(acc + i, i + 1)
                 print("never reached")
                 return False
@@ -157,7 +162,7 @@ def setescape(tags=None, catch_untagged=True):
         def decorated(*args, **kwargs):
             try:
                 return f(*args, **kwargs)
-            except escape as e:
+            except Escape as e:
                 if (tags is None and e.allow_catchall) or \
                    (catch_untagged and e.tag is None) or \
                    (tags is not None and e.tag is not None and e.tag in tags):
@@ -230,7 +235,7 @@ def call_ec(f):
         if not ec_valid:
             raise RuntimeError("Cannot escape after the dynamic extent of the call_ec invocation.")
         # Be catchable only by our own escape point.
-        raise escape(value, uid, allow_catchall=False)
+        escape(value, uid, allow_catchall=False)
     try:
         # Set up a tagged escape point that catches only the ec we just set up.
         @setescape(uid, catch_untagged=False)
@@ -246,7 +251,7 @@ def test():
     @setescape()
     def f():
         def g():
-            raise escape("hello from g")  # the argument becomes the return value of f()
+            escape("hello from g")  # the argument becomes the return value of f()
             print("not reached")
         g()
         print("not reached either")
@@ -292,7 +297,7 @@ def test():
                              print("never reached")))
     assert result == 42
 
-    # tests with @looped in tco.py to prevent cyclic dependency
+    # tests with @looped in fploop.py to prevent cyclic dependency
 
 #    def catching_truth_table():
 #        def check(tags, catch_untagged, e):
@@ -302,13 +307,12 @@ def test():
 #            if (tags is not None and e.tag is not None): # and e.tag in tags):
 #                   return 1  # catch if tags match
 #            return 0  # don't catch, pass on
-#
 #        _ = None
-#        # we're essentially projecting bool**4 into two dimensions.
+#        # in this table, we're essentially projecting bool**4 into two dimensions.
 #        ps = ((None, False), (None, True),  # @setescape points
 #              (set(("tag",)), False), (set(("tag",)), True))
-#        es = (escape(_, None, False),  escape(_, None, True),  # escape instances
-#              escape(_, "tag", False), escape(_, "tag", True))
+#        es = (Escape(_, None, False),  Escape(_, None, True),  # escape instances
+#              Escape(_, "tag", False), Escape(_, "tag", True))
 ##        # the other reasonable projection:
 ##        ps = ((None, False), (set(("tag",)), False),
 ##              (None, True), (set(("tag",)), True))

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*
-"""Lispy convenience features for Python.
+"""Lispy missing batteries for Python.
 
 We provide two submodules which implement the ``let`` construct:
 
@@ -16,13 +16,14 @@ We provide two submodules which implement the ``let`` construct:
 With ``import unpythonic``, the default ``let`` construct is ``unpythonic.let``.
 To override, just import the other one; they define the same names.
 
-See ``dir(unpythonic)`` and submodule docstrings for more info.
+See ``dir(unpythonic)`` and submodule docstrings for more.
 """
 
 from .arity import *
 from .assignonce import *
 from .dynscope import *
 from .ec import *
+from .fploop import *
 from .let import *        # no guarantees on evaluation order (before Python 3.6), nice syntax
 
 # guaranteed evaluation order, clunky syntax
@@ -33,4 +34,4 @@ from .lispylet import let as ordered_let, letrec as ordered_letrec, \
 from .misc import *
 from .tco import *
 
-__version__ = '0.2.0'
+__version__ = '0.3.0'

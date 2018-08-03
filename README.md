@@ -15,15 +15,15 @@ The other design considerations are simplicity, robustness, and minimal dependen
  - [Escape continuations (ec)](#escape-continuations-ec)
    - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
  - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables)
- - [``def`` as a code block](#def-as-a-code-block) (runs immediately, but has its own lexical scope)
+ - [``def`` as a code block: ``@immediate``](#def-as-a-code-block-immediate) (run a block of code immediately, in a new lexical scope)
 
 For highlights, we recommend **Loops in FP style** and **call/ec**, and possibly **Dynamic scoping**.
 
-You could also take the [quick tour](quick_tour.py) or the [full tour](tour.py). For additional examples, see the `test()` function in each submodule, and the docstrings of the individual features.
+You can also take the [quick tour](quick_tour.py) or the [full tour](tour.py). For additional examples, see the `test()` function in each submodule, and the docstrings of the individual features.
 
 ### Assign-once
 
-Make `define` and `set!` look different:
+In Scheme terms, make `define` and `set!` look different:
 
 ```python
 from unpythonic import assignonce
@@ -52,7 +52,7 @@ f2(2)  # --> 84
 
 Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`tour.py`](tour.py) for details.
 
-Note also it's only useful for side effects, since there's no way to define new names, except...
+It's only useful for side effects, since there's no way to define new names, except...
 
 
 ### Local bindings: ``let``, ``letrec``
@@ -597,14 +597,44 @@ This approach also separates the computations of the new values of the iteration
 
 **There is no** FP ``break``. At any time, just ``return`` your final result normally to terminate the loop.
 
-Because ``return`` in FP loops is reserved for this, barring the use of exceptions, there is no direct way to exit the function *containing* the loop from inside the loop.
+Because ``return`` in FP loops is reserved for this, barring the use of exceptions, there is no direct way to exit the function *containing* the loop from inside the loop. But see **escape continuations** below.
+
+#### But if I really, really want ``continue`` and ``break``?
+
+If performance is not an issue, just create your own using ``call_ec``:
+
+```python
+# The brk continuation should terminate the loop, so capture it before starting the loop.
+# brk(value) breaks the loop, returning value.
+@call_ec
+def result(brk):
+    # Start the loop.
+    @looped_over(range(100), acc=0)
+    def tmp(loop, x, acc):
+        # The cnt continuation should end the current iteration, so capture it now.
+        # cnt(value) ends this iteration, setting newacc to value.
+        @call_ec
+        def newacc(cnt):
+            # The loop body
+            if x <= 4: cnt(acc)
+            if x == 10: brk(acc)
+            return acc + x  # set newacc normally
+        # End-of-iteration processing.
+        #   - If @looped, check for normal termination here.
+        #   - If @looped_over, no need; the decorator handles that for us.
+        return loop(newacc)  # start next iteration
+    return tmp
+assert result == 35
+```
+
+Here ``brk`` and ``cnt`` are first-class, so the loop body can also pass them to functions. Then those functions have the power to ``brk`` or ``cnt`` the loop.
+
+In Lisp terms, this is pretty much how ``continue`` and ``break`` work. Some sugar for things like this may (or may not) become a feature in some future version of ``unpythonic``.
 
 
 ### Escape continuations (ec)
 
-To remedy the above issue, we provide a form of escape continuations with `@setescape` and `escape`.
-
-On their own, ecs can be used as a *multi-return*:
+We provide a form of escape continuations with `@setescape` and `escape`. On their own, ecs can be used as a *multi-return*:
 
 ```python
 from unpythonic import setescape, escape
@@ -612,20 +642,18 @@ from unpythonic import setescape, escape
 @setescape()
 def f():
     def g():
-        raise escape("hello from g")  # the argument becomes the return value of f()
+        escape("hello from g")  # the argument becomes the return value of f()
         print("not reached")
     g()
     print("not reached either")
 assert f() == "hello from g"
 ```
 
-**CAUTION**: The implementation is based on exceptions, so catch-all ``except:`` statements will intercept also ``escape`` instances, breaking the escape mechanism. As you already know, be specific in what you catch!
+**CAUTION**: The implementation is based on exceptions, so catch-all ``except:`` statements will intercept also escapes, breaking the escape mechanism. As you already know, be specific in what you catch!
 
-In Lisp terms, `@setescape` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `raise escape(value)`. The escaped function immediately terminates, returning ``value``.
+In Lisp terms, `@setescape` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `escape(value)`. The escaped function immediately terminates, returning ``value``.
 
 In Python terms, an escape means just raising a specific type of exception; the usual rules concerning ``try/except/else/finally`` and ``with`` blocks apply.
-
-To make this work with lambdas, and for uniformity of syntax, **in trampolined functions** (such as FP loops) it is also legal to ``return escape(value)``. The trampoline specifically detects `escape` instances, and performs the ``raise``.
 
 ```python
 @setescape()  # note the parentheses
@@ -633,13 +661,13 @@ def f():
     @looped
     def s(loop, acc=0, i=0):
         if i > 5:
-            return escape(acc)  # the argument becomes the return value of f()
+            escape(acc)  # the argument becomes the return value of f()
         return loop(acc + i, i + 1)
     print("never reached")
 f()  # --> 15
 ```
 
-For more control, both ``@setescape`` points and ``escape`` instances can be tagged:
+For more control, both ``@setescape`` points and escape instances can be tagged:
 
 ```python
 @setescape(tags="foo")  # setescape point tags can be single value or tuple (tuples OR'd, like isinstance())
@@ -650,7 +678,7 @@ def foo():
         @looped
         def s(loop, acc=0, i=0):
             if i > 5:
-                return escape(acc, tag="foo")  # escape instance tag must be a single value
+                escape(acc, tag="foo")  # escape instance tag must be a single value
             return loop(acc + i, i + 1)
         print("never reached")
         return False
@@ -659,9 +687,7 @@ def foo():
 assert foo() == 15
 ```
 
-Default tag is ``None``. An ``escape`` instance with ``tag=None`` can be caught by any ``@setescape`` point.
-
-If an ``escape`` instance has a tag that is not ``None``, it can only be caught by ``@setescape`` points whose tags include that tag, and by untagged ``@setescape`` points (which catch everything).
+For full details on the tag system, see the docstring for ``@setescape``.
 
 
 ### First-class escape continuations: ``call/ec``
@@ -780,9 +806,11 @@ Any copied bindings will remain on the stack for the full dynamic extent of the 
 The source of the copy is always the main thread mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, PRs welcome!)
 
 
-### ``def`` as a code block
+### ``def`` as a code block: ``@immediate``
 
 Fuel for different thinking. Compare the `something` in `call-with-something` in Lisps. A `def` is really just a new lexical scope to hold code to run later... or right now!
+
+At the top level of a module, this is seldom useful, but keep in mind that Python allows nested function definitions. Used with an inner ``def``, this becomes a versatile tool.
 
 *Make temporaries fall out of scope as soon as no longer needed*:
 
@@ -809,6 +837,8 @@ def result():
                 return (x, y)
 print(result)  # (6, 7)
 ```
+
+(But see ``@setescape``, ``escape``, and ``call_ec``.)
 
 Compare this sweet-exp Racket:
 
@@ -895,6 +925,25 @@ We could abuse `e.foo << newval`, which transforms to `e.foo.__lshift__(newval)`
  - It's still difficult to be sure these two approaches cover all cases; a read of `e.foo` gets a wrapped value, not the original; and this already violates [The Zen of Python](https://www.python.org/dev/peps/pep-0020/) #1, #2 and #3.
 
 If we later choose go this route nevertheless, `<<` is a better choice for the syntax than `<<=`, because `let` needs `e.set(...)` to be valid in an expression context.
+
+### TCO syntax and speed
+
+Benefits and costs of ``return jump(...)``:
+
+ - Explicitly a tail call due to ``return``.
+ - The trampoline remains very simple and (relatively speaking) fast. Just a dumb ``jump`` record, a ``while`` loop, and regular function calls and returns.
+ - The cost is that ``jump`` cannot detect whether the user forgot the ``return``, leaving a possibility for bugs in the client code (an FP loop immediately exiting and returning ``None``). Unit tests of client code become very important.
+   - We could mandate that trampolined functions must not return ``None``, but that breaks the *don't care about return value* use case, which is rather common when using side effects. Besides, failing to terminate at the intended point may well fall through into another branch of the client code, which does happen to have a ``return``, so this would not actually solve the problem.
+
+The other simple-ish solution is to use exceptions, making the jump wrest control from the caller. Then ``jump(...)`` becomes a verb. If you would like to use this approach, we provide [``tco_exc.py``](unpythonic/tco_exc.py) as a drop-in replacement. But beware, [``fploop.py``](unpythonic/fploop.py) is currently hardwired to load [``tco.py``](unpythonic/tco.py) (even though it works with either one), and the TCO implementations **cannot be mixed and matched**.
+
+By a quick test, we see that the exception-based approach costs even more performance; a do-nothing loop using [``tco_exc.py``](unpythonic/tco_exc.py) runs 150-200× slower than the built-in ``for``, compared to only 40-80× slower using [``tco.py``](unpythonic/tco.py). Or in other words, the additional performance hit is somewhere between 2-5×.
+
+For other libraries bringing TCO to Python, see:
+
+ - Thomas Baruchel's [tco](https://github.com/baruchel/tco) library, based on exceptions.
+ - [ActiveState recipe 474088](https://github.com/ActiveState/code/tree/master/recipes/Python/474088_Tail_Call_Optimization_Decorator), based on ``inspect``.
+ - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the inspiration for ours.
 
 ### Wait, no `cons` and friends?
 
