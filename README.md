@@ -2,7 +2,7 @@
 
 In the spirit of [toolz](https://github.com/pytoolz/toolz), missing features for Python from the list processing tradition. We place a special emphasis on **clear, pythonic syntax**, as far as possible without [MacroPy](https://github.com/azazel75/macropy).
 
-The other design considerations are simplicity, robustness, and minimal dependencies (currently none).
+Other design considerations are simplicity, robustness, and minimal dependencies (currently none). Pure Python 3.4.
 
 **Contents**:
 
