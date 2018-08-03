@@ -30,14 +30,14 @@ libname="unpythonic"
 
 # Short description for package list on PyPI
 #
-SHORTDESC="Python meets Lisp; e.g. TCO, let & letrec, assign-once, dynamic scoping."
+SHORTDESC="Python meets Lisps; e.g. TCO'd FP loops, call/ec, let & letrec."
 
 # Long description for package homepage on PyPI
 #
-DESC="""Lispy convenience features for Python.
+DESC="""Lispy missing batteries for Python.
 
-Tail call optimization (TCO), let & letrec, assign-once, multiple-expression lambdas,
-def as a code block, dynamic scoping."""
+Tail call optimization (TCO), TCO'd loops in FP style, call/ec, let & letrec,
+assign-once, multi-expression lambdas, def as a code block, dynamic scoping."""
 
 # Set up data files for packaging.
 #
@@ -145,7 +145,7 @@ setup(
     #
     # e.g. the keywords your project uses as topics on GitHub, minus "python" (if there)
     #
-    keywords = ["functional-programming"],
+    keywords = ["functional-programming", "lisp"],
 
     # Declare packages so that  python -m setup build  will copy .py files (especially __init__.py).
     #

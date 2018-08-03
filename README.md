@@ -57,7 +57,9 @@ It's only useful for side effects, since there's no way to define new names, exc
 
 ### Local bindings: ``let``, ``letrec``
 
-In ``let``, the bindings are independent (do not see each other); only the body may refer to the bindings. Use a `lambda e: ...` to supply the environment to the body:
+In ``let``, the bindings are independent (do not see each other). A binding is of the form ``name=value``, where ``name`` is a Python identifier, and ``value`` is any expression.
+
+Use a `lambda e: ...` to supply the environment to the body:
 
 ```python
 from unpythonic import let, letrec, dlet, dletrec, blet, bletrec
@@ -71,7 +73,7 @@ u(L)  # --> [1, 3, 2, 4]
 
 Generally speaking, `body` is a one-argument function, which takes in the environment instance as the first positional parameter (usually named `env` or `e` for readability). In typical inline usage, `body` is `lambda e: expr`.
 
-*Let over lambda*. The inner ``lambda`` is the definition of the function ``counter``:
+*Let over lambda*. Here the inner ``lambda`` is the definition of the function ``counter``:
 
 ```python
 counter = let(x=0,
@@ -83,7 +85,7 @@ counter()  # --> 1
 counter()  # --> 2
 ```
 
-Compare this [Racket](http://racket-lang.org/) (here using `sweet-exp` [[1]](https://srfi.schemers.org/srfi-110/srfi-110.html) [[2]](https://docs.racket-lang.org/sweet/) for pythonic layout):
+Compare the sweet-exp [Racket](http://racket-lang.org/) (see [SRFI-110](https://srfi.schemers.org/srfi-110/srfi-110.html) and [sweet](https://docs.racket-lang.org/sweet/)):
 
 ```racket
 define counter
@@ -106,7 +108,7 @@ counter()  # --> 1
 counter()  # --> 2
 ```
 
-In `letrec`, bindings may depend on ones above them in the same `letrec`, using `lambda e: ...` (**Python 3.6+**):
+In `letrec`, bindings may depend on ones above them in the same `letrec`, by using `lambda e: ...` (**Python 3.6+**):
 
 ```python
 x = letrec(a=1,
@@ -116,11 +118,11 @@ x = letrec(a=1,
                   e.b)  # --> 2
 ```
 
-In `letrec`, the RHS of each binding is either a simple value (non-callable, and doesn't use the environment), or an expression of the form ``lambda e: valexpr``, providing access to the environment as ``e``. If ``valexpr`` itself is callable, the binding **must** have the ``lambda e: ...`` wrapper to prevent any misunderstandings in the environment initialization procedure.
+In `letrec`, the ``value`` of each binding is either a simple value (non-callable, and doesn't use the environment), or an expression of the form ``lambda e: valexpr``, providing access to the environment as ``e``. If ``valexpr`` itself is callable, the binding **must** have the ``lambda e: ...`` wrapper to prevent any misunderstandings in the environment initialization procedure.
 
 In a non-callable ``valexpr``, trying to depend on a binding below it raises ``AttributeError``.
 
-But a callable ``valexpr`` may depend on any bindings (also later ones) in the same `letrec`. Mutually recursive functions:
+A callable ``valexpr`` may depend on any bindings (also later ones) in the same `letrec`. Mutually recursive functions:
 
 ```python
 letrec(evenp=lambda e:
@@ -169,7 +171,7 @@ letrec((('a', 1),
          e.b)  # --> 2
 
 letrec((("evenp", lambda e:
-                    lambda x:
+                    lambda x:  # callable, needs the lambda e: ...
                       (x == 0) or e.oddp(x - 1)),
         ("oddp",  lambda e:
                     lambda x:
@@ -178,59 +180,7 @@ letrec((("evenp", lambda e:
          e.evenp(42))  # --> True
 ```
 
-The syntax is `let(bindings, body)` (respectively `letrec(bindings, body)`), where `bindings` is `((name, value), ...)`, and `body` is like in the default variants.
-
-Like in the default variant, in `letrec`, each `value` is either a simple value (non-callable, and doesn't use the environment), or an expression of the form ``lambda e: valexpr``, providing access to the environment as ``e``. If ``valexpr`` itself is callable, ``value`` **must** have the ``lambda e: ...`` wrapper to prevent any misunderstandings in the environment initialization procedure.
-
-Like in the default variant, a callable ``valexpr`` may depend on any bindings (also later ones) in the same `letrec`, allowing mutually recursive functions.
-
-```python
-u = lambda lst: letrec((("seen", set()),
-                        ("see",  lambda e:
-                                   lambda x:  # callable, needs "lambda e: ..."
-                                     begin(e.seen.add(x),
-                                           x))),
-                       lambda e:
-                         [e.see(x) for x in lst if x not in e.seen])
-
-letrec((('a', 2),
-        ('f', lambda e:
-                lambda x:  # callable, needs "lambda e: ..." even though it doesn't use e
-                  42*x)),
-       lambda e:
-         e.a * e.f(1))  # --> 84
-
-square = lambda x: x**2
-letrec((('a', 2),
-        ('f', lambda e: square)),  # callable, needs "lambda e: ..."
-       lambda e:
-         e.a * e.f(10))  # --> 200
-
-def mul(x, y):
-    return x * y
-letrec((('a', 2),
-        ('f', lambda e: mul)),  # "mul" is a callable
-       lambda e:
-         e.a * e.f(3, 4))  # --> 24
-
-from functools import partial
-double = partial(mul, 2)
-letrec((('a', 2),
-        ('f', lambda e: double)),  # "double" is a callable
-       lambda e:
-         e.a * e.f(3))  # --> 12
-
-class TimesA:
-    def __init__(self, a):
-        self.a = a
-    def __call__(self, x):
-        return self.a * x
-times5 = TimesA(5)
-letrec((('a', 2),
-        ('f', lambda e: times5)),  # "times5" is a callable
-       lambda e:
-         e.a * e.f(3))  # --> 30
-```
+The syntax is `let(bindings, body)` (respectively `letrec(bindings, body)`), where `bindings` is `((name, value), ...)`, and `body` is like in the default variants. The same rules concerning `name` and `value` apply.
 
 
 ### The environment
@@ -308,7 +258,7 @@ print(t(4))  # 24
 
 To denote tail recursion in an anonymous function, use the special jump target `SELF` (all uppercase!). Here it's just `jump` instead of `return jump` since lambda does not use the `return` syntax.
 
-Technically, `SELF` means *keep current jump target*, so the function that was last explicitly named in that particular trampoline remains as the target of the jump. When the trampoline starts, the current target is set to the initial entry point (also for lambdas).
+Technically, `SELF` means *keep current jump target*, so the function that was last explicitly tail-called by name in that particular trampoline remains as the target of the jump. When the trampoline starts, the current target is set to the initial entry point (also for lambdas).
 
 *Mutual recursion with TCO*:
 
@@ -325,8 +275,9 @@ def odd(n):
         return False
     else:
         return jump(even, n - 1)
-print(even(42))  # True
-print(odd(4))  # False
+assert even(42) is True
+assert odd(4) is False
+assert even(10000) is True  # no crash
 ```
 
 *Mutual recursion in `letrec` with TCO*:
@@ -394,7 +345,7 @@ def s(loop, acc=0, i=0):
 print(s)  # 45
 ```
 
-Compare this sweet-exp Racket:
+Compare the sweet-exp Racket:
 
 ```racket
 define s
@@ -407,32 +358,7 @@ define s
 displayln s  ; 45
 ```
 
-In `@looped`, the function name of the loop body is the name of the final result, like in `@immediate`. The final result of the loop is just returned normally.
-
-The first parameter of the loop body is the magic parameter ``loop``. It is *self-ish*, representing a jump back to the loop body itself, starting a new iteration. Just like Python's ``self``, ``loop`` can have any name; it is passed positionally.
-
-Just like ``jump``, here ``loop`` is **a noun, not a verb.** The expression ``loop(...)`` is otherwise the same as ``jump(SELF, ...)``, but it also inserts the magic parameter ``loop``, which can only be set up via this mechanism.
-
-For any other parameters, their initial values must be set as defaults. The loop is automatically started by `@looped`, by calling the body with the magic ``loop`` as the only parameter.
-
-Any loop variables such as ``i`` in the above example are **in scope only in the loop body**; there is no ``i`` in the surrounding scope. Moreover, it's a fresh ``i`` at each iteration; nothing is mutated by the looping mechanism. (But be careful if you use a mutable object instance as a loop variable. The loop body is just a function call like any other, so the usual rules apply.)
-
-FP loops don't have to be pure:
-
-```python
-out = []
-@looped
-def _(loop, i=0):  # _ = don't care about return value
-    if i <= 3:
-        out.append(i)  # cheeky side effect
-        return loop(i + 1)
-    # the implicit "return None" terminates the loop.
-assert out == [0, 1, 2, 3]
-```
-
-Keep in mind, though, that if you don't need the FP-ness, it may be better to use ``for``.
-
-The `@looped` decorator is essentially sugar. The first example above is roughly equivalent to:
+The `@looped` decorator is essentially sugar. Behaviorally equivalent code:
 
 ```python
 @trampolined
@@ -445,11 +371,32 @@ s = s()
 print(s)  # 45
 ```
 
-This is slightly faster, because in `@looped` setting up ``loop`` costs some magic at each iteration (no macros in this package!). But if you do it manually like this, remember to start the loop after the definition is done!
+In `@looped`, the function name of the loop body is the name of the final result, like in `@immediate`. The final result of the loop is just returned normally.
 
-Keep in mind that this pure-Python FP looping mechanism is 40-80× slower than Python's builtin imperative ``for``, anyway, so in places where using these constructs makes sense, readability may be more important than speed.
+The first parameter of the loop body is the magic parameter ``loop``. It is *self-ish*, representing a jump back to the loop body itself, starting a new iteration. Just like Python's ``self``, ``loop`` can have any name; it is passed positionally.
 
-Also be aware that `@looped` is specifically neither a ``for`` loop nor a ``while`` loop. Instead, it is a general mechanism that can express both kinds of loops - i.e. it embodies the raw primitive essence of looping.
+Just like ``jump``, here ``loop`` is **a noun, not a verb.** This is because the expression ``loop(...)`` is essentially the same as ``jump(SELF, ...)``. However, it also inserts the magic parameter ``loop``, which can only be set up via this mechanism.
+
+Additional arguments can be given to ``return loop(...)``. When the loop body is called, any additional positional arguments are appended to the implicit ones, and can be anything. Additional arguments can also be passed by name. The initial values of any additional arguments **must** be declared as defaults in the formal parameter list of the loop body. The loop is automatically started by `@looped`, by calling the body with the magic ``loop`` as the only argument.
+
+Any loop variables such as ``i`` in the above example are **in scope only in the loop body**; there is no ``i`` in the surrounding scope. Moreover, it's a fresh ``i`` at each iteration; nothing is mutated by the looping mechanism. (But be careful if you use a mutable object instance as a loop variable. The loop body is just a function call like any other, so the usual rules apply.)
+
+FP loops don't have to be pure:
+
+```python
+out = []
+@looped
+def _(loop, i=0):
+    if i <= 3:
+        out.append(i)  # cheeky side effect
+        return loop(i + 1)
+    # the implicit "return None" terminates the loop.
+assert out == [0, 1, 2, 3]
+```
+
+Keep in mind, though, that this pure-Python FP looping mechanism is 40-80× slower than Python's builtin imperative ``for`` (when benchmarked with a do-nothing loop).
+
+Also be aware that `@looped` is specifically neither a ``for`` loop nor a ``while`` loop; instead, it is a general looping mechanism that can express both kinds of loops.
 
 *Typical `while True` loop in FP style*:
 
@@ -459,7 +406,7 @@ def _(loop):
     print("Enter your name (or 'q' to quit): ", end='')
     s = input()
     if s.lower() == 'q':
-        return  # ...the implicit None. In a "while True:", we'd put a "break" here.
+        return  # ...the implicit None. In a "while True:", "break" here.
     else:
         print("Hello, {}!".format(s))
         return loop()
@@ -467,7 +414,7 @@ def _(loop):
 
 #### FP loop over an iterable
 
-In Python, many loops are *foreach* loops directly over the elements of an iterable, which gives a marked improvement in readability compared to dealing with indices. For that extremely common use case, we provide ``@looped_over``:
+In Python, loops often run directly over the elements of an iterable, which markedly improves readability compared to dealing with indices. Enter ``@looped_over``:
 
 ```python
 @looped_over(range(10), acc=0)
@@ -476,18 +423,34 @@ def s(loop, x, acc):
 assert s == 45
 ```
 
-The loop body takes three magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element. The third parameter ``acc`` is initialized to the ``acc`` value given to ``@looped_over``, and then (functionally) updated at each iteration, taking as the new value the first positional parameter given to ``return loop(...)``, if any positional parameters were given. If no positional parameters were given, ``acc`` resets to its initial value.
+The ``@looped_over`` decorator is essentially sugar. Behaviorally equivalent code:
 
-Additional arguments can be given to ``return loop(...)``. When the loop body is called, any additional positional arguments are appended to the implicit ones, and can be anything. Their initial values **must** be set as defaults in the formal parameter list of the body. Additional arguments can also be passed by name.
+```python
+@immediate
+def s(iterable=range(10)):
+    it = iter(iterable)
+    @looped
+    def _tmp(loop, acc=0):
+        try:
+            x = next(it)
+            return loop(acc + x)
+        except StopIteration:
+            return acc
+    return _tmp
+assert s == 45
+```
 
-This silly example has the additional parameters ``fruit`` and ``number``. Here the first one is passed positionally, and the second one by name.
+In ``@looped_over``, the loop body takes three magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element. The third parameter ``acc`` is initialized to the ``acc`` value given to ``@looped_over``, and then (functionally) updated at each iteration, taking as the new value the first positional argument given to ``return loop(...)``, if any positional arguments were given. Otherwise ``acc`` resets to its initial value.
+
+Additional arguments can be given to ``return loop(...)``. The same notes as above apply. For example, here we have the additional parameters ``fruit`` and ``number``. The first one is passed positionally, and the second one by name:
 
 ```python
 @looped_over(range(10), acc=0)
 def s(loop, x, acc, fruit="pear", number=23):
-    print(fruit, answer)
-    newfruit = "orange" if fruit == "pear" else "pear"
-    return loop(acc + x, newfruit, number=42)
+    print(fruit, number)
+    newfruit = "orange" if fruit == "apple" else "apple"
+    newnumber = number + 1
+    return loop(acc + x, newfruit, number=newnumber)
 assert s == 45
 ```
 
@@ -523,60 +486,9 @@ def outer_result(outer_loop, y, outer_acc):
 assert outer_result == [[1, 2], [2, 4], [3, 6]]
 ```
 
-The ``@looped_over`` decorator is essentially sugar. Code roughly equivalent to the first example:
-
-```python
-@immediate
-def s(iterable=range(10)):
-    it = iter(iterable)
-    @looped
-    def _tmp(loop, acc=0):
-        try:
-            x = next(it)
-            return loop(acc + x)
-        except StopIteration:
-            return acc
-    return _tmp
-assert s == 45
-```
-
-The actual implementation looks different, though, because this is not a macro.
-
-#### FP loops using a lambda as body
-
-Just use the `looped()` decorator manually:
-
-```python
-s = looped(lambda loop, acc=0, i=0:
-             loop(acc + i, i + 1) if i < 10 else acc)
-print(s)
-```
-
-The same, using ``let`` to define a ``cont``:
-
-```python
-s = looped(lambda loop, acc=0, i=0:
-             let(cont=lambda newacc=acc:
-                        loop(newacc, i + 1),
-                 body=lambda e:
-                        e.cont(acc + i) if i < 10 else acc)
-print(s)
-```
-
-The `looped_over()` decorator also works, if we just keep in mind that parameterized decorators in Python are actually decorator factories:
-
-```python
-r10 = looped_over(range(10), acc=0)
-s = r10(lambda loop, x, acc:
-          loop(acc + x))
-assert s == 45
-```
-
-If you **really** need to make that into an expression, bind ``r10`` using ``let`` (if you use ``letrec``, keeping in mind it is a callable), or to make your code unreadable, just inline it.
-
 #### ``continue``
 
-**There is no** FP ``continue``. At any time, ``return loop(...)`` with the appropriate arguments to proceed to the next iteration. Or package the appropriate `loop(...)` expression into your own function ``cont``:
+**There is no** FP ``continue``. At any time, ``return loop(...)`` with the appropriate arguments to proceed to the next iteration. Or package the appropriate `loop(...)` expression into your own function ``cont``, and then ``return cont(...)``:
 
 ```python
 @looped
@@ -591,13 +503,13 @@ def s(loop, acc=0, i=0):
 print(s)  # 35
 ```
 
-This approach also separates the computations of the new values of the iteration counter and the accumulator.
+This approach separates the computations of the new values for the iteration counter and the accumulator.
 
 #### ``break``
 
 **There is no** FP ``break``. At any time, just ``return`` your final result normally to terminate the loop.
 
-Because ``return`` in FP loops is reserved for this, barring the use of exceptions, there is no direct way to exit the function *containing* the loop from inside the loop. But see **escape continuations** below.
+If you want to exit the function *containing* the loop from inside the loop, see **escape continuations** below.
 
 #### But if I really, really want ``continue`` and ``break``?
 
@@ -619,8 +531,8 @@ def result(brk):
             if x <= 4: cnt(acc)
             if x == 10: brk(acc)
             return acc + x  # set newacc normally
-        # End-of-iteration processing.
-        #   - If @looped, check for normal termination here.
+        # End-of-iteration processing
+        #   - If @looped, check normal termination condition here, return result if terminated.
         #   - If @looped_over, no need; the decorator handles that for us.
         return loop(newacc)  # start next iteration
     return tmp
@@ -631,15 +543,86 @@ Here ``brk`` and ``cnt`` are first-class, so the loop body can also pass them to
 
 In Lisp terms, this is pretty much how ``continue`` and ``break`` work. Some sugar for things like this may (or may not) become a feature in some future version of ``unpythonic``.
 
+In ``@looped``, a library-provided ``cnt`` wouldn't make sense, since it's *up to the client code to define what it means to proceed to the next iteration*. All parameters except ``loop`` itself are user-defined. Really the only way in a construct with this degree of flexibility is for the client code to fill in all the arguments itself.
+
+In ``@looped_over``, the concept of *continue* is much more clear-cut, since it always means *proceed to take the next element from the iterable*, and ``return loop(...)`` accepts a new value for the implicit ``acc``. That is the only piece of data that needs to be provided by the client code, and *continue with given newacc* and *break with given result* are useful abstractions. These can even default to the current ``acc``.
+
+To improve performance, this can be streamlined:
+
+```python
+@call_ec
+def result(brk):  # not a performance problem, created only once when the loop starts, so let's keep this
+    @looped_over(range(100), acc=0)
+    def tmp(loop, x, acc):
+        def newacc(cnt):
+            # The loop body
+            if x <= 4: return acc  # if we don't need the first-classness of cnt
+            if x == 10: brk(acc)
+            return acc + x
+        # End-of-iteration processing (here nothing)
+        return loop(newacc)
+    return tmp
+assert result == 35
+```
+
+If we don't need end-of-iteration processing, a further optimization is to eliminate the ``newacc`` function:
+
+```python
+@call_ec
+def result(brk):
+    @looped_over(range(100), acc=0)
+    def tmp(loop, x, acc):
+        # The loop body
+        if x <= 4: return loop(acc)
+        if x == 10: brk(acc)
+        return loop(acc + x)
+    return tmp
+assert result == 35
+```
+
+#### FP loops using a lambda as body
+
+Just call the `looped()` decorator manually:
+
+```python
+s = looped(lambda loop, acc=0, i=0:
+             loop(acc + i, i + 1) if i < 10 else acc)
+print(s)
+```
+
+It's not just a decorator; in Lisps, a construct like this would likely be named ``call/looped``.
+
+We can also use ``let`` to make local definitions:
+
+```python
+s = looped(lambda loop, acc=0, i=0:
+             let(cont=lambda newacc=acc:
+                        loop(newacc, i + 1),
+                 body=lambda e:
+                        e.cont(acc + i) if i < 10 else acc)
+print(s)
+```
+
+The `looped_over()` decorator also works, if we just keep in mind that parameterized decorators in Python are actually decorator factories:
+
+```python
+r10 = looped_over(range(10), acc=0)
+s = r10(lambda loop, x, acc:
+          loop(acc + x))
+assert s == 45
+```
+
+If you **really** need to make that into an expression, bind ``r10`` using ``let`` (if you use ``letrec``, keeping in mind it is a callable), or to make your code unreadable, just inline it.
+
 
 ### Escape continuations (ec)
 
-We provide a form of escape continuations with `@setescape` and `escape`. On their own, ecs can be used as a *multi-return*:
+Escape continuations can be used as a *multi-return*:
 
 ```python
 from unpythonic import setescape, escape
 
-@setescape()
+@setescape()  # note the parentheses
 def f():
     def g():
         escape("hello from g")  # the argument becomes the return value of f()
@@ -651,17 +634,19 @@ assert f() == "hello from g"
 
 **CAUTION**: The implementation is based on exceptions, so catch-all ``except:`` statements will intercept also escapes, breaking the escape mechanism. As you already know, be specific in what you catch!
 
-In Lisp terms, `@setescape` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `escape(value)`. The escaped function immediately terminates, returning ``value``.
+In Lisp terms, `@setescape` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `escape(value)`. The function decorated with `@setescape` immediately terminates, returning ``value``.
 
-In Python terms, an escape means just raising a specific type of exception; the usual rules concerning ``try/except/else/finally`` and ``with`` blocks apply.
+In Python terms, an escape means just raising a specific type of exception; the usual rules concerning ``try/except/else/finally`` and ``with`` blocks apply. It is a function call, so it works also in lambdas.
+
+Escaping the function surrounding an FP loop, from inside the loop:
 
 ```python
-@setescape()  # note the parentheses
+@setescape()
 def f():
     @looped
     def s(loop, acc=0, i=0):
         if i > 5:
-            escape(acc)  # the argument becomes the return value of f()
+            escape(acc)
         return loop(acc + i, i + 1)
     print("never reached")
 f()  # --> 15
@@ -687,7 +672,7 @@ def foo():
 assert foo() == 15
 ```
 
-For full details on the tag system, see the docstring for ``@setescape``.
+For details on tagging, especially how untagged and tagged escapes and points interact, and how to make one-to-one connections, see the docstring for ``@setescape``.
 
 
 ### First-class escape continuations: ``call/ec``
@@ -769,7 +754,7 @@ assert result == 42
 
 ### Dynamic scoping
 
-A bit like global variables, but slightly better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Similar to [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html). Also known as *special variables* in some Lisps.
+Like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Similar to [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html). Also known as *special variables* in some Lisps.
 
 There's a singleton, `dyn`, which emulates dynamic scoping:
 
@@ -840,7 +825,7 @@ print(result)  # (6, 7)
 
 (But see ``@setescape``, ``escape``, and ``call_ec``.)
 
-Compare this sweet-exp Racket:
+Compare the sweet-exp Racket:
 
 ```racket
 define result
@@ -853,7 +838,7 @@ define result
 displayln result  ; (6 7)
 ```
 
-*Twist the meaning of `def` into a "let statement"* (but see `blet`, `bletrec` if you want an `env` instance):
+*Twist the meaning of `def` into a "let statement"*:
 
 ```python
 @immediate
@@ -861,6 +846,8 @@ def result(x=1, y=2, z=3):
     return x * y * z
 print(result)  # 6
 ```
+
+(But see `blet`, `bletrec` if you want an `env` instance.)
 
 *Letrec without `letrec`*, when it doesn't have to be an expression:
 
@@ -885,7 +872,7 @@ Too bad [the grammar](https://docs.python.org/3/reference/grammar.html) requires
 
 ## Notes
 
-The trampoline implementation takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of FP looping constructs.
+The trampoline implementation takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of the FP looping constructs.
 
 Otherwise there shouldn't be much overlap with other lispy or functional libraries, such as [toolz](https://github.com/pytoolz/toolz), [more-itertools](https://github.com/erikrose/more-itertools) or [funcy](https://github.com/suor/funcy/).
 
@@ -899,7 +886,7 @@ In contrast, in a `let*` form, attempting such a definition is *a compile-time e
 
 Our `letrec` behaves like `let*` in that if `valexpr` is not a function, it may only refer to bindings above it. But this is only enforced at run time, and we allow mutually recursive function definitions, hence `letrec`.
 
-Note that our `let` constructs are not properly lexically scoped; in case of nested ``let`` expressions, one must be explicit about which environment the names come from.
+Note that our `let` constructs are **not** properly lexically scoped; in case of nested ``let`` expressions, one must be explicit about which environment the names come from.
 
 Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
 
@@ -909,9 +896,13 @@ The point behind providing `let` and `begin` is to make Python lambdas slightly 
 
 The oft-quoted single-expression limitation is ultimately a herring - it can be fixed with a suitable `begin` form, or a function to approximate one.
 
-The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. The expression form of `if` can be used to a limited extent (actually [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers), and functional looping is possible - but still, ultimately one must keep in mind that Python is not a Lisp.
+The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. We can work around some of this:
 
-Another factor here is that not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful.
+ - The expression form of `if` can be used to a limited extent. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers, so it may be better not to go there. Another possibility is to use MacroPy to define a ``cond`` expression, but it's essentially duplicating a feature the language already almost has.
+ - Functional looping (with TCO, to boot) is possible.
+ - ``unpythonic.ec.call_ec`` gives us ``return`` (the ec), and ``unpythonic.misc.raisef`` gives us ``raise``.
+
+Still, ultimately one must keep in mind that Python is not a Lisp. Not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful, even though it does have a side effect.
 
 ### Assignment syntax
 
@@ -931,17 +922,20 @@ If we later choose go this route nevertheless, `<<` is a better choice for the s
 Benefits and costs of ``return jump(...)``:
 
  - Explicitly a tail call due to ``return``.
- - The trampoline remains very simple and (relatively speaking) fast. Just a dumb ``jump`` record, a ``while`` loop, and regular function calls and returns.
- - The cost is that ``jump`` cannot detect whether the user forgot the ``return``, leaving a possibility for bugs in the client code (an FP loop immediately exiting and returning ``None``). Unit tests of client code become very important.
-   - We could mandate that trampolined functions must not return ``None``, but that breaks the *don't care about return value* use case, which is rather common when using side effects. Besides, failing to terminate at the intended point may well fall through into another branch of the client code, which does happen to have a ``return``, so this would not actually solve the problem.
+ - The trampoline can be very simple and (relatively speaking) fast. Just a dumb ``jump`` record, a ``while`` loop, and regular function calls and returns.
+ - The cost is that ``jump`` cannot detect whether the user forgot the ``return``, leaving a possibility for bugs in the client code (causing an FP loop to immediately exit, returning ``None``). Unit tests of client code become very important.
+   - We could mandate that trampolined functions must not return ``None``, but:
+     - Uniformity is lost between regular and trampolined functions, if only one kind may return ``None``.
+     - This breaks the *don't care about return value* use case, which is rather common when using side effects.
+     - Failing to terminate at the intended point may well fall through into what was intended as another branch of the client code, which may correctly have a ``return``. So this would not even solve the problem.
 
-The other simple-ish solution is to use exceptions, making the jump wrest control from the caller. Then ``jump(...)`` becomes a verb. If you would like to use this approach, we provide [``tco_exc.py``](unpythonic/tco_exc.py) as a drop-in replacement. But beware, [``fploop.py``](unpythonic/fploop.py) is currently hardwired to load [``tco.py``](unpythonic/tco.py) (even though it works with either one), and the TCO implementations **cannot be mixed and matched**.
+The other simple-ish solution is to use exceptions, making the jump wrest control from the caller. Then ``jump(...)`` becomes a verb. If you would like to use this approach, we provide [``tco_exc.py``](unpythonic/tco_exc.py), a drop-in replacement. But beware, [``fploop.py``](unpythonic/fploop.py) is currently hardwired to load [``tco.py``](unpythonic/tco.py) (even though it works and has been tested with either one), and the TCO implementations **cannot be mixed and matched**.
 
-By a quick test, we see that the exception-based approach costs even more performance; a do-nothing loop using [``tco_exc.py``](unpythonic/tco_exc.py) runs 150-200× slower than the built-in ``for``, compared to only 40-80× slower using [``tco.py``](unpythonic/tco.py). Or in other words, the additional performance hit is somewhere between 2-5×.
+By a quick test, we see that the exception-based approach costs even more performance; a do-nothing loop using [``tco_exc.py``](unpythonic/tco_exc.py) runs 150-200× slower than the built-in ``for``, compared to only 40-80× slower using [``tco.py``](unpythonic/tco.py). In other words, the additional performance hit is somewhere between 2-5×. It's slow enough that the additional overhead of ``@looped`` and ``@looped_over`` no longer matters.
 
 For other libraries bringing TCO to Python, see:
 
- - Thomas Baruchel's [tco](https://github.com/baruchel/tco) library, based on exceptions.
+ - [tco](https://github.com/baruchel/tco) by Thomas Baruchel, based on exceptions.
  - [ActiveState recipe 474088](https://github.com/ActiveState/code/tree/master/recipes/Python/474088_Tail_Call_Optimization_Decorator), based on ``inspect``.
  - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the inspiration for ours.
 
@@ -951,7 +945,9 @@ For other libraries bringing TCO to Python, see:
 
 ### Wait, no monads?
 
-Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done elsewhere, see [PyMonad](https://bitbucket.org/jason_delaat/pymonad/) or [OSlash](https://github.com/dbrattli/OSlash) if you need them. Especially the `List` monad can be useful also in Python, e.g. to make an [`amb`](https://rosettacode.org/wiki/Amb) without `call/cc` ([example](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/amb.py)). Compare [this solution in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/), with `call/cc`.
+Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done elsewhere, see [PyMonad](https://bitbucket.org/jason_delaat/pymonad/) or [OSlash](https://github.com/dbrattli/OSlash) if you need them.
+
+Especially the `List` monad can be useful also in Python, e.g. to get the effects of McCarthy's [`amb`](https://rosettacode.org/wiki/Amb) without `call/cc` ([example](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/amb.py)). Compare these solutions, [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html), using `call/cc`.
 
 If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
 

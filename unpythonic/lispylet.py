@@ -358,6 +358,44 @@ def test():
     else:
         assert False
 
+#    letrec((('a', 2),
+#            ('f', lambda e:
+#                    lambda x:  # callable, needs "lambda e: ..." even though it doesn't use e
+#                      42*x)),
+#           lambda e:
+#             e.a * e.f(1))  # --> 84
+#
+#    square = lambda x: x**2
+#    letrec((('a', 2),
+#            ('f', lambda e: square)),  # callable, needs "lambda e: ..."
+#           lambda e:
+#             e.a * e.f(10))  # --> 200
+#
+#    def mul(x, y):
+#        return x * y
+#    letrec((('a', 2),
+#            ('f', lambda e: mul)),  # "mul" is a callable
+#           lambda e:
+#             e.a * e.f(3, 4))  # --> 24
+#
+#    from functools import partial
+#    double = partial(mul, 2)
+#    letrec((('a', 2),
+#            ('f', lambda e: double)),  # "double" is a callable
+#           lambda e:
+#             e.a * e.f(3))  # --> 12
+#
+#    class TimesA:
+#        def __init__(self, a):
+#            self.a = a
+#        def __call__(self, x):
+#            return self.a * x
+#    times5 = TimesA(5)
+#    letrec((('a', 2),
+#            ('f', lambda e: times5)),  # "times5" is a callable
+#           lambda e:
+#             e.a * e.f(3))  # --> 30
+
     print("All tests PASSED")
 
 if __name__ == '__main__':
