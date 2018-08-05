@@ -25,11 +25,11 @@ is somewhere between 2-5x.
 
 from functools import wraps
 
-from unpythonic.misc import immediate
+from unpythonic.misc import now
 
 __all__ = ["jump", "trampolined", "SELF"]
 
-@immediate
+@now
 class SELF:
     def __repr__(self):
         return "SELF"

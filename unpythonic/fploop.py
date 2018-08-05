@@ -36,7 +36,7 @@ from unpythonic.arity import arity_includes, UnknownArity
 def looped(body):
     """Decorator to make a functional loop and run it immediately.
 
-    This essentially chains @trampolined and @immediate, with some extra magic.
+    This essentially chains @trampolined and @now, with some extra magic.
 
     Parameters:
         `body`: function
@@ -123,7 +123,7 @@ def looped(body):
     except UnknownArity:  # well, we tried!
         pass
     tb = trampolined(body)  # enable "return jump(...)"
-    return tb(loop)  # like @immediate, run the (now trampolined) body.
+    return tb(loop)  # like @now, run the (now trampolined) body.
 
 def looped_over(iterable, acc=None):  # decorator factory
     """Functionally loop over an iterable.
@@ -179,7 +179,7 @@ def looped_over(iterable, acc=None):  # decorator factory
     If you **really** need to make that into an expression, bind ``r10`` using ``let``,
     or to make your code unreadable, just inline it.
     """
-    # Decorator that plays the role of @immediate, with "iterable" bound by closure.
+    # Decorator that plays the role of @now, with "iterable" bound by closure.
     def run(body):
         it = iter(iterable)
         # The magic parameter that, when called, inserts the implicit parameters
@@ -322,7 +322,7 @@ def test():
 
     # escape surrounding function from inside FP loop
     from unpythonic.ec import setescape, escape
-    from unpythonic.misc import immediate
+    from unpythonic.misc import now
     @setescape()
     def f():
         @looped
@@ -337,7 +337,7 @@ def test():
     # setescape point tags can be single value or tuple (tuples OR'd, like isinstance())
     @setescape(tags="foo")
     def foo():
-        @immediate
+        @now
         @setescape(tags="bar")
         def bar():
             @looped

@@ -8,7 +8,7 @@ Tour of the features.
 from unpythonic import assignonce, \
                        dyn,        \
                        let, letrec, dlet, dletrec, blet, bletrec, \
-                       immediate, begin, begin0, lazy_begin, lazy_begin0, \
+                       now, begin, begin0, lazy_begin, lazy_begin0, \
                        trampolined, jump, looped, looped_over, SELF, \
                        setescape, escape, call_ec
 
@@ -81,7 +81,7 @@ def main():
 
     # code block with let
     @blet(x=5)
-    def result(*, env):  # runs immediately (see also @immediate))
+    def result(*, env):  # runs immediately (see also @now))
         return 2 * env.x
     assert result == 10
 
@@ -101,13 +101,13 @@ def main():
 
     # def as a code block (function overwritten by return value)
     #
-    @immediate
+    @now
     def result():
         return "hello"
     assert result == "hello"
 
     # use case 1: make temporaries fall out of scope
-    @immediate
+    @now
     def x():
         a = 2  #    many temporaries that help readability...
         b = 3  # ...of this calculation, but would just pollute locals...
@@ -116,7 +116,7 @@ def main():
     assert x == 30
 
     # use case 2: multi-break out of nested loops
-    @immediate
+    @now
     def result():
         for x in range(10):
             for y in range(10):
@@ -334,7 +334,7 @@ def main():
     assert result == 90
 
     # but for readability, we can do the same more pythonically:
-    @immediate
+    @now
     def result():
         @looped
         def s(loop, acc=0, i=0):
@@ -372,7 +372,7 @@ def main():
     # setescape point tags can be single value or tuple (tuples OR'd, like isinstance())
     @setescape(tags="foo")
     def foo():
-        @immediate
+        @now
         @setescape(tags="bar")
         def bar():
             @looped

@@ -6,7 +6,7 @@ __all__ = ["let", "letrec", "dlet", "dletrec", "blet", "bletrec"]
 
 from functools import wraps
 
-from unpythonic.misc import immediate
+from unpythonic.misc import now
 from unpythonic.env import env as _envcls
 
 def let(bindings, body):
@@ -201,7 +201,7 @@ def dletrec(bindings):
 def blet(bindings):
     """``let`` block.
 
-    This chains ``@dlet`` and ``@immediate``::
+    This chains ``@dlet`` and ``@now``::
 
         @blet((('x', 9001),))
         def result(*, env):
@@ -213,7 +213,7 @@ def blet(bindings):
 def bletrec(bindings):
     """``letrec`` block.
 
-    This chains ``@dletrec`` and ``@immediate``."""
+    This chains ``@dletrec`` and ``@now``."""
     return _blet(bindings, mode="letrec")
 
 # Core idea based on StackOverflow answer by divs1210 (2017),
@@ -248,7 +248,7 @@ def _dlet(bindings, mode="let"):  # let and letrec decorator factory
 def _blet(bindings, mode="let"):
     dlet_deco = _dlet(bindings, mode)
     def deco(body):
-        return immediate(dlet_deco(body))
+        return now(dlet_deco(body))
     return deco
 
 def test():

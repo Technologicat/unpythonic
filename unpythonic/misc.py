@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0", "immediate", "raisef"]
+__all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0", "now", "raisef"]
 
 def begin(*vals):
     """Racket-like begin: return the last value.
@@ -69,7 +69,7 @@ def lazy_begin0(*bodys):
         body()
     return out
 
-def immediate(thunk):
+def now(thunk):
     """Decorator: run immediately, overwrite function by its return value.
 
     Can be used to make lispy not-quite-functions where the def just delimits
@@ -77,24 +77,24 @@ def immediate(thunk):
 
     The function will be called with zero arguments.
 
-        @immediate
+        @now
         def result():  # this block of code runs immediately
             return "hello"
         print(result)  # "hello"
 
         # if the return value is of no interest:
-        @immediate
+        @now
         def _():
             ...  # code with cheeky side effects goes here
 
-        @immediate
+        @now
         def x():
             a = 2  #    many temporaries that help readability...
             b = 3  # ...of this calculation, but would just pollute locals...
             c = 5  # ...after the block exits
             return a * b * c
 
-        @immediate
+        @now
         def _():
             for x in range(10):
                 for y in range(10):
@@ -147,7 +147,7 @@ def test():
                                            lambda: print("hi"))
     assert test_lazy_begin0() == "the return value"
 
-    @immediate
+    @now
     def result():
         return "hello"
     assert result == "hello"
