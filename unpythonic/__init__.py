@@ -34,4 +34,4 @@ from .lispylet import let as ordered_let, letrec as ordered_letrec, \
 from .misc import *
 from .tco import *
 
-__version__ = '0.3.0'
+__version__ = '0.4.0'
