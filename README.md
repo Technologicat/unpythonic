@@ -736,7 +736,7 @@ The source of the copy is always the main thread mainly because Python's `thread
 
 ### ``def`` as a code block: ``@call``
 
-Fuel for different thinking. Compare the `something` in `call-with-something` in Lisps - but without parameters, so just `call`. A `def` is really just a new lexical scope to hold code to run later... or right now!
+Fuel for different thinking. Compare `call-with-something` in Lisps - but without parameters, so just `call`. A `def` is really just a new lexical scope to hold code to run later... or right now!
 
 At the top level of a module, this is seldom useful, but keep in mind that Python allows nested function definitions. Used with an inner ``def``, this becomes a versatile tool.
 
