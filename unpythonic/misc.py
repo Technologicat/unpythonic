@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0", "call", "raisef"]
+__all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0", "call", "raisef", "pack"]
 
 def begin(*vals):
     """Racket-like begin: return the last value.
