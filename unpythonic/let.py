@@ -6,7 +6,7 @@ __all__ = ["let", "letrec", "dlet", "dletrec", "blet", "bletrec"]
 
 from functools import wraps
 
-from unpythonic.misc import now
+from unpythonic.misc import call
 from unpythonic.env import env as _envcls
 
 def let(body, **bindings):
@@ -214,7 +214,7 @@ def dletrec(**bindings):
 def blet(**bindings):
     """``let`` block.
 
-    This chains ``@dlet`` and ``@now``::
+    This chains ``@dlet`` and ``@call``::
 
         @blet(x=9001)
         def result(*, env):
@@ -226,7 +226,7 @@ def blet(**bindings):
 def bletrec(**bindings):
     """``letrec`` block.
 
-    This chains ``@dletrec`` and ``@now``."""
+    This chains ``@dletrec`` and ``@call``."""
     return _blet("letrec", **bindings)
 
 def _let(mode, body, **bindings):
@@ -269,7 +269,7 @@ def _dlet(mode, **bindings):
 def _blet(mode, **bindings):
     dlet_deco = _dlet(mode, **bindings)
     def deco(body):
-        return now(dlet_deco(body))
+        return call(dlet_deco(body))
     return deco
 
 def test():
@@ -333,12 +333,12 @@ def test():
         assert env.x == 5
     bar()
 
-    @now
+    @call
     @dlet(x=5)
     def _(*, env):  # this is now the let block, run immediately
         assert env.x == 5
 
-        @now
+        @call
         @dlet(x = 42)
         def _(*, env):
             assert env.x == 42
@@ -371,7 +371,7 @@ def test():
     assert t is True
 
     # somewhat pythonic solution:
-    @now
+    @call
     def t():
         def evenp(x): return x == 0 or oddp(x - 1)
         def oddp(x): return x != 0 and evenp(x - 1)

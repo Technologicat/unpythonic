@@ -130,9 +130,9 @@ __all__ = ["SELF", "jump", "trampolined"]
 
 from functools import wraps
 
-from unpythonic.misc import now
+from unpythonic.misc import call
 
-@now  # "now" a class to make a singleton
+@call  # make a singleton
 class SELF:  # sentinel, could be any object but we want a nice __repr__.
     def __repr__(self):
         return "SELF"

@@ -15,7 +15,7 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [Escape continuations (ec)](#escape-continuations-ec)
    - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
  - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables)
- - [``def`` as a code block: ``@now``](#def-as-a-code-block-now) (run a block of code immediately, in a new lexical scope)
+ - [``def`` as a code block: ``@call``](#def-as-a-code-block-call) (run a block of code immediately, in a new lexical scope)
 
 For highlights, we recommend **Loops in FP style** and **call/ec**, and possibly **Dynamic scoping**.
 
@@ -371,7 +371,7 @@ s = s()
 print(s)  # 45
 ```
 
-In `@looped`, the function name of the loop body is the name of the final result, like in `@now`. The final result of the loop is just returned normally.
+In `@looped`, the function name of the loop body is the name of the final result, like in `@call`. The final result of the loop is just returned normally.
 
 The first parameter of the loop body is the magic parameter ``loop``. It is *self-ish*, representing a jump back to the loop body itself, starting a new iteration. Just like Python's ``self``, ``loop`` can have any name; it is passed positionally.
 
@@ -426,7 +426,7 @@ assert s == 45
 The ``@looped_over`` decorator is essentially sugar. Behaviorally equivalent code:
 
 ```python
-@now
+@call
 def s(iterable=range(10)):
     it = iter(iterable)
     @looped
@@ -598,7 +598,7 @@ For more control, both ``@setescape`` points and escape instances can be tagged:
 ```python
 @setescape(tags="foo")  # setescape point tags can be single value or tuple (tuples OR'd, like isinstance())
 def foo():
-    @now
+    @call
     @setescape(tags="bar")
     def bar():
         @looped
@@ -618,7 +618,7 @@ For details on tagging, especially how untagged and tagged escapes and points in
 
 ### First-class escape continuations: ``call/ec``
 
-We provide ``call/ec`` (a.k.a. ``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@now``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an escape point, and hands a **first-class escape continuation** to the callee.
+We provide ``call/ec`` (a.k.a. ``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@call``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an escape point, and hands a **first-class escape continuation** to the callee.
 
 The function to be decorated **must** take one positional argument, the ec instance.
 
@@ -732,18 +732,18 @@ Any copied bindings will remain on the stack for the full dynamic extent of the 
 The source of the copy is always the main thread mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, PRs welcome!)
 
 
-### ``def`` as a code block: ``@now``
+### ``def`` as a code block: ``@call``
 
-Fuel for different thinking. Compare the `something` in `call-with-something` in Lisps. A `def` is really just a new lexical scope to hold code to run later... or right now!
+Fuel for different thinking. Compare the `something` in `call-with-something` in Lisps - but without parameters, so just `call`. A `def` is really just a new lexical scope to hold code to run later... or right now!
 
 At the top level of a module, this is seldom useful, but keep in mind that Python allows nested function definitions. Used with an inner ``def``, this becomes a versatile tool.
 
 *Make temporaries fall out of scope as soon as no longer needed*:
 
 ```python
-from unpythonic import now
+from unpythonic import call
 
-@now
+@call
 def x():
     a = 2  #    many temporaries that help readability...
     b = 3  # ...of this calculation, but would just pollute locals...
@@ -755,7 +755,7 @@ print(x)  # 30
 *Multi-break out of nested loops* - `continue`, `break` and `return` are really just second-class [ec](https://docs.racket-lang.org/reference/cont.html#%28def._%28%28lib._racket%2Fprivate%2Fletstx-scheme..rkt%29._call%2Fec%29%29)s. So `def` to make `return` escape to exactly where you want:
 
 ```python
-@now
+@call
 def result():
     for x in range(10):
         for y in range(10):
@@ -779,10 +779,22 @@ define result
 displayln result  ; (6 7)
 ```
 
+Noting [what ``let/ec`` does](https://docs.racket-lang.org/reference/cont.html#%28form._%28%28lib._racket%2Fprivate%2Fletstx-scheme..rkt%29._let%2Fec%29%29), using ``call_ec`` we can make the Python even closer to the Racket:
+
+```python
+@call_ec
+def result(rtn):
+    for x in range(10):
+        for y in range(10):
+            if x * y == 42:
+                rtn((x, y))
+print(result)  # (6, 7)
+```
+
 *Twist the meaning of `def` into a "let statement"*:
 
 ```python
-@now
+@call
 def result(x=1, y=2, z=3):
     return x * y * z
 print(result)  # 6
@@ -793,7 +805,7 @@ print(result)  # 6
 *Letrec without `letrec`*, when it doesn't have to be an expression:
 
 ```python
-@now
+@call
 def t():
     def evenp(x): return x == 0 or oddp(x - 1)
     def oddp(x): return x != 0 and evenp(x - 1)
@@ -801,9 +813,9 @@ def t():
 print(t)  # True
 ```
 
-Essentially the implementation is just `def now(thunk): return thunk()`. The point is to:
+Essentially the implementation is just `def call(thunk): return thunk()`. The point is to:
 
- - Make it explicit right at the definition site that this block is *going to be run now* (in contrast to an explicit call and assignment *after* the definition). Centralize the related information. Align the presentation order with the thought process.
+ - Make it explicit right at the definition site that this block is *going to be called now* (in contrast to an explicit call and assignment *after* the definition). Centralize the related information. Align the presentation order with the thought process.
 
  - Help eliminate errors, in the same way as the habit of typing parentheses only in pairs. No risk of forgetting to call the block after writing the definition.
 

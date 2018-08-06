@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0", "now", "raisef"]
+__all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0", "call", "raisef"]
 
 def begin(*vals):
     """Racket-like begin: return the last value.
@@ -69,32 +69,37 @@ def lazy_begin0(*bodys):
         body()
     return out
 
-def now(thunk):
+def call(thunk):
     """Decorator: run immediately, overwrite function by its return value.
 
     Can be used to make lispy not-quite-functions where the def just delimits
-    a block of code that runs immediately (think call-with-something in Lisp).
+    a block of code that runs immediately (think call-with-something in Lisps).
 
     The function will be called with zero arguments.
 
-        @now
+    Name inspired by "call-with-something", but since here we're calling
+    without any arguments, it's just "call".
+
+    Examples::
+
+        @call
         def result():  # this block of code runs immediately
             return "hello"
         print(result)  # "hello"
 
         # if the return value is of no interest:
-        @now
+        @call
         def _():
             ...  # code with cheeky side effects goes here
 
-        @now
+        @call
         def x():
             a = 2  #    many temporaries that help readability...
             b = 3  # ...of this calculation, but would just pollute locals...
             c = 5  # ...after the block exits
             return a * b * c
 
-        @now
+        @call
         def _():
             for x in range(10):
                 for y in range(10):
@@ -147,7 +152,7 @@ def test():
                                            lambda: print("hi"))
     assert test_lazy_begin0() == "the return value"
 
-    @now
+    @call
     def result():
         return "hello"
     assert result == "hello"

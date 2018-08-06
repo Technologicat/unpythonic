@@ -137,7 +137,7 @@ def setescape(tags=None, catch_untagged=True):
 
         @setescape("foo")
         def foo():
-            @now
+            @call
             @setescape("bar")
             def bar():
                 @looped
@@ -190,7 +190,7 @@ def call_ec(f):
             destination), and the point is set to ignore any untagged escapes
             (so that it catches only this particular ec).
 
-    Like in ``@now``, the function ``f`` is called immediately,
+    Like in ``@call``, the function ``f`` is called immediately,
     and the def'd name is replaced by the return value of ``f(ec).``
 
     Example::

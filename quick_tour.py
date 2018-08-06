@@ -18,7 +18,7 @@ with assignonce() as e:
         pass
 
 # def as a lexically scoped code block
-@now
+@call
 def x():
     a = 2
     b = 3
