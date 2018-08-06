@@ -679,6 +679,8 @@ assert result == 42
 
 Normally ``begin()`` would return the last value, but the ec overrides that; it is effectively a ``return`` for multi-expression lambdas!
 
+But wait, doesn't Python evaluate all the arguments of `begin(...)` before the `begin` itself has a chance to run? Why doesn't the example print also *never reached*? This is because escapes are implemented using exceptions. Evaluating the ec call raises an exception, preventing any further elements from being evaluated.
+
 This usage is valid with named functions, too - ``call_ec`` is not only a decorator:
 
 ```python
