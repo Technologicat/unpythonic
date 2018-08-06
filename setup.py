@@ -34,10 +34,17 @@ SHORTDESC="Python meets Lisps; e.g. TCO'd FP loops, call/ec, let & letrec."
 
 # Long description for package homepage on PyPI
 #
-DESC="""Lispy missing batteries for Python.
+DESC="""We provide some missing features for Python from the list processing tradition.
 
 Tail call optimization (TCO), TCO'd loops in FP style, call/ec, let & letrec,
-assign-once, multi-expression lambdas, def as a code block, dynamic scoping."""
+assign-once, multi-expression lambdas, def as a code block, dynamic scoping.
+
+We place a special emphasis on clear, pythonic syntax, as far as possible without MacroPy.
+
+Other design considerations are simplicity, robustness, and minimal dependencies (currently none).
+
+For the documentation and a tour, see the project's GitHub homepage.
+"""
 
 # Set up data files for packaging.
 #
