@@ -144,17 +144,25 @@ def pack(*args):
 
     We provide this because the default constructor `tuple(...)` requires an
     iterable, and there are use cases (especially in Python 3.4, before PEP 448)
-    where being able to say "pack your args" is useful.
+    where it is useful to be able to say *pack these args into a tuple*.
 
     See:
         https://www.python.org/dev/peps/pep-0448/
 
-    Example::
+    Examples. If args naturally come in separately::
 
         myzip = lambda lol: map(pack, *lol)
         lol = ((1, 2), (3, 4), (5, 6))
         for z in myzip(lol):
             print(z)
+
+    Eliminate an ugly trailing comma::
+
+        @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
+        def p(loop, item, acc):
+            numb, lett = item
+            return loop(acc + pack("{:d}{:s}".format(numb, lett)))
+        assert p == ('1a', '2b', '3c')
     """
     return args
 
