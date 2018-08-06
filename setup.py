@@ -71,10 +71,10 @@ from setuptools import setup
 # http://stackoverflow.com/questions/13628979/setuptools-how-to-make-package-contain-extra-data-folder-and-all-folders-inside
 #
 datafiles = []
-getext = lambda filename: os.path.splitext(filename)[1]
-for datadir in datadirs:
-    datafiles.extend( [(root, [os.path.join(root, f) for f in files if getext(f) in dataexts])
-                       for root, dirs, files in os.walk(datadir)] )
+#getext = lambda filename: os.path.splitext(filename)[1]
+#for datadir in datadirs:
+#    datafiles.extend( [(root, [os.path.join(root, f) for f in files if getext(f) in dataexts])
+#                       for root, dirs, files in os.walk(datadir)] )
 
 # Add standard documentation (README et al.), if any, to data files
 #
