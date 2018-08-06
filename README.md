@@ -486,6 +486,8 @@ def outer_result(outer_loop, y, outer_acc):
 assert outer_result == ((1, 2), (2, 4), (3, 6))
 ```
 
+If you feel the trailing commas ruin the aesthetics, see ``unpythonic.misc.pack``.
+
 #### ``break``
 
 The main way to exit an FP loop (also early) is, at any time, to just ``return`` the final result normally.
