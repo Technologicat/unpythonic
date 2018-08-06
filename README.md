@@ -440,7 +440,7 @@ def s(iterable=range(10)):
 assert s == 45
 ```
 
-In ``@looped_over``, the loop body takes three magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element. The third parameter ``acc`` is initialized to the ``acc`` value given to ``@looped_over``, and then (functionally) updated at each iteration, taking as the new value the first positional argument given to ``return loop(...)``, if any positional arguments were given. Otherwise ``acc`` resets to its initial value.
+In ``@looped_over``, the loop body takes three magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element. The third parameter ``acc`` is initialized to the ``acc`` value given to ``@looped_over``, and then (functionally) updated at each iteration, taking as the new value the first positional argument given to ``return loop(...)``, if any positional arguments were given. Otherwise ``acc`` retains its last value.
 
 Additional arguments can be given to ``return loop(...)``. The same notes as above apply. For example, here we have the additional parameters ``fruit`` and ``number``. The first one is passed positionally, and the second one by name:
 
@@ -477,18 +477,24 @@ assert q == ('Item 0: 1a', 'Item 1: 2b', 'Item 2: 3c')
 FP loops can be nested (also those over iterables):
 
 ```python
-@looped_over(range(1, 4), acc=[])
+@looped_over(range(1, 4), acc=())
 def outer_result(outer_loop, y, outer_acc):
-    @looped_over(range(1, 3), acc=[])
+    @looped_over(range(1, 3), acc=())
     def inner_result(inner_loop, x, inner_acc):
-        return inner_loop(inner_acc + [y*x])
-    return outer_loop(outer_acc + [inner_result])
-assert outer_result == [[1, 2], [2, 4], [3, 6]]
+        return inner_loop(inner_acc + (y*x,))
+    return outer_loop(outer_acc + (inner_result,))
+assert outer_result == ((1, 2), (2, 4), (3, 6))
 ```
+
+#### ``break``
+
+The main way to exit an FP loop (also early) is, at any time, to just ``return`` the final result normally.
+
+If you want to exit the function *containing* the loop from inside the loop, see **escape continuations** below.
 
 #### ``continue``
 
-**There is no** FP ``continue``. At any time, ``return loop(...)`` with the appropriate arguments to proceed to the next iteration. Or package the appropriate `loop(...)` expression into your own function ``cont``, and then ``return cont(...)``:
+The main way to *continue* an FP loop is, at any time, to ``return loop(...)`` with the appropriate arguments that will make it proceed to the next iteration. Or package the appropriate `loop(...)` expression into your own function ``cont``, and then ``return cont(...)``:
 
 ```python
 @looped
@@ -505,80 +511,15 @@ print(s)  # 35
 
 This approach separates the computations of the new values for the iteration counter and the accumulator.
 
-#### ``break``
+#### Prepackaged ``break`` and ``continue``
 
-**There is no** FP ``break``. At any time, just ``return`` your final result normally to terminate the loop.
+See ``@breakably_looped`` (offering `brk`) and ``@breakably_looped_over`` (offering `brk` and `cnt`).
 
-If you want to exit the function *containing* the loop from inside the loop, see **escape continuations** below.
+The point of `brk(value)` over just `return value` is that `brk` is first-class, so it can be passed on to functions called by the loop body (so that those functions then have the power to directly terminate the loop).
 
-#### But if I really, really want ``continue`` and ``break``?
+In ``@looped``, a library-provided ``cnt`` wouldn't make sense, since all parameters except ``loop`` are user-defined. *The client code itself defines what it means to proceed to the "next" iteration*. Really the only way in a construct with this degree of flexibility is for the client code to fill in all the arguments itself.
 
-If performance is not an issue, just create your own using ``call_ec``:
-
-```python
-# The brk continuation should terminate the loop, so capture it before starting the loop.
-# brk(value) breaks the loop, returning value.
-@call_ec
-def result(brk):
-    # Start the loop.
-    @looped_over(range(100), acc=0)
-    def tmp(loop, x, acc):
-        # The cnt continuation should end the current iteration, so capture it now.
-        # cnt(value) ends this iteration, setting newacc to value.
-        @call_ec
-        def newacc(cnt):
-            # The loop body
-            if x <= 4: cnt(acc)
-            if x == 10: brk(acc)
-            return acc + x  # set newacc normally
-        # End-of-iteration processing
-        #   - If @looped, check normal termination condition here, return result if terminated.
-        #   - If @looped_over, no need; the decorator handles that for us.
-        return loop(newacc)  # start next iteration
-    return tmp
-assert result == 35
-```
-
-Here ``brk`` and ``cnt`` are first-class, so the loop body can also pass them to functions. Then those functions have the power to ``brk`` or ``cnt`` the loop.
-
-In Lisp terms, this is pretty much how ``continue`` and ``break`` work. Some sugar for things like this may (or may not) become a feature in some future version of ``unpythonic``.
-
-In ``@looped``, a library-provided ``cnt`` wouldn't make sense, since it's *up to the client code to define what it means to proceed to the next iteration*. All parameters except ``loop`` itself are user-defined. Really the only way in a construct with this degree of flexibility is for the client code to fill in all the arguments itself.
-
-In ``@looped_over``, the concept of *continue* is much more clear-cut, since it always means *proceed to take the next element from the iterable*, and ``return loop(...)`` accepts a new value for the implicit ``acc``. That is the only piece of data that needs to be provided by the client code, and *continue with given newacc* and *break with given result* are useful abstractions. These can even default to the current ``acc``.
-
-To improve performance, this can be streamlined:
-
-```python
-@call_ec
-def result(brk):  # not a performance problem, created only once when the loop starts, so let's keep this
-    @looped_over(range(100), acc=0)
-    def tmp(loop, x, acc):
-        def newacc(cnt):
-            # The loop body
-            if x <= 4: return acc  # if we don't need the first-classness of cnt
-            if x == 10: brk(acc)
-            return acc + x
-        # End-of-iteration processing (here nothing)
-        return loop(newacc)
-    return tmp
-assert result == 35
-```
-
-If we don't need end-of-iteration processing, a further optimization is to eliminate the ``newacc`` function:
-
-```python
-@call_ec
-def result(brk):
-    @looped_over(range(100), acc=0)
-    def tmp(loop, x, acc):
-        # The loop body
-        if x <= 4: return loop(acc)
-        if x == 10: brk(acc)
-        return loop(acc + x)
-    return tmp
-assert result == 35
-```
+Because ``@looped_over`` is a more specific abstraction, there the concept of *continue* is much more clear-cut. We define `cnt` to mean *proceed to take the next element from the iterable, keeping the current value of `acc`*. Essentially `cnt` is a partially applied `loop(...)` with the first positional argument set to the current value of `acc`.
 
 #### FP loops using a lambda as body
 
@@ -868,7 +809,7 @@ Essentially the implementation is just `def now(thunk): return thunk()`. The poi
 
  - Document that the block is going to be used only once. Tell the reader there's no need to remember this definition.
 
-Too bad [the grammar](https://docs.python.org/3/reference/grammar.html) requires a newline after a decorator.
+Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a newline after a decorator.
 
 ## Notes
 

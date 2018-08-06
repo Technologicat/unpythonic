@@ -25,10 +25,14 @@ FP loops don't have to be pure::
     assert [f(10) for f in funcs] == [0, 10, 20]
 """
 
-__all__ = ["looped", "looped_over"]
+__all__ = ["looped", "looped_over", "breakably_looped", "breakably_looped_over"]
+
+from functools import partial
 
 # can import from unpythonic.tco_exc instead to use the other implementation.
 from unpythonic.tco import SELF, jump, trampolined, _jump
+
+from unpythonic.ec import call_ec
 
 # evil inspect dependency, used only to provide informative error messages.
 from unpythonic.arity import arity_includes, UnknownArity
@@ -125,6 +129,55 @@ def looped(body):
     tb = trampolined(body)  # enable "return jump(...)"
     return tb(loop)  # like @now, run the (now trampolined) body.
 
+def breakably_looped(body):
+    """Functionally loop over an iterable.
+
+    Like ``@looped``, but the client now gets two positionally passed magic parameters:
+
+        `loop`: function
+            Like in ``@looped``.
+
+        `brk`: function
+            **Break**. Terminate the loop and return the given value as the return
+            value of the loop. Usage: `brk(value)`.
+
+    Additional arguments can be sent to ``return loop(...)``. When the body
+    is called, they are appended to the implicit ones, and can be anything.
+    Their initial values must be set as defaults in the formal parameter list
+    of the body.
+
+    The point of `brk(value)` over just `return value` is that `brk` is
+    first-class, so it can be passed on to functions called by the loop body
+    (so that those functions then have the power to directly terminate the loop).
+
+    There is no `cnt`, because the concept of *continue* does not make sense at
+    this level of abstraction. It is entirely up to the client code to define
+    what it even *means* to "proceed to the next iteration". But see
+    ``@breakably_looped_over``.
+
+    Example::
+
+        @breakably_looped
+        def result(loop, brk, acc=0, i=0):
+            if i == 10:
+                return brk(acc)  # escape ("return" not mandatory)
+            else:
+                return loop(acc + i, i + 1)
+        print(result)
+"""
+    @call_ec
+    def result(brk):
+        def loop(*args, **kwargs):
+            return _jump(SELF, (loop, brk) + args, kwargs)  # already packed args, inst directly.
+        try:
+            if not arity_includes(body, 2):
+                raise ValueError("Body arity mismatch. (Are (loop, brk) declared? Do all extra parameters have their defaults set?)")
+        except UnknownArity:  # well, we tried!
+            pass
+        tb = trampolined(body)
+        return tb(loop, brk)
+    return result
+
 def looped_over(iterable, acc=None):  # decorator factory
     """Functionally loop over an iterable.
 
@@ -138,13 +191,13 @@ def looped_over(iterable, acc=None):  # decorator factory
 
         `acc`: anything
             The accumulator. Initially, this is set to the ``acc`` value
-            given to ``@looped_over``, and then reset at each iteration
-            to the first positional argument sent to ``return loop(...)``,
-            if any positional arguments were sent. (If not, ``acc``
-            is reset to its initial value.)
+            given to ``@looped_over``, and then at each iteration, set to
+            the first positional argument sent to ``return loop(...)``,
+            if any positional arguments were sent. If not, ``acc``
+            retains its last value.
 
-    Additional arguments can be sent to ``return loop(...)``. When the body is
-    called, they are appended to the three implicit ones, and can be anything.
+    Additional arguments can be sent to ``return loop(...)``. When the body
+    is called, they are appended to the implicit ones, and can be anything.
     Their initial values must be set as defaults in the formal parameter list
     of the body.
 
@@ -182,10 +235,13 @@ def looped_over(iterable, acc=None):  # decorator factory
     # Decorator that plays the role of @now, with "iterable" bound by closure.
     def run(body):
         it = iter(iterable)
+        oldacc = acc  # keep track of the last seen value for acc
         # The magic parameter that, when called, inserts the implicit parameters
         # into the positional args of the jump target. Runs between iterations.
         def loop(*args, **kwargs):
-            newacc = args[0] if len(args) else acc
+            nonlocal oldacc
+            newacc = args[0] if len(args) else oldacc
+            oldacc = newacc
             try:
                 newx = next(it)
             except StopIteration:
@@ -203,6 +259,77 @@ def looped_over(iterable, acc=None):  # decorator factory
             return acc
         tb = trampolined(body)
         return tb(loop, x0, acc)
+    return run
+
+def breakably_looped_over(iterable, acc=None):  # decorator factory
+    """Functionally loop over an iterable.
+
+    Like ``@looped_over``, but with *continue* and *break* functionality.
+    The loop body takes five magic parameters:
+
+        `loop`: function
+        `x`: anything
+        `acc`: anything
+            Like in ``@looped_over``.
+
+        `cnt`: function
+            **Continue**. Proceed to the next element in the iterable, keeping
+            the current value of `acc`.
+
+            Essentially, specialized `loop` with the first positional parameter
+            set to the current `acc`. Usage: `cnt()` or `cnt(my, extra, params)`.
+
+        `brk`: function
+            **Break**. Terminate the loop and return the given value as the return
+            value of the loop. Usage: `brk(value)`.
+
+    The point of `brk(value)` over just `return value` is that `brk` is
+    first-class, so it can be passed on to functions called by the loop body
+    (so that those functions then have the power to directly terminate the loop).
+
+    The point of `cnt(my, extra, params)` over `loop(acc, my, extra, params)`
+    is convenience; especially if passing `cnt` to a function, there is no need
+    to pass `acc` (or to perform the partial application in the client code).
+
+    Example::
+
+        @breakably_looped_over(range(100), acc=0)
+        def s(loop, x, acc, cnt, brk):
+            if x < 5:
+                return cnt()  # note "return", just like with "loop"
+            if x >= 10:
+                return brk(acc)  # escape ("return" not mandatory)
+            return loop(acc + x)
+        assert s == 35
+    """
+    def run(body):
+        it = iter(iterable)
+        @call_ec
+        def result(brk):
+            oldacc = acc
+            def loop(*args, **kwargs):
+                nonlocal oldacc
+                newacc = args[0] if len(args) else oldacc
+                oldacc = newacc
+                try:
+                    newx = next(it)
+                except StopIteration:
+                    return newacc
+                rest = args[1:] if len(args) >= 2 else ()
+                cnt = partial(loop, oldacc)
+                return _jump(SELF, (loop, newx, newacc, cnt, brk) + rest, kwargs)  # already packed args, inst directly.
+            try:
+                if not arity_includes(body, 5):
+                    raise ValueError("Body arity mismatch. (Are (loop, x, acc, cnt, brk) declared? Do all extra parameters have their defaults set?)")
+            except UnknownArity:  # well, we tried!
+                pass
+            try:
+                x0 = next(it)
+            except StopIteration:  # empty iterable
+                return acc
+            tb = trampolined(body)
+            return tb(loop, x0, acc, partial(loop, oldacc), brk)
+        return result
     return run
 
 def test():
@@ -350,6 +477,34 @@ def test():
         print("never reached either")
         return False
     assert foo() == 15
+
+    # break
+    @breakably_looped
+    def result(loop, brk, acc=0, i=0):
+        if i == 10:
+            return brk(acc)
+        else:
+            return loop(acc + i, i + 1)  # provide the additional parameters
+    assert result == 45
+
+    # break, continue
+    @breakably_looped_over(range(100), acc=0)
+    def s(loop, x, acc, cnt, brk):
+        if x < 5:
+            return cnt()  # trampolined jump; default newacc=acc
+        if x >= 10:
+            return brk(acc)  # escape; must specify return value
+        return loop(acc + x)
+    assert s == 35
+
+    @breakably_looped_over(range(100), acc=0)
+    def s(loop, x, acc, cnt, brk):
+        if x >= 10:
+            return brk(acc)
+        if x > 5:
+            return cnt()
+        return loop(acc + x)
+    assert s == 15
 
     print("All tests PASSED")
 
