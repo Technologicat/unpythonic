@@ -135,6 +135,29 @@ def raisef(exctype, *args, **kwargs):
     """
     raise exctype(*args, **kwargs)
 
+def pack(*args):
+    """Multi-argument constructor for tuples.
+
+    In other words, the inverse of tuple unpacking, as a function.
+
+    E.g. `pack(a, b, c)` is the same as `(a, b, c)`.
+
+    We provide this because the default constructor `tuple(...)` requires an
+    iterable, and there are use cases (especially in Python 3.4, before PEP 448)
+    where being able to say "pack your args" is useful.
+
+    See:
+        https://www.python.org/dev/peps/pep-0448/
+
+    Example::
+
+        myzip = lambda lol: map(pack, *lol)
+        lol = ((1, 2), (3, 4), (5, 6))
+        for z in myzip(lol):
+            print(z)
+    """
+    return args
+
 def test():
     f = lambda x: begin(print("hi"),
                         42*x)
@@ -156,6 +179,18 @@ def test():
     def result():
         return "hello"
     assert result == "hello"
+
+    l = lambda: raisef(ValueError, "all ok")
+    try:
+        l()
+    except ValueError:
+        pass
+    else:
+        assert False
+
+    myzip = lambda lol: map(pack, *lol)
+    lol = ((1, 2), (3, 4), (5, 6))
+    assert tuple(myzip(lol)) == ((1, 3, 5), (2, 4, 6))
 
     print("All tests PASSED")
 
