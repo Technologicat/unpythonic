@@ -61,9 +61,18 @@ class TrampolinedJump(Exception):
         self.tkwargs = kwargs
 
         # Error message when uncaught
+        # (This can still be caught by the wrong trampoline, if an inner trampoline
+        #  has been forgotten when nesting TCO chains - there's nothing we can do
+        #  about that.)
         self.args = ("No trampoline, attempted to jump to '{}', args {}, kwargs {}".format(target,
                                                                                            args,
                                                                                            kwargs),)
+
+    def __repr__(self):
+        return "<TrampolinedJump at 0x{:x}: target={}, args={}, kwargs={}".format(id(self),
+                                                                                  self.target,
+                                                                                  self.targs,
+                                                                                  self.tkwargs)
 
 def trampolined(function):
     """Decorator to make a function trampolined.

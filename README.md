@@ -248,6 +248,10 @@ Here `jump` is **a noun, not a verb**. The `jump(f, ...)` part just evaluates to
 
 The final result is just returned normally. Returning a normal value (anything that is not a ``jump`` instance) to a trampoline shuts down that trampoline, and returns the given value from the initial call (to a ``@trampolined`` function) that originally started that trampoline.
 
+Trying to ``jump(...)`` without the ``return`` will **usually** print a warning. This is implemented by checking a flag in the ``__del__`` method; any correctly used jump instance should have been claimed by a trampoline at some point in its lifetime.
+
+If you prefer the syntax without the explicit ``return``, see [`tco_exc.py`](unpythonic/tco_exc.py). **Since this is pre-1.0**, the default implementation (and the import in [`fploop.py`](unpythonic/fploop.py)) is still subject to change.
+
 *Tail recursion in a lambda*:
 
 ```python

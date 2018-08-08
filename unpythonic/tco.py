@@ -129,6 +129,7 @@ slower than Python's ``for``.
 __all__ = ["SELF", "jump", "trampolined"]
 
 from functools import wraps
+from sys import stderr
 
 from unpythonic.misc import call
 
@@ -170,6 +171,66 @@ class _jump:
         self.target = target._entrypoint if hasattr(target, "_entrypoint") else target
         self.args = args
         self.kwargs = kwargs
+        self._claimed = False  # set when the instance is caught by a trampoline
+
+    def __repr__(self):
+        return "<_jump at 0x{:x}: target={}, args={}, kwargs={}".format(id(self),
+                                                                        self.target,
+                                                                        self.args,
+                                                                        self.kwargs)
+
+    def __del__(self):
+        """Warn about bugs in client code.
+
+        Since it's ``__del__``, we can't raise any exceptions - which includes
+        things such as ``AssertionError`` and ``SystemExit``. So we print a
+        warning.
+
+        **CAUTION**:
+
+            This warning mechanism should help find bugs, but it is not 100% foolproof.
+            Since ``__del__`` is managed by Python's GC, some object instances may
+            not get their ``__del__`` called when the Python interpreter itself exits
+            (if those instances are still alive at that time).
+
+        **Typical causes**:
+
+        *Missing "return"*::
+
+            @trampolined
+            def foo():
+                jump(bar, 42)
+
+        The jump instance was never actually passed to the trampoline; it was
+        just created and discarded. The trampoline got the ``None`` from the
+        implicit ``return None`` at the end of the function.
+
+        (See ``tco_exc.py`` if you prefer this syntax, without a ``return``.)
+
+        *No trampoline*::
+
+            def foo():
+                return jump(bar, 42)
+
+        Here ``foo`` is not trampolined.
+
+        We **have** a trampoline when the function that returns the jump
+        instance is itself ``@trampolined``, or is running in a trampoline
+        implicitly (due to having been entered via a tail call).
+
+        *Trampoline at the wrong level*::
+
+            @trampolined
+            def foo():
+                def bar():
+                    return jump(qux, 23)
+                bar()  # normal call, no TCO
+
+        Here ``bar`` has no trampoline; only ``foo`` does. **Only** a ``@trampolined``
+        function, or a function entered via a tail call, may return a jump.
+        """
+        if not self._claimed:
+            print("WARNING: unclaimed {}".format(repr(self)), file=stderr)
 
 # We want @wraps to preserve docstrings, so the decorator must be a function, not a class.
 # https://stackoverflow.com/questions/6394511/python-functools-wraps-equivalent-for-classes
@@ -191,6 +252,7 @@ def trampolined(function):
                     f = v.target
                 args = v.args
                 kwargs = v.kwargs
+                v._claimed = True
             else:  # final result, exit trampoline
                 return v
     # fortunately functions in Python are just objects; stash for jump constructor
@@ -257,6 +319,18 @@ def test():
     assert t is True
 
     print("All tests PASSED")
+
+    print("*** These two error cases SHOULD PRINT A WARNING:", file=stderr)
+    print("** No surrounding trampoline:", file=stderr)
+    def bar2():
+        pass
+    def foo2():
+        return jump(bar2)
+    foo2()
+    print("** Missing 'return' in 'return jump':", file=stderr)
+    def foo3():
+        jump(bar2)
+    foo3()
 
     # loop performance?
     n = 100000
