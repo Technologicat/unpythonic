@@ -52,12 +52,18 @@ u(L)  # --> [1, 3, 2, 4]
 
 # tail call optimization (TCO) (w.r.t. stack space, not speed!)
 @trampolined
-def fact(n, acc=1):
+def even(n):
     if n == 0:
-        return acc
+        return True
     else:
-        return jump(fact, n - 1, n * acc)
-fact(10000)  # no crash
+        return jump(odd, n - 1)
+@trampolined
+def odd(n):
+    if n == 0:
+        return False
+    else:
+        return jump(even, n - 1)
+assert even(10000) is True  # no crash
 
 # FP loop
 @looped

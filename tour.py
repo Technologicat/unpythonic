@@ -8,7 +8,7 @@ Tour of the features.
 from unpythonic import assignonce, \
                        dyn,        \
                        let, letrec, dlet, dletrec, blet, bletrec, \
-                       call, begin, begin0, lazy_begin, lazy_begin0, \
+                       call, begin, begin0, lazy_begin, lazy_begin0, do, \
                        trampolined, jump, looped, looped_over, SELF, \
                        setescape, escape, call_ec
 
@@ -140,6 +140,13 @@ def main():
     f4 = lambda x: lazy_begin0(lambda: 42*x,
                                lambda: print("cheeky side effect"))
     assert f4(2) == 84
+
+    # sequencing operations starting from an initial value
+    #
+    double = lambda x: 2 * x
+    inc    = lambda x: x + 1
+    assert do(42, double, inc) == 85
+    assert do(42, inc, double) == 86
 
     # tail recursion with tail call optimization (TCO)
     @trampolined

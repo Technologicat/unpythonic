@@ -29,8 +29,14 @@ __all__ = ["looped", "looped_over", "breakably_looped", "breakably_looped_over"]
 
 from functools import partial
 
-# can import from unpythonic.tco_exc instead to use the other implementation.
-from unpythonic.tco import SELF, jump, trampolined, _jump
+# TCO implementation switchable at runtime
+import unpythonic.rc
+if unpythonic.rc._tco_impl == "exc":
+    from unpythonic.tco import SELF, jump, trampolined, _jump
+elif unpythonic.rc._tco_impl == "fast":
+    from unpythonic.fasttco import SELF, jump, trampolined, _jump
+else:
+    raise ValueError("Unknown TCO implementation '{}'".format(unpythonic.rc._tco_impl))
 
 from unpythonic.ec import call_ec
 
@@ -58,7 +64,8 @@ def looped(body):
     but it also inserts the magic parameter ``loop``, which can only be set up
     via this mechanism.
 
-    Here **loop is a noun, not a verb**, because ``unpythonic.tco.jump`` is.
+    When using ``fasttco``, **loop is a noun, not a verb**, because
+    ``unpythonic.tco.jump`` is.
 
     Simple example::
 
@@ -203,10 +210,11 @@ def looped_over(iterable, acc=None):  # decorator factory
 
     The return value of the loop is always the final value of ``acc``.
 
-    Here **loop is a noun, not a verb.** The expression ``loop(...)`` is
-    otherwise the same as ``jump(SELF, ...)``, but it also inserts the magic
-    parameters ``loop``, ``x`` and ``acc``, which can only be set up via
-    this mechanism.
+    The expression ``loop(...)`` is otherwise the same as ``jump(SELF, ...)``,
+    but it also inserts the magic parameters ``loop``, ``x`` and ``acc``,
+    which can only be set up via this mechanism.
+
+    When using ``fasttco``, **loop is a noun, not a verb**, just like ``jump``.
 
     Examples::
 
