@@ -50,9 +50,19 @@ f2 = lambda x: begin0(42*x,
 f2(2)  # --> 84
 ```
 
-Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`tour.py`](tour.py) for details.
+Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`tour.py`](tour.py) for details. Note that the `begin` constructs are only useful for sequencing side effects into a particular order.
 
-It's only useful for side effects, since there's no way to define new names, except...
+There is also `do`, a cousin of `begin` for performing a sequence of operations starting from an initial value and then returning the final value:
+
+```python
+double = lambda x: 2 * x
+inc    = lambda x: x + 1
+
+x = do(42, double, inc)
+assert x == 85
+```
+
+This removes the need to read the source code backwards (compare `x = inc(double(42))`), while also making `x` have only a single definition at the call site (cf. the imperative solution overwriting `x` at each step), and avoiding namespace pollution of locals with extra temporaries (cf. the assign-once imperative solution). For details, see the docstring.
 
 
 ### Local bindings: ``let``, ``letrec``
@@ -830,6 +840,7 @@ Essentially the implementation is just `def call(thunk): return thunk()`. The po
  - Document that the block is going to be used only once. Tell the reader there's no need to remember this definition.
 
 Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a newline after a decorator.
+
 
 ## Notes
 
