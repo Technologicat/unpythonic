@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0", "call", "raisef", "pack"]
+__all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0", "do", "call", "raisef", "pack"]
 
 def begin(*vals):
     """Racket-like begin: return the last value.
@@ -68,6 +68,75 @@ def lazy_begin0(*bodys):
     for body in rest:
         body()
     return out
+
+def do(value0, *bodys):
+    """Perform a sequence of operations on an initial value.
+
+    Bodys are applied left to right.
+
+    Each body must be a 1-argument function. It takes the current value,
+    and it must return the next value (the last body, the final value).
+
+    The name ``do`` was chosen because of the Haskell construct performing a
+    somewhat similar function (allow imperative-looking functional code),
+    but this one has nothing to do with monads.
+
+    Example. Given::
+
+        double = lambda x: 2 * x
+        inc    = lambda x: x + 1
+
+    these two lines are equivalent::
+
+        x = do(42, double, inc)  # --> 85
+
+        x = inc(double(42))      # --> 85
+
+    but now we don't need to read the source code backwards. This is essentially::
+
+        f = compose(reversed(bodys))
+        x = f(42)
+
+    if you have a library that provides ``compose``.
+
+    Perhaps the most common alternative in Python is this imperative code::
+
+        x = 42
+        x = double(x)
+        x = inc(x)
+        assert x == 85
+
+    but now ``x`` no longer has a single definition. This is confusing, because
+    mutation is not an essential feature of the algorithm, but instead is used
+    as an implementation detail to avoid introducing extra temporaries.
+
+    The definition issue can be avoided by::
+
+        x0 = 42
+        x1 = double(x0)
+        x  = inc(x1)
+        assert x == 85
+
+    at the cost of namespace pollution.
+    """
+    # Ideally we should use fploop, but tco depends on us (misc),
+    # so we choose to cheat imperatively to avoid the circular dependency.
+    #
+    # This is preferable because we need to be careful about importing fploop,
+    # so that we can be sure it uses the desired TCO implementation.
+
+#    # Truly equivalent to the final form above without namespace pollution.
+#    @looped_over(bodys, acc=value0)
+#    def x(loop, update, acc):
+#        return loop(update(acc))
+#    return x
+
+    # Imperative cheating; since "x" is a local, the damage is contained here
+    # and won't spread to the call site.
+    x = value0
+    for update in bodys:
+        x = update(x)
+    return x
 
 def call(thunk):
     """Decorator: run immediately, overwrite function by its return value.
@@ -199,6 +268,11 @@ def test():
     myzip = lambda lol: map(pack, *lol)
     lol = ((1, 2), (3, 4), (5, 6))
     assert tuple(myzip(lol)) == ((1, 3, 5), (2, 4, 6))
+
+    double = lambda x: 2 * x
+    inc    = lambda x: x + 1
+    assert do(42, double, inc) == 85
+    assert do(42, inc, double) == 86
 
     print("All tests PASSED")
 
