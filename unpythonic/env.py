@@ -7,6 +7,9 @@ __all__ = ["env"]
 class env:
     """Environment for let-like constructs.
 
+    Names must be identifiers (see str.isidentifier()), even when introduced
+    by subscripting the env instance.
+
     Essentially a fancy bunch.
 
     Bare bunch::
@@ -63,10 +66,16 @@ class env:
             raise AttributeError("cannot overwrite reserved name '{:s}'; complete list: {}".format(name, self._reserved_names))
         if not self._allow_more_bindings and name not in self:
             raise AttributeError("name '{:s}' is not defined; adding new bindings to a finalized environment is not allowed".format(name))
+        # Block invalid names in subscripting (which redirects here).
+        if not name.isidentifier():
+            raise ValueError("'{}' is not a valid identifier".format(name))
 #        value = self._wrap(name, value)  # for "e.x << value" rebind syntax.
         self._env[name] = value  # make all other attrs else live inside _env
 
     def __getattr__(self, name):
+        # Block invalid names in subscripting (which redirects here).
+        if not name.isidentifier():
+            raise ValueError("'{}' is not a valid identifier".format(name))
         env = self._env   # __getattr__ not called if direct attr lookup succeeds, no need for hook.
         if name in env:
             return env[name]
