@@ -39,10 +39,10 @@ class env:
 
     Context manager::
 
-        with env(s="hello", orange="fruit", answer=42) as e2:
-            ...  # ...code that uses e2...
+        with env(s="hello", orange="fruit", answer=42) as e:
+            ...  # ...code that uses e...
 
-    When the `with` block exits, `e2` forgets all its bindings. The `e2`
+    When the `with` block exits, `e` forgets all its bindings. The `e`
     instance itself will remain alive due to Python's scoping rules.
     """
     # do not allow bindings that would break functionality.
