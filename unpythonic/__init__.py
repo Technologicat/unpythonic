@@ -56,13 +56,13 @@ def _init_fploop(reload=False):
 _init_tco()
 _init_fploop()
 
-def enable_fasttco():
-    """Switch to the fast TCO implementation.
+def enable_fasttco(b=True):
+    """Switch the fast TCO implementation on/off.
 
     It is 2-5x faster, but pickier about its syntax, hence not the default.
     See ``unpythonic.fasttco`` for details.
     """
-    rc._tco_impl = "fast"
+    rc._tco_impl = "fast" if b else "exc"
 
     _init_tco()
     _init_fploop(reload=True)
