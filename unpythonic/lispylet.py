@@ -9,6 +9,9 @@ from functools import wraps
 from unpythonic.misc import call
 from unpythonic.env import env as _envcls
 
+# evil inspect dependency, used only to provide informative error messages.
+from unpythonic.arity import arity_includes, UnknownArity
+
 def let(bindings, body):
     """``let`` expression.
 
@@ -230,6 +233,8 @@ def _let(bindings, body, *, env=None, mode="let"):
 
     (k, v), *more = bindings
     if mode == "letrec" and callable(v):
+        if not arity_includes(v, 1):
+            raise ValueError("Arity mismatch; callable value must allow arity 1, to take in the environment.")
         v = v(env)
     env[k] = v
     return _let(more, body, env=env, mode=mode)  # FP loop (without TCO)
