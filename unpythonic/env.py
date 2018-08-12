@@ -97,6 +97,9 @@ class env:
     def items(self):
         return self._env.items()
 
+    def __len__(self):
+        return len(self._env)
+
     # subscripting
     def __getitem__(self, k):
         return getattr(self, k)
