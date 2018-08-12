@@ -27,7 +27,12 @@ from .misc import *
 # We manually emulate:
 #   - making the submodule visible like __init__.py usually does
 #   - from submod import *
-#
+
+def _starimport(module):  # same effect as "from module import *"
+    g = globals()
+    for name in module.__all__:
+        g[name] = getattr(module, name)
+
 def _init_tco():
     global tco
     if rc._tco_impl == "exc":
@@ -36,9 +41,7 @@ def _init_tco():
         from . import fasttco as tco
     else:
         raise ValueError("Unknown TCO implementation '{}'".format(rc._tco_impl))
-    g = globals()
-    for name in tco.__all__:
-        g[name] = getattr(tco, name)
+    _starimport(tco)
 
 def _init_fploop(reload=False):
     global fploop
@@ -48,9 +51,7 @@ def _init_fploop(reload=False):
     if reload:
         from importlib import reload
         fploop = reload(fploop)
-    g = globals()
-    for name in fploop.__all__:
-        g[name] = getattr(fploop, name)
+    _starimport(fploop)
 
 _init_tco()
 _init_fploop()
