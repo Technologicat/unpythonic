@@ -255,6 +255,11 @@ def _let(mode, body, **bindings):
         env[k] = v
     # decorators need just the final env; else run body now
     env.finalize()
+    if body:
+        if not callable(body):
+            raise TypeError("Expected callable body, got '{}' with value '{}'".format(type(body), body))
+        if not arity_includes(body, 1):
+            raise ValueError("Arity mismatch; body must allow arity 1, to take in the environment.")
     return env if body is None else body(env)
 
 # decorator factory: almost as fun as macros?
