@@ -47,7 +47,7 @@ def _init_fploop(reload=False):
     global fploop
     from . import fploop
     # We must reload fploop, because its module-level initialization
-    # performs some imports from the TCO module.
+    # performs some from-imports from the TCO module.
     if reload:
         from importlib import reload
         fploop = reload(fploop)
