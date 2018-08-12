@@ -60,6 +60,7 @@ class env:
     # https://docs.python.org/3/reference/datamodel.html#object.__setattr__
     # https://docs.python.org/3/reference/datamodel.html#object.__getattr__
     def __setattr__(self, name, value):
+        # TODO: doesn't protect against client code writing to the _direct_write names.
         if name in self._direct_write:  # hook to allow creating internal variables directly in self
             return super().__setattr__(name, value)
         if name in self._reserved_names:
