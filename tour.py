@@ -232,7 +232,7 @@ def main():
     assert s == 35
 
     # Using iterators, we can also FP loop over a collection:
-    def map_fp(function, iterable):
+    def map_fp_raw(function, iterable):
         it = iter(iterable)
         @looped
         def out(loop, acc=()):
@@ -242,20 +242,21 @@ def main():
             except StopIteration:
                 return acc
         return out
-    assert map_fp(lambda x: 2*x, range(5)) == (0, 2, 4, 6, 8)
+    assert map_fp_raw(lambda x: 2*x, range(5)) == (0, 2, 4, 6, 8)
 
     # There's a prepackaged @looped_over to simplify the client code:
-    def map_fp2(function, iterable):
-        @looped_over(iterable, acc=())
-        def out(loop, x, acc):  # body always takes at least these three parameters, in this order
-            return loop(acc + (function(x),))  # first argument is the new value of acc
-        return out
-    assert map_fp2(lambda x: 2*x, range(5)) == (0, 2, 4, 6, 8)
-
     @looped_over(range(10), acc=0)
     def s(loop, x, acc):
         return loop(acc + x)
     assert s == 45
+
+    # So map simplifies to:
+    def map_fp(function, iterable):
+        @looped_over(iterable, acc=())
+        def out(loop, x, acc):  # body always takes at least these three parameters, in this order
+            return loop(acc + (function(x),))  # first argument is the new value of acc
+        return out
+    assert map_fp(lambda x: 2*x, range(5)) == (0, 2, 4, 6, 8)
 
     # similarly
     def filter_fp(predicate, iterable):
@@ -283,8 +284,51 @@ def main():
         return out
     add = lambda acc, elt: acc + elt
     assert reduce_fp(add, range(10), 0) == 45
-    assert reduce_fp(add, [], 0) == 0
-    assert reduce_fp(add, []) is None
+    assert reduce_fp(add, (), 0) == 0
+    assert reduce_fp(add, ()) is None
+
+    # We can also define new looping constructs.
+    #
+    # A simple tuple comprehension:
+    def collect_over(iterable, filter=None):  # parameterized decorator
+        doit = looped_over(iterable, acc=())
+        def run(body):
+            if filter is None:
+                def comprehend_one(loop, x, acc):  # loop body for looped_over
+                    return loop(acc + (body(x),))
+            else:
+                def comprehend_one(loop, x, acc):
+                    return loop(acc + (body(x),)) if filter(x) else loop()
+            return doit(comprehend_one)
+        return run
+    @collect_over(range(10))
+    def result(x):  # the comprehension body (do what to one element)
+        return x**2
+    assert result == (0, 1, 4, 9, 16, 25, 36, 49, 64, 81)
+    @collect_over(range(10), filter=lambda x: x % 2 == 0)
+    def result(x):
+        return x**2
+    assert result == (0, 4, 16, 36, 64)
+
+    # Left fold, like reduce_fp above (same semantics as in functools.reduce):
+    def fold_over(iterable, initial=None):
+        def run(function):
+            it = iter(iterable)
+            nonlocal initial
+            if initial is None:
+                try:
+                    initial = next(it)
+                except StopIteration:
+                    return None  # empty iterable
+            doit = looped_over(it, acc=initial)
+            def comprehend_one(loop, x, acc):
+                return loop(function(acc, x))  # op(acc, elt) like functools.reduce
+            return doit(comprehend_one)
+        return run
+    @fold_over(range(1, 5))
+    def result(acc, elt):
+        return acc * elt
+    assert result == 24
 
     # nested FP loops over collections
     @looped_over(range(1, 4), acc=[])
