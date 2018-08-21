@@ -351,13 +351,32 @@ def main():
         return loop(acc + ((lambda x: i*x),))  # new "i" each time, no mutation!
     assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
-    # FP loop, using the more primitive @looped:
+    # using the more primitive @looped:
     funcs = []
     @looped
     def _(loop, i=0):
         if i < 3:
             funcs.append(lambda x: i*x)  # new "i" each time, no mutation!
             return loop(i + 1)
+    assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
+
+    # comprehension versions:
+    funcs = [lambda x: i*x for i in range(3)]
+    assert [f(10) for f in funcs] == [20, 20, 20]  # not what we wanted!
+
+    @collect_over(range(3))
+    def funcs(i):
+        return lambda x: i*x
+    assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
+
+    # though to be fair, the standard solution:
+    funcs = [(lambda j: (lambda x: j*x))(i) for i in range(3)]
+    assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
+
+    # can be written as:
+    def body(i):
+        return lambda x: i*x
+    funcs = [body(i) for i in range(3)]  # the call grabs the current value of "i".
     assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
     # FP loop in a lambda, with TCO:
