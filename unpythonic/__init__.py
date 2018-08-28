@@ -5,7 +5,7 @@
 See ``dir(unpythonic)`` and submodule docstrings for more.
 """
 
-__version__ = '0.5.1'
+__version__ = '0.6.0'
 
 from . import rc
 
@@ -21,6 +21,7 @@ from .lispylet import let as ordered_let, letrec as ordered_letrec, \
                       blet as ordered_blet, bletrec as ordered_bletrec
 
 from .misc import *
+from .seq import *
 
 # Jump through hoops to get a runtime-switchable TCO implementation.
 #

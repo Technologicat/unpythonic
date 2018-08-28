@@ -8,7 +8,9 @@ Tour of the features.
 from unpythonic import assignonce, \
                        dyn,        \
                        let, letrec, dlet, dletrec, blet, bletrec, \
-                       call, begin, begin0, lazy_begin, lazy_begin0, do, \
+                       call, \
+                       begin, begin0, lazy_begin, lazy_begin0, \
+                       pipe, piped, lazy_piped, get, do, do0, assign, \
                        trampolined, jump, looped, looped_over, SELF, \
                        setescape, escape, call_ec
 
@@ -125,7 +127,7 @@ def main():
                 ... # more code here
     assert result == (6, 7)
 
-    # multiple expressions in a lambda
+    # sequence side effects in a lambda
     #
     f1 = lambda x: begin(print("cheeky side effect"), 42*x)
     assert f1(2) == 84
@@ -141,12 +143,84 @@ def main():
                                lambda: print("cheeky side effect"))
     assert f4(2) == 84
 
-    # sequencing operations starting from an initial value
+    # sequence one-input, one-output functions starting from an initial value
     #
     double = lambda x: 2 * x
     inc    = lambda x: x + 1
-    assert do(42, double, inc) == 85
-    assert do(42, inc, double) == 86
+    assert pipe(42, double, inc) == 85
+    assert pipe(42, inc, double) == 86
+
+    # Optional shell-like syntax. "get" exits the pipe, returning the current value.
+    assert piped(42) | double | inc | get == 85
+
+    y = piped(42) | double  # y is now a "piped" object containing the value 84
+    assert y | inc | get == 85
+    assert y | get == 84  # y is never modified by the pipe system
+
+    # lazy pipe: compute at get time
+    lst = [1]
+    def append_succ(l):
+        l.append(l[-1] + 1)
+        return l  # important, handed to the next function in the pipe
+    p = lazy_piped(lst) | append_succ | append_succ  # plan a computation
+    assert lst == [1]        # nothing done yet
+    p | get                  # run the computation
+    assert lst == [1, 2, 3]  # now the side effect has updated lst.
+
+    # lazy pipe as an unfold
+    fibos = [1, 1]
+    def nextfibo(state):
+        a, b = state
+        fibos.append(a + b)  # store result by side effect
+        return (b, a + b)    # new state, handed to next function in the pipe
+    p = lazy_piped(fibos)    # load initial state into a lazy pipe
+    for _ in range(10):      # set up pipeline
+        p = p | nextfibo
+    p | get  # run it
+    print(fibos)
+
+    # do: improved begin() that can name intermediate results
+    y = do(assign(x=17),
+           lambda e: print(e.x),      # 17; uses environment, needs lambda e: ...
+           assign(x=23),              # overwrite e.x
+           lambda e: print(e.x),      # 23
+           42)                        # return value
+    assert y == 42
+
+    y = do(assign(x=17),
+           assign(z=lambda e: 2*e.x),
+           lambda e: e.z)
+    assert y == 34
+
+    y = do(assign(x=5),
+           assign(f=lambda e: lambda x: x**2),  # callable, needs lambda e: ...
+           print("hello from 'do'"),  # value is None; not callable
+           lambda e: e.f(e.x))
+    assert y == 25
+
+    # Beware of this pitfall:
+    do(lambda e: print("hello 2 from 'do'"),  # delayed because lambda e: ...
+       print("hello 1 from 'do'"),  # Python prints immediately before do()
+       "foo")                       # gets control, because technically, it is
+                                    # **the return value** that is an argument
+                                    # for do().
+
+    # If you need to return the first value instead, use this trick:
+    y = do(assign(result=17),
+           print("assigned 'result' in env"),
+           lambda e: e.result)  # return value
+    assert y == 17
+
+    # or use do0, which does it for you:
+    y = do0(17,
+            assign(x=42),
+            lambda e: print(e.x),
+            print("hello from 'do0'"))
+    assert y == 17
+
+    y = do0(assign(x=17),  # the first item of do0 can be an assignment, too
+            lambda e: print(e.x))
+    assert y == 17
 
     # tail recursion with tail call optimization (TCO)
     @trampolined
@@ -482,7 +556,7 @@ def main():
     result = call_ec(lambda ec:
                        begin(print("hi from lambda"),
                              ec(42),  # now we can effectively "return ..." at any point from a lambda!
-                             print("never reached")))
+                             print("never reached")))  # because ec() is a raise
     assert result == 42
 
 if __name__ == '__main__':
