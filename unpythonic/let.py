@@ -249,8 +249,11 @@ def _let(mode, body, **bindings):
     env = _envcls()
     for k, v in bindings.items():
         if mode == "letrec" and callable(v):
-            if not arity_includes(v, 1):
-                raise ValueError("Arity mismatch; callable value must allow arity 1, to take in the environment.")
+            try:
+                if not arity_includes(v, 1):
+                    raise ValueError("Arity mismatch; callable value must allow arity 1, to take in the environment.")
+            except UnknownArity:  # well, we tried!
+                pass
             v = v(env)
         env[k] = v
     # decorators need just the final env; else run body now
@@ -258,8 +261,11 @@ def _let(mode, body, **bindings):
     if body:
         if not callable(body):
             raise TypeError("Expected callable body, got '{}' with value '{}'".format(type(body), body))
-        if not arity_includes(body, 1):
-            raise ValueError("Arity mismatch; body must allow arity 1, to take in the environment.")
+        try:
+            if not arity_includes(body, 1):
+                raise ValueError("Arity mismatch; body must allow arity 1, to take in the environment.")
+        except UnknownArity:  # well, we tried!
+            pass
     return env if body is None else body(env)
 
 # decorator factory: almost as fun as macros?

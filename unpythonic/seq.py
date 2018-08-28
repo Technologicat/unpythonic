@@ -10,7 +10,7 @@ from collections import namedtuple
 from unpythonic.env import env
 
 # evil inspect dependency, used only to provide informative error messages.
-from unpythonic.arity import arity_includes
+from unpythonic.arity import arity_includes, UnknownArity
 
 # sequence side effects in a lambda
 def begin(*vals):
@@ -310,8 +310,11 @@ def do(*items):
     e = env()
     def maybe_call(v):
         if callable(v):
-            if not arity_includes(v, 1):
-                raise ValueError("Arity mismatch; callable value must allow arity 1, to take in the environment.")
+            try:
+                if not arity_includes(v, 1):
+                    raise ValueError("Arity mismatch; callable value must allow arity 1, to take in the environment.")
+            except UnknownArity:  # well, we tried!
+                pass
             return v(e)
         else:
             return v
