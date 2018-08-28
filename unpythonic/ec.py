@@ -210,7 +210,7 @@ def call_ec(f):
     This can also be used directly, to provide a "return" for multi-expression
     lambdas::
 
-        from unpythonic.misc import begin
+        from unpythonic.seq import begin
         result = call_ec(lambda ec:
                            begin(print("hi from lambda"),
                                  ec(42),
@@ -290,7 +290,7 @@ def test():
         assert False
 
     # begin() returns the last value. What if we don't want that?
-    from unpythonic.misc import begin
+    from unpythonic.seq import begin
     result = call_ec(lambda ec:
                        begin(print("hi from lambda"),
                              ec(42),  # now we can effectively "return ..." at any point from a lambda!

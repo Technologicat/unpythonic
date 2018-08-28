@@ -53,7 +53,7 @@ def let(bindings, body):
 
     *Let over lambda*. The inner lambda is the definition of the function ``counter``::
 
-        from unpythonic.misc import begin
+        from unpythonic.seq import begin
         counter = let((("x", 0),),
                       lambda e:
                         lambda:
@@ -129,7 +129,7 @@ def letrec(bindings, body):
 
     Order-preserving list uniqifier::
 
-        from unpythonic.misc import begin
+        from unpythonic.seq import begin
         u = lambda lst: letrec((("seen", set()),
                                 ("see", lambda e:
                                           lambda x:
@@ -262,7 +262,7 @@ def _blet(bindings, mode="let"):
     return deco
 
 def test():
-    from unpythonic.misc import begin
+    from unpythonic.seq import begin
 
     x = let((('a', 1),
              ('b', 2)),
