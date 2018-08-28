@@ -194,7 +194,7 @@ class lazy_piped:
     Another way to say this is that ``lazy_piped`` looks up the initial value
     dynamically, at get time.
     """
-    def __init__(self, x, _funcs=None):
+    def __init__(self, x, *, _funcs=None):
         """Set up a lazy pipe and load the initial value x into it.
 
         The ``_funcs`` parameter is for internal use.
