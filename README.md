@@ -8,8 +8,11 @@ Other design considerations are simplicity, robustness, and minimal dependencies
 
  - [Assign-once](#assign-once)
  - [Multi-expression lambdas](#multi-expression-lambdas)
- - [Local bindings: ``let``, ``letrec``](#local-bindings-let-letrec)
-   - [The environment](#the-environment) (details)
+   - [Sequence side effects: ``begin``](#sequence-side-effects-begin)
+   - [Stuff imperative code into a lambda: ``do``](#stuff-imperative-code-into-a-lambda-do)
+   - [Sequence one-input one-output functions: ``pipe``, ``piped``, ``lazy_piped``](#sequence-one-input-one-output-functions-pipe-piped-lazy_piped)
+ - [Introduce local bindings: ``let``, ``letrec``](#introduce-local-bindings-let-letrec)
+   - [The environment: ``env``](#the-environment-env) (details)
  - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
    - [Loops in FP style (with TCO)](#loops-in-fp-style-with-tco)
  - [Escape continuations (ec)](#escape-continuations-ec)
@@ -35,8 +38,16 @@ with assignonce() as e:
     e.foo = "quux"          # AttributeError, e.foo already defined.
 ```
 
+It's a subclass of ``env``, so it shares most of the same [features](#the-environment-env) and allows similar usage.
+
 
 ### Multi-expression lambdas
+
+Keep in mind the only reason to ever need multiple expressions: *side effects.*
+
+(Assignment is a side effect, too; it modifies the environment. In functional style, intermediate named definitions to increase readability are the most useful kind of side effect.)
+
+#### Sequence side effects: ``begin``
 
 ```python
 from unpythonic import begin, begin0
@@ -52,20 +63,138 @@ f2(2)  # --> 84
 
 Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`tour.py`](tour.py) for details.
 
-Because there is no way to pass results between steps or to declare names for them, the `begin` constructs are only useful for making side effects occur in a given order. We also provide `do`, a cousin of `begin` for performing a sequence of operations starting from an initial value and then returning the final value:
+#### Stuff imperative code into a lambda: ``do``
+
+No monadic magic. Basically, ``do`` is:
+
+  - An improved ``begin`` that can bind names to intermediate results and then use them in later items.
+
+  - A ``let*`` (technically, ``letrec``) where making a binding is optional, so that some items can have only side effects if so desired. No separate ``body``; all items play the same role.
+
+Like in ``letrec`` (see below), use ``lambda e: ...`` to access the environment, and to wrap callable values (to prevent misunderstandings).
 
 ```python
+from unpythonic import do, assign
+
+y = do(assign(x=17),          # create and set e.x
+       lambda e: print(e.x),  # 17; uses environment, needs lambda e: ...
+       assign(x=23),          # overwrite e.x
+       lambda e: print(e.x),  # 23
+       42)                    # return value
+assert y == 42
+
+y = do(assign(x=17),
+       assign(z=lambda e: 2*e.x),
+       lambda e: e.z)
+assert y == 34
+
+y = do(assign(x=5),
+       assign(f=lambda e: lambda x: x**2),  # callable, needs lambda e: ...
+       print("hello from 'do'"),  # value is None; not callable
+       lambda e: e.f(e.x))
+assert y == 25
+```
+
+If you need to return the first value instead of the last one, use this trick:
+
+```python
+y = do(assign(result=17),
+       print("assigned 'result' in env"),
+       lambda e: e.result)  # return value
+assert y == 17
+```
+
+Or use ``do0``, which does it for you:
+
+```python
+from unpythonic import do0, assign
+
+y = do0(17,
+        assign(x=42),
+        lambda e: print(e.x),
+        print("hello from 'do0'"))
+assert y == 17
+
+y = do0(assign(x=17),  # the first item of do0 can be an assignment, too
+        lambda e: print(e.x))
+assert y == 17
+```
+
+Beware of this pitfall:
+
+```python
+do(lambda e: print("hello 2 from 'do'"),  # delayed because lambda e: ...
+   print("hello 1 from 'do'"),  # Python prints immediately before do()
+   "foo")                       # gets control, because technically, it is
+                                # **the return value** that is an argument
+                                # for do().
+```
+
+Unlike ``begin`` (and ``begin0``), there is no separate ``lazy_do`` (``lazy_do0``), because using a ``lambda e: ...`` wrapper will already delay evaluation of an item. If you want a lazy variant, just wrap each item (also those which don't otherwise need it).
+
+#### Sequence one-input one-output functions: ``pipe``, ``piped``, ``lazy_piped``
+
+A pipe performs a sequence of operations, starting from an initial value, and then returns the final value:
+
+```python
+from unpythonic import pipe
+
 double = lambda x: 2 * x
 inc    = lambda x: x + 1
 
-x = do(42, double, inc)
+x = pipe(42, double, inc)
 assert x == 85
 ```
 
-This removes the need to read the source code backwards (compare `x = inc(double(42))`), while also making `x` have only a single definition at the call site (cf. the imperative solution overwriting `x` at each step), and avoiding namespace pollution of locals with extra temporaries (cf. the assign-once imperative solution). For details, see the docstring.
+This removes the need to read the source code backwards (compare `x = inc(double(42))`), while also making `x` have only a single definition at the call site.
+
+Optional **shell-like syntax**, with purely functional updates:
+
+```python
+from unpythonic import piped, get
+
+x = piped(42) | double | inc | get
+assert x == 85
+
+p = piped(42) | double
+assert p | inc | get == 85
+assert p | get == 84  # p itself is never modified by the pipe system
+```
+
+Set up a pipe by calling ``piped`` for the initial value. Pipe into the sentinel ``get`` to exit the pipe and return the current value.
+
+**Lazy pipes** for mutable initial values. Computation runs at ``get`` time:
+
+```python
+from unpythonic import lazy_piped, get
+
+lst = [1]
+def append_succ(l):
+    l.append(l[-1] + 1)
+    return l  # important, handed to the next function in the pipe
+p = lazy_piped(lst) | append_succ | append_succ  # plan a computation
+assert lst == [1]        # nothing done yet
+p | get                  # run the computation
+assert lst == [1, 2, 3]  # now the side effect has updated lst.
+```
+
+Lazy pipe as an unfold:
+
+```python
+fibos = [1, 1]
+def nextfibo(state):
+    a, b = state
+    fibos.append(a + b)  # store result by side effect
+    return (b, a + b)    # new state, handed to next function in the pipe
+p = lazy_piped(fibos)    # load initial state into a lazy pipe
+for _ in range(10):      # set up pipeline
+    p = p | nextfibo
+p | get  # run it
+print(fibos)
+```
 
 
-### Local bindings: ``let``, ``letrec``
+### Introduce local bindings: ``let``, ``letrec``
 
 In ``let``, the bindings are independent (do not see each other). A binding is of the form ``name=value``, where ``name`` is a Python identifier, and ``value`` is any expression.
 
@@ -193,7 +322,7 @@ letrec((("evenp", lambda e:
 The syntax is `let(bindings, body)` (respectively `letrec(bindings, body)`), where `bindings` is `((name, value), ...)`, and `body` is like in the default variants. The same rules concerning `name` and `value` apply.
 
 
-### The environment
+### The environment: ``env``
 
 The environment used by all the ``let`` constructs and ``assignonce`` (but **not** by `dyn`) is essentially a bunch with iteration, subscripting and context manager support. For details, see `unpythonic.env`.
 
@@ -250,7 +379,7 @@ def fact(n, acc=1):
 print(fact(4))  # 24
 ```
 
-**CAUTION**: The default implementation is based on exceptions, so catch-all ``except:`` statements will intercept also jumps, breaking the looping mechanism. As you already know, be specific in what you catch! (See also ``fasttco`` below for an alternative that doesn't use exceptions.)
+**CAUTION**: The default implementation is based on exceptions, so catch-all ``except:`` statements will intercept also jumps, breaking the looping mechanism. As you already know, be specific in what you catch! (**See also** ``fasttco`` below for an alternative that **doesn't** use exceptions.)
 
 Functions that use TCO **must** be `@trampolined`. Calling a trampolined function normally starts the trampoline.
 
@@ -308,9 +437,11 @@ letrec(evenp=lambda e:
 
 #### Fasttco
 
+If you think you know what you're doing, ``fasttco`` is **the recommended implementation**.
+
 The default TCO implementation uses exceptions. A do-nothing loop that trampolines with [``tco.py``](unpythonic/tco.py) runs 150-200× slower than the built-in ``for``.
 
-To improve performance by a factor of approximately 2-5× (i.e. to become only 40-80× slower than ``for``), we provide an alternative TCO implementation, which is faster, but pickier about its syntax. **If you think you know what you're doing**, ``fasttco`` is the recommended implementation.
+To improve performance by a factor of approximately 2-5× (i.e. to become only 40-80× slower than ``for``), we provide an alternative TCO implementation, which is faster, but pickier about its syntax.
 
 To enable it:
 
@@ -374,7 +505,7 @@ def baz():
 foo()
 ```
 
-Each function in the TCO call chain tells the trampoline where to go next (and with what parameters). All hail [lambda, the ultimate GO TO](http://library.readscheme.org/page1.html)!
+Each function in the TCO call chain tells the trampoline where to go next (and with what parameters). All hail [lambda, the ultimate GOTO](http://hdl.handle.net/1721.1/5753)!
 
 Each TCO call chain brings its own trampoline, so they nest as expected:
 
@@ -916,9 +1047,7 @@ Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [
 
 The point behind providing `let` and `begin` is to make Python lambdas slightly more useful - which was really the starting point for this whole experiment.
 
-The oft-quoted single-expression limitation is ultimately a herring - it can be fixed with a suitable `begin` form, or a function to approximate one.
-
-The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. We can work around some of this:
+The oft-quoted single-expression limitation of the Python ``lambda`` is ultimately a herring, as this library demonstrates. The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. We can work around some of this:
 
  - The expression form of `if` can be used to a limited extent. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers, so it may be better not to go there. Another possibility is to use MacroPy to define a ``cond`` expression, but it's essentially duplicating a feature the language already almost has.
  - Functional looping (with TCO, to boot) is possible.
@@ -974,27 +1103,31 @@ If you want to roll your own monads for whatever reason, there's [this silly hac
 
 ## Installation
 
-Not yet available on PyPI; clone from GitHub.
-
-### Install
+### PyPI
 
 Usually one of:
 
-```
-python3 setup.py install --user
-```
+```pip3 install unpythonic --user```
 
-```
-sudo python3 setup.py install
-```
+```sudo pip3 install unpythonic```
+
+depending on what you want.
+
+### GitHub
+
+Clone (or pull) from GitHub. Then, usually one of:
+
+```python3 setup.py install --user```
+
+```sudo python3 setup.py install```
 
 depending on what you want.
 
 ### Uninstall
 
-```
-pip3 uninstall unpythonic
-```
+```pip3 uninstall unpythonic```
+
+with ``sudo`` if needed.
 
 Must be invoked in a folder which has no subfolder called `unpythonic`, so that `pip` recognizes it as a package name (instead of a filename).
 
