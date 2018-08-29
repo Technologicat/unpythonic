@@ -208,7 +208,7 @@ class _jump:
         just created and discarded. The trampoline got the ``None`` from the
         implicit ``return None`` at the end of the function.
 
-        (See ``tco_exc.py`` if you prefer this syntax, without a ``return``.)
+        (See ``tco.py`` if you prefer this syntax, without a ``return``.)
 
         *No trampoline*::
 
