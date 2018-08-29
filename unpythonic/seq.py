@@ -8,6 +8,7 @@ __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
 
 from collections import namedtuple
 from unpythonic.env import env
+from unpythonic.misc import call
 
 # evil inspect dependency, used only to provide informative error messages.
 from unpythonic.arity import arity_includes, UnknownArity
@@ -137,11 +138,11 @@ def pipe(value0, *bodys):
         x = update(x)
     return x
 
-class get:  # sentinel singleton with a nice repr
+@call  # make a singleton
+class get:  # sentinel with a nice repr
     """Sentinel; pipe into this to exit a shell-like pipe and return the current value."""
     def __repr__(self):
         return "<sentinel for pipe exit>"
-get = get()
 
 class piped:
     """Shell-like piping syntax.
