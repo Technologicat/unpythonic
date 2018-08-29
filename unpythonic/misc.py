@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["call", "raisef", "pack"]
+__all__ = ["call", "raisef", "pack", "memoized"]
+
+from functools import wraps
+from operator import itemgetter
 
 def call(thunk):
     """Decorator: run immediately, overwrite function by its return value.
@@ -101,6 +104,21 @@ def pack(*args):
     """
     return args  # pretty much like in Lisps, (define (list . args) args)
 
+def memoized(f):
+    """Decorator: memoize the (pure) function f.
+
+    All of the args and kwargs of ``f`` must be hashable.
+    """
+    memo = {}
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        k = (args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
+        if k in memo:
+            return memo[k]
+        memo[k] = result = f(*args, **kwargs)
+        return result
+    return decorated
+
 def test():
     @call
     def result():
@@ -118,6 +136,20 @@ def test():
     myzip = lambda lol: map(pack, *lol)
     lol = ((1, 2), (3, 4), (5, 6))
     assert tuple(myzip(lol)) == ((1, 3, 5), (2, 4, 6))
+
+    @memoized
+    def f(x):
+        print("evaluating f({})".format(x))
+        return x**2
+    f(3)
+    f(3)
+    f(4)
+    f(3)
+
+    # classic evaluate-at-most-once thunk
+    thunk = memoized(lambda: print("hi from thunk"))
+    thunk()
+    thunk()
 
     print("All tests PASSED")
 
