@@ -86,22 +86,20 @@ def flip(f):
         return f(*reversed(args), **kwargs)
     return flipped
 
-def foldl(proc, init, sequence0, *sequences):  # minimum arity should be 3
-    """Racket-like foldl that supports multiple input sequences.
+def foldl(proc, init, iterable0, *iterables):  # minimum arity 3, for curry
+    """Racket-like foldl that supports multiple input iterables.
 
-    At least one sequence (``sequence0``) is required. More are optional.
+    At least one iterable (``iterable0``) is required. More are optional.
 
-    Terminates when the shortest sequence runs out.
+    Terminates when the shortest input runs out.
 
     Initial value is mandatory; there is no sane default for the case with
-    multiple input sequences.
+    multiple inputs.
 
     Note order: ``proc(elt, acc)``, which is the opposite order of arguments
     compared to ``functools.reduce``. General case ``proc(e1, ..., en, acc)``.
     """
-    sequences = (sequence0,) + sequences
-    if not sequences:
-        raise TypeError("Need at least one sequence")
+    iterables = (iterable0,) + iterables
     def heads(its):
         hs = []
         for it in its:
@@ -111,7 +109,7 @@ def foldl(proc, init, sequence0, *sequences):  # minimum arity should be 3
                 return StopIteration
             hs.append(h)
         return tuple(hs)
-    iters = tuple(iter(s) for s in sequences)
+    iters = tuple(iter(x) for x in iterables)
     acc = init
     while True:
         hs = heads(iters)
@@ -123,11 +121,11 @@ def foldr(proc, init, sequence0, *sequences):
     """Like foldl, but fold from the right (walk each sequence backwards)."""
     return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences))
 
-def reducel(proc, sequence, init=None):
-    """Foldl for a single sequence.
+def reducel(proc, iterable, init=None):
+    """Foldl for a single iterable.
 
     Like functools.reduce, but uses ``proc(elt, acc)`` like Racket."""
-    it = iter(sequence)
+    it = iter(iterable)
     if not init:
         try:
             init = next(it)
@@ -136,7 +134,7 @@ def reducel(proc, sequence, init=None):
     return foldl(proc, init, it)
 
 def reducer(proc, sequence, init=None):
-    """Like reducel, but fold from the right (walk the sequence backwards)."""
+    """Like reducel, but fold from the right (walk backwards)."""
     return reducel(proc, reversed(sequence), init)
 
 def composer1(*fs):
