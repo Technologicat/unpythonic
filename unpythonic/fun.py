@@ -3,9 +3,9 @@
 """Missing batteries for functools."""
 
 __all__ = ["memoize", "curry", "flip",
-           "foldl", "foldr",
+           "foldl", "foldr", "reducel", "reducer",
            "composer1", "composel1",
-           "composer", "composel", "app1st", "app2nd", "appkth", "applast", "appto"]
+           "composer", "composel", "to1st", "to2nd", "tokth", "tolast", "to"]
 
 from functools import wraps, partial
 from operator import itemgetter
@@ -86,18 +86,22 @@ def flip(f):
         return f(*reversed(args), **kwargs)
     return flipped
 
-def foldl(proc, init, *lsts):
+def foldl(proc, init, sequence0, *sequences):  # minimum arity should be 3
     """Racket-like foldl that supports multiple input sequences.
+
+    At least one sequence (``sequence0``) is required. More are optional.
 
     Terminates when the shortest sequence runs out.
 
     Initial value is mandatory; there is no sane default for the case with
     multiple input sequences.
 
-    Note order: ``proc(elt, acc)`` (general case ``proc(e1, ..., en, acc)``),
-    which is the opposite order of arguments compared to ``functools.reduce``.
+    Note order: ``proc(elt, acc)``, which is the opposite order of arguments
+    compared to ``functools.reduce``. General case ``proc(e1, ..., en, acc)``.
     """
-    iters = tuple(iter(lst) for lst in lsts)
+    sequences = (sequence0,) + sequences
+    if not sequences:
+        raise TypeError("Need at least one sequence")
     def heads(its):
         hs = []
         for it in its:
@@ -107,6 +111,7 @@ def foldl(proc, init, *lsts):
                 return StopIteration
             hs.append(h)
         return tuple(hs)
+    iters = tuple(iter(s) for s in sequences)
     acc = init
     while True:
         hs = heads(iters)
@@ -114,18 +119,50 @@ def foldl(proc, init, *lsts):
             return acc
         acc = proc(*(hs + (acc,)))
 
-def foldr(proc, init, *lsts):
-    """Like foldl, but fold from the right (walk each lst backwards)."""
-    return foldl(proc, init, *(reversed(lst) for lst in lsts))
+def foldr(proc, init, sequence0, *sequences):
+    """Like foldl, but fold from the right (walk each sequence backwards)."""
+    return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences))
+
+def reducel(proc, sequence, init=None):
+    """Foldl for a single sequence.
+
+    Like functools.reduce, but uses ``proc(elt, acc)`` like Racket."""
+    it = iter(sequence)
+    if not init:
+        try:
+            init = next(it)
+        except StopIteration:
+            return None  # empty input sequence
+    return foldl(proc, init, it)
+
+def reducer(proc, sequence, init=None):
+    """Like reducel, but fold from the right (walk the sequence backwards)."""
+    return reducel(proc, reversed(sequence), init)
 
 def composer1(*fs):
-    """Like composer, but limited to one-argument functions. Faster."""
-    def compose1_pair(f, g):
+    """Like composer, but limited to one-argument functions. Faster.
+
+    Example::
+
+        double = lambda x: 2*x
+        inc    = lambda x: x+1
+        inc_then_double = composer1(double, inc)
+        assert inc_then_double(3) == 8
+    """
+    def compose1_two(f, g):
         return lambda x: f(g(x))
-    return foldr(compose1_pair, lambda x: x, fs)  # op(elt, acc)
+    return reducer(compose1_two, fs)  # op(elt, acc)
 
 def composel1(*fs):
-    """Like composel, but limited to one-argument functions. Faster."""
+    """Like composel, but limited to one-argument functions. Faster.
+
+    Example::
+
+        double = lambda x: 2*x
+        inc    = lambda x: x+1
+        double_then_inc = composel(double, inc)
+        assert double_then_inc(3) == 7
+    """
     return composer1(*reversed(fs))
 
 def composer(*fs):
@@ -136,103 +173,92 @@ def composer(*fs):
     The output from the previous function is unpacked to the argument list
     of the next one. If the duck test fails, the output is assumed to be
     a single value, and is fed in to the next function as-is.
-
-    Example::
-
-        double = lambda x: 2*x
-        inc    = lambda x: x+1
-        inc_then_double = composer(double, inc)
-        assert inc_then_double(3) == 8
     """
-    def test_unpack(*args):
-        pass
-    def compose_pair(f, g):
+    def unpack_ctx(*args): pass  # just a context where we can use * to unpack
+    def compose_two(f, g):
         def composed(*args):
             a = g(*args)
             try:
-                test_unpack(*a)
-            except TypeError:  # not unpackable, treat as a single value
+                unpack_ctx(*a)
+            except TypeError:
                 return f(a)
             else:
                 return f(*a)
         return composed
-    return foldr(compose_pair, lambda *args: args, fs)  # op(elt, acc)
+    return reducer(compose_two, fs)  # op(elt, acc)
 
 def composel(*fs):
     """Like composer, but from left to right.
 
     The sequence ``fs`` is applied in the order given; no need
     to read the source code backwards.
-
-    Example::
-
-        double = lambda x: 2*x
-        inc    = lambda x: x+1
-        double_then_inc = composel(double, inc)
-        assert double_then_inc(3) == 7
     """
     return composer(*reversed(fs))
 
 # Helpers for multi-arg compose chains
-def appkth(f, k, *args):
-    """Apply f to kth item in args, pass the rest through.
+def tokth(k, f):
+    """Return a function to apply f to args[k], pass the rest through.
 
     Negative indices also supported.
 
-    Especially useful in multi-arg compose chains as `partial(appk, f, k)`.
+    Especially useful in multi-arg compose chains. See ``test()`` for examples.
     """
-    if k < 0:
-        k = k % len(args)
-    out = list(args[:k])
-    out.append(f(args[k]))
-    if len(args) > k + 1:
-        out.extend(args[k+1:])
-    return tuple(out)
+    def applicator(*args):
+        n = len(args)
+        nonlocal k
+        if k < 0:
+            k = k % n
+        m = k + 1
+        if n < m:
+            raise TypeError("Expected at least {:d} arguments, got {:d}".format(m, n))
+        out = list(args[:k])
+        out.append(f(args[k]))  # mth argument
+        if n > m:
+            out.extend(args[m:])
+        return tuple(out)
+    return applicator
 
-def app1st(f, *args):
-    """Apply f to first item in args, pass the rest through.
+def to1st(f):
+    """Return a function to apply f to first item in args, pass the rest through.
 
     Example::
 
         nil = ()
         def cons(x, l):  # elt, acc
             return (x,) + l
-        def mymap(f, sequence):
-            f_then_cons = composer(cons, partial(app1st, f))  # args: elt, acc
+        def mymap_one(f, sequence):
+            f_then_cons = composer(cons, to1st(f))  # args: elt, acc
             return foldr(f_then_cons, nil, sequence)
         double = lambda x: 2*x
-        assert mymap(double, (1, 2, 3)) == (2, 4, 6)
+        assert mymap_one(double, (1, 2, 3)) == (2, 4, 6)
     """
-    return appkth(f, 0, *args)
+    return tokth(0, f)  # this is just a partial() but we want to provide a docstring.
 
-def app2nd(f, *args):
-    """Apply f to second item in args, pass the rest through."""
-    return appkth(f, 1, *args)
+def to2nd(f):
+    """Return a function to apply f to second item in args, pass the rest through."""
+    return tokth(1, f)
 
-def applast(f, *args):
-    """Apply f to last item in args, pass the rest through."""
-    return appkth(f, -1, *args)
+def tolast(f):
+    """Return a function to apply f to last item in args, pass the rest through."""
+    return tokth(-1, f)
 
-def appto(spec, *args):
-    """Apply f1, ..., fn to items in args, pass the rest through.
+def to(*specs):
+    """Return a function to apply f1, ..., fn to items in args, pass the rest through.
 
-    The spec is processed sequentially in the given order (allowing also
+    The specs are processed sequentially in the given order (allowing also
     multiple updates to the same item).
 
     Parameters:
-        spec: tuple of `(f, k)`, where:
-            f: function
-              One-argument function to apply to `args[k]`.
+        specs: tuple of `(k, f)`, where:
             k: int
               index (also negative supported)
+            f: function
+              One-argument function to apply to `args[k]`.
 
     Returns:
-        (functionally) updated args with the spec applied.
+        Function to (functionally) update args with the specs applied.
     """
-    vs = args
-    for f, k in spec:
-        vs = appkth(f, k, *vs)
-    return vs
+    return composel(*(tokth(k, f) for k, f in specs))
 
 def test():
     from collections import Counter
@@ -323,6 +349,10 @@ def test():
     assert foldl(cons, nil, (1, 2, 3)) == (3, 2, 1)
     assert foldr(cons, nil, (1, 2, 3)) == (1, 2, 3)
 
+    from operator import add
+    assert reducel(add, (1, 2, 3)) == 6
+    assert reducer(add, (1, 2, 3)) == 6
+
     def foo(a, b, acc):
         return acc + ((a, b),)
     assert foldl(foo, (), (1, 2, 3), (4, 5)) == ((1, 4), (2, 5))
@@ -335,26 +365,49 @@ def test():
     assert inc_then_double(3) == 8
     assert double_then_inc(3) == 7
 
-    def mymap(f, sequence):
-        f_then_cons = composer(cons, partial(app1st, f))  # args: elt, acc
-        return foldr(f_then_cons, nil, sequence)
-    assert mymap(double, (1, 2, 3)) == (2, 4, 6)
-    def mymap2(f, sequence):
-        f_then_cons = composel(partial(app1st, f), cons)  # args: elt, acc
-        return foldr(f_then_cons, nil, sequence)
-    assert mymap2(double, (1, 2, 3)) == (2, 4, 6)
+    assert to1st(double)(1, 2, 3)  == (2, 2, 3)
+    assert to2nd(double)(1, 2, 3)  == (1, 4, 3)
+    assert tolast(double)(1, 2, 3) == (1, 2, 6)
 
-    def mymap3(f):  # point-free-ish style
-        f_then_cons = composer(cons, partial(app1st, f))  # args: elt, acc
-        return partial(foldr, f_then_cons, nil)
-    doubler = mymap3(double)
+    def mymap_one(f, sequence):
+        f_then_cons = composer(cons, to1st(f))  # args: elt, acc
+        return foldr(f_then_cons, nil, sequence)
+    assert mymap_one(double, (1, 2, 3)) == (2, 4, 6)
+    def mymap_one2(f, sequence):
+        f_then_cons = composel(to1st(f), cons)  # args: elt, acc
+        return foldr(f_then_cons, nil, sequence)
+    assert mymap_one2(double, (1, 2, 3)) == (2, 4, 6)
+
+    # point-free-ish style
+    mymap_one3 = lambda f: partial(foldr, composer(cons, to1st(f)), nil)
+    doubler = mymap_one3(double)
     assert doubler((1, 2, 3)) == (2, 4, 6)
 
-    processor = partial(appto, ((double, 0),
-                                (inc, -1),
-                                (composer(double, double), 1),
-                                (inc, 0)))
+    try:
+        doubler((1, 2, 3), (4, 5, 6))
+    except TypeError:
+        pass
+    else:
+        assert False  # one arg too many; cons in the compose chain expects 2 args
+
+    # minimum arity of fold functions is 3, to allow use with curry:
+    mymap_one4 = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
+    doubler = mymap_one4(double)
+    assert doubler((1, 2, 3)) == (2, 4, 6)
+
+    processor = to((0, double),
+                   (-1, inc),
+                   (1, composer(double, double)),
+                   (0, inc))
     assert processor(1, 2, 3) == (3, 8, 4)
+
+    def zipper(*args):
+        *rest, acc = args
+        return acc + (tuple(rest),)
+    myzipl = (curry(foldl))(zipper, ())
+    myzipr = (curry(foldr))(zipper, ())
+    assert myzipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
+    assert myzipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
 
     print("All tests PASSED")
 
