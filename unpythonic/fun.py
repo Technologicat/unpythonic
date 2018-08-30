@@ -390,8 +390,11 @@ def test():
 
     # minimum arity of fold functions is 3, to allow use with curry:
     mymap_one4 = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
-    doubler = mymap_one4(double)
+    doubler = mymap_one4(double)  # it's curried!
     assert doubler((1, 2, 3)) == (2, 4, 6)
+
+    reverse_one = curry(foldl)(cons, nil)
+    assert reverse_one((1, 2, 3)) == (3, 2, 1)
 
     processor = to((0, double),
                    (-1, inc),
