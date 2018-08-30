@@ -23,10 +23,9 @@ def memoize(f):
     @wraps(f)
     def memoized(*args, **kwargs):
         k = (args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
-        if k in memo:
-            return memo[k]
-        memo[k] = result = f(*args, **kwargs)
-        return result
+        if k not in memo:
+            memo[k] = f(*args, **kwargs)
+        return memo[k]
     return memoized
 
 def curry(f):
