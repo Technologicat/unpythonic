@@ -2,14 +2,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["call", "raisef", "pack",
-           "memoize", "curry", "flip",
-           "compose", "foldl", "foldr"]
-
-from functools import wraps, partial, reduce as foldl
-from operator import itemgetter
-
-from unpythonic.arity import arities
+__all__ = ["call", "raisef", "pack"]
 
 def call(thunk):
     """Decorator: run immediately, overwrite function by its return value.
@@ -108,59 +101,6 @@ def pack(*args):
     """
     return args  # pretty much like in Lisps, (define (list . args) args)
 
-def memoize(f):
-    """Decorator: memoize the (pure) function f.
-
-    All of the args and kwargs of ``f`` must be hashable.
-    """
-    memo = {}
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        k = (args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
-        if k in memo:
-            return memo[k]
-        memo[k] = result = f(*args, **kwargs)
-        return result
-    return decorated
-
-def curry(f):
-    """Decorator: curry the function f.
-
-    Example::
-
-        @curry
-        def add3(a, b, c):
-            return a + b + c
-        assert add3(1)(2)(3) == 6
-    """
-    min_arity, _ = arities(f)
-    @wraps(f)
-    def curried(*args, **kwargs):
-        if len(args) < min_arity:
-            return curry(partial(f, *args, **kwargs))
-        return f(*args, **kwargs)
-    return curried
-
-def flip(f):
-    """Decorator: flip (reverse) the positional arguments of f."""
-    @wraps(f)
-    def flipped(*args, **kwargs):
-        return f(*reversed(args), **kwargs)
-    return flipped
-
-def compose(*fs):
-    """Compose one-argument functions, rightmost applied first."""
-    def composetwo(f, g):
-        return lambda x: f(g(x))
-    return foldl(composetwo, fs)  # op(acc, elt)
-
-def foldr(function, sequence, initial=None):
-    """Right fold.
-
-    Otherwise same semantics as ``functools.reduce``.
-    """
-    return foldl(function, reversed(sequence), initial)
-
 def test():
     @call
     def result():
@@ -178,41 +118,6 @@ def test():
     myzip = lambda lol: map(pack, *lol)
     lol = ((1, 2), (3, 4), (5, 6))
     assert tuple(myzip(lol)) == ((1, 3, 5), (2, 4, 6))
-
-    @memoize
-    def f(x):
-        print("evaluating f({})".format(x))
-        return x**2
-    f(3)
-    f(3)
-    f(4)
-    f(3)
-
-    # "memoize lambda": classic evaluate-at-most-once thunk
-    thunk = memoize(lambda: print("hi from thunk"))
-    thunk()
-    thunk()
-
-    @curry
-    def add3(a, b, c):
-        return a + b + c
-    assert add3(1)(2)(3) == 6
-    # it actually uses partial application so these work, too
-    assert add3(1, 2)(3) == 6
-    assert add3(1)(2, 3) == 6
-    assert add3(1, 2, 3) == 6
-
-    double = lambda x: 2*x
-    inc    = lambda x: x+1
-    inc_then_double = compose(double, inc)
-    assert inc_then_double(3) == 8
-
-    nil = ()
-    def cons(x, l):  # elt, acc
-        return (x,) + l
-    snoc = flip(cons)  # acc, elt like reduce wants
-    assert foldl(snoc, (1, 2, 3), nil) == (3, 2, 1)
-    assert foldr(snoc, (1, 2, 3), nil) == (1, 2, 3)
 
     print("All tests PASSED")
 
