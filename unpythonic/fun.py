@@ -4,6 +4,7 @@
 
 __all__ = ["memoize", "curry", "flip",
            "composer", "composel",
+           "composer1", "composel1",
            "foldl", "foldr"]
 
 from functools import wraps, partial, reduce as foldl
@@ -64,9 +65,13 @@ def foldr(function, sequence, initial=None):
     return foldl(function, reversed(sequence), initial)
 
 def composer(*fs):
-    """Compose one-input one-output functions, rightmost applied first.
+    """Compose functions accepting only positional args. Right to left.
 
     This mirrors the standard mathematical convention (f ∘ g)(x) ≡ f(g(x)).
+
+    The output from the previous function is unpacked to the argument list
+    of the next one. If the duck test fails, the output is assumed to be
+    a single value, and is fed in to the next function as-is.
 
     Example::
 
@@ -76,11 +81,23 @@ def composer(*fs):
         assert inc_then_double(3) == 8
     """
     def compose_pair(f, g):
-        return lambda x: f(g(x))
+        def composed(*args):
+            a = g(*args)
+            try:
+                return f(*a)
+            except TypeError:  # not unpackable, treat as a single value
+                return f(a)
+        return composed
     return foldl(compose_pair, fs)  # op(acc, elt)
 
+def composer1(*fs):
+    """Like composer, but limited to one-argument functions. Faster."""
+    def compose1_pair(f, g):
+        return lambda x: f(g(x))
+    return foldl(compose1_pair, fs)  # op(acc, elt)
+
 def composel(*fs):
-    """Compose one-input one-output functions, leftmost applied first.
+    """Like composer, but from left to right.
 
     The sequence ``fs`` is applied in the order given; no need
     to read the source code backwards.
@@ -93,6 +110,10 @@ def composel(*fs):
         assert double_then_inc(3) == 7
     """
     return composer(*reversed(fs))
+
+def composel1(*fs):
+    """Like composel, but limited to one-argument functions. Faster."""
+    return composer1(*reversed(fs))
 
 def test():
     from collections import Counter
@@ -155,12 +176,23 @@ def test():
 
     double = lambda x: 2*x
     inc    = lambda x: x+1
-    inc_then_double = composer(double, inc)
-    double_then_inc = composel(double, inc)
+    inc_then_double = composer1(double, inc)
+    double_then_inc = composel1(double, inc)
     assert inc_then_double(3) == 8
     assert double_then_inc(3) == 7
 
+    # TODO: test also composer, composel
+
     print("All tests PASSED")
+
+    def app1(f, a, b):
+        return (f(a), b)
+    def app2(f, a, b):
+        return (a, f(b))
+    def mymap(f, iterable):
+        proc = lambda acc, elt: snoc(*app2(f, acc, elt))
+        return foldr(proc, iterable, nil)
+    print(mymap(double, (1, 2, 3)))
 
 if __name__ == '__main__':
     test()
