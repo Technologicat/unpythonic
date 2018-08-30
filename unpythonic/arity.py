@@ -6,7 +6,7 @@ This module uses ``inspect`` out of necessity. The idea is to provide something
 like Racket's (arity-includes).
 """
 
-__all__ = ["arities", "arity_includes", "UnknownArity"]
+__all__ = ["arities", "arity_includes", "required_kwargs", "UnknownArity"]
 
 from inspect import signature, Parameter
 
@@ -47,6 +47,17 @@ def arities(f):
             elif v.kind is Parameter.VAR_POSITIONAL:
                 u = float("+inf")  # no upper limit
         return l, u
+    except (TypeError, ValueError) as e:
+        raise UnknownArity(*e.args)
+
+def required_kwargs(f):
+    """Return a set containing the names of required name-only arguments of f.
+
+    Raises UnknownArity if inspection failed.
+    """
+    try:
+        return {v.name for k, v in signature(f).parameters.items()
+                       if v.kind is Parameter.KEYWORD_ONLY}
     except (TypeError, ValueError) as e:
         raise UnknownArity(*e.args)
 
