@@ -171,7 +171,7 @@ def app2nd(f, *args):
             return (x,) + l
         snoc = flip(cons)  # acc, elt like reduce wants
         def mymap(f, sequence):
-            f_then_cons = composer(snoc, partial(app2, f))  # args: acc, elt
+            f_then_cons = composer(snoc, partial(app2nd, f))  # args: acc, elt
             return foldr(f_then_cons, sequence, nil)
         double = lambda x: 2*x
         assert mymap(double, (1, 2, 3)) == (2, 4, 6)
