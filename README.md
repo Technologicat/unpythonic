@@ -181,12 +181,12 @@ assert lst == [1, 2, 3]  # now the side effect has updated lst.
 Lazy pipe as an unfold:
 
 ```python
-fibos = [1, 1]
+fibos = []
 def nextfibo(state):
     a, b = state
-    fibos.append(a + b)  # store result by side effect
+    fibos.append(a)      # store result by side effect
     return (b, a + b)    # new state, handed to next function in the pipe
-p = lazy_piped(fibos)    # load initial state into a lazy pipe
+p = lazy_piped((1, 1))   # load initial state into a lazy pipe
 for _ in range(10):      # set up pipeline
     p = p | nextfibo
 p | get  # run it
