@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Utilities for working with functions."""
+"""Missing batteries for functools."""
 
 __all__ = ["memoize", "curry", "flip",
-           "composer", "composel",
            "composer1", "composel1",
+           "composer", "composel", "app1st", "app2nd", "appkth", "applast", "appto",
            "foldl", "foldr"]
 
 from functools import wraps, partial, reduce as foldl
@@ -17,31 +17,60 @@ def memoize(f):
 
     All of the args and kwargs of ``f`` must be hashable.
 
+    Any exceptions raised by ``f`` are also memoized. If the memoized function
+    is invoked again with arguments with which ``f`` originally raised an
+    exception, *the same exception instance* is raised again.
+
     **CAUTION**: ``f`` must be pure (no side effects, no internal state
-    preserved between invocations) for this to make sense.
+    preserved between invocations) for this to make any sense.
     """
+    success, fail = [object() for _ in range(2)]  # sentinels
     memo = {}
     @wraps(f)
     def memoized(*args, **kwargs):
         k = (args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
         if k not in memo:
-            memo[k] = f(*args, **kwargs)
-        return memo[k]
+            try:
+                result = (success, f(*args, **kwargs))
+            except BaseException as err:
+                result = (fail, err)
+            memo[k] = result  # should yell separately if k is not a valid key
+        sentinel, value = memo[k]
+        if sentinel is fail:
+            raise value
+        else:
+            return value
     return memoized
 
 def curry(f):
     """Decorator: curry the function f.
 
-    Essentially, the resulting function automatically chains
-    partial application until the minimum arity of ``f`` is satisfied.
+    Essentially, the resulting function automatically chains partial application
+    until the minimum positional arity of ``f`` is satisfied, at which point
+    ``f``is called.
 
-    Example::
+    Also more kwargs can be passed at each step, but they do not affect the
+    decision when the function is called.
+
+    Examples::
 
         @curry
         def add3(a, b, c):
             return a + b + c
         assert add3(1)(2)(3) == 6
+
+        @curry
+        def lispyadd(*args):
+            return sum(args)
+        assert lispyadd() == 0  # no args is a valid arity here
+
+        @curry
+        def foo(a, b, *, c, d):
+            return a, b, c, d
+        assert foo(5, c=23)(17, d=42) == (5, 17, 23, 42)
     """
+    # TODO: improve: all required name-only args should be present before calling f.
+    # Difficult, partial() doesn't remove an already-set kwarg from the signature.
     min_arity, _ = arities(f)
     @wraps(f)
     def curried(*args, **kwargs):
@@ -57,12 +86,15 @@ def flip(f):
         return f(*reversed(args), **kwargs)
     return flipped
 
-def foldr(function, sequence, initial=None):
-    """Right fold.
+def composer1(*fs):
+    """Like composer, but limited to one-argument functions. Faster."""
+    def compose1_pair(f, g):
+        return lambda x: f(g(x))
+    return foldl(compose1_pair, fs)  # op(acc, elt)
 
-    Same semantics as ``functools.reduce``.
-    """
-    return foldl(function, reversed(sequence), initial)
+def composel1(*fs):
+    """Like composel, but limited to one-argument functions. Faster."""
+    return composer1(*reversed(fs))
 
 def composer(*fs):
     """Compose functions accepting only positional args. Right to left.
@@ -80,21 +112,19 @@ def composer(*fs):
         inc_then_double = composer(double, inc)
         assert inc_then_double(3) == 8
     """
+    def test_unpack(*args):
+        pass
     def compose_pair(f, g):
         def composed(*args):
             a = g(*args)
             try:
-                return f(*a)
+                test_unpack(*a)
             except TypeError:  # not unpackable, treat as a single value
                 return f(a)
+            else:
+                return f(*a)
         return composed
     return foldl(compose_pair, fs)  # op(acc, elt)
-
-def composer1(*fs):
-    """Like composer, but limited to one-argument functions. Faster."""
-    def compose1_pair(f, g):
-        return lambda x: f(g(x))
-    return foldl(compose1_pair, fs)  # op(acc, elt)
 
 def composel(*fs):
     """Like composer, but from left to right.
@@ -111,9 +141,74 @@ def composel(*fs):
     """
     return composer(*reversed(fs))
 
-def composel1(*fs):
-    """Like composel, but limited to one-argument functions. Faster."""
-    return composer1(*reversed(fs))
+# Helpers for multi-arg compose chains
+def appkth(f, k, *args):
+    """Apply f to kth item in args, pass the rest through.
+
+    Negative indices also supported.
+
+    Especially useful in multi-arg compose chains as `partial(appk, f, k)`.
+    """
+    if k < 0:
+        k = k % len(args)
+    out = list(args[:k])
+    out.append(f(args[k]))
+    if len(args) > k + 1:
+        out.extend(args[k+1:])
+    return tuple(out)
+
+def app1st(f, *args):
+    """Apply f to first item in args, pass the rest through."""
+    return appkth(f, 0, *args)
+
+def app2nd(f, *args):
+    """Apply f to second item in args, pass the rest through.
+
+    Example::
+
+        nil = ()
+        def cons(x, l):  # elt, acc
+            return (x,) + l
+        snoc = flip(cons)  # acc, elt like reduce wants
+        def mymap(f, sequence):
+            f_then_cons = composer(snoc, partial(app2, f))  # args: acc, elt
+            return foldr(f_then_cons, sequence, nil)
+        double = lambda x: 2*x
+        assert mymap(double, (1, 2, 3)) == (2, 4, 6)
+    """
+    return appkth(f, 1, *args)
+
+def applast(f, *args):
+    """Apply f to last item in args, pass the rest through."""
+    return appkth(f, -1, *args)
+
+def appto(spec, *args):
+    """Apply f1, ..., fn to items in args, pass the rest through.
+
+    The spec is processed sequentially in the given order (allowing also
+    multiple updates to the same item).
+
+    Parameters:
+        spec: tuple of `(f, k)`, where:
+            f: function
+              One-argument function to apply to `args[k]`.
+            k: int
+              index (also negative supported)
+
+    Returns:
+        (functionally) updated args with the spec applied.
+    """
+    vs = args
+    for f, k in spec:
+        vs = appkth(f, k, *vs)
+    return vs
+
+def foldr(function, sequence, initial=None):
+    """Right fold.
+
+    Same semantics as ``functools.reduce``.
+    """
+    return foldl(function, reversed(sequence), initial)
 
 def test():
     from collections import Counter
@@ -142,16 +237,47 @@ def test():
     t()
     assert evaluations == 1
 
+    # exception storage in memoize
+    class AllOkJustTesting(Exception):
+        pass
+    evaluations = 0
+    @memoize
+    def t():
+        nonlocal evaluations
+        evaluations += 1
+        raise AllOkJustTesting()
+    olderr = None
+    for _ in range(3):
+        try:
+            t()
+        except AllOkJustTesting as err:
+            if olderr is not None and err is not olderr:
+                assert False  # exception instance memoized, should be same every time
+            olderr = err
+        else:
+            assert False  # memoize should not block raise
+    assert evaluations == 1
+
     @curry
     def add3(a, b, c):
         return a + b + c
     assert add3(1)(2)(3) == 6
-    # it actually uses partial application so these work, too
+    # actually uses partial application so these work, too
     assert add3(1, 2)(3) == 6
     assert add3(1)(2, 3) == 6
     assert add3(1, 2, 3) == 6
 
-    # test that currying a thunk is essentially a no-op
+    @curry
+    def lispyadd(*args):
+        return sum(args)
+    assert lispyadd() == 0  # no args is a valid arity here
+
+    @curry
+    def foo(a, b, *, c, d):
+        return a, b, c, d
+    assert foo(5, c=23)(17, d=42) == (5, 17, 23, 42)
+
+    # currying a thunk is essentially a no-op
     evaluations = 0
     @curry
     def t():
@@ -160,7 +286,7 @@ def test():
     t()
     assert evaluations == 1  # t has no args, so it should have been invoked
 
-    # test flip
+    # flip
     def f(a, b):
         return (a, b)
     assert f(1, 2) == (1, 2)
@@ -181,18 +307,22 @@ def test():
     assert inc_then_double(3) == 8
     assert double_then_inc(3) == 7
 
-    # TODO: test also composer, composel
+    def mymap(f, sequence):
+        f_then_cons = composer(snoc, partial(app2nd, f))  # args: acc, elt
+        return foldr(f_then_cons, sequence, nil)
+    assert mymap(double, (1, 2, 3)) == (2, 4, 6)
+    def mymap2(f, sequence):
+        f_then_cons = composel(partial(app2nd, f), snoc)  # args: acc, elt
+        return foldr(f_then_cons, sequence, nil)
+    assert mymap2(double, (1, 2, 3)) == (2, 4, 6)
+
+    processor = partial(appto, ((double, 0),
+                                (inc, -1),
+                                (composer(double, double), 1),
+                                (inc, 0)))
+    assert processor(1, 2, 3) == (3, 8, 4)
 
     print("All tests PASSED")
-
-    def app1(f, a, b):
-        return (f(a), b)
-    def app2(f, a, b):
-        return (a, f(b))
-    def mymap(f, iterable):
-        proc = lambda acc, elt: snoc(*app2(f, acc, elt))
-        return foldr(proc, iterable, nil)
-    print(mymap(double, (1, 2, 3)))
 
 if __name__ == '__main__':
     test()
