@@ -11,7 +11,7 @@ foldl and foldr based on
 Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 """
 
-__all__ = ["memoize", "curry", "flip",
+__all__ = ["memoize", "curry", "flip", "rotate",
            "apply", "identity", "const", "negate", "conjoin", "disjoin",
            "foldl", "foldr", "reducel", "reducer",
            "composer1", "composel1",
@@ -95,6 +95,24 @@ def flip(f):
     def flipped(*args, **kwargs):
         return f(*reversed(args), **kwargs)
     return flipped
+
+def rotate(k):
+    """Decorator (factory): cycle positional args of f to the right by k places.
+
+    Negative values cycle to the left.
+    """
+    def rotate_k(f):
+        @wraps(f)
+        def rotated(*args, **kwargs):
+            nonlocal k
+            n = len(args)
+            if not n:
+                raise TypeError("Expected at least one argument")
+            k = k % n  # handle also negative values
+            rargs = args[-k:] + args[:-k]
+            return f(*rargs, **kwargs)
+        return rotated
+    return rotate_k
 
 def apply(f, arg0, *more):
     """Scheme/Racket-like apply.
@@ -322,9 +340,10 @@ def tokth(k, f):
     """
     def applicator(*args):
         n = len(args)
+        if not n:
+            raise TypeError("Expected at least one argument")
         nonlocal k
-        if k < 0:
-            k = k % n
+        k = k % n  # handle also negative values
         m = k + 1
         if n < m:
             raise TypeError("Expected at least {:d} arguments, got {:d}".format(m, n))
@@ -521,13 +540,24 @@ def test():
                    (0, inc))
     assert processor(1, 2, 3) == (3, 8, 4)
 
-    def zipper(*args):
-        *rest, acc = args
-        return acc + (tuple(rest),)
-    myzipl = (curry(foldl))(zipper, ())
-    myzipr = (curry(foldr))(zipper, ())
-    assert myzipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
-    assert myzipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
+    assert identity(1, 2, 3) == (1, 2, 3)
+    assert (rotate(1)(identity))(1, 2, 3) == (3, 1, 2)
+    assert (rotate(-1)(identity))(1, 2, 3) == (2, 3, 1)
+
+    # Outer gets effectively applied first, because of the order in which
+    # the decorators get their hands on the incoming, user-given arguments.
+    assert flip(rotate(1)(identity))(1, 2, 3) == (1, 3, 2)
+
+    @rotate(1)  # cycle *the incoming args* (not slots!) to the right by one place.
+    def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
+        return acc + (rest,)  # even though the input is (e1, ..., en, acc).
+#    def zipper(*args):  # straightforward version
+#        *rest, acc = args
+#        return acc + (tuple(rest),)
+    zipl = (curry(foldl))(zipper, ())
+    zipr = (curry(foldr))(zipper, ())
+    assert zipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
+    assert zipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
 
     def hello(*args):
         return args
@@ -535,7 +565,6 @@ def test():
     assert apply(hello, 1, (2, 3, 4)) == (1, 2, 3, 4)
     assert apply(hello, 1, 2, (3, 4, 5)) == (1, 2, 3, 4, 5)
 
-    assert identity(1, 2, 3) == (1, 2, 3)
     assert const(1, 2, 3)(42, "foo") == (1, 2, 3)
     assert negate(lambda x: 2*x)(3) is False
     assert negate(lambda x: 2*x)(0) is True
