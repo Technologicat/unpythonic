@@ -1,8 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Missing batteries for functools."""
+"""Missing batteries for functools.
+
+Some features modelled after Racket's builtins for handling procedures.
+  https://docs.racket-lang.org/reference/procedures.html
+
+foldl and foldr based on
+  https://docs.racket-lang.org/reference/pairs.html
+
+Memoize is typical FP, and flip comes from Haskell.
+"""
 
 __all__ = ["memoize", "curry", "flip",
+           "apply", "identity", "const", "negate", "conjoin", "disjoin",
            "foldl", "foldr", "reducel", "reducer",
            "composer1", "composel1",
            "composer", "composel", "to1st", "to2nd", "tokth", "tolast", "to"]
@@ -85,6 +95,78 @@ def flip(f):
     def flipped(*args, **kwargs):
         return f(*reversed(args), **kwargs)
     return flipped
+
+def apply(f, arg0, *more):
+    """Scheme/Racket-like apply.
+
+    Not really needed since Python has *, but included for completeness.
+
+    ``f`` is a function.
+
+    ``arg0``, if alone, is the list to unpack.
+
+    Otherwise the last item of ``more`` is the list to unpack. Any earlier
+    arguments (starting from ``arg0``) are concatenated at the front.
+    """
+    if not more:
+        return f(*arg0)
+    elif len(more) == 1:
+        return f(arg0, *more[0])  # more[0] is the list to unpack
+    else:
+        args = (arg0,) + more[:-1] + more[-1]
+        return f(*args)
+
+def identity(*args):
+    """Identity function.
+
+    Accepts any positional arguments, and returns them as a tuple.
+    """
+    return args
+
+def const(*args):
+    """Constant function.
+
+    Returns a function that accepts any arguments (also kwargs)
+    and returns the args given here, as a tuple.
+    """
+    def constant(*a, **kw):
+        return args
+    return constant
+
+def negate(f):
+    """Return a function that returns the logical not of the result of f."""
+    @wraps(f)
+    def negated(*args, **kwargs):
+        return not f(*args, **kwargs)
+    return negated
+
+def conjoin(*fs):
+    """Return a function that conjoins calls to fs with "and".
+
+    Each function in ``fs`` is called with the same ``args`` and ``kwargs``.
+    """
+    def conjoined(*args, **kwargs):
+        b = True
+        for f in fs:
+            b = b and f(*args, **kwargs)
+            if not b:
+                return False
+        return b
+    return conjoined
+
+def disjoin(*fs):
+    """Return a function that disjoins calls to fs with "or".
+
+    Each function in ``fs`` is called with the same ``args`` and ``kwargs``.
+    """
+    def disjoined(*args, **kwargs):
+        b = False
+        for f in fs:
+            b = b or f(*args, **kwargs)
+            if b:
+                return b
+        return False
+    return disjoined
 
 def foldl(proc, init, iterable0, *iterables):  # minimum arity 3, for curry
     """Racket-like foldl that supports multiple input iterables.
@@ -409,6 +491,24 @@ def test():
     myzipr = (curry(foldr))(zipper, ())
     assert myzipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
     assert myzipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
+
+    def hello(*args):
+        return args
+    assert apply(hello, (1, 2, 3)) == (1, 2, 3)
+    assert apply(hello, 1, (2, 3, 4)) == (1, 2, 3, 4)
+    assert apply(hello, 1, 2, (3, 4, 5)) == (1, 2, 3, 4, 5)
+
+    assert identity(1, 2, 3) == (1, 2, 3)
+    assert const(1, 2, 3)(42, "foo") == (1, 2, 3)
+    assert negate(lambda x: 2*x)(3) is False
+    assert negate(lambda x: 2*x)(0) is True
+    assert conjoin(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(42) is True
+    assert conjoin(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(43) is False
+    isstr  = lambda s: isinstance(s, str)
+    iseven = lambda x: isinstance(x, int) and x % 2 == 0
+    assert disjoin(isstr, iseven)(42) is True
+    assert disjoin(isstr, iseven)("foo") is True
+    assert disjoin(isstr, iseven)(None) is False  # neither condition holds
 
     print("All tests PASSED")
 
