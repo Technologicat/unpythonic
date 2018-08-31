@@ -537,6 +537,15 @@ def test():
     append_many = lambda *lsts: foldr(append_two, nil, lsts)
     assert append_many((1, 2), (3, 4), (5, 6)) == (1, 2, 3, 4, 5, 6)
 
+    flatmap = lambda f, lst: foldl(flip(add), (), map(f, lst))
+    def msqrt(x):
+        if x == 0.:
+            return (0.,)
+        else:
+            s = x**0.5
+            return (s, -s)
+    print(flatmap(msqrt, range(5)))
+
     processor = to((0, double),
                    (-1, inc),
                    (1, composer(double, double)),
