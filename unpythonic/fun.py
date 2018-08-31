@@ -104,12 +104,11 @@ def rotate(k):
     def rotate_k(f):
         @wraps(f)
         def rotated(*args, **kwargs):
-            nonlocal k
             n = len(args)
             if not n:
                 raise TypeError("Expected at least one argument")
-            k = k % n  # handle also negative values
-            rargs = args[-k:] + args[:-k]
+            j = k % n  # handle also negative values
+            rargs = args[-j:] + args[:-j]
             return f(*rargs, **kwargs)
         return rotated
     return rotate_k
@@ -342,13 +341,12 @@ def tokth(k, f):
         n = len(args)
         if not n:
             raise TypeError("Expected at least one argument")
-        nonlocal k
-        k = k % n  # handle also negative values
-        m = k + 1
+        j = k % n  # handle also negative values
+        m = j + 1
         if n < m:
             raise TypeError("Expected at least {:d} arguments, got {:d}".format(m, n))
-        out = list(args[:k])
-        out.append(f(args[k]))  # mth argument
+        out = list(args[:j])
+        out.append(f(args[j]))  # mth argument
         if n > m:
             out.extend(args[m:])
         return tuple(out)
