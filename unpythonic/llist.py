@@ -24,7 +24,7 @@ _exports = ["cons", "nil",
             "caaar", "caadr", "cadar", "caddr", "cdaar", "cdadr", "cddar", "cdddr",
             "caaaar", "caaadr", "caadar", "caaddr", "cadaar", "cadadr", "caddar", "cadddr",
             "cdaaar", "cdaadr", "cdadar", "cdaddr", "cddaar", "cddadr", "cdddar", "cddddr",
-            "llist", "lreverse", "lappend", "lzip"]
+            "llist", "llist_from_sequence", "lreverse", "lappend", "lzip"]
 #_ads = lambda n: product(*repeat("ad", n))
 #_c2r = ["c{}{}r".format(*x) for x in _ads(2)]
 #_c3r = ["c{}{}{}r".format(*x) for x in _ads(3)]
@@ -148,6 +148,10 @@ def llist(*elts):
     """Pack elts to a linked list."""
     return foldr(cons, nil, elts)
 
+def llist_from_sequence(sequence):
+    """Convert sequence to a linked list."""
+    return foldr(cons, nil, sequence)
+
 def lreverse(ll):
     """Reverse a linked list."""
     return foldl(cons, nil, ll)
@@ -155,8 +159,7 @@ def lreverse(ll):
 def lappend(*lls):
     """Append linked lists left-to-right."""
     def lappend_two(ll1, ll2):
-        # .tolist() because https://docs.python.org/3/library/functions.html#reversed
-        return foldr(cons, ll2, ll1.tolist())
+        return foldr(cons, ll2, ll1.tolist())  # .tolist() because must be a sequence
     return foldr(lappend_two, nil, lls)
 
 # TODO: refactor this
@@ -179,11 +182,11 @@ def member(x, ll):
         return jump(SELF, x, ll.cdr)
 
 def lzip(*lls):
-    """Zip linked lists, producing a tuple of linked lists.
+    """Zip linked lists, producing a linked list of linked lists.
 
     Built-in zip() works too, but produces tuples.
     """
-    return tuple(map(llist, *lls))
+    return llist(*map(llist, *lls))
 
 def test():
     # TODO: extend tests
@@ -210,28 +213,27 @@ def test():
     assert [f(q) for f in [caar, cdar, cadr, cddr]] == [1, 2, cons(3, 4), nil]
 
     l = llist(1, 2, 3)
-    assert [f(l) for f in [car, cadr, cdr, cddr]] == [1, 2, llist(2, 3), llist(3)]
+    assert [f(l) for f in [car, cadr, caddr, cdddr, cdr, cddr]] == [1, 2, 3, nil, llist(2, 3), llist(3)]
     assert member(2, l) == llist(2, 3)
     assert not member(5, l)
 
     # tuple unpacking syntax
-    c = cons(1, 2)
-    l, r = c
+    l, r = cons(1, 2)
     assert l == 1 and r == 2
 
-    ll = llist(1, 2, 3)
-    a, b, c = ll
+    a, b, c = llist(1, 2, 3)
     assert a == 1 and b == 2 and c == 3
 
-    assert ll.tolist() == [1, 2, 3]
+    assert llist(1, 2, 3).tolist() == [1, 2, 3]
+    assert llist_from_sequence((1, 2, 3)) == llist(1, 2, 3)
 
-    assert lreverse(ll) == llist(3, 2, 1)
+    assert lreverse(llist(1, 2, 3)) == llist(3, 2, 1)
 
     assert lappend(llist(1, 2, 3), llist(4, 5, 6)) == llist(1, 2, 3, 4, 5, 6)
     assert lappend(llist(1, 2), llist(3, 4), llist(5, 6)) == llist(1, 2, 3, 4, 5, 6)
 
     assert tuple(zip(llist(1, 2, 3), llist(4, 5, 6))) == ((1, 4), (2, 5), (3, 6))
-    assert lzip(llist(1, 2, 3), llist(4, 5, 6)) == (llist(1, 4), llist(2, 5), llist(3, 6))
+    assert lzip(llist(1, 2, 3), llist(4, 5, 6)) == llist(llist(1, 4), llist(2, 5), llist(3, 6))
 
     print("All tests PASSED")
 
