@@ -3,10 +3,12 @@
 """Inspect the arity of a callable.
 
 This module uses ``inspect`` out of necessity. The idea is to provide something
-like Racket's (arity-includes).
+like Racket's (arity-includes?).
 """
 
-__all__ = ["arities", "arity_includes", "required_kwargs", "UnknownArity"]
+__all__ = ["arities", "arity_includes",
+           "required_kwargs", "optional_kwargs", "kwargs",
+           "UnknownArity"]
 
 from inspect import signature, Parameter
 
@@ -53,13 +55,41 @@ def arities(f):
 def required_kwargs(f):
     """Return a set containing the names of required name-only arguments of f.
 
+    "Required": has no default.
+
     Raises UnknownArity if inspection failed.
     """
+    return _kwargs(f, optionals=False)
+
+def optional_kwargs(f):
+    """Return a set containing the names of optional name-only arguments of f.
+
+    "Optional": has a default.
+
+    Raises UnknownArity if inspection failed.
+    """
+    return _kwargs(f, optionals=True)
+
+def _kwargs(f, optionals=True):
     try:
+        if optionals:
+            pred = lambda v: v.default is not Parameter.empty  # optionals
+        else:
+            pred = lambda v: v.default is Parameter.empty      # requireds
         return {v.name for k, v in signature(f).parameters.items()
-                       if v.kind is Parameter.KEYWORD_ONLY}
+                       if v.kind is Parameter.KEYWORD_ONLY and pred(v)}
     except (TypeError, ValueError) as e:
         raise UnknownArity(*e.args)
+
+def kwargs(f):
+    """Like Racket's (procedure-keywords).
+
+    Return two sets: the first contains the `required_kwargs` of ``f``,
+    the second contains the `optional_kwargs`.
+
+    Raises UnknownArity if inspection failed.
+    """
+    return (required_kwargs(f), optional_kwargs(f))
 
 def arity_includes(f, n):
     """Check whether f's positional arity includes n.
@@ -84,6 +114,14 @@ def test():
              ((lambda a, b=42: _),                 (1, 2)))
     for f, answer in items:
         assert arities(f) == answer
+
+    assert required_kwargs(lambda *, a, b, c=42: _) == set(('a', 'b'))
+    assert optional_kwargs(lambda *, a, b, c=42: _) == set(('c'))
+    assert kwargs(lambda *, a, b, c=42: _) == (set(('a', 'b')), set(('c')))
+    assert required_kwargs(lambda a, b, c=42: _) == set()
+    assert optional_kwargs(lambda a, b, c=42: _) == set()
+    assert kwargs(lambda a, b, c=42: _) == (set(), set())
+
     print("All tests PASSED")
 
 if __name__ == '__main__':
