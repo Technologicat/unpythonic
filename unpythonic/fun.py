@@ -8,7 +8,7 @@ Some features modelled after Racket's builtins for handling procedures.
 foldl and foldr based on
   https://docs.racket-lang.org/reference/pairs.html
 
-Memoize is typical FP, and flip comes from Haskell.
+Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 """
 
 __all__ = ["memoize", "curry", "flip",
@@ -120,6 +120,10 @@ def identity(*args):
     """Identity function.
 
     Accepts any positional arguments, and returns them as a tuple.
+
+    Example::
+
+        assert identity(1, 2, 3) == (1, 2, 3)
     """
     return args
 
@@ -128,13 +132,24 @@ def const(*args):
 
     Returns a function that accepts any arguments (also kwargs)
     and returns the args given here, as a tuple.
+
+    Example::
+
+        c = const(1, 2, 3)
+        assert c(42, "foo") == (1, 2, 3)
     """
     def constant(*a, **kw):
         return args
     return constant
 
 def negate(f):
-    """Return a function that returns the logical not of the result of f."""
+    """Return a function that returns the logical not of the result of f.
+
+    Examples::
+
+        assert negate(lambda x: 2*x)(3) is False
+        assert negate(lambda x: 2*x)(0) is True
+    """
     @wraps(f)
     def negated(*args, **kwargs):
         return not f(*args, **kwargs)
@@ -143,7 +158,17 @@ def negate(f):
 def conjoin(*fs):
     """Return a function that conjoins calls to fs with "and".
 
-    Each function in ``fs`` is called with the same ``args`` and ``kwargs``.
+    Each function in ``fs`` is called with the same ``args`` and ``kwargs``,
+    provided when the conjoined function is called.
+
+    Evaluation short-circuits at the first falsey term, if any, returning ``False``.
+    If all terms are truthy, the final return value (from the last function in
+    ``fs``) is returned.
+
+    Examples::
+
+        assert conjoin(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(42) is True
+        assert conjoin(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(43) is False
     """
     def conjoined(*args, **kwargs):
         b = True
@@ -157,7 +182,19 @@ def conjoin(*fs):
 def disjoin(*fs):
     """Return a function that disjoins calls to fs with "or".
 
-    Each function in ``fs`` is called with the same ``args`` and ``kwargs``.
+    Each function in ``fs`` is called with the same ``args`` and ``kwargs``,
+    provided when the disjoined function is called.
+
+    Evaluation short-circuits at the first truthy term, if any, and it is returned.
+    If all terms are falsey, the return value is False.
+
+    Examples::
+
+        isstr  = lambda s: isinstance(s, str)
+        iseven = lambda x: isinstance(x, int) and x % 2 == 0
+        assert disjoin(isstr, iseven)(42) is True
+        assert disjoin(isstr, iseven)("foo") is True
+        assert disjoin(isstr, iseven)(None) is False  # neither condition holds
     """
     def disjoined(*args, **kwargs):
         b = False
