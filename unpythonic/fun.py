@@ -531,6 +531,12 @@ def test():
     reverse_one = curry(foldl)(cons, nil)
     assert reverse_one((1, 2, 3)) == (3, 2, 1)
 
+    append_two = lambda a, b: foldr(cons, b, a)
+    assert append_two((1, 2, 3), (4, 5, 6)) == (1, 2, 3, 4, 5, 6)
+
+    append_many = lambda *lsts: foldr(append_two, nil, lsts)
+    assert append_many((1, 2), (3, 4), (5, 6)) == (1, 2, 3, 4, 5, 6)
+
     processor = to((0, double),
                    (-1, inc),
                    (1, composer(double, double)),
