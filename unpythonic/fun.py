@@ -129,7 +129,7 @@ def apply(f, arg0, *more):
         args, lst = (), arg0
     else:
         args = (arg0,) + more[:-1]
-        lst = more[-1]
+        lst = tuple(more[-1])
     return f(*(args + lst))
 
 def identity(*args):
@@ -561,6 +561,7 @@ def test():
     assert apply(hello, (1, 2, 3)) == (1, 2, 3)
     assert apply(hello, 1, (2, 3, 4)) == (1, 2, 3, 4)
     assert apply(hello, 1, 2, (3, 4, 5)) == (1, 2, 3, 4, 5)
+    assert apply(hello, 1, 2, [3, 4, 5]) == (1, 2, 3, 4, 5)
 
     assert const(1, 2, 3)(42, "foo") == (1, 2, 3)
     assert negate(lambda x: 2*x)(3) is False
