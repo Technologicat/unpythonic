@@ -126,12 +126,11 @@ def apply(f, arg0, *more):
     arguments (starting from ``arg0``) are concatenated at the front.
     """
     if not more:
-        return f(*arg0)
-    elif len(more) == 1:
-        return f(arg0, *more[0])  # more[0] is the list to unpack
+        args, lst = (), arg0
     else:
-        args = (arg0,) + more[:-1] + more[-1]
-        return f(*args)
+        args = (arg0,) + more[:-1]
+        lst = more[-1]
+    return f(*(args + lst))
 
 def identity(*args):
     """Identity function.
