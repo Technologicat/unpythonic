@@ -14,11 +14,12 @@ Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 __all__ = ["memoize", "curry", "flip", "rotate",
            "apply", "identity", "const", "negate", "conjoin", "disjoin",
            "foldl", "foldr", "reducel", "reducer",
+           "flatmap",
            "composer1", "composel1",
            "composer", "composel", "to1st", "to2nd", "tokth", "tolast", "to"]
 
 from functools import wraps, partial
-from operator import itemgetter
+from operator import itemgetter, add
 
 from unpythonic.arity import arities
 
@@ -272,6 +273,25 @@ def reducer(proc, sequence, init=None):
     """Like reducel, but fold from the right (walk backwards)."""
     return reducel(proc, reversed(sequence), init)
 
+def flatmap(f, *lsts):
+    """Map, then concatenate results.
+
+    ``f`` should be a one-argument function that returns a list or tuple
+    for each input item.
+
+    Example::
+
+        def msqrt(x):  # multivalued sqrt
+            if x == 0.:
+                return (0.,)
+            else:
+                s = x**0.5
+                return (s, -s)
+        assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
+    """
+    # flip so that acc goes first, to concat left-to-right
+    return foldl(flip(add), (), map(f, *lsts))
+
 def composer1(*fs):
     """Like composer, but limited to one-argument functions. Faster.
 
@@ -482,7 +502,6 @@ def test():
     assert foldl(cons, nil, (1, 2, 3)) == (3, 2, 1)
     assert foldr(cons, nil, (1, 2, 3)) == (1, 2, 3)
 
-    from operator import add
     assert reducel(add, (1, 2, 3)) == 6
     assert reducer(add, (1, 2, 3)) == 6
 
@@ -537,14 +556,13 @@ def test():
     append_many = lambda *lsts: foldr(append_two, nil, lsts)
     assert append_many((1, 2), (3, 4), (5, 6)) == (1, 2, 3, 4, 5, 6)
 
-    flatmap = lambda f, lst: foldl(flip(add), (), map(f, lst))
-    def msqrt(x):
+    def msqrt(x):  # multivalued sqrt
         if x == 0.:
             return (0.,)
         else:
             s = x**0.5
             return (s, -s)
-    print(flatmap(msqrt, range(5)))
+    assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
 
     processor = to((0, double),
                    (-1, inc),
