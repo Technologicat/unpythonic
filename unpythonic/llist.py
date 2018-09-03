@@ -24,7 +24,7 @@ _exports = ["cons", "nil",
             "caaar", "caadr", "cadar", "caddr", "cdaar", "cdadr", "cddar", "cdddr",
             "caaaar", "caaadr", "caadar", "caaddr", "cadaar", "cadadr", "caddar", "cadddr",
             "cdaaar", "cdaadr", "cdadar", "cdaddr", "cddaar", "cddadr", "cdddar", "cddddr",
-            "llist", "llist_from_sequence", "lreverse", "lappend", "lzip"]
+            "ll", "ll_from_sequence", "lreverse", "lappend", "lzip"]
 #_ads = lambda n: product(*repeat("ad", n))
 #_c2r = ["c{}{}r".format(*x) for x in _ads(2)]
 #_c3r = ["c{}{}{}r".format(*x) for x in _ads(3)]
@@ -87,7 +87,7 @@ class cons:
         # special lispy printing for linked lists
         # TODO: refactor this
         @trampolined
-        def llist_repr(cell, acc):
+        def ll_repr(cell, acc):
             newacc = lambda: acc + [repr(cell.car)]  # delay evaluation with lambda
             if cell.cdr is nil:
                 return newacc()
@@ -95,7 +95,7 @@ class cons:
                 return jump(SELF, cell.cdr, newacc())
             else:
                 return False  # not a linked list
-        result = llist_repr(self, []) or [repr(self.car), ".", repr(self.cdr)]
+        result = ll_repr(self, []) or [repr(self.car), ".", repr(self.cdr)]
         return "({})".format(" ".join(result))
     # TODO: trampoline this
     def __eq__(self, other):
@@ -144,49 +144,49 @@ cddadr = composer1(cdr, cdr, car, cdr)
 cdddar = composer1(cdr, cdr, cdr, car)
 cddddr = composer1(cdr, cdr, cdr, cdr)
 
-def llist(*elts):
+def ll(*elts):
     """Pack elts to a linked list."""
-    return foldr(cons, nil, elts)
+    return ll_from_sequence(elts)
 
-def llist_from_sequence(sequence):
+def ll_from_sequence(sequence):
     """Convert sequence to a linked list."""
     return foldr(cons, nil, sequence)
 
-def lreverse(ll):
+def lreverse(l):
     """Reverse a linked list."""
-    return foldl(cons, nil, ll)
+    return foldl(cons, nil, l)
 
-def lappend(*lls):
+def lappend(*ls):
     """Append linked lists left-to-right."""
-    def lappend_two(ll1, ll2):
-        return foldr(cons, ll2, ll1.tolist())  # .tolist() because must be a sequence
-    return foldr(lappend_two, nil, lls)
+    def lappend_two(l1, l2):
+        return foldr(cons, l2, l1.tolist())  # .tolist() because must be a sequence
+    return foldr(lappend_two, nil, ls)
 
 # TODO: refactor this
 @trampolined
-def member(x, ll):
+def member(x, l):
     """Walk linked list and check if item x is in it.
 
     Returns:
         The matching cons cell if x was found; False if not.
     """
-    if not isinstance(ll, cons):
+    if not isinstance(l, cons):
         raise TypeError("Expected a cons, got {} with value {}".format(type(x), x))
-    if not isinstance(ll.cdr, cons) and ll.cdr is not nil:
-        raise ValueError("This cons is not a linked list; current cell {}".format(ll))
-    if ll.car == x:      # match
-        return ll
-    elif ll.cdr is nil:  # last cell, no match
+    if not isinstance(l.cdr, cons) and l.cdr is not nil:
+        raise ValueError("This cons is not a linked list; current cell {}".format(l))
+    if l.car == x:      # match
+        return l
+    elif l.cdr is nil:  # last cell, no match
         return False
     else:
-        return jump(SELF, x, ll.cdr)
+        return jump(SELF, x, l.cdr)
 
-def lzip(*lls):
+def lzip(*ls):
     """Zip linked lists, producing a linked list of linked lists.
 
     Built-in zip() works too, but produces tuples.
     """
-    return llist(*map(llist, *lls))
+    return ll(*map(ll, *ls))
 
 def test():
     # TODO: extend tests
@@ -202,38 +202,38 @@ def test():
     c = cons(1, 2)
     assert car(c) == 1 and cdr(c) == 2
 
-    assert llist(1, 2, 3) == cons(1, cons(2, cons(3, nil)))
-#    print(llist(1, 2, cons(3, 4), 5, 6))  # a list may also contain pairs as items
+    assert ll(1, 2, 3) == cons(1, cons(2, cons(3, nil)))
+#    print(ll(1, 2, cons(3, 4), 5, 6))  # a list may also contain pairs as items
 #    print(cons(cons(cons(nil, 3), 2), 1))  # improper list
 
     t = cons(cons(1, 2), cons(3, 4))  # binary tree
     assert [f(t) for f in [caar, cdar, cadr, cddr]] == [1, 2, 3, 4]
 
-    q = llist(cons(1, 2), cons(3, 4))  # list of pairs, not a tree!
+    q = ll(cons(1, 2), cons(3, 4))  # list of pairs, not a tree!
     assert [f(q) for f in [caar, cdar, cadr, cddr]] == [1, 2, cons(3, 4), nil]
 
-    l = llist(1, 2, 3)
-    assert [f(l) for f in [car, cadr, caddr, cdddr, cdr, cddr]] == [1, 2, 3, nil, llist(2, 3), llist(3)]
-    assert member(2, l) == llist(2, 3)
+    l = ll(1, 2, 3)
+    assert [f(l) for f in [car, cadr, caddr, cdddr, cdr, cddr]] == [1, 2, 3, nil, ll(2, 3), ll(3)]
+    assert member(2, l) == ll(2, 3)
     assert not member(5, l)
 
     # tuple unpacking syntax
     l, r = cons(1, 2)
     assert l == 1 and r == 2
 
-    a, b, c = llist(1, 2, 3)
+    a, b, c = ll(1, 2, 3)
     assert a == 1 and b == 2 and c == 3
 
-    assert llist(1, 2, 3).tolist() == [1, 2, 3]
-    assert llist_from_sequence((1, 2, 3)) == llist(1, 2, 3)
+    assert ll(1, 2, 3).tolist() == [1, 2, 3]
+    assert ll_from_sequence((1, 2, 3)) == ll(1, 2, 3)
 
-    assert lreverse(llist(1, 2, 3)) == llist(3, 2, 1)
+    assert lreverse(ll(1, 2, 3)) == ll(3, 2, 1)
 
-    assert lappend(llist(1, 2, 3), llist(4, 5, 6)) == llist(1, 2, 3, 4, 5, 6)
-    assert lappend(llist(1, 2), llist(3, 4), llist(5, 6)) == llist(1, 2, 3, 4, 5, 6)
+    assert lappend(ll(1, 2, 3), ll(4, 5, 6)) == ll(1, 2, 3, 4, 5, 6)
+    assert lappend(ll(1, 2), ll(3, 4), ll(5, 6)) == ll(1, 2, 3, 4, 5, 6)
 
-    assert tuple(zip(llist(1, 2, 3), llist(4, 5, 6))) == ((1, 4), (2, 5), (3, 6))
-    assert lzip(llist(1, 2, 3), llist(4, 5, 6)) == llist(llist(1, 4), llist(2, 5), llist(3, 6))
+    assert tuple(zip(ll(1, 2, 3), ll(4, 5, 6))) == ((1, 4), (2, 5), (3, 6))
+    assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
 
     print("All tests PASSED")
 
