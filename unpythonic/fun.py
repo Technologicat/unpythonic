@@ -14,7 +14,7 @@ Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 __all__ = ["memoize", "curry", "flip", "rotate",
            "apply", "identity", "const", "negate", "conjoin", "disjoin",
            "foldl", "foldr", "reducel", "reducer",
-           "flatmap",
+           "flatmap", "take",
            "composer1", "composel1",
            "composer", "composel", "to1st", "to2nd", "tokth", "tolast", "to"]
 
@@ -93,9 +93,7 @@ def curry(f):
             now_result = f(*now_args, **kwargs)
             if hasattr(now_result, "_is_curried_function"):
                 return now_result(*later_args, **kwargs)
-            elif isinstance(now_result, tuple):
-                return now_result + later_args
-            elif isinstance(now_result, list):
+            elif isinstance(now_result, (tuple, list)):
                 return tuple(now_result) + later_args
             else:
                 return (now_result,) + later_args
@@ -312,13 +310,16 @@ def flatmap(f, *lsts):
         assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
     """
     def concat(a, b):
-        if isinstance(a, list):
-            a = tuple(a)
-        if isinstance(b, list):
-            b = tuple(b)
-        return a + b
+        return tuple(a) + tuple(b)
     # flip so that acc in op(elt, acc) becomes "a", to concat left-to-right
     return foldl(flip(concat), (), map(f, *lsts))
+
+def take(iterable, n):
+    """Return a generator that yields the first n items of iterable, then stops.
+
+    Stops earlier if ``iterable`` has less than ``n`` items.
+    """
+    return (x for x, _ in zip(iter(iterable), range(n)))
 
 def composer1(*fs):
     """Like composer, but limited to one-argument functions. Faster.
@@ -524,6 +525,7 @@ def test():
     assert (flip(f))(1, 2) == (2, 1)
     assert (flip(f))(1, b=2) == (1, 2)  # b -> kwargs
 
+    # just a testing hack; for a "real" cons, see unpythonic.llist.cons
     nil = ()
     def cons(x, l):  # elt, acc
         return (x,) + l
@@ -598,6 +600,9 @@ def test():
             s = x**0.5
             return (s, -s)
     assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
+
+    assert tuple(take(range(100), 10)) == tuple(range(10))
+    assert tuple(take(range(3), 10)) == tuple(range(3))
 
     processor = to((0, double),
                    (-1, inc),
