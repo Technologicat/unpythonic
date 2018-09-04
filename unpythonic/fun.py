@@ -90,9 +90,9 @@ def curry(f):
         # passthrough on right, like https://github.com/Technologicat/spicy
         if len(args) > max_arity:
             now_args, later_args = args[:max_arity], args[max_arity:]
-            now_result = f(*now_args, **kwargs)
+            now_result = f(*now_args, **kwargs)  # use up all kwargs now
             if hasattr(now_result, "_is_curried_function"):
-                return now_result(*later_args, **kwargs)
+                return now_result(*later_args)
             elif isinstance(now_result, (tuple, list)):
                 return tuple(now_result) + later_args
             else:
@@ -174,6 +174,7 @@ def const(*args):
 
         c = const(1, 2, 3)
         assert c(42, "foo") == (1, 2, 3)
+        assert c("anything") == (1, 2, 3)
     """
     def constant(*a, **kw):
         return args
@@ -296,8 +297,8 @@ def reducer(proc, sequence, init=None):
 def flatmap(f, *lsts):
     """Map, then concatenate results.
 
-    ``f`` should be a one-argument function that returns a list or tuple
-    for each input item.
+    ``f`` should accept ``len(lsts)`` arguments (each drawn from one of
+    the ``lsts``), and return a list or tuple.
 
     Example::
 
@@ -308,6 +309,14 @@ def flatmap(f, *lsts):
                 s = x**0.5
                 return (s, -s)
         assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
+
+        def add_and_tuplify(a, b):
+            return (a + b,)
+        assert flatmap(add_and_tuplify, (10, 20, 30), (1, 2, 3)) == (11, 22, 33)
+
+        def sum_and_diff(a, b):
+            return (a + b, a - b)
+        assert flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3)) == (11, 9, 22, 18, 33, 27)
     """
     def concat(a, b):
         return tuple(a) + tuple(b)
@@ -317,7 +326,7 @@ def flatmap(f, *lsts):
 def take(iterable, n):
     """Return a generator that yields the first n items of iterable, then stops.
 
-    Stops earlier if ``iterable`` has less than ``n`` items.
+    Stops earlier if ``iterable`` has fewer than ``n`` items.
     """
     return (x for x, _ in zip(iter(iterable), range(n)))
 
@@ -352,8 +361,8 @@ def composer(*fs):
 
     This mirrors the standard mathematical convention (f ∘ g)(x) ≡ f(g(x)).
 
-    The output from the previous function is unpacked to the argument list
-    of the next one. If the duck test fails, the output is assumed to be
+    The output from each function is unpacked to the argument list of
+    the next one. If the duck test fails, the output is assumed to be
     a single value, and is fed in to the next function as-is.
     """
     def unpack_ctx(*args): pass  # just a context where we can use * to unpack
@@ -600,6 +609,14 @@ def test():
             s = x**0.5
             return (s, -s)
     assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
+
+    def add_and_tuplify(a, b):
+        return (a + b,)
+    assert flatmap(add_and_tuplify, (10, 20, 30), (1, 2, 3)) == (11, 22, 33)
+
+    def sum_and_diff(a, b):
+        return (a + b, a - b)
+    assert flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3)) == (11, 9, 22, 18, 33, 27)
 
     assert tuple(take(range(100), 10)) == tuple(range(10))
     assert tuple(take(range(3), 10)) == tuple(range(3))
