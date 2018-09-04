@@ -289,8 +289,14 @@ def flatmap(f, *lsts):
                 return (s, -s)
         assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
     """
-    # flip so that acc goes first, to concat left-to-right
-    return foldl(flip(add), (), map(f, *lsts))
+    def concat(a, b):
+        if isinstance(a, list):
+            a = tuple(a)
+        if isinstance(b, list):
+            b = tuple(b)
+        return a + b
+    # flip so that acc in op(elt, acc) becomes "a", to concat left-to-right
+    return foldl(flip(concat), (), map(f, *lsts))
 
 def composer1(*fs):
     """Like composer, but limited to one-argument functions. Faster.
