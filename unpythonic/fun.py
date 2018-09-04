@@ -82,13 +82,35 @@ def curry(f):
     """
     # TODO: improve: all required name-only args should be present before calling f.
     # Difficult, partial() doesn't remove an already-set kwarg from the signature.
-    min_arity, _ = arities(f)
+    min_arity, max_arity = arities(f)
     @wraps(f)
     def curried(*args, **kwargs):
         if len(args) < min_arity:
             return curry(partial(f, *args, **kwargs))
+        # passthrough on right, like https://github.com/Technologicat/spicy
+        if len(args) > max_arity:
+            now_args, later_args = args[:max_arity], args[max_arity:]
+            now_result = f(*now_args, **kwargs)
+            if hasattr(now_result, "_is_curried_function"):
+                return now_result(*later_args, **kwargs)
+            elif isinstance(now_result, tuple):
+                return now_result + later_args
+            elif isinstance(now_result, list):
+                return tuple(now_result) + later_args
+            else:
+                return (now_result,) + later_args
         return f(*args, **kwargs)
+    curried._is_curried_function = True  # stash for easy detection
     return curried
+
+#def curry_simple(f):  # without the passthrough capability, this is sufficient
+#    min_arity, _ = arities(f)
+#    @wraps(f)
+#    def curried(*args, **kwargs):
+#        if len(args) < min_arity:
+#            return curry(partial(f, *args, **kwargs))
+#        return f(*args, **kwargs)
+#    return curried
 
 def flip(f):
     """Decorator: flip (reverse) the positional arguments of f."""
@@ -550,8 +572,15 @@ def test():
 
     # minimum arity of fold functions is 3, to allow use with curry:
     mymap_one4 = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
-    doubler = mymap_one4(double)  # it's curried!
+    doubler = mymap_one4(double)
     assert doubler((1, 2, 3)) == (2, 4, 6)
+
+    # curry supports passing through on the right any args over the max arity.
+    assert curry(double)(2, "foo") == (4, "foo")   # arity of double is 1
+
+    # In passthrough, if an intermediate result is a curried function,
+    # it is invoked on the remaining positional args:
+    assert curry(mymap_one4)(double, (1, 2, 3)) == (2, 4, 6)
 
     reverse_one = curry(foldl)(cons, nil)
     assert reverse_one((1, 2, 3)) == (3, 2, 1)

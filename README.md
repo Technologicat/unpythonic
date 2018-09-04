@@ -946,10 +946,10 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
    - No sane default for multi-input case, so the initial value for `acc` must be given.
  - `memoize` caches also exceptions à la Racket.
    - If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
+ - `curry` supports passthrough on the right when too many args (à la [spicy](https://github.com/Technologicat/spicy))
  - `rotate`: a cousin of `flip`, for permuting positional arguments.
  - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting one-in-one-out functions into compose chains with arity > 1.
  - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple. (Essentially, what the bind operator of the List monad does.)
- - Simplicity: e.g. the implementation of `curry` is only 8 lines (plus docstring).
 
 Examples:
 
@@ -979,7 +979,13 @@ map_one = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
 double = lambda x: 2 * x
 doubler = map_one(double)
 assert doubler((1, 2, 3)) == (2, 4, 6)
+
+# passthrough on the right
+assert curry(double)(2, "foo") == (4, "foo")   # arity of double is 1
+assert curry(map_one)(double, (1, 2, 3)) == (2, 4, 6)
 ```
+
+In passthrough, if an intermediate result is a curried function, it is invoked on the remaining positional args.
 
 
 ### `cons` and friends
