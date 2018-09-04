@@ -18,6 +18,8 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [Escape continuations (ec)](#escape-continuations-ec)
    - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
  - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables)
+ - [Batteries for functools](#batteries-for-functools) (e.g. Racket-like multi-input `foldl`, `foldr`)
+ - [`cons` and friends](#cons-and-friends)
  - [``def`` as a code block: ``@call``](#def-as-a-code-block-call) (run a block of code immediately, in a new lexical scope)
 
 For highlights, we recommend **Loops in FP style** and **call/ec**, and possibly **Dynamic scoping**.
@@ -134,7 +136,7 @@ Unlike ``begin`` (and ``begin0``), there is no separate ``lazy_do`` (``lazy_do0`
 
 #### Sequence one-input one-output functions: ``pipe``, ``piped``, ``lazy_piped``
 
-A pipe performs a sequence of operations, starting from an initial value, and then returns the final value:
+Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/). A pipe performs a sequence of operations, starting from an initial value, and then returns the final value:
 
 ```python
 from unpythonic import pipe
@@ -894,9 +896,11 @@ assert result == 42
 
 ### Dynamic scoping
 
-Like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Similar to [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html). Also known as *special variables* in some Lisps.
+(To be technically correct, [dynamic assignment](https://groups.google.com/forum/#!topic/racket-users/2Baxa2DxDKQ) as termed by Felleisen.)
 
-There's a singleton, `dyn`, which emulates dynamic scoping:
+Like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Similar to [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html). The *special variables* in Common Lisp work somewhat similarly (but with indefinite scope).
+
+There's a singleton, `dyn`:
 
 ```python
 from unpythonic import dyn
@@ -929,6 +933,94 @@ Each thread has its own dynamic scope stack. A newly spawned thread automaticall
 Any copied bindings will remain on the stack for the full dynamic extent of the new thread. Because these bindings are not associated with any `with` block running in that thread, and because aside from the initial copying, the dynamic scope stacks are thread-local, any copied bindings will never be popped, even if the main thread pops its own instances of them.
 
 The source of the copy is always the main thread mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, PRs welcome!)
+
+
+### Batteries for functools
+
+For details, see `unpythonic.fun`. (But loaded into the top-level `unpythonic` namespace, just like everything else.)
+
+Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://github.com/suor/funcy/). Selling points over other libraries:
+
+ - Racket-style `foldl`, `foldr` that support multiple input sequences.
+   - Like in Racket, `op(elt, acc)`; general case `op(e1, e2, ..., en, acc)`. Note Python's own `functools.reduce` uses the ordering `op(acc, elt)` instead.
+   - No sane default for multi-input case, so the initial value for `acc` must be given.
+ - `memoize` caches also exceptions à la Racket.
+   - If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
+ - `rotate`: a cousin of `flip`, for permuting positional arguments.
+ - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting one-in-one-out functions into compose chains with arity > 1.
+ - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple. (Essentially, what the bind operator of the List monad does.)
+ - Simplicity: e.g. the implementation of `curry` is only 8 lines (plus docstring).
+
+Examples:
+
+```python
+from unpythonic.fun import *
+
+def msqrt(x):  # multivalued sqrt
+    if x == 0.:
+        return (0.,)
+    else:
+        s = x**0.5
+        return (s, -s)
+assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
+
+@rotate(1)  # cycle *the args* (not their slots!) to the right by one place.
+def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
+    return acc + (rest,)  # even though the input is (e1, ..., en, acc).
+zipl = (curry(foldl))(zipper, ())
+zipr = (curry(foldr))(zipper, ())
+assert zipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
+assert zipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
+
+nil = ()
+def cons(x, l):  # elt, acc
+    return (x,) + l
+map_one = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
+double = lambda x: 2 * x
+doubler = map_one(double)
+assert doubler((1, 2, 3)) == (2, 4, 6)
+```
+
+
+### `cons` and friends
+
+See `unpythonic.llist` for details. **Not** imported by default.
+
+Depends on `tco`, so only import this after having loaded the `tco` implementation you want! **Not** reloaded automatically.
+
+Mainly intended as a practical joke, but does work as expected:
+
+```python
+import unpythonic
+unpythonic.enable_fasttco()
+from unpythonic.llist import *
+
+c = cons(1, 2)
+assert car(c) == 1 and cdr(c) == 2
+
+assert ll(1, 2, 3) == cons(1, cons(2, cons(3, nil)))
+
+l, r = cons(1, 2)      # unpacking a cons cell
+a, b, c = ll(1, 2, 3)  # unpacking a linked list
+
+t = cons(cons(1, 2), cons(3, 4))  # binary tree
+assert [f(t) for f in [caar, cdar, cadr, cddr]] == [1, 2, 3, 4]
+
+assert ll(1, 2, 3).tolist() == [1, 2, 3]
+assert ll_from_sequence((1, 2, 3)) == ll(1, 2, 3)
+
+l = ll(1, 2, 3)
+assert member(2, l) == ll(2, 3)
+assert not member(5, l)
+
+assert lreverse(ll(1, 2, 3)) == ll(3, 2, 1)
+assert lappend(ll(1, 2), ll(3, 4), ll(5, 6)) == ll(1, 2, 3, 4, 5, 6)
+assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
+```
+
+The cons cells are immutable à la Racket. Accessors are provided up to `caaaar`, ..., `cddddr`.
+
+Iterators are supported to walk over linked lists (this also gives tuple unpacking support). As long as the `cdr` is a `cons` cell, we walk into that. Finally, the last `cdr` is returned unless it is `nil`.
 
 
 ### ``def`` as a code block: ``@call``
@@ -1027,8 +1119,6 @@ Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a 
 
 The trampoline implementation takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of the FP looping constructs.
 
-Otherwise there shouldn't be much overlap with other lispy or functional libraries, such as [toolz](https://github.com/pytoolz/toolz), [more-itertools](https://github.com/erikrose/more-itertools) or [funcy](https://github.com/suor/funcy/).
-
 ### On ``let`` and Python
 
 Why no `let*`? In Python, name lookup always occurs at runtime. Python gives us no compile-time guarantees that no binding refers to a later one - in [Racket](http://racket-lang.org/), this guarantee is the main difference between `let*` and `letrec`.
@@ -1088,10 +1178,6 @@ For other libraries bringing TCO to Python, see:
  - [tco](https://github.com/baruchel/tco) by Thomas Baruchel, based on exceptions.
  - [ActiveState recipe 474088](https://github.com/ActiveState/code/tree/master/recipes/Python/474088_Tail_Call_Optimization_Decorator), based on ``inspect``.
  - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the inspiration for ours.
-
-### Wait, no `cons` and friends?
-
-[If you insist](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/lisplists.py) (but that's a silly teaching example, not optimized for production use).
 
 ### Wait, no monads?
 
