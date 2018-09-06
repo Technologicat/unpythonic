@@ -4,12 +4,16 @@
 
 Racket-like multi-input foldl and foldr based on
   https://docs.racket-lang.org/reference/pairs.html
+
+Flatten based on Danny Yoo's version:
+  http://rightfootin.blogspot.fi/2006/09/more-on-python-flatten.html
 """
 
 __all__ = ["foldl", "foldr", "reducel", "reducer",
-           "flatmap", "take"]
+           "flatmap", "take", "uniqify",
+           "flatten", "flatten1", "flatten_in"]
 
-# minimum arity of 3 allows using this with curry.
+# require at least one iterable to make this work seamlessly with curry.
 def foldl(proc, init, iterable0, *iterables):
     """Racket-like foldl that supports multiple input iterables.
 
@@ -61,11 +65,16 @@ def reducer(proc, sequence, init=None):
     """Like reducel, but fold from the right (walk backwards)."""
     return reducel(proc, reversed(sequence), init)
 
-def flatmap(f, *lsts):
+# require at least one iterable to make this work seamlessly with curry.
+def flatmap(f, iterable0, *iterables):
     """Map, then concatenate results.
 
-    ``f`` should accept ``len(lsts)`` arguments (each drawn from one of
-    the ``lsts``), and return a list or tuple.
+    At least one iterable (``iterable0``) is required. More are optional.
+
+    ``f`` should accept as many arguments as iterables given (each argument
+    drawn from one of the iterables), and return an iterable.
+
+    Returns a generator that yields the flatmapped result.
 
     Example::
 
@@ -75,19 +84,26 @@ def flatmap(f, *lsts):
             else:
                 s = x**0.5
                 return (s, -s)
-        assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
+        assert tuple(flatmap(msqrt, (0, 1, 4, 9))) == \\
+               (0., 1., -1., 2., -2., 3., -3.)
 
         def add_and_tuplify(a, b):
             return (a + b,)
-        assert flatmap(add_and_tuplify, (10, 20, 30), (1, 2, 3)) == (11, 22, 33)
+        assert tuple(flatmap(add_and_tuplify, (10, 20, 30), (1, 2, 3))) == \\
+               (11, 22, 33)
 
         def sum_and_diff(a, b):
             return (a + b, a - b)
-        assert flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3)) == (11, 9, 22, 18, 33, 27)
+        assert tuple(flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3))) == \\
+               (11, 9, 22, 18, 33, 27)
     """
-    def concat(elt, acc):
-        return tuple(acc) + tuple(elt)
-    return foldl(concat, (), map(f, *lsts))
+#    def concat(elt, acc):
+#        return tuple(acc) + tuple(elt)
+#    return foldl(concat, (), map(f, *lsts))  # eager, bad
+    iterables = (iterable0,) + iterables
+    for xs in map(f, *iterables):
+        for x in xs:
+            yield x
 
 def take(iterable, n):
     """Return a generator that yields the first n items of iterable, then stops.
@@ -97,8 +113,89 @@ def take(iterable, n):
     return map(lambda x, _: x, iter(iterable), range(n))
 #    return (x for x, _ in zip(iter(iterable), range(n)))
 
+def uniqify(iterable, key=None):
+    """Skip duplicates in iterable.
+
+    Returns a generator that yields the unique items, preserving the original
+    ordering.
+
+    If ``key`` is provided, the return value of ``key(elt)`` is tested instead
+    of ``elt`` itself for whether a given element has already been seen.
+    """
+    key = key or (lambda x: x)
+    it = iter(iterable)
+    seen = set()
+    for e in it:
+        k = key(e)
+        if k not in seen:
+            seen.add(k)
+            yield e
+
+def flatten(iterable, pred=None):
+    """Recursively remove nested structure from iterable.
+
+    Process tuples and lists inside the iterable; pass everything else through
+    (including any generators stored in the iterable).
+
+    Returns a generator that yields the flattened output.
+
+    ``pred`` is an optional predicate for filtering. It should accept a tuple
+    (or list), and return ``True`` if that tuple/list should be flattened.
+    When ``pred`` returns False, that tuple/list is passed through as-is.
+
+    E.g. to flatten only those items that contain only tuples::
+
+        is_nested = lambda e: all(isinstance(x, (tuple, list)) for x in e)
+        data = (((1, 2), (3, 4)), (5, 6))
+        assert tuple(flatten(data, is_nested)) == ((1, 2), (3, 4), (5, 6))
+    """
+    return _flatten(iterable, pred, recursive=True)
+
+def flatten1(iterable, pred=None):
+    """Like flatten, but process outermost level only."""
+    return _flatten(iterable, pred, recursive=False)
+
+def _flatten(iterable, pred=None, recursive=True):
+    pred = pred or (lambda x: True)
+    it = iter(iterable)
+    for e in it:
+        if isinstance(e, (list, tuple)) and pred(e):
+            items = _flatten(e, pred) if recursive else e
+            for f in items:
+                yield f
+        else:
+            yield e
+
+def flatten_in(iterable, pred=None):
+    """Like flatten, but recurse also into tuples/lists not matching pred.
+
+    This makes also those items get the same flattening applied inside them.
+
+    Example::
+
+        is_nested = lambda e: all(isinstance(x, (tuple, list)) for x in e)
+        data = (((1, 2), ((3, 4), (5, 6)), 7), ((8, 9), (10, 11)))
+        assert tuple(flatten(data, is_nested))    == \\
+               (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
+        assert tuple(flatten_in(data, is_nested)) == \\
+               (((1, 2), (3, 4), (5, 6), 7), (8, 9), (10, 11))
+    """
+    pred = pred or (lambda x: True)
+    it = iter(iterable)
+    for e in it:
+        if isinstance(e, (list, tuple)):
+            if pred(e):
+                for f in flatten_in(e, pred):
+                    yield f
+            else:
+                t = type(e)
+                new_e = t(flatten_in(e, pred))
+                yield new_e
+        else:
+            yield e
+
 def test():
-    from operator import add
+    from operator import add, itemgetter
     from functools import partial
 
     import unpythonic.fun
@@ -143,7 +240,7 @@ def test():
     except TypeError:
         pass
     else:
-        assert False  # one arg too many; cons in the compose chain expects 2 args
+        assert False  # one arg too many; cons in the compose chain expects 2 args (acc is one)
 
     # minimum arity of fold functions is 3, to allow use with curry:
     mymap_one4 = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
@@ -172,15 +269,15 @@ def test():
         else:
             s = x**0.5
             return (s, -s)
-    assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
+    assert tuple(flatmap(msqrt, (0, 1, 4, 9))) == (0., 1., -1., 2., -2., 3., -3.)
 
     def add_and_tuplify(a, b):
         return (a + b,)
-    assert flatmap(add_and_tuplify, (10, 20, 30), (1, 2, 3)) == (11, 22, 33)
+    assert tuple(flatmap(add_and_tuplify, (10, 20, 30), (1, 2, 3))) == (11, 22, 33)
 
     def sum_and_diff(a, b):
         return (a + b, a - b)
-    assert flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3)) == (11, 9, 22, 18, 33, 27)
+    assert tuple(flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3))) == (11, 9, 22, 18, 33, 27)
 
     assert tuple(take(range(100), 10)) == tuple(range(10))
     assert tuple(take(range(3), 10)) == tuple(range(3))
@@ -195,6 +292,21 @@ def test():
     zipr = (curry(foldr))(zipper, ())
     assert zipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
     assert zipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
+
+    assert tuple(uniqify((1, 1, 2, 2, 2, 2, 4, 3, 3, 3))) == (1, 2, 4, 3)
+    data = (('foo', 1), ('bar', 1), ('foo', 2), ('baz', 2), ('qux', 4), ('foo', 3))
+    assert tuple(uniqify(data, key=itemgetter(0))) == (('foo', 1), ('bar', 1), ('baz', 2), ('qux', 4))
+    assert tuple(uniqify(data, key=itemgetter(1))) == (('foo', 1), ('foo', 2), ('qux', 4), ('foo', 3))
+
+    assert tuple(flatten(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, 4, 5, 6, 7, 8, 9)
+    assert tuple(flatten1(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, (4, 5), 6, 7, 8, 9)
+
+    is_nested = lambda e: all(isinstance(x, (tuple, list)) for x in e)
+    assert tuple(flatten((((1, 2), (3, 4)), (5, 6)), is_nested)) == ((1, 2), (3, 4), (5, 6))
+
+    data = (((1, 2), ((3, 4), (5, 6)), 7), ((8, 9), (10, 11)))
+    assert tuple(flatten(data, is_nested))    == (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
+    assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8, 9), (10, 11))
 
     print("All tests PASSED")
 
