@@ -5,23 +5,20 @@
 Some features modelled after Racket's builtins for handling procedures.
   https://docs.racket-lang.org/reference/procedures.html
 
-foldl and foldr based on
-  https://docs.racket-lang.org/reference/pairs.html
-
 Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 """
 
-__all__ = ["memoize", "curry", "flip", "rotate",
+__all__ = ["memoize", "curry",
+           "flip", "rotate",
            "apply", "identity", "const", "negate", "conjoin", "disjoin",
-           "foldl", "foldr", "reducel", "reducer",
-           "flatmap", "take",
-           "composer1", "composel1",
-           "composer", "composel", "to1st", "to2nd", "tokth", "tolast", "to"]
+           "composer1", "composel1", "composer", "composel",
+           "to1st", "to2nd", "tokth", "tolast", "to"]
 
 from functools import wraps, partial
-from operator import itemgetter, add
+from operator import itemgetter
 
 from unpythonic.arity import arities
+import unpythonic.it
 
 def memoize(f):
     """Decorator: memoize the function f.
@@ -243,93 +240,6 @@ def disjoin(*fs):
         return False
     return disjoined
 
-def foldl(proc, init, iterable0, *iterables):  # minimum arity 3, for curry
-    """Racket-like foldl that supports multiple input iterables.
-
-    At least one iterable (``iterable0``) is required. More are optional.
-
-    Terminates when the shortest input runs out.
-
-    Initial value is mandatory; there is no sane default for the case with
-    multiple inputs.
-
-    Note order: ``proc(elt, acc)``, which is the opposite order of arguments
-    compared to ``functools.reduce``. General case ``proc(e1, ..., en, acc)``.
-    """
-    iterables = (iterable0,) + iterables
-    def heads(its):
-        hs = []
-        for it in its:
-            try:
-                h = next(it)
-            except StopIteration:  # shortest sequence ran out
-                return StopIteration
-            hs.append(h)
-        return tuple(hs)
-    iters = tuple(iter(x) for x in iterables)
-    acc = init
-    while True:
-        hs = heads(iters)
-        if hs is StopIteration:
-            return acc
-        acc = proc(*(hs + (acc,)))
-
-def foldr(proc, init, sequence0, *sequences):
-    """Like foldl, but fold from the right (walk each sequence backwards)."""
-    return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences))
-
-def reducel(proc, iterable, init=None):
-    """Foldl for a single iterable.
-
-    Like functools.reduce, but uses ``proc(elt, acc)`` like Racket."""
-    it = iter(iterable)
-    if not init:
-        try:
-            init = next(it)
-        except StopIteration:
-            return None  # empty input sequence
-    return foldl(proc, init, it)
-
-def reducer(proc, sequence, init=None):
-    """Like reducel, but fold from the right (walk backwards)."""
-    return reducel(proc, reversed(sequence), init)
-
-def flatmap(f, *lsts):
-    """Map, then concatenate results.
-
-    ``f`` should accept ``len(lsts)`` arguments (each drawn from one of
-    the ``lsts``), and return a list or tuple.
-
-    Example::
-
-        def msqrt(x):  # multivalued sqrt
-            if x == 0.:
-                return (0.,)
-            else:
-                s = x**0.5
-                return (s, -s)
-        assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
-
-        def add_and_tuplify(a, b):
-            return (a + b,)
-        assert flatmap(add_and_tuplify, (10, 20, 30), (1, 2, 3)) == (11, 22, 33)
-
-        def sum_and_diff(a, b):
-            return (a + b, a - b)
-        assert flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3)) == (11, 9, 22, 18, 33, 27)
-    """
-    def concat(a, b):
-        return tuple(a) + tuple(b)
-    # flip so that acc in op(elt, acc) becomes "a", to concat left-to-right
-    return foldl(flip(concat), (), map(f, *lsts))
-
-def take(iterable, n):
-    """Return a generator that yields the first n items of iterable, then stops.
-
-    Stops earlier if ``iterable`` has fewer than ``n`` items.
-    """
-    return (x for x, _ in zip(iter(iterable), range(n)))
-
 def composer1(*fs):
     """Like composer, but limited to one-argument functions. Faster.
 
@@ -342,7 +252,7 @@ def composer1(*fs):
     """
     def compose1_two(f, g):
         return lambda x: f(g(x))
-    return reducer(compose1_two, fs)  # op(elt, acc)
+    return unpythonic.it.reducer(compose1_two, fs)  # op(elt, acc)
 
 def composel1(*fs):
     """Like composel, but limited to one-argument functions. Faster.
@@ -376,7 +286,7 @@ def composer(*fs):
             else:
                 return f(*a)
         return composed
-    return reducer(compose_two, fs)  # op(elt, acc)
+    return unpythonic.it.reducer(compose_two, fs)  # op(elt, acc)
 
 def composel(*fs):
     """Like composer, but from left to right.
@@ -534,21 +444,6 @@ def test():
     assert (flip(f))(1, 2) == (2, 1)
     assert (flip(f))(1, b=2) == (1, 2)  # b -> kwargs
 
-    # just a testing hack; for a "real" cons, see unpythonic.llist.cons
-    nil = ()
-    def cons(x, l):  # elt, acc
-        return (x,) + l
-    assert foldl(cons, nil, (1, 2, 3)) == (3, 2, 1)
-    assert foldr(cons, nil, (1, 2, 3)) == (1, 2, 3)
-
-    assert reducel(add, (1, 2, 3)) == 6
-    assert reducer(add, (1, 2, 3)) == 6
-
-    def foo(a, b, acc):
-        return acc + ((a, b),)
-    assert foldl(foo, (), (1, 2, 3), (4, 5)) == ((1, 4), (2, 5))
-    assert foldr(foo, (), (1, 2, 3), (4, 5)) == ((3, 5), (2, 4))
-
     double = lambda x: 2*x
     inc    = lambda x: x+1
     inc_then_double = composer1(double, inc)
@@ -559,67 +454,6 @@ def test():
     assert to1st(double)(1, 2, 3)  == (2, 2, 3)
     assert to2nd(double)(1, 2, 3)  == (1, 4, 3)
     assert tolast(double)(1, 2, 3) == (1, 2, 6)
-
-    def mymap_one(f, sequence):
-        f_then_cons = composer(cons, to1st(f))  # args: elt, acc
-        return foldr(f_then_cons, nil, sequence)
-    assert mymap_one(double, (1, 2, 3)) == (2, 4, 6)
-    def mymap_one2(f, sequence):
-        f_then_cons = composel(to1st(f), cons)  # args: elt, acc
-        return foldr(f_then_cons, nil, sequence)
-    assert mymap_one2(double, (1, 2, 3)) == (2, 4, 6)
-
-    # point-free-ish style
-    mymap_one3 = lambda f: partial(foldr, composer(cons, to1st(f)), nil)
-    doubler = mymap_one3(double)
-    assert doubler((1, 2, 3)) == (2, 4, 6)
-
-    try:
-        doubler((1, 2, 3), (4, 5, 6))
-    except TypeError:
-        pass
-    else:
-        assert False  # one arg too many; cons in the compose chain expects 2 args
-
-    # minimum arity of fold functions is 3, to allow use with curry:
-    mymap_one4 = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
-    doubler = mymap_one4(double)
-    assert doubler((1, 2, 3)) == (2, 4, 6)
-
-    # curry supports passing through on the right any args over the max arity.
-    assert curry(double)(2, "foo") == (4, "foo")   # arity of double is 1
-
-    # In passthrough, if an intermediate result is a curried function,
-    # it is invoked on the remaining positional args:
-    assert curry(mymap_one4)(double, (1, 2, 3)) == (2, 4, 6)
-
-    reverse_one = curry(foldl)(cons, nil)
-    assert reverse_one((1, 2, 3)) == (3, 2, 1)
-
-    append_two = lambda a, b: foldr(cons, b, a)
-    assert append_two((1, 2, 3), (4, 5, 6)) == (1, 2, 3, 4, 5, 6)
-
-    append_many = lambda *lsts: foldr(append_two, nil, lsts)
-    assert append_many((1, 2), (3, 4), (5, 6)) == (1, 2, 3, 4, 5, 6)
-
-    def msqrt(x):  # multivalued sqrt
-        if x == 0.:
-            return (0.,)
-        else:
-            s = x**0.5
-            return (s, -s)
-    assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
-
-    def add_and_tuplify(a, b):
-        return (a + b,)
-    assert flatmap(add_and_tuplify, (10, 20, 30), (1, 2, 3)) == (11, 22, 33)
-
-    def sum_and_diff(a, b):
-        return (a + b, a - b)
-    assert flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3)) == (11, 9, 22, 18, 33, 27)
-
-    assert tuple(take(range(100), 10)) == tuple(range(10))
-    assert tuple(take(range(3), 10)) == tuple(range(3))
 
     processor = to((0, double),
                    (-1, inc),
@@ -634,17 +468,6 @@ def test():
     # Outer gets effectively applied first, because of the order in which
     # the decorators get their hands on the incoming, user-given arguments.
     assert flip(rotate(1)(identity))(1, 2, 3) == (1, 3, 2)
-
-    @rotate(1)  # cycle *the incoming args* (not slots!) to the right by one place.
-    def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
-        return acc + (rest,)  # even though the input is (e1, ..., en, acc).
-#    def zipper(*args):  # straightforward version
-#        *rest, acc = args
-#        return acc + (tuple(rest),)
-    zipl = (curry(foldl))(zipper, ())
-    zipr = (curry(foldr))(zipper, ())
-    assert zipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
-    assert zipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
 
     def hello(*args):
         return args
