@@ -3,6 +3,7 @@
 """Sequencing constructs - for multi-expression lambdas."""
 
 __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
+           "pipe1", "piped1", "lazy_piped1",
            "pipe", "piped", "lazy_piped", "get",
            "do", "do0", "assign"]
 
@@ -80,8 +81,7 @@ def lazy_begin0(*bodys):
     return out
 
 # sequence one-input, one-output functions
-# TODO: generalize piping functions for n-in m-out like compose
-def pipe(value0, *bodys):
+def pipe1(value0, *bodys):
     """Perform a sequence of operations on an initial value.
 
     Bodys are applied left to right.
@@ -98,14 +98,12 @@ def pipe(value0, *bodys):
 
         x = inc(double(42))  # --> 85
 
-        x = pipe(42, double, inc)  # --> 85
+        x = pipe1(42, double, inc)  # --> 85
 
     but now we don't need to read the source code backwards. This is essentially::
 
-        f = compose(reversed(bodys))
+        f = composel(bodys)
         x = f(42)
-
-    if you have a library that provides ``compose``.
 
     Perhaps the most common alternative in Python is this imperative code::
 
@@ -145,7 +143,7 @@ class get:  # sentinel with a nice repr
     def __repr__(self):
         return "<sentinel for pipe exit>"
 
-class piped:
+class piped1:
     """Shell-like piping syntax.
 
     Eager; apply each function immediately and store the new value.
@@ -166,9 +164,9 @@ class piped:
 
         Examples::
 
-            x = piped(42) | double | inc | get
+            x = piped1(42) | double | inc | get
 
-            y = piped(42) | double
+            y = piped1(42) | double
             assert y | inc | get == 85
             assert y | get == 84  # y is not modified
         """
@@ -178,9 +176,9 @@ class piped:
             cls = self.__class__
             return cls(f(self._x))  # functional update
     def __repr__(self):
-        return "<piped at 0x{:x}; value {}>".format(id(self), self._x)
+        return "<piped1 at 0x{:x}; value {}>".format(id(self), self._x)
 
-class lazy_piped:
+class lazy_piped1:
     """Like piped, but apply the functions later, at get time.
 
     This matters if the initial value is mutable:
@@ -241,7 +239,116 @@ class lazy_piped:
             cls = self.__class__
             return cls(x=self._x, _funcs=self._funcs + (f,))
     def __repr__(self):
-        return "<lazy_piped at 0x{:x}; initial value now {}, functions {}>".format(id(self), self._x, self._funcs)
+        return "<lazy_piped1 at 0x{:x}; initial value now {}, functions {}>".format(id(self), self._x, self._funcs)
+
+def pipe(values0, *bodys):
+    """Like pipe1, but with arbitrary number of inputs/outputs at each step.
+
+    The only restriction is that each function must take as many positional
+    arguments as the previous one returns.
+
+    The output from each function is unpacked to the argument list of
+    the next one. If the duck test fails, the output is assumed to be
+    a single value, and is fed in to the next function as-is.
+
+    If you only need a one-in-one-out chain, ``pipe1`` is faster.
+
+    Examples::
+
+        a, b = pipe((2, 3),
+                    lambda x, y: (x + 1, 2 * y),
+                    lambda x, y: (x * 2, y + 1))
+        assert (a, b) == (6, 7)
+
+        a, b, c = pipe((2, 3),
+                       lambda x, y: (x + 1, 2 * y, "foo"),
+                       lambda x, y, s: (x * 2, y + 1, "got {}".format(s)))
+        assert (a, b, c) == (6, 7, "got foo")
+
+        a, b = pipe((2, 3),
+                    lambda x, y: (x + 1, 2 * y, "foo"),
+                    lambda x, y, s: (x * 2, y + 1, "got {}".format(s)),
+                    lambda x, y, s: (x + y, s))
+        assert (a, b) == (13, "got foo")
+    """
+    def unpack_ctx(*args): pass  # just a context where we can use * to unpack
+    xs = values0
+    for update in bodys:
+        try:
+            unpack_ctx(*xs)   # duck test
+        except TypeError:
+            xs = update(xs)   # single x only
+        else:
+            xs = update(*xs)  # multiple xs
+    return xs
+
+class piped:
+    """Like piped1, but for any number of inputs/outputs at each step."""
+    def __init__(self, *xs):
+        """Set up a pipe and load the initial values xs into it."""
+        self._xs = xs
+    def __or__(self, f):
+        """Pipe the values through the function f.
+
+        Example::
+
+            f = lambda x, y: (2*x, y+1)
+            g = lambda x, y: (x+1, 2*y)
+            x = piped(2, 3) | f | g | get  # --> (5, 8)
+        """
+        if f is get:
+            return self._xs
+        else:
+            cls = self.__class__
+            def unpack_ctx(*args): pass  # just a context where we can use * to unpack
+            xs = self._xs
+            try:
+                unpack_ctx(*xs)  # duck test
+            except TypeError:
+                return cls(f(self._xs))  # single x only
+            else:
+                return cls(*f(*self._xs))  # multiple xs
+    def __repr__(self):
+        return "<piped at 0x{:x}; values {}>".format(id(self), self._xs)
+
+class lazy_piped:
+    """Like lazy_piped1, but for any number of inputs/outputs at each step.
+
+    Example::
+
+        p1 = lazy_piped(2, 3)
+        p2 = p1 | (lambda x, y: (x + 1, 2 * y, "foo"))
+        p3 = p2 | (lambda x, y, s: (x * 2, y + 1, "got {}".format(s)))
+        p4 = p3 | (lambda x, y, s: (x + y, s))
+        # nothing done yet!
+        assert (p4 | get) == (13, "got foo")
+    """
+    def __init__(self, *xs, _funcs=None):
+        """Set up a lazy pipe and load the initial values xs into it.
+
+        The ``_funcs`` parameter is for internal use.
+        """
+        self._xs = xs
+        self._funcs = _funcs or ()
+    def __or__(self, f):
+        """Pipe the values into f; but just plan to do so, don't perform it yet."""
+        if f is get:  # compute now
+            def unpack_ctx(*args): pass  # just a context where we can use * to unpack
+            vs = self._xs
+            for g in self._funcs:
+                try:
+                    unpack_ctx(*vs)  # duck test
+                except TypeError:
+                    vs = g(vs)   # single v only
+                else:
+                    vs = g(*vs)  # multiple vs
+            return vs
+        else:
+            # just pass on the references to the original xs.
+            cls = self.__class__
+            return cls(*self._xs, _funcs=self._funcs + (f,))
+    def __repr__(self):
+        return "<lazy_piped at 0x{:x}; initial values now {}, functions {}>".format(id(self), self._xs, self._funcs)
 
 # do(): improved begin() that can name intermediate results and refer to them
 DoAssign = namedtuple("DoAssign", "name value")
@@ -378,10 +485,26 @@ def test():
     assert pipe(42, double, inc) == 85
     assert pipe(42, inc, double) == 86
 
-    # with optional shell-like syntax
-    assert piped(42) | double | inc | get == 85
+    a, b = pipe((2, 3),
+                lambda x, y: (x + 1, 2 * y),
+                lambda x, y: (x * 2, y + 1))
+    assert (a, b) == (6, 7)
 
-    y = piped(42) | double
+    a, b, c = pipe((2, 3),
+                   lambda x, y: (x + 1, 2 * y, "foo"),
+                   lambda x, y, z: (x * 2, y + 1, "got {}".format(z)))
+    assert (a, b, c) == (6, 7, "got foo")
+
+    a, b = pipe((2, 3),
+                lambda x, y: (x + 1, 2 * y, "foo"),
+                lambda x, y, s: (x * 2, y + 1, "got {}".format(s)),
+                lambda x, y, s: (x + y, s))
+    assert (a, b) == (13, "got foo")
+
+    # with optional shell-like syntax
+    assert piped1(42) | double | inc | get == 85
+
+    y = piped1(42) | double
     assert y | inc | get == 85
     assert y | get == 84  # y is never modified by the pipe system
 
@@ -390,7 +513,7 @@ def test():
     def append_succ(l):
         l.append(l[-1] + 1)
         return l  # important, handed to the next function in the pipe
-    p = lazy_piped(lst) | append_succ | append_succ  # plan a computation
+    p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
     assert lst == [1]        # nothing done yet
     p | get                  # run the computation
     assert lst == [1, 2, 3]  # now the side effect has updated lst.
@@ -401,11 +524,27 @@ def test():
         a, b = state
         fibos.append(a)      # store result by side effect
         return (b, a + b)    # new state, handed to next function in the pipe
-    p = lazy_piped((1, 1))   # load initial state into a lazy pipe
+    p = lazy_piped1((1, 1))   # load initial state into a lazy pipe
     for _ in range(10):      # set up pipeline
         p = p | nextfibo
     p | get  # run it
     print(fibos)
+
+    # multi-arg version
+    f = lambda x, y: (2*x, y+1)
+    g = lambda x, y: (x+1, 2*y)
+    x = piped(2, 3) | f | g | get  # --> (5, 8)
+    assert x == (5, 8)
+
+    p1 = lazy_piped(2, 3)
+    p2 = p1 | (lambda x, y: (x + 1, 2 * y, "foo"))
+    p3 = p2 | (lambda x, y, s: (x * 2, y + 1, "got {}".format(s)))
+    p4 = p3 | (lambda x, y, s: (x + y, s))
+    # nothing done yet, and all computations purely functional:
+    assert (p1 | get) == (2, 3)
+    assert (p2 | get) == (3, 6, "foo")      # runs the chain up to p2
+    assert (p3 | get) == (6, 7, "got foo")  # runs the chain up to p3
+    assert (p4 | get) == (13, "got foo")
 
     # do: improved begin() that can name intermediate results
     y = do(assign(x=17),
