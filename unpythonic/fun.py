@@ -11,7 +11,8 @@ Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 __all__ = ["memoize", "curry",
            "flip", "rotate",
            "apply", "identity", "const", "negate", "conjoin", "disjoin",
-           "composer1", "composel1", "composer", "composel",
+           "composer1", "composel1", "composer", "composel",      # *args
+           "composeri1", "composeli1", "composeri", "composeli",  # iterable
            "to1st", "to2nd", "tokth", "tolast", "to"]
 
 from functools import wraps, partial
@@ -60,12 +61,17 @@ def curry(f):
     Also more kwargs can be passed at each step, but they do not affect the
     decision when the function is called.
 
-    Examples::
+    **Examples**::
 
         @curry
         def add3(a, b, c):
             return a + b + c
         assert add3(1)(2)(3) == 6
+
+        # actually uses partial application so these work, too
+        assert add3(1, 2)(3) == 6
+        assert add3(1)(2, 3) == 6
+        assert add3(1, 2, 3) == 6
 
         @curry
         def lispyadd(*args):
@@ -76,6 +82,26 @@ def curry(f):
         def foo(a, b, *, c, d):
             return a, b, c, d
         assert foo(5, c=23)(17, d=42) == (5, 17, 23, 42)
+
+    **Passthrough**:
+
+    If too many args are given, any extra ones are passed through on the right::
+
+        double = lambda x: 2 * x
+        assert curry(double)(2, "foo") == (4, "foo")
+
+    In passthrough, if an intermediate result is a curried function,
+    it is invoked on the remaining positional args::
+
+        map_one = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
+        assert curry(map_one)(double, (1, 2, 3)) == (2, 4, 6)
+
+    In the above example, ``map_one`` has arity 1, so the tuple ``(1, 2, 3)``
+    is extra. The result of ``map_one`` is a curried function, so it is then
+    invoked on this tuple.
+
+    For simplicity, in passthrough, all kwargs are consumed in the first step
+    for which too many positional args were supplied.
     """
     # TODO: improve: all required name-only args should be present before calling f.
     # Difficult, partial() doesn't remove an already-set kwarg from the signature.
@@ -98,7 +124,7 @@ def curry(f):
     curried._is_curried_function = True  # stash for easy detection
     return curried
 
-#def curry_simple(f):  # without the passthrough capability, this is sufficient
+#def curry_simple(f):  # without passthrough, curry is only 8 lines:
 #    min_arity, _ = arities(f)
 #    @wraps(f)
 #    def curried(*args, **kwargs):
@@ -118,6 +144,13 @@ def rotate(k):
     """Decorator (factory): cycle positional args of f to the right by k places.
 
     Negative values cycle to the left.
+
+    Note this shifts the incoming argument values, not the formal parameter list!
+
+    **Examples**::
+
+        assert (rotate(1)(identity))(1, 2, 3) == (3, 1, 2)
+        assert (rotate(-1)(identity))(1, 2, 3) == (2, 3, 1)
     """
     def rotate_k(f):
         @wraps(f)
@@ -153,19 +186,22 @@ def apply(f, arg0, *more):
 def identity(*args):
     """Identity function.
 
-    Accepts any positional arguments, and returns them as a tuple.
+    Accepts any positional arguments, and returns them.
+
+    Packs into a tuple if there is more than one.
 
     Example::
 
         assert identity(1, 2, 3) == (1, 2, 3)
+        assert identity(42) == 42
     """
-    return args
+    return args if len(args) > 1 else args[0]
 
 def const(*args):
     """Constant function.
 
     Returns a function that accepts any arguments (also kwargs)
-    and returns the args given here, as a tuple.
+    and returns the args given here (packed into a tuple if more than one).
 
     Example::
 
@@ -173,8 +209,9 @@ def const(*args):
         assert c(42, "foo") == (1, 2, 3)
         assert c("anything") == (1, 2, 3)
     """
+    ret = args if len(args) > 1 else args[0]
     def constant(*a, **kw):
-        return args
+        return ret
     return constant
 
 def negate(f):
@@ -250,9 +287,11 @@ def composer1(*fs):
         inc_then_double = composer1(double, inc)
         assert inc_then_double(3) == 8
     """
-    def compose1_two(f, g):
-        return lambda x: f(g(x))
-    return unpythonic.it.reducer(compose1_two, fs)  # op(elt, acc)
+    return composeri1(fs)
+
+def composeri1(iterable):
+    """Like composeri, but limited to one-argument functions. Faster."""
+    return _make_compose1("right")(iterable)
 
 def composel1(*fs):
     """Like composel, but limited to one-argument functions. Faster.
@@ -264,7 +303,27 @@ def composel1(*fs):
         double_then_inc = composel(double, inc)
         assert double_then_inc(3) == 7
     """
-    return composer1(*reversed(fs))
+    return composeli1(fs)
+
+def composeli1(iterable):
+    """Like composeli, but limited to one-argument functions. Faster."""
+    return _make_compose1("left")(iterable)
+
+def _make_compose1(direction):  # "left", "right"
+    def compose1_two(f, g):
+        return lambda x: f(g(x))
+    compose1_two = (flip if direction == "right" else identity)(compose1_two)
+    def compose1(fs):
+        # direction == "left" (leftmost is innermost):
+        #   input: a b c
+        #   elt = b -> f, acc = a(x) -> g --> b(a(x))
+        #   elt = c -> f, acc = b(a(x)) -> g --> c(b(a(x)))
+        # direction == "right" (rightmost is innermost):
+        #   input: a b c
+        #   elt = b -> g, acc = a(x) -> f --> a(b(x))
+        #   elt = c -> g, acc = a(b(x)) -> f --> a(b(c(x)))
+        return unpythonic.it.reducel(compose1_two, fs)  # op(elt, acc)
+    return compose1
 
 def composer(*fs):
     """Compose functions accepting only positional args. Right to left.
@@ -274,29 +333,50 @@ def composer(*fs):
     The output from each function is unpacked to the argument list of
     the next one. If the duck test fails, the output is assumed to be
     a single value, and is fed in to the next function as-is.
+
+    **CAUTION**:
+
+        This implicit unpacking will unpack also generators!
+
+        If you have a chain of functions that manipulate a single generator,
+        use ``composer1`` instead.
     """
+    return composeri(fs)
+
+def composeri(iterable):
+    """Like composer, but takes an iterable of functions to compose."""
+    return _make_compose("right")(iterable)
+
+def composel(*fs):
+    """Like composer, but from left to right.
+
+    The functions ``fs`` are applied in the order given; no need
+    to read the source code backwards.
+    """
+    return composeli(fs)
+
+def composeli(iterable):
+    """Like composel, but takes an iterable of functions to compose."""
+    return _make_compose("left")(iterable)
+
+def _make_compose(direction):  # "left", "right"
     def unpack_ctx(*args): pass  # just a context where we can use * to unpack
     def compose_two(f, g):
         def composed(*args):
             a = g(*args)
             try:
-                unpack_ctx(*a)
+                unpack_ctx(*a)  # duck test
             except TypeError:
                 return f(a)
             else:
                 return f(*a)
         return composed
-    return unpythonic.it.reducer(compose_two, fs)  # op(elt, acc)
+    compose_two = (flip if direction == "right" else identity)(compose_two)
+    def compose(fs):
+        return unpythonic.it.reducel(compose_two, fs)  # op(elt, acc)
+    return compose
 
-def composel(*fs):
-    """Like composer, but from left to right.
-
-    The sequence ``fs`` is applied in the order given; no need
-    to read the source code backwards.
-    """
-    return composer(*reversed(fs))
-
-# Helpers for multi-arg compose chains
+# Helpers to insert one-in-one-out functions into multi-arg compose chains
 def tokth(k, f):
     """Return a function to apply f to args[k], pass the rest through.
 
@@ -304,7 +384,7 @@ def tokth(k, f):
 
     Especially useful in multi-arg compose chains. See ``test()`` for examples.
     """
-    def applicator(*args):
+    def apply_f_to_kth_arg(*args):
         n = len(args)
         if not n:
             raise TypeError("Expected at least one argument")
@@ -317,7 +397,7 @@ def tokth(k, f):
         if n > m:
             out.extend(args[m:])
         return tuple(out)
-    return applicator
+    return apply_f_to_kth_arg
 
 def to1st(f):
     """Return a function to apply f to first item in args, pass the rest through.
@@ -359,7 +439,7 @@ def to(*specs):
     Returns:
         Function to (functionally) update args with the specs applied.
     """
-    return composel(*(tokth(k, f) for k, f in specs))
+    return composeli(tokth(k, f) for k, f in specs)
 
 def test():
     from collections import Counter
@@ -451,6 +531,21 @@ def test():
     assert inc_then_double(3) == 8
     assert double_then_inc(3) == 7
 
+    inc2_then_double = composer1(double, inc, inc)
+    double_then_inc2 = composel1(double, inc, inc)
+    assert inc2_then_double(3) == 10
+    assert double_then_inc2(3) == 8
+
+    inc_then_double = composer(double, inc)
+    double_then_inc = composel(double, inc)
+    assert inc_then_double(3) == 8
+    assert double_then_inc(3) == 7
+
+    inc2_then_double = composer(double, inc, inc)
+    double_then_inc2 = composel(double, inc, inc)
+    assert inc2_then_double(3) == 10
+    assert double_then_inc2(3) == 8
+
     assert to1st(double)(1, 2, 3)  == (2, 2, 3)
     assert to2nd(double)(1, 2, 3)  == (1, 4, 3)
     assert tolast(double)(1, 2, 3) == (1, 2, 6)
@@ -465,8 +560,12 @@ def test():
     assert (rotate(1)(identity))(1, 2, 3) == (3, 1, 2)
     assert (rotate(-1)(identity))(1, 2, 3) == (2, 3, 1)
 
-    # Outer gets effectively applied first, because of the order in which
-    # the decorators get their hands on the incoming, user-given arguments.
+    # The inner decorator is applied first to the decorated function, as usual.
+    #
+    # But here the outer one effectively takes effect first, because of the
+    # order in which the decorators get their hands on the incoming arguments.
+    #
+    # So this first flips, then rotates the given arguments:
     assert flip(rotate(1)(identity))(1, 2, 3) == (1, 3, 2)
 
     def hello(*args):
