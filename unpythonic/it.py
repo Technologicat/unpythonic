@@ -12,7 +12,7 @@ Flatten based on Danny Yoo's version:
 """
 
 __all__ = ["foldl", "foldr", "reducel", "reducer",
-           "flatmap", "take", "drop", "uniqify",
+           "flatmap", "take", "drop", "zipr", "uniqify",
            "flatten", "flatten1", "flatten_in"]
 
 # require at least one iterable to make this work seamlessly with curry.
@@ -125,6 +125,10 @@ def drop(n, iterable):
     for x in it:
         yield x
 
+def zipr(*sequences):
+    """Like zip, but walk each sequence from the right."""
+    return zip(*(reversed(s) for s in sequences))
+
 def uniqify(iterable, key=None):
     """Skip duplicates in iterable.
 
@@ -217,6 +221,7 @@ def test():
     composel1 = unpythonic.fun.composel1
     to1st = unpythonic.fun.to1st
     rotate = unpythonic.fun.rotate
+    identity = unpythonic.fun.identity
 
     # just a testing hack; for a "real" cons, see unpythonic.llist.cons
     nil = ()
@@ -307,10 +312,19 @@ def test():
 #    def zipper(*args):  # straightforward version
 #        *rest, acc = args
 #        return acc + (tuple(rest),)
-    zipl = (curry(foldl))(zipper, ())
-    zipr = (curry(foldr))(zipper, ())
-    assert zipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
-    assert zipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
+    zipl1 = (curry(foldl))(zipper, ())
+    zipr1 = (curry(foldr))(zipper, ())
+    assert zipl1((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
+    assert zipr1((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
+
+    # Python's builtin map is not curry-friendly; it accepts arity 1,
+    # but actually requires 2. Solution: use partial.
+    zipl2 = partial(map, identity)
+    zipr2 = lambda *sequences: map(unpythonic.fun.identity, *(reversed(s) for s in sequences))
+    assert tuple(zipl2((1, 2, 3), (4, 5, 6), (7, 8))) == ((1, 4, 7), (2, 5, 8))
+    assert tuple(zipr2((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+
+    assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
 
     assert tuple(uniqify((1, 1, 2, 2, 2, 2, 4, 3, 3, 3))) == (1, 2, 4, 3)
     data = (('foo', 1), ('bar', 1), ('foo', 2), ('baz', 2), ('qux', 4), ('foo', 3))
