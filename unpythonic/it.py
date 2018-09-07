@@ -5,12 +5,14 @@
 Racket-like multi-input foldl and foldr based on
   https://docs.racket-lang.org/reference/pairs.html
 
+Take and drop based on Haskell.
+
 Flatten based on Danny Yoo's version:
   http://rightfootin.blogspot.fi/2006/09/more-on-python-flatten.html
 """
 
 __all__ = ["foldl", "foldr", "reducel", "reducer",
-           "flatmap", "take", "uniqify",
+           "flatmap", "take", "drop", "uniqify",
            "flatten", "flatten1", "flatten_in"]
 
 # require at least one iterable to make this work seamlessly with curry.
@@ -105,13 +107,23 @@ def flatmap(f, iterable0, *iterables):
         for x in xs:
             yield x
 
-def take(iterable, n):
+def take(n, iterable):
     """Return a generator that yields the first n items of iterable, then stops.
 
     Stops earlier if ``iterable`` has fewer than ``n`` items.
     """
     return map(lambda x, _: x, iter(iterable), range(n))
 #    return (x for x, _ in zip(iter(iterable), range(n)))
+
+def drop(n, iterable):
+    """Skip the first n elements of iterable, then yield the rest.
+
+    Returns a generator."""
+    it = iter(iterable)
+    for k in range(n):
+        next(it)
+    for x in it:
+        yield x
 
 def uniqify(iterable, key=None):
     """Skip duplicates in iterable.
@@ -202,6 +214,7 @@ def test():
     curry = unpythonic.fun.curry
     composer = unpythonic.fun.composer
     composel = unpythonic.fun.composel
+    composel1 = unpythonic.fun.composel1
     to1st = unpythonic.fun.to1st
     rotate = unpythonic.fun.rotate
 
@@ -279,8 +292,14 @@ def test():
         return (a + b, a - b)
     assert tuple(flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3))) == (11, 9, 22, 18, 33, 27)
 
-    assert tuple(take(range(100), 10)) == tuple(range(10))
-    assert tuple(take(range(3), 10)) == tuple(range(3))
+    assert tuple(take(10, range(100))) == tuple(range(10))
+    assert tuple(take(10, range(3))) == tuple(range(3))
+
+    assert tuple(drop(5, range(10))) == tuple(range(5, 10))
+    assert tuple(drop(5, range(3))) == ()
+    # use composel1 to avoid implicit unpack of generator inside the compose chain
+    p = composel1(partial(drop, 5), partial(take, 5))
+    assert tuple(p(range(20))) == tuple(range(5, 10))
 
     @rotate(1)
     def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
