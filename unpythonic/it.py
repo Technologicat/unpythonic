@@ -12,7 +12,7 @@ Flatten based on Danny Yoo's version:
 """
 
 __all__ = ["foldl", "foldr", "reducel", "reducer",
-           "flatmap", "take", "drop", "zipr", "uniqify",
+           "flatmap", "take", "drop", "split_at", "zipr", "uniqify",
            "flatten", "flatten1", "flatten_in"]
 
 # require at least one iterable to make this work seamlessly with curry.
@@ -112,7 +112,11 @@ def take(n, iterable):
 
     Stops earlier if ``iterable`` has fewer than ``n`` items.
     """
-    return map(lambda x, _: x, iter(iterable), range(n))
+    it = iter(iterable)
+    for k in range(n):
+        yield next(it)
+#    # more elegant, but consume an extra element from iterable.
+#    return map(lambda x, _: x, iter(iterable), range(n))
 #    return (x for x, _ in zip(iter(iterable), range(n)))
 
 def drop(n, iterable):
@@ -124,6 +128,22 @@ def drop(n, iterable):
         next(it)
     for x in it:
         yield x
+
+def split_at(n, iterable):
+    """Split iterable at position n, return (first_part, second_part).
+
+    The first part is evaluated; for the second part, an iterator pointing
+    to its first element is returned.
+
+    Example::
+
+        a, b_iter = split_at(5, range(10))
+        assert a == tuple(range(5))
+        assert tuple(b_iter) == tuple(range(5, 10))
+    """
+    it = iter(iterable)
+    first_part = tuple(take(n, it))
+    return first_part, it
 
 def zipr(*sequences):
     """Like zip, but walk each sequence from the right."""
@@ -306,6 +326,16 @@ def test():
     p = composel1(partial(drop, 5), partial(take, 5))
     assert tuple(p(range(20))) == tuple(range(5, 10))
 
+    a, b_iter = split_at(5, range(10))
+    assert a == tuple(range(5))
+    assert tuple(b_iter) == tuple(range(5, 10))
+
+    a, b_iter = split_at(5, range(3))
+    assert a == tuple(range(3))
+    assert tuple(b_iter) == ()
+
+    assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+
     @rotate(1)
     def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
         return acc + (rest,)  # even though the input is (e1, ..., en, acc).
@@ -323,8 +353,6 @@ def test():
     zipr2 = lambda *sequences: map(unpythonic.fun.identity, *(reversed(s) for s in sequences))
     assert tuple(zipl2((1, 2, 3), (4, 5, 6), (7, 8))) == ((1, 4, 7), (2, 5, 8))
     assert tuple(zipr2((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
-
-    assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
 
     assert tuple(uniqify((1, 1, 2, 2, 2, 2, 4, 3, 3, 3))) == (1, 2, 4, 3)
     data = (('foo', 1), ('bar', 1), ('foo', 2), ('baz', 2), ('qux', 4), ('foo', 3))
