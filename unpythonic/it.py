@@ -12,7 +12,7 @@ Flatten based on Danny Yoo's version:
 """
 
 __all__ = ["foldl", "foldr", "reducel", "reducer",
-           "flatmap", "zipr", "uniqify",
+           "flatmap", "mapr", "zipr", "uniqify",
            "take", "drop", "isplit_at", "split_at",
            "flatten", "flatten1", "flatten_in"]
 
@@ -52,12 +52,13 @@ def foldl(proc, init, iterable0, *iterables):
 
 def foldr(proc, init, sequence0, *sequences):
     """Like foldl, but fold from the right (walk each sequence backwards)."""
+    # This approach gives us a linear process.
     return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences))
 
 def reducel(proc, iterable, init=None):
     """Foldl for a single iterable.
 
-    Like functools.reduce, but uses ``proc(elt, acc)`` like Racket."""
+    Like ``functools.reduce``, but uses ``proc(elt, acc)`` like Racket."""
     it = iter(iterable)
     if not init:
         try:
@@ -110,6 +111,10 @@ def flatmap(f, iterable0, *iterables):
         for x in xs:
             yield x
 
+def mapr(func, *sequences):
+    """Like map, but walk each sequence from the right."""
+    return map(func, *(reversed(s) for s in sequences))
+
 def zipr(*sequences):
     """Like zip, but walk each sequence from the right."""
     return zip(*(reversed(s) for s in sequences))
@@ -117,11 +122,11 @@ def zipr(*sequences):
 def uniqify(iterable, key=None):
     """Skip duplicates in iterable.
 
-    Returns a generator that yields the unique items, preserving the original
-    ordering.
+    Returns a generator that yields unique items from iterable, preserving
+    their original ordering.
 
     If ``key`` is provided, the return value of ``key(elt)`` is tested instead
-    of ``elt`` itself for whether a given element has already been seen.
+    of ``elt`` itself to determine uniqueness.
     """
     key = key or (lambda x: x)
     it = iter(iterable)
@@ -148,7 +153,7 @@ def drop(n, iterable):
     """Skip the first n elements of iterable, then yield the rest.
 
     The first ``n`` elements are skipped eagerly, by calling ``next()`` in a loop.
-    After this is done, returns a generator.
+    After performing this initialization, returns a generator.
     """
     it = iter(iterable)
     try:
@@ -161,7 +166,7 @@ def drop(n, iterable):
     return gen()
 
 def isplit_at(n, iterable):
-    """Lazily split iterable at position n.
+    """Split iterable at position n.
 
     Returns a pair of generators ``(first_part, second_part)``.
 
@@ -175,7 +180,7 @@ def isplit_at(n, iterable):
     return take(n, ia), drop(n, ib)
 
 def split_at(n, iterable):
-    """Like isplit_at, but eager. Returns tuples."""
+    """Like isplit_at, but returns tuples."""
     ga, gb = isplit_at(n, iterable)
     return tuple(ga), tuple(gb)
 #    return tuple(map(tuple, isplit_at(n, iterable)))
