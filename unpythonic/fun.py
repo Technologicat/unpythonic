@@ -277,38 +277,6 @@ def disjoin(*fs):
         return False
     return disjoined
 
-def composer1(*fs):
-    """Like composer, but limited to one-argument functions. Faster.
-
-    Example::
-
-        double = lambda x: 2*x
-        inc    = lambda x: x+1
-        inc_then_double = composer1(double, inc)
-        assert inc_then_double(3) == 8
-    """
-    return composeri1(fs)
-
-def composeri1(iterable):
-    """Like composeri, but limited to one-argument functions. Faster."""
-    return _make_compose1("right")(iterable)
-
-def composel1(*fs):
-    """Like composel, but limited to one-argument functions. Faster.
-
-    Example::
-
-        double = lambda x: 2*x
-        inc    = lambda x: x+1
-        double_then_inc = composel(double, inc)
-        assert double_then_inc(3) == 7
-    """
-    return composeli1(fs)
-
-def composeli1(iterable):
-    """Like composeli, but limited to one-argument functions. Faster."""
-    return _make_compose1("left")(iterable)
-
 def _make_compose1(direction):  # "left", "right"
     def compose1_two(f, g):
         return lambda x: f(g(x))
@@ -324,6 +292,60 @@ def _make_compose1(direction):  # "left", "right"
         #   elt = c -> g, acc = a(b(x)) -> f --> a(b(c(x)))
         return unpythonic.it.reducel(compose1_two, fs)  # op(elt, acc)
     return compose1
+
+def _make_compose(direction):  # "left", "right"
+    def unpack_ctx(*args): pass  # just a context where we can use * to unpack
+    def compose_two(f, g):
+        def composed(*args):
+            a = g(*args)
+            try:
+                unpack_ctx(*a)  # duck test
+            except TypeError:
+                return f(a)
+            else:
+                return f(*a)
+        return composed
+    compose_two = (flip if direction == "right" else identity)(compose_two)
+    def compose(fs):
+        return unpythonic.it.reducel(compose_two, fs)  # op(elt, acc)
+    return compose
+
+_compose1_left = _make_compose1("left")
+_compose1_right = _make_compose1("right")
+_compose_left = _make_compose("left")
+_compose_right = _make_compose("right")
+
+def composer1(*fs):
+    """Like composer, but limited to one-argument functions. Faster.
+
+    Example::
+
+        double = lambda x: 2*x
+        inc    = lambda x: x+1
+        inc_then_double = composer1(double, inc)
+        assert inc_then_double(3) == 8
+    """
+    return composeri1(fs)
+
+def composeri1(iterable):  # this is just to insert a docstring
+    """Like composeri, but limited to one-argument functions. Faster."""
+    return _compose1_right(iterable)
+
+def composel1(*fs):
+    """Like composel, but limited to one-argument functions. Faster.
+
+    Example::
+
+        double = lambda x: 2*x
+        inc    = lambda x: x+1
+        double_then_inc = composel(double, inc)
+        assert double_then_inc(3) == 7
+    """
+    return composeli1(fs)
+
+def composeli1(iterable):
+    """Like composeli, but limited to one-argument functions. Faster."""
+    return _compose1_left(iterable)
 
 def composer(*fs):
     """Compose functions accepting only positional args. Right to left.
@@ -345,7 +367,7 @@ def composer(*fs):
 
 def composeri(iterable):
     """Like composer, but takes an iterable of functions to compose."""
-    return _make_compose("right")(iterable)
+    return _compose_right(iterable)
 
 def composel(*fs):
     """Like composer, but from left to right.
@@ -357,24 +379,7 @@ def composel(*fs):
 
 def composeli(iterable):
     """Like composel, but takes an iterable of functions to compose."""
-    return _make_compose("left")(iterable)
-
-def _make_compose(direction):  # "left", "right"
-    def unpack_ctx(*args): pass  # just a context where we can use * to unpack
-    def compose_two(f, g):
-        def composed(*args):
-            a = g(*args)
-            try:
-                unpack_ctx(*a)  # duck test
-            except TypeError:
-                return f(a)
-            else:
-                return f(*a)
-        return composed
-    compose_two = (flip if direction == "right" else identity)(compose_two)
-    def compose(fs):
-        return unpythonic.it.reducel(compose_two, fs)  # op(elt, acc)
-    return compose
+    return _compose_left(iterable)
 
 # Helpers to insert one-in-one-out functions into multi-arg compose chains
 def tokth(k, f):
