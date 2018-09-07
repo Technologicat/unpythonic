@@ -342,9 +342,18 @@ def test():
     p = composel1(partial(drop, 5), partial(take, 5))
     assert tuple(p(range(20))) == tuple(range(5, 10))
 
+    with_n = lambda n, fs: (partial(f, n) for f in fs)
+#    with_n = lambda n, fs: tuple(map((lambda f: partial(f, n)), fs))
+    p = composel1(*with_n(5, (drop, take)))
+    assert tuple(p(range(20))) == tuple(range(5, 10))
+
     a, b = map(tuple, split_at(5, range(10)))
     assert a == tuple(range(5))
     assert b == tuple(range(5, 10))
+
+    a, b = map(tuple, split_at(5, range(3)))
+    assert a == tuple(range(3))
+    assert b == ()
 
     assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
 
