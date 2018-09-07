@@ -13,7 +13,7 @@ Flatten based on Danny Yoo's version:
 
 __all__ = ["foldl", "foldr", "reducel", "reducer",
            "flatmap", "mapr", "zipr", "uniqify",
-           "take", "drop", "isplit_at", "split_at",
+           "take", "drop", "split_at",
            "flatten", "flatten1", "flatten_in"]
 
 from itertools import tee
@@ -165,25 +165,23 @@ def drop(n, iterable):
         yield from it
     return gen()
 
-def isplit_at(n, iterable):
+def split_at(n, iterable):
     """Split iterable at position n.
 
     Returns a pair of generators ``(first_part, second_part)``.
 
-    Example::
+    Examples::
 
-        a, b = isplit_at(5, range(10))
+        a, b = split_at(5, range(10))
         assert tuple(a) == tuple(range(5))
         assert tuple(b) == tuple(range(5, 10))
+
+        a, b = map(tuple, split_at(5, range(3)))
+        assert a == tuple(range(3))
+        assert b == ()
     """
     ia, ib = tee(iter(iterable))
     return take(n, ia), drop(n, ib)
-
-def split_at(n, iterable):
-    """Like isplit_at, but returns tuples."""
-    ga, gb = isplit_at(n, iterable)
-    return tuple(ga), tuple(gb)
-#    return tuple(map(tuple, isplit_at(n, iterable)))
 
 def flatten(iterable, pred=None):
     """Recursively remove nested structure from iterable.
@@ -344,13 +342,9 @@ def test():
     p = composel1(partial(drop, 5), partial(take, 5))
     assert tuple(p(range(20))) == tuple(range(5, 10))
 
-    a, b = isplit_at(5, range(10))
-    assert tuple(a) == tuple(range(5))
-    assert tuple(b) == tuple(range(5, 10))
-
-    a, b = split_at(5, range(3))
-    assert a == tuple(range(3))
-    assert b == ()
+    a, b = map(tuple, split_at(5, range(10)))
+    assert a == tuple(range(5))
+    assert b == tuple(range(5, 10))
 
     assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
 
