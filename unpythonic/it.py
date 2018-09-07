@@ -12,8 +12,11 @@ Flatten based on Danny Yoo's version:
 """
 
 __all__ = ["foldl", "foldr", "reducel", "reducer",
-           "flatmap", "take", "drop", "split_at", "zipr", "uniqify",
+           "flatmap", "zipr", "uniqify",
+           "take", "drop", "isplit_at", "split_at",
            "flatten", "flatten1", "flatten_in"]
+
+from itertools import tee
 
 # require at least one iterable to make this work seamlessly with curry.
 def foldl(proc, init, iterable0, *iterables):
@@ -107,44 +110,6 @@ def flatmap(f, iterable0, *iterables):
         for x in xs:
             yield x
 
-def take(n, iterable):
-    """Return a generator that yields the first n items of iterable, then stops.
-
-    Stops earlier if ``iterable`` has fewer than ``n`` items.
-    """
-    it = iter(iterable)
-    for k in range(n):
-        yield next(it)
-#    # more elegant, but consume an extra element from iterable.
-#    return map(lambda x, _: x, iter(iterable), range(n))
-#    return (x for x, _ in zip(iter(iterable), range(n)))
-
-def drop(n, iterable):
-    """Skip the first n elements of iterable, then yield the rest.
-
-    Returns a generator."""
-    it = iter(iterable)
-    for k in range(n):
-        next(it)
-    for x in it:
-        yield x
-
-def split_at(n, iterable):
-    """Split iterable at position n, return (first_part, second_part).
-
-    The first part is evaluated; for the second part, an iterator pointing
-    to its first element is returned.
-
-    Example::
-
-        a, b_iter = split_at(5, range(10))
-        assert a == tuple(range(5))
-        assert tuple(b_iter) == tuple(range(5, 10))
-    """
-    it = iter(iterable)
-    first_part = tuple(take(n, it))
-    return first_part, it
-
 def zipr(*sequences):
     """Like zip, but walk each sequence from the right."""
     return zip(*(reversed(s) for s in sequences))
@@ -166,6 +131,54 @@ def uniqify(iterable, key=None):
         if k not in seen:
             seen.add(k)
             yield e
+
+def take(n, iterable):
+    """Return a generator that yields the first n items of iterable, then stops.
+
+    Stops earlier if ``iterable`` has fewer than ``n`` items.
+    """
+    it = iter(iterable)
+    for k in range(n):
+        yield next(it)  # StopIteration, if raised from here, terminates the generator.
+#    # more elegant, but consumes an extra element from iterable.
+#    return map(lambda x, _: x, iter(iterable), range(n))
+#    return (x for x, _ in zip(iter(iterable), range(n)))
+
+def drop(n, iterable):
+    """Skip the first n elements of iterable, then yield the rest.
+
+    The first ``n`` elements are skipped eagerly, by calling ``next()`` in a loop.
+    After this is done, returns a generator.
+    """
+    it = iter(iterable)
+    try:
+        for k in range(n):
+            next(it)
+    except StopIteration:
+        pass
+    def gen():  # contain the yield so that the above init runs immediately
+        yield from it
+    return gen()
+
+def isplit_at(n, iterable):
+    """Lazily split iterable at position n.
+
+    Returns a pair of generators ``(first_part, second_part)``.
+
+    Example::
+
+        a, b = isplit_at(5, range(10))
+        assert tuple(a) == tuple(range(5))
+        assert tuple(b) == tuple(range(5, 10))
+    """
+    ia, ib = tee(iter(iterable))
+    return take(n, ia), drop(n, ib)
+
+def split_at(n, iterable):
+    """Like isplit_at, but eager. Returns tuples."""
+    ga, gb = isplit_at(n, iterable)
+    return tuple(ga), tuple(gb)
+#    return tuple(map(tuple, isplit_at(n, iterable)))
 
 def flatten(iterable, pred=None):
     """Recursively remove nested structure from iterable.
@@ -326,13 +339,13 @@ def test():
     p = composel1(partial(drop, 5), partial(take, 5))
     assert tuple(p(range(20))) == tuple(range(5, 10))
 
-    a, b_iter = split_at(5, range(10))
-    assert a == tuple(range(5))
-    assert tuple(b_iter) == tuple(range(5, 10))
+    a, b = isplit_at(5, range(10))
+    assert tuple(a) == tuple(range(5))
+    assert tuple(b) == tuple(range(5, 10))
 
-    a, b_iter = split_at(5, range(3))
+    a, b = split_at(5, range(3))
     assert a == tuple(range(3))
-    assert tuple(b_iter) == ()
+    assert b == ()
 
     assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
 
