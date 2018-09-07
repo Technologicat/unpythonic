@@ -343,7 +343,7 @@ def test():
     assert tuple(p(range(20))) == tuple(range(5, 10))
 
     with_n = lambda n, fs: (partial(f, n) for f in fs)
-#    with_n = lambda n, fs: tuple(map((lambda f: partial(f, n)), fs))
+#    with_n = lambda n, fs: map((lambda f: partial(f, n)), fs)
     p = composel1(*with_n(5, (drop, take)))
     assert tuple(p(range(20))) == tuple(range(5, 10))
 
