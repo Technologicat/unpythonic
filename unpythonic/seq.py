@@ -80,6 +80,7 @@ def lazy_begin0(*bodys):
     return out
 
 # sequence one-input, one-output functions
+# TODO: generalize piping functions for n-in m-out like compose
 def pipe(value0, *bodys):
     """Perform a sequence of operations on an initial value.
 
