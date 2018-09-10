@@ -16,7 +16,8 @@ __all__ = ["foldl", "foldr", "reducel", "reducer",
            "take", "drop", "split_at",
            "flatten", "flatten1", "flatten_in"]
 
-from itertools import tee
+from itertools import tee, islice
+from collections import deque
 
 # require at least one iterable to make this work seamlessly with curry.
 def foldl(proc, init, iterable0, *iterables):
@@ -141,27 +142,30 @@ def take(n, iterable):
     """Return a generator that yields the first n items of iterable, then stops.
 
     Stops earlier if ``iterable`` has fewer than ``n`` items.
+
+    This is essentially ``take`` from ``itertools`` recipes,
+    but returns a generator.
     """
     it = iter(iterable)
-    for k in range(n):
-        yield next(it)  # StopIteration, if raised from here, terminates the generator.
-#    # more elegant, but consumes an extra element from iterable.
-#    return map(lambda x, _: x, iter(iterable), range(n))
-#    return (x for x, _ in zip(iter(iterable), range(n)))
+    it = islice(it, n)
+    def gen():
+        yield from it
+    return gen()
 
 def drop(n, iterable):
     """Skip the first n elements of iterable, then yield the rest.
 
-    The first ``n`` elements are skipped eagerly, by calling ``next()`` in a loop.
-    After performing this initialization, returns a generator.
+    If ``n`` is ``None``, consume the iterable until it runs out.
+
+    This is essentially ``consume`` from ``itertools`` recipes,
+    but returns a generator.
     """
     it = iter(iterable)
-    try:
-        for k in range(n):
-            next(it)
-    except StopIteration:
-        pass
-    def gen():  # contain the yield so that the above init runs immediately
+    if n is None:
+        deque(it, maxlen=0)
+    else:
+        next(islice(it, n, n), None)  # advance it to empty slice starting at n
+    def gen():
         yield from it
     return gen()
 
