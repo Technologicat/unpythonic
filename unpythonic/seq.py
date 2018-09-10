@@ -247,9 +247,9 @@ def pipe(values0, *bodys):
     The only restriction is that each function must take as many positional
     arguments as the previous one returns.
 
-    The output from each function is unpacked to the argument list of
-    the next one. If the duck test fails, the output is assumed to be
-    a single value, and is fed in to the next function as-is.
+    At each step, if the output from a function is a list or a tuple,
+    it is unpacked to the argument list of the next function. Otherwise,
+    we assume the output is intended to be fed to the next function as-is.
 
     If you only need a one-in-one-out chain, ``pipe1`` is faster.
 
@@ -271,15 +271,12 @@ def pipe(values0, *bodys):
                     lambda x, y, s: (x + y, s))
         assert (a, b) == (13, "got foo")
     """
-    def unpack_ctx(*args): pass  # just a context where we can use * to unpack
     xs = values0
     for update in bodys:
-        try:
-            unpack_ctx(*xs)   # duck test
-        except TypeError:
-            xs = update(xs)   # single x only
+        if isinstance(xs, (list, tuple)):
+            xs = update(*xs)
         else:
-            xs = update(*xs)  # multiple xs
+            xs = update(xs)
     return xs
 
 class piped:
@@ -300,14 +297,10 @@ class piped:
             return self._xs
         else:
             cls = self.__class__
-            def unpack_ctx(*args): pass  # just a context where we can use * to unpack
-            xs = self._xs
-            try:
-                unpack_ctx(*xs)  # duck test
-            except TypeError:
-                return cls(f(self._xs))  # single x only
+            if isinstance(self._xs, (list, tuple)):
+                return cls(*f(*self._xs))
             else:
-                return cls(*f(*self._xs))  # multiple xs
+                return cls(f(self._xs))
     def __repr__(self):
         return "<piped at 0x{:x}; values {}>".format(id(self), self._xs)
 
@@ -333,15 +326,12 @@ class lazy_piped:
     def __or__(self, f):
         """Pipe the values into f; but just plan to do so, don't perform it yet."""
         if f is get:  # compute now
-            def unpack_ctx(*args): pass  # just a context where we can use * to unpack
             vs = self._xs
             for g in self._funcs:
-                try:
-                    unpack_ctx(*vs)  # duck test
-                except TypeError:
-                    vs = g(vs)   # single v only
+                if isinstance(vs, (list, tuple)):
+                    vs = g(*vs)
                 else:
-                    vs = g(*vs)  # multiple vs
+                    vs = g(vs)
             return vs
         else:
             # just pass on the references to the original xs.

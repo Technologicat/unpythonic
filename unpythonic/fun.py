@@ -294,16 +294,15 @@ def _make_compose1(direction):  # "left", "right"
     return compose1
 
 def _make_compose(direction):  # "left", "right"
-    def unpack_ctx(*args): pass  # just a context where we can use * to unpack
     def compose_two(f, g):
         def composed(*args):
             a = g(*args)
-            try:
-                unpack_ctx(*a)  # duck test
-            except TypeError:
-                return f(a)
-            else:
+            # we could duck-test but this is more predictable for the user
+            # (consider chaining functions that manipulate a generator).
+            if isinstance(a, (list, tuple)):
                 return f(*a)
+            else:
+                return f(a)
         return composed
     compose_two = (flip if direction == "right" else identity)(compose_two)
     def compose(fs):
@@ -352,16 +351,12 @@ def composer(*fs):
 
     This mirrors the standard mathematical convention (f ∘ g)(x) ≡ f(g(x)).
 
-    The output from each function is unpacked to the argument list of
-    the next one. If the duck test fails, the output is assumed to be
-    a single value, and is fed in to the next function as-is.
+    At each step, if the output from a function is a list or a tuple,
+    it is unpacked to the argument list of the next function. Otherwise,
+    we assume the output is intended to be fed to the next function as-is.
 
-    **CAUTION**:
-
-        This implicit unpacking will unpack also generators!
-
-        If you have a chain of functions that manipulate a single generator,
-        use ``composer1`` instead.
+    Especially, generators, namedtuples and any custom classes will **not** be
+    unpacked, regardless of whether or not they support the iterator protocol.
     """
     return composeri(fs)
 
