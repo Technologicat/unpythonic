@@ -14,6 +14,7 @@ from .assignonce import *
 from .dynscope import *
 from .ec import *
 from .fun import *
+from .fupdate import *
 from .it import *
 from .let import *  # no guarantees on evaluation order (before Python 3.6), nice syntax
 
