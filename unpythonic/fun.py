@@ -280,7 +280,8 @@ def disjoin(*fs):
 def _make_compose1(direction):  # "left", "right"
     def compose1_two(f, g):
         return lambda x: f(g(x))
-    compose1_two = (flip if direction == "right" else identity)(compose1_two)
+    if direction == "right":
+        compose1_two = flip(compose1_two)
     def compose1(fs):
         # direction == "left" (leftmost is innermost):
         #   input: a b c
@@ -304,7 +305,8 @@ def _make_compose(direction):  # "left", "right"
             else:
                 return f(a)
         return composed
-    compose_two = (flip if direction == "right" else identity)(compose_two)
+    if direction == "right":
+        compose_two = flip(compose_two)
     def compose(fs):
         return unpythonic.it.reducel(compose_two, fs)  # op(elt, acc)
     return compose
