@@ -14,8 +14,9 @@ def fupdate(target, indices=None, values=None, **mappings):
     The input sequence can be immutable. For mappings, only mutables are
     supported (since Python doesn't provide an immutable dict type).
 
-    Parameters:
+    **CAUTION**: Negative indices are currently **not** supported.
 
+    Parameters:
         target: sequence or mapping
             The target to be functionally updated.
 
@@ -23,6 +24,7 @@ def fupdate(target, indices=None, values=None, **mappings):
 
             indices: t or sequence of t, where t: int or slice
                 The index or indices where ``target`` will be updated.
+                If a sequence of t, applied left to right.
 
             values: one item or sequence
                 The corresponding values.
@@ -34,7 +36,7 @@ def fupdate(target, indices=None, values=None, **mappings):
     Returns:
         The updated sequence or mapping. The input is not modified.
 
-    Examples::
+    **Examples**::
 
         lst = [1, 2, 3]
         out = fupdate(lst, 1, 42)
@@ -52,6 +54,20 @@ def fupdate(target, indices=None, values=None, **mappings):
         out = fupdate(lst, (1, 2, 3), (17, 23, 42))
         assert lst == (1, 2, 3, 4, 5)
         assert out == (1, 17, 23, 42, 5)
+
+        # a sequence of slices
+        lst = tuple(range(10))
+        out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2)),
+                           (tuple(repeat(2, 5)), tuple(repeat(3, 5))))
+        assert lst == tuple(range(10))
+        assert out == (2, 3, 2, 3, 2, 3, 2, 3, 2, 3)
+
+        # mix and match
+        lst = tuple(range(10))
+        out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2), 6),
+                           (tuple(repeat(2, 5)), tuple(repeat(3, 5)), 42))
+        assert lst == tuple(range(10))
+        assert out == (2, 3, 2, 3, 2, 3, 42, 3, 2, 3)
 
         d1 = {'foo': 'bar', 'fruit': 'apple'}
         d2 = fupdate(d1, foo='tavern')
@@ -150,6 +166,18 @@ def test():
     out = fupdate(lst, (1, 2, 3), (17, 23, 42))
     assert lst == (1, 2, 3, 4, 5)
     assert out == (1, 17, 23, 42, 5)
+
+    lst = tuple(range(10))
+    out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2)),
+                       (tuple(repeat(2, 5)), tuple(repeat(3, 5))))
+    assert lst == tuple(range(10))
+    assert out == (2, 3, 2, 3, 2, 3, 2, 3, 2, 3)
+
+    lst = tuple(range(10))
+    out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2), 6),
+                       (tuple(repeat(2, 5)), tuple(repeat(3, 5)), 42))
+    assert lst == tuple(range(10))
+    assert out == (2, 3, 2, 3, 2, 3, 42, 3, 2, 3)
 
     d1 = {'foo': 'bar', 'fruit': 'apple'}
     d2 = fupdate(d1, foo='tavern')
