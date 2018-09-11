@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Functionally updated sequences."""
+"""Functionally updated sequences and mappings."""
 
 __all__ = ["fupdate", "ShadowedSequence", "in_indices", "indexof"]
 
@@ -9,10 +9,20 @@ from operator import lt, le, ge, gt
 from copy import copy
 
 def fupdate(target, indices=None, values=None, **mappings):
-    """Functionally update a sequence or a mapping.
+    """Return a functionally updated copy of a sequence or mapping.
 
     The input sequence can be immutable. For mappings, only mutables are
     supported (since Python doesn't provide an immutable dict type).
+
+    The requirement for sequences is that the target's type must provide a way
+    to construct an instance from an iterable.
+
+    We first check whether target's type provides ``._make(iterable)``,
+    and if so, call that to build the output. Otherwise, we call the
+    regular constructor.
+
+    In Python's standard library, the ``._make`` mechanism is used by classes
+    created by ``collections.namedtuple``.
 
     **CAUTION**: Negative indices are currently **not** supported.
 
@@ -69,6 +79,13 @@ def fupdate(target, indices=None, values=None, **mappings):
         assert lst == tuple(range(10))
         assert out == (2, 3, 2, 3, 2, 3, 42, 3, 2, 3)
 
+        from collections import namedtuple
+        A = namedtuple("A", "p q")
+        a = A(17, 23)
+        out = fupdate(a, 0, 42)
+        assert a == A(17, 23)
+        assert out == A(42, 23)
+
         d1 = {'foo': 'bar', 'fruit': 'apple'}
         d2 = fupdate(d1, foo='tavern')
         assert sorted(d1.items()) == [('foo', 'bar'), ('fruit', 'apple')]
@@ -77,33 +94,36 @@ def fupdate(target, indices=None, values=None, **mappings):
     if indices is not None and mappings:
         raise ValueError("Cannot use both indices and mappings.")
     if indices is not None:
-        # We jump through some hoops to support also immutable targets.
-        def doit(seq, ix, v):
-            s = ShadowedSequence(seq, ix, v)
-            cls = type(seq)
-            return cls(x for x in s)
+        def finalize(seq):
+            cls = type(target)
+            gen = (x for x in seq)
+            if hasattr(cls, "_make"):  # namedtuple support
+                return cls._make(gen)
+            else:
+                return cls(gen)
         if isinstance(indices, (list, tuple)):
-            seq = target
+            seq = target  # stack up ShadowedSequences...
             for index, value in zip(indices, values):
-                seq = doit(seq, index, value)
-            return seq
+                seq = ShadowedSequence(seq, index, value)
+            return finalize(seq)  # ...and flatten them when done.
         else:  # one index (or slice), value(s) pair only
-            return doit(target, indices, values)
+            return finalize(ShadowedSequence(target, indices, values))
     elif mappings:
         # No immutable dicts in Python so here this is enough.
         t = copy(target)
-        t.update(**mappings)
+        t.update(**mappings)  # TODO: use collections.ChainMap instead?
         return t
     return copy(target)
 
+# Needed by fupdate for immutable sequence inputs (no item assignment).
 class ShadowedSequence(Sequence):
     def __init__(self, seq, ix, v):
         """Sequence with some elements shadowed by those from another sequence.
 
         Or in other words, a functionally updated view of a sequence.
 
-        Essentially, ``result[k] = v[indexof(k, ix)] if k in ix else seq[k]``,
-        but supports immutable inputs.
+        Essentially, ``out[k] = v[indexof(k, ix)] if in_indices(k, ix) else seq[k]``,
+        but doesn't actually allocate ``out``.
 
         ``ix`` may be integer (if ``v`` represents one item only)
         or slice (if ``v`` is intended as a sequence).
@@ -127,6 +147,10 @@ class ShadowedSequence(Sequence):
 
 # TODO: support negative indices
 def in_indices(i, s):
+    """Return whether the int i is in the slice s.
+
+    For convenience, s may be int instead of slice; then return whether i == s.
+    """
     if not isinstance(s, (slice, int)):
         raise TypeError("s must be slice or int, got {} with value {}".format(type(s), s))
     if not isinstance(i, int):
@@ -140,9 +164,13 @@ def in_indices(i, s):
         on_grid = (i - start) % step == 0
         return after_start and on_grid and before_stop
     else:
-        return s == i
+        return i == s
 
 def indexof(i, s):
+    """Return the index of the int i in the slice s, or None if i is not in s.
+
+    (I.e. how-manyth item of the slice the index i is.)
+    """
     if not isinstance(s, slice):
         raise TypeError("s must be slice, got {} with value {}".format(type(s), s))
     if in_indices(i, s):
@@ -183,6 +211,13 @@ def test():
     d2 = fupdate(d1, foo='tavern')
     assert sorted(d1.items()) == [('foo', 'bar'), ('fruit', 'apple')]
     assert sorted(d2.items()) == [('foo', 'tavern'), ('fruit', 'apple')]
+
+    from collections import namedtuple
+    A = namedtuple("A", "p q")
+    a = A(17, 23)
+    out = fupdate(a, 0, 42)
+    assert a == A(17, 23)
+    assert out == A(42, 23)
 
     print("All tests PASSED")
 
