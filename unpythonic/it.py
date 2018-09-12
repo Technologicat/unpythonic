@@ -377,7 +377,7 @@ def test():
     # Python's builtin map is not curry-friendly; it accepts arity 1,
     # but actually requires 2. Solution: use partial.
     zipl2 = partial(map, identity)
-    zipr2 = lambda *sequences: map(unpythonic.fun.identity, *(reversed(s) for s in sequences))
+    zipr2 = lambda *sequences: map(identity, *(reversed(s) for s in sequences))
     assert tuple(zipl2((1, 2, 3), (4, 5, 6), (7, 8))) == ((1, 4, 7), (2, 5, 8))
     assert tuple(zipr2((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
 
