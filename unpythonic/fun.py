@@ -51,6 +51,16 @@ def memoize(f):
             return value
     return memoized
 
+#def memoize_simple(f):  # essential idea, without exception handling
+#    memo = {}
+#    @wraps(f)
+#    def memoized(*args, **kwargs):
+#        k = (args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
+#        if k not in memo:
+#            memo[k] = f(*args, **kwargs)
+#        return memo[k]
+#    return memoized
+
 def curry(f):
     """Decorator: curry the function f.
 
@@ -124,7 +134,7 @@ def curry(f):
     curried._is_curried_function = True  # stash for easy detection
     return curried
 
-#def curry_simple(f):  # without passthrough, curry is only 8 lines:
+#def curry_simple(f):  # essential idea, without passthrough
 #    min_arity, _ = arities(f)
 #    @wraps(f)
 #    def curried(*args, **kwargs):
