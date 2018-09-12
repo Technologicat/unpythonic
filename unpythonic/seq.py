@@ -278,6 +278,8 @@ def pipe(values0, *bodys):
             xs = update(*xs)
         else:
             xs = update(xs)
+    if isinstance(xs, (list, tuple)):
+        return xs if len(xs) > 1 else xs[0]
     return xs
 
 class piped:
@@ -486,10 +488,12 @@ def test():
                                            lambda: print("hi"))
     assert test_lazy_begin0() == "the return value"
 
-    # pipe one-input one-output functions
+    # pipe: sequence functions
     double = lambda x: 2 * x
     inc    = lambda x: x + 1
-    assert pipe(42, double, inc) == 85
+    assert pipe1(42, double, inc) == 85  # 1-in-1-out
+    assert pipe1(42, inc, double) == 86
+    assert pipe(42, double, inc) == 85   # n-in-m-out, supports also 1-in-1-out
     assert pipe(42, inc, double) == 86
 
     a, b = pipe((2, 3),
