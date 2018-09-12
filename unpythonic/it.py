@@ -138,6 +138,20 @@ def uniqify(iterable, key=None):
             seen.add(k)
             yield e
 
+def uniq(iterable, key=None):
+    """Like uniqify, but for consecutive duplicates only.
+
+    Named after the *nix utility.
+    """
+    key = key or (lambda x: x)
+    it = iter(iterable)
+    lasthash = object()  # essentially gensym
+    for e in it:
+        h = hash(key(e))
+        if h != lasthash:  # no guarantees on singleton-ness
+            lasthash = h
+            yield e
+
 def take(n, iterable):
     """Return a generator that yields the first n items of iterable, then stops.
 
@@ -388,6 +402,8 @@ def test():
     data = (('foo', 1), ('bar', 1), ('foo', 2), ('baz', 2), ('qux', 4), ('foo', 3))
     assert tuple(uniqify(data, key=itemgetter(0))) == (('foo', 1), ('bar', 1), ('baz', 2), ('qux', 4))
     assert tuple(uniqify(data, key=itemgetter(1))) == (('foo', 1), ('foo', 2), ('qux', 4), ('foo', 3))
+
+    assert tuple(uniq((1, 1, 2, 2, 2, 1, 2, 2, 4, 3, 4, 3, 3))) == (1, 2, 1, 2, 4, 3, 4, 3)
 
     assert tuple(flatten(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, 4, 5, 6, 7, 8, 9)
     assert tuple(flatten1(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, (4, 5), 6, 7, 8, 9)
