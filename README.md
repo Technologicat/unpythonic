@@ -134,6 +134,19 @@ do(lambda e: print("hello 2 from 'do'"),  # delayed because lambda e: ...
 
 Unlike ``begin`` (and ``begin0``), there is no separate ``lazy_do`` (``lazy_do0``), because using a ``lambda e: ...`` wrapper will already delay evaluation of an item. If you want a lazy variant, just wrap each item (also those which don't otherwise need it).
 
+The above pitfall also applies to using escape continuations inside a ``do``. To do that, wrap the ec call into a ``lambda e: ...`` to delay its evaluation until the ``do`` actually runs:
+
+```python
+call_ec(
+  lambda ec:
+    do(assign(x=42),
+       lambda e: ec(e.x),                  # IMPORTANT: must delay this!
+       lambda e: print("never reached")))  # and this (as above)
+```
+
+This way, any assignments made in the ``do`` (which occur only after ``do`` gets control) will have been performed when the ``ec`` is called.
+
+
 #### Sequence functions: ``pipe``, ``piped``, ``lazy_piped``
 
 Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/). A pipe performs a sequence of operations, starting from an initial value, and then returns the final value. It's just function composition, but with an emphasis on data flow, which helps improve readability:
@@ -163,7 +176,7 @@ assert p | getvalue == 84  # p itself is never modified by the pipe system
 
 Set up a pipe by calling ``piped`` for the initial value. Pipe into the sentinel ``getvalue`` to exit the pipe and return the current value.
 
-**Lazy pipes**, useful for mutable initial values:
+**Lazy pipes**, useful for mutable initial values. To perform the planned computation, pipe into the sentinel ``runpipe``:
 
 ```python
 from unpythonic import lazy_piped1, runpipe
@@ -196,7 +209,7 @@ assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
 Both one-in-one-out (*1-to-1*) and n-in-m-out (*n-to-m*) pipes are provided. The 1-to-1 versions have names suffixed with ``1``. The use case is one-argument functions that return one value (which may also be a tuple or list).
 
-In the n-to-m versions, when a function returns a tuple or list, it is unpacked to the argument list of the next function in the pipe. At ``getvalue`` or ``runpipe`` time, the tuple wrapper (if any) around the final result is discarded if it contains only one item. (This allows the n-to-m versions to work also with a single value, as long as it is not a tuple or list.)
+In the n-to-m versions, when a function returns a tuple or list, it is unpacked to the argument list of the next function in the pipe. At ``getvalue`` or ``runpipe`` time, the tuple wrapper (if any) around the final result is discarded if it contains only one item. (This allows the n-to-m versions to work also with a single value, as long as it is not a tuple or list.) The main use case is computations that deal with multiple values, the number of which may also change during the computation (as long as there are as many "slots" on both sides of each individual connection).
 
 
 ### Introduce local bindings: ``let``, ``letrec``
