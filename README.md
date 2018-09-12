@@ -993,16 +993,10 @@ In passthrough, if an intermediate result is a curried function, it is invoked o
 
 ### `cons` and friends
 
-See `unpythonic.llist` for details. **Not** imported by default.
-
-Depends on `tco`, so only import this after having loaded the `tco` implementation you want! **Not** reloaded automatically.
-
 Mainly intended as a practical joke, but does work as expected:
 
 ```python
-import unpythonic
-unpythonic.enable_fasttco()
-from unpythonic.llist import *
+from unpythonic import cons, car, cdr, ll, ll_from_sequence, member, lreverse, lappend, lzip
 
 c = cons(1, 2)
 assert car(c) == 1 and cdr(c) == 2
@@ -1027,9 +1021,11 @@ assert lappend(ll(1, 2), ll(3, 4), ll(5, 6)) == ll(1, 2, 3, 4, 5, 6)
 assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
 ```
 
-The cons cells are immutable à la Racket. Accessors are provided up to `caaaar`, ..., `cddddr`.
+Cons cells are immutable à la Racket (no `set-car!`/`rplaca`, `set-cdr!`/`rplacd`). Accessors are provided up to `caaaar`, ..., `cddddr`.
 
-Iterators are supported to walk over linked lists (this also gives tuple unpacking support). As long as the `cdr` is a `cons` cell, we walk into that. Finally, the last `cdr` is returned unless it is `nil`.
+Iterators are supported to walk over linked lists (this also gives tuple unpacking support). When ``next()`` is called, we return the car of the current cell the iterator points to, and the iterator moves to point to the cons cell in the cdr, if any. When the cdr is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
+
+See `unpythonic.llist` for details.
 
 
 ### ``def`` as a code block: ``@call``

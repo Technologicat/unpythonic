@@ -47,18 +47,27 @@ def _init_tco():
         raise ValueError("Unknown TCO implementation '{}'".format(rc._tco_impl))
     _starimport(tco)
 
+# Modules that require reloading because their module-level initialization
+# performs some from-imports from the TCO module.
 def _init_fploop(reload=False):
     global fploop
     from . import fploop
-    # We must reload fploop, because its module-level initialization
-    # performs some from-imports from the TCO module.
     if reload:
         from importlib import reload
         fploop = reload(fploop)
     _starimport(fploop)
 
+def _init_llist(reload=False):
+    global llist
+    from . import llist
+    if reload:
+        from importlib import reload
+        llist = reload(llist)
+    _starimport(llist)
+
 _init_tco()
 _init_fploop()
+_init_llist()
 
 def enable_fasttco(b=True):
     """Switch the fast TCO implementation on/off.
@@ -70,3 +79,4 @@ def enable_fasttco(b=True):
 
     _init_tco()
     _init_fploop(reload=True)
+    _init_llist(reload=True)
