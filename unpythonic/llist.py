@@ -5,7 +5,8 @@
 #from itertools import product, repeat
 
 from unpythonic.misc import call
-from unpythonic.fun import composer1, foldr, foldl
+from unpythonic.fun import composer1
+from unpythonic.it import foldr, foldl
 
 # TODO: reload this module in init
 # TCO implementation switchable at runtime
