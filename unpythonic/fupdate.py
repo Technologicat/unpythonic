@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Functionally updated sequences and mappings."""
+"""Functionally update sequences and mappings."""
 
 __all__ = ["fupdate", "ShadowedSequence", "in_slice", "index_in_slice"]
 
