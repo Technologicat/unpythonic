@@ -12,7 +12,7 @@ Flatten based on Danny Yoo's version:
 """
 
 __all__ = ["foldl", "foldr", "reducel", "reducer",
-           "flatmap", "mapr", "zipr", "uniqify",
+           "flatmap", "mapr", "zipr", "uniqify", "uniq",
            "take", "drop", "split_at",
            "flatten", "flatten1", "flatten_in"]
 
