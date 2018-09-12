@@ -100,7 +100,9 @@ class cons:
         return "({})".format(" ".join(result))
     # TODO: trampoline this
     def __eq__(self, other):
-        return car(self) == car(other) and cdr(self) == cdr(other)
+        if isinstance(other, cons):
+            return self.car == other.car and self.cdr == other.cdr
+        return False
     # TODO: __hash__ et al.?
 
 def car(x):
