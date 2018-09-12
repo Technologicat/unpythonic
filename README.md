@@ -12,19 +12,21 @@ Other design considerations are simplicity, robustness, and minimal dependencies
    - [Stuff imperative code into a lambda: ``do``](#stuff-imperative-code-into-a-lambda-do)
    - [Sequence functions: ``pipe``, ``piped``, ``lazy_piped``](#sequence-functions-pipe-piped-lazy_piped)
  - [Introduce local bindings: ``let``, ``letrec``](#introduce-local-bindings-let-letrec)
-   - [The environment: ``env``](#the-environment-env) (details)
+   - [The environment: ``env``](#the-environment-env)
  - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
    - [Loops in FP style (with TCO)](#loops-in-fp-style-with-tco)
  - [Escape continuations (ec)](#escape-continuations-ec)
    - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
- - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables)
- - [Batteries for functools](#batteries-for-functools) (e.g. Racket-like multi-input `foldl`, `foldr`)
+ - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables, dynamic assignment)
+ - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`
+ - [Batteries for itertools](#batteries-for-itertools): Racket-style multi-input `foldl`, `foldr`; uniqification, flattening
+ - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
  - [`cons` and friends](#cons-and-friends)
- - [``def`` as a code block: ``@call``](#def-as-a-code-block-call) (run a block of code immediately, in a new lexical scope)
+ - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
 
 For highlights, we recommend **Loops in FP style** and **call/ec**, and possibly **Dynamic scoping**.
 
-You can also take the [quick tour](quick_tour.py) or the [full tour](tour.py). For additional examples, see the `test()` function in each submodule, and the docstrings of the individual features.
+You can also take the [quick tour](quick_tour.py) or the slightly longer [tour](tour.py). For the most up-to-date examples, see the `test()` function in each submodule, the docstrings of the individual features, and this README.
 
 ### Assign-once
 
@@ -71,7 +73,7 @@ No monadic magic. Basically, ``do`` is:
 
   - An improved ``begin`` that can bind names to intermediate results and then use them in later items.
 
-  - A ``let*`` (technically, ``letrec``) where making a binding is optional, so that some items can have only side effects if so desired. No separate ``body``; all items play the same role.
+  - A ``let*`` (technically, ``letrec``) where making a binding is optional, so that some items can have only side effects if so desired. No semantically distinct ``body``; all items play the same role.
 
 Like in ``letrec`` (see below), use ``lambda e: ...`` to access the environment, and to wrap callable values (to prevent misunderstandings).
 
@@ -144,7 +146,7 @@ call_ec(
        lambda e: print("never reached")))  # and this (as above)
 ```
 
-This way, any assignments made in the ``do`` (which occur only after ``do`` gets control) will have been performed when the ``ec`` is called.
+This way, any assignments made in the ``do`` (which occur only after ``do`` gets control), performed above the line with the ``ec`` call, will have been performed when the ``ec`` is called.
 
 
 #### Sequence functions: ``pipe``, ``piped``, ``lazy_piped``
@@ -953,32 +955,36 @@ The source of the copy is always the main thread mainly because Python's `thread
 
 ### Batteries for functools
 
-For details, see `unpythonic.fun`. (But loaded into the top-level `unpythonic` namespace, just like everything else.)
+Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://github.com/suor/funcy/). In ``unpythonic``:
 
-Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://github.com/suor/funcy/). Selling points over other libraries:
-
- - Racket-style `foldl`, `foldr` that support multiple input sequences.
-   - Like in Racket, `op(elt, acc)`; general case `op(e1, e2, ..., en, acc)`. Note Python's own `functools.reduce` uses the ordering `op(acc, elt)` instead.
-   - No sane default for multi-input case, so the initial value for `acc` must be given.
  - `memoize` caches also exceptions à la Racket.
    - If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
- - `curry` supports passthrough on the right when too many args (à la [spicy](https://github.com/Technologicat/spicy))
+ - `curry` supports passthrough on the right when too many args (à la Haskell, or [spicy](https://github.com/Technologicat/spicy) for Racket)
+   - If the intermediate result of a passthrough is a curried function, it is invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
+   - For simplicity, all remaining keyword arguments are fed in at the first step that has too many positional arguments.
+ - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
+   - Any number of positional arguments is supported, with similar rules as the pipe system. Multiple return values packed into a tuple or list are unpacked to the argument list of the next function in the chain.
+   - `composel1`, `composer1` for 1-in-1-out chains (faster; also useful for a single value that is a tuple or list).
+   - `composeli`, `composeri`, `composeli1`, `composeri1` if your functions are stored in an iterable.
+ - `andf`, `orf`, `notf`: compose predicates (like Racket's `conjoin`, `disjoin`, `negate`).
  - `rotate`: a cousin of `flip`, for permuting positional arguments.
- - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting one-in-one-out functions into compose chains with arity > 1.
- - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple. (Essentially, what the bind operator of the List monad does.)
+ - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting 1-in-1-out functions into m-in-n-out compose chains.
+ - `identity`, `const` which sometimes come in handy when programming with higher-order functions.
 
-Examples:
+Examples (see also the next section):
 
 ```python
-from unpythonic.fun import *
+from unpythonic import andf, orf, flatmap, rotate, curry, foldl, foldr, composer, to1st, cons, nil, ll
 
-def msqrt(x):  # multivalued sqrt
-    if x == 0.:
-        return (0.,)
-    else:
-        s = x**0.5
-        return (s, -s)
-assert flatmap(msqrt, (0, 1, 4, 9)) == (0., 1., -1., 2., -2., 3., -3.)
+isint  = lambda x: isinstance(x, int)
+iseven = lambda x: x % 2 == 0
+isstr  = lambda s: isinstance(s, str)
+assert andf(isint, iseven)(42) is True
+assert andf(isint, iseven)(43) is False
+pred = orf(isstr, andf(isint, iseven))
+assert pred(42) is True
+assert pred("foo") is True
+assert pred(None) is False
 
 @rotate(1)  # cycle *the args* (not their slots!) to the right by one place.
 def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
@@ -988,25 +994,192 @@ zipr = (curry(foldr))(zipper, ())
 assert zipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
 assert zipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
 
-nil = ()
-def cons(x, l):  # elt, acc
-    return (x,) + l
 map_one = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
 double = lambda x: 2 * x
 doubler = map_one(double)
-assert doubler((1, 2, 3)) == (2, 4, 6)
+assert doubler((1, 2, 3)) == ll(2, 4, 6)
 
 # passthrough on the right
 assert curry(double)(2, "foo") == (4, "foo")   # arity of double is 1
-assert curry(map_one)(double, (1, 2, 3)) == (2, 4, 6)
+assert curry(map_one)(double, (1, 2, 3)) == ll(2, 4, 6)
 ```
 
-In passthrough, if an intermediate result is a curried function, it is invoked on the remaining positional args.
+*Minor detail*: In the last example, the input ``(1, 2, 3)`` is given as a tuple, not as a linked list, because the input to ``foldr`` must be a sequence. We could also write it as:
+
+```python
+double = lambda x: 2 * x
+mapr_one = lambda f: (curry(foldl))(composer(cons, to1st(f)), nil)  # foldl works on iterables
+mapl_one = lambda f: curry(composer(mapr_one(f), lreverse))
+assert curry(mapl_one)(double, ll(1, 2, 3)) == ll(2, 4, 6)
+```
+
+(Of course, this exercise is useless in practice, because there is already the builtin ``map``.)
+
+
+### Batteries for itertools
+
+ - Racket-style `foldl`, `foldr` that support multiple input sequences.
+   - Like in Racket, `op(elt, acc)`; general case `op(e1, e2, ..., en, acc)`. Note Python's own `functools.reduce` uses the ordering `op(acc, elt)` instead.
+   - No sane default for multi-input case, so the initial value for `acc` must be given.
+   - One-input versions are provided as `reducel`, `reducer`, with semantics similar to Python's `functools.reduce`, but with the rackety ordering `op(elt, acc)`.
+ - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple.
+   - Essentially, ``composel(map(...), flatten1)``; the same thing the bind operator of the List monad does.
+ - `mapr`, `zipr`: variants of the builtin `map` and `zip` that first reverse each input sequence.
+ - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively).
+ - `flatten1`, `flatten`, `flatten_in`: remove nested list structure.
+   - `flatten1`: outermost level only.
+   - `flatten`: recursive, with an optional predicate that controls whether to flatten a given sublist.
+   - `flatten_in`: recursive, with an optional predicate; but recurse also into items which don't match the predicate.
+ - `take`, `drop`, `split_at`, based on `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes), but returning a generator.
+   - Especially useful for testing generators.
+
+Examples:
+
+```python
+from functools import partial
+from unpythonic import foldl, foldr, flatmap, mapr, zipr, uniqify, uniq, \
+                       flatten1, flatten, flatten_in, take, drop
+
+def msqrt(x):  # multivalued sqrt
+    if x == 0.:
+        return (0.,)
+    else:
+        s = x**0.5
+        return (s, -s)
+assert tuple(flatmap(msqrt, (0, 1, 4, 9))) == (0., 1., -1., 2., -2., 3., -3.)
+
+assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+
+zipr2 = partial(mapr, identity)
+assert tuple(zipr2((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+
+assert tuple(uniqify((1, 1, 2, 2, 2, 1, 2, 2, 4, 3, 4, 3, 3))) == (1, 2, 4, 3)  # all
+assert tuple(uniq((1, 1, 2, 2, 2, 1, 2, 2, 4, 3, 4, 3, 3))) == (1, 2, 1, 2, 4, 3, 4, 3)  # consecutive
+
+assert tuple(flatten1(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, (4, 5), 6, 7, 8, 9)
+assert tuple(flatten(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, 4, 5, 6, 7, 8, 9)
+
+is_nested = lambda sublist: all(isinstance(x, (tuple, list)) for x in sublist)
+assert tuple(flatten((((1, 2), (3, 4)), (5, 6)), is_nested)) == ((1, 2), (3, 4), (5, 6))
+
+data = (((1, 2), ((3, 4), (5, 6)), 7), ((8, 9), (10, 11)))
+assert tuple(flatten(data, is_nested))    == (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
+assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8, 9), (10, 11))
+
+with_n = lambda *args: (partial(f, n) for n, f in args)
+look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
+assert tuple(look(5, 10)(range(20))) == tuple(range(5, 15))
+```
+
+With ``curry`` from the previous section, we can also write the last example as:
+
+```python
+look = curry(lambda n1, n2: curry(composel(*with_n((n1, drop), (n2, take)))))
+assert tuple(look(5, 10, range(20))) == tuple(range(5, 15))
+```
+
+which gives us a more readable invocation at the cost of a less readable definition. (At the call site, essentially we just want to `look 5 10 (range 20)`.)
+
+(We curry the outer function to make it pass through extra arguments if it gets too many, and the inner function to trigger the invocation of the intermediate result with the passed-through extra arguments.)
+
+
+### Functional update, sequence shadowing
+
+We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). For details, see ``unpythonic.fup``.
+
+``ShadowedSequence`` is used by the function ``fupdate``, which functionally updates sequences and mappings. Whereas ``ShadowedSequence`` reads directly from the original sequences at access time, ``fupdate`` makes a shallow copy (of the same type as the given input sequence) when it finalizes its output (this trades some memory for performance, useful if the same data is read often).
+
+```python
+from unpythonic import fupdate
+
+lst = [1, 2, 3]
+out = fupdate(lst, 1, 42)
+assert lst == [1, 2, 3]  # the original remains untouched
+assert out == [1, 42, 3]
+
+lst = [1, 2, 3]
+out = fupdate(lst, -1, 42)  # negative indices also supported
+assert lst == [1, 2, 3]
+assert out == [1, 2, 42]
+```
+
+Immutable input sequences are allowed. Replacing a slice of a tuple by a sequence:
+
+```python
+from itertools import repeat
+lst = (1, 2, 3, 4, 5)
+assert fupdate(lst, slice(0, None, 2), tuple(repeat(10, 3))) == (10, 2, 10, 4, 10)
+assert fupdate(lst, slice(1, None, 2), tuple(repeat(10, 2))) == (1, 10, 3, 10, 5)
+assert fupdate(lst, slice(None, None, 2), tuple(repeat(10, 3))) == (10, 2, 10, 4, 10)
+assert fupdate(lst, slice(None, None, -1), tuple(range(5))) == (4, 3, 2, 1, 0)
+```
+
+Slicing supports negative indices and steps, and default starts, stops and steps, as usual in Python. Just remember ``a[start:stop:step]`` actually means ``a[slice(start, stop, step)]`` (with ``None`` replacing omitted ``start``, ``stop`` and ``step``), and everything should follow. Multidimensional arrays are **not** supported.
+
+When ``fupdate`` constructs its output, the replacement occurs by walking *the input sequence* left-to-right, and pulling an item from the replacement sequence when the given replacement specification so requires. Hence the replacement sequence is not necessarily accessed left-to-right. (In the last example above, ``tuple(range(5))`` was read in the order ``(4, 3, 2, 1, 0)``.)
+
+The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored, but if the replacement is too short, ``ValueError`` is raised.
+
+It is also possible to replace multiple individual items. These are treated as separate specifications, applied left to right (so later updates shadow earlier ones, if updating at the same index):
+
+
+```python
+lst = (1, 2, 3, 4, 5)
+out = fupdate(lst, (1, 2, 3), (17, 23, 42))
+assert lst == (1, 2, 3, 4, 5)
+assert out == (1, 17, 23, 42, 5)
+```
+
+Multiple specifications can be used with slices and sequences as well:
+
+```python
+lst = tuple(range(10))
+out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2)),
+                   (tuple(repeat(2, 5)), tuple(repeat(3, 5))))
+assert lst == tuple(range(10))
+assert out == (2, 3, 2, 3, 2, 3, 2, 3, 2, 3)
+```
+
+Strictly speaking, each specification can be either a slice/sequence pair or an index/item pair:
+
+```python
+lst = tuple(range(10))
+out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2), 6),
+                   (tuple(repeat(2, 5)), tuple(repeat(3, 5)), 42))
+assert lst == tuple(range(10))
+assert out == (2, 3, 2, 3, 2, 3, 42, 3, 2, 3)
+```
+
+Also mappings can be functionally updated:
+
+```python
+d1 = {'foo': 'bar', 'fruit': 'apple'}
+d2 = fupdate(d1, foo='tavern')
+assert sorted(d1.items()) == [('foo', 'bar'), ('fruit', 'apple')]
+assert sorted(d2.items()) == [('foo', 'tavern'), ('fruit', 'apple')]
+```
+
+But there is no support for immutable mappings, because Python's standard library doesn't provide an immutable dict type. For mappings, ``fupdate`` is essentially just ``copy.copy()`` and then ``.update()`` (which wouldn't exist for immutable inputs).
+
+We can also functionally update a namedtuple:
+
+```python
+from collections import namedtuple
+A = namedtuple("A", "p q")
+a = A(17, 23)
+out = fupdate(a, 0, 42)
+assert a == A(17, 23)
+assert out == A(42, 23)
+```
+
+Namedtuples export only a sequence interface, so they cannot be treated as mappings.
+
+Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
 
 
 ### `cons` and friends
 
-Mainly intended as a practical joke, but does work as expected:
+*Laugh, it's funny.*
 
 ```python
 from unpythonic import cons, car, cdr, ll, ll_from_sequence, member, lreverse, lappend, lzip
@@ -1037,6 +1210,8 @@ assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
 Cons cells are immutable à la Racket (no `set-car!`/`rplaca`, `set-cdr!`/`rplacd`). Accessors are provided up to `caaaar`, ..., `cddddr`.
 
 Iterators are supported to walk over linked lists (this also gives tuple unpacking support). When ``next()`` is called, we return the car of the current cell the iterator points to, and the iterator moves to point to the cons cell in the cdr, if any. When the cdr is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
+
+But linked lists are not sequences, so e.g. Python's builtin ``reversed`` doesn't work on them. This also implies ``foldr`` (as implemented in ``unpythonic``) won't accept linked lists. If you need to right-fold a linked list, ``lreverse`` it and then left-fold that.
 
 See `unpythonic.llist` for details.
 
@@ -1135,7 +1310,7 @@ Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a 
 
 ## Notes
 
-The trampoline implementation takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of the FP looping constructs.
+The trampoline implementation takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of the FP looping constructs. An important source of inspiration was also [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
 
 ### On ``let`` and Python
 
@@ -1195,11 +1370,11 @@ For other libraries bringing TCO to Python, see:
 
  - [tco](https://github.com/baruchel/tco) by Thomas Baruchel, based on exceptions.
  - [ActiveState recipe 474088](https://github.com/ActiveState/code/tree/master/recipes/Python/474088_Tail_Call_Optimization_Decorator), based on ``inspect``.
- - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the inspiration for ours.
+ - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the original source of the approach used here.
 
 ### Wait, no monads?
 
-Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done elsewhere, see [PyMonad](https://bitbucket.org/jason_delaat/pymonad/) or [OSlash](https://github.com/dbrattli/OSlash) if you need them.
+Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done elsewhere, see [OSlash](https://github.com/dbrattli/OSlash) if you need them.
 
 Especially the `List` monad can be useful also in Python, e.g. to get the effects of McCarthy's [`amb`](https://rosettacode.org/wiki/Amb) without `call/cc` ([example](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/amb.py)). Compare these solutions, [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html), using `call/cc`.
 
