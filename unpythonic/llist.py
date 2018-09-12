@@ -39,6 +39,8 @@ __all__ = _exports
 class nil:
     def tolist(self):  # for completeness, since cons cells have it
         return []
+    def totuple(self):
+        return ()
     def __repr__(self):
         return "nil"
 
@@ -84,6 +86,8 @@ class cons:
         return ConsIterator(self)
     def tolist(self):
         return [x for x in self]  # implicitly using __iter__
+    def totuple(self):
+        return tuple(self.tolist())
     def __repr__(self):
         # special lispy printing for linked lists
         # TODO: refactor this
