@@ -10,7 +10,7 @@ Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 
 __all__ = ["memoize", "curry",
            "flip", "rotate",
-           "apply", "identity", "const", "negate", "conjoin", "disjoin",
+           "apply", "identity", "const", "notf", "andf", "orf",
            "composer1", "composel1", "composer", "composel",      # *args
            "composeri1", "composeli1", "composeri", "composeli",  # iterable
            "to1st", "to2nd", "tokth", "tolast", "to"]
@@ -214,20 +214,19 @@ def const(*args):
         return ret
     return constant
 
-def negate(f):
+def notf(f):  # Racket: negate
     """Return a function that returns the logical not of the result of f.
 
     Examples::
 
-        assert negate(lambda x: 2*x)(3) is False
-        assert negate(lambda x: 2*x)(0) is True
+        assert notf(lambda x: 2*x)(3) is False
+        assert notf(lambda x: 2*x)(0) is True
     """
-    @wraps(f)
     def negated(*args, **kwargs):
         return not f(*args, **kwargs)
     return negated
 
-def conjoin(*fs):
+def andf(*fs):  # Racket: conjoin
     """Return a function that conjoins calls to fs with "and".
 
     Each function in ``fs`` is called with the same ``args`` and ``kwargs``,
@@ -239,8 +238,8 @@ def conjoin(*fs):
 
     Examples::
 
-        assert conjoin(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(42) is True
-        assert conjoin(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(43) is False
+        assert andf(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(42) is True
+        assert andf(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(43) is False
     """
     def conjoined(*args, **kwargs):
         b = True
@@ -251,7 +250,7 @@ def conjoin(*fs):
         return b
     return conjoined
 
-def disjoin(*fs):
+def orf(*fs):  # Racket: disjoin
     """Return a function that disjoins calls to fs with "or".
 
     Each function in ``fs`` is called with the same ``args`` and ``kwargs``,
@@ -264,9 +263,9 @@ def disjoin(*fs):
 
         isstr  = lambda s: isinstance(s, str)
         iseven = lambda x: isinstance(x, int) and x % 2 == 0
-        assert disjoin(isstr, iseven)(42) is True
-        assert disjoin(isstr, iseven)("foo") is True
-        assert disjoin(isstr, iseven)(None) is False  # neither condition holds
+        assert orf(isstr, iseven)(42) is True
+        assert orf(isstr, iseven)("foo") is True
+        assert orf(isstr, iseven)(None) is False  # neither condition holds
     """
     def disjoined(*args, **kwargs):
         b = False
@@ -578,15 +577,17 @@ def test():
     assert apply(hello, 1, 2, [3, 4, 5]) == (1, 2, 3, 4, 5)
 
     assert const(1, 2, 3)(42, "foo") == (1, 2, 3)
-    assert negate(lambda x: 2*x)(3) is False
-    assert negate(lambda x: 2*x)(0) is True
-    assert conjoin(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(42) is True
-    assert conjoin(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(43) is False
+    assert notf(lambda x: 2*x)(3) is False
+    assert notf(lambda x: 2*x)(0) is True
+    isint  = lambda x: isinstance(x, int)
+    iseven = lambda x: x % 2 == 0
     isstr  = lambda s: isinstance(s, str)
-    iseven = lambda x: isinstance(x, int) and x % 2 == 0
-    assert disjoin(isstr, iseven)(42) is True
-    assert disjoin(isstr, iseven)("foo") is True
-    assert disjoin(isstr, iseven)(None) is False  # neither condition holds
+    assert andf(isint, iseven)(42) is True
+    assert andf(isint, iseven)(43) is False
+    pred = orf(isstr, andf(isint, iseven))
+    assert pred(42) is True
+    assert pred("foo") is True
+    assert pred(None) is False  # neither condition holds
 
     print("All tests PASSED")
 
