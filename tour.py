@@ -10,7 +10,8 @@ from unpythonic import assignonce, \
                        let, letrec, dlet, dletrec, blet, bletrec, \
                        call, \
                        begin, begin0, lazy_begin, lazy_begin0, \
-                       pipe, piped, lazy_piped, get, do, do0, assign, \
+                       pipe, piped, getvalue, lazy_piped, lazy_piped1, runpipe, \
+                       do, do0, assign, \
                        trampolined, jump, looped, looped_over, SELF, \
                        setescape, escape, call_ec
 
@@ -150,33 +151,32 @@ def main():
     assert pipe(42, double, inc) == 85
     assert pipe(42, inc, double) == 86
 
-    # Optional shell-like syntax. "get" exits the pipe, returning the current value.
-    assert piped(42) | double | inc | get == 85
+    # Optional shell-like syntax. "getvalue" exits the pipe, returning the current value.
+    assert piped(42) | double | inc | getvalue == 85
 
     y = piped(42) | double  # y is now a "piped" object containing the value 84
-    assert y | inc | get == 85
-    assert y | get == 84  # y is never modified by the pipe system
+    assert y | inc | getvalue == 85
+    assert y | getvalue == 84  # y is never modified by the pipe system
 
-    # lazy pipe: compute at get time
+    # lazy pipe: compute later
     lst = [1]
     def append_succ(l):
         l.append(l[-1] + 1)
         return l  # important, handed to the next function in the pipe
-    p = lazy_piped(lst) | append_succ | append_succ  # plan a computation
+    p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
     assert lst == [1]        # nothing done yet
-    p | get                  # run the computation
+    p | runpipe              # run the computation
     assert lst == [1, 2, 3]  # now the side effect has updated lst.
 
     # lazy pipe as an unfold
     fibos = []
-    def nextfibo(state):
-        a, b = state
+    def nextfibo(a, b):
         fibos.append(a)      # store result by side effect
         return (b, a + b)    # new state, handed to next function in the pipe
-    p = lazy_piped((1, 1))   # load initial state into a lazy pipe
+    p = lazy_piped(1, 1)   # load initial state into a lazy pipe
     for _ in range(10):      # set up pipeline
         p = p | nextfibo
-    p | get  # run it
+    p | runpipe
     print(fibos)
 
     # do: improved begin() that can name intermediate results
