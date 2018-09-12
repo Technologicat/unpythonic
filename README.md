@@ -10,7 +10,7 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [Multi-expression lambdas](#multi-expression-lambdas)
    - [Sequence side effects: ``begin``](#sequence-side-effects-begin)
    - [Stuff imperative code into a lambda: ``do``](#stuff-imperative-code-into-a-lambda-do)
-   - [Sequence one-input one-output functions: ``pipe``, ``piped``, ``lazy_piped``](#sequence-one-input-one-output-functions-pipe-piped-lazy_piped)
+   - [Sequence functions: ``pipe``, ``piped``, ``lazy_piped``](#sequence-functions-pipe-piped-lazy_piped)
  - [Introduce local bindings: ``let``, ``letrec``](#introduce-local-bindings-let-letrec)
    - [The environment: ``env``](#the-environment-env) (details)
  - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
@@ -134,9 +134,9 @@ do(lambda e: print("hello 2 from 'do'"),  # delayed because lambda e: ...
 
 Unlike ``begin`` (and ``begin0``), there is no separate ``lazy_do`` (``lazy_do0``), because using a ``lambda e: ...`` wrapper will already delay evaluation of an item. If you want a lazy variant, just wrap each item (also those which don't otherwise need it).
 
-#### Sequence one-input one-output functions: ``pipe``, ``piped``, ``lazy_piped``
+#### Sequence functions: ``pipe``, ``piped``, ``lazy_piped``
 
-Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/). A pipe performs a sequence of operations, starting from an initial value, and then returns the final value:
+Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/). A pipe performs a sequence of operations, starting from an initial value, and then returns the final value. It's just function composition, but with an emphasis on data flow, which helps improve readability:
 
 ```python
 from unpythonic import pipe
@@ -148,52 +148,55 @@ x = pipe(42, double, inc)
 assert x == 85
 ```
 
-This removes the need to read the source code backwards (compare `x = inc(double(42))`), while also making `x` have only a single definition at the call site.
-
 Optional **shell-like syntax**, with purely functional updates:
 
 ```python
-from unpythonic import piped, get
+from unpythonic import piped, getvalue
 
-x = piped(42) | double | inc | get
+x = piped(42) | double | inc | getvalue
 assert x == 85
 
 p = piped(42) | double
-assert p | inc | get == 85
-assert p | get == 84  # p itself is never modified by the pipe system
+assert p | inc | getvalue == 85
+assert p | getvalue == 84  # p itself is never modified by the pipe system
 ```
 
-Set up a pipe by calling ``piped`` for the initial value. Pipe into the sentinel ``get`` to exit the pipe and return the current value.
+Set up a pipe by calling ``piped`` for the initial value. Pipe into the sentinel ``getvalue`` to exit the pipe and return the current value.
 
-**Lazy pipes** for mutable initial values. Computation runs at ``get`` time:
+**Lazy pipes**, useful for mutable initial values:
 
 ```python
-from unpythonic import lazy_piped, get
+from unpythonic import lazy_piped1, runpipe
 
 lst = [1]
 def append_succ(l):
     l.append(l[-1] + 1)
-    return l  # important, handed to the next function in the pipe
-p = lazy_piped(lst) | append_succ | append_succ  # plan a computation
+    return l  # this return value is handed to the next function in the pipe
+p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
 assert lst == [1]        # nothing done yet
-p | get                  # run the computation
+p | runpipe              # run the computation
 assert lst == [1, 2, 3]  # now the side effect has updated lst.
 ```
 
 Lazy pipe as an unfold:
 
 ```python
+from unpythonic import lazy_piped, runpipe
+
 fibos = []
-def nextfibo(state):
-    a, b = state
+def nextfibo(a, b):      # multiple arguments allowed
     fibos.append(a)      # store result by side effect
     return (b, a + b)    # new state, handed to next function in the pipe
-p = lazy_piped((1, 1))   # load initial state into a lazy pipe
+p = lazy_piped(1, 1)     # load initial state
 for _ in range(10):      # set up pipeline
     p = p | nextfibo
-p | get  # run it
-print(fibos)
+p | runpipe
+assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 ```
+
+Both one-in-one-out (*1-to-1*) and n-in-m-out (*n-to-m*) pipes are provided. The 1-to-1 versions have names suffixed with ``1``. The use case is one-argument functions that return one value (which may also be a tuple or list).
+
+In the n-to-m versions, when a function returns a tuple or list, it is unpacked to the argument list of the next function in the pipe. At ``getvalue`` or ``runpipe`` time, the tuple wrapper (if any) around the final result is discarded if it contains only one item. (This allows the n-to-m versions to work also with a single value, as long as it is not a tuple or list.)
 
 
 ### Introduce local bindings: ``let``, ``letrec``

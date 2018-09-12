@@ -4,7 +4,7 @@
 
 __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
            "pipe1", "piped1", "lazy_piped1",
-           "pipe", "piped", "lazy_piped", "get",
+           "pipe", "piped", "getvalue", "lazy_piped", "runpipe",
            "do", "do0", "assign"]
 
 from collections import namedtuple
@@ -138,10 +138,11 @@ def pipe1(value0, *bodys):
     return x
 
 @call  # make a singleton
-class get:  # sentinel with a nice repr
+class getvalue:  # sentinel with a nice repr
     """Sentinel; pipe into this to exit a shell-like pipe and return the current value."""
     def __repr__(self):
         return "<sentinel for pipe exit>"
+runpipe = getvalue  # same thing, but semantically better name for lazy pipes
 
 class piped1:
     """Shell-like piping syntax.
@@ -156,21 +157,21 @@ class piped1:
 
         Return a ``piped`` object, for chainability.
 
-        As the only exception, if ``f`` is the sentinel ``get``, return the
-        current value (useful for exiting the pipe).
+        As the only exception, if ``f`` is the sentinel ``getvalue``,
+        return the current value (useful for exiting the pipe).
 
         A new ``piped`` object is created at each step of piping; the "update"
         is purely functional, nothing is overwritten.
 
         Examples::
 
-            x = piped1(42) | double | inc | get
+            x = piped1(42) | double | inc | getvalue
 
             y = piped1(42) | double
-            assert y | inc | get == 85
-            assert y | get == 84  # y is not modified
+            assert y | inc | getvalue == 85
+            assert y | getvalue == 84  # y is not modified
         """
-        if f is get:
+        if f is getvalue:
             return self._x
         else:
             cls = self.__class__
@@ -179,7 +180,7 @@ class piped1:
         return "<piped1 at 0x{:x}; value {}>".format(id(self), self._x)
 
 class lazy_piped1:
-    """Like piped, but apply the functions later, at get time.
+    """Like piped, but apply the functions later.
 
     This matters if the initial value is mutable:
 
@@ -188,7 +189,7 @@ class lazy_piped1:
           the pipeline.
 
         - ``lazy_piped`` just sets up a computation, and performs it when eventually
-          piped into ``get``. The computation always looks up the latest state
+          piped into ``runpipe``. The computation always looks up the latest state
           of the initial value.
 
     Another way to say this is that ``lazy_piped`` looks up the initial value
@@ -204,7 +205,7 @@ class lazy_piped1:
     def __or__(self, f):
         """Pipe the value into f; but just plan to do so, don't perform it yet.
 
-        To run the stored computation, pipe into ``get``.
+        To run the stored computation, pipe into ``runpipe``.
 
         Examples::
 
@@ -212,9 +213,9 @@ class lazy_piped1:
             def append_succ(l):
                 l.append(l[-1] + 1)
                 return l  # important, handed to the next function in the pipe
-            p = lazy_piped(lst) | append_succ | append_succ  # plan a computation
+            p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
             assert lst == [1]        # nothing done yet
-            p | get                  # run the computation
+            p | runpipe              # run the computation
             assert lst == [1, 2, 3]  # now the side effect has updated lst.
 
             # lazy pipe as an unfold
@@ -223,13 +224,13 @@ class lazy_piped1:
                 a, b = state
                 fibos.append(a)      # store result by side effect
                 return (b, a + b)    # new state, handed to next function in the pipe
-            p = lazy_piped((1, 1))   # load initial state into a lazy pipe
+            p = lazy_piped1((1, 1))  # load initial state into a lazy pipe
             for _ in range(10):      # set up pipeline
                 p = p | nextfibo
-            p | get  # run it
+            p | runpipe
             print(fibos)
         """
-        if f is get:  # compute now
+        if f is runpipe:  # compute now
             v = self._x
             for g in self._funcs:
                 v = g(v)
@@ -291,30 +292,46 @@ class piped:
 
             f = lambda x, y: (2*x, y+1)
             g = lambda x, y: (x+1, 2*y)
-            x = piped(2, 3) | f | g | get  # --> (5, 8)
+            x = piped(2, 3) | f | g | getvalue  # --> (5, 8)
         """
-        if f is get:
-            return self._xs
+        xs = self._xs
+        if f is getvalue:
+            return xs if len(xs) > 1 else xs[0]
         else:
             cls = self.__class__
-            if isinstance(self._xs, (list, tuple)):
-                return cls(*f(*self._xs))
+            if isinstance(xs, (list, tuple)):
+                newxs = f(*xs)
             else:
-                return cls(f(self._xs))
+                newxs = f(xs)
+            if isinstance(newxs, (list, tuple)):
+                return cls(*newxs)
+            else:
+                return cls(newxs)
     def __repr__(self):
         return "<piped at 0x{:x}; values {}>".format(id(self), self._xs)
 
 class lazy_piped:
     """Like lazy_piped1, but for any number of inputs/outputs at each step.
 
-    Example::
+    Examples::
 
         p1 = lazy_piped(2, 3)
         p2 = p1 | (lambda x, y: (x + 1, 2 * y, "foo"))
         p3 = p2 | (lambda x, y, s: (x * 2, y + 1, "got {}".format(s)))
         p4 = p3 | (lambda x, y, s: (x + y, s))
         # nothing done yet!
-        assert (p4 | get) == (13, "got foo")
+        assert (p4 | runpipe) == (13, "got foo")
+
+        # lazy pipe as an unfold
+        fibos = []
+        def nextfibo(a, b):    # now two arguments
+            fibos.append(a)
+            return (b, a + b)  # two return values, still expressed as a tuple
+        p = lazy_piped(1, 1)
+        for _ in range(10):
+            p = p | nextfibo
+        p | runpipe
+        print(fibos)
     """
     def __init__(self, *xs, _funcs=None):
         """Set up a lazy pipe and load the initial values xs into it.
@@ -325,14 +342,14 @@ class lazy_piped:
         self._funcs = _funcs or ()
     def __or__(self, f):
         """Pipe the values into f; but just plan to do so, don't perform it yet."""
-        if f is get:  # compute now
+        if f is runpipe:  # compute now
             vs = self._xs
             for g in self._funcs:
                 if isinstance(vs, (list, tuple)):
                     vs = g(*vs)
                 else:
                     vs = g(vs)
-            return vs
+            return vs if len(vs) > 1 else vs[0]
         else:
             # just pass on the references to the original xs.
             cls = self.__class__
@@ -492,20 +509,20 @@ def test():
     assert (a, b) == (13, "got foo")
 
     # with optional shell-like syntax
-    assert piped1(42) | double | inc | get == 85
+    assert piped1(42) | double | inc | getvalue == 85
 
     y = piped1(42) | double
-    assert y | inc | get == 85
-    assert y | get == 84  # y is never modified by the pipe system
+    assert y | inc | getvalue == 85
+    assert y | getvalue == 84  # y is never modified by the pipe system
 
-    # lazy pipe: compute at get time
+    # lazy pipe: compute later
     lst = [1]
     def append_succ(l):
         l.append(l[-1] + 1)
         return l  # important, handed to the next function in the pipe
     p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
     assert lst == [1]        # nothing done yet
-    p | get                  # run the computation
+    p | runpipe              # run the computation
     assert lst == [1, 2, 3]  # now the side effect has updated lst.
 
     # lazy pipe as an unfold
@@ -514,27 +531,41 @@ def test():
         a, b = state
         fibos.append(a)      # store result by side effect
         return (b, a + b)    # new state, handed to next function in the pipe
-    p = lazy_piped1((1, 1))   # load initial state into a lazy pipe
+    p = lazy_piped1((1, 1))  # load initial state into a lazy pipe
     for _ in range(10):      # set up pipeline
         p = p | nextfibo
-    p | get  # run it
-    print(fibos)
+    p | runpipe
+    assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
     # multi-arg version
     f = lambda x, y: (2*x, y+1)
     g = lambda x, y: (x+1, 2*y)
-    x = piped(2, 3) | f | g | get  # --> (5, 8)
+    x = piped(2, 3) | f | g | getvalue  # --> (5, 8)
     assert x == (5, 8)
+
+    # abuse multi-arg version for single-arg case
+    assert piped(42) | double | inc | getvalue == 85
 
     p1 = lazy_piped(2, 3)
     p2 = p1 | (lambda x, y: (x + 1, 2 * y, "foo"))
     p3 = p2 | (lambda x, y, s: (x * 2, y + 1, "got {}".format(s)))
     p4 = p3 | (lambda x, y, s: (x + y, s))
     # nothing done yet, and all computations purely functional:
-    assert (p1 | get) == (2, 3)
-    assert (p2 | get) == (3, 6, "foo")      # runs the chain up to p2
-    assert (p3 | get) == (6, 7, "got foo")  # runs the chain up to p3
-    assert (p4 | get) == (13, "got foo")
+    assert (p1 | runpipe) == (2, 3)
+    assert (p2 | runpipe) == (3, 6, "foo")      # runs the chain up to p2
+    assert (p3 | runpipe) == (6, 7, "got foo")  # runs the chain up to p3
+    assert (p4 | runpipe) == (13, "got foo")
+
+    # lazy pipe as an unfold
+    fibos = []
+    def nextfibo(a, b):    # now two arguments
+        fibos.append(a)
+        return (b, a + b)  # two return values, still expressed as a tuple
+    p = lazy_piped(1, 1)
+    for _ in range(10):
+        p = p | nextfibo
+    p | runpipe
+    assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
     # do: improved begin() that can name intermediate results
     y = do(assign(x=17),
