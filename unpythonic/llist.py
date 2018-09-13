@@ -11,9 +11,9 @@ from unpythonic.it import foldr, foldl
 # TCO implementation switchable at runtime
 import unpythonic.rc
 if unpythonic.rc._tco_impl == "exc":
-    from unpythonic.tco import SELF, jump, trampolined, _jump
+    from unpythonic.tco import SELF, jump, trampolined
 elif unpythonic.rc._tco_impl == "fast":
-    from unpythonic.fasttco import SELF, jump, trampolined, _jump
+    from unpythonic.fasttco import SELF, jump, trampolined
 else:
     raise ValueError("Unknown TCO implementation '{}'".format(unpythonic.rc._tco_impl))
 
@@ -282,9 +282,10 @@ def test():
     assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
 
     # type conversion
-    assert list(ll(1, 2, 3)) == [1, 2, 3]
-    assert tuple(ll(1, 2, 3)) == (1, 2, 3)
-    assert ll_from_sequence((1, 2, 3)) == ll(1, 2, 3)
+    lst = ll(1, 2, 3)
+    assert list(lst) == [1, 2, 3]
+    assert tuple(lst) == (1, 2, 3)
+    assert ll_from_sequence((1, 2, 3)) == lst
     assert tuple(nil) == ()
 
     # independently constructed instances with the same data should hash the same.
