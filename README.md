@@ -959,9 +959,12 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
 
  - `memoize` caches also exceptions à la Racket.
    - If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
- - `curry` supports passthrough on the right when too many args (à la Haskell, or [spicy](https://github.com/Technologicat/spicy) for Racket)
-   - If the intermediate result of a passthrough is a curried function, it is invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
-   - For simplicity, all remaining keyword arguments are fed in at the first step that has too many positional arguments.
+ - `curry` comes with some extra features:
+   - Passthrough on the right when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket)
+     - If the intermediate result of a passthrough is a curried function, it is invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
+     - For simplicity, all remaining keyword arguments are fed in at the first step that has too many positional arguments.
+   - Can be used both as a decorator and as a regular function.
+     - When used as a regular function, `curry` itself is curried à la Racket. If the invocation gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - Any number of positional arguments is supported, with similar rules as the pipe system. Multiple return values packed into a tuple or list are unpacked to the argument list of the next function in the chain.
    - `composel1`, `composer1` for 1-in-1-out chains (faster; also useful for a single value that is a tuple or list).
@@ -989,8 +992,8 @@ assert pred(None) is False
 @rotate(1)  # cycle *the args* (not their slots!) to the right by one place.
 def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
     return acc + (rest,)  # even though the input is (e1, ..., en, acc).
-zipl = (curry(foldl))(zipper, ())
-zipr = (curry(foldr))(zipper, ())
+zipl = curry(foldl, zipper, ())  # same as (curry(foldl))(zipper, ())
+zipr = curry(foldr, zipper, ())
 assert zipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
 assert zipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
 
@@ -1000,8 +1003,8 @@ doubler = map_one(double)
 assert doubler((1, 2, 3)) == ll(2, 4, 6)
 
 # passthrough on the right
-assert curry(double)(2, "foo") == (4, "foo")   # arity of double is 1
-assert curry(map_one)(double, (1, 2, 3)) == ll(2, 4, 6)
+assert curry(double, 2, "foo") == (4, "foo")   # arity of double is 1
+assert curry(map_one, double, (1, 2, 3)) == ll(2, 4, 6)
 ```
 
 *Minor detail*: In the last example, the input ``(1, 2, 3)`` is given as a tuple, not as a linked list, because the input to ``foldr`` must be a sequence. We could also write it as:
@@ -1011,6 +1014,15 @@ double = lambda x: 2 * x
 mapr_one = lambda f: (curry(foldl))(composer(cons, to1st(f)), nil)  # foldl works on iterables
 mapl_one = lambda f: curry(composer(mapr_one(f), lreverse))
 assert curry(mapl_one)(double, ll(1, 2, 3)) == ll(2, 4, 6)
+```
+
+Or, by using the fact that ``curry`` itself is curried, with fewer parentheses:
+
+```python
+double = lambda x: 2 * x
+mapr_one = lambda f: curry(foldl, composer(cons, to1st(f)), nil)
+mapl_one = lambda f: curry(composer(mapr_one(f), lreverse))
+assert curry(mapl_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
 
 (Of course, this exercise is useless in practice, because there is already the builtin ``map``.)

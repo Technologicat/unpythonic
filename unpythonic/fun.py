@@ -61,7 +61,7 @@ def memoize(f):
 #        return memo[k]
 #    return memoized
 
-def curry(f):
+def curry(f, *args, **kwargs):
     """Decorator: curry the function f.
 
     Essentially, the resulting function automatically chains partial application
@@ -112,6 +112,15 @@ def curry(f):
 
     For simplicity, in passthrough, all kwargs are consumed in the first step
     for which too many positional args were supplied.
+
+    **Curry itself is curried**:
+
+    When invoked as a regular function (not decorator), curry itself is curried.
+    If any arguments are provided beside ``f``, then they are the first step.
+    This helps eliminate many parentheses::
+
+        assert curry(double, 2, "foo") == (4, "foo")
+        map_one = lambda f: curry(foldr, composer(cons, to1st(f)), nil)
     """
     # TODO: improve: all required name-only args should be present before calling f.
     # Difficult, partial() doesn't remove an already-set kwarg from the signature.
@@ -132,9 +141,12 @@ def curry(f):
                 return (now_result,) + later_args
         return f(*args, **kwargs)
     curried._is_curried_function = True  # stash for easy detection
+    # curry itself is curried: if we get args, they're the first step
+    if args or kwargs:
+        return curried(*args, **kwargs)
     return curried
 
-#def curry_simple(f):  # essential idea, without passthrough
+#def curry_simple(f):  # essential idea, without the extra features
 #    min_arity, _ = arities(f)
 #    @wraps(f)
 #    def curried(*args, **kwargs):
