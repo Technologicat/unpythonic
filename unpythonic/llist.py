@@ -2,15 +2,12 @@
 # -*- coding: utf-8 -*-
 """Cons and friends."""
 
-#from itertools import product, repeat
-
 from abc import ABCMeta, abstractmethod
 
 from unpythonic.misc import call
 from unpythonic.fun import composer1
 from unpythonic.it import foldr, foldl
 
-# TODO: reload this module in init
 # TCO implementation switchable at runtime
 import unpythonic.rc
 if unpythonic.rc._tco_impl == "exc":
@@ -28,6 +25,7 @@ _exports = ["cons", "nil", "LinkedListIterator", "BinaryTreeIterator",
             "caaaar", "caaadr", "caadar", "caaddr", "cadaar", "cadadr", "caddar", "cadddr",
             "cdaaar", "cdaadr", "cdadar", "cdaddr", "cddaar", "cddadr", "cdddar", "cddddr",
             "ll", "ll_from_sequence", "lreverse", "lappend", "lzip"]
+#from itertools import product, repeat
 #_ads = lambda n: product(*repeat("ad", n))
 #_c2r = ["c{}{}r".format(*x) for x in _ads(2)]
 #_c3r = ["c{}{}{}r".format(*x) for x in _ads(3)]
@@ -59,6 +57,23 @@ class ConsIterator(metaclass=ABCMeta):
     def __next__(self):
         pass
 
+## Essentially we want to do this:
+#class LinkedListIterator(ConsIterator):
+#    def __init__(self, head):
+#        super().__init__(head)
+#        def gen(cell):
+#            yield cell.car
+#            if isinstance(cell.cdr, cons):
+#                yield from gen(cell.cdr)
+#            elif cell.cdr is nil:
+#                raise StopIteration()
+#            else:
+#                yield cell.cdr
+#        self.walker = gen(head)
+#    def __next__(self):
+#        return next(self.walker)
+
+# But we take this clunky approach, not to blow the call stack with long lists.
 class LinkedListIterator(ConsIterator):
     """Iterator for linked lists built from cons cells."""
     def __init__(self, head):
