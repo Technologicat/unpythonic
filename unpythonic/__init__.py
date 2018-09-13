@@ -9,6 +9,7 @@ __version__ = '0.8.1'
 
 from . import rc
 
+from .amb import *
 from .arity import *
 from .assignonce import *
 from .dynscope import *
