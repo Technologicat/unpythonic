@@ -18,7 +18,8 @@ else:
     raise ValueError("Unknown TCO implementation '{}'".format(unpythonic.rc._tco_impl))
 
 # explicit list better for tooling support
-_exports = ["cons", "nil", "LinkedListIterator", "BinaryTreeIterator",
+_exports = ["cons", "nil",
+            "LinkedListIterator", "BinaryTreeIterator", "ConsIterator",
             "car", "cdr",
             "caar", "cadr", "cdar", "cddr",
             "caaar", "caadr", "cadar", "caddr", "cdaar", "cdadr", "cddar", "cdddr",
@@ -46,7 +47,19 @@ class nil:
         return "nil"
 
 class ConsIterator(metaclass=ABCMeta):
-    """Abstract base class for iterators walking over cons cells."""
+    """Abstract base class for iterators walking over cons cells.
+
+    Can be used to define your own walking strategies for custom structures
+    built out of cons cells.
+
+    The derived class should supply ``__init__`` and ``__next__``.
+
+    The base class ``__init__`` defined here can be used (via ``super()``)
+    to validate that the given start cell is a cons, and if not, raise a
+    TypeError with a standard error message.
+
+    For usage examples see ``LinkedListIterator``, ``BinaryTreeIterator``.
+    """
     @abstractmethod
     def __init__(self, startcell):
         if not isinstance(startcell, cons):
