@@ -3,23 +3,15 @@
 """Cons and friends."""
 
 from abc import ABCMeta, abstractmethod
+from itertools import zip_longest
 
 from unpythonic.misc import call
 from unpythonic.fun import composer1
 from unpythonic.it import foldr, foldl
 
-# TCO implementation switchable at runtime
-import unpythonic.rc
-if unpythonic.rc._tco_impl == "exc":
-    from unpythonic.tco import SELF, jump, trampolined
-elif unpythonic.rc._tco_impl == "fast":
-    from unpythonic.fasttco import SELF, jump, trampolined
-else:
-    raise ValueError("Unknown TCO implementation '{}'".format(unpythonic.rc._tco_impl))
-
 # explicit list better for tooling support
 _exports = ["cons", "nil",
-            "LinkedListIterator", "BinaryTreeIterator", "ConsIterator",
+            "LinkedListIterator", "TailIterator", "BinaryTreeIterator", "ConsIterator",
             "car", "cdr",
             "caar", "cadr", "cdar", "cddr",
             "caaar", "caadr", "cadar", "caddr", "cdaar", "cdadr", "cddar", "cdddr",
@@ -47,84 +39,77 @@ class nil:
         return "nil"
 
 class ConsIterator(metaclass=ABCMeta):
-    """Abstract base class for iterators walking over cons cells.
+    """Abstract base class for iterators operating on cons cells.
 
     Can be used to define your own walking strategies for custom structures
     built out of cons cells.
 
-    The derived class should supply ``__init__`` and ``__next__``.
+    ``startcell`` is the cons cell to start in (will be checked it is a cons),
+    and ``walker`` is a generator function (i.e. not started yet) that yields
+    the data in the desired order.
 
-    The base class ``__init__`` defined here can be used (via ``super()``)
-    to validate that the given start cell is a cons, and if not, raise a
-    TypeError with a standard error message.
+    Basically all a derived class needs to do is define a walker and then call
+    ``super().__init__(startcell, walker)``.
 
-    For usage examples see ``LinkedListIterator``, ``BinaryTreeIterator``.
+    For usage examples see the predefined iterators in ``unpythonic.llist``.
     """
     @abstractmethod
-    def __init__(self, startcell):
+    def __init__(self, startcell, walker):
         if not isinstance(startcell, cons):
             raise TypeError("Expected a cons, got {} with value {}".format(type(startcell), startcell))
+        self.walker = walker(startcell)
     def __iter__(self):
         return self
-    @abstractmethod
     def __next__(self):
-        pass
+        return next(self.walker)
 
-## Essentially we want to do this:
-#class LinkedListIterator(ConsIterator):
-#    def __init__(self, head):
-#        super().__init__(head)
-#        def gen(cell):
-#            yield cell.car
-#            if isinstance(cell.cdr, cons):
-#                yield from gen(cell.cdr)
-#            elif cell.cdr is nil:
-#                raise StopIteration()
-#            else:
-#                yield cell.cdr
-#        self.walker = gen(head)
-#    def __next__(self):
-#        return next(self.walker)
-
-# But we take this clunky approach, not to blow the call stack with long lists.
 class LinkedListIterator(ConsIterator):
     """Iterator for linked lists built from cons cells."""
+    def __init__(self, head, _fullerror=True):
+        def walker(head):
+            cell = head
+            while cell is not nil:
+                yield cell.car
+                if isinstance(cell.cdr, cons) or cell.cdr is nil:
+                    cell = cell.cdr
+                elif cell is head:
+                    yield cell.cdr
+                    break
+                else:
+                    if _fullerror:
+                        raise TypeError("Not a linked list or a single cons cell: {}".format(head))
+                    else:  # avoid infinite loop in cons.__repr__
+                        raise TypeError("Not a linked list or a single cons cell")
+        super().__init__(head, walker)
+
+class TailIterator(ConsIterator):  # for member()
+    """Like LinkedListIterator, but yield successive tails (cdr, cddr, ...).
+
+    Example::
+
+        TailIterator(ll(1, 2, 3)) --> ll(1, 2, 3), ll(2, 3), ll(3)
+    """
     def __init__(self, head):
-        super().__init__(head)
-        self.lastread = None
-        self.cell = head
-    def __next__(self):
-        if not self.lastread:
-            self.lastread = "car"
-            return self.cell.car
-        elif self.lastread == "car":
-            if isinstance(self.cell.cdr, cons):  # linked list, general case
-                self.cell = self.cell.cdr
-                self.lastread = "car"
-                return self.cell.car
-            elif self.cell.cdr is nil:           # linked list, last cell
-                raise StopIteration()
-            else:                                # just a pair
-                self.lastread = "cdr"
-                return self.cell.cdr
-        elif self.lastread == "cdr":
-            raise StopIteration()
-        else:
-            assert False, "Invalid value for self.lastread '{}'".format(self.lastread)
+        def walker(head):
+            cell = head
+            while cell is not nil:
+                yield cell  # tail of list from this cell on
+                if isinstance(cell.cdr, cons) or cell.cdr is nil:
+                    cell = cell.cdr
+                else:
+                    raise TypeError("Not a linked list or a single cons cell: {}".format(head))
+        super().__init__(head, walker)
 
 class BinaryTreeIterator(ConsIterator):
     """Iterator for binary trees built from cons cells."""
     def __init__(self, root):
-        super().__init__(root)
-        def gen(cell):
+        def walker(cell):
             for x in (cell.car, cell.cdr):
                 if isinstance(x, cons):
-                    yield from gen(x)
+                    yield from walker(x)
                 else:
                     yield x
-        self.walker = gen(root)
-    def __next__(self):
-        return next(self.walker)
+        super().__init__(root, walker)
 
 class cons:
     """Cons cell a.k.a. pair. Immutable, like in Racket.
@@ -137,28 +122,27 @@ class cons:
         self._immutable = True
     def __setattr__(self, k, v):
         if hasattr(self, "_immutable"):
-            raise AttributeError("Assignment to immutable cons cell not allowed")
+            raise TypeError("'cons' object does not support item assignment")
         super().__setattr__(k, v)
     def __iter__(self):
         return LinkedListIterator(self)
     def __repr__(self):
-        # special lispy printing for linked lists
-        # TODO: refactor this
-        @trampolined
-        def ll_repr(cell, acc):
-            newacc = lambda: acc + [repr(cell.car)]  # delay evaluation with lambda
-            if cell.cdr is nil:
-                return newacc()
-            elif isinstance(cell.cdr, cons):
-                return jump(SELF, cell.cdr, newacc())
-            else:
-                return False  # not a linked list
-        result = ll_repr(self, []) or [repr(self.car), ".", repr(self.cdr)]
+        try:  # duck test linked list
+            result = (str(x) for x in LinkedListIterator(self, _fullerror=False))
+        except TypeError:
+            result = (repr(self.car), ".", repr(self.cdr))
         return "({})".format(" ".join(result))
-    # TODO: trampoline the recursion?
     def __eq__(self, other):
         if isinstance(other, cons):
-            return self.car == other.car and self.cdr == other.cdr
+            try:  # duck test linked lists
+                ia, ib = (LinkedListIterator(x) for x in (self, other))
+                fill = object()  # essentially gensym
+                for a, b in zip_longest(ia, ib, fillvalue=fill):
+                    if a != b:
+                        return False
+                return True
+            except TypeError:
+                return self.car == other.car and self.cdr == other.cdr
         return False
     def __hash__(self):
         return hash((hash(self.car), hash(self.cdr)))
@@ -220,27 +204,20 @@ def lreverse(l):
 def lappend(*ls):
     """Append linked lists left-to-right."""
     def lappend_two(l1, l2):
-        return foldr(cons, l2, tuple(l1))  # tuple() because must be a sequence
+        return foldr(cons, l2, tuple(l1))  # tuple() because foldr needs a sequence
     return foldr(lappend_two, nil, ls)
 
-# TODO: refactor this
-@trampolined
 def member(x, l):
     """Walk linked list and check if item x is in it.
 
     Returns:
-        The matching cons cell if x was found; False if not.
+        The matching cons cell (tail of list) if x was found; False if not.
     """
-    if not isinstance(l, cons):
-        raise TypeError("Expected a cons, got {} with value {}".format(type(x), x))
-    if not isinstance(l.cdr, cons) and l.cdr is not nil:
-        raise ValueError("This cons is not a linked list; current cell {}".format(l))
-    if l.car == x:      # match
-        return l
-    elif l.cdr is nil:  # last cell, no match
-        return False
-    else:
-        return jump(SELF, x, l.cdr)
+    it = TailIterator(l)
+    for t in it:
+        if t.car == x:
+            return t
+    return False
 
 def lzip(*ls):
     """Zip linked lists, producing a linked list of linked lists.
@@ -252,14 +229,6 @@ def lzip(*ls):
 def test():
     # TODO: extend tests
 
-    try:
-        c = cons(1, 2)
-        c.car = 3  # immutable cons cell, should fail
-    except AttributeError:
-        pass
-    else:
-        assert False
-
     c = cons(1, 2)
     assert car(c) == 1 and cdr(c) == 2
 
@@ -267,9 +236,40 @@ def test():
 #    print(ll(1, 2, cons(3, 4), 5, 6))  # a list may also contain pairs as items
 #    print(cons(cons(cons(nil, 3), 2), 1))  # improper list
 
+    # type conversion
+    lst = ll(1, 2, 3)
+    assert list(lst) == [1, 2, 3]
+    assert tuple(lst) == (1, 2, 3)
+    assert ll_from_sequence((1, 2, 3)) == lst
+    assert tuple(nil) == ()
+
+    # equality
+    assert cons(1, 2) == cons(1, 2)
+    assert cons(1, 2) != cons(2, 3)
+    assert ll(1, 2, 3) == ll(1, 2, 3)
+    assert ll(1, 2) != ll(1, 2, 3)
+
+    # independently constructed instances with the same data should hash the same.
+    assert hash(cons(1, 2)) == hash(cons(1, 2))
+    assert hash(ll(1, 2, 3)) == hash(ll(1, 2, 3))
+
+    try:
+        c = cons(1, 2)
+        c.car = 3
+    except TypeError:
+        pass
+    else:
+        assert False, "cons cells should be immutable"
+
     t = cons(cons(1, 2), cons(3, 4))  # binary tree
     assert [f(t) for f in [caar, cdar, cadr, cddr]] == [1, 2, 3, 4]
-    assert tuple(BinaryTreeIterator(t)) == (1, 2, 3, 4)
+    assert tuple(BinaryTreeIterator(t)) == (1, 2, 3, 4)  # non-default iteration scheme
+    try:
+        tuple(t)
+    except TypeError:
+        pass
+    else:
+        assert False, "binary tree should not be iterable as a linked list"
 
     q = ll(cons(1, 2), cons(3, 4))  # list of pairs, not a tree!
     assert [f(q) for f in [caar, cdar, cadr, cddr]] == [1, 2, cons(3, 4), nil]
@@ -293,17 +293,6 @@ def test():
 
     assert tuple(zip(ll(1, 2, 3), ll(4, 5, 6))) == ((1, 4), (2, 5), (3, 6))
     assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
-
-    # type conversion
-    lst = ll(1, 2, 3)
-    assert list(lst) == [1, 2, 3]
-    assert tuple(lst) == (1, 2, 3)
-    assert ll_from_sequence((1, 2, 3)) == lst
-    assert tuple(nil) == ()
-
-    # independently constructed instances with the same data should hash the same.
-    assert hash(cons(1, 2)) == hash(cons(1, 2))
-    assert hash(ll(1, 2, 3)) == hash(ll(1, 2, 3))
 
     print("All tests PASSED")
 

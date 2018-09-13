@@ -23,6 +23,7 @@ from .lispylet import let as ordered_let, letrec as ordered_letrec, \
                       dlet as ordered_dlet, dletrec as ordered_dletrec, \
                       blet as ordered_blet, bletrec as ordered_bletrec
 
+from .llist import *
 from .misc import *
 from .seq import *
 
@@ -57,17 +58,8 @@ def _init_fploop(reload=False):
         fploop = reload(fploop)
     _starimport(fploop)
 
-def _init_llist(reload=False):
-    global llist
-    from . import llist
-    if reload:
-        from importlib import reload
-        llist = reload(llist)
-    _starimport(llist)
-
 _init_tco()
 _init_fploop()
-_init_llist()
 
 def enable_fasttco(b=True):
     """Switch the fast TCO implementation on/off.
@@ -79,4 +71,3 @@ def enable_fasttco(b=True):
 
     _init_tco()
     _init_fploop(reload=True)
-    _init_llist(reload=True)
