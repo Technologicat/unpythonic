@@ -4,6 +4,8 @@
 
 #from itertools import product, repeat
 
+from abc import ABCMeta, abstractmethod
+
 from unpythonic.misc import call
 from unpythonic.fun import composer1
 from unpythonic.it import foldr, foldl
@@ -19,7 +21,7 @@ else:
     raise ValueError("Unknown TCO implementation '{}'".format(unpythonic.rc._tco_impl))
 
 # explicit list better for tooling support
-_exports = ["cons", "nil",
+_exports = ["cons", "nil", "LinkedListIterator", "BinaryTreeIterator",
             "car", "cdr",
             "caar", "cadr", "cdar", "cddr",
             "caaar", "caadr", "cadar", "caddr", "cdaar", "cdadr", "cddar", "cdddr",
@@ -37,22 +39,32 @@ __all__ = _exports
 
 @call  # make a singleton
 class nil:
-    def tolist(self):  # for completeness, since cons cells have it
-        return []
-    def totuple(self):
-        return ()
+    # support the iterator protocol so we can say tuple(nil) --> ()
+    def __iter__(self):
+        return self
+    def __next__(self):
+        raise StopIteration()
     def __repr__(self):
         return "nil"
 
-class ConsIterator:
-    """Iterator for linked lists built from cons cells."""
+class ConsIterator(metaclass=ABCMeta):
+    """Abstract base class for iterators walking over cons cells."""
+    @abstractmethod
     def __init__(self, startcell):
         if not isinstance(startcell, cons):
             raise TypeError("Expected a cons, got {} with value {}".format(type(startcell), startcell))
-        self.lastread = None
-        self.cell = startcell
     def __iter__(self):
         return self
+    @abstractmethod
+    def __next__(self):
+        pass
+
+class LinkedListIterator(ConsIterator):
+    """Iterator for linked lists built from cons cells."""
+    def __init__(self, head):
+        super().__init__(head)
+        self.lastread = None
+        self.cell = head
     def __next__(self):
         if not self.lastread:
             self.lastread = "car"
@@ -72,8 +84,25 @@ class ConsIterator:
         else:
             assert False, "Invalid value for self.lastread '{}'".format(self.lastread)
 
+class BinaryTreeIterator(ConsIterator):
+    """Iterator for binary trees built from cons cells."""
+    def __init__(self, root):
+        super().__init__(root)
+        def gen(cell):
+            for x in (cell.car, cell.cdr):
+                if isinstance(x, cons):
+                    yield from gen(x)
+                else:
+                    yield x
+        self.walker = gen(root)
+    def __next__(self):
+        return next(self.walker)
+
 class cons:
-    """Cons cell a.k.a. pair. Immutable, like in Racket."""
+    """Cons cell a.k.a. pair. Immutable, like in Racket.
+
+    Iterable. Default is to iterate as a linked list.
+    """
     def __init__(self, v1, v2):
         self.car = v1
         self.cdr = v2
@@ -83,11 +112,7 @@ class cons:
             raise AttributeError("Assignment to immutable cons cell not allowed")
         super().__setattr__(k, v)
     def __iter__(self):
-        return ConsIterator(self)
-    def tolist(self):
-        return [x for x in self]  # implicitly using __iter__
-    def totuple(self):
-        return tuple(self.tolist())
+        return LinkedListIterator(self)
     def __repr__(self):
         # special lispy printing for linked lists
         # TODO: refactor this
@@ -102,12 +127,13 @@ class cons:
                 return False  # not a linked list
         result = ll_repr(self, []) or [repr(self.car), ".", repr(self.cdr)]
         return "({})".format(" ".join(result))
-    # TODO: trampoline this
+    # TODO: trampoline the recursion?
     def __eq__(self, other):
         if isinstance(other, cons):
             return self.car == other.car and self.cdr == other.cdr
         return False
-    # TODO: __hash__ et al.?
+    def __hash__(self):
+        return hash((hash(self.car), hash(self.cdr)))
 
 def car(x):
     """Return the first half of a cons cell."""
@@ -166,7 +192,7 @@ def lreverse(l):
 def lappend(*ls):
     """Append linked lists left-to-right."""
     def lappend_two(l1, l2):
-        return foldr(cons, l2, l1.tolist())  # .tolist() because must be a sequence
+        return foldr(cons, l2, tuple(l1))  # tuple() because must be a sequence
     return foldr(lappend_two, nil, ls)
 
 # TODO: refactor this
@@ -215,6 +241,7 @@ def test():
 
     t = cons(cons(1, 2), cons(3, 4))  # binary tree
     assert [f(t) for f in [caar, cdar, cadr, cddr]] == [1, 2, 3, 4]
+    assert tuple(BinaryTreeIterator(t)) == (1, 2, 3, 4)
 
     q = ll(cons(1, 2), cons(3, 4))  # list of pairs, not a tree!
     assert [f(q) for f in [caar, cdar, cadr, cddr]] == [1, 2, cons(3, 4), nil]
@@ -231,9 +258,6 @@ def test():
     a, b, c = ll(1, 2, 3)
     assert a == 1 and b == 2 and c == 3
 
-    assert ll(1, 2, 3).tolist() == [1, 2, 3]
-    assert ll_from_sequence((1, 2, 3)) == ll(1, 2, 3)
-
     assert lreverse(ll(1, 2, 3)) == ll(3, 2, 1)
 
     assert lappend(ll(1, 2, 3), ll(4, 5, 6)) == ll(1, 2, 3, 4, 5, 6)
@@ -241,6 +265,16 @@ def test():
 
     assert tuple(zip(ll(1, 2, 3), ll(4, 5, 6))) == ((1, 4), (2, 5), (3, 6))
     assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
+
+    # type conversion
+    assert list(ll(1, 2, 3)) == [1, 2, 3]
+    assert tuple(ll(1, 2, 3)) == (1, 2, 3)
+    assert ll_from_sequence((1, 2, 3)) == ll(1, 2, 3)
+    assert tuple(nil) == ()
+
+    # independently constructed instances with the same data should hash the same.
+    assert hash(cons(1, 2)) == hash(cons(1, 2))
+    assert hash(ll(1, 2, 3)) == hash(ll(1, 2, 3))
 
     print("All tests PASSED")
 
