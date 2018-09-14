@@ -1399,7 +1399,7 @@ Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a 
 
 ## Notes
 
-The trampoline implementation takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of the FP looping constructs. An important source of inspiration was also [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
+Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
 
 ### On ``let`` and Python
 
@@ -1510,6 +1510,10 @@ Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https
 ## Acknowledgements
 
 Thanks to [TUT](http://www.tut.fi/en/home) for letting me teach [RAK-19006 in spring term 2018](https://github.com/Technologicat/python-3-scicomp-intro); early versions of parts of this library were originally developed as teaching examples for that course. Thanks to @AgenttiX for feedback.
+
+The trampoline implementation takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of the FP looping constructs.
+
+Another important source of inspiration was [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
 
 ## Python-related FP resources
 
