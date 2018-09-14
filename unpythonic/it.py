@@ -265,7 +265,7 @@ def flatten_in(iterable, pred=None):
             yield e
 
 def test():
-    from operator import add, itemgetter
+    from operator import add, mul, itemgetter
     from functools import partial
 
     import unpythonic.fun
@@ -355,10 +355,6 @@ def test():
     append_many = lambda *lsts: foldr(append_two, nil, lsts)
     assert append_many((1, 2), (3, 4), (5, 6)) == (1, 2, 3, 4, 5, 6)
 
-    # builtins from the operator module don't work with curry (inspect fails),
-    # so let's define our own operators.
-    add = lambda x, y: x + y
-    mul = lambda x, y: x * y
     mysum = curry(foldl, add, 0)
     myprod = curry(foldl, mul, 1)
     a = (1, 2)
