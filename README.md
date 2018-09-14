@@ -19,6 +19,7 @@ Other design considerations are simplicity, robustness, and minimal dependencies
    - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
  - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables, dynamic assignment)
  - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`
+   - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
  - [Batteries for itertools](#batteries-for-itertools): Racket-style multi-input `foldl`, `foldr`; uniqification, flattening
  - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
  - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
@@ -972,9 +973,9 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
  - `curry` comes with some extra features:
    - Passthrough on the right when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket)
      - If the intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
-     - For simplicity, all remaining keyword arguments are fed in at the first step that has too many positional arguments.
+     - For simplicity, all remaining keyword args are fed in at the first step that has too many positional args.
    - Can be used both as a decorator and as a regular function.
-     - When used as a regular function, `curry` itself is curried à la Racket. If the invocation gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
+     - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - Any number of positional arguments is supported, with similar rules as the pipe system. Multiple return values packed into a tuple or list are unpacked to the argument list of the next function in the chain.
    - `composel1`, `composer1` for 1-in-1-out chains (faster; also useful for a single value that is a tuple or list).
@@ -1022,13 +1023,59 @@ assert curry(map_one, double, (1, 2, 3)) == ll(2, 4, 6)
 ```python
 double = lambda x: 2 * x
 mapr_one = lambda f: curry(foldl, composer(cons, to1st(f)), nil)  # foldl works on iterables
-mapl_one = lambda f: composer(mapr_one(f), lreverse)              # callable -> another callable (1 in, 1 out)
+mapl_one = lambda f: composer(mapr_one(f), lreverse)              # callable -> another callable (1->1)
 assert curry(mapl_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
 
 In ``mapr_one``, we can use either ``curry`` or ``functools.partial``. In this case it doesn't matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as it gets at least one more argument.
 
-Finally, keep in mind that this exercise is intended just as a feature demonstration. In production code, the builtin ``map`` is much better than the ``mapl_one`` defined here; it is builtin, and accepts multiple input sequences.
+Finally, keep in mind that this exercise is intended just as a feature demonstration. In production code, the builtin ``map`` is much better than the ``mapl_one`` defined above; it is builtin, and accepts multiple input sequences.
+
+#### ``curry`` and reduction rules
+
+The provided variant of ``curry``, beside what it says on the tin, is effectively an explicit local modifier to Python's reduction rules, which allows some Haskell-like idioms. When we say:
+
+```python
+curry(f, a0, a1, ..., a[n-1])
+```
+
+it actually means the following. Let ``m1`` and ``m2`` be the minimum and maximum positional arity of the callable ``f``, respectively.
+
+ - If ``n > m2``, call ``f`` with the first ``m2`` arguments.
+   - If the result is a callable, curry it, and recurse.
+   - Else form a tuple, where first item is the result, and the rest are the remaining arguments ``a[m2]``, ``a[m2+1]``, ..., ``a[n-1]``. Return it.
+ - If ``m1 <= n <= m2``, call ``f`` and return its result (like a normal function call).
+   - **Any** positional arity accepted by ``f`` triggers the call; beware when working with [variadic](https://en.wikipedia.org/wiki/Variadic_function) functions.
+ - If ``n < m1``, partially apply ``f`` to the given arguments, yielding a new function with smaller ``m1``, ``m2``. Then curry the result and return it.
+   - Internally this stacks ``functools.partial`` applications, but there will be only one ``curried`` wrapper no matter how many invocations are used to build up arguments before ``f`` eventually gets called.
+
+In the above example:
+
+```python
+curry(mapl_one, double, ll(1, 2, 3))
+```
+
+the callable ``mapl_one`` takes one argument, which is a function. It yields another function, let us call it ``g``. We are left with:
+
+```python
+curry(g, ll(1, 2, 3))
+```
+
+The argument is then passed into ``g``; we obtain a result, and reduction is complete.
+
+If we wish to modify precedence, parentheses are needed, which takes us out of the curry context, unless we explicitly ``curry`` the subexpression. This works:
+
+```python
+curry(f, a, curry(g, x, y), b, c)
+```
+
+but this **does not**:
+
+```python
+curry(f, a, (g, x, y), b, c)
+```
+
+because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by design; as with all things Python, *explicit is better than implicit*.
 
 
 ### Batteries for itertools
@@ -1085,8 +1132,6 @@ with_n = lambda *args: (partial(f, n) for n, f in args)
 look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
 assert tuple(look(5, 10)(range(20))) == tuple(range(5, 15))
 ```
-
-#### Note: currying
 
 In the last example, essentially we just want to `look 5 10 (range 20)`, the grouping of the parentheses being pretty much an implementation detail. With ``curry`` from the previous section, we can rewrite the last line as:
 
