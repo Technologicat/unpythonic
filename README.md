@@ -1283,7 +1283,8 @@ a, b, c = ll(1, 2, 3)  # unpacking a linked list
 t = cons(cons(1, 2), cons(3, 4))  # binary tree
 assert [f(t) for f in [caar, cdar, cadr, cddr]] == [1, 2, 3, 4]
 
-assert ll(1, 2, 3).tolist() == [1, 2, 3]
+assert list(ll(1, 2, 3)) == [1, 2, 3]
+assert tuple(ll(1, 2, 3)) == (1, 2, 3)
 assert ll_from_sequence((1, 2, 3)) == ll(1, 2, 3)
 
 l = ll(1, 2, 3)
