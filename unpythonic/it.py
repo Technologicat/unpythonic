@@ -325,7 +325,7 @@ def test():
     # it is invoked on the remaining positional args:
     assert curry(mymap_one4, double, (1, 2, 3)) == (2, 4, 6)
 
-    reverse_one = curry(foldl)(cons, nil)
+    reverse_one = curry(foldl, cons, nil)
     assert reverse_one((1, 2, 3)) == (3, 2, 1)
 
     append_two = lambda a, b: foldr(cons, b, a)
@@ -383,8 +383,8 @@ def test():
 #    def zipper(*args):  # straightforward version
 #        *rest, acc = args
 #        return acc + (tuple(rest),)
-    zipl1 = (curry(foldl))(zipper, ())
-    zipr1 = (curry(foldr))(zipper, ())
+    zipl1 = curry(foldl, zipper, ())
+    zipr1 = curry(foldr, zipper, ())
     assert zipl1((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
     assert zipr1((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
 
