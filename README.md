@@ -1269,7 +1269,7 @@ The implementation is based on the List monad, and a bastardized variant of do-n
 *Laugh, it's funny.*
 
 ```python
-from unpythonic import cons, ll, car, cdr, caar, cdar, cadr, cddr, \
+from unpythonic import cons, nil, ll, car, cdr, caar, cdar, cadr, cddr, \
                        ll_from_sequence, member, lreverse, lappend, lzip, \
                        BinaryTreeIterator
 
