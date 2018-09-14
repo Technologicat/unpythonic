@@ -1398,7 +1398,7 @@ Although linked lists are created with ``ll``, the data type (for e.g. ``isinsta
 
 Iterators are supported to walk over linked lists (this also gives tuple unpacking support). When ``next()`` is called, we return the car of the current cell the iterator points to, and the iterator moves to point to the cons cell in the cdr, if any. When the cdr is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
 
-But linked lists are not sequences, so e.g. Python's builtin ``reversed`` doesn't work on them. This also implies ``foldr`` (as implemented in ``unpythonic``) won't accept linked lists. If you need to right-fold a linked list, ``lreverse`` it and then left-fold that.
+Python's builtin ``reversed`` can be applied to linked lists; it will internally ``lreverse`` the list (which is O(n)), then provide an iterator to that. This means also ``foldr`` works on linked lists.
 
 Cons structures are hashable and pickleable, and print like in Lisps:
 

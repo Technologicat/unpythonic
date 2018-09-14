@@ -17,7 +17,7 @@ _exports = ["cons", "nil",
             "caaar", "caadr", "cadar", "caddr", "cdaar", "cdadr", "cddar", "cdddr",
             "caaaar", "caaadr", "caadar", "caaddr", "cadaar", "cadadr", "caddar", "cadddr",
             "cdaaar", "cdaadr", "cdadar", "cdaddr", "cddaar", "cddadr", "cdddar", "cddddr",
-            "ll", "ll_from_sequence", "lreverse", "lappend", "lzip"]
+            "ll", "ll_from_sequence", "ll_from_iterable", "lreverse", "lappend", "lzip"]
 #from itertools import product, repeat
 #_ads = lambda n: product(*repeat("ad", n))
 #_c2r = ["c{}{}r".format(*x) for x in _ads(2)]
@@ -154,8 +154,12 @@ class cons:
             if isinstance(state[k], Nil):
                 state[k] = nil
         self.__dict__ = state
-    def __iter__(self):  # sequence unpacking of single cells and lists
+    def __iter__(self):
+        """Iterator protocol with default iteration scheme: single cells and lists."""
         return LinkedListOrCellIterator(self)
+    def __reversed__(self):
+        """For lists. Caution: O(n), works by building a reversed list."""
+        return iter(lreverse(self))
     def __repr__(self):
         try:  # duck test linked list (true list only, no single-cell pair)
             # listcomp, not genexpr, since we want to trigger any exceptions **now**.
@@ -228,6 +232,15 @@ def ll_from_sequence(sequence):
     """Convert sequence to a linked list."""
     return foldr(cons, nil, sequence)
 
+def ll_from_iterable(iterable):
+    """Convert iterable to a linked list.
+
+    This is slower than ``ll_from_sequence``, because general iterables cannot
+    be walked backwards; since ``cons`` adds to the front, the intermediate
+    result must be reversed, which takes an additional O(n) operations.
+    """
+    return lreverse(foldl(cons, nil, iterable))
+
 def lreverse(l):
     """Reverse a linked list."""
     return foldl(cons, nil, l)
@@ -235,7 +248,7 @@ def lreverse(l):
 def lappend(*ls):
     """Append linked lists left-to-right."""
     def lappend_two(l1, l2):
-        return foldr(cons, l2, tuple(l1))  # tuple() because foldr needs a sequence
+        return foldr(cons, l2, l1)  # must internally reverse l1
     return foldr(lappend_two, nil, ls)
 
 def member(x, l):
@@ -355,6 +368,12 @@ def test():
     assert ll(1, 2, 3) in s
     assert cons(3, 4) not in s
     assert ll(1, 2) not in s
+
+    # Reversing. Note reversed() returns an iterator, not sequence.
+    assert ll(*reversed(ll(1, 2, 3))) == ll(3, 2, 1)
+    assert ll_from_iterable(reversed(ll(1, 2, 3))) == ll(3, 2, 1)
+    assert foldl(cons, nil, ll(1, 2, 3)) == ll(3, 2, 1)
+    assert foldr(cons, nil, ll(1, 2, 3)) == ll(1, 2, 3)  # requires __reversed__
 
     print("All tests PASSED")
 
