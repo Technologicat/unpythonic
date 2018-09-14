@@ -271,6 +271,7 @@ def test():
     import unpythonic.fun
     curry = unpythonic.fun.curry
     composer = unpythonic.fun.composer
+    ccomposer = unpythonic.fun.ccomposer
     composel = unpythonic.fun.composel
     to1st = unpythonic.fun.to1st
     rotate = unpythonic.fun.rotate
@@ -325,12 +326,16 @@ def test():
     # it is invoked on the remaining positional args:
     assert curry(mymap_one4, double, (1, 2, 3)) == (2, 4, 6)
 
-    # This also works; curried f takes one argument and the second one is
-    # passed through on the right; this two-tuple then ends up as the arguments
-    # to cons. This is as close to "(define (map f) (foldr (compose cons f) empty)"
-    # (#lang spicy) as we're gonna get in Python.
+    # This also works; curried f takes one argument and the second one is passed
+    # through on the right; this two-tuple then ends up as the arguments to cons.
     mymap_one5 = lambda f: curry(foldr, composer(cons, curry(f)), nil)
     assert curry(mymap_one5, double, (1, 2, 3)) == (2, 4, 6)
+
+    # Finally, we can drop the inner curry by using a currying compose.
+    # This is as close to "(define (map f) (foldr (compose cons f) empty)"
+    # (#lang spicy) as we're gonna get in Python.
+    mymap_one6 = lambda f: curry(foldr, ccomposer(cons, f), nil)
+    assert curry(mymap_one6, double, (1, 2, 3)) == (2, 4, 6)
 
     reverse_one = curry(foldl, cons, nil)
     assert reverse_one((1, 2, 3)) == (3, 2, 1)

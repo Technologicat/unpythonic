@@ -11,8 +11,10 @@ Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 __all__ = ["memoize", "curry", "iscurried",
            "flip", "rotate",
            "apply", "identity", "const", "notf", "andf", "orf",
-           "composer1", "composel1", "composer", "composel",      # *args
-           "composeri1", "composeli1", "composeri", "composeli",  # iterable
+           "composer1", "composel1", "composer", "composel",         # *args
+           "composeri1", "composeli1", "composeri", "composeli",     # iterable
+           "ccomposer1", "ccomposel1", "ccomposer", "ccomposel",     # w/ curry, *args
+           "ccomposeri1", "ccomposeli1", "ccomposeri", "ccomposeli", # w/ curry, iterable
            "to1st", "to2nd", "tokth", "tolast", "to"]
 
 from functools import wraps, partial
@@ -340,6 +342,9 @@ def _make_compose1(direction):  # "left", "right"
         #   input: a b c
         #   elt = b -> g, acc = a(x) -> f --> a(b(x))
         #   elt = c -> g, acc = a(b(x)) -> f --> a(b(c(x)))
+        # Using reducel is particularly nice here:
+        #  - if fs is empty, we output None
+        #  - if fs contains only one item, we output it as-is
         return unpythonic.it.reducel(compose1_two, fs)  # op(elt, acc)
     return compose1
 
@@ -426,6 +431,39 @@ def composel(*fs):
 def composeli(iterable):
     """Like composel, but takes an iterable of functions to compose."""
     return _compose_left(iterable)
+
+# currying versions
+def ccomposer1(*fs):
+    """Like composer1, but curry each function before composing."""
+    return ccomposeri1(fs)
+def ccomposeri1(iterable):
+    """Like composeri1, but curry each function before composing."""
+    return composer1(map(curry, iterable))
+def ccomposer(*fs):
+    """Like composer, but curry each function before composing.
+
+    With the passthrough in ``curry``, this allows very compact code::
+
+        mymap_one = lambda f: curry(foldr, ccomposer(cons, f), nil)
+        assert curry(mymap_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
+    """
+    return ccomposeri(fs)
+def ccomposeri(iterable):
+    """Like composeri, but curry each function before composing."""
+    return composeri(map(curry, iterable))
+def ccomposel1(*fs):
+    """Like composel1, but curry each function before composing."""
+    return ccomposeli1(fs)
+def ccomposeli1(iterable):
+    """Like composeli1, but curry each function before composing."""
+    return composel1(map(curry, iterable))
+def ccomposel(*fs):
+    """Like composel, but curry each function before composing."""
+    return ccomposeli(fs)
+def ccomposeli(iterable):
+    """Like composeli, but curry each function before composing."""
+    return composeli(map(curry, iterable))
+
 
 # Helpers to insert one-in-one-out functions into multi-arg compose chains
 def tokth(k, f):

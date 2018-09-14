@@ -1030,7 +1030,7 @@ mapl_one = lambda f: composer(mapr_one(f), lreverse)              # callable -> 
 assert curry(mapl_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
 
-In ``mapr_one``, we can use either ``curry`` or ``functools.partial``. In this case it doesn't matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as it gets at least one more argument.
+In ``mapr_one``, we can use either ``curry`` or ``functools.partial``. In this case it doesn't matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as (and only as soon as) it gets at least one more argument.
 
 As for v0.8.1, yet another way to write ``map_one`` is:
 
@@ -1038,7 +1038,15 @@ As for v0.8.1, yet another way to write ``map_one`` is:
 map_one = lambda f: curry(foldr, composer(cons, curry(f)), nil)
 ```
 
-The curried ``f`` uses up one argument (provided it is a one-argument function!), and the second argument is passed through on the right; this two-tuple then ends up as the arguments to ``cons``. This is as close to ```(define (map f) (foldr (compose cons f) empty)``` (in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy)) as we're gonna get in Python.
+The curried ``f`` uses up one argument (provided it is a one-argument function!), and the second argument is passed through on the right; this two-tuple then ends up as the arguments to ``cons``.
+
+v0.8.2 adds currying variants of the compose functions, so using ``ccomposer``, the inner curry is no longer needed:
+
+```python
+map_one = lambda f: curry(foldr, ccomposer(cons, f), nil)
+```
+
+This is as close to ```(define (map f) (foldr (compose cons f) empty)``` (in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy)) as we're gonna get in Python.
 
 Finally, keep in mind that this exercise is intended just as a feature demonstration. In production code, the builtin ``map`` is much better than what we defined above; it is builtin, and accepts multiple input sequences.
 
