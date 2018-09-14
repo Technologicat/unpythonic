@@ -323,6 +323,15 @@ def test():
     l3 = cons(6, cdr(l1))
     assert l3 == ll(6, 2, 1)
 
+    # test hashability
+    s = set()
+    s.add(cons(1, 2))
+    s.add(ll(1, 2, 3))
+    assert cons(1, 2) in s
+    assert ll(1, 2, 3) in s
+    assert cons(3, 4) not in s
+    assert ll(1, 2) not in s
+
     print("All tests PASSED")
 
 if __name__ == '__main__':
