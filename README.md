@@ -1084,16 +1084,33 @@ look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
 assert tuple(look(5, 10)(range(20))) == tuple(range(5, 15))
 ```
 
-With ``curry`` from the previous section, we can also write the last example as:
+#### Note: currying
+
+In the last example, essentially we just want to `look 5 10 (range 20)`, the grouping of parentheses being pretty much an implementation detail. With ``curry`` from the previous section, we can rewrite the example as:
 
 ```python
+from functools import partial
+from unpythonic import curry, composel, drop, take
+
+with_n = lambda *args: (partial(f, n) for n, f in args)
 look = curry(lambda n1, n2: curry(composel(*with_n((n1, drop), (n2, take)))))
 assert tuple(look(5, 10, range(20))) == tuple(range(5, 15))
 ```
 
-which gives us a more readable invocation at the cost of a less readable definition. (At the call site, essentially we just want to `look 5 10 (range 20)`.)
+We curry the outer function to make it pass through extra arguments if it gets too many, and the inner function to trigger the invocation of the intermediate result with the passed-through extra arguments. This gives us a more readable invocation at the cost of a less readable definition.
 
-(We curry the outer function to make it pass through extra arguments if it gets too many, and the inner function to trigger the invocation of the intermediate result with the passed-through extra arguments.)
+Alternatively, this also works:
+
+```python
+look = lambda n1, n2: curry(composel(*with_n((n1, drop), (n2, take))))
+assert tuple(curry(look, 5, 10, range(20)) == tuple(range(5, 15))
+```
+
+Now ``look`` itself is not curried, but we apply curry at the call site. The inner curry is still needed, to trigger the invocation from the passthrough.
+
+Currently, ``curry`` does not carry over to callable return values, unless the return value specifically is a curried function. (This is possibly subject to change later; mainly a question of which is the more elegant design.)
+
+It is important the ``composel`` is applied before the curry, because we want to curry the function it returns, not the composition process itself (that would be a no-op; since ``composel`` accepts zero or more arguments, the call is immediately triggered).
 
 
 ### Functional update, sequence shadowing
