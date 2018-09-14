@@ -21,7 +21,7 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`
  - [Batteries for itertools](#batteries-for-itertools): Racket-style multi-input `foldl`, `foldr`; uniqification, flattening
  - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
- - [Nondeterministic evaluation](#nondeterministic-evaluation): a tuple comprehension with multiple body expressions
+ - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
  - [`cons` and friends](#cons-and-friends)
  - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
 
@@ -1192,31 +1192,37 @@ Support for ``namedtuple`` requires an extra feature, which is available for cus
 
 ### Nondeterministic evaluation
 
-We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. An important feature of McCarthy's ``amb`` operator is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. (Sounds a lot like call/cc; which is how amb is usually implemented in Scheme.)
+We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. An important feature of McCarthy's ``amb`` operator is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. This sounds a lot like ``call/cc``; which is how ``amb`` is usually implemented in Scheme.
+
+Python can't do that, short of compiling the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. Arguably, the result would no longer be Python. (As Abelson and Sussman explain in SICP, ``call/cc`` can be implemented via this strategy. It's an instance of lambda as the ultimate GOTO.)
 
 Instead, what we have here is essentially a tuple comprehension that:
 
  - Can have multiple body expressions (side effects also welcome!), by simply listing them in sequence.
 
+ - Allows filters to be placed at any level of the nested looping.
+
  - Presents the source code in the same order as it actually runs.
 
-This comes in the guise of four operators defined in ``unpythonic.amb``, namely ``nondet``, ``choice``, ``insist`` and ``deny``.
+The ``unpythonic.amb`` module defines four operators:
 
- - ``nondet`` is the control structure, which marks a section with nondeterministic evaluation. It returns the output described by its last item.
- - ``choice`` binds a name: ``choice(x=range(3))`` essentially means ``for e.x in range(3)``.
+ - ``forall`` is the control structure, which marks a section with nondeterministic evaluation.
+ - ``choice`` binds a name: ``choice(x=range(3))`` essentially means ``for e.x in range(3):``.
  - ``insist`` is a filter, which allows the remaining lines to run if the condition evaluates to truthy.
  - ``deny`` is ``insist not``; it allows the remaining lines to run if the condition evaluates to falsey.
 
-Choice variables live in the environment, which is accessed via a ``lambda e: ...``, just like in ``letrec``. The last line in a ``nondet`` describes one item of the output. The output items are collected into a tuple.
+Choice variables live in the environment, which is accessed via a ``lambda e: ...``, just like in ``letrec``. Lexical scoping is emulated. In the environment, each line only sees variables defined above it; trying to access a variable defined later raises ``AttributeError``.
+
+The last item in a ``forall`` describes one item of the output. The output items are collected into a tuple, which becomes the return value of the ``forall`` expression.
 
 ```python
-out = nondet(choice(y=range(3)),
+out = forall(choice(y=range(3)),
              choice(x=range(3)),
              lambda e: insist(e.x % 2 == 0),
-             lambda e: (e.x, e.y))  # <-- return value
+             lambda e: (e.x, e.y))
 assert out == ((0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2))
 
-out = nondet(choice(y=range(3)),
+out = forall(choice(y=range(3)),
              choice(x=range(3)),
              lambda e: deny(e.x % 2 == 0),
              lambda e: (e.x, e.y))
@@ -1226,7 +1232,7 @@ assert out == ((1, 0), (1, 1), (1, 2))
 Pythagorean triples:
 
 ```python
-pt = nondet(choice(z=range(1, 21)),                 # hypotenuse
+pt = forall(choice(z=range(1, 21)),                 # hypotenuse
             choice(x=lambda e: range(1, e.z+1)),    # shorter leg
             choice(y=lambda e: range(e.x, e.z+1)),  # longer leg
             lambda e: insist(e.x*e.x + e.y*e.y == e.z*e.z),
@@ -1239,7 +1245,7 @@ assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
 Beware:
 
 ```python
-out = nondet(range(2),  # do the rest twice!
+out = forall(range(2),  # do the rest twice!
              choice(x=range(1, 4)),
              lambda e: e.x)
 assert out == (1, 2, 3, 1, 2, 3)
@@ -1247,16 +1253,17 @@ assert out == (1, 2, 3, 1, 2, 3)
 
 The initial ``range(2)`` causes the remaining lines to run twice - because it yields two output values - regardless of whether we bind the result to a variable or not. In effect, each line, if it returns more than one output, introduces a new nested loop at that point.
 
-For more, see the docstring of ``nondet``.
+For more, see the docstring of ``forall``.
 
 #### For haskellers
 
 The implementation is based on the List monad, and a bastardized variant of do-notation. Quick vocabulary:
 
- - ``nondet(...)`` = ``do ...`` (for a List monad)
+ - ``forall(...)`` = ``do ...`` (for a List monad)
  - ``choice(x=foo)`` = ``x <- foo``, where ``foo`` is an iterable
  - ``insist x`` = ``guard x``
  - ``deny x`` = ``guard (not x)``
+ - Last item = implicit ``return ...``
 
 
 ### `cons` and friends

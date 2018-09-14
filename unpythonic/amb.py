@@ -24,7 +24,7 @@ Or if you want to roll your own, the parts of this module come from:
     https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py
 """
 
-__all__ = ["nondet", "choice", "insist", "deny"]
+__all__ = ["forall", "choice", "insist", "deny"]
 
 from collections import namedtuple
 
@@ -38,7 +38,7 @@ def choice(**binding):
 
     Example::
 
-        nondet(choice(x=range(5)),
+        forall(choice(x=range(5)),
                lambda e: e.x)
     """
     if len(binding) != 1:
@@ -46,7 +46,7 @@ def choice(**binding):
     for k, v in binding.items():  # just one but we don't know its name
         return Assignment(k, v)
 
-def nondet(*lines):
+def forall(*lines):
     """Nondeterministically evaluate lines.
 
     This is essentially a bastardized variant of Haskell's do-notation,
@@ -54,14 +54,14 @@ def nondet(*lines):
 
     Examples::
 
-        out = nondet(choice(y=range(3)),
+        out = forall(choice(y=range(3)),
                      choice(x=range(3)),
                      lambda e: insist(e.x % 2 == 0),
                      lambda e: (e.x, e.y))
         assert out == ((0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2))
 
         # pythagorean triples
-        pt = nondet(choice(z=range(1, 21)),                 # hypotenuse
+        pt = forall(choice(z=range(1, 21)),                 # hypotenuse
                     choice(x=lambda e: range(1, e.z+1)),    # shorter leg
                     choice(y=lambda e: range(e.x, e.z+1)),  # longer leg
                     lambda e: insist(e.x*e.x + e.y*e.y == e.z*e.z),
@@ -95,7 +95,7 @@ def nondet(*lines):
 
 
     Quick vocabulary for haskellers:
-        - ``nondet(...)`` = ``do ...``
+        - ``forall(...)`` = ``do ...``
         - ``choice(x=foo)`` = ``x <- foo``, where ``foo`` is an iterable
         - ``insist x`` = ``guard x``
         - ``deny x`` = ``guard (not x)``
@@ -274,7 +274,7 @@ ok = ("ok",)         # let the computation proceed (usually alternative to fail)
 fail = ()            # end a branch of the computation
 
 def test():
-    out = nondet(choice(x=range(5)),
+    out = forall(choice(x=range(5)),
                  lambda e: e.x)
     assert out == tuple(range(5))
 
@@ -283,41 +283,41 @@ def test():
     #
     # Note this happens even if the output is not assigned to a variable!
     #
-    out = nondet(range(2),  # do the rest twice
+    out = forall(range(2),  # do the rest twice
                  choice(x=range(1, 4)),
                  lambda e: e.x)
     assert out == (1, 2, 3, 1, 2, 3)
 
     # simple filtering
-    out = nondet(choice(y=range(3)),
+    out = forall(choice(y=range(3)),
                  choice(x=range(3)),
                  lambda e: (fail if e.x % 2 == 0 else ok),
                  lambda e: (e.x, e.y))
     assert out == ((1, 0), (1, 1), (1, 2))
 
     # same as:
-    out = nondet(choice(y=range(3)),
+    out = forall(choice(y=range(3)),
                  choice(x=range(3)),
                  lambda e: deny(e.x % 2 == 0),   # <-- here
                  lambda e: (e.x, e.y))
     assert out == ((1, 0), (1, 1), (1, 2))
 
     # the opposite of:
-    out = nondet(choice(y=range(3)),
+    out = forall(choice(y=range(3)),
                  choice(x=range(3)),
                  lambda e: insist(e.x % 2 == 0),  # <-- here
                  lambda e: (e.x, e.y))
     assert out == ((0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2))
 
     # capture the "ok" flag
-    out = nondet(choice(y=range(3)),
+    out = forall(choice(y=range(3)),
                  choice(x=range(3)),
                  choice(z=lambda e: (fail if e.x % 2 == 0 else ok)),
                  lambda e: (e.x, e.y, e.z))
     assert out == ((1, 0, 'ok'), (1, 1, 'ok'), (1, 2, 'ok'))
 
     # pythagorean triples
-    pt = nondet(choice(z=range(1, 21)),                 # hypotenuse
+    pt = forall(choice(z=range(1, 21)),                 # hypotenuse
                 choice(x=lambda e: range(1, e.z+1)),    # shorter leg
                 choice(y=lambda e: range(e.x, e.z+1)),  # longer leg
                 lambda e: insist(e.x*e.x + e.y*e.y == e.z*e.z),
