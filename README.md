@@ -1192,7 +1192,7 @@ Support for ``namedtuple`` requires an extra feature, which is available for cus
 
 ### Nondeterministic evaluation
 
-We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. An important feature of McCarthy's ``amb`` operator is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. This sounds a lot like ``call/cc``; which is how ``amb`` is usually implemented in Scheme.
+We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. An important feature of McCarthy's [`amb` operator](https://rosettacode.org/wiki/Amb) is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. This sounds a lot like ``call/cc``; which is how ``amb`` is usually implemented. See implementations [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html).
 
 Python can't do that, short of compiling the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. Arguably, the result would no longer be Python. (As Abelson and Sussman explain in SICP, ``call/cc`` can be implemented via this strategy. It's an instance of lambda as the ultimate GOTO.)
 
@@ -1213,7 +1213,7 @@ The ``unpythonic.amb`` module defines four operators:
 
 Choice variables live in the environment, which is accessed via a ``lambda e: ...``, just like in ``letrec``. Lexical scoping is emulated. In the environment, each line only sees variables defined above it; trying to access a variable defined later raises ``AttributeError``.
 
-The last item in a ``forall`` describes one item of the output. The output items are collected into a tuple, which becomes the return value of the ``forall`` expression.
+The last line in a ``forall`` describes one item of the output. The output items are collected into a tuple, which becomes the return value of the ``forall`` expression.
 
 ```python
 out = forall(choice(y=range(3)),
@@ -1263,7 +1263,7 @@ The implementation is based on the List monad, and a bastardized variant of do-n
  - ``choice(x=foo)`` = ``x <- foo``, where ``foo`` is an iterable
  - ``insist x`` = ``guard x``
  - ``deny x`` = ``guard (not x)``
- - Last item = implicit ``return ...``
+ - Last line = implicit ``return ...``
 
 
 ### `cons` and friends
@@ -1463,9 +1463,9 @@ For other libraries bringing TCO to Python, see:
 
 ### Wait, no monads?
 
-Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done elsewhere, see [OSlash](https://github.com/dbrattli/OSlash) if you need them.
+(Beside List inside ``forall``.)
 
-Especially the `List` monad can be useful also in Python, e.g. to get the effects of McCarthy's [`amb`](https://rosettacode.org/wiki/Amb) without `call/cc` ([example](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/amb.py)). Compare these solutions, [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html), using `call/cc`.
+Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done elsewhere, see [OSlash](https://github.com/dbrattli/OSlash) if you need them.
 
 If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
 
