@@ -10,7 +10,8 @@ from unpythonic.it import foldr, foldl
 
 # explicit list better for tooling support
 _exports = ["cons", "nil",
-            "LinkedListIterator", "TailIterator", "BinaryTreeIterator", "ConsIterator",
+            "LinkedListIterator", "LinkedListOrCellIterator", "TailIterator",
+            "BinaryTreeIterator", "ConsIterator",
             "car", "cdr",
             "caar", "cadr", "cdar", "cddr",
             "caaar", "caadr", "cadar", "caddr", "cdaar", "cdadr", "cddar", "cdddr",
@@ -67,6 +68,25 @@ class ConsIterator(metaclass=ABCMeta):
 
 class LinkedListIterator(ConsIterator):
     """Iterator for linked lists built from cons cells."""
+    def __init__(self, head, _fullerror=True):
+        def walker(head):
+            cell = head
+            while cell is not nil:
+                yield cell.car
+                if isinstance(cell.cdr, cons) or cell.cdr is nil:
+                    cell = cell.cdr
+                else:
+                    if _fullerror:
+                        raise TypeError("Not a linked list: {}".format(head))
+                    else:  # avoid infinite loop in cons.__repr__
+                        raise TypeError("Not a linked list")
+        super().__init__(head, walker)
+
+class LinkedListOrCellIterator(ConsIterator):
+    """Like LinkedListIterator, but allow also a single cons cell.
+
+    Default iteration strategy. Useful for sequence unpacking of cons and ll.
+    """
     def __init__(self, head, _fullerror=True):
         def walker(head):
             cell = head
@@ -134,11 +154,12 @@ class cons:
             if isinstance(state[k], Nil):
                 state[k] = nil
         self.__dict__ = state
-    def __iter__(self):
-        return LinkedListIterator(self)
+    def __iter__(self):  # sequence unpacking of single cells and lists
+        return LinkedListOrCellIterator(self)
     def __repr__(self):
-        try:  # duck test linked list
-            result = (str(x) for x in LinkedListIterator(self, _fullerror=False))
+        try:  # duck test linked list (true list only, no single-cell pair)
+            # listcomp, not genexpr, since we want to trigger any exceptions **now**.
+            result = [str(x) for x in LinkedListIterator(self, _fullerror=False)]
         except TypeError:
             result = (repr(self.car), ".", repr(self.cdr))
         return "({})".format(" ".join(result))
@@ -280,6 +301,9 @@ def test():
         pass
     else:
         assert False, "binary tree should not be iterable as a linked list"
+
+    # should be able to repr() general cons structures
+    repr(t)
 
     q = ll(cons(1, 2), cons(3, 4))  # list of pairs, not a tree!
     assert [f(q) for f in [caar, cdar, cadr, cddr]] == [1, 2, cons(3, 4), nil]
