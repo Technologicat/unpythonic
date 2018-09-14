@@ -289,12 +289,16 @@ def test():
     assert member(2, l) == ll(2, 3)
     assert not member(5, l)
 
-    # tuple unpacking syntax
+    # sequence unpacking syntax
     l, r = cons(1, 2)
     assert l == 1 and r == 2
 
     a, b, c = ll(1, 2, 3)
     assert a == 1 and b == 2 and c == 3
+
+    # unpacking a binary tree
+    a, b, c, d = BinaryTreeIterator(t)
+    assert a == 1 and b == 2 and c == 3 and d == 4
 
     assert lreverse(ll(1, 2, 3)) == ll(3, 2, 1)
 
