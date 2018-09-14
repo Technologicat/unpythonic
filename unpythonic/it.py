@@ -325,6 +325,13 @@ def test():
     # it is invoked on the remaining positional args:
     assert curry(mymap_one4, double, (1, 2, 3)) == (2, 4, 6)
 
+    # This also works; curried f takes one argument and the second one is
+    # passed through on the right; this two-tuple then ends up as the arguments
+    # to cons. This is as close to "(define (map f) (foldr (compose cons f) empty)"
+    # (#lang spicy) as we're gonna get in Python.
+    mymap_one5 = lambda f: curry(foldr, composer(cons, curry(f)), nil)
+    assert curry(mymap_one5, double, (1, 2, 3)) == (2, 4, 6)
+
     reverse_one = curry(foldl, cons, nil)
     assert reverse_one((1, 2, 3)) == (3, 2, 1)
 
@@ -333,6 +340,17 @@ def test():
 
     append_many = lambda *lsts: foldr(append_two, nil, lsts)
     assert append_many((1, 2), (3, 4), (5, 6)) == (1, 2, 3, 4, 5, 6)
+
+    # builtins from the operator module don't work with curry (inspect fails),
+    # so let's define our own operators.
+    add = lambda x, y: x + y
+    mul = lambda x, y: x * y
+    mysum = curry(foldl, add, 0)
+    myprod = curry(foldl, mul, 1)
+    a = (1, 2)
+    b = (3, 4)
+    assert mysum(append_two(a, b)) == 10
+    assert myprod(b) == 12
 
     def msqrt(x):  # multivalued sqrt
         if x == 0.:

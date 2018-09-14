@@ -8,7 +8,7 @@ Some features modelled after Racket's builtins for handling procedures.
 Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 """
 
-__all__ = ["memoize", "curry",
+__all__ = ["memoize", "curry", "iscurried",
            "flip", "rotate",
            "apply", "identity", "const", "notf", "andf", "orf",
            "composer1", "composel1", "composer", "composel",      # *args
@@ -71,6 +71,11 @@ def curry(f, *args, **kwargs):
     Also more kwargs can be passed at each step, but they do not affect the
     decision when the function is called.
 
+    For a callable to be curryable, it must be possible to inpect its signature
+    to determine its minimum and maximum positional arities; builtin functions
+    such as ``operator.add`` won't work. In such cases ``UnknownArity`` will
+    be raised.
+
     **Examples**::
 
         @curry
@@ -132,6 +137,11 @@ def curry(f, *args, **kwargs):
         look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
         assert tuple(curry(look, 5, 10, range(20))) == tuple(range(5, 15))
     """
+    # trivial case first: prevent stacking curried wrappers
+    if iscurried(f):
+        if args or kwargs:
+            return f(*args, **kwargs)
+        return f
     # TODO: improve: all required name-only args should be present before calling f.
     # Difficult, partial() doesn't remove an already-set kwarg from the signature.
     min_arity, max_arity = arities(f)
@@ -146,7 +156,7 @@ def curry(f, *args, **kwargs):
             if callable(now_result):
                 # curry it now, to sustain the chain in case we still have
                 # too many args.
-                if not hasattr(now_result, "_is_curried_function"):
+                if not iscurried(now_result):
                     now_result = curry(now_result)
                 return now_result(*later_args)
             elif isinstance(now_result, (tuple, list)):
@@ -154,11 +164,15 @@ def curry(f, *args, **kwargs):
             else:
                 return (now_result,) + later_args
         return f(*args, **kwargs)
-    curried._is_curried_function = True  # stash for easy detection
+    curried._is_curried_function = True  # stash for detection
     # curry itself is curried: if we get args, they're the first step
     if args or kwargs:
         return curried(*args, **kwargs)
     return curried
+
+def iscurried(f):
+    """Return whether f is a curried function."""
+    return hasattr(f, "_is_curried_function")
 
 #def curry_simple(f):  # essential idea, without the extra features
 #    min_arity, _ = arities(f)
@@ -553,6 +567,10 @@ def test():
         evaluations += 1
     t()
     assert evaluations == 1  # t has no args, so it should have been invoked
+
+    add = lambda x, y: x + y
+    a = curry(add)
+    assert curry(a) is a  # curry wrappers should not stack
 
     # flip
     def f(a, b):
