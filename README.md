@@ -1271,7 +1271,8 @@ The implementation is based on the List monad, and a bastardized variant of do-n
 *Laugh, it's funny.*
 
 ```python
-from unpythonic import cons, car, cdr, ll, ll_from_sequence, member, lreverse, lappend, lzip
+from unpythonic import cons, ll, car, cdr, caar, cdar, cadr, cddr, \
+                       ll_from_sequence, member, lreverse, lappend, lzip
 
 c = cons(1, 2)
 assert car(c) == 1 and cdr(c) == 2
@@ -1302,7 +1303,13 @@ Iterators are supported to walk over linked lists (this also gives tuple unpacki
 
 But linked lists are not sequences, so e.g. Python's builtin ``reversed`` doesn't work on them. This also implies ``foldr`` (as implemented in ``unpythonic``) won't accept linked lists. If you need to right-fold a linked list, ``lreverse`` it and then left-fold that.
 
-Cons structures can be pickled.
+Cons structures are hashable and pickleable, and print like in Lisps:
+
+```python
+print(cons(1, 2))                    # --> (1 . 2)
+print(ll(1, 2, 3))                   # --> (1 2 3)
+print(cons(cons(1, 2), cons(3, 4)))  # --> ((1 . 2) . (3 . 4))
+```
 
 For more, see `unpythonic.llist`.
 
