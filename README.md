@@ -773,6 +773,15 @@ assert s == 45
 
 If you **really** need to make that into an expression, bind ``r10`` using ``let`` (if you use ``letrec``, keeping in mind it is a callable), or to make your code unreadable, just inline it.
 
+With the enhanced ``curry`` in v0.8.1 and later, this is also a possible solution:
+
+```python
+s = curry(looped_over, range(10), 0,
+            lambda loop, x, acc:
+              loop(acc + x))
+assert s == 45
+```
+
 
 ### Escape continuations (ec)
 
