@@ -1302,7 +1302,21 @@ Iterators are supported to walk over linked lists (this also gives tuple unpacki
 
 But linked lists are not sequences, so e.g. Python's builtin ``reversed`` doesn't work on them. This also implies ``foldr`` (as implemented in ``unpythonic``) won't accept linked lists. If you need to right-fold a linked list, ``lreverse`` it and then left-fold that.
 
-See `unpythonic.llist` for details.
+Cons structures can be pickled.
+
+For more, see `unpythonic.llist`.
+
+#### Notes
+
+There is no ``copy`` method or ``lcopy`` function, because cons cells are immutable; which makes cons structures immutable.
+
+(However, for example, it is possible to `cons` a new item onto an existing linked list; that's fine because it produces a new cons structure - which shares data with the original, just like in Racket.)
+
+In general, copying cons structures can be error-prone. Given just a starting cell it is impossible to tell if a given instance of a cons structure represents a linked list, or something more general (such as a binary tree) that just happens to locally look like one, along the path that would be traversed if it was indeed a linked list.
+
+The linked list iteration strategy does not recurse in the ``car`` half, which could lead to incomplete copying. The tree strategy that recurses on both halves, on the other hand, is not safe to use on linked lists, because if the list is long, it will cause a stack overflow (due to lack of TCO in Python). With the tools in this library it would be possible to make a tree recurser with TCO applied in the `cdr` half, but the current generator-based implementation of ``BinaryTreeIterator`` is much shorter.
+
+**Caution**: the ``nil`` singleton is freshly created in each session; newnil is not oldnil, so don't pickle a standalone ``nil``. The unpickler of ``cons`` automatically refreshes any ``nil`` instances inside a pickled cons structure, so that **cons structures** support the illusion that ``nil`` is a special value like ``None`` or ``...``. After unpickling, ``car(c) is nil`` and ``cdr(c) is nil`` still work as expected, even though ``id(nil)`` has changed.
 
 
 ### ``def`` as a code block: ``@call``

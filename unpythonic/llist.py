@@ -310,6 +310,15 @@ def test():
     # should iterate without crashing, since the nil is converted.
     assert tuple(k) == (1, 2, 3)
 
+    # cons structures are immutable (because cons cells are),
+    # but new instances based on existing ones are ok.
+    l1 = ll(3, 2, 1)
+    l2 = cons(4, l1)
+    assert l1 == ll(3, 2, 1)
+    assert l2 == ll(4, 3, 2, 1)
+    l3 = cons(6, cdr(l1))
+    assert l3 == ll(6, 2, 1)
+
     print("All tests PASSED")
 
 if __name__ == '__main__':
