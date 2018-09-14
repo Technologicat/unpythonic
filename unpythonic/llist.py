@@ -99,7 +99,7 @@ class TailIterator(ConsIterator):  # for member()
                 if isinstance(cell.cdr, cons) or cell.cdr is nil:
                     cell = cell.cdr
                 else:
-                    raise TypeError("Not a linked list or a single cons cell: {}".format(head))
+                    raise TypeError("Not a linked list: {}".format(head))
         super().__init__(head, walker)
 
 class BinaryTreeIterator(ConsIterator):
