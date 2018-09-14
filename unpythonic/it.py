@@ -334,8 +334,17 @@ def test():
     # Finally, we can drop the inner curry by using a currying compose.
     # This is as close to "(define (map f) (foldr (compose cons f) empty)"
     # (#lang spicy) as we're gonna get in Python.
-    mymap_one6 = lambda f: curry(foldr, ccomposer(cons, f), nil)
-    assert curry(mymap_one6, double, (1, 2, 3)) == (2, 4, 6)
+    mymap = lambda f: curry(foldr, ccomposer(cons, f), nil)
+    assert curry(mymap, double, (1, 2, 3)) == (2, 4, 6)
+
+    # The currying has actually made it not just map one, but general map that
+    # accepts multiple input sequences.
+    #
+    # The sequences are taken by the processing function. acc, being the last
+    # argument, is passed through on the right. The output from the processing
+    # function - one new item - and acc then become a two-tuple, which gets
+    # passed into cons.
+    assert curry(mymap, lambda x, y: x + y, (1, 2, 3), (2, 4, 6)) == (3, 6, 9)
 
     reverse_one = curry(foldl, cons, nil)
     assert reverse_one((1, 2, 3)) == (3, 2, 1)
