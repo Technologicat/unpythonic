@@ -1,6 +1,8 @@
 # Unpythonic: Lispy missing batteries for Python
 
-In the spirit of [toolz](https://github.com/pytoolz/toolz), missing features for Python from the list processing tradition. We place a special emphasis on **clear, pythonic syntax**, as far as possible without [MacroPy](https://github.com/azazel75/macropy).
+Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
+
+In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python from the list processing tradition. We place a special emphasis on **clear, pythonic syntax**, as far as possible without [MacroPy](https://github.com/azazel75/macropy).
 
 Other design considerations are simplicity, robustness, and minimal dependencies (currently none). Pure Python 3.4.
 
@@ -976,6 +978,7 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
      - For simplicity, all remaining keyword args are fed in at the first step that has too many positional args.
    - Can be used both as a decorator and as a regular function.
      - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
+   - **Caution**: If the positional arities of ``f`` cannot be inspected, currying fails, raising ``UnknownArity``. This may happen with builtins such as ``operator.add``.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - Any number of positional arguments is supported, with similar rules as the pipe system. Multiple return values packed into a tuple or list are unpacked to the argument list of the next function in the chain.
    - `composel1`, `composer1` for 1-in-1-out chains (faster; also useful for a single value that is a tuple or list).
@@ -1029,7 +1032,16 @@ assert curry(mapl_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 
 In ``mapr_one``, we can use either ``curry`` or ``functools.partial``. In this case it doesn't matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as it gets at least one more argument.
 
-Finally, keep in mind that this exercise is intended just as a feature demonstration. In production code, the builtin ``map`` is much better than the ``mapl_one`` defined above; it is builtin, and accepts multiple input sequences.
+As for v0.8.1, yet another way to write ``map_one`` is:
+
+```python
+map_one = lambda f: curry(foldr, composer(cons, curry(f)), nil)
+```
+
+The curried ``f`` uses up one argument (provided it is a one-argument function!), and the second argument is passed through on the right; this two-tuple then ends up as the arguments to ``cons``. This is as close to ```(define (map f) (foldr (compose cons f) empty)``` (in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy)) as we're gonna get in Python.
+
+Finally, keep in mind that this exercise is intended just as a feature demonstration. In production code, the builtin ``map`` is much better than what we defined above; it is builtin, and accepts multiple input sequences.
+
 
 #### ``curry`` and reduction rules
 
@@ -1062,6 +1074,26 @@ curry(g, ll(1, 2, 3))
 ```
 
 The argument is then passed into ``g``; we obtain a result, and reduction is complete.
+
+A curried function is also a curry context:
+
+```python
+add2 = lambda x, y: x + y
+a2 = curry(add2)
+a2(a, b, c)  # same as curry(add2, a, b, c); reduces to (a + b, c)
+```
+
+so on the last line, we don't need to say
+
+```python
+curry(a2, a, b, c)
+```
+
+because ``a2`` is already curried. Doing so does no harm, though; as of v0.8.2, ``curry`` automatically prevents stacking ``curried`` wrappers:
+
+```python
+curry(a2) is a2  # --> True
+```
 
 If we wish to modify precedence, parentheses are needed, which takes us out of the curry context, unless we explicitly ``curry`` the subexpression. This works:
 
@@ -1467,8 +1499,6 @@ Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a 
 
 
 ## Notes
-
-Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
 
 ### On ``let`` and Python
 
