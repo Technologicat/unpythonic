@@ -5,7 +5,6 @@
 from abc import ABCMeta, abstractmethod
 from itertools import zip_longest
 
-from unpythonic.misc import call
 from unpythonic.fun import composer1
 from unpythonic.it import foldr, foldl
 
@@ -28,8 +27,10 @@ _exports = ["cons", "nil",
 #_exports.extend(_c4r)
 __all__ = _exports
 
-@call  # make a singleton
-class nil:
+# Singleton, but we need the class and instance name to be separate so that we
+# can correctly unpickle cons structures, which use a different nil instance
+# (from an earlier session).
+class Nil:
     # support the iterator protocol so we can say tuple(nil) --> ()
     def __iter__(self):
         return self
@@ -37,6 +38,7 @@ class nil:
         raise StopIteration()
     def __repr__(self):
         return "nil"
+nil = Nil()
 
 class ConsIterator(metaclass=ABCMeta):
     """Abstract base class for iterators operating on cons cells.
@@ -124,6 +126,14 @@ class cons:
         if hasattr(self, "_immutable"):
             raise TypeError("'cons' object does not support item assignment")
         super().__setattr__(k, v)
+    def __setstate__(self, state):  # pickle support
+        # Upon unpickling, refresh any "nil" instances to point to the
+        # current nil singleton, so that "c.car is nil" and "c.cdr is nil"
+        # work as expected.
+        for k in ("car", "cdr"):
+            if isinstance(state[k], Nil):
+                state[k] = nil
+        self.__dict__ = state
     def __iter__(self):
         return LinkedListIterator(self)
     def __repr__(self):
@@ -293,6 +303,12 @@ def test():
 
     assert tuple(zip(ll(1, 2, 3), ll(4, 5, 6))) == ((1, 4), (2, 5), (3, 6))
     assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
+
+    from pickle import dumps, loads
+    l = ll(1, 2, 3)
+    k = loads(dumps(l))
+    # should iterate without crashing, since the nil is converted.
+    assert tuple(k) == (1, 2, 3)
 
     print("All tests PASSED")
 
