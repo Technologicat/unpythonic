@@ -997,6 +997,7 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
 Examples (see also the next section):
 
 ```python
+from operator import add, mul
 from unpythonic import andf, orf, flatmap, rotate, curry, foldl, foldr, composer, to1st, cons, nil, ll
 
 isint  = lambda x: isinstance(x, int)
@@ -1024,14 +1025,25 @@ assert doubler((1, 2, 3)) == ll(2, 4, 6)
 
 # passthrough on the right
 assert curry(double, 2, "foo") == (4, "foo")   # arity of double is 1
-assert curry(map_one, double, (1, 2, 3)) == ll(2, 4, 6)
+
+mysum = curry(foldl, add, 0)
+myprod = curry(foldl, mul, 1)
+a = ll(1, 2)
+b = ll(3, 4)
+c = ll(5, 6)
+append_two = lambda a, b: foldr(cons, b, a)
+append_many = lambda *lsts: foldr(append_two, nil, lsts)  # see lappend
+assert mysum(append_many(a, b, c)) == 21
+assert myprod(b) == 12
+
+assert curry(map_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
 
-*Minor detail*: In the last example, the input ``(1, 2, 3)`` is given as a tuple, not as a linked list, because the input to ``foldr`` must be a sequence. We could also write it as:
+*Minor detail*: We could also write the last example as:
 
 ```python
 double = lambda x: 2 * x
-mapr_one = lambda f: curry(foldl, composer(cons, to1st(f)), nil)  # foldl works on iterables
+mapr_one = lambda f: curry(foldl, composer(cons, to1st(f)), nil)  # foldl works on general iterables
 mapl_one = lambda f: composer(mapr_one(f), lreverse)              # callable -> another callable (1->1)
 assert curry(mapl_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
@@ -1055,7 +1067,7 @@ assert curry(mymap, lambda x, y: x + y, (1, 2, 3), (2, 4, 6)) == (3, 6, 9)
 
 This is as close to ```(define (map f) (foldr (compose cons f) empty)``` (in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy)) as we're gonna get in Python.
 
-Notice how it now accepts multiple input sequences; this is thanks to currying ``f`` in the composition. The sequences are taken by the processing function. ``acc``, being the last argument, is passed through on the right. The output from the processing function - one new item - and ``acc`` then become a two-tuple, which gets passed into cons.
+Notice how it now accepts multiple input sequences; this is thanks to currying ``f`` inside the composition. The sequences are taken by the processing function. ``acc``, being the last argument, is passed through on the right. The output from the processing function - one new item - and ``acc`` then become a two-tuple, which gets passed into cons.
 
 Finally, keep in mind that this exercise is intended just as a feature demonstration. In production code, using the builtin ``map`` is much better.
 
