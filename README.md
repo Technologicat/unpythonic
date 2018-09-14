@@ -962,7 +962,7 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
    - If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
  - `curry` comes with some extra features:
    - Passthrough on the right when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket)
-     - If the intermediate result of a passthrough is a curried function, it is invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
+     - If the intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
      - For simplicity, all remaining keyword arguments are fed in at the first step that has too many positional arguments.
    - Can be used both as a decorator and as a regular function.
      - When used as a regular function, `curry` itself is curried à la Racket. If the invocation gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
@@ -998,7 +998,7 @@ zipr = curry(foldr, zipper, ())
 assert zipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
 assert zipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
 
-map_one = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
+map_one = lambda f: curry(foldr, composer(cons, to1st(f)), nil)
 double = lambda x: 2 * x
 doubler = map_one(double)
 assert doubler((1, 2, 3)) == ll(2, 4, 6)
@@ -1012,21 +1012,14 @@ assert curry(map_one, double, (1, 2, 3)) == ll(2, 4, 6)
 
 ```python
 double = lambda x: 2 * x
-mapr_one = lambda f: (curry(foldl))(composer(cons, to1st(f)), nil)  # foldl works on iterables
-mapl_one = lambda f: curry(composer(mapr_one(f), lreverse))
-assert curry(mapl_one)(double, ll(1, 2, 3)) == ll(2, 4, 6)
-```
-
-Or, by using the fact that ``curry`` itself is curried, with fewer parentheses:
-
-```python
-double = lambda x: 2 * x
-mapr_one = lambda f: curry(foldl, composer(cons, to1st(f)), nil)
-mapl_one = lambda f: curry(composer(mapr_one(f), lreverse))
+mapr_one = lambda f: curry(foldl, composer(cons, to1st(f)), nil)  # foldl works on iterables
+mapl_one = lambda f: composer(mapr_one(f), lreverse)              # callable -> another callable (1 in, 1 out)
 assert curry(mapl_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
 
-(Of course, this exercise is useless in practice, because there is already the builtin ``map``.)
+In ``mapr_one``, we can use either ``curry`` or ``functools.partial``. In this case it doesn't matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as it gets at least one more argument.
+
+Finally, keep in mind that this exercise is intended just as a feature demonstration. In production code, the builtin ``map`` is much better than the ``mapl_one`` defined here; it is builtin, and accepts multiple input sequences.
 
 
 ### Batteries for itertools
@@ -1086,31 +1079,11 @@ assert tuple(look(5, 10)(range(20))) == tuple(range(5, 15))
 
 #### Note: currying
 
-In the last example, essentially we just want to `look 5 10 (range 20)`, the grouping of parentheses being pretty much an implementation detail. With ``curry`` from the previous section, we can rewrite the example as:
+In the last example, essentially we just want to `look 5 10 (range 20)`, the grouping of the parentheses being pretty much an implementation detail. With ``curry`` from the previous section, we can rewrite the last line as:
 
 ```python
-from functools import partial
-from unpythonic import curry, composel, drop, take
-
-with_n = lambda *args: (partial(f, n) for n, f in args)
-look = curry(lambda n1, n2: curry(composel(*with_n((n1, drop), (n2, take)))))
-assert tuple(look(5, 10, range(20))) == tuple(range(5, 15))
-```
-
-We curry the outer function to make it pass through extra arguments if it gets too many, and the inner function to trigger the invocation of the intermediate result with the passed-through extra arguments. This gives us a more readable invocation at the cost of a less readable definition.
-
-Alternatively, this also works:
-
-```python
-look = lambda n1, n2: curry(composel(*with_n((n1, drop), (n2, take))))
 assert tuple(curry(look, 5, 10, range(20)) == tuple(range(5, 15))
 ```
-
-Now ``look`` itself is not curried, but we apply curry at the call site. The inner curry is still needed, to trigger the invocation from the passthrough.
-
-Currently, ``curry`` does not carry over to callable return values, unless the return value specifically is a curried function. (This is possibly subject to change later; mainly a question of which is the more elegant design.)
-
-It is important the ``composel`` is applied before the curry, because we want to curry the function it returns, not the composition process itself (that would be a no-op; since ``composel`` accepts zero or more arguments, the call is immediately triggered).
 
 
 ### Functional update, sequence shadowing

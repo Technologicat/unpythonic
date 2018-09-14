@@ -314,16 +314,16 @@ def test():
         assert False  # one arg too many; cons in the compose chain expects 2 args (acc is one)
 
     # minimum arity of fold functions is 3, to allow use with curry:
-    mymap_one4 = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
+    mymap_one4 = lambda f: curry(foldr, composer(cons, to1st(f)), nil)
     doubler = mymap_one4(double)
     assert doubler((1, 2, 3)) == (2, 4, 6)
 
     # curry supports passing through on the right any args over the max arity.
-    assert curry(double)(2, "foo") == (4, "foo")   # arity of double is 1
+    assert curry(double, 2, "foo") == (4, "foo")   # arity of double is 1
 
-    # In passthrough, if an intermediate result is a curried function,
+    # In passthrough, if an intermediate result is a callable,
     # it is invoked on the remaining positional args:
-    assert curry(mymap_one4)(double, (1, 2, 3)) == (2, 4, 6)
+    assert curry(mymap_one4, double, (1, 2, 3)) == (2, 4, 6)
 
     reverse_one = curry(foldl)(cons, nil)
     assert reverse_one((1, 2, 3)) == (3, 2, 1)

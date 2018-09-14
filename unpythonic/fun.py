@@ -100,14 +100,14 @@ def curry(f, *args, **kwargs):
         double = lambda x: 2 * x
         assert curry(double)(2, "foo") == (4, "foo")
 
-    In passthrough, if an intermediate result is a curried function,
-    it is invoked on the remaining positional args::
+    In passthrough, if an intermediate result is callable it is invoked
+    on the remaining positional args::
 
         map_one = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
         assert curry(map_one)(double, (1, 2, 3)) == (2, 4, 6)
 
     In the above example, ``map_one`` has arity 1, so the tuple ``(1, 2, 3)``
-    is extra. The result of ``map_one`` is a curried function, so it is then
+    is extra. The result of ``map_one`` is a callable, so it is then
     invoked on this tuple.
 
     For simplicity, in passthrough, all kwargs are consumed in the first step
@@ -119,8 +119,18 @@ def curry(f, *args, **kwargs):
     If any arguments are provided beside ``f``, then they are the first step.
     This helps eliminate many parentheses::
 
-        assert curry(double, 2, "foo") == (4, "foo")
         map_one = lambda f: curry(foldr, composer(cons, to1st(f)), nil)
+
+    This comboes with passthrough::
+
+        assert curry(double, 2, "foo") == (4, "foo")
+
+        from functools import partial
+        from unpythonic import curry, composel, drop, take
+
+        with_n = lambda *args: (partial(f, n) for n, f in args)
+        look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
+        assert tuple(curry(look, 5, 10, range(20))) == tuple(range(5, 15))
     """
     # TODO: improve: all required name-only args should be present before calling f.
     # Difficult, partial() doesn't remove an already-set kwarg from the signature.
@@ -133,7 +143,11 @@ def curry(f, *args, **kwargs):
         if len(args) > max_arity:
             now_args, later_args = args[:max_arity], args[max_arity:]
             now_result = f(*now_args, **kwargs)  # use up all kwargs now
-            if hasattr(now_result, "_is_curried_function"):
+            if callable(now_result):
+                # curry it now, to sustain the chain in case we still have
+                # too many args.
+                if not hasattr(now_result, "_is_curried_function"):
+                    now_result = curry(now_result)
                 return now_result(*later_args)
             elif isinstance(now_result, (tuple, list)):
                 return tuple(now_result) + later_args
