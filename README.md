@@ -1199,9 +1199,7 @@ Python can't do that, short of compiling the whole program into [CPS](https://en
 Instead, what we have here is essentially a tuple comprehension that:
 
  - Can have multiple body expressions (side effects also welcome!), by simply listing them in sequence.
-
  - Allows filters to be placed at any level of the nested looping.
-
  - Presents the source code in the same order as it actually runs.
 
 The ``unpythonic.amb`` module defines four operators:
