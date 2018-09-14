@@ -2,8 +2,21 @@
 # -*- coding: utf-8 -*-
 """A simple variant of nondeterministic evaluation for Python.
 
-Based on the List monad. This is a hack with the bare minimum of components
-to make it work, complete with a semi-usable syntax.
+This is essentially a toy that has no more power than list comprehensions
+or nested for loops. An important feature of McCarthy's amb operator is its
+nonlocality - being able to jump back to a choice point, even after the
+dynamic extent of the function where it resides. (Sounds a lot like call/cc;
+which is how amb is usually implemented in Scheme.)
+
+Instead, what we have here is essentially a tuple comprehension that:
+
+  - Can have multiple body expressions (side effects welcome!), by simply
+    listing them (and making sure each returns exactly one output).
+
+  - Presents the source code in the same order as it actually runs.
+
+The implementation is based on the List monad. This is a hack with the bare
+minimum of components to make it work, complete with a semi-usable syntax.
 
 If you need more monads, look into OSlash.
 
