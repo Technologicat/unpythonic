@@ -16,7 +16,7 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [Introduce local bindings: ``let``, ``letrec``](#introduce-local-bindings-let-letrec)
    - [The environment: ``env``](#the-environment-env)
  - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
-   - [Loops in FP style (with TCO)](#loops-in-fp-style-with-tco)
+   - [Loops in FP style (with TCO)](#loops-in-fp-style-with-tco): FP looping constructs.
  - [Escape continuations (ec)](#escape-continuations-ec)
    - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
  - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables, dynamic assignment)
@@ -28,9 +28,15 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [`cons` and friends](#cons-and-friends)
  - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
 
-For highlights, we recommend **Loops in FP style** and **call/ec**, and possibly **Dynamic scoping**.
+Meta:
 
-You can also take the [quick tour](quick_tour.py) or the slightly longer [tour](tour.py). For the most up-to-date examples, see the `test()` function in each submodule, the docstrings of the individual features, and this README.
+ - [Design notes](#design-notes)
+ - [Installation](#installation)
+ - [License](#license)
+ - [Acknowledgements](#acknowledgements)
+ - [Python-related FP resources](#python-related-fp-resources)
+
+There is a [quick tour](quick_tour.py) and a slightly longer [tour](tour.py), but as of v0.8.2 neither are complete. For the most up-to-date examples, see the `test()` function in each submodule, the docstrings of the individual features, and this README.
 
 ### Assign-once
 
@@ -1040,15 +1046,18 @@ map_one = lambda f: curry(foldr, composer(cons, curry(f)), nil)
 
 The curried ``f`` uses up one argument (provided it is a one-argument function!), and the second argument is passed through on the right; this two-tuple then ends up as the arguments to ``cons``.
 
-v0.8.2 adds currying variants of the compose functions, so using ``ccomposer``, the inner curry is no longer needed:
+v0.8.2 adds currying variants of the compose functions (names prefixed with ``c``), so using ``ccomposer``, the inner curry is no longer needed:
 
 ```python
-map_one = lambda f: curry(foldr, ccomposer(cons, f), nil)
+mymap = lambda f: curry(foldr, ccomposer(cons, f), nil)
+assert curry(mymap, lambda x, y: x + y, (1, 2, 3), (2, 4, 6)) == (3, 6, 9)
 ```
 
 This is as close to ```(define (map f) (foldr (compose cons f) empty)``` (in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy)) as we're gonna get in Python.
 
-Finally, keep in mind that this exercise is intended just as a feature demonstration. In production code, the builtin ``map`` is much better than what we defined above; it is builtin, and accepts multiple input sequences.
+Notice how it now accepts multiple input sequences; this is thanks to currying ``f`` in the composition. The sequences are taken by the processing function. ``acc``, being the last argument, is passed through on the right. The output from the processing function - one new item - and ``acc`` then become a two-tuple, which gets passed into cons.
+
+Finally, keep in mind that this exercise is intended just as a feature demonstration. In production code, using the builtin ``map`` is much better.
 
 
 #### ``curry`` and reduction rules
@@ -1506,7 +1515,7 @@ Essentially the implementation is just `def call(thunk): return thunk()`. The po
 Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a newline after a decorator.
 
 
-## Notes
+## Design notes
 
 ### On ``let`` and Python
 
