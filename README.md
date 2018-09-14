@@ -1270,18 +1270,21 @@ The implementation is based on the List monad, and a bastardized variant of do-n
 
 ```python
 from unpythonic import cons, ll, car, cdr, caar, cdar, cadr, cddr, \
-                       ll_from_sequence, member, lreverse, lappend, lzip
+                       ll_from_sequence, member, lreverse, lappend, lzip, \
+                       BinaryTreeIterator
 
 c = cons(1, 2)
 assert car(c) == 1 and cdr(c) == 2
 
 assert ll(1, 2, 3) == cons(1, cons(2, cons(3, nil)))
 
-l, r = cons(1, 2)      # unpacking a cons cell
-a, b, c = ll(1, 2, 3)  # unpacking a linked list
-
 t = cons(cons(1, 2), cons(3, 4))  # binary tree
 assert [f(t) for f in [caar, cdar, cadr, cddr]] == [1, 2, 3, 4]
+
+# default iteration scheme is "single cell or linked list":
+a, b = cons(1, 2)                   # unpacking a cons cell
+a, b, c = ll(1, 2, 3)               # unpacking a linked list
+a, b, c, d = BinaryTreeIterator(t)  # unpacking a binary tree: use a non-default iteration scheme
 
 assert list(ll(1, 2, 3)) == [1, 2, 3]
 assert tuple(ll(1, 2, 3)) == (1, 2, 3)
