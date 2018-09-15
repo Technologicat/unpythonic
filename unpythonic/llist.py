@@ -5,7 +5,7 @@
 from abc import ABCMeta, abstractmethod
 from itertools import zip_longest
 
-from unpythonic.fun import composer1
+from unpythonic.fun import composeri1
 from unpythonic.it import foldr, foldl
 
 # explicit list better for tooling support
@@ -182,47 +182,56 @@ class cons:
     def __hash__(self):
         return hash((hash(self.car), hash(self.cdr)))
 
-def car(x):
-    """Return the first half of a cons cell."""
+def _car(x):
+    return _typecheck(x).car
+def _cdr(x):
+    return _typecheck(x).cdr
+def _typecheck(x):
     if not isinstance(x, cons):
         raise TypeError("Expected a cons, got {} with value {}".format(type(x), x))
-    return x.car
+    return x
+def _build_accessor(name):
+    spec = name[1:-1]
+    f = {'a': _car, 'd': _cdr}
+    return composeri1(f[char] for char in spec)
+
+def car(x):
+    """Return the first half of a cons cell."""  # no autobuild, we want a docstring.
+    return _car(x)
 def cdr(x):
     """Return the second half of a cons cell."""
-    if not isinstance(x, cons):
-        raise TypeError("Expected a cons, got {} with value {}".format(type(x), x))
-    return x.cdr
+    return _cdr(x)
 
-caar = composer1(car, car)
-cadr = composer1(car, cdr)
-cdar = composer1(cdr, car)
-cddr = composer1(cdr, cdr)
+caar = _build_accessor("caar")
+cadr = _build_accessor("cadr")
+cdar = _build_accessor("cdar")
+cddr = _build_accessor("cddr")
 
-caaar = composer1(car, car, car)
-caadr = composer1(car, car, cdr)
-cadar = composer1(car, cdr, car)
-caddr = composer1(car, cdr, cdr)
-cdaar = composer1(cdr, car, car)
-cdadr = composer1(cdr, car, cdr)
-cddar = composer1(cdr, cdr, car)
-cdddr = composer1(cdr, cdr, cdr)
+caaar = _build_accessor("caaar")
+caadr = _build_accessor("caadr")
+cadar = _build_accessor("cadar")  # look, it's Darth Cadar!
+caddr = _build_accessor("caddr")
+cdaar = _build_accessor("cdaar")
+cdadr = _build_accessor("cdadr")
+cddar = _build_accessor("cddar")
+cdddr = _build_accessor("cdddr")
 
-caaaar = composer1(car, car, car, car)
-caaadr = composer1(car, car, car, cdr)
-caadar = composer1(car, car, cdr, car)
-caaddr = composer1(car, car, cdr, cdr)
-cadaar = composer1(car, cdr, car, car)
-cadadr = composer1(car, cdr, car, cdr)
-caddar = composer1(car, cdr, cdr, car)
-cadddr = composer1(car, cdr, cdr, cdr)
-cdaaar = composer1(cdr, car, car, car)
-cdaadr = composer1(cdr, car, car, cdr)
-cdadar = composer1(cdr, car, cdr, car)
-cdaddr = composer1(cdr, car, cdr, cdr)
-cddaar = composer1(cdr, cdr, car, car)
-cddadr = composer1(cdr, cdr, car, cdr)
-cdddar = composer1(cdr, cdr, cdr, car)
-cddddr = composer1(cdr, cdr, cdr, cdr)
+caaaar = _build_accessor("caaaar")
+caaadr = _build_accessor("caaadr")
+caadar = _build_accessor("caadar")
+caaddr = _build_accessor("caaddr")
+cadaar = _build_accessor("cadaar")
+cadadr = _build_accessor("cadadr")
+caddar = _build_accessor("caddar")
+cadddr = _build_accessor("cadddr")
+cdaaar = _build_accessor("cdaaar")
+cdaadr = _build_accessor("cdaadr")
+cdadar = _build_accessor("cdadar")
+cdaddr = _build_accessor("cdaddr")
+cddaar = _build_accessor("cddaar")
+cddadr = _build_accessor("cddadr")
+cdddar = _build_accessor("cdddar")
+cddddr = _build_accessor("cddddr")
 
 def ll(*elts):
     """Pack elts to a linked list."""
