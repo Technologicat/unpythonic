@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Cons and friends."""
+"""Cons and friends.
+
+Hashable, pickleable, hooks into the built-in reversed(), prints like in Lisps.
+"""
 
 from abc import ABCMeta, abstractmethod
+from collections.abc import Sequence
 from itertools import zip_longest
 
 from unpythonic.fun import composeri1
@@ -17,7 +21,7 @@ _exports = ["cons", "nil",
             "caaar", "caadr", "cadar", "caddr", "cdaar", "cdadr", "cddar", "cdddr",
             "caaaar", "caaadr", "caadar", "caaddr", "cadaar", "cadadr", "caddar", "cadddr",
             "cdaaar", "cdaadr", "cdadar", "cdaddr", "cddaar", "cddadr", "cdddar", "cddddr",
-            "ll", "ll_from_sequence", "ll_from_iterable", "lreverse", "lappend", "lzip"]
+            "ll", "llist", "lreverse", "lappend", "lzip"]
 #from itertools import product, repeat
 #_ads = lambda n: product(*repeat("ad", n))
 #_c2r = ["c{}{}r".format(*x) for x in _ads(2)]
@@ -81,6 +85,15 @@ class LinkedListIterator(ConsIterator):
                     else:  # avoid infinite loop in cons.__repr__
                         raise TypeError("Not a linked list")
         super().__init__(head, walker)
+
+class ReversedLinkedListIterator(LinkedListIterator):
+    """Iterator for walking a linked list backwards.
+
+    Computes the reversed list at init time, so it can then be walked forward.
+    Cost O(n)."""
+    def __init__(self, head, _fullerror=True):
+        self._data = lreverse(head)
+        super().__init__(self._data, _fullerror)
 
 class LinkedListOrCellIterator(ConsIterator):
     """Like LinkedListIterator, but allow also a single cons cell.
@@ -159,7 +172,7 @@ class cons:
         return LinkedListOrCellIterator(self)
     def __reversed__(self):
         """For lists. Caution: O(n), works by building a reversed list."""
-        return iter(lreverse(self))
+        return ReversedLinkedListIterator(self)
     def __repr__(self):
         try:  # duck test linked list (true list only, no single-cell pair)
             # listcomp, not genexpr, since we want to trigger any exceptions **now**.
@@ -234,30 +247,67 @@ cdddar = _build_accessor("cdddar")
 cddddr = _build_accessor("cddddr")
 
 def ll(*elts):
-    """Pack elts to a linked list."""
-    return ll_from_sequence(elts)
+    """Make a linked list with the given elements.
 
-def ll_from_sequence(sequence):
-    """Convert sequence to a linked list."""
-    return foldr(cons, nil, sequence)
+    ``ll(...)`` plays the same role as ``[...]`` or ``(...)`` for lists or tuples,
+    respectively, but for linked lists. See also ``llist``.
 
-def ll_from_iterable(iterable):
-    """Convert iterable to a linked list.
+    **NOTE**: The returned data type is ``cons``, there is no ``ll`` type.
+    A linked list is just one kind of structure that can be built out of cons cells.
 
-    This is slower than ``ll_from_sequence``, because general iterables cannot
-    be walked backwards; since ``cons`` adds to the front, the intermediate
-    result must be reversed, which takes an additional O(n) operations.
+    Equivalent to ``(list ...)`` in Lisps. Since in Python the name ``list``
+    refers to the builtin dynamic array type, we use the name ``ll``.
     """
+    return llist(elts)
+
+def llist(iterable):
+    """Make a linked list from iterable.
+
+    ``llist(...)`` plays the same role as ``list(...)`` or ``tuple(...)`` for
+    lists or tuples, respectively, but for linked lists. See also ``ll``.
+
+    **NOTE**: The returned data type is ``cons``, there is no ``llist`` type.
+    A linked list is just one kind of structure that can be built out of cons cells.
+
+    **Efficiency**:
+
+    Because cons appends to the front, this is efficient for:
+
+      - ``reversed(some_linked_list)``, by just returning the already computed
+        reversed list that is internally stored by the iterator.
+
+      - Sequences, since they can be walked backwards; a linear walk is enough.
+        Here a sequence is defined as tuple, list, or any custom class inheriting
+        from ``collections.abc.Sequence``.
+
+    For a general iterable input, this costs a linear walk (forwards), plus an
+    ``lreverse`` once the list has been fully consed.
+    """
+    if isinstance(iterable, ReversedLinkedListIterator):
+        # avoid two extra reverses by reusing the internal data.
+        return iterable._data
+    if isinstance(iterable, (tuple, list, Sequence)):
+        return foldr(cons, nil, iterable)  # sequences can be walked backwards
+    # general iterable requires walking forwards, then reversing the result
+    # because cons appends to the front.
+    #
+    # Equivalent to lreverse(lreverse(iterable)) but this is semantically cleaner,
+    # since the original iterable is usually not a linked list. (There's no point
+    # in copying one, since they're immutable.)
     return lreverse(foldl(cons, nil, iterable))
 
 def lreverse(l):
-    """Reverse a linked list."""
+    """Reverse a linked list, returning the resulting list.
+
+    If you want an iterator instead, use ``reversed(l)``. The computational cost
+    is the same in both cases, O(n).
+    """
     return foldl(cons, nil, l)
 
 def lappend(*ls):
     """Append the given linked lists left-to-right."""
     def lappend_two(l1, l2):
-        return foldr(cons, l2, l1)  # must internally reverse l1
+        return foldr(cons, l2, l1)  # this internally calls reversed() on l1
     return foldr(lappend_two, nil, ls)
 
 def member(x, l):
@@ -277,7 +327,7 @@ def lzip(*ls):
 
     Built-in zip() works too, but produces tuples.
     """
-    return ll(*map(ll, *ls))
+    return llist(map(ll, *ls))
 
 def test():
     # TODO: extend tests
@@ -290,10 +340,13 @@ def test():
 #    print(cons(cons(cons(nil, 3), 2), 1))  # improper list
 
     # type conversion
-    lst = ll(1, 2, 3)
-    assert list(lst) == [1, 2, 3]
-    assert tuple(lst) == (1, 2, 3)
-    assert ll_from_sequence((1, 2, 3)) == lst
+    tpl = (1, 2, 3)
+    lst = [1, 2, 3]
+    llst = ll(1, 2, 3)
+    assert list(llst) == lst
+    assert tuple(llst) == tpl
+    assert llist(tpl) == llst
+    assert llist(lst) == llst
     assert tuple(nil) == ()
 
     # equality
@@ -378,11 +431,17 @@ def test():
     assert cons(3, 4) not in s
     assert ll(1, 2) not in s
 
-    # Reversing. Note reversed() returns an iterator, not sequence.
-    assert ll(*reversed(ll(1, 2, 3))) == ll(3, 2, 1)
-    assert ll_from_iterable(reversed(ll(1, 2, 3))) == ll(3, 2, 1)
+    # reverse
+    assert llist(reversed(ll(1, 2, 3))) == ll(3, 2, 1)
     assert foldl(cons, nil, ll(1, 2, 3)) == ll(3, 2, 1)
-    assert foldr(cons, nil, ll(1, 2, 3)) == ll(1, 2, 3)  # requires __reversed__
+
+    # foldr (as implemented in unpythonic) requires support for __reversed__,
+    # since a linked list is an iterable, not a sequence.
+    assert foldr(cons, nil, ll(1, 2, 3)) == ll(1, 2, 3)
+
+    # implementation detail to avoid extra reverses
+    r = reversed(ll(1, 2, 3))   # an iterator that internally builds the reversed list...
+    assert llist(r) is r._data  # ...which llist should just grab
 
     print("All tests PASSED")
 

@@ -1374,13 +1374,13 @@ The implementation is based on the List monad, and a bastardized variant of do-n
 *Laugh, it's funny.*
 
 ```python
-from unpythonic import cons, nil, ll, car, cdr, caar, cdar, cadr, cddr, \
-                       ll_from_sequence, member, lreverse, lappend, lzip, \
-                       BinaryTreeIterator
+from unpythonic import cons, nil, ll, llist, car, cdr, caar, cdar, cadr, cddr, \
+                       member, lreverse, lappend, lzip, BinaryTreeIterator
 
 c = cons(1, 2)
 assert car(c) == 1 and cdr(c) == 2
 
+# ll(...) is like [...] or (...), but for linked lists:
 assert ll(1, 2, 3) == cons(1, cons(2, cons(3, nil)))
 
 t = cons(cons(1, 2), cons(3, 4))  # binary tree
@@ -1393,7 +1393,7 @@ a, b, c, d = BinaryTreeIterator(t)  # unpacking a binary tree: use a non-default
 
 assert list(ll(1, 2, 3)) == [1, 2, 3]
 assert tuple(ll(1, 2, 3)) == (1, 2, 3)
-assert ll_from_sequence((1, 2, 3)) == ll(1, 2, 3)
+assert llist((1, 2, 3)) == ll(1, 2, 3)  # llist() is like list() or tuple(), but for linked lists
 
 l = ll(1, 2, 3)
 assert member(2, l) == ll(2, 3)
@@ -1406,7 +1406,7 @@ assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
 
 Cons cells are immutable à la Racket (no `set-car!`/`rplaca`, `set-cdr!`/`rplacd`). Accessors are provided up to `caaaar`, ..., `cddddr`.
 
-Although linked lists are created with ``ll``, the data type (for e.g. ``isinstance``) is ``cons``. The function ``ll`` just packages the right sequence of conses to make a linked list.
+Although linked lists are created with ``ll`` or ``llist``, the data type (for e.g. ``isinstance``) is ``cons``.
 
 Iterators are supported to walk over linked lists (this also gives tuple unpacking support). When ``next()`` is called, we return the car of the current cell the iterator points to, and the iterator moves to point to the cons cell in the cdr, if any. When the cdr is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
 
