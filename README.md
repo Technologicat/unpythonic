@@ -25,7 +25,7 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [Batteries for itertools](#batteries-for-itertools): Racket-style multi-input `foldl`, `foldr`; uniqification, flattening
  - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
  - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
- - [`cons` and friends](#cons-and-friends): pythonification of lispy linked lists
+ - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
  - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
 
 Meta:
