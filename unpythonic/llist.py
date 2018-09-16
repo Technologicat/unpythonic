@@ -277,8 +277,8 @@ def llist(iterable):
         reversed list that is internally stored by the iterator.
 
       - Sequences, since they can be walked backwards; a linear walk is enough.
-        Here a sequence is defined as tuple, list, or any custom class inheriting
-        from ``collections.abc.Sequence``.
+        Here a sequence is defined as tuple, list, range, or any custom class
+        inheriting from ``collections.abc.Sequence``.
 
     For a general iterable input, this costs a linear walk (forwards), plus an
     ``lreverse`` once the list has been fully consed.
@@ -286,7 +286,7 @@ def llist(iterable):
     if isinstance(iterable, ReversedLinkedListIterator):
         # avoid two extra reverses by reusing the internal data.
         return iterable._data
-    if isinstance(iterable, (tuple, list, Sequence)):
+    if isinstance(iterable, (tuple, list, range, Sequence)):
         return foldr(cons, nil, iterable)  # sequences can be walked backwards
     # general iterable requires walking forwards, then reversing the result
     # because cons appends to the front.
