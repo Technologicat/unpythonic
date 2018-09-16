@@ -155,7 +155,7 @@ class cons:
                 state[k] = nil
         self.__dict__ = state
     def __iter__(self):
-        """Iterator protocol with default iteration scheme: single cells and lists."""
+        """Return iterator with default iteration scheme: single cell or list."""
         return LinkedListOrCellIterator(self)
     def __reversed__(self):
         """For lists. Caution: O(n), works by building a reversed list."""
@@ -255,16 +255,16 @@ def lreverse(l):
     return foldl(cons, nil, l)
 
 def lappend(*ls):
-    """Append linked lists left-to-right."""
+    """Append the given linked lists left-to-right."""
     def lappend_two(l1, l2):
         return foldr(cons, l2, l1)  # must internally reverse l1
     return foldr(lappend_two, nil, ls)
 
 def member(x, l):
-    """Walk linked list and check if item x is in it.
+    """Walk linked list l and check if item x is in it.
 
     Returns:
-        The matching cons cell (tail of list) if x was found; False if not.
+        The matching cons cell (tail of l) if x was found; False if not.
     """
     it = TailIterator(l)
     for t in it:
@@ -325,7 +325,7 @@ def test():
         assert False, "binary tree should not be iterable as a linked list"
 
     # should be able to repr() general cons structures
-    repr(t)
+    repr(t)  # should not crash
 
     q = ll(cons(1, 2), cons(3, 4))  # list of pairs, not a tree!
     assert [f(q) for f in [caar, cdar, cadr, cddr]] == [1, 2, cons(3, 4), nil]
@@ -369,7 +369,7 @@ def test():
     l3 = cons(6, cdr(l1))
     assert l3 == ll(6, 2, 1)
 
-    # test hashability
+    # hashability
     s = set()
     s.add(cons(1, 2))
     s.add(ll(1, 2, 3))
