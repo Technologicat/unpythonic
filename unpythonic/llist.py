@@ -193,7 +193,11 @@ class cons:
                 return self.car == other.car and self.cdr == other.cdr
         return False
     def __hash__(self):
-        return hash((hash(self.car), hash(self.cdr)))
+        try:  # duck test linked list
+            tpl = tuple(self)
+        except TypeError:
+            tpl = (self.car, self.cdr)
+        return hash(tpl)
 
 def _car(x):
     return _typecheck(x).car
