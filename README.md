@@ -22,7 +22,7 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables, dynamic assignment)
  - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`
    - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
- - [Batteries for itertools](#batteries-for-itertools): Racket-style multi-input `foldl`, `foldr`; uniqification, flattening
+ - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); lazy partial unpacking for infinite sequences
  - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
  - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
  - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
@@ -1201,11 +1201,12 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
    - Like in Racket, `op(elt, acc)`; general case `op(e1, e2, ..., en, acc)`. Note Python's own `functools.reduce` uses the ordering `op(acc, elt)` instead.
    - No sane default for multi-input case, so the initial value for `acc` must be given.
    - One-input versions are provided as `reducel`, `reducer`, with semantics similar to Python's `functools.reduce`, but with the rackety ordering `op(elt, acc)`.
- - `accul`, `accur`: *accumulate*, a lazy fold that returns a generator yielding intermediate results. Suitable for infinite inputs.
+ - `scanl`, `scanr`: scan (a.k.a. accumulate, partial fold); a lazy fold that returns a generator yielding intermediate results.
    - Iteration stops after yielding the final result, i.e. what the corresponding fold would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
+   - `scanl` is suitable for infinite inputs.
    - Multiple input sequences supported; same semantics as in `foldl`, `foldr`.
-   - One-input versions are provided as `accul1`, `accur1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
- - `unpack`: lazily unpack iterables. Suitable for infinite inputs.
+   - One-input versions are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
+ - `unpack`: lazily unpack an iterable. Suitable for infinite inputs.
    - Return the first ``n`` items and the ``k``th tail, in a tuple. Use ``k < n`` to peek without permanently extracting an item.
  - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple.
    - Essentially, ``composel(map(...), flatten1)``; the same thing the bind operator of the List monad does.
@@ -1224,17 +1225,17 @@ Examples:
 
 ```python
 from functools import partial
-from unpythonic import accul, accur, foldl, foldr, flatmap, mapr, zipr, \
+from unpythonic import scanl, scanr, foldl, foldr, flatmap, mapr, zipr, \
                        uniqify, uniq, flatten1, flatten, flatten_in, take, drop, \
                        cons, nil, ll
 
-assert tuple(accul(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
-assert tuple(accur(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
-assert tuple(accul(mul, 1, range(2, 6))) == (1, 2, 6, 24, 120)
-assert tuple(accur(mul, 1, range(2, 6))) == (1, 5, 20, 60, 120)
+assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
+assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
+assert tuple(scanl(mul, 1, range(2, 6))) == (1, 2, 6, 24, 120)
+assert tuple(scanr(mul, 1, range(2, 6))) == (1, 5, 20, 60, 120)
 
-assert tuple(accul(cons, nil, ll(1, 2, 3))) == (nil, ll(1), ll(2, 1), ll(3, 2, 1))
-assert tuple(accur(cons, nil, ll(1, 2, 3))) == (nil, ll(3), ll(2, 3), ll(1, 2, 3))
+assert tuple(scanl(cons, nil, ll(1, 2, 3))) == (nil, ll(1), ll(2, 1), ll(3, 2, 1))
+assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (nil, ll(3), ll(2, 3), ll(1, 2, 3))
 
 def fibos():
     a, b = 1, 1
