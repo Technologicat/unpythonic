@@ -2,16 +2,20 @@
 # -*- coding: utf-8 -*-
 """Missing batteries for itertools.
 
-Racket-like multi-input foldl and foldr based on
+Racket-like multi-input ``foldl`` and ``foldr`` based on
   https://docs.racket-lang.org/reference/pairs.html
 
-Take and drop based on Haskell.
+``scanl`  and ``scanr`` inspired by ``itertools.accumulate``, Haskell,
+and (stream-scan) in SRFI-41.
+  https://srfi.schemers.org/srfi-41/srfi-41.html
 
-Flatten based on Danny Yoo's version:
+``take`` and ``drop`` based on Haskell.
+
+``flatten`` based on Danny Yoo's version:
   http://rightfootin.blogspot.fi/2006/09/more-on-python-flatten.html
 """
 
-__all__ = ["accul", "accur", "accul1", "accur1",
+__all__ = ["scanl", "scanr", "scanl1", "scanr1",
            "foldl", "foldr", "reducel", "reducer",
            "flatmap", "mapr", "zipr", "uniqify", "uniq",
            "take", "drop", "split_at", "unpack",
@@ -23,8 +27,8 @@ from collections import deque
 from inspect import isgenerator
 
 # require at least one iterable to make this work seamlessly with curry.
-def accul(proc, init, iterable0, *iterables):
-    """Accumulate, optionally with multiple input iterables.
+def scanl(proc, init, iterable0, *iterables):
+    """Scan (accumulate), optionally with multiple input iterables.
 
     Similar to ``itertools.accumulate``. If the inputs are generators, this is
     essentially a lazy ``foldl`` that yields the intermediate result at each step.
@@ -62,14 +66,14 @@ def accul(proc, init, iterable0, *iterables):
             break
         acc = proc(*(hs + (acc,)))
 
-def accur(proc, init, sequence0, *sequences):
-    """Like accul, but accumulate from the right (walk each sequence backwards)."""
-    return accul(proc, init, reversed(sequence0), *(reversed(s) for s in sequences))
+def scanr(proc, init, sequence0, *sequences):
+    """Like scanl, but scan from the right (walk each sequence backwards)."""
+    return scanl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences))
 
-def accul1(proc, iterable, init=None):
-    """accul for a single iterable.
+def scanl1(proc, iterable, init=None):
+    """scanl for a single iterable, with optional init.
 
-    If init is ``None``, use the first element from the iterable.
+    If ``init is None``, use the first element from the iterable.
 
     If the iterable is empty, return ``None``.
     """
@@ -79,11 +83,15 @@ def accul1(proc, iterable, init=None):
             init = next(it)
         except StopIteration:
             return None  # empty input sequence
-    return accul(proc, init, it)
+    return scanl(proc, init, it)
 
-def accur1(proc, sequence, init=None):
-    """Like accul1, but accumulate from the right (walk backwards)."""
-    return accul1(proc, reversed(sequence), init)
+def scanr1(proc, sequence, init=None):
+    """Like scanl1, but scan from the right (walk backwards).
+
+    If ``init is None``, use the first element from the reversed sequence
+    (i.e. the last element of the original sequence).
+    """
+    return scanl1(proc, reversed(sequence), init)
 
 def foldl(proc, init, iterable0, *iterables):
     """Racket-like foldl that supports multiple input iterables.
@@ -98,21 +106,27 @@ def foldl(proc, init, iterable0, *iterables):
     Note order: ``proc(elt, acc)``, which is the opposite order of arguments
     compared to ``functools.reduce``. General case ``proc(e1, ..., en, acc)``.
     """
-    return last(accul(proc, init, iterable0, *iterables))
+    return last(scanl(proc, init, iterable0, *iterables))
 
 def foldr(proc, init, sequence0, *sequences):
     """Like foldl, but fold from the right (walk each sequence backwards)."""
-    # This approach gives us a linear process.
+    # Reverse, then left-fold gives us a linear process.
     return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences))
 
 def reducel(proc, iterable, init=None):
-    """Foldl for a single iterable.
+    """Foldl for a single iterable, with optional init.
+
+    If ``init is None``, use the first element from the iterable.
 
     Like ``functools.reduce``, but uses ``proc(elt, acc)`` like Racket."""
-    return last(accul1(proc, iterable, init))
+    return last(scanl1(proc, iterable, init))
 
 def reducer(proc, sequence, init=None):
-    """Like reducel, but fold from the right (walk backwards)."""
+    """Like reducel, but fold from the right (walk backwards).
+
+    If ``init is None``, use the first element from the reversed sequence
+    (i.e. the last element of the original sequence).
+    """
     return reducel(proc, reversed(sequence), init)
 
 def flatmap(f, iterable0, *iterables):
@@ -264,7 +278,7 @@ def unpack(iterable, n, k=None, fillvalue=None):
     The return value is a tuple containing the ``n`` first elements, and as its
     last item, the tail of the iterable from item ``k`` onwards.
 
-    Default ``k=None`` means ``k = n + 1``, i.e. return the tail that begins
+    Default ``k=None`` means ``k = n``, i.e. return the tail that begins
     right after the extracted items. Other values are occasionally useful,
     e.g. to peek into the tail, while not permanently extracting an item.
 
@@ -272,20 +286,19 @@ def unpack(iterable, n, k=None, fillvalue=None):
     are returned as ``fillvalue``. The ``rest`` part is then a generator
     that just raises ``StopIteration``.
 
-    If ``k < n + 1`` (tail overlaps with the extracted items), the tail
-    is formed by calling ``itertools.tee`` at the appropriate point during
-    the extraction.
+    If ``k < n`` (tail overlaps with the extracted items), the tail
+    is formed by calling ``itertools.tee`` at the appropriate point
+    during the extraction.
 
-    If ``k == n + 1`` (tail begins right after the extracted items), the tail
+    If ``k == n`` (tail begins right after the extracted items), the tail
     is formed from the original iterator at the end of the extraction.
 
-    If ``k > n + 1`` (skip some items after the first n), then after extraction,
+    If ``k > n`` (skip some items after the first n), then after extraction,
     the tail is formed by fast-forwarding the iterator using ``drop``.
     """
-    # TODO: improve this function; better semantics when items run out?
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
-    k = k or n + 1
+    k = k or n
     if k < 0:
         raise ValueError("expected k >= 0, got {}".format(k))
     out = []
@@ -294,18 +307,18 @@ def unpack(iterable, n, k=None, fillvalue=None):
     for j in range(n):
         try:
             if j == k:  # tail is desired to overlap with the extracted items
-                rest, it = tee(it)
+                it, rest = tee(it)
             out.append(next(it))
         except StopIteration:  # fewer than n items
             out += [fillvalue] * (n - len(out))
-            def emptygen():
+            def empty():
                 yield from ()
-            rest = emptygen()
-    if not rest:  # avoid replacing emptygen
-        if k == n + 1:
+            rest = empty()
+    if not rest:  # avoid replacing empty()
+        if k == n:
             rest = _makegen(it)
-        elif k > n + 1:
-            rest = drop(k - n - 1, it)
+        elif k > n:
+            rest = drop(k - n, it)
     out.append(rest)
     return tuple(out)
 
@@ -318,10 +331,7 @@ def tail(iterable):
 
 def first(iterable, default=None):
     """Like nth, but return the first item."""
-    try:
-        return next(iter(iterable))
-    except StopIteration:
-        return default
+    return nth(0, iterable, default=default)
 
 def second(iterable, default=None):
     """Like nth, but return the second item."""
@@ -425,22 +435,26 @@ def test():
     from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate, identity
     from unpythonic.llist import cons, nil, ll
 
-    # accumulation: lazy fold that yields intermediate results.
-    assert tuple(accul(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
-    assert tuple(accur(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
-    assert tuple(accul(mul, 1, range(2, 6))) == (1, 2, 6, 24, 120)
-    assert tuple(accur(mul, 1, range(2, 6))) == (1, 5, 20, 60, 120)
+    # scan/accumulate: lazy fold that yields intermediate results.
+    assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
+    assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
+    assert tuple(scanl(mul, 1, range(2, 6))) == (1, 2, 6, 24, 120)
+    assert tuple(scanr(mul, 1, range(2, 6))) == (1, 5, 20, 60, 120)
 
-    assert tuple(accul(cons, nil, ll(1, 2, 3))) == (nil, ll(1), ll(2, 1), ll(3, 2, 1))
-    assert tuple(accur(cons, nil, ll(1, 2, 3))) == (nil, ll(3), ll(2, 3), ll(1, 2, 3))
+    assert tuple(scanl(cons, nil, ll(1, 2, 3))) == (nil, ll(1), ll(2, 1), ll(3, 2, 1))
+    assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (nil, ll(3), ll(2, 3), ll(1, 2, 3))
 
     # in contrast, fold just returns the final result.
     assert foldl(cons, nil, ll(1, 2, 3)) == ll(3, 2, 1)
     assert foldr(cons, nil, ll(1, 2, 3)) == ll(1, 2, 3)
 
-    # reduce is a fold with a single input sequence, where init is optional.
+    # reduce is a fold with a single input sequence, with init optional.
     assert reducel(add, (1, 2, 3)) == 6
     assert reducer(add, (1, 2, 3)) == 6
+
+    # scanl1, scanr1 are a scan with a single input sequence, with init optional.
+    assert tuple(scanl1(add, (1, 2, 3))) == (1, 3, 6)
+    assert tuple(scanr1(add, (1, 2, 3))) == (3, 5, 6)
 
     def foo(a, b, acc):
         return acc + ((a, b),)
@@ -633,7 +647,7 @@ def test():
         while True:
             yield 1
     def nats_python(start=0):
-        yield from accul(add, start, ones_python())
+        yield from scanl(add, start, ones_python())
     def fibos_python():
         a, b = 1, 1
         while True:
@@ -699,7 +713,7 @@ def test():
     # This implementation originally by Jim Hoover, in Racket, from:
     # https://sites.ualberta.ca/~jhoover/325/CourseNotes/section/Streams.htm
     #
-    partial_sums = curry(accul1, add)
+    partial_sums = curry(scanl1, add)
     # The looming stack overflow is not a major problem; the rest of the algorithm
     # will run into floating-point issues long before that (unless using mpmath).
     def pi_summands(n):  # π/4 = 1 - 1/3 + 1/5 - 1/7 + ...
