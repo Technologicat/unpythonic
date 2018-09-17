@@ -317,16 +317,16 @@ def tail(iterable):
     """
     return drop(1, iterable)
 
-def nth(n, iterable):
+def nth(n, iterable, *, default=None):
     """Return the item at position n from an iterable.
 
-    None is returned if there are fewer than ``n + 1`` items.
+    The ``default`` is returned if there are fewer than ``n + 1`` items.
     """
     it = drop(n - 1, iterable)
     try:
         return next(it)
     except StopIteration:
-        return None
+        return default
 
 def flatten(iterable, pred=None):
     """Recursively remove nested structure from iterable.
@@ -397,9 +397,20 @@ def test():
     from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate, identity
     from unpythonic.llist import cons, nil, ll
 
+    # accumulation: lazy fold that yields intermediate results.
+    assert tuple(accul(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
+    assert tuple(accur(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
+    assert tuple(accul(mul, 1, range(2, 6))) == (1, 2, 6, 24, 120)
+    assert tuple(accur(mul, 1, range(2, 6))) == (1, 5, 20, 60, 120)
+
+    assert tuple(accul(cons, nil, ll(1, 2, 3))) == (nil, ll(1), ll(2, 1), ll(3, 2, 1))
+    assert tuple(accur(cons, nil, ll(1, 2, 3))) == (nil, ll(3), ll(2, 3), ll(1, 2, 3))
+
+    # in contrast, fold just returns the final result.
     assert foldl(cons, nil, ll(1, 2, 3)) == ll(3, 2, 1)
     assert foldr(cons, nil, ll(1, 2, 3)) == ll(1, 2, 3)
 
+    # reduce is a fold with a single input sequence, where init is optional.
     assert reducel(add, (1, 2, 3)) == 6
     assert reducer(add, (1, 2, 3)) == 6
 
