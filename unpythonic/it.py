@@ -21,7 +21,7 @@ __all__ = ["scanl", "scanr", "scanl1", "scanr1",
            "take", "drop", "split_at", "unpack",
            "tail", "first", "second", "nth", "last",
            "flatten", "flatten1", "flatten_in",
-           "iterate"]
+           "iterate", "iterate1"]
 
 from itertools import tee, islice
 from collections import deque
@@ -435,14 +435,27 @@ def flatten_in(iterable, pred=None):
         else:
             yield e
 
-def iterate(f, x):
-    """Return a generator yielding x, f(x), f(f(x)), ..."""
+def iterate1(f, x):
+    """Return an infinite generator yielding x, f(x), f(f(x)), ..."""
 #    # elegant FP def, but prone to eventual stack overflow in Python
 #    yield x
-#    yield from iterate(f, f(x))
+#    yield from iterate1(f, f(x))
     while True:
         yield x
         x = f(x)
+
+def iterate(f, *args):
+    """Multiple-argument version of iterate1.
+
+    The function ``f`` should return a tuple or list of as many elements as it
+    takes positional arguments; this will be unpacked to the argument list in
+    the next call.
+
+    The yielded values are the tuples returned from the calls.
+    """
+    while True:
+        yield args
+        args = f(*args)
 
 def test():
     from operator import add, mul, itemgetter, neg
