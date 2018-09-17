@@ -11,9 +11,11 @@ Flatten based on Danny Yoo's version:
   http://rightfootin.blogspot.fi/2006/09/more-on-python-flatten.html
 """
 
-__all__ = ["accul", "accur", "foldl", "foldr", "reducel", "reducer",
+__all__ = ["accul", "accur", "accul1", "accur1",
+           "foldl", "foldr", "reducel", "reducer",
            "flatmap", "mapr", "zipr", "uniqify", "uniq",
-           "take", "drop", "split_at", "unpack", "last", "tail", "nth",
+           "take", "drop", "split_at", "unpack",
+           "tail", "first", "second", "nth", "last",
            "flatten", "flatten1", "flatten_in"]
 
 from itertools import tee, islice
@@ -64,6 +66,25 @@ def accur(proc, init, sequence0, *sequences):
     """Like accul, but accumulate from the right (walk each sequence backwards)."""
     return accul(proc, init, reversed(sequence0), *(reversed(s) for s in sequences))
 
+def accul1(proc, iterable, init=None):
+    """accul for a single iterable.
+
+    If init is ``None``, use the first element from the iterable.
+
+    If the iterable is empty, return ``None``.
+    """
+    it = iter(iterable)
+    if not init:
+        try:
+            init = next(it)
+        except StopIteration:
+            return None  # empty input sequence
+    return accul(proc, init, it)
+
+def accur1(proc, sequence, init=None):
+    """Like accul1, but accumulate from the right (walk backwards)."""
+    return accul1(proc, reversed(sequence), init)
+
 def foldl(proc, init, iterable0, *iterables):
     """Racket-like foldl that supports multiple input iterables.
 
@@ -88,13 +109,7 @@ def reducel(proc, iterable, init=None):
     """Foldl for a single iterable.
 
     Like ``functools.reduce``, but uses ``proc(elt, acc)`` like Racket."""
-    it = iter(iterable)
-    if not init:
-        try:
-            init = next(it)
-        except StopIteration:
-            return None  # empty input sequence
-    return foldl(proc, init, it)
+    return last(accul1(proc, iterable, init))
 
 def reducer(proc, sequence, init=None):
     """Like reducel, but fold from the right (walk backwards)."""
@@ -294,6 +309,35 @@ def unpack(iterable, n, k=None, fillvalue=None):
     out.append(rest)
     return tuple(out)
 
+def tail(iterable):
+    """Return the tail of an iterable, as a generator.
+
+    Same as ```drop(1, iterable)```.
+    """
+    return drop(1, iterable)
+
+def first(iterable, default=None):
+    """Like nth, but return the first item."""
+    try:
+        return next(iter(iterable))
+    except StopIteration:
+        return default
+
+def second(iterable, default=None):
+    """Like nth, but return the second item."""
+    return nth(1, iterable, default=default)
+
+def nth(n, iterable, *, default=None):
+    """Return the item at position n from an iterable.
+
+    The ``default`` is returned if there are fewer than ``n + 1`` items.
+    """
+    it = drop(n - 1, iterable)
+    try:
+        return next(it)
+    except StopIteration:
+        return default
+
 def last(iterable, default=None):
     """Return the last item from an iterable.
 
@@ -311,24 +355,6 @@ def last(iterable, default=None):
 #    for item in iterable:
 #        pass
 #    return item
-
-def tail(iterable):
-    """Return the tail of an iterable, as a generator.
-
-    Same as ```drop(1, iterable)```.
-    """
-    return drop(1, iterable)
-
-def nth(n, iterable, *, default=None):
-    """Return the item at position n from an iterable.
-
-    The ``default`` is returned if there are fewer than ``n + 1`` items.
-    """
-    it = drop(n - 1, iterable)
-    try:
-        return next(it)
-    except StopIteration:
-        return default
 
 def flatten(iterable, pred=None):
     """Recursively remove nested structure from iterable.
@@ -394,7 +420,7 @@ def flatten_in(iterable, pred=None):
             yield e
 
 def test():
-    from operator import add, mul, itemgetter
+    from operator import add, mul, itemgetter, neg
     from functools import partial
     from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate, identity
     from unpythonic.llist import cons, nil, ll
@@ -473,8 +499,8 @@ def test():
     # argument, is passed through on the right. The output from the processing
     # function - one new item - and acc then become a two-tuple, which gets
     # passed into cons.
-    add = lambda x, y: x + y
-    assert curry(mymap, add, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
+    myadd = lambda x, y: x + y  # can't inspect signature of builtin add
+    assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 
     reverse_one = curry(foldl, cons, nil)
     assert reverse_one(ll(1, 2, 3)) == ll(3, 2, 1)
@@ -602,7 +628,7 @@ def test():
     assert tuple(take(10, fibos_fp())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
     assert tuple(take(10, powers_of_2())) == (2, 4, 8, 16, 32, 64, 128, 256, 512, 1024)
 
-    # not as FP but better Python
+    # not as FP as the above, but better Python
     def ones_python():
         while True:
             yield 1
@@ -634,7 +660,7 @@ def test():
     def differentiate(h0, f, x):
         return map(curry(easydiff, f, x), repeat(halve, h0))
     def within(eps, s):
-        a, b, b_and_rest = unpack(s, 2, 1)
+        a, b, b_and_rest = unpack(s, 2, 1)  # unpack with peek
         return b if abs(a - b) < eps else within(eps, b_and_rest)
     def differentiate_with_tol(h0, f, x, eps):
         return within(eps, differentiate(h0, f, x))
@@ -650,10 +676,8 @@ def test():
         The stream s must be based on halving h at each step
         for the formula used here to work."""
         a, b, b_and_rest = unpack(s, 2, 1)
-        def gen():
-            yield (b*2**n - a) / (2**(n - 1))
-            yield from eliminate_error(n, b_and_rest)
-        return gen()
+        yield (b*2**n - a) / (2**(n - 1))
+        yield from eliminate_error(n, b_and_rest)
     def improve(s):
         """Eliminate asymptotically dominant error term from s."""
         return eliminate_error(order(s), s)
@@ -663,10 +687,41 @@ def test():
 
     def super_improve(s):
         # repeat improve, take second term from each resulting stream.
-        return map(curry(nth, 1), repeat(improve, s))
+        return map(second, repeat(improve, s))
     def best_differentiate_with_tol(h0, f, x, eps):
         return within(eps, super_improve(differentiate(h0, f, x)))
     assert abs(best_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-12
+
+    # pi approximation with Euler series acceleration
+    #
+    # See SICP, 2nd ed., sec. 3.5.3.
+    #
+    # This implementation originally by Jim Hoover, in Racket, from:
+    # https://sites.ualberta.ca/~jhoover/325/CourseNotes/section/Streams.htm
+    #
+    partial_sums = curry(accul1, add)
+    # The looming stack overflow is not a major problem; the rest of the algorithm
+    # will run into floating-point issues long before that (unless using mpmath).
+    def pi_summands(n):  # π/4 = 1 - 1/3 + 1/5 - 1/7 + ...
+        yield 1 / n
+        yield from map(neg, pi_summands(n + 2))
+    pi_stream = muls(partial_sums(pi_summands(1)), 4)
+
+    # http://mathworld.wolfram.com/EulerTransform.html
+    # https://en.wikipedia.org/wiki/Series_acceleration#Euler%27s_transform
+    def euler_transform(s):
+        a, b, c, b_c_and_rest = unpack(s, 3, 1)
+        yield c - ((c - b)**2 / (a - 2*b + c))
+        yield from euler_transform(b_c_and_rest)
+    faster_pi_stream = euler_transform(pi_stream)
+
+    def super_accelerate(transform, s):
+        yield from map(first, repeat(transform, s))
+    fastest_pi_stream = super_accelerate(euler_transform, pi_stream)
+
+    assert abs(last(take(6, pi_stream)) - pi) < 0.2
+    assert abs(last(take(6, faster_pi_stream)) - pi) < 1e-3
+    assert abs(last(take(6, fastest_pi_stream)) - pi) < 1e-15
 
     print("All tests PASSED")
 
