@@ -11,17 +11,21 @@ Flatten based on Danny Yoo's version:
   http://rightfootin.blogspot.fi/2006/09/more-on-python-flatten.html
 """
 
-__all__ = ["foldl", "foldr", "reducel", "reducer",
+__all__ = ["accul", "accur", "foldl", "foldr", "reducel", "reducer",
            "flatmap", "mapr", "zipr", "uniqify", "uniq",
-           "take", "drop", "split_at",
+           "take", "drop", "split_at", "unpack", "last", "tail", "nth",
            "flatten", "flatten1", "flatten_in"]
 
 from itertools import tee, islice
 from collections import deque
 
 # require at least one iterable to make this work seamlessly with curry.
-def foldl(proc, init, iterable0, *iterables):
-    """Racket-like foldl that supports multiple input iterables.
+def accul(proc, init, iterable0, *iterables):
+    """Accumulate, optionally with multiple input iterables.
+
+    Similar to ``itertools.accumulate``. If the inputs are generators, this is
+    essentially a lazy ``foldl`` that yields the intermediate result at each step.
+    Hence, useful for partially folding infinite sequences.
 
     At least one iterable (``iterable0``) is required. More are optional.
 
@@ -30,8 +34,11 @@ def foldl(proc, init, iterable0, *iterables):
     Initial value is mandatory; there is no sane default for the case with
     multiple inputs.
 
-    Note order: ``proc(elt, acc)``, which is the opposite order of arguments
-    compared to ``functools.reduce``. General case ``proc(e1, ..., en, acc)``.
+    Returns a generator, which (roughly, in pseudocode)::
+
+        acc = init
+        for elts in zip(iterable0, *iterables):
+            yield proc(*elts, acc)  # if this was legal syntax
     """
     iterables = (iterable0,) + iterables
     def heads(its):
@@ -46,10 +53,30 @@ def foldl(proc, init, iterable0, *iterables):
     iters = tuple(iter(x) for x in iterables)
     acc = init
     while True:
+        yield acc
         hs = heads(iters)
         if hs is StopIteration:
             return acc
         acc = proc(*(hs + (acc,)))
+
+def accur(proc, init, sequence0, *sequences):
+    """Like accul, but accumulate from the right (walk each sequence backwards)."""
+    return accul(proc, init, reversed(sequence0), *(reversed(s) for s in sequences))
+
+def foldl(proc, init, iterable0, *iterables):
+    """Racket-like foldl that supports multiple input iterables.
+
+    At least one iterable (``iterable0``) is required. More are optional.
+
+    Terminates when the shortest input runs out.
+
+    Initial value is mandatory; there is no sane default for the case with
+    multiple inputs.
+
+    Note order: ``proc(elt, acc)``, which is the opposite order of arguments
+    compared to ``functools.reduce``. General case ``proc(e1, ..., en, acc)``.
+    """
+    return last(accul(proc, init, iterable0, *iterables))
 
 def foldr(proc, init, sequence0, *sequences):
     """Like foldl, but fold from the right (walk each sequence backwards)."""
@@ -72,7 +99,6 @@ def reducer(proc, sequence, init=None):
     """Like reducel, but fold from the right (walk backwards)."""
     return reducel(proc, reversed(sequence), init)
 
-# require at least one iterable to make this work seamlessly with curry.
 def flatmap(f, iterable0, *iterables):
     """Map, then concatenate results.
 
@@ -160,6 +186,8 @@ def take(n, iterable):
     This is essentially ``take`` from ``itertools`` recipes,
     but returns a generator.
     """
+    if n < 0:
+        raise ValueError("expected n >= 0, got {}".format(n))
     it = iter(iterable)
     it = islice(it, n)
     def gen():
@@ -174,6 +202,10 @@ def drop(n, iterable):
     This is essentially ``consume`` from ``itertools`` recipes,
     but returns a generator.
     """
+    if n < 0:
+        raise ValueError("expected n >= 0, got {}".format(n))
+    elif n == 0:
+        return iterable
     it = iter(iterable)
     if n is None:
         deque(it, maxlen=0)
@@ -198,8 +230,101 @@ def split_at(n, iterable):
         assert a == tuple(range(3))
         assert b == ()
     """
+    if n < 0:
+        raise ValueError("expected n >= 0, got {}".format(n))
     ia, ib = tee(iter(iterable))
     return take(n, ia), drop(n, ib)
+
+# FIXME: difficult to make unpack curryable.
+def unpack(iterable, n, k=None, fillvalue=None):
+    """From iterable, get the n first elements and the kth tail.
+
+    This is a lazy generalization of sequence unpacking that works also for
+    infinite iterables.
+
+    Return a tuple containing the ``n`` first elements, and as its last item,
+    the tail of the iterable from item ``k`` onwards. Default means ``n + 1``,
+    i.e. return the tail that begins right after the extracted items.
+    (Other values are occasionally useful, e.g. to peek into the tail,
+     while not permanently extracting an item.)
+
+    If there are fewer than ``n`` items in the iterable, the missing items
+    are returned as ``fillvalue``. The ``rest`` part is then a generator
+    that just raises ``StopIteration``.
+
+    If ``k < n + 1``, the tail is formed using ``tee`` at the appropriate
+    iteration of the extraction.
+
+    If ``k == n + 1``, the tail captures the original iterator at the end
+    of the extraction.
+
+    If ``k > n + 1``, the iterator is fast-forwarded using ``drop``.
+    """
+    # TODO: improve this function; better semantics when items run out?
+    if n < 0:
+        raise ValueError("expected n >= 0, got {}".format(n))
+    k = k or n + 1
+    if k < 0:
+        raise ValueError("expected k >= 0, got {}".format(k))
+    out = []
+    rest = None
+    it = iter(iterable)
+    for j in range(n):
+        try:
+            out.append(next(it))
+            if k == j:  # tail is desired to overlap with the extracted items
+                rest, it = tee(it)
+        except StopIteration:  # fewer than n items
+            l = len(out)
+            out += [fillvalue] * (n - l)
+            def emptygen():
+                yield from ()
+            rest = emptygen()
+    if not rest:  # avoid replacing emptygen
+        if k == n:
+            def defaulttailgen():
+                yield from it
+            rest = defaulttailgen()
+        elif k > n:
+            rest = drop(k - n - 1, it)
+    out.append(rest)
+    return tuple(out)
+
+def last(iterable, default=None):
+    """Return the last item from an iterable.
+
+    We consume the iterable until it runs out of items, then return the
+    last item seen.
+
+    The default value is returned if the iterable contained no items.
+
+    **Caution**: Will not terminate for infinite inputs.
+    """
+    d = deque(iterable, maxlen=1)  # C speed
+    return d.pop() if d else default
+#    # slow (Python speed), otherwise fine
+#    item = default
+#    for item in iterable:
+#        pass
+#    return item
+
+def tail(iterable):
+    """Return the tail of an iterable, as a generator.
+
+    Same as ```drop(1, iterable)```.
+    """
+    yield from drop(1, iterable)
+
+def nth(n, iterable):
+    """Return the item at position n from an iterable.
+
+    None is returned if there are fewer than ``n + 1`` items.
+    """
+    it = drop(n - 1, iterable)
+    try:
+        return next(it)
+    except StopIteration:
+        return None
 
 def flatten(iterable, pred=None):
     """Recursively remove nested structure from iterable.
@@ -433,6 +558,90 @@ def test():
     data = (((1, 2), ((3, 4), (5, 6)), 7), ((8, 9), (10, 11)))
     assert tuple(flatten(data, is_nested))    == (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
     assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8, 9), (10, 11))
+
+    # implicitly defined infinite streams
+    def adds(s1, s2):  # add infinite streams
+        yield from map(add, s1, s2)
+    def muls(s, c):    # multiply infinite stream by a constant
+        yield from map(lambda x: c * x, s)
+
+    # will eventually crash (stack overflow, no TCO'd yield)
+    def ones_fp():
+        yield 1
+        yield from ones_fp()
+    def nats_fp(start=0):
+        yield 0
+        yield from adds(nats_fp(), ones_fp())
+    def fibos_fp():
+        yield 1
+        yield 1
+        yield from adds(fibos_fp(), tail(fibos_fp()))
+    def powers_of_2():
+        yield 2
+        yield from muls(powers_of_2(), 2)
+    assert tuple(take(10, ones_fp())) == (1,) * 10
+    assert tuple(take(10, nats_fp())) == tuple(range(10))
+    assert tuple(take(10, fibos_fp())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+    assert tuple(take(10, powers_of_2())) == (2, 4, 8, 16, 32, 64, 128, 256, 512, 1024)
+
+    # better Python
+    def ones_python():
+        while True:
+            yield 1
+    def nats_python(start=0):
+        yield from accul(add, start, ones_python())
+    def fibos_python():
+        a, b = 1, 1
+        while True:
+            yield a
+            a, b = b, a + b
+    assert tuple(take(10, ones_python())) == (1,) * 10
+    assert tuple(take(10, nats_python())) == tuple(range(10))
+    assert tuple(take(10, fibos_python())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+
+    # accurate numeric differentiation without changing to a better formula
+    #
+    from math import sin, pi, log2
+    def easydiff(f, x, h):  # wildly inaccurate
+        return (f(x + h) - f(x)) / h
+    def repeat(f, x):
+        yield x
+        yield from repeat(f, f(x))
+    def halve(x):
+        return x / 2
+    def differentiate(h0, f, x):
+        return map(curry(easydiff, f, x), repeat(halve, h0))
+    def within(eps, s):
+        a, b, rest = unpack(s, 2, 1)  # (a b stuff) --> a, b, (b stuff)
+        if abs(a - b) < eps:
+            return b
+        return within(eps, rest)
+    def differentiate_with_tol(h0, f, x, eps):
+        return within(eps, differentiate(h0, f, x))
+    assert abs(differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-8
+
+    def eliminate_error(n, s):
+        """n must be the asymptotic order of the error term to eliminate.
+        s must be based on halving h at each step."""
+        a, b, rest = unpack(s, 2, 1)  # (a b stuff) --> a, b, (b stuff)
+        def gen():
+            yield (b*2**n - a) / (2**(n - 1))
+            yield from eliminate_error(n, rest)
+        return gen()
+    def order(s):
+        a, b, c, rest = unpack(s, 3)  # (a b c stuff) --> a, b, c, stuff
+        return round(log2(abs((a - c) / (b - c)) - 1))
+    def improve(s):
+        return eliminate_error(order(s), s)
+    def better_differentiate_with_tol(h0, f, x, eps):
+        return within(eps, improve(differentiate(h0, f, x)))
+    assert abs(better_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-8
+
+    def super_improve(s):
+        return map(curry(nth, 1), repeat(improve, s))
+    def best_differentiate_with_tol(h0, f, x, eps):
+        return within(eps, super_improve(differentiate(h0, f, x)))
+    assert abs(best_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-8
 
     print("All tests PASSED")
 
