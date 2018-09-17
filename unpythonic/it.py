@@ -18,6 +18,7 @@ __all__ = ["accul", "accur", "foldl", "foldr", "reducel", "reducer",
 
 from itertools import tee, islice
 from collections import deque
+from inspect import isgenerator
 
 # require at least one iterable to make this work seamlessly with curry.
 def accul(proc, init, iterable0, *iterables):
@@ -178,6 +179,13 @@ def uniq(iterable, key=None):
             lasthash = h
             yield e
 
+def _makegen(iterable):  # ensure iterable is a generator
+    if isgenerator(iterable):
+        return iterable
+    def gen():
+        yield from iterable
+    return gen()
+
 def take(n, iterable):
     """Return a generator that yields the first n items of iterable, then stops.
 
@@ -190,9 +198,7 @@ def take(n, iterable):
         raise ValueError("expected n >= 0, got {}".format(n))
     it = iter(iterable)
     it = islice(it, n)
-    def gen():
-        yield from it
-    return gen()
+    return _makegen(it)
 
 def drop(n, iterable):
     """Skip the first n elements of iterable, then yield the rest.
@@ -211,9 +217,7 @@ def drop(n, iterable):
         deque(it, maxlen=0)
     else:
         next(islice(it, n, n), None)  # advance it to empty slice starting at n
-    def gen():
-        yield from it
-    return gen()
+    return _makegen(it)
 
 def split_at(n, iterable):
     """Split iterable at position n.
@@ -284,9 +288,7 @@ def unpack(iterable, n, k=None, fillvalue=None):
             rest = emptygen()
     if not rest:  # avoid replacing emptygen
         if k == n + 1:
-            def defaulttailgen():
-                yield from it
-            rest = defaulttailgen()
+            rest = _makegen(it)
         elif k > n + 1:
             rest = drop(k - n - 1, it)
     out.append(rest)
