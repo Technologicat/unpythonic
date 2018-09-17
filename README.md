@@ -1197,15 +1197,16 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
 
 ### Batteries for itertools
 
- - `accul`, `accur`: *accumulate*, a lazy fold that returns a generator yielding intermediate results.
-   - Iteration stops after yielding the final result (what the corresponding fold would have returned).
-   - Multiple input sequences supported; same semantics as in `foldl`, `foldr`.
  - Racket-style `foldl`, `foldr` that support multiple input sequences.
    - Like in Racket, `op(elt, acc)`; general case `op(e1, e2, ..., en, acc)`. Note Python's own `functools.reduce` uses the ordering `op(acc, elt)` instead.
    - No sane default for multi-input case, so the initial value for `acc` must be given.
    - One-input versions are provided as `reducel`, `reducer`, with semantics similar to Python's `functools.reduce`, but with the rackety ordering `op(elt, acc)`.
- - `unpack`: lazy sequence unpacker that works also with infinite iterables.
-   - Allows also peeking without permanently extracting an item.
+ - `accul`, `accur`: *accumulate*, a lazy fold that returns a generator yielding intermediate results. Suitable for infinite inputs.
+   - Iteration stops after yielding the final result, i.e. what the corresponding fold would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
+   - Multiple input sequences supported; same semantics as in `foldl`, `foldr`.
+   - One-input versions are provided as `accul1`, `accur1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
+ - `unpack`: lazily unpack iterables. Suitable for infinite inputs.
+   - Return the first ``n`` items and the ``k``th tail, in a tuple. Use ``k < n`` to peek without permanently extracting an item.
  - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple.
    - Essentially, ``composel(map(...), flatten1)``; the same thing the bind operator of the List monad does.
  - `mapr`, `zipr`: variants of the builtin `map` and `zip` that first reverse each input sequence.
@@ -1216,9 +1217,8 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
    - `flatten_in`: recursive, with an optional predicate; but recurse also into items which don't match the predicate.
  - `take`, `drop`, `split_at`, based on `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes), but returning a generator.
    - Especially useful for testing generators.
-   - `tail`: return the tail of an iterable (same as `drop(1, iterable)`; common use case.
- - `last`: return the last item of an iterable, by consuming it (at C speed) and returning the last item seen.
- - `nth`: return the nth item of an iterable.
+   - `tail`: return the tail of an iterable. Same as `drop(1, iterable)`; common use case.
+ - `first`, `second`, `nth`, `last`: return the specified item from an iterable. Any preceding items are consumed at C speed.
 
 Examples:
 
