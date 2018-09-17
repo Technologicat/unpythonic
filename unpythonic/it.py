@@ -315,7 +315,7 @@ def tail(iterable):
 
     Same as ```drop(1, iterable)```.
     """
-    yield from drop(1, iterable)
+    return drop(1, iterable)
 
 def nth(n, iterable):
     """Return the item at position n from an iterable.
