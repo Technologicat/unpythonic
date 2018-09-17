@@ -11,10 +11,9 @@ Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 __all__ = ["memoize", "curry", "iscurried",
            "flip", "rotate",
            "apply", "identity", "const", "notf", "andf", "orf",
-           "composer1", "composel1", "composer", "composel",      # *args
-           "composeri1", "composeli1", "composeri", "composeli",  # iterable
-           "ccomposer", "ccomposel",    # w/ curry, *args
-           "ccomposeri", "ccomposeli",  # w/ curry, iterable
+           "composer1", "composel1", "composeri1", "composeli1",  # single arg
+           "composer",  "composel",  "composeri",  "composeli",   # multi-arg
+           "composerc", "composelc", "composeric", "composelic",  # multi-arg w/ curry
            "to1st", "to2nd", "tokth", "tolast", "to"]
 
 from functools import wraps, partial
@@ -348,6 +347,41 @@ def _make_compose1(direction):  # "left", "right"
         return unpythonic.it.reducel(compose1_two, fs)  # op(elt, acc)
     return compose1
 
+_compose1_left = _make_compose1("left")
+_compose1_right = _make_compose1("right")
+
+def composer1(*fs):
+    """Like composer, but limited to one-argument functions. Faster.
+
+    Example::
+
+        double = lambda x: 2*x
+        inc    = lambda x: x+1
+        inc_then_double = composer1(double, inc)
+        assert inc_then_double(3) == 8
+    """
+    return composeri1(fs)
+
+def composel1(*fs):
+    """Like composel, but limited to one-argument functions. Faster.
+
+    Example::
+
+        double = lambda x: 2*x
+        inc    = lambda x: x+1
+        double_then_inc = composel(double, inc)
+        assert double_then_inc(3) == 7
+    """
+    return composeli1(fs)
+
+def composeri1(iterable):  # this is just to insert a docstring
+    """Like composeri, but limited to one-argument functions. Faster."""
+    return _compose1_right(iterable)
+
+def composeli1(iterable):
+    """Like composeli, but limited to one-argument functions. Faster."""
+    return _compose1_left(iterable)
+
 def _make_compose(direction):  # "left", "right"
     def compose_two(f, g):
         def composed(*args):
@@ -365,42 +399,8 @@ def _make_compose(direction):  # "left", "right"
         return unpythonic.it.reducel(compose_two, fs)  # op(elt, acc)
     return compose
 
-_compose1_left = _make_compose1("left")
-_compose1_right = _make_compose1("right")
 _compose_left = _make_compose("left")
 _compose_right = _make_compose("right")
-
-def composer1(*fs):
-    """Like composer, but limited to one-argument functions. Faster.
-
-    Example::
-
-        double = lambda x: 2*x
-        inc    = lambda x: x+1
-        inc_then_double = composer1(double, inc)
-        assert inc_then_double(3) == 8
-    """
-    return composeri1(fs)
-
-def composeri1(iterable):  # this is just to insert a docstring
-    """Like composeri, but limited to one-argument functions. Faster."""
-    return _compose1_right(iterable)
-
-def composel1(*fs):
-    """Like composel, but limited to one-argument functions. Faster.
-
-    Example::
-
-        double = lambda x: 2*x
-        inc    = lambda x: x+1
-        double_then_inc = composel(double, inc)
-        assert double_then_inc(3) == 7
-    """
-    return composeli1(fs)
-
-def composeli1(iterable):
-    """Like composeli, but limited to one-argument functions. Faster."""
-    return _compose1_left(iterable)
 
 def composer(*fs):
     """Compose functions accepting only positional args. Right to left.
@@ -416,10 +416,6 @@ def composer(*fs):
     """
     return composeri(fs)
 
-def composeri(iterable):
-    """Like composer, but takes an iterable of functions to compose."""
-    return _compose_right(iterable)
-
 def composel(*fs):
     """Like composer, but from left to right.
 
@@ -428,30 +424,35 @@ def composel(*fs):
     """
     return composeli(fs)
 
+def composeri(iterable):
+    """Like composer, but takes an iterable of functions to compose."""
+    return _compose_right(iterable)
+
 def composeli(iterable):
     """Like composel, but takes an iterable of functions to compose."""
     return _compose_left(iterable)
 
+
 # currying versions
-def ccomposer(*fs):
+def composerc(*fs):
     """Like composer, but curry each function before composing.
 
     With the passthrough in ``curry``, this allows very compact code::
 
-        mymap = lambda f: curry(foldr, ccomposer(cons, f), nil)
+        mymap = lambda f: curry(foldr, composerc(cons, f), nil)
         assert curry(mymap, double, ll(1, 2, 3)) == ll(2, 4, 6)
 
         add = lambda x, y: x + y
         assert curry(mymap, add, ll(1, 2, 3), ll(4, 5, 6)) == ll(5, 7, 9)
     """
-    return ccomposeri(fs)
-def ccomposeri(iterable):
+    return composeric(fs)
+def composeric(iterable):
     """Like composeri, but curry each function before composing."""
     return composeri(map(curry, iterable))
-def ccomposel(*fs):
+def composelc(*fs):
     """Like composel, but curry each function before composing."""
-    return ccomposeli(fs)
-def ccomposeli(iterable):
+    return composelic(fs)
+def composelic(iterable):
     """Like composeli, but curry each function before composing."""
     return composeli(map(curry, iterable))
 

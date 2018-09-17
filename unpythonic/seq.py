@@ -5,7 +5,7 @@
 __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
            "pipe1", "piped1", "lazy_piped1",
            "pipe", "piped", "getvalue", "lazy_piped", "runpipe",
-           "cpipe",  # w/ curry
+           "pipec",  # w/ curry
            "do", "do0", "assign"]
 
 from collections import namedtuple
@@ -284,13 +284,13 @@ def pipe(values0, *bodys):
         return xs if len(xs) > 1 else xs[0]
     return xs
 
-def cpipe(values0, *bodys):
+def pipec(values0, *bodys):
     """Like pipe, but curry each function before piping.
 
     Useful with the passthrough in ``curry``. Each function only needs to
     declare as many of the (leftmost) arguments as it needs to access or modify::
 
-        a, b = cpipe((1, 2),
+        a, b = pipec((1, 2),
                      lambda x: x + 1,  # extra args passed through on the right
                      lambda x, y: (x * 2, y + 1))
         assert (a, b) == (4, 3)

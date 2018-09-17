@@ -1058,10 +1058,10 @@ map_one = lambda f: curry(foldr, composer(cons, curry(f)), nil)
 
 The curried ``f`` uses up one argument (provided it is a one-argument function!), and the second argument is passed through on the right; this two-tuple then ends up as the arguments to ``cons``.
 
-v0.8.2 adds currying variants of the compose functions (names prefixed with ``c``), so using ``ccomposer``, the inner curry is no longer needed:
+v0.8.2 adds currying variants of the compose functions (names suffixed with ``c``), so using ``composerc``, the inner curry is no longer needed:
 
 ```python
-mymap = lambda f: curry(foldr, ccomposer(cons, f), nil)
+mymap = lambda f: curry(foldr, composerc(cons, f), nil)
 assert curry(mymap, lambda x, y: x + y, (1, 2, 3), (2, 4, 6)) == (3, 6, 9)
 ```
 

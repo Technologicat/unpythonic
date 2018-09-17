@@ -271,7 +271,7 @@ def test():
     import unpythonic.fun
     curry = unpythonic.fun.curry
     composer = unpythonic.fun.composer
-    ccomposer = unpythonic.fun.ccomposer
+    composerc = unpythonic.fun.composerc
     composel = unpythonic.fun.composel
     to1st = unpythonic.fun.to1st
     rotate = unpythonic.fun.rotate
@@ -334,7 +334,7 @@ def test():
     # Finally, we can drop the inner curry by using a currying compose.
     # This is as close to "(define (map f) (foldr (compose cons f) empty)"
     # (#lang spicy) as we're gonna get in Python.
-    mymap = lambda f: curry(foldr, ccomposer(cons, f), nil)
+    mymap = lambda f: curry(foldr, composerc(cons, f), nil)
     assert curry(mymap, double, (1, 2, 3)) == (2, 4, 6)
 
     # The currying has actually made it not just map one, but general map that
