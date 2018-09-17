@@ -575,8 +575,8 @@ def test():
         yield 1
         yield from ones_fp()
     def nats_fp(start=0):
-        yield 0
-        yield from adds(nats_fp(), ones_fp())
+        yield start
+        yield from adds(nats_fp(start), ones_fp())
     def fibos_fp():
         yield 1
         yield 1
