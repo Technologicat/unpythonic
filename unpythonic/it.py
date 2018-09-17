@@ -57,7 +57,7 @@ def accul(proc, init, iterable0, *iterables):
         yield acc
         hs = heads(iters)
         if hs is StopIteration:
-            return acc
+            break
         acc = proc(*(hs + (acc,)))
 
 def accur(proc, init, sequence0, *sequences):
