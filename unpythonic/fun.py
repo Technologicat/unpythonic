@@ -11,9 +11,9 @@ Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 __all__ = ["memoize", "curry", "iscurried",
            "flip", "rotate",
            "apply", "identity", "const", "notf", "andf", "orf",
-           "composer1", "composel1", "composeri1", "composeli1",  # single arg
+           "composer1", "composel1", "composer1i", "composel1i",  # single arg
            "composer",  "composel",  "composeri",  "composeli",   # multi-arg
-           "composerc", "composelc", "composeric", "composelic",  # multi-arg w/ curry
+           "composerc", "composelc", "composerci", "composelci",  # multi-arg w/ curry
            "to1st", "to2nd", "tokth", "tolast", "to"]
 
 from functools import wraps, partial
@@ -110,9 +110,9 @@ def curry(f, *args, **kwargs):
     on the remaining positional args::
 
         map_one = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
-        assert curry(map_one)(double, (1, 2, 3)) == (2, 4, 6)
+        assert curry(map_one)(double, ll(1, 2, 3)) == ll(2, 4, 6)
 
-    In the above example, ``map_one`` has arity 1, so the tuple ``(1, 2, 3)``
+    In the above example, ``map_one`` has arity 1, so the arg ``ll(1, 2, 3)``
     is extra. The result of ``map_one`` is a callable, so it is then
     invoked on this tuple.
 
@@ -130,6 +130,10 @@ def curry(f, *args, **kwargs):
     This comboes with passthrough::
 
         assert curry(double, 2, "foo") == (4, "foo")
+
+        mymap = lambda f: curry(foldr, composerc(cons, f), nil)
+        add = lambda x, y: x + y
+        assert curry(mymap, add, ll(1, 2, 3), ll(4, 5, 6)) == ll(5, 7, 9)
 
         from functools import partial
         from unpythonic import curry, composel, drop, take
@@ -360,7 +364,7 @@ def composer1(*fs):
         inc_then_double = composer1(double, inc)
         assert inc_then_double(3) == 8
     """
-    return composeri1(fs)
+    return composer1i(fs)
 
 def composel1(*fs):
     """Like composel, but limited to one-argument functions. Faster.
@@ -369,17 +373,17 @@ def composel1(*fs):
 
         double = lambda x: 2*x
         inc    = lambda x: x+1
-        double_then_inc = composel(double, inc)
+        double_then_inc = composel1(double, inc)
         assert double_then_inc(3) == 7
     """
-    return composeli1(fs)
+    return composel1i(fs)
 
-def composeri1(iterable):  # this is just to insert a docstring
-    """Like composeri, but limited to one-argument functions. Faster."""
+def composer1i(iterable):  # this is just to insert a docstring
+    """Like composer1, but read the functions from an iterable."""
     return _compose1_right(iterable)
 
-def composeli1(iterable):
-    """Like composeli, but limited to one-argument functions. Faster."""
+def composel1i(iterable):
+    """Like composel1, but read the functions from an iterable."""
     return _compose1_left(iterable)
 
 def _make_compose(direction):  # "left", "right"
@@ -425,15 +429,13 @@ def composel(*fs):
     return composeli(fs)
 
 def composeri(iterable):
-    """Like composer, but takes an iterable of functions to compose."""
+    """Like composer, but read the functions from an iterable."""
     return _compose_right(iterable)
 
 def composeli(iterable):
-    """Like composel, but takes an iterable of functions to compose."""
+    """Like composel, but read the functions from an iterable."""
     return _compose_left(iterable)
 
-
-# currying versions
 def composerc(*fs):
     """Like composer, but curry each function before composing.
 
@@ -445,17 +447,19 @@ def composerc(*fs):
         add = lambda x, y: x + y
         assert curry(mymap, add, ll(1, 2, 3), ll(4, 5, 6)) == ll(5, 7, 9)
     """
-    return composeric(fs)
-def composeric(iterable):
-    """Like composeri, but curry each function before composing."""
-    return composeri(map(curry, iterable))
+    return composerci(fs)
+
 def composelc(*fs):
     """Like composel, but curry each function before composing."""
-    return composelic(fs)
-def composelic(iterable):
-    """Like composeli, but curry each function before composing."""
-    return composeli(map(curry, iterable))
+    return composelci(fs)
 
+def composerci(iterable):
+    """Like composerc, but read the functions from an iterable."""
+    return composeri(map(curry, iterable))
+
+def composelci(iterable):
+    """Like composelc, but read the functions from an iterable."""
+    return composeli(map(curry, iterable))
 
 # Helpers to insert one-in-one-out functions into multi-arg compose chains
 def tokth(k, f):
@@ -485,13 +489,10 @@ def to1st(f):
 
     Example::
 
-        nil = ()
-        def cons(x, l):  # elt, acc
-            return (x,) + l
         def mymap_one(f, sequence):
             f_then_cons = composer(cons, to1st(f))  # args: elt, acc
             return foldr(f_then_cons, nil, sequence)
-        double = lambda x: 2*x
+        double = lambda x: 2 * x
         assert mymap_one(double, (1, 2, 3)) == (2, 4, 6)
     """
     return tokth(0, f)  # this is just a partial() but we want to provide a docstring.

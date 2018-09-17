@@ -9,7 +9,7 @@ from abc import ABCMeta, abstractmethod
 from collections.abc import Sequence
 from itertools import zip_longest
 
-from unpythonic.fun import composeri1
+from unpythonic.fun import composer1i
 from unpythonic.it import foldr, foldl
 
 # explicit list better for tooling support
@@ -210,7 +210,7 @@ def _typecheck(x):
 def _build_accessor(name):
     spec = name[1:-1]
     f = {'a': _car, 'd': _cdr}
-    return composeri1(f[char] for char in spec)
+    return composer1i(f[char] for char in spec)
 
 def car(x):
     """Return the first half of a cons cell."""  # no autobuild, we want a docstring.

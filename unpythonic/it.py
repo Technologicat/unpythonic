@@ -267,22 +267,11 @@ def flatten_in(iterable, pred=None):
 def test():
     from operator import add, mul, itemgetter
     from functools import partial
+    from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate, identity
+    from unpythonic.llist import cons, nil, ll
 
-    import unpythonic.fun
-    curry = unpythonic.fun.curry
-    composer = unpythonic.fun.composer
-    composerc = unpythonic.fun.composerc
-    composel = unpythonic.fun.composel
-    to1st = unpythonic.fun.to1st
-    rotate = unpythonic.fun.rotate
-    identity = unpythonic.fun.identity
-
-    # just a testing hack; for a "real" cons, see unpythonic.llist.cons
-    nil = ()
-    def cons(x, l):  # elt, acc
-        return (x,) + l
-    assert foldl(cons, nil, (1, 2, 3)) == (3, 2, 1)
-    assert foldr(cons, nil, (1, 2, 3)) == (1, 2, 3)
+    assert foldl(cons, nil, ll(1, 2, 3)) == ll(3, 2, 1)
+    assert foldr(cons, nil, ll(1, 2, 3)) == ll(1, 2, 3)
 
     assert reducel(add, (1, 2, 3)) == 6
     assert reducer(add, (1, 2, 3)) == 6
@@ -296,19 +285,19 @@ def test():
         f_then_cons = composer(cons, to1st(f))  # args: elt, acc
         return foldr(f_then_cons, nil, sequence)
     double = lambda x: 2 * x
-    assert mymap_one(double, (1, 2, 3)) == (2, 4, 6)
+    assert mymap_one(double, ll(1, 2, 3)) == ll(2, 4, 6)
     def mymap_one2(f, sequence):
         f_then_cons = composel(to1st(f), cons)  # args: elt, acc
         return foldr(f_then_cons, nil, sequence)
-    assert mymap_one2(double, (1, 2, 3)) == (2, 4, 6)
+    assert mymap_one2(double, ll(1, 2, 3)) == ll(2, 4, 6)
 
     # point-free-ish style
     mymap_one3 = lambda f: partial(foldr, composer(cons, to1st(f)), nil)
     doubler = mymap_one3(double)
-    assert doubler((1, 2, 3)) == (2, 4, 6)
+    assert doubler(ll(1, 2, 3)) == ll(2, 4, 6)
 
     try:
-        doubler((1, 2, 3), (4, 5, 6))
+        doubler(ll(1, 2, 3), ll(4, 5, 6))
     except TypeError:
         pass
     else:
@@ -317,25 +306,25 @@ def test():
     # minimum arity of fold functions is 3, to allow use with curry:
     mymap_one4 = lambda f: curry(foldr, composer(cons, to1st(f)), nil)
     doubler = mymap_one4(double)
-    assert doubler((1, 2, 3)) == (2, 4, 6)
+    assert doubler(ll(1, 2, 3)) == ll(2, 4, 6)
 
     # curry supports passing through on the right any args over the max arity.
     assert curry(double, 2, "foo") == (4, "foo")   # arity of double is 1
 
     # In passthrough, if an intermediate result is a callable,
     # it is invoked on the remaining positional args:
-    assert curry(mymap_one4, double, (1, 2, 3)) == (2, 4, 6)
+    assert curry(mymap_one4, double, ll(1, 2, 3)) == ll(2, 4, 6)
 
     # This also works; curried f takes one argument and the second one is passed
     # through on the right; this two-tuple then ends up as the arguments to cons.
     mymap_one5 = lambda f: curry(foldr, composer(cons, curry(f)), nil)
-    assert curry(mymap_one5, double, (1, 2, 3)) == (2, 4, 6)
+    assert curry(mymap_one5, double, ll(1, 2, 3)) == ll(2, 4, 6)
 
     # Finally, we can drop the inner curry by using a currying compose.
     # This is as close to "(define (map f) (foldr (compose cons f) empty)"
     # (#lang spicy) as we're gonna get in Python.
     mymap = lambda f: curry(foldr, composerc(cons, f), nil)
-    assert curry(mymap, double, (1, 2, 3)) == (2, 4, 6)
+    assert curry(mymap, double, ll(1, 2, 3)) == ll(2, 4, 6)
 
     # The currying has actually made it not just map one, but general map that
     # accepts multiple input sequences.
@@ -344,21 +333,23 @@ def test():
     # argument, is passed through on the right. The output from the processing
     # function - one new item - and acc then become a two-tuple, which gets
     # passed into cons.
-    assert curry(mymap, lambda x, y: x + y, (1, 2, 3), (2, 4, 6)) == (3, 6, 9)
+    add = lambda x, y: x + y
+    assert curry(mymap, add, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 
     reverse_one = curry(foldl, cons, nil)
-    assert reverse_one((1, 2, 3)) == (3, 2, 1)
+    assert reverse_one(ll(1, 2, 3)) == ll(3, 2, 1)
 
-    append_two = lambda a, b: foldr(cons, b, a)
-    assert append_two((1, 2, 3), (4, 5, 6)) == (1, 2, 3, 4, 5, 6)
+    append_two = lambda a, b: foldr(cons, b, a)  # a, b: linked lists
+    assert append_two(ll(1, 2, 3), ll(4, 5, 6)) == ll(1, 2, 3, 4, 5, 6)
 
+    # see upythonic.llist.lappend
     append_many = lambda *lsts: foldr(append_two, nil, lsts)
-    assert append_many((1, 2), (3, 4), (5, 6)) == (1, 2, 3, 4, 5, 6)
+    assert append_many(ll(1, 2), ll(3, 4), ll(5, 6)) == ll(1, 2, 3, 4, 5, 6)
 
     mysum = curry(foldl, add, 0)
     myprod = curry(foldl, mul, 1)
-    a = (1, 2)
-    b = (3, 4)
+    a = ll(1, 2)
+    b = ll(3, 4)
     assert mysum(append_two(a, b)) == 10
     assert myprod(b) == 12
 
