@@ -237,28 +237,31 @@ def split_at(n, iterable):
 
 # FIXME: difficult to make unpack curryable.
 def unpack(iterable, n, k=None, fillvalue=None):
-    """From iterable, get the n first elements and the kth tail.
+    """From iterable, return the first n elements, and the kth tail.
 
     This is a lazy generalization of sequence unpacking that works also for
     infinite iterables.
 
-    Return a tuple containing the ``n`` first elements, and as its last item,
-    the tail of the iterable from item ``k`` onwards. Default means ``n + 1``,
-    i.e. return the tail that begins right after the extracted items.
-    (Other values are occasionally useful, e.g. to peek into the tail,
-     while not permanently extracting an item.)
+    The return value is a tuple containing the ``n`` first elements, and as its
+    last item, the tail of the iterable from item ``k`` onwards.
+
+    Default ``k=None`` means ``k = n + 1``, i.e. return the tail that begins
+    right after the extracted items. Other values are occasionally useful,
+    e.g. to peek into the tail, while not permanently extracting an item.
 
     If there are fewer than ``n`` items in the iterable, the missing items
     are returned as ``fillvalue``. The ``rest`` part is then a generator
     that just raises ``StopIteration``.
 
-    If ``k < n + 1``, the tail is formed using ``tee`` at the appropriate
-    iteration of the extraction.
+    If ``k < n + 1`` (tail overlaps with the extracted items), the tail
+    is formed by calling ``itertools.tee`` at the appropriate point during
+    the extraction.
 
-    If ``k == n + 1``, the tail captures the original iterator at the end
-    of the extraction.
+    If ``k == n + 1`` (tail begins right after the extracted items), the tail
+    is formed from the original iterator at the end of the extraction.
 
-    If ``k > n + 1``, the iterator is fast-forwarded using ``drop``.
+    If ``k > n + 1`` (skip some items after the first n), then after extraction,
+    the tail is formed by fast-forwarding the iterator using ``drop``.
     """
     # TODO: improve this function; better semantics when items run out?
     if n < 0:
@@ -271,21 +274,20 @@ def unpack(iterable, n, k=None, fillvalue=None):
     it = iter(iterable)
     for j in range(n):
         try:
-            out.append(next(it))
-            if k == j:  # tail is desired to overlap with the extracted items
+            if j == k:  # tail is desired to overlap with the extracted items
                 rest, it = tee(it)
+            out.append(next(it))
         except StopIteration:  # fewer than n items
-            l = len(out)
-            out += [fillvalue] * (n - l)
+            out += [fillvalue] * (n - len(out))
             def emptygen():
                 yield from ()
             rest = emptygen()
     if not rest:  # avoid replacing emptygen
-        if k == n:
+        if k == n + 1:
             def defaulttailgen():
                 yield from it
             rest = defaulttailgen()
-        elif k > n:
+        elif k > n + 1:
             rest = drop(k - n - 1, it)
     out.append(rest)
     return tuple(out)
@@ -559,10 +561,13 @@ def test():
     assert tuple(flatten(data, is_nested))    == (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
     assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8, 9), (10, 11))
 
-    # implicitly defined infinite streams
-    def adds(s1, s2):  # add infinite streams
+    # Implicitly defined infinite streams, using generators.
+    #
+    def adds(s1, s2):
+        """Add two infinite streams (elementwise)."""
         yield from map(add, s1, s2)
-    def muls(s, c):    # multiply infinite stream by a constant
+    def muls(s, c):
+        """Multiply an infinite stream by a constant."""
         yield from map(lambda x: c * x, s)
 
     # will eventually crash (stack overflow, no TCO'd yield)
@@ -584,7 +589,7 @@ def test():
     assert tuple(take(10, fibos_fp())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
     assert tuple(take(10, powers_of_2())) == (2, 4, 8, 16, 32, 64, 128, 256, 512, 1024)
 
-    # better Python
+    # not as FP but better Python
     def ones_python():
         while True:
             yield 1
@@ -599,10 +604,14 @@ def test():
     assert tuple(take(10, nats_python())) == tuple(range(10))
     assert tuple(take(10, fibos_python())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 
-    # accurate numeric differentiation without changing to a better formula
+    # How to improve accuracy of numeric differentiation with FP tricks.
+    #
+    # See:
+    #   Hughes, 1984: Why Functional Programming Matters, p. 11 ff.
+    #   http://www.cse.chalmers.se/~rjmh/Papers/whyfp.html
     #
     from math import sin, pi, log2
-    def easydiff(f, x, h):  # wildly inaccurate
+    def easydiff(f, x, h):  # as well known, wildly inaccurate
         return (f(x + h) - f(x)) / h
     def repeat(f, x):
         yield x
@@ -612,36 +621,39 @@ def test():
     def differentiate(h0, f, x):
         return map(curry(easydiff, f, x), repeat(halve, h0))
     def within(eps, s):
-        a, b, rest = unpack(s, 2, 1)  # (a b stuff) --> a, b, (b stuff)
-        if abs(a - b) < eps:
-            return b
-        return within(eps, rest)
+        a, b, b_and_rest = unpack(s, 2, 1)
+        return b if abs(a - b) < eps else within(eps, b_and_rest)
     def differentiate_with_tol(h0, f, x, eps):
         return within(eps, differentiate(h0, f, x))
-    assert abs(differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-8
+    assert abs(differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-7
 
+    def order(s):
+        """Estimate asymptotic order of s, using the first three terms."""
+        a, b, c, _ = unpack(s, 3)
+        return round(log2(abs((a - c) / (b - c)) - 1))
     def eliminate_error(n, s):
-        """n must be the asymptotic order of the error term to eliminate.
-        s must be based on halving h at each step."""
-        a, b, rest = unpack(s, 2, 1)  # (a b stuff) --> a, b, (b stuff)
+        """Eliminate error term of given asymptotic order n.
+
+        The stream s must be based on halving h at each step
+        for the formula used here to work."""
+        a, b, b_and_rest = unpack(s, 2, 1)
         def gen():
             yield (b*2**n - a) / (2**(n - 1))
-            yield from eliminate_error(n, rest)
+            yield from eliminate_error(n, b_and_rest)
         return gen()
-    def order(s):
-        a, b, c, rest = unpack(s, 3)  # (a b c stuff) --> a, b, c, stuff
-        return round(log2(abs((a - c) / (b - c)) - 1))
     def improve(s):
+        """Eliminate asymptotically dominant error term from s."""
         return eliminate_error(order(s), s)
     def better_differentiate_with_tol(h0, f, x, eps):
         return within(eps, improve(differentiate(h0, f, x)))
-    assert abs(better_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-8
+    assert abs(better_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-9
 
     def super_improve(s):
+        # repeat improve, take second term from each resulting stream.
         return map(curry(nth, 1), repeat(improve, s))
     def best_differentiate_with_tol(h0, f, x, eps):
         return within(eps, super_improve(differentiate(h0, f, x)))
-    assert abs(best_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-8
+    assert abs(best_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-12
 
     print("All tests PASSED")
 
