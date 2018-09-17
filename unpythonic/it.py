@@ -458,7 +458,7 @@ def iterate(f, *args):
         args = f(*args)
 
 def test():
-    from operator import add, mul, itemgetter, neg
+    from operator import add, mul, itemgetter
     from functools import partial
     from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate, identity
     from unpythonic.llist import cons, nil, ll
@@ -641,6 +641,24 @@ def test():
     data = (((1, 2), ((3, 4), (5, 6)), 7), ((8, 9), (10, 11)))
     assert tuple(flatten(data, is_nested))    == (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
     assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8, 9), (10, 11))
+
+    # http://learnyouahaskell.com/higher-order-functions
+    def collatz(n):
+        if n < 1:
+            raise ValueError()
+        while True:
+            yield n
+            if n == 1:
+                break
+            n = n // 2 if n % 2 == 0 else 3 * n + 1
+    assert tuple(collatz(13)) == (13, 40, 20, 10, 5, 16, 8, 4, 2, 1)
+    assert tuple(collatz(10)) == (10, 5, 16, 8, 4, 2, 1)
+    assert tuple(collatz(30)) == (30, 15, 46, 23, 70, 35, 106, 53, 160, 80, 40, 20, 10, 5, 16, 8, 4, 2, 1)
+    def len_gt(k, s):
+        a, _ = unpack(drop(k, s), 1)
+        return a  # None if no item
+    islong = curry(len_gt, 15)
+    assert sum(1 for n in range(1, 101) if islong(collatz(n))) == 66
 
     # Implicitly defined infinite streams, using generators.
     #
