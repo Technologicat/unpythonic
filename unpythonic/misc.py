@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["call", "raisef", "pack"]
+__all__ = ["call", "A", "raisef", "pack"]
 
 def call(thunk):
     """Decorator: run immediately, overwrite function by its return value.
@@ -46,6 +46,22 @@ def call(thunk):
      the block, since the block is a function.)
     """
     return thunk()
+
+def A(f, *args, **kwargs):
+    """Alternative notation for function application. Same as f(*args, **kwargs).
+
+    **Example**::
+
+        A(print, "hello")
+
+    **Why?!**
+
+      - Notational uniformity with ``curry(f, *args, **kwargs)`` for cases
+        without currying. See ``unpythonic.fun.curry``.
+
+      - For fans of S-expressions. Write Python almost like Lisp!
+    """
+    return f(*args, **kwargs)
 
 def raisef(exctype, *args, **kwargs):
     """``raise`` as a function, to make it possible for lambdas to raise exceptions.
@@ -106,6 +122,9 @@ def test():
     def result():
         return "hello"
     assert result == "hello"
+
+    from operator import add
+    assert A(add, 2, 3) == add(2, 3)
 
     l = lambda: raisef(ValueError, "all ok")
     try:
