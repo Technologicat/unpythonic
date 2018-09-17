@@ -675,7 +675,7 @@ def test():
         while True:
             yield 1
     def nats_python(start=0):
-        yield from scanl(add, start, ones_python())
+        return scanl(add, start, ones_python())
     def fibos_python():
         a, b = 1, 1
         while True:
@@ -699,8 +699,14 @@ def test():
     def differentiate(h0, f, x):
         return map(curry(easydiff, f, x), iterate1(halve, h0))
     def within(eps, s):
-        a, b, b_and_rest = unpack(s, 2, 1)  # unpack with peek
-        return b if abs(a - b) < eps else within(eps, b_and_rest)
+#        # FP
+#        a, b, b_and_rest = unpack(s, 2, 1)  # unpack with peek
+#        return b if abs(a - b) < eps else within(eps, b_and_rest)
+        # not as elegant but better Python
+        while True:
+            a, b, s = unpack(s, 2, 1)
+            if abs(a - b) < eps:
+                return b
     def differentiate_with_tol(h0, f, x, eps):
         return within(eps, differentiate(h0, f, x))
     assert abs(differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-7
@@ -714,9 +720,14 @@ def test():
 
         The stream s must be based on halving h at each step
         for the formula used here to work."""
-        a, b, b_and_rest = unpack(s, 2, 1)
-        yield (b*2**n - a) / (2**(n - 1))
-        yield from eliminate_error(n, b_and_rest)
+#        # FP
+#        a, b, b_and_rest = unpack(s, 2, 1)
+#        yield (b*2**n - a) / (2**(n - 1))
+#        yield from eliminate_error(n, b_and_rest)
+        # better Python
+        while True:
+            a, b, s = unpack(s, 2, 1)
+            yield (b*2**n - a) / (2**(n - 1))
     def improve(s):
         """Eliminate asymptotically dominant error term from s."""
         return eliminate_error(order(s), s)
@@ -725,7 +736,6 @@ def test():
     assert abs(better_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-9
 
     def super_improve(s):
-        # repeat improve, take second term from each resulting stream.
         return map(second, iterate1(improve, s))
     def best_differentiate_with_tol(h0, f, x, eps):
         return within(eps, super_improve(differentiate(h0, f, x)))
@@ -739,23 +749,34 @@ def test():
     # https://sites.ualberta.ca/~jhoover/325/CourseNotes/section/Streams.htm
     #
     partial_sums = curry(scanl1, add)
-    # The looming stack overflow is not a major problem; the rest of the algorithm
-    # will run into floating-point issues long before that (unless using mpmath).
     def pi_summands(n):  # π/4 = 1 - 1/3 + 1/5 - 1/7 + ...
-        yield 1 / n
-        yield from map(neg, pi_summands(n + 2))
+#        # The looming stack overflow is not a major problem; the rest of the algorithm
+#        # will run into floating-point issues long before that (unless using mpmath).
+#        yield 1 / n
+#        yield from map(neg, pi_summands(n + 2))
+        # But let's write better Python anyway.
+        sign = +1
+        while True:
+            yield sign / n
+            n += 2
+            sign *= -1
     pi_stream = muls(partial_sums(pi_summands(1)), 4)
 
     # http://mathworld.wolfram.com/EulerTransform.html
     # https://en.wikipedia.org/wiki/Series_acceleration#Euler%27s_transform
     def euler_transform(s):
-        a, b, c, b_c_and_rest = unpack(s, 3, 1)
-        yield c - ((c - b)**2 / (a - 2*b + c))
-        yield from euler_transform(b_c_and_rest)
+#        # FP
+#        a, b, c, b_c_and_rest = unpack(s, 3, 1)
+#        yield c - ((c - b)**2 / (a - 2*b + c))
+#        yield from euler_transform(b_c_and_rest)
+        # better Python
+        while True:
+            a, b, c, s = unpack(s, 3, 1)
+            yield c - ((c - b)**2 / (a - 2*b + c))
     faster_pi_stream = euler_transform(pi_stream)
 
     def super_accelerate(transform, s):
-        yield from map(first, iterate1(transform, s))
+        return map(first, iterate1(transform, s))
     fastest_pi_stream = super_accelerate(euler_transform, pi_stream)
 
     assert abs(last(take(6, pi_stream)) - pi) < 0.2
