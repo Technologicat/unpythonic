@@ -173,6 +173,8 @@ x = pipe(42, double, inc)
 assert x == 85
 ```
 
+We also provide ``pipec``, which curries the functions before applying them. Useful with passthrough (see below on ``curry``).
+
 Optional **shell-like syntax**, with purely functional updates:
 
 ```python
@@ -1033,9 +1035,10 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
      - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
    - **Caution**: If the positional arities of ``f`` cannot be inspected, currying fails, raising ``UnknownArity``. This may happen with builtins such as ``operator.add``.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
-   - Any number of positional arguments is supported, with similar rules as the pipe system. Multiple return values packed into a tuple or list are unpacked to the argument list of the next function in the chain.
-   - `composel1`, `composer1` for 1-in-1-out chains (faster; also useful for a single value that is a tuple or list).
-   - `composeli`, `composeri`, `composeli1`, `composeri1` if your functions are stored in an iterable.
+   - Any number of positional arguments is supported, with the same rules as in the pipe system. Multiple return values packed into a tuple or list are unpacked to the argument list of the next function in the chain.
+   - `composelc`, `composerc`: curry each function before composing them. Useful with passthrough.
+   - `composel1`, `composer1`: 1-in-1-out chains (faster; also useful for a single value that is a tuple or list).
+   - suffix `i` to use with an iterable (`composeli`, `composeri`, `composelci`, `composerci`, `composel1i`, `composer1i`)
  - `andf`, `orf`, `notf`: compose predicates (like Racket's `conjoin`, `disjoin`, `negate`).
  - `rotate`: a cousin of `flip`, for permuting positional arguments.
  - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting 1-in-1-out functions into m-in-n-out compose chains.
@@ -1065,12 +1068,8 @@ zipr = curry(foldr, zipper, ())
 assert zipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
 assert zipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
 
-map_one = lambda f: curry(foldr, composer(cons, to1st(f)), nil)
-double = lambda x: 2 * x
-doubler = map_one(double)
-assert doubler((1, 2, 3)) == ll(2, 4, 6)
-
 # passthrough on the right
+double = lambda x: 2 * x
 assert curry(double, 2, "foo") == (4, "foo")   # arity of double is 1
 
 mysum = curry(foldl, add, 0)
@@ -1083,6 +1082,10 @@ append_many = lambda *lsts: foldr(append_two, nil, lsts)  # see lappend
 assert mysum(append_many(a, b, c)) == 21
 assert myprod(b) == 12
 
+map_one = lambda f: curry(foldr, composer(cons, to1st(f)), nil)
+doubler = map_one(double)
+assert doubler((1, 2, 3)) == ll(2, 4, 6)
+
 assert curry(map_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
 
@@ -1090,22 +1093,26 @@ assert curry(map_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 
 ```python
 double = lambda x: 2 * x
-mapr_one = lambda f: curry(foldl, composer(cons, to1st(f)), nil)  # foldl works on general iterables
-mapl_one = lambda f: composer(mapr_one(f), lreverse)              # callable -> another callable (1->1)
+mapr_one = lambda f: curry(foldl, composer(cons, to1st(f)), nil)  # essentially reversed(map(...))
+mapl_one = lambda f: composer(mapr_one(f), lreverse)
 assert curry(mapl_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
 
+which may be a useful pattern for iterables that don't support ``reversed`` (used by ``foldr`` internally); although linked lists do.
+
 In ``mapr_one``, we can use either ``curry`` or ``functools.partial``. In this case it doesn't matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as (and only as soon as) it gets at least one more argument.
+
+The final ``curry`` uses both of the extra features. It invokes passthrough, since ``mapl_one`` has arity 1. It also invokes a call to the callable returned from ``mapl_one``, with the remaining arguments (in this case just one, the ``ll(1, 2, 3)``).
 
 As for v0.8.1, yet another way to write ``map_one`` is:
 
 ```python
-map_one = lambda f: curry(foldr, composer(cons, curry(f)), nil)
+mymap = lambda f: curry(foldr, composer(cons, curry(f)), nil)
 ```
 
 The curried ``f`` uses up one argument (provided it is a one-argument function!), and the second argument is passed through on the right; this two-tuple then ends up as the arguments to ``cons``.
 
-v0.8.2 adds currying variants of the compose functions (names suffixed with ``c``), so using ``composerc``, the inner curry is no longer needed:
+v0.8.2 adds currying variants of the compose functions (names suffixed with ``c``), so the inner curry is no longer needed:
 
 ```python
 mymap = lambda f: curry(foldr, composerc(cons, f), nil)
@@ -1114,9 +1121,9 @@ assert curry(mymap, lambda x, y: x + y, (1, 2, 3), (2, 4, 6)) == (3, 6, 9)
 
 This is as close to ```(define (map f) (foldr (compose cons f) empty)``` (in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy)) as we're gonna get in Python.
 
-Notice how it now accepts multiple input sequences; this is thanks to currying ``f`` inside the composition. The sequences are taken by the processing function. ``acc``, being the last argument, is passed through on the right. The output from the processing function - one new item - and ``acc`` then become a two-tuple, which gets passed into cons.
+Notice how the last two versions accept multiple input sequences; this is thanks to currying ``f`` inside the composition. An element from each of the sequences is taken by the processing function ``f``. Being the last argument, ``acc`` is passed through on the right. The output from the processing function - one new item - and ``acc`` then become a two-tuple, passed into cons.
 
-Finally, keep in mind that this exercise is intended just as a feature demonstration. In production code, using the builtin ``map`` is much better.
+Finally, keep in mind this exercise is intended as a feature demonstration. In production code, the builtin ``map`` is much better.
 
 
 #### ``curry`` and reduction rules
@@ -1127,7 +1134,7 @@ The provided variant of ``curry``, beside what it says on the tin, is effectivel
 curry(f, a0, a1, ..., a[n-1])
 ```
 
-it actually means the following. Let ``m1`` and ``m2`` be the minimum and maximum positional arity of the callable ``f``, respectively.
+it means the following. Let ``m1`` and ``m2`` be the minimum and maximum positional arity of the callable ``f``, respectively.
 
  - If ``n > m2``, call ``f`` with the first ``m2`` arguments.
    - If the result is a callable, curry it, and recurse.
@@ -1135,7 +1142,7 @@ it actually means the following. Let ``m1`` and ``m2`` be the minimum and maximu
  - If ``m1 <= n <= m2``, call ``f`` and return its result (like a normal function call).
    - **Any** positional arity accepted by ``f`` triggers the call; beware when working with [variadic](https://en.wikipedia.org/wiki/Variadic_function) functions.
  - If ``n < m1``, partially apply ``f`` to the given arguments, yielding a new function with smaller ``m1``, ``m2``. Then curry the result and return it.
-   - Internally this stacks ``functools.partial`` applications, but there will be only one ``curried`` wrapper no matter how many invocations are used to build up arguments before ``f`` eventually gets called.
+   - Internally we stack ``functools.partial`` applications, but there will be only one ``curried`` wrapper no matter how many invocations are used to build up arguments before ``f`` eventually gets called.
 
 In the above example:
 
@@ -1184,6 +1191,8 @@ curry(f, a, (g, x, y), b, c)
 ```
 
 because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by design; as with all things Python, *explicit is better than implicit*.
+
+**Note**: to code in curried style, [a static type checker](http://mypy-lang.org/) is useful; also, be careful with variadic functions.
 
 
 ### Batteries for itertools
