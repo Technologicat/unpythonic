@@ -697,7 +697,7 @@ def test():
     def halve(x):
         return x / 2
     def differentiate(h0, f, x):
-        return map(curry(easydiff, f, x), iterate(halve, h0))
+        return map(curry(easydiff, f, x), iterate1(halve, h0))
     def within(eps, s):
         a, b, b_and_rest = unpack(s, 2, 1)  # unpack with peek
         return b if abs(a - b) < eps else within(eps, b_and_rest)
@@ -726,7 +726,7 @@ def test():
 
     def super_improve(s):
         # repeat improve, take second term from each resulting stream.
-        return map(second, iterate(improve, s))
+        return map(second, iterate1(improve, s))
     def best_differentiate_with_tol(h0, f, x, eps):
         return within(eps, super_improve(differentiate(h0, f, x)))
     assert abs(best_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-12
@@ -755,7 +755,7 @@ def test():
     faster_pi_stream = euler_transform(pi_stream)
 
     def super_accelerate(transform, s):
-        yield from map(first, iterate(transform, s))
+        yield from map(first, iterate1(transform, s))
     fastest_pi_stream = super_accelerate(euler_transform, pi_stream)
 
     assert abs(last(take(6, pi_stream)) - pi) < 0.2
