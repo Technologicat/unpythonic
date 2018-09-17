@@ -20,7 +20,8 @@ __all__ = ["scanl", "scanr", "scanl1", "scanr1",
            "flatmap", "mapr", "zipr", "uniqify", "uniq",
            "take", "drop", "split_at", "unpack",
            "tail", "first", "second", "nth", "last",
-           "flatten", "flatten1", "flatten_in"]
+           "flatten", "flatten1", "flatten_in",
+           "iterate"]
 
 from itertools import tee, islice
 from collections import deque
@@ -342,7 +343,12 @@ def nth(n, iterable, *, default=None):
 
     The ``default`` is returned if there are fewer than ``n + 1`` items.
     """
-    it = drop(n - 1, iterable)
+    if n < 0:
+        raise ValueError("expected n >= 0, got {}".format(n))
+    if n == 0:
+        it = iter(iterable)
+    else:
+        it = drop(n - 1, iterable)
     try:
         return next(it)
     except StopIteration:
@@ -428,6 +434,15 @@ def flatten_in(iterable, pred=None):
                 yield new_e
         else:
             yield e
+
+def iterate(f, x):
+    """Return a generator yielding x, f(x), f(f(x)), ..."""
+#    # elegant FP def, but prone to eventual stack overflow in Python
+#    yield x
+#    yield from iterate(f, f(x))
+    while True:
+        yield x
+        x = f(x)
 
 def test():
     from operator import add, mul, itemgetter, neg
@@ -666,13 +681,10 @@ def test():
     from math import sin, pi, log2
     def easydiff(f, x, h):  # as well known, wildly inaccurate
         return (f(x + h) - f(x)) / h
-    def repeat(f, x):
-        yield x
-        yield from repeat(f, f(x))
     def halve(x):
         return x / 2
     def differentiate(h0, f, x):
-        return map(curry(easydiff, f, x), repeat(halve, h0))
+        return map(curry(easydiff, f, x), iterate(halve, h0))
     def within(eps, s):
         a, b, b_and_rest = unpack(s, 2, 1)  # unpack with peek
         return b if abs(a - b) < eps else within(eps, b_and_rest)
@@ -701,7 +713,7 @@ def test():
 
     def super_improve(s):
         # repeat improve, take second term from each resulting stream.
-        return map(second, repeat(improve, s))
+        return map(second, iterate(improve, s))
     def best_differentiate_with_tol(h0, f, x, eps):
         return within(eps, super_improve(differentiate(h0, f, x)))
     assert abs(best_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-12
@@ -730,7 +742,7 @@ def test():
     faster_pi_stream = euler_transform(pi_stream)
 
     def super_accelerate(transform, s):
-        yield from map(first, repeat(transform, s))
+        yield from map(first, iterate(transform, s))
     fastest_pi_stream = super_accelerate(euler_transform, pi_stream)
 
     assert abs(last(take(6, pi_stream)) - pi) < 0.2
