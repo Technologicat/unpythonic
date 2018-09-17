@@ -713,6 +713,53 @@ assert outer_result == ((1, 2), (2, 4), (3, 6))
 
 If you feel the trailing commas ruin the aesthetics, see ``unpythonic.misc.pack``.
 
+#### Accumulator type and runtime cost
+
+As [the reference warns (note 6)](https://docs.python.org/3/library/stdtypes.html#common-sequence-operations), repeated concatenation of tuples has an O(n²) runtime cost, because each concatenation creates a new tuple, which needs to copy all of the already existing elements. To keep the runtime O(n), there are two options:
+
+ - *Pythonic solution*: Destructively modify a mutable sequence. Particularly, ``list`` is a dynamic array that has a low amortized cost for concatenation (most often O(1), with the occasional O(n) when the allocated storage grows).
+ - *Unpythonic solution*: ``cons`` a linked list, and reverse it at the end. Cons cells are immutable; consing a new element to the front costs O(1). Reversing the list costs O(n).
+
+Mutable sequence (Python ``list``):
+
+```python
+@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=[])
+def p(loop, item, acc):
+    numb, lett = item
+    acc.append("{:d}{:s}".format(numb, lett))
+    return loop(acc)
+assert p == ['1a', '2b', '3c']
+```
+
+Linked list:
+
+```python
+from unpythonic import cons, nil, ll
+
+@lreverse
+@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
+def p(loop, item, acc):
+    numb, lett = item
+    return loop(cons("{:d}{:s}".format(numb, lett), acc))
+assert p == ll('1a', '2b', '3c')
+```
+
+Note the unpythonic use of the ``lreverse`` function as a decorator. ``@looped_over`` overwrites the def'd name by the return value of the loop; then ``lreverse`` takes that as input, and overwrites once more. Thus ``p`` becomes the final list.
+
+To get the output as a tuple, we can add ``tuple`` to the decorator chain:
+
+```python
+@tuple
+@lreverse
+@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
+def p(loop, item, acc):
+    numb, lett = item
+    return loop(cons("{:d}{:s}".format(numb, lett), acc))
+assert p == ('1a', '2b', '3c')
+```
+
+This works in both solutions. The cost is an additional O(n) step.
+
 #### ``break``
 
 The main way to exit an FP loop (also early) is, at any time, to just ``return`` the final result normally.
@@ -1410,7 +1457,7 @@ Although linked lists are created with ``ll`` or ``llist``, the data type (for e
 
 Iterators are supported to walk over linked lists (this also gives tuple unpacking support). When ``next()`` is called, we return the car of the current cell the iterator points to, and the iterator moves to point to the cons cell in the cdr, if any. When the cdr is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
 
-Python's builtin ``reversed`` can be applied to linked lists; it will internally ``lreverse`` the list (which is O(n)), then provide an iterator to that. This means also ``foldr`` works on linked lists.
+Python's builtin ``reversed`` can be applied to linked lists; it will internally ``lreverse`` the list (which is O(n)), then return an iterator to that. This means also ``foldr`` works on linked lists. ``llist`` is special-cased so that if the input is ``reversed(some_ll)``, it just returns the internal already reversed list. (This is safe because cons cells are immutable.)
 
 Cons structures are hashable and pickleable, and print like in Lisps:
 
@@ -1420,7 +1467,7 @@ print(ll(1, 2, 3))                   # --> (1 2 3)
 print(cons(cons(1, 2), cons(3, 4)))  # --> ((1 . 2) . (3 . 4))
 ```
 
-For more, see `unpythonic.llist`.
+For more, see the ``llist`` submodule.
 
 #### Notes
 
