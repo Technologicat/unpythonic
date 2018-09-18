@@ -831,6 +831,19 @@ def test():
     assert tuple(take(10, fibos())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
     assert tuple(take(10, pows())) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
 
+    from inspect import isgenerator
+    def gtco(generator):
+        while True:  # trampoline
+            x = yield from generator  # yield stuff, get final result (return ...)
+            if not isgenerator(x):
+                break
+            generator = x
+    def ones():
+        yield 1
+        return ones()  # TCO: return a new generator instance to the trampoline
+    assert tuple(take(10, gtco(ones()))) == (1,) * 10
+    last(take(10000, gtco(ones())))  # no crash
+
     # How to improve accuracy of numeric differentiation with FP tricks.
     #
     # See:
