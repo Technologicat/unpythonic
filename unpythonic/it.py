@@ -266,24 +266,23 @@ def split_at(n, iterable):
     ia, ib = tee(iter(iterable))
     return take(n, ia), drop(n, ib)
 
-# FIXME: difficult to make unpack curryable.
-def unpack(iterable, n, k=None, fillvalue=None):
+def unpack(n, iterable, *, k=None, fillvalue=None):
     """From iterable, return the first n elements, and the kth tail.
 
     This is a lazy generalization of sequence unpacking that works also for
     infinite iterables.
 
-    The return value is a tuple containing the ``n`` first elements, and as its
-    last item, an iterator representing the tail of the iterable from item ``k``
-    onwards.
-
     Default ``k=None`` means ``k = n``, i.e. return the tail that begins
     right after the extracted items. Other values are occasionally useful,
     e.g. to peek into the tail, while not permanently extracting an item.
 
+    The return value is a tuple containing the ``n`` first elements, and as its
+    last item, an iterator representing the tail of the iterable from item ``k``
+    onwards.
+
     If there are fewer than ``n`` items in the iterable, the missing items
-    are returned as ``fillvalue``. The ``rest`` part is then an iterator
-    that just raises ``StopIteration``.
+    are returned as ``fillvalue``. The tail is then a generator that just
+    raises ``StopIteration``.
 
     If ``k < n`` (tail overlaps with the extracted items), the tail
     is formed by calling ``itertools.tee`` at the appropriate point
@@ -303,24 +302,25 @@ def unpack(iterable, n, k=None, fillvalue=None):
     if k < 0:
         raise ValueError("expected k >= 0, got {}".format(k))
     out = []
-    rest = None
+    tl = None
     it = iter(iterable)
     for j in range(n):
         try:
             if j == k:  # tail is desired to overlap with the extracted items
-                it, rest = tee(it)
+                it, tl = tee(it)
             out.append(next(it))
         except StopIteration:  # fewer than n items
             out += [fillvalue] * (n - len(out))
             def empty_sequence():
                 yield from ()
-            rest = empty_sequence()
-    if not rest:  # avoid replacing empty_sequence()
+            tl = empty_sequence()
+            break
+    if not tl:  # avoid replacing empty_sequence()
         if k == n:
-            rest = it
+            tl = it
         elif k > n:
-            rest = drop(k - n, it)
-    out.append(rest)
+            tl = drop(k - n, it)
+    out.append(tl)
     return tuple(out)
 
 def tail(iterable):
@@ -653,13 +653,28 @@ def test():
     assert tuple(flatten(data, is_nested))    == (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
     assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8, 9), (10, 11))
 
+    # lazy unpack from a sequence
+    a, b, c, tl = unpack(3, range(5))
+    assert a == 0 and b == 1 and c == 2
+    assert next(tl) == 3
+
+    # lazy unpack falling off the end of a sequence
+    a, b, c, tl = unpack(3, range(2))
+    assert a == 0 and b == 1 and c is None
+    try:
+        next(tl)
+    except StopIteration:
+        pass
+    else:
+        assert False  # the tail should be empty
+
     # unpacking of generators - careful!
     def mygen():
         for x in range(10, 16):
             yield x
     def dostuff(s):
-        a, b, t = unpack(s, 2, 0)  # peek two, set t to 0th tail (the original s)
-        return t
+        a, b, tl = unpack(2, s, k=0)  # peek two, set tl to 0th tail (the original s)
+        return tl
     g = mygen()
     dostuff(g)  # gotcha: advances g!
     assert next(g) == 12
@@ -688,7 +703,7 @@ def test():
     assert tuple(collatz(10)) == (10, 5, 16, 8, 4, 2, 1)
     assert tuple(collatz(30)) == (30, 15, 46, 23, 70, 35, 106, 53, 160, 80, 40, 20, 10, 5, 16, 8, 4, 2, 1)
     def len_gt(k, s):
-        a, _ = unpack(drop(k, s), 1)
+        a, _ = unpack(1, drop(k, s))
         return a  # None if no item
     islong = curry(len_gt, 15)
     assert sum(1 for n in range(1, 101) if islong(collatz(n))) == 66
@@ -752,7 +767,7 @@ def test():
     def within(eps, s):
         while True:
             # unpack with peek (but be careful, the rewinded tail is a tee'd copy)
-            a, b, s = unpack(s, 2, 1)
+            a, b, s = unpack(2, s, k=1)
             if abs(a - b) < eps:
                 return b
     def differentiate_with_tol(h0, f, x, eps):
@@ -761,7 +776,7 @@ def test():
 
     def order(s):
         """Estimate asymptotic order of s, consuming the first three terms."""
-        a, b, c, _ = unpack(s, 3)
+        a, b, c, _ = unpack(3, s)
         return round(log2(abs((a - c) / (b - c)) - 1))
     def eliminate_error(n, s):
         """Eliminate error term of given asymptotic order n.
@@ -769,7 +784,7 @@ def test():
         The stream s must be based on halving h at each step
         for the formula used here to work."""
         while True:
-            a, b, s = unpack(s, 2, 1)
+            a, b, s = unpack(2, s, k=1)
             yield (b*2**n - a) / (2**(n - 1))
     def improve(s):
         """Eliminate asymptotically dominant error term from s.
@@ -807,7 +822,7 @@ def test():
     # https://en.wikipedia.org/wiki/Series_acceleration#Euler%27s_transform
     def euler_transform(s):
         while True:
-            a, b, c, s = unpack(s, 3, 1)
+            a, b, c, s = unpack(3, s, k=1)
             yield c - ((c - b)**2 / (a - 2*b + c))
     faster_pi_stream = euler_transform(pi_stream)
 
