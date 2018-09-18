@@ -75,7 +75,7 @@ f2 = lambda x: begin0(42*x,
 f2(2)  # --> 84
 ```
 
-Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`tour.py`](tour.py) for details.
+Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`unpythonic.seq`](unpythonic/seq.py) for details.
 
 #### Stuff imperative code into a lambda: ``do``
 
