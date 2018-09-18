@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """Tail call optimization for generators."""
 
+__all__ = ["gtco", "gtrampolined"]
+
 from functools import wraps
 from inspect import isgenerator
 
