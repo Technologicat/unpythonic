@@ -1197,17 +1197,19 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
 
 ### Batteries for itertools
 
- - Racket-style `foldl`, `foldr` that support multiple input sequences.
+ - `foldl`, `foldr` with support for multiple input sequences, like in Racket.
    - Like in Racket, `op(elt, acc)`; general case `op(e1, e2, ..., en, acc)`. Note Python's own `functools.reduce` uses the ordering `op(acc, elt)` instead.
    - No sane default for multi-input case, so the initial value for `acc` must be given.
-   - One-input versions are provided as `reducel`, `reducer`, with semantics similar to Python's `functools.reduce`, but with the rackety ordering `op(elt, acc)`.
+   - One-input versions with optional init are provided as `reducel`, `reducer`, with semantics similar to Python's `functools.reduce`, but with the rackety ordering `op(elt, acc)`.
  - `scanl`, `scanr`: scan (a.k.a. accumulate, partial fold); a lazy fold that returns a generator yielding intermediate results.
    - Iteration stops after yielding the final result, i.e. what the corresponding fold would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
    - `scanl` is suitable for infinite inputs.
    - Multiple input sequences supported; same semantics as in `foldl`, `foldr`.
-   - One-input versions are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
+   - One-input versions with optional init are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
  - `unpack`: lazily unpack an iterable. Suitable for infinite inputs.
-   - Return the first ``n`` items and the ``k``th tail, in a tuple. Use ``k < n`` to peek without permanently extracting an item.
+   - Return the first ``n`` items and the ``k``th tail, in a tuple. Default is ``k = n``.
+   - Use ``k > n`` to fast-forward, consuming the skipped items. Works by `drop`.
+   - Use ``k < n`` to peek without permanently extracting an item. Works by [tee](https://docs.python.org/3/library/itertools.html#itertools.tee)ing; plan accordingly.
  - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple.
    - Essentially, ``composel(map(...), flatten1)``; the same thing the bind operator of the List monad does.
  - `mapr`, `zipr`: variants of the builtin `map` and `zip` that first reverse each input sequence.
@@ -1220,6 +1222,8 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
    - Especially useful for testing generators.
    - `tail`: return the tail of an iterable. Same as `drop(1, iterable)`; common use case.
  - `first`, `second`, `nth`, `last`: return the specified item from an iterable. Any preceding items are consumed at C speed.
+ - `iterate1`, `iterate`: return an infinite generator that yields `x`, `f(x)`, `f(f(x))`, ...
+   - `iterate1` is for 1-to-1 functions; `iterate` for n-to-n, unpacking the return value to the argument list of the next call.
 
 Examples:
 
