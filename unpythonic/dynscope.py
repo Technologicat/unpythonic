@@ -88,6 +88,12 @@ class _Env(object):
         return _EnvBlock(kwargs)
     def __setattr__(self, name, value):
         raise AttributeError("dynamic variables can only be set using 'with dyn.let()'")
+    def __contains__(self, name):
+        try:
+            getattr(self, name)
+            return True
+        except AttributeError:
+            return False
 
 dyn = _Env()
 
