@@ -332,8 +332,25 @@ def test():
 
     uniqify_test()
 
+    # Let over lambda. The inner lambda is the definition of the function f.
+    counter = let(x=0,
+                  body=lambda e: lambda: begin(e.set("x", e.x + 1),
+                                               e.x))
+    counter()
+    counter()
+    assert counter() == 3
+
+    # let-over-def
+    @dlet(count=0)
+    def counter2(*, env=None):  # env: named argument containing the let bindings
+        env.count += 1
+        return env.count
+    counter2()
+    counter2()
+    assert(counter2() == 3)
+
     @dlet(y=23)
-    def foo(x, *, env):  # the named argument env contains the let bindings
+    def foo(x, *, env):
         return x + env.y
     assert foo(17) == 40
 
@@ -372,14 +389,6 @@ def test():
 
         assert env.x == 5
 
-    # Let over lambda. The inner lambda is the definition of the function f.
-    counter = let(x=0,
-                  body=lambda e: lambda: begin(e.set("x", e.x + 1),
-                                               e.x))
-    counter()
-    counter()
-    assert counter() == 3
-
     # https://docs.racket-lang.org/reference/let.html
     t = letrec(evenp=lambda e: lambda x: (x == 0) or e.oddp(x - 1),
                oddp=lambda e: lambda x: (x != 0) and e.evenp(x - 1),
@@ -394,12 +403,14 @@ def test():
         return evenp(42)
     assert t is True
 
+    # letrec-over-def
     @dletrec(evenp=lambda e: lambda x: (x == 0) or e.oddp(x - 1),
              oddp=lambda e: lambda x: (x != 0) and e.evenp(x - 1))
     def is_even(x, *, env):
         return env.evenp(x)
     assert is_even(23) is False
 
+    # code block with letrec
     @bletrec(evenp=lambda e: lambda x: (x == 0) or e.oddp(x - 1),
              oddp=lambda e: lambda x: (x != 0) and e.evenp(x - 1))
     def result(*, env):

@@ -118,10 +118,31 @@ def pack(*args):
     return args  # pretty much like in Lisps, (define (list . args) args)
 
 def test():
+    # def as a code block (function overwritten by return value)
+    #
     @call
     def result():
         return "hello"
     assert result == "hello"
+
+    # use case 1: make temporaries fall out of scope
+    @call
+    def x():
+        a = 2  #    many temporaries that help readability...
+        b = 3  # ...of this calculation, but would just pollute locals...
+        c = 5  # ...after the block exits
+        return a * b * c
+    assert x == 30
+
+    # use case 2: multi-break out of nested loops
+    @call
+    def result():
+        for x in range(10):
+            for y in range(10):
+                if x * y == 42:
+                    return (x, y)
+                ... # more code here
+    assert result == (6, 7)
 
     from operator import add
     assert A(add, 2, 3) == add(2, 3)

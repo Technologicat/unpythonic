@@ -28,6 +28,8 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
  - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
 
+For many examples, see the `test()` function in each submodule, the docstrings of the individual features, and this README.
+
 Meta:
 
  - [Design notes](#design-notes)
@@ -35,8 +37,6 @@ Meta:
  - [License](#license)
  - [Acknowledgements](#acknowledgements)
  - [Python-related FP resources](#python-related-fp-resources)
-
-There is a [quick tour](quick_tour.py) and a slightly longer [tour](tour.py), but as of v0.8.2 neither are complete. For the most up-to-date examples, see the `test()` function in each submodule, the docstrings of the individual features, and this README.
 
 ### Assign-once
 

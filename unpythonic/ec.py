@@ -248,6 +248,7 @@ def call_ec(f):
 
 def test():
     # "multi-return" using escape continuation
+    #
     @setescape()
     def f():
         def g():
@@ -258,6 +259,7 @@ def test():
     assert f() == "hello from g"
 
     # lispy call/ec (call-with-escape-continuation)
+    #
     @call_ec
     def result(ec):  # effectively, just a code block!
         answer = 42
@@ -290,6 +292,7 @@ def test():
         assert False
 
     # begin() returns the last value. What if we don't want that?
+    # (this works because ec() uses the exception mechanism)
     from unpythonic.seq import begin
     result = call_ec(lambda ec:
                        begin(print("hi from lambda"),

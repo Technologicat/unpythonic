@@ -487,23 +487,23 @@ def do0(*items):
 
 def test():
     # sequence side effects in a lambda
-    f = lambda x: begin(print("hi"),
-                        42*x)
-    assert f(1) == 42
+    #
+    f1 = lambda x: begin(print("cheeky side effect"), 42*x)
+    assert f1(2) == 84
 
-    g = lambda x: begin0(23*x,
-                         print("hi"))
-    assert g(1) == 23
+    f2 = lambda x: begin0(42*x, print("cheeky side effect"))
+    assert f2(2) == 84
 
-    test_lazy_begin = lambda: lazy_begin(lambda: print("hi"),
-                                         lambda: "the return value")
-    assert test_lazy_begin() == "the return value"
+    f3 = lambda x: lazy_begin(lambda: print("cheeky side effect"),
+                              lambda: 42*x)
+    assert f3(2) == 84
 
-    test_lazy_begin0 = lambda: lazy_begin0(lambda: "the return value",
-                                           lambda: print("hi"))
-    assert test_lazy_begin0() == "the return value"
+    f4 = lambda x: lazy_begin0(lambda: 42*x,
+                               lambda: print("cheeky side effect"))
+    assert f4(2) == 84
 
     # pipe: sequence functions
+    #
     double = lambda x: 2 * x
     inc    = lambda x: x + 1
     assert pipe1(42, double, inc) == 85  # 1-in-1-out
@@ -511,23 +511,32 @@ def test():
     assert pipe(42, double, inc) == 85   # n-in-m-out, supports also 1-in-1-out
     assert pipe(42, inc, double) == 86
 
+    # 2-in-2-out
     a, b = pipe((2, 3),
                 lambda x, y: (x + 1, 2 * y),
                 lambda x, y: (x * 2, y + 1))
     assert (a, b) == (6, 7)
 
+    # 2-in-eventually-3-out
     a, b, c = pipe((2, 3),
                    lambda x, y: (x + 1, 2 * y, "foo"),
                    lambda x, y, z: (x * 2, y + 1, "got {}".format(z)))
     assert (a, b, c) == (6, 7, "got foo")
 
+    # 2-in-3-in-between-2-out
     a, b = pipe((2, 3),
                 lambda x, y: (x + 1, 2 * y, "foo"),
                 lambda x, y, s: (x * 2, y + 1, "got {}".format(s)),
                 lambda x, y, s: (x + y, s))
     assert (a, b) == (13, "got foo")
 
-    # with optional shell-like syntax
+    # pipec: curry the functions before running the pipeline
+    a, b = pipec((1, 2),
+                 lambda x: x + 1,  # extra args passed through on the right
+                 lambda x, y: (x * 2, y + 1))
+    assert (a, b) == (4, 3)
+
+    # optional shell-like syntax
     assert piped1(42) | double | inc | getvalue == 85
 
     y = piped1(42) | double
@@ -565,6 +574,7 @@ def test():
     # abuse multi-arg version for single-arg case
     assert piped(42) | double | inc | getvalue == 85
 
+    # multi-arg lazy pipe
     p1 = lazy_piped(2, 3)
     p2 = p1 | (lambda x, y: (x + 1, 2 * y, "foo"))
     p3 = p2 | (lambda x, y, s: (x * 2, y + 1, "got {}".format(s)))
@@ -575,7 +585,7 @@ def test():
     assert (p3 | runpipe) == (6, 7, "got foo")  # runs the chain up to p3
     assert (p4 | runpipe) == (13, "got foo")
 
-    # lazy pipe as an unfold
+    # multi-arg lazy pipe as an unfold
     fibos = []
     def nextfibo(a, b):    # now two arguments
         fibos.append(a)
