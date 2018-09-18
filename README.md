@@ -1222,7 +1222,7 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
    - `flatten1`: outermost level only.
    - `flatten`: recursive, with an optional predicate that controls whether to flatten a given sublist.
    - `flatten_in`: recursive, with an optional predicate; but recurse also into items which don't match the predicate.
- - `take`, `drop`, `split_at`, based on `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes), but returning a generator.
+ - `take`, `drop`, `split_at`, based on `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
    - Especially useful for testing generators.
    - `tail`: return the tail of an iterable. Same as `drop(1, iterable)`; common use case.
  - `first`, `second`, `nth`, `last`: return the specified item from an iterable. Any preceding items are consumed at C speed.
