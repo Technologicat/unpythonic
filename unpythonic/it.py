@@ -428,11 +428,6 @@ def last(iterable, default=None):
     """
     d = deque(iterable, maxlen=1)  # C speed
     return d.pop() if d else default
-#    # slow (Python speed), otherwise fine
-#    item = default
-#    for item in iterable:
-#        pass
-#    return item
 
 def flatten(iterable, pred=None):
     """Recursively remove nested structure from iterable.
