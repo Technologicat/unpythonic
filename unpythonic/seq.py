@@ -435,10 +435,27 @@ def do(*items):
     But beware of this pitfall::
 
         do(lambda e: print("hello 2 from 'do'"),  # delayed because lambda e: ...
-           print("hello 1 from 'do'"),  # Python prints immediately before do()
-           "foo")                       # gets control, because technically, it is
-                                        # **the return value** that is an argument
-                                        # for do().
+           print("hello 1 from 'do'"),
+           "foo")
+
+    Python prints "hello 1 from 'do'" immediately, before ``do()`` gets control,
+    because technically, it is **the return value** that is an argument for ``do()``.
+
+    Similarly, escapes must be delayed::
+
+        call_ec(
+          lambda ec:
+            do(assign(x=42),
+               lambda e: ec(e.x),                  # IMPORTANT: must delay this!
+               lambda e: print("never reached")))  # and this (as above)
+
+    Otherwise, ``do()`` will never get control before the escape triggers.
+    The print must also be delayed, just like above.
+
+    The situation is different with ``begin``, because there no assignments
+    can occur; hence there it doesn't matter whether the items are evaluated
+    before or after ``begin()`` gets control, as long as this choice is kept
+    consistent for all of the expressions.
     """
     e = env()
     def maybe_call(v):
@@ -638,6 +655,28 @@ def test():
     y = do0(assign(x=17),  # the first item of do0 can be an assignment, too
             lambda e: print(e.x))
     assert y == 17
+
+    # pitfalls!
+    #
+    # WRONG!
+    s = set()
+    z = do(lambda e: print(s),  # there is already an item...
+           s.add("foo"),        # ...because already added before do() gets control.
+           lambda e: s)
+
+    # OK
+    s = set()
+    z = do(lambda e: print(s),      # empty, ok!
+           lambda e: s.add("foo"),  # now delayed until do() hits this line
+           lambda e: s)
+
+    from unpythonic.ec import call_ec
+    z = call_ec(
+          lambda ec:
+            do(assign(x=42),
+               lambda e: ec(e.x),                  # IMPORTANT: must delay this!
+               lambda e: print("never reached")))  # and this (as above)
+    assert z == 42
 
     print("All tests PASSED")
 
