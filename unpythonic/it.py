@@ -15,7 +15,7 @@ and (stream-scan) in SRFI-41.
 
 __all__ = ["scanl", "scanr", "scanl1", "scanr1",
            "foldl", "foldr", "reducel", "reducer",
-           "mapr", "zipr", "map_longest", "mapr_longest", "zipr_longest",
+           "map_longest", "mapr", "zipr", "mapr_longest", "zipr_longest",
            "flatmap", "uniqify", "uniq",
            "take", "drop", "split_at", "unpack",
            "tail", "first", "second", "nth", "last", "scons",
@@ -27,7 +27,9 @@ from functools import partial
 from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby
 from collections import deque
 
-# require at least one iterable to make this work seamlessly with curry.
+# Require at least one iterable to make this work seamlessly with curry.
+# We take this approach with any new function families Python doesn't provide
+# (mainly scans and folds).
 def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """Scan (accumulate), optionally with multiple input iterables.
 
@@ -43,7 +45,7 @@ def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     By default, terminate when the shortest input runs out. To terminate on
     longest input, use ``longest=True`` and optionally provide a ``fillvalue``.
 
-    Returns a generator, which (in pseudocode)::
+    Returns a generator, which (roughly)::
 
         acc = init
         yield acc
@@ -143,14 +145,8 @@ def reducer(proc, sequence, init=None):
     """
     return reducel(proc, reversed(sequence), init)
 
-def mapr(func, *sequences):
-    """Like map, but walk each sequence from the right."""
-    return map(func, *(reversed(s) for s in sequences))
-
-def zipr(*sequences):
-    """Like zip, but walk each sequence from the right."""
-    return zip(*(reversed(s) for s in sequences))
-
+# Here we complete an existing set of functions (map, zip, zip_longest),
+# so consistency wins over curry-friendliness.
 def map_longest(func, *iterables, fillvalue=None):
     """Like map, but terminate on the longest input.
 
@@ -158,6 +154,14 @@ def map_longest(func, *iterables, fillvalue=None):
     are replaced by ``fillvalue``, which defaults to ``None``.
     """
     return starmap(func, zip_longest(*iterables, fillvalue=fillvalue))
+
+def mapr(func, *sequences):
+    """Like map, but walk each sequence from the right."""
+    return map(func, *(reversed(s) for s in sequences))
+
+def zipr(*sequences):
+    """Like zip, but walk each sequence from the right."""
+    return zip(*(reversed(s) for s in sequences))
 
 def mapr_longest(func, *sequences, fillvalue=None):
     """Like map_longest, but walk each sequence from the right."""
@@ -198,11 +202,11 @@ def flatmap(f, iterable0, *iterables):
         assert tuple(flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3))) == \\
                (11, 9, 22, 18, 33, 27)
     """
-    yield from chain.from_iterable(map(f, iterable0, *iterables))
+    return chain.from_iterable(map(f, iterable0, *iterables))
 #    for xs in map(f, iterable0, *iterables):
 #        yield from xs
 
-def uniqify(iterable, key=None):
+def uniqify(iterable, *, key=None):
     """Skip duplicates in iterable.
 
     Returns a generator that yields unique items from iterable, preserving
@@ -227,7 +231,7 @@ def uniqify(iterable, key=None):
                 seen_add(k)
                 yield e
 
-def uniq(iterable, key=None):
+def uniq(iterable, *, key=None):
     """Like uniqify, but for consecutive duplicates only.
 
     Named after the *nix utility.
@@ -350,11 +354,11 @@ def tail(iterable):
     """
     return drop(1, iterable)
 
-def first(iterable, default=None):
+def first(iterable, *, default=None):
     """Like nth, but return the first item."""
     return nth(0, iterable, default=default)
 
-def second(iterable, default=None):
+def second(iterable, *, default=None):
     """Like nth, but return the second item."""
     return nth(1, iterable, default=default)
 
@@ -371,7 +375,7 @@ def nth(n, iterable, *, default=None):
     except StopIteration:
         return default
 
-def last(iterable, default=None):
+def last(iterable, *, default=None):
     """Return the last item from an iterable.
 
     We consume the iterable until it runs out of items, then return the
