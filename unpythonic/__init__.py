@@ -16,6 +16,7 @@ from .dynscope import *
 from .ec import *
 from .fun import *
 from .fup import *
+from .gtco import *
 from .it import *
 from .let import *  # no guarantees on evaluation order (before Python 3.6), nice syntax
 
