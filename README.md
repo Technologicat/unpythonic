@@ -1201,10 +1201,11 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
    - Like in Racket, `op(elt, acc)`; general case `op(e1, e2, ..., en, acc)`. Note Python's own `functools.reduce` uses the ordering `op(acc, elt)` instead.
    - No sane default for multi-input case, so the initial value for `acc` must be given.
    - One-input versions with optional init are provided as `reducel`, `reducer`, with semantics similar to Python's `functools.reduce`, but with the rackety ordering `op(elt, acc)`.
+   - By default, multi-input folds terminate on the shortest input. To instead terminate on the longest input, use the ``longest`` and ``fillvalue`` kwargs.
  - `scanl`, `scanr`: scan (a.k.a. accumulate, partial fold); a lazy fold that returns a generator yielding intermediate results.
    - Iteration stops after yielding the final result, i.e. what the corresponding fold would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
    - `scanl` is suitable for infinite inputs.
-   - Multiple input sequences supported; same semantics as in `foldl`, `foldr`.
+   - Multiple input sequences and shortest/longest termination supported; same semantics as in `foldl`, `foldr`.
    - One-input versions with optional init are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
  - `unpack`: lazily unpack an iterable. Suitable for infinite inputs.
    - Return the first ``n`` items and the ``k``th tail, in a tuple. Default is ``k = n``.
@@ -1213,6 +1214,9 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
  - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple.
    - Essentially, ``composel(map(...), flatten1)``; the same thing the bind operator of the List monad does.
  - `mapr`, `zipr`: variants of the builtin `map` and `zip` that first reverse each input sequence.
+   - `mapr_longest`, `zipr_longest`: variants of those that terminate on the longest input sequence.
+ - `map_longest`: the final missing battery for `map`.
+   - Essentially `map_longest` is `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``.
  - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively).
  - `flatten1`, `flatten`, `flatten_in`: remove nested list structure.
    - `flatten1`: outermost level only.
