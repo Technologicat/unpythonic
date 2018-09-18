@@ -299,7 +299,7 @@ def unpack(iterable, n, k=None, fillvalue=None):
     """
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
-    k = k or n
+    k = k if k is not None else n  # not "k or n", since k = 0 is valid
     if k < 0:
         raise ValueError("expected k >= 0, got {}".format(k))
     out = []
@@ -642,6 +642,28 @@ def test():
     assert tuple(flatten(data, is_nested))    == (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
     assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8, 9), (10, 11))
 
+    # unpacking of generators - careful!
+    def mygen():
+        for x in range(10, 16):
+            yield x
+    def dostuff(s):
+        a, b, t = unpack(s, 2, 0)  # peek two, set t to 0th tail (the original s)
+        return t
+    g = mygen()
+    dostuff(g)  # gotcha: advances g!
+    assert next(g) == 12
+
+    # workaround 1: tee off a copy with itertools.tee:
+    g = mygen()
+    g, h = tee(g)
+    dostuff(g)  # advances g, but not h
+    assert next(h) == 10
+
+    # workaround 2: use the implicit tee in unpack:
+    g = mygen()
+    g = dostuff(g)  # advances g, but then overwrites name g with the returned tail
+    assert next(g) == 10
+
     # http://learnyouahaskell.com/higher-order-functions
     def collatz(n):
         if n < 1:
@@ -664,10 +686,10 @@ def test():
     #
     def adds(s1, s2):
         """Add two infinite streams (elementwise)."""
-        yield from map(add, s1, s2)
+        return map(add, s1, s2)
     def muls(s, c):
         """Multiply an infinite stream by a constant."""
-        yield from map(lambda x: c * x, s)
+        return map(lambda x: c * x, s)
 
     # will eventually crash (stack overflow, no TCO'd yield)
     def ones_fp():
@@ -717,11 +739,8 @@ def test():
     def differentiate(h0, f, x):
         return map(curry(easydiff, f, x), iterate1(halve, h0))
     def within(eps, s):
-#        # FP
-#        a, b, b_and_rest = unpack(s, 2, 1)  # unpack with peek
-#        return b if abs(a - b) < eps else within(eps, b_and_rest)
-        # not as elegant but better Python
         while True:
+            # unpack with peek (but be careful, the rewinded tail is a tee'd copy)
             a, b, s = unpack(s, 2, 1)
             if abs(a - b) < eps:
                 return b
@@ -730,7 +749,7 @@ def test():
     assert abs(differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-7
 
     def order(s):
-        """Estimate asymptotic order of s, using the first three terms."""
+        """Estimate asymptotic order of s, consuming the first three terms."""
         a, b, c, _ = unpack(s, 3)
         return round(log2(abs((a - c) / (b - c)) - 1))
     def eliminate_error(n, s):
@@ -738,16 +757,14 @@ def test():
 
         The stream s must be based on halving h at each step
         for the formula used here to work."""
-#        # FP
-#        a, b, b_and_rest = unpack(s, 2, 1)
-#        yield (b*2**n - a) / (2**(n - 1))
-#        yield from eliminate_error(n, b_and_rest)
-        # better Python
         while True:
             a, b, s = unpack(s, 2, 1)
             yield (b*2**n - a) / (2**(n - 1))
     def improve(s):
-        """Eliminate asymptotically dominant error term from s."""
+        """Eliminate asymptotically dominant error term from s.
+
+        Consumes the first three terms to estimate the order.
+        """
         return eliminate_error(order(s), s)
     def better_differentiate_with_tol(h0, f, x, eps):
         return within(eps, improve(differentiate(h0, f, x)))
@@ -768,11 +785,6 @@ def test():
     #
     partial_sums = curry(scanl1, add)
     def pi_summands(n):  # π/4 = 1 - 1/3 + 1/5 - 1/7 + ...
-#        # The looming stack overflow is not a major problem; the rest of the algorithm
-#        # will run into floating-point issues long before that (unless using mpmath).
-#        yield 1 / n
-#        yield from map(neg, pi_summands(n + 2))
-        # But let's write better Python anyway.
         sign = +1
         while True:
             yield sign / n
@@ -783,11 +795,6 @@ def test():
     # http://mathworld.wolfram.com/EulerTransform.html
     # https://en.wikipedia.org/wiki/Series_acceleration#Euler%27s_transform
     def euler_transform(s):
-#        # FP
-#        a, b, c, b_c_and_rest = unpack(s, 3, 1)
-#        yield c - ((c - b)**2 / (a - 2*b + c))
-#        yield from euler_transform(b_c_and_rest)
-        # better Python
         while True:
             a, b, c, s = unpack(s, 3, 1)
             yield c - ((c - b)**2 / (a - 2*b + c))
