@@ -768,7 +768,7 @@ def test():
         """Multiply an infinite stream by a constant."""
         return map(lambda x: c * x, s)
 
-    # will eventually crash (stack overflow, no TCO'd yield)
+    # will eventually crash (stack overflow)
     def ones_fp():
         yield 1
         yield from ones_fp()
