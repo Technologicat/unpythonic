@@ -28,36 +28,53 @@ from collections import deque
 from inspect import isgenerator
 
 # require at least one iterable to make this work seamlessly with curry.
-def scanl(proc, init, iterable0, *iterables):
+def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """Scan (accumulate), optionally with multiple input iterables.
 
     Similar to ``itertools.accumulate``. If the inputs are generators, this is
     essentially a lazy ``foldl`` that yields the intermediate result at each step.
     Hence, useful for partially folding infinite sequences.
 
-    At least one iterable (``iterable0``) is required. More are optional.
-
-    Terminates when the shortest input runs out.
-
     Initial value is mandatory; there is no sane default for the case with
     multiple inputs.
 
+    At least one iterable (``iterable0``) is required. More are optional.
+
+    By default, terminate when the shortest input runs out. To terminate on
+    longest input, use ``longest=True`` and optionally provide a ``fillvalue``.
+
     Returns a generator, which (roughly, in pseudocode)::
 
+        z = partial(zip_longest, fillvalue=fillvalue) if longest else zip
         acc = init
-        for elts in zip(iterable0, *iterables):
+        for elts in z(iterable0, *iterables):
             yield proc(*elts, acc)  # if this was legal syntax
     """
     iterables = (iterable0,) + iterables
-    def heads(its):
-        hs = []
-        for it in its:
-            try:
-                h = next(it)
-            except StopIteration:  # shortest sequence ran out
+    if not longest:  # terminate on shortest input
+        def heads(its):
+            hs = []
+            for it in its:
+                try:
+                    h = next(it)
+                except StopIteration:  # shortest sequence ran out
+                    return StopIteration
+                hs.append(h)
+            return tuple(hs)
+    else:  # terminate on longest input
+        def heads(its):
+            hs = []
+            nempty = 0
+            for it in its:
+                try:
+                    h = next(it)
+                except StopIteration:  # this sequence has run out
+                    h = fillvalue
+                    nempty += 1  # may legitimately contain None so must count
+                hs.append(h)
+            if nempty == len(its):
                 return StopIteration
-            hs.append(h)
-        return tuple(hs)
+            return tuple(hs)
     iters = tuple(iter(x) for x in iterables)
     acc = init
     while True:
@@ -67,9 +84,10 @@ def scanl(proc, init, iterable0, *iterables):
             break
         acc = proc(*(hs + (acc,)))
 
-def scanr(proc, init, sequence0, *sequences):
+def scanr(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
     """Like scanl, but scan from the right (walk each sequence backwards)."""
-    return scanl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences))
+    return scanl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
+                 longest=longest, fillvalue=fillvalue)
 
 def scanl1(proc, iterable, init=None):
     """scanl for a single iterable, with optional init.
@@ -94,25 +112,28 @@ def scanr1(proc, sequence, init=None):
     """
     return scanl1(proc, reversed(sequence), init)
 
-def foldl(proc, init, iterable0, *iterables):
+def foldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """Racket-like foldl that supports multiple input iterables.
-
-    At least one iterable (``iterable0``) is required. More are optional.
-
-    Terminates when the shortest input runs out.
 
     Initial value is mandatory; there is no sane default for the case with
     multiple inputs.
 
+    At least one iterable (``iterable0``) is required. More are optional.
+
+    By default, terminate when the shortest input runs out. To terminate on
+    longest input, use ``longest=True`` and optionally provide a ``fillvalue``.
+
     Note order: ``proc(elt, acc)``, which is the opposite order of arguments
     compared to ``functools.reduce``. General case ``proc(e1, ..., en, acc)``.
     """
-    return last(scanl(proc, init, iterable0, *iterables))
+    return last(scanl(proc, init, iterable0, *iterables,
+                      longest=longest, fillvalue=fillvalue))
 
-def foldr(proc, init, sequence0, *sequences):
+def foldr(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
     """Like foldl, but fold from the right (walk each sequence backwards)."""
     # Reverse, then left-fold gives us a linear process.
-    return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences))
+    return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
+                 longest=longest, fillvalue=fillvalue)
 
 def reducel(proc, iterable, init=None):
     """Foldl for a single iterable, with optional init.
@@ -461,7 +482,7 @@ def test():
     from operator import add, mul, itemgetter
     from functools import partial
     from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate, identity
-    from unpythonic.llist import cons, nil, ll
+    from unpythonic.llist import cons, nil, ll, lreverse
 
     # scan/accumulate: lazy fold that yields intermediate results.
     assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
@@ -544,6 +565,14 @@ def test():
     myadd = lambda x, y: x + y  # can't inspect signature of builtin add
     assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 
+    # map_longest. foldr would walk the sequences from the right; use foldl.
+    mymap_longestrev = lambda f: curry(foldl, composerc(cons, f), nil, longest=True)
+    mymap_longest = composerc(lreverse, mymap_longestrev)
+    def noneadd(a, b):
+        if all(x is not None for x in (a, b)):
+            return a + b
+    assert curry(mymap_longest, noneadd, ll(1, 2, 3), ll(2, 4)) == ll(3, 6, None)
+
     reverse_one = curry(foldl, cons, nil)
     assert reverse_one(ll(1, 2, 3)) == ll(3, 2, 1)
 
@@ -560,6 +589,10 @@ def test():
     b = ll(3, 4)
     assert mysum(append_two(a, b)) == 10
     assert myprod(b) == 12
+
+    packtwo = lambda a, b: ll(a, b)  # using a tuple return value here would confuse curry.
+    assert foldl(composerc(cons, packtwo), nil, (1, 2, 3), (4, 5), longest=True) == \
+           ll(ll(3, None), ll(2, 5), ll(1, 4))
 
     def msqrt(x):  # multivalued sqrt
         if x == 0.:
