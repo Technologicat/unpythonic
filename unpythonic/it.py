@@ -26,7 +26,7 @@ __all__ = ["make_heads",
            "iterate", "iterate1"]
 
 from functools import partial
-from itertools import tee, islice, zip_longest, starmap
+from itertools import tee, islice, zip_longest, starmap, chain
 from collections import deque
 from inspect import isgenerator
 
@@ -235,13 +235,9 @@ def flatmap(f, iterable0, *iterables):
         assert tuple(flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3))) == \\
                (11, 9, 22, 18, 33, 27)
     """
-#    def concat(elt, acc):
-#        return tuple(acc) + tuple(elt)
-#    return foldl(concat, (), map(f, *lsts))  # eager, bad
-    iterables = (iterable0,) + iterables
-    for xs in map(f, *iterables):
-        for x in xs:
-            yield x
+    yield from chain.from_iterable(map(f, iterable0, *iterables))
+#    for xs in map(f, iterable0, *iterables):
+#        yield from xs
 
 def uniqify(iterable, key=None):
     """Skip duplicates in iterable.
