@@ -456,7 +456,10 @@ def flatten(iterable, pred=None):
 
 def flatten1(iterable, pred=None):
     """Like flatten, but process outermost level only."""
-    return _flatten(iterable, pred, recursive=False)
+    if pred:
+        return _flatten(iterable, pred, recursive=False)
+    else:
+        return chain.from_iterable(iterable)  # faster if no pred
 
 def _flatten(iterable, pred=None, recursive=True):
     pred = pred or (lambda x: True)
