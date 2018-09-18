@@ -831,18 +831,54 @@ def test():
     assert tuple(take(10, fibos())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
     assert tuple(take(10, pows())) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
 
+
+    from functools import wraps
     from inspect import isgenerator
+    from unpythonic.dynscope import dyn
+
+    # low-level function: run a generator with TCO enabled
     def gtco(generator):
-        while True:  # trampoline
-            x = yield from generator  # yield stuff, get final result (return ...)
-            if not isgenerator(x):
-                break
-            generator = x
+        with dyn.let(_gtrampoline_active=True):
+            while True:  # trampoline
+                x = yield from generator  # yield stuff, get final result (return ...)
+                if not isgenerator(x) and not isinstance(x, TrampolinedGenerator):
+                    break
+                generator = x
+
+    # decorator for generator functions (i.e. definitions of generators)
+    def gtrampolined(gfunc):
+        @wraps(gfunc)
+        def decorated(*args, **kwargs):
+            generator = gfunc(*args, **kwargs)
+            if "_gtrampoline_active" not in dyn:  # start up the trampoline
+                return TrampolinedGenerator(generator)
+            else: # avoid stacking when already running in the trampoline
+                  # and a generator calls a gtrampolined gfunc (incl. its own!)
+                return generator
+        return decorated
+
+    # wrapper to inject the gtco() call to the gfunc result
+    class TrampolinedGenerator:
+        def __init__(self, g):
+            self.g = g
+        def __iter__(self):
+            return gtco(iter(self.g))
+        # no __next__, because __iter__ redirects;
+        # this wrapper is never actually iterated over.
+
+    # usage
     def ones():
         yield 1
         return ones()  # TCO: return a new generator instance to the trampoline
     assert tuple(take(10, gtco(ones()))) == (1,) * 10
     last(take(10000, gtco(ones())))  # no crash
+
+    @gtrampolined
+    def ones():
+        yield 1
+        return ones()
+    assert tuple(take(10, ones())) == (1,) * 10
+    last(take(10000, ones()))  # no crash
 
     # How to improve accuracy of numeric differentiation with FP tricks.
     #
