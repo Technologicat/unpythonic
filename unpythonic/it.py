@@ -817,9 +817,15 @@ def test():
         while True:
             yield a
             a, b = b, a + b
+    def pows():
+        x = 1
+        while True:
+            yield x
+            x *= 2
     assert tuple(take(10, ones())) == (1,) * 10
     assert tuple(take(10, nats())) == tuple(range(10))
     assert tuple(take(10, fibos())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+    assert tuple(take(10, pows())) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
 
     # How to improve accuracy of numeric differentiation with FP tricks.
     #
