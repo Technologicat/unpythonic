@@ -9,14 +9,11 @@ Racket-like multi-input ``foldl`` and ``foldr`` based on
 and (stream-scan) in SRFI-41.
   https://srfi.schemers.org/srfi-41/srfi-41.html
 
-``take`` and ``drop`` based on Haskell.
-
 ``flatten`` based on Danny Yoo's version:
   http://rightfootin.blogspot.fi/2006/09/more-on-python-flatten.html
 """
 
-__all__ = ["make_heads",
-           "scanl", "scanr", "scanl1", "scanr1",
+__all__ = ["scanl", "scanr", "scanl1", "scanr1",
            "foldl", "foldr", "reducel", "reducer",
            "mapr", "zipr", "map_longest", "mapr_longest", "zipr_longest",
            "flatmap", "uniqify", "uniq",
@@ -25,58 +22,10 @@ __all__ = ["make_heads",
            "flatten", "flatten1", "flatten_in",
            "iterate", "iterate1"]
 
+from operator import itemgetter
 from functools import partial
-from itertools import tee, islice, zip_longest, starmap, chain
+from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby
 from collections import deque
-
-def make_heads(longest=False, fillvalue=None):
-    """Create a function returning the head elements from any number of iterators.
-
-    The return value is a function, ``heads``:
-
-      ``heads(*iterators)`` -> ``tuple`` or ``StopIteration``.
-
-    When the resulting function is called on some iterators, it returns the head
-    element from each, packed into a tuple. When elements run out, it **returns**
-    (does **not** raise!) ``StopIteration``.
-
-    The parameter ``longest`` controls when we consider elements to run out:
-
-      - If ``longest=False``, iteration stops when the shortest input runs out.
-
-      - If ``longest=True``, iteration stops only when all inputs have run out.
-        Any missing elements (after the ends of shorter inputs) are filled with
-        the optional ``fillvalue``, which defaults to ``None``.
-
-    This function is a low-level utility for defining higher-order functions
-    that may take multiple iterables, and terminate either on the shortest
-    or on the longest input.
-    """
-    if longest:
-        def heads(iterators):
-            hs = []
-            nempty = 0
-            for it in iterators:
-                try:
-                    h = next(it)
-                except StopIteration:  # this sequence has run out
-                    h = fillvalue
-                    nempty += 1  # may legitimately contain None so must count
-                hs.append(h)
-            if nempty == len(iterators):
-                return StopIteration
-            return tuple(hs)
-    else:
-        def heads(iterators):
-            hs = []
-            for it in iterators:
-                try:
-                    h = next(it)
-                except StopIteration:  # shortest sequence ran out
-                    return StopIteration
-                hs.append(h)
-            return tuple(hs)
-    return heads
 
 # require at least one iterable to make this work seamlessly with curry.
 def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
@@ -100,16 +49,12 @@ def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
         for elts in zip(iterable0, *iterables):  # or zip_longest as appropriate
             yield proc(*elts, acc)  # if this was legal syntax
     """
-    iterables = (iterable0,) + iterables
-    iters = tuple(iter(x) for x in iterables)
-    heads = make_heads(longest=longest, fillvalue=fillvalue)
+    z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
     acc = init
-    while True:
+    yield acc
+    for elts in z(iterable0, *iterables):
+        acc = proc(*(elts + (acc,)))
         yield acc
-        hs = heads(iters)
-        if hs is StopIteration:
-            break
-        acc = proc(*(hs + (acc,)))
 
 def scanr(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
     """Like scanl, but scan from the right (walk each sequence backwards)."""
@@ -245,36 +190,39 @@ def uniqify(iterable, key=None):
 
     If ``key`` is provided, the return value of ``key(elt)`` is tested instead
     of ``elt`` itself to determine uniqueness.
+
+    This is ``unique_everseen`` from ``itertools`` recipes.
     """
-    key = key or (lambda x: x)
     it = iter(iterable)
     seen = set()
-    for e in it:
-        k = key(e)
-        if k not in seen:
-            seen.add(k)
+    seen_add = seen.add
+    if key is None:
+        for e in filterfalse(seen.__contains__, it):
+            seen_add(e)
             yield e
+    else:
+        for e in it:
+            k = key(e)
+            if k not in seen:
+                seen_add(k)
+                yield e
 
 def uniq(iterable, key=None):
     """Like uniqify, but for consecutive duplicates only.
 
     Named after the *nix utility.
+
+    This is ``unique_justseen`` from ``itertools`` recipes.
     """
-    key = key or (lambda x: x)
-    it = iter(iterable)
-    lasthash = object()  # essentially gensym
-    for e in it:
-        h = hash(key(e))
-        if h != lasthash:  # no guarantees on singleton-ness
-            lasthash = h
-            yield e
+    # the outer map retrieves the item from the subiterator in (key, subiterator).
+    return map(next, map(itemgetter(1), groupby(iterable, key)))
 
 def take(n, iterable):
     """Return an iterator that yields the first n items of iterable, then stops.
 
     Stops earlier if ``iterable`` has fewer than ``n`` items.
 
-    This is essentially ``take`` from ``itertools`` recipes.
+    This is ``take`` from ``itertools`` recipes.
     """
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
@@ -285,23 +233,23 @@ def drop(n, iterable):
 
     If ``n`` is ``None``, consume the iterable until it runs out.
 
-    This is essentially ``consume`` from ``itertools`` recipes.
+    This is ``consume`` from ``itertools`` recipes.
     """
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
-    elif n == 0:
-        return iterable
     it = iter(iterable)
-    if n:
-        next(islice(it, n, n), None)  # advance it to empty slice starting at n
-    else: # n is None:
+    if n is None:
         deque(it, maxlen=0)
+    else:
+        next(islice(it, n, n), None)  # advance it to empty slice starting at n
     return it
 
 def split_at(n, iterable):
     """Split iterable at position n.
 
     Returns a pair of iterators ``(first_part, second_part)``.
+
+    Based on ``itertools.tee``, ``take`` and ``drop``.
 
     Examples::
 
@@ -364,10 +312,10 @@ def unpack(iterable, n, k=None, fillvalue=None):
             out.append(next(it))
         except StopIteration:  # fewer than n items
             out += [fillvalue] * (n - len(out))
-            def empty():
+            def empty_sequence():
                 yield from ()
-            rest = empty()
-    if not rest:  # avoid replacing empty()
+            rest = empty_sequence()
+    if not rest:  # avoid replacing empty_sequence()
         if k == n:
             rest = it
         elif k > n:
@@ -397,10 +345,7 @@ def nth(n, iterable, *, default=None):
     """
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
-    if n == 0:
-        it = iter(iterable)
-    else:
-        it = drop(n - 1, iterable)
+    it = drop(n - 1, iterable) if n else iter(iterable)
     try:
         return next(it)
     except StopIteration:
@@ -444,10 +389,10 @@ def flatten1(iterable, pred=None):
     if pred:
         return _flatten(iterable, pred, recursive=False)
     else:
-        return chain.from_iterable(iterable)  # faster if no pred
+        return chain.from_iterable(iterable)  # itertools recipes: fast, no pred
 
 def _flatten(iterable, pred=None, recursive=True):
-    pred = pred or (lambda x: True)
+    pred = pred or (lambda x: True)  # unpythonic.fun.const(True), but dependency loop
     it = iter(iterable)
     for e in it:
         if isinstance(e, (list, tuple)) and pred(e):
@@ -480,16 +425,12 @@ def flatten_in(iterable, pred=None):
                     yield f
             else:
                 t = type(e)
-                new_e = t(flatten_in(e, pred))
-                yield new_e
+                yield t(flatten_in(e, pred))
         else:
             yield e
 
 def iterate1(f, x):
     """Return an infinite generator yielding x, f(x), f(f(x)), ..."""
-#    # elegant FP def, but prone to eventual stack overflow in Python
-#    yield x
-#    yield from iterate1(f, f(x))
     while True:
         yield x
         x = f(x)
@@ -508,7 +449,7 @@ def iterate(f, *args):
         args = f(*args)
 
 def test():
-    from operator import add, mul, itemgetter
+    from operator import add, mul
     from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate, identity
     from unpythonic.llist import cons, nil, ll, lreverse
 
