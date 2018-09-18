@@ -43,11 +43,22 @@ def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     By default, terminate when the shortest input runs out. To terminate on
     longest input, use ``longest=True`` and optionally provide a ``fillvalue``.
 
-    Returns a generator, which (roughly, in pseudocode)::
+    Returns a generator, which (in pseudocode)::
 
         acc = init
+        yield acc
         for elts in zip(iterable0, *iterables):  # or zip_longest as appropriate
-            yield proc(*elts, acc)  # if this was legal syntax
+            acc = proc(*elts, acc)  # if this was legal syntax
+            yield acc
+
+    Example - partial sums and products::
+
+        from operator import add, mul
+        psums = composer(tail, curry(scanl, add, 0))  # tail to drop the init value
+        pprods = composer(tail, curry(scanl, mul, 1))
+        data = range(1, 5)
+        assert tuple(psums(data)) == (1, 3, 6, 10)
+        assert tuple(pprods(data)) == (1, 2, 6, 24)
     """
     z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
     acc = init
@@ -67,6 +78,15 @@ def scanl1(proc, iterable, init=None):
     If ``init is None``, use the first element from the iterable.
 
     If the iterable is empty, return ``None``.
+
+    Example - partial sums and products::
+
+        from operator import add, mul
+        psums = curry(scanl1, add)
+        pprods = curry(scanl1, mul)
+        data = range(1, 5)
+        assert tuple(psums(data)) == (1, 3, 6, 10)
+        assert tuple(pprods(data)) == (1, 2, 6, 24)
     """
     it = iter(iterable)
     if not init:
@@ -473,6 +493,19 @@ def test():
     # scanl1, scanr1 are a scan with a single input sequence, with init optional.
     assert tuple(scanl1(add, (1, 2, 3))) == (1, 3, 6)
     assert tuple(scanr1(add, (1, 2, 3))) == (3, 5, 6)
+
+    from operator import add, mul
+    psums = composer(tail, curry(scanl, add, 0))  # tail to drop the init value
+    pprods = composer(tail, curry(scanl, mul, 1))
+    data = range(1, 5)
+    assert tuple(psums(data)) == (1, 3, 6, 10)
+    assert tuple(pprods(data)) == (1, 2, 6, 24)
+
+    psums = curry(scanl1, add)  # or use the fact the 1-input variant needs no init
+    pprods = curry(scanl1, mul)
+    data = range(1, 5)
+    assert tuple(psums(data)) == (1, 3, 6, 10)
+    assert tuple(pprods(data)) == (1, 2, 6, 24)
 
     def foo(a, b, acc):
         return acc + ((a, b),)
