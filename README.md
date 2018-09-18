@@ -1250,9 +1250,9 @@ def fibos():
     while True:
         yield a
         a, b = b, a + b
-a1, a2, a3, rest = unpack(fibos(), 3)
-a4, a5, rest = unpack(rest, 2)
-print(a1, a2, a3, a4, a5, rest)  # --> 1 1 2 3 5 <generator object fibos at 0x7fe65fb9f798>
+a1, a2, a3, tl = unpack(3, fibos())
+a4, a5, tl = unpack(2, tl)
+print(a1, a2, a3, a4, a5, tl)  # --> 1 1 2 3 5 <generator object fibos at 0x7fe65fb9f798>
 
 def msqrt(x):  # multivalued sqrt
     if x == 0.:
