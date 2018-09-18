@@ -26,7 +26,7 @@ __all__ = ["make_heads",
            "iterate", "iterate1"]
 
 from functools import partial
-from itertools import tee, islice, zip_longest
+from itertools import tee, islice, zip_longest, starmap
 from collections import deque
 from inspect import isgenerator
 
@@ -194,13 +194,7 @@ def map_longest(func, *iterables, fillvalue=None):
     In the input to ``func``, missing elements (after end of shorter inputs)
     are replaced by ``fillvalue``, which defaults to ``None``.
     """
-    iters = tuple(iter(x) for x in iterables)
-    heads = make_heads(longest=True)
-    while True:
-        hs = heads(iters)
-        if hs is StopIteration:
-            break
-        yield func(*hs)
+    return starmap(func, zip_longest(*iterables, fillvalue=fillvalue))
 
 def mapr_longest(func, *sequences, fillvalue=None):
     """Like map_longest, but walk each sequence from the right."""
