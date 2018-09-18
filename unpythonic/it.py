@@ -18,7 +18,7 @@ __all__ = ["scanl", "scanr", "scanl1", "scanr1",
            "mapr", "zipr", "map_longest", "mapr_longest", "zipr_longest",
            "flatmap", "uniqify", "uniq",
            "take", "drop", "split_at", "unpack",
-           "tail", "first", "second", "nth", "last",
+           "tail", "first", "second", "nth", "last", "scons",
            "flatten", "flatten1", "flatten_in",
            "iterate", "iterate1"]
 
@@ -384,6 +384,17 @@ def last(iterable, default=None):
     d = deque(iterable, maxlen=1)  # C speed
     return d.pop() if d else default
 
+def scons(x, iterable):
+    """Prepend one element to the start of an iterable, return new iterable.
+
+    Same as ``itertools.chain((x,), iterable)``. The point is sometimes it is
+    convenient to be able to stuff one item in front of an existing iterator.
+    If ``iterable`` is a generator, this is somewhat like (stream-cons) in Racket.
+
+    If you need to prepend several values, just use ``itertools.chain``.
+    """
+    return chain((x,), iterable)
+
 def flatten(iterable, pred=None):
     """Recursively remove nested structure from iterable.
 
@@ -462,7 +473,7 @@ def iterate(f, *args):
     takes positional arguments; this will be unpacked to the argument list in
     the next call.
 
-    The yielded values are the tuples returned from the calls.
+    Or in other words, yield args, f(*args), f(*f(*args)), ...
     """
     while True:
         yield args
@@ -585,6 +596,9 @@ def test():
     assert tuple(mapr_longest(noneadd, (1, 2, 3), (2, 4))) == (7, 4, None)
     assert tuple(zip_longest((1, 2, 3), (2, 4))) == ((1, 2), (2, 4), (3, None))  # itertools
     assert tuple(zipr_longest((1, 2, 3), (2, 4))) == ((3, 4), (2, 2), (1, None))
+
+    assert tuple(scons(0, range(1, 5))) == tuple(range(5))
+    assert tuple(tail(scons("foo", range(5)))) == tuple(range(5))
 
     reverse_one = curry(foldl, cons, nil)
     assert reverse_one(ll(1, 2, 3)) == ll(3, 2, 1)
@@ -762,27 +776,50 @@ def test():
         yield 1
         yield from adds(fibos_fp(), tail(fibos_fp()))
     def powers_of_2():
-        yield 2
+        yield 1
         yield from muls(powers_of_2(), 2)
     assert tuple(take(10, ones_fp())) == (1,) * 10
     assert tuple(take(10, nats_fp())) == tuple(range(10))
     assert tuple(take(10, fibos_fp())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
-    assert tuple(take(10, powers_of_2())) == (2, 4, 8, 16, 32, 64, 128, 256, 512, 1024)
+    assert tuple(take(10, powers_of_2())) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
 
-    # not as FP as the above, but better Python
-    def ones_python():
-        while True:
-            yield 1
-    def nats_python(start=0):
-        return scanl(add, start, ones_python())
-    def fibos_python():
+    # The scanl equations are sometimes useful. The conditions
+    #   rs[0] = s0
+    #   rs[k+1] = rs[k] + xs[k]
+    # are equivalent with
+    #   rs = scanl(add, s0, xs)
+    # https://www.vex.net/~trebla/haskell/scanl.xhtml
+    def zs():  # s0 = 0, rs = [0, ...], xs = [0, ...]
+        yield from scanl(add, 0, zs())
+    def os():  # s0 = 1, rs = [1, ...], xs = [0, ...]
+        yield from scanl(add, 1, zs())
+    def ns(start=0):  # s0 = start, rs = [start, start+1, ...], xs = [1, ...]
+        yield from scanl(add, start, os())
+    def fs():  # s0 = 1, scons(1, rs) = fibos, xs = fibos
+        yield 1
+        yield from scanl(add, 1, fs())
+    def p2s():  # s0 = 1, rs = xs = [1, 2, 4, ...]
+        yield from scanl(add, 1, p2s())
+    assert tuple(take(10, zs())) == (0,) * 10
+    assert tuple(take(10, os())) == (1,) * 10
+    assert tuple(take(10, ns())) == tuple(range(10))
+    assert tuple(take(10, fs())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+    assert tuple(take(10, p2s())) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
+
+    # better Python: simple is better than complex
+    from itertools import repeat
+    def ones():
+        return repeat(1)
+    def nats(start=0):
+        return scanl(add, start, ones())
+    def fibos():
         a, b = 1, 1
         while True:
             yield a
             a, b = b, a + b
-    assert tuple(take(10, ones_python())) == (1,) * 10
-    assert tuple(take(10, nats_python())) == tuple(range(10))
-    assert tuple(take(10, fibos_python())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+    assert tuple(take(10, ones())) == (1,) * 10
+    assert tuple(take(10, nats())) == tuple(range(10))
+    assert tuple(take(10, fibos())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 
     # How to improve accuracy of numeric differentiation with FP tricks.
     #
