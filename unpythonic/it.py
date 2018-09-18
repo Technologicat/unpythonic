@@ -15,17 +15,69 @@ and (stream-scan) in SRFI-41.
   http://rightfootin.blogspot.fi/2006/09/more-on-python-flatten.html
 """
 
-__all__ = ["scanl", "scanr", "scanl1", "scanr1",
+__all__ = ["make_heads",
+           "scanl", "scanr", "scanl1", "scanr1",
            "foldl", "foldr", "reducel", "reducer",
-           "flatmap", "mapr", "zipr", "uniqify", "uniq",
+           "mapr", "zipr", "map_longest", "mapr_longest", "zipr_longest",
+           "flatmap", "uniqify", "uniq",
            "take", "drop", "split_at", "unpack",
            "tail", "first", "second", "nth", "last",
            "flatten", "flatten1", "flatten_in",
            "iterate", "iterate1"]
 
-from itertools import tee, islice
+from functools import partial
+from itertools import tee, islice, zip_longest
 from collections import deque
 from inspect import isgenerator
+
+def make_heads(longest=False, fillvalue=None):
+    """Create a function returning the head elements from any number of iterators.
+
+    The return value is a function, ``heads``:
+
+      ``heads(*iterators)`` -> ``tuple`` or ``StopIteration``.
+
+    When the resulting function is called on some iterators, it returns the head
+    element from each, packed into a tuple. When elements run out, it **returns**
+    (does **not** raise!) ``StopIteration``.
+
+    The parameter ``longest`` controls when we consider elements to run out:
+
+      - If ``longest=False``, iteration stops when the shortest input runs out.
+
+      - If ``longest=True``, iteration stops only when all inputs have run out.
+        Any missing elements (after the ends of shorter inputs) are filled with
+        the optional ``fillvalue``, which defaults to ``None``.
+
+    This function is a low-level utility for defining higher-order functions
+    that may take multiple iterables, and terminate either on the shortest
+    or on the longest input.
+    """
+    if longest:
+        def heads(iterators):
+            hs = []
+            nempty = 0
+            for it in iterators:
+                try:
+                    h = next(it)
+                except StopIteration:  # this sequence has run out
+                    h = fillvalue
+                    nempty += 1  # may legitimately contain None so must count
+                hs.append(h)
+            if nempty == len(iterators):
+                return StopIteration
+            return tuple(hs)
+    else:
+        def heads(iterators):
+            hs = []
+            for it in iterators:
+                try:
+                    h = next(it)
+                except StopIteration:  # shortest sequence ran out
+                    return StopIteration
+                hs.append(h)
+            return tuple(hs)
+    return heads
 
 # require at least one iterable to make this work seamlessly with curry.
 def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
@@ -51,31 +103,8 @@ def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
             yield proc(*elts, acc)  # if this was legal syntax
     """
     iterables = (iterable0,) + iterables
-    if not longest:  # terminate on shortest input
-        def heads(its):
-            hs = []
-            for it in its:
-                try:
-                    h = next(it)
-                except StopIteration:  # shortest sequence ran out
-                    return StopIteration
-                hs.append(h)
-            return tuple(hs)
-    else:  # terminate on longest input
-        def heads(its):
-            hs = []
-            nempty = 0
-            for it in its:
-                try:
-                    h = next(it)
-                except StopIteration:  # this sequence has run out
-                    h = fillvalue
-                    nempty += 1  # may legitimately contain None so must count
-                hs.append(h)
-            if nempty == len(its):
-                return StopIteration
-            return tuple(hs)
     iters = tuple(iter(x) for x in iterables)
+    heads = make_heads(longest=longest, fillvalue=fillvalue)
     acc = init
     while True:
         yield acc
@@ -151,6 +180,36 @@ def reducer(proc, sequence, init=None):
     """
     return reducel(proc, reversed(sequence), init)
 
+def mapr(func, *sequences):
+    """Like map, but walk each sequence from the right."""
+    return map(func, *(reversed(s) for s in sequences))
+
+def zipr(*sequences):
+    """Like zip, but walk each sequence from the right."""
+    return zip(*(reversed(s) for s in sequences))
+
+def map_longest(func, *iterables, fillvalue=None):
+    """Like map, but terminate on the longest input.
+
+    In the input to ``func``, missing elements (after end of shorter inputs)
+    are replaced by ``fillvalue``, which defaults to ``None``.
+    """
+    iters = tuple(iter(x) for x in iterables)
+    heads = make_heads(longest=True)
+    while True:
+        hs = heads(iters)
+        if hs is StopIteration:
+            break
+        yield func(*hs)
+
+def mapr_longest(func, *sequences, fillvalue=None):
+    """Like map_longest, but walk each sequence from the right."""
+    return map_longest(func, *(reversed(s) for s in sequences), fillvalue=fillvalue)
+
+def zipr_longest(*sequences, fillvalue=None):
+    """Like itertools.zip_longest, but walk each sequence from the right."""
+    return zip_longest(*(reversed(s) for s in sequences), fillvalue=fillvalue)
+
 def flatmap(f, iterable0, *iterables):
     """Map, then concatenate results.
 
@@ -189,14 +248,6 @@ def flatmap(f, iterable0, *iterables):
     for xs in map(f, *iterables):
         for x in xs:
             yield x
-
-def mapr(func, *sequences):
-    """Like map, but walk each sequence from the right."""
-    return map(func, *(reversed(s) for s in sequences))
-
-def zipr(*sequences):
-    """Like zip, but walk each sequence from the right."""
-    return zip(*(reversed(s) for s in sequences))
 
 def uniqify(iterable, key=None):
     """Skip duplicates in iterable.
@@ -480,7 +531,6 @@ def iterate(f, *args):
 
 def test():
     from operator import add, mul, itemgetter
-    from functools import partial
     from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate, identity
     from unpythonic.llist import cons, nil, ll, lreverse
 
@@ -573,6 +623,17 @@ def test():
             return a + b
     assert curry(mymap_longest, noneadd, ll(1, 2, 3), ll(2, 4)) == ll(3, 6, None)
 
+    # Adding the missing batteries to the algebra of map and zip.
+    # Note Python's (and Racket's) map is like Haskell's zipWith, but for n inputs.
+    assert tuple(map(add, (1, 2), (3, 4))) == (4, 6)  # builtin
+    assert tuple(mapr(add, (1, 2), (3, 4))) == (6, 4)
+    assert tuple(zip((1, 2, 3), (4, 5, 6), (7, 8))) == ((1, 4, 7), (2, 5, 8))  # builtin
+    assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+    assert tuple(map_longest(noneadd, (1, 2, 3), (2, 4))) == (3, 6, None)
+    assert tuple(mapr_longest(noneadd, (1, 2, 3), (2, 4))) == (7, 4, None)
+    assert tuple(zip_longest((1, 2, 3), (2, 4))) == ((1, 2), (2, 4), (3, None))  # itertools
+    assert tuple(zipr_longest((1, 2, 3), (2, 4))) == ((3, 4), (2, 2), (1, None))
+
     reverse_one = curry(foldl, cons, nil)
     assert reverse_one(ll(1, 2, 3)) == ll(3, 2, 1)
 
@@ -634,8 +695,6 @@ def test():
     a, b = map(tuple, split_at(5, range(3)))
     assert a == tuple(range(3))
     assert b == ()
-
-    assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
 
     @rotate(1)
     def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
