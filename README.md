@@ -397,6 +397,8 @@ When the `with` block exits, the environment clears itself. The environment inst
 
 Express algorithms elegantly without blowing the call stack - with explicit, clear syntax.
 
+Since v0.8.5, generators can be tail-chained into another generator; see the [gtco](unpythonic/gtco.py) module. This section, however, talks about TCO for regular functions.
+
 *Tail recursion*:
 
 ```python
