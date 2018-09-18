@@ -28,7 +28,6 @@ __all__ = ["make_heads",
 from functools import partial
 from itertools import tee, islice, zip_longest, starmap, chain
 from collections import deque
-from inspect import isgenerator
 
 def make_heads(longest=False, fillvalue=None):
     """Create a function returning the head elements from any number of iterators.
@@ -83,7 +82,7 @@ def make_heads(longest=False, fillvalue=None):
 def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """Scan (accumulate), optionally with multiple input iterables.
 
-    Similar to ``itertools.accumulate``. If the inputs are generators, this is
+    Similar to ``itertools.accumulate``. If the inputs are iterators, this is
     essentially a lazy ``foldl`` that yields the intermediate result at each step.
     Hence, useful for partially folding infinite sequences.
 
@@ -97,9 +96,8 @@ def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
 
     Returns a generator, which (roughly, in pseudocode)::
 
-        z = partial(zip_longest, fillvalue=fillvalue) if longest else zip
         acc = init
-        for elts in z(iterable0, *iterables):
+        for elts in zip(iterable0, *iterables):  # or zip_longest as appropriate
             yield proc(*elts, acc)  # if this was legal syntax
     """
     iterables = (iterable0,) + iterables
@@ -212,7 +210,7 @@ def flatmap(f, iterable0, *iterables):
     ``f`` should accept as many arguments as iterables given (each argument
     drawn from one of the iterables), and return an iterable.
 
-    Returns a generator that yields the flatmapped result.
+    Returns an iterator that yields the flatmapped result.
 
     Example::
 
@@ -271,50 +269,39 @@ def uniq(iterable, key=None):
             lasthash = h
             yield e
 
-def _makegen(iterable):  # ensure iterable is a generator
-    if isgenerator(iterable):
-        return iterable
-    def gen():
-        yield from iterable
-    return gen()
-
 def take(n, iterable):
-    """Return a generator that yields the first n items of iterable, then stops.
+    """Return an iterator that yields the first n items of iterable, then stops.
 
     Stops earlier if ``iterable`` has fewer than ``n`` items.
 
-    This is essentially ``take`` from ``itertools`` recipes,
-    but returns a generator.
+    This is essentially ``take`` from ``itertools`` recipes.
     """
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
-    it = iter(iterable)
-    it = islice(it, n)
-    return _makegen(it)
+    return islice(iter(iterable), n)
 
 def drop(n, iterable):
     """Skip the first n elements of iterable, then yield the rest.
 
     If ``n`` is ``None``, consume the iterable until it runs out.
 
-    This is essentially ``consume`` from ``itertools`` recipes,
-    but returns a generator.
+    This is essentially ``consume`` from ``itertools`` recipes.
     """
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
     elif n == 0:
         return iterable
     it = iter(iterable)
-    if n is None:
-        deque(it, maxlen=0)
-    else:
+    if n:
         next(islice(it, n, n), None)  # advance it to empty slice starting at n
-    return _makegen(it)
+    else: # n is None:
+        deque(it, maxlen=0)
+    return it
 
 def split_at(n, iterable):
     """Split iterable at position n.
 
-    Returns a pair of generators ``(first_part, second_part)``.
+    Returns a pair of iterators ``(first_part, second_part)``.
 
     Examples::
 
@@ -339,22 +326,25 @@ def unpack(iterable, n, k=None, fillvalue=None):
     infinite iterables.
 
     The return value is a tuple containing the ``n`` first elements, and as its
-    last item, the tail of the iterable from item ``k`` onwards.
+    last item, an iterator representing the tail of the iterable from item ``k``
+    onwards.
 
     Default ``k=None`` means ``k = n``, i.e. return the tail that begins
     right after the extracted items. Other values are occasionally useful,
     e.g. to peek into the tail, while not permanently extracting an item.
 
     If there are fewer than ``n`` items in the iterable, the missing items
-    are returned as ``fillvalue``. The ``rest`` part is then a generator
+    are returned as ``fillvalue``. The ``rest`` part is then an iterator
     that just raises ``StopIteration``.
 
     If ``k < n`` (tail overlaps with the extracted items), the tail
     is formed by calling ``itertools.tee`` at the appropriate point
-    during the extraction.
+    during the extraction. (Plan the client code accordingly; see the
+    caution in `itertools.tee`. Essentially, the original iterator should
+    no longer be used after it has been tee'd; only use the tee'd copy.)
 
     If ``k == n`` (tail begins right after the extracted items), the tail
-    is formed from the original iterator at the end of the extraction.
+    is the original iterator at the end of the extraction.
 
     If ``k > n`` (skip some items after the first n), then after extraction,
     the tail is formed by fast-forwarding the iterator using ``drop``.
@@ -379,14 +369,14 @@ def unpack(iterable, n, k=None, fillvalue=None):
             rest = empty()
     if not rest:  # avoid replacing empty()
         if k == n:
-            rest = _makegen(it)
+            rest = it
         elif k > n:
             rest = drop(k - n, it)
     out.append(rest)
     return tuple(out)
 
 def tail(iterable):
-    """Return the tail of an iterable, as a generator.
+    """Return an iterator pointing to the tail of iterable.
 
     Same as ```drop(1, iterable)```.
     """
@@ -433,7 +423,7 @@ def flatten(iterable, pred=None):
     """Recursively remove nested structure from iterable.
 
     Process tuples and lists inside the iterable; pass everything else through
-    (including any generators stored in the iterable).
+    (including any iterators stored in the iterable).
 
     Returns a generator that yields the flattened output.
 
