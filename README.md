@@ -15,12 +15,12 @@ Other design considerations are simplicity, robustness, and minimal dependencies
    - [Sequence functions: ``pipe``, ``piped``, ``lazy_piped``](#sequence-functions-pipe-piped-lazy_piped)
  - [Introduce local bindings: ``let``, ``letrec``](#introduce-local-bindings-let-letrec)
    - [The environment: ``env``](#the-environment-env)
- - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
+ - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations); also tail-chaining of generators
    - [Loops in FP style (with TCO)](#loops-in-fp-style-with-tco): FP looping constructs.
  - [Escape continuations (ec)](#escape-continuations-ec)
    - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
  - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables, dynamic assignment)
- - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`
+ - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`; also `gmemoize` for generators
    - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
  - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); lazy partial unpacking for infinite sequences
  - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
@@ -1029,6 +1029,7 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
 
  - `memoize` caches also exceptions à la Racket.
    - If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
+ - `gmemoize` is provided in the [`gmemo`](unpythonic/gmemo.py) module to make memoizing generators.
  - `curry` comes with some extra features:
    - Passthrough on the right when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket)
      - If the intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
