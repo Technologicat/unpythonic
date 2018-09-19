@@ -6,9 +6,9 @@ __all__ = ["gmemoize"]
 
 from operator import itemgetter
 from functools import wraps
-from threading import Lock
+from threading import RLock
 
-def gmemoize(threaded=False):
+def gmemoize(gfunc):
     """Decorator: produce memoized generator instances.
 
       - Decorate the generator function (i.e. generator definition) with this.
@@ -21,36 +21,31 @@ def gmemoize(threaded=False):
       - For simplicity, the generator itself may use ``yield`` for output only;
         ``send`` is not supported.
 
-      - **Optionally** thread-safe. If ``threaded=True``, calls to ``next``
-        on the memoized generator are serialized via a lock. Each memoized
-        sequence has its own lock.
-
-        However, a thread-safe memoized generator is not allowed to call itself;
-        this leads to deadlock. The default mode ``threaded=False`` works for
-        such recursively defined sequences, but then ``next()`` is not thread-safe.
+      - Thread-safe. If ``threaded=True``, calls to ``next`` on the memoized
+        generator are serialized via a lock. Each memoized sequence has its
+        own lock. This uses ``threading.RLock``, so re-entering from the same
+        thread (e.g. in recursively defined sequences) is fine.
 
       - Typically, this should be the outermost decorator if several are used
         on the same gfunc.
 
     Usage::
 
-        @gmemoize()  # or @gmemoize(threaded=True)
+        @gmemoize
         def mygen():
             yield 1
             yield 2
             yield 3
     """
-    def deco(gfunc):
-        memos = {}
-        @wraps(gfunc)
-        def gmemoized(*args, **kwargs):
-            k = (args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
-            if k not in memos:
-                # underlying generator instance, memo instance, lock instance
-                memos[k] = (gfunc(*args, **kwargs), [], (Lock() if threaded else None))
-            return _MemoizedGenerator(*memos[k])
-        return gmemoized
-    return deco
+    memos = {}
+    @wraps(gfunc)
+    def gmemoized(*args, **kwargs):
+        k = (args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
+        if k not in memos:
+            # underlying generator instance, memo instance, lock instance
+            memos[k] = (gfunc(*args, **kwargs), [], RLock())
+        return _MemoizedGenerator(*memos[k])
+    return gmemoized
 
 class _MemoizedGenerator:
     """Wrapper that manages one memoized sequence. Co-operates with gmemoize."""
@@ -59,29 +54,14 @@ class _MemoizedGenerator:
         self.g = g
         self.j = 0  # current position in memo
         self.lock = lock
-        self.getnext = self._next_threadsafe if lock is not None else self._next_simple
     def __repr__(self):
         return "<_MemoizedGenerator object {} at 0x{:x}>".format(self.g.__name__, id(self))
     def __iter__(self):
         return self
     def __next__(self):
-        return self.getnext()
-    def _next_simple(self):
         j = self.j
         memo = self.memo
-        if j < len(memo):
-            result = memo[j]
-        else:
-            result = next(self.g)  # let StopIteration propagate
-            memo.append(result)
-        self.j += 1
-        return result
-    def _next_threadsafe(self):
-        j = self.j
-        memo = self.memo
-        lock = self.lock
-        try:
-            lock.acquire()
+        with self.lock:
             if j < len(memo):
                 result = memo[j]
             else:
@@ -89,16 +69,14 @@ class _MemoizedGenerator:
                 memo.append(result)
             self.j += 1
             return result
-        finally:
-            lock.release()
 
 def test():
     from time import time
     from itertools import count, takewhile
-    from unpythonic.it import take
+    from unpythonic.it import take, last
 
     total_evaluations = 0
-    @gmemoize()
+    @gmemoize
     def gen():
         nonlocal total_evaluations
         j = 1
@@ -124,7 +102,7 @@ def test():
     assert total_evaluations == 4
 
     total_evaluations = 0
-    @gmemoize()
+    @gmemoize
     def gen():
         nonlocal total_evaluations
         for j in range(3):
@@ -146,7 +124,7 @@ def test():
             if not any(p != n and n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
                 yield n
 
-    @gmemoize()  # <-- only change
+    @gmemoize  # <-- only change
     def mprimes():
         yield 2
         for f in count(start=1):
