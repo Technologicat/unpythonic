@@ -88,6 +88,8 @@ class _Env(object):
         return _EnvBlock(kwargs)
     def __setattr__(self, name, value):
         raise AttributeError("dynamic variables can only be set using 'with dyn.let()'")
+
+    # membership test (in, not in)
     def __contains__(self, name):
         try:
             getattr(self, name)
@@ -95,11 +97,43 @@ class _Env(object):
         except AttributeError:
             return False
 
+    # iteration
+    def _asdict(self):
+        data = {}
+        for scope in reversed(_getstack()):
+            for name, value in scope.items():
+                if name not in data:
+                    data[name] = value
+        return data
+
+    def __iter__(self):
+        return iter(self._asdict())
+
+    def items(self):
+        """Like dict.items(). Return a snapshot of the current state."""
+        return self._asdict().items()
+
+    def __len__(self):
+        return len(self._asdict())
+
+    # subscripting
+    def __getitem__(self, k):
+        return getattr(self, k)
+
+    def __setitem__(self, k, v):
+        # writing not supported, but should behave consistently with setattr.
+        setattr(self, k, v)
+
+    # pretty-printing
+    def __repr__(self):
+        bindings = ["{:s}={}".format(k,repr(self[k])) for k in self]
+        return "<dyn object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
+
 dyn = _Env()
 
 def test():
     def f():
-        assert dyn.a == 2
+        assert dyn.a == 2  # no a in lexical scope
 
     def runtest():
         with dyn.let(a=2, b="foo"):
@@ -149,6 +183,23 @@ def test():
             print("Test 4 FAILED")
 
     runtest()
+
+    with dyn.let(a=1, b=2):
+        # membership test
+        assert "a" in dyn
+        assert "c" not in dyn
+        # subscript syntax as an alternative way to refer to items
+        assert dyn.a is dyn["a"]
+        # iteration works like dictionary
+        assert tuple(sorted(dyn.items())) == (("a", 1), ("b", 2))
+
+        # vs are frozen in at the time items() is called - it's a snapshot
+        assert tuple(sorted((k, v) for k, v in dyn.items())) == (("a", 1), ("b", 2))
+
+        # safer (TOCTTOU) in complex situations, retrieves the current dyn[k]
+        assert tuple(sorted((k, dyn[k]) for k in dyn)) == (("a", 1), ("b", 2))
+
+    print("All tests PASSED")
 
 if __name__ == '__main__':
     test()
