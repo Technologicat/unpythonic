@@ -25,10 +25,9 @@ def gmemoize(threaded=False):
         on the memoized generator are serialized via a lock. Each memoized
         sequence has its own lock.
 
-        However, a thread-safe memoized generator is not allowed to call another
-        (incl. itself!); this leads to deadlock. The default mode ``threaded=False``
-        works for such recursively defined sequences, but then ``next()`` is not
-        thread-safe.
+        However, a thread-safe memoized generator is not allowed to call itself
+        this leads to deadlock. The default mode ``threaded=False`` works for
+        such recursively defined sequences, but then ``next()`` is not thread-safe.
 
       - Typically, this should be the outermost decorator if several are used
         on the same gfunc.
