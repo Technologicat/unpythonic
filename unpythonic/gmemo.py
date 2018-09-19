@@ -21,9 +21,9 @@ def gmemoize(gfunc):
       - For simplicity, the generator itself may use ``yield`` for output only;
         ``send`` is not supported.
 
-      - Thread-safe. If ``threaded=True``, calls to ``next`` on the memoized
-        generator are serialized via a lock. Each memoized sequence has its
-        own lock. This uses ``threading.RLock``, so re-entering from the same
+      - Thread-safe. Calls to ``next`` on the memoized generator from different
+        threads are serialized via a lock. Each memoized sequence has its own
+        lock. This uses ``threading.RLock``, so re-entering from the same
         thread (e.g. in recursively defined sequences) is fine.
 
       - Typically, this should be the outermost decorator if several are used
