@@ -397,7 +397,7 @@ When the `with` block exits, the environment clears itself. The environment inst
 
 Express algorithms elegantly without blowing the call stack - with explicit, clear syntax.
 
-Since v0.8.5, generators can be tail-chained into another generator; see the [gtco](unpythonic/gtco.py) module. This section, however, talks about TCO for regular functions.
+Since v0.8.5, generators can be tail-chained into another generator; see the [`gtco`](unpythonic/gtco.py) module. This section, however, talks about TCO for regular functions.
 
 *Tail recursion*:
 
@@ -1029,7 +1029,7 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
 
  - `memoize` caches also exceptions à la Racket.
    - If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
- - `gmemoize` is provided in the [`gmemo`](unpythonic/gmemo.py) module to make memoizing generators.
+ - `gmemoize` is provided in the [`gmemo`](unpythonic/gmemo.py) module to make rackety memoizing generators.
  - `curry` comes with some extra features:
    - Passthrough on the right when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket)
      - If the intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
