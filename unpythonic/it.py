@@ -248,6 +248,8 @@ def take(n, iterable):
 
     This is ``take`` from ``itertools`` recipes.
     """
+    if not isinstance(n, int):
+        raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
     return islice(iter(iterable), n)
@@ -259,6 +261,8 @@ def drop(n, iterable):
 
     This is ``consume`` from ``itertools`` recipes.
     """
+    if not isinstance(n, int):
+        raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
     it = iter(iterable)
@@ -285,6 +289,8 @@ def split_at(n, iterable):
         assert a == tuple(range(3))
         assert b == ()
     """
+    if not isinstance(n, int):
+        raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
     ia, ib = tee(iter(iterable))
@@ -320,9 +326,13 @@ def unpack(n, iterable, *, k=None, fillvalue=None):
     If ``k > n`` (skip some items after the first n), then after extraction,
     the tail is formed by fast-forwarding the iterator using ``drop``.
     """
+    if not isinstance(n, int):
+        raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
     k = k if k is not None else n  # not "k or n", since k = 0 is valid
+    if not isinstance(k, int):
+        raise TypeError("expected integer k, got {} with value {}".format(type(k), k))
     if k < 0:
         raise ValueError("expected k >= 0, got {}".format(k))
     out = []
@@ -367,6 +377,8 @@ def nth(n, iterable, *, default=None):
 
     The ``default`` is returned if there are fewer than ``n + 1`` items.
     """
+    if not isinstance(n, int):
+        raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
     it = drop(n - 1, iterable) if n else iter(iterable)
