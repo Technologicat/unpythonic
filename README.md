@@ -871,9 +871,7 @@ assert tuple(take(10, ones())) == (1,) * 10
 last(take(10000, ones()))  # no crash
 ```
 
-The system makes sure only one generator trampoline is running in any given thread at a time, so it is safe to tail-chain into a ``@gtrampolined`` generator.
-
-**CAUTION**: The trampoline bookkeeping is implemented using dynamic assignment. **Do not** spawn new threads from inside a trampolined generator (unless you shut them down before the generator hits its next ``yield``). If you do, the new threads will not see when the trampoline shuts down, because the main thread's dynamic variable stack is snapshotted and then made thread-local at thread spawn time. See ``dynscope``.
+It is safe to tail-chain into a ``@gtrampolined`` generator; the system strips the TCO target's trampoline if it has one.
 
 Like all tail calls, this works for any *iterative* process. In contrast, this **does not work**:
 
