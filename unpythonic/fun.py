@@ -46,10 +46,10 @@ def memoize(f):
                 result = (fail, err)
             memo[k] = result  # should yell separately if k is not a valid key
         sentinel, value = memo[k]
-        if sentinel is fail:
-            raise value
-        else:
+        if sentinel is success:
             return value
+        else:
+            raise value
     return memoized
 
 #def memoize_simple(f):  # essential idea, without exception handling
