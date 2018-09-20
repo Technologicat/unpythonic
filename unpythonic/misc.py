@@ -2,18 +2,42 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["call", "A", "raisef", "pack"]
+__all__ = ["call", "raisef", "pack"]
 
-def call(thunk):
-    """Decorator: run immediately, overwrite function by its return value.
+def call(f, *args, **kwargs):
+    """Call the function f.
 
-    Can be used to make lispy not-quite-functions where the def just delimits
-    a block of code that runs immediately (think call-with-something in Lisps).
+    **When used as a decorator**:
 
-    The function will be called with zero arguments.
+        Run the function immediately, then overwrite the definition by its
+        return value.
+
+        Useful for making lispy not-quite-functions where the def just delimits
+        a block of code that runs immediately (think call-with-something in Lisps).
+
+        In this case, the function will be called with zero arguments.
+
+    **When called normally**:
+
+        ``call(f, *a, **kw)`` is the same as ``f(*a, **kw)``.
+
+    *Why ever use call() normally?*
+
+      - Readability and aesthetics in cases like ``makef(mogrify(args))()``,
+        where ``makef`` is a function factory, and we want to immediately
+        call its result.
+
+        Rewriting this as ``call(makef(mogrify(args)))`` relocates the odd one out
+        from the mass of parentheses at the end. (A real FP example would likely
+        have more levels of nesting.)
+
+      - Notational uniformity with ``curry(f, *args, **kwargs)`` for cases
+        without currying. See ``unpythonic.fun.curry``.
+
+      - For fans of S-expressions. Write Python almost like Lisp!
 
     Name inspired by "call-with-something", but since here we're calling
-    without any arguments, it's just "call".
+    without any specific thing, it's just "call".
 
     Examples::
 
@@ -42,24 +66,8 @@ def call(thunk):
                         return  # "multi-break" out of both loops!
                     ...
 
-    (In the multi-break case, "x" and "y" are no longer in scope outside
-     the block, since the block is a function.)
-    """
-    return thunk()
-
-def A(f, *args, **kwargs):
-    """Alternative notation for function application. Same as f(*args, **kwargs).
-
-    **Example**::
-
-        A(print, "hello")
-
-    **Why?!**
-
-      - Notational uniformity with ``curry(f, *args, **kwargs)`` for cases
-        without currying. See ``unpythonic.fun.curry``.
-
-      - For fans of S-expressions. Write Python almost like Lisp!
+    Note that in the multi-break case, ``x`` and ``y`` are no longer in scope
+    outside the block, since the block is a function.
     """
     return f(*args, **kwargs)
 
@@ -70,7 +78,7 @@ def raisef(exctype, *args, **kwargs):
 
         raisef(ValueError, "message")
 
-    is equivalent to::
+    is (almost) equivalent to::
 
         raise ValueError("message")
 
@@ -90,8 +98,10 @@ def pack(*args):
     """Multi-argument constructor for tuples.
 
     In other words, the inverse of tuple unpacking, as a function.
+    E.g. ``pack(a, b, c)`` is the same as ``(a, b, c)``.
 
-    E.g. `pack(a, b, c)` is the same as `(a, b, c)`.
+    Or, if we semantically consider a tuple as a representation for multiple
+    return values, this is the identity function, returning its args.
 
     We provide this because the default constructor `tuple(...)` requires an
     iterable, and there are use cases (especially in Python 3.4, before PEP 448)
@@ -145,7 +155,7 @@ def test():
     assert result == (6, 7)
 
     from operator import add
-    assert A(add, 2, 3) == add(2, 3)
+    assert call(add, 2, 3) == add(2, 3)
 
     l = lambda: raisef(ValueError, "all ok")
     try:
