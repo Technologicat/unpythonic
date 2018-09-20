@@ -171,7 +171,7 @@ def test():
             if not any(p != n and n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
                 yield n
 
-    @gmemoize  # <-- only change
+    @gmemoize  # <-- the only change (beside the function name)
     def mprimes():
         yield 2
         for f in count(start=1):
