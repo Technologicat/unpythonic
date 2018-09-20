@@ -166,7 +166,7 @@ def unfold(proc, *inits):
     Example::
 
         def fibo(a, b):
-            return (a, b, a+b)
+            return (a, b, a + b)
 
         assert tuple(take(10, unfold(fibo, 1, 1))) == \\
                (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
