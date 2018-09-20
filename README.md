@@ -24,7 +24,7 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`
    - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
    - [Memoization for generators](#memoization-for-generators), iterables and iterator factories: `gmemoize`, `imemoize`, `fimemoize`.
- - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking for infinite sequences
+ - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables
  - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
  - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
  - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
@@ -833,7 +833,7 @@ assert s == 45
 
 If you **really** need to make that into an expression, bind ``r10`` using ``let`` (if you use ``letrec``, keeping in mind it is a callable), or to make your code unreadable, just inline it.
 
-With the enhanced ``curry`` in v0.8.1 and later, this is also a possible solution:
+With ``curry``, this is also a possible solution:
 
 ```python
 s = curry(looped_over, range(10), 0,
@@ -1165,7 +1165,7 @@ In ``mapr_one``, we can use either ``curry`` or ``functools.partial``. In this c
 
 The final ``curry`` uses both of the extra features. It invokes passthrough, since ``mapl_one`` has arity 1. It also invokes a call to the callable returned from ``mapl_one``, with the remaining arguments (in this case just one, the ``ll(1, 2, 3)``).
 
-As for v0.8.1, yet another way to write ``map_one`` is:
+Yet another way to write ``map_one`` is:
 
 ```python
 mymap = lambda f: curry(foldr, composer(cons, curry(f)), nil)
@@ -1173,7 +1173,7 @@ mymap = lambda f: curry(foldr, composer(cons, curry(f)), nil)
 
 The curried ``f`` uses up one argument (provided it is a one-argument function!), and the second argument is passed through on the right; this two-tuple then ends up as the arguments to ``cons``.
 
-v0.8.2 adds currying variants of the compose functions (names suffixed with ``c``), so the inner curry is no longer needed:
+Using a currying compose function (name suffixed with ``c``), the inner curry can be dropped:
 
 ```python
 mymap = lambda f: curry(foldr, composerc(cons, f), nil)
@@ -1233,7 +1233,7 @@ so on the last line, we don't need to say
 curry(a2, a, b, c)
 ```
 
-because ``a2`` is already curried. Doing so does no harm, though; as of v0.8.2, ``curry`` automatically prevents stacking ``curried`` wrappers:
+because ``a2`` is already curried. Doing so does no harm, though; ``curry`` automatically prevents stacking ``curried`` wrappers:
 
 ```python
 curry(a2) is a2  # --> True
