@@ -1,0 +1,7 @@
+*~
+*.pyc
+*.c
+build
+dist
+.spyproject
+*.egg-info
