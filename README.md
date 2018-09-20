@@ -21,9 +21,9 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [Escape continuations (ec)](#escape-continuations-ec)
    - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
  - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables, dynamic assignment)
- - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`; also `gmemoize` for generators
+ - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`
    - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
-   - [Memoization for generators](#memoization-for-generators), iterables and iterator factories.
+   - [Memoization for generators](#memoization-for-generators), iterables and iterator factories: `gmemoize`, `imemoize`, `fimemoize`.
  - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking for infinite sequences
  - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
  - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
