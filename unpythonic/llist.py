@@ -6,7 +6,6 @@ Hashable, pickleable, hooks into the built-in reversed(), prints like in Lisps.
 """
 
 from abc import ABCMeta, abstractmethod
-from collections.abc import Sequence
 from itertools import zip_longest
 
 from unpythonic.fun import composer1i
@@ -36,6 +35,9 @@ __all__ = _exports
 # can correctly unpickle cons structures, which use a different nil instance
 # (from an earlier session).
 class Nil:
+    """The empty linked list.
+
+    Singleton; use the value ``nil``, don't instantiate a new one."""
     # support the iterator protocol so we can say tuple(nil) --> ()
     def __iter__(self):
         return self
@@ -86,7 +88,7 @@ class LinkedListIterator(ConsIterator):
                         raise TypeError("Not a linked list")
         super().__init__(head, walker)
 
-class ReversedLinkedListIterator(LinkedListIterator):
+class LinkedListReverseIterator(LinkedListIterator):
     """Iterator for walking a linked list backwards.
 
     Computes the reversed list at init time, so it can then be walked forward.
@@ -172,7 +174,7 @@ class cons:
         return LinkedListOrCellIterator(self)
     def __reversed__(self):
         """For lists. Caution: O(n), works by building a reversed list."""
-        return ReversedLinkedListIterator(self)
+        return LinkedListReverseIterator(self)
     def __repr__(self):
         try:  # duck test linked list (true list only, no single-cell pair)
             # listcomp, not genexpr, since we want to trigger any exceptions **now**.
@@ -278,35 +280,29 @@ def llist(iterable):
     Because cons appends to the front, this is efficient for:
 
       - ``reversed(some_linked_list)``, by just returning the already computed
-        reversed list that is internally stored by the iterator.
+        reversed list that is internally stored by the reverse-iterator.
 
       - Sequences, since they can be walked backwards; a linear walk is enough.
-        Here a sequence is defined as tuple, list, range, or any custom class
-        inheriting from ``collections.abc.Sequence``.
 
     For a general iterable input, this costs a linear walk (forwards), plus an
     ``lreverse`` once the list has been fully consed.
     """
-    if isinstance(iterable, ReversedLinkedListIterator):
+    if isinstance(iterable, LinkedListReverseIterator):
         # avoid two extra reverses by reusing the internal data.
         return iterable._data
-    if isinstance(iterable, (tuple, list, range, Sequence)):
-        return foldr(cons, nil, iterable)  # sequences can be walked backwards
-    # general iterable requires walking forwards, then reversing the result
-    # because cons appends to the front.
-    #
-    # Equivalent to lreverse(lreverse(iterable)) but this is semantically cleaner,
-    # since the original iterable is usually not a linked list. (There's no point
-    # in copying one, since they're immutable.)
-    return lreverse(foldl(cons, nil, iterable))
+    try:  # maybe a sequence?
+        return foldr(cons, nil, iterable)
+    except TypeError:
+        reversed_as_ll = lreverse(iterable)
+        return lreverse(reversed_as_ll)
 
-def lreverse(l):
-    """Reverse a linked list, returning the resulting list.
+def lreverse(iterable):
+    """Reverse an iterable, loading the result into a linked list.
 
-    If you want an iterator instead, use ``reversed(l)``. The computational cost
-    is the same in both cases, O(n).
+    If you have a linked list and want an iterator instead, use ``reversed(l)``.
+    The computational cost is the same in both cases, O(n).
     """
-    return foldl(cons, nil, l)
+    return foldl(cons, nil, iterable)
 
 def lappend(*ls):
     """Append the given linked lists left-to-right."""
@@ -320,8 +316,7 @@ def member(x, l):
     Returns:
         The matching cons cell (tail of l) if x was found; False if not.
     """
-    it = TailIterator(l)
-    for t in it:
+    for t in TailIterator(l):
         if t.car == x:
             return t
     return False
