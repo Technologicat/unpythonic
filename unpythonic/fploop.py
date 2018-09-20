@@ -29,6 +29,9 @@ __all__ = ["looped", "looped_over", "breakably_looped", "breakably_looped_over"]
 
 from functools import partial
 
+from unpythonic.ec import call_ec
+from unpythonic.arity import arity_includes, UnknownArity
+
 # TCO implementation switchable at runtime
 import unpythonic.rc
 if unpythonic.rc._tco_impl == "exc":
@@ -37,11 +40,6 @@ elif unpythonic.rc._tco_impl == "fast":
     from unpythonic.fasttco import SELF, jump, trampolined, _jump
 else:
     raise ValueError("Unknown TCO implementation '{}'".format(unpythonic.rc._tco_impl))
-
-from unpythonic.ec import call_ec
-
-# evil inspect dependency, used only to provide informative error messages.
-from unpythonic.arity import arity_includes, UnknownArity
 
 def looped(body):
     """Decorator to make a functional loop and run it immediately.
@@ -352,9 +350,8 @@ def test():
     def s(loop, acc=0, i=0):
         if i == 10:
             return acc  # there's no "break"; loop terminates at the first normal return
-        else:
-            # same as return jump(SELF, acc+i, i+1), but sets up the "loop" arg.
-            return loop(acc + i, i + 1)
+        # same as return jump(SELF, acc+i, i+1), but sets up the "loop" arg.
+        return loop(acc + i, i + 1)
     assert s == 45
 
     # equivalent to:
@@ -362,8 +359,7 @@ def test():
     def dowork(acc=0, i=0):
         if i == 10:
             return acc
-        else:
-            return jump(dowork, acc + i, i + 1)
+        return jump(dowork, acc + i, i + 1)
     s = dowork()  # when using just @trampolined, must start the loop manually
     assert s == 45
 
@@ -429,8 +425,7 @@ def test():
         if i < 3:
             acc.append(i)
             return loop(i + 1)
-        else:
-            return acc
+        return acc
     assert out == [0, 1, 2]
 
     # there's no "continue"; package your own:
@@ -441,8 +436,7 @@ def test():
             return cont()
         elif i == 10:
             return acc
-        else:
-            return cont(acc + i)
+        return cont(acc + i)
     assert s == 35
 
     # FP loop over iterable
@@ -501,8 +495,7 @@ def test():
         def out(loop, x, acc):
             if predicate(x):
                 return loop(acc + (x,))
-            else:
-                return loop(acc)
+            return loop(acc)
         return out
     assert filter_fp(lambda x: x % 2 == 0, range(10)) == (0, 2, 4, 6, 8)
 
@@ -638,8 +631,7 @@ def test():
             cont = lambda newacc=acc: loop(newacc, i + 1)
             if i < 10:
                 return cont(acc + i)
-            else:
-                return acc
+            return acc
         print("s is {:d}".format(s))
         return 2 * s
     assert result == 90
@@ -680,8 +672,7 @@ def test():
     def result(loop, brk, acc=0, i=0):
         if i == 10:
             return brk(acc)
-        else:
-            return loop(acc + i, i + 1)  # provide the additional parameters
+        return loop(acc + i, i + 1)  # provide the additional parameters
     assert result == 45
 
     # break, continue

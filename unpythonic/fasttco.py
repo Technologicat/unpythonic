@@ -268,8 +268,7 @@ def test():
     def fact(n, acc=1):
         if n == 0:
             return acc
-        else:
-            return jump(fact, n - 1, n * acc)
+        return jump(fact, n - 1, n * acc)
     assert fact(4) == 24
 
     # tail recursion in a lambda
@@ -282,14 +281,12 @@ def test():
     def even(n):
         if n == 0:
             return True
-        else:
-            return jump(odd, n - 1)
+        return jump(odd, n - 1)
     @trampolined
     def odd(n):
         if n == 0:
             return False
-        else:
-            return jump(even, n - 1)
+        return jump(even, n - 1)
     assert even(42) is True
     assert odd(4) is False
     assert even(10000) is True  # no crash
@@ -340,7 +337,7 @@ def test():
     import time
 
     t0 = time.time()
-    for i in range(n):
+    for _ in range(n):
         pass
     dt_ip = time.time() - t0
 

@@ -127,8 +127,7 @@ class _MemoizedGenerator:
             self.j += 1
             if sentinel is _success:
                 return value
-            else:
-                raise value
+            raise value
 
 def imemoize(iterable):
     """Memoize an iterable.

@@ -97,16 +97,15 @@ def fupdate(target, indices=None, values=None, **mappings):
             gen = (x for x in seq)
             if hasattr(cls, "_make"):  # namedtuple support
                 return cls._make(gen)
-            else:
-                return cls(gen)
+            return cls(gen)
         if isinstance(indices, (list, tuple)):
             seq = target
             for index, value in zip(indices, values):
                 seq = ShadowedSequence(seq, index, value)
             return make_output(seq)
-        else:  # one index (or slice), value(s) pair only
-            return make_output(ShadowedSequence(target, indices, values))
-    elif mappings:
+        # one index (or slice), value(s) pair only
+        return make_output(ShadowedSequence(target, indices, values))
+    if mappings:
         t = copy(target)
         t.update(**mappings)  # TODO: use collections.ChainMap instead?
         return t
@@ -114,17 +113,17 @@ def fupdate(target, indices=None, values=None, **mappings):
 
 # Needed by fupdate for immutable sequence inputs (no item assignment).
 class ShadowedSequence(Sequence):
+    """Sequence with some elements shadowed by those from another sequence.
+
+    Or in other words, a functionally updated view of a sequence.
+
+    Essentially, ``out[k] = v[index_in_slice(k, ix)] if in_slice(k, ix) else seq[k]``,
+    but doesn't actually allocate ``out``.
+
+    ``ix`` may be integer (if ``v`` represents one item only)
+    or slice (if ``v`` is intended as a sequence).
+    """
     def __init__(self, seq, ix, v):
-        """Sequence with some elements shadowed by those from another sequence.
-
-        Or in other words, a functionally updated view of a sequence.
-
-        Essentially, ``out[k] = v[index_in_slice(k, ix)] if in_slice(k, ix) else seq[k]``,
-        but doesn't actually allocate ``out``.
-
-        ``ix`` may be integer (if ``v`` represents one item only)
-        or slice (if ``v`` is intended as a sequence).
-        """
         self.seq = seq
         self.ix = ix
         self.v = v
@@ -141,10 +140,8 @@ class ShadowedSequence(Sequence):
                     # in fupdate automatically catches that, hiding the error.
                     raise ValueError("Replacement sequence too short; attempted to access index {} with len {} (items: {})".format(i, len(self.v), self.v))
                 return self.v[i]
-            else:  # int, just one item
-                return self.v
-        else:
-            return self.seq[k]
+            return self.v  # int, just one item
+        return self.seq[k]  # not in slice
 
     def __len__(self):
         return len(self.seq)
@@ -175,9 +172,8 @@ def in_slice(i, s, l=None):
         before_stop = cmp_end(i, stop)
         on_grid = (i - start) % step == 0
         return at_or_after_start and on_grid and before_stop
-    else:
-        s = wrap(s)
-        return i == s
+    s = wrap(s)  # int
+    return i == s
 
 def index_in_slice(i, s, l=None):
     """Return the index of the int i in the slice s, or None if i is not in s.

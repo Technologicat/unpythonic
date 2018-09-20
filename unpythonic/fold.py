@@ -206,7 +206,6 @@ def test():
     assert tuple(scanl1(add, (1, 2, 3))) == (1, 3, 6)
     assert tuple(scanr1(add, (1, 2, 3))) == (3, 5, 6)
 
-    from operator import add, mul
     psums = composer(tail, curry(scanl, add, 0))  # tail to drop the init value
     pprods = composer(tail, curry(scanl, mul, 1))
     data = range(1, 5)

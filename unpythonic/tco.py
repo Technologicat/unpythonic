@@ -30,6 +30,7 @@ __all__ = ["jump", "trampolined", "SELF"]
 
 @call  # make a singleton
 class SELF:
+    """Special jump target meaning "keep current jump target"."""
     def __repr__(self):
         return "SELF"
 
@@ -102,8 +103,7 @@ def test():
     def fact(n, acc=1):
         if n == 0:
             return acc
-        else:
-            jump(fact, n - 1, n * acc)
+        jump(fact, n - 1, n * acc)
     assert fact(4) == 24
 
     # tail recursion in a lambda
@@ -116,14 +116,12 @@ def test():
     def even(n):
         if n == 0:
             return True
-        else:
-            jump(odd, n - 1)
+        jump(odd, n - 1)
     @trampolined
     def odd(n):
         if n == 0:
             return False
-        else:
-            jump(even, n - 1)
+        jump(even, n - 1)
     assert even(42) is True
     assert odd(4) is False
     assert even(10000) is True  # no crash
@@ -142,7 +140,7 @@ def test():
     import time
 
     t0 = time.time()
-    for i in range(n):
+    for _ in range(n):
         pass
     dt_ip = time.time() - t0
 

@@ -77,9 +77,9 @@ class env:
         # Block invalid names in subscripting (which redirects here).
         if not name.isidentifier():
             raise ValueError("'{}' is not a valid identifier".format(name))
-        env = self._env   # __getattr__ not called if direct attr lookup succeeds, no need for hook.
-        if name in env:
-            return env[name]
+        e = self._env   # __getattr__ not called if direct attr lookup succeeds, no need for hook.
+        if name in e:
+            return e[name]
         else:
             raise AttributeError("name '{:s}' is not defined".format(name))
 
@@ -90,11 +90,10 @@ class env:
     # iteration
     def __iter__(self):
         return self._env.__iter__()
-
-    def __next__(self):
-        return self._env.__next__()
+    # no __next__, iterating over dict.
 
     def items(self):
+        """Like dict.items()."""
         return self._env.items()
 
     def __len__(self):

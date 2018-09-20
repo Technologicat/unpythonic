@@ -13,7 +13,7 @@ __all__ = ["arities", "arity_includes",
 from inspect import signature, Parameter
 
 class UnknownArity(ValueError):
-    pass
+    """Raised when the arity of a function cannot be inspected."""
 
 def arities(f):
     """Inspect f's minimum and maximum positional arity.
@@ -41,7 +41,7 @@ def arities(f):
         u = 0
         poskinds = set((Parameter.POSITIONAL_ONLY,
                         Parameter.POSITIONAL_OR_KEYWORD))
-        for k, v in signature(f).parameters.items():
+        for _, v in signature(f).parameters.items():
             if v.kind in poskinds:
                 u += 1
                 if v.default is Parameter.empty:

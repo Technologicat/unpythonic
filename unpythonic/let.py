@@ -8,8 +8,6 @@ from functools import wraps
 
 from unpythonic.misc import call
 from unpythonic.env import env as _envcls
-
-# evil inspect dependency, used only to provide informative error messages.
 from unpythonic.arity import arity_includes, UnknownArity
 
 def let(body, **bindings):
@@ -420,7 +418,7 @@ def test():
     try:
         let(x=0,
             body=lambda e: e.set('y', 3))  # error, y is not defined
-    except AttributeError as err:
+    except AttributeError:
         pass
     else:
         assert False
@@ -429,7 +427,7 @@ def test():
         @blet(x=1)
         def error1(*, env):
             env.y = 2  # error, cannot introduce new bindings to a let environment
-    except AttributeError as err:
+    except AttributeError:
         pass
     else:
         assert False

@@ -315,8 +315,7 @@ def flatten1(iterable, pred=None):
     """Like flatten, but process outermost level only."""
     if pred:
         return _flatten(iterable, pred, recursive=False)
-    else:
-        return chain.from_iterable(iterable)  # itertools recipes: fast, no pred
+    return chain.from_iterable(iterable)  # itertools recipes: fast, no pred
 
 def _flatten(iterable, pred=None, recursive=True):
     pred = pred or (lambda x: True)  # unpythonic.fun.const(True), but dependency loop
@@ -400,9 +399,8 @@ def test():
     def msqrt(x):  # multivalued sqrt
         if x == 0.:
             return (0.,)
-        else:
-            s = x**0.5
-            return (s, -s)
+        s = x**0.5
+        return (s, -s)
     assert tuple(flatmap(msqrt, (0, 1, 4, 9))) == (0., 1., -1., 2., -2., 3., -3.)
 
     def add_and_tuplify(a, b):

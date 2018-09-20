@@ -8,8 +8,6 @@ from functools import wraps
 
 from unpythonic.misc import call
 from unpythonic.env import env as _envcls
-
-# evil inspect dependency, used only to provide informative error messages.
 from unpythonic.arity import arity_includes, UnknownArity
 
 def let(bindings, body):
@@ -302,7 +300,7 @@ def test():
                               (x != 0) and e.evenp(x - 1))),
                lambda e:
                  e.evenp(42))
-    assert t == True
+    assert t is True
 
     f = lambda lst: letrec((("seen", set()),
                             ("see", lambda e:
@@ -369,7 +367,7 @@ def test():
         @blet((('x', 1),))
         def error1(*, env):
             env.y = 2  # error, cannot introduce new bindings to a let environment
-    except AttributeError as err:
+    except AttributeError:
         pass
     else:
         assert False

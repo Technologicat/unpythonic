@@ -12,8 +12,6 @@ from collections import namedtuple
 from unpythonic.env import env
 from unpythonic.misc import call
 from unpythonic.fun import curry
-
-# evil inspect dependency, used only to provide informative error messages.
 from unpythonic.arity import arity_includes, UnknownArity
 
 # sequence side effects in a lambda
@@ -175,9 +173,8 @@ class piped1:
         """
         if f is getvalue:
             return self._x
-        else:
-            cls = self.__class__
-            return cls(f(self._x))  # functional update
+        cls = self.__class__
+        return cls(f(self._x))  # functional update
     def __repr__(self):
         return "<piped1 at 0x{:x}; value {}>".format(id(self), self._x)
 
@@ -237,10 +234,9 @@ class lazy_piped1:
             for g in self._funcs:
                 v = g(v)
             return v
-        else:
-            # just pass on the reference to the original x.
-            cls = self.__class__
-            return cls(x=self._x, _funcs=self._funcs + (f,))
+        # just pass on the reference to the original x.
+        cls = self.__class__
+        return cls(x=self._x, _funcs=self._funcs + (f,))
     def __repr__(self):
         return "<lazy_piped1 at 0x{:x}; initial value now {}, functions {}>".format(id(self), self._x, self._funcs)
 
@@ -314,16 +310,14 @@ class piped:
         xs = self._xs
         if f is getvalue:
             return xs if len(xs) > 1 else xs[0]
+        cls = self.__class__
+        if isinstance(xs, (list, tuple)):
+            newxs = f(*xs)
         else:
-            cls = self.__class__
-            if isinstance(xs, (list, tuple)):
-                newxs = f(*xs)
-            else:
-                newxs = f(xs)
-            if isinstance(newxs, (list, tuple)):
-                return cls(*newxs)
-            else:
-                return cls(newxs)
+            newxs = f(xs)
+        if isinstance(newxs, (list, tuple)):
+            return cls(*newxs)
+        return cls(newxs)
     def __repr__(self):
         return "<piped at 0x{:x}; values {}>".format(id(self), self._xs)
 
@@ -367,10 +361,9 @@ class lazy_piped:
                 else:
                     vs = g(vs)
             return vs if len(vs) > 1 else vs[0]
-        else:
-            # just pass on the references to the original xs.
-            cls = self.__class__
-            return cls(*self._xs, _funcs=self._funcs + (f,))
+        # just pass on the references to the original xs.
+        cls = self.__class__
+        return cls(*self._xs, _funcs=self._funcs + (f,))
     def __repr__(self):
         return "<lazy_piped at 0x{:x}; initial values now {}, functions {}>".format(id(self), self._xs, self._funcs)
 
@@ -466,8 +459,7 @@ def do(*items):
             except UnknownArity:  # well, we tried!
                 pass
             return v(e)
-        else:
-            return v
+        return v
     for item in items:
         if isinstance(item, DoAssign):
             k, v = item

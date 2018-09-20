@@ -48,8 +48,7 @@ def memoize(f):
         sentinel, value = memo[k]
         if sentinel is success:
             return value
-        else:
-            raise value
+        raise value
     return memoized
 
 #def memoize_simple(f):  # essential idea, without exception handling
@@ -159,15 +158,14 @@ def curry(f, *args, **kwargs):
             now_args, later_args = args[:max_arity], args[max_arity:]
             now_result = f(*now_args, **kwargs)  # use up all kwargs now
             if callable(now_result):
-                # curry it now, to sustain the chain in case we still have
-                # too many args.
+                # curry it now, to sustain the chain in case we have
+                # too many (or too few) args for it.
                 if not iscurried(now_result):
                     now_result = curry(now_result)
                 return now_result(*later_args)
-            elif isinstance(now_result, (tuple, list)):
+            if isinstance(now_result, (tuple, list)):
                 return tuple(now_result) + later_args
-            else:
-                return (now_result,) + later_args
+            return (now_result,) + later_args
         return f(*args, **kwargs)
     curried._is_curried_function = True  # stash for detection
     # curry itself is curried: if we get args, they're the first step
@@ -394,8 +392,7 @@ def _make_compose(direction):  # "left", "right"
             # (consider chaining functions that manipulate a generator).
             if isinstance(a, (list, tuple)):
                 return f(*a)
-            else:
-                return f(a)
+            return f(a)
         return composed
     if direction == "right":
         compose_two = flip(compose_two)

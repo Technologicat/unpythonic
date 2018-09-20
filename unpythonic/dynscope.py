@@ -108,6 +108,7 @@ class _Env(object):
 
     def __iter__(self):
         return iter(self._asdict())
+    # no __next__, iterating over dict.
 
     def items(self):
         """Like dict.items(). Return a snapshot of the current state."""

@@ -198,6 +198,7 @@ def forall(*lines):
     return tuple(mlst)
 
 class List:
+    """List monad."""
     def __init__(self, *elts):  # unit: x: a -> M a
         # Accept the sentinel nil as a special **item** that, when passed to
         # the List constructor, produces an empty list.
@@ -223,8 +224,7 @@ class List:
     def guard(cls, b):  # bool -> List   (for the list monad)
         if b:
             return cls(True)  # List with one element; value not intended to be actually used.
-        else:
-            return cls()  # 0-element List; short-circuit this branch of the computation.
+        return cls()  # 0-element List; short-circuit this branch of the computation.
 
     def __getitem__(self, i): # make List iterable so that "for result in f(elt)" works
         return self.x[i]      # (when f outputs a List monad)
