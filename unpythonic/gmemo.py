@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Memoization of generators."""
+"""Memoization of generators.
 
-__all__ = ["gmemoize"]
+Memoize generator functions (generator definitions), iterators,
+or iterators created by factory functions."""
+
+__all__ = ["gmemoize", "imemoize", "fimemoize"]
 
 from operator import itemgetter
 from functools import wraps
@@ -11,37 +14,80 @@ from threading import RLock
 def gmemoize(gfunc):
     """Decorator: produce memoized generator instances.
 
-      - Decorate the generator function (i.e. generator definition) with this.
+    Similar to ``itertools.tee``, but the whole sequence is kept in memory
+    indefinitely, so more instances of the memoized generator can be created
+    at any time (instead of having to specify how many copies at ``tee`` time).
 
-      - All values yielded from the generator are stored indefinitely.
-
-        For infinite sequences, use this only if you can guarantee only a
-        reasonable number of terms will ever be evaluated (w.r.t. available RAM).
-
-      - Any exceptions raised by the generator (except StopIteration)
-        are also memoized, like in ``memoize``.
+    Decorate the **generator function** (i.e. generator definition) with this.
 
       - If the gfunc takes arguments, they must be hashable. A separate memoized
-        sequence is created for each unique set of arguments seen.
+        sequence is created for each unique set of argument values seen.
 
       - For simplicity, the generator itself may use ``yield`` for output only;
         ``send`` is not supported.
+
+      - Any exceptions raised by the generator (except StopIteration) are also
+        memoized, like in ``memoize``.
 
       - Thread-safe. Calls to ``next`` on the memoized generator from different
         threads are serialized via a lock. Each memoized sequence has its own
         lock. This uses ``threading.RLock``, so re-entering from the same
         thread (e.g. in recursively defined sequences) is fine.
 
+      - For infinite sequences, use this only if you can guarantee only a
+        reasonable number of terms will ever be evaluated (w.r.t. available RAM).
+
       - Typically, this should be the outermost decorator if several are used
         on the same gfunc.
 
     Usage::
 
+        evals = 0
+
         @gmemoize
-        def mygen():
-            yield 1
-            yield 2
-            yield 3
+        def one_two_three():
+            global evals
+            for j in range(3):
+                evals += 1
+                yield j
+
+        g1 = one_two_three()
+        assert tuple(x for x in g1) == (0, 1, 2)
+        g2 = one_two_three()
+        assert tuple(x for x in g2) == (0, 1, 2)
+        assert evals == 3
+
+    It doesn't matter when the generator instances are created, or when which
+    of them is advanced. All instances created with the same arguments (here none)
+    to the gfunc share the same memoized sequence.
+
+    **Recipe**: *Memoizing only a part of a sequence*.
+
+    Build a chain of generators, then memoize only the last one::
+
+        def orig():
+            yield from range(100)
+        def evens():
+            yield from (x for x in orig() if x % 2 == 0)
+        evaluations = collections.Counter()
+        @gmemoize
+        def some_evens(n):  # drop n first terms
+            evaluations[n] += 1
+            yield from drop(n, evens())
+        last(some_evens(25))
+        last(some_evens(25))
+        last(some_evens(20))
+        assert all(v == 1 for k, v in evaluations.items())
+
+    Or with ``lambda`` for a more compact presentation::
+
+        orig = lambda: (yield from range(100))
+        evens = lambda: (yield from (x for x in orig() if x % 2 == 0))
+        some_evens = gmemoize(lambda n: (yield from drop(n, evens())))
+        last(some_evens(25))
+        last(some_evens(25))
+
+    See also ``imemoize``, ``fimemoize``.
     """
     memos = {}
     @wraps(gfunc)
@@ -84,10 +130,98 @@ class _MemoizedGenerator:
             else:
                 raise value
 
+def imemoize(iterable):
+    """Memoize an iterable.
+
+    Return a gfunc with no parameters which, when called, returns a generator
+    that yields items from the memoized iterable. The original iterable is
+    used to retrieve more terms when needed.
+
+    ``imemoize`` essentially makes the iterable restartable (arbitrarily "tee-able"),
+    at the cost of keeping the whole history in memory.
+
+    Unlike ``itertools.tee``, there is no need to specify how many copies
+    are needed at ``tee`` time; a new copy can be created at any time,
+    by calling the returned gfunc.
+
+    Like ``itertools.tee``, after memoizing, the original iterator should not
+    be used. The danger is that if something outside the memoization mechanism
+    advances it, some values will be lost before they reach the memo.
+
+    Example::
+
+        evens = (x for x in range(100) if x % 2 == 0)
+        some_evens = imemoize(drop(25, evens))
+        assert last(some_evens()) == last(some_evens())  # iterating twice!
+
+    In the example, whenever ``some_evens`` is called, it returns a new
+    memoized generator instance that yields items from the memoized iterable.
+
+    If you need to take arguments to create the iterable, see ``fimemoize``.
+    """
+    # The lambda is the gfunc; decorate it with gmemoize and return that.
+    return gmemoize(lambda: (yield from iterable))
+
+def fimemoize(ifactory):
+    """Like imemoize, but for cases where creating the iterable needs arguments.
+
+    ``ifactory`` is a function, which takes any number of positional or keyword
+    arguments, and returns an iterable.
+
+    This is similar to ``gmemoize``, but for a regular function that returns
+    an iterable (instead of for a gfunc).
+
+    This works by defining a gfunc based on ``ifactory``, and gmemoizing that.
+    Hence arguments of ``ifactory`` must be hashable, and each unique set of
+    argument values produces its own memoized sequence.
+
+    The return value is a gfunc, which takes the same arguments as ``ifactory``.
+
+    Example::
+
+        def evens():
+            yield from (x for x in range(100) if x % 2 == 0)
+        def factory(n):  # regular function!
+            return drop(n, evens())
+        some_evens = fimemoize(factory)
+        assert last(some_evens(25)) == last(some_evens(25))  # iterating twice!
+
+    Compare to::
+
+        def evens():
+            yield from (x for x in range(100) if x % 2 == 0)
+        @gmemoize
+        def some_evens(n):  # gfunc!
+            yield from drop(n, evens())
+        assert last(some_evens(25)) == last(some_evens(25))
+
+    The original example is equivalent to::
+
+        def evens():
+            yield from (x for x in range(100) if x % 2 == 0)
+        @fimemoize
+        def some_evens(n):
+            return drop(n, evens())
+        assert last(some_evens(25)) == last(some_evens(25))
+
+    Or with lambda::
+
+        evens = lambda: (yield from (x for x in range(100) if x % 2 == 0))
+        some_evens = fimemoize(lambda n: drop(n, evens()))
+        assert last(some_evens(25)) == last(some_evens(25))
+    """
+    @wraps(ifactory)
+    def gfunc(*args, **kwargs):
+        yield from ifactory(*args, **kwargs)
+    return gmemoize(gfunc)
+    # return gmemoize(lambda *a, **kw: (yield from ifactory(*a, **kw)))
+
 def test():
     from time import time
     from itertools import count, takewhile
-    from unpythonic.it import take, last
+    from collections import Counter
+    from unpythonic.it import take, drop, last
+    from unpythonic.misc import call
 
     total_evaluations = 0
     @gmemoize
@@ -162,6 +296,43 @@ def test():
     else:
         assert False  # should have raised at the second next() call
     assert total_evaluations == 2
+
+    # Memoizing only a part of a sequence.
+    #
+    # Build a chain of generators, then memoize only the last one:
+    #
+    evaluations = Counter()
+    def orig():
+        yield from range(100)
+    def evens():
+        yield from (x for x in orig() if x % 2 == 0)
+    @gmemoize
+    def some_evens(n):  # drop n first terms
+        evaluations[n] += 1
+        yield from drop(n, evens())
+    last(some_evens(25))
+    last(some_evens(25))
+    last(some_evens(20))
+    assert all(v == 1 for k, v in evaluations.items())
+
+    # Or use lambda for a more compact presentation:
+    se = gmemoize(lambda n: (yield from drop(n, evens())))
+    assert last(se(25)) == last(se(25))  # iterating twice!
+
+    # Using fimemoize, we can omit the "yield from" (speficying a regular
+    # factory function that makes an iterable, instead of a gfunc):
+    se = fimemoize(lambda n: drop(n, evens()))
+    assert last(se(25)) == last(se(25))  # iterating twice!
+
+    # In the nonparametric case, we can memoize the iterable directly:
+    se = imemoize(drop(25, evens()))
+    assert last(se()) == last(se())  # iterating twice!
+
+    # DANGER: WRONG! Now we get a new instance of evens() also for the same n,
+    # so each call to se(n) caches separately. (This is why we have fimemoize.)
+    se = lambda n: call(imemoize(drop(n, evens())))  # call() invokes the gfunc
+    assert last(se(25)) == last(se(25))
+    assert last(se(20)) == last(se(20))
 
     # sieve of Eratosthenes
     def primes():
