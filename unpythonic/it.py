@@ -13,9 +13,7 @@ and (stream-scan) in SRFI-41.
   http://rightfootin.blogspot.fi/2006/09/more-on-python-flatten.html
 """
 
-__all__ = ["scanl", "scanr", "scanl1", "scanr1",
-           "foldl", "foldr", "reducel", "reducer",
-           "map_longest", "mapr", "zipr", "mapr_longest", "zipr_longest",
+__all__ = ["map_longest", "mapr", "zipr", "mapr_longest", "zipr_longest",
            "flatmap", "uniqify", "uniq",
            "take", "drop", "split_at", "unpack",
            "tail", "first", "second", "nth", "last", "scons",
@@ -27,126 +25,8 @@ from functools import partial
 from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby
 from collections import deque
 
-# Require at least one iterable to make this work seamlessly with curry.
-# We take this approach with any new function families Python doesn't provide
-# (mainly scans and folds).
-def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
-    """Scan (accumulate), optionally with multiple input iterables.
-
-    Similar to ``itertools.accumulate``. If the inputs are iterators, this is
-    essentially a lazy ``foldl`` that yields the intermediate result at each step.
-    Hence, useful for partially folding infinite sequences.
-
-    Initial value is mandatory; there is no sane default for the case with
-    multiple inputs.
-
-    At least one iterable (``iterable0``) is required. More are optional.
-
-    By default, terminate when the shortest input runs out. To terminate on
-    longest input, use ``longest=True`` and optionally provide a ``fillvalue``.
-
-    Returns a generator, which (roughly)::
-
-        acc = init
-        yield acc
-        for elts in zip(iterable0, *iterables):  # or zip_longest as appropriate
-            acc = proc(*elts, acc)  # if this was legal syntax
-            yield acc
-
-    Example - partial sums and products::
-
-        from operator import add, mul
-        psums = composer(tail, curry(scanl, add, 0))  # tail to drop the init value
-        pprods = composer(tail, curry(scanl, mul, 1))
-        data = range(1, 5)
-        assert tuple(psums(data)) == (1, 3, 6, 10)
-        assert tuple(pprods(data)) == (1, 2, 6, 24)
-    """
-    z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
-    acc = init
-    yield acc
-    for elts in z(iterable0, *iterables):
-        acc = proc(*(elts + (acc,)))
-        yield acc
-
-def scanr(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
-    """Like scanl, but scan from the right (walk each sequence backwards)."""
-    return scanl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
-                 longest=longest, fillvalue=fillvalue)
-
-def scanl1(proc, iterable, init=None):
-    """scanl for a single iterable, with optional init.
-
-    If ``init is None``, use the first element from the iterable.
-
-    If the iterable is empty, return ``None``.
-
-    Example - partial sums and products::
-
-        from operator import add, mul
-        psums = curry(scanl1, add)
-        pprods = curry(scanl1, mul)
-        data = range(1, 5)
-        assert tuple(psums(data)) == (1, 3, 6, 10)
-        assert tuple(pprods(data)) == (1, 2, 6, 24)
-    """
-    it = iter(iterable)
-    if not init:
-        try:
-            init = next(it)
-        except StopIteration:
-            return None  # empty input sequence
-    return scanl(proc, init, it)
-
-def scanr1(proc, sequence, init=None):
-    """Like scanl1, but scan from the right (walk backwards).
-
-    If ``init is None``, use the first element from the reversed sequence
-    (i.e. the last element of the original sequence).
-    """
-    return scanl1(proc, reversed(sequence), init)
-
-def foldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
-    """Racket-like foldl that supports multiple input iterables.
-
-    Initial value is mandatory; there is no sane default for the case with
-    multiple inputs.
-
-    At least one iterable (``iterable0``) is required. More are optional.
-
-    By default, terminate when the shortest input runs out. To terminate on
-    longest input, use ``longest=True`` and optionally provide a ``fillvalue``.
-
-    Note order: ``proc(elt, acc)``, which is the opposite order of arguments
-    compared to ``functools.reduce``. General case ``proc(e1, ..., en, acc)``.
-    """
-    return last(scanl(proc, init, iterable0, *iterables,
-                      longest=longest, fillvalue=fillvalue))
-
-def foldr(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
-    """Like foldl, but fold from the right (walk each sequence backwards)."""
-    # Reverse, then left-fold gives us a linear process.
-    return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
-                 longest=longest, fillvalue=fillvalue)
-
-def reducel(proc, iterable, init=None):
-    """Foldl for a single iterable, with optional init.
-
-    If ``init is None``, use the first element from the iterable.
-
-    Like ``functools.reduce``, but uses ``proc(elt, acc)`` like Racket."""
-    return last(scanl1(proc, iterable, init))
-
-def reducer(proc, sequence, init=None):
-    """Like reducel, but fold from the right (walk backwards).
-
-    If ``init is None``, use the first element from the reversed sequence
-    (i.e. the last element of the original sequence).
-    """
-    return reducel(proc, reversed(sequence), init)
-
-# Here we complete an existing set of functions (map, zip, zip_longest),
-# so consistency wins over curry-friendliness.
+# When completing an existing set of functions (map, zip, zip_longest),
+# consistency wins over curry-friendliness.
 def map_longest(func, *iterables, fillvalue=None):
     """Like map, but terminate on the longest input.
 
@@ -496,111 +376,12 @@ def iterate(f, *args):
         args = f(*args)
 
 def test():
-    from operator import add, mul
-    from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate, identity
-    from unpythonic.llist import cons, nil, ll, lreverse
+    from operator import add
+    from unpythonic.fun import composel, identity
 
-    # scan/accumulate: lazy fold that yields intermediate results.
-    assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
-    assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
-    assert tuple(scanl(mul, 1, range(2, 6))) == (1, 2, 6, 24, 120)
-    assert tuple(scanr(mul, 1, range(2, 6))) == (1, 5, 20, 60, 120)
-
-    assert tuple(scanl(cons, nil, ll(1, 2, 3))) == (nil, ll(1), ll(2, 1), ll(3, 2, 1))
-    assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (nil, ll(3), ll(2, 3), ll(1, 2, 3))
-
-    # in contrast, fold just returns the final result.
-    assert foldl(cons, nil, ll(1, 2, 3)) == ll(3, 2, 1)
-    assert foldr(cons, nil, ll(1, 2, 3)) == ll(1, 2, 3)
-
-    # reduce is a fold with a single input sequence, with init optional.
-    assert reducel(add, (1, 2, 3)) == 6
-    assert reducer(add, (1, 2, 3)) == 6
-
-    # scanl1, scanr1 are a scan with a single input sequence, with init optional.
-    assert tuple(scanl1(add, (1, 2, 3))) == (1, 3, 6)
-    assert tuple(scanr1(add, (1, 2, 3))) == (3, 5, 6)
-
-    from operator import add, mul
-    psums = composer(tail, curry(scanl, add, 0))  # tail to drop the init value
-    pprods = composer(tail, curry(scanl, mul, 1))
-    data = range(1, 5)
-    assert tuple(psums(data)) == (1, 3, 6, 10)
-    assert tuple(pprods(data)) == (1, 2, 6, 24)
-
-    psums = curry(scanl1, add)  # or use the fact the 1-input variant needs no init
-    pprods = curry(scanl1, mul)
-    data = range(1, 5)
-    assert tuple(psums(data)) == (1, 3, 6, 10)
-    assert tuple(pprods(data)) == (1, 2, 6, 24)
-
-    def foo(a, b, acc):
-        return acc + ((a, b),)
-    assert foldl(foo, (), (1, 2, 3), (4, 5)) == ((1, 4), (2, 5))
-    assert foldr(foo, (), (1, 2, 3), (4, 5)) == ((3, 5), (2, 4))
-
-    def mymap_one(f, sequence):
-        f_then_cons = composer(cons, to1st(f))  # args: elt, acc
-        return foldr(f_then_cons, nil, sequence)
-    double = lambda x: 2 * x
-    assert mymap_one(double, ll(1, 2, 3)) == ll(2, 4, 6)
-    def mymap_one2(f, sequence):
-        f_then_cons = composel(to1st(f), cons)  # args: elt, acc
-        return foldr(f_then_cons, nil, sequence)
-    assert mymap_one2(double, ll(1, 2, 3)) == ll(2, 4, 6)
-
-    # point-free-ish style
-    mymap_one3 = lambda f: partial(foldr, composer(cons, to1st(f)), nil)
-    doubler = mymap_one3(double)
-    assert doubler(ll(1, 2, 3)) == ll(2, 4, 6)
-
-    try:
-        doubler(ll(1, 2, 3), ll(4, 5, 6))
-    except TypeError:
-        pass
-    else:
-        assert False  # one arg too many; cons in the compose chain expects 2 args (acc is one)
-
-    # minimum arity of fold functions is 3, to allow use with curry:
-    mymap_one4 = lambda f: curry(foldr, composer(cons, to1st(f)), nil)
-    doubler = mymap_one4(double)
-    assert doubler(ll(1, 2, 3)) == ll(2, 4, 6)
-
-    # curry supports passing through on the right any args over the max arity.
-    assert curry(double, 2, "foo") == (4, "foo")   # arity of double is 1
-
-    # In passthrough, if an intermediate result is a callable,
-    # it is invoked on the remaining positional args:
-    assert curry(mymap_one4, double, ll(1, 2, 3)) == ll(2, 4, 6)
-
-    # This also works; curried f takes one argument and the second one is passed
-    # through on the right; this two-tuple then ends up as the arguments to cons.
-    mymap_one5 = lambda f: curry(foldr, composer(cons, curry(f)), nil)
-    assert curry(mymap_one5, double, ll(1, 2, 3)) == ll(2, 4, 6)
-
-    # Finally, we can drop the inner curry by using a currying compose.
-    # This is as close to "(define (map f) (foldr (compose cons f) empty)"
-    # (#lang spicy) as we're gonna get in Python.
-    mymap = lambda f: curry(foldr, composerc(cons, f), nil)
-    assert curry(mymap, double, ll(1, 2, 3)) == ll(2, 4, 6)
-
-    # The currying has actually made it not just map one, but general map that
-    # accepts multiple input sequences.
-    #
-    # The sequences are taken by the processing function. acc, being the last
-    # argument, is passed through on the right. The output from the processing
-    # function - one new item - and acc then become a two-tuple, which gets
-    # passed into cons.
-    myadd = lambda x, y: x + y  # can't inspect signature of builtin add
-    assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
-
-    # map_longest. foldr would walk the sequences from the right; use foldl.
-    mymap_longestrev = lambda f: curry(foldl, composerc(cons, f), nil, longest=True)
-    mymap_longest = composerc(lreverse, mymap_longestrev)
     def noneadd(a, b):
         if all(x is not None for x in (a, b)):
             return a + b
-    assert curry(mymap_longest, noneadd, ll(1, 2, 3), ll(2, 4)) == ll(3, 6, None)
 
     # Adding the missing batteries to the algebra of map and zip.
     # Note Python's (and Racket's) map is like Haskell's zipWith, but for n inputs.
@@ -615,27 +396,6 @@ def test():
 
     assert tuple(scons(0, range(1, 5))) == tuple(range(5))
     assert tuple(tail(scons("foo", range(5)))) == tuple(range(5))
-
-    reverse_one = curry(foldl, cons, nil)
-    assert reverse_one(ll(1, 2, 3)) == ll(3, 2, 1)
-
-    append_two = lambda a, b: foldr(cons, b, a)  # a, b: linked lists
-    assert append_two(ll(1, 2, 3), ll(4, 5, 6)) == ll(1, 2, 3, 4, 5, 6)
-
-    # see upythonic.llist.lappend
-    append_many = lambda *lsts: foldr(append_two, nil, lsts)
-    assert append_many(ll(1, 2), ll(3, 4), ll(5, 6)) == ll(1, 2, 3, 4, 5, 6)
-
-    mysum = curry(foldl, add, 0)
-    myprod = curry(foldl, mul, 1)
-    a = ll(1, 2)
-    b = ll(3, 4)
-    assert mysum(append_two(a, b)) == 10
-    assert myprod(b) == 12
-
-    packtwo = lambda a, b: ll(a, b)  # using a tuple return value here would confuse curry.
-    assert foldl(composerc(cons, packtwo), nil, (1, 2, 3), (4, 5), longest=True) == \
-           ll(ll(3, None), ll(2, 5), ll(1, 4))
 
     def msqrt(x):  # multivalued sqrt
         if x == 0.:
@@ -658,17 +418,18 @@ def test():
 
     assert tuple(drop(5, range(10))) == tuple(range(5, 10))
     assert tuple(drop(5, range(3))) == ()
-    p = composel(partial(drop, 5), partial(take, 5))
-    assert tuple(p(range(20))) == tuple(range(5, 10))
+
+    drop5take5 = composel(partial(drop, 5), partial(take, 5))
+    assert tuple(drop5take5(range(20))) == tuple(range(5, 10))
 
     with_same_n = lambda n, fs: (partial(f, n) for f in fs)
 #    with_same_n = lambda n, fs: map((lambda f: partial(f, n)), fs)
-    p = composel(*with_same_n(5, (drop, take)))
-    assert tuple(p(range(20))) == tuple(range(5, 10))
+    drop5take5 = composel(*with_same_n(5, (drop, take)))
+    assert tuple(drop5take5(range(20))) == tuple(range(5, 10))
 
     with_n = lambda *args: (partial(f, n) for n, f in args)
-    p = composel(*with_n((5, drop), (10, take)))
-    assert tuple(p(range(20))) == tuple(range(5, 15))
+    drop5take10 = composel(*with_n((5, drop), (10, take)))
+    assert tuple(drop5take10(range(20))) == tuple(range(5, 15))
 
     a, b = map(tuple, split_at(5, range(10)))
     assert a == tuple(range(5))
@@ -678,19 +439,8 @@ def test():
     assert a == tuple(range(3))
     assert b == ()
 
-    @rotate(1)
-    def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
-        return acc + (rest,)  # even though the input is (e1, ..., en, acc).
-#    def zipper(*args):  # straightforward version
-#        *rest, acc = args
-#        return acc + (tuple(rest),)
-    zipl1 = curry(foldl, zipper, ())
-    zipr1 = curry(foldr, zipper, ())
-    assert zipl1((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
-    assert zipr1((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
-
     # Python's builtin map is not curry-friendly; it accepts arity 1,
-    # but actually requires 2. Solution: use partial.
+    # but actually requires 2. Solution: use partial instead of curry.
     zipl2 = partial(map, identity)
     zipr2 = lambda *sequences: map(identity, *(reversed(s) for s in sequences))
     assert tuple(zipl2((1, 2, 3), (4, 5, 6), (7, 8))) == ((1, 4, 7), (2, 5, 8))
@@ -752,179 +502,6 @@ def test():
     g = mygen()
     g = dostuff(g)  # advances g, but then overwrites name g with the returned tail
     assert next(g) == 10
-
-    # http://learnyouahaskell.com/higher-order-functions
-    def collatz(n):
-        if n < 1:
-            raise ValueError()
-        while True:
-            yield n
-            if n == 1:
-                break
-            n = n // 2 if n % 2 == 0 else 3 * n + 1
-    assert tuple(collatz(13)) == (13, 40, 20, 10, 5, 16, 8, 4, 2, 1)
-    assert tuple(collatz(10)) == (10, 5, 16, 8, 4, 2, 1)
-    assert tuple(collatz(30)) == (30, 15, 46, 23, 70, 35, 106, 53, 160, 80, 40, 20, 10, 5, 16, 8, 4, 2, 1)
-    def len_gt(k, s):
-        a, _ = unpack(1, drop(k, s))
-        return a  # None if no item
-    islong = curry(len_gt, 15)
-    assert sum(1 for n in range(1, 101) if islong(collatz(n))) == 66
-
-    # Implicitly defined infinite streams, using generators.
-    #
-    def adds(s1, s2):
-        """Add two infinite streams (elementwise)."""
-        return map(add, s1, s2)
-    def muls(s, c):
-        """Multiply an infinite stream by a constant."""
-        return map(lambda x: c * x, s)
-
-    # will eventually crash (stack overflow)
-    def ones_fp():
-        yield 1
-        yield from ones_fp()
-    def nats_fp(start=0):
-        yield start
-        yield from adds(nats_fp(start), ones_fp())
-    def fibos_fp():
-        yield 1
-        yield 1
-        yield from adds(fibos_fp(), tail(fibos_fp()))
-    def powers_of_2():
-        yield 1
-        yield from muls(powers_of_2(), 2)
-    assert tuple(take(10, ones_fp())) == (1,) * 10
-    assert tuple(take(10, nats_fp())) == tuple(range(10))
-    assert tuple(take(10, fibos_fp())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
-    assert tuple(take(10, powers_of_2())) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
-
-    # The scanl equations are sometimes useful. The conditions
-    #   rs[0] = s0
-    #   rs[k+1] = rs[k] + xs[k]
-    # are equivalent with
-    #   rs = scanl(add, s0, xs)
-    # https://www.vex.net/~trebla/haskell/scanl.xhtml
-    def zs():  # s0 = 0, rs = [0, ...], xs = [0, ...]
-        yield from scanl(add, 0, zs())
-    def os():  # s0 = 1, rs = [1, ...], xs = [0, ...]
-        yield from scanl(add, 1, zs())
-    def ns(start=0):  # s0 = start, rs = [start, start+1, ...], xs = [1, ...]
-        yield from scanl(add, start, os())
-    def fs():  # s0 = 1, scons(1, rs) = fibos, xs = fibos
-        yield 1
-        yield from scanl(add, 1, fs())
-    def p2s():  # s0 = 1, rs = xs = [1, 2, 4, ...]
-        yield from scanl(add, 1, p2s())
-    assert tuple(take(10, zs())) == (0,) * 10
-    assert tuple(take(10, os())) == (1,) * 10
-    assert tuple(take(10, ns())) == tuple(range(10))
-    assert tuple(take(10, fs())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
-    assert tuple(take(10, p2s())) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
-
-    # better Python: simple is better than complex
-    from itertools import repeat
-    def ones():
-        return repeat(1)
-    def nats(start=0):
-        return scanl(add, start, ones())
-    def fibos():
-        a, b = 1, 1
-        while True:
-            yield a
-            a, b = b, a + b
-    def pows():
-        x = 1
-        while True:
-            yield x
-            x *= 2
-    assert tuple(take(10, ones())) == (1,) * 10
-    assert tuple(take(10, nats())) == tuple(range(10))
-    assert tuple(take(10, fibos())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
-    assert tuple(take(10, pows())) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
-
-    # How to improve accuracy of numeric differentiation with FP tricks.
-    #
-    # See:
-    #   Hughes, 1984: Why Functional Programming Matters, p. 11 ff.
-    #   http://www.cse.chalmers.se/~rjmh/Papers/whyfp.html
-    #
-    from math import sin, pi, log2
-    def easydiff(f, x, h):  # as well known, wildly inaccurate
-        return (f(x + h) - f(x)) / h
-    def halve(x):
-        return x / 2
-    def differentiate(h0, f, x):
-        return map(curry(easydiff, f, x), iterate1(halve, h0))
-    def within(eps, s):
-        while True:
-            # unpack with peek (but be careful, the rewinded tail is a tee'd copy)
-            a, b, s = unpack(2, s, k=1)
-            if abs(a - b) < eps:
-                return b
-    def differentiate_with_tol(h0, f, x, eps):
-        return within(eps, differentiate(h0, f, x))
-    assert abs(differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-7
-
-    def order(s):
-        """Estimate asymptotic order of s, consuming the first three terms."""
-        a, b, c, _ = unpack(3, s)
-        return round(log2(abs((a - c) / (b - c)) - 1))
-    def eliminate_error(n, s):
-        """Eliminate error term of given asymptotic order n.
-
-        The stream s must be based on halving h at each step
-        for the formula used here to work."""
-        while True:
-            a, b, s = unpack(2, s, k=1)
-            yield (b*2**n - a) / (2**(n - 1))
-    def improve(s):
-        """Eliminate asymptotically dominant error term from s.
-
-        Consumes the first three terms to estimate the order.
-        """
-        return eliminate_error(order(s), s)
-    def better_differentiate_with_tol(h0, f, x, eps):
-        return within(eps, improve(differentiate(h0, f, x)))
-    assert abs(better_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-9
-
-    def super_improve(s):
-        return map(second, iterate1(improve, s))
-    def best_differentiate_with_tol(h0, f, x, eps):
-        return within(eps, super_improve(differentiate(h0, f, x)))
-    assert abs(best_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-12
-
-    # pi approximation with Euler series acceleration
-    #
-    # See SICP, 2nd ed., sec. 3.5.3.
-    #
-    # This implementation originally by Jim Hoover, in Racket, from:
-    # https://sites.ualberta.ca/~jhoover/325/CourseNotes/section/Streams.htm
-    #
-    partial_sums = curry(scanl1, add)
-    def pi_summands(n):  # π/4 = 1 - 1/3 + 1/5 - 1/7 + ...
-        sign = +1
-        while True:
-            yield sign / n
-            n += 2
-            sign *= -1
-    pi_stream = muls(partial_sums(pi_summands(1)), 4)
-
-    # http://mathworld.wolfram.com/EulerTransform.html
-    # https://en.wikipedia.org/wiki/Series_acceleration#Euler%27s_transform
-    def euler_transform(s):
-        while True:
-            a, b, c, s = unpack(3, s, k=1)
-            yield c - ((c - b)**2 / (a - 2*b + c))
-    faster_pi_stream = euler_transform(pi_stream)
-
-    def super_accelerate(transform, s):
-        return map(first, iterate1(transform, s))
-    fastest_pi_stream = super_accelerate(euler_transform, pi_stream)
-
-    assert abs(last(take(6, pi_stream)) - pi) < 0.2
-    assert abs(last(take(6, faster_pi_stream)) - pi) < 1e-3
-    assert abs(last(take(6, fastest_pi_stream)) - pi) < 1e-15
 
     print("All tests PASSED")
 

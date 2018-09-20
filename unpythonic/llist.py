@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from itertools import zip_longest
 
 from unpythonic.fun import composer1i
-from unpythonic.it import foldr, foldl
+from unpythonic.fold import foldr, foldl
 
 # explicit list better for tooling support
 _exports = ["cons", "nil",

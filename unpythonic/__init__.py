@@ -14,6 +14,7 @@ from .arity import *
 from .assignonce import *
 from .dynscope import *
 from .ec import *
+from .fold import *
 from .fun import *
 from .fup import *
 from .gmemo import *

@@ -20,7 +20,7 @@ from functools import wraps, partial
 from operator import itemgetter
 
 from unpythonic.arity import arities
-import unpythonic.it
+from unpythonic.fold import reducel
 
 def memoize(f):
     """Decorator: memoize the function f.
@@ -348,7 +348,7 @@ def _make_compose1(direction):  # "left", "right"
         # Using reducel is particularly nice here:
         #  - if fs is empty, we output None
         #  - if fs contains only one item, we output it as-is
-        return unpythonic.it.reducel(compose1_two, fs)  # op(elt, acc)
+        return reducel(compose1_two, fs)  # op(elt, acc)
     return compose1
 
 _compose1_left = _make_compose1("left")
@@ -400,7 +400,7 @@ def _make_compose(direction):  # "left", "right"
     if direction == "right":
         compose_two = flip(compose_two)
     def compose(fs):
-        return unpythonic.it.reducel(compose_two, fs)  # op(elt, acc)
+        return reducel(compose_two, fs)  # op(elt, acc)
     return compose
 
 _compose_left = _make_compose("left")
