@@ -23,7 +23,8 @@ Other design considerations are simplicity, robustness, and minimal dependencies
  - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables, dynamic assignment)
  - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`; also `gmemoize` for generators
    - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
- - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); lazy partial unpacking for infinite sequences
+   - [Memoization for generators](#memoization-for-generators), iterables and iterator factories.
+ - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking for infinite sequences
  - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
  - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
  - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
@@ -1087,7 +1088,6 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
 
  - `memoize` caches also exceptions à la Racket.
    - If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
- - `gmemoize` is provided in the [`gmemo`](unpythonic/gmemo.py) module to make rackety memoizing generators.
  - `curry` comes with some extra features:
    - Passthrough on the right when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket)
      - If the intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
@@ -1256,6 +1256,90 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
 **Note**: to code in curried style, a [contract system](https://github.com/AndreaCensi/contracts) or a [static type checker](http://mypy-lang.org/) is useful; also, be careful with variadic functions.
 
 
+#### Memoization for generators
+
+Make generator functions (gfunc, i.e. a generator definition) which create memoized generators, similar to how streams behave in Racket.
+
+Memoize iterables; like `itertools.tee`, but no need to know in advance how many copies of the iterator will be made. Provided for both iterables and for factory functions that make iterables.
+
+ - `gmemoize` is a decorator for a gfunc, which makes it memoize the instantiated generators.
+   - If the gfunc takes arguments, they must be hashable. A separate memoized sequence is created for each unique set of argument values seen.
+   - For simplicity, the generator itself may use ``yield`` for output only; ``send`` is not supported.
+   - Any exceptions raised by the generator (except StopIteration) are also memoized, like in ``memoize``.
+   - Thread-safe. Calls to ``next`` on the memoized generator from different threads are serialized via a lock. Each memoized sequence has its own lock. This uses ``threading.RLock``, so re-entering from the same thread (e.g. in recursively defined sequences) is fine.
+   - The whole history is kept indefinitely. For infinite sequences, use this only if you can guarantee that only a reasonable number of terms will ever be evaluated (w.r.t. available RAM).
+   - Typically, this should be the outermost decorator if several are used on the same gfunc.
+ - `imemoize`: memoize an iterable. Like `itertools.tee`, but keeps the whole history, so more copies can be teed off later.
+   - Same limitation: **do not** use the original iterator after it is memoized. The danger is that if anything other than the memoization mechanism advances the original iterator, some values will be lost before they can reach the memo.
+   - Returns a gfunc with no parameters which, when called, returns a generator that yields items from the memoized iterable. The original iterable is used to retrieve more terms when needed.
+   - Calling the gfunc essentially tees off a new instance, which begins from the first memoized item.
+ - `fimemoize`: convert a factory function, that returns an iterable, into the corresponding gfunc, and `gmemoize` that. Return the memoized gfunc.
+   - Especially convenient with short lambdas, where `(yield from ...)` instead of `...` is just too much text.
+
+```python
+from itertools import count, takewhile
+from unpythonic import gmemoize, imemoize, fimemoize, take
+
+@gmemoize
+def primes():
+    yield 2
+    for n in count(start=3, step=2):
+        if not any(p != n and n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
+            yield n
+assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
+```
+
+Memoizing only a part of a sequence. This is where `imemoize` and `fimemoize` can be useful. The basic idea is to make a chain of generators, and only memoize the last one:
+
+```python
+from unpythonic import gmemoize, drop, last
+
+def evens():  # the input iterable
+    yield from (x for x in range(100) if x % 2 == 0)
+
+@gmemoize
+def some_evens(n):  # we want to memoize the result without the n first terms
+    yield from drop(n, evens())
+
+assert last(some_evens(25)) == last(some_evens(25))  # iterating twice!
+```
+
+Using a lambda, we can also write ``some_evens`` as:
+
+```python
+se = gmemoize(lambda n: (yield from drop(n, evens())))
+assert last(se(25)) == last(se(25))
+```
+
+Using `fimemoize`, we can omit the ``yield from``, shortening this to:
+
+```python
+se = fimemoize(lambda n: drop(n, evens()))
+assert last(se(25)) == last(se(25))
+```
+
+If we don't need to take an argument, we can memoize the iterable directly, using ``imemoize``:
+
+```python
+se = imemoize(drop(25, evens()))
+assert last(se()) == last(se())  # se is a gfunc, so call it to get a generator instance
+```
+
+Finally, compare the `fimemoize` example, rewritten using `def`, to the original `gmemoize` example:
+
+```python
+@fimemoize
+def some_evens(n):
+    return drop(n, evens())
+
+@gmemoize
+def some_evens(n):
+    yield from drop(n, evens())
+```
+
+The only differences are the name of the decorator and ``return`` vs. ``yield from``. The point of `fimemoize` is that in simple cases like this, it allows us to use a regular factory function that makes an iterable, instead of a gfunc. Of course, the gfunc could have several `yield` expressions before it finishes, whereas the factory function terminates at the `return`.
+
+
 ### Batteries for itertools
 
  - `foldl`, `foldr` with support for multiple input sequences, like in Racket.
@@ -1268,6 +1352,10 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
    - `scanl` is suitable for infinite inputs.
    - Multiple input sequences and shortest/longest termination supported; same semantics as in `foldl`, `foldr`.
    - One-input versions with optional init are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
+ - `unfold1`, `unfold`: generate a sequence [corecursively](https://en.wikipedia.org/wiki/Corecursion). The counterpart of `foldl`.
+   - `unfold1` is for 1-in-2-out functions. The input is `state`, the return value is `(value, newstate)` or `None`.
+   - `unfold` is for n-in-(1+n)-out functions. The input is `*states`, the return value is `(value, *newstates)` or `None`.
+   - Unfold returns a generator yielding the collected values. Iteration stops when the user function returns `None`.
  - `unpack`: lazily unpack an iterable. Suitable for infinite inputs.
    - Return the first ``n`` items and the ``k``th tail, in a tuple. Default is ``k = n``.
    - Use ``k > n`` to fast-forward, consuming the skipped items. Works by `drop`.
@@ -1296,7 +1384,7 @@ Examples:
 from functools import partial
 from unpythonic import scanl, scanr, foldl, foldr, flatmap, mapr, zipr, \
                        uniqify, uniq, flatten1, flatten, flatten_in, take, drop, \
-                       cons, nil, ll
+                       unfold, unfold1, cons, nil, ll
 
 assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
 assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
@@ -1305,6 +1393,14 @@ assert tuple(scanr(mul, 1, range(2, 6))) == (1, 5, 20, 60, 120)
 
 assert tuple(scanl(cons, nil, ll(1, 2, 3))) == (nil, ll(1), ll(2, 1), ll(3, 2, 1))
 assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (nil, ll(3), ll(2, 3), ll(1, 2, 3))
+
+def step2(k):  # x0, x0 + 2, x0 + 4, ...
+    return (k, k + 2)  # value, newstate
+assert tuple(take(10, unfold1(step2, 10))) == (10, 12, 14, 16, 18, 20, 22, 24, 26, 28)
+
+def nextfibo(a, b):
+    return (a, b, a + b)  # value, *newstates
+assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 
 def fibos():
     a, b = 1, 1
