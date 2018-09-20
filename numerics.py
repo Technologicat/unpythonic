@@ -86,9 +86,9 @@ def test():
     def nats(start=0):
         return scanl(add, start, ones())
     def fibos():
-        def update(a, b):
+        def nextfibo(a, b):
             return a, b, a + b
-        return unfold(update, 1, 1)
+        return unfold(nextfibo, 1, 1)
     def pows():
         return scanl(mul, 1, repeat(2))
     assert tuple(take(10, ones())) == (1,) * 10

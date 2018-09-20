@@ -70,12 +70,12 @@ def test():
     from unpythonic.it import last, take
 
     # basic usage:
-    def gen():
+    def march():
         yield 1
         yield 2
-        return gen()  # tail-chain to gen itself
-    assert tuple(take(6, gtco(gen()))) == (1, 2, 1, 2, 1, 2)
-    last(take(10000, gtco(gen())))  # no crash
+        return march()  # tail-chain to a new instance of itself
+    assert tuple(take(6, gtco(march()))) == (1, 2, 1, 2, 1, 2)
+    last(take(10000, gtco(march())))  # no crash
 
     def ones():
         yield 1
