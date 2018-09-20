@@ -328,16 +328,14 @@ def test():
     # sieve of Eratosthenes
     def primes():
         yield 2
-        for f in count(start=1):
-            n = 2*f + 1
+        for n in count(start=3, step=2):
             if not any(p != n and n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
                 yield n
 
     @gmemoize  # <-- the only change (beside the function name)
     def mprimes():
         yield 2
-        for f in count(start=1):
-            n = 2*f + 1
+        for n in count(start=3, step=2):
             if not any(p != n and n % p == 0 for p in takewhile(lambda x: x*x <= n, mprimes())):
                 yield n
 
@@ -346,8 +344,7 @@ def test():
         def manual_mprimes():
             memo.append(2)
             yield 2
-            for f in count(start=1):
-                n = 2*f + 1
+            for n in count(start=3, step=2):
                 if not any(p != n and n % p == 0 for p in takewhile(lambda x: x*x <= n, memo)):
                     memo.append(n)
                     yield n
