@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Folds and scans (lazy partial folds)."""
+"""Folds, scans (lazy partial folds), and unfold."""
 
 __all__ = ["scanl", "scanr", "scanl1", "scanr1",
-           "foldl", "foldr", "reducel", "reducer"]
+           "foldl", "foldr", "reducel", "reducer",
+           "unfold", "unfold1"]
 
 from functools import partial
 from itertools import zip_longest
@@ -126,6 +127,57 @@ def reducer(proc, sequence, init=None):
     (i.e. the last element of the original sequence).
     """
     return reducel(proc, reversed(sequence), init)
+
+def unfold1(proc, init):
+    """Generate a sequence corecursively. The counterpart of foldl.
+
+    Returns a generator.
+
+    State starts from the value ``init``.
+
+    ``proc`` must accept one argument, the state.
+
+    It must return either ``(value, newstate)``, or ``None`` to signify
+    that the sequence ends.
+
+    Example::
+
+        def step2(k):  # x0, x0 + 2, x0 + 4, ...
+            return (k, k + 2)
+
+        assert tuple(take(10, unfold1(step2, 10))) == \\
+               (10, 12, 14, 16, 18, 20, 22, 24, 26, 28)
+    """
+    state = init
+    while True:
+        result = proc(state)
+        if result is None:
+            break
+        value, state = result
+        yield value
+
+def unfold(proc, *inits):
+    """Like unfold1, but for n-in-n-out proc.
+
+    The current state is unpacked to the argument list of ``proc``.
+    It must return either ``(value, *newstates)``, or ``None`` to signify
+    that the sequence ends.
+
+    Example::
+
+        def fibo(a, b):
+            return (a, b, a+b)
+
+        assert tuple(take(10, unfold(fibo, 1, 1))) == \\
+               (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+    """
+    states = inits
+    while True:
+        result = proc(*states)
+        if result is None:
+            break
+        value, *states = result
+        yield value
 
 def test():
     from operator import add, mul
@@ -266,6 +318,27 @@ def test():
     zipr1 = curry(foldr, zipper, ())
     assert zipl1((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
     assert zipr1((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
+
+    # Unfold.
+    #
+    def step2(k):  # x0, x0 + 2, x0 + 4, ...
+        return (k, k + 2)
+
+    def fibo(a, b):
+        return (a, b, a+b)
+
+    def myiterate(f, x):  # x0, f(x0), f(f(x0)), ...
+        return (x, f, f(x))
+
+    def zip_two(As, Bs):
+        if len(As) and len(Bs):
+            (A0, *moreAs), (B0, *moreBs) = As, Bs
+            return ((A0, B0), moreAs, moreBs)
+
+    assert tuple(take(10, unfold1(step2, 10))) == (10, 12, 14, 16, 18, 20, 22, 24, 26, 28)
+    assert tuple(take(10, unfold(fibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+    assert tuple(take(5, unfold(myiterate, lambda x: x**2, 2))) == (2, 4, 16, 256, 65536)
+    assert tuple(unfold(zip_two, (1, 2, 3, 4), (5, 6, 7))) == ((1, 5), (2, 6), (3, 7))
 
     print("All tests PASSED")
 

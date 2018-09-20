@@ -8,7 +8,7 @@ from math import sin, pi, log2
 
 from unpythonic.fun import curry
 from unpythonic.it import unpack, drop, take, tail, first, second, last, iterate1
-from unpythonic.fold import scanl, scanl1
+from unpythonic.fold import scanl, scanl1, unfold
 
 def test():
     # http://learnyouahaskell.com/higher-order-functions
@@ -86,10 +86,9 @@ def test():
     def nats(start=0):
         return scanl(add, start, ones())
     def fibos():
-        a, b = 1, 1
-        while True:
-            yield a
-            a, b = b, a + b
+        def update(a, b):
+            return a, b, a + b
+        return unfold(update, 1, 1)
     def pows():
         return scanl(mul, 1, repeat(2))
     assert tuple(take(10, ones())) == (1,) * 10
