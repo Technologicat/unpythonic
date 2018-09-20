@@ -1177,7 +1177,8 @@ Using a currying compose function (name suffixed with ``c``), the inner curry ca
 
 ```python
 mymap = lambda f: curry(foldr, composerc(cons, f), nil)
-assert curry(mymap, lambda x, y: x + y, (1, 2, 3), (2, 4, 6)) == (3, 6, 9)
+myadd = lambda a, b: a + b
+assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 ```
 
 This is as close to ```(define (map f) (foldr (compose cons f) empty)``` (in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy)) as we're gonna get in Python.
