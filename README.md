@@ -15,8 +15,9 @@ Other design considerations are simplicity, robustness, and minimal dependencies
    - [Sequence functions: ``pipe``, ``piped``, ``lazy_piped``](#sequence-functions-pipe-piped-lazy_piped)
  - [Introduce local bindings: ``let``, ``letrec``](#introduce-local-bindings-let-letrec)
    - [The environment: ``env``](#the-environment-env)
- - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations); also tail-chaining of generators
+ - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
    - [Loops in FP style (with TCO)](#loops-in-fp-style-with-tco): FP looping constructs.
+   - [Generators with TCO](#generators-with-tco): tail-chaining; like ``itertools.chain``, but from inside a generator.
  - [Escape continuations (ec)](#escape-continuations-ec)
    - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
  - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables, dynamic assignment)
@@ -396,8 +397,6 @@ When the `with` block exits, the environment clears itself. The environment inst
 ### Tail call optimization (TCO) / explicit continuations
 
 Express algorithms elegantly without blowing the call stack - with explicit, clear syntax.
-
-Since v0.8.5, generators can be tail-chained into another generator; see the [`gtco`](unpythonic/gtco.py) module. This section, however, talks about TCO for regular functions.
 
 *Tail recursion*:
 
@@ -840,6 +839,67 @@ s = curry(looped_over, range(10), 0,
             lambda loop, x, acc:
               loop(acc + x))
 assert s == 45
+```
+
+#### Generators with TCO
+
+In ``unpythonic``, a generator can tail-chain into another generator. This is like invoking ``itertools.chain``, but as a tail call from inside the generator - so the generator itself can choose the next iterable in the chain. If the next iterable is a generator, it can again tail-chain into something else. If it is not a generator, it becomes the last iterable in the TCO chain.
+
+Python provides a convenient hook to build things like this, in the guise of ``return``:
+
+```python
+from unpythonic import gtco, take, last
+
+def march():
+    yield 1
+    yield 2
+    return march()  # tail-chain to a new instance of itself
+assert tuple(take(6, gtco(march()))) == (1, 2, 1, 2, 1, 2)
+last(take(10000, gtco(march())))  # no crash
+```
+
+Note the calls to ``gtco`` at the use sites. For convenience, we provide ``@gtrampolined``, which automates that:
+
+```python
+from unpythonic import gtrampolined, take, last
+
+@gtrampolined
+def ones():
+    yield 1
+    return ones()
+assert tuple(take(10, ones())) == (1,) * 10
+last(take(10000, ones()))  # no crash
+```
+
+The system makes sure only one generator trampoline is running in any given thread at a time, so it is safe to tail-chain into a ``@gtrampolined`` generator.
+
+**CAUTION**: The trampoline bookkeeping is implemented using dynamic assignment. **Do not** spawn new threads from inside a trampolined generator (unless you shut them down before the generator hits its next ``yield``). If you do, the new threads will not see when the trampoline shuts down, because the main thread's dynamic variable stack is snapshotted and then made thread-local at thread spawn time. See ``dynscope``.
+
+Like all tail calls, this works for any *iterative* process. In contrast, this **does not work**:
+
+```python
+from operator import add
+from unpythonic import gtrampolined, scanl, take
+
+@gtrampolined
+def fibos():  # see numerics.py
+    yield 1
+    return scanl(add, 1, fibos())
+print(tuple(take(10, fibos())))  # --> (1, 1, 2), only 3 terms?!
+```
+
+This sequence is recursively defined, and the ``return`` shuts down the generator before it can yield more terms into ``scanl``. With ``yield from`` instead of ``return`` the second example works (but since it is recursive, it eventually blows the call stack).
+
+This particular example can be converted into a linear process with a different higher-order function, no TCO needed:
+
+```python
+from unpythonic import unfold, take, last
+def fibos():
+    def nextfibo(a, b):
+        return a, b, a + b  # value, *newstates
+    return unfold(nextfibo, 1, 1)
+assert tuple(take(10, fibos())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+last(take(10000, fibos()))  # no crash
 ```
 
 
