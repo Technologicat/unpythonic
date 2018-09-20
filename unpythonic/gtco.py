@@ -14,12 +14,12 @@ def gtco(generator):
 
     Example::
 
-        def gen():
+        def march():
             yield 1
             yield 2
-            return gen()  # tail-chain to gen itself
-        assert tuple(take(6, gtco(gen()))) == (1, 2, 1, 2, 1, 2)
-        last(take(10000, gtco(gen())))  # no crash
+            return march()  # tail-chain to a new instance of itself
+        assert tuple(take(6, gtco(march()))) == (1, 2, 1, 2, 1, 2)
+        last(take(10000, gtco(march())))  # no crash
     """
     while True:  # trampoline
         x = yield from generator  # yield stuff, get final result (return ...)
