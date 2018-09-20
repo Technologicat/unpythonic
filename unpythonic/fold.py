@@ -157,7 +157,7 @@ def unfold1(proc, init):
         yield value
 
 def unfold(proc, *inits):
-    """Like unfold1, but for n-in-n-out proc.
+    """Like unfold1, but for n-in-(1+n)-out proc.
 
     The current state is unpacked to the argument list of ``proc``.
     It must return either ``(value, *newstates)``, or ``None`` to signify
@@ -325,7 +325,7 @@ def test():
         return (k, k + 2)
 
     def fibo(a, b):
-        return (a, b, a+b)
+        return (a, b, a + b)
 
     def myiterate(f, x):  # x0, f(x0), f(f(x0)), ...
         return (x, f, f(x))
