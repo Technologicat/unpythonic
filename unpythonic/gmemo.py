@@ -310,7 +310,7 @@ def test():
     se = gmemoize(lambda n: (yield from drop(n, evens())))
     assert last(se(25)) == last(se(25))  # iterating twice!
 
-    # Using fimemoize, we can omit the "yield from" (speficying a regular
+    # Using fimemoize, we can omit the "yield from" (specifying a regular
     # factory function that makes an iterable, instead of a gfunc):
     se = fimemoize(lambda n: drop(n, evens()))
     assert last(se(25)) == last(se(25))  # iterating twice!
