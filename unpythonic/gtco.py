@@ -26,9 +26,12 @@ def gtco(generator):
     with dyn.let(_gtrampoline_active=True):
         while True:  # trampoline
             x = yield from generator  # yield stuff, get final result (return ...)
-            if not isgenerator(x) and not isinstance(x, _TrampolinedGenerator):
+            if isgenerator(x) or isinstance(x, _TrampolinedGenerator):
+                generator = x
+            else:
+                if x:  # usually this is None, but allow for an iterable
+                    yield from x  # the last batch!
                 break
-            generator = x
 
 def gtrampolined(gfunc):
     """Decorator for generator functions (i.e. definitions of generators).
@@ -87,6 +90,12 @@ def test():
         return ones2()
     assert tuple(take(10, ones2())) == (1,) * 10
     last(take(10000, ones2()))  # no crash
+
+    @gtrampolined
+    def ranges():
+        yield from range(10)
+        return range(10, 20)  # can tail-chain into any iterable
+    assert tuple(ranges()) == tuple(range(20))
 
     print("All tests PASSED")
 
