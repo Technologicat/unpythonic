@@ -7,8 +7,6 @@ __all__ = ["gtco", "gtrampolined"]
 from functools import wraps
 from inspect import isgenerator
 
-from unpythonic.dynscope import dyn
-
 def gtco(generator):
     """Low-level function: run a generator with TCO enabled.
 
@@ -23,15 +21,19 @@ def gtco(generator):
         assert tuple(take(6, gtco(gen()))) == (1, 2, 1, 2, 1, 2)
         last(take(10000, gtco(gen())))  # no crash
     """
-    with dyn.let(_gtrampoline_active=True):
-        while True:  # trampoline
-            x = yield from generator  # yield stuff, get final result (return ...)
-            if isgenerator(x) or isinstance(x, _TrampolinedGenerator):
-                generator = x
-            else:
-                if x:  # usually this is None, but allow for an iterable
-                    yield from x  # the last batch!
-                break
+    while True:  # trampoline
+        x = yield from generator  # yield stuff, get final result (return ...)
+        # don't let the TCO jump target bring along its trampoline if it has one
+        if isinstance(x, _TrampolinedGenerator):
+            x = x.g
+        if isgenerator(x):
+            generator = x
+        else:
+            # usually the return value is None, but allow for an iterable
+            try:
+                yield from x  # the last batch!
+            except TypeError:
+                return x  # passthrough
 
 def gtrampolined(gfunc):
     """Decorator for generator functions (i.e. definitions of generators).
@@ -48,21 +50,17 @@ def gtrampolined(gfunc):
         last(take(10000, ones()))  # no crash
     """
     @wraps(gfunc)
-    def decorated(*args, **kwargs):
+    def trampolining_gfunc(*args, **kwargs):
         generator = gfunc(*args, **kwargs)
-        if "_gtrampoline_active" not in dyn:  # start up the trampoline
-            return _TrampolinedGenerator(generator)
-        else: # avoid stacking when already running in the trampoline
-              # and a generator calls a gtrampolined gfunc (incl. its own!)
-            return generator
-    return decorated
+        return _TrampolinedGenerator(generator)  # inject a trampoline
+    return trampolining_gfunc
 
 class _TrampolinedGenerator:
     """Wrapper to inject the gtco() call to the generator g returned by gfunc."""
     def __init__(self, g):
         self.g = g
     def __iter__(self):
-        return gtco(iter(self.g))
+        return gtco(iter(self.g))  # start the trampoline
     # no __next__, because __iter__ redirects;
     # this wrapper is never actually iterated over.
 
