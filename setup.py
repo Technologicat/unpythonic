@@ -30,20 +30,35 @@ libname="unpythonic"
 
 # Short description for package list on PyPI
 #
-SHORTDESC="Python meets Lisps; e.g. TCO'd FP loops, call/ec, let & letrec."
+SHORTDESC="Lispy (and some haskelly) missing batteries for Python."
 
 # Long description for package homepage on PyPI
 #
-DESC="""We provide some missing features for Python from the list processing tradition.
+DESC="""Python clearly wants to be an impure-FP language. A decorator with arguments
+is a curried closure - how much more FP can you get?
 
-Tail call optimization (TCO), TCO'd loops in FP style, call/ec, let & letrec,
-assign-once, multi-expression lambdas, def as a code block, dynamic scoping.
+We provide some missing features for Python from the list processing tradition,
+plus a few bonus haskellisms.
 
 We place a special emphasis on clear, pythonic syntax, as far as possible without MacroPy.
 
 Other design considerations are simplicity, robustness, and minimal dependencies (currently none).
 
-For the documentation and a tour, see the project's GitHub homepage.
+Tail call optimization (TCO), TCO'd loops in FP style, call/ec, let & letrec,
+assign-once, multi-expression lambdas, def as a code block, dynamic assignment,
+memoize (also for generators and iterables), compose, folds and scans
+(left and right), unfold, lazy partial unpacking of iterables,
+functional sequence updates, pythonic lispy linked lists.
+
+We also provide a curry that passes extra arguments through on the right,
+and calls a callable return value on the remaining arguments. This is now
+valid Python:
+
+    mymap = lambda f: curry(foldr, composerc(cons, f), nil)
+    myadd = lambda a, b: a + b
+    assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
+
+For documentation and examples, see the project's GitHub homepage.
 """
 
 # Set up data files for packaging.
