@@ -15,6 +15,12 @@ def gmemoize(gfunc):
 
       - All values yielded from the generator are stored indefinitely.
 
+        For infinite sequences, use this only if you can guarantee only a
+        reasonable number of terms will ever be evaluated (w.r.t. available RAM).
+
+      - Any exceptions raised by the generator (except StopIteration)
+        are also memoized, like in ``memoize``.
+
       - If the gfunc takes arguments, they must be hashable. A separate memoized
         sequence is created for each unique set of arguments seen.
 
@@ -47,6 +53,7 @@ def gmemoize(gfunc):
         return _MemoizedGenerator(*memos[k])
     return gmemoized
 
+_success, _fail = [object() for _ in range(2)]  # sentinels (globals, saves indirect via self)
 class _MemoizedGenerator:
     """Wrapper that manages one memoized sequence. Co-operates with gmemoize."""
     def __init__(self, g, memo, lock):
@@ -65,10 +72,17 @@ class _MemoizedGenerator:
             if j < len(memo):
                 result = memo[j]
             else:
-                result = next(self.g)  # let StopIteration propagate
+                try:
+                    result = (_success, next(self.g))
+                except BaseException as err:  # StopIteration propagates, not a BaseException
+                    result = (_fail, err)
                 memo.append(result)
+            sentinel, value = result
             self.j += 1
-            return result
+            if sentinel is _success:
+                return value
+            else:
+                raise value
 
 def test():
     from time import time
@@ -115,6 +129,39 @@ def test():
     assert total_evaluations == 3
     assert tuple(x for x in g2) == (0, 1, 2)
     assert total_evaluations == 3
+
+    # exception memoization
+    class AllOkJustTesting(Exception): pass
+    total_evaluations = 0
+    @gmemoize
+    def gen():
+        nonlocal total_evaluations
+        total_evaluations += 1
+        yield 1
+        total_evaluations += 1
+        raise AllOkJustTesting("ha ha only serious")
+    g1 = gen()
+    assert total_evaluations == 0
+    try:
+        next(g1)
+        assert total_evaluations == 1
+        next(g1)
+    except AllOkJustTesting as err:
+        exc_instance = err
+    else:
+        assert False  # should have raised at the second next() call
+    assert total_evaluations == 2
+    g2 = gen()
+    next(g2)
+    assert total_evaluations == 2
+    try:
+        next(g2)
+    except AllOkJustTesting as err2:
+        if err2 is not exc_instance:
+            assert False  # should be the same cached exception instance
+    else:
+        assert False  # should have raised at the second next() call
+    assert total_evaluations == 2
 
     # sieve of Eratosthenes
     def primes():
