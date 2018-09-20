@@ -181,10 +181,10 @@ def fimemoize(ifactory):
 
         def evens():
             yield from (x for x in range(100) if x % 2 == 0)
-        def factory(n):  # regular function!
+        @fimemoize
+        def some_evens(n):  # regular function!
             return drop(n, evens())
-        some_evens = fimemoize(factory)
-        assert last(some_evens(25)) == last(some_evens(25))  # iterating twice!
+        assert last(some_evens(25)) == last(some_evens(25))
 
     Compare to::
 
@@ -195,16 +195,7 @@ def fimemoize(ifactory):
             yield from drop(n, evens())
         assert last(some_evens(25)) == last(some_evens(25))
 
-    The original example is equivalent to::
-
-        def evens():
-            yield from (x for x in range(100) if x % 2 == 0)
-        @fimemoize
-        def some_evens(n):
-            return drop(n, evens())
-        assert last(some_evens(25)) == last(some_evens(25))
-
-    Or with lambda::
+    Using lambda, the original example is equivalent to::
 
         evens = lambda: (yield from (x for x in range(100) if x % 2 == 0))
         some_evens = fimemoize(lambda n: drop(n, evens()))
