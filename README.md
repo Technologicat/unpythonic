@@ -1348,8 +1348,11 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - No sane default for multi-input case, so the initial value for `acc` must be given.
    - One-input versions with optional init are provided as `reducel`, `reducer`, with semantics similar to Python's `functools.reduce`, but with the rackety ordering `op(elt, acc)`.
    - By default, multi-input folds terminate on the shortest input. To instead terminate on the longest input, use the ``longest`` and ``fillvalue`` kwargs.
+   - `foldr` is a recursive process; it will crash for overly long inputs. The *walking* still occurs from the left, so with multiple input sequences, the notion of *corresponding elements* is based on syncing their **left** ends. If you need to handle long but finite inputs, consider whether ``reversed`` and ``foldl`` together do what you want; but note that will sync the **right** ends of the inputs. Also, then the inputs must be sequences, not general iterables; they must support ``reversed``. See the docstring of ``scanr`` for an example.
  - `scanl`, `scanr`: scan (a.k.a. accumulate, partial fold); a lazy fold that returns a generator yielding intermediate results.
-   - Iteration stops after yielding the final result, i.e. what the corresponding fold would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
+   - Iteration stops after:
+     - For `scanl`, the final result; i.e. what `foldl` would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
+     - For `scanr`, the init value. In the case of `scanr`, the **first** yielded item corresponds to  the final result of `foldr` (like in Haskell).
    - `scanl` is suitable for infinite inputs.
    - Multiple input sequences and shortest/longest termination supported; same semantics as in `foldl`, `foldr`.
    - One-input versions with optional init are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
@@ -1385,15 +1388,15 @@ Examples:
 from functools import partial
 from unpythonic import scanl, scanr, foldl, foldr, flatmap, mapr, zipr, \
                        uniqify, uniq, flatten1, flatten, flatten_in, take, drop, \
-                       unfold, unfold1, cons, nil, ll
+                       unfold, unfold1, cons, nil, ll, curry
 
 assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
-assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
+assert tuple(scanr(add, 0, range(1, 5))) == (10, 9, 7, 4, 0)
 assert tuple(scanl(mul, 1, range(2, 6))) == (1, 2, 6, 24, 120)
-assert tuple(scanr(mul, 1, range(2, 6))) == (1, 5, 20, 60, 120)
+assert tuple(scanr(mul, 1, range(2, 6))) == (120, 60, 20, 5, 1)
 
 assert tuple(scanl(cons, nil, ll(1, 2, 3))) == (nil, ll(1), ll(2, 1), ll(3, 2, 1))
-assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (nil, ll(3), ll(2, 3), ll(1, 2, 3))
+assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (ll(1, 2, 3), ll(2, 3), ll(3), nil)
 
 def step2(k):  # x0, x0 + 2, x0 + 4, ...
     return (k, k + 2)  # value, newstate
@@ -1420,10 +1423,16 @@ def msqrt(x):  # multivalued sqrt
         return (s, -s)
 assert tuple(flatmap(msqrt, (0, 1, 4, 9))) == (0., 1., -1., 2., -2., 3., -3.)
 
+# zipr reverses, then iterates.
 assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
 
-zipr2 = partial(mapr, identity)
+zipr2 = partial(mapr, identity)  # mapr works the same way.
 assert tuple(zipr2((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+
+# foldr doesn't; it walks from the left, but collects results from the right:
+zipr1 = curry(foldr, zipper, ())
+assert zipr1((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
+# so the result is reversed(zip(...)), whereas zipr gives zip(*(reversed(s) for s in ...))
 
 assert tuple(uniqify((1, 1, 2, 2, 2, 1, 2, 2, 4, 3, 4, 3, 3))) == (1, 2, 4, 3)  # all
 assert tuple(uniq((1, 1, 2, 2, 2, 1, 2, 2, 4, 3, 4, 3, 3))) == (1, 2, 1, 2, 4, 3, 4, 3)  # consecutive
