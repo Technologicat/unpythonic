@@ -687,7 +687,7 @@ The loop body is called once for each element in the iterable. When the iterable
 
 To terminate the loop early, just ``return`` your final result normally, like in ``@looped``. (It can be anything, does not need to be ``acc``.)
 
-Multiple input sequences work somewhat like in Python's ``for``, except any tuple unpacking must be performed inside the body:
+Multiple input iterables work somewhat like in Python's ``for``, except any tuple unpacking must be performed inside the body:
 
 ```python
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
@@ -887,7 +887,7 @@ def fibos():  # see numerics.py
 print(tuple(take(10, fibos())))  # --> (1, 1, 2), only 3 terms?!
 ```
 
-This sequence is recursively defined, and the ``return`` shuts down the generator before it can yield more terms into ``scanl``. With ``yield from`` instead of ``return`` the second example works (but since it is recursive, it eventually blows the call stack).
+This sequence (technically iterable, but in the mathematical sense) is recursively defined, and the ``return`` shuts down the generator before it can yield more terms into ``scanl``. With ``yield from`` instead of ``return`` the second example works (but since it is recursive, it eventually blows the call stack).
 
 This particular example can be converted into a linear process with a different higher-order function, no TCO needed:
 
@@ -1183,7 +1183,7 @@ assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 
 This is as close to ```(define (map f) (foldr (compose cons f) empty)``` (in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy)) as we're gonna get in Python.
 
-Notice how the last two versions accept multiple input sequences; this is thanks to currying ``f`` inside the composition. An element from each of the sequences is taken by the processing function ``f``. Being the last argument, ``acc`` is passed through on the right. The output from the processing function - one new item - and ``acc`` then become a two-tuple, passed into cons.
+Notice how the last two versions accept multiple input iterables; this is thanks to currying ``f`` inside the composition. An element from each of the iterables is taken by the processing function ``f``. Being the last argument, ``acc`` is passed through on the right. The output from the processing function - one new item - and ``acc`` then become a two-tuple, passed into cons.
 
 Finally, keep in mind this exercise is intended as a feature demonstration. In production code, the builtin ``map`` is much better.
 
@@ -1268,7 +1268,7 @@ Memoize iterables; like `itertools.tee`, but no need to know in advance how many
    - For simplicity, the generator itself may use ``yield`` for output only; ``send`` is not supported.
    - Any exceptions raised by the generator (except StopIteration) are also memoized, like in ``memoize``.
    - Thread-safe. Calls to ``next`` on the memoized generator from different threads are serialized via a lock. Each memoized sequence has its own lock. This uses ``threading.RLock``, so re-entering from the same thread (e.g. in recursively defined sequences) is fine.
-   - The whole history is kept indefinitely. For infinite sequences, use this only if you can guarantee that only a reasonable number of terms will ever be evaluated (w.r.t. available RAM).
+   - The whole history is kept indefinitely. For infinite iterables, use this only if you can guarantee that only a reasonable number of terms will ever be evaluated (w.r.t. available RAM).
    - Typically, this should be the outermost decorator if several are used on the same gfunc.
  - `imemoize`: memoize an iterable. Like `itertools.tee`, but keeps the whole history, so more copies can be teed off later.
    - Same limitation: **do not** use the original iterator after it is memoized. The danger is that if anything other than the memoization mechanism advances the original iterator, some values will be lost before they can reach the memo.
@@ -1290,7 +1290,7 @@ def primes():
 assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
 ```
 
-Memoizing only a part of a sequence. This is where `imemoize` and `fimemoize` can be useful. The basic idea is to make a chain of generators, and only memoize the last one:
+Memoizing only a part of an iterable. This is where `imemoize` and `fimemoize` can be useful. The basic idea is to make a chain of generators, and only memoize the last one:
 
 ```python
 from unpythonic import gmemoize, drop, last
@@ -1343,7 +1343,7 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
 
 ### Batteries for itertools
 
- - `foldl`, `foldr` with support for multiple input sequences, like in Racket.
+ - `foldl`, `foldr` with support for multiple input iterables, like in Racket.
    - Like in Racket, `op(elt, acc)`; general case `op(e1, e2, ..., en, acc)`. Note Python's own `functools.reduce` uses the ordering `op(acc, elt)` instead.
    - No sane default for multi-input case, so the initial value for `acc` must be given.
    - One-input versions with optional init are provided as `reducel`, `reducer`, with semantics similar to Python's `functools.reduce`, but with the rackety ordering `op(elt, acc)`.
@@ -1354,7 +1354,7 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
      - For `scanl`, the final result; i.e. what `foldl` would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
      - For `scanr`, the init value. In the case of `scanr`, the **first** yielded item corresponds to  the final result of `foldr` (like in Haskell).
    - `scanl` is suitable for infinite inputs.
-   - Multiple input sequences and shortest/longest termination supported; same semantics as in `foldl`, `foldr`.
+   - Multiple input iterables and shortest/longest termination supported; same semantics as in `foldl`, `foldr`.
    - One-input versions with optional init are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
  - `unfold1`, `unfold`: generate a sequence [corecursively](https://en.wikipedia.org/wiki/Corecursion). The counterpart of `foldl`.
    - `unfold1` is for 1-in-2-out functions. The input is `state`, the return value is `(value, newstate)` or `None`.
