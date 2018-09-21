@@ -1109,7 +1109,8 @@ Examples (see also the next section):
 
 ```python
 from operator import add, mul
-from unpythonic import andf, orf, flatmap, rotate, curry, foldl, foldr, composer, to1st, cons, nil, ll
+from unpythonic import andf, orf, flatmap, rotate, curry, \
+                       foldl, foldr, composer, to1st, cons, nil, ll, zipr
 
 isint  = lambda x: isinstance(x, int)
 iseven = lambda x: x % 2 == 0
@@ -1124,10 +1125,13 @@ assert pred(None) is False
 @rotate(1)  # cycle *the args* (not their slots!) to the right by one place.
 def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
     return acc + (rest,)  # even though the input is (e1, ..., en, acc).
-zipl = curry(foldl, zipper, ())  # same as (curry(foldl))(zipper, ())
-zipr = curry(foldr, zipper, ())
-assert zipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
-assert zipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
+myzipl = curry(foldl, zipper, ())  # same as (curry(foldl))(zipper, ())
+myzipr = curry(foldr, zipper, ())
+assert myzipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
+assert myzipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
+# The result is reversed(zip(...)), whereas zipr gives zip(*(reversed(s) for s in ...)):
+assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+
 
 # passthrough on the right
 double = lambda x: 2 * x
@@ -1159,7 +1163,7 @@ mapl_one = lambda f: composer(mapr_one(f), lreverse)
 assert curry(mapl_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
 
-which may be a useful pattern for iterables that don't support ``reversed`` (used by ``foldr`` internally); although linked lists do.
+which may be a useful pattern for lengthy iterables that would overflow the call stack in ``foldr``.
 
 In ``mapr_one``, we can use either ``curry`` or ``functools.partial``. In this case it doesn't matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as (and only as soon as) it gets at least one more argument.
 
@@ -1668,7 +1672,7 @@ Although linked lists are created with ``ll`` or ``llist``, the data type (for e
 
 Iterators are supported to walk over linked lists (this also gives tuple unpacking support). When ``next()`` is called, we return the car of the current cell the iterator points to, and the iterator moves to point to the cons cell in the cdr, if any. When the cdr is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
 
-Python's builtin ``reversed`` can be applied to linked lists; it will internally ``lreverse`` the list (which is O(n)), then return an iterator to that. This means also ``foldr`` works on linked lists. ``llist`` is special-cased so that if the input is ``reversed(some_ll)``, it just returns the internal already reversed list. (This is safe because cons cells are immutable.)
+Python's builtin ``reversed`` can be applied to linked lists; it will internally ``lreverse`` the list (which is O(n)), then return an iterator to that. The ``llist`` constructor is special-cased so that if the input is ``reversed(some_ll)``, it just returns the internal already reversed list. (This is safe because cons cells are immutable.)
 
 Cons structures are hashable and pickleable, and print like in Lisps:
 
