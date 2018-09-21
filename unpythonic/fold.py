@@ -9,7 +9,7 @@ __all__ = ["scanl", "scanr", "scanl1", "scanr1",
 from functools import partial
 from itertools import zip_longest
 
-from unpythonic.it import last
+from unpythonic.it import first, last
 
 # Require at least one iterable to make this work seamlessly with curry.
 # We take this approach with any new function families Python doesn't provide.
@@ -48,14 +48,69 @@ def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
     acc = init
     yield acc
-    for elts in z(iterable0, *iterables):
-        acc = proc(*(elts + (acc,)))
+    for xs in z(iterable0, *iterables):
+        acc = proc(*(xs + (acc,)))
         yield acc
 
-def scanr(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
-    """Like scanl, but scan from the right (walk each sequence backwards)."""
-    return scanl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
-                 longest=longest, fillvalue=fillvalue)
+def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
+    """Dual of scanl; scan from the right.
+
+    Example::
+
+        from operator import add
+        assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
+        assert tuple(scanr(add, 0, range(1, 5))) == (10, 9, 7, 4, 0)
+
+    Note the *walking* still occurss from the left; hence for multiple
+    input iterables, the notion of *corresponding elements* is based on
+    syncing the **left** ends.
+
+    ``scanr`` is a recursive process; it will crash for overly long inputs.
+
+    If you have a long but finite input, consider whether ``reversed`` and
+    ``scanl`` together do what you want; but be aware the results will be
+    subtly different. (And your inputs need to support ``reversed``, i.e.
+    they must be sequences, not general iterables.)
+
+    An example of a fold with this strategy::
+
+        def revfoldl(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
+            "Reverse each input sequence, then foldl."
+            return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
+                         longest=longest, fillvalue=fillvalue)
+        def append_tuple(a, b, acc):
+            return acc + ((a, b),)
+
+        assert foldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((1, 4), (2, 5))
+        assert foldr(append_tuple, (), (1, 2, 3), (4, 5)) == ((2, 5), (1, 4))
+        assert revfoldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((3, 5), (2, 4)),
+    """
+    z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
+    xss = z(iterable0, *iterables)
+    pending_init_from_lastx = init is None and not iterables
+    def rscanner():
+        try:
+            xs = next(xss)
+        except StopIteration:
+            yield init               # base case for recursion
+            return
+        subgen = rscanner()
+        acc = next(subgen)           # final result of previous step
+
+        # The other base case: one iterable, no init given.
+        # If pending_init_from_lastx is still True, we are the second-to-last subgen.
+        nonlocal pending_init_from_lastx
+        if pending_init_from_lastx:
+            pending_init_from_lastx = False
+            yield xs[0]              # init value = last element from iterable0
+            return
+
+        # In case of all but the outermost generator, their final result has already
+        # been read by the next(subgen), so they have only the last two yields remaining.
+        yield proc(*(xs + (acc,)))   # final result
+        yield acc                    # previous result
+        yield from subgen            # sustain the chain
+    return rscanner()
 
 def scanl1(proc, iterable, init=None):
     """scanl for a single iterable, with optional init.
@@ -81,13 +136,12 @@ def scanl1(proc, iterable, init=None):
             return None  # empty input sequence
     return scanl(proc, init, it)
 
-def scanr1(proc, sequence, init=None):
-    """Like scanl1, but scan from the right (walk backwards).
+def scanr1(proc, iterable, init=None):
+    """Dual of scanl1.
 
-    If ``init is None``, use the first element from the reversed sequence
-    (i.e. the last element of the original sequence).
+    If ``init is None``, use the last element from the iterable.
     """
-    return scanl1(proc, reversed(sequence), init)
+    return scanr(proc, init, iterable)
 
 def foldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """Racket-like foldl that supports multiple input iterables.
@@ -106,11 +160,10 @@ def foldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     return last(scanl(proc, init, iterable0, *iterables,
                       longest=longest, fillvalue=fillvalue))
 
-def foldr(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
-    """Like foldl, but fold from the right (walk each sequence backwards)."""
-    # Reverse, then left-fold gives us a linear process.
-    return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
-                 longest=longest, fillvalue=fillvalue)
+def foldr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
+    """Dual of foldl. Recursive process."""
+    return first(scanr(proc, init, iterable0, *iterables,
+                       longest=longest, fillvalue=fillvalue))
 
 def reducel(proc, iterable, init=None):
     """Foldl for a single iterable, with optional init.
@@ -120,13 +173,12 @@ def reducel(proc, iterable, init=None):
     Like ``functools.reduce``, but uses ``proc(elt, acc)`` like Racket."""
     return last(scanl1(proc, iterable, init))
 
-def reducer(proc, sequence, init=None):
-    """Like reducel, but fold from the right (walk backwards).
+def reducer(proc, iterable, init=None):
+    """Dual of reducel. Recursive process.
 
-    If ``init is None``, use the first element from the reversed sequence
-    (i.e. the last element of the original sequence).
+    If ``init is None``, use the last element from the iterable.
     """
-    return reducel(proc, reversed(sequence), init)
+    return first(scanr1(proc, iterable, init))
 
 def unfold1(proc, init):
     """Generate a sequence corecursively. The counterpart of foldl.
@@ -183,16 +235,16 @@ def test():
     from operator import add, mul
     from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate
     from unpythonic.llist import cons, nil, ll, lreverse
-    from unpythonic.it import take, tail
+    from unpythonic.it import take, tail, zipr
 
     # scan/accumulate: lazy fold that yields intermediate results.
     assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
-    assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
+    assert tuple(scanr(add, 0, range(1, 5))) == (10, 9, 7, 4, 0)
     assert tuple(scanl(mul, 1, range(2, 6))) == (1, 2, 6, 24, 120)
-    assert tuple(scanr(mul, 1, range(2, 6))) == (1, 5, 20, 60, 120)
+    assert tuple(scanr(mul, 1, range(2, 6))) == (120, 60, 20, 5, 1)
 
     assert tuple(scanl(cons, nil, ll(1, 2, 3))) == (nil, ll(1), ll(2, 1), ll(3, 2, 1))
-    assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (nil, ll(3), ll(2, 3), ll(1, 2, 3))
+    assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (ll(1, 2, 3), ll(2, 3), ll(3), nil)
 
     # in contrast, fold just returns the final result.
     assert foldl(cons, nil, ll(1, 2, 3)) == ll(3, 2, 1)
@@ -204,7 +256,7 @@ def test():
 
     # scanl1, scanr1 are a scan with a single input sequence, with init optional.
     assert tuple(scanl1(add, (1, 2, 3))) == (1, 3, 6)
-    assert tuple(scanr1(add, (1, 2, 3))) == (3, 5, 6)
+    assert tuple(scanr1(add, (1, 2, 3))) == (6, 5, 3)
 
     psums = composer(tail, curry(scanl, add, 0))  # tail to drop the init value
     pprods = composer(tail, curry(scanl, mul, 1))
@@ -218,10 +270,10 @@ def test():
     assert tuple(psums(data)) == (1, 3, 6, 10)
     assert tuple(pprods(data)) == (1, 2, 6, 24)
 
-    def foo(a, b, acc):
+    def append_tuple(a, b, acc):
         return acc + ((a, b),)
-    assert foldl(foo, (), (1, 2, 3), (4, 5)) == ((1, 4), (2, 5))
-    assert foldr(foo, (), (1, 2, 3), (4, 5)) == ((3, 5), (2, 4))
+    assert foldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((1, 4), (2, 5))
+    assert foldr(append_tuple, (), (1, 2, 3), (4, 5)) == ((2, 5), (1, 4))
 
     def mymap_one(f, sequence):
         f_then_cons = composer(cons, to1st(f))  # args: elt, acc
@@ -316,7 +368,13 @@ def test():
     zipl1 = curry(foldl, zipper, ())
     zipr1 = curry(foldr, zipper, ())
     assert zipl1((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
-    assert zipr1((1, 2, 3), (4, 5, 6), (7, 8)) == ((3, 6, 8), (2, 5, 7))
+    assert zipr1((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
+    # But:
+    assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+    # This is because zipr1 above *walks* from the left even though the *fold*
+    # is performed from the right. Hence the sequences are synced by their
+    # *left* ends. But the zipr function perform a reverse and then walks;
+    # the sequences are synced by their *right* ends.
 
     # Unfold.
     #
