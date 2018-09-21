@@ -291,7 +291,7 @@ def llist(iterable):
         # avoid two extra reverses by reusing the internal data.
         return iterable._data
     try:  # maybe a sequence?
-        return foldr(cons, nil, iterable)
+        return lreverse(reversed(iterable))
     except TypeError:
         reversed_as_ll = lreverse(iterable)
         return lreverse(reversed_as_ll)
@@ -307,7 +307,7 @@ def lreverse(iterable):
 def lappend(*ls):
     """Append the given linked lists left-to-right."""
     def lappend_two(l1, l2):
-        return foldr(cons, l2, l1)  # this internally calls reversed() on l1
+        return foldr(cons, l2, l1)
     return foldr(lappend_two, nil, ls)
 
 def member(x, l):
@@ -409,7 +409,7 @@ def test():
     from pickle import dumps, loads
     l = ll(1, 2, 3)
     k = loads(dumps(l))
-    # should iterate without crashing, since the nil is converted.
+    # should iterate without crashing, since the nil is refreshed.
     assert tuple(k) == (1, 2, 3)
 
     # cons structures are immutable (because cons cells are),
@@ -434,13 +434,13 @@ def test():
     assert llist(reversed(ll(1, 2, 3))) == ll(3, 2, 1)
     assert foldl(cons, nil, ll(1, 2, 3)) == ll(3, 2, 1)
 
-    # foldr (as implemented in unpythonic) requires support for __reversed__,
-    # since a linked list is an iterable, not a sequence.
-    assert foldr(cons, nil, ll(1, 2, 3)) == ll(1, 2, 3)
-
     # implementation detail to avoid extra reverses
     r = reversed(ll(1, 2, 3))   # an iterator that internally builds the reversed list...
     assert llist(r) is r._data  # ...which llist should just grab
+
+    # With the real recursive-process foldr, this no longer requires reversed(),
+    # but is prone to call stack overflow.
+    assert foldr(cons, nil, ll(1, 2, 3)) == ll(1, 2, 3)
 
     print("All tests PASSED")
 
