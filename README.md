@@ -1374,8 +1374,8 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - Essentially, ``composel(map(...), flatten1)``; the same thing the bind operator of the List monad does.
  - `map_longest`: the final missing battery for `map`.
    - Essentially `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``.
- - `rmap`, `rzip`, `rmap_longest`, `rzip_longest`: variants that first reverse each input sequence. This syncs the right ends if there are multiple input sequences.
- - `mapr`, `zipr`, `mapr_longest`, `zipr_longest`: recursive processes that sync the left ends of multiple inputs, then process from the right.
+ - `rmap`, `rzip`, `rmap_longest`, `rzip_longest`: reverse each input, then map/zip. For multiple inputs, syncs the right ends. Lazy. Inputs must be sequences.
+ - `mapr`, `zipr`, `mapr_longest`, `zipr_longest`: map/zip, then reverse the result. For multiple inputs, syncs the left ends. Not fully lazy; must fully evaluate the `zip` or `map` to reverse it.
  - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively).
  - `flatten1`, `flatten`, `flatten_in`: remove nested list structure.
    - `flatten1`: outermost level only.

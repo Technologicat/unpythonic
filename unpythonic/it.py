@@ -58,10 +58,6 @@ def rmap(func, *sequences):
         assert tuple(rmap(add, (1, 2, 3), (4, 5))) == (8, 6)
 
         # map, then reverse; must evaluate the map, syncs left ends:
-        # reversed(tuple(map(f, ...)))
-        assert tuple(reversed(tuple(map(add, (1, 2, 3), (4, 5))))) == (7, 5)
-
-        # mapr; fully lazy, syncs left ends; recursive process:
         assert tuple(mapr(add, (1, 2, 3), (4, 5))) == (7, 5)
     """
     return map(func, *(reversed(s) for s in sequences))
@@ -83,10 +79,6 @@ def rzip(*sequences):
         assert tuple(rzip((1, 2, 3), (4, 5))) == ((3, 5), (2, 4))
 
         # zip, then reverse; must evaluate the zip, syncs left ends:
-        # reversed(tuple(zip(...)))
-        assert tuple(reversed(tuple(zip((1, 2, 3), (4, 5))))) == ((2, 5), (1, 4))
-
-        # zipr; fully lazy, syncs left ends; recursive process:
         assert tuple(zipr((1, 2, 3), (4, 5))) == ((2, 5), (1, 4))
     """
     return zip(*(reversed(s) for s in sequences))
@@ -99,58 +91,31 @@ def rzip_longest(*sequences, fillvalue=None):
     """Like rzip, but terminate on the longest input."""
     return zip_longest(*(reversed(s) for s in sequences), fillvalue=fillvalue)
 
-def _mapr(proc, iterable0, *iterables, longest=False, fillvalue=None):
-    z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
-    xss = z(iterable0, *iterables)
-    def _mapr_recurser():
-        try:
-            xs = next(xss)
-        except StopIteration:
-            return
-        subgen = _mapr_recurser()
-        yield from subgen
-        yield proc(*xs)
-    return _mapr_recurser()
-
-def _zipr(iterable0, *iterables, longest=False, fillvalue=None):
-    def identity(*args):  # unpythonic.fun.identity, but dependency loop
-        return args
-    return _mapr(identity, iterable0, *iterables,
-                 longest=longest, fillvalue=fillvalue)
-
 def mapr(proc, *iterables):
-    """Like map, but starting from the right. Recursive process.
+    """Like map, but starting from the right.
 
     For multiple inputs with different lengths, this syncs the **left** ends.
 
-    See ``rmap`` for the linear process that works by reversing each input.
-
-    For the result, it holds that (in the sense of yielding the same elements)::
-
-        mapr(proc, *iterables) = reversed(tuple(map(proc, *iterables)))
+    See ``rmap`` for the other alternative.
     """
-    return _mapr(proc, *iterables)
+    return reversed(tuple(map(proc, *iterables)))
 
 def zipr(*iterables):
-    """Like zip, but starting from the right. Recursive process.
+    """Like zip, but starting from the right.
 
     For multiple inputs with different lengths, this syncs the **left** ends.
 
-    See ``rzip`` for the linear process that works by reversing each input.
-
-    For the result, it holds that (in the sense of yielding the same elements)::
-
-        zipr(*iterables) = reversed(tuple(zip(*iterables)))
+    See ``rzip`` for other alternative.
     """
-    return _zipr(*iterables)
+    return reversed(tuple(zip(*iterables)))
 
 def mapr_longest(proc, *iterables, fillvalue=None):
     """Like mapr, but terminate on the longest input sequence."""
-    return _mapr(proc, *iterables, longest=True, fillvalue=fillvalue)
+    return reversed(tuple(map_longest(proc, *iterables, fillvalue=fillvalue)))
 
 def zipr_longest(*iterables, fillvalue=None):
     """Like zipr, but terminate on the longest input sequence."""
-    return _zipr(*iterables, longest=True, fillvalue=fillvalue)
+    return reversed(tuple(zip_longest(*iterables, fillvalue=fillvalue)))
 
 def flatmap(f, iterable0, *iterables):
     """Map, then concatenate results.
