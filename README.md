@@ -1373,9 +1373,9 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
  - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple.
    - Essentially, ``composel(map(...), flatten1)``; the same thing the bind operator of the List monad does.
  - `map_longest`: the final missing battery for `map`.
+   - Essentially `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``.
  - `rmap`, `rzip`, `rmap_longest`, `rzip_longest`: variants that first reverse each input sequence. This syncs the right ends if there are multiple input sequences.
  - `mapr`, `zipr`, `mapr_longest`, `zipr_longest`: recursive processes that sync the left ends of multiple inputs, then process from the right.
-   - Essentially `map_longest` is `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``.
  - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively).
  - `flatten1`, `flatten`, `flatten_in`: remove nested list structure.
    - `flatten1`: outermost level only.
