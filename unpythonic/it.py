@@ -13,12 +13,16 @@ and (stream-scan) in SRFI-41.
   http://rightfootin.blogspot.fi/2006/09/more-on-python-flatten.html
 """
 
-__all__ = ["map_longest", "mapr", "zipr", "mapr_longest", "zipr_longest",
+__all__ = ["map_longest",
+           "rmap", "rzip", "rmap_longest", "rzip_longest",
+           "mapr", "zipr", "mapr_longest", "zipr_longest",
            "flatmap", "uniqify", "uniq",
            "take", "drop", "split_at", "unpack",
-           "tail", "first", "second", "nth", "last", "scons",
+           "tail", "butlast", "butlastn",
+           "first", "second", "nth", "last", "scons",
            "flatten", "flatten1", "flatten_in",
-           "iterate", "iterate1"]
+           "iterate", "iterate1",
+           "partition"]
 
 from operator import itemgetter
 from functools import partial
@@ -35,21 +39,118 @@ def map_longest(func, *iterables, fillvalue=None):
     """
     return starmap(func, zip_longest(*iterables, fillvalue=fillvalue))
 
-def mapr(func, *sequences):
-    """Like map, but walk each sequence from the right."""
+def rmap(func, *sequences):
+    """Like map, but walk each sequence from the right. Linear process.
+
+    See ``mapr`` for the recursive process that walks from the left,
+    but collects results from the right.
+
+    **Caution**: ``map`` and ``reversed`` do not commute if inputs have
+    different lengths::
+
+        from operator import add
+
+        # just map, for comparison; fully lazy:
+        assert tuple(map(add, (1, 2, 3), (4, 5))) == (5, 7)
+
+        # reverse each, then map; fully lazy, syncs right ends:
+        # rmap(f, ...) = map(f, reversed(s) for s in ...)
+        assert tuple(rmap(add, (1, 2, 3), (4, 5))) == (8, 6)
+
+        # map, then reverse; must evaluate the map, syncs left ends:
+        # reversed(tuple(map(f, ...)))
+        assert tuple(reversed(tuple(map(add, (1, 2, 3), (4, 5))))) == (7, 5)
+
+        # mapr; fully lazy, syncs left ends; recursive process:
+        assert tuple(mapr(add, (1, 2, 3), (4, 5))) == (7, 5)
+    """
     return map(func, *(reversed(s) for s in sequences))
 
-def zipr(*sequences):
-    """Like zip, but walk each sequence from the right."""
+def rzip(*sequences):
+    """Like zip, but walk each sequence from the right. Linear process.
+
+    See ``zipr`` for the recursive process that walks from the left,
+    but collects results from the right.
+
+    **Caution**: ``zip`` and ``reversed`` do not commute if inputs have
+    different lengths::
+
+        # just zip, for comparison; fully lazy:
+        assert tuple(zip((1, 2, 3), (4, 5))) == ((1, 4), (2, 5))
+
+        # reverse each, then zip; fully lazy, syncs right ends:
+        # rzip(...) = zip(reversed(s) for s in ...)
+        assert tuple(rzip((1, 2, 3), (4, 5))) == ((3, 5), (2, 4))
+
+        # zip, then reverse; must evaluate the zip, syncs left ends:
+        # reversed(tuple(zip(...)))
+        assert tuple(reversed(tuple(zip((1, 2, 3), (4, 5))))) == ((2, 5), (1, 4))
+
+        # zipr; fully lazy, syncs left ends; recursive process:
+        assert tuple(zipr((1, 2, 3), (4, 5))) == ((2, 5), (1, 4))
+    """
     return zip(*(reversed(s) for s in sequences))
 
-def mapr_longest(func, *sequences, fillvalue=None):
-    """Like map_longest, but walk each sequence from the right."""
+def rmap_longest(func, *sequences, fillvalue=None):
+    """Like rmap, but terminate on the longest input."""
     return map_longest(func, *(reversed(s) for s in sequences), fillvalue=fillvalue)
 
-def zipr_longest(*sequences, fillvalue=None):
-    """Like itertools.zip_longest, but walk each sequence from the right."""
+def rzip_longest(*sequences, fillvalue=None):
+    """Like rzip, but terminate on the longest input."""
     return zip_longest(*(reversed(s) for s in sequences), fillvalue=fillvalue)
+
+def _mapr(proc, iterable0, *iterables, longest=False, fillvalue=None):
+    z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
+    xss = z(iterable0, *iterables)
+    def _mapr_recurser():
+        try:
+            xs = next(xss)
+        except StopIteration:
+            return
+        subgen = _mapr_recurser()
+        yield from subgen
+        yield proc(*xs)
+    return _mapr_recurser()
+
+def _zipr(iterable0, *iterables, longest=False, fillvalue=None):
+    def identity(*args):  # unpythonic.fun.identity, but dependency loop
+        return args
+    return _mapr(identity, iterable0, *iterables,
+                 longest=longest, fillvalue=fillvalue)
+
+def mapr(proc, *iterables):
+    """Like map, but starting from the right. Recursive process.
+
+    For multiple inputs with different lengths, this syncs the **left** ends.
+
+    See ``rmap`` for the linear process that works by reversing each input.
+
+    For the result, it holds that (in the sense of yielding the same elements)::
+
+        mapr(proc, *iterables) = reversed(tuple(map(proc, *iterables)))
+    """
+    return _mapr(proc, *iterables)
+
+def zipr(*iterables):
+    """Like zip, but starting from the right. Recursive process.
+
+    For multiple inputs with different lengths, this syncs the **left** ends.
+
+    See ``rzip`` for the linear process that works by reversing each input.
+
+    For the result, it holds that (in the sense of yielding the same elements)::
+
+        zipr(*iterables) = reversed(tuple(zip(*iterables)))
+    """
+    return _zipr(*iterables)
+
+def mapr_longest(proc, *iterables, fillvalue=None):
+    """Like mapr, but terminate on the longest input sequence."""
+    return _mapr(proc, *iterables, longest=True, fillvalue=fillvalue)
+
+def zipr_longest(*iterables, fillvalue=None):
+    """Like zipr, but terminate on the longest input sequence."""
+    return _zipr(*iterables, longest=True, fillvalue=fillvalue)
 
 def flatmap(f, iterable0, *iterables):
     """Map, then concatenate results.
@@ -244,6 +345,33 @@ def tail(iterable):
     """
     return drop(1, iterable)
 
+def butlast(iterable):
+    """Yield all items from iterable, except the last one (if iterable is finite).
+
+    Return a generator.
+
+    Uses intermediate storage - do not use the original iterator after calling
+    ``butlast``.
+    """
+    return butlastn(1, iterable)
+
+def butlastn(n, iterable):
+    """Yield all items from iterable, except the last n (if iterable is finite).
+
+    Return a generator.
+
+    Uses intermediate storage - do not use the original iterator after calling
+    ``butlastn``.
+    """
+    # we let StopIteration propagate from anything that could raise it here.
+    it = iter(iterable)
+    q = deque()
+    for _ in range(n+1):
+        q.append(next(it))
+    while True:
+        yield q.popleft()
+        q.append(next(it))
+
 def first(iterable, *, default=None):
     """Like nth, but return the first item."""
     return nth(0, iterable, default=default)
@@ -374,6 +502,28 @@ def iterate(f, *args):
         yield args
         args = f(*args)
 
+def partition(pred, iterable):
+    """Partition an iterable to entries satifying and not satisfying a predicate.
+
+    Return two generators, ``(false-items, true-items)``, where each generator
+    yields those items from ``iterable`` for which ``pred`` gives the indicated value.
+
+    This is ``partition`` from ``itertools`` recipes.
+
+    **Caution**: infinite inputs require some care in order not to cause a blowup
+    in the amount of intermediate storage needed. The original iterable is walked
+    only once (because that's all we can generally do!), and depending on the
+    content of ``iterable`` and in which order the outputs are read, an indefinite
+    number of either false-items or true-items may build up in the intermediate storage.
+
+    (Example: partition the natural numbers, and only ever read the even numbers.
+    It will eventually run out of memory storing all the odd numbers "to be read
+    later".)
+    """
+    # iterable is walked only once; tee handles the intermediate storage.
+    t1, t2 = tee(iterable)
+    return filterfalse(pred, t1), filter(pred, t2)
+
 def test():
     from operator import add
     from unpythonic.fun import composel, identity
@@ -386,15 +536,28 @@ def test():
     # Note Python's (and Racket's) map is like Haskell's zipWith, but for n inputs.
     assert tuple(map(add, (1, 2), (3, 4))) == (4, 6)  # builtin
     assert tuple(mapr(add, (1, 2), (3, 4))) == (6, 4)
+    assert tuple(rmap(add, (1, 2), (3, 4))) == (6, 4)
     assert tuple(zip((1, 2, 3), (4, 5, 6), (7, 8))) == ((1, 4, 7), (2, 5, 8))  # builtin
-    assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+    assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((2, 5, 8), (1, 4, 7))
+    assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
     assert tuple(map_longest(noneadd, (1, 2, 3), (2, 4))) == (3, 6, None)
-    assert tuple(mapr_longest(noneadd, (1, 2, 3), (2, 4))) == (7, 4, None)
+    assert tuple(mapr_longest(noneadd, (1, 2, 3), (2, 4))) == (None, 6, 3)
+    assert tuple(rmap_longest(noneadd, (1, 2, 3), (2, 4))) == (7, 4, None)
     assert tuple(zip_longest((1, 2, 3), (2, 4))) == ((1, 2), (2, 4), (3, None))  # itertools
-    assert tuple(zipr_longest((1, 2, 3), (2, 4))) == ((3, 4), (2, 2), (1, None))
+    assert tuple(zipr_longest((1, 2, 3), (2, 4))) == ((3, None), (2, 4), (1, 2))
+    assert tuple(rzip_longest((1, 2, 3), (2, 4))) == ((3, 4), (2, 2), (1, None))
+
+    # Note map and reverse do not commute if inputs have different lengths.
+    # reverse(map(...)) - map, then reverse; syncs left ends
+    assert tuple(reversed(tuple(map(add, (1, 2, 3), (4, 5))))) == (7, 5)
+    # map(reverse(s) for s in ...) - reverse each, then map; syncs right ends
+    assert tuple(rmap(add, (1, 2, 3), (4, 5))) == (8, 6)
 
     assert tuple(scons(0, range(1, 5))) == tuple(range(5))
     assert tuple(tail(scons("foo", range(5)))) == tuple(range(5))
+
+    assert tuple(butlast(range(5))) == (0, 1, 2, 3)
+    assert tuple(butlastn(3, range(5))) == (0, 1)
 
     def msqrt(x):  # multivalued sqrt
         if x == 0.:
@@ -439,13 +602,13 @@ def test():
 
     # Python's builtin map is not curry-friendly; it accepts arity 1,
     # but actually requires 2. Solution: use partial instead of curry.
-    zipl2 = partial(map, identity)
-    zipr2 = lambda *sequences: map(identity, *(reversed(s) for s in sequences))
-    assert tuple(zipl2((1, 2, 3), (4, 5, 6), (7, 8))) == ((1, 4, 7), (2, 5, 8))
-    assert tuple(zipr2((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+    lzip2 = partial(map, identity)
+    rzip2 = lambda *sequences: map(identity, *(reversed(s) for s in sequences))
+    assert tuple(lzip2((1, 2, 3), (4, 5, 6), (7, 8))) == ((1, 4, 7), (2, 5, 8))
+    assert tuple(rzip2((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
 
-    zipr3 = partial(mapr, identity)
-    assert tuple(zipr3((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+    rzip3 = partial(rmap, identity)
+    assert tuple(rzip3((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
 
     assert tuple(uniqify((1, 1, 2, 2, 2, 2, 4, 3, 3, 3))) == (1, 2, 4, 3)
     data = (('foo', 1), ('bar', 1), ('foo', 2), ('baz', 2), ('qux', 4), ('foo', 3))
