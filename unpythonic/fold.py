@@ -88,13 +88,13 @@ def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
     xss = z(iterable0, *iterables)
     pending_init_from_lastx = init is _uselast and not iterables
-    def rscanner():
+    def _scanr_recurser():
         try:
             xs = next(xss)
         except StopIteration:
             yield init               # base case for recursion
             return
-        subgen = rscanner()
+        subgen = _scanr_recurser()
         acc = next(subgen)           # final result of previous step
 
         # The other base case: one iterable, no init given.
@@ -110,7 +110,7 @@ def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
         yield proc(*(xs + (acc,)))   # final result
         yield acc                    # previous result
         yield from subgen            # sustain the chain
-    return rscanner()
+    return _scanr_recurser()
 
 def scanl1(proc, iterable, init=None):
     """scanl for a single iterable, with optional init.
