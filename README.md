@@ -1372,11 +1372,9 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - Use ``k < n`` to peek without permanently extracting an item. Works by [tee](https://docs.python.org/3/library/itertools.html#itertools.tee)ing; plan accordingly.
  - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple.
    - Essentially, ``composel(map(...), flatten1)``; the same thing the bind operator of the List monad does.
- - `rmap`, `rzip`: variants of the builtin `map` and `zip` that first reverse each input sequence.
-   - `rmap_longest`, `rzip_longest`: variants of those that terminate on the longest input sequence.
- - `mapr`, `zipr`: recursive processes that sync the left ends of multiple inputs, then process from the right.
-   - `mapr_longest`, `zipr_longest`: variants of those that terminate on the longest input sequence.
  - `map_longest`: the final missing battery for `map`.
+ - `rmap`, `rzip`, `rmap_longest`, `rzip_longest`: variants that first reverse each input sequence. This syncs the right ends if there are multiple input sequences.
+ - `mapr`, `zipr`, `mapr_longest`, `zipr_longest`: recursive processes that sync the left ends of multiple inputs, then process from the right.
    - Essentially `map_longest` is `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``.
  - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively).
  - `flatten1`, `flatten`, `flatten_in`: remove nested list structure.
