@@ -98,13 +98,13 @@ def fupdate(target, indices=None, values=None, **mappings):
             if hasattr(cls, "_make"):  # namedtuple support
                 return cls._make(gen)
             return cls(gen)
-        if isinstance(indices, (list, tuple)):
-            seq = target
-            for index, value in zip(indices, values):
-                seq = ShadowedSequence(seq, index, value)
-            return make_output(seq)
-        # one index (or slice), value(s) pair only
-        return make_output(ShadowedSequence(target, indices, values))
+        if not isinstance(indices, (list, tuple)):
+            # one index (or slice), value(s) pair only
+            return make_output(ShadowedSequence(target, indices, values))
+        seq = target
+        for index, value in zip(indices, values):
+            seq = ShadowedSequence(seq, index, value)
+        return make_output(seq)
     if mappings:
         t = copy(target)
         t.update(**mappings)  # TODO: use collections.ChainMap instead?
@@ -132,15 +132,15 @@ class ShadowedSequence(Sequence):
         ix = self.ix
         l = len(self)
         if in_slice(k, ix, l):
-            if isinstance(ix, slice):
-                # we already know k is in ix, so skip validation for speed.
-                i = _index_in_slice(k, ix, l, _validate=False)
-                if i >= len(self.v):
-                    # TODO: Would be nice to raise IndexError, but the genexpr
-                    # in fupdate automatically catches that, hiding the error.
-                    raise ValueError("Replacement sequence too short; attempted to access index {} with len {} (items: {})".format(i, len(self.v), self.v))
-                return self.v[i]
-            return self.v  # int, just one item
+            if isinstance(ix, int):
+                return self.v  # just one item
+            # we already know k is in ix, so skip validation for speed.
+            i = _index_in_slice(k, ix, l, _validate=False)
+            if i >= len(self.v):
+                # TODO: Would be nice to raise IndexError, but the genexpr
+                # in fupdate automatically catches that, hiding the error.
+                raise ValueError("Replacement sequence too short; attempted to access index {} with len {} (items: {})".format(i, len(self.v), self.v))
+            return self.v[i]
         return self.seq[k]  # not in slice
 
     def __len__(self):
@@ -165,15 +165,15 @@ def in_slice(i, s, l=None):
         raise TypeError("i must be int, got {} with value {}".format(type(i), i))
     wrap = _make_negidx_converter(l)
     i = wrap(i)
-    if isinstance(s, slice):
-        start, stop, step = _canonize_slice(s, l, wrap)
-        cmp_start, cmp_end = (ge, lt) if step > 0 else (le, gt)
-        at_or_after_start = cmp_start(i, start)
-        before_stop = cmp_end(i, stop)
-        on_grid = (i - start) % step == 0
-        return at_or_after_start and on_grid and before_stop
-    s = wrap(s)  # int
-    return i == s
+    if isinstance(s, int):
+        s = wrap(s)
+        return i == s
+    start, stop, step = _canonize_slice(s, l, wrap)
+    cmp_start, cmp_end = (ge, lt) if step > 0 else (le, gt)
+    at_or_after_start = cmp_start(i, start)
+    before_stop = cmp_end(i, stop)
+    on_grid = (i - start) % step == 0
+    return at_or_after_start and on_grid and before_stop
 
 def index_in_slice(i, s, l=None):
     """Return the index of the int i in the slice s, or None if i is not in s.
