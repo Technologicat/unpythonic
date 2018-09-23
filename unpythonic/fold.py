@@ -4,6 +4,7 @@
 
 __all__ = ["scanl", "scanr", "scanl1", "scanr1",
            "foldl", "foldr", "reducel", "reducer",
+           "rscanl", "rscanl1", "rfoldl", "rreducel",  # reverse each input, then left-scan/fold
            "unfold", "unfold1"]
 
 from functools import partial
@@ -67,23 +68,18 @@ def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
 
     ``scanr`` is a recursive process; it will crash for overly long inputs.
 
-    If you have a long but finite input, consider whether ``reversed`` and
-    ``scanl`` together do what you want; but be aware the results will be
-    subtly different. (And your inputs need to support ``reversed``, i.e.
-    they must be sequences, not general iterables.)
+    If you have a long but finite input, consider whether ``rscanl``
+    does what you want; but be aware the results will be subtly different.
+    (And your inputs need to support ``reversed``, i.e. they must be sequences,
+    not general iterables.)
 
     An example of a fold with this strategy::
 
-        def revfoldl(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
-            "Reverse each input sequence, then foldl."
-            return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
-                         longest=longest, fillvalue=fillvalue)
         def append_tuple(a, b, acc):
             return acc + ((a, b),)
-
         assert foldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((1, 4), (2, 5))
         assert foldr(append_tuple, (), (1, 2, 3), (4, 5)) == ((2, 5), (1, 4))
-        assert revfoldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((3, 5), (2, 4)),
+        assert rfoldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((3, 5), (2, 4))
     """
     z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
     xss = z(iterable0, *iterables)
@@ -181,6 +177,36 @@ def reducer(proc, iterable, init=None):
     """
     return first(scanr1(proc, iterable, init))
 
+def rscanl(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
+    """Reverse each input, then scanl.
+
+    Inputs must support ``reversed``.
+    """
+    return scanl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
+                 longest=longest, fillvalue=fillvalue)
+
+def rscanl1(proc, sequence, init=None):
+    """Reverse the input, then scanl1.
+
+    The input must support ``reversed``.
+    """
+    return scanl1(proc, reversed(sequence), init)
+
+def rfoldl(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
+    """Reverse each input, then foldl.
+
+    Inputs must support ``reversed``.
+    """
+    return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
+                 longest=longest, fillvalue=fillvalue)
+
+def rreducel(proc, sequence, init=None):
+    """Reverse the input, then reducel.
+
+    The input must support ``reversed``.
+    """
+    return reducel(proc, reversed(sequence), init)
+
 def unfold1(proc, init):
     """Generate a sequence corecursively. The counterpart of foldl.
 
@@ -232,11 +258,41 @@ def unfold(proc, *inits):
         value, *states = result
         yield value
 
+## This is **not** how to make a right map; the result is exactly the same
+## as for the ordinary (left) map and zip, but unnecessarily using a
+## recursive process for something that can be done using a linear one.
+## For documentation only. For working mapr, zipr, see unpythonic.it.
+## The trick is in the order in which the recurser yields its results.
+#def testme():
+#    squaretwo = lambda a, b: (a**2, b**2)
+#    print(tuple(mapr(squaretwo, (1, 2, 3), (4, 5))))
+#    print(tuple(map(squaretwo, (1, 2, 3), (4, 5))))
+#
+#def mapr(proc, *iterables):
+#    """Like map, but starting from the right. Recursive process.
+#
+#    See ``rmap`` for the linear process that works by reversing each input.
+#    """
+#    def scanproc(*args):
+#        *elts, _ = args  # discard acc
+#        return proc(*elts)
+#    # discard the init value with butlast
+#    return butlast(scanr(scanproc, None, *iterables))
+#
+#def zipr(*iterables):
+#    """Like zip, but starting from the right. Recursive process.
+#
+#    See ``rzip`` for the linear process that works by reversing each input.
+#    """
+#    def identity(*args):  # unpythonic.fun.identity, but dependency loop
+#        return args
+#    return mapr(identity, *iterables)
+
 def test():
     from operator import add, mul
     from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate
     from unpythonic.llist import cons, nil, ll, lreverse
-    from unpythonic.it import take, tail, zipr
+    from unpythonic.it import take, tail, rzip
 
     # scan/accumulate: lazy fold that yields intermediate results.
     assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
@@ -275,6 +331,8 @@ def test():
         return acc + ((a, b),)
     assert foldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((1, 4), (2, 5))
     assert foldr(append_tuple, (), (1, 2, 3), (4, 5)) == ((2, 5), (1, 4))
+    assert rfoldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((3, 5), (2, 4))
+    assert tuple(rscanl(append_tuple, (), (1, 2, 3), (4, 5))) == ((), ((3, 5),), ((3, 5), (2, 4)))
 
     def mymap_one(f, sequence):
         f_then_cons = composer(cons, to1st(f))  # args: elt, acc
@@ -366,15 +424,15 @@ def test():
 #    def zipper(*args):  # straightforward version
 #        *rest, acc = args
 #        return acc + (tuple(rest),)
-    zipl1 = curry(foldl, zipper, ())
-    zipr1 = curry(foldr, zipper, ())
-    assert zipl1((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
-    assert zipr1((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
+    lzip1 = curry(foldl, zipper, ())
+    rzip1 = curry(foldr, zipper, ())
+    assert lzip1((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
+    assert rzip1((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
     # But:
-    assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
-    # This is because zipr1 above *walks* from the left even though the *fold*
+    assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+    # This is because rzip1 above *walks* from the left even though the *fold*
     # is performed from the right. Hence the sequences are synced by their
-    # *left* ends. But the zipr function perform a reverse and then walks;
+    # *left* ends. But the rzip function perform a reverse and then walks;
     # the sequences are synced by their *right* ends.
 
     # Unfold.
