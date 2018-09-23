@@ -99,14 +99,14 @@ def gmemoize(gfunc):
         return _MemoizedGenerator(*memos[k])
     return gmemoized
 
-_success, _fail = [object() for _ in range(2)]  # sentinels (globals, saves indirect via self)
+_success, _fail = [object() for _ in range(2)]  # global saves indirect via self
 class _MemoizedGenerator:
     """Wrapper that manages one memoized sequence. Co-operates with gmemoize."""
     def __init__(self, g, memo, lock):
-        self.memo = memo  # each instance for the same g gets the same memo
         self.g = g
-        self.j = 0  # current position in memo
+        self.memo = memo  # each instance for the same g gets the same memo
         self.lock = lock
+        self.j = 0  # current position in memo
     def __repr__(self):
         return "<_MemoizedGenerator object {} at 0x{:x}>".format(self.g.__name__, id(self))
     def __iter__(self):
@@ -123,11 +123,11 @@ class _MemoizedGenerator:
                 except BaseException as err:  # StopIteration propagates, not a BaseException
                     result = (_fail, err)
                 memo.append(result)
-            sentinel, value = result
+            kind, value = result
             self.j += 1
-            if sentinel is _success:
-                return value
-            raise value
+            if kind is _fail:
+                raise value
+            return value
 
 def imemoize(iterable):
     """Memoize an iterable.

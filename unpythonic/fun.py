@@ -34,7 +34,7 @@ def memoize(f):
     **CAUTION**: ``f`` must be pure (no side effects, no internal state
     preserved between invocations) for this to make any sense.
     """
-    success, fail = [object() for _ in range(2)]  # sentinels
+    success, fail = [object() for _ in range(2)]
     memo = {}
     @wraps(f)
     def memoized(*args, **kwargs):
@@ -45,10 +45,10 @@ def memoize(f):
             except BaseException as err:
                 result = (fail, err)
             memo[k] = result  # should yell separately if k is not a valid key
-        sentinel, value = memo[k]
-        if sentinel is success:
-            return value
-        raise value
+        kind, value = memo[k]
+        if kind is fail:
+            raise value
+        return value
     return memoized
 
 #def memoize_simple(f):  # essential idea, without exception handling
