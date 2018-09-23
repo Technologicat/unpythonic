@@ -124,6 +124,8 @@ class ShadowedSequence(Sequence):
     or slice (if ``v`` is intended as a sequence).
     """
     def __init__(self, seq, ix, v):
+        if not isinstance(ix, (slice, int)):
+            raise TypeError("ix: expected slice or int, got {} with value {}".format(type(ix), ix))
         self.seq = seq
         self.ix = ix
         self.v = v
