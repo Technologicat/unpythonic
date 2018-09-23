@@ -422,20 +422,20 @@ def test():
     # same without using side effects - use an accumulator parameter:
     @looped
     def out(loop, i=0, acc=[]):
-        if i < 3:
-            acc.append(i)
-            return loop(i + 1)
-        return acc
+        if i >= 3:
+            return acc
+        acc.append(i)
+        return loop(i + 1)
     assert out == [0, 1, 2]
 
     # there's no "continue"; package your own:
     @looped
     def s(loop, acc=0, i=0):
         cont = lambda newacc=acc: loop(newacc, i + 1)
-        if i <= 4:
-            return cont()
-        elif i == 10:
+        if i == 10:
             return acc
+        elif i <= 4:
+            return cont()
         return cont(acc + i)
     assert s == 35
 
@@ -493,9 +493,9 @@ def test():
         predicate = predicate or (lambda x: x)  # None -> truth value test
         @looped_over(iterable, acc=())
         def out(loop, x, acc):
-            if predicate(x):
-                return loop(acc + (x,))
-            return loop(acc)
+            if not predicate(x):
+                return loop(acc)
+            return loop(acc + (x,))
         return out
     assert filter_fp(lambda x: x % 2 == 0, range(10)) == (0, 2, 4, 6, 8)
 
@@ -629,9 +629,9 @@ def test():
         @looped
         def s(loop, acc=0, i=0):
             cont = lambda newacc=acc: loop(newacc, i + 1)
-            if i < 10:
-                return cont(acc + i)
-            return acc
+            if i >= 10:
+                return acc
+            return cont(acc + i)
         print("s is {:d}".format(s))
         return 2 * s
     assert result == 90

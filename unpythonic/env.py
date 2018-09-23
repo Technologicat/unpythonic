@@ -78,10 +78,9 @@ class env:
         if not name.isidentifier():
             raise ValueError("'{}' is not a valid identifier".format(name))
         e = self._env   # __getattr__ not called if direct attr lookup succeeds, no need for hook.
-        if name in e:
-            return e[name]
-        else:
+        if name not in e:
             raise AttributeError("name '{:s}' is not defined".format(name))
+        return e[name]
 
     # membership test (in, not in)
     def __contains__(self, k):

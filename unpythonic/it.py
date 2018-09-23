@@ -441,9 +441,9 @@ def flatten(iterable, pred=None):
 
 def flatten1(iterable, pred=None):
     """Like flatten, but process outermost level only."""
-    if pred:
-        return _flatten(iterable, pred, recursive=False)
-    return chain.from_iterable(iterable)  # itertools recipes: fast, no pred
+    if not pred:
+        return chain.from_iterable(iterable)  # itertools recipes: fast, no pred
+    return _flatten(iterable, pred, recursive=False)
 
 def _flatten(iterable, pred=None, recursive=True):
     pred = pred or (lambda x: True)  # unpythonic.fun.const(True), but dependency loop
