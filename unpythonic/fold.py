@@ -87,7 +87,7 @@ def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """
     z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
     xss = z(iterable0, *iterables)
-    pending_init_from_lastx = init is None and not iterables
+    pending_init_from_lastx = init is _uselast and not iterables
     def rscanner():
         try:
             xs = next(xss)
@@ -136,12 +136,13 @@ def scanl1(proc, iterable, init=None):
             return None  # empty input sequence
     return scanl(proc, init, it)
 
+_uselast = object()  # sentinel
 def scanr1(proc, iterable, init=None):
     """Dual of scanl1.
 
     If ``init is None``, use the last element from the iterable.
     """
-    return scanr(proc, init, iterable)
+    return scanr(proc, _uselast if init is None else init, iterable)
 
 def foldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """Racket-like foldl that supports multiple input iterables.
