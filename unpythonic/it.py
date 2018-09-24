@@ -564,9 +564,9 @@ def test():
     assert tuple(rzip_longest((1, 2, 3), (2, 4))) == ((3, 4), (2, 2), (1, None))
 
     # Note map and reverse do not commute if inputs have different lengths.
-    # reverse(map(...)) - map, then reverse; syncs left ends
-    assert tuple(rev(map(add, (1, 2, 3), (4, 5)))) == (7, 5)
-    # map(reverse(s) for s in ...) - reverse each, then map; syncs right ends
+    # map, then reverse; syncs left ends
+    assert tuple(mapr(add, (1, 2, 3), (4, 5))) == (7, 5)
+    # reverse each, then map; syncs right ends
     assert tuple(rmap(add, (1, 2, 3), (4, 5))) == (8, 6)
 
     assert tuple(scons(0, range(1, 5))) == tuple(range(5))
