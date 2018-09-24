@@ -569,6 +569,11 @@ def test():
     # reverse each, then map; syncs right ends
     assert tuple(rmap(add, (1, 2, 3), (4, 5))) == (8, 6)
 
+    assert first(range(5)) == 0
+    assert second(range(5)) == 1
+    assert nth(2, range(5)) == 2
+    assert last(range(5)) == 4
+
     assert tuple(scons(0, range(1, 5))) == tuple(range(5))
     assert tuple(tail(scons("foo", range(5)))) == tuple(range(5))
 
