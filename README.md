@@ -223,9 +223,9 @@ p | runpipe
 assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 ```
 
-Both one-in-one-out (*1-to-1*) and n-in-m-out (*n-to-m*) pipes are provided. The 1-to-1 versions have names suffixed with ``1``. The use case is one-argument functions that return one value (which may also be a tuple or list).
+Both one-in-one-out (*1-to-1*) and n-in-m-out (*n-to-m*) pipes are provided. The 1-to-1 versions have names suffixed with ``1``. The use case is one-argument functions that return one value (which may also be a tuple).
 
-In the n-to-m versions, when a function returns a tuple or list, it is unpacked to the argument list of the next function in the pipe. At ``getvalue`` or ``runpipe`` time, the tuple wrapper (if any) around the final result is discarded if it contains only one item. (This allows the n-to-m versions to work also with a single value, as long as it is not a tuple or list.) The main use case is computations that deal with multiple values, the number of which may also change during the computation (as long as there are as many "slots" on both sides of each individual connection).
+In the n-to-m versions, when a function returns a tuple, it is unpacked to the argument list of the next function in the pipe. At ``getvalue`` or ``runpipe`` time, the tuple wrapper (if any) around the final result is discarded if it contains only one item. (This allows the n-to-m versions to work also with a single value, as long as it is not a tuple.) The main use case is computations that deal with multiple values, the number of which may also change during the computation (as long as there are as many "slots" on both sides of each individual connection).
 
 
 ### Introduce local bindings: ``let``, ``letrec``
@@ -1096,9 +1096,9 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
      - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
    - **Caution**: If the positional arities of ``f`` cannot be inspected, currying fails, raising ``UnknownArity``. This may happen with builtins such as ``operator.add``.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
-   - Any number of positional arguments is supported, with the same rules as in the pipe system. Multiple return values packed into a tuple or list are unpacked to the argument list of the next function in the chain.
+   - Any number of positional arguments is supported, with the same rules as in the pipe system. Multiple return values packed into a tuple are unpacked to the argument list of the next function in the chain.
    - `composelc`, `composerc`: curry each function before composing them. Useful with passthrough.
-   - `composel1`, `composer1`: 1-in-1-out chains (faster; also useful for a single value that is a tuple or list).
+   - `composel1`, `composer1`: 1-in-1-out chains (faster; also useful for a single value that is a tuple).
    - suffix `i` to use with an iterable (`composeli`, `composeri`, `composelci`, `composerci`, `composel1i`, `composer1i`)
  - `andf`, `orf`, `notf`: compose predicates (like Racket's `conjoin`, `disjoin`, `negate`).
  - `rotate`: a cousin of `flip`, for permuting positional arguments.
@@ -1450,7 +1450,7 @@ assert tuple(uniq((1, 1, 2, 2, 2, 1, 2, 2, 4, 3, 4, 3, 3))) == (1, 2, 1, 2, 4, 3
 assert tuple(flatten1(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, (4, 5), 6, 7, 8, 9)
 assert tuple(flatten(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, 4, 5, 6, 7, 8, 9)
 
-is_nested = lambda sublist: all(isinstance(x, (tuple, list)) for x in sublist)
+is_nested = lambda sublist: all(isinstance(x, (list, tuple)) for x in sublist)
 assert tuple(flatten((((1, 2), (3, 4)), (5, 6)), is_nested)) == ((1, 2), (3, 4), (5, 6))
 
 data = (((1, 2), ((3, 4), (5, 6)), 7), ((8, 9), (10, 11)))

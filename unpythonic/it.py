@@ -449,7 +449,7 @@ def flatten(iterable, pred=None):
 
     E.g. to flatten only those items that contain only tuples::
 
-        is_nested = lambda e: all(isinstance(x, (tuple, list)) for x in e)
+        is_nested = lambda e: all(isinstance(x, (list, tuple)) for x in e)
         data = (((1, 2), (3, 4)), (5, 6))
         assert tuple(flatten(data, is_nested)) == ((1, 2), (3, 4), (5, 6))
     """
@@ -479,7 +479,7 @@ def flatten_in(iterable, pred=None):
 
     Example::
 
-        is_nested = lambda e: all(isinstance(x, (tuple, list)) for x in e)
+        is_nested = lambda e: all(isinstance(x, (list, tuple)) for x in e)
         data = (((1, 2), ((3, 4), (5, 6)), 7), ((8, 9), (10, 11)))
         assert tuple(flatten(data, is_nested))    == \\
                (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
@@ -636,7 +636,7 @@ def test():
     assert tuple(flatten(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, 4, 5, 6, 7, 8, 9)
     assert tuple(flatten1(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, (4, 5), 6, 7, 8, 9)
 
-    is_nested = lambda e: all(isinstance(x, (tuple, list)) for x in e)
+    is_nested = lambda e: all(isinstance(x, (list, tuple)) for x in e)
     assert tuple(flatten((((1, 2), (3, 4)), (5, 6)), is_nested)) == ((1, 2), (3, 4), (5, 6))
 
     data = (((1, 2), ((3, 4), (5, 6)), 7), ((8, 9), (10, 11)))

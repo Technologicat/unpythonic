@@ -152,7 +152,7 @@ def setescape(tags=None, catch_untagged=True):
         assert f() == 15
     """
     if tags is not None:
-        if isinstance(tags, (tuple, list)):  # multiple tags
+        if isinstance(tags, tuple):  # multiple tags
             tags = set(tags)
         else: # single tag
             tags = set((tags,))

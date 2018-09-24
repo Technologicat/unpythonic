@@ -11,7 +11,8 @@ __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
 from collections import namedtuple
 from unpythonic.env import env
 from unpythonic.misc import call
-from unpythonic.fun import curry
+from unpythonic.fun import curry, iscurried
+from unpythonic.dynscope import dyn
 from unpythonic.arity import arity_includes, UnknownArity
 
 # sequence side effects in a lambda
@@ -246,7 +247,7 @@ def pipe(values0, *bodys):
     The only restriction is that each function must take as many positional
     arguments as the previous one returns.
 
-    At each step, if the output from a function is a list or a tuple,
+    At each step, if the output from a function is a tuple,
     it is unpacked to the argument list of the next function. Otherwise,
     we assume the output is intended to be fed to the next function as-is.
 
@@ -271,12 +272,24 @@ def pipe(values0, *bodys):
         assert (a, b) == (13, "got foo")
     """
     xs = values0
-    for update in bodys:
-        if isinstance(xs, (list, tuple)):
+    n = len(bodys)
+    def doit():
+        nonlocal xs
+        if isinstance(xs, tuple):
             xs = update(*xs)
         else:
             xs = update(xs)
-    if isinstance(xs, (list, tuple)):
+    for k, update in enumerate(bodys):
+        islast = (k == n - 1)
+        # co-operate with curry: provide a top-level curry context
+        # to allow passthrough from a pipelined function to the next
+        # (except the last one, since it exits the curry context).
+        if iscurried(update) and not islast:
+            with dyn.let(_curry_context=(dyn._curry_context, update)):
+                doit()
+        else:
+            doit()
+    if isinstance(xs, tuple):
         return xs if len(xs) > 1 else xs[0]
     return xs
 
@@ -311,11 +324,11 @@ class piped:
         if f is getvalue:
             return xs if len(xs) > 1 else xs[0]
         cls = self.__class__
-        if isinstance(xs, (list, tuple)):
+        if isinstance(xs, tuple):
             newxs = f(*xs)
         else:
             newxs = f(xs)
-        if isinstance(newxs, (list, tuple)):
+        if isinstance(newxs, tuple):
             return cls(*newxs)
         return cls(newxs)
     def __repr__(self):
@@ -356,7 +369,7 @@ class lazy_piped:
         if f is runpipe:  # compute now
             vs = self._xs
             for g in self._funcs:
-                if isinstance(vs, (list, tuple)):
+                if isinstance(vs, tuple):
                     vs = g(*vs)
                 else:
                     vs = g(vs)
@@ -544,6 +557,15 @@ def test():
                  lambda x: x + 1,  # extra args passed through on the right
                  lambda x, y: (x * 2, y + 1))
     assert (a, b) == (4, 3)
+
+    try:
+        a, b = pipec((1, 2),
+                     lambda x: x + 1,
+                     lambda x: x * 2)
+    except TypeError:
+        pass
+    else:
+        assert False  # error if the curry context exits with args remaining
 
     # optional shell-like syntax
     assert piped1(42) | double | inc | getvalue == 85

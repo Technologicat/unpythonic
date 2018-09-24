@@ -393,11 +393,18 @@ def test():
     assert doubler(ll(1, 2, 3)) == ll(2, 4, 6)
 
     # curry supports passing through on the right any args over the max arity.
-    assert curry(double, 2, "foo") == (4, "foo")   # arity of double is 1
-
-    # In passthrough, if an intermediate result is a callable,
-    # it is invoked on the remaining positional args:
+    # If an intermediate result is a callable, it is invoked on the remaining
+    # positional args:
     assert curry(mymap_one4, double, ll(1, 2, 3)) == ll(2, 4, 6)
+
+    # But having any args remaining when the top-level curry context exits
+    # is an error:
+    try:
+        curry(double, 2, "foo")
+    except TypeError:
+        pass
+    else:
+        assert False   # top-level curry context exited with args remaining
 
     # This also works; curried f takes one argument and the second one is passed
     # through on the right; this two-tuple then ends up as the arguments to cons.

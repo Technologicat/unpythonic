@@ -21,6 +21,7 @@ from operator import itemgetter
 
 from unpythonic.arity import arities
 from unpythonic.fold import reducel
+from unpythonic.dynscope import dyn, make_dynvar
 
 def memoize(f):
     """Decorator: memoize the function f.
@@ -61,6 +62,8 @@ def memoize(f):
 #        return memo[k]
 #    return memoized
 
+make_dynvar(_curry_context=None)
+make_dynvar(curry_toplevel_passthrough=False)
 def curry(f, *args, **kwargs):
     """Decorator: curry the function f.
 
@@ -100,13 +103,9 @@ def curry(f, *args, **kwargs):
 
     **Passthrough**:
 
-    If too many args are given, any extra ones are passed through on the right::
-
-        double = lambda x: 2 * x
-        assert curry(double)(2, "foo") == (4, "foo")
-
-    In passthrough, if an intermediate result is callable it is invoked
-    on the remaining positional args::
+    If too many args are given, any extra ones are passed through on the right.
+    If an intermediate result is callable, it is invoked on the remaining
+    positional args::
 
         map_one = lambda f: (curry(foldr))(composer(cons, to1st(f)), nil)
         assert curry(map_one)(double, ll(1, 2, 3)) == ll(2, 4, 6)
@@ -118,6 +117,19 @@ def curry(f, *args, **kwargs):
     For simplicity, in passthrough, all kwargs are consumed in the first step
     for which too many positional args were supplied.
 
+    By default, if any passed-through positional args are still remaining when
+    the currently top-level curry context exits, ``curry`` raises ``TypeError``,
+    because such usage often indicates a bug.
+
+    This behavior can be locally modified by setting the dynvar
+    ``curry_toplevel_passthrough``::
+
+        with dyn.let(curry_toplevel_passthrough=True):
+            curry(double, 2, "foo") == (4, "foo")
+
+    Because it is a dynvar, it affects all ``curry`` calls in its dynamic extent,
+    including ones inside library functions such as ``composerc`` or ``pipec``.
+
     **Curry itself is curried**:
 
     When invoked as a regular function (not decorator), curry itself is curried.
@@ -127,8 +139,6 @@ def curry(f, *args, **kwargs):
         map_one = lambda f: curry(foldr, composer(cons, to1st(f)), nil)
 
     This comboes with passthrough::
-
-        assert curry(double, 2, "foo") == (4, "foo")
 
         mymap = lambda f: curry(foldr, composerc(cons, f), nil)
         add = lambda x, y: x + y
@@ -151,22 +161,28 @@ def curry(f, *args, **kwargs):
     min_arity, max_arity = arities(f)
     @wraps(f)
     def curried(*args, **kwargs):
-        if len(args) < min_arity:
-            return curry(partial(f, *args, **kwargs))
-        # passthrough on right, like https://github.com/Technologicat/spicy
-        if len(args) > max_arity:
-            now_args, later_args = args[:max_arity], args[max_arity:]
-            now_result = f(*now_args, **kwargs)  # use up all kwargs now
-            if callable(now_result):
-                # curry it now, to sustain the chain in case we have
-                # too many (or too few) args for it.
-                if not iscurried(now_result):
-                    now_result = curry(now_result)
-                return now_result(*later_args)
-            if isinstance(now_result, (tuple, list)):
-                return tuple(now_result) + later_args
-            return (now_result,) + later_args
-        return f(*args, **kwargs)
+        outerctx = dyn._curry_context
+        with dyn.let(_curry_context=(outerctx, f)):
+            if len(args) < min_arity:
+                return curry(partial(f, *args, **kwargs))
+            # passthrough on right, like https://github.com/Technologicat/spicy
+            if len(args) > max_arity:
+                now_args, later_args = args[:max_arity], args[max_arity:]
+                now_result = f(*now_args, **kwargs)  # use up all kwargs now
+                if callable(now_result):
+                    # curry it now, to sustain the chain in case we have
+                    # too many (or too few) args for it.
+                    if not iscurried(now_result):
+                        now_result = curry(now_result)
+                    return now_result(*later_args)
+                if not (outerctx or dyn.curry_toplevel_passthrough):
+                    raise TypeError("Top-level curry context exited with {:d} arg(s) remaining: {}".format(len(later_args), later_args))
+                # pass through to the curried procedure waiting in outerctx
+                # (e.g. in a curried compose chain)
+                if isinstance(now_result, tuple):
+                    return now_result + later_args
+                return (now_result,) + later_args
+            return f(*args, **kwargs)
     curried._is_curried_function = True  # stash for detection
     # curry itself is curried: if we get args, they're the first step
     if args or kwargs:
@@ -387,10 +403,18 @@ def composel1i(iterable):
 def _make_compose(direction):  # "left", "right"
     def compose_two(f, g):
         def composed(*args):
-            a = g(*args)
-            # we could duck-test but this is more predictable for the user
-            # (consider chaining functions that manipulate a generator).
-            if isinstance(a, (list, tuple)):
+            # co-operate with curry: provide a top-level curry context
+            # to allow passthrough from the function that is applied first
+            # to the function that is applied second.
+            if iscurried(f):
+                with dyn.let(_curry_context=(dyn._curry_context, composed)):
+                    a = g(*args)
+            else:
+                a = g(*args)
+            # we could duck-test, but this is more predictable for the user
+            # (consider chaining functions that manipulate a generator), and
+            # tuple specifically is the pythonic multiple-return-values thing.
+            if isinstance(a, tuple):
                 return f(*a)
             return f(a)
         return composed
@@ -408,7 +432,7 @@ def composer(*fs):
 
     This mirrors the standard mathematical convention (f ∘ g)(x) ≡ f(g(x)).
 
-    At each step, if the output from a function is a list or a tuple,
+    At each step, if the output from a function is a tuple,
     it is unpacked to the argument list of the next function. Otherwise,
     we assume the output is intended to be fed to the next function as-is.
 
