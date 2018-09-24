@@ -166,7 +166,7 @@ setup(
     #
     # e.g. the keywords your project uses as topics on GitHub, minus "python" (if there)
     #
-    keywords = ["functional-programming", "lisp"],
+    keywords = ["functional-programming", "lisp", "scheme", "racket", "haskell"],
 
     # Declare packages so that  python -m setup build  will copy .py files (especially __init__.py).
     #
