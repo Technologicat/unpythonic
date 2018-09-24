@@ -1293,15 +1293,20 @@ Memoize iterables; like `itertools.tee`, but no need to know in advance how many
 
 ```python
 from itertools import count, takewhile
-from unpythonic import gmemoize, imemoize, fimemoize, take
+from unpythonic import gmemoize, imemoize, fimemoize, take, nth
 
 @gmemoize
-def primes():
+def primes():  # FP sieve of Eratosthenes
     yield 2
     for n in count(start=3, step=2):
         if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
             yield n
 assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
+assert nth(3378, primes()) == 31337  # with memo, linear process; no crash
+
+# but be careful:
+31337 in primes()  # --> True
+1337 in takewhile(lambda p: p <= 1337, primes())  # not prime, need takewhile() to stop
 ```
 
 Memoizing only a part of an iterable. This is where `imemoize` and `fimemoize` can be useful. The basic idea is to make a chain of generators, and only memoize the last one:
