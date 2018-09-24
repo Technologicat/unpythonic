@@ -32,13 +32,13 @@ def _getstack():
     return _L._stack
 
 class _EnvBlock(object):
-    def __init__(self, kwargs):
-        self.kwargs = kwargs
+    def __init__(self, bindings):
+        self.bindings = bindings
     def __enter__(self):
-        if self.kwargs:  # optimization, skip pushing an empty scope
-            _getstack().append(self.kwargs)
+        if self.bindings:  # optimization, skip pushing an empty scope
+            _getstack().append(self.bindings)
     def __exit__(self, t, v, tb):
-        if self.kwargs:
+        if self.bindings:
             _getstack().pop()
 
 class _Env(object):
@@ -95,11 +95,13 @@ class _Env(object):
         for scope in reversed(_getstack()):
             if name in scope:
                 return scope[name]
-        if name in _global_dynvars:
+        if name in _global_dynvars:  # default value from make_dynvar
             return _global_dynvars[name]
         raise AttributeError("dynamic variable '{:s}' is not defined".format(name))
-    def let(self, **kwargs):
-        return _EnvBlock(kwargs)
+
+    def let(self, **bindings):
+        return _EnvBlock(bindings)
+
     def __setattr__(self, name, value):
         raise AttributeError("dynamic variables can only be set using 'with dyn.let()'")
 
