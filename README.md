@@ -1045,7 +1045,7 @@ assert result == 42
 
 (To be technically correct, [dynamic assignment](https://groups.google.com/forum/#!topic/racket-users/2Baxa2DxDKQ) as termed by Felleisen.)
 
-Like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Similar to [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html). The *special variables* in Common Lisp work somewhat similarly (but with indefinite scope).
+Like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Like [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html). The *special variables* in Common Lisp work somewhat similarly (but with indefinite scope).
 
 There's a singleton, `dyn`:
 
@@ -1071,15 +1071,17 @@ def g():
 g()
 ```
 
-Dynamic variables can only be set using `with dyn.let(...)`. No `set`, `<<`, unlike in the other `unpythonic` environments.
+Dynamic variables are set using `with dyn.let(...)`. There is no `set`, `<<`, unlike in the other `unpythonic` environments.
 
 The values of dynamic variables remain bound for the dynamic extent of the `with` block. Exiting the `with` block then pops the stack. Inner dynamic scopes shadow outer ones. Dynamic variables are seen also by code that is outside the lexical scope where the `with dyn.let` resides.
 
-Each thread has its own dynamic scope stack. A newly spawned thread automatically copies the then-current state of the dynamic scope stack **from the main thread** (not the parent thread!). This feature is mainly intended for easily initializing default values for configuration parameters across all threads.
-
-Any copied bindings will remain on the stack for the full dynamic extent of the new thread. Because these bindings are not associated with any `with` block running in that thread, and because aside from the initial copying, the dynamic scope stacks are thread-local, any copied bindings will never be popped, even if the main thread pops its own instances of them.
+Each thread has its own dynamic scope stack. A newly spawned thread automatically copies the then-current state of the dynamic scope stack **from the main thread** (not the parent thread!). Any copied bindings will remain on the stack for the full dynamic extent of the new thread. Because these bindings are not associated with any `with` block running in that thread, and because aside from the initial copying, the dynamic scope stacks are thread-local, any copied bindings will never be popped, even if the main thread pops its own instances of them.
 
 The source of the copy is always the main thread mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, PRs welcome!)
+
+Finally, there is one global dynamic scope shared between all threads, where the default values of dynvars live. The default value is used when ``dyn`` is queried for the value outside the dynamic extent of any ``with dyn.let()`` blocks. Having a default value is convenient for eliminating the need for ``if "x" in dyn`` checks, since the variable will always exist (after the global definition has been executed).
+
+To create a dynvar and set its default value, use ``make_dynvar``. Each dynamic variable, of the same name, should only have one default set; the (dynamically) latest definition always overwrites. However, we do not prevent overwrites, because in some codebases the same module may run its top-level initialization code multiple times (e.g. if a module has a ``main()`` for tests, and the file gets loaded both as a module and as the main program).
 
 
 ### Batteries for functools
