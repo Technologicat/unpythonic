@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Dynamic scoping."""
+"""Dynamic assignment."""
 
-__all__ = ["dyn"]
+__all__ = ["dyn", "make_dynvar"]
 
 import threading
 
@@ -18,6 +18,9 @@ class MyLocal(threading.local):  # see help(_threading_local)
             raise SystemError('__init__ called too many times')
         self.initialized = True
         self.__dict__.update(kw)
+
+# LEG rule for dynvars: allow a global definition with make_dynvar(a=...)
+_global_dynvars = {}
 
 _mainthread_stack = []
 _L = MyLocal(default_stack=_mainthread_stack)
@@ -37,22 +40,29 @@ class _EnvBlock(object):
         _getstack().pop()
 
 class _Env(object):
-    """This module exports a single object instance, ``dyn``, which emulates dynamic
-    scoping (Lisp's special variables; Racket's ``parameterize``).
+    """This module exports a single object instance, ``dyn``, which provides
+    dynamic assignment (like Racket's ``parameterize``; akin to Common Lisp's
+    special variables).
 
     For implicitly passing stuff through several layers of function calls,
     in cases where a lexical closure is not the right tool for the job
     (i.e. when some of the functions are defined elsewhere in the code).
 
-      - Dynamic variables are created by ``with dyn.let()``.
+      - Dynamic variables are set by ``with dyn.let()``.
 
       - The created dynamic variables exist while the with block is executing,
         and fall out of scope when the with block exits. (I.e. dynamic variables
         exist during the dynamic extent of the with block.)
 
-      - The blocks can be nested. Inner scopes mask outer ones, as usual.
+      - The blocks can be nested. Inner definitions shadow outer ones, as usual.
 
       - Each thread has its own dynamic scope stack.
+
+      - Additionally, there is one global dynamic scope, shared between all
+        threads, that can be used to set default values for dynamic variables.
+        See ``make_dynvar``.
+
+    Similar to (parameterize) in Racket.
 
     Example::
 
@@ -83,6 +93,8 @@ class _Env(object):
         for scope in reversed(_getstack()):
             if name in scope:
                 return scope[name]
+        if name in _global_dynvars:
+            return _global_dynvars[name]
         raise AttributeError("dynamic variable '{:s}' is not defined".format(name))
     def let(self, **kwargs):
         return _EnvBlock(kwargs)
@@ -100,10 +112,9 @@ class _Env(object):
     # iteration
     def _asdict(self):
         data = {}
-        for scope in reversed(_getstack()):
-            for name, value in scope.items():
-                if name not in data:
-                    data[name] = value
+        data.update(_global_dynvars)
+        for scope in _getstack():
+            data.update(scope)
         return data
 
     def __iter__(self):
@@ -129,6 +140,32 @@ class _Env(object):
     def __repr__(self):
         bindings = ["{:s}={}".format(k,repr(self[k])) for k in self]
         return "<dyn object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
+
+def make_dynvar(**bindings):
+    """Create and set default value for dynamic variables.
+
+    The default value is used when ``dyn`` is queried for the value outside the
+    dynamic extent of any ``with dyn.let()`` blocks.
+
+    This is convenient for eliminating the need for ``if "x" in dyn``
+    checks, since the variable will always be there (after the global
+    definition has been executed).
+
+    The kwargs should be ``name=value`` pairs. Note ``value`` is mandatory,
+    since the whole point of this function is to assign a value. If you need
+    a generic placeholder value, just use ``None``.
+
+    Each dynamic variable, of the same name, should only have one default set;
+    the (dynamically) latest definition always overwrites. However, we do not
+    prevent this, because in some codebases the same module may run its
+    top-level initialization code multiple times (e.g. if a module has a
+    ``main()`` for tests, and the file gets loaded both as a module and as
+    the main program).
+
+    Similar to (make-parameter) in Racket.
+    """
+    for name in bindings:
+        _global_dynvars[name] = bindings[name]
 
 dyn = _Env()
 
@@ -199,6 +236,12 @@ def test():
 
         # safer (TOCTTOU) in complex situations, retrieves the current dyn[k]
         assert tuple(sorted((k, dyn[k]) for k in dyn)) == (("a", 1), ("b", 2))
+
+    make_dynvar(im_always_there=True)
+    with dyn.let(a=1, b=2):
+        assert tuple(sorted(dyn.items())) == (("a", 1), ("b", 2),
+                                              ("im_always_there", True))
+    assert tuple(sorted(dyn.items())) == (("im_always_there", True),)
 
     print("All tests PASSED")
 
