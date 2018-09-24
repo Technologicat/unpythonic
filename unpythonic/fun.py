@@ -406,13 +406,13 @@ def composel1i(iterable):
 def _make_compose(direction):  # "left", "right"
     def compose_two(f, g):
         def composed(*args):
-            # co-operate with curry: provide a top-level curry context
-            # to allow passthrough from the function that is applied first
-            # to the function that is applied second.
+            bindings = {}
             if iscurried(f):
-                with dyn.let(_curry_context=(dyn._curry_context, composed)):
-                    a = g(*args)
-            else:
+                # co-operate with curry: provide a top-level curry context
+                # to allow passthrough from the function that is applied first
+                # to the function that is applied second.
+                bindings = {"_curry_context": (dyn._curry_context, composed)}
+            with dyn.let(**bindings):
                 a = g(*args)
             # we could duck-test, but this is more predictable for the user
             # (consider chaining functions that manipulate a generator), and

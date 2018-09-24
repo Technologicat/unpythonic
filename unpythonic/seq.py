@@ -273,22 +273,19 @@ def pipe(values0, *bodys):
     """
     xs = values0
     n = len(bodys)
-    def doit():
-        nonlocal xs
-        if isinstance(xs, tuple):
-            xs = update(*xs)
-        else:
-            xs = update(xs)
     for k, update in enumerate(bodys):
         islast = (k == n - 1)
-        # co-operate with curry: provide a top-level curry context
-        # to allow passthrough from a pipelined function to the next
-        # (except the last one, since it exits the curry context).
+        bindings = {}
         if iscurried(update) and not islast:
-            with dyn.let(_curry_context=(dyn._curry_context, update)):
-                doit()
-        else:
-            doit()
+            # co-operate with curry: provide a top-level curry context
+            # to allow passthrough from a pipelined function to the next
+            # (except the last one, since it exits the curry context).
+            bindings = {"_curry_context": (dyn._curry_context, update)}
+        with dyn.let(**bindings):
+            if isinstance(xs, tuple):
+                xs = update(*xs)
+            else:
+                xs = update(xs)
     if isinstance(xs, tuple):
         return xs if len(xs) > 1 else xs[0]
     return xs
