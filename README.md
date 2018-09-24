@@ -1352,20 +1352,20 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - No sane default for multi-input case, so the initial value for `acc` must be given.
    - One-input versions with optional init are provided as `reducel`, `reducer`, with semantics similar to Python's `functools.reduce`, but with the rackety ordering `op(elt, acc)`.
    - By default, multi-input folds terminate on the shortest input. To instead terminate on the longest input, use the ``longest`` and ``fillvalue`` kwargs.
-   - `foldr` is a recursive process; it will crash for overly long inputs. The *walking* still occurs from the left, so with multiple input sequences, the notion of *corresponding elements* is based on syncing their **left** ends. If you need to handle long but finite inputs, consider whether ``rfoldl`` does what you want; but note that will sync the **right** ends of the inputs. Also, then the inputs must be sequences, not general iterables; they must support ``reversed``.
-   - `rfoldl`, `rreducel` are linear processes that first reverse their inputs, and then fold from the left. Inputs must be sequences.
+   - For multiple inputs with different lengths, `foldr` syncs the **left** ends.
+   - `rfoldl`, `rreducel` reverse each input and then left-fold. This syncs the **right** ends.
  - `scanl`, `scanr`: scan (a.k.a. accumulate, partial fold); a lazy fold that returns a generator yielding intermediate results.
+   - `scanl` is suitable for infinite inputs.
    - Iteration stops after:
      - For `scanl`, the final result; i.e. what `foldl` would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
      - For `scanr`, the init value. In the case of `scanr`, the **first** yielded item corresponds to  the final result of `foldr` (like in Haskell).
-   - `scanl` is suitable for infinite inputs.
    - Multiple input iterables and shortest/longest termination supported; same semantics as in `foldl`, `foldr`.
    - One-input versions with optional init are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
-   - `rscanl`, `rscanl1` are linear processes that first reverse their inputs, and then scan from the left. Inputs must be sequences.
+   - `rscanl`, `rscanl1` reverse each input and then left-scan. This syncs the **right** ends.
  - `unfold1`, `unfold`: generate a sequence [corecursively](https://en.wikipedia.org/wiki/Corecursion). The counterpart of `foldl`.
-   - `unfold1` is for 1-in-2-out functions. The input is `state`, the return value is `(value, newstate)` or `None`.
-   - `unfold` is for n-in-(1+n)-out functions. The input is `*states`, the return value is `(value, *newstates)` or `None`.
-   - Unfold returns a generator yielding the collected values. Iteration stops when the user function returns `None`.
+   - `unfold1` is for 1-in-2-out functions. The input is `state`, the return value must be `(value, newstate)` or `None`.
+   - `unfold` is for n-in-(1+n)-out functions. The input is `*states`, the return value must be `(value, *newstates)` or `None`.
+   - Unfold returns a generator yielding the collected values. The output can be finite or infinite; to signify that a finite sequence ends, the user function must return `None`.
  - `unpack`: lazily unpack an iterable. Suitable for infinite inputs.
    - Return the first ``n`` items and the ``k``th tail, in a tuple. Default is ``k = n``.
    - Use ``k > n`` to fast-forward, consuming the skipped items. Works by `drop`.
@@ -1374,8 +1374,8 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - Essentially, ``composel(map(...), flatten1)``; the same thing the bind operator of the List monad does.
  - `map_longest`: the final missing battery for `map`.
    - Essentially `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``.
- - `rmap`, `rzip`, `rmap_longest`, `rzip_longest`: reverse each input, then map/zip. For multiple inputs, syncs the right ends. Lazy. Inputs must be sequences.
- - `mapr`, `zipr`, `mapr_longest`, `zipr_longest`: map/zip, then reverse the result. For multiple inputs, syncs the left ends. Not fully lazy; must fully evaluate the `zip` or `map` to reverse it.
+ - `rmap`, `rzip`, `rmap_longest`, `rzip_longest`: reverse each input, then map/zip. For multiple inputs, syncs the **right** ends.
+ - `mapr`, `zipr`, `mapr_longest`, `zipr_longest`: map/zip, then reverse the result. For multiple inputs, syncs the **left** ends.
  - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively).
  - `flatten1`, `flatten`, `flatten_in`: remove nested list structure.
    - `flatten1`: outermost level only.
@@ -1390,6 +1390,7 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
  - `iterate1`, `iterate`: return an infinite generator that yields `x`, `f(x)`, `f(f(x))`, ...
    - `iterate1` is for 1-to-1 functions; `iterate` for n-to-n, unpacking the return value to the argument list of the next call.
  - `partition` from `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
+ - `rev` is a convenience function that tries `reversed`, and if the input was not a sequence, converts it to a tuple and reverses that. The return value is a `reversed` object.
 
 Examples:
 
