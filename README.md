@@ -1205,6 +1205,7 @@ it means the following. Let ``m1`` and ``m2`` be the minimum and maximum positio
  - If ``n > m2``, call ``f`` with the first ``m2`` arguments.
    - If the result is a callable, curry it, and recurse.
    - Else form a tuple, where first item is the result, and the rest are the remaining arguments ``a[m2]``, ``a[m2+1]``, ..., ``a[n-1]``. Return it.
+     - What happens when more args are still remaining when the top-level curry context exits depends on the dynvar ``curry_toplevel_passthrough``. If it is ``False`` (default), ``TypeError`` is raised. If it is ``True``, the tuple becomes the final value of the expression. See docstring of ``curry`` for an example.
  - If ``m1 <= n <= m2``, call ``f`` and return its result (like a normal function call).
    - **Any** positional arity accepted by ``f`` triggers the call; beware when working with [variadic](https://en.wikipedia.org/wiki/Variadic_function) functions.
  - If ``n < m1``, partially apply ``f`` to the given arguments, yielding a new function with smaller ``m1``, ``m2``. Then curry the result and return it.
