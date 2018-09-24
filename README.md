@@ -32,6 +32,8 @@ Other design considerations are simplicity, robustness, and minimal dependencies
 
 For many examples, see the `test()` function in each submodule, the docstrings of the individual features, and this README.
 
+*This README doubles as the API reference, but occasionally, may be out of date at places. In case of conflicts in documentation, believe the unit tests first. Docstrings and this README should reflect them.*
+
 Meta:
 
  - [Design notes](#design-notes)
@@ -1094,12 +1096,14 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
    - Passthrough on the right when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket)
      - If the intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
      - For simplicity, all remaining keyword args are fed in at the first step that has too many positional args.
+     - What happens when more positional args are still remaining when the top-level curry context exits depends on the dynvar ``curry_toplevel_passthrough``. If it is ``False`` (default), ``TypeError`` is raised. If it is ``True``, the tuple becomes the final value of the expression. See docstring of ``curry`` for an example.
    - Can be used both as a decorator and as a regular function.
      - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
    - **Caution**: If the positional arities of ``f`` cannot be inspected, currying fails, raising ``UnknownArity``. This may happen with builtins such as ``operator.add``.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - Any number of positional arguments is supported, with the same rules as in the pipe system. Multiple return values packed into a tuple are unpacked to the argument list of the next function in the chain.
    - `composelc`, `composerc`: curry each function before composing them. Useful with passthrough.
+     - An implicit top-level curry context is inserted around all the functions except the one that is applied last.
    - `composel1`, `composer1`: 1-in-1-out chains (faster; also useful for a single value that is a tuple).
    - suffix `i` to use with an iterable (`composeli`, `composeri`, `composelci`, `composerci`, `composel1i`, `composer1i`)
  - `andf`, `orf`, `notf`: compose predicates (like Racket's `conjoin`, `disjoin`, `negate`).
@@ -1111,8 +1115,8 @@ Examples (see also the next section):
 
 ```python
 from operator import add, mul
-from unpythonic import andf, orf, flatmap, rotate, curry, \
-                       foldl, foldr, composer, to1st, cons, nil, ll, zipr
+from unpythonic import andf, orf, flatmap, rotate, curry, dyn, zipr, rzip, \
+                       foldl, foldr, composer, to1st, cons, nil, ll
 
 isint  = lambda x: isinstance(x, int)
 iseven = lambda x: x % 2 == 0
@@ -1131,13 +1135,16 @@ myzipl = curry(foldl, zipper, ())  # same as (curry(foldl))(zipper, ())
 myzipr = curry(foldr, zipper, ())
 assert myzipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
 assert myzipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
-# The result is reversed(zip(...)), whereas zipr gives zip(*(reversed(s) for s in ...)):
-assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+
+# zip and reverse don't commute for inputs with different lengths
+assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((2, 5, 8), (1, 4, 7))  # zip first
+assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))  # reverse first
 
 
 # passthrough on the right
 double = lambda x: 2 * x
-assert curry(double, 2, "foo") == (4, "foo")   # arity of double is 1
+with dyn.let(curry_toplevel_passthrough=True):
+    assert curry(double, 2, "foo") == (4, "foo")   # arity of double is 1
 
 mysum = curry(foldl, add, 0)
 myprod = curry(foldl, mul, 1)
@@ -1160,16 +1167,16 @@ assert curry(map_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 
 ```python
 double = lambda x: 2 * x
-mapr_one = lambda f: curry(foldl, composer(cons, to1st(f)), nil)  # essentially reversed(map(...))
-mapl_one = lambda f: composer(mapr_one(f), lreverse)
-assert curry(mapl_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
+rmap_one = lambda f: curry(foldl, composer(cons, to1st(f)), nil)  # essentially reversed(map(...))
+map_one = lambda f: composer(rmap_one(f), lreverse)
+assert curry(map_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
 
 which may be a useful pattern for lengthy iterables that could overflow the call stack (although not in ``foldr``, since our implementation uses a linear process).
 
-In ``mapr_one``, we can use either ``curry`` or ``functools.partial``. In this case it doesn't matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as (and only as soon as) it gets at least one more argument.
+In ``rmap_one``, we can use either ``curry`` or ``functools.partial``. In this case it doesn't matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as (and only as soon as) it gets at least one more argument.
 
-The final ``curry`` uses both of the extra features. It invokes passthrough, since ``mapl_one`` has arity 1. It also invokes a call to the callable returned from ``mapl_one``, with the remaining arguments (in this case just one, the ``ll(1, 2, 3)``).
+The final ``curry`` uses both of the extra features. It invokes passthrough, since ``map_one`` has arity 1. It also invokes a call to the callable returned from ``map_one``, with the remaining arguments (in this case just one, the ``ll(1, 2, 3)``).
 
 Yet another way to write ``map_one`` is:
 
@@ -1207,7 +1214,7 @@ it means the following. Let ``m1`` and ``m2`` be the minimum and maximum positio
  - If ``n > m2``, call ``f`` with the first ``m2`` arguments.
    - If the result is a callable, curry it, and recurse.
    - Else form a tuple, where first item is the result, and the rest are the remaining arguments ``a[m2]``, ``a[m2+1]``, ..., ``a[n-1]``. Return it.
-     - What happens when more args are still remaining when the top-level curry context exits depends on the dynvar ``curry_toplevel_passthrough``. If it is ``False`` (default), ``TypeError`` is raised. If it is ``True``, the tuple becomes the final value of the expression. See docstring of ``curry`` for an example.
+     - What happens when more positional args are still remaining when the top-level curry context exits depends on the dynvar ``curry_toplevel_passthrough``. If it is ``False`` (default), ``TypeError`` is raised. If it is ``True``, the tuple becomes the final value of the expression. See docstring of ``curry`` for an example.
  - If ``m1 <= n <= m2``, call ``f`` and return its result (like a normal function call).
    - **Any** positional arity accepted by ``f`` triggers the call; beware when working with [variadic](https://en.wikipedia.org/wiki/Variadic_function) functions.
  - If ``n < m1``, partially apply ``f`` to the given arguments, yielding a new function with smaller ``m1``, ``m2``. Then curry the result and return it.
