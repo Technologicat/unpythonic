@@ -10,6 +10,7 @@ from itertools import zip_longest
 
 from unpythonic.fun import composer1i
 from unpythonic.fold import foldr, foldl
+from unpythonic.it import rev
 
 # explicit list better for tooling support
 _exports = ["cons", "nil",
@@ -284,17 +285,13 @@ def llist(iterable):
 
       - Sequences, since they can be walked backwards; a linear walk is enough.
 
-    For a general iterable input, this costs a linear walk (forwards), plus an
-    ``lreverse`` once the list has been fully consed.
+    For a general iterable input, this costs a linear walk (forwards),
+    plus an ``lreverse``.
     """
     if isinstance(iterable, LinkedListReverseIterator):
         # avoid two extra reverses by reusing the internal data.
         return iterable._data
-    try:  # maybe a sequence?
-        return lreverse(reversed(iterable))
-    except TypeError:
-        reversed_as_ll = lreverse(iterable)
-        return lreverse(reversed_as_ll)
+    return lreverse(rev(iterable))
 
 def lreverse(iterable):
     """Reverse an iterable, loading the result into a linked list.
@@ -438,8 +435,7 @@ def test():
     r = reversed(ll(1, 2, 3))   # an iterator that internally builds the reversed list...
     assert llist(r) is r._data  # ...which llist should just grab
 
-    # With the real recursive-process foldr, this no longer requires reversed(),
-    # but is prone to call stack overflow.
+    # foldr implicitly reverses the input
     assert foldr(cons, nil, ll(1, 2, 3)) == ll(1, 2, 3)
 
     print("All tests PASSED")
