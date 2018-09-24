@@ -41,7 +41,6 @@ We provide some missing features for Python from the list processing tradition,
 plus a few bonus haskellisms.
 
 We place a special emphasis on clear, pythonic syntax, as far as possible without MacroPy.
-
 Other design considerations are simplicity, robustness, and minimal dependencies (currently none).
 
 Tail call optimization (TCO), TCO'd loops in FP style, call/ec, let & letrec,
@@ -52,7 +51,7 @@ functional sequence updates, pythonic lispy linked lists.
 
 We also provide a curry that passes extra arguments through on the right,
 and calls a callable return value on the remaining arguments. This is now
-valid Python:
+valid Python::
 
     mymap = lambda f: curry(foldr, composerc(cons, f), nil)
     myadd = lambda a, b: a + b
