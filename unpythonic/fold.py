@@ -9,25 +9,27 @@ __all__ = ["scanl", "scanr", "scanl1", "scanr1",
 
 from functools import partial
 from itertools import zip_longest
+from collections import deque
 
-from unpythonic.it import first, last
+from unpythonic.it import first, last, rev
 
-# Require at least one iterable to make this work seamlessly with curry.
-# We take this approach with any new function families Python doesn't provide.
+# Require at least one iterable to make this work seamlessly with curry. We take
+# this approach with any new function families the standard library doesn't provide.
 def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
-    """Scan (a.k.a. accumulate), optionally with multiple input iterables.
+    """Scan (a.k.a. accumulate).
 
-    Similar to ``itertools.accumulate``. If the inputs are iterators, this is
-    essentially a lazy ``foldl`` that yields the intermediate result at each step.
-    Hence, useful for partially folding infinite sequences.
+    Like ``itertools.accumulate``, but supports multiple input iterables.
+    At least one iterable (``iterable0``) is required.
 
     Initial value is mandatory; there is no sane default for the case with
     multiple inputs.
 
-    At least one iterable (``iterable0``) is required. More are optional.
-
     By default, terminate when the shortest input runs out. To terminate on
     longest input, use ``longest=True`` and optionally provide a ``fillvalue``.
+
+    If the inputs are iterators, this is essentially a lazy ``foldl`` that
+    yields the intermediate result at each step. Hence, useful for partially
+    folding infinite sequences (in the mathematical sense of "sequence").
 
     Returns a generator, which (roughly)::
 
@@ -62,51 +64,73 @@ def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
         assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
         assert tuple(scanr(add, 0, range(1, 5))) == (10, 9, 7, 4, 0)
 
-    Note the *walking* still occurss from the left; hence for multiple
-    input iterables, the notion of *corresponding elements* is based on
-    syncing the **left** ends.
+    The ordering of the output matches Haskell's ``scanr``.
 
-    ``scanr`` is a recursive process; it will crash for overly long inputs.
+    For multiple input iterables, the notion of *corresponding elements*
+    is based on syncing the **left** ends.
 
-    If you have a long but finite input, consider whether ``rscanl``
-    does what you want; but be aware the results will be subtly different.
-    (And your inputs need to support ``reversed``, i.e. they must be sequences,
-    not general iterables.)
-
-    An example of a fold with this strategy::
+    Note difference between *l, *r and r*l where * = fold, scan::
 
         def append_tuple(a, b, acc):
             return acc + ((a, b),)
+
+        # foldl: left-fold
         assert foldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((1, 4), (2, 5))
+
+        # foldr: right-fold
         assert foldr(append_tuple, (), (1, 2, 3), (4, 5)) == ((2, 5), (1, 4))
+
+        # rfoldl: reverse each input, then left-fold
         assert rfoldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((3, 5), (2, 4))
     """
+    # Linear process: sync left ends; reverse; scanl into a deque.
+    # (Flat is better than nested; applied to the call stack.)
+    #
+    # The implicit tuple(...) in rev(...) may seem inelegant, but it doesn't
+    # really matter whether we keep the data in stack frames (like in the
+    # recursive-process variant) or read it into a tuple (like here); we must
+    # read and store all elements of the input before the actual scanning can begin.
+    init_from_lastx = init is _uselast and not iterables
     z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
-    xss = z(iterable0, *iterables)
-    pending_init_from_lastx = init is _uselast and not iterables
-    def _scanr_recurser():
-        try:
-            xs = next(xss)
-        except StopIteration:
-            yield init               # base case for recursion
-            return
-        subgen = _scanr_recurser()
-        acc = next(subgen)           # final result of previous step
+    xss = rev(z(iterable0, *iterables))
+    if init_from_lastx:
+        init = next(xss)[0]  # let StopIteration propagate
+    acc = init
+    que = deque()
+    que.appendleft(acc)  # left-append to get same output order as in Haskell
+    for xs in xss:
+        acc = proc(*(xs + (acc,)))
+        que.appendleft(acc)
+    yield from que
 
-        # The other base case: one iterable, no init given.
-        # If pending_init_from_lastx is still True, we are the second-to-last subgen.
-        nonlocal pending_init_from_lastx
-        if pending_init_from_lastx:
-            pending_init_from_lastx = False
-            yield xs[0]              # init value = last element from iterable0
-            return
-
-        # In case of all but the outermost generator, their final result has already
-        # been read by the next(subgen), so they have only the last two yields remaining.
-        yield proc(*(xs + (acc,)))   # final result
-        yield acc                    # previous result
-        yield from subgen            # sustain the chain
-    return _scanr_recurser()
+# Equivalent recursive process:
+#def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
+#    z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
+#    xss = z(iterable0, *iterables)
+#    pending_init_from_lastx = init is _uselast and not iterables
+#    def _scanr_recurser():
+#        try:
+#            xs = next(xss)
+#        except StopIteration:
+#            yield init               # base case for recursion
+#            return
+#        subgen = _scanr_recurser()
+#        acc = next(subgen)           # final result of previous step
+#
+#        # The other base case: one iterable, no init given.
+#        # If pending_init_from_lastx is still True, we are the second-to-last subgen.
+#        nonlocal pending_init_from_lastx
+#        if pending_init_from_lastx:
+#            pending_init_from_lastx = False
+#            yield xs[0]              # init value = last element from iterable0
+#            return
+#
+#        # In case of all but the outermost generator, their final result has already
+#        # been read by the next(subgen), so they have only the last two yields remaining.
+#        yield proc(*(xs + (acc,)))   # final result
+#        yield acc                    # previous result
+#        yield from subgen            # sustain the chain
+#    return _scanr_recurser()
 
 def scanl1(proc, iterable, init=None):
     """scanl for a single iterable, with optional init.
@@ -129,7 +153,7 @@ def scanl1(proc, iterable, init=None):
         try:
             init = next(it)
         except StopIteration:
-            return None  # empty input sequence
+            return None  # empty input iterable
     return scanl(proc, init, it)
 
 _uselast = object()  # sentinel
@@ -143,10 +167,10 @@ def scanr1(proc, iterable, init=None):
 def foldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """Racket-like foldl that supports multiple input iterables.
 
+    At least one iterable (``iterable0``) is required. More are optional.
+
     Initial value is mandatory; there is no sane default for the case with
     multiple inputs.
-
-    At least one iterable (``iterable0``) is required. More are optional.
 
     By default, terminate when the shortest input runs out. To terminate on
     longest input, use ``longest=True`` and optionally provide a ``fillvalue``.
@@ -158,7 +182,7 @@ def foldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
                       longest=longest, fillvalue=fillvalue))
 
 def foldr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
-    """Dual of foldl. Recursive process."""
+    """Dual of foldl; fold from the right."""
     return first(scanr(proc, init, iterable0, *iterables,
                        longest=longest, fillvalue=fillvalue))
 
@@ -171,41 +195,41 @@ def reducel(proc, iterable, init=None):
     return last(scanl1(proc, iterable, init))
 
 def reducer(proc, iterable, init=None):
-    """Dual of reducel. Recursive process.
+    """Dual of reducel.
 
     If ``init is None``, use the last element from the iterable.
     """
     return first(scanr1(proc, iterable, init))
 
-def rscanl(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
+def rscanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """Reverse each input, then scanl.
 
-    Inputs must support ``reversed``.
+    For multiple input iterables, the notion of *corresponding elements*
+    is based on syncing the **right** ends.
+
+    ``rev`` is applied to the inputs. Note this forces any generators.
     """
-    return scanl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
+    return scanl(proc, init, rev(iterable0), *(rev(s) for s in iterables),
                  longest=longest, fillvalue=fillvalue)
 
-def rscanl1(proc, sequence, init=None):
-    """Reverse the input, then scanl1.
+def rscanl1(proc, iterable, init=None):
+    """Reverse the input, then scanl1."""
+    return scanl1(proc, rev(iterable), init)
 
-    The input must support ``reversed``.
-    """
-    return scanl1(proc, reversed(sequence), init)
-
-def rfoldl(proc, init, sequence0, *sequences, longest=False, fillvalue=None):
+def rfoldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """Reverse each input, then foldl.
 
-    Inputs must support ``reversed``.
+    For multiple input iterables, the notion of *corresponding elements*
+    is based on syncing the **right** ends.
+
+    ``rev`` is applied to the inputs. Note this forces any generators.
     """
-    return foldl(proc, init, reversed(sequence0), *(reversed(s) for s in sequences),
+    return foldl(proc, init, rev(iterable0), *(rev(s) for s in iterables),
                  longest=longest, fillvalue=fillvalue)
 
-def rreducel(proc, sequence, init=None):
-    """Reverse the input, then reducel.
-
-    The input must support ``reversed``.
-    """
-    return reducel(proc, reversed(sequence), init)
+def rreducel(proc, iterable, init=None):
+    """Reverse the input, then reducel."""
+    return reducel(proc, rev(iterable), init)
 
 def unfold1(proc, init):
     """Generate a sequence corecursively. The counterpart of foldl.
@@ -214,10 +238,15 @@ def unfold1(proc, init):
 
     State starts from the value ``init``.
 
-    ``proc`` must accept one argument, the state.
+    ``proc`` must accept one argument, the state. If you have a complex,
+    multi-component state and would like to unpack it automatically,
+    see ``unfold``.
 
-    It must return either ``(value, newstate)``, or ``None`` to signify
-    that the sequence ends.
+    ``proc`` must return either ``(value, newstate)``, or ``None`` to signify
+    that the sequence ends (if the sequence is finite).
+
+    ("Sequence" is here meant in the mathematical sense; in the Python sense,
+    the output is an iterable.)
 
     Example::
 
@@ -241,6 +270,8 @@ def unfold(proc, *inits):
     The current state is unpacked to the argument list of ``proc``.
     It must return either ``(value, *newstates)``, or ``None`` to signify
     that the sequence ends.
+
+    If your state is something simple such as one number, see ``unfold1``.
 
     Example::
 
@@ -307,11 +338,11 @@ def test():
     assert foldl(cons, nil, ll(1, 2, 3)) == ll(3, 2, 1)
     assert foldr(cons, nil, ll(1, 2, 3)) == ll(1, 2, 3)
 
-    # reduce is a fold with a single input sequence, with init optional.
+    # reduce is a fold with a single input, with init optional.
     assert reducel(add, (1, 2, 3)) == 6
     assert reducer(add, (1, 2, 3)) == 6
 
-    # scanl1, scanr1 are a scan with a single input sequence, with init optional.
+    # scanl1, scanr1 are a scan with a single input, with init optional.
     assert tuple(scanl1(add, (1, 2, 3))) == (1, 3, 6)
     assert tuple(scanr1(add, (1, 2, 3))) == (6, 5, 3)
 
@@ -334,14 +365,14 @@ def test():
     assert rfoldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((3, 5), (2, 4))
     assert tuple(rscanl(append_tuple, (), (1, 2, 3), (4, 5))) == ((), ((3, 5),), ((3, 5), (2, 4)))
 
-    def mymap_one(f, sequence):
+    def mymap_one(f, iterable):
         f_then_cons = composer(cons, to1st(f))  # args: elt, acc
-        return foldr(f_then_cons, nil, sequence)
+        return foldr(f_then_cons, nil, iterable)
     double = lambda x: 2 * x
     assert mymap_one(double, ll(1, 2, 3)) == ll(2, 4, 6)
-    def mymap_one2(f, sequence):
+    def mymap_one2(f, iterable):
         f_then_cons = composel(to1st(f), cons)  # args: elt, acc
-        return foldr(f_then_cons, nil, sequence)
+        return foldr(f_then_cons, nil, iterable)
     assert mymap_one2(double, ll(1, 2, 3)) == ll(2, 4, 6)
 
     # point-free-ish style
@@ -380,16 +411,16 @@ def test():
     assert curry(mymap, double, ll(1, 2, 3)) == ll(2, 4, 6)
 
     # The currying has actually made it not just map one, but general map that
-    # accepts multiple input sequences.
+    # accepts multiple inputs.
     #
-    # The sequences are taken by the processing function. acc, being the last
+    # The iterables are taken by the processing function. acc, being the last
     # argument, is passed through on the right. The output from the processing
     # function - one new item - and acc then become a two-tuple, which gets
     # passed into cons.
     myadd = lambda x, y: x + y  # can't inspect signature of builtin add
     assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 
-    # map_longest. foldr would walk the sequences from the right; use foldl.
+    # map_longest. foldr would walk the inputs from the right; use foldl.
     mymap_longestrev = lambda f: curry(foldl, composerc(cons, f), nil, longest=True)
     mymap_longest = composerc(lreverse, mymap_longestrev)
     def noneadd(a, b):
@@ -431,9 +462,9 @@ def test():
     # But:
     assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
     # This is because rzip1 above *walks* from the left even though the *fold*
-    # is performed from the right. Hence the sequences are synced by their
+    # is performed from the right. Hence the inputs are synced by their
     # *left* ends. But the rzip function perform a reverse and then walks;
-    # the sequences are synced by their *right* ends.
+    # the inputs are synced by their *right* ends.
 
     # Unfold.
     #

@@ -11,15 +11,21 @@ and (stream-scan) in SRFI-41.
 
 ``flatten`` based on Danny Yoo's version:
   http://rightfootin.blogspot.fi/2006/09/more-on-python-flatten.html
+
+``uniqify``, ``uniq``,  ``take``, ``drop``, ``partition`` just package
+``itertools`` recipes.
 """
 
-__all__ = ["map_longest",
+__all__ = ["rev", "map_longest",
            "rmap", "rzip", "rmap_longest", "rzip_longest",
            "mapr", "zipr", "mapr_longest", "zipr_longest",
-           "flatmap", "uniqify", "uniq",
-           "take", "drop", "split_at", "unpack",
+           "flatmap",
+           "uniqify", "uniq",
+           "take", "drop", "split_at",
+           "unpack",
            "tail", "butlast", "butlastn",
-           "first", "second", "nth", "last", "scons",
+           "first", "second", "nth", "last",
+           "scons",
            "flatten", "flatten1", "flatten_in",
            "iterate", "iterate1",
            "partition"]
@@ -29,6 +35,26 @@ from functools import partial
 from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby
 from collections import deque
 
+def rev(iterable):
+    """Reverse an iterable.
+
+    If a sequence, the return value is ``reversed(iterable)``.
+
+    Otherwise the return value is ``reversed(tuple(iterable))``.
+
+    Hence generators will be fully evaluated until they stop; the input
+    ``iterable`` must be finite for ``rev`` to make any sense.
+    """
+    # Unlike further below, here we "return" instead of "yield from",
+    # because "rev" is such a thin layer of abstraction that it has become
+    # effectively transparent (PG, "On Lisp"). The call site expects
+    # reversed output, and the "reversed" generator is the standard
+    # pythonic representation for that.
+    try:  # maybe a sequence?
+        return reversed(iterable)
+    except TypeError:
+        return reversed(tuple(iterable))
+
 # When completing an existing set of functions (map, zip, zip_longest),
 # consistency wins over curry-friendliness.
 def map_longest(func, *iterables, fillvalue=None):
@@ -37,85 +63,111 @@ def map_longest(func, *iterables, fillvalue=None):
     In the input to ``func``, missing elements (after end of shorter inputs)
     are replaced by ``fillvalue``, which defaults to ``None``.
     """
-    return starmap(func, zip_longest(*iterables, fillvalue=fillvalue))
+    # "yield from" semantically better here than "return", because the call site
+    # sees a "map_longest" generator object instead of a "starmap" generator
+    # object. This describes explicitly what the generator does, and is in line
+    # with the terminology used at the call site.
+    yield from starmap(func, zip_longest(*iterables, fillvalue=fillvalue))
 
-def rmap(func, *sequences):
-    """Like map, but walk each sequence from the right. Linear process.
+def rmap(func, *iterables):
+    """Like map, but from the right.
 
-    See ``mapr`` for the recursive process that walks from the left,
-    but collects results from the right.
+    For multiple inputs with different lengths, ``rmap`` syncs the **right** ends.
+    See ``mapr`` for the variant that syncs the **left** ends.
 
-    **Caution**: ``map`` and ``reversed`` do not commute if inputs have
-    different lengths::
+    ``rev`` is applied to the inputs. Note this forces any generators.
+
+    Examples::
 
         from operator import add
 
-        # just map, for comparison; fully lazy:
+        # just map, for comparison:
         assert tuple(map(add, (1, 2, 3), (4, 5))) == (5, 7)
 
-        # reverse each, then map; fully lazy, syncs right ends:
-        # rmap(f, ...) = map(f, reversed(s) for s in ...)
+        # reverse each, then map; syncs right ends:
+        # rmap(f, ...) = map(f, rev(s) for s in ...)
         assert tuple(rmap(add, (1, 2, 3), (4, 5))) == (8, 6)
 
-        # map, then reverse; must evaluate the map, syncs left ends:
+        # map, then reverse; syncs left ends:
+        # mapr(f, ...) = rev(map(f, ...))
         assert tuple(mapr(add, (1, 2, 3), (4, 5))) == (7, 5)
     """
-    return map(func, *(reversed(s) for s in sequences))
+    yield from map(func, *(rev(s) for s in iterables))
 
-def rzip(*sequences):
-    """Like zip, but walk each sequence from the right. Linear process.
+def rzip(*iterables):
+    """Like zip, but from the right.
 
-    See ``zipr`` for the recursive process that walks from the left,
-    but collects results from the right.
+    For multiple inputs with different lengths, ``rzip`` syncs the **right** ends.
+    See ``zipr`` for the variant that syncs the **left** ends.
 
-    **Caution**: ``zip`` and ``reversed`` do not commute if inputs have
-    different lengths::
+    ``rev`` is applied to the inputs. Note this forces any generators.
 
-        # just zip, for comparison; fully lazy:
+    Examples::
+
+        # just zip, for comparison:
         assert tuple(zip((1, 2, 3), (4, 5))) == ((1, 4), (2, 5))
 
-        # reverse each, then zip; fully lazy, syncs right ends:
-        # rzip(...) = zip(reversed(s) for s in ...)
+        # reverse each, then zip; syncs right ends:
+        # rzip(...) = zip(rev(s) for s in ...)
         assert tuple(rzip((1, 2, 3), (4, 5))) == ((3, 5), (2, 4))
 
-        # zip, then reverse; must evaluate the zip, syncs left ends:
+        # zip, then reverse; syncs left ends:
+        # zipr(...) = rev(zip(...))
         assert tuple(zipr((1, 2, 3), (4, 5))) == ((2, 5), (1, 4))
     """
-    return zip(*(reversed(s) for s in sequences))
+    yield from zip(*(rev(s) for s in iterables))
 
-def rmap_longest(func, *sequences, fillvalue=None):
+def rmap_longest(func, *iterables, fillvalue=None):
     """Like rmap, but terminate on the longest input."""
-    return map_longest(func, *(reversed(s) for s in sequences), fillvalue=fillvalue)
+    yield from map_longest(func, *(rev(s) for s in iterables), fillvalue=fillvalue)
 
-def rzip_longest(*sequences, fillvalue=None):
+def rzip_longest(*iterables, fillvalue=None):
     """Like rzip, but terminate on the longest input."""
-    return zip_longest(*(reversed(s) for s in sequences), fillvalue=fillvalue)
+    yield from zip_longest(*(rev(s) for s in iterables), fillvalue=fillvalue)
 
 def mapr(proc, *iterables):
-    """Like map, but starting from the right.
+    """Like map, but from the right.
 
-    For multiple inputs with different lengths, this syncs the **left** ends.
-
-    See ``rmap`` for the other alternative.
+    For multiple inputs with different lengths, ``mapr`` syncs the **left** ends.
+    See ``rmap`` for the variant that syncs the **right** ends.
     """
-    return reversed(tuple(map(proc, *iterables)))
+    yield from rev(map(proc, *iterables))
 
 def zipr(*iterables):
-    """Like zip, but starting from the right.
+    """Like zip, but from the right.
 
-    For multiple inputs with different lengths, this syncs the **left** ends.
-
-    See ``rzip`` for other alternative.
+    For multiple inputs with different lengths, ``zipr`` syncs the **left** ends.
+    See ``rzip`` for the variant that syncs the **right** ends.
     """
-    return reversed(tuple(zip(*iterables)))
+    yield from rev(zip(*iterables))
 
 def mapr_longest(proc, *iterables, fillvalue=None):
-    """Like mapr, but terminate on the longest input sequence."""
-    return reversed(tuple(map_longest(proc, *iterables, fillvalue=fillvalue)))
+    """Like mapr, but terminate on the longest input."""
+    yield from rev(map_longest(proc, *iterables, fillvalue=fillvalue))
 
 def zipr_longest(*iterables, fillvalue=None):
-    """Like zipr, but terminate on the longest input sequence."""
-    return reversed(tuple(zip_longest(*iterables, fillvalue=fillvalue)))
+    """Like zipr, but terminate on the longest input."""
+    yield from rev(zip_longest(*iterables, fillvalue=fillvalue))
+
+# Equivalent recursive process:
+#def _mapr(proc, iterable0, *iterables, longest=False, fillvalue=None):
+#    z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
+#    xss = z(iterable0, *iterables)
+#    def _mapr_recurser():
+#        try:
+#            xs = next(xss)
+#        except StopIteration:
+#            return
+#        subgen = _mapr_recurser()
+#        yield from subgen
+#        yield proc(*xs)
+#    return _mapr_recurser()
+#
+#def _zipr(iterable0, *iterables, longest=False, fillvalue=None):
+#    def identity(*args):  # unpythonic.fun.identity, but dependency loop
+#        return args
+#    return _mapr(identity, iterable0, *iterables,
+#                 longest=longest, fillvalue=fillvalue)
 
 def flatmap(f, iterable0, *iterables):
     """Map, then concatenate results.
@@ -148,7 +200,7 @@ def flatmap(f, iterable0, *iterables):
         assert tuple(flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3))) == \\
                (11, 9, 22, 18, 33, 27)
     """
-    return chain.from_iterable(map(f, iterable0, *iterables))
+    yield from chain.from_iterable(map(f, iterable0, *iterables))
 #    for xs in map(f, iterable0, *iterables):
 #        yield from xs
 
@@ -185,7 +237,7 @@ def uniq(iterable, *, key=None):
     This is ``unique_justseen`` from ``itertools`` recipes.
     """
     # the outer map retrieves the item from the subiterator in (key, subiterator).
-    return map(next, map(itemgetter(1), groupby(iterable, key)))
+    yield from map(next, map(itemgetter(1), groupby(iterable, key)))
 
 def take(n, iterable):
     """Return an iterator that yields the first n items of iterable, then stops.
@@ -245,8 +297,7 @@ def split_at(n, iterable):
 def unpack(n, iterable, *, k=None, fillvalue=None):
     """From iterable, return the first n elements, and the kth tail.
 
-    This is a lazy generalization of sequence unpacking that works also for
-    infinite iterables.
+    Lazy generalization of sequence unpacking, works also for infinite iterables.
 
     Default ``k=None`` means ``k = n``, i.e. return the tail that begins
     right after the extracted items. Other values are occasionally useful,
@@ -289,13 +340,13 @@ def unpack(n, iterable, *, k=None, fillvalue=None):
             if j == k:  # tail is desired to overlap with the extracted items
                 it, tl = tee(it)
             out.append(next(it))
-        except StopIteration:  # fewer than n items
+        except StopIteration:  # had fewer than n items remaining
             out += [fillvalue] * (n - len(out))
-            def empty_sequence():
+            def empty_iterable():
                 yield from ()
-            tl = empty_sequence()
+            tl = empty_iterable()
             break
-    if not tl:  # avoid replacing empty_sequence()
+    if not tl:  # avoid replacing empty_iterable()
         if k == n:
             tl = it
         elif k > n:
@@ -514,7 +565,7 @@ def test():
 
     # Note map and reverse do not commute if inputs have different lengths.
     # reverse(map(...)) - map, then reverse; syncs left ends
-    assert tuple(reversed(tuple(map(add, (1, 2, 3), (4, 5))))) == (7, 5)
+    assert tuple(rev(map(add, (1, 2, 3), (4, 5)))) == (7, 5)
     # map(reverse(s) for s in ...) - reverse each, then map; syncs right ends
     assert tuple(rmap(add, (1, 2, 3), (4, 5))) == (8, 6)
 
@@ -568,7 +619,7 @@ def test():
     # Python's builtin map is not curry-friendly; it accepts arity 1,
     # but actually requires 2. Solution: use partial instead of curry.
     lzip2 = partial(map, identity)
-    rzip2 = lambda *sequences: map(identity, *(reversed(s) for s in sequences))
+    rzip2 = lambda *iterables: map(identity, *(rev(s) for s in iterables))
     assert tuple(lzip2((1, 2, 3), (4, 5, 6), (7, 8))) == ((1, 4, 7), (2, 5, 8))
     assert tuple(rzip2((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
 
@@ -592,12 +643,12 @@ def test():
     assert tuple(flatten(data, is_nested))    == (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
     assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8, 9), (10, 11))
 
-    # lazy unpack from a sequence
+    # lazy unpack from an iterable
     a, b, c, tl = unpack(3, range(5))
     assert a == 0 and b == 1 and c == 2
     assert next(tl) == 3
 
-    # lazy unpack falling off the end of a sequence
+    # lazy unpack falling off the end of an iterable
     a, b, c, tl = unpack(3, range(2))
     assert a == 0 and b == 1 and c is None
     try:
