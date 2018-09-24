@@ -1299,7 +1299,7 @@ from unpythonic import gmemoize, imemoize, fimemoize, take
 def primes():
     yield 2
     for n in count(start=3, step=2):
-        if not any(p != n and n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
+        if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
             yield n
 assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
 ```

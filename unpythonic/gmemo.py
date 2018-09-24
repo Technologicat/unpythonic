@@ -328,14 +328,14 @@ def test():
     def primes():
         yield 2
         for n in count(start=3, step=2):
-            if not any(p != n and n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
+            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
                 yield n
 
     @gmemoize  # <-- the only change (beside the function name)
     def mprimes():
         yield 2
         for n in count(start=3, step=2):
-            if not any(p != n and n % p == 0 for p in takewhile(lambda x: x*x <= n, mprimes())):
+            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, mprimes())):
                 yield n
 
     def memo_primes():  # with manually implemented memoization
@@ -344,7 +344,7 @@ def test():
             memo.append(2)
             yield 2
             for n in count(start=3, step=2):
-                if not any(p != n and n % p == 0 for p in takewhile(lambda x: x*x <= n, memo)):
+                if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, memo)):
                     memo.append(n)
                     yield n
         return manual_mprimes()
