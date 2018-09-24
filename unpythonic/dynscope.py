@@ -35,9 +35,11 @@ class _EnvBlock(object):
     def __init__(self, kwargs):
         self.kwargs = kwargs
     def __enter__(self):
-        _getstack().append(self.kwargs)
+        if self.kwargs:  # optimization, skip pushing an empty scope
+            _getstack().append(self.kwargs)
     def __exit__(self, t, v, tb):
-        _getstack().pop()
+        if self.kwargs:
+            _getstack().pop()
 
 class _Env(object):
     """This module exports a single object instance, ``dyn``, which provides
