@@ -1122,7 +1122,7 @@ assert pred(42) is True
 assert pred("foo") is True
 assert pred(None) is False
 
-@rotate(1)  # cycle *the args* (not their slots!) to the right by one place.
+@rotate(-1)  # cycle the argument slots to the left by one place, so "acc" becomes last
 def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
     return acc + (rest,)  # even though the input is (e1, ..., en, acc).
 myzipl = curry(foldl, zipper, ())  # same as (curry(foldl))(zipper, ())

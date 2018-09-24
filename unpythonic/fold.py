@@ -323,7 +323,7 @@ def test():
     from operator import add, mul
     from unpythonic.fun import curry, composer, composerc, composel, to1st, rotate
     from unpythonic.llist import cons, nil, ll, lreverse
-    from unpythonic.it import take, tail, rzip
+    from unpythonic.it import take, tail
 
     # scan/accumulate: lazy fold that yields intermediate results.
     assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
@@ -456,22 +456,16 @@ def test():
     assert foldl(composerc(cons, packtwo), nil, (1, 2, 3), (4, 5), longest=True) == \
            ll(ll(3, None), ll(2, 5), ll(1, 4))
 
-    @rotate(1)
+    @rotate(-1)
     def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
         return acc + (rest,)  # even though the input is (e1, ..., en, acc).
 #    def zipper(*args):  # straightforward version
 #        *rest, acc = args
 #        return acc + (tuple(rest),)
-    lzip1 = curry(foldl, zipper, ())
-    rzip1 = curry(foldr, zipper, ())
-    assert lzip1((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
-    assert rzip1((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
-    # But:
-    assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
-    # This is because rzip1 above *walks* from the left even though the *fold*
-    # is performed from the right. Hence the inputs are synced by their
-    # *left* ends. But the rzip function perform a reverse and then walks;
-    # the inputs are synced by their *right* ends.
+    zipl1 = curry(foldl, zipper, ())
+    zipr1 = curry(foldr, zipper, ())
+    assert zipl1((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
+    assert zipr1((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
 
     # Unfold.
     #

@@ -210,16 +210,19 @@ def flip(f):
     return flipped
 
 def rotate(k):
-    """Decorator (factory): cycle positional args of f to the right by k places.
+    """Decorator (factory): cycle positional arg slots of f to the right by k places.
 
     Negative values cycle to the left.
 
-    Note this shifts the incoming argument values, not the formal parameter list!
+    Note this (conceptually) shifts the slots, not the incoming argument values.
 
     **Examples**::
 
-        assert (rotate(1)(identity))(1, 2, 3) == (3, 1, 2)
-        assert (rotate(-1)(identity))(1, 2, 3) == (2, 3, 1)
+        # (a, b, c) -> (b, c, a), so b=1, c=2, a=3 in return (a, b, c)
+        assert (rotate(-1)(identity))(1, 2, 3) == (3, 1, 2)
+
+        # (a, b, c) -> (c, a, b), so c=1, a=2, b=3 in return (a, b, c)
+        assert (rotate(1)(identity))(1, 2, 3) == (2, 3, 1)
     """
     def rotate_k(f):
         @wraps(f)
@@ -227,7 +230,7 @@ def rotate(k):
             n = len(args)
             if not n:
                 raise TypeError("Expected at least one argument")
-            j = k % n  # handle also negative values
+            j = -k % n
             rargs = args[-j:] + args[:-j]
             return f(*rargs, **kwargs)
         return rotated
@@ -664,16 +667,11 @@ def test():
     assert processor(1, 2, 3) == (3, 8, 4)
 
     assert identity(1, 2, 3) == (1, 2, 3)
-    assert (rotate(1)(identity))(1, 2, 3) == (3, 1, 2)
-    assert (rotate(-1)(identity))(1, 2, 3) == (2, 3, 1)
+    assert (rotate(-1)(identity))(1, 2, 3) == (3, 1, 2)
+    assert (rotate(1)(identity))(1, 2, 3) == (2, 3, 1)
 
-    # The inner decorator is applied first to the decorated function, as usual.
-    #
-    # But here the outer one effectively takes effect first, because of the
-    # order in which the decorators get their hands on the incoming arguments.
-    #
-    # So this first flips, then rotates the given arguments:
-    assert flip(rotate(1)(identity))(1, 2, 3) == (1, 3, 2)
+    # inner to outer: (a, b, c) -> (b, c, a) -> (a, c, b)
+    assert flip(rotate(-1)(identity))(1, 2, 3) == (1, 3, 2)
 
     def hello(*args):
         return args
