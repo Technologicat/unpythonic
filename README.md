@@ -1165,7 +1165,7 @@ mapl_one = lambda f: composer(mapr_one(f), lreverse)
 assert curry(mapl_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
 
-which may be a useful pattern for lengthy iterables that would overflow the call stack in ``foldr``.
+which may be a useful pattern for lengthy iterables that could overflow the call stack (although not in ``foldr``, since our implementation uses a linear process).
 
 In ``mapr_one``, we can use either ``curry`` or ``functools.partial``. In this case it doesn't matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as (and only as soon as) it gets at least one more argument.
 
