@@ -405,7 +405,7 @@ def nth(n, iterable, *, default=None):
         raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
-    it = drop(n - 1, iterable) if n else iter(iterable)
+    it = drop(n, iterable) if n else iter(iterable)
     try:
         return next(it)
     except StopIteration:
