@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Generic bootstrapper to run a Python program with MacroPy3 enabled.
+
+Eliminates the need for a per-project bootstrapper."""
+
+import macropy.activate
+import importlib
+import argparse
+import sys
+
+__version__ = '1.0.0'
+
+def main():
+    """Handle command-line arguments and run the specified main program."""
+    parser = argparse.ArgumentParser(description="""Generic MacroPy3 bootstrapper: run a Python program with MacroPy3 enabled.""",
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument( '-v', '--version', action='version', version=('%(prog)s-bootstrapper ' + __version__) )
+    parser.add_argument(dest='module', default=None, type=str, metavar='module',
+                        help='The module name of the main program to start.')
+    parser.add_argument('-e', '--entrypoint', dest='entrypoint', default=None, type=str, metavar='func',
+                        help='Specify the entrypoint in the module. If not given, main() and test() are tried, in that order.' )
+    parser.add_argument('-s', '--script', dest='script', action="store_true", default=False,
+                        help='Run module in script mode (no entrypoint, code for main program directly at top level). Overrides -e.')
+    opts = parser.parse_args()
+
+    entrypoints = (opts.entrypoint,) if opts.entrypoint else ("main", "test")
+    mod = importlib.import_module(opts.module)  # macros are expanded at import time.
+    if not opts.script:
+        defined_names = dir(mod)
+        for candidate in entrypoints:
+            if candidate in defined_names:
+                entrypoint = getattr(mod, candidate)
+                if callable(entrypoint):
+                    sys.exit(entrypoint())
+        raise ValueError("No entrypoint found in module '{}', tried {}. Does it have a main program?".format(opts.module, entrypoints))
+
+if __name__ == '__main__':
+    main()
