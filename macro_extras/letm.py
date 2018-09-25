@@ -59,7 +59,7 @@ def letrec(tree, args, gen_sym, **kw):
 
     # Respect lexical scoping by naming the environments uniquely, so that
     # names from other lexically surrounding letrec expressions remain visible.
-    e = gen_sym()
+    e = gen_sym("e")
 
     # x -> e.x for x in names
     @Walker
