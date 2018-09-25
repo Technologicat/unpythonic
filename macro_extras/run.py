@@ -4,3 +4,4 @@
 
 import macropy.activate
 import main
+main.main()
