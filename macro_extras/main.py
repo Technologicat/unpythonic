@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Automatic currying for Python. Main program.
+"""Macro extras. Main program.
 
 Uses MacroPy; must be run through the bootstrap script run.py,
 since macro expansion occurs at import time.
 """
 
 from autocurry import macros, curry
+from letm import macros, let, letseq
 from unpythonic import foldr, composerc as compose, cons, nil
 
 with curry:
@@ -39,3 +40,10 @@ try:
     add3(1)
 except TypeError:
     pass
+
+# Let macros, performing essentially the same transformation as Scheme/Racket.
+#
+let((x, 17),  # parallel binding, i.e. bindings don't see each other
+    (y, 23))[print(x, y)]
+letseq((x, 1),  # sequential binding, using Python's lexical scoping
+       (y, x+1))[print(x, y)]  # Scheme/Racket let*
