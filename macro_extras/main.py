@@ -110,6 +110,12 @@ def main():
            (y, 2))[
       print(f(3))]
 
+    a = letrec((x, 1),
+               (y, x+2))[
+                 begin(x << 1337,
+                       (x, y))]
+    print(a)
+
     # Anaphoric if: aif[test, then, otherwise]
     # Magic identifier "it" refers to the test result.
     aif[2*21,

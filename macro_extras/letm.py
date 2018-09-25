@@ -62,6 +62,9 @@ def _transform_name(tree, *, names, envname, stop, **kw):
         return Attribute(value=hq[name[envname]], attr=tree.id, ctx=Load())
     return tree
 
+def _isassign(tree):  # detect custom syntax to assign variables in an environment
+    return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
+
 # Sugar around unpythonic.lispylet.letrec. We take this approach because
 # letrec needs assignment (must create placeholder bindings, then update
 # them with the real value)... but in Python, assignment is a statement.
@@ -78,8 +81,22 @@ def letrec(tree, args, gen_sym, **kw):
     # Respect lexical scoping by naming the environments uniquely, so that
     # names from other lexically surrounding letrec expressions remain visible.
     e = gen_sym("e")
+    envset = Attribute(value=hq[name[e]], attr="set", ctx=Load())
 
     # transform binding RHSs and the body:
+
+    # x << val --> e.set('x', val)
+    @Walker
+    def assignment_walker(tree, **kw):
+        if not _isassign(tree):
+            return tree
+        varname = tree.left.id
+        if varname not in names:  # each letrec handles only its own varnames
+            return tree
+        value = tree.right
+        return q[ast_literal[envset](u[varname], ast_literal[value])]
+    values = [assignment_walker.recurse(v) for v in values]
+    assignment_walker.recurse(tree)
 
     # x -> e.x for x in names
     values = [_transform_name.recurse(v, names=names, envname=e) for v in values]
@@ -114,9 +131,7 @@ def do(tree, gen_sym, **kw):
     names = []
     for line in tree.elts:
         # assignment syntax, e.g. "x << 1"
-        if type(line) is BinOp and type(line.op) is LShift:
-            if type(line.left) is not Name:
-                assert False, "Expected bare name on left side of do-assignment (e.g. x << 'foo')"
+        if _isassign(line):
             k = line.left.id
             names.append(k)
             # as of MacroPy 1.1.0, no unquote operator to make kwargs,
@@ -124,9 +139,7 @@ def do(tree, gen_sym, **kw):
             # kwarg syntax for assignments in a do()):
             kw = keyword(arg=k, value=line.right)
             outlines.append(Call(func=hq[assignf], args=[], keywords=[kw]))
-        else:
-            # x -> e.x for x in names
+        else:  # x -> e.x for x in names; insert the "lambda e: ..."
             line = _transform_name.recurse(line, names=names, envname=e)
-            # insert the "lambda e: ..."
             outlines.append(_envwrap(line, envname=e))
     return hq[dof(ast_literal[outlines])]
