@@ -9,9 +9,10 @@ from macropy.core.walkers import Walker
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 
-from ast import arg, Name, Attribute, Load
+from ast import arg, Name, Attribute, Load, BinOp, LShift, keyword, Call
 
 from unpythonic.lispylet import letrec as letrecf
+from unpythonic.seq import do as dof, assign as assignf
 
 ## highly useful debug tools:
 #from macropy.core import unparse  # AST --> source code
@@ -44,6 +45,23 @@ def letseq(tree, args, **kw):
     first, *rest = args
     return let(letseq(tree, rest), [first])
 
+# letrec and seq.do
+
+# insert the "lambda e: ..." to feed in the environment
+def _envwrap(astnode, envname):
+    lam = q[lambda: ast_literal[astnode]]
+    lam.args.args = [arg(arg=envname)]
+    return lam
+
+# bare name x -> e.x for x in names bound in this environment
+@Walker
+def _transform_name(tree, *, names, envname, stop, **kw):
+    if type(tree) is Attribute:  # do not recurse into attributes
+        stop()
+    elif type(tree) is Name and tree.id in names:
+        return Attribute(value=hq[name[envname]], attr=tree.id, ctx=Load())
+    return tree
+
 # Sugar around unpythonic.lispylet.letrec. We take this approach because
 # letrec needs assignment (must create placeholder bindings, then update
 # them with the real value)... but in Python, assignment is a statement.
@@ -61,24 +79,15 @@ def letrec(tree, args, gen_sym, **kw):
     # names from other lexically surrounding letrec expressions remain visible.
     e = gen_sym("e")
 
-    # x -> e.x for x in names
-    @Walker
-    def transform_name(tree, *, stop, **kw):
-        if type(tree) is Attribute:  # do not recurse into attributes
-            stop()
-        elif type(tree) is Name and tree.id in names:
-            return Attribute(value=hq[name[e]], attr=tree.id, ctx=Load())
-        return tree
-    values = [transform_name.recurse(v) for v in values]  # binding RHSs
-    tree = transform_name.recurse(tree)                   # letrec body
+    # transform binding RHSs and the body:
 
-    # insert the "lambda e: ..." to binding RHSs and the body
-    def envwrap(astnode):
-        lam = q[lambda: ast_literal[astnode]]
-        lam.args.args = [arg(arg=e)]
-        return lam
-    values = [envwrap(v) for v in values]
-    tree = envwrap(tree)
+    # x -> e.x for x in names
+    values = [_transform_name.recurse(v, names=names, envname=e) for v in values]
+    tree = _transform_name.recurse(tree, names=names, envname=e)
+
+    # insert the "lambda e: ..."
+    values = [_envwrap(v, envname=e) for v in values]
+    tree = _envwrap(tree, envname=e)
 
     # build the call to unpythonic.lispylet.letrec.
     #
@@ -96,3 +105,28 @@ def letrec(tree, args, gen_sym, **kw):
     # ...so here we must place ast_literal into a tuple context, so that
     # when it unpacks the values, the end result is a tuple.
     return hq[letrecf((ast_literal[binding_pairs],), ast_literal[tree])]
+
+# Implementation is very similar to letrec, so implemented here.
+@macros.expr
+def do(tree, gen_sym, **kw):
+    e = gen_sym("e")
+    outlines = []
+    names = []
+    for line in tree.elts:
+        # assignment syntax, e.g. "x << 1"
+        if type(line) is BinOp and type(line.op) is LShift:
+            if type(line.left) is not Name:
+                assert False, "Expected bare name on left side of do-assignment (e.g. x << 'foo')"
+            k = line.left.id
+            names.append(k)
+            # as of MacroPy 1.1.0, no unquote operator to make kwargs,
+            # so we have to do this manually (since unpythonic uses the
+            # kwarg syntax for assignments in a do()):
+            kw = keyword(arg=k, value=line.right)
+            outlines.append(Call(func=hq[assignf], args=[], keywords=[kw]))
+        else:
+            # x -> e.x for x in names
+            line = _transform_name.recurse(line, names=names, envname=e)
+            # insert the "lambda e: ..."
+            outlines.append(_envwrap(line, envname=e))
+    return hq[dof(ast_literal[outlines])]

@@ -7,7 +7,7 @@ since macro expansion occurs at import time.
 """
 
 from autocurry import macros, curry
-from letm import macros, let, letseq, letrec
+from letm import macros, let, letseq, letrec, do
 from aif import macros, aif
 from cond import macros, cond
 from unpythonic import foldr, composerc as compose, cons, nil
@@ -121,6 +121,16 @@ def main():
                             x == 3, "three",
                             "something else"]
     print(answer(42))
+
+    # macro wrapper for seq.do (stuff imperative code into a lambda)
+    #  - assignment is ``var << value``
+    #  - no need for ``lambda e: ...`` wrappers, inserted automatically,
+    #    so the lines are only evaluated as the seq.do() runs
+    y = do[x << 17,
+           print(x),
+           x << 23,
+           x]
+    print(y)
 
 if __name__ == '__main__':
     main()
