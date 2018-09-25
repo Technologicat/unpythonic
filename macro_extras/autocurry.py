@@ -22,9 +22,9 @@ from unpythonic import dyn
 macros = Macros()
 
 @macros.block
-def curry(tree, **kw):  # technically a forest, a list of trees
+def curry(tree, **kw):  # technically a forest; list of trees, the body of the with block
     @Walker
-    def transform_call(tree, **kw):
+    def transform_call(tree, **kw):  # technically a node containing the current subtree
         if type(tree) is Call:
             newargs = []
             newargs.append(tree.func)
@@ -32,10 +32,10 @@ def curry(tree, **kw):  # technically a forest, a list of trees
             tree.args = newargs
             tree.func = hq[curryf]
         return tree
-    body_subtree = transform_call.recurse(tree)
+    body = transform_call.recurse(tree)
     # Wrap the body in "with dyn.let(_curry_allow_uninspectable=True):"
     # to avoid crash with builtins (uninspectable)
     item = hq[dyn.let(_curry_allow_uninspectable=True)]
-    new_tree = With(items=[withitem(context_expr=item)],
-                    body=body_subtree)
-    return [new_tree]  # block macro: got a list, must return a list.
+    wrapped = With(items=[withitem(context_expr=item)],
+                   body=body)
+    return [wrapped]  # block macro: got a list, must return a list.
