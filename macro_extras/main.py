@@ -8,6 +8,7 @@ since macro expansion occurs at import time.
 
 from autocurry import macros, curry
 from letm import macros, let, letseq, letrec
+from aif import macros, aif
 from unpythonic import foldr, composerc as compose, cons, nil
 
 with curry:
@@ -106,3 +107,9 @@ except AttributeError:  # y is not defined on the first line (lispylet and env t
 letrec((f, lambda t: t + y + 1),
        (y, 2))[
   print(f(3))]
+
+# Anaphoric if: aif[test, then, otherwise]
+# Magic identifier "it" refers to the test result.
+aif[2*21,
+    print("it is {}".format(it)),
+    print("it is False")]
