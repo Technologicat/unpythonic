@@ -9,7 +9,7 @@ from macropy.core.walkers import Walker
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 
-from ast import Call, arg, Name, Attribute, Load
+from ast import arg, Name, Attribute, Load
 
 from unpythonic.lispylet import letrec as letrecf
 
