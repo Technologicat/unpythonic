@@ -2,7 +2,7 @@
 
 Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
 
-In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python from the list processing tradition. We place a special emphasis on **clear, pythonic syntax**, as far as possible without [MacroPy](https://github.com/azazel75/macropy). (But we do provide an [autocurry macro](autocurry_macro/) as an optional extra that makes Python look somewhat like Haskell.)
+In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python from the list processing tradition. We place a special emphasis on **clear, pythonic syntax**, as far as possible without [MacroPy](https://github.com/azazel75/macropy). (But we do provide some optional [macro extras](macro_extras/), e.g. an autocurry that makes Python look somewhat like Haskell.)
 
 Other design considerations are simplicity, robustness, and minimal dependencies (currently none). Pure Python 3.4.
 
