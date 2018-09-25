@@ -47,9 +47,17 @@ except TypeError:
 let((x, 17),  # parallel binding, i.e. bindings don't see each other
     (y, 23))[
       print(x, y)]
+
 letseq((x, 1),  # sequential binding, i.e. Scheme/Racket let*
        (y, x+1))[
          print(x, y)]
+
+try:
+    let((x, 1),
+        (y, x+1))[  # parallel binding, doesn't see the x in the same let
+          print(x, y)]
+except NameError:
+    pass  # no x in surrounding scope
 
 try:
     letseq((x, y+1),
@@ -79,3 +87,22 @@ letrec((z, 1))[
   begin(print(z),
         letrec((z, 2))[
           print(z)])]  # (be careful with the parentheses!)
+
+# this works, too
+letrec((x, 1),
+       (y, x+2))[
+  print(y)]
+
+# but this is an error (just like in Racket):
+try:
+    letrec((x, y+1),
+           (y, 2))[
+      print(x)]
+except AttributeError:  # y is not defined on the first line (lispylet and env together detect this)
+    pass
+
+# this is ok, because the y on the RHS of the definition of f
+# is evaluated only when the function is called
+letrec((f, lambda t: t + y + 1),
+       (y, 2))[
+  print(f(3))]
