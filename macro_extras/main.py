@@ -7,7 +7,7 @@ since macro expansion occurs at import time.
 """
 
 from autocurry import macros, curry
-from letm import macros, let, letseq
+from letm import macros, let, letseq, letrec
 from unpythonic import foldr, composerc as compose, cons, nil
 
 with curry:
@@ -42,8 +42,40 @@ except TypeError:
     pass
 
 # Let macros, performing essentially the same transformation as Scheme/Racket.
+# Lexical scoping supported.
 #
 let((x, 17),  # parallel binding, i.e. bindings don't see each other
-    (y, 23))[print(x, y)]
-letseq((x, 1),  # sequential binding, using Python's lexical scoping
-       (y, x+1))[print(x, y)]  # Scheme/Racket let*
+    (y, 23))[
+      print(x, y)]
+letseq((x, 1),  # sequential binding, i.e. Scheme/Racket let*
+       (y, x+1))[
+         print(x, y)]
+
+try:
+    letseq((x, y+1),
+           (y, 2))[
+             print(x, y)]
+except NameError:  # y is not yet defined on the first line
+    pass
+
+# letrec sugars unpythonic.lispylet.letrec, removing the need for quotes
+# and "lambda e: ..." wrappers (these are inserted by the macro):
+letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
+       (oddp,  lambda x: (x != 0) and evenp(x - 1)))[
+         print(evenp(42))]
+
+# nested letrecs work, too - each environment is internally named by a gensym
+# so that outer ones can be seen:
+letrec((z, 9000))[
+  letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
+         (oddp,  lambda x: (x != 0) and evenp(x - 1)))[
+           print(evenp(42), z)]]
+
+# also letrec supports lexical scoping, since in MacroPy 1.1.0 and later,
+# macros are expanded from inside out (the z in the inner scope expands to
+# the inner environment's z, which makes the outer expansion leave it alone):
+from unpythonic import begin
+letrec((z, 1))[
+  begin(print(z),
+        letrec((z, 2))[
+          print(z)])]  # (be careful with the parentheses!)
