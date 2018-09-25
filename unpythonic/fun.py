@@ -19,7 +19,7 @@ __all__ = ["memoize", "curry", "iscurried",
 from functools import wraps, partial
 from operator import itemgetter
 
-from unpythonic.arity import arities
+from unpythonic.arity import arities, UnknownArity
 from unpythonic.fold import reducel
 from unpythonic.dynscope import dyn, make_dynvar
 
@@ -62,8 +62,9 @@ def memoize(f):
 #        return memo[k]
 #    return memoized
 
-make_dynvar(_curry_context=None)
 make_dynvar(curry_toplevel_passthrough=False)
+make_dynvar(_curry_context=None)
+make_dynvar(_curry_allow_uninspectable=False)  # if True, no-op if not inspectable.
 def curry(f, *args, **kwargs):
     """Decorator: curry the function f.
 
@@ -158,7 +159,15 @@ def curry(f, *args, **kwargs):
         return f
     # TODO: improve: all required name-only args should be present before calling f.
     # Difficult, partial() doesn't remove an already-set kwarg from the signature.
-    min_arity, max_arity = arities(f)
+    try:
+        min_arity, max_arity = arities(f)
+    except UnknownArity:  # likely a builtin
+        if not dyn._curry_allow_uninspectable:  # usual behavior
+            raise
+        # co-operate with the autocurry macro; don't crash on builtins
+        if args or kwargs:
+            return f(*args, **kwargs)
+        return f
     @wraps(f)
     def curried(*args, **kwargs):
         outerctx = dyn._curry_context
