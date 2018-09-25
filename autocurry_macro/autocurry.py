@@ -14,7 +14,7 @@ from macropy.core.macros import Macros
 from macropy.core.walkers import Walker
 from macropy.core.hquotes import macros, hq
 
-from ast import Call, Name, Load, With, withitem
+from ast import Call, With, withitem
 
 from unpythonic import curry as curryf
 from unpythonic import dyn
