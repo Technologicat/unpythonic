@@ -6,10 +6,10 @@ No need for ``lambda e: ...``, and proper lexical scoping in letseq."""
 
 from macropy.core.macros import Macros
 from macropy.core.walkers import Walker
-from macropy.core.quotes import macros, q, ast_literal, name
+from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 
-from ast import Call, arg, Name, Attribute, Load, Tuple, Str
+from ast import Call, arg, Name, Attribute, Load
 
 from unpythonic.lispylet import letrec as letrecf
 
@@ -33,7 +33,8 @@ def let(tree, args, **kw):
     # ...like this. lam.args is an ast.arguments instance; its .args is a list
     # of positional arg names, as strings wrapped into ast.arg objects.
     lam.args.args = [arg(arg=x) for x in names]
-    return Call(func=lam, args=values, keywords=[])
+#    return Call(func=lam, args=values, keywords=[])
+    return q[ast_literal[lam](ast_literal[values])]  # same thing, with quasiquote
 
 # Like Scheme/Racket let*. Expands to nested let expressions.
 @macros.expr
@@ -84,7 +85,14 @@ def letrec(tree, args, gen_sym, **kw):
     # CAREFUL - the elts arg of ast.Tuple MUST be a list, NOT a tuple.
     # Using a tuple triggers a mysterious-looking error about an invalid
     # AST node.
-    binding_pairs = [Tuple(elts=[Str(s=k), v], ctx=Load())
-                       for k, v in zip(names, values)]  # name as str
-    binding_pairs = Tuple(elts=binding_pairs, ctx=Load())
-    return Call(func=hq[letrecf], args=[binding_pairs, tree], keywords=[])
+#    binding_pairs = [Tuple(elts=[Str(s=k), v], ctx=Load())
+#                       for k, v in zip(names, values)]  # name as str
+#    binding_pairs = Tuple(elts=binding_pairs, ctx=Load())
+#    return Call(func=hq[letrecf], args=[binding_pairs, tree], keywords=[])
+
+    # maybe more readable with quasiquotes?
+    # binding_pairs produces n items as a list...
+    binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
+    # ...so here we must place ast_literal into a tuple context, so that
+    # when it unpacks the values, the end result is a tuple.
+    return hq[letrecf((ast_literal[binding_pairs],), ast_literal[tree])]
