@@ -42,7 +42,6 @@ macros = Macros()
 def simple_let(tree, args, **kw):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     names  = [k.id for k, _ in (a.elts for a in args)]
     values = [v for _, v in (a.elts for a in args)]
-    print(names, values)
     lam = q[lambda: ast_literal[tree]]
     lam.args.args = [arg(arg=x) for x in names]  # inject args
     return q[ast_literal[lam](ast_literal[values])]
