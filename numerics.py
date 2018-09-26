@@ -38,7 +38,19 @@ def test():
         """Multiply an infinite stream by a constant."""
         return map(lambda x: c * x, s)
 
-    # will eventually crash (stack overflow)
+    # Will eventually crash (stack overflow).
+    #
+    # @gmemoize (from unnpythonic.gmemo) would prevent the crash (because then
+    # only one copy of the actual generator runs; any already computed items
+    # are yielded directly from the memo), but memory use still grows per-item,
+    # because (beside the memoized sequence itself) each instance spawned here
+    # (which is then actually an interface to the memoized sequence) must keep
+    # track of its position within the sequence.
+    #
+    # For ones_fp, where the recursive call is in the tail position, @gtrampolined
+    # (from unpythonic.gtco) is another option (this requires changing the
+    # "yield from" to a "return" to request @gtrampolined to perform a tail-chain).
+    #
     def ones_fp():
         yield 1
         yield from ones_fp()
@@ -80,7 +92,7 @@ def test():
     assert tuple(take(10, fs())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
     assert tuple(take(10, p2s())) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
 
-    # better Python: simple is better than complex (also no stack overflow)
+    # better Python: simple is better than complex
     def ones():
         return repeat(1)
     def nats(start=0):
@@ -144,7 +156,7 @@ def test():
         return map(second, iterate1(improve, s))
     def best_differentiate_with_tol(h0, f, x, eps):
         return within(eps, super_improve(differentiate(h0, f, x)))
-    assert abs(best_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-12
+    assert abs(best_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-11
 
     # pi approximation with Euler series acceleration
     #
