@@ -43,15 +43,15 @@ letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding
          print(evenp(42))]
 ```
 
-Syntax is similar to ``unpythonic.lispylet``, but no quotes around variable names in bindings, and no ``lambda e: ...`` wrappers. Bindings are referred to by bare names like in Lisps, no ``e.`` prefix.
+Syntax is similar to ``unpythonic.lispylet``, but no quotes around variable names in bindings, and no ``lambda e: ...`` wrappers. Bindings are referred to by bare names like in Lisps, no ``e.`` prefix. Assignment to variables in the environment is supported via the left-shift syntax ``x << 42``.
 
 Note the ``[...]``; these are ``expr`` macros. The bindings are given as macro arguments as ``((name, value), ...)``, the body goes into the ``[...]``.
 
-``let`` and ``letseq`` are wholly implemented as AST transformations. Just like in Lisps, ``letseq`` (Scheme/Racket ``let*``) expands into a sequence of nested ``let`` expressions, which expand to lambdas.
+We also provide ``simple_let`` and ``simple_letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement). Just like in Lisps, ``simple_letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``simple_let`` expressions, which expand to lambdas.
 
-``letrec`` expands into ``unpythonic.lispylet.letrec``, implicitly inserting ``lambda e: ...`` around each value and the body, and (for both the values and the body) transforming ``x`` to ``e.x`` for all ``x`` in bindings. The implicit environment argument ``e`` is actually named using a gensym, so lexically outer environments automatically show through.
+``let`` and ``letrec`` expand into the ``unpythonic.lispylet`` constructs, implicitly inserting ``lambda e: ...``, quoting variable names in definitions, and transforming ``x`` to ``e.x`` for all ``x`` declared in the bindings. Assignment syntax ``x << 42`` transforms to ``e.set('x', 42)``. The implicit environment argument ``e`` is actually named using a gensym, so lexically outer environments automatically show through. ``letseq`` expands into a chain of nested ``let`` expressions.
 
-Nesting works also in ``letrec``, because (as of v1.1.0) MacroPy3 expands macros in an inside-out order:
+Nesting utilizes the fact that (as of v1.1.0) MacroPy3 expands macros in an inside-out order:
 
 ```python
 from unpythonic import begin
@@ -62,7 +62,7 @@ letrec((z, 1))[
           print(z)])]  # (be careful with the parentheses!)
 ```
 
-Here the ``z`` in the inner scope expands to the inner environment's ``z``, which makes the outer expansion leave it alone. (This works by transforming only ``ast.Name`` nodes, stopping recursion when an ``ast.Attribute`` is encountered.)
+Hence the ``z`` in the inner scope expands to the inner environment's ``z``, which makes the outer expansion leave it alone. (This works by transforming only ``ast.Name`` nodes, stopping recursion when an ``ast.Attribute`` is encountered.)
 
 
 ## ``aif``: anaphoric if for Python
