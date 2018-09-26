@@ -91,6 +91,21 @@ def main():
             letrec((z, 2))[
               print(z)])]  # (be careful with the parentheses!)
 
+    # assignment updates the innermost value by that name:
+    letrec((z, 1))[
+      begin(print("outer z is", z),
+            print("changing outer z to", z << 5),  # assignment to env is an expression, returns the new value
+            letrec((z, 2))[
+              begin(print("inner z is", z),
+                    print("changing inner z to", z << 7))],
+            print("outer z is still", z))]
+    letrec((x, 1))[
+      begin(print("x is", x),
+            letrec((z, 2))[
+              begin(print("z is", z),
+                    print("changing x to", x << 7))],
+            print("x is now", x))]
+
     # this works, too
     letrec((x, 1),
            (y, x+2))[
