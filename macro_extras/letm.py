@@ -28,27 +28,23 @@ from unpythonic.seq import do as dof, assign as assignf
 ## highly useful debug tools:
 #from macropy.core import unparse  # AST --> source code
 ## https://bitbucket.org/takluyver/greentreesnakes/src/default/astpp.py
-#from astpp import dump  # show AST
+#from astpp import dump  # AST --> human-readable repr
 
 macros = Macros()
 
 # This simple classical lambda-based version works, but does not support assignment,
 # so it can't be used for things like let-over-lambda, or indeed letrec.
-#
-# But it's simple, and creates real lexical variables, which is sometimes useful
-# (such as in the "aif" macro).
+# But it's simple, and creates real lexical variables.
 
 #  simple_let((x, 1), (y, 2))[print(x, y)]
 #  --> (lambda x, y: print(x, y))(1, 2)
 @macros.expr
-def simple_let(tree, args, **kw):
-    # Each arg is a tuple of (ast.Name, some_value) representing a binding.
+def simple_let(tree, args, **kw):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     names  = [k.id for k, _ in (a.elts for a in args)]
     values = [v for _, v in (a.elts for a in args)]
-    lam = q[lambda: ast_literal[tree]]  # we can inject args later...
-    # ...like this. lam.args is an ast.arguments instance; its .args is a list
-    # of positional arg names, as strings wrapped into ast.arg objects.
-    lam.args.args = [arg(arg=x) for x in names]
+    print(names, values)
+    lam = q[lambda: ast_literal[tree]]
+    lam.args.args = [arg(arg=x) for x in names]  # inject args
     return q[ast_literal[lam](ast_literal[values])]
 
 # Like Scheme/Racket let*. Expands to nested let expressions.
@@ -66,21 +62,15 @@ def simple_letseq(tree, args, **kw):
 # As a bonus, we get assignment for let and letseq, too.
 # (Now that we have a separate macro expansion pass, we can provide a letseq.)
 #
-#  - remove the need for quotes around the variable names
+#  - no quotes around variable names in bindings
 #  - automatically wrap each RHS and the body in a lambda e: ...
-#  - if x is defined in bindings, expand any bare x in body
-#    (and in bindings) into e.x
-#  - respect lexical scoping by naming the environments uniquely, so that
-#    names from other lexically surrounding letrec expressions remain visible.
-
+#  - for all x in bindings, transform x --> e.x
+#  - respect lexical scoping by naming the environments uniquely
 def _transform_let(bindings, body, mode, envname, varnames, setter):
     def t(subtree):
-        # x << val --> e.set('x', val)
-        subtree = _assignment_walker.recurse(subtree, names=varnames, setter=setter)
-        # x --> e.x
-        subtree = _transform_name.recurse(subtree, names=varnames, envname=envname)
-        # ... -> lambda e: ...
-        return _envwrap(subtree, envname=envname)
+        subtree = _assignment_walker.recurse(subtree, names=varnames, setter=setter)  # x << val --> e.set('x', val)
+        subtree = _transform_name.recurse(subtree, names=varnames, envname=envname)  # x --> e.x
+        return _envwrap(subtree, envname=envname)  # ... -> lambda e: ...
     if mode == "letrec":
         bindings = [t(b) for b in bindings]
     body = t(body)
@@ -114,6 +104,9 @@ def letseq(tree, args, gen_sym, **kw):
 def letrec(tree, args, gen_sym, **kw):
     return _let(tree, args, "letrec", gen_sym)
 
+def _isassign(tree):  # detect "x << 42" syntax to assign variables in an environment
+    return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
+
 # x << val --> e.set('x', val)  (for names bound in this environment)
 @Walker
 def _assignment_walker(tree, *, names, setter, **kw):
@@ -125,23 +118,20 @@ def _assignment_walker(tree, *, names, setter, **kw):
     value = tree.right
     return q[ast_literal[setter](u[varname], ast_literal[value])]
 
-# insert the "lambda e: ..." to feed in the environment
+# # ... -> lambda e: ...
 def _envwrap(tree, envname):
     lam = q[lambda: ast_literal[tree]]
     lam.args.args = [arg(arg=envname)]
     return lam
 
-# bare name x -> e.x for x in names bound in this environment
+# x --> e.x  (for names bound in this environment)
 @Walker
 def _transform_name(tree, *, names, envname, stop, **kw):
-    if type(tree) is Attribute:  # do not recurse into attributes
+    if type(tree) is Attribute:
         stop()
     elif type(tree) is Name and tree.id in names:
         return Attribute(value=hq[name[envname]], attr=tree.id, ctx=Load())
     return tree
-
-def _isassign(tree):  # detect custom syntax to assign variables in an environment
-    return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
 
 
 # What we need to macro-wrap seq.do is similar to letrec, so implemented here.
