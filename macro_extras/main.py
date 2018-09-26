@@ -10,6 +10,7 @@ from autocurry import macros, curry
 from letm import macros, let, letseq, letrec, do
 from aif import macros, aif
 from cond import macros, cond
+from prefix import macros, prefix
 from unpythonic import foldr, composerc as compose, cons, nil
 
 def main():
@@ -43,6 +44,18 @@ def main():
         add3(1)
     except TypeError:
         pass
+
+    # Write Python like Lisp!
+    with prefix:
+        (print, "hello world")
+        t = (q, 1, 2, (3, 4), 5)
+        (print, t)
+
+    # Introducing LisThonKell.
+    with prefix, curry:  # important: apply prefix first, then curry
+        mymap = lambda f: (foldr, (compose, cons, f), nil)
+        double = lambda x: 2 * x
+        (print, (mymap, double, (q, 1, 2, 3)))
 
     # Let macros, performing essentially the same transformation as Scheme/Racket.
     # Lexical scoping supported.
