@@ -68,30 +68,6 @@ def simple_letseq(tree, args, **kw):
 #  - automatically wrap each RHS and the body in a lambda e: ...
 #  - for all x in bindings, transform x --> e.x
 #  - respect lexical scoping by naming the environments uniquely
-def _t(subtree, envname, varnames, setter):
-    subtree = _assignment_walker.recurse(subtree, names=varnames, setter=setter)  # x << val --> e.set('x', val)
-    subtree = _transform_name.recurse(subtree, names=varnames, envname=envname)  # x --> e.x
-    return _envwrap(subtree, envname=envname)  # ... -> lambda e: ...
-
-def _transform_let(bindings, body, mode, envname, varnames, setter):
-    t = partial(_t, envname=envname, varnames=varnames, setter=setter)
-    if mode == "letrec":
-        bindings = [t(b) for b in bindings]
-    body = t(body)
-    return bindings, body
-
-def _let(tree, args, mode, gen_sym):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
-    names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
-    names = [k.id for k in names]
-
-    e = gen_sym("e")
-    envset = Attribute(value=hq[name[e]], attr="set", ctx=Load())
-    values, tree = _transform_let(values, tree, mode, e, names, envset)
-
-    binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
-    func = letf if mode == "let" else letrecf
-    return hq[func((ast_literal[binding_pairs],), ast_literal[tree])]  # splice into tuple context
-
 @macros.expr
 def let(tree, args, gen_sym, **kw):
     return _let(tree, args, "let", gen_sym)
@@ -124,12 +100,36 @@ def do(tree, gen_sym, **kw):
     lines = [_t(line, e, names, envset) for line in tree.elts]
     return hq[dof(ast_literal[lines])]
 
+def _let(tree, args, mode, gen_sym):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
+    names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
+    names = [k.id for k in names]
+
+    e = gen_sym("e")
+    envset = Attribute(value=hq[name[e]], attr="set", ctx=Load())
+    values, tree = _transform_let(values, tree, mode, e, names, envset)
+
+    binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
+    func = letf if mode == "let" else letrecf
+    return hq[func((ast_literal[binding_pairs],), ast_literal[tree])]  # splice into tuple context
+
+def _transform_let(bindings, body, mode, envname, varnames, setter):
+    t = partial(_t, envname=envname, varnames=varnames, setter=setter)
+    if mode == "letrec":
+        bindings = [t(b) for b in bindings]
+    body = t(body)
+    return bindings, body
+
+def _t(subtree, envname, varnames, setter):  # common transformations
+    subtree = _transform_assignment.recurse(subtree, names=varnames, setter=setter)  # x << val --> e.set('x', val)
+    subtree = _transform_name.recurse(subtree, names=varnames, envname=envname)  # x --> e.x
+    return _envwrap(subtree, envname=envname)  # ... -> lambda e: ...
+
 def _isassign(tree):  # detect "x << 42" syntax to assign variables in an environment
     return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
 
 # x << val --> e.set('x', val)  (for names bound in this environment)
 @Walker
-def _assignment_walker(tree, *, names, setter, **kw):
+def _transform_assignment(tree, *, names, setter, **kw):
     if not _isassign(tree):
         return tree
     varname = tree.left.id
@@ -137,12 +137,6 @@ def _assignment_walker(tree, *, names, setter, **kw):
         return tree
     value = tree.right
     return q[ast_literal[setter](u[varname], ast_literal[value])]
-
-# # ... -> lambda e: ...
-def _envwrap(tree, envname):
-    lam = q[lambda: ast_literal[tree]]
-    lam.args.args = [arg(arg=envname)]
-    return lam
 
 # x --> e.x  (for names bound in this environment)
 @Walker
@@ -152,3 +146,9 @@ def _transform_name(tree, *, names, envname, stop, **kw):
     elif type(tree) is Name and tree.id in names:
         return Attribute(value=hq[name[envname]], attr=tree.id, ctx=Load())
     return tree
+
+# # ... -> lambda e: ...
+def _envwrap(tree, envname):
+    lam = q[lambda: ast_literal[tree]]
+    lam.args.args = [arg(arg=envname)]
+    return lam
