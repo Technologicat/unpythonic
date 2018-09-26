@@ -116,6 +116,18 @@ def main():
                        (x, y))]
     print(a)
 
+    a = let((x, 1),
+            (y, 2))[
+              begin(y << 1337,
+                    (x, y))]
+    print(a)
+
+    a = letseq((x, 1),
+               (y, x+1))[
+                 begin(x << 1337,
+                       (x, y))]
+    print(a)
+
     # Anaphoric if: aif[test, then, otherwise]
     # Magic identifier "it" refers to the test result.
     aif[2*21,
