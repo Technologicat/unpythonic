@@ -74,26 +74,20 @@ def simple_letseq(tree, args, **kw):
 #    names from other lexically surrounding letrec expressions remain visible.
 
 def _transform_let(bindings, body, mode, envname, varnames, setter):
-    def t1(subtree):  # x << val --> e.set('x', val)
-        return _assignment_walker.recurse(subtree, names=varnames, setter=setter)
-    def t2(subtree):  # x --> e.x, and insert the "lambda e: ..."
+    def t(subtree):
+        # x << val --> e.set('x', val)
+        subtree = _assignment_walker.recurse(subtree, names=varnames, setter=setter)
+        # x --> e.x
         subtree = _transform_name.recurse(subtree, names=varnames, envname=envname)
-        subtree = _envwrap(subtree, envname=envname)
-        return subtree
-    if mode == "let":
-        bindings = [t1(b) for b in bindings]
-    elif mode == "letrec":
-        bindings = [t2(t1(b)) for b in bindings]
-    else:
-        assert False, "unknown mode {}".format(mode)
-    body = t2(t1(body))
+        # ... -> lambda e: ...
+        return _envwrap(subtree, envname=envname)
+    if mode == "letrec":
+        bindings = [t(b) for b in bindings]
+    body = t(body)
     return bindings, body
 
-def _let(tree, args, mode, gen_sym):
-#    names = [k.id for k, _ in (a.elts for a in args)]
-#    values = [v for _, v in (a.elts for a in args)]
-    # (k1, v1), ... (kn, vn) --> (k1, ..., kn), (v1, ..., vn)
-    names, values = zip(*[a.elts for a in args])
+def _let(tree, args, mode, gen_sym):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
+    names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]
 
     e = gen_sym("e")
