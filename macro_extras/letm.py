@@ -20,6 +20,9 @@ from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 
 from ast import arg, Name, Attribute, Load, BinOp, LShift, keyword, Call
+from functools import partial
+
+from unpythonic.it import uniqify
 
 # functions that do the work
 from unpythonic.lispylet import letrec as letrecf, let as letf
@@ -65,11 +68,13 @@ def simple_letseq(tree, args, **kw):
 #  - automatically wrap each RHS and the body in a lambda e: ...
 #  - for all x in bindings, transform x --> e.x
 #  - respect lexical scoping by naming the environments uniquely
+def _t(subtree, envname, varnames, setter):
+    subtree = _assignment_walker.recurse(subtree, names=varnames, setter=setter)  # x << val --> e.set('x', val)
+    subtree = _transform_name.recurse(subtree, names=varnames, envname=envname)  # x --> e.x
+    return _envwrap(subtree, envname=envname)  # ... -> lambda e: ...
+
 def _transform_let(bindings, body, mode, envname, varnames, setter):
-    def t(subtree):
-        subtree = _assignment_walker.recurse(subtree, names=varnames, setter=setter)  # x << val --> e.set('x', val)
-        subtree = _transform_name.recurse(subtree, names=varnames, envname=envname)  # x --> e.x
-        return _envwrap(subtree, envname=envname)  # ... -> lambda e: ...
+    t = partial(_t, envname=envname, varnames=varnames, setter=setter)
     if mode == "letrec":
         bindings = [t(b) for b in bindings]
     body = t(body)
@@ -103,6 +108,22 @@ def letseq(tree, args, gen_sym, **kw):
 def letrec(tree, args, gen_sym, **kw):
     return _let(tree, args, "letrec", gen_sym)
 
+@macros.expr
+def do(tree, gen_sym, **kw):
+    e = gen_sym("e")
+    # must use env.__setattr__ to define new names; env.set only rebinds.
+    envset = Attribute(value=hq[name[e]], attr="__setattr__", ctx=Load())
+
+    @Walker
+    def _find_assignments(tree, collect, **kw):
+        if _isassign(tree):
+            collect(tree.left.id)
+        return tree
+    names = list(uniqify(_find_assignments.collect(tree)))
+
+    lines = [_t(line, e, names, envset) for line in tree.elts]
+    return hq[dof(ast_literal[lines])]
+
 def _isassign(tree):  # detect "x << 42" syntax to assign variables in an environment
     return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
 
@@ -131,26 +152,3 @@ def _transform_name(tree, *, names, envname, stop, **kw):
     elif type(tree) is Name and tree.id in names:
         return Attribute(value=hq[name[envname]], attr=tree.id, ctx=Load())
     return tree
-
-
-# What we need to macro-wrap seq.do is similar to letrec, so implemented here.
-@macros.expr
-def do(tree, gen_sym, **kw):
-    e = gen_sym("e")
-    outlines = []
-    names = []
-    for line in tree.elts:
-        # assignment syntax, e.g. "x << 1"
-        # TODO: for now, seq.do only supports this at the top level (whole "line").
-        if _isassign(line):
-            k = line.left.id
-            names.append(k)
-            # as of MacroPy 1.1.0, no unquote operator to make kwargs,
-            # so we have to do this manually (since unpythonic uses the
-            # kwarg syntax for assignments in a do()):
-            kw = keyword(arg=k, value=line.right)
-            outlines.append(Call(func=hq[assignf], args=[], keywords=[kw]))
-        else:  # x -> e.x for x in names; insert the "lambda e: ..."
-            line = _transform_name.recurse(line, names=names, envname=e)
-            outlines.append(_envwrap(line, envname=e))
-    return hq[dof(ast_literal[outlines])]
