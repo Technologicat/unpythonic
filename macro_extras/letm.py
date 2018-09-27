@@ -97,7 +97,7 @@ def do(tree, gen_sym, **kw):
         return tree
     names = list(uniqify(_find_assignments.collect(tree)))
 
-    lines = [_t(line, e, names, envset) for line in tree.elts]
+    lines = [_common_transform(line, e, names, envset) for line in tree.elts]
     return hq[dof(ast_literal[lines])]
 
 def _let(tree, args, mode, gen_sym):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
@@ -113,13 +113,13 @@ def _let(tree, args, mode, gen_sym):  # args; ast.Tuple: (k1, v1), (k2, v2), ...
     return hq[func((ast_literal[binding_pairs],), ast_literal[tree])]  # splice into tuple context
 
 def _transform_let(bindings, body, mode, envname, varnames, setter):
-    t = partial(_t, envname=envname, varnames=varnames, setter=setter)
+    t = partial(_common_transform, envname=envname, varnames=varnames, setter=setter)
     if mode == "letrec":
         bindings = [t(b) for b in bindings]
     body = t(body)
     return bindings, body
 
-def _t(subtree, envname, varnames, setter):  # common transformations
+def _common_transform(subtree, envname, varnames, setter):
     subtree = _transform_assignment.recurse(subtree, names=varnames, setter=setter)  # x << val --> e.set('x', val)
     subtree = _transform_name.recurse(subtree, names=varnames, envname=envname)  # x --> e.x
     return _envwrap(subtree, envname=envname)  # ... -> lambda e: ...
