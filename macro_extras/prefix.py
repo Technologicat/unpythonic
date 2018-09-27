@@ -17,8 +17,9 @@ Lexically inside a ``with prefix``:
       the quote level by one.
 
       It actually just tells the macro that this tuple (and everything in it,
-      recursively) is not a function call. Variables can be used as usual,
-      there is no need to unquote them.
+      recursively) is not a function call.
+
+      Variables can be used as usual, there is no need to unquote them.
 
     - A bare ``u`` at the head of a tuple is the unquote operator, which
       decreases the quote level by one. In other words, in::
@@ -36,20 +37,44 @@ Lexically inside a ``with prefix``:
       (if quote level > 0), or evaluated as a function call and replaced
       by the return value.
 
-Currently, no kwarg support. Workarounds::
+    - How to pass named args::
 
-    from unpythonic import call
+          from unpythonic.misc import call
 
-    with prefix:
-        call(f, myarg=3)  # in a call(), kwargs are ok
-        f(myarg=3)        # or just use Python's usual function call syntax
+          with prefix:
+              (f, kw(myarg=3))  # ``kw(...)`` (syntax, not really a function!)
+              call(f, myarg=3)  # in a call(), kwargs are ok
+              f(myarg=3)        # or just use Python's usual function call syntax
+
+      One ``kw`` operator may include any number of named args (and **only**
+      named args). The tuple may have any number of ``kw`` operators.
+
+      All named args are collected from ``kw`` operators in the tuple
+      when writing the final function call. If the same kwarg has been
+      specified by multiple ``kw`` operators, the rightmost one wins.
+
+      **Note**: Python itself prohibits having repeated named args in the **same**
+      ``kw`` operator, because it uses the function call syntax. If you get a
+      `SyntaxError: keyword argument repeated` with no useful traceback,
+      check any recent ``kw`` operators you have added in prefix blocks.
+
+      A ``kw(...)`` operator in a quoted tuple (not a function call) is an error.
+
+Current limitations:
+
+    - passing ``*args`` and ``**kwargs`` not supported
+      (workarounds: ``call(...)``; Python's usual function call syntax)
 """
 
 from macropy.core.macros import Macros
 from macropy.core.walkers import Walker
 from macropy.core.quotes import macros, q, ast_literal
 
-from ast import Tuple, Name
+from ast import Tuple, Name, Call
+
+from unpythonic import flatmap, uniqify, rev
+
+from astpp import dump
 
 macros = Macros()
 
@@ -57,6 +82,10 @@ macros = Macros()
 def prefix(tree, **kw):
     isquote = lambda tree: type(tree) is Name and tree.id == "q"
     isunquote = lambda tree: type(tree) is Name and tree.id == "u"
+    def iskwargs(tree):
+        if type(tree) is not Call: return False
+        if type(tree.func) is not Name: return False
+        return tree.func.id == "kw"
     @Walker
     def transform(tree, *, quotelevel, set_ctx, **kw):
         if type(tree) is not Tuple:
@@ -65,7 +94,7 @@ def prefix(tree, **kw):
         while True:
             if isunquote(op):
                 if quotelevel < 1:
-                    assert False, "Prefix syntax error: unquote while not in quote"
+                    assert False, "unquote while not in quote"
                 quotelevel -= 1
             elif isquote(op):
                 quotelevel += 1
@@ -73,11 +102,20 @@ def prefix(tree, **kw):
                 break
             set_ctx(quotelevel=quotelevel)
             if not len(data):
-                assert False, "Prefix syntax error: a tuple cannot contain only quote/unquote operators"
+                assert False, "a prefix tuple cannot contain only quote/unquote operators"
             op, *data = data
         if quotelevel > 0:
             quoted = [op] + data
+            if any(iskwargs(x) for x in quoted):
+                assert False, "kw(...) may only appear in a prefix tuple representing a function call"
             return q[(ast_literal[quoted],)]
         # (f, a1, ..., an) --> f(a1, ..., an)
-        return q[ast_literal[op](ast_literal[data])]
+        posargs = [x for x in data if not iskwargs(x)]
+        # TODO: tag *args and **kwargs in a kw() as invalid, too (currently just ignored)
+        invalids = list(flatmap(lambda x: x.args, filter(iskwargs, data)))
+        if invalids:
+            assert False, "kw(...) may only specify named args"
+        kwargs = flatmap(lambda x: x.keywords, filter(iskwargs, data))
+        kwargs = list(uniqify(rev(kwargs), key=lambda x: x.arg))  # latest wins
+        return Call(func=op, args=posargs, keywords=list(kwargs))
     return transform.recurse(tree, quotelevel=0)

@@ -66,6 +66,13 @@ def main():
             pass  # 'int' object is not callable
         (q, x)  # OK!
 
+        # give named args with kw(...) [it's syntax, not really a function!]:
+        def f(*, a, b):
+            (print, a, b)
+        (f, kw(a="hi there", b="foo"))
+        (f, kw(a="hi there"), kw(b="foo"))
+        (f, kw(a="hi there"), kw(b="foo"), kw(b="bar"))
+
     # Introducing LisThEll:
     with prefix, curry:  # important: apply prefix first, then curry
         mymap = lambda f: (foldr, (compose, cons, f), nil)
