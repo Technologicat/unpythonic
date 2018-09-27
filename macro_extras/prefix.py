@@ -11,76 +11,73 @@ Example::
         t2 = (q, 17, 23, x)
         (print, t1, t2)
 
-Lexically inside a ``with prefix``, a bare ``q`` at the head of a tuple is the
-quote operator. It actually just tells the macro that this tuple (and everything
-in it, recursively) is data, not a function call. Variables can be used as usual,
-there is no need for quasiquote/unquote.
+Lexically inside a ``with prefix``:
 
-Current limitations:
+    - A bare ``q`` at the head of a tuple is the quote operator. It increases
+      the quote level by one.
 
-  - no kwarg support
+      It actually just tells the macro that this tuple (and everything in it,
+      recursively) is not a function call. Variables can be used as usual,
+      there is no need to unquote them.
+
+    - A bare ``u`` at the head of a tuple is the unquote operator, which
+      decreases the quote level by one. In other words, in::
+
+          with prefix:
+              t = (q, 1, 2, (u, print, 3), (print, 4), 5)
+              (print, t)
+
+      the third item will call ``print(3)`` and evaluate to its return value
+      (in this case ``None``, since it's ``print``), whereas the fourth item
+      is a tuple with the two items ``(<built-in function print>, 4)``.
+
+    - Quote/unquote operators are parsed from the start of the tuple until
+      no more remain. Then any remaining items are either returned quoted
+      (if quote level > 0), or evaluated as a function call and replaced
+      by the return value.
+
+Currently, no kwarg support. Workarounds::
+
+    from unpythonic import call
+
+    with prefix:
+        call(f, myarg=3)  # in a call(), kwargs are ok
+        f(myarg=3)        # or just use Python's usual function call syntax
 """
 
 from macropy.core.macros import Macros
 from macropy.core.walkers import Walker
 from macropy.core.quotes import macros, q, ast_literal
 
-from ast import Tuple, Name, Str, Attribute, Subscript
-
-from macropy.core import unparse
-from astpp import dump
+from ast import Tuple, Name
 
 macros = Macros()
 
 @macros.block
 def prefix(tree, **kw):
+    isquote = lambda tree: type(tree) is Name and tree.id == "q"
+    isunquote = lambda tree: type(tree) is Name and tree.id == "u"
     @Walker
-    def transform(tree, *, in_quote, set_ctx, **kw):
-        if in_quote or type(tree) is not Tuple:
-            return tree
-        first, *rest = tree.elts
-        if type(first) is Name and first.id == "q":
-            set_ctx(in_quote=True)
-            return q[(ast_literal[rest],)]
-        # (f, a1, ..., an) --> f(a1, ..., an)
-        return q[ast_literal[first](ast_literal[rest])]
-    return transform.recurse(tree, in_quote=False)
-
-# experimental more lispy version: with quasiquotes
-@macros.block
-def prefix2(tree, **kw):
-    def as_str(a, acc=""):
-        if type(a) is Name:
-            return Str(s="{}{}".format(a.id, acc))
-        if type(a) is Attribute:
-            return as_str(a.value, ".{}{}".format(a.attr, acc))
-        # TODO: at least Call is also a possible type here
-        assert False, "not implemented"
-
-    @Walker
-    def transform(tree, *, in_q, in_qq, set_ctx, **kw):
-        if type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "u":
-            if not in_qq:
-                assert False, "u[] is only meaningful inside a quasiquote"
-            new_in_qq = in_qq[:-1]
-            set_ctx(in_qq=new_in_qq)
-            if new_in_qq and (type(tree.slice.value) is Name or type(tree.slice.value) is Attribute):
-                return as_str(tree.slice.value)
-            else:
-                return tree.slice.value
-        if in_q or in_qq:
-            if type(tree) is Name or type(tree) is Attribute:
-                return as_str(tree)
+    def transform(tree, *, quotelevel, set_ctx, **kw):
         if type(tree) is not Tuple:
             return tree
-        first, *rest = tree.elts
-        if type(first) is Name:
-            if first.id == "q":
-                set_ctx(in_q=True)
-                return q[(ast_literal[rest],)]
-            elif first.id == "qq":
-                set_ctx(in_qq=in_qq + (True,))
-                return q[(ast_literal[rest],)]
+        op, *data = tree.elts
+        while True:
+            if isunquote(op):
+                if quotelevel < 1:
+                    assert False, "Prefix syntax error: unquote while not in quote"
+                quotelevel -= 1
+            elif isquote(op):
+                quotelevel += 1
+            else:
+                break
+            set_ctx(quotelevel=quotelevel)
+            if not len(data):
+                assert False, "Prefix syntax error: a tuple cannot contain only quote/unquote operators"
+            op, *data = data
+        if quotelevel > 0:
+            quoted = [op] + data
+            return q[(ast_literal[quoted],)]
         # (f, a1, ..., an) --> f(a1, ..., an)
-        return q[ast_literal[first](ast_literal[rest])]
-    return transform.recurse(tree, in_q=False, in_qq=())
+        return q[ast_literal[op](ast_literal[data])]
+    return transform.recurse(tree, quotelevel=0)

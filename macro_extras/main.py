@@ -10,7 +10,7 @@ from autocurry import macros, curry
 from letm import macros, let, letseq, letrec, do
 from aif import macros, aif
 from cond import macros, cond
-from prefix import macros, prefix, prefix2
+from prefix import macros, prefix
 from unpythonic import foldr, composerc as compose, cons, nil
 
 def main():
@@ -45,32 +45,32 @@ def main():
     except TypeError:
         pass
 
-    # Write Python like Lisp!
+    # Write Python almost like Lisp!
     with prefix:
         (print, "hello world")
-        t1 = (q, 1, 2, (3, 4), 5)
-        x = 42
-        t2 = (q, 17, 23, x)
+        x = 42  # can write any regular Python, too
+        # quote operator q locally turns off the function-call transformation:
+        t1 = (q, 1, 2, (3, 4), 5)  # q takes effect recursively
+        t2 = (q, 17, 23, x)  # unlike in Lisps, x refers to its value even in a quote
         (print, t1, t2)
+        # unquote operator u locally turns the transformation back on:
+        t3 = (q, (u, print, 42), (print, 42), "foo", "bar")
+        (print, t3)
+        # quotes nest; call transformation made when quote level == 0
+        t4 = (q, (print, 42), (q, (u, u, print, 42)), "foo", "bar")
+        (print, t4)
+        # Be careful:
+        try:
+            (x,)  # in a prefix block, this means "call the 0-arg function x"
+        except TypeError:
+            pass  # 'int' object is not callable
+        (q, x)  # OK!
 
-    # Introducing LisThonKell.
+    # Introducing LisThEll:
     with prefix, curry:  # important: apply prefix first, then curry
         mymap = lambda f: (foldr, (compose, cons, f), nil)
         double = lambda x: 2 * x
         (print, (mymap, double, (q, 1, 2, 3)))
-
-    # more lispy experimental version
-    with prefix2:
-        x = 42
-        t2 = (q, 17, 23, x)
-        t3 = (qq, 17, 23, x)
-        t4 = (qq, 17, 23, u[x])
-        (print, t2, t3, t4)
-        t5 = (qq, (qq, 17, 23, u[x]))
-#        t5 = (qq, (qq, 17, 23, u[u[x]]))  # crash
-        (print, t5)
-        t6 = (q, 1, a.b.c, 2)
-        (print, t6)
 
     # Let macros, performing essentially the same transformation as Scheme/Racket.
     # Lexical scoping supported.
