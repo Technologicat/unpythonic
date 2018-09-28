@@ -10,7 +10,7 @@ from autocurry import macros, curry
 from letm import macros, let, letseq, letrec, do
 from aif import macros, aif
 from cond import macros, cond
-from prefix import macros, prefix
+from prefix import macros, prefix, q, u, kw
 from unpythonic import foldr, composerc as compose, cons, nil
 
 def main():
