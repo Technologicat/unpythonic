@@ -24,6 +24,12 @@ from letm import macros, simple_let
 
 macros = Macros()
 
+def it():
+    """[syntax] The result of the test in an aif.
+
+    Only meaningful inside the then and otherwise branches of an aif."""
+    raise RuntimeError("Only meaningful inside the then and otherwise branches of an aif.")
+
 @macros.expr
 def aif(tree, **kw):
     test, then, otherwise = tree.elts
