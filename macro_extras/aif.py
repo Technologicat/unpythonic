@@ -10,7 +10,7 @@ Magic identifier ``it`` refers to the test result.
 """
 
 from macropy.core.macros import Macros
-from macropy.core.quotes import macros, ast_literal
+from macropy.core.quotes import macros, ast_literal, q
 from macropy.core.hquotes import macros, hq
 
 # TODO: figure out later what we need to change to use the same let implementation
@@ -21,6 +21,7 @@ from macropy.core.hquotes import macros, hq
 # the construction here differently? Or use let as a syntax transformer function,
 # instead of invoking it as a macro?
 from letm import macros, simple_let
+#from letm import _let
 
 macros = Macros()
 
@@ -31,7 +32,11 @@ def it():
     raise RuntimeError("Only meaningful inside the then and otherwise branches of an aif.")
 
 @macros.expr
-def aif(tree, **kw):
+def aif(tree, gen_sym, **kw):
     test, then, otherwise = tree.elts
     return hq[simple_let((it, ast_literal[test]),)[
                          ast_literal[then] if it else ast_literal[otherwise]]]
+#    # this works for using the same let as elsewhere.
+#    ltree = q[ast_literal[then] if it else ast_literal[otherwise]]
+#    bindings = [q[(it, ast_literal[test])]]
+#    return _let(ltree, bindings, "let", gen_sym)
