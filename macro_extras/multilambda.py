@@ -25,7 +25,7 @@ macros = Macros()
 # TODO: support default values for arguments. Requires support in MacroPy for named arguments?
 @macros.expr
 def λ(tree, args, **kw):
-    names  = [k.id for k in (a.elts for a in args)]
+    names = [k.id for k in args]
     lam = hq[lambda: begin(ast_literal[tree.elts])]   # inject begin(...)
     lam.args.args = [arg(arg=x) for x in names]  # inject args
     return lam
