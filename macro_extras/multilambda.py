@@ -22,7 +22,7 @@ from unpythonic.seq import begin
 
 macros = Macros()
 
-# TODO: support default values for arguments. Requires support in MacroPy for named arguments.
+# TODO: support default values for arguments. Requires support in MacroPy for named arguments?
 @macros.expr
 def λ(tree, args, **kw):
     names  = [k.id for k in (a.elts for a in args)]

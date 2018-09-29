@@ -384,11 +384,21 @@ def assign(**binding):
 
     Re-using a previous name overwrites.
 
+    The RHS of an ``assign`` may use ``lambda e: ...`` to access the environment.
+
     Usage:
 
         do(...,
            assign(x=42),
            ...)
+
+    **Note**: ``assign(x=42)`` is an abbreviation for ``lambda e: setattr(e, 'x', 42)``.
+    (``setattr`` instead of ``e.set`` because the latter only rebinds, and here
+    it is allowed to create new names in the environment.)
+
+    Whereas ``e.set(...)`` works from anywhere inside the ``do`` (including
+    any nested ``let`` constructs and similar), an ``assign`` works only at
+    the top level of the ``do``.
     """
     if len(binding) != 1:
         raise ValueError("Expected exactly one binding, got {:d} with values {}".format(len(binding), binding))

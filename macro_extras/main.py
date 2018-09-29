@@ -211,9 +211,17 @@ def main():
     print(answer(42))
 
     # macro wrapper for seq.do (stuff imperative code into a lambda)
-    #  - assignment is ``var << value``
-    #  - no need for ``lambda e: ...`` wrappers, inserted automatically,
-    #    so the lines are only evaluated as the seq.do() runs
+    #  - Assignment is ``var << value``. Transforms to ``setattr(e, var, value)``,
+    #    so is valid from any level inside the ``do`` (including nested ``let``
+    #    constructs and similar).
+    #  - Variables that are bound in a ``do`` are defined as those ``x`` that
+    #    have at least one assignment ``x << value`` anywhere inside the ``do``.
+    #    These are collected when the macro transformation of the ``do`` starts.
+    #  - Note that if a nested binding macro such as a ``let`` also binds an
+    #    ``x``, the inner macro will bind first, so the ``do`` environment
+    #    will then **not** bind ``x``, as it already belongs to the ``let``.
+    #  - No need for ``lambda e: ...`` wrappers, inserted automatically,
+    #    so the lines are only evaluated as the seq.do() runs.
     y = do[x << 17,
            print(x),
            x << 23,
