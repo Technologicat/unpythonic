@@ -396,7 +396,7 @@ def assign(**binding):
     (``setattr`` instead of ``e.set`` because the latter only rebinds, and here
     it is allowed to create new names in the environment.)
 
-    Whereas ``e.set(...)`` works from anywhere inside the ``do`` (including
+    Whereas ``setattr(e, ...)`` works from anywhere inside the ``do`` (including
     any nested ``let`` constructs and similar), an ``assign`` works only at
     the top level of the ``do``.
     """
