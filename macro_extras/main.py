@@ -198,6 +198,15 @@ def main():
     print(count())
     print(count())
 
+    echo = λ(x)[print(x), x]
+    z = echo("hi there")
+    assert z == "hi there"
+
+    myadd = λ(x, y)[print(x, y), x + y]
+    assert myadd(2, 3) == 5
+
+    echo = λ(x)[print(x), x]
+
     # Anaphoric if: aif[test, then, otherwise]
     # Magic identifier "it" refers to the test result.
     aif[2*21,
