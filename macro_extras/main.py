@@ -11,6 +11,7 @@ from letm import macros, let, letseq, letrec, do, forall
 from aif import macros, aif
 from cond import macros, cond
 from prefix import macros, prefix, q, u, kw
+from multilambda import macros, λ
 from unpythonic import foldr, composerc as compose, cons, nil
 from unpythonic import insist, deny  # for forall
 
@@ -178,6 +179,24 @@ def main():
                  begin(x << 1337,
                        (x, y))]
     print(a)
+
+    # let over lambda
+    count = let((x, 0))[
+              lambda: begin(x << x + 1,
+                            "count is {}".format(x))]
+    print(count())
+    print(count())
+
+    # multilambda: lambda with implicit begin. Usage:
+    #   λ(arg0, ...)[body0, ...]
+    # Limitations:
+    #  - no default values for arguments
+    #  - no *args, **kwargs
+    count = let((x, 0))[
+              λ()[x << x + 1,
+                  "count is {}".format(x)]]
+    print(count())
+    print(count())
 
     # Anaphoric if: aif[test, then, otherwise]
     # Magic identifier "it" refers to the test result.
