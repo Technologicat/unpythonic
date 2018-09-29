@@ -7,11 +7,12 @@ since macro expansion occurs at import time.
 """
 
 from autocurry import macros, curry
-from letm import macros, let, letseq, letrec, do
+from letm import macros, let, letseq, letrec, do, forall
 from aif import macros, aif
 from cond import macros, cond
 from prefix import macros, prefix, q, u, kw
 from unpythonic import foldr, composerc as compose, cons, nil
+from unpythonic import insist, deny  # for forall
 
 def main():
     with curry:
@@ -199,6 +200,24 @@ def main():
            x << 23,
            x]
     print(y)
+
+    # macro wrapper for amb.forall
+    #   - assignment (with List-monadic magic) is ``var << iterable``
+    #   - no need for ``lambda e: ...`` wrappers.
+    out = forall[y << range(3),  # y << ... --> choice(y=lambda e: ...)
+                 x << range(3),
+                 insist(x % 2 == 0),
+                 (x, y)]
+    assert out == ((0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2))
+
+    # pythagorean triples
+    pt = forall[z << range(1, 21),   # hypotenuse
+                x << range(1, z+1),  # shorter leg
+                y << range(x, z+1),  # longer leg
+                insist(x*x + y*y == z*z),
+                (x, y, z)]
+    assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
+                                 (8, 15, 17), (9, 12, 15), (12, 16, 20))
 
 if __name__ == '__main__':
     main()

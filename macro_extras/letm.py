@@ -19,14 +19,15 @@ from macropy.core.walkers import Walker
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 
-from ast import arg, Name, Attribute, Load, BinOp, LShift, keyword, Call
+from ast import arg, Name, Attribute, Load, BinOp, LShift, keyword, Call, Tuple
 from functools import partial
 
 from unpythonic.it import uniqify
 
 # functions that do the work
 from unpythonic.lispylet import letrec as letrecf, let as letf
-from unpythonic.seq import do as dof, assign as assignf
+from unpythonic.seq import do as dof
+from unpythonic.amb import forall as forallf, choice as choicef
 
 ## highly useful debug tools:
 #from macropy.core import unparse  # AST --> source code
@@ -85,7 +86,7 @@ def letrec(tree, args, gen_sym, **kw):
     return _let(tree, args, "letrec", gen_sym)
 
 @macros.expr
-def do(tree, gen_sym, **kw):
+def do(tree, gen_sym, **kw):  # unpythonic.seq.do
     e = gen_sym("e")
     # must use env.__setattr__ to define new names; env.set only rebinds.
     envset = Attribute(value=hq[name[e]], attr="__setattr__", ctx=Load())
@@ -99,6 +100,28 @@ def do(tree, gen_sym, **kw):
 
     lines = [_common_transform(line, e, names, envset) for line in tree.elts]
     return hq[dof(ast_literal[lines])]
+
+@macros.expr
+def forall(tree, gen_sym, **kw):  # unpythonic.amb.forall
+    if type(tree) is not Tuple:
+        assert False, "forall body: expected a sequence of comma-separated expressions"
+    body = tree.elts
+    e = gen_sym("e")
+    names = []  # variables bound by this forall
+    lines = []
+    def transform(tree):  # like _common_transform but no assignment conversion
+        tree = _transform_name.recurse(tree, names=names, envname=e)  # x --> e.x
+        return _envwrap(tree, envname=e)  # ... -> lambda e: ...
+    chooser = hq[choicef]
+    for line in body:
+        if _isassign(line):  # convert "<<" assignments, but only at top level
+            k, v = line.left.id, transform(line.right)
+            binding = keyword(arg=k, value=v)
+            names.append(k)  # bind k to e.k for all following lines
+            lines.append(Call(func=chooser, args=[], keywords=[binding]))
+        else:
+            lines.append(transform(line))
+    return hq[forallf(ast_literal[lines])]
 
 def _let(tree, args, mode, gen_sym):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
