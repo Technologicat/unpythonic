@@ -7,7 +7,7 @@ since macro expansion occurs at import time.
 """
 
 from autocurry import macros, curry
-from letm import macros, let, letseq, letrec, do, forall
+from letm import macros, let, letseq, letrec, do, do0, forall
 from aif import macros, aif
 from cond import macros, cond
 from prefix import macros, prefix, q, u, kw
@@ -236,6 +236,11 @@ def main():
            x << 23,
            x]
     print(y)
+
+    y2 = do0[y << 5,  # y << val assigns, then returns val
+             print("hi there, y =", y),
+             42]  # evaluated but not used, do0 returns the first value
+    assert(y2 == 5)
 
     # macro wrapper for amb.forall
     #   - assignment (with List-monadic magic) is ``var << iterable``

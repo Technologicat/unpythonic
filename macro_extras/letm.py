@@ -26,7 +26,7 @@ from unpythonic.it import uniqify
 
 # functions that do the work
 from unpythonic.lispylet import letrec as letrecf, let as letf
-from unpythonic.seq import do as dof
+from unpythonic.seq import do as dof, begin as beginf
 from unpythonic.amb import forall as forallf, choice as choicef
 
 ## highly useful debug tools:
@@ -87,9 +87,28 @@ def letrec(tree, args, gen_sym, **kw):
 
 @macros.expr
 def do(tree, gen_sym, **kw):  # unpythonic.seq.do
+    return _do(tree, gen_sym)
+
+@macros.expr
+def do0(tree, gen_sym, **kw):  # unpythonic.seq.do0, with macro transformation
+    if type(tree) is not Tuple:
+        assert False, "do0 body: expected a sequence of comma-separated expressions"
+    elts = tree.elts
+    newelts = []
+    newelts.append(q[_do0_result << (ast_literal[elts[0]])])
+    newelts.extend(elts[1:])
+    newelts.append(q[_do0_result])
+    return _do(q[(ast_literal[newelts],)], gen_sym)
+
+def _do(tree, gen_sym):
+    if type(tree) is not Tuple:
+        assert False, "do body: expected a sequence of comma-separated expressions"
+
     e = gen_sym("e")
-    # must use env.__setattr__ to define new names; env.set only rebinds.
-    envset = Attribute(value=hq[name[e]], attr="__setattr__", ctx=Load())
+    # Must use env.__setattr__ to define new names; env.set only rebinds.
+    # But to keep assignments chainable, use begin(setattr(e, 'x', val), val).
+    sa = Attribute(value=hq[name[e]], attr="__setattr__", ctx=Load())
+    envset = hq[lambda k, v: beginf(ast_literal[sa](k, v), v)]
 
     @Walker
     def _find_assignments(tree, collect, **kw):
