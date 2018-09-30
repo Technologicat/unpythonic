@@ -78,18 +78,6 @@ from astpp import dump
 
 macros = Macros()
 
-def q():
-    """[syntax] Quote operator. Only meaningful in a tuple in a prefix block."""
-    raise RuntimeError("q only meaningful inside a tuple in a prefix block")
-
-def u():
-    """[syntax] Unquote operator. Only meaningful in a tuple in a prefix block."""
-    raise RuntimeError("u only meaningful inside a tuple in a prefix block")
-
-def kw(**kwargs):
-    """[syntax] Pass-named-args operator. Only meaningful in a tuple in a prefix block."""
-    raise RuntimeError("kw only meaningful inside a tuple in a prefix block")
-
 @macros.block
 def prefix(tree, **kw):
     isquote = lambda tree: type(tree) is Name and tree.id == "q"
@@ -131,3 +119,20 @@ def prefix(tree, **kw):
         kwargs = list(uniqify(rev(kwargs), key=lambda x: x.arg))  # latest wins
         return Call(func=op, args=posargs, keywords=list(kwargs))
     return transform.recurse(tree, quotelevel=0)
+
+# note the exported "q" is ours, but the q we use in this module is a macro.
+class q:
+    """[syntax] Quote operator. Only meaningful in a tuple in a prefix block."""
+    def __repr__(self):  # in case one of these ends up somewhere at runtime
+        return "<quote>"
+q = q()
+
+class u:
+    """[syntax] Unquote operator. Only meaningful in a tuple in a prefix block."""
+    def __repr__(self):  # in case one of these ends up somewhere at runtime
+        return "<unquote>"
+u = u()
+
+def kw(**kwargs):
+    """[syntax] Pass-named-args operator. Only meaningful in a tuple in a prefix block."""
+    raise RuntimeError("kw only meaningful inside a tuple in a prefix block")

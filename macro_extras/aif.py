@@ -25,11 +25,13 @@ from letm import macros, simple_let
 
 macros = Macros()
 
-def it():
+class it:
     """[syntax] The result of the test in an aif.
 
     Only meaningful inside the then and otherwise branches of an aif."""
-    raise RuntimeError("Only meaningful inside the then and otherwise branches of an aif.")
+    def __repr__(self):  # in case one of these ends up somewhere at runtime
+        return "<aif it>"
+it = it()
 
 @macros.expr
 def aif(tree, gen_sym, **kw):
