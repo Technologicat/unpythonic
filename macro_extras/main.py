@@ -81,8 +81,7 @@ def main():
         double = lambda x: 2 * x
         (print, (mymap, double, (q, 1, 2, 3)))
 
-    # Let macros, performing essentially the same transformation as Scheme/Racket.
-    # Lexical scoping supported.
+    # Let macros. Lexical scoping supported.
     #
     let((x, 17),  # parallel binding, i.e. bindings don't see each other
         (y, 23))[
@@ -205,8 +204,6 @@ def main():
     myadd = λ(x, y)[print(x, y), x + y]
     assert myadd(2, 3) == 5
 
-    echo = λ(x)[print(x), x]
-
     # Anaphoric if: aif[test, then, otherwise]
     # Magic identifier "it" refers to the test result.
     aif[2*21,
@@ -220,9 +217,10 @@ def main():
     print(answer(42))
 
     # macro wrapper for seq.do (stuff imperative code into a lambda)
-    #  - Assignment is ``var << value``. Transforms to ``setattr(e, var, value)``,
-    #    so is valid from any level inside the ``do`` (including nested ``let``
-    #    constructs and similar).
+    #  - Assignment is ``var << value``.
+    #    Transforms to ``begin(setattr(e, var, value), value)``,
+    #    so is valid from any level inside the ``do`` (including nested
+    #    ``let`` constructs and similar).
     #  - Variables that are bound in a ``do`` are defined as those ``x`` that
     #    have at least one assignment ``x << value`` anywhere inside the ``do``.
     #    These are collected when the macro transformation of the ``do`` starts.
