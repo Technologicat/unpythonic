@@ -23,12 +23,14 @@ from functools import partial
 from ast import Call, arg, keyword, With, withitem, Tuple, \
                 Name, Attribute, Load, BinOp, LShift
 
+from unpythonic.it import flatmap, uniqify, rev
 from unpythonic.fun import curry as curryf
 from unpythonic.dynscope import dyn
 from unpythonic.lispylet import letrec as letrecf, let as letf
 from unpythonic.seq import do as dof, begin as beginf
-from unpythonic.amb import forall as forallf, choice as choicef
-from unpythonic.it import flatmap, uniqify, rev
+
+# insist, deny are just for passing through to the using module that imports us.
+from unpythonic.amb import forall as forallf, choice as choicef, insist, deny
 
 macros = Macros()
 

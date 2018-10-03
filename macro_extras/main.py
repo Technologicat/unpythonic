@@ -6,13 +6,16 @@ Uses MacroPy; must be run through the bootstrap script run.py,
 since macro expansion occurs at import time.
 """
 
-from unpythonic.syntax import macros, curry, \
-                              let, letseq, letrec, do, do0, forall, \
+from unpythonic.syntax import macros, \
+                              curry, \
                               simple_let, simple_letseq, \
-                              aif, cond, \
+                              let, letseq, letrec, \
+                              do, do0, \
+                              forall, insist, deny, \
+                              aif, it, \
+                              cond, \
                               prefix, q, u, kw, \
                               λ
-from unpythonic import insist, deny  # for forall
 
 from unpythonic import foldr, composerc as compose, cons, nil
 
