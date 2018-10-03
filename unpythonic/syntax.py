@@ -67,13 +67,13 @@ def aif(tree, gen_sym, **kw):
 
     This expands into a ``let`` and an expression-form ``if``.
     """
-    return aif(tree, gen_sym)
+    return _aif(tree, gen_sym)
 
 def _aif(tree, gen_sym):
     test, then, otherwise = tree.elts
     body = q[ast_literal[then] if it else ast_literal[otherwise]]
     bindings = [q[(it, ast_literal[test])]]
-    return _let(body, bindings, "let", gen_sym)
+    return _let(body, bindings, gen_sym)
 
 # -----------------------------------------------------------------------------
 
@@ -135,7 +135,7 @@ def cond(tree, **kw):
 
     This allows human-readable multi-branch conditionals in a lambda.
     """
-    return _cond(tree.elts)
+    return _cond(tree)
 
 def _cond(tree):
     if type(tree) is not Tuple:
