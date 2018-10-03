@@ -6,14 +6,15 @@ Uses MacroPy; must be run through the bootstrap script run.py,
 since macro expansion occurs at import time.
 """
 
-from autocurry import macros, curry
-from letm import macros, let, letseq, letrec, do, do0, forall, simple_let
-from aif import macros, aif
-from cond import macros, cond
-from prefix import macros, prefix, q, u, kw
-from multilambda import macros, λ
-from unpythonic import foldr, composerc as compose, cons, nil
+from unpythonic.syntax import macros, curry, \
+                              let, letseq, letrec, do, do0, forall, \
+                              simple_let, simple_letseq, \
+                              aif, cond, \
+                              prefix, q, u, kw, \
+                              λ
 from unpythonic import insist, deny  # for forall
+
+from unpythonic import foldr, composerc as compose, cons, nil
 
 def main():
     with curry:
