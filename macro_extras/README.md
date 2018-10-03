@@ -98,7 +98,7 @@ Syntax is ``cond[test1, then1, test2, then2, ..., otherwise]``. Expansion raises
 
 ## ``do`` as a macro: stuff imperative code into a lambda, *with style*
 
-The ``letm`` module also provides an ``expr`` macro wrapper for ``unpythonic.seq.do``, similar to and with much the same advantages as the macro variants of the let contructs:
+We also provide an ``expr`` macro wrapper for ``unpythonic.seq.do``, similar to and with much the same advantages as the macro variants of the let contructs:
 
 ```python
 from unpythonic.syntax import macros, do
