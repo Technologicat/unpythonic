@@ -7,7 +7,7 @@ since macro expansion occurs at import time.
 """
 
 from autocurry import macros, curry
-from letm import macros, let, letseq, letrec, do, do0, forall
+from letm import macros, let, letseq, letrec, do, do0, forall, simple_let
 from aif import macros, aif
 from cond import macros, cond
 from prefix import macros, prefix, q, u, kw
@@ -104,6 +104,18 @@ def main():
                  print(x, y)]
     except NameError:  # y is not yet defined on the first line
         pass
+
+    try:
+        let((x, 1), (x, 2))[  # error, cannot rebind the same name
+              print(x)]
+    except AttributeError:
+        pass
+
+#    simple_let((x, 1), (x, 2))[  # error, cannot rebind the same name
+#          print(x)]
+
+    letseq((x, 1), (x, x+1))[  # but in a letseq it's ok
+          print(x)]
 
     # letrec sugars unpythonic.lispylet.letrec, removing the need for quotes
     # and "lambda e: ..." wrappers (these are inserted by the macro):
