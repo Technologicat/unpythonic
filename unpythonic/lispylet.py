@@ -238,6 +238,8 @@ def _let(bindings, body, *, env=None, mode="let"):
         return env if body is None else body(env)
 
     (k, v), *more = bindings
+    if k in env:
+        raise AttributeError("Cannot rebind the same name '{}' in a {} initializer list".format(k, mode))
     if mode == "letrec" and callable(v):
         try:
             if not arity_includes(v, 1):

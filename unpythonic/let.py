@@ -246,6 +246,8 @@ def _let(mode, body, **bindings):
     # are then already bound when the wrappers are called.
     env = _envcls()
     for k, v in bindings.items():
+        if k in env:
+            raise AttributeError("Cannot rebind the same name '{}' in a {} initializer list".format(k, mode))
         if mode == "letrec" and callable(v):
             try:
                 if not arity_includes(v, 1):
