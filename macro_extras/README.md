@@ -9,7 +9,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
 ## autocurry: Automatic currying for Python
 
 ```python
-from autocurry import macros, curry
+from unpythonic.syntax import macros, curry
 from unpythonic import foldr, composerc as compose, cons, nil
 
 with curry:
@@ -28,7 +28,7 @@ All function calls *lexically* inside a ``with curry`` block are automatically c
 Properly lexically scoped ``let`` constructs, no boilerplate:
 
 ```python
-from letm import macros, let, letseq, letrec
+from unpythonic.syntax import macros, let, letseq, letrec
 
 let((x, 17),  # parallel binding, i.e. bindings don't see each other
     (y, 23))[
@@ -70,7 +70,7 @@ Hence the ``z`` in the inner scope expands to the inner environment's ``z``, whi
 This is mainly of interest as a point of [comparison with Racket](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/aif.rkt); ``aif`` is about the simplest macro that relies on either the lack of hygiene or breaking thereof.
 
 ```python
-from aif import macros, aif
+from unpythonic.syntax import macros, aif
 
 aif[2*21,
     print("it is {}".format(it)),
@@ -85,7 +85,7 @@ Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to 
 Now lambdas too can have multi-branch conditionals, yet remain human-readable:
 
 ```python
-from cond import macros, cond
+from unpythonic.syntax import macros, cond
 
 answer = lambda x: cond[x == 2, "two",
                         x == 3, "three",
@@ -101,7 +101,7 @@ Syntax is ``cond[test1, then1, test2, then2, ..., otherwise]``. Expansion raises
 The ``letm`` module also provides an ``expr`` macro wrapper for ``unpythonic.seq.do``, similar to and with much the same advantages as the macro variants of the let contructs:
 
 ```python
-from letm import macros, do
+from unpythonic.syntax import macros, do
 
 y = do[x << 17,
        print(x),
