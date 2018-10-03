@@ -1,4 +1,4 @@
-# Macro extras
+# Macro extras: ``unpythonic.syntax``
 
 These optional features are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
 
@@ -6,7 +6,7 @@ Because macro expansion occurs at import time, the usage example `main.py` canno
 
 There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itself already provides ``lazy`` and ``interned``.
 
-## autocurry: Automatic currying for Python
+## Automatic currying for Python
 
 ```python
 from unpythonic.syntax import macros, curry
@@ -23,7 +23,7 @@ All function calls *lexically* inside a ``with curry`` block are automatically c
 **CAUTION**: Builtins are uninspectable, so cannot be curried. In a ``with curry`` block, ``unpythonic.fun.curry`` runs in a special mode that no-ops on uninspectable functions instead of raising ``TypeError`` as usual. This special mode is enabled for the *dynamic extent* of the ``with curry`` block.
 
 
-## letm: let, letseq, letrec for Python, as macros
+## let, letseq, letrec as macros
 
 Properly lexically scoped ``let`` constructs, no boilerplate:
 
@@ -65,7 +65,7 @@ letrec((z, 1))[
 Hence the ``z`` in the inner scope expands to the inner environment's ``z``, which makes the outer expansion leave it alone. (This works by transforming only ``ast.Name`` nodes, stopping recursion when an ``ast.Attribute`` is encountered.)
 
 
-## ``aif``: anaphoric if for Python
+## ``aif``: anaphoric if
 
 This is mainly of interest as a point of [comparison with Racket](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/aif.rkt); ``aif`` is about the simplest macro that relies on either the lack of hygiene or breaking thereof.
 
@@ -80,7 +80,7 @@ aif[2*21,
 Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to the test result while (lexically) inside the ``aif``, and does not exist outside the ``aif``.
 
 
-## ``cond``: the missing ``elif`` for ``a1 if cond else a2``
+## ``cond``: the missing ``elif`` for ``a if p else b``
 
 Now lambdas too can have multi-branch conditionals, yet remain human-readable:
 
