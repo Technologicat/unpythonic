@@ -157,8 +157,6 @@ def _cond(tree):
 # so it can't be used for things like let-over-lambda, or indeed letrec.
 # But it's simple, and creates real lexical variables.
 
-#  simple_let((x, 1), (y, 2))[print(x, y)]
-#  --> (lambda x, y: print(x, y))(1, 2)
 @macros.expr
 def simple_let(tree, args, **kw):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     """[syntax, expr] Introduce local bindings, as real lexical variables.
