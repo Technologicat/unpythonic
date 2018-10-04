@@ -5,14 +5,8 @@
 Requires MacroPy (package ``macropy3`` on PyPI).
 """
 
-# TODO:  All macros are defined in this module, because MacroPy (as of 1.1.0)
+# TODO:  All macros are defined in this module, because MacroPy (as of 1.1.0b2)
 # does not have a mechanism for re-exporting macros defined in another module.
-
-# Naming convention:
-#   - mymac is the macro, for use in normal run-time code.
-#   - _mymac, if available, is the syntax transformer function that does the
-#     actual work. Can be directly called from inside macros, to delegate
-#     some work to another macro.
 
 from macropy.core.macros import Macros
 from macropy.core.walkers import Walker
