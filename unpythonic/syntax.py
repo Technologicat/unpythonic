@@ -424,9 +424,15 @@ def forall(tree, gen_sym, **kw):
 def λ(tree, args, **kw):
     """[syntax, expr] Rackety lambda with implicit begin.
 
+    (Actually, implicit ``do``, because that gives an internal definition
+    context as a bonus; the λ can have local variables using syntax such as
+    ``x << 42``.)
+
     Usage::
 
       λ(arg0, ...)[body0, ...]
+
+    Bodys like in ``do``.
 
     Limitations:
 
@@ -434,8 +440,8 @@ def λ(tree, args, **kw):
       - No default values for arguments.
     """
     names = [k.id for k in args]
-    lam = hq[lambda: beginf(ast_literal[tree.elts])]   # inject begin(...)
-    lam.args.args = [arg(arg=x) for x in names]  # inject args
+    lam = hq[lambda: dof(ast_literal[tree.elts])]  # inject do(...)
+    lam.args.args = [arg(arg=x) for x in names]    # inject args
     return lam
 
 # -----------------------------------------------------------------------------
@@ -493,7 +499,7 @@ def prefix(tree, **kw):
 
           All named args are collected from ``kw`` operators in the tuple
           when writing the final function call. If the same kwarg has been
-          specified by multiple ``kw`` operators, the rightmost one wins.
+          specified by multiple ``kw`` operators, the rightmost definition wins.
 
           **Note**: Python itself prohibits having repeated named args in the **same**
           ``kw`` operator, because it uses the function call syntax. If you get a
@@ -504,8 +510,12 @@ def prefix(tree, **kw):
 
     Current limitations:
 
-        - passing ``*args`` and ``**kwargs`` not supported
-          (workarounds: ``call(...)``; Python's usual function call syntax)
+        - passing ``*args`` and ``**kwargs`` not supported.
+
+          Workarounds: ``call(...)``; Python's usual function call syntax.
+
+        - For ``*args``, to keep it lispy, maybe you want ``unpythonic.fun.apply``;
+          this allows syntax such as ``(apply, f, 1, 2, lst)``.
     """
     isquote = lambda tree: type(tree) is Name and tree.id == "q"
     isunquote = lambda tree: type(tree) is Name and tree.id == "u"
