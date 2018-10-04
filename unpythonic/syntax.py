@@ -55,7 +55,7 @@ class it:
 it = it()
 
 @macros.expr
-def aif(tree, gen_sym, **kw):
+def aif(tree, **kw):
     """[syntax, expr] Anaphoric if.
 
     Usage::
@@ -73,7 +73,7 @@ def aif(tree, gen_sym, **kw):
     body = q[ast_literal[then] if it else ast_literal[otherwise]]
     body = copy_location(body, tree)
     bindings = [q[(it, ast_literal[test])]]
-    return let.transform(body, *bindings, gen_sym=gen_sym)
+    return let.transform(body, *bindings)
 
 # -----------------------------------------------------------------------------
 
@@ -245,7 +245,7 @@ def let(tree, args, gen_sym, **kw):
     return _letimpl(tree, args, "let", gen_sym)
 
 @macros.expr
-def letseq(tree, args, gen_sym, **kw):
+def letseq(tree, args, **kw):
     """[syntax, expr] Let with sequential binding (like Scheme/Racket let*).
 
     Like ``let``, but bindings take effect sequentially. Later bindings
@@ -256,7 +256,7 @@ def letseq(tree, args, gen_sym, **kw):
     if not args:
         return tree
     first, *rest = args
-    return let.transform(letseq.transform(tree, *rest, gen_sym=gen_sym), first, gen_sym=gen_sym)
+    return let.transform(letseq.transform(tree, *rest), first)
 
 @macros.expr
 def letrec(tree, args, gen_sym, **kw):
@@ -377,7 +377,7 @@ def do(tree, gen_sym, **kw):
     return hq[dof(ast_literal[lines])]
 
 @macros.expr
-def do0(tree, gen_sym, **kw):  # unpythonic.seq.do0, with macro transformation
+def do0(tree, **kw):
     """[syntax, expr] Like do, but return the value of the first expression."""
     if type(tree) is not Tuple:
         assert False, "do0 body: expected a sequence of comma-separated expressions"
@@ -388,7 +388,7 @@ def do0(tree, gen_sym, **kw):  # unpythonic.seq.do0, with macro transformation
     newelts.append(q[_do0_result])
     newtree = q[(ast_literal[newelts],)]
     newtree = copy_location(newtree, tree)
-    return do.transform(newtree, gen_sym=gen_sym)
+    return do.transform(newtree)
 
 # -----------------------------------------------------------------------------
 
