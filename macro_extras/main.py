@@ -17,7 +17,7 @@ from unpythonic.syntax import macros, \
                               prefix, q, u, kw, \
                               λ
 
-from unpythonic import foldr, composerc as compose, cons, nil
+from unpythonic import foldr, composerc as compose, cons, nil, apply
 
 def main():
     with curry:
@@ -75,9 +75,16 @@ def main():
         # give named args with kw(...) [it's syntax, not really a function!]:
         def f(*, a, b):
             (print, a, b)
-        (f, kw(a="hi there", b="foo"))
-        (f, kw(a="hi there"), kw(b="foo"))
-        (f, kw(a="hi there"), kw(b="foo"), kw(b="bar"))
+        (f, kw(a="hi there", b="foo"))      # in one kw(...), or...
+        (f, kw(a="hi there"), kw(b="foo"))  # in several kw(...), doesn't matter
+        (f, kw(a="hi there"), kw(b="foo"), kw(b="bar"))  # rightmost duplicate wins
+
+        # give *args with unpythonic.fun.apply, like in Lisps:
+        lst = [1, 2, 3]
+        def g(*args):
+            print(args)
+        (apply, g, lst)
+        (apply, g, "hi", "ho", lst)  # lst goes last; may have other args first
 
     # Introducing LisThEll:
     with prefix, curry:  # important: apply prefix first, then curry
