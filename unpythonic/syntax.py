@@ -392,7 +392,7 @@ def forall(tree, gen_sym, **kw):
 
     Sugar on top of ``unpythonic.amb.forall``.
 
-      - ``choice(name, iterable)`` becomes ``name << iterable``
+      - ``choice("x", iterable)`` becomes ``x << iterable``
       - ``insist``, ``deny`` work as usual
       - no need for ``lambda e: ...`` wrappers
     """
