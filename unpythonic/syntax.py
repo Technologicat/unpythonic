@@ -21,7 +21,7 @@ from macropy.core.hquotes import macros, hq
 
 from functools import partial
 from ast import Call, arg, keyword, With, withitem, Tuple, \
-                Name, Attribute, Load, BinOp, LShift
+                Name, Attribute, Load, BinOp, LShift, copy_location
 
 from unpythonic.it import flatmap, uniqify, rev
 from unpythonic.fun import curry as curryf
@@ -69,13 +69,11 @@ def aif(tree, gen_sym, **kw):
 
     This expands into a ``let`` and an expression-form ``if``.
     """
-    return _aif(tree, gen_sym)
-
-def _aif(tree, gen_sym):
     test, then, otherwise = tree.elts
     body = q[ast_literal[then] if it else ast_literal[otherwise]]
+    body = copy_location(body, tree)
     bindings = [q[(it, ast_literal[test])]]
-    return _let(body, bindings, gen_sym)
+    return let.transform(body, *bindings, gen_sym=gen_sym)
 
 # -----------------------------------------------------------------------------
 
@@ -137,9 +135,6 @@ def cond(tree, **kw):
 
     This allows human-readable multi-branch conditionals in a lambda.
     """
-    return _cond(tree)
-
-def _cond(tree):
     if type(tree) is not Tuple:
         assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"
     def build(elts):
@@ -182,9 +177,6 @@ def simple_let(tree, args, **kw):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (
         simple_let((x, 1), (y, 2))[print(x, y)]
         # --> (lambda x, y: print(x, y))(1, 2)
     """
-    return _simple_let(tree, args)
-
-def _simple_let(tree, args):
     names  = [k.id for k, _ in (a.elts for a in args)]
     if len(set(names)) < len(names):
         assert False, "binding names must be unique in the same simple_let"
@@ -202,13 +194,10 @@ def simple_letseq(tree, args, **kw):
 
     Expands to nested ``simple_let`` expressions.
     """
-    return _simple_letseq(tree, args)
-
-def _simple_letseq(tree, args):
     if not args:
         return tree
     first, *rest = args
-    return _simple_let(_simple_letseq(tree, rest), [first])
+    return simple_let.transform(simple_letseq.transform(tree, *rest), first)
 
 # -----------------------------------------------------------------------------
 
@@ -253,8 +242,6 @@ def let(tree, args, gen_sym, **kw):
         - Lexical scoping is respected (so ``let`` constructs can be nested)
           by actually using a unique name (gensym) instead of just ``e``.
     """
-    return _let(tree, args, gen_sym)
-def _let(tree, args, gen_sym):
     return _letimpl(tree, args, "let", gen_sym)
 
 @macros.expr
@@ -266,12 +253,10 @@ def letseq(tree, args, gen_sym, **kw):
 
     Expands to nested ``let`` expressions.
     """
-    return _letseq(tree, args, gen_sym)
-def _letseq(tree, args, gen_sym):
     if not args:
         return tree
     first, *rest = args
-    return _let(_letseq(tree, rest, gen_sym), [first], gen_sym)
+    return let.transform(letseq.transform(tree, *rest, gen_sym=gen_sym), first, gen_sym=gen_sym)
 
 @macros.expr
 def letrec(tree, args, gen_sym, **kw):
@@ -287,11 +272,11 @@ def letrec(tree, args, gen_sym, **kw):
 
     This is useful for locally defining mutually recursive functions.
     """
-    return _letrec(tree, args, gen_sym)
-def _letrec(tree, args, gen_sym):
     return _letimpl(tree, args, "letrec", gen_sym)
 
-def _letimpl(tree, args, mode, gen_sym):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
+def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
+    if not args:
+        return tree
     names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]
 
@@ -372,9 +357,6 @@ def do(tree, gen_sym, **kw):
     This is essentially thanks to MacroPy (as of 1.1.0) expanding macros in an
     inside-out order, so the nested constructs transform first.
     """
-    return _do(tree, gen_sym)
-
-def _do(tree, gen_sym):
     if type(tree) is not Tuple:
         assert False, "do body: expected a sequence of comma-separated expressions"
 
@@ -397,17 +379,16 @@ def _do(tree, gen_sym):
 @macros.expr
 def do0(tree, gen_sym, **kw):  # unpythonic.seq.do0, with macro transformation
     """[syntax, expr] Like do, but return the value of the first expression."""
-    return _do0(tree, gen_sym)
-
-def _do0(tree, gen_sym):
     if type(tree) is not Tuple:
         assert False, "do0 body: expected a sequence of comma-separated expressions"
     elts = tree.elts
-    newelts = []
+    newelts = []  # IDE complains about _do0_result, but it's quoted, so it's ok.
     newelts.append(q[_do0_result << (ast_literal[elts[0]])])
     newelts.extend(elts[1:])
     newelts.append(q[_do0_result])
-    return _do(q[(ast_literal[newelts],)], gen_sym)
+    newtree = q[(ast_literal[newelts],)]
+    newtree = copy_location(newtree, tree)
+    return do.transform(newtree, gen_sym=gen_sym)
 
 # -----------------------------------------------------------------------------
 
@@ -458,9 +439,6 @@ def λ(tree, args, **kw):
       - No *args or **kwargs.
       - No default values for arguments.
     """
-    return _λ(tree, args)
-
-def _λ(tree, args, **kw):
     names = [k.id for k in args]
     lam = hq[lambda: beginf(ast_literal[tree.elts])]   # inject begin(...)
     lam.args.args = [arg(arg=x) for x in names]  # inject args
@@ -535,9 +513,6 @@ def prefix(tree, **kw):
         - passing ``*args`` and ``**kwargs`` not supported
           (workarounds: ``call(...)``; Python's usual function call syntax)
     """
-    return _prefix(tree)
-
-def _prefix(tree):
     isquote = lambda tree: type(tree) is Name and tree.id == "q"
     isunquote = lambda tree: type(tree) is Name and tree.id == "u"
     def iskwargs(tree):
