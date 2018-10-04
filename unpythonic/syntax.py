@@ -424,15 +424,9 @@ def forall(tree, gen_sym, **kw):
 def λ(tree, args, **kw):
     """[syntax, expr] Rackety lambda with implicit begin.
 
-    (Actually, implicit ``do``, because that gives an internal definition
-    context as a bonus; the λ can have local variables using syntax such as
-    ``x << 42``.)
-
     Usage::
 
       λ(arg0, ...)[body0, ...]
-
-    Bodys like in ``do``.
 
     Limitations:
 
@@ -440,8 +434,8 @@ def λ(tree, args, **kw):
       - No default values for arguments.
     """
     names = [k.id for k in args]
-    lam = hq[lambda: dof(ast_literal[tree.elts])]  # inject do(...)
-    lam.args.args = [arg(arg=x) for x in names]    # inject args
+    lam = hq[lambda: beginf(ast_literal[tree.elts])]  # inject begin(...)
+    lam.args.args = [arg(arg=x) for x in names]       # inject args
     return lam
 
 # -----------------------------------------------------------------------------
