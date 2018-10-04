@@ -2,11 +2,15 @@
 
 These optional features are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
 
-Because macro expansion occurs at import time, the usage example `main.py` cannot be run directly. Instead, run it via the bootstrap script `run.py`, or use the included [generic MacroPy3 bootstrapper](macropy3). (Usage: `./macropy3 main`; see `-h` for options.)
+!! **Currently** (10/2018) this requires the latest MacroPy from git HEAD. !!
+
+Because macro expansion occurs at import time, the usage example `main.py` cannot be run directly. Instead, run it via the bootstrap script `run.py`, or use the included [generic MacroPy3 bootstrapper](macropy3). Usage of the bootstrapper is `./macropy3 main`; see `-h` for options.
 
 There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itself already provides ``lazy`` and ``interned``.
 
-## Automatic currying for Python
+*Whether the language with these additions is Python anymore, is another question.*
+
+## ``curry``: Automatic currying for Python
 
 ```python
 from unpythonic.syntax import macros, curry
@@ -23,7 +27,7 @@ All function calls *lexically* inside a ``with curry`` block are automatically c
 **CAUTION**: Builtins are uninspectable, so cannot be curried. In a ``with curry`` block, ``unpythonic.fun.curry`` runs in a special mode that no-ops on uninspectable functions instead of raising ``TypeError`` as usual. This special mode is enabled for the *dynamic extent* of the ``with curry`` block.
 
 
-## let, letseq, letrec as macros
+## ``let``, ``letseq``, ``letrec`` as macros
 
 Properly lexically scoped ``let`` constructs, no boilerplate:
 
@@ -47,8 +51,6 @@ Syntax is similar to ``unpythonic.lispylet``, but no quotes around variable name
 
 Note the ``[...]``; these are ``expr`` macros. The bindings are given as macro arguments as ``((name, value), ...)``, the body goes into the ``[...]``.
 
-We also provide ``simple_let`` and ``simple_letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement). Just like in Lisps, ``simple_letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``simple_let`` expressions, which expand to lambdas.
-
 ``let`` and ``letrec`` expand into the ``unpythonic.lispylet`` constructs, implicitly inserting ``lambda e: ...``, quoting variable names in definitions, and transforming ``x`` to ``e.x`` for all ``x`` declared in the bindings. Assignment syntax ``x << 42`` transforms to ``e.set('x', 42)``. The implicit environment argument ``e`` is actually named using a gensym, so lexically outer environments automatically show through. ``letseq`` expands into a chain of nested ``let`` expressions.
 
 Nesting utilizes the fact that (as of v1.1.0) MacroPy3 expands macros in an inside-out order:
@@ -64,20 +66,9 @@ letrec((z, 1))[
 
 Hence the ``z`` in the inner scope expands to the inner environment's ``z``, which makes the outer expansion leave it alone. (This works by transforming only ``ast.Name`` nodes, stopping recursion when an ``ast.Attribute`` is encountered.)
 
+### Note
 
-## ``aif``: anaphoric if
-
-This is mainly of interest as a point of [comparison with Racket](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/aif.rkt); ``aif`` is about the simplest macro that relies on either the lack of hygiene or breaking thereof.
-
-```python
-from unpythonic.syntax import macros, aif
-
-aif[2*21,
-    print("it is {}".format(it)),
-    print("it is False")]
-```
-
-Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to the test result while (lexically) inside the ``aif``, and does not exist outside the ``aif``.
+We also provide ``simple_let`` and ``simple_letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement). Just like in Lisps, ``simple_letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``simple_let`` expressions, which expand to lambdas.
 
 
 ## ``cond``: the missing ``elif`` for ``a if p else b``
@@ -96,9 +87,24 @@ print(answer(42))
 Syntax is ``cond[test1, then1, test2, then2, ..., otherwise]``. Expansion raises an error if the ``otherwise`` branch is missing.
 
 
+## ``aif``: anaphoric if
+
+This is mainly of interest as a point of [comparison with Racket](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/aif.rkt); ``aif`` is about the simplest macro that relies on either the lack of hygiene or breaking thereof.
+
+```python
+from unpythonic.syntax import macros, aif
+
+aif[2*21,
+    print("it is {}".format(it)),
+    print("it is False")]
+```
+
+Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to the test result while (lexically) inside the ``aif``, and does not exist outside the ``aif``.
+
+
 ## ``do`` as a macro: stuff imperative code into a lambda, *with style*
 
-We also provide an ``expr`` macro wrapper for ``unpythonic.seq.do``, similar to and with much the same advantages as the macro variants of the let contructs:
+We provide an ``expr`` macro wrapper for ``unpythonic.seq.do``, similar to and with much the same advantages as the macro variants of the let contructs:
 
 ```python
 from unpythonic.syntax import macros, do
@@ -110,11 +116,146 @@ y = do[x << 17,
 print(y)  # --> 23
 ```
 
-Assignment to the ``do`` environment is denoted ``var << value``. This is triggered when a line is a ``BinOp`` of type ``LShift``, and the left-hand operand is a bare name.
+Assignment to the ``do`` environment is denoted ``var << value``, where ``var`` is a bare name. Variables are created automatically when first assigned. Assignments are recognized anywhere inside the ``do``; but note that any nested ``let`` constructs that define variables of the same name will (inside the ``let``) shadow those of the ``do``.
 
 Like in the macro ``letrec``, no ``lambda e: ...`` wrappers. These are inserted automatically, so the lines are only evaluated as the underlying ``seq.do`` actually runs.
 
 When expanding bare names, ``do`` behaves like ``letseq``; assignments **above** the current line are in effect (and have been performed in the order presented). Re-assigning to the same name later overwrites (this is afterall an imperative tool).
 
-*Whether the language with these additions is Python anymore, is another question.*
+There is also a ``do0`` macro, which returns the value of the first expression, instead of the last.
+
+
+## ``forall``: nondeterministic evaluation
+
+This is the multiple-body-expression tuple comprehension ``unpythonic.amb.forall``, wrapped into a macro:
+
+```python
+from unpythonic.syntax import macros, forall, insist, deny
+
+out = forall[y << range(3),
+             x << range(3),
+             insist(x % 2 == 0),
+             (x, y)]
+assert out == ((0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2))
+
+# pythagorean triples
+pt = forall[z << range(1, 21),   # hypotenuse
+            x << range(1, z+1),  # shorter leg
+            y << range(x, z+1),  # longer leg
+            insist(x*x + y*y == z*z),
+            (x, y, z)]
+assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
+                             (8, 15, 17), (9, 12, 15), (12, 16, 20))
+```
+
+Assignment (with List-monadic magic) is ``var << iterable``. It transforms to ``choice(var=lambda e: iterable)``. It is only valid at the top level of the ``forall`` (e.g. not inside any possibly nested ``let``).
+
+No need for ``lambda e: ...`` wrappers; variables are referred to by bare names without the ``e.`` prefix.
+
+``insist`` and ``deny`` are not really macros; they are just the functions from ``unpythonic.amb``, re-exported for convenience.
+
+
+## ``λ``: because in the UTF-8 age λ ought to be called λ
+
+...and multiple expressions ought to be the default. This is a rackety λ that has an implicit begin:
+
+```python
+from unpythonic.syntax import macros, λ
+
+count = let((x, 0))[
+          λ()[x << x + 1,
+              x]]
+assert count() == 1
+assert count() == 2
+
+myadd = λ(x, y)[print("myadding", x, y),
+                x + y]
+assert myadd(2, 3) == 5
+```
+
+(In the first example, returning ``x`` separately is redundant, because the assignment to the let environment already returns the new value, but it demonstrates the usage of multiple expressions in λ.)
+
+Syntax is ``λ(arg0, ...)[body0, ...]``.
+
+Current **limitations** are no ``*args``, ``**kwargs``, and no default values for arguments.
+
+### Note
+
+There is no internal definition context; if you need one, combine a regular ``lambda`` and ``do`` (instead of ``begin``):
+
+```python
+myadd = lambda x, y: do[print("myadding", x, y),
+                        tmp << x + y,
+                        print("result is", tmp),
+                        tmp]
+assert myadd(2, 3) == 5
+```
+
+The reason this is so is that macros are expanded from inside out; in the ``do``, this hides any surrounding ``let``, which is a problem for the let-over-lambda idiom.
+
+
+## ``prefix``: prefix function call syntax for Python
+
+Write Python almost like Lisp!
+
+Lexically inside a ``with prefix`` block, any literal tuple denotes a function call, unless quoted. The first element is the operator, the rest are arguments.
+
+The rest is best explained by example:
+
+```python
+from unpythonic.syntax import macros, prefix, q, u, kw
+    with prefix:
+        (print, "hello world")
+
+        # quote operator q locally turns off the function-call transformation:
+        t1 = (q, 1, 2, (3, 4), 5)  # q takes effect recursively
+        t2 = (q, 17, 23, x)  # unlike in Lisps, x refers to its value even in a quote
+        (print, t1, t2)
+
+        # unquote operator u locally turns the transformation back on:
+        t3 = (q, (u, print, 42), (print, 42), "foo", "bar")
+        assert t3 == (q, None, (print, 42), "foo", "bar")
+
+        # quotes nest; call transformation made when quote level == 0
+        t4 = (q, (print, 42), (q, (u, u, print, 42)), "foo", "bar")
+        assert t4 == (q, (print, 42), (None,), "foo", "bar")
+
+        # Be careful:
+        try:
+            (x,)  # in a prefix block, this means "call the 0-arg function x"
+        except TypeError:
+            pass  # 'int' object is not callable
+        (q, x)  # OK!
+
+        # give named args with kw(...) [it's syntax, not really a function!]:
+        def f(*, a, b):
+            return (q, a, b)
+        # in one kw(...), or...
+        assert (f, kw(a="hi there", b="Tom")) == (q, "hi there", "Tom")
+        # in several kw(...), doesn't matter
+        assert (f, kw(a="hi there"), kw(b="Tom")) == (q, "hi there", "Tom")
+        # in case of duplicate name across kws, rightmost wins
+        assert (f, kw(a="hi there"), kw(b="Tom"), kw(b="Jerry")) == (q, "hi there", "Jerry")
+
+        # give *args with unpythonic.fun.apply, like in Lisps:
+        lst = [1, 2, 3]
+        def g(*args):
+            return args
+        assert (apply, g, lst) == (q, 1, 2, 3)
+        # lst goes last; may have other args first
+        assert (apply, g, "hi", "ho", lst) == (q, "hi" ,"ho", 1, 2, 3)
+```
+
+This comboes with ``curry`` for an authentic *LisThEll* programming experience:
+
+```python
+from unpythonic.syntax import macros, curry, prefix, q, u, kw
+from unpythonic import foldr, composerc as compose, cons, nil
+
+with prefix, curry:  # important: apply prefix first, then curry
+    mymap = lambda f: (foldr, (compose, cons, f), nil)
+    double = lambda x: 2 * x
+    (print, (mymap, double, (q, 1, 2, 3)))
+    assert (mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)
+```
 
