@@ -258,7 +258,7 @@ def apply(f, arg0, *more):
     arguments (starting from ``arg0``) are concatenated at the front.
     """
     if not more:
-        args, lst = (), arg0
+        args, lst = (), tuple(arg0)
     else:
         args = (arg0,) + more[:-1]
         lst = tuple(more[-1])
