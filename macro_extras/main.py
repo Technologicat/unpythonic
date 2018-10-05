@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Macro extras. Main program.
+"""Macro extras. Main program for usage examples.
 
 Uses MacroPy; must be run through the bootstrap script run.py,
 since macro expansion occurs at import time.
