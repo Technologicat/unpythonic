@@ -596,7 +596,7 @@ def fup(tree, **kw):
 
 @macros.block
 def prefix(tree, **kw):
-    """Write Python like Lisp: the first item is the operator.
+    """[syntax, block] Write Python like Lisp: the first item is the operator.
 
     Example::
 
