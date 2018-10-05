@@ -224,7 +224,7 @@ def let(tree, args, gen_sym, **kw):
           This macro performs the magic to make them look (and pretty much behave)
           like lexical variables.
 
-        - Over ``unpythonic.lispylet.let``, the macro version needs no quotes
+        - Compared to ``unpythonic.lispylet.let``, the macro version needs no quotes
           around variable names in bindings.
 
         - The body is automatically wrapped in a ``lambda e: ...``.
