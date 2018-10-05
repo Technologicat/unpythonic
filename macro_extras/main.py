@@ -264,6 +264,12 @@ def main():
     z = echo("hi there")
     assert z == "hi there"
 
+    echo = λ(myarg="hello")[print(myarg), myarg]
+    result = echo()
+    assert result == "hello"
+    result = echo(3)
+    assert result == 3
+
     myadd = λ(x, y)[print("myadding", x, y), x + y]
     assert myadd(2, 3) == 5
 

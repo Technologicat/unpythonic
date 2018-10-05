@@ -526,9 +526,8 @@ def _monadify(value, unpack=True):
 
 # -----------------------------------------------------------------------------
 
-# TODO: support default values for arguments. Requires support in MacroPy for named arguments.
 @macros.expr
-def λ(tree, args, **kw):
+def λ(tree, args, kwargs, **kw):
     """[syntax, expr] Rackety lambda with implicit begin.
 
     (Actually, implicit ``do``, because that gives an internal definition
@@ -543,12 +542,21 @@ def λ(tree, args, **kw):
     Limitations:
 
       - No *args or **kwargs.
-      - No default values for arguments.
     """
-    names = [k.id for k in args]
+    invalids = [x for x in args if type(x) is not Name]
+    if invalids:
+        assert False, "arguments to λ must be name or name=default_value"
+    # To make defaults possible, we abuse the fact that args with defaults
+    # are always declared after args with no defaults. There is fortunately
+    # a similar rule that in a call, arguments passed by name come after
+    # arguments passed by position. Combine these and OrderedDict, and bingo.
+    names = [k.id for k in args] + [k for k in kwargs]
+    if len(set(names)) < len(names):  # may happen if both bare and with-default.
+        assert False, "argument names must be unique in the same λ"
     newtree = do.transform(tree)
     lam = q[lambda: ast_literal[newtree]]
-    lam.args.args = [arg(arg=x) for x in names]  # inject args
+    lam.args.args = [arg(arg=x) for x in names]
+    lam.args.defaults = [kwargs[k] for k in kwargs]  # for the last n args
     return lam
 
 # -----------------------------------------------------------------------------
