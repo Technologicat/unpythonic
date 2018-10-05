@@ -273,7 +273,7 @@ def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1
     names = [k.id for k in names]
 
     e = gen_sym("e")
-    envset = Attribute(value=hq[name[e]], attr="set", ctx=Load())
+    envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
 
     t = partial(_common_transform, envname=e, varnames=names, setter=envset)
     if mode == "letrec":
@@ -313,7 +313,7 @@ def _transform_name(tree, *, names, envname, stop, **kw):
     if type(tree) is Attribute:
         stop()
     elif type(tree) is Name and tree.id in names:
-        return Attribute(value=hq[name[envname]], attr=tree.id, ctx=Load())
+        return Attribute(value=q[name[envname]], attr=tree.id, ctx=Load())
     return tree
 
 # # ... -> lambda e: ...
