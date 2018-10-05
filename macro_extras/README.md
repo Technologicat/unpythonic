@@ -201,7 +201,7 @@ myadd =  λ(x, y)[print("myadding", x, y),
 assert myadd(2, 3) == 5
 ```
 
-To write to an outer lexical environment, simply don't ``deflocal`` the name:
+To write to an outer lexical environment, simply don't ``localdef`` the name:
 
 ```python
 count = let((x, 0))[
