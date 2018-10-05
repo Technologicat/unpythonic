@@ -25,6 +25,7 @@ from unpythonic.seq import do as dof, begin as beginf
 
 # insist, deny are just for passing through to the using module that imports us.
 from unpythonic.amb import forall as forallf, choice as choicef, insist, deny
+from unpythonic.amb import List as MList  # list monad
 
 macros = Macros()
 
@@ -419,6 +420,56 @@ def forall(tree, gen_sym, **kw):
         else:
             lines.append(transform(line))
     return hq[forallf(ast_literal[lines])]
+
+@macros.expr
+def forall_simple(tree, **kw):
+    """[syntax, expr] Nondeterministic evaluation.
+
+    Fully based on AST transformation, with real lexical variables,
+    like Haskell's do-notation (but here specialized for the List monad).
+
+    Usage is the same as ``forall``.
+    """
+    if type(tree) is not Tuple:
+        assert False, "forall body: expected a sequence of comma-separated expressions"
+    def build(lines, tree):
+        if not lines:
+            return tree
+        line, *rest = lines
+        if _isassign(line):
+            k, v = _assign_name(line), _assign_value(line)
+        else:
+            k, v = "_ignored", line
+        islast = not rest
+        # don't unpack on last line to allow easily returning a tuple
+        Mv = hq[_monadify(ast_literal[v], u[not islast])]
+        if not islast:
+            body = q[ast_literal[Mv] >> (lambda: _here_)]  # monadic bind: >>
+            body.right.args.args = [arg(arg=k)]
+        else:
+            body = Mv
+        if tree:
+            @Walker
+            def setbody(tree, *, stop, **kw):
+                if type(tree) is Name and tree.id == "_here_":
+                    stop()
+                    return body
+                return tree
+            newtree = setbody.recurse(tree)
+        else:
+            newtree = body
+        return build(rest, newtree)
+    return hq[tuple(ast_literal[build(tree.elts, None)])]
+
+def _monadify(value, unpack=True):
+    if isinstance(value, MList):
+        return value
+    elif unpack:
+        try:
+            return MList.from_iterable(value)
+        except TypeError:
+            pass  # fall through
+    return MList(value)  # unit(List, value)
 
 # -----------------------------------------------------------------------------
 

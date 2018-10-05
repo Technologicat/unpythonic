@@ -11,7 +11,7 @@ from unpythonic.syntax import macros, \
                               simple_let, simple_letseq, \
                               let, letseq, letrec, \
                               do, do0, \
-                              forall, insist, deny, \
+                              forall, insist, deny, forall_simple, \
                               aif, it, \
                               cond, \
                               prefix, q, u, kw, \
@@ -319,6 +319,15 @@ def main():
                 y << range(x, z+1),  # longer leg
                 insist(x*x + y*y == z*z),
                 (x, y, z)]
+    assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
+                                 (8, 15, 17), (9, 12, 15), (12, 16, 20))
+
+    # forall_simple: pure AST transformation, with real lexical variables
+    pt = forall_simple[z << range(1, 21),   # hypotenuse
+                       x << range(1, z+1),  # shorter leg
+                       y << range(x, z+1),  # longer leg
+                       insist(x*x + y*y == z*z),
+                       (x, y, z)]
     assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                  (8, 15, 17), (9, 12, 15), (12, 16, 20))
 
