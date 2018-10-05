@@ -15,13 +15,16 @@ from macropy.core.hquotes import macros, hq
 
 from functools import partial
 from ast import Call, arg, keyword, With, withitem, Tuple, \
-                Name, Attribute, Load, BinOp, LShift, copy_location
+                Name, Attribute, Load, BinOp, LShift, \
+                Subscript, Index, Slice, ExtSlice, \
+                copy_location
 
 from unpythonic.it import flatmap, uniqify, rev
 from unpythonic.fun import curry as curryf
 from unpythonic.dynscope import dyn
 from unpythonic.lispylet import letrec as letrecf, let as letf
 from unpythonic.seq import do as dof, begin as beginf
+from unpythonic.fup import fupdate
 
 # insist, deny are just for passing through to the using module that imports us.
 from unpythonic.amb import forall as forallf, choice as choicef, insist, deny
@@ -547,6 +550,47 @@ def λ(tree, args, **kw):
     lam = q[lambda: ast_literal[newtree]]
     lam.args.args = [arg(arg=x) for x in names]  # inject args
     return lam
+
+# -----------------------------------------------------------------------------
+
+# TODO: improve: multiple fupdate specs?
+@macros.expr
+def fup(tree, **kw):
+    """[syntax, expr] Functionally update a sequence.
+
+    Example::
+
+        from itertools import repeat
+
+        lst = (1, 2, 3, 4, 5)
+        assert fup[lst[3] << 42] == (1, 2, 3, 42, 5)
+        assert fup[lst[0::2] << tuple(repeat(10, 3))] == (10, 2, 10, 4, 10)
+
+    The transformation is::
+
+        fup[seq[idx] << value] --> fupdate(seq, idx, value)
+        fup[seq[slicestx] << iterable] --> fupdate(seq, slice(...), iterable)
+
+    Limitations:
+
+      - Currently only one update specification is supported in a single ``fup[]``.
+    """
+    valid = type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Subscript
+    if not valid:
+        assert False, "fup: expected seq[slice] << value"
+    seq, idx, val = tree.left.value, tree.left.slice, tree.right
+
+    if type(idx) is ExtSlice:
+        assert False, "fup: multidimensional indexing not supported"
+    elif type(idx) is Slice:
+        start, stop, step = [x or q[None] for x in (idx.lower, idx.upper, idx.step)]
+        idxspec = hq[slice(ast_literal[start], ast_literal[stop], ast_literal[step])]
+    elif type(idx) is Index:
+        idxspec = idx.value
+        if idxspec is None:
+            assert False, "indices must be integers, not NoneType"
+
+    return hq[fupdate(ast_literal[seq], ast_literal[idxspec], ast_literal[val])]
 
 # -----------------------------------------------------------------------------
 

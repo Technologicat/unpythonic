@@ -14,9 +14,11 @@ from unpythonic.syntax import macros, \
                               forall, insist, deny, forall_simple, \
                               aif, it, \
                               cond, \
+                              fup, \
                               prefix, q, u, kw, \
                               λ
 
+from itertools import repeat
 from unpythonic import foldr, composerc as compose, cons, nil, ll, apply
 
 def main():
@@ -331,6 +333,14 @@ def main():
                        (x, y, z)]
     assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                  (8, 15, 17), (9, 12, 15), (12, 16, 20))
+
+    lst = (1, 2, 3, 4, 5)
+    assert fup[lst[3] << 42] == (1, 2, 3, 42, 5)
+    assert fup[lst[0::2] << tuple(repeat(10, 3))] == (10, 2, 10, 4, 10)
+    assert fup[lst[1::2] << tuple(repeat(10, 3))] == (1, 10, 3, 10, 5)
+    assert fup[lst[::2] << tuple(repeat(10, 3))] == (10, 2, 10, 4, 10)
+    assert fup[lst[::-1] << tuple(range(5))] == (4, 3, 2, 1, 0)
+    assert lst == (1, 2, 3, 4, 5)
 
 if __name__ == '__main__':
     main()
