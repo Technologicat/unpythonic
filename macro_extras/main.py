@@ -251,6 +251,13 @@ def main():
     assert count() == 1
     assert count() == 2
 
+    test = let((x, 0))[
+             λ()[x << x + 1,         # x belongs to the surrounding let
+                 localdef(y << 42),  # y is local to the implicit do
+                 y]]
+    assert test() == 42
+    assert test() == 42
+
     echo = λ(x)[print(x), x]
     z = echo("hi there")
     assert z == "hi there"
@@ -258,14 +265,10 @@ def main():
     myadd = λ(x, y)[print("myadding", x, y), x + y]
     assert myadd(2, 3) == 5
 
-    # But this must be done manually. Having λ with implicit do (instead of begin)
-    # would cause the problem that it is then impossible to assign to let variables
-    # defined outside the λ, because the do then captures all assignments
-    # (because macros are expanded from inside out).
-    myadd = lambda x, y: do[print("myadding", x, y),
-                            tmp << x + y,
-                            print("result is", tmp),
-                            tmp]
+    myadd = λ(x, y)[print("myadding", x, y),
+                    localdef(tmp << x + y),
+                    print("result is", tmp),
+                    tmp]
     assert myadd(2, 3) == 5
 
     # Anaphoric if: aif[test, then, otherwise]
@@ -293,13 +296,13 @@ def main():
     #    will then **not** bind ``x``, as it already belongs to the ``let``.
     #  - No need for ``lambda e: ...`` wrappers, inserted automatically,
     #    so the lines are only evaluated as the seq.do() runs.
-    y = do[x << 17,
+    y = do[localdef(x << 17),
            print(x),
            x << 23,
            x]
     assert y == 23
 
-    y2 = do0[y << 5,  # y << val assigns, then returns val
+    y2 = do0[localdef(y << 5),  # y << val assigns, then returns val
              print("hi there, y =", y),
              42]  # evaluated but not used, do0 returns the first value
     assert y2 == 5

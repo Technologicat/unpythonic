@@ -102,23 +102,29 @@ Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to 
 
 ## ``do`` as a macro: stuff imperative code into a lambda, *with style*
 
-We provide an ``expr`` macro wrapper for ``unpythonic.seq.do``, similar to and with much the same advantages as the macro variants of the let contructs:
+We provide an ``expr`` macro wrapper for ``unpythonic.seq.do``, with some extra features.
 
 ```python
 from unpythonic.syntax import macros, do
 
-y = do[x << 17,
+y = do[localdef(x << 17),
        print(x),
        x << 23,
        x]
 print(y)  # --> 23
 ```
 
-Assignment to the ``do`` environment is denoted ``var << value``, where ``var`` is a bare name. Variables are created automatically when first assigned. Assignments are recognized anywhere inside the ``do``; but note that any nested ``let`` constructs that define variables of the same name will (inside the ``let``) shadow those of the ``do``.
+Local variables are declared and initialized with ``localdef(var << value)``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``. Currently it does not matter where the ``localdef`` appears inside the ``do``; it captures the declared name as a local variable **for the whole lexical scope** of the ``do``, including any references to that name **before** the ``localdef``. (This is subject to change in a future version.) For readability and future-proofness, it is recommended to place localdefs at or near the start of the do-block, at the first use of each local name.
+
+Already declared local variables are updated with ``var << value``.
+
+The reason we require local variables to be declared is to allow write access to lexically outer environments (e.g. a ``let`` surrounding a ``do``).
+
+Assignments are recognized anywhere inside the ``do``; but note that any nested ``let`` constructs that define variables of the same name will (inside the ``let``) shadow those of the ``do``.
 
 Like in the macro ``letrec``, no ``lambda e: ...`` wrappers. These are inserted automatically, so the lines are only evaluated as the underlying ``seq.do`` actually runs.
 
-When expanding bare names, ``do`` behaves like ``letseq``; assignments **above** the current line are in effect (and have been performed in the order presented). Re-assigning to the same name later overwrites (this is afterall an imperative tool).
+When running, ``do`` behaves like ``letseq``; assignments **above** the current line are in effect (and have been performed in the order presented). Re-assigning to the same name later overwrites (this is afterall an imperative tool).
 
 There is also a ``do0`` macro, which returns the value of the first expression, instead of the last.
 
@@ -185,19 +191,25 @@ Current **limitations** are no ``*args``, ``**kwargs``, and no default values fo
 
 ### Note
 
-There is no internal definition context; if you need one, combine a regular ``lambda`` and ``do`` (instead of ``begin``):
+Version 0.9.1 adds an internal definition context, internally using ``do`` instead of ``begin``:
 
 ```python
-myadd = lambda x, y: do[print("myadding", x, y),
-                        tmp << x + y,
-                        print("result is", tmp),
-                        tmp]
+myadd =  λ(x, y)[print("myadding", x, y),
+                 localdef(tmp << x + y),
+                 print("result is", tmp),
+                 tmp]
 assert myadd(2, 3) == 5
 ```
 
-The reason this is so is that macros are expanded from inside out; in the ``do``, this hides any surrounding ``let``, which is a problem for the let-over-lambda idiom.
+To write to an outer lexical environment, simply don't ``deflocal`` the name:
 
-The way Racket deals with this is that local variables in an internal definition context must be declared. We may switch into this solution in the future, requiring something like ``deflocal(x << 42)`` at the start of the do-block to mark ``x`` as a local variable owned by the do-block. This would then allow assigning to surrounding let variables, simply by not deflocaling them.
+```python
+count = let((x, 0))[
+          λ()[x << x + 1,  # no localdef; update the "x" of the "let"
+              x]]
+assert count() == 1
+assert count() == 2
+```
 
 
 ## ``prefix``: prefix function call syntax for Python

@@ -341,36 +341,89 @@ def do(tree, gen_sym, **kw):
 
     Example::
 
-        do[x << 42,
+        do[localdef(x << 42),
            print(x),
            x << 23,
            x]
 
-    This is sugar on top of ``unpythonic.seq.do``. Assignment is supported
-    via syntax such as ``x << 42``.
+    This is sugar on top of ``unpythonic.seq.do``, but with some extra features.
 
-    Note: if you nest a ``let`` inside the ``do``, the assignments to the ``let``
-    variables inside the ``let`` are not affected. ``do`` only captures those
-    assignments that do not belong to any nested construct.
+        - To declare and initialize a local name, use ``localdef(name << value)``.
 
-    This is essentially thanks to MacroPy (as of 1.1.0) expanding macros in an
-    inside-out order, so the nested constructs transform first.
+          The operator ``localdef`` is syntax, not really a function, and it
+          only exists inside a ``do``.
+
+        - By design, there is no way to create an uninitialized variable;
+          a value must be given at declaration time. Just use ``None``
+          as an explicit "no value" if needed.
+
+        - Names declared within the same ``do`` must be unique. Re-declaring
+          the same name is an expansion-time error.
+
+        - To assign to an already declared local name, use ``name << value``.
+
+    All ``localdef`` declarations are collected (and the declaration part
+    discarded) before any other processing, so it does not matter where each
+    ``localdef`` appears inside the ``do``. Especially, in::
+
+        do[x << 2,
+           localdef(x << 3),  # DANGER: may break in a future version
+           x]
+
+    already the first ``x`` refers to the local x, because ``x`` **has a**
+    ``localdef`` in this ``do``. (This subject to change in a future version.)
+
+    For readability and future-proofness, it is recommended to place localdefs
+    at or near the start of the do-block, at the first use of each local name.
+
+    Macros are expanded in an inside-out order, so a nested ``let`` lexically
+    overrides names, if the same names appear in the ``do``::
+
+        do[localdef(x << 17),
+           let((x, 23))[
+             print(x)],  # 23, the "x" of the "let"
+           print(x)]     # 17, the "x" of the "do"
+
+    The reason we require local names to be declared is to allow write access
+    to lexically outer environments from inside a ``do``::
+
+        let((x, 17))[
+          do[x << 23,            # no localdef; update the "x" of the "let"
+             localdef(y << 42),  # "y" is local to the "do"
+             print(x, y)]]
+
+    Python does it the other way around, requiring a ``nonlocal`` statement
+    to re-bind a name owned by an outer scope.
+
+    The ``let`` constructs solve this problem by having the local bindings
+    declared in a separate block, which plays the role of ``localdef``.
     """
     if type(tree) is not Tuple:
         assert False, "do body: expected a sequence of comma-separated expressions"
 
     e = gen_sym("e")
-    # Must use env.__setattr__ to define new names; env.set only rebinds.
+    # Must use env.__setattr__ to allow defining new names; env.set only rebinds.
     # But to keep assignments chainable, use begin(setattr(e, 'x', val), val).
-    sa = Attribute(value=hq[name[e]], attr="__setattr__", ctx=Load())
+    sa = Attribute(value=q[name[e]], attr="__setattr__", ctx=Load())
     envset = hq[lambda k, v: beginf(ast_literal[sa](k, v), v)]
 
+    def islocaldef(tree):
+        return type(tree) is Call and type(tree.func) is Name and tree.func.id == "localdef"
     @Walker
-    def _find_assignments(tree, collect, **kw):
-        if _isassign(tree):
-            collect(_assign_name(tree))
+    def _find_localvars(tree, collect, **kw):
+        if islocaldef(tree):
+            if len(tree.args) != 1:
+                assert False, "localdef(...) must have exactly one positional argument"
+            expr = tree.args[0]
+            if not _isassign(expr):
+                assert False, "localdef(...) argument must be of the form 'name << value'"
+            collect(_assign_name(expr))
+            return expr  # localdef(...) -> ..., the localdef has done its job
         return tree
-    names = list(uniqify(_find_assignments.collect(tree)))
+    tree, names = _find_localvars.recurse_collect(tree)
+    names = list(names)
+    if len(set(names)) < len(names):
+        assert False, "localdef names must be unique in the same do"
 
     lines = [_common_transform(line, e, names, envset) for line in tree.elts]
     return hq[dof(ast_literal[lines])]
@@ -382,7 +435,7 @@ def do0(tree, **kw):
         assert False, "do0 body: expected a sequence of comma-separated expressions"
     elts = tree.elts
     newelts = []  # IDE complains about _do0_result, but it's quoted, so it's ok.
-    newelts.append(q[_do0_result << (ast_literal[elts[0]])])
+    newelts.append(q[localdef(_do0_result << (ast_literal[elts[0]]))])
     newelts.extend(elts[1:])
     newelts.append(q[_do0_result])
     newtree = q[(ast_literal[newelts],)]
@@ -441,7 +494,7 @@ def forall_simple(tree, **kw):
         else:
             k, v = "_ignored", line
         islast = not rest
-        # don't unpack on last line to allow easily returning a tuple
+        # don't unpack on last line to allow easily returning a tuple as a result item
         Mv = hq[_monadify(ast_literal[v], u[not islast])]
         if not islast:
             body = q[ast_literal[Mv] >> (lambda: _here_)]  # monadic bind: >>
@@ -450,12 +503,12 @@ def forall_simple(tree, **kw):
             body = Mv
         if tree:
             @Walker
-            def setbody(tree, *, stop, **kw):
+            def splice(tree, *, stop, **kw):
                 if type(tree) is Name and tree.id == "_here_":
                     stop()
                     return body
                 return tree
-            newtree = setbody.recurse(tree)
+            newtree = splice.recurse(tree)
         else:
             newtree = body
         return build(rest, newtree)
@@ -478,9 +531,14 @@ def _monadify(value, unpack=True):
 def λ(tree, args, **kw):
     """[syntax, expr] Rackety lambda with implicit begin.
 
+    (Actually, implicit ``do``, because that gives an internal definition
+    context as a bonus; λ can have local variables. See ``do`` for usage.)
+
     Usage::
 
       λ(arg0, ...)[body0, ...]
+
+    Bodys like in ``do``.
 
     Limitations:
 
@@ -488,8 +546,9 @@ def λ(tree, args, **kw):
       - No default values for arguments.
     """
     names = [k.id for k in args]
-    lam = hq[lambda: beginf(ast_literal[tree.elts])]  # inject begin(...)
-    lam.args.args = [arg(arg=x) for x in names]       # inject args
+    newtree = do.transform(tree)
+    lam = q[lambda: ast_literal[newtree]]
+    lam.args.args = [arg(arg=x) for x in names]  # inject args
     return lam
 
 # -----------------------------------------------------------------------------
@@ -568,9 +627,7 @@ def prefix(tree, **kw):
     isquote = lambda tree: type(tree) is Name and tree.id == "q"
     isunquote = lambda tree: type(tree) is Name and tree.id == "u"
     def iskwargs(tree):
-        if type(tree) is not Call: return False
-        if type(tree.func) is not Name: return False
-        return tree.func.id == "kw"
+        return type(tree) is Call and type(tree.func) is Name and tree.func.id == "kw"
     @Walker
     def transform(tree, *, quotelevel, set_ctx, **kw):
         if type(tree) is not Tuple:
