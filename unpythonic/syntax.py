@@ -293,16 +293,20 @@ def _common_transform(subtree, envname, varnames, setter):
 
 def _isassign(tree):  # detect "x << 42" syntax to assign variables in an environment
     return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
+def _assign_name(tree):  # rackety accessors
+    return tree.left.id
+def _assign_value(tree):
+    return tree.right
 
 # x << val --> e.set('x', val)  (for names bound in this environment)
 @Walker
 def _transform_assignment(tree, *, names, setter, **kw):
     if not _isassign(tree):
         return tree
-    varname = tree.left.id
+    varname = _assign_name(tree)
     if varname not in names:  # each let handles only its own varnames
         return tree
-    value = tree.right
+    value = _assign_value(tree)
     return q[ast_literal[setter](u[varname], ast_literal[value])]
 
 # x --> e.x  (for names bound in this environment)
@@ -363,7 +367,7 @@ def do(tree, gen_sym, **kw):
     @Walker
     def _find_assignments(tree, collect, **kw):
         if _isassign(tree):
-            collect(tree.left.id)
+            collect(_assign_name(tree))
         return tree
     names = list(uniqify(_find_assignments.collect(tree)))
 
