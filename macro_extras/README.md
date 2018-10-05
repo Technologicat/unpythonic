@@ -1,14 +1,12 @@
-# Macro extras: ``unpythonic.syntax``
+# ``unpythonic.syntax``: macro extras
 
 These optional features are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
-
-!! **Currently** (10/2018) this requires the latest MacroPy from git HEAD. !!
 
 Because macro expansion occurs at import time, the usage example `main.py` cannot be run directly. Instead, run it via the bootstrap script `run.py`, or use the included [generic MacroPy3 bootstrapper](macropy3). Usage of the bootstrapper is `./macropy3 main`; see `-h` for options.
 
 There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itself already provides ``lazy`` and ``interned``.
 
-*Whether the language with these additions is Python anymore, is another question.*
+!! **Currently** (10/2018) this requires the latest MacroPy from git HEAD. !!
 
 ## ``curry``: Automatic currying for Python
 
@@ -269,4 +267,6 @@ with prefix, curry:  # important: apply prefix first, then curry
     (print, (mymap, double, (q, 1, 2, 3)))
     assert (mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)
 ```
+
+*Toto, I've a feeling we're not in Python anymore.*
 
