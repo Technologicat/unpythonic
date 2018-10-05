@@ -212,6 +212,7 @@ The rest is best explained by example:
 
 ```python
 from unpythonic.syntax import macros, prefix, q, u, kw
+from unpythonic import apply
 
 with prefix:
     (print, "hello world")
