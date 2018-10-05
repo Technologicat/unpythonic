@@ -154,6 +154,12 @@ No need for ``lambda e: ...`` wrappers; variables are referred to by bare names 
 
 ``insist`` and ``deny`` are not really macros; they are just the functions from ``unpythonic.amb``, re-exported for convenience.
 
+### Note
+
+We also provide ``forall_simple``, based purely on AST transformation, with real lexical variables. This is essentially Haskell's do-notation for Python, specialized to the List monad.
+
+In the future, we may replace the current ``forall`` macro with this version. From the user perspective, the only difference is in error reporting; the function-based ``forall`` must internally simulate lexical scoping, whereas ``forall_simple`` just borrows Python's. In the function-based version, an undefined name will raise ``AttributeError``, whereas in ``forall_simple``, it will raise ``NameError``.
+
 
 ## ``λ``: because in the UTF-8 age λ ought to be called λ
 
@@ -192,6 +198,8 @@ assert myadd(2, 3) == 5
 ```
 
 The reason this is so is that macros are expanded from inside out; in the ``do``, this hides any surrounding ``let``, which is a problem for the let-over-lambda idiom.
+
+The way Racket deals with this is that local variables in an internal definition context must be declared. We may switch into this solution in the future, requiring something like ``deflocal(x << 42)`` at the start of the do-block to mark ``x`` as a local variable owned by the do-block. This would then allow assigning to surrounding let variables, simply by not deflocaling them.
 
 
 ## ``prefix``: prefix function call syntax for Python
