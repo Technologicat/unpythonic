@@ -191,7 +191,7 @@ Current **limitations** are no ``*args``, ``**kwargs``, and no default values fo
 
 ### Note
 
-Version 0.9.1 adds an internal definition context, internally using ``do`` instead of ``begin``:
+Version 0.9.1 adds a local definition context for λ, internally using ``do`` instead of ``begin``:
 
 ```python
 myadd =  λ(x, y)[print("myadding", x, y),
