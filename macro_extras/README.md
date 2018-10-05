@@ -217,7 +217,7 @@ assert count() == 2
 This is a macro wrapper for ``unpythonic.fup.fupdate``, for more natural syntax:
 
 ```python
-from unpythonic.syntax import fup
+from unpythonic.syntax import macros, fup
 from itertools import repeat
 
 lst = (1, 2, 3, 4, 5)
