@@ -545,20 +545,25 @@ def λ(tree, args, kwargs, **kw):
       - No *args or **kwargs.
       - No by-name-only args.
     """
-    invalids = [x for x in args if type(x) is not Name]
+    # TODO: add support for (multiple) * (Python 3.5: Starred nodes in args)
+    # TODO: add support for (multiple) ** (Python 3.5: k.arg is None)
+    invalids = [x for x in args if type(x) is not Name] \
+             + [k for k in kwargs if k.arg is None]
     if invalids:
         assert False, "arguments to λ must be name or name=default_value"
     # To make defaults possible, we abuse the fact that args with defaults
     # are always declared after args with no defaults. There is fortunately
     # a similar rule that in a call, arguments passed by name come after
-    # arguments passed by position. Combine these and OrderedDict, and bingo.
-    names = [k.id for k in args] + [k for k in kwargs]
+    # arguments passed by position.
+    withdefault_names = [k.arg for k in kwargs]
+    defaults = [k.value for k in kwargs]
+    names = [k.id for k in args] + withdefault_names
     if len(set(names)) < len(names):  # may happen if both bare and with-default.
         assert False, "argument names must be unique in the same λ"
     newtree = do.transform(tree)
     lam = q[lambda: ast_literal[newtree]]
     lam.args.args = [arg(arg=x) for x in names]
-    lam.args.defaults = [kwargs[k] for k in kwargs]  # for the last n args
+    lam.args.defaults = defaults  # for the last n args
     return lam
 
 # -----------------------------------------------------------------------------
