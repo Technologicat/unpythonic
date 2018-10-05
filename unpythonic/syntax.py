@@ -29,9 +29,6 @@ from unpythonic.amb import List as MList  # list monad
 
 macros = Macros()
 
-# functions that do the work
-
-
 # -----------------------------------------------------------------------------
 
 # TODO: currently no "syntax-parameterize" in MacroPy. Would be convenient to
