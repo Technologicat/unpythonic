@@ -5,7 +5,7 @@
 See ``dir(unpythonic)`` and submodule docstrings for more.
 """
 
-__version__ = '0.8.9'
+__version__ = '0.9.0'
 
 from . import rc
 
