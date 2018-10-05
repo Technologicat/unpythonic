@@ -536,12 +536,14 @@ def λ(tree, args, kwargs, **kw):
     Usage::
 
       λ(arg0, ...)[body0, ...]
+      λ(a0, ..., am, b0=default0, ..., bn=defaultn)[body0, ...]
 
     Bodys like in ``do``.
 
     Limitations:
 
       - No *args or **kwargs.
+      - No by-name-only args.
     """
     invalids = [x for x in args if type(x) is not Name]
     if invalids:
