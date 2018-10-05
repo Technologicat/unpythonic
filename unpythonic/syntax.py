@@ -423,7 +423,6 @@ def forall(tree, gen_sym, **kw):
 # -----------------------------------------------------------------------------
 
 # TODO: support default values for arguments. Requires support in MacroPy for named arguments.
-# TODO: implicit do instead of just begin? Would give a local-definition context.
 @macros.expr
 def λ(tree, args, **kw):
     """[syntax, expr] Rackety lambda with implicit begin.
