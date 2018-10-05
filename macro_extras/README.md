@@ -212,6 +212,26 @@ assert count() == 2
 ```
 
 
+## ``fup``: functionally update a sequence
+
+This is a macro wrapper for ``unpythonic.fup.fupdate``, for more natural syntax:
+
+```python
+from unpythonic.syntax import fup
+from itertools import repeat
+
+lst = (1, 2, 3, 4, 5)
+assert fup[lst[3] << 42] == (1, 2, 3, 42, 5)
+assert fup[lst[0::2] << tuple(repeat(10, 3))] == (10, 2, 10, 4, 10)
+```
+
+Currently only one update specification is supported in a single ``fup[]``.
+
+The notation follows the ``unpythonic.syntax`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched.
+
+The transformation is ``fup[seq[idx] << value] --> fupdate(seq, idx, value)`` for a single index, and ``fup[seq[slicestx] << iterable] --> fupdate(seq, slice(...), iterable)`` for a slice. The main point of this macro is that slices are specified in the native slicing syntax (instead of by manually calling ``slice``, like when directly using the underlying ``fupdate`` function).
+
+
 ## ``prefix``: prefix function call syntax for Python
 
 Write Python almost like Lisp!
