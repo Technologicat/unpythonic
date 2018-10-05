@@ -240,7 +240,7 @@ def main():
     assert count() == 1
     assert count() == 2
 
-    # multilambda: lambda with implicit begin. Usage:
+    # multilambda: multi-expression lambda with implicit do. Usage:
     #   λ(arg0, ...)[body0, ...]
     # Limitations:
     #  - no default values for arguments
@@ -284,13 +284,11 @@ def main():
     assert answer(42) == "something else"
 
     # macro wrapper for seq.do (stuff imperative code into a lambda)
+    #  - Declare and initialize a local variable with ``localdef(var << value)``.
     #  - Assignment is ``var << value``.
     #    Transforms to ``begin(setattr(e, var, value), value)``,
     #    so is valid from any level inside the ``do`` (including nested
     #    ``let`` constructs and similar).
-    #  - Variables that are bound in a ``do`` are defined as those ``x`` that
-    #    have at least one assignment ``x << value`` anywhere inside the ``do``.
-    #    These are collected when the macro transformation of the ``do`` starts.
     #  - Note that if a nested binding macro such as a ``let`` also binds an
     #    ``x``, the inner macro will bind first, so the ``do`` environment
     #    will then **not** bind ``x``, as it already belongs to the ``let``.
@@ -302,7 +300,7 @@ def main():
            x]
     assert y == 23
 
-    y2 = do0[localdef(y << 5),  # y << val assigns, then returns val
+    y2 = do0[localdef(y << 5),
              print("hi there, y =", y),
              42]  # evaluated but not used, do0 returns the first value
     assert y2 == 5
