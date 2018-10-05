@@ -212,46 +212,48 @@ The rest is best explained by example:
 
 ```python
 from unpythonic.syntax import macros, prefix, q, u, kw
-    with prefix:
-        (print, "hello world")
 
-        # quote operator q locally turns off the function-call transformation:
-        t1 = (q, 1, 2, (3, 4), 5)  # q takes effect recursively
-        t2 = (q, 17, 23, x)  # unlike in Lisps, x refers to its value even in a quote
-        (print, t1, t2)
+with prefix:
+    (print, "hello world")
 
-        # unquote operator u locally turns the transformation back on:
-        t3 = (q, (u, print, 42), (print, 42), "foo", "bar")
-        assert t3 == (q, None, (print, 42), "foo", "bar")
+    # quote operator q locally turns off the function-call transformation:
+    t1 = (q, 1, 2, (3, 4), 5)  # q takes effect recursively
+    x = 42
+    t2 = (q, 17, 23, x)  # unlike in Lisps, x refers to its value even in a quote
+    (print, t1, t2)
 
-        # quotes nest; call transformation made when quote level == 0
-        t4 = (q, (print, 42), (q, (u, u, print, 42)), "foo", "bar")
-        assert t4 == (q, (print, 42), (None,), "foo", "bar")
+    # unquote operator u locally turns the transformation back on:
+    t3 = (q, (u, print, 42), (print, 42), "foo", "bar")
+    assert t3 == (q, None, (print, 42), "foo", "bar")
 
-        # Be careful:
-        try:
-            (x,)  # in a prefix block, this means "call the 0-arg function x"
-        except TypeError:
-            pass  # 'int' object is not callable
-        (q, x)  # OK!
+    # quotes nest; call transformation made when quote level == 0
+    t4 = (q, (print, 42), (q, (u, u, print, 42)), "foo", "bar")
+    assert t4 == (q, (print, 42), (None,), "foo", "bar")
 
-        # give named args with kw(...) [it's syntax, not really a function!]:
-        def f(*, a, b):
-            return (q, a, b)
-        # in one kw(...), or...
-        assert (f, kw(a="hi there", b="Tom")) == (q, "hi there", "Tom")
-        # in several kw(...), doesn't matter
-        assert (f, kw(a="hi there"), kw(b="Tom")) == (q, "hi there", "Tom")
-        # in case of duplicate name across kws, rightmost wins
-        assert (f, kw(a="hi there"), kw(b="Tom"), kw(b="Jerry")) == (q, "hi there", "Jerry")
+    # Be careful:
+    try:
+        (x,)  # in a prefix block, this means "call the 0-arg function x"
+    except TypeError:
+        pass  # 'int' object is not callable
+    (q, x)  # OK!
 
-        # give *args with unpythonic.fun.apply, like in Lisps:
-        lst = [1, 2, 3]
-        def g(*args):
-            return args
-        assert (apply, g, lst) == (q, 1, 2, 3)
-        # lst goes last; may have other args first
-        assert (apply, g, "hi", "ho", lst) == (q, "hi" ,"ho", 1, 2, 3)
+    # give named args with kw(...) [it's syntax, not really a function!]:
+    def f(*, a, b):
+        return (q, a, b)
+    # in one kw(...), or...
+    assert (f, kw(a="hi there", b="Tom")) == (q, "hi there", "Tom")
+    # in several kw(...), doesn't matter
+    assert (f, kw(a="hi there"), kw(b="Tom")) == (q, "hi there", "Tom")
+    # in case of duplicate name across kws, rightmost wins
+    assert (f, kw(a="hi there"), kw(b="Tom"), kw(b="Jerry")) == (q, "hi there", "Jerry")
+
+    # give *args with unpythonic.fun.apply, like in Lisps:
+    lst = [1, 2, 3]
+    def g(*args):
+        return args
+    assert (apply, g, lst) == (q, 1, 2, 3)
+    # lst goes last; may have other args first
+    assert (apply, g, "hi", "ho", lst) == (q, "hi" ,"ho", 1, 2, 3)
 ```
 
 This comboes with ``curry`` for an authentic *LisThEll* programming experience:
