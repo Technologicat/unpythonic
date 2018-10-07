@@ -104,6 +104,8 @@ Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to 
 
 We provide an ``expr`` macro wrapper for ``unpythonic.seq.do``, with some extra features.
 
+This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, see `cond`; for loops, see functions in `unpythonic.fploop`.
+
 ```python
 from unpythonic.syntax import macros, do
 
@@ -165,51 +167,41 @@ We also provide ``forall_simple``, based purely on AST transformation, with real
 In the future, we may replace the current ``forall`` macro with this version. From the user perspective, the only difference is in error reporting; the function-based ``forall`` must internally simulate lexical scoping, whereas ``forall_simple`` just borrows Python's. In the function-based version, an undefined name will raise ``AttributeError``, whereas in ``forall_simple``, it will raise ``NameError``.
 
 
-## ``λ``: because in the UTF-8 age λ ought to be called λ
+## ``multilambda``: supercharge your lambdas
 
-...and multiple expressions ought to be the default. This is a rackety λ that has an implicit begin:
+**Multiple expressions**: use ``[...]`` to denote a multiple-expression body with an implicit ``do``.
 
-```python
-from unpythonic.syntax import macros, λ
-
-count = let((x, 0))[
-          λ()[x << x + 1,
-              x]]
-assert count() == 1
-assert count() == 2
-
-myadd = λ(x, y)[print("myadding", x, y),
-                x + y]
-assert myadd(2, 3) == 5
-```
-
-(In the first example, returning ``x`` separately is redundant, because the assignment to the let environment already returns the new value, but it demonstrates the usage of multiple expressions in λ.)
-
-Syntax is ``λ(arg0, ...)[body0, ...]``.
-
-Current **limitations** are no ``*args``, ``**kwargs``, and no default values for arguments.
-
-### Note
-
-Version 0.9.1 adds a local definition context for λ, internally using ``do`` instead of ``begin``:
+**Local variables**: available in a multiple-expression body. For details on usage, see ``do``.
 
 ```python
-myadd =  λ(x, y)[print("myadding", x, y),
-                 localdef(tmp << x + y),
-                 print("result is", tmp),
-                 tmp]
-assert myadd(2, 3) == 5
+from unpythonic.syntax import macros, multilambda
+
+with multilambda:
+    echo = lambda x: [print(x), x]
+    z = echo("hi there")
+    assert z == "hi there"
+
+    count = let((x, 0))[
+              lambda: [x << x + 1,  # x belongs to the surrounding let
+                       x]]
+    assert count() == 1
+    assert count() == 2
+
+    test = let((x, 0))[
+             lambda: [x << x + 1,
+                      localdef(y << 42),  # y is local to the implicit do
+                      (x, y)]]
+    assert test() == (1, 42)
+    assert test() == (2, 42)
+
+    myadd = lambda x, y: [print("myadding", x, y),
+                          localdef(tmp << x + y),
+                          print("result is", tmp),
+                          tmp]
+    assert myadd(2, 3) == 5
 ```
 
-To write to an outer lexical environment, simply don't ``localdef`` the name:
-
-```python
-count = let((x, 0))[
-          λ()[x << x + 1,  # no localdef; update the "x" of the "let"
-              x]]
-assert count() == 1
-assert count() == 2
-```
+In the second example, returning ``x`` separately is redundant, because the assignment to the let environment already returns the new value, but it demonstrates the usage of multiple expressions in a lambda.
 
 
 ## ``fup``: functionally update a sequence
