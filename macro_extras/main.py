@@ -245,8 +245,7 @@ def main():
     # multilambda: multi-expression lambdas with implicit do
     with multilambda:
         echo = lambda x: [print(x), x]
-        z = echo("hi there")
-        assert z == "hi there"
+        assert echo("hi there") == "hi there"
 
         count = let((x, 0))[
                   lambda: [x << x + 1,
@@ -266,6 +265,10 @@ def main():
                               print("result is", tmp),
                               tmp]
         assert myadd(2, 3) == 5
+
+        # only the outermost set of brackets denote a multi-expr body:
+        t = lambda: [[1, 2]]
+        assert t() == [1, 2]
 
     # Anaphoric if: aif[test, then, otherwise]
     # Magic identifier "it" refers to the test result.

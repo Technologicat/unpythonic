@@ -178,8 +178,7 @@ from unpythonic.syntax import macros, multilambda
 
 with multilambda:
     echo = lambda x: [print(x), x]
-    z = echo("hi there")
-    assert z == "hi there"
+    assert echo("hi there") == "hi there"
 
     count = let((x, 0))[
               lambda: [x << x + 1,  # x belongs to the surrounding let
@@ -199,6 +198,10 @@ with multilambda:
                           print("result is", tmp),
                           tmp]
     assert myadd(2, 3) == 5
+
+    # only the outermost set of brackets denote a multi-expr body:
+    t = lambda: [[1, 2]]
+    assert t() == [1, 2]
 ```
 
 In the second example, returning ``x`` separately is redundant, because the assignment to the let environment already returns the new value, but it demonstrates the usage of multiple expressions in a lambda.

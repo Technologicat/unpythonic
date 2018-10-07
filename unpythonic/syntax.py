@@ -535,42 +535,46 @@ def multilambda(tree, **kw):
 
         lambda ...: [expr0, ...] --> lambda ...: do[expr0, ...]
 
-    For local variables, see ``do``.
+    Only the outermost set of brackets around the body of a ``lambda`` denotes
+    a multi-expression body; the rest are interpreted as lists, as usual.
 
-    In a ``multilambda`` block, it is not possible to return a literal list
-    from a ``lambda``, since it will be interpreted as a ``do``. Literal tuples
-    can be returned as usual.
-
-    Note ``do`` implicitly wraps each item in a ``lambda`` (to supply the
-    environment), so ``lambda ...: [[...]]`` means ``lambda ...: do[do[...]]``;
-    likely not what you want.
-
-    To return a list, it's ok as long as it's not a literal ``[...]``::
+    Examples::
 
         with multilambda:
-            lambda ...: [print("hi"),
-                         list((1, 2, 3))]
+            echo = lambda x: [print(x), x]
+            assert echo("hi there") == "hi there"
 
-    Another solution is to not use the ``multilambda`` block in such cases,
-    and explicitly spell out the ``do[...]``::
+            count = let((x, 0))[
+                      lambda: [x << x + 1,
+                               x]]
+            assert count() == 1
+            assert count() == 2
 
-        lambda ...: do[print("hi"),
-                       [1, 2, 3]]
+            mk12 = lambda: [[1, 2]]
+            assert mk12() == [1, 2]
+
+    For local variables, see ``do``.
     """
-    # example: this is why we can't return a list, even by nesting brackets:
-    #   lambda: [[1, 2]]
-    #   lambda: do[[1, 2]]
-    #   lambda: dof(lambda e1: [1, 2])
-    #   lambda: dof(lambda e1: do[1, 2])
-    #   lambda: dof(lambda e1: dof(lambda e2: 1, lambda e2: 2))
     @Walker
-    def transform(tree, **kw):
+    def transform(tree, *, stop, **kw):
         if type(tree) is not Lambda or type(tree.body) is not List:
             return tree
         bodys = Tuple(elts=tree.body.elts, ctx=Load())
         bodys = copy_location(bodys, tree)
-        tree.body = do.transform(bodys)
+        # bracket magic:
+        # - stop() to prevent recursing to the implicit lambdas generated
+        #   by the "do" we are inserting here
+        #   - for each item, "do" internally inserts a lambda to delay execution,
+        #     as well as to bind the environment
+        #   - we must do.transform() instead of hq[do[...]] for pickling reasons
+        # - but recurse manually into each *do item*; these are explicit
+        #   user-provided code so we should transform them
+        stop()
+        bodys = transform.recurse(bodys)
+        tree.body = do.transform(bodys)  # insert the do, with the implicit lambdas
         return tree
+    # multilambda should expand first before any let[], do[] et al. that happen
+    # to be inside the block, to avoid misinterpreting implicit lambdas.
     yield transform.recurse(tree)
 
 # -----------------------------------------------------------------------------
