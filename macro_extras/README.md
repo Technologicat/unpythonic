@@ -174,7 +174,7 @@ In the future, we may replace the current ``forall`` macro with this version. Fr
 **Local variables**: available in a multiple-expression body. For details on usage, see ``do``.
 
 ```python
-from unpythonic.syntax import macros, multilambda
+from unpythonic.syntax import macros, multilambda, let
 
 with multilambda:
     echo = lambda x: [print(x), x]
