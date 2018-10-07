@@ -16,7 +16,7 @@ from unpythonic.syntax import macros, \
                               cond, \
                               fup, \
                               prefix, q, u, kw, \
-                              λ, multilambda
+                              multilambda
 
 from itertools import repeat
 from unpythonic import foldr, composerc as compose, cons, nil, ll, apply
@@ -242,49 +242,24 @@ def main():
     assert count() == 1
     assert count() == 2
 
-    # multilambda: multi-expression lambda with implicit do. Usage:
-    #   λ(arg0, ...)[body0, ...]
-    # Limitations:
-    #  - no default values for arguments
-    #  - no *args, **kwargs
-    count = let((x, 0))[
-              λ()[x << x + 1,
-                  x]]
-    assert count() == 1
-    assert count() == 2
-
-    test = let((x, 0))[
-             λ()[x << x + 1,         # x belongs to the surrounding let
-                 localdef(y << 42),  # y is local to the implicit do
-                 y]]
-    assert test() == 42
-    assert test() == 42
-
-    echo = λ(x)[print(x), x]
-    z = echo("hi there")
-    assert z == "hi there"
-
-    echo = λ(myarg="hello")[print(myarg), myarg]
-    result = echo()
-    assert result == "hello"
-    result = echo(3)
-    assert result == 3
-
-    myadd = λ(x, y)[print("myadding", x, y), x + y]
-    assert myadd(2, 3) == 5
-
-    myadd = λ(x, y)[print("myadding", x, y),
-                    localdef(tmp << x + y),
-                    print("result is", tmp),
-                    tmp]
-    assert myadd(2, 3) == 5
-
+    # multilambda: multi-expression lambdas with implicit do
     with multilambda:
+        echo = lambda x: [print(x), x]
+        z = echo("hi there")
+        assert z == "hi there"
+
         count = let((x, 0))[
                   lambda: [x << x + 1,
                            x]]
         assert count() == 1
         assert count() == 2
+
+        test = let((x, 0))[
+                 lambda: [x << x + 1,         # x belongs to the surrounding let
+                          localdef(y << 42),  # y is local to the implicit do
+                          (x, y)]]
+        assert test() == (1, 42)
+        assert test() == (2, 42)
 
         myadd = lambda x, y: [print("myadding", x, y),
                               localdef(tmp << x + y),
