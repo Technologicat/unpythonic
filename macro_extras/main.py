@@ -16,7 +16,7 @@ from unpythonic.syntax import macros, \
                               cond, \
                               fup, \
                               prefix, q, u, kw, \
-                              λ
+                              λ, multilambda
 
 from itertools import repeat
 from unpythonic import foldr, composerc as compose, cons, nil, ll, apply
@@ -278,6 +278,19 @@ def main():
                     print("result is", tmp),
                     tmp]
     assert myadd(2, 3) == 5
+
+    with multilambda:
+        count = let((x, 0))[
+                  lambda: [x << x + 1,
+                           x]]
+        assert count() == 1
+        assert count() == 2
+
+        myadd = lambda x, y: [print("myadding", x, y),
+                              localdef(tmp << x + y),
+                              print("result is", tmp),
+                              tmp]
+        assert myadd(2, 3) == 5
 
     # Anaphoric if: aif[test, then, otherwise]
     # Magic identifier "it" refers to the test result.

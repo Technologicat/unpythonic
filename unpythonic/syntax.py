@@ -16,7 +16,7 @@ from macropy.core.hquotes import macros, hq
 from functools import partial
 from ast import Call, arg, keyword, With, withitem, Tuple, \
                 Name, Attribute, Load, BinOp, LShift, \
-                Subscript, Index, Slice, ExtSlice, \
+                Subscript, Index, Slice, ExtSlice, Lambda, List, \
                 copy_location
 
 from unpythonic.it import flatmap, uniqify, rev
@@ -565,6 +565,53 @@ def λ(tree, args, kwargs, **kw):
     lam.args.args = [arg(arg=x) for x in names]
     lam.args.defaults = defaults  # for the last n args
     return lam
+
+@macros.block
+def multilambda(tree, **kw):
+    """[syntax, block] Supercharge your lambdas: multiple expressions, local variables.
+
+    For all ``lambda`` lexically inside the ``with multilambda`` block,
+    ``[...]`` denotes a multiple-expression body with an implicit ``do``::
+
+        lambda ...: [expr0, ...] --> lambda ...: do[expr0, ...]
+
+    For local variables, see ``do``.
+
+    In a ``multilambda`` block, it is not possible to return a literal list
+    from a ``lambda``, since it will be interpreted as a ``do``. Literal tuples
+    can be returned as usual.
+
+    Note ``do`` implicitly wraps each item in a ``lambda`` (to supply the
+    environment), so ``lambda ...: [[...]]`` means ``lambda ...: do[do[...]]``;
+    likely not what you want.
+
+    To return a list, it's ok as long as it's not a literal ``[...]``::
+
+        with multilambda:
+            lambda ...: [print("hi"),
+                         list((1, 2, 3))]
+
+    Another solution is to not use the ``multilambda`` block in such cases,
+    and explicitly spell out the ``do[...]``::
+
+        lambda ...: do[print("hi"),
+                       [1, 2, 3]]
+    """
+    # example: this is why we can't return a list, even by nesting brackets:
+    #   lambda: [[1, 2]]
+    #   lambda: do[[1, 2]]
+    #   lambda: dof(lambda e1: [1, 2])
+    #   lambda: dof(lambda e1: do[1, 2])
+    #   lambda: dof(lambda e1: dof(lambda e2: 1, lambda e2: 2))
+    @Walker
+    def transform(tree, **kw):
+        if type(tree) is not Lambda or type(tree.body) is not List:
+            return tree
+        bodys = Tuple(elts=tree.body.elts, ctx=Load())
+        bodys = copy_location(bodys, tree)
+        tree.body = do.transform(bodys)
+        return tree
+    yield transform.recurse(tree)
 
 # -----------------------------------------------------------------------------
 
