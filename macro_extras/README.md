@@ -67,12 +67,10 @@ Note the ``[...]``; these are ``expr`` macros. The bindings are given as macro a
 Nesting utilizes the fact that (as of v1.1.0) MacroPy3 expands macros in an inside-out order:
 
 ```python
-from unpythonic import begin
-
-letrec((z, 1))[
-  begin(print(z),
-        letrec((z, 2))[
-          print(z)])]  # (be careful with the parentheses!)
+letrec((z, 1))[[
+         print(z),
+         letrec((z, 2))[
+                  print(z)]]]
 ```
 
 Hence the ``z`` in the inner scope expands to the inner environment's ``z``, which makes the outer expansion leave it alone. (This works by transforming only ``ast.Name`` nodes, stopping recursion when an ``ast.Attribute`` is encountered.)
