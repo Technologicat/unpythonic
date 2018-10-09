@@ -8,6 +8,19 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
 
 !! **Currently** (10/2018) this requires the latest MacroPy from git HEAD. !!
 
+**Contents**:
+
+ - [``curry``: Automatic currying for Python](#curry-automatic-currying-for-python)
+ - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros)
+ - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
+ - [``aif``: anaphoric if](#aif-anaphoric-if)
+ - [``do`` as a macro: stuff imperative code into a lambda, *with style*](#do-as-a-macro-stuff-imperative-code-into-a-lambda-with-style)
+ - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation)
+ - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables
+ - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence); with slice notation
+ - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
+
+
 ## ``curry``: Automatic currying for Python
 
 ```python
@@ -64,9 +77,40 @@ letrec((z, 1))[
 
 Hence the ``z`` in the inner scope expands to the inner environment's ``z``, which makes the outer expansion leave it alone. (This works by transforming only ``ast.Name`` nodes, stopping recursion when an ``ast.Attribute`` is encountered.)
 
+### Multiple expressions in body
+
+As of `unpythonic` 0.9.2, the `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body (like in `multilambda`; see below):
+
+```python
+let((x, 1),
+    (y, 2))[[  # note extra [
+      y << x + y,
+      print(y)]]
+```
+
+The let macros implement this by inserting a ``do[...]`` (see below). In a multiple-expression body, also an internal definition context exists for local variables that are not part of the ``let``; see ``do`` for details.
+
+Only the outermost set of extra brackets is interpreted as a multiple-expression body; the rest are interpreted as usual, as lists. If you need to return a literal list from a let with only one body expression, use three sets of brackets:
+
+```python
+let((x, 1),
+    (y, 2))[[
+      [x, y]]]
+```
+
+The outermost brackets delimit the ``let`` body, the middle ones activate multiple-expression mode, and the innermost ones denote a list.
+
+Only brackets are affected; parentheses are interpreted as usual, so returning a literal tuple works as expected:
+
+```python
+let((x, 1),
+    (y, 2))[
+      (x, y)]
+```
+
 ### Note
 
-We also provide ``simple_let`` and ``simple_letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement). Just like in Lisps, ``simple_letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``simple_let`` expressions, which expand to lambdas.
+We also provide ``simple_let`` and ``simple_letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, ``simple_letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``simple_let`` expressions, which expand to lambdas.
 
 
 ## ``cond``: the missing ``elif`` for ``a if p else b``
@@ -104,7 +148,7 @@ Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to 
 
 We provide an ``expr`` macro wrapper for ``unpythonic.seq.do``, with some extra features.
 
-This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, see `cond`; for loops, see functions in `unpythonic.fploop`.
+This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, see `cond`; for loops, see the functions in `unpythonic.fploop` (esp. `looped`).
 
 ```python
 from unpythonic.syntax import macros, do
@@ -118,11 +162,11 @@ print(y)  # --> 23
 
 Local variables are declared and initialized with ``localdef(var << value)``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``. Currently it does not matter where the ``localdef`` appears inside the ``do``; it captures the declared name as a local variable **for the whole lexical scope** of the ``do``, including any references to that name **before** the ``localdef``. (This is subject to change in a future version.) For readability and future-proofness, it is recommended to place localdefs at or near the start of the do-block, at the first use of each local name.
 
-Already declared local variables are updated with ``var << value``.
+Already declared local variables are updated with ``var << value``. Updating variables in lexically outer environments (e.g. a ``let`` surrounding a ``do``) uses the same syntax.
 
-The reason we require local variables to be declared is to allow write access to lexically outer environments (e.g. a ``let`` surrounding a ``do``).
+The reason we require local variables to be declared is to allow write access to lexically outer environments.
 
-Assignments are recognized anywhere inside the ``do``; but note that any nested ``let`` constructs that define variables of the same name will (inside the ``let``) shadow those of the ``do``.
+Assignments are recognized anywhere inside the ``do``; but note that any ``let`` constructs nested *inside* the ``do``, that define variables of the same name, will (inside the ``let``) shadow those of the ``do`` - as expected of lexical scoping.
 
 Like in the macro ``letrec``, no ``lambda e: ...`` wrappers. These are inserted automatically, so the lines are only evaluated as the underlying ``seq.do`` actually runs.
 
@@ -169,7 +213,7 @@ In the future, we may replace the current ``forall`` macro with this version. Fr
 
 ## ``multilambda``: supercharge your lambdas
 
-**Multiple expressions**: use ``[...]`` to denote a multiple-expression body with an implicit ``do``.
+**Multiple expressions**: use ``[...]`` to denote a multiple-expression body. The macro implements this by inserting a ``do``.
 
 **Local variables**: available in a multiple-expression body. For details on usage, see ``do``.
 
@@ -209,7 +253,7 @@ In the second example, returning ``x`` separately is redundant, because the assi
 
 ## ``fup``: functionally update a sequence
 
-This is a macro wrapper for ``unpythonic.fup.fupdate``, for more natural syntax:
+This is a macro wrapper for ``unpythonic.fup.fupdate``, providing more natural syntax:
 
 ```python
 from unpythonic.syntax import macros, fup
