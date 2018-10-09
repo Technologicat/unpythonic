@@ -8,6 +8,8 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # TODO:  All macros are defined in this module, because MacroPy (as of 1.1.0b2)
 # does not have a mechanism for re-exporting macros defined in another module.
 
+# TODO: avoid mutating original tree in implementations
+
 from macropy.core.macros import Macros
 from macropy.core.walkers import Walker
 from macropy.core.quotes import macros, q, u, ast_literal, name
@@ -101,10 +103,7 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
     @Walker
     def transform_call(tree, **kw):  # technically a node containing the current subtree
         if type(tree) is Call:
-            newargs = []
-            newargs.append(tree.func)
-            newargs.extend(tree.args)
-            tree.args = newargs
+            tree.args = [tree.func] + tree.args
             tree.func = hq[curryf]
         return tree
     body = transform_call.recurse(tree)
@@ -270,8 +269,9 @@ def letrec(tree, args, gen_sym, **kw):
     return _letimpl(tree, args, "letrec", gen_sym)
 
 def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
+    newtree = do.transform(tree) if type(tree) in (List, Tuple) else tree  # implicit do
     if not args:
-        return tree
+        return newtree
     names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]
 
@@ -281,11 +281,11 @@ def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1
     t = partial(_common_transform, envname=e, varnames=names, setter=envset)
     if mode == "letrec":
         values = [t(b) for b in values]  # RHSs of bindings
-    tree = t(tree)  # body
+    newtree = t(newtree)  # body
 
     binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
     func = letf if mode == "let" else letrecf
-    return hq[func((ast_literal[binding_pairs],), ast_literal[tree])]
+    return hq[func((ast_literal[binding_pairs],), ast_literal[newtree])]
 
 def _common_transform(subtree, envname, varnames, setter):
     subtree = _transform_assignment.recurse(subtree, names=varnames, setter=setter)  # x << val --> e.set('x', val)
@@ -376,8 +376,34 @@ def do(tree, gen_sym, **kw):
     For readability and future-proofness, it is recommended to place localdefs
     at or near the start of the do-block, at the first use of each local name.
 
-    Macros are expanded in an inside-out order, so a nested ``let`` lexically
-    overrides names, if the same names appear in the ``do``::
+    **Caution**: ``do`` interprets a literal tuple or list body as a sequence
+    of expressions. To return a literal tuple or list from a single-item ``do``
+    (which may appear implicitly, e.g. in ``multilambda`` or ``let``), wrap it
+    into an extra tuple. Examples::
+
+        do[1, 2, 3] --> tuple, 3
+        do[(1, 2, 3)] --> tuple, 3 (since in Python, the comma creates tuples;
+                          parentheses are only used for disambiguation)
+        do[[1, 2, 3]] --> list, 3
+        do[[[1, 2, 3]]] --> list containing a list, [1, 2, 3]
+        do[([1, 2, 3],)] --> tuple containing a list, [1, 2, 3]
+        do[[(1, 2, 3)]] --> list containing a tuple, (1, 2, 3)
+        do[((1, 2, 3),)] --> tuple containing a tuple, (1, 2, 3)
+
+    Note the outermost brackets belong to the ``do``; they don't yet create a
+    tuple or list.
+
+    It is also possible to use ``unpythonic.misc.pack`` to create a tuple from
+    given elements: ``do[pack(1, 2, 3)]`` is ok.
+
+    Whenever there are multiple expressions in the body, this problem does not
+    arise, because then the distinction between the sequence of expressions
+    and its items is clear.
+
+    **Notes**
+
+    Macros are expanded in an inside-out order, so a nested ``let`` shadows
+    names, if the same names appear in the ``do``::
 
         do[localdef(x << 17),
            let((x, 23))[
@@ -398,7 +424,7 @@ def do(tree, gen_sym, **kw):
     The ``let`` constructs solve this problem by having the local bindings
     declared in a separate block, which plays the role of ``localdef``.
     """
-    if type(tree) is not Tuple:
+    if type(tree) not in (Tuple, List):
         assert False, "do body: expected a sequence of comma-separated expressions"
 
     e = gen_sym("e")
@@ -431,7 +457,7 @@ def do(tree, gen_sym, **kw):
 @macros.expr
 def do0(tree, **kw):
     """[syntax, expr] Like do, but return the value of the first expression."""
-    if type(tree) is not Tuple:
+    if type(tree) not in (Tuple, List):
         assert False, "do0 body: expected a sequence of comma-separated expressions"
     elts = tree.elts
     newelts = []  # IDE complains about _do0_result, but it's quoted, so it's ok.
@@ -559,8 +585,7 @@ def multilambda(tree, **kw):
     def transform(tree, *, stop, **kw):
         if type(tree) is not Lambda or type(tree.body) is not List:
             return tree
-        bodys = Tuple(elts=tree.body.elts, ctx=Load())
-        bodys = copy_location(bodys, tree)
+        bodys = tree.body
         # bracket magic:
         # - stop() to prevent recursing to the implicit lambdas generated
         #   by the "do" we are inserting here
@@ -600,10 +625,12 @@ def fup(tree, **kw):
     Limitations:
 
       - Currently only one update specification is supported in a single ``fup[]``.
+
+    Named after the sound a sequence makes when it is hit by a functional update.
     """
     valid = type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Subscript
     if not valid:
-        assert False, "fup: expected seq[slice] << value"
+        assert False, "fup: expected seq[idx_or_slice] << val"
     seq, idx, val = tree.left.value, tree.left.slice, tree.right
 
     if type(idx) is ExtSlice:

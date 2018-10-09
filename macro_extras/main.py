@@ -110,12 +110,12 @@ def main():
     # Let macros. Lexical scoping supported.
     #
     assert let((x, 17),  # parallel binding, i.e. bindings don't see each other
-               (y, 23))[
-                 (x, y)] == (17, 23)
+               (y, 23))[  # implicit do[...]
+                 [(x, y)]] == (17, 23)
 
     assert letseq((x, 1),  # sequential binding, i.e. Scheme/Racket let*
                   (y, x+1))[
-                    (x, y)] == (1, 2)
+                    [(x, y)]] == (1, 2)
 
     try:
         let((X, 1),
@@ -129,7 +129,7 @@ def main():
     try:
         letseq((X, y+1),
                (y, 2))[
-                 (X, y)]
+                 [(X, y)]]
     except NameError:  # y is not yet defined on the first line
         pass
     else:
@@ -163,7 +163,7 @@ def main():
     assert letrec((z, 9000))[
              letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
                     (oddp,  lambda x: (x != 0) and evenp(x - 1)))[
-                      (evenp(42), z)]] == (True, 9000)
+                      [(evenp(42), z)]]] == (True, 9000)
 
     # also letrec supports lexical scoping, since in MacroPy 1.1.0 and later,
     # macros are expanded from inside out (the z in the inner scope expands to
@@ -200,7 +200,7 @@ def main():
     # this works, too
     assert letrec((x, 1),
                   (y, x+2))[
-                    (x, y)] == (1, 3)
+                    [(x, y)]] == (1, 3)
 
     # but this is an error (just like in Racket):
     try:
@@ -220,20 +220,20 @@ def main():
 
     a = letrec((x, 1),
                (y, x+2))[  # y computed now
-                 begin(x << 1337,  # x updated now, no effect on y
-                       (x, y))]
+                 x << 1337,  # x updated now, no effect on y
+                 (x, y)]
     assert a == (1337, 3)
 
     a = let((x, 1),
             (y, 2))[
-              begin(y << 1337,
-                    (x, y))]
+              y << 1337,
+              (x, y)]
     assert a == (1, 1337)
 
     a = letseq((x, 1),
                (y, x+1))[
-                 begin(x << 1337,
-                       (x, y))]
+                 x << 1337,
+                 (x, y)]
     assert a == (1337, 2)
 
     # let over lambda
@@ -331,6 +331,7 @@ def main():
     assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                  (8, 15, 17), (9, 12, 15), (12, 16, 20))
 
+    # functional update for sequences
     lst = (1, 2, 3, 4, 5)
     assert fup[lst[3] << 42] == (1, 2, 3, 42, 5)
     assert fup[lst[0::2] << tuple(repeat(10, 3))] == (10, 2, 10, 4, 10)
