@@ -110,12 +110,12 @@ def main():
     # Let macros. Lexical scoping supported.
     #
     assert let((x, 17),  # parallel binding, i.e. bindings don't see each other
-               (y, 23))[  # implicit do[...]
-                 [(x, y)]] == (17, 23)
+               (y, 23))[
+                 (x, y)] == (17, 23)
 
     assert letseq((x, 1),  # sequential binding, i.e. Scheme/Racket let*
                   (y, x+1))[
-                    [(x, y)]] == (1, 2)
+                    (x, y)] == (1, 2)
 
     try:
         let((X, 1),
@@ -129,7 +129,7 @@ def main():
     try:
         letseq((X, y+1),
                (y, 2))[
-                 [(X, y)]]
+                 (X, y)]
     except NameError:  # y is not yet defined on the first line
         pass
     else:
@@ -163,7 +163,7 @@ def main():
     assert letrec((z, 9000))[
              letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
                     (oddp,  lambda x: (x != 0) and evenp(x - 1)))[
-                      [(evenp(42), z)]]] == (True, 9000)
+                      (evenp(42), z)]] == (True, 9000)
 
     # also letrec supports lexical scoping, since in MacroPy 1.1.0 and later,
     # macros are expanded from inside out (the z in the inner scope expands to
@@ -200,7 +200,7 @@ def main():
     # this works, too
     assert letrec((x, 1),
                   (y, x+2))[
-                    [(x, y)]] == (1, 3)
+                    (x, y)] == (1, 3)
 
     # but this is an error (just like in Racket):
     try:
@@ -219,21 +219,26 @@ def main():
                     f(3)] == 6
 
     a = letrec((x, 1),
-               (y, x+2))[  # y computed now
+               (y, x+2))[[   # y computed now
                  x << 1337,  # x updated now, no effect on y
-                 (x, y)]
+                 (x, y)]]
     assert a == (1337, 3)
 
     a = let((x, 1),
-            (y, 2))[
+            (y, 2))[[  # an extra set of brackets denotes a multi-expr body
               y << 1337,
-              (x, y)]
+              (x, y)]]
     assert a == (1, 1337)
 
+    a = let((x, 1),
+            (y, 2))[[
+              [1, 2]]]
+    assert a == [1, 2]  # only the outermost extra brackets denote a multi-expr body
+
     a = letseq((x, 1),
-               (y, x+1))[
+               (y, x+1))[[
                  x << 1337,
-                 (x, y)]
+                 (x, y)]]
     assert a == (1337, 2)
 
     # let over lambda
@@ -244,12 +249,13 @@ def main():
 
     # multilambda: multi-expression lambdas with implicit do
     with multilambda:
+        # use brackets around the body of a lambda to denote a multi-expr body
         echo = lambda x: [print(x), x]
         assert echo("hi there") == "hi there"
 
         count = let((x, 0))[
                   lambda: [x << x + 1,
-                           x]]
+                           x]]  # redundant, but demonstrating multi-expr body.
         assert count() == 1
         assert count() == 2
 
@@ -282,7 +288,7 @@ def main():
                             "something else"]
     assert answer(42) == "something else"
 
-    # macro wrapper for seq.do (stuff imperative code into a lambda)
+    # macro wrapper for unpythonic.seq.do (stuff imperative code into a lambda)
     #  - Declare and initialize a local variable with ``localdef(var << value)``.
     #  - Assignment is ``var << value``.
     #    Transforms to ``begin(setattr(e, var, value), value)``,
@@ -291,8 +297,8 @@ def main():
     #  - Note that if a nested binding macro such as a ``let`` also binds an
     #    ``x``, the inner macro will bind first, so the ``do`` environment
     #    will then **not** bind ``x``, as it already belongs to the ``let``.
-    #  - No need for ``lambda e: ...`` wrappers, inserted automatically,
-    #    so the lines are only evaluated as the seq.do() runs.
+    #  - No need for ``lambda e: ...`` wrappers. Inserted automatically,
+    #    so the lines are only evaluated as the underlying seq.do() runs.
     y = do[localdef(x << 17),
            print(x),
            x << 23,

@@ -210,15 +210,23 @@ def let(tree, args, gen_sym, **kw):
     Usage::
 
         let(bindings)[body]
+        let(bindings)[[body0, ...]]
 
     where ``bindings`` is a comma-separated sequence of pairs ``(name, value)``
     and ``body`` is an expression. The names bound by ``let`` are local;
     they are available in ``body``, and do not exist outside ``body``.
 
+    For a body with multiple expressions, use an extra set of brackets.
+    This inserts a ``do``. Only the outermost extra brackets are interpreted
+    specially; all others in the bodies are interpreted as usual, as lists.
+
     Each ``name`` in the same ``let`` must be unique.
 
     Assignment to let-bound variables is supported with syntax such as ``x << 42``.
     This is an expression, performing the assignment, and returning the new value.
+
+    In a multiple-expression body, also an internal definition context exists
+    for local variables that are not part of the ``let``; see ``do`` for details.
 
     Technical points:
 
@@ -235,6 +243,9 @@ def let(tree, args, gen_sym, **kw):
 
         - Lexical scoping is respected (so ``let`` constructs can be nested)
           by actually using a unique name (gensym) instead of just ``e``.
+
+        - In the case of a multiple-expression body, the ``do`` transformation
+          is applied first to ``[body0, ...]``, and the result becomes ``body``.
     """
     return _letimpl(tree, args, "let", gen_sym)
 
@@ -269,25 +280,25 @@ def letrec(tree, args, gen_sym, **kw):
     return _letimpl(tree, args, "letrec", gen_sym)
 
 def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
-    newtree = do.transform(tree) if type(tree) in (List, Tuple) else tree  # implicit do
+    newtree = do.transform(tree) if type(tree) is List else tree  # do[...] if extra brackets
     if not args:
         return newtree
     names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
-    names = [k.id for k in names]
+    names = [k.id for k in names]  # any duplicates will be caught by env at run-time
 
     e = gen_sym("e")
     envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
 
-    t = partial(_common_transform, envname=e, varnames=names, setter=envset)
+    t = partial(_letlike_transform, envname=e, varnames=names, setter=envset)
     if mode == "letrec":
         values = [t(b) for b in values]  # RHSs of bindings
     newtree = t(newtree)  # body
 
+    letter = letf if mode == "let" else letrecf
     binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
-    func = letf if mode == "let" else letrecf
-    return hq[func((ast_literal[binding_pairs],), ast_literal[newtree])]
+    return hq[letter((ast_literal[binding_pairs],), ast_literal[newtree])]
 
-def _common_transform(subtree, envname, varnames, setter):
+def _letlike_transform(subtree, envname, varnames, setter):
     subtree = _transform_assignment.recurse(subtree, names=varnames, setter=setter)  # x << val --> e.set('x', val)
     subtree = _transform_name.recurse(subtree, names=varnames, envname=envname)  # x --> e.x
     return _envwrap(subtree, envname=envname)  # ... -> lambda e: ...
@@ -319,7 +330,7 @@ def _transform_name(tree, *, names, envname, stop, **kw):
         return Attribute(value=q[name[envname]], attr=tree.id, ctx=Load())
     return tree
 
-# # ... -> lambda e: ...
+# ... -> lambda e: ...
 def _envwrap(tree, envname):
     lam = q[lambda: ast_literal[tree]]
     lam.args.args = [arg(arg=envname)]
@@ -331,9 +342,10 @@ def _envwrap(tree, envname):
 
 @macros.expr
 def do(tree, gen_sym, **kw):
-    """[syntax, expr] Stuff imperative code into a lambda.
+    """[syntax, expr] Stuff imperative code into an expression position.
 
-    Return value is the value of the last expression inside the do.
+    Return value is the value of the last expression inside the ``do``.
+    See also ``do0``.
 
     Usage::
 
@@ -362,6 +374,8 @@ def do(tree, gen_sym, **kw):
 
         - To assign to an already declared local name, use ``name << value``.
 
+    **localdef declarations**
+
     All ``localdef`` declarations are collected (and the declaration part
     discarded) before any other processing, so it does not matter where each
     ``localdef`` appears inside the ``do``. Especially, in::
@@ -376,29 +390,56 @@ def do(tree, gen_sym, **kw):
     For readability and future-proofness, it is recommended to place localdefs
     at or near the start of the do-block, at the first use of each local name.
 
-    **Caution**: ``do`` interprets a literal tuple or list body as a sequence
-    of expressions. To return a literal tuple or list from a single-item ``do``
-    (which may appear implicitly, e.g. in ``multilambda`` or ``let``), wrap it
-    into an extra tuple. Examples::
+    **Syntactic ambiguity**
 
-        do[1, 2, 3] --> tuple, 3
-        do[(1, 2, 3)] --> tuple, 3 (since in Python, the comma creates tuples;
-                          parentheses are only used for disambiguation)
-        do[[1, 2, 3]] --> list, 3
-        do[[[1, 2, 3]]] --> list containing a list, [1, 2, 3]
-        do[([1, 2, 3],)] --> tuple containing a list, [1, 2, 3]
-        do[[(1, 2, 3)]] --> list containing a tuple, (1, 2, 3)
-        do[((1, 2, 3),)] --> tuple containing a tuple, (1, 2, 3)
+    These two cases cannot be syntactically distinguished:
+
+        - Just one body expression, which is a literal tuple or list,
+
+        - Multiple body expressions, represented as a literal tuple or list.
+
+    ``do`` always uses the latter interpretation.
+
+    Whenever there are multiple expressions in the body, the ambiguity does not
+    arise, because then the distinction between the sequence of expressions itself
+    and its items is clear.
+
+    Examples::
+
+        do[1, 2, 3]   # --> tuple, 3
+        do[(1, 2, 3)] # --> tuple, 3 (since in Python, the comma creates tuples;
+                      #     parentheses are only used for disambiguation)
+        do[[1, 2, 3]] # --> list, 3
+        do[[[1, 2, 3]]]  # --> list containing a list, [1, 2, 3]
+        do[([1, 2, 3],)] # --> tuple containing a list, [1, 2, 3]
+        do[[1, 2, 3],]   # --> tuple containing a list, [1, 2, 3]
+        do[[(1, 2, 3)]]  # --> list containing a tuple, (1, 2, 3)
+        do[((1, 2, 3),)] # --> tuple containing a tuple, (1, 2, 3)
+        do[(1, 2, 3),]   # --> tuple containing a tuple, (1, 2, 3)
+
+    It is possible to use ``unpythonic.misc.pack`` to create a tuple from
+    given elements: ``do[pack(1, 2, 3)]`` is interpreted as a single-item body
+    that creates a tuple (by calling a function).
 
     Note the outermost brackets belong to the ``do``; they don't yet create a
     tuple or list.
 
-    It is also possible to use ``unpythonic.misc.pack`` to create a tuple from
-    given elements: ``do[pack(1, 2, 3)]`` is ok.
+    In the *use brackets to denote a multi-expr body* syntax (``multilambda``,
+    ``let`` constructs), the extra brackets already create a list, so in those
+    uses, the ambiguity does not arise. The transformation inserts not only the
+    word ``do``, but also the outermost brackets. For example::
 
-    Whenever there are multiple expressions in the body, this problem does not
-    arise, because then the distinction between the sequence of expressions
-    and its items is clear.
+        let((x, 1),
+            (y, 2))[[
+              [x, y]]]
+
+    transforms to::
+
+        let((x, 1),
+            (y, 2))[do[[  # "do[" is inserted between the two opening brackets
+              [x, y]]]]   # and its closing "]" is inserted here
+
+    which already gets rid of the ambiguity.
 
     **Notes**
 
@@ -414,9 +455,19 @@ def do(tree, gen_sym, **kw):
     to lexically outer environments from inside a ``do``::
 
         let((x, 17))[
-          do[x << 23,            # no localdef; update the "x" of the "let"
-             localdef(y << 42),  # "y" is local to the "do"
-             print(x, y)]]
+              do[x << 23,            # no localdef; update the "x" of the "let"
+                 localdef(y << 42),  # "y" is local to the "do"
+                 print(x, y)]]
+
+    With the extra bracket syntax, the latter example can be written as::
+
+        let((x, 17))[[
+              x << 23,
+              localdef(y << 42),
+              print(x, y)]]
+
+    It's subtly different in that the first version has the do-items in a tuple,
+    whereas this one has them in a list, but the behavior is exactly the same.
 
     Python does it the other way around, requiring a ``nonlocal`` statement
     to re-bind a name owned by an outer scope.
@@ -451,7 +502,7 @@ def do(tree, gen_sym, **kw):
     if len(set(names)) < len(names):
         assert False, "localdef names must be unique in the same do"
 
-    lines = [_common_transform(line, e, names, envset) for line in tree.elts]
+    lines = [_letlike_transform(line, e, names, envset) for line in tree.elts]
     return hq[dof(ast_literal[lines])]
 
 @macros.expr
@@ -486,7 +537,7 @@ def forall(tree, gen_sym, **kw):
     e = gen_sym("e")
     names = []  # variables bound by this forall
     lines = []
-    def transform(tree):  # like _common_transform but no assignment conversion
+    def transform(tree):  # as _letlike_transform but no assignment conversion
         tree = _transform_name.recurse(tree, names=names, envname=e)  # x --> e.x
         return _envwrap(tree, envname=e)  # ... -> lambda e: ...
     chooser = hq[choicef]
@@ -504,8 +555,8 @@ def forall(tree, gen_sym, **kw):
 def forall_simple(tree, **kw):
     """[syntax, expr] Nondeterministic evaluation.
 
-    Fully based on AST transformation, with real lexical variables,
-    like Haskell's do-notation (but here specialized for the List monad).
+    Fully based on AST transformation, with real lexical variables.
+    Like Haskell's do-notation, but here specialized for the List monad.
 
     Usage is the same as ``forall``.
     """
