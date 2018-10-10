@@ -775,7 +775,7 @@ def prefix(tree, **kw):
         return type(tree) is Call and type(tree.func) is Name and tree.func.id == "kw"
     @Walker
     def transform(tree, *, quotelevel, set_ctx, **kw):
-        if type(tree) is not Tuple:
+        if not (type(tree) is Tuple and type(tree.ctx) is Load):
             return tree
         op, *data = tree.elts
         while True:

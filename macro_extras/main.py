@@ -102,6 +102,13 @@ def main():
         # named args in apply are also fine
         assert (apply, g, "hi", "ho", lst, kw(myarg=4)) == (q, "hi" ,"ho", 1, 2, 3, ('myarg', 4))
 
+        # Function call transformation only applies to tuples in load context
+        # (i.e. NOT on the LHS of an assignment)
+        a, b = (q, 100, 200)
+        assert a == 100 and b == 200
+        a, b = (q, b, a)  # pythonic swap in prefix syntax; must quote RHS
+        assert a == 200 and b == 100
+
     # Introducing LisThEll:
     with prefix, curry:  # important: apply prefix first, then curry
         mymap = lambda f: (foldr, (compose, cons, f), nil)
