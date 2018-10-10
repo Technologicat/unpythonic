@@ -94,11 +94,13 @@ def main():
 
         # give *args with unpythonic.fun.apply, like in Lisps:
         lst = [1, 2, 3]
-        def g(*args):
-            return args
+        def g(*args, **kwargs):
+            return args + tuple(sorted(kwargs.items()))
         assert (apply, g, lst) == (q, 1, 2, 3)
         # lst goes last; may have other args first
         assert (apply, g, "hi", "ho", lst) == (q, "hi" ,"ho", 1, 2, 3)
+        # named args in apply are also fine
+        assert (apply, g, "hi", "ho", lst, kw(myarg=4)) == (q, "hi" ,"ho", 1, 2, 3, ('myarg', 4))
 
     # Introducing LisThEll:
     with prefix, curry:  # important: apply prefix first, then curry

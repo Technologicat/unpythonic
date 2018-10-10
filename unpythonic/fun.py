@@ -245,10 +245,11 @@ def rotate(k):
         return rotated
     return rotate_k
 
-def apply(f, arg0, *more):
+def apply(f, arg0, *more, **kwargs):
     """Scheme/Racket-like apply.
 
     Not really needed since Python has *, but included for completeness.
+    Useful if using the ``prefix`` macro from ``unpythonic.syntax``.
 
     ``f`` is a function.
 
@@ -256,13 +257,15 @@ def apply(f, arg0, *more):
 
     Otherwise the last item of ``more`` is the list to unpack. Any earlier
     arguments (starting from ``arg0``) are concatenated at the front.
+
+    The ``**kwargs`` are passed to `f`, allowing to pass also named arguments.
     """
     if not more:
         args, lst = (), tuple(arg0)
     else:
         args = (arg0,) + more[:-1]
         lst = tuple(more[-1])
-    return f(*(args + lst))
+    return f(*(args + lst), **kwargs)
 
 def identity(*args):
     """Identity function.
