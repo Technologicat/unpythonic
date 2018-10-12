@@ -36,6 +36,23 @@ macros = Macros()
 
 # -----------------------------------------------------------------------------
 
+def _implicit_do(tree):
+    """Allow a sequence of expressions in expression position.
+
+    To represent a sequence of expressions, use brackets::
+
+        [expr0, ...]
+
+    To represent a single literal list where this is active, use an extra set
+    of brackets::
+
+        [[1, 2, 3]]
+
+    The outer brackets enable multiple-expression mode, and the inner brackets
+    are then interpreted as a list.
+    """
+    return do.transform(tree) if type(tree) is List else tree
+
 # TODO: currently no "syntax-parameterize" in MacroPy. Would be convenient to
 # create a macro that expands to an error by default, and then override it
 # inside an aif.
@@ -57,16 +74,22 @@ def aif(tree, **kw):
 
     Usage::
 
-        from unpythonic.syntax import macros, aif, it
-
         aif[test, then, otherwise]
 
+        aif[[pre, ..., test],
+            [post_true, ..., then],        # "then" branch
+            [post_false, ..., otherwise]]  # "otherwise" branch
+
     Inside the ``then`` and ``otherwise`` branches, the magic identifier ``it``
-    refers to the value of ``test``.
+    (which is always named literally ``it``) refers to the value of ``test``.
 
     This expands into a ``let`` and an expression-form ``if``.
+
+    Each part may consist of multiple expressions by using brackets around it.
+    To represent a single expression that is a literal list, use extra
+    brackets: ``[[1, 2, 3]]``.
     """
-    test, then, otherwise = tree.elts
+    test, then, otherwise = [_implicit_do(x) for x in tree.elts]
     body = q[ast_literal[then] if it else ast_literal[otherwise]]
     body = copy_location(body, tree)
     bindings = [q[(it, ast_literal[test])]]
@@ -127,16 +150,27 @@ def cond(tree, **kw):
              ...
              otherwise]
 
+        cond[[pre1, ..., test1], [post1, ..., then1],
+             [pre2, ..., test2], [post2, ..., then2],
+             ...
+             [postn, ..., otherwise]]
+
     This allows human-readable multi-branch conditionals in a lambda.
+
+    Each part may consist of multiple expressions by using brackets around it.
+    To represent a single expression that is a literal list, use extra
+    brackets: ``[[1, 2, 3]]``.
     """
     if type(tree) is not Tuple:
         assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"
     def build(elts):
         if len(elts) == 1:  # final "otherwise" branch
-            return elts[0]
+            return _implicit_do(elts[0])
         if not elts:
             assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"
         test, then, *more = elts
+        test = _implicit_do(test)
+        then = _implicit_do(then)
         return hq[ast_literal[then] if ast_literal[test] else ast_literal[build(more)]]
     return build(tree.elts)
 
@@ -280,7 +314,7 @@ def letrec(tree, args, gen_sym, **kw):
     return _letimpl(tree, args, "letrec", gen_sym)
 
 def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
-    newtree = do.transform(tree) if type(tree) is List else tree  # do[...] if extra brackets
+    newtree = _implicit_do(tree)
     if not args:
         return newtree
     names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
@@ -421,10 +455,9 @@ def do(tree, gen_sym, **kw):
     given elements: ``do[pack(1, 2, 3)]`` is interpreted as a single-item body
     that creates a tuple (by calling a function).
 
-    Note the outermost brackets belong to the ``do``; they don't yet create a
-    tuple or list.
+    Note the outermost brackets belong to the ``do``; they don't yet create a list.
 
-    In the *use brackets to denote a multi-expr body* syntax (``multilambda``,
+    In the *use brackets to denote a multi-expr body* syntax (e.g. ``multilambda``,
     ``let`` constructs), the extra brackets already create a list, so in those
     uses, the ambiguity does not arise. The transformation inserts not only the
     word ``do``, but also the outermost brackets. For example::
@@ -530,6 +563,17 @@ def forall(tree, gen_sym, **kw):
       - ``choice("x", iterable)`` becomes ``x << iterable``
       - ``insist``, ``deny`` work as usual
       - no need for ``lambda e: ...`` wrappers
+
+    Example::
+
+        # pythagorean triples
+        pt = forall[z << range(1, 21),   # hypotenuse
+                    x << range(1, z+1),  # shorter leg
+                    y << range(x, z+1),  # longer leg
+                    insist(x*x + y*y == z*z),
+                    (x, y, z)]
+        assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
+                                     (8, 15, 17), (9, 12, 15), (12, 16, 20))
     """
     if type(tree) is not Tuple:
         assert False, "forall body: expected a sequence of comma-separated expressions"
