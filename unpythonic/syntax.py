@@ -815,8 +815,7 @@ def prefix(tree, **kw):
     """
     isquote = lambda tree: type(tree) is Name and tree.id == "q"
     isunquote = lambda tree: type(tree) is Name and tree.id == "u"
-    def iskwargs(tree):
-        return type(tree) is Call and type(tree.func) is Name and tree.func.id == "kw"
+    iskwargs = lambda tree: type(tree) is Call and type(tree.func) is Name and tree.func.id == "kw"
     @Walker
     def transform(tree, *, quotelevel, set_ctx, **kw):
         if not (type(tree) is Tuple and type(tree.ctx) is Load):
@@ -847,7 +846,7 @@ def prefix(tree, **kw):
         if invalids:
             assert False, "kw(...) may only specify named args"
         kwargs = flatmap(lambda x: x.keywords, filter(iskwargs, data))
-        kwargs = list(uniqify(rev(kwargs), key=lambda x: x.arg))  # latest wins
+        kwargs = list(rev(uniqify(rev(kwargs), key=lambda x: x.arg)))  # latest wins, but keep original ordering
         return Call(func=op, args=posargs, keywords=list(kwargs))
     return transform.recurse(tree, quotelevel=0)
 
