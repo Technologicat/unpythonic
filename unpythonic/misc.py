@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["call", "raisef", "pack"]
+__all__ = ["call", "raisef", "pack", "namelambda"]
+
+from types import FunctionType
+import re
 
 def call(f, *args, **kwargs):
     """Call the function f.
@@ -127,6 +130,22 @@ def pack(*args):
     """
     return args  # pretty much like in Lisps, (define (list . args) args)
 
+def namelambda(function, name):
+    """Name a lambda function.
+
+    Only works once per object; the original name must be ``<lambda>``.
+
+    The original function object is modified in-place; for convenience,
+    the object is returned.
+
+    This is used by ``env``, and by the ``namedlambda`` macro.
+    """
+    if isinstance(function, FunctionType) and function.__name__ == "<lambda>":
+        myname = "{} (lambda)".format(name)
+        function.__name__ = myname
+        function.__qualname__ = re.sub("<lambda>$", myname, function.__qualname__)
+    return function
+
 def test():
     # def as a code block (function overwritten by return value)
     #
@@ -168,6 +187,11 @@ def test():
     myzip = lambda lol: map(pack, *lol)
     lol = ((1, 2), (3, 4), (5, 6))
     assert tuple(myzip(lol)) == ((1, 3, 5), (2, 4, 6))
+
+    square = lambda x: x**2
+    assert square.__name__ == "<lambda>"
+    square = namelambda(square, "square")
+    assert square.__name__ == "square (lambda)"
 
     print("All tests PASSED")
 

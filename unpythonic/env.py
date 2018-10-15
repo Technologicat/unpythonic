@@ -4,6 +4,13 @@
 
 __all__ = ["env"]
 
+from unpythonic.dynscope import dyn, make_dynvar
+from unpythonic.misc import namelambda
+
+# Whether to automatically name lambdas saved in an env.
+# Use  with dyn.let(env_namedlambda=True): ...  to activate.
+make_dynvar(env_namedlambda=False)
+
 class env:
     """Environment for let-like constructs.
 
@@ -72,6 +79,8 @@ class env:
             raise ValueError("'{}' is not a valid identifier".format(name))
 #        value = self._wrap(name, value)  # for "e.x << value" rebind syntax.
         self._env[name] = value  # make all other attrs else live inside _env
+        if dyn.env_namedlambda:  # name lambdas saved to an unpythonic.env
+            value = namelambda(value, name)
 
     def __getattr__(self, name):
         # Block invalid names in subscripting (which redirects here).

@@ -14,12 +14,13 @@ from macropy.core.macros import Macros
 from macropy.core.walkers import Walker
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
+from macropy.core.cleanup import fill_line_numbers
 
 from functools import partial
 from ast import Call, arg, keyword, With, withitem, Tuple, \
                 Name, Attribute, Load, BinOp, LShift, \
                 Subscript, Index, Slice, ExtSlice, Lambda, List, \
-                copy_location
+                copy_location, Assign, FunctionDef
 
 from unpythonic.it import flatmap, uniqify, rev
 from unpythonic.fun import curry as curryf
@@ -27,6 +28,7 @@ from unpythonic.dynscope import dyn
 from unpythonic.lispylet import letrec as letrecf, let as letf
 from unpythonic.seq import do as dof, begin as beginf
 from unpythonic.fup import fupdate
+from unpythonic.misc import namelambda
 
 # insist, deny are just for passing through to the using module that imports us.
 from unpythonic.amb import forall as forallf, choice as choicef, insist, deny
@@ -333,9 +335,12 @@ def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1
     return hq[letter((ast_literal[binding_pairs],), ast_literal[newtree])]
 
 def _letlike_transform(subtree, envname, varnames, setter):
-    subtree = _transform_assignment.recurse(subtree, names=varnames, setter=setter)  # x << val --> e.set('x', val)
-    subtree = _transform_name.recurse(subtree, names=varnames, envname=envname)  # x --> e.x
-    return _envwrap(subtree, envname=envname)  # ... -> lambda e: ...
+    # x << val --> e.set('x', val)
+    subtree = _transform_assignment.recurse(subtree, names=varnames, setter=setter, fargs=[])
+    # x --> e.x
+    subtree = _transform_name.recurse(subtree, names=varnames, envname=envname, fargs=[])
+    # ... -> lambda e: ...
+    return _envwrap(subtree, envname=envname)
 
 def _isassign(tree):  # detect "x << 42" syntax to assign variables in an environment
     return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
@@ -344,30 +349,47 @@ def _assign_name(tree):  # rackety accessors
 def _assign_value(tree):
     return tree.right
 
+def _getargs(tree):  # get arg names of a Lambda or FunctionDef
+    a = tree.args
+    argnames = [x.arg for x in a.args + a.kwonlyargs]
+    if a.vararg:
+        argnames.append(a.vararg.arg)
+    if a.kwarg:
+        argnames.append(a.kwarg.arg)
+    return argnames
+
 # x << val --> e.set('x', val)  (for names bound in this environment)
 @Walker
-def _transform_assignment(tree, *, names, setter, **kw):
-    if not _isassign(tree):
-        return tree
-    varname = _assign_name(tree)
-    if varname not in names:  # each let handles only its own varnames
-        return tree
-    value = _assign_value(tree)
-    return q[ast_literal[setter](u[varname], ast_literal[value])]
+def _transform_assignment(tree, *, names, setter, fargs, set_ctx, **kw):
+    # Allow function args to shadow names of the surrounding env.
+    # TODO: comprehensions should shadow, too
+    if type(tree) in (Lambda, FunctionDef):
+        set_ctx(fargs=(fargs + _getargs(tree)))
+    elif _isassign(tree):
+        varname = _assign_name(tree)
+        # each let handles only its own varnames
+        if varname in names and varname not in fargs:
+            value = _assign_value(tree)
+            return q[ast_literal[setter](u[varname], ast_literal[value])]
+    return tree
 
 # x --> e.x  (for names bound in this environment)
 @Walker
-def _transform_name(tree, *, names, envname, stop, **kw):
-    if type(tree) is Attribute:
-        stop()
-    elif type(tree) is Name and tree.id in names:
+def _transform_name(tree, *, names, envname, fargs, set_ctx, **kw):
+    if type(tree) in (Lambda, FunctionDef):
+        set_ctx(fargs=(fargs + _getargs(tree)))
+    # e.anything is already ok, but x.foo (Attribute that contains a Name "x")
+    # should transform to e.x.foo.
+    elif type(tree) is Attribute and type(tree.value) is Name and tree.value.id == envname:
+        pass
+    elif type(tree) is Name and tree.id in names and tree.id not in fargs:
         return Attribute(value=q[name[envname]], attr=tree.id, ctx=Load())
     return tree
 
 # ... -> lambda e: ...
 def _envwrap(tree, envname):
     lam = q[lambda: ast_literal[tree]]
-    lam.args.args = [arg(arg=envname)]
+    lam.args.args = [arg(arg=envname)]  # lambda e44: ...
     return lam
 
 # -----------------------------------------------------------------------------
@@ -582,7 +604,7 @@ def forall(tree, gen_sym, **kw):
     names = []  # variables bound by this forall
     lines = []
     def transform(tree):  # as _letlike_transform but no assignment conversion
-        tree = _transform_name.recurse(tree, names=names, envname=e)  # x --> e.x
+        tree = _transform_name.recurse(tree, names=names, envname=e, fargs=[])  # x --> e.x
         return _envwrap(tree, envname=e)  # ... -> lambda e: ...
     chooser = hq[choicef]
     for line in body:
@@ -696,6 +718,75 @@ def multilambda(tree, **kw):
     # multilambda should expand first before any let[], do[] et al. that happen
     # to be inside the block, to avoid misinterpreting implicit lambdas.
     yield transform.recurse(tree)
+
+@macros.block
+def namedlambda(tree, **kw):
+    """[syntax, block] Named lambdas.
+
+    Lexically inside a ``with namedlambda`` block, any literal ``lambda``
+    that is assigned to a name using a simple assignment of the form
+    ``f = lambda ...: ...``, is named as "f (lambda)", where the name ``f``
+    is captured from the assignment statement at macro expansion time.
+
+    For capturing the name, the assignment must be of a single ``lambda`` value
+    to a single name; other forms of assignment are not supported. (This may be
+    subject to change in a future version.)
+
+    Additionally, during the dynamic extent of the ``with namedlambda`` block,
+    assigning a lambda to a name in an ``unpythonic.env`` instance will cause
+    that lambda to be named, capturing the name it is assigned to in the env.
+    This is performed at run time.
+
+    Naming modifies the original function object (specifically, its ``__name__``
+    and ``__qualname__`` attributes). The name can be set only once per object,
+    so in::
+
+        with namedlambda:
+            f = lambda x: x**3        # lexical rule: name as "f"
+
+            let((x, 42), (g, None), (h, None))[[
+              g << (lambda x: x**2),  # dynamic rule: name as "g"
+              h << f,                 # no-rename rule: still "f"
+              (g(x), h(x))]]
+
+    the name of the first lambda will be set as ``f``, and it will remain as ``f``
+    even after the name ``h`` is made to point to the same object inside the
+    body of the ``let``.
+    """
+    def issingleassign(tree):
+        return type(tree) is Assign and len(tree.targets) == 1 and type(tree.targets[0]) is Name
+
+    @Walker
+    def transform(tree, *, stop, **kw):
+        if issingleassign(tree) and type(tree.value) is Lambda:
+            # an assignment is a statement, so in the transformed tree,
+            # we are free to use all of Python's syntax.
+            myname = tree.targets[0].id
+            value = tree.value
+            # trick from MacroPy: to replace one statement with multiple statements,
+            # use an "if 1:" block; the Python compiler optimizes it away.
+            with hq as newtree:
+                if 1:
+#                    ast_literal[tree]   # TODO: doesn't work, why?
+                    name[myname] = ast_literal[value]  # do the same thing as ast_literal[tree] should
+                    namelambda(name[myname], u[myname])
+            stop()  # prevent infinite loop
+            return newtree[0]  # the if statement
+        return tree
+
+    newtree = [transform.recurse(x) for x in tree]
+
+#    # TODO: this syntax doesn't work due to missing line numbers?
+#    with q as wrapped:  # name lambdas also in env
+#        with dyn.let(env_namedlambda=True):
+#            ast_literal[newtree]
+#    return wrapped
+
+    # name lambdas also in env
+    item = hq[dyn.let(env_namedlambda=True)]
+    wrapped = With(items=[withitem(context_expr=item)],
+                   body=newtree)
+    return [wrapped]
 
 # -----------------------------------------------------------------------------
 

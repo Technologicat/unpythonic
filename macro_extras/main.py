@@ -16,7 +16,7 @@ from unpythonic.syntax import macros, \
                               cond, \
                               fup, \
                               prefix, q, u, kw, \
-                              multilambda
+                              multilambda, namedlambda
 
 from itertools import repeat
 from unpythonic import foldr, composerc as compose, cons, nil, ll, apply
@@ -284,6 +284,17 @@ def main():
         # only the outermost set of brackets denote a multi-expr body:
         t = lambda: [[1, 2]]
         assert t() == [1, 2]
+
+    # named lambdas!
+    with namedlambda:
+        f = lambda x: x**3                       # lexical rule: name as "f"
+        assert f.__name__ == "f (lambda)"
+        gn, hn = let((x, 42), (g, None), (h, None))[[
+                       g << (lambda x: x**2),    # dynamic rule: name as "g"
+                       h << f,                   # no-rename rule: still "f"
+                       (g.__name__, h.__name__)]]
+        assert gn == "g (lambda)"
+        assert hn == "f (lambda)"
 
     # Anaphoric if: aif[test, then, otherwise]
     # Magic identifier "it" refers to the test result.
