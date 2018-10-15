@@ -428,35 +428,35 @@ def main():
         saved = []
         def dft_node(tree):
             if not tree:
-                return cc[restart()]  # no need for cc[]? Maybe because restart() doesn't call anything that needs it.
-            elif atom(tree):
+                return restart()  # call normally to let the call return back here
+            if atom(tree):
                 return tree
-            else:
-                first, *rest = tree
-                # TODO: bug?: why is the cc[] required here? How does the Lisp version avoid that?
-                saved.append(lambda: cc[dft_node(rest)])
-                return cc[dft_node(first)]
+            first, *rest = tree
+            # cc[...] sets *our* current continuation as the continuation
+            # of the function being called. Makes the most sense in a tail call.
+            saved.append(lambda: cc[dft_node(rest)])
+            return cc[dft_node(first)]
         def restart():
             if saved:
                 f = saved.pop()
-                f()  # regular lambda, doesn't take a continuation, no cc[]
+                return f()  # regular lambda, doesn't take a continuation, no cc[]
+            else:
                 return "done"
         def dft2(tree):
             nonlocal saved
             saved = []
+            # - "with cc" is one construct, not two
+            # - The function in the brackets is called, with the body of the
+            #   with block set as its continuation.
+            # - The as-part captures the output of func. Can also use a tuple
+            #   (r0, ...) to destructure multiple-values (from a tuple return value).
+            # - This is a tail call. Once func returns, our current continuation
+            #   is invoked on the value returned by the body of the with block.
             with cc[dft_node(tree)] as node:
-                if node == "done":
-                    return None  # TODO: bug: doesn't work with bare return
-                # The Lisp version doesn't generate a lot of NILs at the end,
-                # perhaps because its restart only enters an "=values"
-                # in one of the if branches, so in the empty-list case
-                # the NIL never gets sent to the continuation.
-                #
-                # Our implementation always sends (in dft_node), because
-                # it transforms all return statements.
-                if node:
-                    print(node, end='')
-                return cc[restart()]
+                if node == "done":  # each leaf will reach this once
+                    return "done"   # TODO: figure out why this value comes back to us
+                print(node, end='')
+                return restart()
         print("dft2")
         dft2(t1)
         print()

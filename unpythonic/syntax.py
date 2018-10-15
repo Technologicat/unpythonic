@@ -946,7 +946,10 @@ def continuations(tree, gen_sym, **kw):
     def transform_def(tree, **kw):
         if type(tree) is FunctionDef:
             tree.args.kwonlyargs = [arg(arg="_cont")] + tree.args.kwonlyargs
-            # default cont is whatever _cont is currently lexically bound to
+            # default cont is whatever _cont is in lexical scope *at the def site*
+            # (so for top-level functions it is identity; for nested functions
+            #  it is the outer function's current continuation)
+            # TODO: is this a good idea? Should we always default to top-level cont?
             tree.args.kw_defaults = [q[name["_cont"]]] + tree.args.kw_defaults
         return tree
     # return value --> return _cont(value)
@@ -956,20 +959,19 @@ def continuations(tree, gen_sym, **kw):
     @Walker
     def transform_return(tree, **kw):
         if type(tree) is Return:
+            # return --> return None  (bare return has value=None in the AST)
+            value = tree.value or q[None]
             # handle multiple-return-values like the rest of unpythonic does
-            # (return tuple means multiple-return-values)
-            if type(tree.value) is Tuple:
+            # (returning a tuple means multiple return values)
+            if type(value) is Tuple:
                 # unpack the values to _cont's arglist
-                thecall = q[name["_cont"](*ast_literal[tree.value])]
+                thecall = q[name["_cont"](*ast_literal[value])]
             else:
-                thecall = q[name["_cont"](ast_literal[tree.value])]
+                thecall = q[name["_cont"](ast_literal[value])]
             return Return(value=thecall)
         return tree
     # cc[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., _cont=_cont, k0=v0, ...)
-    # This correspods to PG's "=funcall".
-    #
-    # To call from the top level in the with block, no need to use this;
-    # _cont automatically gets the top-level default value if not specified.
+    # This roughly corresponds to PG's "=funcall".
     def iscc(tree):
         return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "cc"
     @Walker
@@ -990,25 +992,29 @@ def continuations(tree, gen_sym, **kw):
                 return True
         return False
     @Walker
-    def transform_contblock(tree, *, toplevel, set_ctx, **kw):
+    def transform_withcc(tree, *, toplevel, set_ctx, **kw):
         if type(tree) is FunctionDef:
             set_ctx(toplevel=False)
-        if toplevel:
-            return tree
         if not iswithcc(tree):
             return tree
+        if toplevel:
+            assert False, "with cc[...] as ... may only appear inside a function definition"
         ctxmanager = tree.items[0].context_expr
         optvars = tree.items[0].optional_vars
         if optvars:
             if type(optvars) is Name:
                 posargs = [optvars.id]
             elif type(optvars) in (List, Tuple):
+                if not all(type(x) is Name for x in optvars.elts):
+                    assert False, "with cc[...] as ... expected only names in as-part tuple/list"
                 posargs = list(x.id for x in optvars.elts)
             else:
-                assert False, "expected a name, list or tuple in as-part of with cc[...] as ..."
+                assert False, "with cc[...] as ... expected a name, list or tuple in as-part"
         else:
             posargs = []
-        # create the continuation function, set our body as its body
+        # Create the continuation function, set our body as its body.
+        # Any return statements in the body have already been transformed,
+        # because they appear literally in the code at the use site.
         thename = gen_sym("cont")
         funcdef = FunctionDef(name=thename,
                               args=arguments(args=[arg(arg=x) for x in posargs],
@@ -1020,7 +1026,7 @@ def continuations(tree, gen_sym, **kw):
                               body=tree.body,
                               decorator_list=[],
                               returns=None)  # return annotation not used here
-        # set up the call to func, specifying our new function as its continuation
+        # Set up the call to func, specifying our new function as its continuation
         thecall = transform_cc.recurse(ctxmanager, contname=thename)
         # output a block that makes the function definition and
         # then calls func, **as a tail call**
@@ -1038,11 +1044,11 @@ def continuations(tree, gen_sym, **kw):
     newtree = [Assign(targets=[q[name["_cont"]]], value=hq[identity])]
     # CPS conversion
     for stmt in tree:
-        # transform "return" statements before contblock's tail calls generate new ones.
+        # transform "return" statements before withcc's tail calls generate new ones.
         stmt = transform_return.recurse(stmt)
-        stmt = transform_contblock.recurse(stmt, toplevel=True)  # transform "with cc[]" calls
-        stmt = transform_cc.recurse(stmt, contname="_cont")      # transform other cc[] calls
-        # transform all defs, including those added by contblock.
+        stmt = transform_withcc.recurse(stmt, toplevel=True)  # transform "with cc[]" calls
+        stmt = transform_cc.recurse(stmt, contname="_cont")   # transform "cc[]" calls
+        # transform all defs, including those added by withcc.
         stmt = transform_def.recurse(stmt)
         newtree.append(stmt)
     return newtree
