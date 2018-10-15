@@ -406,5 +406,60 @@ def main():
         assert cc[g(3, 4)] == (6, 12)
         assert g(3, 4) == (6, 12)
 
+    # depth-first traversal (Paul Graham: On Lisp, p. 271)
+    def atom(x):
+        return not isinstance(x, (list, tuple))
+    def dft(tree):  # classical, no continuations
+        if not tree:
+            return
+        if atom(tree):
+            print(tree, end='')
+            return
+        first, *rest = tree
+        dft(first)
+        dft(rest)
+
+    t1 = ["a", ["b", ["d", "h"]], ["c", "e", ["f", "i"], "g"]]
+    print("dft")
+    dft(t1)  # abdhcefig
+    print()
+
+    with continuations:
+        saved = []
+        def dft_node(tree):
+            if not tree:
+                return cc[restart()]  # no need for cc[]? Maybe because restart() doesn't call anything that needs it.
+            elif atom(tree):
+                return tree
+            else:
+                first, *rest = tree
+                # TODO: bug?: why is the cc[] required here? How does the Lisp version avoid that?
+                saved.append(lambda: cc[dft_node(rest)])
+                return cc[dft_node(first)]
+        def restart():
+            if saved:
+                f = saved.pop()
+                f()  # regular lambda, doesn't take a continuation, no cc[]
+                return "done"
+        def dft2(tree):
+            nonlocal saved
+            saved = []
+            with cc[dft_node(tree)] as node:
+                if node == "done":
+                    return None  # TODO: bug: doesn't work with bare return
+                # The Lisp version doesn't generate a lot of NILs at the end,
+                # perhaps because its restart only enters an "=values"
+                # in one of the if branches, so in the empty-list case
+                # the NIL never gets sent to the continuation.
+                #
+                # Our implementation always sends (in dft_node), because
+                # it transforms all return statements.
+                if node:
+                    print(node, end='')
+                return cc[restart()]
+        print("dft2")
+        dft2(t1)
+        print()
+
 if __name__ == '__main__':
     main()
