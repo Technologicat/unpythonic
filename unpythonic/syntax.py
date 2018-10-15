@@ -19,7 +19,8 @@ from functools import partial
 from ast import Call, arg, keyword, With, withitem, Tuple, \
                 Name, Attribute, Load, BinOp, LShift, \
                 Subscript, Index, Slice, ExtSlice, Lambda, List, \
-                copy_location, Assign, FunctionDef
+                copy_location, Assign, FunctionDef, \
+                ListComp, SetComp, GeneratorExp, DictComp, comprehension
 
 from unpythonic.it import flatmap, uniqify, rev
 from unpythonic.fun import curry as curryf
@@ -348,22 +349,41 @@ def _assign_name(tree):  # rackety accessors
 def _assign_value(tree):
     return tree.right
 
-def _getargs(tree):  # get arg names of a Lambda or FunctionDef
-    a = tree.args
-    argnames = [x.arg for x in a.args + a.kwonlyargs]
-    if a.vararg:
-        argnames.append(a.vararg.arg)
-    if a.kwarg:
-        argnames.append(a.kwarg.arg)
-    return argnames
+def _isnewscope(tree):
+    return type(tree) in (Lambda, FunctionDef, ListComp, SetComp, GeneratorExp, DictComp)
+def _getlocalnames(tree):  # get arg names of Lambda/FunctionDef, and target names of comprehensions
+    if type(tree) in (Lambda, FunctionDef):
+        a = tree.args
+        argnames = [x.arg for x in a.args + a.kwonlyargs]
+        if a.vararg:
+            argnames.append(a.vararg.arg)
+        if a.kwarg:
+            argnames.append(a.kwarg.arg)
+        return argnames
+    elif type(tree) in (ListComp, SetComp, GeneratorExp, DictComp):
+        argnames = []
+        for g in tree.generators:
+            if type(g.target) is Name:
+                argnames.append(g.target.id)
+            elif type(g.target) is Tuple:
+                # TODO: simplistic; does this cover all cases?
+                @Walker
+                def extractnames(tree, *, collect, **kw):
+                    if type(tree) is Name:
+                        collect(tree.id)
+                    return tree
+                argnames.extend(extractnames.collect(g.target))
+            else:
+                assert False, "unimplemented: comprehension target of type {}".type(g.target)
+        return argnames
+    return []
 
 # x << val --> e.set('x', val)  (for names bound in this environment)
 @Walker
 def _transform_assignment(tree, *, names, setter, fargs, set_ctx, **kw):
-    # Allow function args to shadow names of the surrounding env.
-    # TODO: comprehensions should shadow, too
-    if type(tree) in (Lambda, FunctionDef):
-        set_ctx(fargs=(fargs + _getargs(tree)))
+    # Function args and comprehenion targets shadow names of the surrounding env.
+    if _isnewscope(tree):
+        set_ctx(fargs=(fargs + _getlocalnames(tree)))
     elif _isassign(tree):
         varname = _assign_name(tree)
         # each let handles only its own varnames
@@ -375,8 +395,8 @@ def _transform_assignment(tree, *, names, setter, fargs, set_ctx, **kw):
 # x --> e.x  (for names bound in this environment)
 @Walker
 def _transform_name(tree, *, names, envname, fargs, set_ctx, **kw):
-    if type(tree) in (Lambda, FunctionDef):
-        set_ctx(fargs=(fargs + _getargs(tree)))
+    if _isnewscope(tree):
+        set_ctx(fargs=(fargs + _getlocalnames(tree)))
     # e.anything is already ok, but x.foo (Attribute that contains a Name "x")
     # should transform to e.x.foo.
     elif type(tree) is Attribute and type(tree.value) is Name and tree.value.id == envname:

@@ -296,6 +296,19 @@ def main():
         assert gn == "g (lambda)"
         assert hn == "f (lambda)"
 
+    # lexical scoping: a comprehension or lambda in a let body
+    # shadows names from the surrounding let, but only in that subexpr
+    assert let((x, 42))[[
+                 [x for x in range(10)]]] == list(range(10))
+    assert let((x, 42))[[
+                 [x for x in range(10)],
+                 x]] == 42
+    assert let((x, 42))[
+                 (lambda x: x**2)(10)] == 100
+    assert let((x, 42))[[
+                 (lambda x: x**2)(10),
+                 x]] == 42
+
     # Anaphoric if: aif[test, then, otherwise]
     # Magic identifier "it" refers to the test result.
     assert aif[2*21,
