@@ -757,8 +757,7 @@ def namedlambda(tree, **kw):
     This is performed at run time.
 
     Naming modifies the original function object (specifically, its ``__name__``
-    and ``__qualname__`` attributes). The name can be set only once per object,
-    so in::
+    and ``__qualname__`` attributes). The name is set only once per object, so in::
 
         with namedlambda:
             f = lambda x: x**3        # lexical rule: name as "f"
