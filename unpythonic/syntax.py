@@ -14,7 +14,6 @@ from macropy.core.macros import Macros
 from macropy.core.walkers import Walker
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
-from macropy.core.cleanup import fill_line_numbers
 
 from functools import partial
 from ast import Call, arg, keyword, With, withitem, Tuple, \
