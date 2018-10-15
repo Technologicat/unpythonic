@@ -461,5 +461,55 @@ def main():
         dft2(t1)
         print()
 
+    # The amb operator is very similar to dft:
+    with continuations:
+        stack = []
+        def amb(lst):
+            if not lst:
+                return fail()
+            first, *rest = lst
+            if rest:
+                stack.append(lambda: cc[amb(rest)])
+            return first
+        def fail():
+            if stack:
+                f = stack.pop()
+                return f()
+
+        def doit1():
+            with cc[amb((1, 2, 3))] as c1:
+                with cc[amb((10, 20))] as c2:
+                    if c1 and c2:
+                        return c1 + c2
+        print(doit1())
+        print(fail())
+        print(fail())
+        print(fail())
+        print(fail())
+        print(fail())
+        print(fail())
+
+        def doit2():
+            with cc[amb((1, 2, 3))] as c1:
+                with cc[amb((10, 20))] as c2:
+                    if c1 + c2 != 22:  # we can require conditions like this
+                        return fail()
+                    return c1, c2
+        print(doit2())
+        print(fail())
+
+        def pt():
+            with cc[amb(tuple(range(1, 21)))] as z:
+                with cc[amb(tuple(range(1, z+1)))] as y:
+                    with cc[amb(tuple(range(1, y+1)))] as x:
+                        if x*x + y*y != z*z:
+                            return fail()
+                        return x, y, z
+        print(pt())
+        print(fail())
+        # Computing more requires TCO support in the continuations macro.
+        # The issue is that in a "with continuations" blokc, no call really
+        # returns until all the computation is done.
+
 if __name__ == '__main__':
     main()
