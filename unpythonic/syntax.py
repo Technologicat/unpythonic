@@ -959,6 +959,7 @@ def continuations(tree, gen_sym, **kw):
     @Walker
     def transform_return(tree, **kw):
         if type(tree) is Return:
+            # TODO: support Return with Ifexp
             # return --> return None  (bare return has value=None in the AST)
             value = tree.value or q[None]
             # handle multiple-return-values like the rest of unpythonic does
