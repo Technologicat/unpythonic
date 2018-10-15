@@ -20,10 +20,11 @@ from ast import Call, arg, keyword, With, withitem, Tuple, \
                 Name, Attribute, Load, BinOp, LShift, \
                 Subscript, Index, Slice, ExtSlice, Lambda, List, \
                 copy_location, Assign, FunctionDef, \
-                ListComp, SetComp, GeneratorExp, DictComp, comprehension
+                ListComp, SetComp, GeneratorExp, DictComp, \
+                arguments, If, Num, Return
 
 from unpythonic.it import flatmap, uniqify, rev
-from unpythonic.fun import curry as curryf
+from unpythonic.fun import curry as curryf, identity
 from unpythonic.dynscope import dyn
 from unpythonic.lispylet import letrec as letrecf, let as letf
 from unpythonic.seq import do as dof, begin as beginf
@@ -401,6 +402,8 @@ def _transform_name(tree, *, names, envname, fargs, set_ctx, **kw):
     # should transform to e.x.foo.
     elif type(tree) is Attribute and type(tree.value) is Name and tree.value.id == envname:
         pass
+    # nested lets work, because once x --> e.x, the final "x" is no longer a Name,
+    # but an attr="x" of an Attribute node.
     elif type(tree) is Name and tree.id in names and tree.id not in fargs:
         return Attribute(value=q[name[envname]], attr=tree.id, ctx=Load())
     return tree
@@ -792,7 +795,7 @@ def namedlambda(tree, **kw):
             return newtree[0]  # the if statement
         return tree
 
-    newtree = [transform.recurse(x) for x in tree]
+    newtree = [transform.recurse(stmt) for stmt in tree]
 
 #    # TODO: this syntax doesn't work due to missing line numbers?
 #    with q as wrapped:  # name lambdas also in env
@@ -848,6 +851,201 @@ def fup(tree, **kw):
             assert False, "indices must be integers, not NoneType"
 
     return hq[fupdate(ast_literal[seq], ast_literal[idxspec], ast_literal[val])]
+
+# -----------------------------------------------------------------------------
+
+# TODO: use TCO in continuations. See what MacroPy's @tco can do.
+@macros.block
+def continuations(tree, gen_sym, **kw):
+    """[syntax, block] Semi-implicit continuations.
+
+    Roughly, this allows saving the control state and then jumping back later
+    (at any time, while still within the block). Example use cases:
+
+      - Tree traversal (possibly multiple trees simultaneously, with the
+        current position in each tracked automatically)
+      - McCarthy's amb operator
+
+    This is a loose pythonification of Paul Graham's continuation-passing macros,
+    which implement continuations by chaining closures and passing the continuation
+    semi-implicitly. For details, see chapter 20 in On Lisp:
+
+        http://paulgraham.com/onlisp.html
+
+    The motivation is that continuations are most readily implemented when the
+    program is written in continuation-passing style (CPS), but that is unreadable
+    for humans.
+
+    This macro partly automates the CPS transformation, so that at the use site,
+    we can write CPS code in a much more readable fashion.
+
+    There are certain restrictions that the code in the ``with continuations``
+    block must conform to:
+
+      - Functions which make use of continuations, or call other functions that do,
+        must be defined within the ``with continuations`` block, using ``def``.
+        (For simplicity, we do not support continuations for lambdas.)
+
+      - The ``with continuations`` block will automatically transform all ``def``
+        function definitions and ``return`` statements to use the continuation
+        machinery.
+
+        Hence, functions that **don't** use continuations **must** be defined
+        **outside** the block.
+
+      - The creation of a continuation point is a tail call; it will cause the
+        original function to return. After the ``with cc``, any remaining
+        statements in the original function body are **ignored**.
+
+        Or paraphrasing PG: any code to be evaluated after a ``with cc``
+        should be put in its body. If we want to have several ``with cc``
+        blocks one after another, they must be nested.
+
+    **Creating a continuation point**::
+
+        with cc[func(arg0, ..., k0=v0, ...)] as r:
+            body0
+            ...
+
+        with cc[func(arg0, ..., k0=v0, ...)] as (r0, ...):
+            body0
+            ...
+
+    In the second variant, **note the parentheses**. Syntactically, these names
+    are fed into the same context manager, so they **must** be given as a tuple.
+
+    The abbreviation *cc* means *call with continuation*, also being short to type.
+    This marks a continuation point, calling ``func`` with continuations enabled.
+    The body is the continuation.
+
+    A ``with cc`` is only meaningful inside a function definition. At the top
+    level of the ``with continuations`` block, it is possible to call a function
+    using continuations normally, without creating a continuation point.
+
+    Semantically, this captures the result of continuation-enabled ``func``, and
+    locally binds it to ``r``, or if multiple-values (represented by a tuple),
+    to ``r0, ...``. (To bind a tuple result to a single name, just use the first
+    variant.) Then it runs the body, with the captured values available.
+
+    **How it works**:
+
+    Internally, ``with cc`` writes a function definition for the continuation,
+    moving the provided body into the body of the function, and setting its
+    formal parameter list as ``(r0, ..., *, _cont)``.
+
+    Then it calls ``func`` with ``_cont`` set to that new function, and
+    returns the result. This ``return`` terminates the original function.
+    """
+    # We don't have analogs of PG's "=lambda" and "=apply"; we don't currently
+    # support continuations for lambdas, and Python doesn't need "apply"
+    # to pass in varargs.
+
+    # Add _cont as a keyword-only parameter to FunctionDef.
+    # This corresponds to PG's "=defun", but we don't need to generate a macro.
+    @Walker
+    def transform_def(tree, **kw):
+        if type(tree) is FunctionDef:
+            tree.args.kwonlyargs = [arg(arg="_cont")] + tree.args.kwonlyargs
+            # default cont is whatever _cont is currently lexically bound to
+            tree.args.kw_defaults = [q[name["_cont"]]] + tree.args.kw_defaults
+        return tree
+    # return value --> return _cont(value)
+    # return v1, ..., vn --> return _cont(*(v1, ..., vn))
+    # This corresponds to PG's "=values".
+    # Ours is applied automatically to all return statements in the block.
+    @Walker
+    def transform_return(tree, **kw):
+        if type(tree) is Return:
+            # handle multiple-return-values like the rest of unpythonic does
+            # (return tuple means multiple-return-values)
+            if type(tree.value) is Tuple:
+                # unpack the values to _cont's arglist
+                thecall = q[name["_cont"](*ast_literal[tree.value])]
+            else:
+                thecall = q[name["_cont"](ast_literal[tree.value])]
+            return Return(value=thecall)
+        return tree
+    # cc[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., _cont=_cont, k0=v0, ...)
+    # This correspods to PG's "=funcall".
+    #
+    # To call from the top level in the with block, no need to use this;
+    # _cont automatically gets the top-level default value if not specified.
+    def iscc(tree):
+        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "cc"
+    @Walker
+    def transform_cc(tree, *, contname, **kw):  # contname: name of function (as bare str) to use as continuation
+        if iscc(tree):
+            if not (type(tree.slice) is Index and type(tree.slice.value) is Call):
+                assert False, "cc: expected a single function call as subscript"
+            thecall = tree.slice.value
+            thecall.keywords = [keyword(arg="_cont", value=q[name[contname]])] + thecall.keywords
+            return thecall  # discard the cc[] wrapper
+        return tree
+    # Inside FunctionDef nodes:
+    #     with cc[...] as ...: --> CPS transformation
+    # This corresponds to PG's "=bind".
+    def iswithcc(tree):
+        if type(tree) is With and len(tree.items) == 1:
+            if iscc(tree.items[0].context_expr):
+                return True
+        return False
+    @Walker
+    def transform_contblock(tree, *, toplevel, set_ctx, **kw):
+        if type(tree) is FunctionDef:
+            set_ctx(toplevel=False)
+        if toplevel:
+            return tree
+        if not iswithcc(tree):
+            return tree
+        ctxmanager = tree.items[0].context_expr
+        optvars = tree.items[0].optional_vars
+        if optvars:
+            if type(optvars) is Name:
+                posargs = [optvars.id]
+            elif type(optvars) in (List, Tuple):
+                posargs = list(x.id for x in optvars.elts)
+            else:
+                assert False, "expected a name, list or tuple in as-part of with cc[...] as ..."
+        else:
+            posargs = []
+        # create the continuation function, set our body as its body
+        thename = gen_sym("cont")
+        funcdef = FunctionDef(name=thename,
+                              args=arguments(args=[arg(arg=x) for x in posargs],
+                                             kwonlyargs=[],  # patched later by transform_def
+                                             vararg=None,
+                                             kwarg=None,
+                                             defaults=[],
+                                             kw_defaults=[]),
+                              body=tree.body,
+                              decorator_list=[],
+                              returns=None)  # return annotation not used here
+        # set up the call to func, specifying our new function as its continuation
+        thecall = transform_cc.recurse(ctxmanager, contname=thename)
+        # output a block that makes the function definition and
+        # then calls func, **as a tail call**
+#        with q as newtree:
+#            if 1:
+#                ast_literal[funcdef]  # TODO: doesn't work, why?
+#                return ast_literal[thecall]
+#        return newtree[0]  # the if statement
+        newtree = If(test=Num(n=1),
+                     body=[q[ast_literal[funcdef]],
+                           Return(value=q[ast_literal[thecall]])],
+                     orelse=[])
+        return newtree
+    # set up the default continuation that just returns its args
+    newtree = [Assign(targets=[q[name["_cont"]]], value=hq[identity])]
+    # CPS conversion
+    for stmt in tree:
+        # transform "return" statements before contblock's tail calls generate new ones.
+        stmt = transform_return.recurse(stmt)
+        stmt = transform_contblock.recurse(stmt, toplevel=True)  # transform "with cc[]" calls
+        stmt = transform_cc.recurse(stmt, contname="_cont")      # transform other cc[] calls
+        # transform all defs, including those added by contblock.
+        stmt = transform_def.recurse(stmt)
+        newtree.append(stmt)
+    return newtree
 
 # -----------------------------------------------------------------------------
 

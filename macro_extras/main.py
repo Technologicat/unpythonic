@@ -16,7 +16,8 @@ from unpythonic.syntax import macros, \
                               cond, \
                               fup, \
                               prefix, q, u, kw, \
-                              multilambda, namedlambda
+                              multilambda, namedlambda, \
+                              continuations
 
 from itertools import repeat
 from unpythonic import foldr, composerc as compose, cons, nil, ll, apply
@@ -378,6 +379,32 @@ def main():
     assert fup[lst[::2] << tuple(repeat(10, 3))] == (10, 2, 10, 4, 10)
     assert fup[lst[::-1] << tuple(range(5))] == (4, 3, 2, 1, 0)
     assert lst == (1, 2, 3, 4, 5)
+
+    with continuations:
+        def add1(x):
+            return 1 + x
+        assert cc[add1(2)] == 3
+        assert add1(2) == 3  # same, uses the default _cont
+
+        def message():
+            return ("hello", "there")
+        def baz():
+            with cc[message()] as (m, n):
+                return [m, n]
+        assert baz() == ["hello", "there"]
+
+        def f(a, b):
+            return 2*a, 3*b
+        assert cc[f(3, 4)] == (6, 12)
+        x, y = cc[f(3, 4)]
+        assert x == 6 and y == 12
+
+        def g(a, b):
+            with cc[f(a, b)] as (x, y):
+                return x, y
+            print("never reached")
+        assert cc[g(3, 4)] == (6, 12)
+        assert g(3, 4) == (6, 12)
 
 if __name__ == '__main__':
     main()
