@@ -437,6 +437,7 @@ def main():
     def atom(x):
         return not isinstance(x, (list, tuple))
     t1 = ["a", ["b", ["d", "h"]], ["c", "e", ["f", "i"], "g"]]
+    t2 = [1, [2, [3, 6, 7], 4, 5]]
 
     def dft(tree):  # classical, no continuations
         if not tree:
@@ -481,6 +482,50 @@ def main():
         print("dft2")
         dft2(t1)
         print()
+
+        # The continuation version allows to easily walk two trees simultaneously,
+        # generating their cartesian product (example from On Lisp, p. 272):
+        def treeprod(ta, tb, *, cc):
+            with bind[dft_node(ta)] as node1:
+                if node1 == "done":
+                    return "done"
+                with bind[dft_node(tb)] as node2:
+                    return [node1, node2]
+        out = []
+        x = treeprod(t1, t2)
+        while x != "done":
+            out.append(x)
+            x = restart()
+        print(out)
+
+    # maybe more pythonic to make it a generator?
+    #
+    # We can define and use this outside the block, since at this level
+    # we don't need to manipulate cc.
+    #
+    # (We could as well define and use it inside the block, by adding "*, cc"
+    # to the args of the def.)
+    def treeprod_gen(ta, tb):
+        x = treeprod(t1, t2)
+        while x != "done":
+            yield x
+            x = restart()
+    out2 = tuple(treeprod_gen(t1, t2))
+    print(out2)
+
+    # The most pythonic way, of course, is to define dft as a generator,
+    # since that already provides suspend-and-resume...
+    def dft3(tree):
+        if not tree:
+            return
+        if atom(tree):
+            yield tree
+            return
+        first, *rest = tree
+        yield from dft3(first)
+        yield from dft3(rest)
+    print("dft3")
+    print("".join(dft3(t1)))  # abdhcefig
 
     # McCarthy's amb operator is very similar to dft, if a bit shorter:
     with continuations:
@@ -549,6 +594,16 @@ def main():
         print(fail())
         print(fail())
         print("combinations tested: {:d}".format(count))
+
+    # Pythagorean triples, pythonic way
+    def pt_gen():
+        for z in range(1, 21):
+            for y in range(1, z+1):
+                for x in range(1, y+1):
+                    if x*x + y*y != z*z:
+                        continue
+                    yield x, y, z
+    print(tuple(pt_gen()))
 
 if __name__ == '__main__':
     main()
