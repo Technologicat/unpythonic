@@ -406,6 +406,24 @@ def main():
             print("never reached")
         assert g(3, 4) == (6, 12)
 
+    # silly call/cc example (Paul Graham: On Lisp, p. 261), pythonified
+    with continuations:
+        k = None  # kontinuation
+        # We need this because in our continuation implementation,
+        # only a "with bind" can capture a continuation in the
+        # middle of a function.
+        def setk(x, *, cc):
+            nonlocal k
+            k = cc
+            return x
+        def doit(*, cc):
+            lst = ['the call returned']
+            with bind[setk('A')] as x:  # insert a continuation point
+                return lst + [x]
+        print(doit())
+        print(k('again'))
+        print(k('thrice'))
+
     # depth-first tree traversal (Paul Graham: On Lisp, p. 271)
     def atom(x):
         return not isinstance(x, (list, tuple))
