@@ -412,17 +412,26 @@ def main():
         # We need this because in our continuation implementation,
         # only a "with bind" can capture a continuation in the
         # middle of a function.
-        def setk(x, *, cc):
+        def setk(*args, cc):
             nonlocal k
             k = cc
-            return x
+            xs = list(args)
+            # - not "return list(args)" because that would be a tail call,
+            #   and list() is a regular function, not a continuation-enabled one
+            #   (so it would immediately terminate the TCO chain; besides,
+            #   it takes only 1 argument and doesn't know what to do with "cc".)
+            # - list instead of tuple to return it as one value
+            #   (a tuple return value is interpreted as multiple-return-values)
+            return xs
         def doit(*, cc):
             lst = ['the call returned']
-            with bind[setk('A')] as x:  # insert a continuation point
-                return lst + [x]
+            with bind[setk('A')] as more:  # insert a continuation point
+                return lst + more
         print(doit())
-        print(k('again'))
-        print(k('thrice'))
+        # We can now send stuff into k, as long as it conforms to the
+        # signature of the as-part of the "with bind".
+        print(k(['again']))
+        print(k(['thrice', '!']))
 
     # depth-first tree traversal (Paul Graham: On Lisp, p. 271)
     def atom(x):
