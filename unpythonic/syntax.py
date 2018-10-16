@@ -881,15 +881,15 @@ def continuations(tree, gen_sym, **kw):
     The purpose of this macro is to partly automate the CPS transformation,
     so that at the use site, we can write CPS code in a much more readable fashion.
 
-    Rules that apply to code in the ``with continuations`` block:
+    Rules of a ``with continuations`` block:
 
       - Functions which make use of continuations, or call other functions that do,
-        must be defined within the ``with continuations`` block, using ``def``.
+        must be defined within a ``with continuations`` block, using ``def``.
         (For simplicity, we **do not** support continuations for lambdas.
         This is subject to change in a future version.)
 
-      - All function definitions in the ``with continuations`` block, including
-        any nested ones, must declare a by-name-only formal parameter ``cc``::
+      - All function definitions in a ``with continuations`` block, including
+        any nested defs, must declare a by-name-only formal parameter ``cc``::
 
             with continuations:
                 def myfunc(*, cc):
@@ -898,7 +898,7 @@ def continuations(tree, gen_sym, **kw):
         The continuation machinery implicitly sets its value to the current
         continuation.
 
-      - The ``with continuations`` block will automatically transform all ``def``
+      - A ``with continuations`` block will automatically transform all ``def``
         function definitions and ``return`` statements lexically contained within
         it to use the continuation machinery.
 
@@ -915,19 +915,41 @@ def continuations(tree, gen_sym, **kw):
           Hence this inserts a call to ``somefunc`` before proceeding with our
           current continuation.
 
-          It is possible to override the continuation by setting ``cc=...``
-          manually in a tail call::
+          Here ``somefunc`` **must** be a continuation-enabled function;
+          otherwise the TCO chain will break and the result is immediately
+          returned to the top-level caller.
 
-              def myfunc(*, cc):
-                  ourcc = cc  # capture myfunc's continuation
-                  def somefunc(*, cc):
-                      return dostuff(..., cc=ourcc)  # and inject it here
-                  somestack.append(somefunc)
+      - Calls from functions defined in one ``with continuations`` block to those
+        defined in another are ok.
 
-      - It is also possible to call a function, optionally get its return
-        value(s), run some more code, and **then** proceed with our
-        current continuation. This is termed a ``with bind``; it is the
-        other primary way to make ``cc`` something other than the default.
+      - Regular functions can be called normally (as any non-tail call).
+
+        Continuation-enabled functions also behave as regular functions when
+        called normally; only tail calls to continuation-enabled functions
+        implicitly set ``cc``.
+
+    **Manipulating the continuation**:
+
+      - To override the current continuation, set ``cc=...`` manually in a
+        tail call. As the replacement, use a ``cc`` captured at the appropriate
+        time::
+
+            def myfunc(*, cc):
+                ourcc = cc  # capture myfunc's current continuation
+                def somefunc(*, cc):
+                    return dostuff(..., cc=ourcc)  # and inject it here
+                somestack.append(somefunc)
+
+        In this example, once ``somefunc`` is called, it will proceed with the
+        continuation ``myfunc`` had at the time when that instance of the
+        ``somefunc`` closure was created.
+
+      - To call a continuation-enabled function, optionally get its return value(s),
+        then run some more code, and finally proceed with the original ``cc``,
+        use a ``with bind``.
+
+        This allows making a continuation-enabled call (that may return multiple
+        times) in the middle of a function.
 
     **with bind**::
 
@@ -941,31 +963,35 @@ def continuations(tree, gen_sym, **kw):
 
     Rules:
 
-        - ``with bind`` may only appear inside a function definition that is
-          contained within a ``with continuations`` block.
+      - ``with bind`` may only appear inside a function definition that is
+        contained within a ``with continuations`` block.
 
-        - ``with bind`` is one construct, not two. ``bind`` alone is a syntax error.
+      - ``with bind`` is one construct, not two. ``bind`` alone is a syntax error.
 
-        - The function call in the brackets is performed, with the body of the
-          with block set as its continuation.
+      - The function call in the brackets is performed, with the body of the
+        with block set as its continuation.
 
-            - The body gets transformed into a function definition (named using
-              a gensym); it implicitly gets its own ``cc``. Hence, the value of
-              ``cc`` inside the body is the **body's** ``cc``.
+          - This allows the call to return multiple times.
 
-        - The optional as-part captures the return value of func.
+          - Internally, the body gets transformed into a function definition
+            (named using a gensym); it implicitly gets its own ``cc``. Hence,
+            the value of ``cc`` inside the body is the **body's** ``cc``.
 
-           - To ignore the return value, just omit the as-part.
+      - The optional as-part captures the return value of ``func``.
 
-           - To destructure a multiple-values (from a tuple return value),
-             use a tuple ``(r0, ...)``. **Parentheses are mandatory** due to
-             the syntax of Python's ``with`` statement.
+         - To ignore the return value (useful if ``func`` was called only to
+           perform its side-effects), just omit the as-part.
 
-        - This is a tail call that inserts the call to func and the given
-          body before proceeding with the current continuation.
+         - To destructure a multiple-values (from a tuple return value),
+           use a tuple ``(r0, ...)``. **Parentheses are mandatory** due to
+           the syntax of Python's ``with`` statement.
 
-        - To insert just a call (no extra body) before proceeding with
-          the current continuation, use ``return func(...)``.
+      - This is technically a tail call that inserts the call to func and the
+        given body before proceeding with the current continuation.
+
+      - If you need to insert just a call (no extra body) before proceeding
+        with the current continuation, no need for ``with bind``; use
+        ``return func(...)`` instead.
     """
     # We don't have analogs of PG's "=lambda" and "=apply"; we don't currently
     # support continuations for lambdas, and Python doesn't need "apply"
