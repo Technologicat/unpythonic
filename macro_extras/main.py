@@ -17,7 +17,7 @@ from unpythonic.syntax import macros, \
                               fup, \
                               prefix, q, u, kw, \
                               multilambda, namedlambda, \
-                              continuations
+                              continuations, bind
 
 from itertools import repeat
 from unpythonic import foldr, composerc as compose, cons, nil, ll, apply
@@ -380,35 +380,37 @@ def main():
     assert fup[lst[::-1] << tuple(range(5))] == (4, 3, 2, 1, 0)
     assert lst == (1, 2, 3, 4, 5)
 
+    # continuations!
+    # basic testing
     with continuations:
-        def add1(x):
+        def add1(x, *, cc):
             return 1 + x
-        assert cc[add1(2)] == 3
-        assert add1(2) == 3  # same, uses the default _cont
+        assert add1(2) == 3
 
-        def message():
+        def message(*, cc):
             return ("hello", "there")
-        def baz():
-            with cc[message()] as (m, n):
+        def baz(*, cc):
+            with bind[message()] as (m, n):
                 return [m, n]
         assert baz() == ["hello", "there"]
 
-        def f(a, b):
+        def f(a, b, *, cc):
             return 2*a, 3*b
-        assert cc[f(3, 4)] == (6, 12)
-        x, y = cc[f(3, 4)]
+        assert f(3, 4) == (6, 12)
+        x, y = f(3, 4)
         assert x == 6 and y == 12
 
-        def g(a, b):
-            with cc[f(a, b)] as (x, y):
+        def g(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
                 return x, y
             print("never reached")
-        assert cc[g(3, 4)] == (6, 12)
         assert g(3, 4) == (6, 12)
 
-    # depth-first traversal (Paul Graham: On Lisp, p. 271)
+    # depth-first tree traversal (Paul Graham: On Lisp, p. 271)
     def atom(x):
         return not isinstance(x, (list, tuple))
+    t1 = ["a", ["b", ["d", "h"]], ["c", "e", ["f", "i"], "g"]]
+
     def dft(tree):  # classical, no continuations
         if not tree:
             return
@@ -418,45 +420,33 @@ def main():
         first, *rest = tree
         dft(first)
         dft(rest)
-
-    t1 = ["a", ["b", ["d", "h"]], ["c", "e", ["f", "i"], "g"]]
     print("dft")
     dft(t1)  # abdhcefig
     print()
 
     with continuations:
         saved = []
-        def dft_node(tree):
+        def dft_node(tree, *, cc):
             if not tree:
-                return restart()  # call normally to let the call return back here
+                return restart()
             if atom(tree):
                 return tree
             first, *rest = tree
-            # cc[...] sets *our* current continuation as the continuation
-            # of the function being called. Makes the most sense in a tail call.
-#            saved.append(lambda **kw: cc[dft_node(rest)])  # otherwise same, but no TCO
-            cc = _cont  # capture our current continuation
-            def getmore():
-                return dft_node(rest, _cont=cc)  # override default continuation
+            ourcc = cc  # capture our current continuation
+            def getmore(*, cc):
+                return dft_node(rest, cc=ourcc)  # override default continuation
             saved.append(getmore)
             return dft_node(first)
-        def restart():
+        def restart(*, cc):
             if saved:
                 f = saved.pop()
-                return f()  # regular lambda, doesn't take a continuation, no cc[]
+                return f()
             else:
                 return "done"
-        def dft2(tree):
+        def dft2(tree, *, cc):
             nonlocal saved
             saved = []
-            # - "with cc" is one construct, not two
-            # - The function in the brackets is called, with the body of the
-            #   with block set as its continuation.
-            # - The as-part captures the output of func. Can also use a tuple
-            #   (r0, ...) to destructure multiple-values (from a tuple return value).
-            # - This is a tail call. Once func returns, our current continuation
-            #   is invoked on the value returned by the body of the with block.
-            with cc[dft_node(tree)] as node:
+            with bind[dft_node(tree)] as node:  # inject given call and body before current continuation
                 if node == "done":
                     return "done"
                 print(node, end='')
@@ -468,28 +458,32 @@ def main():
     # The amb operator is very similar to dft:
     with continuations:
         stack = []
-        def amb(lst):
+        def amb(lst, *, cc):
             if not lst:
                 return fail()
             first, *rest = lst
             if rest:
-                cc = _cont
-                def getmore():
-                    return amb(rest, _cont=cc)
+                ourcc = cc
+                def getmore(*, cc):
+                    return amb(rest, cc=ourcc)
                 stack.append(getmore)
-#                stack.append(lambda **kw: cc[amb(rest)])  # otherwise same, but no TCO
             return first
-        def fail():
+        def fail(*, cc):
             if stack:
                 f = stack.pop()
                 return f()
 
-        def doit1():
-            with cc[amb((1, 2, 3))] as c1:
-                with cc[amb((10, 20))] as c2:
+        # testing
+        def doit1(*, cc):
+            with bind[amb((1, 2, 3))] as c1:
+                with bind[amb((10, 20))] as c2:
                     if c1 and c2:
                         return c1 + c2
         print(doit1())
+        # How this differs from a comprehension is that we can fail()
+        # **outside** the dynamic extent of doit1. Doing that rewinds,
+        # and returns the next value. The control flow state is kept
+        # on the continuation stack just like in Scheme/Racket.
         print(fail())
         print(fail())
         print(fail())
@@ -497,19 +491,21 @@ def main():
         print(fail())
         print(fail())
 
-        def doit2():
-            with cc[amb((1, 2, 3))] as c1:
-                with cc[amb((10, 20))] as c2:
+        def doit2(*, cc):
+            with bind[amb((1, 2, 3))] as c1:
+                with bind[amb((10, 20))] as c2:
                     if c1 + c2 != 22:  # we can require conditions like this
                         return fail()
                     return c1, c2
         print(doit2())
         print(fail())
 
-        def pt():
-            with cc[amb(tuple(range(1, 21)))] as z:
-                with cc[amb(tuple(range(1, z+1)))] as y:
-                    with cc[amb(tuple(range(1, y+1)))] as x:
+        # Pythagorean triples.
+        def pt(*, cc):
+            # This generates over 10000 combinations so we really need TCO here.
+            with bind[amb(tuple(range(1, 21)))] as z:
+                with bind[amb(tuple(range(1, z+1)))] as y:
+                    with bind[amb(tuple(range(1, y+1)))] as x:
                         if x*x + y*y != z*z:
                             return fail()
                         return x, y, z
