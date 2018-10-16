@@ -919,6 +919,10 @@ def continuations(tree, gen_sym, **kw):
           otherwise the TCO chain will break and the result is immediately
           returned to the top-level caller.
 
+          (If the call succeeds at all; the ``cc`` argument is implicitly
+          passed by name, and most regular functions do not have a named
+          parameter ``cc``.)
+
       - Calls from functions defined in one ``with continuations`` block to those
         defined in another are ok.
 
