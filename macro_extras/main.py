@@ -414,7 +414,7 @@ def main():
         # middle of a function.
         def setk(*args, cc):
             nonlocal k
-            k = cc
+            k = cc  # current continuation, i.e. where to go after setk() finishes
             xs = list(args)
             # - not "return list(args)" because that would be a tail call,
             #   and list() is a regular function, not a continuation-enabled one
@@ -425,7 +425,7 @@ def main():
             return xs
         def doit(*, cc):
             lst = ['the call returned']
-            with bind[setk('A')] as more:  # insert a continuation point
+            with bind[setk('A')] as more:  # create a continuation point
                 return lst + more
         print(doit())
         # We can now send stuff into k, as long as it conforms to the
@@ -482,7 +482,7 @@ def main():
         dft2(t1)
         print()
 
-    # The amb operator is very similar to dft:
+    # McCarthy's amb operator is very similar to dft, if a bit shorter:
     with continuations:
         stack = []
         def amb(lst, *, cc):
@@ -531,7 +531,8 @@ def main():
         count = 0
         def pt(*, cc):
             # This generates 1540 combinations, with several nested tail-calls each,
-            # so we really need TCO here.
+            # so we really need TCO here. (Without TCO, nothing would return until
+            # the whole computation is done; it would blow the call stack very quickly.)
             with bind[amb(tuple(range(1, 21)))] as z:
                 with bind[amb(tuple(range(1, z+1)))] as y:
                     with bind[amb(tuple(range(1, y+1)))] as x:
