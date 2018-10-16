@@ -434,8 +434,12 @@ def main():
             first, *rest = tree
             # cc[...] sets *our* current continuation as the continuation
             # of the function being called. Makes the most sense in a tail call.
-            saved.append(lambda **kw: cc[dft_node(rest)])
-            return cc[dft_node(first)]
+#            saved.append(lambda **kw: cc[dft_node(rest)])  # otherwise same, but no TCO
+            cc = _cont  # capture our current continuation
+            def getmore():
+                return dft_node(rest, _cont=cc)  # override default continuation
+            saved.append(getmore)
+            return dft_node(first)
         def restart():
             if saved:
                 f = saved.pop()
@@ -453,8 +457,8 @@ def main():
             # - This is a tail call. Once func returns, our current continuation
             #   is invoked on the value returned by the body of the with block.
             with cc[dft_node(tree)] as node:
-                if node == "done":  # each leaf will reach this once
-                    return "done"   # TODO: figure out why this value comes back to us
+                if node == "done":
+                    return "done"
                 print(node, end='')
                 return restart()
         print("dft2")
@@ -469,7 +473,11 @@ def main():
                 return fail()
             first, *rest = lst
             if rest:
-                stack.append(lambda **kw: cc[amb(rest)])
+                cc = _cont
+                def getmore():
+                    return amb(rest, _cont=cc)
+                stack.append(getmore)
+#                stack.append(lambda **kw: cc[amb(rest)])  # otherwise same, but no TCO
             return first
         def fail():
             if stack:
@@ -510,8 +518,8 @@ def main():
         print(fail())
         print(fail())
         print(fail())
-        # Computing more requires some more tuning to the TCO support
-        # in the continuations macro.
+        print(fail())
+        print(fail())
 
 if __name__ == '__main__':
     main()

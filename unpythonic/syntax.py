@@ -857,6 +857,9 @@ def fup(tree, **kw):
 
 # -----------------------------------------------------------------------------
 
+# TODO: improve notation
+# TODO: update docstring
+# TODO: update README
 @macros.block
 def continuations(tree, gen_sym, **kw):
     """[syntax, block] Semi-implicit continuations.
@@ -970,8 +973,10 @@ def continuations(tree, gen_sym, **kw):
                 thecall = value
                 thecall.args = [thecall.func] + thecall.args
                 thecall.func = hq[jump]
-                # pass our current continuation
-                thecall.keywords = [keyword(arg="_cont", value=q[name["_cont"]])] + thecall.keywords
+                # Pass our current continuation (if no continuation already specified by user).
+                hascont = any(kw.arg == "_cont" for kw in thecall.keywords)
+                if not hascont:
+                    thecall.keywords = [keyword(arg="_cont", value=q[name["_cont"]])] + thecall.keywords
             # else tail-call our current continuation with the value(s)
             elif type(value) is Tuple:
                 # handle multiple-return-values like the rest of unpythonic does
@@ -984,6 +989,7 @@ def continuations(tree, gen_sym, **kw):
         return tree
     # cc[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., _cont=_cont, k0=v0, ...)
     # This roughly corresponds to PG's "=funcall".
+    # TODO: refactor; this is now only useful as part of "with cc"
     def iscc(tree):
         return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "cc"
     @Walker
