@@ -501,11 +501,15 @@ def main():
         print(fail())
 
         # Pythagorean triples.
+        count = 0
         def pt(*, cc):
-            # This generates over 10000 combinations so we really need TCO here.
+            # This generates 1540 combinations, with several nested tail-calls each,
+            # so we really need TCO here.
             with bind[amb(tuple(range(1, 21)))] as z:
                 with bind[amb(tuple(range(1, z+1)))] as y:
                     with bind[amb(tuple(range(1, y+1)))] as x:
+                        nonlocal count
+                        count += 1
                         if x*x + y*y != z*z:
                             return fail()
                         return x, y, z
@@ -516,6 +520,7 @@ def main():
         print(fail())
         print(fail())
         print(fail())
+        print("combinations tested: {:d}".format(count))
 
 if __name__ == '__main__':
     main()
