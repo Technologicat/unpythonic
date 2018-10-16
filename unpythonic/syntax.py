@@ -35,6 +35,9 @@ from unpythonic.misc import namelambda
 from unpythonic.amb import forall as forallf, choice as choicef, insist, deny
 from unpythonic.amb import List as MList  # list monad
 
+# TODO: remove the exception-based TCO implementation
+from unpythonic.fasttco import trampolined, jump
+
 macros = Macros()
 
 # -----------------------------------------------------------------------------
@@ -854,7 +857,6 @@ def fup(tree, **kw):
 
 # -----------------------------------------------------------------------------
 
-# TODO: use TCO in continuations. See what MacroPy's @tco can do.
 @macros.block
 def continuations(tree, gen_sym, **kw):
     """[syntax, block] Semi-implicit continuations.
@@ -951,6 +953,7 @@ def continuations(tree, gen_sym, **kw):
             #  it is the outer function's current continuation)
             # TODO: is this a good idea? Should we always default to top-level cont?
             tree.args.kw_defaults = [q[name["_cont"]]] + tree.args.kw_defaults
+            tree.decorator_list = [hq[trampolined]] + tree.decorator_list  # enable TCO
         return tree
     # return value --> return _cont(value)
     # return v1, ..., vn --> return _cont(*(v1, ..., vn))
@@ -962,13 +965,21 @@ def continuations(tree, gen_sym, **kw):
             # TODO: support Return with Ifexp
             # return --> return None  (bare return has value=None in the AST)
             value = tree.value or q[None]
-            # handle multiple-return-values like the rest of unpythonic does
-            # (returning a tuple means multiple return values)
-            if type(value) is Tuple:
+            # explicit tail call - apply TCO
+            if type(value) is Call:
+                thecall = value
+                thecall.args = [thecall.func] + thecall.args
+                thecall.func = hq[jump]
+                # pass our current continuation
+                thecall.keywords = [keyword(arg="_cont", value=q[name["_cont"]])] + thecall.keywords
+            # else tail-call our current continuation with the value(s)
+            elif type(value) is Tuple:
+                # handle multiple-return-values like the rest of unpythonic does
+                # (returning a tuple means multiple return values)
                 # unpack the values to _cont's arglist
-                thecall = q[name["_cont"](*ast_literal[value])]
+                thecall = hq[jump(name["_cont"], *ast_literal[value])]
             else:
-                thecall = q[name["_cont"](ast_literal[value])]
+                thecall = hq[jump(name["_cont"], ast_literal[value])]
             return Return(value=thecall)
         return tree
     # cc[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., _cont=_cont, k0=v0, ...)
@@ -1025,10 +1036,13 @@ def continuations(tree, gen_sym, **kw):
                                              defaults=[],
                                              kw_defaults=[]),
                               body=tree.body,
-                              decorator_list=[],
+                              decorator_list=[],  # patched later by transform_def
                               returns=None)  # return annotation not used here
-        # Set up the call to func, specifying our new function as its continuation
+        # Set up the tail call to func, specifying our new function as its continuation
         thecall = transform_cc.recurse(ctxmanager, contname=thename)
+        # apply TCO
+        thecall.args = [thecall.func] + thecall.args
+        thecall.func = hq[jump]
         # output a block that makes the function definition and
         # then calls func, **as a tail call**
 #        with q as newtree:

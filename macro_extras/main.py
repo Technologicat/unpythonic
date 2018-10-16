@@ -434,7 +434,7 @@ def main():
             first, *rest = tree
             # cc[...] sets *our* current continuation as the continuation
             # of the function being called. Makes the most sense in a tail call.
-            saved.append(lambda: cc[dft_node(rest)])
+            saved.append(lambda **kw: cc[dft_node(rest)])
             return cc[dft_node(first)]
         def restart():
             if saved:
@@ -469,7 +469,7 @@ def main():
                 return fail()
             first, *rest = lst
             if rest:
-                stack.append(lambda: cc[amb(rest)])
+                stack.append(lambda **kw: cc[amb(rest)])
             return first
         def fail():
             if stack:
@@ -507,9 +507,11 @@ def main():
                         return x, y, z
         print(pt())
         print(fail())
-        # Computing more requires TCO support in the continuations macro.
-        # The issue is that in a "with continuations" blokc, no call really
-        # returns until all the computation is done.
+        print(fail())
+        print(fail())
+        print(fail())
+        # Computing more requires some more tuning to the TCO support
+        # in the continuations macro.
 
 if __name__ == '__main__':
     main()
