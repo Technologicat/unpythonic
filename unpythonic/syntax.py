@@ -934,6 +934,22 @@ def continuations(tree, gen_sym, **kw):
 
     **Manipulating the continuation**:
 
+      - To call a continuation-enabled function, optionally get its return value(s),
+        then run some more code, and finally proceed with the original ``cc``,
+        use a ``with bind``.
+
+        This allows making a continuation-enabled call (that may return multiple
+        times) in the middle of a function.
+
+        The function called by a ``with bind`` is also basically the only situation
+        in which ``cc`` will contain something other than the default continuation.
+
+        ``with bind`` is almost call/cc (call-with-current-continuation),
+        but the continuation is explicitly made from the given body.
+        It is of course possible to grab a first-class reference to this
+        continuation; it's the ``cc`` argument of the function being called
+        by the ``with bind``.
+
       - To override the current continuation, set ``cc=...`` manually in a
         tail call. As the replacement, use a ``cc`` captured at the appropriate
         time::
@@ -944,16 +960,23 @@ def continuations(tree, gen_sym, **kw):
                     return dostuff(..., cc=ourcc)  # and inject it here
                 somestack.append(somefunc)
 
-        In this example, once ``somefunc`` is called, it will proceed with the
+            def main(*, cc):
+                with bind[myfunc()]:
+                    ...
+
+        In this example, when ``somefunc`` is called, it will proceed with the
         continuation ``myfunc`` had at the time when that instance of the
-        ``somefunc`` closure was created.
+        ``somefunc`` closure was created. In this case, that continuation
+        points to the body of the ``with bind``.
 
-      - To call a continuation-enabled function, optionally get its return value(s),
-        then run some more code, and finally proceed with the original ``cc``,
-        use a ``with bind``.
+      - Also possible to just assign a function to ``cc`` inside a function body::
 
-        This allows making a continuation-enabled call (that may return multiple
-        times) in the middle of a function.
+            def myfunc(*, cc):
+                ourcc = cc
+                def somefunc(*, cc):
+                    cc = ourcc
+                    return dostuff(...)
+                somestack.append(somefunc)
 
     **with bind**::
 
