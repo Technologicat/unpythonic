@@ -357,7 +357,7 @@ Code within a ``with continuations`` block is treated specially. Roughly:
 
  - Essentially, ``with bind`` is a limited form of ``call/cc``, where the body of the ``with`` block is captured as the continuation.
    - Unlike in Scheme/Racket, where continuations are built into the language itself, and the remaining expressions of the computation are in a sense captured automatically.
-   - Unlike in Scheme, manually calling a continuation won't replace the whole call stack - it just runs the remaining part of the computation and returns the result. Hence in the first example above, ``1 + k(['something'])`` is an error, whereas Scheme would throw away the pending ``1 +``, because it's not part of the continuation, and return just the result of ``k(['something'])``.
+   - Unlike in Scheme, manually calling a continuation won't replace the whole call stack - it just runs the remaining part of the computation and returns the result. Hence in the first example above, ``1 + k(['something'])`` would be an error, whereas Scheme would throw away the pending ``1 +``, because it's not part of the continuation, and return just the result of ``k(['something'])``.
    - A first-class reference to the captured continuation is available in the function called by ``with bind``, as its ``cc`` argument.
      - The continuation is a function that takes as many positional arguments as there are names in the as-part of the ``with bind``. Additionally, it may take a named argument ``cc``.
        - If there are multiple names, **parentheses are mandatory**, due to the syntax of Python's ``with`` statement.
