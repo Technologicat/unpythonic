@@ -17,6 +17,8 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [``do`` as a macro: stuff imperative code into a lambda, *with style*](#do-as-a-macro-stuff-imperative-code-into-a-lambda-with-style)
  - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation)
  - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables
+ - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
+ - [``continuations``: a form of call/cc for Python](#continuations-a-form-of-callcc-for-python)
  - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence); with slice notation
  - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
 
@@ -247,6 +249,146 @@ with multilambda:
 ```
 
 In the second example, returning ``x`` separately is redundant, because the assignment to the let environment already returns the new value, but it demonstrates the usage of multiple expressions in a lambda.
+
+
+## ``namedlambda``: auto-name your lambdas
+
+Who said lambdas have to be anonymous?
+
+```python
+from unpythonic.syntax import macros, namedlambda
+
+with namedlambda:
+    f = lambda x: x**3                       # lexical rule: name as "f"
+    assert f.__name__ == "f (lambda)"
+    gn, hn = let((x, 42), (g, None), (h, None))[[
+                   g << (lambda x: x**2),    # dynamic rule: name as "g"
+                   h << f,                   # no-rename rule: still "f"
+                   (g.__name__, h.__name__)]]
+    assert gn == "g (lambda)"
+    assert hn == "f (lambda)"
+```
+
+This is a block macro that supports both simple assignment statements of the form ``f = lambda ...: ...``, and ``<<`` expression assignments to ``unpythonic`` environments.
+
+All simple assignment statements lexically within the block, that assign a single lambda to a single name, will get code injected at macro-expansion time, to set the name of the resulting function object to the name the lambda is being assigned to.
+
+Assignment in unpythonic environments is tracked dynamically at run-time, for the dynamic extent of the block. This is done by setting the dynvar ``env_namedlambda`` to ``True``, by injecting a ``with dyn.let(env_namedlambda=True):`` around the block.
+
+For any function object instance representing a lambda, it takes the first name given to it, and keeps that; there is no renaming. See the function ``unpythonic.misc.namelambda``, which this uses internally.
+
+
+## ``continuations``: a form of call/cc for Python
+
+This is a loose pythonification of Paul Graham's continuation-passing macros, chapter 20 in [On Lisp](http://paulgraham.com/onlisp.html).
+
+Perhaps a demonstration is the best explanation:
+
+```python
+from unpythonic.syntax import macros, continuations, bind
+
+with continuations:
+    # basic example - how to call a continuation manually:
+    k = None  # kontinuation
+    def setk(*args, cc):
+        global k
+        k = cc
+        xs = list(args)
+        return xs
+    def doit(*, cc):
+        lst = ['the call returned']
+        with bind[setk('A')] as more:  # <-- essentially call/cc
+            return lst + more          # ...with the body containing the continuation
+    print(doit())
+    print(k(['again']))
+    print(k(['thrice', '!']))
+
+    # McCarthy's amb operator - yes, the real thing - in Python:
+    stack = []
+    def amb(lst, *, cc):
+        if not lst:
+            return fail()
+        first, *rest = lst
+        if rest:
+            ourcc = cc
+            def getmore(*, cc):
+                return amb(rest, cc=ourcc)
+            stack.append(getmore)
+        return first
+    def fail(*, cc):
+        if stack:
+            f = stack.pop()
+            return f()
+
+    # Pythagorean triples.
+    def pt(*, cc):
+        with bind[amb(tuple(range(1, 21)))] as z:
+            with bind[amb(tuple(range(1, z+1)))] as y:
+                with bind[amb(tuple(range(1, y+1)))] as x:
+                    if x*x + y*y != z*z:
+                        return fail()
+                    return x, y, z
+    print(pt())
+    print(fail())  # ...outside the dynamic extent of pt()!
+    print(fail())
+    print(fail())
+    print(fail())
+    print(fail())
+    print(fail())
+```
+
+Code within a ``with continuations`` block is treated specially. Roughly:
+
+ - Each function definition in a ``with continuations`` block must take a by-name-only parameter ``cc``.
+   - It is a named parameter, so that we may inject a default value, to allow these functions to be called also normally without passing a ``cc``.
+   - To keep things somewhat pythonic, the parameter must be spelled out explicitly even though it gets its value implicitly, just like ``self`` in object-oriented Python code.
+
+ - In a function definition inside the block:
+   - Most of the language works as usual; especially, any non-tail function calls can be made as usual.
+   - ``return value`` or ``return v0, ..., vn`` actually tail-calls ``cc`` with the given value(s).
+     - As in other parts of ``unpythonic``, returning a tuple means returning multiple-values. (This is important if the return value is received by the as-part of a ``with bind``.)
+   - ``return func(...)`` actually tail-calls ``func``, passing on (by default) the current value of ``cc`` to become its ``cc``.
+     - Hence, the tail call is inserted between the end of the current function and the invocation of ``cc``.
+     - To use some other continuation, specify the ``cc=...`` kwarg, as in ``return func(..., cc=mycc)``.
+     - The function ``func`` must be a defined in a ``with continuations`` block, so that it knows what to do with ``cc``.
+       - Attempting to tail-call a regular function breaks the TCO chain and immediately returns to the original caller (provided the function even accepts a ``cc`` named parameter).
+       - Hence, be careful: ``xs = list(args); return xs`` and ``return list(args)`` mean different things.
+   - TCO, from ``unpythonic.fasttco``, is automatically applied to these tail calls.
+
+ - Essentially, ``with bind`` is a limited form of ``call/cc``, where the body of the ``with`` block is captured as the continuation.
+   - Unlike in Scheme/Racket, where continuations are built into the language itself, and the remaining expressions of the computation are in a sense captured automatically.
+   - Unlike in Scheme, manually calling a continuation won't replace the whole call stack - it just runs the remaining part of the computation and returns the result. Hence in the first example above, ``1 + k(['something'])`` is an error, whereas Scheme would throw away the pending ``1 +``, because it's not part of the continuation, and return just the result of ``k(['something'])``.
+   - A first-class reference to the captured continuation is available in the function called by ``with bind``, as its ``cc`` argument.
+     - The continuation is a function that takes as many positional arguments as there are names in the as-part of the ``with bind``. Additionally, it may take a named argument ``cc``.
+       - If there are multiple names, **parentheses are mandatory**, due to the syntax of Python's ``with`` statement.
+       - The body is technically a function; it gets its own ``cc``.
+     - Basically everywhere else, ``cc`` points to the identity function - the default continuation just returns its arguments.
+   - ``with bind`` may only appear inside a function definition contained within a ``with continuations`` block.
+     - This is because currently, it always transforms into a tail call, terminating the current function. (This is possibly subject to change in a future version; the top level could be special-cased not to generate a tail call.)
+     - Any code the current function needs to run after the ``with bind`` must be placed in the body of the ``with bind``.
+
+For more details and current limitations, see the docstring of ``unpythonic.syntax.continuations``.
+
+Notably, **lambdas are currently not supported**; they will not get the continuation treatment even in a ``with continuations`` block. Support for Python's builtin lambdas could be implemented, but making this combo well with ``multilambda`` is difficult.
+
+### Is this useful?
+
+For most use cases, probably not, because we could just:
+
+```python
+def pt_gen():
+    for z in range(1, 21):
+        for y in range(1, z+1):
+            for x in range(1, y+1):
+                if x*x + y*y != z*z:
+                    continue
+                yield x, y, z
+print(tuple(pt_gen()))
+```
+
+Generators already provide suspend-and-resume. Similarly to ``fail()`` above, here too ``next()`` can be called on the ``pt_gen`` instance after it has suspended itself at the ``yield``.
+
+Finally, as a side note, generators [can be easily built](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt) on top of ``call/cc``.
 
 
 ## ``fup``: functionally update a sequence
