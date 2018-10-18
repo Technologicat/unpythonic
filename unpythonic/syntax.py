@@ -21,7 +21,7 @@ from ast import Call, arg, keyword, With, withitem, Tuple, \
                 Subscript, Index, Slice, ExtSlice, Lambda, List, \
                 copy_location, Assign, FunctionDef, \
                 ListComp, SetComp, GeneratorExp, DictComp, \
-                arguments, If, Num, Return
+                arguments, If, Num, Return, Expr
 
 from unpythonic.it import flatmap, uniqify, rev
 from unpythonic.fun import curry as curryf, identity
@@ -857,7 +857,6 @@ def fup(tree, **kw):
 
 # -----------------------------------------------------------------------------
 
-# TODO: update README
 @macros.block
 def continuations(tree, gen_sym, **kw):
     """[syntax, block] Semi-implicit continuations.
@@ -932,6 +931,15 @@ def continuations(tree, gen_sym, **kw):
         called normally; only tail calls to continuation-enabled functions
         implicitly set ``cc``.
 
+      - Once inside a ``with continuations`` block, nested ``with continuations``
+        blocks have no additional effect, since the continuation machinery is
+        already enabled.
+
+        We could define it to be an error, but having it no-op is more convenient
+        for agile prototyping. This allows to easily move around code that uses
+        continuations, without caring about whether continuations are already
+        enabled in some outer lexical scope.
+
     **Manipulating the continuation**:
 
       - To call a continuation-enabled function, optionally get its return value(s),
@@ -939,10 +947,12 @@ def continuations(tree, gen_sym, **kw):
         use a ``with bind``.
 
         This allows making a continuation-enabled call (that may return multiple
-        times) in the middle of a function.
+        times) in the middle of a function, or at the top level of the
+        ``with continuations`` block.
 
-        The function called by a ``with bind`` is also basically the only situation
-        in which ``cc`` will contain something other than the default continuation.
+        Basically the only case in which ``cc`` will contain something other than
+        the default continuation, is while inside the function called by a
+        ``with bind``.
 
         ``with bind`` is almost call/cc (call-with-current-continuation),
         but the continuation is explicitly made from the given body.
@@ -990,15 +1000,19 @@ def continuations(tree, gen_sym, **kw):
 
     Rules:
 
-      - ``with bind`` may only appear inside a function definition that is
-        contained within a ``with continuations`` block.
+      - ``with bind`` may only appear inside a ``with continuations`` block.
 
       - ``with bind`` is one construct, not two. ``bind`` alone is a syntax error.
 
       - The function call in the brackets is performed, with the body of the
         with block set as its continuation.
 
-          - This allows the call to return multiple times.
+          - By stashing the ``cc`` from inside ``func``, to some place accessible
+            from the outside, this allows the body to run multiple times
+            (calling the cc runs the body again).
+
+            Just like in ``call/cc``, the values that get bound to the as-part
+            on further calls are the arguments given to the cc when it is called.
 
           - Internally, the body gets transformed into a function definition
             (named using a gensym); it implicitly gets its own ``cc``. Hence,
@@ -1013,10 +1027,30 @@ def continuations(tree, gen_sym, **kw):
            use a tuple ``(r0, ...)``. **Parentheses are mandatory** due to
            the syntax of Python's ``with`` statement.
 
-      - This is technically a tail call that inserts the call to func and the
-        given body before proceeding with the current continuation.
+           Tupleness is tested at run-time. For literal tuples, the run-time
+           check is omitted.
 
-      - If you need to insert just a call (no extra body) before proceeding
+      - When ``with bind`` appears inside a function definition:
+
+          - This is technically a tail call that inserts the call to ``func``
+            and the given body before proceeding with the current continuation.
+
+          - The return value of the function containing the ``with bind``
+            is the return value of the body of the ``with bind``.
+
+      - When ``with bind`` appears at the top level:
+
+          - A normal call to ``func`` is made, proceeding with the body as the
+            continuation.
+
+          - In this case it is not possible to get the return value of the body
+            the first time it runs, because ``with`` is a statement.
+
+            If you stash the ``cc`` while inside ``func``, and then call it
+            later from the top level, then on any further runs it is possible
+            to get its return value as usual.
+
+      - If you need to insert just a tail call (no extra body) before proceeding
         with the current continuation, no need for ``with bind``; use
         ``return func(...)`` instead.
     """
@@ -1025,12 +1059,28 @@ def continuations(tree, gen_sym, **kw):
     # to pass in varargs.
 
     # TODO: support lambdas
-    #   - args get the same treatment as in a FunctionDef
-    #   - inject the decorator call manually
+    #   - args should get the same treatment as in a FunctionDef
+    #   - inject the decorator call manually: trampolined(lambda ...: ...)
     #   - the only body plays the role of the return statement
     #     - TODO: allow combo with multilambda (difficult)
 
-    # Add cc as a keyword-only parameter to FunctionDef.
+    # Eliminate nested "with continuations" blocks
+    # (this must expand outside-first, hence yield)
+    def iswithcontinuations(tree):
+        return type(tree) is With and len(tree.items) == 1 and \
+               type(tree.items[0].context_expr) is Name and \
+               tree.items[0].context_expr.id == "continuations"
+    @Walker
+    def transform_nested(tree, **kw):
+        if iswithcontinuations(tree):
+            return If(test=Num(n=1),  # replace the "with" by a no-op "if"
+                      body=tree.body,
+                      orelse=[])
+        return tree
+    tree = yield transform_nested.recurse(tree)
+
+    # second pass, after any nested macros have been expanded.
+
     # This corresponds to PG's "=defun", but we don't need to generate a macro.
     @Walker
     def transform_def(tree, **kw):
@@ -1058,7 +1108,7 @@ def continuations(tree, gen_sym, **kw):
     # This corresponds to PG's "=values".
     # Ours is applied automatically to all return statements in the block.
     @Walker
-    def transform_return(tree, **kw):
+    def transform_return(tree, *, stop, **kw):
         if type(tree) is Return:
             # TODO: support Return with IfExp
             # return --> return None  (bare return has value=None in the AST)
@@ -1072,15 +1122,27 @@ def continuations(tree, gen_sym, **kw):
                 hascc = any(kw.arg == "cc" for kw in thecall.keywords)
                 if not hascc:
                     thecall.keywords = [keyword(arg="cc", value=q[name["cc"]])] + thecall.keywords
+                newtree = Return(value=thecall)
             # else tail-call our current continuation with the given value(s)
-            elif type(value) is Tuple:
-                # handle multiple-return-values like the rest of unpythonic does
-                # (returning a tuple means multiple return values)
-                # unpack the values to cc's arglist
+            elif type(value) is Tuple:  # literal tuple
+                # Handle multiple-return-values like the rest of unpythonic does.
+                # Returning a tuple means multiple return values; unpack the
+                # values to cc's arglist.
                 thecall = hq[jump(name["cc"], *ast_literal[value])]
+                newtree = Return(value=thecall)
             else:
-                thecall = hq[jump(name["cc"], ast_literal[value])]
-            return Return(value=thecall)
+                # In the general case, value might or might not be a tuple at run-time.
+                asgn = Assign(targets=[q[name["_retval"]]], value=value)
+                thecall_single = hq[jump(name["cc"], name["_retval"])]
+                thecall_multi = hq[jump(name["cc"], *name["_retval"])]
+                newtree = If(test=Num(n=1),
+                             body=[asgn,
+                                   If(test=q[isinstance(name["_retval"], tuple)],
+                                      body=[Return(value=thecall_multi)],
+                                      orelse=[Return(value=thecall_single)])],
+                             orelse=[])
+                stop()  # don't recurse into the "if" we generate here
+            return newtree
         return tree
     # Helper for "with bind".
     # bind[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., cc=cc, k0=v0, ...)
@@ -1108,12 +1170,10 @@ def continuations(tree, gen_sym, **kw):
         return False
     @Walker
     def transform_withbind(tree, *, toplevel, set_ctx, **kw):
-        if type(tree) is FunctionDef:
+        if type(tree) is FunctionDef:  # function definition **inside the "with continuations" block**
             set_ctx(toplevel=False)
         if not iswithbind(tree):
             return tree
-        if toplevel:
-            assert False, "with bind[...] as ... may only appear inside a function definition"
         ctxmanager = tree.items[0].context_expr
         optvars = tree.items[0].optional_vars
         if optvars:
@@ -1127,9 +1187,11 @@ def continuations(tree, gen_sym, **kw):
                 assert False, "with bind[...] as ... expected a name, list or tuple in as-part"
         else:
             posargs = []
+
         # Create the continuation function, set our body as its body.
-        # Any return statements in the body have already been transformed,
-        # because they appear literally in the code at the use site.
+        #
+        # !!! Any return statements in the body have already been transformed,
+        # !!! because they appear literally in the code at the use site.
         thename = gen_sym("cont")
         funcdef = FunctionDef(name=thename,
                               args=arguments(args=[arg(arg=x) for x in posargs],
@@ -1141,22 +1203,32 @@ def continuations(tree, gen_sym, **kw):
                               body=tree.body,
                               decorator_list=[],  # patched later by transform_def
                               returns=None)  # return annotation not used here
-        # Set up the tail call to func, specifying our new function as its continuation
+
+        # Set up the call to func, specifying our new function as its continuation
         thecall = transform_bind.recurse(ctxmanager, contname=thename)
-        # apply TCO
-        thecall.args = [thecall.func] + thecall.args
-        thecall.func = hq[jump]
-        # output a block that makes the function definition and
-        # then calls func, **as a tail call**
-#        with q as newtree:
-#            if 1:
-#                ast_literal[funcdef]  # TODO: doesn't work, why?
-#                return ast_literal[thecall]
-#        return newtree[0]  # the if statement
-        newtree = If(test=Num(n=1),
-                     body=[q[ast_literal[funcdef]],
-                           Return(value=q[ast_literal[thecall]])],
-                     orelse=[])
+        if not toplevel:
+            # apply TCO
+            thecall.args = [thecall.func] + thecall.args
+            thecall.func = hq[jump]
+            # Inside a function definition, output a block that defines the
+            # continuation function and then calls func, **as a tail call**
+#            with q as newtree:
+#                if 1:
+#                    ast_literal[funcdef]  # TODO: doesn't work, why? (expected expr, not stmt - why?)
+#                    return ast_literal[thecall]
+#            return newtree[0]  # the if statement
+            newtree = If(test=Num(n=1),
+                         body=[q[ast_literal[funcdef]],
+                               Return(value=q[ast_literal[thecall]])],
+                         orelse=[])
+        else:
+            # At the top level, output a block that defines the
+            # continuation function and then calls func normally.
+            # TODO: add some magic identifier to capture the return value? Too much magic?
+            newtree = If(test=Num(n=1),
+                         body=[q[ast_literal[funcdef]],
+                               Expr(value=q[ast_literal[thecall]])],
+                         orelse=[])
         return newtree
     # set up the default continuation that just returns its args
     newtree = [Assign(targets=[q[name["cc"]]], value=hq[identity])]

@@ -433,6 +433,23 @@ def main():
         print(k(['again']))
         print(k(['thrice', '!']))
 
+    with continuations:
+        # A top-level "with bind" is also allowed, but in that case there is
+        # no way to get the return value of the continuation the first time it runs,
+        # because "with" is a statement.
+        #
+        # On further runs, it is of course possible to get the return value as usual.
+        k = None
+        def setk(*args, cc):
+            nonlocal k
+            k = cc
+            return args  # tuple return value (if not literal, tested at run-time) --> multiple-values
+        with bind[setk(1, 2)] as (x, y):
+            print(x, y)
+            return x, y
+        assert k(3, 4) == (3, 4)
+        assert k(5, 6) == (5, 6)
+
     # depth-first tree traversal (Paul Graham: On Lisp, p. 271)
     def atom(x):
         return not isinstance(x, (list, tuple))

@@ -363,9 +363,8 @@ Code within a ``with continuations`` block is treated specially. Roughly:
        - If there are multiple names, **parentheses are mandatory**, due to the syntax of Python's ``with`` statement.
        - The body is technically a function; it gets its own ``cc``.
      - Basically everywhere else, ``cc`` points to the identity function - the default continuation just returns its arguments.
-   - ``with bind`` may only appear inside a function definition contained within a ``with continuations`` block.
-     - This is because currently, it always transforms into a tail call, terminating the current function. (This is possibly subject to change in a future version; the top level could be special-cased not to generate a tail call.)
-     - Any code the current function needs to run after the ``with bind`` must be placed in the body of the ``with bind``.
+   - Inside a function definition, ``with bind`` generates a tail call, terminating the function. Any code the function needs to run after the ``with bind`` must be placed in the body of the ``with bind``. The return value of the function is the return value of the body.
+   - At the top level, ``with bind`` generates a normal call. In this case is not possible to capture the return value of the body the first time it runs, because ``with`` is a statement.
 
 For more details and current limitations, see the docstring of ``unpythonic.syntax.continuations``.
 
