@@ -19,7 +19,8 @@ from unpythonic.syntax import macros, \
                               fup, \
                               prefix, q, u, kw, \
                               multilambda, namedlambda, \
-                              continuations, bind
+                              continuations, bind, \
+                              tco
 
 from itertools import repeat
 from unpythonic import foldr, composerc as compose, cons, nil, ll, apply
@@ -381,6 +382,12 @@ def main():
     assert fup[lst[::2] << tuple(repeat(10, 3))] == (10, 2, 10, 4, 10)
     assert fup[lst[::-1] << tuple(range(5))] == (4, 3, 2, 1, 0)
     assert lst == (1, 2, 3, 4, 5)
+
+    # TCO as a macro
+    with tco:
+        evenp = lambda x: (x == 0) or oddp(x - 1)
+        oddp  = lambda x: (x != 0) and evenp(x - 1)
+        assert evenp(10000) is True
 
     # continuations!
     # basic testing

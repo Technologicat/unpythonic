@@ -19,6 +19,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables
  - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
  - [``continuations``: a form of call/cc for Python](#continuations-a-form-of-callcc-for-python)
+ - [``tco``: automatically apply tail call optimization](#tco-automatically-apply-tail-call-optimization)
  - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence); with slice notation
  - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
 
@@ -398,6 +399,39 @@ print(tuple(pt_gen()))
 Generators already provide suspend-and-resume. Similarly to ``fail()`` above, here too ``next()`` can be called on the ``pt_gen`` instance after it has suspended itself at the ``yield``.
 
 Finally, as a side note, generators [can be easily built](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt) on top of ``call/cc``.
+
+
+## ``tco``: automatically apply tail call optimization
+
+```python
+with tco:
+    evenp = lambda x: (x == 0) or oddp(x - 1)
+    oddp  = lambda x: (x != 0) and evenp(x - 1)
+    assert evenp(10000) is True
+
+with tco:
+    def evenp(x):
+        if x == 0:
+            return True
+        return oddp(x - 1)
+    def oddp(x):
+        if x != 0:
+            return evenp(x - 1)
+        return False
+    assert evenp(10000) is True
+```
+
+This is based on a strategy similar to MacroPy's tco macro, but using the TCO machinery from ``unpythonic.fasttco``.
+
+This recursively handles also ``a if p else b``, ``and``, ``or``, and ``unpythonic.syntax.do[]`` when used in computing a return value. Support for ``do[]`` includes also any surrounding ``multilambda`` blocks.
+
+**CAUTION**: when detecting tail position, ``call_ec`` is not supported.
+
+In a ``with tco`` block, **only tail calls** are allowed in a return value. To make regular calls when computing a return value, put them elsewhere (using ``do[]`` or ``multilambda`` if necessary).
+
+All function definitions (``def`` and ``lambda``) lexically inside the block undergo TCO transformation. The functions are automatically ``@trampolined``, and any tail calls in their return values are converted to ``jump(...)`` for the TCO machinery.
+
+Note in a ``def`` you still need the ``return``; it marks a return value.
 
 
 ## ``fup``: functionally update a sequence
