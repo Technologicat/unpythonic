@@ -8,12 +8,11 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # TODO:  All macros are defined in this module, because MacroPy (as of 1.1.0b2)
 # does not have a mechanism for re-exporting macros defined in another module.
 
-# TODO: avoid mutating original tree in implementations
-
 from macropy.core.macros import Macros, macro_stub
 from macropy.core.walkers import Walker
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
+#from macropy.core.cleanup import fill_line_numbers
 
 from functools import partial
 from ast import Call, arg, keyword, With, withitem, Tuple, \
@@ -21,7 +20,7 @@ from ast import Call, arg, keyword, With, withitem, Tuple, \
                 Subscript, Index, Slice, ExtSlice, Lambda, List, \
                 copy_location, Assign, FunctionDef, \
                 ListComp, SetComp, GeneratorExp, DictComp, \
-                arguments, If, Num, Return, Expr
+                arguments, If, Num, Return, Expr, IfExp, BoolOp, And, Or
 
 from unpythonic.it import flatmap, uniqify, rev
 from unpythonic.fun import curry as curryf, identity
@@ -883,16 +882,18 @@ def continuations(tree, gen_sym, **kw):
     Rules of a ``with continuations`` block:
 
       - Functions which make use of continuations, or call other functions that do,
-        must be defined within a ``with continuations`` block, using ``def``.
-        (For simplicity, we **do not** support continuations for lambdas.
-        This is subject to change in a future version.)
+        must be defined within a ``with continuations`` block, using ``def``
+        or ``lambda``.
 
       - All function definitions in a ``with continuations`` block, including
-        any nested defs, must declare a by-name-only formal parameter ``cc``::
+        any nested definitionss, must declare a by-name-only formal parameter
+        ``cc``::
 
             with continuations:
                 def myfunc(*, cc):
                     ...
+
+                    f = lambda *, cc: ...
 
         The continuation machinery implicitly sets its value to the current
         continuation.
@@ -1054,15 +1055,8 @@ def continuations(tree, gen_sym, **kw):
         with the current continuation, no need for ``with bind``; use
         ``return func(...)`` instead.
     """
-    # We don't have analogs of PG's "=lambda" and "=apply"; we don't currently
-    # support continuations for lambdas, and Python doesn't need "apply"
+    # We don't have an analog of PG's "=apply"; Python doesn't need "apply"
     # to pass in varargs.
-
-    # TODO: support lambdas
-    #   - args should get the same treatment as in a FunctionDef
-    #   - inject the decorator call manually: trampolined(lambda ...: ...)
-    #   - the only body plays the role of the return statement
-    #     - TODO: allow combo with multilambda (difficult)
 
     # Eliminate nested "with continuations" blocks
     # (this must expand outside-first, hence yield)
@@ -1077,73 +1071,150 @@ def continuations(tree, gen_sym, **kw):
                       body=tree.body,
                       orelse=[])
         return tree
+
+    # find which lambdas that appear in the client code, before expanding any
+    # nested macros (which may generate more lambdas we shouldn't transform).
+    @Walker
+    def detect_lambda(tree, *, collect, **kw):
+        if type(tree) is Lambda:
+            collect(id(tree))
+        return tree
+    userlambdas = detect_lambda.collect(tree)
+
     tree = yield transform_nested.recurse(tree)
 
-    # second pass, after any nested macros have been expanded.
+    # Start of second pass, after any nested macros have been expanded.
 
-    # This corresponds to PG's "=defun", but we don't need to generate a macro.
+    # These correspond to PG's "=defun" and "=lambda", but we don't need to generate a macro.
     @Walker
     def transform_def(tree, **kw):
         if type(tree) is FunctionDef:
-            # enable TCO
-            tree.decorator_list = [hq[trampolined]] + tree.decorator_list
-            # require explicit by-name-only arg for continuation, "cc"
-            # (by name because we need to set a default value; otherwise "cc"
-            #  could be positional and be placed just after "self" or "cls", if any)
-            kwonlynames = [a.arg for a in tree.args.kwonlyargs]
-            hascc = any(x == "cc" for x in kwonlynames)
-            if not hascc:
-                assert False, "functions in a 'with continuations' block must have a by-name-only arg 'cc'"
-            # we could add it implicitly like this
+            tree = transform_args(tree)
+            tree.decorator_list = [hq[trampolined]] + tree.decorator_list  # enable TCO
+        return tree
+    @Walker
+    def transform_lambda(tree, *, stop, **kw):
+        if type(tree) is Lambda and id(tree) in userlambdas:
+            tree = transform_args(tree)
+            # TODO: combo with multilambda
+            #  - if type(body) is Call and type(body.func) is macropy.core.Captured and type(body.func.name) == "dof"
+            #    then apply transformation to body.func.args[-1]... but inside the "lambda e: ..."
+            tree.body = transform_retexpr(tree.body)
+            tree = hq[trampolined(ast_literal[tree])]  # enable TCO
+            stop()  # avoid recursing on the lambda we just moved inside the trampolined()...
+            transform_lambda.recurse(tree.args[0].body)  # ...but recurse inside it
+        return tree
+    def transform_args(tree):
+        assert type(tree) in (FunctionDef, Lambda)
+        # require explicit by-name-only arg for continuation, "cc"
+        # (by name because we need to set a default value; otherwise "cc"
+        #  could be positional and be placed just after "self" or "cls", if any)
+        kwonlynames = [a.arg for a in tree.args.kwonlyargs]
+        hascc = any(x == "cc" for x in kwonlynames)
+        if not hascc:
+            assert False, "functions in a 'with continuations' block must have a by-name-only arg 'cc'"
+        # we could add it implicitly like this
 #            tree.args.kwonlyargs = [arg(arg="cc")] + tree.args.kwonlyargs
 #            tree.args.kw_defaults = [hq[identity]] + tree.args.kw_defaults
-            # Patch in the default identity continuation to allow regular
-            # (non-tail) calls without explicitly passing a continuation.
-            j = kwonlynames.index("cc")
-            if tree.args.kw_defaults[j] is None:
-                tree.args.kw_defaults[j] = hq[identity]
+        # Patch in the default identity continuation to allow regular
+        # (non-tail) calls without explicitly passing a continuation.
+        j = kwonlynames.index("cc")
+        if tree.args.kw_defaults[j] is None:
+            tree.args.kw_defaults[j] = hq[identity]
         return tree
-    # return value --> return cc(value)
-    # return v1, ..., vn --> return cc(*(v1, ..., vn))
+
     # This corresponds to PG's "=values".
-    # Ours is applied automatically to all return statements in the block.
+    # Ours is applied automatically to all return statements in the block,
+    # and there's some extra complexity to support IfExp and BoolOp.
+    # return value --> return jump(cc, value)
+    # return v1, ..., vn --> return jump(cc, *(v1, ..., vn))
+    # return f(...) --> return jump(f, cc=cc, ...)
     @Walker
-    def transform_return(tree, *, stop, **kw):
+    def transform_return(tree, **kw):
         if type(tree) is Return:
-            # TODO: support Return with IfExp
             # return --> return None  (bare return has value=None in the AST)
             value = tree.value or q[None]
-            # explicit tail call - apply TCO
-            if type(value) is Call:
-                thecall = value
-                thecall.args = [thecall.func] + thecall.args
-                thecall.func = hq[jump]
-                # Pass our current continuation (if no continuation already specified by user).
-                hascc = any(kw.arg == "cc" for kw in thecall.keywords)
-                if not hascc:
-                    thecall.keywords = [keyword(arg="cc", value=q[name["cc"]])] + thecall.keywords
-                newtree = Return(value=thecall)
-            # else tail-call our current continuation with the given value(s)
-            elif type(value) is Tuple:  # literal tuple
-                # Handle multiple-return-values like the rest of unpythonic does.
-                # Returning a tuple means multiple return values; unpack the
-                # values to cc's arglist.
-                thecall = hq[jump(name["cc"], *ast_literal[value])]
-                newtree = Return(value=thecall)
-            else:
-                # In the general case, value might or might not be a tuple at run-time.
-                asgn = Assign(targets=[q[name["_retval"]]], value=value)
-                thecall_single = hq[jump(name["cc"], name["_retval"])]
-                thecall_multi = hq[jump(name["cc"], *name["_retval"])]
-                newtree = If(test=Num(n=1),
-                             body=[asgn,
-                                   If(test=q[isinstance(name["_retval"], tuple)],
-                                      body=[Return(value=thecall_multi)],
-                                      orelse=[Return(value=thecall_single)])],
-                             orelse=[])
-                stop()  # don't recurse into the "if" we generate here
-            return newtree
+            return Return(value=transform_retexpr(value))
         return tree
+    # Here we need to be very, very selective so this is not a Walker.
+    def transform_retexpr(tree):  # input: expression in return-value position
+        if type(tree) is Call:  # tail call --> apply TCO
+            tree.args = [tree.func] + tree.args
+            tree.func = hq[jump]
+            # Pass our current continuation (if no continuation already specified by user).
+            hascc = any(kw.arg == "cc" for kw in tree.keywords)
+            if not hascc:
+                tree.keywords = [keyword(arg="cc", value=q[name["cc"]])] + tree.keywords
+        elif type(tree) is IfExp:
+            # only either body or orelse runs, so either (or both) of them may be a tail call.
+            # test may have any code, including normal calls; these are not transformed.
+            tree.body = transform_retexpr(tree.body)
+            tree.orelse = transform_retexpr(tree.orelse)
+        # TODO: what to do about "not"? "return not f(...)" is not a tail-call since
+        # the "not" applies after f; maybe we should disallow it to avoid confusion?
+        elif type(tree) is BoolOp:  # and, or
+            # and/or is a combined test-and-return. Note any number of these may be nested.
+            #
+            # Since an and/or may evaluate any number of items before returning,
+            # we allow a tail-call only in the last item of the topmost and/or.
+            for expr in tree.values[:-1]:
+                validate_nocall.recurse(expr)  # recursion checks nested BoolOps, IfExps (except tail pos)
+            if type(tree.values[-1]) in (Call, IfExp, BoolOp):
+                # other items: inert data (unless a property, but doesn't matter if used reasonably)
+                if len(tree.values) > 2:
+                    op_of_others = BoolOp(op=tree.op, values=tree.values[:-1],
+                                          lineno=tree.lineno, col_offset=tree.col_offset)
+                else:
+                    op_of_others = tree.values[0]
+                if type(tree.op) is Or:
+                    # or(data1, ..., datan, tail-call) --> it if any(others) else tail-call
+                    tree = aif.transform(Tuple(elts=[op_of_others,
+                                                     transform_retdataval(Name(id="it",
+                                                                               lineno=tree.lineno,
+                                                                               col_offset=tree.col_offset)),
+                                                     transform_retexpr(tree.values[-1])],
+                                               lineno=tree.lineno, col_offset=tree.col_offset)) # tail-call item
+                elif type(tree.op) is And:
+                    # and(data1, ..., datan, tail-call) --> tail-call if all(others) else False
+                    fal = q[False]
+                    fal = copy_location(fal, tree)
+                    tree = IfExp(test=op_of_others,
+                                 body=transform_retexpr(tree.values[-1]),
+                                 orelse=transform_retdataval(fal))
+                else:
+                    assert False, "unknown BoolOp type {}".format(tree.op)
+            else:  # optimization: inert data only, need just one cc handler, at the topmost level
+                tree = transform_retdataval(tree)
+        # else tail-call our current continuation with the given data value(s)
+        else:
+            tree = transform_retdataval(tree)
+        return tree
+    def transform_retdataval(tree):  # general inert-data return value
+        # Handle multiple-return-values like the rest of unpythonic does:
+        # returning a tuple means returning multiple values. Unpack them
+        # to cc's arglist.
+        if type(tree) is Tuple:  # optimization: literal tuple, always unpack
+            tree = hq[jump(name["cc"], *ast_literal[tree])]
+        else:  # general case: check tupleness at run-time
+            thecall_multi = hq[jump(name["cc"], *name["_retval"])]
+            thecall_single = hq[jump(name["cc"], name["_retval"])]
+#            tree = let.transform(q[ast_literal[thecall_multi]  # TODO: doesn't work, IfExp missing line number
+#                                   if isinstance(name["_retval"], tuple)
+#                                   else ast_literal[thecall_single]],
+#                                 q[(name["_retval"], ast_literal[tree])])
+#            tree = fill_line_numbers(newtree, tree.lineno, tree.col_offset)  # doesn't work even with this.
+            tree = let.transform(IfExp(test=q[isinstance(name["_retval"], tuple)],
+                                       body=thecall_multi,
+                                       orelse=thecall_single,
+                                       lineno=tree.lineno, col_offset=tree.col_offset),
+                                 q[(name["_retval"], ast_literal[tree])])
+        return tree
+    @Walker
+    def validate_nocall(tree, **kw):
+        if type(tree) is Call:
+            assert False, "in a return value in a 'with continuations' block, call allowed only in tail position."
+        return tree
+
     # Helper for "with bind".
     # bind[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., cc=cc, k0=v0, ...)
     # This roughly corresponds to PG's "=funcall".
@@ -1160,7 +1231,7 @@ def continuations(tree, gen_sym, **kw):
         return tree
     # Inside FunctionDef nodes:
     #     with bind[...] as ...: --> CPS transformation
-    # This corresponds to PG's "=bind".
+    # This corresponds to PG's "=bind". This is essentially the call/cc.
     def iswithbind(tree):
         if type(tree) is With:
             if len(tree.items) == 1 and isbind(tree.items[0].context_expr):
@@ -1190,8 +1261,8 @@ def continuations(tree, gen_sym, **kw):
 
         # Create the continuation function, set our body as its body.
         #
-        # !!! Any return statements in the body have already been transformed,
-        # !!! because they appear literally in the code at the use site.
+        # Any return statements in the body have already been transformed,
+        # because they appear literally in the code at the use site.
         thename = gen_sym("cont")
         funcdef = FunctionDef(name=thename,
                               args=arguments(args=[arg(arg=x) for x in posargs],
@@ -1224,12 +1295,12 @@ def continuations(tree, gen_sym, **kw):
         else:
             # At the top level, output a block that defines the
             # continuation function and then calls func normally.
-            # TODO: add some magic identifier to capture the return value? Too much magic?
             newtree = If(test=Num(n=1),
                          body=[q[ast_literal[funcdef]],
                                Expr(value=q[ast_literal[thecall]])],
                          orelse=[])
         return newtree
+
     # set up the default continuation that just returns its args
     newtree = [Assign(targets=[q[name["cc"]]], value=hq[identity])]
     # CPS conversion
@@ -1245,6 +1316,7 @@ def continuations(tree, gen_sym, **kw):
         check_for_strays.recurse(stmt)  # check that no stray bind[] expressions remain
         # transform all defs, including those added by "with bind[]".
         stmt = transform_def.recurse(stmt)
+        stmt = transform_lambda.recurse(stmt)
         newtree.append(stmt)
     return newtree
 

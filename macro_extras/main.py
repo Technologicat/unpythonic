@@ -6,6 +6,8 @@ Uses MacroPy; must be run through the bootstrap script run.py,
 since macro expansion occurs at import time.
 """
 
+from macropy.tracing import macros, show_expanded
+
 from unpythonic.syntax import macros, \
                               curry, \
                               simple_let, simple_letseq, \
@@ -406,6 +408,68 @@ def main():
             print("never reached")
         assert g(3, 4) == (6, 12)
 
+    # an "and" or "or" return value may have a tail-call in the last item
+    with continuations:
+        # "or"
+        def h1(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
+                return None or f(3, 4)
+        assert h1(3, 4) == (6, 12)
+
+        def h2(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
+                return True or f(3, 4)
+        assert h2(3, 4) is True
+
+        # "or" with 3 or more items (testing; handled differently internally)
+        def h3(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
+                return None or False or f(3, 4)
+        assert h3(3, 4) == (6, 12)
+
+        def h4(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
+                return None or True or f(3, 4)
+        assert h4(3, 4) is True
+
+        def h5(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
+                return 42 or None or f(3, 4)
+        assert h5(3, 4) == 42
+
+        # "and"
+        def i1(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
+                return True and f(3, 4)
+        assert i1(3, 4) == (6, 12)
+
+        def i2(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
+                return False and f(3, 4)
+        assert i2(3, 4) is False
+
+        # "and" with 3 or more items
+        def i3(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
+                return True and 42 and f(3, 4)
+        assert i3(3, 4) == (6, 12)
+
+        def i4(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
+                return True and False and f(3, 4)
+        assert i4(3, 4) is False
+
+        def i5(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
+                return None and False and f(3, 4)
+        assert i5(3, 4) is False
+
+        # combination of "and" and "or"
+        def j1(a, b, *, cc):
+            with bind[f(a, b)] as (x, y):
+                return None or True and f(3, 4)
+        assert j1(3, 4) == (6, 12)
+
     # silly call/cc example (Paul Graham: On Lisp, p. 261), pythonified
     with continuations:
         k = None  # kontinuation
@@ -478,9 +542,8 @@ def main():
                 return tree
             first, *rest = tree
             ourcc = cc  # capture our current continuation
-            def getmore(*, cc):
-                return dft_node(rest, cc=ourcc)  # override default continuation
-            saved.append(getmore)
+            # override default continuation in the tail-call in the lambda
+            saved.append(lambda *, cc: dft_node(rest, cc=ourcc))
             return dft_node(first)
         def restart(*, cc):
             if saved:
@@ -553,9 +616,7 @@ def main():
             first, *rest = lst
             if rest:
                 ourcc = cc
-                def getmore(*, cc):
-                    return amb(rest, cc=ourcc)
-                stack.append(getmore)
+                stack.append(lambda *, cc: amb(rest, cc=ourcc))
             return first
         def fail(*, cc):
             if stack:

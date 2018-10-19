@@ -311,9 +311,7 @@ with continuations:
         first, *rest = lst
         if rest:
             ourcc = cc
-            def getmore(*, cc):
-                return amb(rest, cc=ourcc)
-            stack.append(getmore)
+            stack.append(lambda *, cc: amb(rest, cc=ourcc))
         return first
     def fail(*, cc):
         if stack:
@@ -339,7 +337,7 @@ with continuations:
 
 Code within a ``with continuations`` block is treated specially. Roughly:
 
- - Each function definition in a ``with continuations`` block must take a by-name-only parameter ``cc``.
+ - Each function definition (``def`` or ``lambda``) in a ``with continuations`` block must take a by-name-only parameter ``cc``.
    - It is a named parameter, so that we may inject a default value, to allow these functions to be called also normally without passing a ``cc``.
    - To keep things somewhat pythonic, the parameter must be spelled out explicitly even though it gets its value implicitly, just like ``self`` in object-oriented Python code.
 
@@ -363,12 +361,10 @@ Code within a ``with continuations`` block is treated specially. Roughly:
        - If there are multiple names, **parentheses are mandatory**, due to the syntax of Python's ``with`` statement.
        - The body is technically a function; it gets its own ``cc``.
      - Basically everywhere else, ``cc`` points to the identity function - the default continuation just returns its arguments.
-   - Inside a function definition, ``with bind`` generates a tail call, terminating the function. Any code the function needs to run after the ``with bind`` must be placed in the body of the ``with bind``. The return value of the function is the return value of the body.
+   - Inside a ``def``, ``with bind`` generates a tail call, terminating the function. Any code the function needs to run after the ``with bind`` must be placed in the body of the ``with bind``. The return value of the function is the return value of the body.
    - At the top level, ``with bind`` generates a normal call. In this case is not possible to capture the return value of the body the first time it runs, because ``with`` is a statement.
 
-For more details and current limitations, see the docstring of ``unpythonic.syntax.continuations``.
-
-Notably, **lambdas are currently not supported**; they will not get the continuation treatment even in a ``with continuations`` block. Support for Python's builtin lambdas could be implemented, but making this combo well with ``multilambda`` is difficult.
+For more details and current limitations, see the docstring of ``unpythonic.syntax.continuations``. Notably, this does not currently combo with ``multilambda``.
 
 ### Is this useful?
 
