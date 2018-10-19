@@ -318,6 +318,10 @@ def letrec(tree, args, gen_sym, **kw):
     """
     return _letimpl(tree, args, "letrec", gen_sym)
 
+def _islet(tree):
+    # TODO: what about the fact it's a hq[letter(...)]? No Captured node?
+    return type(tree) is Call and type(tree.func) is Name and tree.func.id == "letter"
+
 def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     newtree = _implicit_do(tree)
     if not args:
@@ -1280,18 +1284,30 @@ def bind(tree, **kw):
 def tco(tree, **kw):
     """[syntax, block] Automatically apply tail-call optimization (TCO).
 
-    Example::
+    Examples::
 
         with tco:
             evenp = lambda x: (x == 0) or oddp(x - 1)
             oddp  = lambda x: (x != 0) and evenp(x - 1)
             assert evenp(10000) is True
 
+        with tco:
+            def evenp(x):
+                if x == 0:
+                    return True
+                return oddp(x - 1)
+            def oddp(x):
+                if x != 0:
+                    return evenp(x - 1)
+                return False
+            assert evenp(10000) is True
+
     This is based on a strategy similar to MacroPy's tco macro, but using
     the TCO machinery from ``unpythonic.fasttco``.
 
-    This recursively handles also ``a if p else b``, ``and``, ``or``, and
-    ``unpythonic.syntax.do[]`` when used in computing a return value.
+    This recursively handles also builtins ``a if p else b``, ``and``, ``or``;
+    and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``,
+    when used in computing a return value.
 
     Note only calls **in tail position** will be TCO'd. Any other calls
     are left as-is. Tail positions are:
@@ -1339,7 +1355,6 @@ def tco(tree, **kw):
         return tree
 
     # TODO: support lambdas that use call_ec
-    #   - maybe wrap each userlambda in a call_ec, defining "exit" or some such?
     @Walker
     def transform_lambda(tree, *, stop, **kw):
         if type(tree) is Lambda and id(tree) in userlambdas:
@@ -1383,10 +1398,10 @@ def _detect_lambda(tree, *, collect, stop, **kw):
     return tree
 
 def _transform_tailexpr(tree, call_cb, data_cb):
-    """Analyze an expression in tail position and TCO any tail calls in it.
+    """Analyze a return-value expression or a lambda body; TCO it.
 
-    This recursively handles also ``a if p else b``, ``and``, ``or``, and
-    ``unpythonic.syntax.do[]``.
+    This recursively handles builtins ``a if p else b``, ``and``, ``or``; and
+    from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``.
 
     This uses ``unpythonic.fasttco``.
 
@@ -1397,10 +1412,13 @@ def _transform_tailexpr(tree, call_cb, data_cb):
     transform_call = call_cb or (lambda tree: tree)
     transform_data = data_cb or (lambda tree: tree)
     def transform(tree):
-        # TODO: support let[], letseq[], letrec[] (recurse on body)
-        if _isdo(tree):
-            # do[] in tail position. May be generated also by a surrounding
-            # "with multilambda" block.
+        if _isdo(tree) or _islet(tree):
+            # Ignore the "lambda e: ...", and descend into the ..., in:
+            #   - let[] or letrec[] in tail position.
+            #     - letseq[] is a nested sequence of lets, so covers that too.
+            #   - do[] in tail position.
+            #     - May be generated also by a "with multilambda" block
+            #       that has already expanded.
             tree.args[-1].body = transform(tree.args[-1].body)
         elif type(tree) is Call:  # apply TCO
             tree.args = [tree.func] + tree.args

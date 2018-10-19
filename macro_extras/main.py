@@ -385,9 +385,36 @@ def main():
 
     # TCO as a macro
     with tco:
+        # works with lambdas
         evenp = lambda x: (x == 0) or oddp(x - 1)
         oddp  = lambda x: (x != 0) and evenp(x - 1)
         assert evenp(10000) is True
+
+        # works with defs
+        def evenp(x):
+            if x == 0:
+                return True
+            return oddp(x - 1)
+        def oddp(x):
+            if x != 0:
+                return evenp(x - 1)
+            return False
+        assert evenp(10000) is True
+
+        # integration with let[] constructs
+        def f(x):
+            return let((y, 3*x))[y]
+        assert f(10) == 30
+
+        def g(x):
+            return let((y, 2*x))[f(y)]
+        assert g(10) == 60
+
+        def h(x):
+            return letseq((y, x),
+                          (y, y+1),
+                          (y, y+1))[f(y)]
+        assert h(10) == 36
 
     # continuations!
     # basic testing

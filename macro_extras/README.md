@@ -423,7 +423,7 @@ with tco:
 
 This is based on a strategy similar to MacroPy's tco macro, but using the TCO machinery from ``unpythonic.fasttco``.
 
-This recursively handles also ``a if p else b``, ``and``, ``or``, and ``unpythonic.syntax.do[]`` when used in computing a return value. Support for ``do[]`` includes also any surrounding ``multilambda`` blocks.
+This recursively handles also builtins ``a if p else b``, ``and``, ``or``; and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``. Support for ``do[]`` includes also any ``multilambda`` blocks that have already expanded when ``tco`` is processed.
 
 **CAUTION**: ``call_ec``, or any other form of escape except ``return``, are currently not detected as being in tail position.
 
