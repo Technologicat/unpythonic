@@ -425,9 +425,7 @@ This is based on a strategy similar to MacroPy's tco macro, but using the TCO ma
 
 This recursively handles also ``a if p else b``, ``and``, ``or``, and ``unpythonic.syntax.do[]`` when used in computing a return value. Support for ``do[]`` includes also any surrounding ``multilambda`` blocks.
 
-**CAUTION**: when detecting tail position, ``call_ec`` is not supported.
-
-In a ``with tco`` block, **only tail calls** are allowed in a return value. To make regular calls when computing a return value, put them elsewhere (using ``do[]`` or ``multilambda`` if necessary).
+**CAUTION**: ``call_ec``, or any other form of escape except ``return``, are currently not detected as being in tail position.
 
 All function definitions (``def`` and ``lambda``) lexically inside the block undergo TCO transformation. The functions are automatically ``@trampolined``, and any tail calls in their return values are converted to ``jump(...)`` for the TCO machinery.
 

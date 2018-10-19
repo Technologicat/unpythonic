@@ -1137,7 +1137,7 @@ def continuations(tree, gen_sym, **kw):
             value = tree.value or q[None]
             return Return(value=transform_retexpr(value))
         return tree
-    def transform_retexpr(tree):  # input: expression in return-value position
+    def transform_retexpr(tree):  # input: expression in tail position
         def call_cb(tree):
             # Pass our current continuation (if no continuation already specified by user).
             hascc = any(kw.arg == "cc" for kw in tree.keywords)
@@ -1164,7 +1164,7 @@ def continuations(tree, gen_sym, **kw):
                                            lineno=tree.lineno, col_offset=tree.col_offset),
                                      q[(name["_retval"], ast_literal[tree])])
             return tree
-        return _transform_tailcall_retexpr(tree, call_cb, data_cb, iden="continuations")
+        return _transform_tailexpr(tree, call_cb, data_cb)
 
     # Helper for "with bind".
     # bind[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., cc=cc, k0=v0, ...)
@@ -1293,11 +1293,23 @@ def tco(tree, **kw):
     This recursively handles also ``a if p else b``, ``and``, ``or``, and
     ``unpythonic.syntax.do[]`` when used in computing a return value.
 
-    **CAUTION**: when detecting tail position, ``call_ec`` is not supported.
+    Note only calls **in tail position** will be TCO'd. Any other calls
+    are left as-is. Tail positions are:
 
-    In a ``with tco`` block, **only tail calls** are allowed in a return value.
-    To make regular calls when computing a return value, put them elsewhere
-    (using ``do[]`` or ``multilambda`` if necessary).
+        - The whole return value, if it is just a single call.
+
+        - Both ``a`` and ``b`` branches of ``a if p else b`` (but not ``p``).
+
+        - The last item in an ``and``/``or``. If these are nested, only the
+          last item in the whole expression involving ``and``/``or``.
+
+        - The last item in a ``do[]``.
+
+          - In a ``do0[]``, this is the implicit item that just returns the
+            stored return value.
+
+    **CAUTION**: ``call_ec``, or any other form of escape except ``return``,
+    are currently not detected as being in tail position.
 
     All function definitions (``def`` and ``lambda``) lexically inside the block
     undergo TCO transformation. The functions are automatically ``@trampolined``,
@@ -1337,8 +1349,8 @@ def tco(tree, **kw):
             transform_lambda.recurse(tree.args[0].body)  # ...but recurse inside it
         return tree
 
-    def transform_retexpr(tree):  # input: expression in return-value position
-        return _transform_tailcall_retexpr(tree, call_cb=None, data_cb=None, iden="tco")
+    def transform_retexpr(tree):  # input: expression in tail position
+        return _transform_tailexpr(tree, call_cb=None, data_cb=None)
 
     newtree = []
     for stmt in tree:
@@ -1350,75 +1362,69 @@ def tco(tree, **kw):
 
 @Walker
 def _detect_lambda(tree, *, collect, stop, **kw):
-    """Find which lambdas appear explicitly in tree.
+    """Find lambdas in tree. Helper for block macros.
 
-    Useful in block macros. Run ``_detect_lambda.collect(tree)`` before expanding
-    any nested macros (which may generate more lambdas that your block macro
-    is not interested in).
-
-    This ignores any "lambda e: ..." added by an already expanded do[],
-    to support a surrounding ``with multilambda`` block.
+    Run ``_detect_lambda.collect(tree)`` in the first pass, before allowing any
+    nested macros to expand. (Those may generate  more lambdas that your block
+    macro is not interested in).
 
     The return value from ``.collect`` is a ``list``of ``id(l)``, where ``l``
-    is a Lambda node that explicitly appears in ``tree``.
+    is a Lambda node that appears in ``tree``.
+
+    This ignores any "lambda e: ..." added by an already expanded do[], to allow
+    other block macros to better work together with ``with multilambda``.
     """
     if _isdo(tree):
-        stop()  # don't recurse into the "lambda e: ..." added by do[] (surrounding multilambda block)
-        # but recurse inside them
+        stop()
         for item in tree.args:  # each arg to dof() is a lambda
             _detect_lambda.collect(item.body)
     if type(tree) is Lambda:
         collect(id(tree))
     return tree
 
-def _transform_tailcall_retexpr(tree, call_cb, data_cb, iden):
-    """Analyze an expression in return-value position and transform any tail calls to use fasttco.
-
-    A call may only appear in tail position with respect to the whole expression.
+def _transform_tailexpr(tree, call_cb, data_cb):
+    """Analyze an expression in tail position and TCO any tail calls in it.
 
     This recursively handles also ``a if p else b``, ``and``, ``or``, and
     ``unpythonic.syntax.do[]``.
 
-    call_cb(tree): tree -> tree, callback for Call nodes for extra transformations
-    data_cb(tree): tree -> tree, callback for inert data for extra transformations
-    iden: str, name of the block macro using this, for syntax error message
+    This uses ``unpythonic.fasttco``.
+
+    call_cb(tree): tree -> tree, callback for Call nodes for postprocessing
+    data_cb(tree): tree -> tree, callback for inert data for postprocessing
     """
+    # Here we need to be very, very selective so this is not a Walker.
     transform_call = call_cb or (lambda tree: tree)
     transform_data = data_cb or (lambda tree: tree)
-    # Here we need to be very, very selective so this is not a Walker.
-    def transform(tree):  # input: expression in return-value position
+    def transform(tree):
         # TODO: support let[], letseq[], letrec[] (recurse on body)
         if _isdo(tree):
-            # do[] in return-value position. May be generated also by
-            # a surrounding "with multilambda" block.
+            # do[] in tail position. May be generated also by a surrounding
+            # "with multilambda" block.
             tree.args[-1].body = transform(tree.args[-1].body)
         elif type(tree) is Call:  # apply TCO
             tree.args = [tree.func] + tree.args
             tree.func = hq[jump]
-            tree = transform_call(tree)  # apply possible other transforms
+            tree = transform_call(tree)
         elif type(tree) is IfExp:
-            # only either body or orelse runs, so either (or both) of them may be a tail call.
-            # test may have any code, including normal calls; these are not transformed.
+            # Only either body or orelse runs, so both of them are in tail position.
+            # test is not in tail position.
             tree.body = transform(tree.body)
             tree.orelse = transform(tree.orelse)
-        # TODO: what to do about "not"? "return not f(...)" is not a tail-call since
-        # the "not" applies after f; maybe we should disallow it to avoid confusion?
         elif type(tree) is BoolOp:  # and, or
             # and/or is a combined test-and-return. Note any number of these may be nested.
-            #
-            # Since an and/or may evaluate any number of items before returning,
-            # we allow a tail-call only in the last item of the topmost and/or.
-            for expr in tree.values[:-1]:
-                validate_nocall.recurse(expr)  # recursion checks nested BoolOps, IfExps (except tail pos)
-            if iscompound(tree.values[-1]):
-                # other items: inert data (unless a property, but doesn't matter if used reasonably)
+            # Because it is in general impossible to know beforehand how many
+            # items will be actually evaluated, we define only the last item
+            # to be in tail position.
+            if type(tree.values[-1]) in (Call, IfExp, BoolOp):  # must match above handlers
+                # other items: not in tail position, compute normally
                 if len(tree.values) > 2:
                     op_of_others = BoolOp(op=tree.op, values=tree.values[:-1],
                                           lineno=tree.lineno, col_offset=tree.col_offset)
                 else:
                     op_of_others = tree.values[0]
                 if type(tree.op) is Or:
-                    # or(data1, ..., datan, tail-call) --> it if any(others) else tail-call
+                    # or(data1, ..., datan, tail) --> it if any(others) else tail
                     tree = aif.transform(Tuple(elts=[op_of_others,
                                                      transform_data(Name(id="it",
                                                                          lineno=tree.lineno,
@@ -1426,7 +1432,7 @@ def _transform_tailcall_retexpr(tree, call_cb, data_cb, iden):
                                                      transform(tree.values[-1])],
                                                lineno=tree.lineno, col_offset=tree.col_offset)) # tail-call item
                 elif type(tree.op) is And:
-                    # and(data1, ..., datan, tail-call) --> tail-call if all(others) else False
+                    # and(data1, ..., datan, tail) --> tail if all(others) else False
                     fal = q[False]
                     fal = copy_location(fal, tree)
                     tree = IfExp(test=op_of_others,
@@ -1434,18 +1440,10 @@ def _transform_tailcall_retexpr(tree, call_cb, data_cb, iden):
                                  orelse=transform_data(fal))
                 else:  # cannot happen
                     assert False, "unknown BoolOp type {}".format(tree.op)
-            else:  # optimization: BoolOp with inert data items only
+            else:  # optimization: BoolOp, no call or compound in tail position --> treat as single data item
                 tree = transform_data(tree)
         else:
             tree = transform_data(tree)
-        return tree
-    def iscompound(tree):
-        # this must match the handlers in transform() (but do[] is a Call)
-        return type(tree) in (Call, IfExp, BoolOp)
-    @Walker
-    def validate_nocall(tree, **kw):
-        if type(tree) is Call:
-            assert False, "in a return value in a 'with {}' block, call allowed only in tail position.".format(iden)
         return tree
     return transform(tree)
 
