@@ -879,6 +879,11 @@ def continuations(tree, gen_sym, **kw):
     The purpose of this macro is to partly automate the CPS transformation,
     so that at the use site, we can write CPS code in a much more readable fashion.
 
+    To combo with multilambda, use this ordering::
+
+        with multilambda, continuations:
+            ...
+
     Rules of a ``with continuations`` block:
 
       - Functions which make use of continuations, or call other functions that do,
@@ -1059,11 +1064,7 @@ def continuations(tree, gen_sym, **kw):
     # to pass in varargs.
 
     # Eliminate nested "with continuations" blocks
-    # (this must expand outside-first, hence yield)
-    def iswithcontinuations(tree):
-        return type(tree) is With and len(tree.items) == 1 and \
-               type(tree.items[0].context_expr) is Name and \
-               tree.items[0].context_expr.id == "continuations"
+    # (this must expand in the first pass, outside-first)
     @Walker
     def transform_nested(tree, **kw):
         if iswithcontinuations(tree):
@@ -1071,14 +1072,28 @@ def continuations(tree, gen_sym, **kw):
                       body=tree.body,
                       orelse=[])
         return tree
+    def iswithcontinuations(tree):
+        # TODO: what about combos with other top-level block macros?
+        return type(tree) is With and len(tree.items) == 1 and \
+               type(tree.items[0].context_expr) is Name and \
+               tree.items[0].context_expr.id == "continuations"
 
-    # find which lambdas that appear in the client code, before expanding any
-    # nested macros (which may generate more lambdas we shouldn't transform).
+    # Find which lambdas appear explicitly in the client code, before expanding
+    # any nested macros (which may generate more lambdas we shouldn't transform).
+    # Ignore any "lambda e: ..." added by an already expanded do[].
     @Walker
-    def detect_lambda(tree, *, collect, **kw):
+    def detect_lambda(tree, *, collect, stop, **kw):
+        if isdo(tree):  # multilambda support
+            stop()  # don't recurse into the "lambda e: ..." added by do[]
+            # but recurse inside them
+            for item in tree.args:  # each item is a lambda
+                detect_lambda.collect(item.body)
         if type(tree) is Lambda:
             collect(id(tree))
         return tree
+    def isdo(tree):
+        # TODO: what about the fact it's a hq[dof(...)]? No Captured node?
+        return type(tree) is Call and type(tree.func) is Name and tree.func.id == "dof"  # see do()
     userlambdas = detect_lambda.collect(tree)
 
     tree = yield transform_nested.recurse(tree)
@@ -1096,9 +1111,6 @@ def continuations(tree, gen_sym, **kw):
     def transform_lambda(tree, *, stop, **kw):
         if type(tree) is Lambda and id(tree) in userlambdas:
             tree = transform_args(tree)
-            # TODO: combo with multilambda
-            #  - if type(body) is Call and type(body.func) is macropy.core.Captured and type(body.func.name) == "dof"
-            #    then apply transformation to body.func.args[-1]... but inside the "lambda e: ..."
             tree.body = transform_retexpr(tree.body)
             tree = hq[trampolined(ast_literal[tree])]  # enable TCO
             stop()  # avoid recursing on the lambda we just moved inside the trampolined()...
@@ -1138,7 +1150,9 @@ def continuations(tree, gen_sym, **kw):
         return tree
     # Here we need to be very, very selective so this is not a Walker.
     def transform_retexpr(tree):  # input: expression in return-value position
-        if type(tree) is Call:  # tail call --> apply TCO
+        if isdo(tree):  # multilambda support
+            tree.args[-1].body = transform_retexpr(tree.args[-1].body)
+        elif type(tree) is Call:  # tail call --> apply TCO
             tree.args = [tree.func] + tree.args
             tree.func = hq[jump]
             # Pass our current continuation (if no continuation already specified by user).
@@ -1159,7 +1173,7 @@ def continuations(tree, gen_sym, **kw):
             # we allow a tail-call only in the last item of the topmost and/or.
             for expr in tree.values[:-1]:
                 validate_nocall.recurse(expr)  # recursion checks nested BoolOps, IfExps (except tail pos)
-            if type(tree.values[-1]) in (Call, IfExp, BoolOp):
+            if iscompound(tree.values[-1]):
                 # other items: inert data (unless a property, but doesn't matter if used reasonably)
                 if len(tree.values) > 2:
                     op_of_others = BoolOp(op=tree.op, values=tree.values[:-1],
@@ -1189,6 +1203,9 @@ def continuations(tree, gen_sym, **kw):
         else:
             tree = transform_retdataval(tree)
         return tree
+    def iscompound(tree):
+        # this must match the handlers in transform_retexpr()
+        return type(tree) in (Call, IfExp, BoolOp) or isdo(tree)
     def transform_retdataval(tree):  # general inert-data return value
         # Handle multiple-return-values like the rest of unpythonic does:
         # returning a tuple means returning multiple values. Unpack them

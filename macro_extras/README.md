@@ -364,7 +364,21 @@ Code within a ``with continuations`` block is treated specially. Roughly:
    - Inside a ``def``, ``with bind`` generates a tail call, terminating the function. Any code the function needs to run after the ``with bind`` must be placed in the body of the ``with bind``. The return value of the function is the return value of the body.
    - At the top level, ``with bind`` generates a normal call. In this case is not possible to capture the return value of the body the first time it runs, because ``with`` is a statement.
 
-For more details and current limitations, see the docstring of ``unpythonic.syntax.continuations``. Notably, this does not currently combo with ``multilambda``.
+For more details, see the docstring of ``unpythonic.syntax.continuations``.
+
+### Combo notes
+
+If you need both ``continuations`` and ``multilambda`` simultaneously, the incantation is:
+
+```python
+with multilambda, continuations:
+    f = lambda x, *, cc: [print(x), x**2]
+    assert f(42) == 1764
+```
+
+The way this works is that ``continuations`` knows what ``multilambda`` does; it must, to correctly deduce which expressions are return values in tail position.
+
+We have chosen the implementation where ``continuations`` works with input that has already been transformed by ``multilambda``. This is safer, because there is no risk to misinterpret a list in a lambda body, and it works also for any explicit use of ``do[]`` in a lambda body or in a ``return`` (recall that macros expand from inside out).
 
 ### Is this useful?
 

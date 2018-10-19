@@ -514,6 +514,11 @@ def main():
         assert k(3, 4) == (3, 4)
         assert k(5, 6) == (5, 6)
 
+    # to combo with multilambda, use this ordering:
+    with multilambda, continuations:
+        f = lambda x, *, cc: [print(x), x**2]
+        assert f(42) == 1764
+
     # depth-first tree traversal (Paul Graham: On Lisp, p. 271)
     def atom(x):
         return not isinstance(x, (list, tuple))
