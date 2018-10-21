@@ -945,15 +945,6 @@ def continuations(tree, gen_sym, **kw):
         called normally; only tail calls to continuation-enabled functions
         implicitly set ``cc``.
 
-      - Once inside a ``with continuations`` block, nested ``with continuations``
-        blocks have no additional effect, since the continuation machinery is
-        already enabled.
-
-        We could define it to be an error, but having it no-op is more convenient
-        for agile prototyping. This allows to easily move around code that uses
-        continuations, without caring about whether continuations are already
-        enabled in some outer lexical scope.
-
     **Manipulating the continuation**:
 
       - To call a continuation-enabled function, optionally get its return value(s),
@@ -1072,23 +1063,8 @@ def continuations(tree, gen_sym, **kw):
     # to pass in varargs.
 
     # first pass, outside-in
-    # Eliminate nested "with continuations" blocks
-    @Walker
-    def transform_nested(tree, **kw):
-        if iswithcontinuations(tree):
-            return If(test=Num(n=1),  # replace the "with" by a no-op "if"
-                      body=tree.body,
-                      orelse=[])
-        return tree
-    def iswithcontinuations(tree):
-        # TODO: what about combos with other top-level block macros?
-        # TODO: disallow combo with tco, this includes that functionality.
-        return type(tree) is With and len(tree.items) == 1 and \
-               type(tree.items[0].context_expr) is Name and \
-               tree.items[0].context_expr.id == "continuations"
-
     userlambdas = _detect_lambda.collect(tree)
-    tree = yield transform_nested.recurse(tree)
+    tree = yield tree
 
     # second pass, inside-out (after any nested macros have been expanded)
 
