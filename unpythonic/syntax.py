@@ -1117,7 +1117,7 @@ def continuations(tree, gen_sym, **kw):
             value = tree.value or q[None]
             return Return(value=transform_retexpr(value))
         return tree
-    def transform_retexpr(tree):  # input: expression in tail position
+    def transform_retexpr(tree):  # input: expression in return-value position
         def call_cb(tree):
             # Pass our current continuation (if no continuation already specified by user).
             hascc = any(kw.arg == "cc" for kw in tree.keywords)
@@ -1144,7 +1144,7 @@ def continuations(tree, gen_sym, **kw):
                                            lineno=tree.lineno, col_offset=tree.col_offset),
                                      q[(name["_retval"], ast_literal[tree])])
             return tree
-        return _transform_tailexpr(tree, call_cb, data_cb)
+        return _transform_retexpr(tree, call_cb, data_cb)
 
     # Helper for "with bind".
     # bind[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., cc=cc, k0=v0, ...)
@@ -1293,7 +1293,12 @@ def tco(tree, **kw):
         - Both ``a`` and ``b`` branches of ``a if p else b`` (but not ``p``).
 
         - The last item in an ``and``/``or``. If these are nested, only the
-          last item in the whole expression involving ``and``/``or``.
+          last item in the whole expression involving ``and``/``or``. E.g. in::
+
+              (1 and 2) or 3
+              1 and (2 or 3)
+
+          in either case, only the ``3`` is in tail position.
 
         - The last item in a ``do[]``.
 
@@ -1340,8 +1345,8 @@ def tco(tree, **kw):
             transform_lambda.recurse(tree.args[0].body)  # ...but recurse inside it
         return tree
 
-    def transform_retexpr(tree):  # input: expression in tail position
-        return _transform_tailexpr(tree, call_cb=None, data_cb=None)
+    def transform_retexpr(tree):  # input: expression in return-value position
+        return _transform_retexpr(tree, call_cb=None, data_cb=None)
 
     newtree = []
     for stmt in tree:
@@ -1373,7 +1378,7 @@ def _detect_lambda(tree, *, collect, stop, **kw):
         collect(id(tree))
     return tree
 
-def _transform_tailexpr(tree, call_cb, data_cb):
+def _transform_retexpr(tree, call_cb, data_cb):
     """Analyze a return-value expression or a lambda body; TCO it.
 
     This recursively handles builtins ``a if p else b``, ``and``, ``or``; and
@@ -1384,7 +1389,7 @@ def _transform_tailexpr(tree, call_cb, data_cb):
     call_cb(tree): tree -> tree, callback for Call nodes for postprocessing
     data_cb(tree): tree -> tree, callback for inert data for postprocessing
     """
-    # Here we need to be very, very selective so this is not a Walker.
+    # Here we need to be very, very selective about where to recurse so this is not a Walker.
     transform_call = call_cb or (lambda tree: tree)
     transform_data = data_cb or (lambda tree: tree)
     def transform(tree):
@@ -1440,6 +1445,65 @@ def _transform_tailexpr(tree, call_cb, data_cb):
             tree = transform_data(tree)
         return tree
     return transform(tree)
+
+@macros.block
+def autoreturn(tree, **kw):
+    """[syntax, block] Allow omitting "return" in tail position, like in Lisps.
+
+    Each ``def`` function definition lexically within the ``with autoreturn``
+    block is examined, and if the last item within the body is an expression
+    ``expr``, it is transformed into ``return expr``.
+
+    If the last item is an if/elif/else block, the transformation is applied
+    to the last item in each of its branches.
+
+    Example::
+
+        with autoreturn:
+            def f():
+                "I'll just return this"
+            assert f() == "I'll just return this"
+
+            def g(x):
+                if x == 1:
+                    "one"
+                elif x == 2:
+                    "two"
+                else:
+                    "something else"
+            assert g(1) == "one"
+            assert g(2) == "two"
+            assert g(42) == "something else"
+
+    **CAUTION**: If the final ``else`` is omitted, as often in Python, then
+    only the ``else`` item is in tail position with respect to the function
+    definition - likely not what you want.
+
+    So with ``autoreturn``, the final ``else`` should be written out explicitly,
+    to make the ``else`` branch part of the same if/elif/else block.
+
+    **CAUTION**: With ``autoreturn`` enabled, functions no longer return ``None``
+    by default; the whole point of this macro is to change the default return
+    value.
+
+    The default return value is ``None`` only if the tail position contains
+    a statement (because in a sense, a statement always returns ``None``).
+    """
+    @Walker
+    def transform_tailstmt(tree, **kw):
+        if type(tree) is FunctionDef:
+            tree.body[-1] = transform_one(tree.body[-1])
+        return tree
+    def transform_one(tree):
+        if type(tree) is If:
+            tree.body[-1] = transform_one(tree.body[-1])
+            tree.orelse[-1] = transform_one(tree.orelse[-1])
+        elif type(tree) is Expr:
+            tree = Return(value=tree.value)
+        return tree
+    # This is a first-pass macro. Any nested macros should get clean standard Python,
+    # not having to worry about implicit "return" statements.
+    yield transform_tailstmt.recurse(tree)
 
 # -----------------------------------------------------------------------------
 
@@ -1549,7 +1613,9 @@ def prefix(tree, **kw):
         kwargs = flatmap(lambda x: x.keywords, filter(iskwargs, data))
         kwargs = list(rev(uniqify(rev(kwargs), key=lambda x: x.arg)))  # latest wins, but keep original ordering
         return Call(func=op, args=posargs, keywords=list(kwargs))
-    return transform.recurse(tree, quotelevel=0)
+    # This is a first-pass macro. Any nested macros should get clean standard Python,
+    # not having to worry about tuples possibly denoting function calls.
+    yield transform.recurse(tree, quotelevel=0)
 
 # note the exported "q" is ours, but the q we use in this module is a macro.
 class q:

@@ -20,6 +20,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
  - [``continuations``: a form of call/cc for Python](#continuations-a-form-of-callcc-for-python)
  - [``tco``: automatically apply tail call optimization](#tco-automatically-apply-tail-call-optimization)
+ - [``autoreturn``: allow omitting ``return`` in tail position](#autoreturn-allow-omitting-return-in-tail-position)
  - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence); with slice notation
  - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
 
@@ -404,6 +405,8 @@ Finally, as a side note, generators [can be easily built](https://github.com/Tec
 ## ``tco``: automatically apply tail call optimization
 
 ```python
+from unpythonic.syntax import macros, tco
+
 with tco:
     evenp = lambda x: (x == 0) or oddp(x - 1)
     oddp  = lambda x: (x != 0) and evenp(x - 1)
@@ -430,6 +433,35 @@ This recursively handles also builtins ``a if p else b``, ``and``, ``or``; and f
 All function definitions (``def`` and ``lambda``) lexically inside the block undergo TCO transformation. The functions are automatically ``@trampolined``, and any tail calls in their return values are converted to ``jump(...)`` for the TCO machinery.
 
 Note in a ``def`` you still need the ``return``; it marks a return value.
+
+
+## ``autoreturn``: allow omitting ``return`` in tail position
+
+```python
+from unpythonic.syntax import macros, autoreturn
+
+with autoreturn:
+    def f():
+        "I'll just return this"
+    assert f() == "I'll just return this"
+
+    def g(x):
+        if x == 1:
+            "one"
+        elif x == 2:
+            "two"
+        else:
+            "something else"
+    assert g(1) == "one"
+    assert g(2) == "two"
+    assert g(42) == "something else"
+```
+
+Each ``def`` function definition lexically within the ``with autoreturn`` block is examined, and if the last item within the body is an expression ``expr``, it is transformed into ``return expr``. If the last item is an if/elif/else block, the transformation is applied to the last item in each of its branches.
+
+**CAUTION**: If the final ``else`` is omitted, as often in Python, then only the ``else`` item is in tail position with respect to the function definition - likely not what you want. So with ``autoreturn``, the final ``else`` should be written out explicitly, to make the ``else`` branch part of the same if/elif/else block.
+
+**CAUTION**: With ``autoreturn`` enabled, functions no longer return ``None`` by default; the whole point of this macro is to change the default return value. The default return value is ``None`` only if the tail position contains a statement (because in a sense, a statement always returns ``None``).
 
 
 ## ``fup``: functionally update a sequence

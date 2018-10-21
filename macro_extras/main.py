@@ -20,7 +20,8 @@ from unpythonic.syntax import macros, \
                               prefix, q, u, kw, \
                               multilambda, namedlambda, \
                               continuations, bind, \
-                              tco
+                              tco, \
+                              autoreturn
 
 from itertools import repeat
 from unpythonic import foldr, composerc as compose, cons, nil, ll, apply
@@ -415,6 +416,23 @@ def main():
                           (y, y+1),
                           (y, y+1))[f(y)]
         assert h(10) == 36
+
+    # allow omitting "return" in tail position
+    with autoreturn:
+        def f():
+            "I'll just return this"
+        assert f() == "I'll just return this"
+
+        def g(x):
+            if x == 1:
+                "one"
+            elif x == 2:
+                "two"
+            else:
+                "something else"
+        assert g(1) == "one"
+        assert g(2) == "two"
+        assert g(42) == "something else"
 
     # continuations!
     # basic testing
