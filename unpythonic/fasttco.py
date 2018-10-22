@@ -249,7 +249,12 @@ def trampolined(function):
     def decorated(*args, **kwargs):
         f = function
         while True:  # trampoline
-            v = f(*args, **kwargs)
+            if callable(f):  # general case
+                v = f(*args, **kwargs)
+            else:  # inert-data return value from call_ec or similar
+                v = f
+                def f(*a, **kw):  # protect against jump(SELF, ...) to inert data
+                    raise RuntimeError("Cannot call a non-callable return value '{}'".format(v))
             if isinstance(v, _jump):
                 if v.target is not SELF:  # if SELF, then keep current target
                     f = v.target
@@ -258,9 +263,19 @@ def trampolined(function):
                 v._claimed = True
             else:  # final result, exit trampoline
                 return v
-    # fortunately functions in Python are just objects; stash for jump constructor
-    decorated._entrypoint = function
-    return decorated
+    # Work together with call_ec and other do-it-now decorators.
+    #
+    # The function has already been replaced by its return value. E.g. call_ec
+    # must work that way, because the ec is only valid during the dynamic extent
+    # of the call_ec. OTOH, the trampoline must be **outside**, to be able to
+    # catch a jump() from the result of the call_ec. So we treat a non-callable
+    # "function" as an inert-data return value.
+    if callable(function):
+        # fortunately functions in Python are just objects; stash for jump constructor
+        decorated._entrypoint = function
+        return decorated
+    else:  # return value from call_ec or similar do-it-now decorator
+        return decorated()
 
 def test():
     # tail recursion
