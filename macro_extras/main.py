@@ -538,6 +538,36 @@ def main():
                 return None or True and f(3, 4)
         assert j1(3, 4) == (6, 12)
 
+    # call_ec combo
+    with continuations:
+        def g(x, *, cc):
+            return 2*x
+
+        @call_ec
+        def result(ec, *, cc):
+            ec(g(21))
+        assert result == 42
+
+#        # ec doesn't work from inside a "with bind", because the function
+#        # containing the "with bind" actually tail-calls the bind and exits.
+#        @call_ec
+#        def doit(ec, *, cc):
+#            with bind[g(21)] as x:
+#                ec(x)  # we're actually outside doit(); ec no longer valid
+
+#        # Even this only works the first time; if you stash the cc and
+#        # call it later (to re-run the body of the "with bind", at that time
+#        # result() will already have exited so the ec no longer works.
+#        # (That's just the nature of exceptions.)
+#        @call_ec
+#        def result(ec, *, cc):
+#            def doit(*, cc):
+#                with bind[g(21)] as x:
+#                    ec(x)
+#            r = doit()  # don't tail-call it; result() must be still running when the ec is invoked
+#            return r
+#        assert result == 42
+
     # silly call/cc example (Paul Graham: On Lisp, p. 261), pythonified
     with continuations:
         k = None  # kontinuation
