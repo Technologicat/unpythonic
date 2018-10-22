@@ -1164,8 +1164,7 @@ def continuations(tree, gen_sym, **kw):
              and tree.args[0].func.name == "trampolined":
                # both of these take exactly one positional argument.
                callec, tramp = tree.func, tree.args[0].func
-               tree.func = tramp
-               tree.args[0].func = callec
+               tree.func, tree.args[0].func = tramp, callec
         return tree
 
     # This corresponds to PG's "=values".
@@ -1447,8 +1446,7 @@ def tco(tree, **kw):
              and tree.args[0].func.name == "trampolined":
                # both of these take exactly one positional argument.
                callec, tramp = tree.func, tree.args[0].func
-               tree.func = tramp
-               tree.args[0].func = callec
+               tree.func, tree.args[0].func = tramp, callec
         return tree
 
     def transform_retexpr(tree):  # input: expression in return-value position
