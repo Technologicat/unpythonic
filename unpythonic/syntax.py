@@ -940,14 +940,16 @@ def continuations(tree, gen_sym, **kw):
         with multilambda, continuations:
             ...
 
-    Rules of a ``with continuations`` block:
+    A ``with continuations`` block implies TCO; the same rules apply as in a
+    ``with tco`` block. Furthermore, ``with continuations`` introduces the
+    following additional rules:
 
       - Functions which make use of continuations, or call other functions that do,
         must be defined within a ``with continuations`` block, using ``def``
         or ``lambda``.
 
       - All function definitions in a ``with continuations`` block, including
-        any nested definitionss, must declare a by-name-only formal parameter
+        any nested definitions, must declare a by-name-only formal parameter
         ``cc``::
 
             with continuations:
@@ -956,83 +958,97 @@ def continuations(tree, gen_sym, **kw):
 
                     f = lambda *, cc: ...
 
-        The continuation machinery implicitly sets its value to the current
-        continuation.
-
       - A ``with continuations`` block will automatically transform all ``def``
         function definitions and ``return`` statements lexically contained within
         it to use the continuation machinery.
-
-        Hence, functions that **don't** use continuations **must** be defined
-        **outside** the block.
 
         - ``return somevalue`` actually means a tail-call to ``cc`` with the
           given ``somevalue``. Multiple values can be returned as a ``tuple``.
 
         - An explicit ``return somefunc(arg0, ..., k0=v0, ...)`` actually means
           a tail-call to ``somefunc``, with its ``cc`` automatically set to our
-          ``cc``.
-
-          Hence this inserts a call to ``somefunc`` before proceeding with our
-          current continuation.
+          ``cc``. Hence this inserts a call to ``somefunc`` before proceeding
+          with our current continuation.
 
           Here ``somefunc`` **must** be a continuation-enabled function;
           otherwise the TCO chain will break and the result is immediately
           returned to the top-level caller.
 
           (If the call succeeds at all; the ``cc`` argument is implicitly
-          passed by name, and most regular functions do not have a named
-          parameter ``cc``.)
+          filled in and passed by name, and most regular functions do not
+          have a named parameter ``cc``.)
 
       - Calls from functions defined in one ``with continuations`` block to those
-        defined in another are ok.
+        defined in another are ok; there is no state or context associated with
+        the block.
 
-      - Regular functions can be called normally (as any non-tail call).
+      - Much of the language works as usual.
+
+        Regular functions can be called normally. Any non-tail calls can be
+        made normally.
 
         Continuation-enabled functions also behave as regular functions when
         called normally; only tail calls to continuation-enabled functions
         implicitly set ``cc``.
 
+        ``unpythonic.ec.call_ec`` can be used normally outside any ``with bind``;
+        but in a ``with bind`` block, the ``ec`` ceases to be valid. (This is
+        because the block is actually a tail call.)
+
+        Usage of ``call_ec`` while inside a ``with continuations`` block is::
+
+            with continuations:
+                @call_ec
+                def result(ec, *, cc):  # note the signature
+                    print("hi")
+                    ec(42)
+                    print("not reached")
+                assert result == 42
+
+                result = call_ec(lambda ec, *, cc: do[print("hi"),
+                                                      ec(42),
+                                                      print("not reached")])
+
+        See the ``tco`` macro for details on ``call_ec``.
+
     **Manipulating the continuation**:
 
-      - To call a continuation-enabled function, optionally get its return value(s),
-        then run some more code, and finally proceed with the original ``cc``,
-        use a ``with bind``.
+      - Use a ``with bind`` to capture the current continuation. It is almost
+        call/cc (call-with-current-continuation), but the continuation is
+        explicitly made from the given body.
 
-        This allows making a continuation-enabled call (that may return multiple
-        times) in the middle of a function, or at the top level of the
-        ``with continuations`` block.
+        To grab a first-class reference to this continuation: it's the ``cc``
+        argument of the function being called by the ``with bind``.
 
-        Basically the only case in which ``cc`` will contain something other than
-        the default continuation, is while inside the function called by a
-        ``with bind``.
+        Basically the only case in which ``cc`` will contain something other
+        than the default continuation, is while inside the function called
+        by a ``with bind``. (So stash it from there.)
 
-        ``with bind`` is almost call/cc (call-with-current-continuation),
-        but the continuation is explicitly made from the given body.
-        It is of course possible to grab a first-class reference to this
-        continuation; it's the ``cc`` argument of the function being called
-        by the ``with bind``.
+        A ``with bind`` works both inside a function definition, and at the
+        top level of the ``with continuations`` block.
 
-      - To override the current continuation, set ``cc=...`` manually in a
-        tail call. As the replacement, use a ``cc`` captured at the appropriate
-        time::
-
-            def myfunc(*, cc):
-                ourcc = cc  # capture myfunc's current continuation
-                def somefunc(*, cc):
-                    return dostuff(..., cc=ourcc)  # and inject it here
-                somestack.append(somefunc)
+      - Once you have a captured continuation, to use it, set ``cc=...``
+        manually in a tail call. Typical usage::
 
             def main(*, cc):
-                with bind[myfunc()]:
-                    ...
+                with bind[myfunc()]:  # capture the current continuation...
+                    ...               # ...which is this body here
 
-        In this example, when ``somefunc`` is called, it will proceed with the
-        continuation ``myfunc`` had at the time when that instance of the
-        ``somefunc`` closure was created. In this case, that continuation
-        points to the body of the ``with bind``.
+            def myfunc(*, cc):
+                ourcc = cc  # save the captured continuation (sent by bind)
+                def somefunc(*, cc):
+                    return dostuff(..., cc=ourcc)  # and use it here
+                somestack.append(somefunc)
 
-      - Also possible to just assign a function to ``cc`` inside a function body::
+        In this example, when ``somefunc`` is called, it will tail-call ``dostuff``
+        and then proceed with the continuation ``myfunc`` had at the time when
+        that instance of the ``somefunc`` closure was created. In this case,
+        that continuation points to the body of the ``with bind`` in ``main``.
+
+      - Instead of setting ``cc``, can also just assign a captured continuation
+        to ``cc`` inside a function body. That changes the continuation for the
+        whole function (for the rest of the dynamic extent of the function),
+        not only for a particular tail call::
 
             def myfunc(*, cc):
                 ourcc = cc
@@ -1041,7 +1057,7 @@ def continuations(tree, gen_sym, **kw):
                     return dostuff(...)
                 somestack.append(somefunc)
 
-    **with bind**::
+    **The call/cc, "with bind"**::
 
         with bind[func(arg0, ..., k0=v0, ...)] as r:
             body0
@@ -1061,17 +1077,19 @@ def continuations(tree, gen_sym, **kw):
         with block set as its continuation.
 
           - By stashing the ``cc`` from inside ``func``, to some place accessible
-            from the outside, this allows the body to run multiple times
-            (calling the cc runs the body again).
+            from the outside, this allows the body to run multiple times.
+            Calling the ``cc`` runs the body again.
 
             Just like in ``call/cc``, the values that get bound to the as-part
-            on further calls are the arguments given to the cc when it is called.
+            on second and further calls are the arguments given to the ``cc``
+            when it is called.
 
           - Internally, the body gets transformed into a function definition
             (named using a gensym); it implicitly gets its own ``cc``. Hence,
             the value of ``cc`` inside the body is the **body's** ``cc``.
 
-      - The optional as-part captures the return value of ``func``.
+      - The optional as-part captures the return value of ``func`` (first time),
+        and whatever was sent into the continuation (second and further times).
 
          - To ignore the return value (useful if ``func`` was called only to
            perform its side-effects), just omit the as-part.
@@ -1159,7 +1177,7 @@ def continuations(tree, gen_sym, **kw):
     def fix_callec(tree, **kw):
         if type(tree) is Call and _iscallec(tree.func):
           # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? When are these removed?
-#          if type(tree.args[0]) is Call and tree.args[0].func == "trampolined":
+#          if type(tree.args[0]) is Call and type(tree.args[0].func) is Name and tree.args[0].func.id == "trampolined":
           if type(tree.args[0]) is Call and type(tree.args[0].func) is Captured \
              and tree.args[0].func.name == "trampolined":
                # both of these take exactly one positional argument.
@@ -1373,6 +1391,8 @@ def tco(tree, **kw):
           - In a ``do0[]``, this is the implicit item that just returns the
             stored return value.
 
+        - The argument to an escape continuation.
+
     All function definitions (``def`` and ``lambda``) lexically inside the block
     undergo TCO transformation. The functions are automatically ``@trampolined``,
     and any tail calls in their return values are converted to ``jump(...)``
@@ -1382,11 +1402,11 @@ def tco(tree, **kw):
     If that bothers you, see ``autoreturn``.
 
     **CAUTION**: only basic uses of escape continuations, created via ``call_ec``,
-    are currently detected as being in tail position. Other custom escape
+    are currently detected as being in tail position. Any other custom escape
     mechanisms are not supported. (This is mainly of interest for lambdas,
     which have no ``return``, and for "multi-return" from a nested function.)
 
-    *Basic use* means one of these two cases::
+    *Basic use* is defined as either of these two cases::
 
         # use as decorator
         @call_ec
@@ -1396,8 +1416,11 @@ def tco(tree, **kw):
         # use directly on a literal lambda
         result = call_ec(lambda ec: ...)
 
-    As a fallback, any call to a function having the literal name ``ec``
-    is always interpreted as invoking an escape continuation.
+    When macro expansion of the ``with tco`` block starts, names of escape
+    continuations created **anywhere lexically within** the ``with tco`` block
+    are captured. Lexically within the block, any call to a function having
+    any of the captured names, or as a fallback, the literal name ``ec``,
+    is interpreted as invoking an escape continuation.
     """
     # first pass, outside-in
     userlambdas = _detect_lambda.collect(tree)
@@ -1441,7 +1464,7 @@ def tco(tree, **kw):
     def fix_callec(tree, **kw):
         if type(tree) is Call and _iscallec(tree.func):
           # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? When are these removed?
-#          if type(tree.args[0]) is Call and tree.args[0].func == "trampolined":
+#          if type(tree.args[0]) is Call and type(tree.args[0].func) is Name and tree.args[0].func.id == "trampolined":
           if type(tree.args[0]) is Call and type(tree.args[0].func) is Captured \
              and tree.args[0].func.name == "trampolined":
                # both of these take exactly one positional argument.
@@ -1537,6 +1560,10 @@ def _transform_retexpr(tree, call_cb, data_cb, known_ecs):
         if done or in_nested_do:
             return tree
 
+        # TODO: ec invocations in ifexps or in non-tail positions in BoolOps?
+        # Outside lambdas, all ec invocations are already detected and handed
+        # to us by transform_return(), but inside a lambda, we should probably
+        # do something here (since the whole body of a lambda is a single retexpr).
         if type(tree) is IfExp:
             # Only either body or orelse runs, so both of them are in tail position.
             # test is not in tail position.
