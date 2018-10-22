@@ -177,10 +177,10 @@ class _jump:
         self._claimed = False  # set when the instance is caught by a trampoline
 
     def __repr__(self):
-        return "<_jump at 0x{:x}: target={}, args={}, kwargs={}".format(id(self),
-                                                                        self.target,
-                                                                        self.args,
-                                                                        self.kwargs)
+        return "<_jump at 0x{:x}: target={}, args={}, kwargs={}>".format(id(self),
+                                                                         self.target,
+                                                                         self.args,
+                                                                         self.kwargs)
 
     def __del__(self):
         """Warn about bugs in client code.
