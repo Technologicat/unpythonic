@@ -417,6 +417,22 @@ def main():
                           (y, y+1))[f(y)]
         assert h(10) == 36
 
+    # call_ec combo
+    from unpythonic import call_ec
+    with tco:
+        def g(x):
+            return 2*x
+
+        @call_ec
+        def result(ec):
+            print("hi")
+            ec(g(21))  # the call in the args of an ec gets TCO'd
+            print("ho")
+        assert result == 42
+
+        result = call_ec(lambda ec: do[print("hi2"), ec(g(21)), print("ho2")])
+        assert result == 42
+
     # allow omitting "return" in tail position
     with autoreturn:
         def f():

@@ -12,6 +12,7 @@ from macropy.core.macros import Macros, macro_stub
 from macropy.core.walkers import Walker
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
+from macropy.core import Captured
 #from macropy.core.cleanup import fill_line_numbers
 
 from functools import partial
@@ -57,6 +58,53 @@ def _implicit_do(tree):
     are then interpreted as a list.
     """
     return do.transform(tree) if type(tree) is List else tree
+
+def _isec(tree, known_ecs):
+    """Check if tree is a call to a function known to be an escape continuation.
+
+    known_ec: list of str, names of known escape continuations.
+
+    Only bare-name references are supported.
+    """
+    return type(tree) is Call and type(tree.func) is Name and tree.func.id in known_ecs
+
+def _iscallec(tree):
+    """Check if tree is a reference to call_ec.
+
+    The name is recognized both as a bare name and as an attribute, to support
+    both from-imports and regular imports of ``unpythonic.ec.call_ec``.
+    """
+    return (type(tree) is Name and tree.id == "call_ec") or \
+           (type(tree) is Attribute and tree.attr == "call_ec")
+
+@Walker
+def _detect_callec(tree, *, collect, **kw):
+    """Collect names of escape continuations from call_ec invocations in tree.
+
+    Currently supported and unsupported cases::
+
+        # use as decorator, supported
+        @call_ec
+        def result(ec):  # <-- we grab name "ec" from here
+            ...
+
+        # use directly on a literal lambda, supported
+        result = call_ec(lambda ec: ...)  # <-- we grab name "ec" from here
+
+        # use as a function, **NOT supported**
+        def g(ec):           # <-- should grab from here
+            ...
+        ...
+        result = call_ec(g)  # <-- but this is here; g could be in another module
+    """
+    # TODO: add support for general use of call_ec as a function (difficult)
+    if type(tree) is FunctionDef and any(_iscallec(deco) for deco in tree.decorator_list):
+        fdef = tree
+        collect(fdef.args.args[0].arg)  # FunctionDef.arguments.(list of arg objects).arg
+    elif type(tree) is Call and _iscallec(tree.func) and type(tree.args[0]) is Lambda:
+        lam = tree.args[0]
+        collect(lam.args.args[0].arg)
+    return tree
 
 # TODO: currently no "syntax-parameterize" in MacroPy. Would be convenient to
 # create a macro that expands to an error by default, and then override it
@@ -1064,6 +1112,7 @@ def continuations(tree, gen_sym, **kw):
 
     # first pass, outside-in
     userlambdas = _detect_lambda.collect(tree)
+    known_ecs = list(uniqify(_detect_callec.collect(tree) + ["ec"]))
     tree = yield tree
 
     # second pass, inside-out (after any nested macros have been expanded)
@@ -1073,9 +1122,11 @@ def continuations(tree, gen_sym, **kw):
     def transform_def(tree, **kw):
         if type(tree) is FunctionDef:
             tree = transform_args(tree)
+            # The trampoline needs to be outermost, so that it is applied **after**
+            # any call_ec; this allows also escapes to return a jump object
+            # to the trampoline.
             tree.decorator_list = [hq[trampolined]] + tree.decorator_list  # enable TCO
         return tree
-    # TODO: support lambdas that use call_ec
     @Walker
     def transform_lambda(tree, *, stop, **kw):
         if type(tree) is Lambda and id(tree) in userlambdas:
@@ -1103,6 +1154,19 @@ def continuations(tree, gen_sym, **kw):
         if tree.args.kw_defaults[j] is None:
             tree.args.kw_defaults[j] = hq[identity]
         return tree
+    # call_ec(trampolined(lambda ...: ...)) --> trampolined(call_ec(lambda ...: ...))
+    @Walker
+    def fix_callec(tree, **kw):
+        if type(tree) is Call and _iscallec(tree.func):
+          # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? When are these removed?
+#          if type(tree.args[0]) is Call and tree.args[0].func == "trampolined":
+          if type(tree.args[0]) is Call and type(tree.args[0].func) is Captured \
+             and tree.args[0].func.name == "trampolined":
+               # both of these take exactly one positional argument.
+               callec, tramp = tree.func, tree.args[0].func
+               tree.func = tramp
+               tree.args[0].func = callec
+        return tree
 
     # This corresponds to PG's "=values".
     # Ours is applied automatically to all return statements in the block,
@@ -1111,11 +1175,15 @@ def continuations(tree, gen_sym, **kw):
     # return v1, ..., vn --> return jump(cc, *(v1, ..., vn))
     # return f(...) --> return jump(f, cc=cc, ...)
     @Walker
-    def transform_return(tree, **kw):
+    def transform_return(tree, *, stop, **kw):
         if type(tree) is Return:
             # return --> return None  (bare return has value=None in the AST)
             value = tree.value or q[None]
             return Return(value=transform_retexpr(value))
+        elif type(tree) is Lambda:
+            stop()  # leave alone ecs inside lambdas; handled by transform_lambda()
+        elif _isec(tree, known_ecs):
+            return transform_retexpr(tree)  # already handles the ec(...) wrapper
         return tree
     def transform_retexpr(tree):  # input: expression in return-value position
         def call_cb(tree):
@@ -1144,7 +1212,7 @@ def continuations(tree, gen_sym, **kw):
                                            lineno=tree.lineno, col_offset=tree.col_offset),
                                      q[(name["_retval"], ast_literal[tree])])
             return tree
-        return _transform_retexpr(tree, call_cb, data_cb)
+        return _transform_retexpr(tree, call_cb, data_cb, known_ecs)
 
     # Helper for "with bind".
     # bind[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., cc=cc, k0=v0, ...)
@@ -1248,6 +1316,7 @@ def continuations(tree, gen_sym, **kw):
         # transform all defs, including those added by "with bind[]".
         stmt = transform_def.recurse(stmt)
         stmt = transform_lambda.recurse(stmt)
+        stmt = fix_callec.recurse(stmt)
         newtree.append(stmt)
     return newtree
 
@@ -1305,18 +1374,35 @@ def tco(tree, **kw):
           - In a ``do0[]``, this is the implicit item that just returns the
             stored return value.
 
-    **CAUTION**: ``call_ec``, or any other form of escape except ``return``,
-    are currently not detected as being in tail position.
-
     All function definitions (``def`` and ``lambda``) lexically inside the block
     undergo TCO transformation. The functions are automatically ``@trampolined``,
     and any tail calls in their return values are converted to ``jump(...)``
     for the TCO machinery.
 
     Note in a ``def`` you still need the ``return``; it marks a return value.
+    If that bothers you, see ``autoreturn``.
+
+    **CAUTION**: only basic uses of escape continuations, created via ``call_ec``,
+    are currently detected as being in tail position. Other custom escape
+    mechanisms are not supported. (This is mainly of interest for lambdas,
+    which have no ``return``, and for "multi-return" from a nested function.)
+
+    *Basic use* means one of these two cases::
+
+        # use as decorator
+        @call_ec
+        def result(ec):
+            ...
+
+        # use directly on a literal lambda
+        result = call_ec(lambda ec: ...)
+
+    As a fallback, any call to a function having the literal name ``ec``
+    is always interpreted as invoking an escape continuation.
     """
     # first pass, outside-in
     userlambdas = _detect_lambda.collect(tree)
+    known_ecs = list(uniqify(_detect_callec.collect(tree) + ["ec"]))
     tree = yield tree
 
     # second pass, inside-out
@@ -1325,17 +1411,23 @@ def tco(tree, **kw):
     @Walker
     def transform_def(tree, **kw):
         if type(tree) is FunctionDef:
+            # The trampoline needs to be outermost, so that it is applied **after**
+            # any call_ec; this allows also escapes to return a jump object
+            # to the trampoline.
             tree.decorator_list = [hq[trampolined]] + tree.decorator_list  # enable TCO
         return tree
     @Walker
-    def transform_return(tree, **kw):
+    def transform_return(tree, *, stop, **kw):
         if type(tree) is Return:
             # return --> return None  (bare return has value=None in the AST)
             value = tree.value or q[None]
             return Return(value=transform_retexpr(value))
+        elif type(tree) is Lambda:
+            stop()  # leave alone ecs inside lambdas; handled by transform_lambda()
+        elif _isec(tree, known_ecs):
+            return transform_retexpr(tree)  # already handles the ec(...) wrapper
         return tree
 
-    # TODO: support lambdas that use call_ec
     @Walker
     def transform_lambda(tree, *, stop, **kw):
         if type(tree) is Lambda and id(tree) in userlambdas:
@@ -1345,14 +1437,29 @@ def tco(tree, **kw):
             transform_lambda.recurse(tree.args[0].body)  # ...but recurse inside it
         return tree
 
+    # call_ec(trampolined(lambda ...: ...)) --> trampolined(call_ec(lambda ...: ...))
+    @Walker
+    def fix_callec(tree, **kw):
+        if type(tree) is Call and _iscallec(tree.func):
+          # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? When are these removed?
+#          if type(tree.args[0]) is Call and tree.args[0].func == "trampolined":
+          if type(tree.args[0]) is Call and type(tree.args[0].func) is Captured \
+             and tree.args[0].func.name == "trampolined":
+               # both of these take exactly one positional argument.
+               callec, tramp = tree.func, tree.args[0].func
+               tree.func = tramp
+               tree.args[0].func = callec
+        return tree
+
     def transform_retexpr(tree):  # input: expression in return-value position
-        return _transform_retexpr(tree, call_cb=None, data_cb=None)
+        return _transform_retexpr(tree, call_cb=None, data_cb=None, known_ecs=known_ecs)
 
     newtree = []
     for stmt in tree:
         stmt = transform_return.recurse(stmt)
         stmt = transform_def.recurse(stmt)
         stmt = transform_lambda.recurse(stmt)
+        stmt = fix_callec.recurse(stmt)
         newtree.append(stmt)
     return newtree
 
@@ -1378,7 +1485,7 @@ def _detect_lambda(tree, *, collect, stop, **kw):
         collect(id(tree))
     return tree
 
-def _transform_retexpr(tree, call_cb, data_cb):
+def _transform_retexpr(tree, call_cb, data_cb, known_ecs):
     """Analyze a return-value expression or a lambda body; TCO it.
 
     This recursively handles builtins ``a if p else b``, ``and``, ``or``; and
@@ -1388,11 +1495,13 @@ def _transform_retexpr(tree, call_cb, data_cb):
 
     call_cb(tree): tree -> tree, callback for Call nodes for postprocessing
     data_cb(tree): tree -> tree, callback for inert data for postprocessing
+    known_ecs: list of str, names of known escape continuations.
     """
     # Here we need to be very, very selective about where to recurse so this is not a Walker.
     transform_call = call_cb or (lambda tree: tree)
     transform_data = data_cb or (lambda tree: tree)
-    def transform(tree):
+    def transform(tree, in_nested_do=False):
+        done = False
         if _isdo(tree) or _islet(tree):
             # Ignore the "lambda e: ...", and descend into the ..., in:
             #   - let[] or letrec[] in tail position.
@@ -1400,12 +1509,37 @@ def _transform_retexpr(tree, call_cb, data_cb):
             #   - do[] in tail position.
             #     - May be generated also by a "with multilambda" block
             #       that has already expanded.
-            tree.args[-1].body = transform(tree.args[-1].body)
+            #
+            # Handle calls to escape continuations ("return"-like expression),
+            # and nested dos (which also may contain calls to ecs).
+            # The flag in_nested_do controls how we handle items not in
+            # return-value position. Basically there we only need to transform
+            # calls to ecs.
+            if _isdo(tree):
+                non_tail_items = tree.args[:-1] if not in_nested_do else tree.args
+                for doitem in non_tail_items:
+                    body = doitem.body
+                    if _isec(body, known_ecs) or _isdo(body) or _islet(body):
+                        doitem.body = transform(body, in_nested_do=True)
+            if not in_nested_do:
+                tree.args[-1].body = transform(tree.args[-1].body)
+            done = True
         elif type(tree) is Call:  # apply TCO
-            tree.args = [tree.func] + tree.args
-            tree.func = hq[jump]
-            tree = transform_call(tree)
-        elif type(tree) is IfExp:
+            # If calling an ec, leave it alone (so that the escape mechanism works),
+            # but descend into its arg (which may be a call we need to TCO).
+            if _isec(tree, known_ecs):
+                if len(tree.args) > 1:
+                    assert False, "expected exactly one argument for escape continuation"
+                tree.args[0] = transform(tree.args[0])
+            else:
+                tree.args = [tree.func] + tree.args
+                tree.func = hq[jump]
+                tree = transform_call(tree)
+            done = True
+        if done or in_nested_do:
+            return tree
+
+        if type(tree) is IfExp:
             # Only either body or orelse runs, so both of them are in tail position.
             # test is not in tail position.
             tree.body = transform(tree.body)
