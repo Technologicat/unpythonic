@@ -1264,11 +1264,12 @@ def continuations(tree, gen_sym, **kw):
                 assert False, "the 'bind' in a 'with bind' statement must be the only context manager"
         return False
     @Walker
-    def transform_withbind(tree, *, toplevel, set_ctx, **kw):
+    def transform_withbind(tree, *, deftypes, set_ctx, **kw):
         if type(tree) in (FunctionDef, AsyncFunctionDef):  # function definition **inside the "with continuations" block**
-            set_ctx(toplevel=False)
+            set_ctx(deftypes=(deftypes + [type(tree)]))
         if not iswithbind(tree):
             return tree
+        toplevel = not deftypes
         ctxmanager = tree.items[0].context_expr
         optvars = tree.items[0].optional_vars
         if optvars:
@@ -1287,18 +1288,18 @@ def continuations(tree, gen_sym, **kw):
         #
         # Any return statements in the body have already been transformed,
         # because they appear literally in the code at the use site.
-        # TODO: AsyncFunctionDef?
         thename = gen_sym("cont")
-        funcdef = FunctionDef(name=thename,
-                              args=arguments(args=[arg(arg=x) for x in posargs],
-                                             kwonlyargs=[arg(arg="cc")],
-                                             vararg=None,
-                                             kwarg=None,
-                                             defaults=[],
-                                             kw_defaults=[None]),  # patched later by transform_def
-                              body=tree.body,
-                              decorator_list=[],  # patched later by transform_def
-                              returns=None)  # return annotation not used here
+        FDef = deftypes[-1] if deftypes else FunctionDef  # use same type (regular/async) as parent function
+        funcdef = FDef(name=thename,
+                       args=arguments(args=[arg(arg=x) for x in posargs],
+                                      kwonlyargs=[arg(arg="cc")],
+                                      vararg=None,
+                                      kwarg=None,
+                                      defaults=[],
+                                      kw_defaults=[None]),  # patched later by transform_def
+                       body=tree.body,
+                       decorator_list=[],  # patched later by transform_def
+                       returns=None)  # return annotation not used here
 
         # Set up the call to func, specifying our new function as its continuation
         thecall = transform_bind.recurse(ctxmanager, contname=thename)
@@ -1337,7 +1338,7 @@ def continuations(tree, gen_sym, **kw):
     for stmt in tree:
         # transform "return" statements before "with bind[]"'s tail calls generate new ones.
         stmt = transform_return.recurse(stmt)
-        stmt = transform_withbind.recurse(stmt, toplevel=True)  # transform "with bind[]" blocks
+        stmt = transform_withbind.recurse(stmt, deftypes=[])  # transform "with bind[]" blocks
         check_for_strays.recurse(stmt)  # check that no stray bind[] expressions remain
         # transform all defs, including those added by "with bind[]".
         stmt = transform_def.recurse(stmt)
