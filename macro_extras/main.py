@@ -568,6 +568,15 @@ def main():
 #            return r
 #        assert result == 42
 
+    # test that ecs expand correctly
+    with continuations:
+        @call_ec
+        def result(ec, *, cc):
+            return ec(42)
+        assert result == 42
+
+        assert call_ec(lambda ec, *, cc: ec(42)) == 42
+
     # silly call/cc example (Paul Graham: On Lisp, p. 261), pythonified
     with continuations:
         k = None  # kontinuation
