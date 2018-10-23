@@ -585,7 +585,7 @@ def main():
     with continuations:
         @call_ec
         def result(ec, *, cc):
-            return ec(42)
+            return ec(42)  # doesn't need the "return"; the macro eliminates it
         assert result == 42
 
         assert call_ec(lambda ec, *, cc: ec(42)) == 42
