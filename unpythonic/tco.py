@@ -244,9 +244,9 @@ def trampolined(function):
     increasing the call stack depth, not for speed.)
     """
     @wraps(function)
-    def decorated(*args, **kwargs):
+    def trampoline(*args, **kwargs):
         f = function
-        while True:  # trampoline
+        while True:
             if callable(f):  # general case
                 v = f(*args, **kwargs)
             else:  # inert-data return value from call_ec or similar
@@ -270,10 +270,10 @@ def trampolined(function):
     # "function" as an inert-data return value.
     if callable(function):
         # fortunately functions in Python are just objects; stash for jump constructor
-        decorated._entrypoint = function
-        return decorated
+        trampoline._entrypoint = function
+        return trampoline
     else:  # return value from call_ec or similar do-it-now decorator
-        return decorated()
+        return trampoline()
 
 def test():
     # tail recursion
