@@ -593,9 +593,6 @@ def main():
     # silly call/cc example (Paul Graham: On Lisp, p. 261), pythonified
     with continuations:
         k = None  # kontinuation
-        # We need this because in our continuation implementation,
-        # only a "with bind" can capture a continuation in the
-        # middle of a function.
         def setk(*args, cc):
             nonlocal k
             k = cc  # current continuation, i.e. where to go after setk() finishes
@@ -609,8 +606,8 @@ def main():
             return xs
         def doit(*, cc):
             lst = ['the call returned']
-            with bind[setk('A')] as more:  # create a continuation point
-                return lst + more
+            with bind[setk('A')] as more:  # call/cc, sort of...
+                return lst + more          # ...where the body is the continuation
         print(doit())
         # We can now send stuff into k, as long as it conforms to the
         # signature of the as-part of the "with bind".
@@ -679,7 +676,7 @@ def main():
         def dft2(tree, *, cc):
             nonlocal saved
             saved = []
-            with bind[dft_node(tree)] as node:  # inject given call and body before current continuation
+            with bind[dft_node(tree)] as node:
                 if node == "done":
                     return "done"
                 print(node, end='')
