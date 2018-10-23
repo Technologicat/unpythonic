@@ -30,13 +30,11 @@ from unpythonic.lispylet import letrec as letrecf, let as letf
 from unpythonic.seq import do as dof, begin as beginf
 from unpythonic.fup import fupdate
 from unpythonic.misc import namelambda
+from unpythonic.tco import trampolined, jump
 
 # insist, deny are just for passing through to the using module that imports us.
 from unpythonic.amb import forall as forallf, choice as choicef, insist, deny
 from unpythonic.amb import List as MList  # list monad
-
-# TODO: remove the exception-based TCO implementation
-from unpythonic.fasttco import trampolined, jump
 
 macros = Macros()
 
@@ -1369,7 +1367,7 @@ def tco(tree, **kw):
             assert evenp(10000) is True
 
     This is based on a strategy similar to MacroPy's tco macro, but using
-    the TCO machinery from ``unpythonic.fasttco``.
+    the TCO machinery from ``unpythonic.tco``.
 
     This recursively handles also builtins ``a if p else b``, ``and``, ``or``;
     and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``,
@@ -1536,8 +1534,6 @@ def _transform_retexpr(tree, call_cb, data_cb, known_ecs):
     This performs a tail-position analysis on the given ``tree``, recursively
     handling the builtins ``a if p else b``, ``and``, ``or``; and from
     ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``.
-
-    This uses ``unpythonic.fasttco``.
 
       - call_cb(tree): either None; or tree -> tree, callback for Call nodes
 

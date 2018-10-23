@@ -31,15 +31,7 @@ from functools import partial
 
 from unpythonic.ec import call_ec
 from unpythonic.arity import arity_includes, UnknownArity
-
-# TCO implementation switchable at runtime
-import unpythonic.rc
-if unpythonic.rc._tco_impl == "exc":
-    from unpythonic.tco import SELF, jump, trampolined, _jump
-elif unpythonic.rc._tco_impl == "fast":
-    from unpythonic.fasttco import SELF, jump, trampolined, _jump
-else:
-    raise ValueError("Unknown TCO implementation '{}'".format(unpythonic.rc._tco_impl))
+from unpythonic.tco import SELF, jump, trampolined, _jump
 
 def looped(body):
     """Decorator to make a functional loop and run it immediately.
@@ -62,8 +54,7 @@ def looped(body):
     but it also inserts the magic parameter ``loop``, which can only be set up
     via this mechanism.
 
-    When using ``fasttco``, **loop is a noun, not a verb**, because
-    ``unpythonic.tco.jump`` is.
+    **CAUTION**: ``loop`` is a noun, not a verb, because ``unpythonic.tco.jump`` is.
 
     Simple example::
 
@@ -212,7 +203,7 @@ def looped_over(iterable, acc=None):  # decorator factory
     but it also inserts the magic parameters ``loop``, ``x`` and ``acc``,
     which can only be set up via this mechanism.
 
-    When using ``fasttco``, **loop is a noun, not a verb**, just like ``jump``.
+    **CAUTION**: ``loop`` is a noun, not a verb, because ``unpythonic.tco.jump`` is.
 
     Examples::
 

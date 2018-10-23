@@ -1,109 +1,95 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Exception-based TCO.
+"""Tail call optimization / explicit continuations.
 
-This is a drop-in replacement for ``fasttco.py``. For full docs, see ``fasttco.py``.
+Where speed matters, prefer the usual ``for`` and ``while`` constructs.
+Where speed *really* matters, add Cython on top of those. And as always,
+profile first.
 
-The only difference in the API is:
+**API reference**:
 
-  - ``jump`` **is now a verb**. No need for ``return jump(...)`` to denote
-    a tail call, a bare ``jump(...)`` will do.
+ - Functions that use TCO must be ``@trampolined``. They are called just like
+   any normal function.
 
-  - Using ``return jump(...)`` does no harm, though, so do that if you want
-    your code to be compatible also with the ``fasttco`` implementation.
+ - When inside a ``@trampolined`` function:
 
-If you use this implementation, then in ``fploop``, the magic ``loop``
-is a verb, too, because it is essentially a fancy wrapper over ``jump``.
+   - ``f(a, ..., kw=v, ...)`` is just a normal call, no TCO.
 
-Be careful, the TCO implementations **cannot be mixed and matched**.
+   - ``return jump(f, a, ..., kw=v, ...)`` is a tail call to *target* ``f``.
 
-Based on a quick test, running a do-nothing loop with this is about 150-200x
-slower than Python's ``for``. Or in other words, the additional performance hit
-(over ``fasttco``) is somewhere between 2-5x.
-"""
+     - `return` explicitly marks a tail position, naturally enforcing that
+       the caller finishes immediately after its purported *tail* call.
 
-from functools import wraps
+   - When done (no more tail calls to make), just return the final result normally.
 
-from unpythonic.misc import call
+ - In this implementation, **"jump" is a noun, not a verb**.
 
-__all__ = ["jump", "trampolined", "SELF"]
+   - Returning a ``jump`` instance makes the trampoline perform the tail call.
 
-@call  # make a singleton
-class SELF:
-    """Special jump target meaning "keep current jump target"."""
-    def __repr__(self):
-        return "SELF"
+   - ``jump(f, ...)`` by itself just evaluates to a jump instance, **doing nothing**.
 
-def jump(target, *args, **kwargs):
-    """arg packer, public API. Invokes ``_jump``."""
-    return _jump(target, args, kwargs)
+     - If you're getting ``None`` instead of the result of your computation,
+       check for ``jump`` where it should be ``return jump``; and then check
+       that you're returning your final result normally.
 
-def _jump(target, args, kwargs):  # implementation
-    """Jump (verb) to target function with given args and kwargs.
+       Most often you'll get "unclaimed jump" warnings printed to stderr if you
+       run into this.
 
-    Only valid when running in a trampoline.
-    """
-    raise TrampolinedJump(target, args, kwargs)
+ - **Lambdas welcome!** For example, ``trampolined(lambda x: ...)``.
 
-class TrampolinedJump(Exception):
-    """Exception representing a jump (noun).
+   - Just keep in mind how Python expands the decorator syntax; the rest follows.
 
-    Raised by ``_jump``, caught by the trampoline.
+   - Use the special target ``SELF``, as in ``jump(SELF, ...)``, for tail recursion.
 
-    Prints an informative message if uncaught (i.e. if no trampoline).
-    """
-    def __init__(self, target, args, kwargs):
-        if hasattr(target, "_entrypoint"):  # strip target's trampoline if any
-            target = target._entrypoint
+     - Just ``jump``, not ``return jump``, since lambdas do not use ``return``.
 
-        self.target = target
-        self.targs = args
-        self.tkwargs = kwargs
+   - Or assign the lambda expressions to names; this allows also mutual recursion.
 
-        # Error message when uncaught
-        # (This can still be caught by the wrong trampoline, if an inner trampoline
-        #  has been forgotten when nesting TCO chains - there's nothing we can do
-        #  about that.)
-        self.args = ("No trampoline, attempted to jump to '{}', args {}, kwargs {}".format(target,
-                                                                                           args,
-                                                                                           kwargs),)
+ - **Use only where TCO matters**. Stack traces will be hurt, as usual.
 
-    def __repr__(self):
-        return "<TrampolinedJump at 0x{:x}: target={}, args={}, kwargs={}".format(id(self),
-                                                                                  self.target,
-                                                                                  self.targs,
-                                                                                  self.tkwargs)
+   - Tail recursion is a good use case; so is mutual recursion. Here TCO allows
+     elegantly expressed algorithms without blowing the stack.
 
-def trampolined(function):
-    """Decorator to make a function trampolined.
+   - Danger zone is if one applies TCO just because some call happens to be
+     in a tail position. This makes debugging a nightmare, since some entries
+     will be missing from the call stack.
 
-    Trampolined functions can use ``jump(f, a, ..., kw=v, ...)``
-    to perform optimized tail calls. (*Optimized* in the sense of not
-    increasing the call stack depth, not for speed.)
-    """
-    @wraps(function)
-    def decorated(*args, **kwargs):
-        f = function
-        while True:  # trampoline
-            try:
-                v = f(*args, **kwargs)
-                return v  # final result, exit trampoline
-            except TrampolinedJump as jmp:
-                if jmp.target is not SELF:  # if SELF, then keep current target
-                    f = jmp.target
-                args = jmp.targs
-                kwargs = jmp.tkwargs
-    # fortunately functions in Python are just objects; stash for TrampolinedJump constructor
-    decorated._entrypoint = function
-    return decorated
+     This implementation retains the original entry point - due to entering
+     the decorator ``trampolined`` - and the final one where the uncaught exception
+     actually occurred. Anything in between will have been zapped by TCO.
 
-def test():
+**Notes**:
+
+Actually it is sufficient that the initial entry point to a computation using
+TCO is ``@trampolined``. The trampoline keeps running until a normal value
+(i.e. anything that is not a ``jump`` instance) is returned. That normal value
+is returned to the original caller.
+
+The ``jump`` constructor automatically strips the target's trampoline,
+if it has one - making sure this remains a one-trampoline party even if
+the tail-call target is another ``@trampolined`` function. So just declare
+anything using TCO as ``@trampolined`` and don't worry about stacking trampolines.
+
+SELF actually means "keep current target", so the last function that was
+jumped to by name in that trampoline remains as the target. When the trampoline
+starts, the current target is set to the initial entry point (also for lambdas).
+
+Beside TCO, trampolining can also be thought of as *explicit continuations*.
+Each trampolined function tells the trampoline where to go next, and with what
+parameters. All hail lambda, the ultimate GO TO!
+
+Based on a quick test, running a do-nothing loop with this is about 40-80x
+slower than Python's ``for``.
+
+**Examples**::
+
     # tail recursion
     @trampolined
     def fact(n, acc=1):
         if n == 0:
             return acc
-        jump(fact, n - 1, n * acc)
+        else:
+            return jump(fact, n - 1, n * acc)
     assert fact(4) == 24
 
     # tail recursion in a lambda
@@ -116,24 +102,250 @@ def test():
     def even(n):
         if n == 0:
             return True
-        jump(odd, n - 1)
+        else:
+            return jump(odd, n - 1)
     @trampolined
     def odd(n):
         if n == 0:
             return False
-        jump(even, n - 1)
+        else:
+            return jump(even, n - 1)
+    assert even(42) is True
+    assert odd(4) is False
+
+    # explicit continuations - DANGER: functional spaghetti code!
+    @trampolined
+    def foo():
+        return jump(bar)
+    @trampolined
+    def bar():
+        return jump(baz)
+    @trampolined
+    def baz():
+        raise RuntimeError("Look at the call stack, where did bar() go?")
+    try:
+        foo()
+    except RuntimeError:
+        pass
+"""
+
+__all__ = ["SELF", "jump", "trampolined"]
+
+from functools import wraps
+from sys import stderr
+
+from unpythonic.misc import call
+
+@call  # make a singleton
+class SELF:  # sentinel, could be any object but we want a nice __repr__.
+    def __repr__(self):
+        return "SELF"
+
+def jump(target, *args, **kwargs):
+    """A jump (noun, not verb).
+
+    Used in the syntax `return jump(f, ...)` to request the trampoline to
+    perform a tail call.
+
+    Instances of `jump` are not callable, and do nothing on their own.
+    This is just passive data.
+
+    Parameters:
+        target:
+            The function to be called. The special value SELF means
+            tail-recursion; useful with a ``lambda``. When the target
+            has a name, it is legal to explicitly give the name also
+            for tail-recursion.
+        *args:
+            Positional arguments to be passed to `target`.
+        **kwargs:
+            Named arguments to be passed to  `target`.
+    """
+    return _jump(target, args, kwargs)
+
+class _jump:
+    """The actual class representing a jump.
+
+    If you have already packed args and kwargs, you can instantiate this
+    directly; the public API just performs the packing.
+    """
+    def __init__(self, target, args, kwargs):
+        # IMPORTANT: don't let target bring along its trampoline if it has one
+        self.target = target._entrypoint if hasattr(target, "_entrypoint") else target
+        self.args = args
+        self.kwargs = kwargs
+        self._claimed = False  # set when the instance is caught by a trampoline
+
+    def __repr__(self):
+        return "<_jump at 0x{:x}: target={}, args={}, kwargs={}>".format(id(self),
+                                                                         self.target,
+                                                                         self.args,
+                                                                         self.kwargs)
+
+    def __del__(self):
+        """Warn about bugs in client code.
+
+        Since it's ``__del__``, we can't raise any exceptions - which includes
+        things such as ``AssertionError`` and ``SystemExit``. So we print a
+        warning.
+
+        **CAUTION**:
+
+            This warning mechanism should help find bugs, but it is not 100% foolproof.
+            Since ``__del__`` is managed by Python's GC, some object instances may
+            not get their ``__del__`` called when the Python interpreter itself exits
+            (if those instances are still alive at that time).
+
+        **Typical causes**:
+
+        *Missing "return"*::
+
+            @trampolined
+            def foo():
+                jump(bar, 42)
+
+        The jump instance was never actually passed to the trampoline; it was
+        just created and discarded. The trampoline got the ``None`` from the
+        implicit ``return None`` at the end of the function.
+
+        (See ``tco.py`` if you prefer this syntax, without a ``return``.)
+
+        *No trampoline*::
+
+            def foo():
+                return jump(bar, 42)
+
+        Here ``foo`` is not trampolined.
+
+        We **have** a trampoline when the function that returns the jump
+        instance is itself ``@trampolined``, or is running in a trampoline
+        implicitly (due to having been entered via a tail call).
+
+        *Trampoline at the wrong level*::
+
+            @trampolined
+            def foo():
+                def bar():
+                    return jump(qux, 23)
+                bar()  # normal call, no TCO
+
+        Here ``bar`` has no trampoline; only ``foo`` does. **Only** a ``@trampolined``
+        function, or a function entered via a tail call, may return a jump.
+        """
+        if not self._claimed:
+            print("WARNING: unclaimed {}".format(repr(self)), file=stderr)
+
+# We want @wraps to preserve docstrings, so the decorator must be a function, not a class.
+# https://stackoverflow.com/questions/6394511/python-functools-wraps-equivalent-for-classes
+# https://stackoverflow.com/questions/25973376/functools-update-wrapper-doesnt-work-properly#25973438
+def trampolined(function):
+    """Decorator to make a function trampolined.
+
+    Trampolined functions can use ``return jump(f, a, ..., kw=v, ...)``
+    to perform optimized tail calls. (*Optimized* in the sense of not
+    increasing the call stack depth, not for speed.)
+    """
+    @wraps(function)
+    def decorated(*args, **kwargs):
+        f = function
+        while True:  # trampoline
+            if callable(f):  # general case
+                v = f(*args, **kwargs)
+            else:  # inert-data return value from call_ec or similar
+                v = f
+                def f(*a, **kw):  # protect against jump(SELF, ...) to inert data
+                    raise RuntimeError("Cannot call a non-callable return value '{}'".format(v))
+            if isinstance(v, _jump):
+                if v.target is not SELF:  # if SELF, then keep current target
+                    f = v.target
+                args = v.args
+                kwargs = v.kwargs
+                v._claimed = True
+            else:  # final result, exit trampoline
+                return v
+    # Work together with call_ec and other do-it-now decorators.
+    #
+    # The function has already been replaced by its return value. E.g. call_ec
+    # must work that way, because the ec is only valid during the dynamic extent
+    # of the call_ec. OTOH, the trampoline must be **outside**, to be able to
+    # catch a jump() from the result of the call_ec. So we treat a non-callable
+    # "function" as an inert-data return value.
+    if callable(function):
+        # fortunately functions in Python are just objects; stash for jump constructor
+        decorated._entrypoint = function
+        return decorated
+    else:  # return value from call_ec or similar do-it-now decorator
+        return decorated()
+
+def test():
+    # tail recursion
+    @trampolined
+    def fact(n, acc=1):
+        if n == 0:
+            return acc
+        return jump(fact, n - 1, n * acc)
+    assert fact(4) == 24
+
+    # tail recursion in a lambda
+    t = trampolined(lambda n, acc=1:
+                        acc if n == 0 else jump(SELF, n - 1, n * acc))
+    assert t(4) == 24
+
+    # mutual recursion
+    @trampolined
+    def even(n):
+        if n == 0:
+            return True
+        return jump(odd, n - 1)
+    @trampolined
+    def odd(n):
+        if n == 0:
+            return False
+        return jump(even, n - 1)
     assert even(42) is True
     assert odd(4) is False
     assert even(10000) is True  # no crash
 
+    # explicit continuations - DANGER: functional spaghetti code!
+    @trampolined
+    def foo():
+        return jump(bar)
+    @trampolined
+    def bar():
+        return jump(baz)
+    @trampolined
+    def baz():
+        raise RuntimeError("Look at the call stack, bar() was zapped by TCO!")
     try:
-        jump(even, 10)
-    except TrampolinedJump:  # should raise this if no trampoline
+        foo()
+    except RuntimeError:
         pass
-    else:
-        assert False
+
+    # trampolined lambdas in a letrec
+    from unpythonic.let import letrec
+    t = letrec(evenp=lambda e:
+                     trampolined(lambda x:
+                                   (x == 0) or jump(e.oddp, x - 1)),
+             oddp=lambda e:
+                     trampolined(lambda x:
+                                   (x != 0) and jump(e.evenp, x - 1)),
+             body=lambda e:
+                     e.evenp(10000))
+    assert t is True
 
     print("All tests PASSED")
+
+    print("*** These two error cases SHOULD PRINT A WARNING:", file=stderr)
+    print("** No surrounding trampoline:", file=stderr)
+    def bar2():
+        pass
+    def foo2():
+        return jump(bar2)
+    foo2()
+    print("** Missing 'return' in 'return jump':", file=stderr)
+    def foo3():
+        jump(bar2)
+    foo3()
 
     # loop performance?
     n = 100000
@@ -148,7 +360,7 @@ def test():
     @trampolined
     def dowork(i=0):
         if i < n:
-            jump(dowork, i + 1)
+            return jump(dowork, i + 1)
     dowork()
     dt_fp1 = time.time() - t0
 
