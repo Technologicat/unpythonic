@@ -36,9 +36,32 @@ def arities(f):
         UnknownArity
             If inspection failed.
     """
-    # HACK: built-in range() reports incorrect arities (0, 0) at least in Python 3.4
-    if f is range:
-        return 1, 3  # start;  start, stop, [step]   (see help(range))
+    # HACK: some built-ins report incorrect arities (0, 0) at least in Python 3.4
+    # TODO: this just fixes the ones that incorrectly report (0, 0);
+    #       we could also support the rest. https://docs.python.org/3/library/functions.html
+    infty = float("+inf")
+    builtin_arities = {bool: (1, 1)  ,     # bool(x)
+                       bytes: (0, 3),      # see help(bytes)
+                       complex: (1, 2),    # complex(real, [imag])
+                       enumerate: (1, 2),  # enumerate(iterable, [start])
+                       filter: (2, 2),     # filter(function or None, iterable)
+                       float: (1, 1),      # float(x)
+                       frozenset: (0, 1),  # frozenset(), frozenset(iterable)
+                       int: (0, 2),        # int(x=0), int(x, base=10)
+                       map: (1, infty),    # map(func, *iterables)
+                       memoryview: (1, 1), # memoryview(object)
+                       object: (0, 0),     # object()
+                       range: (1, 3),      # range(stop), range(start, stop, [step])
+                       reversed: (1, 1),   # reversed(sequence)
+                       slice: (1, 3),      # slice(stop), slice(start, stop, [step])
+                       str: (0, 3),        # see help(str)
+                       tuple: (0, 1),      # tuple(), tuple(iterable)
+                       zip: (1, infty)}    # zip(iter1 [,iter2 [...]])
+    try:
+        if f in builtin_arities:
+            return builtin_arities[f]
+    except TypeError:  # f is of an unhashable type
+        pass
     try:
         l = 0
         u = 0
@@ -50,7 +73,7 @@ def arities(f):
                 if v.default is Parameter.empty:
                     l += 1  # no default --> required parameter
             elif v.kind is Parameter.VAR_POSITIONAL:
-                u = float("+inf")  # no upper limit
+                u = infty  # no upper limit
         return l, u
     except (TypeError, ValueError) as e:
         raise UnknownArity(*e.args)
