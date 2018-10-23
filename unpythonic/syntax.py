@@ -190,7 +190,7 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
     # Wrap the body in "with dyn.let(_curry_allow_uninspectable=True):"
     # to avoid crash with builtins (uninspectable)
     item = hq[dyn.let(_curry_allow_uninspectable=True)]
-    wrapped = With(items=[withitem(context_expr=item)],
+    wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
                    body=body)
     return [wrapped]  # block macro: got a list, must return a list.
 
@@ -867,7 +867,7 @@ def namedlambda(tree, **kw):
 
     # name lambdas also in env
     item = hq[dyn.let(env_namedlambda=True)]
-    wrapped = With(items=[withitem(context_expr=item)],
+    wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
                    body=newtree)
     return [wrapped]
 
