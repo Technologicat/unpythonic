@@ -450,6 +450,19 @@ def main():
         assert g(2) == "two"
         assert g(42) == "something else"
 
+    with autoreturn, tco:  # combo
+        def evenp(x):
+            if x == 0:
+                True
+            else:
+                oddp(x - 1)
+        def oddp(x):
+            if x != 0:
+                evenp(x - 1)
+            else:
+                False
+        assert evenp(10000) is True
+
     # continuations!
     # basic testing
     with continuations:

@@ -801,7 +801,7 @@ def multilambda(tree, **kw):
 
 @macros.block
 def namedlambda(tree, **kw):
-    """[syntax, block] Named lambdas.
+    """[syntax, block] Implicitly named lambdas.
 
     Lexically inside a ``with namedlambda`` block, any literal ``lambda``
     that is assigned to a name using a simple assignment of the form
@@ -919,7 +919,7 @@ def continuations(tree, gen_sym, **kw):
     Roughly, this allows saving the control state and then jumping back later
     (in principle, any time later). Possible use cases:
 
-      - Tree traversal (possibly multiple trees simultaneously, with the
+      - Tree traversal (possibly a cartesian product of multiple trees, with the
         current position in each tracked automatically).
 
       - McCarthy's amb operator.
@@ -984,12 +984,13 @@ def continuations(tree, gen_sym, **kw):
 
       - Much of the language works as usual.
 
-        Regular functions can be called normally. Any non-tail calls can be
-        made normally.
+        Any non-tail calls can be made normally. Regular functions can be called
+        normally in any non-tail position.
 
-        Continuation-enabled functions also behave as regular functions when
-        called normally; only tail calls to continuation-enabled functions
-        implicitly set ``cc``.
+        Continuation-enabled functions behave as regular functions when
+        called normally; only tail calls implicitly set ``cc``.
+
+      - Combo note:
 
         ``unpythonic.ec.call_ec`` can be used normally outside any ``with bind``;
         but in a ``with bind`` block, the ``ec`` ceases to be valid. (This is
@@ -1009,7 +1010,7 @@ def continuations(tree, gen_sym, **kw):
                                                       ec(42),
                                                       print("not reached")])
 
-        See the ``tco`` macro for details on ``call_ec``.
+        See the ``tco`` macro for details on the ``call_ec`` combo.
 
     **Manipulating the continuation**:
 
@@ -1047,8 +1048,8 @@ def continuations(tree, gen_sym, **kw):
 
       - Instead of setting ``cc``, can also just assign a captured continuation
         to ``cc`` inside a function body. That changes the continuation for the
-        whole function (for the rest of the dynamic extent of the function),
-        not only for a particular tail call::
+        rest of the dynamic extent of the function, not only for a particular
+        tail call::
 
             def myfunc(*, cc):
                 ourcc = cc
@@ -1125,7 +1126,7 @@ def continuations(tree, gen_sym, **kw):
         with the current continuation, no need for ``with bind``; use
         ``return func(...)`` instead.
     """
-    # We don't have an analog of PG's "=apply"; Python doesn't need "apply"
+    # We don't have an analog of PG's "=apply", since Python doesn't need "apply"
     # to pass in varargs.
 
     # first pass, outside-in
@@ -1347,7 +1348,7 @@ def bind(tree, **kw):
 
 @macros.block
 def tco(tree, **kw):
-    """[syntax, block] Automatically apply tail-call optimization (TCO).
+    """[syntax, block] Implicit tail-call optimization (TCO).
 
     Examples::
 
@@ -1394,7 +1395,9 @@ def tco(tree, **kw):
           - In a ``do0[]``, this is the implicit item that just returns the
             stored return value.
 
-        - The argument to an escape continuation.
+        - The argument of a call to an escape continuation. The ``ec(...)`` call
+          itself does not need to be in tail position; escaping early is the
+          whole point of an ec.
 
     All function definitions (``def`` and ``lambda``) lexically inside the block
     undergo TCO transformation. The functions are automatically ``@trampolined``,
@@ -1402,12 +1405,26 @@ def tco(tree, **kw):
     for the TCO machinery.
 
     Note in a ``def`` you still need the ``return``; it marks a return value.
-    If that bothers you, see ``autoreturn``.
+    But see ``autoreturn``::
 
-    **CAUTION**: only basic uses of escape continuations, created via ``call_ec``,
-    are currently detected as being in tail position. Any other custom escape
-    mechanisms are not supported. (This is mainly of interest for lambdas,
-    which have no ``return``, and for "multi-return" from a nested function.)
+        with autoreturn, tco:
+            def evenp(x):
+                if x == 0:
+                    True
+                else:
+                    oddp(x - 1)
+            def oddp(x):
+                if x != 0:
+                    evenp(x - 1)
+                else:
+                    False
+            assert evenp(10000) is True
+
+    **CAUTION**: regarding escape continuations, only basic uses of ecs created
+    via ``call_ec`` are currently detected as being in tail position. Any other
+    custom escape mechanisms are not supported. (This is mainly of interest for
+    lambdas, which have no ``return``, and for "multi-return" from a nested
+    function.)
 
     *Basic use* is defined as either of these two cases::
 
@@ -1526,7 +1543,7 @@ def _transform_retexpr(tree, call_cb, data_cb, known_ecs):
 
       - data_cb(tree): either None; or tree -> tree, callback for inert data nodes
 
-      - known_ecs: list of str, names of known escape continuations. (Always needed.)
+      - known_ecs: list of str, names of known escape continuations.
 
     The callbacks (if any) may perform extra transformations; they are applied
     as postprocessing for each node of matching type, after any transformations
@@ -1549,14 +1566,15 @@ def _transform_retexpr(tree, call_cb, data_cb, known_ecs):
             tree.args[-1].body = transform(tree.args[-1].body)
         # Apply TCO to tail calls.
         elif type(tree) is Call:
-            #   - If already transformed to a jump(), leave it alone.
+            #   - If already an explicit jump(), leave it alone.
             #   - If a call to an ec, leave it alone.
             #     - Because an ec call may appear in a non-tail position,
             #       a tail-position analysis will not find all of them.
             #     - But this function analyzes only tail positions within
             #       a return-value expression.
             #     - Hence, transform_return() calls us on the content of
-            #       all ec nodes directly.
+            #       all ec nodes directly. ec(...) is like return, the
+            #       argument is the retexpr.
             if not (type(tree.func) is Captured and tree.func.name == "jump") \
                and not _isec(tree, known_ecs):
                 tree.args = [tree.func] + tree.args
@@ -1605,7 +1623,7 @@ def _transform_retexpr(tree, call_cb, data_cb, known_ecs):
 
 @macros.block
 def autoreturn(tree, **kw):
-    """[syntax, block] Allow omitting "return" in tail position, like in Lisps.
+    """[syntax, block] Implicit "return" in tail position, like in Lisps.
 
     Each ``def`` function definition lexically within the ``with autoreturn``
     block is examined, and if the last item within the body is an expression
