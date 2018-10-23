@@ -2,9 +2,9 @@
 
 Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
 
-In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python from the list processing tradition. We place a special emphasis on **clear, pythonic syntax**, as far as possible without [MacroPy](https://github.com/azazel75/macropy). (But we do provide some optional [macro extras](macro_extras/), e.g. an autocurry that makes Python look somewhat like Haskell.)
+In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python from the list processing tradition. We place a special emphasis on **clear, pythonic syntax**. Other design considerations are simplicity, robustness, and minimal dependencies (currently none). Pure Python 3.4.
 
-Other design considerations are simplicity, robustness, and minimal dependencies (currently none). Pure Python 3.4.
+We also provide a set of [macros](macro_extras/) for those not afraid to install [MacroPy](https://github.com/azazel75/macropy) and venture beyond raw Python. For example, we have an autocurry that makes Python look somewhat like Haskell, a continuations macro with a form of call/cc for Python, various boilerplate-elimination macros (notably ``do``, ``let``, ``multilambda``) that improve readability of code using some of the functions presented here, and a TCO macro for automatic tail-call optimization - which works together with the ``do`` and ``let`` macros. Design considerations for our macros are orthogonality, combinability, and clear, pythonic syntax. If a combo doesn't work, this should at least be documented. (If not, please raise an issue.)
 
 **Contents**:
 
@@ -399,6 +399,8 @@ When the `with` block exits, the environment clears itself. The environment inst
 
 ### Tail call optimization (TCO) / explicit continuations
 
+**v0.10.0**: ``fasttco`` has been renamed ``tco``, and the exception-based old default implementation has been removed.
+
 Express algorithms elegantly without blowing the call stack - with explicit, clear syntax.
 
 *Tail recursion*:
@@ -415,13 +417,15 @@ def fact(n, acc=1):
 print(fact(4))  # 24
 ```
 
-**CAUTION**: The default implementation is based on exceptions, so catch-all ``except:`` statements will intercept also jumps, breaking the looping mechanism. As you already know, be specific in what you catch! (**See also** ``fasttco`` below for an alternative that **doesn't** use exceptions.)
-
 Functions that use TCO **must** be `@trampolined`. Calling a trampolined function normally starts the trampoline.
 
-Inside a trampolined function, a normal call `f(a, ..., kw=v, ...)` remains a normal call. A tail call with target `f` is denoted `jump(f, a, ..., kw=v, ...)`.
+Inside a trampolined function, a normal call `f(a, ..., kw=v, ...)` remains a normal call.
 
-Optionally, **to make it work also with fasttco**, explained below, a tail call **can** be denoted also `return jump(f, a, ..., kw=v, ...)` (adding a ``return``). In the examples here, we will use this optional syntax to keep the examples compatible with both implementations, and also to explicitly mark that these are indeed tail calls (due to the explicit ``return``).
+A tail call with target `f` is denoted `return jump(f, a, ..., kw=v, ...)`. This explicitly marks that it is indeed a tail call (due to the explicit ``return``). Note that `jump` is **a noun, not a verb**. The `jump(f, ...)` part just evaluates to a `jump` instance, which on its own does nothing. Returning it to the trampoline actually performs the tail call.
+
+If the jump target has a trampoline, don't worry; the trampoline implementation will automatically strip it and jump into the actual entrypoint.
+
+Trying to ``jump(...)`` without the ``return`` does nothing useful, and will **usually** print a warning. It does this by checking a flag in the ``__del__`` method of ``jump``; any correctly used jump instance should have been claimed by a trampoline before it gets garbage-collected.
 
 The final result is just returned normally. This shuts down the trampoline, and returns the given value from the initial call (to a ``@trampolined`` function) that originally started that trampoline.
 
@@ -433,7 +437,7 @@ t = trampolined(lambda n, acc=1:
 print(t(4))  # 24
 ```
 
-To denote tail recursion in an anonymous function, use the special jump target `SELF` (all uppercase!). Here it's just `jump` instead of `return jump` also with `fasttco`, since lambda does not use the `return` syntax.
+To denote tail recursion in an anonymous function, use the special jump target `SELF` (all uppercase!). Here it's just `jump` instead of `return jump`, since lambda does not use the `return` syntax.
 
 Technically, `SELF` means *keep current jump target*, so the function that was last explicitly tail-called by name in that particular trampoline remains as the target of the jump. When the trampoline starts, the current target is set to the initial entry point (also for lambdas).
 
@@ -469,59 +473,6 @@ letrec(evenp=lambda e:
        body=lambda e:
                e.evenp(10000))
 ```
-
-
-#### Fasttco
-
-If you think you know what you're doing, ``fasttco`` is **the recommended implementation**.
-
-The default TCO implementation uses exceptions. A do-nothing loop that trampolines with [``tco.py``](unpythonic/tco.py) runs 150-200× slower than the built-in ``for``.
-
-To improve performance by a factor of approximately 2-5× (i.e. to become only 40-80× slower than ``for``), we provide an alternative TCO implementation, which is faster, but pickier about its syntax.
-
-To enable it:
-
-```python
-import unpythonic
-unpythonic.enable_fasttco()
-```
-
-This redirects `unpythonic.tco` to actually point to [`fasttco.py`](unpythonic/fasttco.py), reloads `unpythonic.fploop` using `fasttco`, and resets `unpythonic.trampolined`, `unpythonic.jump` and `unpythonic.SELF` to point to those in `fasttco`. Short demonstration:
-
-```python
-import unpythonic
-unpythonic.fploop.test()  # using default TCO
-unpythonic.enable_fasttco()
-unpythonic.fploop.test()  # using fast TCO
-```
-
-**CAUTION**: if you from-imported names from `unpythonic.tco` (also implicitly, e.g. by `from unpythonic import *`), this **will not** update your local references, since it cannot have access to your namespace. To update your local references, just from-import the names again. This works because the names *inside the unpythonic module* are refreshed by ``enable_fasttco()``. Or just import them only after calling `enable_fasttco()` in the first place.
-
-In summary, do something like:
-
-```python
-import unpythonic
-unpythonic.enable_fasttco()
-from unpythonic import *  # do any from-imports **after** enable_fasttco() to get correct local references
-```
-
-to use ``unpythonic`` with ``fasttco`` enabled. Having the correct references everywhere is important, because the TCO implementations **cannot be mixed and matched**.
-
-In `fasttco`, unlike in the default implementation, `jump` is **a noun, not a verb**. The `jump(f, ...)` part just evaluates to a `jump` instance, which on its own does nothing. Returning it to the trampoline actually performs the tail call; hence `fasttco` **requires** the syntax `return jump(f, ...)`. **This propagates to fploop**; i.e. ``loop`` also becomes a **noun**, because it is essentially a fancy wrapper on top of ``jump``.
-
-With `fasttco`, trying to ``jump(...)`` without the ``return`` does nothing useful, and will **usually** print a warning. It does this by checking a flag in the ``__del__`` method of ``jump``; any correctly used jump instance should have been claimed by a trampoline before it gets garbage-collected.
-
-Using `fasttco` introduces the serious usability trap of forgetting the ``return`` (hence it's not the default implementation), but in exchange, it can detect another kind of error not caught by `tco`, namely a trampoline declared at the wrong level:
-
-```python
-@trampolined
-def foo():
-    def bar():
-        return jump(qux, 23)
-    bar()  # normal call, no TCO
-```
-
-Here ``bar`` has no trampoline; only ``foo`` does. In `fasttco`, **only** a ``@trampolined`` function, or a function entered via a tail call, may return a jump. The default TCO implementation happily escapes out to the trampoline of ``foo``, performing the tail call as if ``foo`` had requested the ``jump``.
 
 
 #### Reinterpreting TCO as explicit continuations
@@ -606,7 +557,7 @@ In `@looped`, the function name of the loop body is the name of the final result
 
 The first parameter of the loop body is the magic parameter ``loop``. It is *self-ish*, representing a jump back to the loop body itself, starting a new iteration. Just like Python's ``self``, ``loop`` can have any name; it is passed positionally.
 
-Just like ``jump``, if `fasttco` is used, then ``loop`` is **a noun, not a verb.** This is because the expression ``loop(...)`` is essentially the same as ``jump(SELF, ...)``. However, it also inserts the magic parameter ``loop``, which can only be set up via this mechanism.
+Note that ``loop`` is **a noun, not a verb.** This is because the expression ``loop(...)`` is essentially the same as ``jump(SELF, ...)``. However, it also inserts the magic parameter ``loop``, which can only be set up via this mechanism.
 
 Additional arguments can be given to ``loop(...)``. When the loop body is called, any additional positional arguments are appended to the implicit ones, and can be anything. Additional arguments can also be passed by name. The initial values of any additional arguments **must** be declared as defaults in the formal parameter list of the loop body. The loop is automatically started by `@looped`, by calling the body with the magic ``loop`` as the only argument.
 
@@ -625,7 +576,7 @@ def _(loop, i=0):
 assert out == [0, 1, 2, 3]
 ```
 
-Keep in mind, though, that this pure-Python FP looping mechanism is slow (even with `fasttco`), so it may make sense to use it only when "the FP-ness" (no mutation, scoping) is important.
+Keep in mind, though, that this pure-Python FP looping mechanism is slow, so it may make sense to use it only when "the FP-ness" (no mutation, scoping) is important.
 
 Also be aware that `@looped` is specifically neither a ``for`` loop nor a ``while`` loop; instead, it is a general looping mechanism that can express both kinds of loops.
 
@@ -1582,9 +1533,9 @@ Support for ``namedtuple`` requires an extra feature, which is available for cus
 
 We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. An important feature of McCarthy's [`amb` operator](https://rosettacode.org/wiki/Amb) is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. This sounds a lot like ``call/cc``; which is how ``amb`` is usually implemented. See implementations [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html).
 
-Python can't do that, short of compiling the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. Arguably, the result would no longer be Python. (As Abelson and Sussman explain in SICP, ``call/cc`` can be implemented via this strategy. It's an instance of lambda as the ultimate GOTO.)
+Python can't do that, short of compiling the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. Arguably, the result would no longer be Python. (As Abelson and Sussman explain in SICP, ``call/cc`` can be implemented via this strategy. It's an instance of lambda as the ultimate GOTO.) If you want something like that, see ``continuations`` in [``macro_extras``](macro_extras/).
 
-Instead, what we have here is essentially a tuple comprehension that:
+What we have here is essentially a tuple comprehension that:
 
  - Can have multiple body expressions (side effects also welcome!), by simply listing them in sequence.
  - Allows filters to be placed at any level of the nested looping.
@@ -1853,7 +1804,7 @@ If we later choose go this route nevertheless, `<<` is a better choice for the s
 
 ### TCO syntax and speed
 
-Benefits and costs of ``return jump(...)``, the syntax required by `fasttco`:
+Benefits and costs of ``return jump(...)``:
 
  - Explicitly a tail call due to ``return``.
  - The trampoline can be very simple and (relatively speaking) fast. Just a dumb ``jump`` record, a ``while`` loop, and regular function calls and returns.
@@ -1864,13 +1815,14 @@ Benefits and costs of ``return jump(...)``, the syntax required by `fasttco`:
      - This breaks the *don't care about return value* use case, which is rather common when using side effects.
      - Failing to terminate at the intended point may well fall through into what was intended as another branch of the client code, which may correctly have a ``return``. So this would not even solve the problem.
 
-The other simple-ish solution is to use exceptions, making the jump wrest control from the caller. Then ``jump(...)`` becomes a verb. This is the approach taken in the default [``tco.py``](unpythonic/tco.py).
+The other simple-ish solution is to use exceptions, making the jump wrest control from the caller. Then ``jump(...)`` becomes a verb, but this approach is 2-5x slower, when measured with a do-nothing loop. (See the old default TCO implementation in v0.9.2.)
 
 For other libraries bringing TCO to Python, see:
 
  - [tco](https://github.com/baruchel/tco) by Thomas Baruchel, based on exceptions.
  - [ActiveState recipe 474088](https://github.com/ActiveState/code/tree/master/recipes/Python/474088_Tail_Call_Optimization_Decorator), based on ``inspect``.
  - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the original source of the approach used here.
+ - [MacroPy](https://github.com/azazel75/macropy) uses an approach similar to ``fn.py``.
 
 ### Wait, no monads?
 
@@ -1922,7 +1874,7 @@ Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https
 
 Thanks to [TUT](http://www.tut.fi/en/home) for letting me teach [RAK-19006 in spring term 2018](https://github.com/Technologicat/python-3-scicomp-intro); early versions of parts of this library were originally developed as teaching examples for that course. Thanks to @AgenttiX for feedback.
 
-The trampoline implementation of ``unpythonic.fasttco`` takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of the FP looping constructs.
+The trampoline implementation of ``unpythonic.tco`` takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of the FP looping constructs.
 
 Another important source of inspiration was [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
 
