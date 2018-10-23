@@ -36,6 +36,9 @@ def arities(f):
         UnknownArity
             If inspection failed.
     """
+    # HACK: built-in range() reports incorrect arities (0, 0) at least in Python 3.4
+    if f is range:
+        return 1, 3  # start;  start, stop, [step]   (see help(range))
     try:
         l = 0
         u = 0
