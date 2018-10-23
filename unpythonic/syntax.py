@@ -21,7 +21,13 @@ from ast import Call, arg, keyword, With, withitem, Tuple, \
                 Subscript, Index, Slice, ExtSlice, Lambda, List, \
                 copy_location, Assign, FunctionDef, \
                 ListComp, SetComp, GeneratorExp, DictComp, \
-                arguments, If, Num, Return, Expr, IfExp, BoolOp, And, Or
+                arguments, If, Num, Return, Expr, IfExp, BoolOp, And, Or, Try
+
+try:  # Python 3.5+
+    from ast import AsyncFunctionDef, AsyncWith
+except ImportError:
+    NoSuchNodeType = object()
+    AsyncFunctionDef = AsyncWith = NoSuchNodeType
 
 from unpythonic.it import flatmap, uniqify, rev
 from unpythonic.fun import curry as curryf, identity
@@ -96,7 +102,7 @@ def _detect_callec(tree, *, collect, **kw):
         result = call_ec(g)  # <-- but this is here; g could be in another module
     """
     # TODO: add support for general use of call_ec as a function (difficult)
-    if type(tree) is FunctionDef and any(_iscallec(deco) for deco in tree.decorator_list):
+    if type(tree) in (FunctionDef, AsyncFunctionDef) and any(_iscallec(deco) for deco in tree.decorator_list):
         fdef = tree
         collect(fdef.args.args[0].arg)  # FunctionDef.arguments.(list of arg objects).arg
     elif type(tree) is Call and _iscallec(tree.func) and type(tree.args[0]) is Lambda:
@@ -403,9 +409,9 @@ def _assign_value(tree):
     return tree.right
 
 def _isnewscope(tree):
-    return type(tree) in (Lambda, FunctionDef, ListComp, SetComp, GeneratorExp, DictComp)
+    return type(tree) in (Lambda, FunctionDef, AsyncFunctionDef, ListComp, SetComp, GeneratorExp, DictComp)
 def _getlocalnames(tree):  # get arg names of Lambda/FunctionDef, and target names of comprehensions
-    if type(tree) in (Lambda, FunctionDef):
+    if type(tree) in (Lambda, FunctionDef, AsyncFunctionDef):
         a = tree.args
         argnames = [x.arg for x in a.args + a.kwonlyargs]
         if a.vararg:
@@ -1137,7 +1143,7 @@ def continuations(tree, gen_sym, **kw):
     # These correspond to PG's "=defun" and "=lambda", but we don't need to generate a macro.
     @Walker
     def transform_def(tree, **kw):
-        if type(tree) is FunctionDef:
+        if type(tree) in (FunctionDef, AsyncFunctionDef):
             tree = transform_args(tree)
             # The trampoline needs to be outermost, so that it is applied **after**
             # any call_ec; this allows also escapes to return a jump object
@@ -1154,7 +1160,7 @@ def continuations(tree, gen_sym, **kw):
             transform_lambda.recurse(tree.args[0].body)  # ...but recurse inside it
         return tree
     def transform_args(tree):
-        assert type(tree) in (FunctionDef, Lambda)
+        assert type(tree) in (FunctionDef, AsyncFunctionDef, Lambda)
         # require explicit by-name-only arg for continuation, "cc"
         # (by name because we need to set a default value; otherwise "cc"
         #  could be positional and be placed just after "self" or "cls", if any)
@@ -1259,7 +1265,7 @@ def continuations(tree, gen_sym, **kw):
         return False
     @Walker
     def transform_withbind(tree, *, toplevel, set_ctx, **kw):
-        if type(tree) is FunctionDef:  # function definition **inside the "with continuations" block**
+        if type(tree) in (FunctionDef, AsyncFunctionDef):  # function definition **inside the "with continuations" block**
             set_ctx(toplevel=False)
         if not iswithbind(tree):
             return tree
@@ -1281,6 +1287,7 @@ def continuations(tree, gen_sym, **kw):
         #
         # Any return statements in the body have already been transformed,
         # because they appear literally in the code at the use site.
+        # TODO: AsyncFunctionDef?
         thename = gen_sym("cont")
         funcdef = FunctionDef(name=thename,
                               args=arguments(args=[arg(arg=x) for x in posargs],
@@ -1450,7 +1457,7 @@ def tco(tree, **kw):
     # TODO: code duplication between here and continuations
     @Walker
     def transform_def(tree, **kw):
-        if type(tree) is FunctionDef:
+        if type(tree) in (FunctionDef, AsyncFunctionDef):
             # The trampoline needs to be outermost, so that it is applied **after**
             # any call_ec; this allows also escapes to return a jump object
             # to the trampoline.
@@ -1653,6 +1660,10 @@ def autoreturn(tree, **kw):
     So with ``autoreturn``, the final ``else`` should be written out explicitly,
     to make the ``else`` branch part of the same if/elif/else block.
 
+    **CAUTION**: ``for``, ``async for``, ``while`` are currently not analyzed;
+    effectively, these are defined as always returning ``None``. If the last item
+    in your function body is a loop, use an explicit return.
+
     **CAUTION**: With ``autoreturn`` enabled, functions no longer return ``None``
     by default; the whole point of this macro is to change the default return
     value.
@@ -1662,13 +1673,29 @@ def autoreturn(tree, **kw):
     """
     @Walker
     def transform_tailstmt(tree, **kw):
-        if type(tree) is FunctionDef:
+        if type(tree) in (FunctionDef, AsyncFunctionDef):
             tree.body[-1] = transform_one(tree.body[-1])
         return tree
     def transform_one(tree):
+        # TODO: For/AsyncFor/While?
         if type(tree) is If:
             tree.body[-1] = transform_one(tree.body[-1])
-            tree.orelse[-1] = transform_one(tree.orelse[-1])
+            if tree.orelse:
+                tree.orelse[-1] = transform_one(tree.orelse[-1])
+        elif type(tree) in (With, AsyncWith):
+            tree.body[-1] = transform_one(tree.body[-1])
+        elif type(tree) is Try:
+            # TODO: check that the semantics are correct
+            if tree.finalbody:   # finally clause present; tail position is there
+                tree.finalbody[-1] = transform_one(tree.finalbody[-1])
+            else:
+                if tree.orelse:  # else clause present: tail position is there
+                    tree.orelse[-1] = transform_one(tree.orelse[-1])
+                else:  # tail position is in the body of the "try"
+                    tree.body[-1] = transform_one(tree.body[-1])
+                # additionally, tail position is in each "except" handler
+                for handler in tree.handlers:
+                    handler.body[-1] = transform_one(handler.body[-1])
         elif type(tree) is Expr:
             tree = Return(value=tree.value)
         return tree
