@@ -1685,17 +1685,14 @@ def autoreturn(tree, **kw):
         elif type(tree) in (With, AsyncWith):
             tree.body[-1] = transform_one(tree.body[-1])
         elif type(tree) is Try:
-            # TODO: check that the semantics are correct
-            if tree.finalbody:   # finally clause present; tail position is there
-                tree.finalbody[-1] = transform_one(tree.finalbody[-1])
-            else:
-                if tree.orelse:  # else clause present: tail position is there
-                    tree.orelse[-1] = transform_one(tree.orelse[-1])
-                else:  # tail position is in the body of the "try"
-                    tree.body[-1] = transform_one(tree.body[-1])
-                # additionally, tail position is in each "except" handler
-                for handler in tree.handlers:
-                    handler.body[-1] = transform_one(handler.body[-1])
+            # We don't care about finalbody; it is typically a finalizer.
+            if tree.orelse:  # else clause present: tail position is there
+                tree.orelse[-1] = transform_one(tree.orelse[-1])
+            else:  # tail position is in the body of the "try"
+                tree.body[-1] = transform_one(tree.body[-1])
+            # additionally, tail position is in each "except" handler
+            for handler in tree.handlers:
+                handler.body[-1] = transform_one(handler.body[-1])
         elif type(tree) is Expr:
             tree = Return(value=tree.value)
         return tree
