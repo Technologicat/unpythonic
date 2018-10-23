@@ -805,5 +805,35 @@ def main():
                     yield x, y, z
     print(tuple(pt_gen()))
 
+    # combo
+    with autoreturn, continuations:
+        stack = []
+        def amb(lst, *, cc):
+            if lst:
+                first, *rest = lst
+                if rest:
+                    ourcc = cc
+                    stack.append(lambda *, cc: amb(rest, cc=ourcc))
+                first
+            else:
+                fail()
+        def fail(*, cc):
+            if stack:
+                f = stack.pop()
+                f()
+
+        def pyth(*, cc):
+            with bind[amb(tuple(range(1, 21)))] as z:
+                with bind[amb(tuple(range(1, z+1)))] as y:
+                    with bind[amb(tuple(range(1, y+1)))] as x:  # <-- the call/cc
+                        if x*x + y*y == z*z:                    # body is the cont
+                            x, y, z
+                        else:
+                            fail()
+        x = pyth()
+        while x:
+            print(x)
+            x = fail()
+
 if __name__ == '__main__':
     main()
