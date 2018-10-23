@@ -806,6 +806,7 @@ def main():
     print(tuple(pt_gen()))
 
     # combo
+#    with curry:  # major slowdown, but works; must be in a separate "with"
     with autoreturn, continuations:
         stack = []
         def amb(lst, *, cc):

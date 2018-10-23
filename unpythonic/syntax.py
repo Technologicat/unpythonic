@@ -180,11 +180,14 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
             add2 = myadd(2)
             assert add2(3) == 5
     """
+    tru = q[True]
+    tru = copy_location(tru, tree[0])
     @Walker
     def transform_call(tree, **kw):  # technically a node containing the current subtree
         if type(tree) is Call:
             tree.args = [tree.func] + tree.args
             tree.func = hq[curryf]
+            tree.keywords.append(keyword(arg="_curry_force_call", value=tru))
         return tree
     body = transform_call.recurse(tree)
     # Wrap the body in "with dyn.let(_curry_allow_uninspectable=True):"

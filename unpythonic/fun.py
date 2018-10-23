@@ -152,9 +152,17 @@ def curry(f, *args, **kwargs):
         look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
         assert tuple(curry(look, 5, 10, range(20))) == tuple(range(5, 15))
     """
+    # co-operate with unpythonic.syntax.curry
+    #  - in a "with curry" block, @curry is not explicitly used;
+    #    need to call also when "f()" has transformed to "curry(f)"
+    if "_curry_force_call" in kwargs:
+        kwargs.pop("_curry_force_call")
+        force_call = True
+    else:
+        force_call = False
     # trivial case first: prevent stacking curried wrappers
     if iscurried(f):
-        if args or kwargs:
+        if args or kwargs or force_call:
             return f(*args, **kwargs)
         return f
     # TODO: improve: all required name-only args should be present before calling f.
@@ -164,8 +172,8 @@ def curry(f, *args, **kwargs):
     except UnknownArity:  # likely a builtin
         if not dyn._curry_allow_uninspectable:  # usual behavior
             raise
-        # co-operate with the autocurry macro; don't crash on builtins
-        if args or kwargs:
+        # co-operate with unpythonic.syntax.curry; don't crash on builtins
+        if args or kwargs or force_call:
             return f(*args, **kwargs)
         return f
     @wraps(f)
@@ -194,7 +202,7 @@ def curry(f, *args, **kwargs):
             return f(*args, **kwargs)
     curried._is_curried_function = True  # stash for detection
     # curry itself is curried: if we get args, they're the first step
-    if args or kwargs:
+    if args or kwargs or force_call:
         return curried(*args, **kwargs)
     return curried
 
