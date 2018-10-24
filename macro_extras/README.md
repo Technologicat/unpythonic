@@ -457,9 +457,17 @@ with autoreturn:
     assert g(42) == "something else"
 ```
 
-Each ``def`` function definition lexically within the ``with autoreturn`` block is examined, and if the last item within the body is an expression ``expr``, it is transformed into ``return expr``. If the last item is an if/elif/else block, the transformation is applied to the last item in each of its branches.
+Each ``def`` function definition lexically within the ``with autoreturn`` block is examined, and if the last item within the body is an expression ``expr``, it is transformed into ``return expr``. Additionally:
 
-**CAUTION**: If the final ``else`` is omitted, as often in Python, then only the ``else`` item is in tail position with respect to the function definition - likely not what you want. So with ``autoreturn``, the final ``else`` should be written out explicitly, to make the ``else`` branch part of the same if/elif/else block.
+ - If the last item is an if/elif/else block, the transformation is applied to the last item in each of its branches.
+
+ - If the last item is a ``with`` or ``async with`` block, the transformation is applied to the last item in its body.
+
+ - If the last item is a try/except/else/finally block, the rules are as follows. If an ``else`` clause is present, the transformation is applied to the last item in it; otherwise, to the last item in the ``try`` clause. Additionally, in both cases, the transformation is applied to the last item in each of the ``except`` clauses. The ``finally`` clause is not transformed; the intention is it is usually a finalizer (e.g. to release resources) that runs after the interesting value is already being returned by ``try``, ``else`` or ``except``.
+
+**CAUTION**: If the final ``else`` of an if/elif/else is omitted, as often in Python, then only the ``else`` item is in tail position with respect to the function definition - likely not what you want. So with ``autoreturn``, the final ``else`` should be written out explicitly, to make the ``else`` branch part of the same if/elif/else block.
+
+**CAUTION**: ``for``, ``async for``, ``while`` are currently not analyzed; effectively, these are defined as always returning ``None``. If the last item in your function body is a loop, use an explicit return.
 
 **CAUTION**: With ``autoreturn`` enabled, functions no longer return ``None`` by default; the whole point of this macro is to change the default return value. The default return value is ``None`` only if the tail position contains a statement (because in a sense, a statement always returns ``None``).
 
