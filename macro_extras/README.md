@@ -424,7 +424,7 @@ with tco:
     assert evenp(10000) is True
 ```
 
-This is based on a strategy similar to MacroPy's tco macro, but using the TCO machinery from ``unpythonic.fasttco``.
+This is based on a strategy similar to MacroPy's tco macro, but using unpythonic's TCO machinery.
 
 This recursively handles also builtins ``a if p else b``, ``and``, ``or``; and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``. Support for ``do[]`` includes also any ``multilambda`` blocks that have already expanded when ``tco`` is processed.
 
