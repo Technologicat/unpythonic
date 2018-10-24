@@ -353,7 +353,7 @@ Code within a ``with continuations`` block is treated specially. Roughly:
      - The function ``func`` must be a defined in a ``with continuations`` block, so that it knows what to do with ``cc``.
        - Attempting to tail-call a regular function breaks the TCO chain and immediately returns to the original caller (provided the function even accepts a ``cc`` named parameter).
        - Hence, be careful: ``xs = list(args); return xs`` and ``return list(args)`` mean different things.
-   - TCO, from ``unpythonic.fasttco``, is automatically applied to these tail calls.
+   - TCO is automatically applied to these tail calls.
 
  - Essentially, ``with bind`` is a limited form of ``call/cc``, where the body of the ``with`` block is captured as the continuation.
    - Unlike in Scheme/Racket, where continuations are built into the language itself, and the remaining expressions of the computation are in a sense captured automatically.
