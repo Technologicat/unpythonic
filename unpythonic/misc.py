@@ -4,7 +4,7 @@
 
 __all__ = ["call", "raisef", "pack", "namelambda"]
 
-from types import FunctionType
+from types import LambdaType
 import re
 
 def call(f, *args, **kwargs):
@@ -133,14 +133,15 @@ def pack(*args):
 def namelambda(function, name):
     """Name a lambda function.
 
-    Only works once per object; the original name must be ``<lambda>``.
+    To avoid spurious renaming, names only once per object. If the original name
+    is something other than ``<lambda>``, this has no effect.
 
     The original function object is modified in-place; for convenience,
     the object is returned.
 
     This is used by ``env``, and by the ``namedlambda`` macro.
     """
-    if isinstance(function, FunctionType) and function.__name__ == "<lambda>":
+    if isinstance(function, LambdaType) and function.__name__ == "<lambda>":
         myname = "{} (lambda)".format(name)
         function.__name__ = myname
         function.__qualname__ = re.sub("<lambda>$", myname, function.__qualname__)

@@ -11,6 +11,7 @@ __all__ = ["arities", "arity_includes",
            "UnknownArity"]
 
 from inspect import signature, Parameter
+from types import ModuleType
 import operator
 
 try:  # Python 3.5+
@@ -158,11 +159,41 @@ _builtin_arities = {# inspectable, but reporting incorrectly
                     operator.itruediv: (2, 2),
                     operator.ixor: (2, 2)}
 
+def _getfunc(f):
+    """Given a function or method, return the underlying function.
+
+    Return value is a tuple ``(f, kind)``, where ``kind`` is one of
+    ``function``, ``boundmethod``, ``unboundmethod``.
+    """
+    def ismethod(f):
+        if not hasattr(f, "__self__"):
+            return False
+        self = f.__self__
+        if isinstance(self, ModuleType) and self.__name__ == "builtins":  # e.g. print
+            return False
+        return True
+    kind = "function"
+    if ismethod(f):
+        obj_or_cls = f.__self__
+        if isinstance(obj_or_cls, type):  # TODO: do all custom metaclasses inherit from type?
+            cls = obj_or_cls
+            kind = "unboundmethod"
+        else:
+            cls = obj_or_cls.__class__
+            kind = "boundmethod"
+        return (getattr(cls, f.__name__), kind)
+    else:
+        return (f, kind)
+
 def arities(f):
     """Inspect f's minimum and maximum positional arity.
 
     This uses inspect.signature; note that the signature of builtin functions
-    cannot be inspected.
+    cannot be inspected. This is worked around to some extent, but e.g.
+    methods of built-in classes (such as ``list``) might not be inspectable.
+
+    For methods, ``self`` or ``cls`` does not count toward the arity,
+    because it is passed implicitly by Python.
 
     Parameters:
         `f`: function
@@ -179,13 +210,13 @@ def arities(f):
         UnknownArity
             If inspection failed.
     """
+    f, kind = _getfunc(f)
     try:
         if f in _builtin_arities:
             return _builtin_arities[f]
     except TypeError:  # f is of an unhashable type
         pass
     try:
-        # TODO: currently this does not work with bound methods.
         l = 0
         u = 0
         poskinds = set((Parameter.POSITIONAL_ONLY,
@@ -197,6 +228,9 @@ def arities(f):
                     l += 1  # no default --> required parameter
             elif v.kind is Parameter.VAR_POSITIONAL:
                 u = _infty  # no upper limit
+        if kind == "boundmethod":  # self is passed implicitly
+            l -= 1
+            u -= 1
         return l, u
     except (TypeError, ValueError) as e:
         raise UnknownArity(*e.args)
@@ -220,6 +254,7 @@ def optional_kwargs(f):
     return _kwargs(f, optionals=True)
 
 def _kwargs(f, optionals=True):
+    f, _ = _getfunc(f)
     try:
         if optionals:
             pred = lambda v: v.default is not Parameter.empty  # optionals
@@ -271,14 +306,29 @@ def test():
     assert optional_kwargs(lambda a, b, c=42: _) == set()
     assert kwargs(lambda a, b, c=42: _) == (set(), set())
 
-#    # TODO: doesn't work yet for bound methods
-#    class A:
-#        def __init__(self):
-#            pass
-#        def meth(x):
-#            print(x)
-#    assert arities(A) == (0, 0)
-#    assert arities(A().meth) == (1, 1)
+    # OOP
+    class A:
+        def __init__(self):
+            pass
+        def meth(self, x):
+            pass
+        @classmethod
+        def classmeth(cls, x):
+            pass
+        @staticmethod
+        def staticmeth(x):
+            pass
+    assert arities(A) == (0, 0)  # no args beside the implicit self
+    # methods on the class
+    assert arities(A.meth) == (2, 2)
+    assert arities(A.classmeth) == (1, 1)
+    assert arities(A.staticmeth) == (1, 1)
+    # methods on an instance
+    a = A()
+    assert arities(a.meth) == (1, 1)  # self is implicit, so just one
+    # class and static methods are always unbound
+    assert arities(a.classmeth) == (1, 1)
+    assert arities(a.staticmeth) == (1, 1)
 
     print("All tests PASSED")
 
