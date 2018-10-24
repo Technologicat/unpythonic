@@ -39,20 +39,21 @@ def main():
         assert add3(1)(2, 3) == 6
         assert add3(1, 2, 3) == 6
 
-        # NOTE: because builtins cannot be inspected, curry just no-ops on them.
-        # So this won't work:
-        from operator import add
-        try:
-            f = add(1)
-            assert f(2) == 3
-        except TypeError:
-            pass
-        else:
-            assert False, "update documentation"
-        # In cases like this, make a wrapper:
-        myadd = lambda a, b: add(a, b)
-        f = myadd(1)
-        assert f(2) == 3
+#        # NOTE: because builtins cannot be inspected, curry just no-ops on them.
+#        # So this won't work:
+#        # v0.10.2: Workaround added for some builtins. Now this works.
+#        from operator import add
+#        try:
+#            f = add(1)
+#            assert f(2) == 3
+#        except TypeError:
+#            pass
+#        else:
+#            assert False, "update documentation"
+#        # In cases like this, make a wrapper:
+#        myadd = lambda a, b: add(a, b)
+#        f = myadd(1)
+#        assert f(2) == 3
 
     # outside the with block, autocurry is not active, so this is an error:
     try:

@@ -11,9 +11,152 @@ __all__ = ["arities", "arity_includes",
            "UnknownArity"]
 
 from inspect import signature, Parameter
+import operator
+
+try:  # Python 3.5+
+    from operator import matmul, imatmul
+except ImportError:
+    NoSuchBuiltin = object()
+    matmul = imatmul = NoSuchBuiltin
 
 class UnknownArity(ValueError):
     """Raised when the arity of a function cannot be inspected."""
+
+# HACK: some built-ins report incorrect arities (0, 0) at least in Python 3.4
+#
+# Full list of built-ins:
+#   https://docs.python.org/3/library/functions.html
+# Some are accessible via the operator module:
+#   https://docs.python.org/3/library/operator.html
+#
+# Note this doesn't cover methods such as list.append, or any other parts
+# of the standard library.
+_infty = float("+inf")
+_builtin_arities = {# inspectable, but reporting incorrectly
+                    bool: (1, 1),       # bool(x)
+                    bytes: (0, 3),      # see help(bytes)
+                    complex: (1, 2),    # complex(real, [imag])
+                    enumerate: (1, 2),  # enumerate(iterable, [start])
+                    filter: (2, 2),     # filter(function or None, iterable)
+                    float: (1, 1),      # float(x)
+                    frozenset: (0, 1),  # frozenset(), frozenset(iterable)
+                    int: (0, 2),        # int(x=0), int(x, base=10)
+                    map: (1, _infty),   # map(func, *iterables)
+                    memoryview: (1, 1), # memoryview(object)
+                    object: (0, 0),     # object()
+                    range: (1, 3),      # range(stop), range(start, stop, [step])
+                    reversed: (1, 1),   # reversed(sequence)
+                    slice: (1, 3),      # slice(stop), slice(start, stop, [step])
+                    str: (0, 3),        # see help(str)
+                    tuple: (0, 1),      # tuple(), tuple(iterable)
+                    zip: (1, _infty),   # zip(iter1 [,iter2 [...]])
+                    # not inspectable
+                    abs: (1, 1),
+                    all: (1, 1),
+                    any: (1, 1),
+                    ascii: (1, 1),
+                    bin: (1, 1),
+                    bytearray: (0, 3),
+                    callable: (1, 1),
+                    chr: (1, 1),
+                    classmethod: (1, 1),
+                    compile: (3, 5),
+                    delattr: (2, 2),
+                    dict: (0, 1),       # dict(), dict(mapping), dict(iterable)
+                    dir: (0, 1),
+                    divmod: (2, 2),
+                    eval: (1, 3),
+                    exec: (1, 3),
+                    format: (1, 2),
+                    getattr: (2, 3),
+                    globals: (0, 0),
+                    hasattr: (2, 2),
+                    hash: (1, 1),
+                    help: (0, 1),
+                    hex: (1, 1),
+                    id: (1, 1),
+                    input: (0, 1),      # input([prompt])
+                    isinstance: (2, 2),
+                    issubclass: (2, 2),
+                    iter: (1, 2),
+                    len: (1, 1),
+                    list: (0, 1),       # list(), list(iterable)
+                    locals: (0, 0),
+                    max: (1, _infty),   # max(iterable), max(a1, a2, ...)
+                    min: (1, _infty),   # min(iterable), min(a1, a2, ...)
+                    next: (1, 2),
+                    oct: (1, 1),
+                    open: (1, 8),       # FIXME: is this correct? are the rest positional or by-name?
+                    ord: (1, 1),
+                    pow: (2, 3),
+                    print: (1, _infty),
+                    property: (1, 4),   # property(getx), ..., property(getx, setx, delx, docstring)
+                    repr: (1, 1),
+                    round: (1, 2),
+                    set: (0, 1),        # set(), set(iterable)
+                    setattr: (3, 3),
+                    sorted: (1, 1),
+                    staticmethod: (1, 1),
+                    sum: (1, 2),
+                    super: (0, 2),
+                    type: (1, 3),       # FIXME: exactly 1 or 3: type(object), type(name, bases, dict)
+                    vars: (0, 1),
+                    __import__: (1, 5), # FIXME: is this correct? are the rest positional or by-name?
+                    # operator module
+                    operator.lt: (2, 2),
+                    operator.le: (2, 2),
+                    operator.eq: (2, 2),
+                    operator.ne: (2, 2),
+                    operator.ge: (2, 2),
+                    operator.gt: (2, 2),
+                    operator.not_: (1, 1),
+                    operator.truth: (1, 1),
+                    operator.is_: (2, 2),
+                    operator.is_not: (2, 2),
+                    operator.abs: (1, 1),
+                    operator.add: (2, 2),
+                    operator.and_: (2, 2),
+                    operator.floordiv: (2, 2),
+                    operator.index: (1, 1),
+                    operator.inv: (1, 1),
+                    operator.invert: (1, 1),
+                    operator.lshift: (2, 2),
+                    operator.mod: (2, 2),
+                    operator.mul: (2, 2),
+                    matmul: (2, 2),
+                    operator.neg: (1, 1),
+                    operator.or_: (2, 2),
+                    operator.pos: (1, 1),
+                    operator.pow: (2, 2),
+                    operator.rshift: (2, 2),
+                    operator.sub: (2, 2),
+                    operator.truediv: (2, 2),
+                    operator.xor: (2, 2),
+                    operator.concat: (2, 2),
+                    operator.contains: (2, 2),
+                    operator.countOf: (2, 2),
+                    operator.delitem: (2, 2),
+                    operator.getitem: (2, 2),
+                    operator.indexOf: (2, 2),
+                    operator.setitem: (3, 3),
+                    operator.length_hint: (1, 2),
+                    operator.attrgetter: (1, _infty),
+                    operator.itemgetter: (1, _infty),
+                    operator.methodcaller: (1, _infty),
+                    operator.iadd: (2, 2),
+                    operator.iand: (2, 2),
+                    operator.iconcat: (2, 2),
+                    operator.ifloordiv: (2, 2),
+                    operator.ilshift: (2, 2),
+                    operator.imod: (2, 2),
+                    operator.imul: (2, 2),
+                    imatmul: (2, 2),
+                    operator.ior: (2, 2),
+                    operator.ipow: (2, 2),
+                    operator.irshift: (2, 2),
+                    operator.isub: (2, 2),
+                    operator.itruediv: (2, 2),
+                    operator.ixor: (2, 2)}
 
 def arities(f):
     """Inspect f's minimum and maximum positional arity.
@@ -36,33 +179,13 @@ def arities(f):
         UnknownArity
             If inspection failed.
     """
-    # HACK: some built-ins report incorrect arities (0, 0) at least in Python 3.4
-    # TODO: this just fixes the ones that incorrectly report (0, 0);
-    #       we could also support the rest. https://docs.python.org/3/library/functions.html
-    infty = float("+inf")
-    builtin_arities = {bool: (1, 1)  ,     # bool(x)
-                       bytes: (0, 3),      # see help(bytes)
-                       complex: (1, 2),    # complex(real, [imag])
-                       enumerate: (1, 2),  # enumerate(iterable, [start])
-                       filter: (2, 2),     # filter(function or None, iterable)
-                       float: (1, 1),      # float(x)
-                       frozenset: (0, 1),  # frozenset(), frozenset(iterable)
-                       int: (0, 2),        # int(x=0), int(x, base=10)
-                       map: (1, infty),    # map(func, *iterables)
-                       memoryview: (1, 1), # memoryview(object)
-                       object: (0, 0),     # object()
-                       range: (1, 3),      # range(stop), range(start, stop, [step])
-                       reversed: (1, 1),   # reversed(sequence)
-                       slice: (1, 3),      # slice(stop), slice(start, stop, [step])
-                       str: (0, 3),        # see help(str)
-                       tuple: (0, 1),      # tuple(), tuple(iterable)
-                       zip: (1, infty)}    # zip(iter1 [,iter2 [...]])
     try:
-        if f in builtin_arities:
-            return builtin_arities[f]
+        if f in _builtin_arities:
+            return _builtin_arities[f]
     except TypeError:  # f is of an unhashable type
         pass
     try:
+        # TODO: currently this does not work with bound methods.
         l = 0
         u = 0
         poskinds = set((Parameter.POSITIONAL_ONLY,
@@ -73,7 +196,7 @@ def arities(f):
                 if v.default is Parameter.empty:
                     l += 1  # no default --> required parameter
             elif v.kind is Parameter.VAR_POSITIONAL:
-                u = infty  # no upper limit
+                u = _infty  # no upper limit
         return l, u
     except (TypeError, ValueError) as e:
         raise UnknownArity(*e.args)
@@ -147,6 +270,15 @@ def test():
     assert required_kwargs(lambda a, b, c=42: _) == set()
     assert optional_kwargs(lambda a, b, c=42: _) == set()
     assert kwargs(lambda a, b, c=42: _) == (set(), set())
+
+#    # TODO: doesn't work yet for bound methods
+#    class A:
+#        def __init__(self):
+#            pass
+#        def meth(x):
+#            print(x)
+#    assert arities(A) == (0, 0)
+#    assert arities(A().meth) == (1, 1)
 
     print("All tests PASSED")
 
