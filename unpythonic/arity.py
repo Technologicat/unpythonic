@@ -163,8 +163,17 @@ def _getfunc(f):
     """Given a function or method, return the underlying function.
 
     Return value is a tuple ``(f, kind)``, where ``kind`` is one of
-    ``function``, ``boundmethod``, ``unboundmethod``.
+    ``function``, ``methodoninstance``, ``methodonclass``.
     """
+    # inspect.ismethod() does a slightly different thing:
+    #    a = A()
+    #    inspect.ismethod(A.meth) -> False
+    #    inspect.ismethod(A.classmeth) -> True
+    #    inspect.ismethod(A.staticmeth) -> False
+    #    inspect.ismethod(a.meth) -> True
+    #    inspect.ismethod(a.classmeth) -> True
+    #    inspect.ismethod(a.staticmeth) -> False
+    # whereas we want True for meth and classmeth for both A and a.
     def ismethod(f):
         if not hasattr(f, "__self__"):
             return False
@@ -177,10 +186,10 @@ def _getfunc(f):
         obj_or_cls = f.__self__
         if isinstance(obj_or_cls, type):  # TODO: do all custom metaclasses inherit from type?
             cls = obj_or_cls
-            kind = "unboundmethod"
+            kind = "methodonclass"
         else:
             cls = obj_or_cls.__class__
-            kind = "boundmethod"
+            kind = "methodoninstance"
         return (getattr(cls, f.__name__), kind)
     else:
         return (f, kind)
@@ -228,7 +237,7 @@ def arities(f):
                     l += 1  # no default --> required parameter
             elif v.kind is Parameter.VAR_POSITIONAL:
                 u = _infty  # no upper limit
-        if kind == "boundmethod":  # self is passed implicitly
+        if kind == "methodoninstance":  # self is passed implicitly
             l -= 1
             u -= 1
         return l, u
