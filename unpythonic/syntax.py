@@ -619,10 +619,22 @@ def do(tree, gen_sym, **kw):
         assert False, "do body: expected a sequence of comma-separated expressions"
 
     e = gen_sym("e")
-    # Must use env.__setattr__ to allow defining new names; env.set only rebinds.
-    # But to keep assignments chainable, use begin(setattr(e, 'x', val), val).
+    # We must use env.__setattr__ to allow defining new names; env.set only rebinds.
+    # But to keep assignments chainable, the assignment must return the value.
+    # Use a let[] to avoid recomputing it (could be expensive and/or have side effects).
+    # So we need:
+    #     lambda k, expr: let((v, expr))[begin(e.__setattr__(k, v), v)]
+    # ...but with gensym'd arg names to avoid spurious shadowing inside expr.
+    # TODO: cache the setter in e? Or even provide a new method that does this?
     sa = Attribute(value=q[name[e]], attr="__setattr__", ctx=Load())
-    envset = hq[lambda k, v: beginf(ast_literal[sa](k, v), v)]
+    k = gen_sym("k")
+    expr = gen_sym("expr")
+    envset = q[lambda: None]
+    envset.args.args = [arg(arg=k), arg(arg=expr)]
+    letbody = hq[beginf(ast_literal[sa](name[k], name["v"]), name["v"])]
+    letbody = copy_location(letbody, tree)
+    envset.body = let.transform(letbody,
+                                q[(name["v"], name[expr])])
 
     def islocaldef(tree):
         return type(tree) is Call and type(tree.func) is Name and tree.func.id == "localdef"
