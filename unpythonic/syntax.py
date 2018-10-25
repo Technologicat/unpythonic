@@ -159,6 +159,43 @@ def aif(tree, **kw):
 
 # -----------------------------------------------------------------------------
 
+@macros.expr
+def cond(tree, **kw):
+    """[syntax, expr] Lispy cond; like "a if p else b", but has "elif".
+
+    Usage::
+
+        cond[test1, then1,
+             test2, then2,
+             ...
+             otherwise]
+
+        cond[[pre1, ..., test1], [post1, ..., then1],
+             [pre2, ..., test2], [post2, ..., then2],
+             ...
+             [postn, ..., otherwise]]
+
+    This allows human-readable multi-branch conditionals in a lambda.
+
+    Each part may consist of multiple expressions by using brackets around it.
+    To represent a single expression that is a literal list, use extra
+    brackets: ``[[1, 2, 3]]``.
+    """
+    if type(tree) is not Tuple:
+        assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"
+    def build(elts):
+        if len(elts) == 1:  # final "otherwise" branch
+            return _implicit_do(elts[0])
+        if not elts:
+            assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"
+        test, then, *more = elts
+        test = _implicit_do(test)
+        then = _implicit_do(then)
+        return hq[ast_literal[then] if ast_literal[test] else ast_literal[build(more)]]
+    return build(tree.elts)
+
+# -----------------------------------------------------------------------------
+
 @macros.block
 def curry(tree, **kw):  # technically a list of trees, the body of the with block
     """[syntax, block] Automatic currying.
@@ -232,43 +269,6 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
     wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
                    body=body)
     return [wrapped]  # block macro: got a list, must return a list.
-
-# -----------------------------------------------------------------------------
-
-@macros.expr
-def cond(tree, **kw):
-    """[syntax, expr] Lispy cond; like "a if p else b", but has "elif".
-
-    Usage::
-
-        cond[test1, then1,
-             test2, then2,
-             ...
-             otherwise]
-
-        cond[[pre1, ..., test1], [post1, ..., then1],
-             [pre2, ..., test2], [post2, ..., then2],
-             ...
-             [postn, ..., otherwise]]
-
-    This allows human-readable multi-branch conditionals in a lambda.
-
-    Each part may consist of multiple expressions by using brackets around it.
-    To represent a single expression that is a literal list, use extra
-    brackets: ``[[1, 2, 3]]``.
-    """
-    if type(tree) is not Tuple:
-        assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"
-    def build(elts):
-        if len(elts) == 1:  # final "otherwise" branch
-            return _implicit_do(elts[0])
-        if not elts:
-            assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"
-        test, then, *more = elts
-        test = _implicit_do(test)
-        then = _implicit_do(then)
-        return hq[ast_literal[then] if ast_literal[test] else ast_literal[build(more)]]
-    return build(tree.elts)
 
 # -----------------------------------------------------------------------------
 
