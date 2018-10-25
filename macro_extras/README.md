@@ -20,7 +20,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
  - [``continuations``: a form of call/cc for Python](#continuations-a-form-of-callcc-for-python)
  - [``tco``: automatically apply tail call optimization](#tco-automatically-apply-tail-call-optimization)
- - [``autoreturn``: allow omitting ``return`` in tail position](#autoreturn-allow-omitting-return-in-tail-position)
+ - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position)
  - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence); with slice notation
  - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
 
@@ -424,18 +424,26 @@ with tco:
     assert evenp(10000) is True
 ```
 
-This is based on a strategy similar to MacroPy's tco macro, but using unpythonic's TCO machinery.
+All function definitions (``def`` and ``lambda``) lexically inside the block undergo TCO transformation. The functions are automatically ``@trampolined``, and any tail calls in their return values are converted to ``jump(...)`` for the TCO machinery. Here *return value* is defined as:
 
-All function definitions (``def`` and ``lambda``) lexically inside the block undergo TCO transformation. The functions are automatically ``@trampolined``, and any tail calls in their return values are converted to ``jump(...)`` for the TCO machinery.
+ - In a ``def``, the argument expression of ``return``, or of a call to an escape continuation.
 
-When analyzing the tail position in return-value expressions (including lambda bodies), this recursively handles builtins ``a if p else b``, ``and``, ``or``; and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``. The macros ``aif[]`` and ``cond[]`` are also supported, because they expand into a combination of ``let[]``, ``do[]``, and ``a if p else b``. Support for ``do[]`` includes also any ``multilambda`` blocks that have already expanded when ``tco`` is processed.
+ - In a ``lambda``, the whole body, as well as the argument expression of a call to an escape continuation.
 
-**CAUTION**: for custom escape mechanisms, only basic uses of ``call_ec`` are supported. (Mainly of interest for lambdas, which have no ``return``, and for "multi-return" from a nested function.)
+When analyzing the tail position in a return value, this recursively handles any combination of ``a if p else b``, ``and``, ``or``; and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``. Support for ``do[]`` includes also any ``multilambda`` blocks that have already expanded when ``tco`` is processed. The macros ``aif[]`` and ``cond[]`` are also supported, because they expand into a combination of ``let[]``, ``do[]``, and ``a if p else b``.
 
-Note in a ``def`` you still need the ``return``; it marks a return value.
+**CAUTION**: In an ``and``/``or`` expression, only the last item of the whole expression is in tail position. This is because in general, it is impossible to know beforehand how many of the items will be evaluated.
+
+**CAUTION**: For escape continuations, only basic uses of ``call_ec`` are supported. See the docstring of ``unpythonic.syntax.tco`` for details. (Mainly of interest for lambdas, which have no ``return``, and for "multi-return" from a nested function.)
+
+**CAUTION**: In a ``def`` you still need the ``return``; it marks a return value.
+
+This is based on a strategy similar to MacroPy's ``tco`` macro, but using unpythonic's TCO machinery, and working together with the macros introduced by ``unpythonic.syntax``. The semantics are slightly different; by design, ``unpythonic`` requires an explicit ``return`` to mark tail calls in a ``def``. A call that is strictly speaking in tail position, but lacks the ``return``, is not TCO'd, and the implicit ``return None`` then shuts down the trampoline, returning ``None`` as the result of the TCO chain.
 
 
-## ``autoreturn``: allow omitting ``return`` in tail position
+## ``autoreturn``: implicit ``return`` in tail position
+
+In Lisps, a function implicitly returns the value of the expression in tail position (along the code path being executed). Now Python can, too:
 
 ```python
 from unpythonic.syntax import macros, autoreturn
@@ -459,17 +467,21 @@ with autoreturn:
 
 Each ``def`` function definition lexically within the ``with autoreturn`` block is examined, and if the last item within the body is an expression ``expr``, it is transformed into ``return expr``. Additionally:
 
- - If the last item is an if/elif/else block, the transformation is applied to the last item in each of its branches.
+ - If the last item is an ``if``/``elif``/``else`` block, the transformation is applied to the last item in each of its branches.
 
  - If the last item is a ``with`` or ``async with`` block, the transformation is applied to the last item in its body.
 
- - If the last item is a try/except/else/finally block, the rules are as follows. If an ``else`` clause is present, the transformation is applied to the last item in it; otherwise, to the last item in the ``try`` clause. Additionally, in both cases, the transformation is applied to the last item in each of the ``except`` clauses. The ``finally`` clause is not transformed; the intention is it is usually a finalizer (e.g. to release resources) that runs after the interesting value is already being returned by ``try``, ``else`` or ``except``.
+ - If the last item is a ``try``/``except``/``else``/``finally`` block, the rules are as follows. If an ``else`` clause is present, the transformation is applied to the last item in it; otherwise, to the last item in the ``try`` clause. Additionally, in both cases, the transformation is applied to the last item in each of the ``except`` clauses. The ``finally`` clause is not transformed; the intention is it is usually a finalizer (e.g. to release resources) that runs after the interesting value is already being returned by ``try``, ``else`` or ``except``.
 
-**CAUTION**: If the final ``else`` of an if/elif/else is omitted, as often in Python, then only the ``else`` item is in tail position with respect to the function definition - likely not what you want. So with ``autoreturn``, the final ``else`` should be written out explicitly, to make the ``else`` branch part of the same if/elif/else block.
+Any explicit ``return`` statements are left alone, so ``return`` can still be used as usual.
+
+**CAUTION**: If the final ``else`` of an ``if``/``elif``/``else`` is omitted, as often in Python, then only the ``else`` item is in tail position with respect to the function definition - likely not what you want. So with ``autoreturn``, the final ``else`` should be written out explicitly, to make the ``else`` branch part of the same ``if``/``elif``/``else`` block.
 
 **CAUTION**: ``for``, ``async for``, ``while`` are currently not analyzed; effectively, these are defined as always returning ``None``. If the last item in your function body is a loop, use an explicit return.
 
 **CAUTION**: With ``autoreturn`` enabled, functions no longer return ``None`` by default; the whole point of this macro is to change the default return value. The default return value is ``None`` only if the tail position contains a statement (because in a sense, a statement always returns ``None``).
+
+If you wish to omit ``return`` in tail calls, this comboes with ``tco``; just apply ``autoreturn`` first (either ``with autoreturn, tco:`` or in nested format, ``with tco:``, ``with autoreturn:``).
 
 
 ## ``fup``: functionally update a sequence
