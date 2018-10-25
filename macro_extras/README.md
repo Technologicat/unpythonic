@@ -382,6 +382,8 @@ The way this works is that ``continuations`` knows what ``multilambda`` does; it
 
 We have chosen the implementation where ``continuations`` works with input that has already been transformed by ``multilambda``. This is safer, because there is no risk to misinterpret a list in a lambda body, and it works also for any explicit use of ``do[]`` in a lambda body or in a ``return`` (recall that macros expand from inside out).
 
+**CAUTION**: Do not combo with ``tco``; the ``continuations`` block already implies TCO.
+
 ### Is this useful?
 
 For most use cases, probably not, because we could just:
@@ -437,6 +439,8 @@ When analyzing the tail position in a return value, this recursively handles any
 **CAUTION**: For escape continuations, only basic uses of ``call_ec`` are supported. See the docstring of ``unpythonic.syntax.tco`` for details. (Mainly of interest for lambdas, which have no ``return``, and for "multi-return" from a nested function.)
 
 **CAUTION**: In a ``def`` you still need the ``return``; it marks a return value.
+
+**CAUTION**: Do not combo with ``continuations``; it already implies TCO.
 
 This is based on a strategy similar to MacroPy's ``tco`` macro, but using unpythonic's TCO machinery, and working together with the macros introduced by ``unpythonic.syntax``. The semantics are slightly different; by design, ``unpythonic`` requires an explicit ``return`` to mark tail calls in a ``def``. A call that is strictly speaking in tail position, but lacks the ``return``, is not TCO'd, and the implicit ``return None`` then shuts down the trampoline, returning ``None`` as the result of the TCO chain.
 
