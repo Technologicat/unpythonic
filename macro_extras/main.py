@@ -532,6 +532,22 @@ def main():
 
         assert call_ec(lambda ec, *, cc: ec(42)) == 42
 
+#    with show_expanded:
+    from unpythonic.fun import curry
+    with continuations:
+        # Currying here makes no sense, but test that it expands correctly.
+        # We should get trampolined(call_ec(curry(...))), which produces the desired result.
+        assert call_ec(curry(lambda ec, *, cc: ec(42))) == 42
+    with tco:  # Same thing in the tco macro.
+        assert call_ec(curry(lambda ec: ec(42))) == 42
+    # This version auto-inserts curry after the inner macros have expanded.
+    # This should work, too.
+    with curry:
+        with continuations:
+            assert call_ec(lambda ec, *, cc: ec(42)) == 42
+        with tco:
+            assert call_ec(lambda ec: ec(42)) == 42
+
     # silly call/cc example (Paul Graham: On Lisp, p. 261), pythonified
     with continuations:
         k = None  # kontinuation

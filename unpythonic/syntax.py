@@ -1366,7 +1366,7 @@ def continuations(tree, gen_sym, **kw):
                                              userlambdas=userlambdas,
                                              known_ecs=known_ecs,
                                              transform_retexpr=transform_retexpr)
-        stmt = _tco_fix_callec.recurse(stmt)
+        stmt = _tco_fix_lambda_decorators(stmt)
         newtree.append(stmt)
     return newtree
 
@@ -1486,7 +1486,7 @@ def tco(tree, **kw):
                                              userlambdas=userlambdas,
                                              known_ecs=known_ecs,
                                              transform_retexpr=_transform_retexpr)
-        stmt = _tco_fix_callec.recurse(stmt)
+        stmt = _tco_fix_lambda_decorators(stmt)
         newtree.append(stmt)
     return newtree
 
@@ -1565,18 +1565,86 @@ def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform
                                       transform_retexpr=transform_retexpr)
     return tree
 
+# Fix ordering of known lambda decorators.
+#
+# Strictly, lambdas have no decorator_list, but can be decorated by explicitly
+# surrounding them with calls to decorator functions.
+#
 # call_ec(trampolined(lambda ...: ...)) --> trampolined(call_ec(lambda ...: ...))
-@Walker
-def _tco_fix_callec(tree, **kw):
-    if type(tree) is Call and _iscallec(tree.func):
-      # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? When are these removed?
-#          if type(tree.args[0]) is Call and type(tree.args[0].func) is Name and tree.args[0].func.id == "trampolined":
-      if type(tree.args[0]) is Call and type(tree.args[0].func) is Captured \
-         and tree.args[0].func.name == "trampolined":
-           # both of these take exactly one positional argument.
-           callec, tramp = tree.func, tree.args[0].func
-           tree.func, tree.args[0].func = tramp, callec
-    return tree
+# call_ec(curry(trampolined(lambda ...: ...))) --> trampolined(call_ec(curry(lambda ...: ...)))
+def _tco_fix_lambda_decorators(tree):
+    def iscallto(tree, fname):
+        """Test tree against both implicit hq[f(...)] and explicit f(...)."""
+        # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? When are these removed?
+        return type(tree) is Call and \
+               (type(tree.func) is Captured and tree.func.name == fname) or \
+               (type(tree.func) is Name and tree.func.id == fname)
+
+    # Extensible system. Add more known decorators here if needed later.
+    #
+    # "with curry" (--> hq[curryf(...)]) is expanded later;
+    # this catches only explicit curry(...) in the client code.
+    iscurry = partial(iscallto, fname="curry")
+    istrampolined = partial(iscallto, fname="trampolined")
+    iscallec = lambda tree: type(tree) is Call and _iscallec(tree.func)
+    def prioritize(tree):
+        if istrampolined(tree):
+            return 0
+        elif iscallec(tree):
+            return 1
+        elif iscurry(tree):
+            return 2
+        assert False  # for now, we support known decorators only
+    check_known_decos = [istrampolined, iscallec, iscurry]
+
+    def is_decorated_lambda(tree):
+        """Detect trees of the form f(g(h(lambda ...: ...)))"""
+        if type(tree) is not Call:
+            return False
+        if not any(f(tree) for f in check_known_decos):
+            return False  # for now, we support known decorators only
+        if len(tree.args) != 1:
+            # TODO: only nonparametric decorators supported for now
+            # (Also, note at this point we don't yet know if the sequence terminates in a lambda)
+            return False
+        if type(tree.args[0]) is Lambda:
+            return True
+        return is_decorated_lambda(tree.args[0])
+
+    def destructure_decorated_lambda(tree):
+        """Get the AST nodes for [f, g, h], lambda in f(g(h(lambda ...: ...)))"""
+        def get(tree, lst):
+            if type(tree) is Call:
+                if len(tree.args) > 1:
+                    assert False, "NotImplemented: only nonparametric decorators supported for now"
+                # collect tree itself, not tree.func, because we need to reorder the funcs later.
+                return get(tree.args[0], lst + [tree])
+            elif type(tree) is Lambda:
+                return lst, tree
+            assert False, "Expected a decorated lambda"
+        return get(tree, [])
+
+    @Walker
+    def fixit(tree, *, stop, **kw):
+        if is_decorated_lambda(tree):
+            # get the original AST nodes, they will be modified below.
+            decorator_list, thelambda = destructure_decorated_lambda(tree)
+            tmp = [[f(x) for x in decorator_list] for f in check_known_decos]
+            if not all(sum(row) <= 1 for row in tmp):
+                assert False, "Expected at most one each of the known decorators"
+            ordered_decorator_list = sorted(decorator_list, key=prioritize)
+            # copy the references somewhere safe so we can overwrite in the AST nodes in decorator_list
+            ordered_funcs = [x.func for x in ordered_decorator_list]
+            # all of the known decorators take exactly one positional argument,
+            # so we can just swap the func attributes of the nodes.
+            for thecall, newfunc in zip(decorator_list, ordered_funcs):
+                thecall.func = newfunc
+            # don't recurse on the tail of the decorator list,
+            # but recurse into the lambda body.
+            stop()
+            fixit.recurse(thelambda.body)
+        return tree
+    return fixit.recurse(tree)
 
 # Tail-position analysis for a return-value expression (also the body of a lambda).
 # Here we need to be very, very selective about where to recurse so this is not a Walker.
