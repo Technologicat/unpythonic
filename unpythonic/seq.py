@@ -280,7 +280,7 @@ def pipe(values0, *bodys):
             # co-operate with curry: provide a top-level curry context
             # to allow passthrough from a pipelined function to the next
             # (except the last one, since it exits the curry context).
-            bindings = {"_curry_context": (dyn._curry_context, update)}
+            bindings = {"_curry_context": dyn._curry_context + [update]}
         with dyn.let(**bindings):
             if isinstance(xs, tuple):
                 xs = update(*xs)

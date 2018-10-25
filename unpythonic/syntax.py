@@ -30,7 +30,7 @@ except ImportError:
     AsyncFunctionDef = AsyncWith = NoSuchNodeType
 
 from unpythonic.it import flatmap, uniqify, rev
-from unpythonic.fun import curry as curryf, identity
+from unpythonic.fun import curry as curryf, _currycall as currycall, identity
 from unpythonic.dynscope import dyn
 from unpythonic.lispylet import letrec as letrecf, let as letf
 from unpythonic.seq import do as dof, begin as beginf
@@ -163,31 +163,62 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
         from unpythonic.syntax import macros, curry
 
         with curry:
-            ... # all function calls here are auto-curried, except builtins
+            ...
+
+    All **function calls** and **function definitions** (``def``, ``lambda``)
+    *lexically within* the ``with curry`` block are automatically curried.
+
+    **CAUTION**: Some builtins are uninspectable or may report their arities
+    incorrectly; in those cases, ``curry`` may fail, occasionally in mysterious
+    ways.
+
+    The function ``unpythonic.arity.arities``, which ``unpythonic.fun.curry``
+    internally uses, has a workaround for the inspectability problems of all
+    builtins in the top-level namespace (as of Python 3.7), but e.g. methods
+    of builtin types are not handled.
+
+    The ``with curry`` block sets the dynvar ``_curry_allow_uninspectable=True``,
+    which makes ``unpythonic.fun.curry`` no-op for uninspectable functions
+    instead of raising ``TypeError``. This is in effect for the *dynamic extent*
+    of the ``with curry`` block.
 
     Example::
 
         from unpythonic.syntax import macros, curry
-        from unpythonic import foldr, composerc as compose, cons, nil
+        from unpythonic import foldr, composerc as compose, cons, nil, ll
 
         with curry:
+            def add3(a, b, c):
+                return a + b + c
+            assert add3(1)(2)(3) == 6
+            assert add3(1, 2)(3) == 6
+            assert add3(1)(2, 3) == 6
+            assert add3(1, 2, 3) == 6
+
             mymap = lambda f: foldr(compose(cons, f), nil)
             double = lambda x: 2 * x
-            print(mymap(double, (1, 2, 3)))
+            assert mymap(double, ll(1, 2, 3)) == ll(2, 4, 6)
 
-            def myadd(a, b):
-                return a + b
-            add2 = myadd(2)
-            assert add2(3) == 5
+        # The definition was auto-curried, so this works here too.
+        # (Provided add3 contains no calls to uninspectable functions, since
+        #  we are now outside the dynamic extent of the ``with curry`` block.)
+        assert add3(1)(2)(3) == 6
     """
-    tru = q[True]
-    tru = copy_location(tru, tree[0])
     @Walker
-    def transform_call(tree, **kw):  # technically a node containing the current subtree
+    def transform_call(tree, *, stop, **kw):  # technically a node containing the current subtree
         if type(tree) is Call:
             tree.args = [tree.func] + tree.args
-            tree.func = hq[curryf]
-            tree.keywords.append(keyword(arg="_curry_force_call", value=tru))
+            tree.func = hq[currycall]
+        elif type(tree) in (FunctionDef, AsyncFunctionDef):
+            # @curry must run before @trampolined, so put it on the inside
+            tree.decorator_list = tree.decorator_list + [hq[curryf]]
+        elif type(tree) is Lambda:
+            # This inserts curry() as the innermost "decorator", and the curry
+            # macro is meant to run last (after e.g. tco), so we're fine.
+            tree = hq[curryf(ast_literal[tree])]
+            # don't recurse on the lambda we just moved, but recurse inside it.
+            stop()
+            tree.args[0].body = transform_call.recurse(tree.args[0].body)
         return tree
     body = transform_call.recurse(tree)
     # Wrap the body in "with dyn.let(_curry_allow_uninspectable=True):"
@@ -1525,7 +1556,7 @@ def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform
             tree = preproc_cb(tree)
         tree.body = transform_retexpr(tree.body, known_ecs)
         tree = hq[trampolined(ast_literal[tree])]  # enable TCO
-        # avoid recursing on the lambda we just moved inside the trampolined(), but recurse inside it
+        # don't recurse on the lambda we just moved, but recurse inside it.
         stop()
         _tco_transform_lambda.recurse(tree.args[0].body,
                                       preproc_cb=preproc_cb,

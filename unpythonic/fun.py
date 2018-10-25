@@ -63,9 +63,18 @@ def memoize(f):
 #    return memoized
 
 make_dynvar(curry_toplevel_passthrough=False)
-make_dynvar(_curry_context=None)
+make_dynvar(_curry_context=[])
 make_dynvar(_curry_allow_uninspectable=False)  # if True, no-op if not inspectable.
-def curry(f, *args, **kwargs):
+def _currycall(f, *args, **kwargs):
+    """Co-operate with unpythonic.syntax.curry.
+
+    In a ``with curry`` block, need to call also when ``f()`` has transformed
+    to ``curry(f)``, but definitions can be curried as usual.
+
+    Hence we provide this separate mode to curry-and-call even if no args.
+    """
+    return curry(f, *args, _curry_force_call=True, **kwargs)
+def curry(f, *args, _curry_force_call=False, **kwargs):
     """Decorator: curry the function f.
 
     Essentially, the resulting function automatically chains partial application
@@ -152,17 +161,9 @@ def curry(f, *args, **kwargs):
         look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
         assert tuple(curry(look, 5, 10, range(20))) == tuple(range(5, 15))
     """
-    # co-operate with unpythonic.syntax.curry
-    #  - in a "with curry" block, @curry is not explicitly used;
-    #    need to call also when "f()" has transformed to "curry(f)"
-    if "_curry_force_call" in kwargs:
-        kwargs.pop("_curry_force_call")
-        force_call = True
-    else:
-        force_call = False
     # trivial case first: prevent stacking curried wrappers
     if iscurried(f):
-        if args or kwargs or force_call:
+        if args or kwargs or _curry_force_call:
             return f(*args, **kwargs)
         return f
     # TODO: improve: all required name-only args should be present before calling f.
@@ -173,13 +174,13 @@ def curry(f, *args, **kwargs):
         if not dyn._curry_allow_uninspectable:  # usual behavior
             raise
         # co-operate with unpythonic.syntax.curry; don't crash on builtins
-        if args or kwargs or force_call:
+        if args or kwargs or _curry_force_call:
             return f(*args, **kwargs)
         return f
     @wraps(f)
     def curried(*args, **kwargs):
         outerctx = dyn._curry_context
-        with dyn.let(_curry_context=(outerctx, f)):
+        with dyn.let(_curry_context=(outerctx + [f])):
             if len(args) < min_arity:
                 return curry(partial(f, *args, **kwargs))
             # passthrough on right, like https://github.com/Technologicat/spicy
@@ -193,7 +194,8 @@ def curry(f, *args, **kwargs):
                         now_result = curry(now_result)
                     return now_result(*later_args)
                 if not (outerctx or dyn.curry_toplevel_passthrough):
-                    raise TypeError("Top-level curry context exited with {:d} arg(s) remaining: {}".format(len(later_args), later_args))
+                    raise TypeError("Top-level curry context exited with {:d} arg(s) remaining: {}".format(len(later_args),
+                                                                                                           later_args))
                 # pass through to the curried procedure waiting in outerctx
                 # (e.g. in a curried compose chain)
                 if isinstance(now_result, tuple):
@@ -202,7 +204,7 @@ def curry(f, *args, **kwargs):
             return f(*args, **kwargs)
     curried._is_curried_function = True  # stash for detection
     # curry itself is curried: if we get args, they're the first step
-    if args or kwargs or force_call:
+    if args or kwargs or _curry_force_call:
         return curried(*args, **kwargs)
     return curried
 
@@ -431,7 +433,7 @@ def _make_compose(direction):  # "left", "right"
                 # co-operate with curry: provide a top-level curry context
                 # to allow passthrough from the function that is applied first
                 # to the function that is applied second.
-                bindings = {"_curry_context": (dyn._curry_context, composed)}
+                bindings = {"_curry_context": dyn._curry_context + [composed]}
             with dyn.let(**bindings):
                 a = g(*args)
             # we could duck-test, but this is more predictable for the user

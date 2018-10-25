@@ -55,13 +55,13 @@ def main():
 #        f = myadd(1)
 #        assert f(2) == 3
 
-    # outside the with block, autocurry is not active, so this is an error:
-    try:
-        add3(1)
-    except TypeError:
-        pass
-    else:
-        assert False
+    # Outside the with block, autocurry is not active, but the function was
+    # defined inside the block, so it has implicit @curry.
+    #
+    # Note this works only if add3 contains no uninspectable functions,
+    # because we are now outside the dynamic extent of the "with curry" block,
+    # so the special mode of unpythonic.fun.curry is no longer active.
+    assert add3(1)(2)(3) == 6
 
     # Anaphoric if: aif[test, then, otherwise]
     # Magic identifier "it" refers to the test result.
@@ -748,7 +748,8 @@ def main():
     print(tuple(pt_gen()))
 
     # combo
-#    with curry:  # major slowdown, but works; must be in a separate "with"
+#    with show_expanded:
+#     with curry:  # major slowdown, but works; must be in a separate "with"  # TODO: why separate?
     with autoreturn, continuations:
         stack = []
         def amb(lst, *, cc):
