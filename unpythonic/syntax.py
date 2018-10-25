@@ -191,7 +191,7 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
         return tree
     body = transform_call.recurse(tree)
     # Wrap the body in "with dyn.let(_curry_allow_uninspectable=True):"
-    # to avoid crash with builtins (uninspectable)
+    # to avoid crash with uninspectable builtins
     item = hq[dyn.let(_curry_allow_uninspectable=True)]
     wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
                    body=body)
@@ -378,6 +378,8 @@ def _islet(tree):
     return type(tree) is Call and type(tree.func) is Name and tree.func.id == "letter"
 
 def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
+    assert mode in ("let", "letrec")
+
     newtree = _implicit_do(tree)
     if not args:
         return newtree
@@ -524,7 +526,7 @@ def do(tree, gen_sym, **kw):
            x]
 
     already the first ``x`` refers to the local x, because ``x`` **has a**
-    ``localdef`` in this ``do``. (This subject to change in a future version.)
+    ``localdef`` in this ``do``. (This is subject to change in a future version.)
 
     For readability and future-proofness, it is recommended to place localdefs
     at or near the start of the do-block, at the first use of each local name.
@@ -650,9 +652,9 @@ def do0(tree, **kw):
         assert False, "do0 body: expected a sequence of comma-separated expressions"
     elts = tree.elts
     newelts = []  # IDE complains about _do0_result, but it's quoted, so it's ok.
-    newelts.append(q[localdef(_do0_result << (ast_literal[elts[0]]))])
+    newelts.append(q[name["localdef"](name["_do0_result"] << (ast_literal[elts[0]]))])
     newelts.extend(elts[1:])
-    newelts.append(q[_do0_result])
+    newelts.append(q[name["_do0_result"]])
     newtree = q[(ast_literal[newelts],)]
     newtree = copy_location(newtree, tree)
     return do.transform(newtree)  # do0[] is also just a do[]
@@ -727,7 +729,7 @@ def forall_simple(tree, **kw):
         # don't unpack on last line to allow easily returning a tuple as a result item
         Mv = hq[_monadify(ast_literal[v], u[not islast])]
         if not islast:
-            body = q[ast_literal[Mv] >> (lambda: _here_)]  # monadic bind: >>
+            body = q[ast_literal[Mv] >> (lambda: name["_here_"])]  # monadic bind: >>
             body.right.args.args = [arg(arg=k)]
         else:
             body = Mv
@@ -1454,7 +1456,8 @@ def _detect_lambda(tree, *, collect, stop, **kw):
     macro is not interested in).
 
     The return value from ``.collect`` is a ``list``of ``id(lam)``, where ``lam``
-    is a Lambda node that appears in ``tree``.
+    is a Lambda node that appears in ``tree``. This list is suitable as
+    ``userlambdas`` for the TCO macros.
 
     This ignores any "lambda e: ..." added by an already expanded ``do[]``,
     to allow other block macros to better work together with ``with multilambda``
@@ -1480,6 +1483,8 @@ def _tco_transform_def(tree, *, preproc_cb, **kw):
     return tree
 
 # Transform return statements and calls to escape continuations (ec).
+# known_ecs: list of names (str) of known escape continuations.
+# transform_retexpr: return-value expression transformer.
 @Walker
 def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
     isec = _isec(tree, known_ecs)
@@ -1500,6 +1505,7 @@ def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
         tree.args[0] = transform_retexpr(tree.args[0], known_ecs)
     return tree
 
+# userlambdas: list of ids; the purpose is to avoid transforming lambdas implicitly added by macros (do, let).
 @Walker
 def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform_retexpr, stop, **kw):
     if type(tree) is Lambda and id(tree) in userlambdas:
