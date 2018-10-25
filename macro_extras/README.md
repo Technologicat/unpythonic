@@ -32,14 +32,28 @@ from unpythonic.syntax import macros, curry
 from unpythonic import foldr, composerc as compose, cons, nil
 
 with curry:
+    def add3(a, b, c):
+        return a + b + c
+    assert add3(1)(2)(3) == 6
+    assert add3(1, 2)(3) == 6
+    assert add3(1)(2, 3) == 6
+    assert add3(1, 2, 3) == 6
+
     mymap = lambda f: foldr(compose(cons, f), nil)
     double = lambda x: 2 * x
     print(mymap(double, (1, 2, 3)))
+
+# The definition was auto-curried, so this works here too.
+# (Provided add3 contains no calls to uninspectable functions, since
+#  we are now outside the dynamic extent of the ``with curry`` block.)
+assert add3(1)(2)(3) == 6
 ```
 
-All function calls *lexically* inside a ``with curry`` block are automatically curried, somewhat like in Haskell, or in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy).
+All **function calls** and **function definitions** (``def``, ``lambda``) *lexically* inside a ``with curry`` block are automatically curried, somewhat like in Haskell, or in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy).
 
-**CAUTION**: Builtins are uninspectable, so cannot be curried. In a ``with curry`` block, ``unpythonic.fun.curry`` runs in a special mode that no-ops on uninspectable functions instead of raising ``TypeError`` as usual. This special mode is enabled for the *dynamic extent* of the ``with curry`` block.
+**CAUTION**: Some builtins are uninspectable or may report their arities incorrectly; in those cases, ``curry`` may fail, occasionally in mysterious ways. The function ``unpythonic.arity.arities``, which ``unpythonic.fun.curry`` internally uses, has a workaround for the inspectability problems of all builtins in the top-level namespace (as of Python 3.7), but e.g. methods of builtin types are not handled.
+
+In a ``with curry`` block, ``unpythonic.fun.curry`` runs in a special mode that no-ops on uninspectable functions instead of raising ``TypeError`` as usual. This special mode is enabled for the *dynamic extent* of the ``with curry`` block.
 
 
 ## ``let``, ``letseq``, ``letrec`` as macros

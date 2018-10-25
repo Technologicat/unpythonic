@@ -166,7 +166,7 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
             ...
 
     All **function calls** and **function definitions** (``def``, ``lambda``)
-    *lexically within* the ``with curry`` block are automatically curried.
+    *lexically* inside the ``with curry`` block are automatically curried.
 
     **CAUTION**: Some builtins are uninspectable or may report their arities
     incorrectly; in those cases, ``curry`` may fail, occasionally in mysterious
@@ -177,10 +177,10 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
     builtins in the top-level namespace (as of Python 3.7), but e.g. methods
     of builtin types are not handled.
 
-    The ``with curry`` block sets the dynvar ``_curry_allow_uninspectable=True``,
-    which makes ``unpythonic.fun.curry`` no-op for uninspectable functions
-    instead of raising ``TypeError``. This is in effect for the *dynamic extent*
-    of the ``with curry`` block.
+    In a ``with curry`` block, ``unpythonic.fun.curry`` runs in a special mode
+    that no-ops on uninspectable functions instead of raising ``TypeError``
+    as usual. This special mode is enabled for the *dynamic extent* of the
+    ``with curry`` block.
 
     Example::
 
