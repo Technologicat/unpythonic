@@ -72,14 +72,18 @@ def _isec(tree, known_ecs):
     """
     return type(tree) is Call and type(tree.func) is Name and tree.func.id in known_ecs
 
-def _iscallec(tree):
-    """Check if tree is a reference to call_ec.
+def _isx(tree, x):
+    """Check if tree is a reference to an object by the name ``x`` (str).
 
-    The name is recognized both as a bare name and as an attribute, to support
-    both from-imports and regular imports of ``unpythonic.ec.call_ec``.
+    ``x`` is recognized both as a bare name and as an attribute, to support
+    both from-imports and regular imports of ``somemodule.x``.
+
+    Additionally, we detect ``x`` inside ``Captured`` nodes, which may be
+    inserted during macro expansion.
     """
-    return (type(tree) is Name and tree.id == "call_ec") or \
-           (type(tree) is Attribute and tree.attr == "call_ec")
+    return (type(tree) is Name and tree.id == x) or \
+           (type(tree) is Attribute and tree.attr == x) or \
+           (type(tree) is Captured and tree.name == x)
 
 @Walker
 def _detect_callec(tree, *, collect, **kw):
@@ -101,11 +105,12 @@ def _detect_callec(tree, *, collect, **kw):
         ...
         result = call_ec(g)  # <-- but this is here; g could be in another module
     """
+    iscallec = partial(_isx, x="call_ec")
     # TODO: add support for general use of call_ec as a function (difficult)
-    if type(tree) in (FunctionDef, AsyncFunctionDef) and any(_iscallec(deco) for deco in tree.decorator_list):
+    if type(tree) in (FunctionDef, AsyncFunctionDef) and any(iscallec(deco) for deco in tree.decorator_list):
         fdef = tree
         collect(fdef.args.args[0].arg)  # FunctionDef.arguments.(list of arg objects).arg
-    elif type(tree) is Call and _iscallec(tree.func) and type(tree.args[0]) is Lambda:
+    elif type(tree) is Call and iscallec(tree.func) and type(tree.args[0]) is Lambda:
         lam = tree.args[0]
         collect(lam.args.args[0].arg)
     return tree
@@ -1573,29 +1578,26 @@ def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform
 # call_ec(trampolined(lambda ...: ...)) --> trampolined(call_ec(lambda ...: ...))
 # call_ec(curry(trampolined(lambda ...: ...))) --> trampolined(call_ec(curry(lambda ...: ...)))
 def _tco_fix_lambda_decorators(tree):
-    def iscallto(tree, fname):
-        """Test tree against both implicit hq[f(...)] and explicit f(...)."""
-        # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? When are these removed?
-        return type(tree) is Call and \
-               (type(tree.func) is Captured and tree.func.name == fname) or \
-               (type(tree.func) is Name and tree.func.id == fname)
-
-    # Extensible system. Add more known decorators here if needed later.
+    # Extensible system for reordering lambda decorators.
+    # List the decorators in the desired ordering, outermost-to-innermost.
     #
-    # "with curry" (--> hq[curryf(...)]) is expanded later;
-    # this catches only explicit curry(...) in the client code.
-    iscurry = partial(iscallto, fname="curry")
-    istrampolined = partial(iscallto, fname="trampolined")
-    iscallec = lambda tree: type(tree) is Call and _iscallec(tree.func)
-    def prioritize(tree):
-        if istrampolined(tree):
-            return 0
-        elif iscallec(tree):
-            return 1
-        elif iscurry(tree):
-            return 2
+    # "with curry" (--> hq[curryf(...)]) is expanded later, so we don't need to
+    # worry about it; here we catch only explicit curry(...) in the client code,
+    # which is already there when "with tco" or "with continuations" is expanded.
+    known_decos = ["trampolined", "call_ec", "curry"]
+
+    def iscallto(tree, fname):
+        """Test tree against implicit hq[f(...)], and explicit f(...), foo.f(...)."""
+        # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? When are these removed?
+        # Captured nodes only come from here, and here we use bare names;
+        # but explicit references may use either bare names or somemodule.f.
+        return type(tree) is Call and _isx(tree.func, fname)
+    check_known_decos = [partial(iscallto, fname=x) for x in known_decos]
+    def prioritize(tree):  # sort key for Call nodes invoking known decorators
+        for k, f in enumerate(check_known_decos):
+            if f(tree):
+                return k
         assert False  # for now, we support known decorators only
-    check_known_decos = [istrampolined, iscallec, iscurry]
 
     def is_decorated_lambda(tree):
         """Detect trees of the form f(g(h(lambda ...: ...)))"""
@@ -1615,13 +1617,13 @@ def _tco_fix_lambda_decorators(tree):
         """Get the AST nodes for [f, g, h], lambda in f(g(h(lambda ...: ...)))"""
         def get(tree, lst):
             if type(tree) is Call:
-                if len(tree.args) > 1:
+                if len(tree.args) != 1:
                     assert False, "NotImplemented: only nonparametric decorators supported for now"
                 # collect tree itself, not tree.func, because we need to reorder the funcs later.
                 return get(tree.args[0], lst + [tree])
             elif type(tree) is Lambda:
                 return lst, tree
-            assert False, "Expected a decorated lambda"
+            assert False, "Expected a chain of Call nodes terminating in a Lambda node"
         return get(tree, [])
 
     @Walker
@@ -1632,15 +1634,13 @@ def _tco_fix_lambda_decorators(tree):
             tmp = [[f(x) for x in decorator_list] for f in check_known_decos]
             if not all(sum(row) <= 1 for row in tmp):
                 assert False, "Expected at most one each of the known decorators"
-            ordered_decorator_list = sorted(decorator_list, key=prioritize)
-            # copy the references somewhere safe so we can overwrite in the AST nodes in decorator_list
-            ordered_funcs = [x.func for x in ordered_decorator_list]
             # all of the known decorators take exactly one positional argument,
             # so we can just swap the func attributes of the nodes.
+            ordered_decorator_list = sorted(decorator_list, key=prioritize)
+            ordered_funcs = [x.func for x in ordered_decorator_list]
             for thecall, newfunc in zip(decorator_list, ordered_funcs):
                 thecall.func = newfunc
-            # don't recurse on the tail of the decorator list,
-            # but recurse into the lambda body.
+            # don't recurse on the tail of the decorator list, but recurse into the lambda body.
             stop()
             fixit.recurse(thelambda.body)
         return tree
