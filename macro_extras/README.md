@@ -428,7 +428,7 @@ This is based on a strategy similar to MacroPy's tco macro, but using unpythonic
 
 All function definitions (``def`` and ``lambda``) lexically inside the block undergo TCO transformation. The functions are automatically ``@trampolined``, and any tail calls in their return values are converted to ``jump(...)`` for the TCO machinery.
 
-When analyzing the tail position in return-value expressions (including lambda bodies), this recursively handles builtins ``a if p else b``, ``and``, ``or``; and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``. Support for ``do[]`` includes also any ``multilambda`` blocks that have already expanded when ``tco`` is processed.
+When analyzing the tail position in return-value expressions (including lambda bodies), this recursively handles builtins ``a if p else b``, ``and``, ``or``; and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``. The macros ``aif[]`` and ``cond[]`` are also supported, because they expand into a combination of ``let[]``, ``do[]``, and ``a if p else b``. Support for ``do[]`` includes also any ``multilambda`` blocks that have already expanded when ``tco`` is processed.
 
 **CAUTION**: for custom escape mechanisms, only basic uses of ``call_ec`` are supported. (Mainly of interest for lambdas, which have no ``return``, and for "multi-return" from a nested function.)
 
