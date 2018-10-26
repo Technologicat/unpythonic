@@ -1760,11 +1760,17 @@ def _tco_transform_def(tree, *, preproc_cb, **kw):
             tree = preproc_cb(tree)
         # Enable TCO if not TCO'd already.
         #
-        # The trampoline needs to be outermost, so that it is applied **after**
-        # any call_ec; this allows also escapes to return a jump object
-        # to the trampoline.
+        # @trampolined needs to be inside of @memoize, otherwise outermost;
+        # so that it is applied **after** any call_ec; this allows also escapes
+        # to return a jump object to the trampoline.
         if not any(_is_decorator(x, fname) for fname in _tco_decorators for x in tree.decorator_list):
-            tree.decorator_list = [hq[trampolined]] + tree.decorator_list
+            ismemoize = [_is_decorator(x, "memoize") for x in tree.decorator_list]
+            try:
+                k = ismemoize.index(True) + 1
+                rest = tree.decorator_list[k:] if len(tree.decorator_list) > k else []
+                tree.decorator_list = tree.decorator_list[:k] + [hq[trampolined]] + rest
+            except ValueError:  # no memoize decorator in list
+                tree.decorator_list = [hq[trampolined]] + tree.decorator_list
     return tree
 
 # Transform return statements and calls to escape continuations (ec).
