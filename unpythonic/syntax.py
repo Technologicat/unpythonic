@@ -72,7 +72,7 @@ def _isec(tree, known_ecs):
     """
     return type(tree) is Call and type(tree.func) is Name and tree.func.id in known_ecs
 
-def _isx(tree, x):
+def _isx(tree, x, allow_attr=True):
     """Check if tree is a reference to an object by the name ``x`` (str).
 
     ``x`` is recognized both as a bare name and as an attribute, to support
@@ -80,13 +80,15 @@ def _isx(tree, x):
 
     Additionally, we detect ``x`` inside ``Captured`` nodes, which may be
     inserted during macro expansion.
+
+    allow_attr: can be set to ``False`` to disregard ``Attribute`` nodes.
     """
     # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? When are these removed?
     # Captured nodes only come from here, and here we use bare names;
     # but explicit references may use either bare names or somemodule.f.
     return (type(tree) is Name and tree.id == x) or \
-           (type(tree) is Attribute and tree.attr == x) or \
-           (type(tree) is Captured and tree.name == x)
+           (type(tree) is Captured and tree.name == x) or \
+           (allow_attr and type(tree) is Attribute and tree.attr == x)
 
 @Walker
 def _detect_callec(tree, *, collect, **kw):
@@ -413,8 +415,7 @@ def letrec(tree, args, gen_sym, **kw):
     return _letimpl(tree, args, "letrec", gen_sym)
 
 def _islet(tree):
-    # TODO: what about the fact it's a hq[letter(...)]? No Captured node?
-    return type(tree) is Call and type(tree.func) is Name and tree.func.id == "letter"
+    return type(tree) is Call and _isx(tree.func, "letter", allow_attr=False)
 
 def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     assert mode in ("let", "letrec")
