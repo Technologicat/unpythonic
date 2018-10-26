@@ -11,7 +11,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
 **Contents**:
 
  - [``curry``: Automatic currying for Python](#curry-automatic-currying-for-python)
- - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros)
+ - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate
  - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
  - [``aif``: anaphoric if](#aif-anaphoric-if)
  - [``do`` as a macro: stuff imperative code into a lambda, *with style*](#do-as-a-macro-stuff-imperative-code-into-a-lambda-with-style)
