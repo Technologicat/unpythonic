@@ -12,7 +12,7 @@ from unpythonic.syntax import macros, \
                               curry, \
                               simple_let, simple_letseq, \
                               let, letseq, letrec, \
-                              dlet, dletrec, \
+                              dlet, dletseq, dletrec, \
                               do, do0, \
                               forall, insist, deny, forall_simple, \
                               aif, it, \
@@ -244,6 +244,14 @@ def main():
         return evenp(x)
     assert f(42) is True
     assert f(23) is False
+
+    # letseq over def
+    @dletseq((x, 1),
+             (x, x+1),
+             (x, x+2))
+    def g(*args, **kwargs):
+        return x
+    assert g() == 4
 
     # TCO combo
     with tco:

@@ -619,12 +619,61 @@ def _dletimpl(tree, args, mode, gen_sym):
     t2 = partial(t1, dowrap=False)
     if mode == "letrec":
         values = [t1(b) for b in values]
+    tree = t2(tree)
 
     binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
     tree.decorator_list = tree.decorator_list + [hq[dletf((ast_literal[binding_pairs],), mode=u[mode], _envname=u[e])]]
     tree.args.kwonlyargs = tree.args.kwonlyargs + [arg(arg=e)]
     tree.args.kw_defaults = tree.args.kw_defaults + [None]
-    return t2(tree)
+    return tree
+
+@macros.decorator
+def dletseq(tree, args, gen_sym, **kw):
+    """[syntax, decorator] Decorator version of letseq, for 'letseq over def'.
+
+    Expands to nested function definitions, each with one ``dlet`` decorator.
+    """
+    # What we want:
+    #
+    # @dletseq((x, 1),
+    #          (x, x+1),
+    #          (x, x+2))
+    # def g(*args, **kwargs):
+    #     return x
+    # assert g() == 4
+    #
+    # -->
+    #
+    # @dlet((x, 1))
+    # def g(*args, **kwargs, e1):  # original args from tree go to the outermost def
+    #   @dlet((x, x+1))
+    #   def g2(*, e2):
+    #       @dlet((x, x+2))
+    #       def g3(*, e3):         # expansion proceeds from inside out
+    #           return e3.x
+    #       return g3()
+    #   return g2()
+    # assert g() == 4
+    #
+    if not args:
+        return tree
+
+    userargs = tree.args  # original arguments to the def
+    fname = tree.name
+    noargs = arguments(args=[], kwonlyargs=[], vararg=None, kwarg=None,
+                          defaults=[], kw_defaults=[])
+    iname = gen_sym("inner")
+    tree.args = noargs
+    tree.name = iname
+
+    *rest, last = args
+    innerdef = dlet.transform(tree, last)
+    outer = FunctionDef(name=fname, args=userargs,
+                        body=[innerdef, Return(value=q[name[iname]()])],
+                        decorator_list=[],
+                        returns=None)  # no return type annotation
+    outer = copy_location(outer, tree)
+    return dletseq.transform(outer, *rest)
 
 # -----------------------------------------------------------------------------
 
