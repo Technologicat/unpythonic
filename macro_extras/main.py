@@ -548,6 +548,16 @@ def main():
         with tco:
             assert call_ec(lambda ec: ec(42)) == 42
 
+    # fploop combo (test; requires special handling)
+    from unpythonic.fploop import looped_over
+    with show_expanded:
+      with tco:
+        @looped_over(range(10), acc=0)
+        def result(loop, x, acc):
+            return loop(acc + x)
+        assert result == 45
+        assert looped_over(range(10), acc=0)(lambda loop, x, acc: loop(acc + x)) == 45
+
     # silly call/cc example (Paul Graham: On Lisp, p. 261), pythonified
     with continuations:
         k = None  # kontinuation
