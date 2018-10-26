@@ -668,6 +668,17 @@ def dletseq(tree, args, gen_sym, **kw):
 
     *rest, last = args
     innerdef = dlet.transform(tree, last)
+
+    # optimization: in the final step, no need to generate a wrapper function
+    if not rest:
+        tmpargs = innerdef.args
+        innerdef.name = fname
+        innerdef.args = userargs
+        # copy the env arg
+        innerdef.args.kwonlyargs += tmpargs.kwonlyargs
+        innerdef.args.kw_defaults += tmpargs.kw_defaults
+        return innerdef
+
     outer = FunctionDef(name=fname, args=userargs,
                         body=[innerdef, Return(value=q[name[iname]()])],
                         decorator_list=[],
