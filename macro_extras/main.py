@@ -12,6 +12,7 @@ from unpythonic.syntax import macros, \
                               curry, \
                               simple_let, simple_letseq, \
                               let, letseq, letrec, \
+                              dlet, dletrec, \
                               do, do0, \
                               forall, insist, deny, forall_simple, \
                               aif, it, \
@@ -227,6 +228,30 @@ def main():
               lambda: x << x + 1]
     assert count() == 1
     assert count() == 2
+
+    # decorator version: let over def
+    @dlet((x, 0))
+    def count():
+        x << x + 1
+        return x
+    assert count() == 1
+    assert count() == 2
+
+    # letrec over def
+    @dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
+             (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+    def f(x):
+        return evenp(x)
+    assert f(42) is True
+    assert f(23) is False
+
+    # TCO combo
+    with tco:
+        @dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
+                 (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+        def f(x):
+            return evenp(x)
+        assert f(9001) is False
 
     # multilambda: multi-expression lambdas with implicit do
     with multilambda:

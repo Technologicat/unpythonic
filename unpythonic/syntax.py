@@ -21,7 +21,8 @@ from ast import Call, arg, keyword, With, withitem, Tuple, \
                 Subscript, Index, Slice, ExtSlice, Lambda, List, \
                 copy_location, Assign, FunctionDef, \
                 ListComp, SetComp, GeneratorExp, DictComp, \
-                arguments, If, Num, Return, Expr, IfExp, BoolOp, And, Or, Try
+                arguments, If, Num, Return, Expr, IfExp, BoolOp, And, Or, Try, \
+                Global, Nonlocal, Store
 
 try:  # Python 3.5+
     from ast import AsyncFunctionDef, AsyncWith
@@ -32,7 +33,7 @@ except ImportError:
 from unpythonic.it import flatmap, uniqify, rev
 from unpythonic.fun import curry as curryf, _currycall as currycall, identity
 from unpythonic.dynscope import dyn
-from unpythonic.lispylet import letrec as letrecf, let as letf
+from unpythonic.lispylet import letrec as letrecf, let as letf, _dlet as dletf
 from unpythonic.seq import do as dof, begin as beginf
 from unpythonic.fup import fupdate
 from unpythonic.misc import namelambda
@@ -438,24 +439,39 @@ def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1
     binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
     return hq[letter((ast_literal[binding_pairs],), ast_literal[newtree])]
 
-def _letlike_transform(subtree, envname, varnames, setter):
+def _letlike_transform(tree, envname, varnames, setter, dowrap=True):
     # x << val --> e.set('x', val)
-    subtree = _transform_assignment.recurse(subtree, names=varnames, setter=setter, fargs=[])
+    tree = _transform_envassignment.recurse(tree, names=varnames, setter=setter, fargs=[])
     # x --> e.x
-    subtree = _transform_name.recurse(subtree, names=varnames, envname=envname, fargs=[])
+    tree = _transform_name.recurse(tree, names=varnames, envname=envname, fargs=[])
     # ... -> lambda e: ...
-    return _envwrap(subtree, envname=envname)
+    if dowrap:
+        tree = _envwrap(tree, envname=envname)
+    return tree
 
-def _isassign(tree):  # detect "x << 42" syntax to assign variables in an environment
+def _isenvassign(tree):  # detect "x << 42" syntax to assign variables in an environment
     return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
-def _assign_name(tree):  # rackety accessors
+def _envassign_name(tree):  # rackety accessors
     return tree.left.id
-def _assign_value(tree):
+def _envassign_value(tree):
     return tree.right
 
 def _isnewscope(tree):
     return type(tree) in (Lambda, FunctionDef, AsyncFunctionDef, ListComp, SetComp, GeneratorExp, DictComp)
-def _getlocalnames(tree):  # get arg names of Lambda/FunctionDef, and target names of comprehensions
+def _getlocalnames(tree):
+    """Get local names of a tree representing a scope.
+
+    An AST node represents a scope if ``_isnewscope(tree)`` returns ``True``.
+
+    This collects:
+
+        - argument names of ``Lambda``, ``FunctionDef``, ``AsyncFunctionDef``
+
+        - names of local variables of ``FunctionDef``, ``AsyncFunctionDef``;
+          excepting any names declared ``nonlocal`` or ``global`` in that scope
+
+        - target names of ``ListComp``, ``SetComp``, ``GeneratorExp``, ``DictComp``
+    """
     if type(tree) in (Lambda, FunctionDef, AsyncFunctionDef):
         a = tree.args
         argnames = [x.arg for x in a.args + a.kwonlyargs]
@@ -463,36 +479,58 @@ def _getlocalnames(tree):  # get arg names of Lambda/FunctionDef, and target nam
             argnames.append(a.vararg.arg)
         if a.kwarg:
             argnames.append(a.kwarg.arg)
-        return argnames
+
+        localvars = []
+        if type(tree) in (FunctionDef, AsyncFunctionDef):
+            @Walker
+            def getnonlocals(tree, *, stop, collect, **kw):
+                if _isnewscope(tree):
+                    stop()
+                if type(tree) in (Global, Nonlocal):
+                    for x in tree.names:
+                        collect(x)
+                return tree
+            @Walker
+            def getlocalassignments(tree, *, nonlocals, stop, collect, **kw):
+                if _isnewscope(tree):
+                    stop()
+                if type(tree) is Name:
+                    # macro-created nodes might not have a ctx.
+                    if hasattr(tree, "ctx") and type(tree.ctx) is Store and tree.id not in nonlocals:
+                        collect(tree.id)
+                return tree
+            nonlocals = list(uniqify(getnonlocals.collect(tree.body)))
+            localvars = list(uniqify(getlocalassignments.collect(tree.body, nonlocals=nonlocals)))
+
+        return list(uniqify(argnames + localvars))
     elif type(tree) in (ListComp, SetComp, GeneratorExp, DictComp):
-        argnames = []
+        targetnames = []
         for g in tree.generators:
             if type(g.target) is Name:
-                argnames.append(g.target.id)
+                targetnames.append(g.target.id)
             elif type(g.target) is Tuple:
-                # TODO: simplistic; does this cover all cases?
                 @Walker
                 def extractnames(tree, *, collect, **kw):
                     if type(tree) is Name:
                         collect(tree.id)
                     return tree
-                argnames.extend(extractnames.collect(g.target))
+                targetnames.extend(extractnames.collect(g.target))
             else:
                 assert False, "unimplemented: comprehension target of type {}".type(g.target)
-        return argnames
+        return targetnames
     return []
 
 # x << val --> e.set('x', val)  (for names bound in this environment)
 @Walker
-def _transform_assignment(tree, *, names, setter, fargs, set_ctx, **kw):
-    # Function args and comprehenion targets shadow names of the surrounding env.
+def _transform_envassignment(tree, *, names, setter, fargs, set_ctx, **kw):
+    # Function args, comprehenion targets and local variables shadow names of the surrounding env.
     if _isnewscope(tree):
         set_ctx(fargs=(fargs + _getlocalnames(tree)))
-    elif _isassign(tree):
-        varname = _assign_name(tree)
+    elif _isenvassign(tree):
+        varname = _envassign_name(tree)
         # each let handles only its own varnames
         if varname in names and varname not in fargs:
-            value = _assign_value(tree)
+            value = _envassign_value(tree)
             return q[ast_literal[setter](u[varname], ast_literal[value])]
     return tree
 
@@ -508,7 +546,8 @@ def _transform_name(tree, *, names, envname, fargs, set_ctx, **kw):
     # nested lets work, because once x --> e.x, the final "x" is no longer a Name,
     # but an attr="x" of an Attribute node.
     elif type(tree) is Name and tree.id in names and tree.id not in fargs:
-        return Attribute(value=q[name[envname]], attr=tree.id, ctx=Load())
+        ctx = tree.ctx if hasattr(tree, "ctx") else Load()
+        return Attribute(value=q[name[envname]], attr=tree.id, ctx=ctx)
     return tree
 
 # ... -> lambda e: ...
@@ -516,6 +555,72 @@ def _envwrap(tree, envname):
     lam = q[lambda: ast_literal[tree]]
     lam.args.args = [arg(arg=envname)]  # lambda e44: ...
     return lam
+
+# -----------------------------------------------------------------------------
+
+# Decorator versions, for "let over def".
+
+@macros.decorator
+def dlet(tree, args, *, gen_sym, **kw):
+    """[syntax, decorator] Decorator version of let, for 'let over def'.
+
+    Example::
+
+        @dlet((x, 0))
+        def count():
+            x << x + 1
+            return x
+        assert count() == 1
+        assert count() == 2
+
+    **CAUTION**: function arguments, local variables, and names declared as
+    ``global`` or ``nonlocal`` in a given lexical scope shadow names from the
+    ``let`` environment *for the entirety of that lexical scope*. (This is
+    modeled after Python's standard scoping rules.)
+
+    **CAUTION**: assignment to the let environment is ``name << value``;
+    the regular syntax ``name = value`` creates a local variable.
+    """
+    return _dletimpl(tree, args, "let", gen_sym)
+
+@macros.decorator
+def dletrec(tree, args, *, gen_sym, **kw):
+    """[syntax, decorator] Decorator version of letrec, for 'letrec over def'.
+
+    Example::
+
+        @dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
+                 (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+        def f(x):
+            return evenp(x)
+        assert f(42) is True
+        assert f(23) is False
+
+    Same cautions apply as to ``dlet``.
+    """
+    return _dletimpl(tree, args, "letrec", gen_sym)
+
+def _dletimpl(tree, args, mode, gen_sym):
+    assert mode in ("let", "letrec")
+
+    if not args:
+        return tree
+    names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
+    names = [k.id for k in names]  # any duplicates will be caught by env at run-time
+
+    e = gen_sym("e")
+    envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
+
+    t1 = partial(_letlike_transform, envname=e, varnames=names, setter=envset)
+    t2 = partial(t1, dowrap=False)
+    if mode == "letrec":
+        values = [t1(b) for b in values]
+
+    binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
+    tree.decorator_list = tree.decorator_list + [hq[dletf((ast_literal[binding_pairs],), mode=u[mode], _envname=u[e])]]
+    tree.args.kwonlyargs = tree.args.kwonlyargs + [arg(arg=e)]
+    tree.args.kw_defaults = tree.args.kw_defaults + [None]
+    return t2(tree)
 
 # -----------------------------------------------------------------------------
 
@@ -684,9 +789,9 @@ def do(tree, gen_sym, **kw):
             if len(tree.args) != 1:
                 assert False, "localdef(...) must have exactly one positional argument"
             expr = tree.args[0]
-            if not _isassign(expr):
+            if not _isenvassign(expr):
                 assert False, "localdef(...) argument must be of the form 'name << value'"
-            collect(_assign_name(expr))
+            collect(_envassign_name(expr))
             return expr  # localdef(...) -> ..., the localdef has done its job
         return tree
     tree, names = _find_localvars.recurse_collect(tree)
@@ -749,7 +854,7 @@ def forall(tree, gen_sym, **kw):
         return _envwrap(tree, envname=e)  # ... -> lambda e: ...
     chooser = hq[choicef]
     for line in body:
-        if _isassign(line):  # convert "<<" assignments, but only at top level
+        if _isenvassign(line):  # convert "<<" assignments, but only at top level
             k, v = line.left.id, transform(line.right)
             binding = keyword(arg=k, value=v)
             names.append(k)  # bind k to e.k for all following lines
@@ -773,8 +878,8 @@ def forall_simple(tree, **kw):
         if not lines:
             return tree
         line, *rest = lines
-        if _isassign(line):
-            k, v = _assign_name(line), _assign_value(line)
+        if _isenvassign(line):
+            k, v = _envassign_name(line), _envassign_value(line)
         else:
             k, v = "_ignored", line
         islast = not rest

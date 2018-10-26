@@ -250,13 +250,14 @@ def _let(bindings, body, *, env=None, mode="let"):
     env[k] = v
     return _let(more, body, env=env, mode=mode)  # FP loop (without TCO)
 
-def _dlet(bindings, mode="let"):  # let and letrec decorator factory
+# _envname is for co-operation with the dlet macro.
+def _dlet(bindings, mode="let", _envname="env"):  # let and letrec decorator factory
     def deco(body):
         env = _let(bindings, body=None, mode=mode)  # set up env, don't run yet
         @wraps(body)
         def decorated(*args, **kwargs):
             kwargs_with_env = kwargs.copy()
-            kwargs_with_env["env"] = env
+            kwargs_with_env[_envname] = env
             return body(*args, **kwargs_with_env)
         return decorated
     return deco

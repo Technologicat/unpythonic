@@ -269,7 +269,8 @@ def _let(mode, body, **bindings):
     return env if body is None else body(env)
 
 # decorator factory: almost as fun as macros?
-def _dlet(mode, **bindings):
+# _envname is for co-operation with the dlet macro.
+def _dlet(mode, _envname="env", **bindings):
     def deco(body):
         # evaluate env only once, when the function def runs
         # (to preserve state between calls to the decorated function)
@@ -277,7 +278,7 @@ def _dlet(mode, **bindings):
         @wraps(body)
         def decorated(*args, **kwargs):
             kwargs_with_env = kwargs.copy()
-            kwargs_with_env["env"] = env
+            kwargs_with_env[_envname] = env
             return body(*args, **kwargs_with_env)
         return decorated
     return deco
