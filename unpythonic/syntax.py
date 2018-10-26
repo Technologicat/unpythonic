@@ -1602,11 +1602,7 @@ def _tco_fix_lambda_decorators(tree):
     @Walker
     def fixit(tree, *, stop, **kw):
         if _is_decorated_lambda(tree, _lambda_decorator_detectors):
-            # get the original AST nodes, they will be modified below.
             decorator_list, thelambda = _destructure_decorated_lambda(tree)
-            tmp = [[f(x) for x in decorator_list] for f in _lambda_decorator_detectors]
-            if not all(sum(row) <= 1 for row in tmp):
-                assert False, "Expected at most one each of the known decorators"
             # We can just swap the func attributes of the nodes.
             ordered_decorator_list = sorted(decorator_list, key=prioritize)
             ordered_funcs = [x.func for x in ordered_decorator_list]
