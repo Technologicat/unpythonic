@@ -550,8 +550,7 @@ def main():
 
     # fploop combo (test; requires special handling)
     from unpythonic.fploop import looped_over
-    with show_expanded:
-      with tco:
+    with tco:
         @looped_over(range(10), acc=0)
         def result(loop, x, acc):
             return loop(acc + x)
