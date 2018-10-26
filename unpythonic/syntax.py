@@ -33,7 +33,8 @@ except ImportError:
 from unpythonic.it import flatmap, uniqify, rev
 from unpythonic.fun import curry as curryf, _currycall as currycall, identity
 from unpythonic.dynscope import dyn
-from unpythonic.lispylet import letrec as letrecf, let as letf, _dlet as dletf
+from unpythonic.lispylet import letrec as letrecf, let as letf, \
+                                _dlet as dletf, _blet as bletf
 from unpythonic.seq import do as dof, begin as beginf
 from unpythonic.fup import fupdate
 from unpythonic.misc import namelambda
@@ -584,7 +585,7 @@ def dlet(tree, args, *, gen_sym, **kw):
     **CAUTION**: assignment to the let environment is ``name << value``;
     the regular syntax ``name = value`` creates a local variable.
     """
-    return _dletimpl(tree, args, "let", gen_sym)
+    return _dletimpl(tree, args, "let", "decorate", gen_sym)
 
 @macros.decorator
 def dletrec(tree, args, *, gen_sym, **kw):
@@ -601,11 +602,38 @@ def dletrec(tree, args, *, gen_sym, **kw):
 
     Same cautions apply as to ``dlet``.
     """
-    return _dletimpl(tree, args, "letrec", gen_sym)
+    return _dletimpl(tree, args, "letrec", "decorate", gen_sym)
+
+@macros.decorator
+def blet(tree, args, *, gen_sym, **kw):
+    """[syntax, decorator] def --> let block.
+
+    Example::
+
+        @blet((x, 21))
+        def result():
+            return 2*x
+        assert result == 42
+    """
+    return _dletimpl(tree, args, "let", "call", gen_sym)
+@macros.decorator
+def bletrec(tree, args, *, gen_sym, **kw):
+    """[syntax, decorator] def --> letrec block.
+
+    Example::
+
+        @bletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
+                 (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+        def result():
+            return evenp(42)
+        assert result is True
+    """
+    return _dletimpl(tree, args, "letrec", "call", gen_sym)
 
 # Very similar to _letimpl, but perhaps more readable to keep these separate.
-def _dletimpl(tree, args, mode, gen_sym):
+def _dletimpl(tree, args, mode, kind, gen_sym):
     assert mode in ("let", "letrec")
+    assert kind in ("decorate", "call")
 
     if not args:
         return tree
@@ -621,8 +649,9 @@ def _dletimpl(tree, args, mode, gen_sym):
         values = [t1(b) for b in values]
     tree = t2(tree)
 
+    letter = dletf if kind == "decorate" else bletf
     binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
-    tree.decorator_list = tree.decorator_list + [hq[dletf((ast_literal[binding_pairs],), mode=u[mode], _envname=u[e])]]
+    tree.decorator_list = tree.decorator_list + [hq[letter((ast_literal[binding_pairs],), mode=u[mode], _envname=u[e])]]
     tree.args.kwonlyargs = tree.args.kwonlyargs + [arg(arg=e)]
     tree.args.kw_defaults = tree.args.kw_defaults + [None]
     return tree
@@ -632,7 +661,34 @@ def dletseq(tree, args, gen_sym, **kw):
     """[syntax, decorator] Decorator version of letseq, for 'letseq over def'.
 
     Expands to nested function definitions, each with one ``dlet`` decorator.
+
+    Example::
+
+        @dletseq((x, 1),
+                 (x, x+1),
+                 (x, x+2))
+        def g(a):
+            return a + x
+        assert g(10) == 14
     """
+    return _dletseqimpl(tree, args, "decorate", gen_sym)
+
+@macros.decorator
+def bletseq(tree, args, gen_sym, **kw):
+    """[syntax, decorator] def --> letseq block.
+
+    Example::
+
+        @bletseq((x, 1),
+                 (x, x+1),
+                 (x, x+2))
+        def result():
+            return x
+        assert result == 4
+    """
+    return _dletseqimpl(tree, args, "call", gen_sym)
+
+def _dletseqimpl(tree, args, kind, gen_sym):
     # What we want:
     #
     # @dletseq((x, 1),
@@ -655,6 +711,7 @@ def dletseq(tree, args, gen_sym, **kw):
     #   return g2()
     # assert g() == 4
     #
+    assert kind in ("decorate", "call")
     if not args:
         return tree
 
@@ -662,12 +719,13 @@ def dletseq(tree, args, gen_sym, **kw):
     fname = tree.name
     noargs = arguments(args=[], kwonlyargs=[], vararg=None, kwarg=None,
                           defaults=[], kw_defaults=[])
-    iname = gen_sym("inner")
+    iname = gen_sym("{}_inner".format(fname))
     tree.args = noargs
     tree.name = iname
 
     *rest, last = args
-    innerdef = dlet.transform(tree, last)
+    dletter = dlet if kind == "decorate" else blet
+    innerdef = dletter.transform(tree, last)
 
     # optimization: in the final step, no need to generate a wrapper function
     if not rest:
@@ -679,12 +737,13 @@ def dletseq(tree, args, gen_sym, **kw):
         innerdef.args.kw_defaults += tmpargs.kw_defaults
         return innerdef
 
+    ret = Return(value=q[name[iname]()]) if kind == "decorate" else Return(value=q[name[iname]])
     outer = FunctionDef(name=fname, args=userargs,
-                        body=[innerdef, Return(value=q[name[iname]()])],
+                        body=[innerdef, ret],
                         decorator_list=[],
                         returns=None)  # no return type annotation
     outer = copy_location(outer, tree)
-    return dletseq.transform(outer, *rest)
+    return _dletseqimpl(outer, rest, kind, gen_sym)
 
 # -----------------------------------------------------------------------------
 

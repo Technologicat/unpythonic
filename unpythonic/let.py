@@ -283,8 +283,8 @@ def _dlet(mode, _envname="env", **bindings):
         return decorated
     return deco
 
-def _blet(mode, **bindings):
-    dlet_deco = _dlet(mode, **bindings)
+def _blet(mode, _envname="env", **bindings):
+    dlet_deco = _dlet(mode, _envname, **bindings)
     def deco(body):
         return call(dlet_deco(body))
     return deco

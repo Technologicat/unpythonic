@@ -262,8 +262,8 @@ def _dlet(bindings, mode="let", _envname="env"):  # let and letrec decorator fac
         return decorated
     return deco
 
-def _blet(bindings, mode="let"):
-    dlet_deco = _dlet(bindings, mode)
+def _blet(bindings, mode="let", _envname="env"):
+    dlet_deco = _dlet(bindings, mode, _envname)
     def deco(body):
         return call(dlet_deco(body))
     return deco

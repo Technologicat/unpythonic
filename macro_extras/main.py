@@ -13,6 +13,7 @@ from unpythonic.syntax import macros, \
                               simple_let, simple_letseq, \
                               let, letseq, letrec, \
                               dlet, dletseq, dletrec, \
+                              blet, bletseq, bletrec, \
                               do, do0, \
                               forall, insist, deny, forall_simple, \
                               aif, it, \
@@ -232,7 +233,7 @@ def main():
     # decorator version: let over def
     @dlet((x, 0))
     def count():
-        x << x + 1
+        x << x + 1  # assigment to let environment uses the "assignment expr" syntax
         return x
     assert count() == 1
     assert count() == 2
@@ -249,9 +250,28 @@ def main():
     @dletseq((x, 1),
              (x, x+1),
              (x, x+2))
-    def g(*args, **kwargs):
+    def g(a):
+        return a + x
+    assert g(10) == 14
+
+    # block versions (def takes no args, runs immediately, replaced with return value)
+    @blet((x, 21))
+    def result():
+        return 2*x
+    assert result == 42
+
+    @bletseq((x, 1),
+             (x, x+1),
+             (x, x+2))
+    def result():
         return x
-    assert g() == 4
+    assert result == 4
+
+    @bletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
+             (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+    def result():
+        return evenp(42)
+    assert result is True
 
     # TCO combo
     with tco:
