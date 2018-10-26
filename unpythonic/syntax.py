@@ -1917,7 +1917,7 @@ def _destructure_decorated_lambda(tree):
 # which is already there when "with tco" or "with continuations" is expanded.
 #
 _tco_decorators = ["trampolined", "looped", "breakably_looped", "looped_over", "breakably_looped_over"]
-_decorator_registry = _tco_decorators + ["call_ec", "curry"]
+_decorator_registry = _tco_decorators + ["call_ec", "call", "curry"]
 _lambda_decorator_detectors = [partial(_is_lambda_decorator, fname=x) for x in _decorator_registry]
 
 # Tail-position analysis for a return-value expression (also the body of a lambda).
