@@ -159,7 +159,7 @@ def setescape(tags=None, catch_untagged=True):
 
     def decorator(f):
         @wraps(f)
-        def decorated(*args, **kwargs):
+        def escapepoint(*args, **kwargs):
             try:
                 return f(*args, **kwargs)
             except Escape as e:
@@ -169,7 +169,7 @@ def setescape(tags=None, catch_untagged=True):
                     return e.value
                 else:  # meant for someone else, pass it on
                     raise
-        return decorated
+        return escapepoint
     return decorator
 
 def call_ec(f):

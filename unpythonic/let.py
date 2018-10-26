@@ -276,11 +276,11 @@ def _dlet(mode, _envname="env", **bindings):
         # (to preserve state between calls to the decorated function)
         env = _let(mode, body=None, **bindings)
         @wraps(body)
-        def decorated(*args, **kwargs):
+        def withenv(*args, **kwargs):
             kwargs_with_env = kwargs.copy()
             kwargs_with_env[_envname] = env
             return body(*args, **kwargs_with_env)
-        return decorated
+        return withenv
     return deco
 
 def _blet(mode, _envname="env", **bindings):

@@ -255,11 +255,11 @@ def _dlet(bindings, mode="let", _envname="env"):  # let and letrec decorator fac
     def deco(body):
         env = _let(bindings, body=None, mode=mode)  # set up env, don't run yet
         @wraps(body)
-        def decorated(*args, **kwargs):
+        def withenv(*args, **kwargs):
             kwargs_with_env = kwargs.copy()
             kwargs_with_env[_envname] = env
             return body(*args, **kwargs_with_env)
-        return decorated
+        return withenv
     return deco
 
 def _blet(bindings, mode="let", _envname="env"):
