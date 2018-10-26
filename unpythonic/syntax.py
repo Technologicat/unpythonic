@@ -282,6 +282,9 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
 # so it can't be used for things like let-over-lambda, or indeed letrec.
 # But it's simple, and creates real lexical variables.
 
+# These are here mainly for documentation purposes; the other macros are designed
+# to work together with the regular "let", "letseq", "letrec", not these ones.
+
 @macros.expr
 def simple_let(tree, args, **kw):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     """[syntax, expr] Introduce local bindings, as real lexical variables.
@@ -600,6 +603,7 @@ def dletrec(tree, args, *, gen_sym, **kw):
     """
     return _dletimpl(tree, args, "letrec", gen_sym)
 
+# Very similar to _letimpl, but perhaps more readable to keep these separate.
 def _dletimpl(tree, args, mode, gen_sym):
     assert mode in ("let", "letrec")
 
@@ -821,6 +825,8 @@ def _isdo(tree):
     return type(tree) is Call and type(tree.func) is Name and tree.func.id == "dof"
 
 # -----------------------------------------------------------------------------
+
+# TODO: remove forall, replace with forall_simple
 
 @macros.expr
 def forall(tree, gen_sym, **kw):
