@@ -1422,7 +1422,7 @@ def continuations(tree, gen_sym, **kw):
 
     # first pass, outside-in
     userlambdas = _detect_lambda.collect(tree)
-    known_ecs = list(uniqify(_detect_callec.collect(tree) + ["ec"]))
+    known_ecs = list(uniqify(_detect_callec.collect(tree) + ["ec", "brk"]))
     tree = yield tree
 
     # second pass, inside-out
@@ -1707,12 +1707,12 @@ def tco(tree, **kw):
     When macro expansion of the ``with tco`` block starts, names of escape
     continuations created **anywhere lexically within** the ``with tco`` block
     are captured. Lexically within the block, any call to a function having
-    any of the captured names, or as a fallback, the literal name ``ec``,
-    is interpreted as invoking an escape continuation.
+    any of the captured names, or as a fallback, one of the literal names
+    ``ec``, ``brk``, is interpreted as invoking an escape continuation.
     """
     # first pass, outside-in
     userlambdas = _detect_lambda.collect(tree)
-    known_ecs = list(uniqify(_detect_callec.collect(tree) + ["ec"]))
+    known_ecs = list(uniqify(_detect_callec.collect(tree) + ["ec", "brk"]))
     tree = yield tree
 
     # second pass, inside-out
