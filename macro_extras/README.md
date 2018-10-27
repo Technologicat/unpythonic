@@ -25,6 +25,10 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence); with slice notation
  - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
 
+Meta:
+
+ - [Comboability](#comboability): notes on the macros working together
+
 
 ## ``curry``: Automatic currying for Python
 
@@ -530,7 +534,7 @@ To find the tail position inside a compound return value, this recursively handl
 
 **CAUTION**: In an ``and``/``or`` expression, only the last item of the whole expression is in tail position. This is because in general, it is impossible to know beforehand how many of the items will be evaluated.
 
-**CAUTION**: For escape continuations, only basic uses of ``call_ec`` are supported. See the docstring of ``unpythonic.syntax.tco`` for details. (Mainly of interest for lambdas, which have no ``return``, and for "multi-return" from a nested function.)
+**CAUTION**: For escape continuations, only basic uses of ``call_ec`` are supported. The literal function names ``ec`` and ``brk`` are always interpreted as referring to an escape continuation; in addition, ec names are harvested from uses of ``call_ec``. See the docstring of ``unpythonic.syntax.tco`` for details. (Mainly of interest for lambdas, which have no ``return``, and for "multi-return" from a nested function.)
 
 **CAUTION**: In a ``def`` you still need the ``return``; it marks a return value.
 
@@ -669,6 +673,58 @@ with prefix, curry:  # important: apply prefix first, then curry
     (print, (mymap, double, (q, 1, 2, 3)))
     assert (mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)
 ```
+
+
+## Comboability
+
+The macros in ``unpythonic.syntax`` are designed to work together, in principle in arbitrary combinations, but some care needs to be taken regarding the order in which they expand.
+
+If some particular combo doesn't work and it's not at least documented as such, please raise an issue.
+
+For the christmas tree combo, the block macros are designed to run in the following order (leftmost first):
+
+```
+prefix > autoreturn > multilambda, namedlambda > continuations, tco > curry
+```
+
+For simplicity, **the block macros make no attempt to prevent invalid combos**. Be careful; e.g. don't nest several ``with tco`` blocks, that won't work.
+
+Other things to note:
+
+ - ``continuations`` and ``tco`` are mutually exclusive, since ``continuations`` already implies TCO.
+
+ - ``prefix``, ``autoreturn`` and ``multilambda`` are first-pass macros (expand from outside in), because they change the semantics:
+   - ``prefix`` transforms things-that-look-like-tuples into function calls,
+   - ``autoreturn`` adds ``return`` statements where there weren't any,
+   - ``multilambda`` transforms things-that-look-like-lists into sequences of multiple expressions, using ``do[]``.
+   - Hence, a lexically outer block of one of these types *will expand first*, before any macros inside it are expanded, in contrast to the default *from inside out* expansion order.
+   - This yields clean, standard-ish Python for the rest of the macros, which then don't need to worry about their input meaning something completely different from what it looks like.
+
+ - An already expanded ``do[]`` (including that inserted by `multilambda`) is accounted for by all ``unpythonic.syntax`` macros when handling expressions.
+   - For simplicity, this is **the only** type of sequencing understood by the macros.
+   - E.g. the more rudimentary ``unpythonic.seq.begin`` is not treated as a sequencing operation. This matters especially in ``tco``, where it is critically important to correctly detect a tail position in a return-value expression or (multi-)lambda body.
+
+ - The TCO transformation knows about TCO-enabling decorators provided by ``unpythonic``, and adds the ``@trampolined`` decorator to a function definition only when it is not already TCO'd.
+   - This applies also to lambdas; they are decorated by directly wrapping them with a call: ``trampolined(lambda ...: ...)``.
+   - This allows ``with tco`` to work together with the functions in ``unpythonic.fploop``, which imply TCO.
+
+ - Macros that transform lambdas (notably ``continuations`` and ``tco``):
+   - Perform a first pass to take note of all lambdas that appear in the code *before the expansion of any inner macros*. Then in the second pass, *after the expansion of all inner macros*, only the recorded lambdas are transformed.
+     - This mechanism distinguishes between explicit lambdas in the client code, and internal implicit lambdas automatically inserted by a macro. The latter are a technical detail that should not undergo the same transformations as user-written explicit lambdas.
+     - The identification is based on the ``id`` of the AST node instance. Hence, if you plan to write your own macros that work together with those in ``unpythonic.syntax``, avoid going overboard with FP. Modifying the tree in-place, preserving the original AST node instances as far as sensible, is just fine.
+   - Support a limited form of *decorated lambdas*, i.e. trees of the form ``f(g(h(lambda ...: ...)))``.
+     - The macros will reorder a chain of lambda decorators (i.e. nested calls) to use the correct ordering, when only known decorators are used on a literal lambda.
+       - This allows some combos such as ``tco``, ``unpythonic.fploop.looped``, ``curry``.
+     - Only decorators provided by ``unpythonic`` are recognized, and only some of them are supported. For details, see ``unpythonic.syntax._decorator_registry``.
+     - If you need to combo ``unpythonic.fploop.looped`` and ``unpythonic.ec.call_ec``, use ``unpythonic.fploop.breakably_looped``, which does exactly that.
+       - The problem with a direct combo is that the required ordering is the trampoline (inside ``looped``) outermost, then ``call_ec``, and then the actual loop, but because an escape continuation is only valid for the dynamic extent of the ``call_ec``, the whole loop must be run inside the dynamic extent of the ``call_ec``.
+       - ``unpythonic.fploop.breakably_looped`` internally inserts the ``call_ec`` at the right step, and gives you the ec as ``brk``.
+
+ - Some of the block macros can be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``curry``) require their own ``with`` statement.
+   - This is a known bug. Probably something to do with the semantics of a ``with`` statement in MacroPy.
+   - If something goes wrong in the expansion of one block macro in a ``with`` statement that specifies several block macros, surprises may occur.
+   - When in doubt, use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks.
+
 
 *Toto, I've a feeling we're not in Python anymore.*
 
