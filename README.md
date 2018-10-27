@@ -4,7 +4,7 @@ Python clearly wants to be an impure-FP language. A decorator with arguments *is
 
 In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python from the list processing tradition. We place a special emphasis on **clear, pythonic syntax**. Other design considerations are simplicity, robustness, and minimal dependencies (currently none). Pure Python 3.4.
 
-We also provide a set of [macros](macro_extras/) for those not afraid to install [MacroPy](https://github.com/azazel75/macropy) and venture beyond raw Python. For example, we have an autocurry that makes Python look somewhat like Haskell, a continuations macro with a form of call/cc for Python, various boilerplate-elimination macros (notably ``do``, ``let``, ``multilambda``) that improve readability of code using some of the functions presented here, and a TCO macro for automatic tail-call optimization - which works together with the ``do`` and ``let`` macros. Design considerations for our macros are orthogonality, combinability, and clear, pythonic syntax. If a combo doesn't work, this should at least be documented. (If not, please raise an issue.)
+We also provide a set of [macros](macro_extras/) that are designed to work together, for those not afraid to install [MacroPy](https://github.com/azazel75/macropy) and venture beyond raw Python. For example, we have an autocurry that makes Python look somewhat like Haskell, a continuations macro with a form of call/cc for Python, various boilerplate-elimination macros (notably ``do``, ``let``, ``multilambda``) that improve readability of code using some of the functions presented here, and a TCO macro for automatic tail-call optimization. Macro design considerations are orthogonality, combinability, and clear, pythonic syntax.
 
 **Contents**:
 
@@ -20,7 +20,7 @@ We also provide a set of [macros](macro_extras/) for those not afraid to install
    - [Generators with TCO](#generators-with-tco): tail-chaining; like ``itertools.chain``, but from inside a generator.
  - [Escape continuations (ec)](#escape-continuations-ec)
    - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
- - [Dynamic scoping](#dynamic-scoping) (a.k.a. parameterize, special variables, dynamic assignment)
+ - [Dynamic assignment](#dynamic-assignment) (a.k.a. parameterize, special variables, "dynamic scoping")
  - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`
    - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
    - [Memoization for generators](#memoization-for-generators), iterables and iterator factories: `gmemoize`, `imemoize`, `fimemoize`.
@@ -65,6 +65,8 @@ Keep in mind the only reason to ever need multiple expressions: *side effects.*
 
 (Assignment is a side effect, too; it modifies the environment. In functional style, intermediate named definitions to increase readability are the most useful kind of side effect.)
 
+See also ``multilambda`` in [macros](macro_extras/).
+
 #### Sequence side effects: ``begin``
 
 ```python
@@ -90,6 +92,8 @@ No monadic magic. Basically, ``do`` is:
   - A ``let*`` (technically, ``letrec``) where making a binding is optional, so that some items can have only side effects if so desired. No semantically distinct ``body``; all items play the same role.
 
 Like in ``letrec`` (see below), use ``lambda e: ...`` to access the environment, and to wrap callable values (to prevent misunderstandings).
+
+We also provide a ``do[]`` [macro](macro_extras/) that makes the construct easier to use.
 
 ```python
 from unpythonic import do, assign
@@ -231,6 +235,8 @@ In the n-to-m versions, when a function returns a tuple, it is unpacked to the a
 
 
 ### Introduce local bindings: ``let``, ``letrec``
+
+For easy-to-use versions of these constructs that look almost like normal Python, see [macros](macro_extras/).
 
 In ``let``, the bindings are independent (do not see each other). A binding is of the form ``name=value``, where ``name`` is a Python identifier, and ``value`` is any expression.
 
@@ -399,7 +405,7 @@ When the `with` block exits, the environment clears itself. The environment inst
 
 ### Tail call optimization (TCO) / explicit continuations
 
-**v0.10.0**: ``fasttco`` has been renamed ``tco``, and the exception-based old default implementation has been removed.
+**v0.10.0**: ``fasttco`` has been renamed ``tco``, and the exception-based old default implementation has been removed. See also [macros](macro_extras/) for an easy-to-use solution.
 
 Express algorithms elegantly without blowing the call stack - with explicit, clear syntax.
 
@@ -994,9 +1000,9 @@ result = call_ec(f)
 assert result == 42
 ```
 
-### Dynamic scoping
+### Dynamic assignment
 
-(To be technically correct, [dynamic assignment](https://groups.google.com/forum/#!topic/racket-users/2Baxa2DxDKQ) as termed by Felleisen.)
+([As termed by Felleisen.](https://groups.google.com/forum/#!topic/racket-users/2Baxa2DxDKQ))
 
 Like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Like [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html). The *special variables* in Common Lisp work somewhat similarly (but with indefinite scope).
 
@@ -1014,7 +1020,7 @@ def g():
 
         f()
 
-        with dyn.let(a=3):  # dynamic scopes can be nested
+        with dyn.let(a=3):  # dynamic assignments can be nested
             assert dyn.a == 3
 
         # now "a" has reverted to its previous value
@@ -1468,6 +1474,8 @@ assert fupdate(lst, slice(None, None, -1), tuple(range(5))) == (4, 3, 2, 1, 0)
 
 Slicing supports negative indices and steps, and default starts, stops and steps, as usual in Python. Just remember ``a[start:stop:step]`` actually means ``a[slice(start, stop, step)]`` (with ``None`` replacing omitted ``start``, ``stop`` and ``step``), and everything should follow. Multidimensional arrays are **not** supported.
 
+If you want to use Python's standard slicing syntax to functionally update a sequence, see the ``fup`` [macro](macro_extras/).
+
 When ``fupdate`` constructs its output, the replacement occurs by walking *the input sequence* left-to-right, and pulling an item from the replacement sequence when the given replacement specification so requires. Hence the replacement sequence is not necessarily accessed left-to-right. (In the last example above, ``tuple(range(5))`` was read in the order ``(4, 3, 2, 1, 0)``.)
 
 The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored, but if the replacement is too short, ``ValueError`` is raised.
@@ -1551,6 +1559,8 @@ The ``unpythonic.amb`` module defines four operators:
 Choice variables live in the environment, which is accessed via a ``lambda e: ...``, just like in ``letrec``. Lexical scoping is emulated. In the environment, each line only sees variables defined above it; trying to access a variable defined later raises ``AttributeError``.
 
 The last line in a ``forall`` describes one item of the output. The output items are collected into a tuple, which becomes the return value of the ``forall`` expression.
+
+There is also an easy-to-use [macro](macro_extras/) version of ``forall`` that comes with more natural syntax.
 
 ```python
 out = forall(choice(y=range(3)),
@@ -1765,7 +1775,7 @@ Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a 
 
 ### On ``let`` and Python
 
-Why no `let*`? In Python, name lookup always occurs at runtime. Python gives us no compile-time guarantees that no binding refers to a later one - in [Racket](http://racket-lang.org/), this guarantee is the main difference between `let*` and `letrec`.
+Why no `let*`, as a function? In Python, name lookup always occurs at runtime. Python gives us no compile-time guarantees that no binding refers to a later one - in [Racket](http://racket-lang.org/), this guarantee is the main difference between `let*` and `letrec`.
 
 Even Racket's `letrec` processes the bindings sequentially, left-to-right, but *the scoping of the names is mutually recursive*. Hence a binding may contain a lambda that, when eventually called, uses a binding defined further down in the `letrec` form.
 
@@ -1773,19 +1783,22 @@ In contrast, in a `let*` form, attempting such a definition is *a compile-time e
 
 Our `letrec` behaves like `let*` in that if `valexpr` is not a function, it may only refer to bindings above it. But this is only enforced at run time, and we allow mutually recursive function definitions, hence `letrec`.
 
-Note that our `let` constructs are **not** properly lexically scoped; in case of nested ``let`` expressions, one must be explicit about which environment the names come from.
+Note the function versions of our `let` constructs, presented here, are **not** properly lexically scoped; in case of nested ``let`` expressions, one must be explicit about which environment the names come from.
+
+The [macro versions](macro_extras/) of the `let` constructs **are** lexically scoped. The macros also provide a ``letseq[]`` that, similarly to Racket's ``let*``, gives a compile-time guarantee that no binding refers to a later one.
 
 Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
 
 ### Python is not a Lisp
 
-The point behind providing `let` and `begin` is to make Python lambdas slightly more useful - which was really the starting point for this whole experiment.
+The point behind providing `let` and `begin` (and the ``let[]`` and ``do[]`` [macros](macro_extras/)) is to make Python lambdas slightly more useful - which was really the starting point for this whole experiment.
 
 The oft-quoted single-expression limitation of the Python ``lambda`` is ultimately a herring, as this library demonstrates. The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. We can work around some of this:
 
- - The expression form of `if` can be used to a limited extent. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers, so it may be better not to go there. Another possibility is to use MacroPy to define a ``cond`` expression, but it's essentially duplicating a feature the language already almost has.
+ - The expression form of `if` can be used, but readability suffers if nested. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers there too. Another possibility is to use MacroPy to define a ``cond`` expression, but it's essentially duplicating a feature the language already almost has. (Our [macros](macro_extras/) do exactly that, providing a ``cond`` expression as a macro.)
  - Functional looping (with TCO, to boot) is possible.
  - ``unpythonic.ec.call_ec`` gives us ``return`` (the ec), and ``unpythonic.misc.raisef`` gives us ``raise``.
+ - Exception handling (``try``/``except``/``else``/``finally``) and context management (``with``) are currently **not** available for lambdas, even in ``unpythonic``.
 
 Still, ultimately one must keep in mind that Python is not a Lisp. Not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful, even though it does have a side effect.
 
@@ -1793,7 +1806,9 @@ Still, ultimately one must keep in mind that Python is not a Lisp. Not all of Py
 
 Why the clunky `e.set("foo", newval)` or `e << ("foo", newval)`, which do not directly mention `e.foo`? This is mainly because in Python, the language itself is not customizable. If we could define a new operator `e.foo <op> newval` to transform to `e.set("foo", newval)`, this would be easily solved.
 
-We could abuse `e.foo << newval`, which transforms to `e.foo.__lshift__(newval)`, to essentially perform `e.set("foo", newval)`, but this requires some magic, because we then need to monkey-patch each incoming value (including the first one when the name "foo" is defined) to set up the redirect and keep it working.
+Our [macros](macro_extras/) essentially do exactly this, but by borrowing the ``<<`` operator to provide the syntax ``foo << newval``, because even with MacroPy, it is not possible to define new [BinOp](https://greentreesnakes.readthedocs.io/en/latest/nodes.html#BinOp)s in Python. That would be possible essentially as a *reader macro* (as it's known in the Lisp world), to transform custom BinOps into some syntactically valid Python code before proceeding with the rest of the import machinery, but it seems as of this writing, no one has done this.
+
+Without macros, in raw Python, we could abuse `e.foo << newval`, which transforms to `e.foo.__lshift__(newval)`, to essentially perform `e.set("foo", newval)`, but this requires some magic, because we then need to monkey-patch each incoming value (including the first one when the name "foo" is defined) to set up the redirect and keep it working.
 
  - Methods of builtin types such as `int` are read-only, so we can't just override `__lshift__` in any given `newval`.
  - For many types of objects, at the price of some copy-constructing, we can provide a wrapper object that inherits from the original's type, and just adds an `__lshift__` method to catch and redirect the appropriate call. See commented-out proof-of-concept in [`unpythonic/env.py`](unpythonic/env.py).
@@ -1801,6 +1816,8 @@ We could abuse `e.foo << newval`, which transforms to `e.foo.__lshift__(newval)`
  - It's still difficult to be sure these two approaches cover all cases; a read of `e.foo` gets a wrapped value, not the original; and this already violates [The Zen of Python](https://www.python.org/dev/peps/pep-0020/) #1, #2 and #3.
 
 If we later choose go this route nevertheless, `<<` is a better choice for the syntax than `<<=`, because `let` needs `e.set(...)` to be valid in an expression context.
+
+The current solution for the assignment syntax issue is to use macros, to have both clean syntax at the use site and a relatively non-hacky implementation.
 
 ### TCO syntax and speed
 
@@ -1816,6 +1833,8 @@ Benefits and costs of ``return jump(...)``:
      - Failing to terminate at the intended point may well fall through into what was intended as another branch of the client code, which may correctly have a ``return``. So this would not even solve the problem.
 
 The other simple-ish solution is to use exceptions, making the jump wrest control from the caller. Then ``jump(...)`` becomes a verb, but this approach is 2-5x slower, when measured with a do-nothing loop. (See the old default TCO implementation in v0.9.2.)
+
+Our [macros](macro_extras/) provide an easy-to use solution. Just wrap the relevant section of code in a ``with tco:``, to automatically apply TCO to code that looks exactly like standard Python. With the macro, function definitions (also lambdas) and returns are automatically converted. It also knows enough not to add a ``@trampolined`` if you have already declared a ``def`` as ``@looped`` (or any of the other TCO-enabling decorators in ``unpythonic.fploop``).
 
 For other libraries bringing TCO to Python, see:
 
@@ -1866,7 +1885,7 @@ Must be invoked in a folder which has no subfolder called `unpythonic`, so that 
 
 2-clause [BSD](LICENSE.md).
 
-Dynamic scoping based on [StackOverflow answer by Jason Orendorff (2010)](https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python), used under CC-BY-SA. The threading support is original to our version.
+Dynamic assignment based on [StackOverflow answer by Jason Orendorff (2010)](https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python), used under CC-BY-SA. The threading support is original to our version.
 
 Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
 
