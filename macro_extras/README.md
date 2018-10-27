@@ -138,6 +138,8 @@ Lexical scoping is respected; each environment is internally named using a gensy
 Examples:
 
 ```python
+from unpythonic.syntax import macros, dlet, dletseq, dletrec, blet, bletseq, bletrec
+
 @dlet((x, 0))
 def count():
     x << x + 1
