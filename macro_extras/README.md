@@ -12,6 +12,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
 
  - [``curry``: Automatic currying for Python](#curry-automatic-currying-for-python)
  - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate
+   - [``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions](#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)
  - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
  - [``aif``: anaphoric if](#aif-anaphoric-if)
  - [``do`` as a macro: stuff imperative code into a lambda, *with style*](#do-as-a-macro-stuff-imperative-code-into-a-lambda-with-style)
@@ -95,7 +96,7 @@ Hence the ``z`` in the inner scope expands to the inner environment's ``z``, whi
 
 ### Multiple expressions in body
 
-As of `unpythonic` 0.9.2, the `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body (like in `multilambda`; see below):
+*Added in v0.9.2.* The `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body (like in `multilambda`; see below):
 
 ```python
 let((x, 1),
@@ -128,6 +129,62 @@ let((x, 1),
 
 We also provide ``simple_let`` and ``simple_letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, ``simple_letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``simple_let`` expressions, which expand to lambdas.
 
+### ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions
+
+*Added in v0.10.4.* Similarly to ``let``, ``letseq``, ``letrec``, these are sugar around the corresponding ``unpythonic.lispylet`` constructs, with the ``dletseq`` and ``bletseq`` constructs existing only as macros (since they expand to nested ``dlet`` or ``blet``, respectively).
+
+Lexical scoping is respected; each environment is internally named using a gensym. Nesting is allowed.
+
+Examples:
+
+```python
+@dlet((x, 0))
+def count():
+    x << x + 1
+    return x
+assert count() == 1
+assert count() == 2
+
+@dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
+         (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+def f(x):
+    return evenp(x)
+assert f(42) is True
+assert f(23) is False
+
+@dletseq((x, 1),
+         (x, x+1),
+         (x, x+2))
+def g(a):
+    return a + x
+assert g(10) == 14
+
+# block versions: the def takes no arguments, runs immediately, and is replaced by the return value.
+@blet((x, 21))
+def result():
+    return 2*x
+assert result == 42
+
+@bletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
+         (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+def result():
+    return evenp(42)
+assert result is True
+
+@bletseq((x, 1),
+         (x, x+1),
+         (x, x+2))
+def result():
+    return x
+assert result == 4
+```
+
+**CAUTION**: formal parameters of a function definition, local variables, and any names declared as ``global`` or ``nonlocal`` in a given lexical scope shadow names from the ``let`` environment *for the entirety of that lexical scope*. This is modeled after Python's standard scoping rules.
+
+**CAUTION**: assignment to the let environment uses the syntax ``name << value``, as always with ``unpythonic`` environments. The standard Python syntax ``name = value`` creates a local variable, as usual - *shadowing any variable with the same name from the ``let``*.
+
+The write of a ``name << value`` always occurs to the lexically innermost environment (as seen from the write site) that has that ``name``. If no lexically surrounding environment has that ``name``, *then* the expression remains untransformed, and means a left-shift (if ``name`` happens to be otherwise defined).
+
 
 ## ``cond``: the missing ``elif`` for ``a if p else b``
 
@@ -144,6 +201,17 @@ print(answer(42))
 
 Syntax is ``cond[test1, then1, test2, then2, ..., otherwise]``. Expansion raises an error if the ``otherwise`` branch is missing.
 
+*Added in v0.10.0.* Any part of ``cond`` may have multiple expressions by surrounding it with brackets:
+
+```python
+cond[[pre1, ..., test1], [post1, ..., then1],
+     [pre2, ..., test2], [post2, ..., then2],
+     ...
+     [postn, ..., otherwise]]
+```
+
+To denote a single expression that is a literal list, use an extra set of brackets: ``[[1, 2, 3]]``.
+
 
 ## ``aif``: anaphoric if
 
@@ -158,6 +226,16 @@ aif[2*21,
 ```
 
 Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to the test result while (lexically) inside the ``aif``, and does not exist outside the ``aif``.
+
+*Added in v0.10.0.* Any part of ``aif`` may have multiple expressions by surrounding it with brackets:
+
+```python
+aif[[pre, ..., test],
+    [post_true, ..., then],        # "then" branch
+    [post_false, ..., otherwise]]  # "otherwise" branch
+```
+
+To denote a single expression that is a literal list, use an extra set of brackets: ``[[1, 2, 3]]``.
 
 
 ## ``do`` as a macro: stuff imperative code into a lambda, *with style*
