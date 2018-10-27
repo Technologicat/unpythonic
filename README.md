@@ -1050,7 +1050,7 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
      - What happens when more positional args are still remaining when the top-level curry context exits depends on the dynvar ``curry_toplevel_passthrough``. If it is ``False`` (default), ``TypeError`` is raised. If it is ``True``, the tuple becomes the final value of the expression. See docstring of ``curry`` for an example.
    - Can be used both as a decorator and as a regular function.
      - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
-   - **Caution**: If the positional arities of ``f`` cannot be inspected, currying fails, raising ``UnknownArity``. This may happen with builtins such as ``operator.add``.
+   - **Caution**: If the positional arities of ``f`` cannot be inspected, currying fails, raising ``UnknownArity``. This may happen with builtins such as ``list.append``.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - Any number of positional arguments is supported, with the same rules as in the pipe system. Multiple return values packed into a tuple are unpacked to the argument list of the next function in the chain.
    - `composelc`, `composerc`: curry each function before composing them. Useful with passthrough.
