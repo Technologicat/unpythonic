@@ -1342,7 +1342,7 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - Essentially `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``.
  - `rmap`, `rzip`, `rmap_longest`, `rzip_longest`: reverse each input, then map/zip. For multiple inputs, syncs the **right** ends.
  - `mapr`, `zipr`, `mapr_longest`, `zipr_longest`: map/zip, then reverse the result. For multiple inputs, syncs the **left** ends.
- - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively).
+ - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively), preserving the original ordering of the items.
  - `flatten1`, `flatten`, `flatten_in`: remove nested list structure.
    - `flatten1`: outermost level only.
    - `flatten`: recursive, with an optional predicate that controls whether to flatten a given sublist.
