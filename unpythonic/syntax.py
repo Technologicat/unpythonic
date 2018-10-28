@@ -19,7 +19,7 @@ from functools import partial
 from ast import Call, arg, keyword, With, withitem, Tuple, \
                 Name, Attribute, Load, BinOp, LShift, \
                 Subscript, Index, Slice, ExtSlice, Lambda, List, \
-                copy_location, Assign, FunctionDef, \
+                copy_location, Assign, FunctionDef, ClassDef, \
                 ListComp, SetComp, GeneratorExp, DictComp, \
                 arguments, If, Num, Return, Expr, IfExp, BoolOp, And, Or, Try, \
                 Global, Nonlocal, Store
@@ -117,6 +117,7 @@ def _detect_callec(tree, *, collect, **kw):
     if type(tree) in (FunctionDef, AsyncFunctionDef) and any(iscallec(deco) for deco in tree.decorator_list):
         fdef = tree
         collect(fdef.args.args[0].arg)  # FunctionDef.arguments.(list of arg objects).arg
+    # TODO: decorated lambdas with other decorators in between
     elif type(tree) is Call and iscallec(tree.func) and type(tree.args[0]) is Lambda:
         lam = tree.args[0]
         collect(lam.args.args[0].arg)
@@ -444,13 +445,10 @@ def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1
     return hq[letter((ast_literal[binding_pairs],), ast_literal[newtree])]
 
 def _letlike_transform(tree, envname, varnames, setter, dowrap=True):
-    # x << val --> e.set('x', val)
-    tree = _transform_envassignment.recurse(tree, names=varnames, setter=setter, fargs=[])
-    # x --> e.x
-    tree = _transform_name.recurse(tree, names=varnames, envname=envname, fargs=[])
-    # ... -> lambda e: ...
+    tree = _transform_envassignment(tree, varnames, setter)  # x << val --> e.set('x', val)
+    tree = _transform_name(tree, varnames, envname)  # x --> e.x  (when x appears in load context)
     if dowrap:
-        tree = _envwrap(tree, envname=envname)
+        tree = _envwrap(tree, envname)  # ... -> lambda e: ...
     return tree
 
 def _isenvassign(tree):  # detect "x << 42" syntax to assign variables in an environment
@@ -461,9 +459,47 @@ def _envassign_value(tree):
     return tree.right
 
 def _isnewscope(tree):
-    return type(tree) in (Lambda, FunctionDef, AsyncFunctionDef, ListComp, SetComp, GeneratorExp, DictComp)
-def _getlocalnames(tree):
-    """Get local names of a tree representing a scope.
+    """Return whether tree introduces a new lexical scope.
+
+    (According to Python's standard scoping rules.)
+    """
+    return type(tree) in (Lambda, FunctionDef, AsyncFunctionDef, ClassDef, ListComp, SetComp, GeneratorExp, DictComp)
+
+@Walker
+def _scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ctx, stop, **kw):
+    """Walk and process a tree, keeping track of which names are shadowed.
+
+    Names in an unpythonic env can be shadowed by e.g. real lexical variables,
+    formal parameters of function definitions, or names declared ``nonlocal``
+    or ``global``. See ``_getshadowers``.
+
+    callback: function, (tree, shadowed_names) --> tree
+    """
+    # TODO: think about proper handling of ClassDef
+    if type(tree) in (Lambda, ListComp, SetComp, GeneratorExp, DictComp, ClassDef):
+        moreargs, _ = _getshadowers(tree)
+        set_ctx(args=(args + moreargs))
+    elif type(tree) in (FunctionDef, AsyncFunctionDef):
+        stop()
+        moreargs, newnonlocals = _getshadowers(tree)
+        args = args + moreargs
+        for expr in (tree.args, tree.decorator_list):
+            _scoped_walker.recurse(expr, localvars=localvars, args=args, nonlocals=nonlocals, callback=callback)
+        nonlocals = newnonlocals
+        localvars = []
+        for stmt in tree.body:
+            _scoped_walker.recurse(stmt, localvars=localvars, args=args, nonlocals=nonlocals, callback=callback)
+            # new local variables come into scope at the next statement (not yet on the RHS of the assignment).
+            newlocalvars = _get_names_in_store_context.collect(stmt)
+            newlocalvars = [x for x in newlocalvars if x not in nonlocals]
+            if newlocalvars:
+                localvars = localvars + newlocalvars
+        return tree
+    shadowed = args + localvars + nonlocals
+    return callback(tree, shadowed)
+
+def _getshadowers(tree):
+    """In a tree representing a lexical scope, get names that shadow names in unpythonic envs.
 
     An AST node represents a scope if ``_isnewscope(tree)`` returns ``True``.
 
@@ -471,10 +507,21 @@ def _getlocalnames(tree):
 
         - argument names of ``Lambda``, ``FunctionDef``, ``AsyncFunctionDef``
 
-        - names of local variables of ``FunctionDef``, ``AsyncFunctionDef``;
-          excepting any names declared ``nonlocal`` or ``global`` in that scope
+            - plus function name of ``FunctionDef``, ``AsyncFunctionDef``
+
+            - any names declared ``nonlocal`` or ``global`` in a ``FunctionDef``
+              or ``AsyncFunctionDef``
 
         - target names of ``ListComp``, ``SetComp``, ``GeneratorExp``, ``DictComp``
+
+        - class name and base class names of ``ClassDef``
+
+            - **CAUTION**: base class scan only supports bare ``Name`` nodes
+
+    Return value is (``args``, ``nonlocals``), where each component is a ``list``
+    of ``str``. The list ``nonlocals`` contains names declared ``nonlocal`` or
+    ``global`` in this scope (precisely); the list ``args`` contains everything
+    else.
     """
     if type(tree) in (Lambda, FunctionDef, AsyncFunctionDef):
         a = tree.args
@@ -484,8 +531,10 @@ def _getlocalnames(tree):
         if a.kwarg:
             argnames.append(a.kwarg.arg)
 
-        localvars = []
+        fname = []
+        nonlocals = []
         if type(tree) in (FunctionDef, AsyncFunctionDef):
+            fname = [tree.name]
             @Walker
             def getnonlocals(tree, *, stop, collect, **kw):
                 if _isnewscope(tree):
@@ -494,19 +543,19 @@ def _getlocalnames(tree):
                     for x in tree.names:
                         collect(x)
                 return tree
-            @Walker
-            def getlocalassignments(tree, *, nonlocals, stop, collect, **kw):
-                if _isnewscope(tree):
-                    stop()
-                if type(tree) is Name:
-                    # macro-created nodes might not have a ctx.
-                    if hasattr(tree, "ctx") and type(tree.ctx) is Store and tree.id not in nonlocals:
-                        collect(tree.id)
-                return tree
-            nonlocals = list(uniqify(getnonlocals.collect(tree.body)))
-            localvars = list(uniqify(getlocalassignments.collect(tree.body, nonlocals=nonlocals)))
+            nonlocals = getnonlocals.collect(tree.body)
 
-        return list(uniqify(argnames + localvars))
+        return list(uniqify(fname + argnames)), list(uniqify(nonlocals))
+
+    # TODO: think about proper handling of ClassDef
+    elif type(tree) is ClassDef:
+        cname = [tree.name]
+        bases = [b.id for b in tree.bases if type(b) is Name]
+        # these are referred to via self.foo, so they don't shadow bare names.
+#        classattrs = _get_names_in_store_context.collect(tree.body)
+#        methods = [f.name for f in tree.body if type(f) is FunctionDef]
+        return list(uniqify(cname + bases)), []
+
     elif type(tree) in (ListComp, SetComp, GeneratorExp, DictComp):
         targetnames = []
         for g in tree.generators:
@@ -521,38 +570,55 @@ def _getlocalnames(tree):
                 targetnames.extend(extractnames.collect(g.target))
             else:
                 assert False, "unimplemented: comprehension target of type {}".type(g.target)
-        return targetnames
-    return []
+
+        return list(uniqify(targetnames)), []
+
+    return [], []
+
+@Walker
+def _get_names_in_store_context(tree, *, stop, collect, **kw):
+    """In a tree representing a statement, get names in store context.
+
+    This stops at the boundary of any nested scopes.
+
+    To find out new local vars, exclude any names in ``nonlocals`` as returned
+    by ``_getshadowers``.
+    """
+    if _isnewscope(tree):
+        stop()
+    # macro-created nodes might not have a ctx.
+    if type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Store:
+        collect(tree.id)
+    return tree
 
 # x << val --> e.set('x', val)  (for names bound in this environment)
-@Walker
-def _transform_envassignment(tree, *, names, setter, fargs, set_ctx, **kw):
-    # Function args, comprehenion targets and local variables shadow names of the surrounding env.
-    if _isnewscope(tree):
-        set_ctx(fargs=(fargs + _getlocalnames(tree)))
-    elif _isenvassign(tree):
-        varname = _envassign_name(tree)
-        # each let handles only its own varnames
-        if varname in names and varname not in fargs:
-            value = _envassign_value(tree)
-            return q[ast_literal[setter](u[varname], ast_literal[value])]
-    return tree
+def _transform_envassignment(tree, ournames, envset):
+    def t(tree, shadowed):
+        if _isenvassign(tree):
+            varname = _envassign_name(tree)
+            if varname in ournames and varname not in shadowed:
+                value = _envassign_value(tree)
+                return q[ast_literal[envset](u[varname], ast_literal[value])]
+        return tree
+    return _scoped_walker.recurse(tree, callback=t)
 
 # x --> e.x  (for names bound in this environment)
-@Walker
-def _transform_name(tree, *, names, envname, fargs, set_ctx, **kw):
-    if _isnewscope(tree):
-        set_ctx(fargs=(fargs + _getlocalnames(tree)))
-    # e.anything is already ok, but x.foo (Attribute that contains a Name "x")
-    # should transform to e.x.foo.
-    elif type(tree) is Attribute and type(tree.value) is Name and tree.value.id == envname:
-        pass
-    # nested lets work, because once x --> e.x, the final "x" is no longer a Name,
-    # but an attr="x" of an Attribute node.
-    elif type(tree) is Name and tree.id in names and tree.id not in fargs:
-        ctx = tree.ctx if hasattr(tree, "ctx") else Load()
-        return Attribute(value=q[name[envname]], attr=tree.id, ctx=ctx)
-    return tree
+def _transform_name(tree, ournames, envname):
+    def t(tree, shadowed):
+        # e.anything is already ok, but x.foo (Attribute that contains a Name "x")
+        # should transform to e.x.foo.
+        if type(tree) is Attribute and type(tree.value) is Name and tree.value.id == envname:
+            pass
+        # nested lets work, because once x --> e.x, the final "x" is no longer a Name,
+        # but an attr="x" of an Attribute node.
+        elif type(tree) is Name and tree.id in ournames and tree.id not in shadowed:
+            hasctx = hasattr(tree, "ctx")  # macro-created nodes might not have a ctx.
+            if hasctx and type(tree.ctx) is not Load:
+                return tree
+            ctx = tree.ctx if hasctx else None  # let MacroPy fix it if needed
+            return Attribute(value=q[name[envname]], attr=tree.id, ctx=ctx)
+        return tree
+    return _scoped_walker.recurse(tree, callback=t)
 
 # ... -> lambda e: ...
 def _envwrap(tree, envname):
@@ -634,9 +700,11 @@ def bletrec(tree, args, *, gen_sym, **kw):
 def _dletimpl(tree, args, mode, kind, gen_sym):
     assert mode in ("let", "letrec")
     assert kind in ("decorate", "call")
-
+    if type(tree) not in (FunctionDef, AsyncFunctionDef):
+        assert False, "Expected a function definition to decorate"
     if not args:
         return tree
+
     names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
 
@@ -712,6 +780,8 @@ def _dletseqimpl(tree, args, kind, gen_sym):
     # assert g() == 4
     #
     assert kind in ("decorate", "call")
+    if type(tree) not in (FunctionDef, AsyncFunctionDef):
+        assert False, "Expected a function definition to decorate"
     if not args:
         return tree
 
@@ -975,7 +1045,7 @@ def forall(tree, gen_sym, **kw):
     names = []  # variables bound by this forall
     lines = []
     def transform(tree):  # as _letlike_transform but no assignment conversion
-        tree = _transform_name.recurse(tree, names=names, envname=e, fargs=[])  # x --> e.x
+        tree = _transform_name(tree, names, e)  # x --> e.x
         return _envwrap(tree, envname=e)  # ... -> lambda e: ...
     chooser = hq[choicef]
     for line in body:

@@ -284,21 +284,54 @@ def main():
         assert f(9001) is False
 
     # testing
-    x = 42
-    @dlet((x, 1))
-    def test1():
-        return x
-    assert test1() == 1
-    @dlet((x, 1))
-    def test2():
-        nonlocal x
-        return x
-    assert test2() == 42
-    @dlet((x, 1))
-    def test3():
-        global x
-        return x
-    assert test3() == "the global x"
+    with show_expanded:
+        x = "the nonlocal x"
+        @dlet((x, "the env x"))
+        def test1():
+            return x
+        assert test1() == "the env x"
+        @dlet((x, "the env x"))
+        def test2():
+            return x  # means env.x because assignment not in effect yet
+            x = "the local x"
+        assert test2() == "the env x"
+        @dlet((x, "the env x"))
+        def test3():
+            x = "the local x"
+            return x
+        assert test3() == "the local x"
+        @dlet((x, "the env x"))
+        def test4():
+            nonlocal x
+            return x
+        assert test4() == "the nonlocal x"
+        @dlet((x, "the env x"))
+        def test5():
+            global x
+            return x
+        assert test5() == "the global x"
+        @dlet((x, "the env x"))
+        def test6():
+            class Foo:
+                x = "the classattr x"
+            return x
+        assert test6() == "the env x"
+        @dlet((x, "the env x"))
+        def test7():
+            class Foo:
+                x = "the classattr x"
+                def doit(self):
+                    return self.x
+            return Foo().doit()
+        assert test7() == "the classattr x"
+        @dlet((x, "the env x"))
+        def test8():
+            class Foo:
+                x = "the classattr x"
+                def doit(self):
+                    return x  # no "self.", should grab the next lexically outer bare "x"
+            return Foo().doit()
+        assert test8() == "the env x"
 
     # multilambda: multi-expression lambdas with implicit do
     with multilambda:
