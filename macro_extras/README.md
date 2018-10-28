@@ -260,9 +260,15 @@ y = do[localdef(x << 17),
 print(y)  # --> 23
 ```
 
-Local variables are declared and initialized with ``localdef(var << value)``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``.  A ``localdef`` declaration comes into effect on the line where it appears, capturing the declared name as a local variable for the remaining lines of the ``do``.
+Local variables are declared and initialized with ``localdef(var << value)``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``.  A ``localdef`` declaration comes into effect in the expression following the one where it appears, capturing the declared name as a local variable for the remainder of the ``do``. In a ``localdef``, the RHS still sees the previous bindings, so this is valid (although maybe not readable):
 
-**CAUTION**: Currently the whole ``localdef`` is processed in one go; of course, ideally the RHS should still use the previous binding.
+```python
+result = []
+let((lst, []))[[result.append(lst),          # the let "lst"
+                localdef(lst << lst + [1]),  # LHS: do "lst", RHS: let "lst"
+                result.append(lst)]]         # the do "lst"
+assert result == [[], [1]]
+```
 
 Already declared local variables are updated with ``var << value``. Updating variables in lexically outer environments (e.g. a ``let`` surrounding a ``do``) uses the same syntax.
 

@@ -337,6 +337,18 @@ def main():
                  do[y << x,                     # still the "x" of the let
                     localdef(x << "the do x"),  # from here on, "x" refers to the "x" of the do
                     (x, y)]] == ("the do x", "the let x")
+    # don't code like this! ...but the scoping mechanism should understand it
+    result = []
+    let((lst, []))[do[result.append(lst),          # the let "lst"
+                      localdef(lst << lst + [1]),  # LHS: do "lst", RHS: let "lst"
+                      result.append(lst)]]         # the do "lst"
+    assert result == [[], [1]]
+    # same with implicit do (extra set of brackets)
+    result = []
+    let((lst, []))[[result.append(lst),
+                    localdef(lst << lst + [1]),
+                    result.append(lst)]]
+    assert result == [[], [1]]
 
     # multilambda: multi-expression lambdas with implicit do
     with multilambda:
@@ -380,13 +392,9 @@ def main():
 
     # macro wrapper for unpythonic.seq.do (stuff imperative code into a lambda)
     #  - Declare and initialize a local variable with ``localdef(var << value)``.
-    #  - Assignment is ``var << value``.
-    #    Transforms to ``begin(setattr(e, var, value), value)``,
-    #    so is valid from any level inside the ``do`` (including nested
-    #    ``let`` constructs and similar).
-    #  - Note that if a nested binding macro such as a ``let`` also binds an
-    #    ``x``, the inner macro will bind first, so the ``do`` environment
-    #    will then **not** bind ``x``, as it already belongs to the ``let``.
+    #    Is in scope from the next expression onward, for the remainder of the do.
+    #  - Assignment is ``var << value``. Valid from any level inside the ``do``
+    #    (including nested ``let`` constructs and similar).
     #  - No need for ``lambda e: ...`` wrappers. Inserted automatically,
     #    so the lines are only evaluated as the underlying seq.do() runs.
     y = do[localdef(x << 17),

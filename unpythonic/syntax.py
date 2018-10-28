@@ -435,7 +435,7 @@ def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1
     e = gen_sym("e")
     envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
 
-    t = partial(_letlike_transform, envname=e, varnames=names, setter=envset)
+    t = partial(_letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
     if mode == "letrec":
         values = [t(b) for b in values]  # RHSs of bindings
     newtree = t(newtree)  # body
@@ -444,9 +444,24 @@ def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1
     binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
     return hq[letter((ast_literal[binding_pairs],), ast_literal[newtree])]
 
-def _letlike_transform(tree, envname, varnames, setter, dowrap=True):
-    tree = _transform_envassignment(tree, varnames, setter)  # x << val --> e.set('x', val)
-    tree = _transform_name(tree, varnames, envname)  # x --> e.x  (when x appears in load context)
+def _letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
+    """Common transformations for let-like operations.
+
+    Namely::
+        x << val --> e.set('x', val)
+        x --> e.x  (when x appears in load context)
+        # ... -> lambda e: ...  (applied if dowrap=True)
+
+    lhsnames: names to recognize on the LHS of x << val as belonging to this env
+    rhsnames: names to recognize anywhere in load context as belonging to this env
+
+    These are separate mainly for ``do[]``, so that any new bindings can take
+    effect only in following exprs.
+
+    setter: function, (k, v) --> v, side effect to set e.k to v
+    """
+    tree = _transform_envassignment(tree, lhsnames, setter)  # x << val --> e.set('x', val)
+    tree = _transform_name(tree, rhsnames, envname)  # x --> e.x  (when x appears in load context)
     if dowrap:
         tree = _envwrap(tree, envname)  # ... -> lambda e: ...
     return tree
@@ -711,7 +726,7 @@ def _dletimpl(tree, args, mode, kind, gen_sym):
     e = gen_sym("e")
     envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
 
-    t1 = partial(_letlike_transform, envname=e, varnames=names, setter=envset)
+    t1 = partial(_letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
     t2 = partial(t1, dowrap=False)
     if mode == "letrec":
         values = [t1(b) for b in values]
@@ -855,17 +870,14 @@ def do(tree, gen_sym, **kw):
 
     **localdef declarations**
 
-    A ``localdef`` declaration comes into effect on the line where it appears.
-    Thus::
+    A ``localdef`` declaration comes into effect in the expression following
+    the one where it appears. Thus::
 
-        let((x, 1))[
-            do[print(x),          # "x" still refers to the "x" of the let
-               localdef(x << 3),  # from here on, "x" refers to the "x" of the do
-               x]]
-
-    **CAUTION**: Currently no distinction is made between ``x`` appearing on
-    the LHS and RHS of the assignment, of course, ideally the RHS should still
-    use the previous binding.
+        result = []
+        let((lst, []))[do[result.append(lst),          # the let "lst"
+                          localdef(lst << lst + [1]),  # LHS: do "lst", RHS: let "lst"
+                          result.append(lst)]]         # the do "lst"
+        assert result == [[], [1]]
 
     **Syntactic ambiguity**
 
@@ -994,8 +1006,11 @@ def do(tree, gen_sym, **kw):
         if newnames:
             if any(x in names for x in newnames):
                 assert False, "localdef names must be unique in the same do"
-            names = names + newnames
-        expr = _letlike_transform(expr, e, names, envset)
+        # The envassignment transform (LHS) needs also "newnames", whereas
+        # the name transform (RHS) should use the previous bindings, so that
+        # the new binding takes effect starting from the **next** doitem.
+        expr = _letlike_transform(expr, e, names + newnames, names, envset)
+        names = names + newnames
         lines.append(expr)
     return hq[dof(ast_literal[lines])]
 
