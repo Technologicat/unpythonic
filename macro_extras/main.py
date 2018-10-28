@@ -283,55 +283,60 @@ def main():
             return evenp(x)
         assert f(9001) is False
 
-    # testing
-    with show_expanded:
-        x = "the nonlocal x"
-        @dlet((x, "the env x"))
-        def test1():
-            return x
-        assert test1() == "the env x"
-        @dlet((x, "the env x"))
-        def test2():
-            return x  # means env.x because assignment not in effect yet
-            x = "the local x"
-        assert test2() == "the env x"
-        @dlet((x, "the env x"))
-        def test3():
-            x = "the local x"
-            return x
-        assert test3() == "the local x"
-        @dlet((x, "the env x"))
-        def test4():
-            nonlocal x
-            return x
-        assert test4() == "the nonlocal x"
-        @dlet((x, "the env x"))
-        def test5():
-            global x
-            return x
-        assert test5() == "the global x"
-        @dlet((x, "the env x"))
-        def test6():
-            class Foo:
-                x = "the classattr x"
-            return x
-        assert test6() == "the env x"
-        @dlet((x, "the env x"))
-        def test7():
-            class Foo:
-                x = "the classattr x"
-                def doit(self):
-                    return self.x
-            return Foo().doit()
-        assert test7() == "the classattr x"
-        @dlet((x, "the env x"))
-        def test8():
-            class Foo:
-                x = "the classattr x"
-                def doit(self):
-                    return x  # no "self.", should grab the next lexically outer bare "x"
-            return Foo().doit()
-        assert test8() == "the env x"
+    # testing lexical scoping
+    x = "the nonlocal x"
+    @dlet((x, "the env x"))
+    def test1():
+        return x
+    assert test1() == "the env x"
+    @dlet((x, "the env x"))
+    def test2():
+        return x  # means env.x because assignment not in effect yet
+        x = "the local x"
+    assert test2() == "the env x"
+    @dlet((x, "the env x"))
+    def test3():
+        x = "the local x"
+        return x
+    assert test3() == "the local x"
+    @dlet((x, "the env x"))
+    def test4():
+        nonlocal x
+        return x
+    assert test4() == "the nonlocal x"
+    @dlet((x, "the env x"))
+    def test5():
+        global x
+        return x
+    assert test5() == "the global x"
+    @dlet((x, "the env x"))
+    def test6():
+        class Foo:
+            x = "the classattr x"
+        return x
+    assert test6() == "the env x"
+    @dlet((x, "the env x"))
+    def test7():
+        class Foo:
+            x = "the classattr x"
+            def doit(self):
+                return self.x
+        return Foo().doit()
+    assert test7() == "the classattr x"
+    @dlet((x, "the env x"))
+    def test8():
+        class Foo:
+            x = "the classattr x"
+            def doit(self):
+                return x  # no "self.", should grab the next lexically outer bare "x"
+        return Foo().doit()
+    assert test8() == "the env x"
+
+    assert let((x, "the let x"),
+               (y, None))[
+                 do[y << x,                     # still the "x" of the let
+                    localdef(x << "the do x"),  # from here on, "x" refers to the "x" of the do
+                    (x, y)]] == ("the do x", "the let x")
 
     # multilambda: multi-expression lambdas with implicit do
     with multilambda:

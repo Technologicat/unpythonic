@@ -855,19 +855,17 @@ def do(tree, gen_sym, **kw):
 
     **localdef declarations**
 
-    All ``localdef`` declarations are collected (and the declaration part
-    discarded) before any other processing, so it does not matter where each
-    ``localdef`` appears inside the ``do``. Especially, in::
+    A ``localdef`` declaration comes into effect on the line where it appears.
+    Thus::
 
-        do[x << 2,
-           localdef(x << 3),  # DANGER: may break in a future version
-           x]
+        let((x, 1))[
+            do[print(x),          # "x" still refers to the "x" of the let
+               localdef(x << 3),  # from here on, "x" refers to the "x" of the do
+               x]]
 
-    already the first ``x`` refers to the local x, because ``x`` **has a**
-    ``localdef`` in this ``do``. (This is subject to change in a future version.)
-
-    For readability and future-proofness, it is recommended to place localdefs
-    at or near the start of the do-block, at the first use of each local name.
+    **CAUTION**: Currently no distinction is made between ``x`` appearing on
+    the LHS and RHS of the assignment, of course, ideally the RHS should still
+    use the previous binding.
 
     **Syntactic ambiguity**
 
@@ -963,7 +961,7 @@ def do(tree, gen_sym, **kw):
     # So we need:
     #     lambda k, expr: let((v, expr))[begin(e.__setattr__(k, v), v)]
     # ...but with gensym'd arg names to avoid spurious shadowing inside expr.
-    # TODO: cache the setter in e? Or even provide a new method that does this?
+    # TODO: cache the setter in e? Or even provide a new method in env that does this?
     sa = Attribute(value=q[name[e]], attr="__setattr__", ctx=Load())
     k = gen_sym("k")
     expr = gen_sym("expr")
@@ -977,7 +975,7 @@ def do(tree, gen_sym, **kw):
     def islocaldef(tree):
         return type(tree) is Call and type(tree.func) is Name and tree.func.id == "localdef"
     @Walker
-    def _find_localvars(tree, collect, **kw):
+    def _find_localdefs(tree, collect, **kw):
         if islocaldef(tree):
             if len(tree.args) != 1:
                 assert False, "localdef(...) must have exactly one positional argument"
@@ -987,12 +985,18 @@ def do(tree, gen_sym, **kw):
             collect(_envassign_name(expr))
             return expr  # localdef(...) -> ..., the localdef has done its job
         return tree
-    tree, names = _find_localvars.recurse_collect(tree)
-    names = list(names)
-    if len(set(names)) < len(names):
-        assert False, "localdef names must be unique in the same do"
 
-    lines = [_letlike_transform(line, e, names, envset) for line in tree.elts]
+    # a localdef starts taking effect on the line where it appears
+    names = []
+    lines = []
+    for expr in tree.elts:
+        expr, newnames = _find_localdefs.recurse_collect(expr)
+        if newnames:
+            if any(x in names for x in newnames):
+                assert False, "localdef names must be unique in the same do"
+            names = names + newnames
+        expr = _letlike_transform(expr, e, names, envset)
+        lines.append(expr)
     return hq[dof(ast_literal[lines])]
 
 @macros.expr
