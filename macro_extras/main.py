@@ -28,6 +28,8 @@ from unpythonic.syntax import macros, \
 from itertools import repeat
 from unpythonic import foldr, composerc as compose, cons, nil, ll, apply
 
+x = "the global x"
+
 def main():
     with curry:
         mymap = lambda f: foldr(compose(cons, f), nil)
@@ -280,6 +282,23 @@ def main():
         def f(x):
             return evenp(x)
         assert f(9001) is False
+
+    # testing
+    x = 42
+    @dlet((x, 1))
+    def test1():
+        return x
+    assert test1() == 1
+    @dlet((x, 1))
+    def test2():
+        nonlocal x
+        return x
+    assert test2() == 42
+    @dlet((x, 1))
+    def test3():
+        global x
+        return x
+    assert test3() == "the global x"
 
     # multilambda: multi-expression lambdas with implicit do
     with multilambda:
