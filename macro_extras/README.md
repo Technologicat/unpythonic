@@ -260,7 +260,9 @@ y = do[localdef(x << 17),
 print(y)  # --> 23
 ```
 
-Local variables are declared and initialized with ``localdef(var << value)``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``. Currently it does not matter where the ``localdef`` appears inside the ``do``; it captures the declared name as a local variable **for the whole lexical scope** of the ``do``, including any references to that name **before** the ``localdef``. (This is subject to change in a future version.) For readability and future-proofness, it is recommended to place localdefs at or near the start of the do-block, at the first use of each local name.
+Local variables are declared and initialized with ``localdef(var << value)``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``.  A ``localdef`` declaration comes into effect on the line where it appears, capturing the declared name as a local variable for the remaining lines of the ``do``.
+
+**CAUTION**: Currently the whole ``localdef`` is processed in one go; of course, ideally the RHS should still use the previous binding.
 
 Already declared local variables are updated with ``var << value``. Updating variables in lexically outer environments (e.g. a ``let`` surrounding a ``do``) uses the same syntax.
 
