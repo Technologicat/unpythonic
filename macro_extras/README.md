@@ -81,13 +81,13 @@ letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding
          print(evenp(42))]
 ```
 
-Syntax is similar to ``unpythonic.lispylet``, but no quotes around variable names in bindings, and no ``lambda e: ...`` wrappers. Bindings are referred to by bare names like in Lisps, no ``e.`` prefix. Assignment to variables in the environment is supported via the left-shift syntax ``x << 42``.
+As seen in the examples, the syntax is similar to ``unpythonic.lispylet``. Assignment to variables in the environment is supported via the left-shift syntax ``x << 42``.
 
 Note the ``[...]``; these are ``expr`` macros. The bindings are given as macro arguments as ``((name, value), ...)``, the body goes into the ``[...]``.
 
-``let`` and ``letrec`` expand into the ``unpythonic.lispylet`` constructs, implicitly inserting ``lambda e: ...``, quoting variable names in definitions, and transforming ``x`` to ``e.x`` for all ``x`` declared in the bindings. Assignment syntax ``x << 42`` transforms to ``e.set('x', 42)``. The implicit environment argument ``e`` is actually named using a gensym, so lexically outer environments automatically show through. ``letseq`` expands into a chain of nested ``let`` expressions.
+``let`` and ``letrec`` expand into the ``unpythonic.lispylet`` constructs, implicitly inserting the necessary boilerplate: the ``lambda e: ...`` wrappers, quoting variable names in definitions, and transforming ``x`` to ``e.x`` for all ``x`` declared in the bindings. Assignment syntax ``x << 42`` transforms to ``e.set('x', 42)``. The implicit environment argument ``e`` is actually named using a gensym, so lexically outer environments automatically show through. ``letseq`` expands into a chain of nested ``let`` expressions.
 
-Nesting utilizes the fact that (as of v1.1.0) MacroPy3 expands macros in an inside-out order:
+Nesting utilizes the fact that MacroPy3 (as of v1.1.0) expands macros in an inside-out order:
 
 ```python
 letrec((z, 1))[[
@@ -133,9 +133,11 @@ let((x, 1),
 
 We also provide ``simple_let`` and ``simple_letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, ``simple_letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``simple_let`` expressions, which expand to lambdas.
 
+These are however not meant to work together with the rest of ``unpythonic.syntax``; for that, use ``let``, ``letseq`` and ``letrec``.
+
 ### ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions
 
-*Added in v0.10.4.* Similarly to ``let``, ``letseq``, ``letrec``, these are sugar around the corresponding ``unpythonic.lispylet`` constructs, with the ``dletseq`` and ``bletseq`` constructs existing only as macros (since they expand to nested ``dlet`` or ``blet``, respectively).
+*Added in v0.10.4.* Similarly to ``let``, ``letseq``, ``letrec``, these are sugar around the corresponding ``unpythonic.lispylet`` constructs, with the ``dletseq`` and ``bletseq`` constructs existing only as macros (they expand to nested ``dlet`` or ``blet``, respectively).
 
 Lexical scoping is respected; each environment is internally named using a gensym. Nesting is allowed.
 
@@ -185,11 +187,63 @@ def result():
 assert result == 4
 ```
 
-**CAUTION**: formal parameters of a function definition, local variables, and any names declared as ``global`` or ``nonlocal`` in a given lexical scope shadow names from the ``let`` environment *for the entirety of that lexical scope*. This is modeled after Python's standard scoping rules.
-
 **CAUTION**: assignment to the let environment uses the syntax ``name << value``, as always with ``unpythonic`` environments. The standard Python syntax ``name = value`` creates a local variable, as usual - *shadowing any variable with the same name from the ``let``*.
 
 The write of a ``name << value`` always occurs to the lexically innermost environment (as seen from the write site) that has that ``name``. If no lexically surrounding environment has that ``name``, *then* the expression remains untransformed, and means a left-shift (if ``name`` happens to be otherwise defined).
+
+**CAUTION**: formal parameters of a function definition, local variables, and any names declared as ``global`` or ``nonlocal`` in a given lexical scope shadow names from the ``let`` environment. Mostly, this applies *to the entirety of that lexical scope*. This is modeled after Python's standard scoping rules.
+
+As an exception to the rule, for the purposes of the scope analysis performed by ``unpythonic.syntax``, creations and deletions *of lexical local variables* take effect from the next statement, and remain in effect for the **lexically** remaining part of the current scope. This allows ``x = ...`` to see the old bindings on the RHS, and to restore access to a surrounding env's ``x`` (by deleting a local ``x`` shadowing it) if desired.
+
+Note that this behaves differently from Python itself, where everything is dynamic. This is essentially because ``unpythonic.syntax`` needs to resolve references to env variables statically, at compile time.
+
+To clarify, here's a sampling from the unit tests:
+
+```python
+@dlet((x, "the env x"))
+def f():
+    return x
+assert f() == "the env x"
+
+@dlet((x, "the env x"))
+def f():
+    x = "the local x"
+    return x
+assert f() == "the local x"
+
+@dlet((x, "the env x"))
+def f():
+    return x
+    x = "the unused local x"
+assert f() == "the env x"
+
+x = "the global x"
+@dlet((x, "the env x"))
+def f():
+    global x
+    return x
+assert f() == "the global x"
+
+@dlet((x, "the env x"))
+def f():
+    x = "the local x"
+    del x           # deleting a local, ok!
+    return x
+assert f() == "the env x"
+
+try:
+    x = "the global x"
+    @dlet((x, "the env x"))
+    def f():
+        global x
+        del x       # ignored by unpythonic's scope analysis, deletion of globals is too dynamic
+        return x    # trying to refer to the deleted global x
+    f()
+except NameError:
+    pass
+else:
+    assert False, "should have tried to access the deleted global x"
+```
 
 
 ## ``cond``: the missing ``elif`` for ``a if p else b``
@@ -260,7 +314,7 @@ y = do[localdef(x << 17),
 print(y)  # --> 23
 ```
 
-Local variables are declared and initialized with ``localdef(var << value)``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``.  A ``localdef`` declaration comes into effect in the expression following the one where it appears, capturing the declared name as a local variable for the remainder of the ``do``. In a ``localdef``, the RHS still sees the previous bindings, so this is valid (although maybe not readable):
+Local variables are declared and initialized with ``localdef(var << value)``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``.  A ``localdef`` declaration comes into effect in the expression following the one where it appears, capturing the declared name as a local variable for the **lexically** remaining part of the ``do``. In a ``localdef``, the RHS still sees the previous bindings, so this is valid (although maybe not readable):
 
 ```python
 result = []
@@ -276,7 +330,7 @@ The reason we require local variables to be declared is to allow write access to
 
 Assignments are recognized anywhere inside the ``do``; but note that any ``let`` constructs nested *inside* the ``do``, that define variables of the same name, will (inside the ``let``) shadow those of the ``do`` - as expected of lexical scoping.
 
-Like in the macro ``letrec``, no ``lambda e: ...`` wrappers. These are inserted automatically, so the lines are only evaluated as the underlying ``seq.do`` actually runs.
+The necessary boilerplate (notably the ``lambda e: ...`` wrappers) is inserted automatically, so the expressions in a ``do[]`` are only evaluated when the underlying ``seq.do`` actually runs.
 
 When running, ``do`` behaves like ``letseq``; assignments **above** the current line are in effect (and have been performed in the order presented). Re-assigning to the same name later overwrites (this is afterall an imperative tool).
 
@@ -307,8 +361,6 @@ assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
 ```
 
 Assignment (with List-monadic magic) is ``var << iterable``. It transforms to ``choice(var=lambda e: iterable)``. It is only valid at the top level of the ``forall`` (e.g. not inside any possibly nested ``let``).
-
-No need for ``lambda e: ...`` wrappers; variables are referred to by bare names without the ``e.`` prefix.
 
 ``insist`` and ``deny`` are not really macros; they are just the functions from ``unpythonic.amb``, re-exported for convenience.
 
@@ -377,7 +429,7 @@ with namedlambda:
     assert hn == "f (lambda)"
 ```
 
-This is a block macro that supports both simple assignment statements of the form ``f = lambda ...: ...``, and ``<<`` expression assignments to ``unpythonic`` environments.
+This is a block macro that supports both simple assignment statements of the form ``f = lambda ...: ...``, and ``name << (lambda ...: ...)`` expression assignments to ``unpythonic`` environments.
 
 All simple assignment statements lexically within the block, that assign a single lambda to a single name, will get code injected at macro-expansion time, to set the name of the resulting function object to the name the lambda is being assigned to.
 
@@ -611,7 +663,7 @@ Currently only one update specification is supported in a single ``fup[]``.
 
 The notation follows the ``unpythonic.syntax`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched.
 
-The transformation is ``fup[seq[idx] << value] --> fupdate(seq, idx, value)`` for a single index, and ``fup[seq[slicestx] << iterable] --> fupdate(seq, slice(...), iterable)`` for a slice. The main point of this macro is that slices are specified in the native slicing syntax (instead of by manually calling ``slice``, like when directly using the underlying ``fupdate`` function).
+The transformation is ``fup[seq[idx] << value] --> fupdate(seq, idx, value)`` for a single index, and ``fup[seq[slicestx] << iterable] --> fupdate(seq, slice(...), iterable)`` for a slice. The main point of this macro is that slices are specified in the native slicing syntax. (Contrast the direct use of the underlying ``fupdate`` function, which requires manually calling ``slice``.)
 
 
 ## ``prefix``: prefix function call syntax for Python
@@ -681,6 +733,8 @@ with prefix, curry:  # important: apply prefix first, then curry
     (print, (mymap, double, (q, 1, 2, 3)))
     assert (mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)
 ```
+
+**CAUTION**: The ``prefix`` macro is experimental and not intended for use in production code.
 
 
 ## Comboability
