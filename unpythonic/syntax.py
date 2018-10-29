@@ -22,7 +22,7 @@ from ast import Call, arg, keyword, With, withitem, Tuple, \
                 copy_location, Assign, FunctionDef, ClassDef, \
                 ListComp, SetComp, GeneratorExp, DictComp, \
                 arguments, If, Num, Return, Expr, IfExp, BoolOp, And, Or, Try, \
-                Global, Nonlocal, Store
+                Global, Nonlocal, Store, Del
 
 try:  # Python 3.5+
     from ast import AsyncFunctionDef, AsyncWith
@@ -455,8 +455,8 @@ def _letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
     lhsnames: names to recognize on the LHS of x << val as belonging to this env
     rhsnames: names to recognize anywhere in load context as belonging to this env
 
-    These are separate mainly for ``do[]``, so that any new bindings can take
-    effect only in following exprs.
+    These are separate mainly for ``do[]``, so that we can have new bindings
+    take effect only in following exprs.
 
     setter: function, (k, v) --> v, side effect to set e.k to v
     """
@@ -505,10 +505,16 @@ def _scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_c
         for stmt in tree.body:
             _scoped_walker.recurse(stmt, localvars=localvars, args=args, nonlocals=nonlocals, callback=callback)
             # new local variables come into scope at the next statement (not yet on the RHS of the assignment).
-            newlocalvars = _get_names_in_store_context.collect(stmt)
+            newlocalvars = uniqify(_get_names_in_store_context.collect(stmt))
             newlocalvars = [x for x in newlocalvars if x not in nonlocals]
             if newlocalvars:
                 localvars = localvars + newlocalvars
+            # deletions of local vars also take effect from the next statement
+            deletedlocalvars = uniqify(_get_names_in_del_context.collect(stmt))
+            # ignore deletion of nonlocals (too dynamic for a static analysis to make sense)
+            deletedlocalvars = [x for x in deletedlocalvars if x not in nonlocals]
+            if deletedlocalvars:
+                localvars = [x for x in localvars if x not in deletedlocalvars]
         return tree
     shadowed = args + localvars + nonlocals
     return callback(tree, shadowed)
@@ -594,31 +600,54 @@ def _getshadowers(tree):
 def _get_names_in_store_context(tree, *, stop, collect, **kw):
     """In a tree representing a statement, get names in store context.
 
+    Additionally, get the name of any ``FunctionDef``, ``AsyncFunctionDef``
+    and ``ClassDef``, as these also introduce new names into the scope
+    where they appear.
+
+    Duplicates may be returned; use ``set(...)`` or ``list(uniqify(...))``
+    on the output to remove them.
+
     This stops at the boundary of any nested scopes.
 
     To find out new local vars, exclude any names in ``nonlocals`` as returned
     by ``_getshadowers``.
     """
+    if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
+        collect(tree.name)
     if _isnewscope(tree):
         stop()
-    # macro-created nodes might not have a ctx.
+    # macro-created nodes might not have a ctx, but our macros don't create lexical assignments.
     if type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Store:
         collect(tree.id)
     return tree
 
+@Walker
+def _get_names_in_del_context(tree, *, stop, collect, **kw):
+    """In a tree representing a statement, get names in del context."""
+    if _isnewscope(tree):
+        stop()
+    # We want to detect things like "del x":
+    #     Delete(targets=[Name(id='x', ctx=Del()),])
+    # We don't currently care about "del myobj.x" or "del mydict['x']":
+    #     Delete(targets=[Attribute(value=Name(id='myobj', ctx=Load()), attr='x', ctx=Del()),])
+    #     Delete(targets=[Subscript(value=Name(id='mydict', ctx=Load()), slice=Index(value=Str(s='x')), ctx=Del()),])
+    elif type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Del:
+        collect(tree.id)
+    return tree
+
 # x << val --> e.set('x', val)  (for names bound in this environment)
-def _transform_envassignment(tree, ournames, envset):
+def _transform_envassignment(tree, lhsnames, envset):
     def t(tree, shadowed):
         if _isenvassign(tree):
             varname = _envassign_name(tree)
-            if varname in ournames and varname not in shadowed:
+            if varname in lhsnames and varname not in shadowed:
                 value = _envassign_value(tree)
                 return q[ast_literal[envset](u[varname], ast_literal[value])]
         return tree
     return _scoped_walker.recurse(tree, callback=t)
 
-# x --> e.x  (for names bound in this environment)
-def _transform_name(tree, ournames, envname):
+# x --> e.x  (in load context; for names bound in this environment)
+def _transform_name(tree, rhsnames, envname):
     def t(tree, shadowed):
         # e.anything is already ok, but x.foo (Attribute that contains a Name "x")
         # should transform to e.x.foo.
@@ -626,7 +655,7 @@ def _transform_name(tree, ournames, envname):
             pass
         # nested lets work, because once x --> e.x, the final "x" is no longer a Name,
         # but an attr="x" of an Attribute node.
-        elif type(tree) is Name and tree.id in ournames and tree.id not in shadowed:
+        elif type(tree) is Name and tree.id in rhsnames and tree.id not in shadowed:
             hasctx = hasattr(tree, "ctx")  # macro-created nodes might not have a ctx.
             if hasctx and type(tree.ctx) is not Load:
                 return tree

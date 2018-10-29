@@ -291,8 +291,8 @@ def main():
     assert test1() == "the env x"
     @dlet((x, "the env x"))
     def test2():
-        return x  # means env.x because assignment not in effect yet
-        x = "the local x"
+        return x  # local var assignment not in effect yet
+        x = "the unused local x"
     assert test2() == "the env x"
     @dlet((x, "the env x"))
     def test3():
@@ -331,6 +331,73 @@ def main():
                 return x  # no "self.", should grab the next lexically outer bare "x"
         return Foo().doit()
     assert test8() == "the env x"
+    # CAUTION: "del" is inherently a dynamic operation.
+    #
+    # Especially in "nonlocal x; del x" and "global x; del x", there is no
+    # **lexical** section of code where the global/nonlocal x exists and
+    # where it does not; the result depends on **when** those statements
+    # are executed.
+    #
+    # For a local "del x", the situation is slightly simpler because inside one
+    # scope, code runs top-down, statement by statement (or left-to-right,
+    # expression by expression), but still there is the possibility of loops;
+    # and in a "while", the loop condition is dynamic.
+    #
+    # For symmetry with how we treat assignments, we support "lexical deletion"
+    # of local names: "del x" deletes x **for the lexically remaining part**
+    # of the scope it appears in, and only if x has not been declared nonlocal
+    # or global. "nonlocal x; del x" and "global x; del x" are ignored, by design.
+    #
+    # This is different from how Python itself behaves, but Python itself
+    # doesn't have to resolve references statically at compile-time. ;)
+    #
+    # (What we do is actually pretty similar to what you get from symtable.symtable()
+    # in the standard library, but we also perform some expression-by-expression
+    # analysis to make it possible to refer to the old bindings on the RHS of
+    # "name << value", as well as to support local deletion.)
+    @dlet((x, "the env x"))
+    def test9():
+        x = x + " (copied to local)"  # the local x = the env x
+        return x  # the local x
+    assert test9() == "the env x (copied to local)"
+    @dlet((x, "the env x"))
+    def test10():
+        x = "the local x"
+        del x     # comes into effect for the next statement
+        return x  # so this is env's x
+    assert test10() == "the env x"
+    @dlet((x, "the env x"))
+    def test11():
+        x = "the local x"
+        return x
+        del x
+    assert test11() == "the local x"
+    @dlet((x, "the env x"))
+    def test12():
+        x = "the local x"
+        del x
+        x = "the other local x"
+        return x
+    assert test12() == "the other local x"
+    @dlet((x, "the env x"))
+    def test13():
+        x = "the local x"
+        del x
+        return x
+        x = "the unused local x"
+    assert test13() == "the env x"
+    try:
+        x = "the nonlocal x"
+        @dlet((x, "the env x"))
+        def test14():
+            nonlocal x
+            del x       # ignored by unpythonic's scope analysis, too dynamic
+            return x    # trying to refer to the nonlocal x, which was deleted
+        test14()
+    except NameError:
+        pass
+    else:
+        assert False, "should have tried to access the deleted nonlocal x"
 
     assert let((x, "the let x"),
                (y, None))[
