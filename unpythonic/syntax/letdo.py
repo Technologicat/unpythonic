@@ -26,7 +26,7 @@ from macropy.core.walkers import Walker
 from unpythonic.lispylet import let as letf, letrec as letrecf, _dlet as dletf, _blet as bletf
 from unpythonic.seq import begin as beginf, do as dof
 
-from unpythonic.syntax.util import isx, fixsrcloc
+from unpythonic.syntax.util import isx
 from unpythonic.syntax.scoping import scoped_walker
 
 def islet(tree):
@@ -49,7 +49,6 @@ def letrec(bindings, body, gen_sym):
 def _letimpl(bindings, body, gen_sym, mode):
     """bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)"""
     assert mode in ("let", "letrec")
-    origbody = body
 
     body = implicit_do(body, gen_sym)
     if not bindings:
@@ -68,7 +67,7 @@ def _letimpl(bindings, body, gen_sym, mode):
     letter = letf if mode == "let" else letrecf
     bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
     newtree = hq[letter((ast_literal[bindings],), ast_literal[body])]
-    return fixsrcloc(newtree, origbody)
+    return newtree
 
 def letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
     """Common transformations for let-like operations.
@@ -166,7 +165,6 @@ def _dletimpl(bindings, fdef, gen_sym, mode, kind):
         assert False, "Expected a function definition to decorate"
     if not bindings:
         return fdef
-    origfdef = fdef
 
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
@@ -185,7 +183,7 @@ def _dletimpl(bindings, fdef, gen_sym, mode, kind):
     fdef.decorator_list = fdef.decorator_list + [hq[letter((ast_literal[bindings],), mode=u[mode], _envname=u[e])]]
     fdef.args.kwonlyargs = fdef.args.kwonlyargs + [arg(arg=e)]
     fdef.args.kw_defaults = fdef.args.kw_defaults + [None]
-    return fixsrcloc(fdef, origfdef)
+    return fdef
 
 def _dletseqimpl(bindings, fdef, gen_sym, kind):
     # What we want:
@@ -215,7 +213,6 @@ def _dletseqimpl(bindings, fdef, gen_sym, kind):
         assert False, "Expected a function definition to decorate"
     if not bindings:
         return fdef
-    origfdef = fdef
 
     userargs = fdef.args  # original arguments to the def
     fname = fdef.name
@@ -237,7 +234,7 @@ def _dletseqimpl(bindings, fdef, gen_sym, kind):
         # copy the env arg
         innerdef.args.kwonlyargs += tmpargs.kwonlyargs
         innerdef.args.kw_defaults += tmpargs.kw_defaults
-        return fixsrcloc(innerdef, origfdef)
+        return innerdef
 
     # If kind=="decorate", the outer function needs to call the inner one
     # after defining it.
@@ -248,7 +245,6 @@ def _dletseqimpl(bindings, fdef, gen_sym, kind):
                         body=[innerdef, ret],
                         decorator_list=[],
                         returns=None)  # no return type annotation
-    outer = fixsrcloc(outer, origfdef)
     return _dletseqimpl(rest, outer, gen_sym, kind)
 
 # -----------------------------------------------------------------------------
@@ -279,10 +275,6 @@ def do(tree, gen_sym):
     letbody = hq[beginf(ast_literal[sa](name[k], name["v"]), name["v"])]
     letbody = copy_location(letbody, tree)
     envset.body = let([q[(name["v"], name[expr])]], letbody, gen_sym)
-#    from macropy.core.cleanup import fill_line_numbers
-#    envset = fill_line_numbers(envset, tree.lineno, tree.col_offset)
-    from ast import fix_missing_locations
-    envset = fix_missing_locations(envset)
 
     def islocaldef(tree):
         return type(tree) is Call and type(tree.func) is Name and tree.func.id == "localdef"
@@ -312,7 +304,7 @@ def do(tree, gen_sym):
         expr = letlike_transform(expr, e, names + newnames, names, envset)
         names = names + newnames
         lines.append(expr)
-    return fixsrcloc(hq[dof(ast_literal[lines])], tree)
+    return hq[dof(ast_literal[lines])]
 
 def do0(tree, gen_sym):
     if type(tree) not in (Tuple, List):

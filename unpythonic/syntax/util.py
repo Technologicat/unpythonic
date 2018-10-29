@@ -9,9 +9,6 @@ from unpythonic.syntax.astcompat import AsyncFunctionDef
 from macropy.core import Captured
 from macropy.core.walkers import Walker
 
-def fixsrcloc(newtree, tree):
-    return fix_missing_locations(copy_location(newtree, tree))
-
 def isx(tree, x, allow_attr=True):
     """Check if tree is a reference to an object by the name ``x`` (str).
 

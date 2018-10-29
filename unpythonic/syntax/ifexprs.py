@@ -7,7 +7,6 @@ from macropy.core.quotes import macros, q, ast_literal
 from macropy.core.hquotes import macros, hq
 
 from unpythonic.syntax.letdo import implicit_do, let
-from unpythonic.syntax.util import fixsrcloc
 
 # TODO: currently no "syntax-parameterize" in MacroPy. Would be convenient to
 # create a macro that expands to an error by default, and then override it
@@ -28,7 +27,7 @@ def aif(tree, gen_sym):
     test, then, otherwise = [implicit_do(x, gen_sym) for x in tree.elts]
     bindings = [q[(it, ast_literal[test])]]
     body = q[ast_literal[then] if it else ast_literal[otherwise]]
-    return fixsrcloc(let(bindings, body, gen_sym), tree)
+    return let(bindings, body, gen_sym)
 
 def cond(tree, gen_sym):
     if type(tree) is not Tuple:
@@ -42,4 +41,4 @@ def cond(tree, gen_sym):
         test = implicit_do(test, gen_sym)
         then = implicit_do(then, gen_sym)
         return hq[ast_literal[then] if ast_literal[test] else ast_literal[build(more)]]
-    return fixsrcloc(build(tree.elts), tree)
+    return build(tree.elts)
