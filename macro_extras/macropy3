@@ -23,7 +23,12 @@ def main():
                         help='Specify the entrypoint in the module. If not given, main() and test() are tried, in that order.' )
     parser.add_argument('-s', '--script', dest='script', action="store_true", default=False,
                         help='Run module in script mode (no entrypoint, code for main program directly at top level). Overrides -e.')
+    parser.add_argument('-d', '--debug', dest='debug', action="store_true", default=False,
+                        help='Enable MacroPy logging.')
     opts = parser.parse_args()
+
+    if opts.debug:
+        import macropy.logging
 
     entrypoints = (opts.entrypoint,) if opts.entrypoint else ("main", "test")
     mod = importlib.import_module(opts.module)  # macros are expanded at import time.
