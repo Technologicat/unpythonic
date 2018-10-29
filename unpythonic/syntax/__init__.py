@@ -1,145 +1,52 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """unpythonic.syntax: Toto, I've a feeling we're not in Python anymore.
 
 Requires MacroPy (package ``macropy3`` on PyPI).
 """
 
-# TODO:  All macros are defined in this module, because MacroPy (as of 1.1.0b2)
-# does not have a mechanism for re-exporting macros defined in another module.
+# This module contains the macro interface and docstrings; the submodules
+# contain the actual syntax transformers (regular functions that process ASTs)
+# that implement the macros.
+
+from unpythonic.syntax.util import isx, isec, detect_callec
+
+from unpythonic.syntax.curry import curry as _curry
+# insist, deny are just for passing through to the using module that imports us.
+from unpythonic.syntax.forall import forall as _forall, insist, deny
+from unpythonic.syntax.ifexprs import aif as _aif, it, cond as _cond
+from unpythonic.syntax.letdo import do as _do, do0 as _do0, \
+                                    let as _let, letseq as _letseq, letrec as _letrec, \
+                                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
+                                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec, \
+                                    isdo, islet
 
 from macropy.core.macros import Macros, macro_stub
 from macropy.core.walkers import Walker
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
-from macropy.core import Captured
 #from macropy.core.cleanup import fill_line_numbers
 
 from functools import partial
 from ast import Call, arg, keyword, With, withitem, Tuple, \
-                Name, Attribute, Load, BinOp, LShift, \
+                Name, Load, BinOp, LShift, \
                 Subscript, Index, Slice, ExtSlice, Lambda, List, \
-                copy_location, Assign, FunctionDef, ClassDef, \
-                ListComp, SetComp, GeneratorExp, DictComp, \
-                arguments, If, Num, Return, Expr, IfExp, BoolOp, And, Or, Try, \
-                Global, Nonlocal, Store, Del
-
-try:  # Python 3.5+
-    from ast import AsyncFunctionDef, AsyncWith
-except ImportError:
-    NoSuchNodeType = object()
-    AsyncFunctionDef = AsyncWith = NoSuchNodeType
+                copy_location, Assign, FunctionDef, \
+                arguments, If, Num, Return, Expr, IfExp, BoolOp, And, Or, Try
+from unpythonic.syntax.astcompat import AsyncFunctionDef, AsyncWith
 
 from unpythonic.it import flatmap, uniqify, rev
-from unpythonic.fun import curry as curryf, _currycall as currycall, identity
+from unpythonic.fun import identity
 from unpythonic.dynscope import dyn
-from unpythonic.lispylet import letrec as letrecf, let as letf, \
-                                _dlet as dletf, _blet as bletf
-from unpythonic.seq import do as dof, begin as beginf
 from unpythonic.fup import fupdate
 from unpythonic.misc import namelambda
 from unpythonic.tco import trampolined, jump
-
-# insist, deny are just for passing through to the using module that imports us.
-from unpythonic.amb import forall as forallf, choice as choicef, insist, deny
-from unpythonic.amb import List as MList  # list monad
 
 macros = Macros()
 
 # -----------------------------------------------------------------------------
 
-def _implicit_do(tree):
-    """Allow a sequence of expressions in expression position.
-
-    To represent a sequence of expressions, use brackets::
-
-        [expr0, ...]
-
-    To represent a single literal list where this is active, use an extra set
-    of brackets::
-
-        [[1, 2, 3]]
-
-    The outer brackets enable multiple-expression mode, and the inner brackets
-    are then interpreted as a list.
-    """
-    return do.transform(tree) if type(tree) is List else tree
-
-def _isec(tree, known_ecs):
-    """Check if tree is a call to a function known to be an escape continuation.
-
-    known_ec: list of str, names of known escape continuations.
-
-    Only bare-name references are supported.
-    """
-    return type(tree) is Call and type(tree.func) is Name and tree.func.id in known_ecs
-
-def _isx(tree, x, allow_attr=True):
-    """Check if tree is a reference to an object by the name ``x`` (str).
-
-    ``x`` is recognized both as a bare name and as an attribute, to support
-    both from-imports and regular imports of ``somemodule.x``.
-
-    Additionally, we detect ``x`` inside ``Captured`` nodes, which may be
-    inserted during macro expansion.
-
-    allow_attr: can be set to ``False`` to disregard ``Attribute`` nodes.
-    """
-    # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? When are these removed?
-    # Captured nodes only come from here, and here we use bare names;
-    # but explicit references may use either bare names or somemodule.f.
-    return (type(tree) is Name and tree.id == x) or \
-           (type(tree) is Captured and tree.name == x) or \
-           (allow_attr and type(tree) is Attribute and tree.attr == x)
-
-@Walker
-def _detect_callec(tree, *, collect, **kw):
-    """Collect names of escape continuations from call_ec invocations in tree.
-
-    Currently supported and unsupported cases::
-
-        # use as decorator, supported
-        @call_ec
-        def result(ec):  # <-- we grab name "ec" from here
-            ...
-
-        # use directly on a literal lambda, supported
-        result = call_ec(lambda ec: ...)  # <-- we grab name "ec" from here
-
-        # use as a function, **NOT supported**
-        def g(ec):           # <-- should grab from here
-            ...
-        ...
-        result = call_ec(g)  # <-- but this is here; g could be in another module
-    """
-    iscallec = partial(_isx, x="call_ec")
-    # TODO: add support for general use of call_ec as a function (difficult)
-    if type(tree) in (FunctionDef, AsyncFunctionDef) and any(iscallec(deco) for deco in tree.decorator_list):
-        fdef = tree
-        collect(fdef.args.args[0].arg)  # FunctionDef.arguments.(list of arg objects).arg
-    # TODO: decorated lambdas with other decorators in between
-    elif type(tree) is Call and iscallec(tree.func) and type(tree.args[0]) is Lambda:
-        lam = tree.args[0]
-        collect(lam.args.args[0].arg)
-    return tree
-
-# TODO: currently no "syntax-parameterize" in MacroPy. Would be convenient to
-# create a macro that expands to an error by default, and then override it
-# inside an aif.
-#
-# We could just leave "it" undefined by default, but IDEs are happier if the
-# name exists, and this also gives us a chance to provide a docstring.
-class it:
-    """[syntax] The result of the test in an aif.
-
-    Only meaningful inside the ``then`` and ``otherwise`` branches of an aif.
-    """
-    def __repr__(self):  # in case one of these ends up somewhere at runtime
-        return "<aif it>"
-it = it()
-
 @macros.expr
-def aif(tree, **kw):
+def aif(tree, *, gen_sym, **kw):
     """[syntax, expr] Anaphoric if.
 
     Usage::
@@ -159,16 +66,10 @@ def aif(tree, **kw):
     To represent a single expression that is a literal list, use extra
     brackets: ``[[1, 2, 3]]``.
     """
-    test, then, otherwise = [_implicit_do(x) for x in tree.elts]
-    body = q[ast_literal[then] if it else ast_literal[otherwise]]
-    body = copy_location(body, tree)
-    bindings = [q[(it, ast_literal[test])]]
-    return let.transform(body, *bindings)
-
-# -----------------------------------------------------------------------------
+    return _aif(tree, gen_sym)
 
 @macros.expr
-def cond(tree, **kw):
+def cond(tree, *, gen_sym, **kw):
     """[syntax, expr] Lispy cond; like "a if p else b", but has "elif".
 
     Usage::
@@ -189,18 +90,7 @@ def cond(tree, **kw):
     To represent a single expression that is a literal list, use extra
     brackets: ``[[1, 2, 3]]``.
     """
-    if type(tree) is not Tuple:
-        assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"
-    def build(elts):
-        if len(elts) == 1:  # final "otherwise" branch
-            return _implicit_do(elts[0])
-        if not elts:
-            assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"
-        test, then, *more = elts
-        test = _implicit_do(test)
-        then = _implicit_do(then)
-        return hq[ast_literal[then] if ast_literal[test] else ast_literal[build(more)]]
-    return build(tree.elts)
+    return _cond(tree, gen_sym)
 
 # -----------------------------------------------------------------------------
 
@@ -254,29 +144,7 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
         #  we are now outside the dynamic extent of the ``with curry`` block.)
         assert add3(1)(2)(3) == 6
     """
-    @Walker
-    def transform_call(tree, *, stop, **kw):  # technically a node containing the current subtree
-        if type(tree) is Call:
-            tree.args = [tree.func] + tree.args
-            tree.func = hq[currycall]
-        elif type(tree) in (FunctionDef, AsyncFunctionDef):
-            # @curry must run before @trampolined, so put it on the inside
-            tree.decorator_list = tree.decorator_list + [hq[curryf]]
-        elif type(tree) is Lambda:
-            # This inserts curry() as the innermost "decorator", and the curry
-            # macro is meant to run last (after e.g. tco), so we're fine.
-            tree = hq[curryf(ast_literal[tree])]
-            # don't recurse on the lambda we just moved, but recurse inside it.
-            stop()
-            tree.args[0].body = transform_call.recurse(tree.args[0].body)
-        return tree
-    body = transform_call.recurse(tree)
-    # Wrap the body in "with dyn.let(_curry_allow_uninspectable=True):"
-    # to avoid crash with uninspectable builtins
-    item = hq[dyn.let(_curry_allow_uninspectable=True)]
-    wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
-                   body=body)
-    return [wrapped]  # block macro: got a list, must return a list.
+    return _curry(body=tree)
 
 # -----------------------------------------------------------------------------
 
@@ -336,14 +204,8 @@ def simple_letseq(tree, args, **kw):
 
 # -----------------------------------------------------------------------------
 
-# Sugar around unpythonic.lispylet. We take this approach because letrec
-# needs assignment (must create placeholder bindings, then update them
-# with the real value)... but in Python, assignment is a statement.
-#
-# As a bonus, we get assignment for let and letseq, too.
-#
 @macros.expr
-def let(tree, args, gen_sym, **kw):
+def let(tree, args, *, gen_sym, **kw):
     """[syntax, expr] Introduce local bindings.
 
     This is sugar on top of ``unpythonic.lispylet.let``.
@@ -388,10 +250,10 @@ def let(tree, args, gen_sym, **kw):
         - In the case of a multiple-expression body, the ``do`` transformation
           is applied first to ``[body0, ...]``, and the result becomes ``body``.
     """
-    return _letimpl(tree, args, "let", gen_sym)
+    return _let(bindings=args, body=tree, gen_sym=gen_sym)
 
 @macros.expr
-def letseq(tree, args, **kw):
+def letseq(tree, args, *, gen_sym, **kw):
     """[syntax, expr] Let with sequential binding (like Scheme/Racket let*).
 
     Like ``let``, but bindings take effect sequentially. Later bindings
@@ -399,13 +261,10 @@ def letseq(tree, args, **kw):
 
     Expands to nested ``let`` expressions.
     """
-    if not args:
-        return tree
-    first, *rest = args
-    return let.transform(letseq.transform(tree, *rest), first)
+    return _letseq(bindings=args, body=tree, gen_sym=gen_sym)
 
 @macros.expr
-def letrec(tree, args, gen_sym, **kw):
+def letrec(tree, args, *, gen_sym, **kw):
     """[syntax, expr] Let with mutually recursive binding.
 
     Like ``let``, but bindings can see other bindings in the same ``letrec``.
@@ -418,261 +277,9 @@ def letrec(tree, args, gen_sym, **kw):
 
     This is useful for locally defining mutually recursive functions.
     """
-    return _letimpl(tree, args, "letrec", gen_sym)
-
-def _islet(tree):
-    return type(tree) is Call and _isx(tree.func, "letter", allow_attr=False)
-
-def _letimpl(tree, args, mode, gen_sym):  # args; sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
-    assert mode in ("let", "letrec")
-
-    newtree = _implicit_do(tree)
-    if not args:
-        return newtree
-    names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
-    names = [k.id for k in names]  # any duplicates will be caught by env at run-time
-
-    e = gen_sym("e")
-    envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
-
-    t = partial(_letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
-    if mode == "letrec":
-        values = [t(b) for b in values]  # RHSs of bindings
-    newtree = t(newtree)  # body
-
-    letter = letf if mode == "let" else letrecf
-    binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
-    return hq[letter((ast_literal[binding_pairs],), ast_literal[newtree])]
-
-def _letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
-    """Common transformations for let-like operations.
-
-    Namely::
-        x << val --> e.set('x', val)
-        x --> e.x  (when x appears in load context)
-        # ... -> lambda e: ...  (applied if dowrap=True)
-
-    lhsnames: names to recognize on the LHS of x << val as belonging to this env
-    rhsnames: names to recognize anywhere in load context as belonging to this env
-
-    These are separate mainly for ``do[]``, so that we can have new bindings
-    take effect only in following exprs.
-
-    setter: function, (k, v) --> v, side effect to set e.k to v
-    """
-    tree = _transform_envassignment(tree, lhsnames, setter)  # x << val --> e.set('x', val)
-    tree = _transform_name(tree, rhsnames, envname)  # x --> e.x  (when x appears in load context)
-    if dowrap:
-        tree = _envwrap(tree, envname)  # ... -> lambda e: ...
-    return tree
-
-def _isenvassign(tree):  # detect "x << 42" syntax to assign variables in an environment
-    return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
-def _envassign_name(tree):  # rackety accessors
-    return tree.left.id
-def _envassign_value(tree):
-    return tree.right
-
-def _isnewscope(tree):
-    """Return whether tree introduces a new lexical scope.
-
-    (According to Python's standard scoping rules.)
-    """
-    return type(tree) in (Lambda, FunctionDef, AsyncFunctionDef, ClassDef, ListComp, SetComp, GeneratorExp, DictComp)
-
-@Walker
-def _scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ctx, stop, **kw):
-    """Walk and process a tree, keeping track of which names are shadowed.
-
-    Names in an unpythonic env can be shadowed by e.g. real lexical variables,
-    formal parameters of function definitions, or names declared ``nonlocal``
-    or ``global``. See ``_getshadowers``.
-
-    callback: function, (tree, shadowed_names) --> tree
-    """
-    # TODO: think about proper handling of ClassDef
-    if type(tree) in (Lambda, ListComp, SetComp, GeneratorExp, DictComp, ClassDef):
-        moreargs, _ = _getshadowers(tree)
-        set_ctx(args=(args + moreargs))
-    elif type(tree) in (FunctionDef, AsyncFunctionDef):
-        stop()
-        moreargs, newnonlocals = _getshadowers(tree)
-        args = args + moreargs
-        for expr in (tree.args, tree.decorator_list):
-            _scoped_walker.recurse(expr, localvars=localvars, args=args, nonlocals=nonlocals, callback=callback)
-        nonlocals = newnonlocals
-        localvars = []
-        for stmt in tree.body:
-            _scoped_walker.recurse(stmt, localvars=localvars, args=args, nonlocals=nonlocals, callback=callback)
-            # new local variables come into scope at the next statement (not yet on the RHS of the assignment).
-            newlocalvars = uniqify(_get_names_in_store_context.collect(stmt))
-            newlocalvars = [x for x in newlocalvars if x not in nonlocals]
-            if newlocalvars:
-                localvars = localvars + newlocalvars
-            # deletions of local vars also take effect from the next statement
-            deletedlocalvars = uniqify(_get_names_in_del_context.collect(stmt))
-            # ignore deletion of nonlocals (too dynamic for a static analysis to make sense)
-            deletedlocalvars = [x for x in deletedlocalvars if x not in nonlocals]
-            if deletedlocalvars:
-                localvars = [x for x in localvars if x not in deletedlocalvars]
-        return tree
-    shadowed = args + localvars + nonlocals
-    return callback(tree, shadowed)
-
-def _getshadowers(tree):
-    """In a tree representing a lexical scope, get names that shadow names in unpythonic envs.
-
-    An AST node represents a scope if ``_isnewscope(tree)`` returns ``True``.
-
-    This collects:
-
-        - formal parameter names of ``Lambda``, ``FunctionDef``, ``AsyncFunctionDef``
-
-            - plus function name of ``FunctionDef``, ``AsyncFunctionDef``
-
-            - any names declared ``nonlocal`` or ``global`` in a ``FunctionDef``
-              or ``AsyncFunctionDef``
-
-        - names of comprehension targets in ``ListComp``, ``SetComp``,
-          ``GeneratorExp``, ``DictComp``
-
-        - class name and base class names of ``ClassDef``
-
-            - **CAUTION**: base class scan only supports bare ``Name`` nodes
-
-    Return value is (``args``, ``nonlocals``), where each component is a ``list``
-    of ``str``. The list ``nonlocals`` contains names declared ``nonlocal`` or
-    ``global`` in (precisely) this scope; the list ``args`` contains everything
-    else.
-    """
-    if type(tree) in (Lambda, FunctionDef, AsyncFunctionDef):
-        a = tree.args
-        argnames = [x.arg for x in a.args + a.kwonlyargs]
-        if a.vararg:
-            argnames.append(a.vararg.arg)
-        if a.kwarg:
-            argnames.append(a.kwarg.arg)
-
-        fname = []
-        nonlocals = []
-        if type(tree) in (FunctionDef, AsyncFunctionDef):
-            fname = [tree.name]
-            @Walker
-            def getnonlocals(tree, *, stop, collect, **kw):
-                if _isnewscope(tree):
-                    stop()
-                if type(tree) in (Global, Nonlocal):
-                    for x in tree.names:
-                        collect(x)
-                return tree
-            nonlocals = getnonlocals.collect(tree.body)
-
-        return list(uniqify(fname + argnames)), list(uniqify(nonlocals))
-
-    # TODO: think about proper handling of ClassDef
-    elif type(tree) is ClassDef:
-        cname = [tree.name]
-        bases = [b.id for b in tree.bases if type(b) is Name]
-        # these are referred to via self.foo, so they don't shadow bare names.
-#        classattrs = _get_names_in_store_context.collect(tree.body)
-#        methods = [f.name for f in tree.body if type(f) is FunctionDef]
-        return list(uniqify(cname + bases)), []
-
-    elif type(tree) in (ListComp, SetComp, GeneratorExp, DictComp):
-        targetnames = []
-        for g in tree.generators:
-            if type(g.target) is Name:
-                targetnames.append(g.target.id)
-            elif type(g.target) is Tuple:
-                @Walker
-                def extractnames(tree, *, collect, **kw):
-                    if type(tree) is Name:
-                        collect(tree.id)
-                    return tree
-                targetnames.extend(extractnames.collect(g.target))
-            else:
-                assert False, "unimplemented: comprehension target of type {}".type(g.target)
-
-        return list(uniqify(targetnames)), []
-
-    return [], []
-
-@Walker
-def _get_names_in_store_context(tree, *, stop, collect, **kw):
-    """In a tree representing a statement, get names in store context.
-
-    Additionally, get the name of any ``FunctionDef``, ``AsyncFunctionDef``
-    and ``ClassDef``, as these also introduce new names into the scope
-    where they appear.
-
-    Duplicates may be returned; use ``set(...)`` or ``list(uniqify(...))``
-    on the output to remove them.
-
-    This stops at the boundary of any nested scopes.
-
-    To find out new local vars, exclude any names in ``nonlocals`` as returned
-    by ``_getshadowers``.
-    """
-    if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
-        collect(tree.name)
-    if _isnewscope(tree):
-        stop()
-    # macro-created nodes might not have a ctx, but our macros don't create lexical assignments.
-    if type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Store:
-        collect(tree.id)
-    return tree
-
-@Walker
-def _get_names_in_del_context(tree, *, stop, collect, **kw):
-    """In a tree representing a statement, get names in del context."""
-    if _isnewscope(tree):
-        stop()
-    # We want to detect things like "del x":
-    #     Delete(targets=[Name(id='x', ctx=Del()),])
-    # We don't currently care about "del myobj.x" or "del mydict['x']":
-    #     Delete(targets=[Attribute(value=Name(id='myobj', ctx=Load()), attr='x', ctx=Del()),])
-    #     Delete(targets=[Subscript(value=Name(id='mydict', ctx=Load()), slice=Index(value=Str(s='x')), ctx=Del()),])
-    elif type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Del:
-        collect(tree.id)
-    return tree
-
-# x << val --> e.set('x', val)  (for names bound in this environment)
-def _transform_envassignment(tree, lhsnames, envset):
-    def t(tree, shadowed):
-        if _isenvassign(tree):
-            varname = _envassign_name(tree)
-            if varname in lhsnames and varname not in shadowed:
-                value = _envassign_value(tree)
-                return q[ast_literal[envset](u[varname], ast_literal[value])]
-        return tree
-    return _scoped_walker.recurse(tree, callback=t)
-
-# x --> e.x  (in load context; for names bound in this environment)
-def _transform_name(tree, rhsnames, envname):
-    def t(tree, shadowed):
-        # e.anything is already ok, but x.foo (Attribute that contains a Name "x")
-        # should transform to e.x.foo.
-        if type(tree) is Attribute and type(tree.value) is Name and tree.value.id == envname:
-            pass
-        # nested lets work, because once x --> e.x, the final "x" is no longer a Name,
-        # but an attr="x" of an Attribute node.
-        elif type(tree) is Name and tree.id in rhsnames and tree.id not in shadowed:
-            hasctx = hasattr(tree, "ctx")  # macro-created nodes might not have a ctx.
-            if hasctx and type(tree.ctx) is not Load:
-                return tree
-            ctx = tree.ctx if hasctx else None  # let MacroPy fix it if needed
-            return Attribute(value=q[name[envname]], attr=tree.id, ctx=ctx)
-        return tree
-    return _scoped_walker.recurse(tree, callback=t)
-
-# ... -> lambda e: ...
-def _envwrap(tree, envname):
-    lam = q[lambda: ast_literal[tree]]
-    lam.args.args = [arg(arg=envname)]  # lambda e44: ...
-    return lam
+    return _letrec(bindings=args, body=tree, gen_sym=gen_sym)
 
 # -----------------------------------------------------------------------------
-
 # Decorator versions, for "let over def".
 
 @macros.decorator
@@ -696,78 +303,7 @@ def dlet(tree, args, *, gen_sym, **kw):
     **CAUTION**: assignment to the let environment is ``name << value``;
     the regular syntax ``name = value`` creates a local variable.
     """
-    return _dletimpl(tree, args, "let", "decorate", gen_sym)
-
-@macros.decorator
-def dletrec(tree, args, *, gen_sym, **kw):
-    """[syntax, decorator] Decorator version of letrec, for 'letrec over def'.
-
-    Example::
-
-        @dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
-                 (oddp,  lambda x: (x != 0) and evenp(x - 1)))
-        def f(x):
-            return evenp(x)
-        assert f(42) is True
-        assert f(23) is False
-
-    Same cautions apply as to ``dlet``.
-    """
-    return _dletimpl(tree, args, "letrec", "decorate", gen_sym)
-
-@macros.decorator
-def blet(tree, args, *, gen_sym, **kw):
-    """[syntax, decorator] def --> let block.
-
-    Example::
-
-        @blet((x, 21))
-        def result():
-            return 2*x
-        assert result == 42
-    """
-    return _dletimpl(tree, args, "let", "call", gen_sym)
-@macros.decorator
-def bletrec(tree, args, *, gen_sym, **kw):
-    """[syntax, decorator] def --> letrec block.
-
-    Example::
-
-        @bletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
-                 (oddp,  lambda x: (x != 0) and evenp(x - 1)))
-        def result():
-            return evenp(42)
-        assert result is True
-    """
-    return _dletimpl(tree, args, "letrec", "call", gen_sym)
-
-# Very similar to _letimpl, but perhaps more readable to keep these separate.
-def _dletimpl(tree, args, mode, kind, gen_sym):
-    assert mode in ("let", "letrec")
-    assert kind in ("decorate", "call")
-    if type(tree) not in (FunctionDef, AsyncFunctionDef):
-        assert False, "Expected a function definition to decorate"
-    if not args:
-        return tree
-
-    names, values = zip(*[a.elts for a in args])  # --> (k1, ..., kn), (v1, ..., vn)
-    names = [k.id for k in names]  # any duplicates will be caught by env at run-time
-
-    e = gen_sym("e")
-    envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
-
-    t1 = partial(_letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
-    t2 = partial(t1, dowrap=False)
-    if mode == "letrec":
-        values = [t1(b) for b in values]
-    tree = t2(tree)
-
-    letter = dletf if kind == "decorate" else bletf
-    binding_pairs = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
-    tree.decorator_list = tree.decorator_list + [hq[letter((ast_literal[binding_pairs],), mode=u[mode], _envname=u[e])]]
-    tree.args.kwonlyargs = tree.args.kwonlyargs + [arg(arg=e)]
-    tree.args.kw_defaults = tree.args.kw_defaults + [None]
-    return tree
+    return _dlet(bindings=args, fdef=tree, gen_sym=gen_sym)
 
 @macros.decorator
 def dletseq(tree, args, gen_sym, **kw):
@@ -784,7 +320,37 @@ def dletseq(tree, args, gen_sym, **kw):
             return a + x
         assert g(10) == 14
     """
-    return _dletseqimpl(tree, args, "decorate", gen_sym)
+    return _dletseq(bindings=args, fdef=tree, gen_sym=gen_sym)
+
+@macros.decorator
+def dletrec(tree, args, *, gen_sym, **kw):
+    """[syntax, decorator] Decorator version of letrec, for 'letrec over def'.
+
+    Example::
+
+        @dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
+                 (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+        def f(x):
+            return evenp(x)
+        assert f(42) is True
+        assert f(23) is False
+
+    Same cautions apply as to ``dlet``.
+    """
+    return _dletrec(bindings=args, fdef=tree, gen_sym=gen_sym)
+
+@macros.decorator
+def blet(tree, args, *, gen_sym, **kw):
+    """[syntax, decorator] def --> let block.
+
+    Example::
+
+        @blet((x, 21))
+        def result():
+            return 2*x
+        assert result == 42
+    """
+    return _blet(bindings=args, fdef=tree, gen_sym=gen_sym)
 
 @macros.decorator
 def bletseq(tree, args, gen_sym, **kw):
@@ -799,70 +365,24 @@ def bletseq(tree, args, gen_sym, **kw):
             return x
         assert result == 4
     """
-    return _dletseqimpl(tree, args, "call", gen_sym)
+    return _bletseq(bindings=args, fdef=tree, gen_sym=gen_sym)
 
-def _dletseqimpl(tree, args, kind, gen_sym):
-    # What we want:
-    #
-    # @dletseq((x, 1),
-    #          (x, x+1),
-    #          (x, x+2))
-    # def g(*args, **kwargs):
-    #     return x
-    # assert g() == 4
-    #
-    # -->
-    #
-    # @dlet((x, 1))
-    # def g(*args, **kwargs, e1):  # original args from tree go to the outermost def
-    #   @dlet((x, x+1))
-    #   def g2(*, e2):
-    #       @dlet((x, x+2))
-    #       def g3(*, e3):         # expansion proceeds from inside out
-    #           return e3.x
-    #       return g3()
-    #   return g2()
-    # assert g() == 4
-    #
-    assert kind in ("decorate", "call")
-    if type(tree) not in (FunctionDef, AsyncFunctionDef):
-        assert False, "Expected a function definition to decorate"
-    if not args:
-        return tree
+@macros.decorator
+def bletrec(tree, args, *, gen_sym, **kw):
+    """[syntax, decorator] def --> letrec block.
 
-    userargs = tree.args  # original arguments to the def
-    fname = tree.name
-    noargs = arguments(args=[], kwonlyargs=[], vararg=None, kwarg=None,
-                          defaults=[], kw_defaults=[])
-    iname = gen_sym("{}_inner".format(fname))
-    tree.args = noargs
-    tree.name = iname
+    Example::
 
-    *rest, last = args
-    dletter = dlet if kind == "decorate" else blet
-    innerdef = dletter.transform(tree, last)
-
-    # optimization: in the final step, no need to generate a wrapper function
-    if not rest:
-        tmpargs = innerdef.args
-        innerdef.name = fname
-        innerdef.args = userargs
-        # copy the env arg
-        innerdef.args.kwonlyargs += tmpargs.kwonlyargs
-        innerdef.args.kw_defaults += tmpargs.kw_defaults
-        return innerdef
-
-    ret = Return(value=q[name[iname]()]) if kind == "decorate" else Return(value=q[name[iname]])
-    outer = FunctionDef(name=fname, args=userargs,
-                        body=[innerdef, ret],
-                        decorator_list=[],
-                        returns=None)  # no return type annotation
-    outer = copy_location(outer, tree)
-    return _dletseqimpl(outer, rest, kind, gen_sym)
+        @bletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
+                 (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+        def result():
+            return evenp(42)
+        assert result is True
+    """
+    return _bletrec(bindings=args, fdef=tree, gen_sym=gen_sym)
 
 # -----------------------------------------------------------------------------
-
-# This stuff borrows some of the "let" machinery.
+# Imperative code in expression position.
 
 @macros.expr
 def do(tree, gen_sym, **kw):
@@ -993,88 +513,21 @@ def do(tree, gen_sym, **kw):
     The ``let`` constructs solve this problem by having the local bindings
     declared in a separate block, which plays the role of ``localdef``.
     """
-    if type(tree) not in (Tuple, List):
-        assert False, "do body: expected a sequence of comma-separated expressions"
-
-    e = gen_sym("e")
-    # We must use env.__setattr__ to allow defining new names; env.set only rebinds.
-    # But to keep assignments chainable, the assignment must return the value.
-    # Use a let[] to avoid recomputing it (could be expensive and/or have side effects).
-    # So we need:
-    #     lambda k, expr: let((v, expr))[begin(e.__setattr__(k, v), v)]
-    # ...but with gensym'd arg names to avoid spurious shadowing inside expr.
-    # TODO: cache the setter in e? Or even provide a new method in env that does this?
-    sa = Attribute(value=q[name[e]], attr="__setattr__", ctx=Load())
-    k = gen_sym("k")
-    expr = gen_sym("expr")
-    envset = q[lambda: None]
-    envset.args.args = [arg(arg=k), arg(arg=expr)]
-    letbody = hq[beginf(ast_literal[sa](name[k], name["v"]), name["v"])]
-    letbody = copy_location(letbody, tree)
-    envset.body = let.transform(letbody,
-                                q[(name["v"], name[expr])])
-
-    def islocaldef(tree):
-        return type(tree) is Call and type(tree.func) is Name and tree.func.id == "localdef"
-    @Walker
-    def _find_localdefs(tree, collect, **kw):
-        if islocaldef(tree):
-            if len(tree.args) != 1:
-                assert False, "localdef(...) must have exactly one positional argument"
-            expr = tree.args[0]
-            if not _isenvassign(expr):
-                assert False, "localdef(...) argument must be of the form 'name << value'"
-            collect(_envassign_name(expr))
-            return expr  # localdef(...) -> ..., the localdef has done its job
-        return tree
-
-    # a localdef starts taking effect on the line where it appears
-    names = []
-    lines = []
-    for expr in tree.elts:
-        expr, newnames = _find_localdefs.recurse_collect(expr)
-        if newnames:
-            if any(x in names for x in newnames):
-                assert False, "localdef names must be unique in the same do"
-        # The envassignment transform (LHS) needs also "newnames", whereas
-        # the name transform (RHS) should use the previous bindings, so that
-        # the new binding takes effect starting from the **next** doitem.
-        expr = _letlike_transform(expr, e, names + newnames, names, envset)
-        names = names + newnames
-        lines.append(expr)
-    return hq[dof(ast_literal[lines])]
+    return _do(tree, gen_sym)
 
 @macros.expr
-def do0(tree, **kw):
+def do0(tree, gen_sym, **kw):
     """[syntax, expr] Like do, but return the value of the first expression."""
-    if type(tree) not in (Tuple, List):
-        assert False, "do0 body: expected a sequence of comma-separated expressions"
-    elts = tree.elts
-    newelts = []  # IDE complains about _do0_result, but it's quoted, so it's ok.
-    newelts.append(q[name["localdef"](name["_do0_result"] << (ast_literal[elts[0]]))])
-    newelts.extend(elts[1:])
-    newelts.append(q[name["_do0_result"]])
-    newtree = q[(ast_literal[newelts],)]
-    newtree = copy_location(newtree, tree)
-    return do.transform(newtree)  # do0[] is also just a do[]
-
-def _isdo(tree):
-    # TODO: what about the fact it's a hq[dof(...)]? No Captured node?
-    return type(tree) is Call and type(tree.func) is Name and tree.func.id == "dof"
+    return _do0(tree, gen_sym)
 
 # -----------------------------------------------------------------------------
 
-# TODO: remove forall, replace with forall_simple
-
 @macros.expr
-def forall(tree, gen_sym, **kw):
+def forall(tree, **kw):
     """[syntax, expr] Nondeterministic evaluation.
 
-    Sugar on top of ``unpythonic.amb.forall``.
-
-      - ``choice("x", iterable)`` becomes ``x << iterable``
-      - ``insist``, ``deny`` work as usual
-      - no need for ``lambda e: ...`` wrappers
+    Fully based on AST transformation, with real lexical variables.
+    Like Haskell's do-notation, but here specialized for the List monad.
 
     Example::
 
@@ -1087,80 +540,12 @@ def forall(tree, gen_sym, **kw):
         assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                      (8, 15, 17), (9, 12, 15), (12, 16, 20))
     """
-    if type(tree) is not Tuple:
-        assert False, "forall body: expected a sequence of comma-separated expressions"
-    body = tree.elts
-    e = gen_sym("e")
-    names = []  # variables bound by this forall
-    lines = []
-    def transform(tree):  # as _letlike_transform but no assignment conversion
-        tree = _transform_name(tree, names, e)  # x --> e.x
-        return _envwrap(tree, envname=e)  # ... -> lambda e: ...
-    chooser = hq[choicef]
-    for line in body:
-        if _isenvassign(line):  # convert "<<" assignments, but only at top level
-            k, v = line.left.id, transform(line.right)
-            binding = keyword(arg=k, value=v)
-            names.append(k)  # bind k to e.k for all following lines
-            lines.append(Call(func=chooser, args=[], keywords=[binding]))
-        else:
-            lines.append(transform(line))
-    return hq[forallf(ast_literal[lines])]
-
-@macros.expr
-def forall_simple(tree, **kw):
-    """[syntax, expr] Nondeterministic evaluation.
-
-    Fully based on AST transformation, with real lexical variables.
-    Like Haskell's do-notation, but here specialized for the List monad.
-
-    Usage is the same as ``forall``.
-    """
-    if type(tree) is not Tuple:
-        assert False, "forall body: expected a sequence of comma-separated expressions"
-    def build(lines, tree):
-        if not lines:
-            return tree
-        line, *rest = lines
-        if _isenvassign(line):
-            k, v = _envassign_name(line), _envassign_value(line)
-        else:
-            k, v = "_ignored", line
-        islast = not rest
-        # don't unpack on last line to allow easily returning a tuple as a result item
-        Mv = hq[_monadify(ast_literal[v], u[not islast])]
-        if not islast:
-            body = q[ast_literal[Mv] >> (lambda: name["_here_"])]  # monadic bind: >>
-            body.right.args.args = [arg(arg=k)]
-        else:
-            body = Mv
-        if tree:
-            @Walker
-            def splice(tree, *, stop, **kw):
-                if type(tree) is Name and tree.id == "_here_":
-                    stop()
-                    return body
-                return tree
-            newtree = splice.recurse(tree)
-        else:
-            newtree = body
-        return build(rest, newtree)
-    return hq[tuple(ast_literal[build(tree.elts, None)])]
-
-def _monadify(value, unpack=True):
-    if isinstance(value, MList):
-        return value
-    elif unpack:
-        try:
-            return MList.from_iterable(value)
-        except TypeError:
-            pass  # fall through
-    return MList(value)  # unit(List, value)
+    return _forall(exprs=tree)
 
 # -----------------------------------------------------------------------------
 
 @macros.block
-def multilambda(tree, **kw):
+def multilambda(tree, gen_sym, **kw):
     """[syntax, block] Supercharge your lambdas: multiple expressions, local variables.
 
     For all ``lambda`` lexically inside the ``with multilambda`` block,
@@ -1198,12 +583,12 @@ def multilambda(tree, **kw):
         #   by the "do" we are inserting here
         #   - for each item, "do" internally inserts a lambda to delay execution,
         #     as well as to bind the environment
-        #   - we must do.transform() instead of hq[do[...]] for pickling reasons
+        #   - we must _do() instead of hq[do[...]] for pickling reasons
         # - but recurse manually into each *do item*; these are explicit
         #   user-provided code so we should transform them
         stop()
         bodys = transform.recurse(bodys)
-        tree.body = do.transform(bodys)  # insert the do, with the implicit lambdas
+        tree.body = _do(bodys, gen_sym)  # insert the do, with the implicit lambdas
         return tree
     # multilambda should expand first before any let[], do[] et al. that happen
     # to be inside the block, to avoid misinterpreting implicit lambdas.
@@ -1541,7 +926,7 @@ def continuations(tree, gen_sym, **kw):
 
     # first pass, outside-in
     userlambdas = _detect_lambda.collect(tree)
-    known_ecs = list(uniqify(_detect_callec.collect(tree) + ["ec", "brk"]))
+    known_ecs = list(uniqify(detect_callec.collect(tree)))
     tree = yield tree
 
     # second pass, inside-out
@@ -1602,18 +987,19 @@ def continuations(tree, gen_sym, **kw):
         else:  # general case: check tupleness at run-time
             thecall_multi = hq[jump(name["cc"], *name["_retval"])]
             thecall_single = hq[jump(name["cc"], name["_retval"])]
-#            tree = let.transform(q[ast_literal[thecall_multi]  # TODO: doesn't work, IfExp missing line number
-#                                   if isinstance(name["_retval"], tuple)
-#                                   else ast_literal[thecall_single]],
-#                                 q[(name["_retval"], ast_literal[tree])])
+#            tree = let([q[(name["_retval"], ast_literal[tree])]],
+#                       q[ast_literal[thecall_multi]  # TODO: doesn't work, IfExp missing line number
+#                         if isinstance(name["_retval"], tuple)
+#                         else ast_literal[thecall_single]])
 #            tree = fill_line_numbers(newtree, tree.lineno, tree.col_offset)  # doesn't work even with this.
-            tree = let.transform(IfExp(test=q[isinstance(name["_retval"], tuple)],
-                                       body=thecall_multi,
-                                       orelse=thecall_single,
-                                       lineno=tree.lineno, col_offset=tree.col_offset),
-                                 q[(name["_retval"], ast_literal[tree])])
+            tree = _let([q[(name["_retval"], ast_literal[tree])]],
+                        IfExp(test=q[isinstance(name["_retval"], tuple)],
+                              body=thecall_multi,
+                              orelse=thecall_single,
+                              lineno=tree.lineno, col_offset=tree.col_offset),
+                        gen_sym)
         return tree
-    transform_retexpr = partial(_transform_retexpr, call_cb=call_cb, data_cb=data_cb)
+    transform_retexpr = partial(_transform_retexpr, gen_sym=gen_sym, call_cb=call_cb, data_cb=data_cb)
 
     # Helper for "with bind".
     # bind[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., cc=cc, k0=v0, ...)
@@ -1734,7 +1120,7 @@ def bind(tree, **kw):
     pass
 
 @macros.block
-def tco(tree, **kw):
+def tco(tree, *, gen_sym, **kw):
     """[syntax, block] Implicit tail-call optimization (TCO).
 
     Examples::
@@ -1831,19 +1217,21 @@ def tco(tree, **kw):
     """
     # first pass, outside-in
     userlambdas = _detect_lambda.collect(tree)
-    known_ecs = list(uniqify(_detect_callec.collect(tree) + ["ec", "brk"]))
+    known_ecs = list(uniqify(detect_callec.collect(tree)))
     tree = yield tree
+
+    transform_retexpr = partial(_transform_retexpr, gen_sym=gen_sym)
 
     # second pass, inside-out
     newtree = []
     for stmt in tree:
         stmt = _tco_transform_return.recurse(stmt, known_ecs=known_ecs,
-                                             transform_retexpr=_transform_retexpr)
+                                             transform_retexpr=transform_retexpr)
         stmt = _tco_transform_def.recurse(stmt, preproc_cb=None)
         stmt = _tco_transform_lambda.recurse(stmt, preproc_cb=None,
                                              userlambdas=userlambdas,
                                              known_ecs=known_ecs,
-                                             transform_retexpr=_transform_retexpr)
+                                             transform_retexpr=transform_retexpr)
         stmt = _tco_fix_lambda_decorators(stmt)
         newtree.append(stmt)
     return newtree
@@ -1864,7 +1252,7 @@ def _detect_lambda(tree, *, collect, stop, **kw):
     to allow other block macros to better work together with ``with multilambda``
     (which expands in the first pass, to eliminate semantic surprises).
     """
-    if _isdo(tree):
+    if isdo(tree):
         stop()
         for item in tree.args:  # each arg to dof() is a lambda
             _detect_lambda.collect(item.body)
@@ -1897,10 +1285,10 @@ def _tco_transform_def(tree, *, preproc_cb, **kw):
 # transform_retexpr: return-value expression transformer.
 @Walker
 def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
-    isec = _isec(tree, known_ecs)
+    treeisec = isec(tree, known_ecs)
     if type(tree) is Return:
         value = tree.value or q[None]  # return --> return None  (bare return has value=None in the AST)
-        if not isec:
+        if not treeisec:
             return Return(value=transform_retexpr(value, known_ecs))
         else:
             # An ec call already escapes, so the return is redundant.
@@ -1909,7 +1297,7 @@ def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
             # this cleans up the code, since eliminating the "return" allows us
             # to omit a redundant "let".
             return Expr(value=value)  # return ec(...) --> ec(...)
-    elif isec:  # TCO the arg of an ec(...) call
+    elif treeisec:  # TCO the arg of an ec(...) call
         if len(tree.args) > 1:
             assert False, "expected exactly one argument for escape continuation"
         tree.args[0] = transform_retexpr(tree.args[0], known_ecs)
@@ -1982,8 +1370,8 @@ def _is_decorator(tree, fname):
 
         - ``Call`` whose ``.func`` matches the above rule (parametric decorator).
     """
-    return _isx(tree, fname) or \
-           (type(tree) is Call and _isx(tree.func, fname))
+    return isx(tree, fname) or \
+           (type(tree) is Call and isx(tree.func, fname))
 
 def _is_lambda_decorator(tree, fname):
     """Test tree whether it decorates a lambda with ``fname``.
@@ -2047,7 +1435,7 @@ _lambda_decorator_detectors = [partial(_is_lambda_decorator, fname=x) for x in _
 
 # Tail-position analysis for a return-value expression (also the body of a lambda).
 # Here we need to be very, very selective about where to recurse so this is not a Walker.
-def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
+def _transform_retexpr(tree, known_ecs, gen_sym, call_cb=None, data_cb=None):
     """Analyze and TCO a return-value expression or a lambda body.
 
     This performs a tail-position analysis on the given ``tree``, recursively
@@ -2070,7 +1458,7 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
     transform_call = call_cb or (lambda tree: tree)
     transform_data = data_cb or (lambda tree: tree)
     def transform(tree):
-        if _isdo(tree) or _islet(tree):
+        if isdo(tree) or islet(tree):
             # Ignore the "lambda e: ...", and descend into the ..., in:
             #   - let[] or letrec[] in tail position.
             #     - letseq[] is a nested sequence of lets, so covers that too.
@@ -2089,7 +1477,7 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
             #     - Hence, transform_return() calls us on the content of
             #       all ec nodes directly. ec(...) is like return; the
             #       argument is the retexpr.
-            if not (_isx(tree.func, "jump") or _isx(tree.func, "loop") or _isec(tree, known_ecs)):
+            if not (isx(tree.func, "jump") or isx(tree.func, "loop") or isec(tree, known_ecs)):
                 tree.args = [tree.func] + tree.args
                 tree.func = hq[jump]
                 tree = transform_call(tree)
@@ -2112,12 +1500,13 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
                     op_of_others = tree.values[0]
                 if type(tree.op) is Or:
                     # or(data1, ..., datan, tail) --> it if any(others) else tail
-                    tree = aif.transform(Tuple(elts=[op_of_others,
-                                                     transform_data(Name(id="it",
-                                                                         lineno=tree.lineno,
-                                                                         col_offset=tree.col_offset)),
-                                                     transform(tree.values[-1])],
-                                               lineno=tree.lineno, col_offset=tree.col_offset)) # tail-call item
+                    tree = _aif(Tuple(elts=[op_of_others,
+                                            transform_data(Name(id="it",
+                                                                lineno=tree.lineno,
+                                                               col_offset=tree.col_offset)),
+                                            transform(tree.values[-1])],
+                                      lineno=tree.lineno, col_offset=tree.col_offset),
+                                gen_sym) # tail-call item
                 elif type(tree.op) is And:
                     # and(data1, ..., datan, tail) --> tail if all(others) else False
                     fal = q[False]

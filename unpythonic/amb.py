@@ -125,15 +125,6 @@ def forall(*lines):
         # begin(e1, e2, ..., en):
         #   perform side effects e1, e2, ..., e[n-1], return the value of en.
         return exprs[-1]
-    def mklist(value, unpack_iterable=True):  # pack value into a List if not already
-        if isinstance(value, List):
-            return value
-        elif unpack_iterable:
-            try:
-                return List.from_iterable(value)
-            except TypeError:  # not iterable
-                return List(value)
-        return List(value)
 
     allcode = ""
     names = set()  # names seen so far (working line by line, so textually!)
@@ -165,9 +156,9 @@ def forall(*lines):
                     raise ValueError("Arity mismatch; callable body must allow arity 1, to take in the environment.")
             except UnknownArity:
                 pass
-            code = "mklist(bodys[{j:d}](e), {flag:s})".format(flag=unpack_flag, j=j)
+            code = "monadify(bodys[{j:d}](e), {flag:s})".format(flag=unpack_flag, j=j)
         else:  # doesn't need the environment
-            code = "mklist(bodys[{j:d}], {flag:s})".format(flag=unpack_flag, j=j)
+            code = "monadify(bodys[{j:d}], {flag:s})".format(flag=unpack_flag, j=j)
 
         if begin_is_open:
             code += ")"
@@ -194,11 +185,26 @@ def forall(*lines):
 
     # The eval'd code doesn't close over the current lexical scope,
     # so provide the necessary names as its globals.
-    mlst = eval(allcode, {"e": e, "bodys": bodys, "begin": begin, "mklist": mklist})
+    mlst = eval(allcode, {"e": e, "bodys": bodys, "begin": begin, "monadify": monadify})
     return tuple(mlst)
 
-class List:
-    """List monad."""
+def monadify(value, unpack=True):
+    """Pack value into a monadic list if it is not already.
+
+    If ``unpack=True``, an iterable ``value`` is unpacked into the created
+    monadic list instance; if ``False``, the whole iterable is packed as one item.
+    """
+    if isinstance(value, MonadicList):
+        return value
+    elif unpack:
+        try:
+            return MonadicList.from_iterable(value)
+        except TypeError:
+            pass  # fall through
+    return MonadicList(value)  # unit(List, value)
+
+class MonadicList:
+    """The List monad."""
     def __init__(self, *elts):  # unit: x: a -> M a
         # Accept the sentinel nil as a special **item** that, when passed to
         # the List constructor, produces an empty list.
@@ -264,7 +270,7 @@ class List:
         # list of lists - concat them
         return cls.from_iterable(elt for sublist in self.x for elt in sublist)
 
-insist = List.guard  # retroactively require expr to be True
+insist = MonadicList.guard  # retroactively require expr to be True
 def deny(expr):      # end a branch of the computation if expr is True
     return insist(not expr)
 

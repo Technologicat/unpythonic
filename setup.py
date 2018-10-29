@@ -266,7 +266,7 @@ setup(
     #
     # This **does not** automatically recurse into subpackages, so they must also be declared.
     #
-    packages = ["unpythonic"],
+    packages = ["unpythonic", "unpythonic.syntax"],
 
     zip_safe = True,  # no Cython extensions
 

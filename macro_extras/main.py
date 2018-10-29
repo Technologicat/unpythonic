@@ -15,7 +15,7 @@ from unpythonic.syntax import macros, \
                               dlet, dletseq, dletrec, \
                               blet, bletseq, bletrec, \
                               do, do0, \
-                              forall, insist, deny, forall_simple, \
+                              forall, insist, deny, \
                               aif, it, \
                               cond, \
                               fup, \
@@ -475,9 +475,8 @@ def main():
              42]  # evaluated but not used, do0 returns the first value
     assert y2 == 5
 
-    # macro wrapper for amb.forall
+    # forall: pure AST transformation, with real lexical variables
     #   - assignment (with List-monadic magic) is ``var << iterable``
-    #   - no need for ``lambda e: ...`` wrappers.
     out = forall[y << range(3),  # y << ... --> choice(y=lambda e: ...)
                  x << range(3),
                  insist(x % 2 == 0),
@@ -490,15 +489,6 @@ def main():
                 y << range(x, z+1),  # longer leg
                 insist(x*x + y*y == z*z),
                 (x, y, z)]
-    assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
-                                 (8, 15, 17), (9, 12, 15), (12, 16, 20))
-
-    # forall_simple: pure AST transformation, with real lexical variables
-    pt = forall_simple[z << range(1, 21),   # hypotenuse
-                       x << range(1, z+1),  # shorter leg
-                       y << range(x, z+1),  # longer leg
-                       insist(x*x + y*y == z*z),
-                       (x, y, z)]
     assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                  (8, 15, 17), (9, 12, 15), (12, 16, 20))
 
