@@ -193,7 +193,7 @@ The write of a ``name << value`` always occurs to the lexically innermost enviro
 
 **CAUTION**: formal parameters of a function definition, local variables, and any names declared as ``global`` or ``nonlocal`` in a given lexical scope shadow names from the ``let`` environment. Mostly, this applies *to the entirety of that lexical scope*. This is modeled after Python's standard scoping rules.
 
-As an exception to the rule, for the purposes of the scope analysis performed by ``unpythonic.syntax``, creations and deletions *of lexical local variables* take effect from the next statement, and remain in effect for the **lexically** remaining part of the current scope. This allows ``x = ...`` to see the old bindings on the RHS, and to restore access to a surrounding env's ``x`` (by deleting a local ``x`` shadowing it) if desired.
+As an exception to the rule, for the purposes of the scope analysis performed by ``unpythonic.syntax``, creations and deletions *of lexical local variables* take effect from the next statement, and remain in effect for the **lexically** remaining part of the current scope. This allows ``x = ...`` to see the old bindings on the RHS, as well as allows the client code to restore access to a surrounding env's ``x`` (by deleting a local ``x`` shadowing it) when desired.
 
 Note that this behaves differently from Python itself, where everything is dynamic. This is essentially because ``unpythonic.syntax`` needs to resolve references to env variables statically, at compile time.
 
