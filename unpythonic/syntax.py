@@ -526,14 +526,15 @@ def _getshadowers(tree):
 
     This collects:
 
-        - argument names of ``Lambda``, ``FunctionDef``, ``AsyncFunctionDef``
+        - formal parameter names of ``Lambda``, ``FunctionDef``, ``AsyncFunctionDef``
 
             - plus function name of ``FunctionDef``, ``AsyncFunctionDef``
 
             - any names declared ``nonlocal`` or ``global`` in a ``FunctionDef``
               or ``AsyncFunctionDef``
 
-        - target names of ``ListComp``, ``SetComp``, ``GeneratorExp``, ``DictComp``
+        - names of comprehension targets in ``ListComp``, ``SetComp``,
+          ``GeneratorExp``, ``DictComp``
 
         - class name and base class names of ``ClassDef``
 
@@ -541,7 +542,7 @@ def _getshadowers(tree):
 
     Return value is (``args``, ``nonlocals``), where each component is a ``list``
     of ``str``. The list ``nonlocals`` contains names declared ``nonlocal`` or
-    ``global`` in this scope (precisely); the list ``args`` contains everything
+    ``global`` in (precisely) this scope; the list ``args`` contains everything
     else.
     """
     if type(tree) in (Lambda, FunctionDef, AsyncFunctionDef):
