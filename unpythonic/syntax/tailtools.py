@@ -60,6 +60,7 @@ def autoreturn(block_body):
     yield transform_fdef.recurse(block_body)
 
 # -----------------------------------------------------------------------------
+# Automatic TCO. This is the same framework as in "continuations", in its simplest form.
 
 def tco(block_body, gen_sym):
     # first pass, outside-in
