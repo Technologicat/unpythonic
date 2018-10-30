@@ -10,7 +10,6 @@ from macropy.tracing import macros, show_expanded
 
 from unpythonic.syntax import macros, \
                               curry, \
-                              simple_let, simple_letseq, \
                               let, letseq, letrec, \
                               dlet, dletseq, dletrec, \
                               blet, bletseq, bletrec, \
