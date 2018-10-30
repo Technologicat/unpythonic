@@ -115,8 +115,9 @@ def main():
     else:
         assert False, "should not be able to rebind the same name x in the same let"
 
+#    # using "from unpythonic.syntax.simplelet import macros, let, letseq",
 #    # this will SyntaxError (correctly)
-#    simple_let((x, 1), (x, 2))[  # error, cannot rebind the same name
+#    let((x, 1), (x, 2))[  # error, cannot rebind the same name
 #          print(x)]
 
     assert letseq((x, 1),
