@@ -131,9 +131,11 @@ let((x, 1),
 
 ### Note
 
-We also provide ``simple_let`` and ``simple_letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, ``simple_letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``simple_let`` expressions, which expand to lambdas.
+We also provide classical simple ``let`` and ``letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, this version of ``letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``let`` expressions, which expand to lambdas.
 
-These are however not meant to work together with the rest of ``unpythonic.syntax``; for that, use ``let``, ``letseq`` and ``letrec``.
+These are however not meant to work together with the rest of the macros; for that, use the above ``let``, ``letseq`` and ``letrec`` from the module ``unpythonic.syntax``.
+
+*Changed in v0.11.0.* These additional constructs now live in the separate module ``unpythonic.syntax.simplelet``, and are imported like ``from unpythonic.syntax.simplelet import macros, let, letseq``.
 
 ### ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions
 
@@ -339,7 +341,9 @@ There is also a ``do0`` macro, which returns the value of the first expression, 
 
 ## ``forall``: nondeterministic evaluation
 
-This is the multiple-body-expression tuple comprehension ``unpythonic.amb.forall``, wrapped into a macro:
+*Changed in v0.11.0.* The previous ``forall_simple`` has been renamed ``forall``; the macro wrapper for the hacky function version of ``forall`` is gone. This change has the effect of changing the error raised by an undefined name in a ``forall`` section; previously it was ``AttributeError``, now it is ``NameError``.
+
+Behaves the same as the multiple-body-expression tuple comprehension ``unpythonic.amb.forall``, but implemented purely by AST transformation, with real lexical variables. This is essentially Haskell's do-notation for Python, specialized to the List monad.
 
 ```python
 from unpythonic.syntax import macros, forall, insist, deny
@@ -363,12 +367,6 @@ assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
 Assignment (with List-monadic magic) is ``var << iterable``. It transforms to ``choice(var=lambda e: iterable)``. It is only valid at the top level of the ``forall`` (e.g. not inside any possibly nested ``let``).
 
 ``insist`` and ``deny`` are not really macros; they are just the functions from ``unpythonic.amb``, re-exported for convenience.
-
-### Note
-
-We also provide ``forall_simple``, based purely on AST transformation, with real lexical variables. This is essentially Haskell's do-notation for Python, specialized to the List monad.
-
-In the future, we may replace the current ``forall`` macro with this version. From the user perspective, the only difference is in error reporting; the function-based ``forall`` must internally simulate lexical scoping, whereas ``forall_simple`` just borrows Python's. In the function-based version, an undefined name will raise ``AttributeError``, whereas in ``forall_simple``, it will raise ``NameError``.
 
 
 ## ``multilambda``: supercharge your lambdas
