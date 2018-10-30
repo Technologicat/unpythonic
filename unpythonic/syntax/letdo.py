@@ -29,11 +29,6 @@ from unpythonic.seq import begin as beginf, do as dof
 from unpythonic.syntax.util import isx
 from unpythonic.syntax.scoping import scoped_walker
 
-def islet(tree):
-    """Test whether tree is an already expanded ``let[]``, ``letseq[]`` or ``letrec[]``."""
-    # name must match what ``_letimpl`` uses in its output.
-    return type(tree) is Call and isx(tree.func, "letter", allow_attr=False)
-
 def let(bindings, body, gen_sym):
     return _letimpl(bindings, body, gen_sym, "let")
 
@@ -249,11 +244,6 @@ def _dletseqimpl(bindings, fdef, gen_sym, kind):
 
 # -----------------------------------------------------------------------------
 # Imperative code in expresssion position. Uses the "let" machinery.
-
-def isdo(tree):
-    """Detect whether tree is an already expanded ``do[]``."""
-    # name must match what ``do`` uses in its output
-    return type(tree) is Call and isx(tree.func, "dof")
 
 def do(tree, gen_sym):
     if type(tree) not in (Tuple, List):

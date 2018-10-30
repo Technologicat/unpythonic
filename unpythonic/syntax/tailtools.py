@@ -20,15 +20,19 @@ from macropy.core.quotes import macros, q, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
-from unpythonic.syntax.util import isx, isec, detect_callec
+from unpythonic.syntax.util import isx, isec, isdo, islet, \
+                                   detect_callec, detect_lambda, \
+                                   has_tco, is_decorator, fix_lambda_decorators
 from unpythonic.syntax.ifexprs import aif
-from unpythonic.syntax.letdo import let, isdo, islet
+from unpythonic.syntax.letdo import let
 
 from unpythonic.it import uniqify
 from unpythonic.fun import identity
 from unpythonic.tco import trampolined, jump
 
-# This performs a tail-position analysis of function bodies.
+# -----------------------------------------------------------------------------
+# Implicit return. This performs a tail-position analysis of function bodies.
+
 def autoreturn(block_body):
     @Walker
     def transform_fdef(tree, **kw):
@@ -64,7 +68,7 @@ def autoreturn(block_body):
 
 def tco(block_body, gen_sym):
     # first pass, outside-in
-    userlambdas = _detect_lambda.collect(block_body)
+    userlambdas = detect_lambda.collect(block_body)
     known_ecs = list(uniqify(detect_callec.collect(block_body)))
     block_body = yield block_body
 
@@ -79,7 +83,7 @@ def tco(block_body, gen_sym):
                                              userlambdas=userlambdas,
                                              known_ecs=known_ecs,
                                              transform_retexpr=transform_retexpr)
-        stmt = _tco_fix_lambda_decorators(stmt)
+        stmt = fix_lambda_decorators(stmt)
         new_block_body.append(stmt)
     return new_block_body
 
@@ -98,7 +102,7 @@ def continuations(block_body, gen_sym):
     # to pass in varargs.
 
     # first pass, outside-in
-    userlambdas = _detect_lambda.collect(block_body)
+    userlambdas = detect_lambda.collect(block_body)
     known_ecs = list(uniqify(detect_callec.collect(block_body)))
     block_body = yield block_body
 
@@ -283,35 +287,11 @@ def continuations(block_body, gen_sym):
                                              userlambdas=userlambdas,
                                              known_ecs=known_ecs,
                                              transform_retexpr=transform_retexpr)
-        stmt = _tco_fix_lambda_decorators(stmt)
+        stmt = fix_lambda_decorators(stmt)
         new_block_body.append(stmt)
     return new_block_body
 
 # -----------------------------------------------------------------------------
-
-@Walker
-def _detect_lambda(tree, *, collect, stop, **kw):
-    """Find lambdas in tree. Helper for block macros.
-
-    Run ``_detect_lambda.collect(tree)`` in the first pass, before allowing any
-    nested macros to expand. (Those may generate more lambdas that your block
-    macro is not interested in).
-
-    The return value from ``.collect`` is a ``list``of ``id(lam)``, where ``lam``
-    is a Lambda node that appears in ``tree``. This list is suitable as
-    ``userlambdas`` for the TCO macros.
-
-    This ignores any "lambda e: ..." added by an already expanded ``do[]``,
-    to allow other block macros to better work together with ``with multilambda``
-    (which expands in the first pass, to eliminate semantic surprises).
-    """
-    if isdo(tree):
-        stop()
-        for item in tree.args:  # each arg to dof() is a lambda
-            _detect_lambda.collect(item.body)
-    if type(tree) is Lambda:
-        collect(id(tree))
-    return tree
 
 @Walker
 def _tco_transform_def(tree, *, preproc_cb, **kw):
@@ -323,8 +303,8 @@ def _tco_transform_def(tree, *, preproc_cb, **kw):
         # @trampolined needs to be inside of @memoize, otherwise outermost;
         # so that it is applied **after** any call_ec; this allows also escapes
         # to return a jump object to the trampoline.
-        if not any(_is_decorator(x, fname) for fname in _tco_decorators for x in tree.decorator_list):
-            ismemoize = [_is_decorator(x, "memoize") for x in tree.decorator_list]
+        if not has_tco(tree):
+            ismemoize = [is_decorator(x, "memoize") for x in tree.decorator_list]
             try:
                 k = ismemoize.index(True) + 1
                 rest = tree.decorator_list[k:] if len(tree.decorator_list) > k else []
@@ -359,12 +339,12 @@ def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
 # userlambdas: list of ids; the purpose is to avoid transforming lambdas implicitly added by macros (do, let).
 @Walker
 def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform_retexpr, stop, set_ctx, hastco=False, **kw):
-    # Detect a lambda which already has TCO applied.
-    if _is_decorated_lambda(tree, _lambda_decorator_detectors):
-        decorator_list, thelambda = _destructure_decorated_lambda(tree)
-        if id(thelambda) in userlambdas:
-            if any(_is_lambda_decorator(x, fname) for fname in _tco_decorators for x in decorator_list):
-                set_ctx(hastco=True)  # thelambda is the next Lambda node we will descend into.
+    # Detect a userlambda which already has TCO applied.
+    #
+    # Note at this point we haven't seen the lambda; at most, we're examining
+    # a Call node. The checker internally descends if tree looks promising.
+    if has_tco(tree, userlambdas):
+        set_ctx(hastco=True)  # thelambda is the next Lambda node we will descend into.
     elif type(tree) is Lambda and id(tree) in userlambdas:
         if preproc_cb:
             tree = preproc_cb(tree)
@@ -381,110 +361,6 @@ def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform
                                       transform_retexpr=transform_retexpr,
                                       hastco=False)
     return tree
-
-# call_ec(trampolined(lambda ...: ...)) --> trampolined(call_ec(lambda ...: ...))
-# call_ec(curry(trampolined(lambda ...: ...))) --> trampolined(call_ec(curry(lambda ...: ...)))
-def _tco_fix_lambda_decorators(tree):
-    """Fix ordering of known lambda decorators.
-
-    Strictly, lambdas have no decorator_list, but can be decorated by explicitly
-    surrounding them with calls to decorator functions.
-    """
-    def prioritize(tree):  # sort key for Call nodes invoking known decorators
-        for k, f in enumerate(_lambda_decorator_detectors):
-            if f(tree):
-                return k
-        assert False  # we currently support known decorators only
-
-    @Walker
-    def fixit(tree, *, stop, **kw):
-        if _is_decorated_lambda(tree, _lambda_decorator_detectors):
-            decorator_list, thelambda = _destructure_decorated_lambda(tree)
-            # We can just swap the func attributes of the nodes.
-            ordered_decorator_list = sorted(decorator_list, key=prioritize)
-            ordered_funcs = [x.func for x in ordered_decorator_list]
-            for thecall, newfunc in zip(decorator_list, ordered_funcs):
-                thecall.func = newfunc
-            # don't recurse on the tail of the decorator list, but recurse into the lambda body.
-            stop()
-            fixit.recurse(thelambda.body)
-        return tree
-    return fixit.recurse(tree)
-
-def _is_decorator(tree, fname):
-    """Test tree whether it is the decorator ``fname``.
-
-    References of the forms ``f``, ``foo.f`` and ``hq[f]`` are supported.
-
-     We detect:
-
-        - ``Name``, ``Attribute`` or ``Captured`` matching the given ``fname``
-          (non-parametric decorator), and
-
-        - ``Call`` whose ``.func`` matches the above rule (parametric decorator).
-    """
-    return isx(tree, fname) or \
-           (type(tree) is Call and isx(tree.func, fname))
-
-def _is_lambda_decorator(tree, fname):
-    """Test tree whether it decorates a lambda with ``fname``.
-
-    A node is detected as a lambda decorator if it is a ``Call`` that supplies
-    exactly one positional argument, and its ``.func`` is a decorator
-    (``_is_decorator(tree.func)`` returns ``True``).
-
-    This function does not know or care whether a chain of ``Call`` nodes
-    terminates in a ``Lambda`` node. See ``_is_decorated_lambda``.
-
-    Examples::
-
-        trampolined(arg)                    # --> non-parametric decorator
-        looped_over(range(10), acc=0)(arg)  # --> parametric decorator
-    """
-    return (type(tree) is Call and len(tree.args) == 1) and _is_decorator(tree.func, fname)
-
-def _is_decorated_lambda(tree, detectors):
-    """Detect a tree of the form f(g(h(lambda ...: ...)))
-
-    We currently support known decorators only.
-
-    detectors: a list of predicates to detect a known decorator.
-    To build these easily, ``partial(_is_lambda_decorator, fname="whatever")``.
-    """
-    if type(tree) is not Call:
-        return False
-    if not any(f(tree) for f in detectors):
-        return False
-    if type(tree.args[0]) is Lambda:
-        return True
-    return _is_decorated_lambda(tree.args[0], detectors)
-
-def _destructure_decorated_lambda(tree):
-    """Get the AST nodes for ([f, g, h], lambda) in f(g(h(lambda ...: ...)))
-
-    Input must be a tree for which ``is_decorated_lambda`` returns ``True``.
-
-    This returns **the original AST nodes**, to allow in-place transformations.
-    """
-    def get(tree, lst):
-        if type(tree) is Call:
-            # collect tree itself, not tree.func, because we need to reorder the funcs later.
-            return get(tree.args[0], lst + [tree])
-        elif type(tree) is Lambda:
-            return lst, tree
-        assert False, "Expected a chain of Call nodes terminating in a Lambda node"
-    return get(tree, [])
-
-# Extensible system. List known decorators in the desired ordering,
-# outermost-to-innermost.
-#
-# "with curry" (--> hq[curryf(...)]) is expanded later, so we don't need to
-# worry about it here; we catch only explicit curry(...) in the client code,
-# which is already there when "with tco" or "with continuations" is expanded.
-#
-_tco_decorators = ["trampolined", "looped", "breakably_looped", "looped_over", "breakably_looped_over"]
-_decorator_registry = ["memoize", "fimemoize"] + _tco_decorators + ["call_ec", "call", "curry"]
-_lambda_decorator_detectors = [partial(_is_lambda_decorator, fname=x) for x in _decorator_registry]
 
 # Tail-position analysis for a return-value expression (also the body of a lambda).
 # Here we need to be very, very selective about where to recurse so this is not a Walker.

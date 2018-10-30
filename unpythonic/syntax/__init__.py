@@ -18,8 +18,7 @@ from unpythonic.syntax.lambdatools import multilambda as _multilambda, \
 from unpythonic.syntax.letdo import do as _do, do0 as _do0, \
                                     let as _let, letseq as _letseq, letrec as _letrec, \
                                     dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
-                                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec, \
-                                    isdo, islet
+                                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec
 from unpythonic.syntax.prefix import prefix as _prefix
 from unpythonic.syntax.tailtools import autoreturn as _autoreturn, tco as _tco, \
                                         continuations as _continuations, bind
