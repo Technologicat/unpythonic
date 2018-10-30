@@ -432,7 +432,7 @@ def _transform_retexpr(tree, known_ecs, gen_sym, call_cb=None, data_cb=None):
                     tree = aif(Tuple(elts=[op_of_others,
                                            transform_data(Name(id="it",
                                                                lineno=tree.lineno,
-                                                              col_offset=tree.col_offset)),
+                                                               col_offset=tree.col_offset)),
                                            transform(tree.values[-1])],
                                      lineno=tree.lineno, col_offset=tree.col_offset),
                                gen_sym) # tail-call item
