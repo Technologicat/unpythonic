@@ -11,7 +11,7 @@ from macropy.core.walkers import Walker
 from unpythonic.dynscope import dyn
 from unpythonic.fun import curry as curryf, _currycall as currycall
 
-def curry(body):
+def curry(block_body):
     @Walker
     def transform_call(tree, *, stop, **kw):  # technically a node containing the current subtree
         if type(tree) is Call:
@@ -28,10 +28,10 @@ def curry(body):
             stop()
             tree.args[0].body = transform_call.recurse(tree.args[0].body)
         return tree
-    body = transform_call.recurse(body)
+    block_body = transform_call.recurse(block_body)
     # Wrap the body in "with dyn.let(_curry_allow_uninspectable=True):"
     # to avoid crash with uninspectable builtins
     item = hq[dyn.let(_curry_allow_uninspectable=True)]
     wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
-                   body=body)
+                   body=block_body)
     return [wrapped]  # block macro: got a list, must return a list.

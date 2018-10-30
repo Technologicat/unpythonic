@@ -10,10 +10,12 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 
 from unpythonic.syntax.util import isx, isec, detect_callec
 
+# insist, deny, it are just for passing through to the client code that imports us.
 from unpythonic.syntax.curry import curry as _curry
-# insist, deny are just for passing through to the using module that imports us.
 from unpythonic.syntax.forall import forall as _forall, insist, deny
+from unpythonic.syntax.fupstx import fup as _fup
 from unpythonic.syntax.ifexprs import aif as _aif, it, cond as _cond
+from unpythonic.syntax.lambdatools import multilambda as _multilambda, namedlambda as _namedlambda
 from unpythonic.syntax.letdo import do as _do, do0 as _do0, \
                                     let as _let, letseq as _letseq, letrec as _letrec, \
                                     dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
@@ -144,7 +146,7 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
         #  we are now outside the dynamic extent of the ``with curry`` block.)
         assert add3(1)(2)(3) == 6
     """
-    return _curry(body=tree)
+    return _curry(block_body=tree)
 
 # -----------------------------------------------------------------------------
 
@@ -573,26 +575,10 @@ def multilambda(tree, gen_sym, **kw):
 
     For local variables, see ``do``.
     """
-    @Walker
-    def transform(tree, *, stop, **kw):
-        if type(tree) is not Lambda or type(tree.body) is not List:
-            return tree
-        bodys = tree.body
-        # bracket magic:
-        # - stop() to prevent recursing to the implicit lambdas generated
-        #   by the "do" we are inserting here
-        #   - for each item, "do" internally inserts a lambda to delay execution,
-        #     as well as to bind the environment
-        #   - we must _do() instead of hq[do[...]] for pickling reasons
-        # - but recurse manually into each *do item*; these are explicit
-        #   user-provided code so we should transform them
-        stop()
-        bodys = transform.recurse(bodys)
-        tree.body = _do(bodys, gen_sym)  # insert the do, with the implicit lambdas
-        return tree
-    # multilambda should expand first before any let[], do[] et al. that happen
-    # to be inside the block, to avoid misinterpreting implicit lambdas.
-    yield transform.recurse(tree)
+    # two-pass macro:
+    #   - yield from to first yield the first-pass output
+    #   - then return to return the StopIteration final value (second-pass output if any)
+    return (yield from _multilambda(block_body=tree, gen_sym=gen_sym))
 
 @macros.block
 def namedlambda(tree, **kw):
@@ -627,44 +613,10 @@ def namedlambda(tree, **kw):
     even after the name ``h`` is made to point to the same object inside the
     body of the ``let``.
     """
-    def issingleassign(tree):
-        return type(tree) is Assign and len(tree.targets) == 1 and type(tree.targets[0]) is Name
-
-    @Walker
-    def transform(tree, *, stop, **kw):
-        if issingleassign(tree) and type(tree.value) is Lambda:
-            # an assignment is a statement, so in the transformed tree,
-            # we are free to use all of Python's syntax.
-            myname = tree.targets[0].id
-            value = tree.value
-            # trick from MacroPy: to replace one statement with multiple statements,
-            # use an "if 1:" block; the Python compiler optimizes it away.
-            with hq as newtree:
-                if 1:
-#                    ast_literal[tree]   # TODO: doesn't work, why?
-                    name[myname] = ast_literal[value]  # do the same thing as ast_literal[tree] should
-                    namelambda(name[myname], u[myname])
-            stop()  # prevent infinite loop
-            return newtree[0]  # the if statement
-        return tree
-
-    newtree = [transform.recurse(stmt) for stmt in tree]
-
-#    # TODO: this syntax doesn't work due to missing line numbers?
-#    with q as wrapped:  # name lambdas also in env
-#        with dyn.let(env_namedlambda=True):
-#            ast_literal[newtree]
-#    return wrapped
-
-    # name lambdas also in env
-    item = hq[dyn.let(env_namedlambda=True)]
-    wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
-                   body=newtree)
-    return [wrapped]
+    return _namedlambda(block_body=tree)
 
 # -----------------------------------------------------------------------------
 
-# TODO: improve: multiple fupdate specs?
 @macros.expr
 def fup(tree, **kw):
     """[syntax, expr] Functionally update a sequence.
@@ -688,22 +640,7 @@ def fup(tree, **kw):
 
     Named after the sound a sequence makes when it is hit by a functional update.
     """
-    valid = type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Subscript
-    if not valid:
-        assert False, "fup: expected seq[idx_or_slice] << val"
-    seq, idx, val = tree.left.value, tree.left.slice, tree.right
-
-    if type(idx) is ExtSlice:
-        assert False, "fup: multidimensional indexing not supported"
-    elif type(idx) is Slice:
-        start, stop, step = [x or q[None] for x in (idx.lower, idx.upper, idx.step)]
-        idxspec = hq[slice(ast_literal[start], ast_literal[stop], ast_literal[step])]
-    elif type(idx) is Index:
-        idxspec = idx.value
-        if idxspec is None:
-            assert False, "indices must be integers, not NoneType"
-
-    return hq[fupdate(ast_literal[seq], ast_literal[idxspec], ast_literal[val])]
+    return _fup(tree)
 
 # -----------------------------------------------------------------------------
 

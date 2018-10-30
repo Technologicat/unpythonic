@@ -1,8 +1,20 @@
 # -*- coding: utf-8 -*-
 """Lexical scoping support.
 
-This is used to support interaction of the ``let[]`` and ``do[]`` macros with
-Python's standard lexical scoping system.
+This is used to support interaction of the ``let[]`` and ``do[]`` macros
+(which use ``env`` to simulate a lexical environment, with static name lookup
+at macro-expansion time) with Python's standard lexical scoping system.
+
+This module cares only about Python's standard scoping rules, but with a
+small twist: assignments (creation of local variables) and local deletes
+are considered to take effect **from the next statement onward**, for the
+**lexically remaining part** of the current scope.
+
+This is mainly for symmetry with how ``do[]`` handles ``localdef``, but it also
+allows the RHS of an assignment to see the old bindings. This may be important
+if the RHS uses some ``env`` variables, so that things like "x = x" work (create
+new local x, assign value from an x that lives in a lexically surrounding ``env``,
+such as that created by the "let" decorator macro ``@dlet``).
 """
 
 from ast import Name, Tuple, \
