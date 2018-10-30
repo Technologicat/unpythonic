@@ -126,8 +126,8 @@ def is_lambda_decorator(tree, fname):
     """Test tree whether it decorates a lambda with ``fname``.
 
     A node is detected as a lambda decorator if it is a ``Call`` that supplies
-    exactly one positional argument, and its ``.func`` is a decorator
-    (``_is_decorator(tree.func)`` returns ``True``).
+    exactly one positional argument, and its ``.func`` is the decorator ``fname``
+    (``_is_decorator(tree.func, fname)`` returns ``True``).
 
     This function does not know or care whether a chain of ``Call`` nodes
     terminates in a ``Lambda`` node. See ``_is_decorated_lambda``.
