@@ -23,22 +23,22 @@ class it:
         return "<aif it>"
 it = it()
 
-def aif(tree, gen_sym):
-    test, then, otherwise = [implicit_do(x, gen_sym) for x in tree.elts]
+def aif(tree):
+    test, then, otherwise = [implicit_do(x) for x in tree.elts]
     bindings = [q[(it, ast_literal[test])]]
     body = q[ast_literal[then] if it else ast_literal[otherwise]]
-    return let(bindings, body, gen_sym)
+    return let(bindings, body)
 
-def cond(tree, gen_sym):
+def cond(tree):
     if type(tree) is not Tuple:
         assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"
     def build(elts):
         if len(elts) == 1:  # final "otherwise" branch
-            return implicit_do(elts[0], gen_sym)
+            return implicit_do(elts[0])
         if not elts:
             assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"
         test, then, *more = elts
-        test = implicit_do(test, gen_sym)
-        then = implicit_do(then, gen_sym)
+        test = implicit_do(test)
+        then = implicit_do(then)
         return hq[ast_literal[then] if ast_literal[test] else ast_literal[build(more)]]
     return build(tree.elts)

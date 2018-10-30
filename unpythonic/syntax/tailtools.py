@@ -26,6 +26,7 @@ from unpythonic.syntax.util import isx, isec, isdo, islet, \
 from unpythonic.syntax.ifexprs import aif
 from unpythonic.syntax.letdo import let
 
+from unpythonic.dynscope import dyn
 from unpythonic.it import uniqify
 from unpythonic.fun import identity
 from unpythonic.tco import trampolined, jump
@@ -66,14 +67,14 @@ def autoreturn(block_body):
 # -----------------------------------------------------------------------------
 # Automatic TCO. This is the same framework as in "continuations", in its simplest form.
 
-def tco(block_body, gen_sym):
+def tco(block_body):
     # first pass, outside-in
     userlambdas = detect_lambda.collect(block_body)
     known_ecs = list(uniqify(detect_callec.collect(block_body)))
     block_body = yield block_body
 
     # second pass, inside-out
-    transform_retexpr = partial(_transform_retexpr, gen_sym=gen_sym)
+    transform_retexpr = partial(_transform_retexpr)
     new_block_body = []
     for stmt in block_body:
         stmt = _tco_transform_return.recurse(stmt, known_ecs=known_ecs,
@@ -94,7 +95,7 @@ def bind(tree, **kw):
     """[syntax] Only meaningful in a "with bind[...] as ..."."""
     pass
 
-def continuations(block_body, gen_sym):
+def continuations(block_body):
     # This is a loose pythonification of Paul Graham's continuation-passing
     # macros in On Lisp, chapter 20.
     #
@@ -173,10 +174,9 @@ def continuations(block_body, gen_sym):
                        IfExp(test=q[isinstance(name["_retval"], tuple)],
                              body=thecall_multi,
                              orelse=thecall_single,
-                             lineno=tree.lineno, col_offset=tree.col_offset),
-                       gen_sym)
+                             lineno=tree.lineno, col_offset=tree.col_offset))
         return tree
-    transform_retexpr = partial(_transform_retexpr, gen_sym=gen_sym, call_cb=call_cb, data_cb=data_cb)
+    transform_retexpr = partial(_transform_retexpr, call_cb=call_cb, data_cb=data_cb)
 
     # Helper for "with bind".
     # bind[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., cc=cc, k0=v0, ...)
@@ -202,6 +202,7 @@ def continuations(block_body, gen_sym):
             if any(isbind(item.context_expr) for item in tree.items):
                 assert False, "the 'bind' in a 'with bind' statement must be the only context manager"
         return False
+    gen_sym = dyn.gen_sym
     @Walker
     def transform_withbind(tree, *, deftypes, set_ctx, **kw):
         if type(tree) in (FunctionDef, AsyncFunctionDef):  # function definition **inside the "with continuations" block**
@@ -364,7 +365,7 @@ def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform
 
 # Tail-position analysis for a return-value expression (also the body of a lambda).
 # Here we need to be very, very selective about where to recurse so this is not a Walker.
-def _transform_retexpr(tree, known_ecs, gen_sym, call_cb=None, data_cb=None):
+def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
     """Analyze and TCO a return-value expression or a lambda body.
 
     This performs a tail-position analysis on the given ``tree``, recursively
@@ -434,8 +435,7 @@ def _transform_retexpr(tree, known_ecs, gen_sym, call_cb=None, data_cb=None):
                                                                lineno=tree.lineno,
                                                                col_offset=tree.col_offset)),
                                            transform(tree.values[-1])],
-                                     lineno=tree.lineno, col_offset=tree.col_offset),
-                               gen_sym) # tail-call item
+                                     lineno=tree.lineno, col_offset=tree.col_offset)) # tail-call item
                 elif type(tree.op) is And:
                     # and(data1, ..., datan, tail) --> tail if all(others) else False
                     fal = q[False]

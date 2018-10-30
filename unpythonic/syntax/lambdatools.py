@@ -12,7 +12,7 @@ from unpythonic.misc import namelambda
 
 from unpythonic.syntax.letdo import do
 
-def multilambda(block_body, gen_sym):
+def multilambda(block_body):
     @Walker
     def transform(tree, *, stop, **kw):
         if type(tree) is not Lambda or type(tree.body) is not List:
@@ -28,7 +28,7 @@ def multilambda(block_body, gen_sym):
         #   user-provided code so we should transform them
         stop()
         bodys = transform.recurse(bodys)
-        tree.body = do(bodys, gen_sym)  # insert the do, with the implicit lambdas
+        tree.body = do(bodys)  # insert the do, with the implicit lambdas
         return tree
     # multilambda should expand first before any let[], do[] et al. that happen
     # to be inside the block, to avoid misinterpreting implicit lambdas.

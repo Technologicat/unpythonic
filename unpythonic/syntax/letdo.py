@@ -25,33 +25,34 @@ from macropy.core.walkers import Walker
 
 from unpythonic.lispylet import let as letf, letrec as letrecf, _dlet as dletf, _blet as bletf
 from unpythonic.seq import begin as beginf, do as dof
+from unpythonic.dynscope import dyn
 
 from unpythonic.syntax.util import isx
 from unpythonic.syntax.scoping import scoped_walker
 
-def let(bindings, body, gen_sym):
-    return _letimpl(bindings, body, gen_sym, "let")
+def let(bindings, body):
+    return _letimpl(bindings, body, "let")
 
-def letseq(bindings, body, gen_sym):
+def letseq(bindings, body):
     if not bindings:
         return body
     first, *rest = bindings
-    return let([first], letseq(rest, body, gen_sym), gen_sym)
+    return let([first], letseq(rest, body))
 
-def letrec(bindings, body, gen_sym):
-    return _letimpl(bindings, body, gen_sym, "letrec")
+def letrec(bindings, body):
+    return _letimpl(bindings, body, "letrec")
 
-def _letimpl(bindings, body, gen_sym, mode):
+def _letimpl(bindings, body, mode):
     """bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)"""
     assert mode in ("let", "letrec")
 
-    body = implicit_do(body, gen_sym)
+    body = implicit_do(body)
     if not bindings:
         return body
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
 
-    e = gen_sym("e")
+    e = dyn.gen_sym("e")
     envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
 
     t = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
@@ -134,26 +135,26 @@ def envwrap(tree, envname):
 # -----------------------------------------------------------------------------
 # Decorator versions, for "let over def".
 
-def dlet(bindings, fdef, gen_sym):
-    return _dletimpl(bindings, fdef, gen_sym, "let", "decorate")
+def dlet(bindings, fdef):
+    return _dletimpl(bindings, fdef, "let", "decorate")
 
-def dletseq(bindings, fdef, gen_sym):
-    return _dletseqimpl(bindings, fdef, gen_sym, "decorate")
+def dletseq(bindings, fdef):
+    return _dletseqimpl(bindings, fdef, "decorate")
 
-def dletrec(bindings, fdef, gen_sym):
-    return _dletimpl(bindings, fdef, gen_sym, "letrec", "decorate")
+def dletrec(bindings, fdef):
+    return _dletimpl(bindings, fdef, "letrec", "decorate")
 
-def blet(bindings, fdef, gen_sym):
-    return _dletimpl(bindings, fdef, gen_sym, "let", "call")
+def blet(bindings, fdef):
+    return _dletimpl(bindings, fdef, "let", "call")
 
-def bletseq(bindings, fdef, gen_sym):
-    return _dletseqimpl(bindings, fdef, gen_sym, "call")
+def bletseq(bindings, fdef):
+    return _dletseqimpl(bindings, fdef, "call")
 
-def bletrec(bindings, fdef, gen_sym):
-    return _dletimpl(bindings, fdef, gen_sym, "letrec", "call")
+def bletrec(bindings, fdef):
+    return _dletimpl(bindings, fdef, "letrec", "call")
 
 # Very similar to _letimpl, but perhaps more readable to keep these separate.
-def _dletimpl(bindings, fdef, gen_sym, mode, kind):
+def _dletimpl(bindings, fdef, mode, kind):
     assert mode in ("let", "letrec")
     assert kind in ("decorate", "call")
     if type(fdef) not in (FunctionDef, AsyncFunctionDef):
@@ -164,7 +165,7 @@ def _dletimpl(bindings, fdef, gen_sym, mode, kind):
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
 
-    e = gen_sym("e")
+    e = dyn.gen_sym("e")
     envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
 
     t1 = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
@@ -180,7 +181,7 @@ def _dletimpl(bindings, fdef, gen_sym, mode, kind):
     fdef.args.kw_defaults = fdef.args.kw_defaults + [None]
     return fdef
 
-def _dletseqimpl(bindings, fdef, gen_sym, kind):
+def _dletseqimpl(bindings, fdef, kind):
     # What we want:
     #
     # @dletseq((x, 1),
@@ -213,13 +214,13 @@ def _dletseqimpl(bindings, fdef, gen_sym, kind):
     fname = fdef.name
     noargs = arguments(args=[], kwonlyargs=[], vararg=None, kwarg=None,
                        defaults=[], kw_defaults=[])
-    iname = gen_sym("{}_inner".format(fname))
+    iname = dyn.gen_sym("{}_inner".format(fname))
     fdef.args = noargs
     fdef.name = iname
 
     *rest, last = bindings
     dletter = dlet if kind == "decorate" else blet
-    innerdef = dletter([last], fdef, gen_sym)
+    innerdef = dletter([last], fdef)
 
     # optimization: in the final step, no need to generate a wrapper function
     if not rest:
@@ -240,15 +241,16 @@ def _dletseqimpl(bindings, fdef, gen_sym, kind):
                         body=[innerdef, ret],
                         decorator_list=[],
                         returns=None)  # no return type annotation
-    return _dletseqimpl(rest, outer, gen_sym, kind)
+    return _dletseqimpl(rest, outer, kind)
 
 # -----------------------------------------------------------------------------
 # Imperative code in expresssion position. Uses the "let" machinery.
 
-def do(tree, gen_sym):
+def do(tree):
     if type(tree) not in (Tuple, List):
         assert False, "do body: expected a sequence of comma-separated expressions"
 
+    gen_sym = dyn.gen_sym
     e = gen_sym("e")
     # We must use env.__setattr__ to allow defining new names; env.set only rebinds.
     # But to keep assignments chainable, the assignment must return the value.
@@ -264,7 +266,7 @@ def do(tree, gen_sym):
     envset.args.args = [arg(arg=k), arg(arg=expr)]
     letbody = hq[beginf(ast_literal[sa](name[k], name["v"]), name["v"])]
     letbody = copy_location(letbody, tree)
-    envset.body = let([q[(name["v"], name[expr])]], letbody, gen_sym)
+    envset.body = let([q[(name["v"], name[expr])]], letbody)
 
     def islocaldef(tree):
         return type(tree) is Call and type(tree.func) is Name and tree.func.id == "localdef"
@@ -296,7 +298,7 @@ def do(tree, gen_sym):
         lines.append(expr)
     return hq[dof(ast_literal[lines])]
 
-def do0(tree, gen_sym):
+def do0(tree):
     if type(tree) not in (Tuple, List):
         assert False, "do0 body: expected a sequence of comma-separated expressions"
     elts = tree.elts
@@ -306,9 +308,9 @@ def do0(tree, gen_sym):
     newelts.append(q[name["_do0_result"]])
 #    newtree = q[(ast_literal[newelts],)]  # TODO: doesn't work, missing lineno
     newtree = Tuple(elts=newelts, lineno=tree.lineno, col_offset=tree.col_offset)
-    return do(newtree, gen_sym)  # do0[] is also just a do[]
+    return do(newtree)  # do0[] is also just a do[]
 
-def implicit_do(tree, gen_sym):
+def implicit_do(tree):
     """Allow a sequence of expressions in expression position.
 
     Apply ``do[]`` if ``tree`` is a ``List``, otherwise return ``tree`` as-is.
@@ -325,4 +327,4 @@ def implicit_do(tree, gen_sym):
     The outer brackets enable multiple-expression mode, and the inner brackets
     are then interpreted as a list.
     """
-    return do(tree, gen_sym) if type(tree) is List else tree
+    return do(tree) if type(tree) is List else tree

@@ -23,9 +23,15 @@ from unpythonic.syntax.prefix import prefix as _prefix
 from unpythonic.syntax.tailtools import autoreturn as _autoreturn, tco as _tco, \
                                         continuations as _continuations, bind
 
+from unpythonic.dynscope import dyn, make_dynvar
+
 from macropy.core.macros import Macros
 
 macros = Macros()
+
+def nogensym(*args, **kwargs):
+    raise RuntimeError("No gen_sym function set")
+make_dynvar(gen_sym=nogensym)
 
 # -----------------------------------------------------------------------------
 
@@ -50,7 +56,8 @@ def aif(tree, *, gen_sym, **kw):
     To represent a single expression that is a literal list, use extra
     brackets: ``[[1, 2, 3]]``.
     """
-    return _aif(tree, gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _aif(tree)
 
 @macros.expr
 def cond(tree, *, gen_sym, **kw):
@@ -74,7 +81,8 @@ def cond(tree, *, gen_sym, **kw):
     To represent a single expression that is a literal list, use extra
     brackets: ``[[1, 2, 3]]``.
     """
-    return _cond(tree, gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _cond(tree)
 
 # -----------------------------------------------------------------------------
 
@@ -178,7 +186,8 @@ def let(tree, args, *, gen_sym, **kw):
         - In the case of a multiple-expression body, the ``do`` transformation
           is applied first to ``[body0, ...]``, and the result becomes ``body``.
     """
-    return _let(bindings=args, body=tree, gen_sym=gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _let(bindings=args, body=tree)
 
 @macros.expr
 def letseq(tree, args, *, gen_sym, **kw):
@@ -189,7 +198,8 @@ def letseq(tree, args, *, gen_sym, **kw):
 
     Expands to nested ``let`` expressions.
     """
-    return _letseq(bindings=args, body=tree, gen_sym=gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _letseq(bindings=args, body=tree)
 
 @macros.expr
 def letrec(tree, args, *, gen_sym, **kw):
@@ -205,7 +215,8 @@ def letrec(tree, args, *, gen_sym, **kw):
 
     This is useful for locally defining mutually recursive functions.
     """
-    return _letrec(bindings=args, body=tree, gen_sym=gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _letrec(bindings=args, body=tree)
 
 # -----------------------------------------------------------------------------
 # Decorator versions, for "let over def".
@@ -231,7 +242,8 @@ def dlet(tree, args, *, gen_sym, **kw):
     **CAUTION**: assignment to the let environment is ``name << value``;
     the regular syntax ``name = value`` creates a local variable.
     """
-    return _dlet(bindings=args, fdef=tree, gen_sym=gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _dlet(bindings=args, fdef=tree)
 
 @macros.decorator
 def dletseq(tree, args, gen_sym, **kw):
@@ -248,7 +260,8 @@ def dletseq(tree, args, gen_sym, **kw):
             return a + x
         assert g(10) == 14
     """
-    return _dletseq(bindings=args, fdef=tree, gen_sym=gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _dletseq(bindings=args, fdef=tree)
 
 @macros.decorator
 def dletrec(tree, args, *, gen_sym, **kw):
@@ -265,7 +278,8 @@ def dletrec(tree, args, *, gen_sym, **kw):
 
     Same cautions apply as to ``dlet``.
     """
-    return _dletrec(bindings=args, fdef=tree, gen_sym=gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _dletrec(bindings=args, fdef=tree)
 
 @macros.decorator
 def blet(tree, args, *, gen_sym, **kw):
@@ -278,7 +292,8 @@ def blet(tree, args, *, gen_sym, **kw):
             return 2*x
         assert result == 42
     """
-    return _blet(bindings=args, fdef=tree, gen_sym=gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _blet(bindings=args, fdef=tree)
 
 @macros.decorator
 def bletseq(tree, args, gen_sym, **kw):
@@ -293,7 +308,8 @@ def bletseq(tree, args, gen_sym, **kw):
             return x
         assert result == 4
     """
-    return _bletseq(bindings=args, fdef=tree, gen_sym=gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _bletseq(bindings=args, fdef=tree)
 
 @macros.decorator
 def bletrec(tree, args, *, gen_sym, **kw):
@@ -307,7 +323,8 @@ def bletrec(tree, args, *, gen_sym, **kw):
             return evenp(42)
         assert result is True
     """
-    return _bletrec(bindings=args, fdef=tree, gen_sym=gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _bletrec(bindings=args, fdef=tree)
 
 # -----------------------------------------------------------------------------
 # Imperative code in expression position.
@@ -441,12 +458,14 @@ def do(tree, gen_sym, **kw):
     The ``let`` constructs solve this problem by having the local bindings
     declared in a separate block, which plays the role of ``localdef``.
     """
-    return _do(tree, gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _do(tree)
 
 @macros.expr
 def do0(tree, gen_sym, **kw):
     """[syntax, expr] Like do, but return the value of the first expression."""
-    return _do0(tree, gen_sym)
+    with dyn.let(gen_sym=gen_sym):
+        return _do0(tree)
 
 # -----------------------------------------------------------------------------
 
@@ -504,7 +523,8 @@ def multilambda(tree, gen_sym, **kw):
     # two-pass macro:
     #   - yield from to first yield the first-pass output
     #   - then return to return the StopIteration final value (second-pass output if any)
-    return (yield from _multilambda(block_body=tree, gen_sym=gen_sym))
+    with dyn.let(gen_sym=gen_sym):
+        return (yield from _multilambda(block_body=tree))
 
 @macros.block
 def namedlambda(tree, **kw):
@@ -726,7 +746,8 @@ def tco(tree, *, gen_sym, **kw):
     any of the captured names, or as a fallback, one of the literal names
     ``ec``, ``brk``, is interpreted as invoking an escape continuation.
     """
-    return (yield from _tco(block_body=tree, gen_sym=gen_sym))
+    with dyn.let(gen_sym=gen_sym):
+        return (yield from _tco(block_body=tree))
 
 @macros.block
 def continuations(tree, gen_sym, **kw):
@@ -942,7 +963,8 @@ def continuations(tree, gen_sym, **kw):
         with the current continuation, no need for ``with bind``; use
         ``return func(...)`` instead.
     """
-    return (yield from _continuations(block_body=tree, gen_sym=gen_sym))
+    with dyn.let(gen_sym=gen_sym):
+        return (yield from _continuations(block_body=tree))
 
 # -----------------------------------------------------------------------------
 
