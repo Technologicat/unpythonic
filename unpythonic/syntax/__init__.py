@@ -8,40 +8,26 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # contain the actual syntax transformers (regular functions that process ASTs)
 # that implement the macros.
 
-from unpythonic.syntax.util import isx, isec, detect_callec
-
-# insist, deny, it are just for passing through to the client code that imports us.
+# insist, deny, it, bind are just for passing through to the client code that imports us.
 from unpythonic.syntax.curry import curry as _curry
 from unpythonic.syntax.forall import forall as _forall, insist, deny
 from unpythonic.syntax.fupstx import fup as _fup
 from unpythonic.syntax.ifexprs import aif as _aif, it, cond as _cond
-from unpythonic.syntax.lambdatools import multilambda as _multilambda, namedlambda as _namedlambda
+from unpythonic.syntax.lambdatools import multilambda as _multilambda, \
+                                          namedlambda as _namedlambda
 from unpythonic.syntax.letdo import do as _do, do0 as _do0, \
                                     let as _let, letseq as _letseq, letrec as _letrec, \
                                     dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
                                     blet as _blet, bletseq as _bletseq, bletrec as _bletrec, \
                                     isdo, islet
+from unpythonic.syntax.prefix import prefix as _prefix
+from unpythonic.syntax.tailtools import autoreturn as _autoreturn, tco as _tco, \
+                                        continuations as _continuations, bind
 
-from macropy.core.macros import Macros, macro_stub
-from macropy.core.walkers import Walker
-from macropy.core.quotes import macros, q, u, ast_literal, name
-from macropy.core.hquotes import macros, hq
-#from macropy.core.cleanup import fill_line_numbers
+from macropy.core.macros import Macros
+from macropy.core.quotes import macros, q, ast_literal
 
-from functools import partial
-from ast import Call, arg, keyword, With, withitem, Tuple, \
-                Name, Load, BinOp, LShift, \
-                Subscript, Index, Slice, ExtSlice, Lambda, List, \
-                copy_location, Assign, FunctionDef, \
-                arguments, If, Num, Return, Expr, IfExp, BoolOp, And, Or, Try
-from unpythonic.syntax.astcompat import AsyncFunctionDef, AsyncWith
-
-from unpythonic.it import flatmap, uniqify, rev
-from unpythonic.fun import identity
-from unpythonic.dynscope import dyn
-from unpythonic.fup import fupdate
-from unpythonic.misc import namelambda
-from unpythonic.tco import trampolined, jump
+from ast import arg
 
 macros = Macros()
 
@@ -645,6 +631,164 @@ def fup(tree, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.block
+def autoreturn(tree, **kw):
+    """[syntax, block] Implicit "return" in tail position, like in Lisps.
+
+    Each ``def`` function definition lexically within the ``with autoreturn``
+    block is examined, and if the last item within the body is an expression
+    ``expr``, it is transformed into ``return expr``.
+
+    If the last item is an if/elif/else block, the transformation is applied
+    to the last item in each of its branches.
+
+    If the last item is a ``with`` or ``async with`` block, the transformation
+    is applied to the last item in its body.
+
+    If the last item is a try/except/else/finally block, the rules are as follows.
+    If an ``else`` clause is present, the transformation is applied to the last
+    item in it; otherwise, to the last item in the ``try`` clause. Additionally,
+    in both cases, the transformation is applied to the last item in each of the
+    ``except`` clauses. The ``finally`` clause is not transformed; the intention
+    is it is usually a finalizer (e.g. to release resources) that runs after the
+    interesting value is already being returned by ``try``, ``else`` or ``except``.
+
+    Example::
+
+        with autoreturn:
+            def f():
+                "I'll just return this"
+            assert f() == "I'll just return this"
+
+            def g(x):
+                if x == 1:
+                    "one"
+                elif x == 2:
+                    "two"
+                else:
+                    "something else"
+            assert g(1) == "one"
+            assert g(2) == "two"
+            assert g(42) == "something else"
+
+    **CAUTION**: If the final ``else`` is omitted, as often in Python, then
+    only the ``else`` item is in tail position with respect to the function
+    definition - likely not what you want.
+
+    So with ``autoreturn``, the final ``else`` should be written out explicitly,
+    to make the ``else`` branch part of the same if/elif/else block.
+
+    **CAUTION**: ``for``, ``async for``, ``while`` are currently not analyzed;
+    effectively, these are defined as always returning ``None``. If the last item
+    in your function body is a loop, use an explicit return.
+
+    **CAUTION**: With ``autoreturn`` enabled, functions no longer return ``None``
+    by default; the whole point of this macro is to change the default return
+    value.
+
+    The default return value is ``None`` only if the tail position contains
+    a statement (because in a sense, a statement always returns ``None``).
+    """
+    return (yield from _autoreturn(block_body=tree))
+
+@macros.block
+def tco(tree, *, gen_sym, **kw):
+    """[syntax, block] Implicit tail-call optimization (TCO).
+
+    Examples::
+
+        with tco:
+            evenp = lambda x: (x == 0) or oddp(x - 1)
+            oddp  = lambda x: (x != 0) and evenp(x - 1)
+            assert evenp(10000) is True
+
+        with tco:
+            def evenp(x):
+                if x == 0:
+                    return True
+                return oddp(x - 1)
+            def oddp(x):
+                if x != 0:
+                    return evenp(x - 1)
+                return False
+            assert evenp(10000) is True
+
+    This is based on a strategy similar to MacroPy's tco macro, but using
+    the TCO machinery from ``unpythonic.tco``.
+
+    This recursively handles also builtins ``a if p else b``, ``and``, ``or``;
+    and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``,
+    when used in computing a return value.
+
+    Note only calls **in tail position** will be TCO'd. Any other calls
+    are left as-is. Tail positions are:
+
+        - The whole return value, if it is just a single call.
+
+        - Both ``a`` and ``b`` branches of ``a if p else b`` (but not ``p``).
+
+        - The last item in an ``and``/``or``. If these are nested, only the
+          last item in the whole expression involving ``and``/``or``. E.g. in::
+
+              (1 and 2) or 3
+              1 and (2 or 3)
+
+          in either case, only the ``3`` is in tail position.
+
+        - The last item in a ``do[]``.
+
+          - In a ``do0[]``, this is the implicit item that just returns the
+            stored return value.
+
+        - The argument of a call to an escape continuation. The ``ec(...)`` call
+          itself does not need to be in tail position; escaping early is the
+          whole point of an ec.
+
+    All function definitions (``def`` and ``lambda``) lexically inside the block
+    undergo TCO transformation. The functions are automatically ``@trampolined``,
+    and any tail calls in their return values are converted to ``jump(...)``
+    for the TCO machinery.
+
+    Note in a ``def`` you still need the ``return``; it marks a return value.
+    But see ``autoreturn``::
+
+        with autoreturn, tco:
+            def evenp(x):
+                if x == 0:
+                    True
+                else:
+                    oddp(x - 1)
+            def oddp(x):
+                if x != 0:
+                    evenp(x - 1)
+                else:
+                    False
+            assert evenp(10000) is True
+
+    **CAUTION**: regarding escape continuations, only basic uses of ecs created
+    via ``call_ec`` are currently detected as being in tail position. Any other
+    custom escape mechanisms are not supported. (This is mainly of interest for
+    lambdas, which have no ``return``, and for "multi-return" from a nested
+    function.)
+
+    *Basic use* is defined as either of these two cases::
+
+        # use as decorator
+        @call_ec
+        def result(ec):
+            ...
+
+        # use directly on a literal lambda
+        result = call_ec(lambda ec: ...)
+
+    When macro expansion of the ``with tco`` block starts, names of escape
+    continuations created **anywhere lexically within** the ``with tco`` block
+    are captured. Lexically within the block, any call to a function having
+    any of the captured names, or as a fallback, one of the literal names
+    ``ec``, ``brk``, is interpreted as invoking an escape continuation.
+    """
+    return (yield from _tco(block_body=tree, gen_sym=gen_sym))
+
+@macros.block
 def continuations(tree, gen_sym, **kw):
     """[syntax, block] Semi-implicit continuations.
 
@@ -858,695 +1002,7 @@ def continuations(tree, gen_sym, **kw):
         with the current continuation, no need for ``with bind``; use
         ``return func(...)`` instead.
     """
-    # We don't have an analog of PG's "=apply", since Python doesn't need "apply"
-    # to pass in varargs.
-
-    # first pass, outside-in
-    userlambdas = _detect_lambda.collect(tree)
-    known_ecs = list(uniqify(detect_callec.collect(tree)))
-    tree = yield tree
-
-    # second pass, inside-out
-
-    # _tco_transform_def and _tco_transform_lambda correspond to PG's
-    # "=defun" and "=lambda", but we don't need to generate a macro.
-    #
-    # Here we define only the callback to perform the additional transformations
-    # we need for the continuation machinery.
-    def transform_args(tree):
-        assert type(tree) in (FunctionDef, AsyncFunctionDef, Lambda)
-        # require explicit by-name-only arg for continuation, "cc"
-        # (by name because we need to set a default value; otherwise "cc"
-        #  could be positional and be placed just after "self" or "cls", if any)
-        kwonlynames = [a.arg for a in tree.args.kwonlyargs]
-        hascc = any(x == "cc" for x in kwonlynames)
-        if not hascc:
-            assert False, "functions in a 'with continuations' block must have a by-name-only arg 'cc'"
-        # we could add it implicitly like this
-#            tree.args.kwonlyargs = [arg(arg="cc")] + tree.args.kwonlyargs
-#            tree.args.kw_defaults = [hq[identity]] + tree.args.kw_defaults
-        # Patch in the default identity continuation to allow regular
-        # (non-tail) calls without explicitly passing a continuation.
-        j = kwonlynames.index("cc")
-        if tree.args.kw_defaults[j] is None:
-            tree.args.kw_defaults[j] = hq[identity]
-        return tree
-
-    # _tco_transform_return corresponds to PG's "=values".
-    # It uses _transform_retexpr to transform return-value expressions
-    # and arguments of calls to escape continuations.
-    #
-    # Ours is applied automatically to all return statements (and calls to
-    # escape continuations) in the block, and there's some extra complexity
-    # to support IfExp, BoolOp, and the do and let macros in return-value expressions.
-    #
-    # Already performed by the TCO machinery:
-    #     return f(...) --> return jump(f, ...)
-    #
-    # Additional transformations needed here:
-    #     return f(...) --> return jump(f, cc=cc, ...)  # customize the transform to add the cc kwarg
-    #     return value --> return jump(cc, value)
-    #     return v1, ..., vn --> return jump(cc, *(v1, ..., vn))
-    #
-    # Here we only customize the transform_retexpr callback.
-    def call_cb(tree):  # add the cc kwarg (this plugs into the TCO transformation)
-        # Pass our current continuation (if no continuation already specified by user).
-        hascc = any(kw.arg == "cc" for kw in tree.keywords)
-        if not hascc:
-            tree.keywords = [keyword(arg="cc", value=q[name["cc"]])] + tree.keywords
-        return tree
-    def data_cb(tree):  # transform an inert-data return value into a tail-call to cc.
-        # Handle multiple-return-values like the rest of unpythonic does:
-        # returning a tuple means returning multiple values. Unpack them
-        # to cc's arglist.
-        if type(tree) is Tuple:  # optimization: literal tuple, always unpack
-            tree = hq[jump(name["cc"], *ast_literal[tree])]
-        else:  # general case: check tupleness at run-time
-            thecall_multi = hq[jump(name["cc"], *name["_retval"])]
-            thecall_single = hq[jump(name["cc"], name["_retval"])]
-#            tree = let([q[(name["_retval"], ast_literal[tree])]],
-#                       q[ast_literal[thecall_multi]  # TODO: doesn't work, IfExp missing line number
-#                         if isinstance(name["_retval"], tuple)
-#                         else ast_literal[thecall_single]])
-#            tree = fill_line_numbers(newtree, tree.lineno, tree.col_offset)  # doesn't work even with this.
-            tree = _let([q[(name["_retval"], ast_literal[tree])]],
-                        IfExp(test=q[isinstance(name["_retval"], tuple)],
-                              body=thecall_multi,
-                              orelse=thecall_single,
-                              lineno=tree.lineno, col_offset=tree.col_offset),
-                        gen_sym)
-        return tree
-    transform_retexpr = partial(_transform_retexpr, gen_sym=gen_sym, call_cb=call_cb, data_cb=data_cb)
-
-    # Helper for "with bind".
-    # bind[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., cc=cc, k0=v0, ...)
-    # This roughly corresponds to PG's "=funcall".
-    def isbind(tree):
-        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "bind"
-    @Walker
-    def transform_bind(tree, *, contname, **kw):  # contname: name of function (as bare str) to use as continuation
-        if isbind(tree):
-            if not (type(tree.slice) is Index and type(tree.slice.value) is Call):
-                assert False, "bind: expected a single function call as subscript"
-            thecall = tree.slice.value
-            thecall.keywords = [keyword(arg="cc", value=q[name[contname]])] + thecall.keywords
-            return thecall  # discard the bind[] wrapper
-        return tree
-    # Inside FunctionDef nodes:
-    #     with bind[...] as ...: --> CPS transformation
-    # This corresponds to PG's "=bind". This is essentially the call/cc.
-    def iswithbind(tree):
-        if type(tree) is With:
-            if len(tree.items) == 1 and isbind(tree.items[0].context_expr):
-                return True
-            if any(isbind(item.context_expr) for item in tree.items):
-                assert False, "the 'bind' in a 'with bind' statement must be the only context manager"
-        return False
-    @Walker
-    def transform_withbind(tree, *, deftypes, set_ctx, **kw):
-        if type(tree) in (FunctionDef, AsyncFunctionDef):  # function definition **inside the "with continuations" block**
-            set_ctx(deftypes=(deftypes + [type(tree)]))
-        if not iswithbind(tree):
-            return tree
-        toplevel = not deftypes
-        ctxmanager = tree.items[0].context_expr
-        optvars = tree.items[0].optional_vars
-        if optvars:
-            if type(optvars) is Name:
-                posargs = [optvars.id]
-            elif type(optvars) in (List, Tuple):
-                if not all(type(x) is Name for x in optvars.elts):
-                    assert False, "with bind[...] as ... expected only names in as-part tuple/list"
-                posargs = list(x.id for x in optvars.elts)
-            else:
-                assert False, "with bind[...] as ... expected a name, list or tuple in as-part"
-        else:
-            posargs = []
-
-        # Create the continuation function, set our body as its body.
-        #
-        # Any return statements in the body have already been transformed,
-        # because they appear literally in the code at the use site.
-        thename = gen_sym("cont")
-        FDef = deftypes[-1] if deftypes else FunctionDef  # use same type (regular/async) as parent function
-        funcdef = FDef(name=thename,
-                       args=arguments(args=[arg(arg=x) for x in posargs],
-                                      kwonlyargs=[arg(arg="cc")],
-                                      vararg=None,
-                                      kwarg=None,
-                                      defaults=[],
-                                      kw_defaults=[None]),  # patched later by transform_def
-                       body=tree.body,
-                       decorator_list=[],  # patched later by transform_def
-                       returns=None)  # return annotation not used here
-
-        # Set up the call to func, specifying our new function as its continuation
-        thecall = transform_bind.recurse(ctxmanager, contname=thename)
-        if not toplevel:
-            # apply TCO
-            thecall.args = [thecall.func] + thecall.args
-            thecall.func = hq[jump]
-            # Inside a function definition, output a block that defines the
-            # continuation function and then calls func, **as a tail call**
-#            with q as newtree:
-#                if 1:
-#                    ast_literal[funcdef]  # TODO: doesn't work, why? (expected expr, not stmt - why?)
-#                    return ast_literal[thecall]
-#            return newtree[0]  # the if statement
-            newtree = If(test=Num(n=1),
-                         body=[q[ast_literal[funcdef]],
-                               Return(value=q[ast_literal[thecall]])],
-                         orelse=[])
-        else:
-            # At the top level, output a block that defines the
-            # continuation function and then calls func normally.
-            newtree = If(test=Num(n=1),
-                         body=[q[ast_literal[funcdef]],
-                               Expr(value=q[ast_literal[thecall]])],
-                         orelse=[])
-        return newtree
-
-    # set up the default continuation that just returns its args
-    newtree = [Assign(targets=[q[name["cc"]]], value=hq[identity])]
-    # CPS conversion
-    @Walker
-    def check_for_strays(tree, **kw):
-        if isbind(tree):
-            assert False, "bind[...] may only appear as part of with bind[...] as ..."
-        return tree
-    for stmt in tree:
-        # transform "return" statements before "with bind[]"'s tail calls generate new ones.
-        stmt = _tco_transform_return.recurse(stmt, known_ecs=known_ecs,
-                                             transform_retexpr=transform_retexpr)
-        # transform "with bind[]" blocks
-        stmt = transform_withbind.recurse(stmt, deftypes=[])
-        check_for_strays.recurse(stmt)  # check that no stray bind[] expressions remain
-        # transform all defs, including those added by "with bind[]".
-        stmt = _tco_transform_def.recurse(stmt, preproc_cb=transform_args)
-        stmt = _tco_transform_lambda.recurse(stmt, preproc_cb=transform_args,
-                                             userlambdas=userlambdas,
-                                             known_ecs=known_ecs,
-                                             transform_retexpr=transform_retexpr)
-        stmt = _tco_fix_lambda_decorators(stmt)
-        newtree.append(stmt)
-    return newtree
-
-@macro_stub
-def bind(tree, **kw):
-    """[syntax] Only meaningful in a "with bind[...] as ..."."""
-    pass
-
-@macros.block
-def tco(tree, *, gen_sym, **kw):
-    """[syntax, block] Implicit tail-call optimization (TCO).
-
-    Examples::
-
-        with tco:
-            evenp = lambda x: (x == 0) or oddp(x - 1)
-            oddp  = lambda x: (x != 0) and evenp(x - 1)
-            assert evenp(10000) is True
-
-        with tco:
-            def evenp(x):
-                if x == 0:
-                    return True
-                return oddp(x - 1)
-            def oddp(x):
-                if x != 0:
-                    return evenp(x - 1)
-                return False
-            assert evenp(10000) is True
-
-    This is based on a strategy similar to MacroPy's tco macro, but using
-    the TCO machinery from ``unpythonic.tco``.
-
-    This recursively handles also builtins ``a if p else b``, ``and``, ``or``;
-    and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``,
-    when used in computing a return value.
-
-    Note only calls **in tail position** will be TCO'd. Any other calls
-    are left as-is. Tail positions are:
-
-        - The whole return value, if it is just a single call.
-
-        - Both ``a`` and ``b`` branches of ``a if p else b`` (but not ``p``).
-
-        - The last item in an ``and``/``or``. If these are nested, only the
-          last item in the whole expression involving ``and``/``or``. E.g. in::
-
-              (1 and 2) or 3
-              1 and (2 or 3)
-
-          in either case, only the ``3`` is in tail position.
-
-        - The last item in a ``do[]``.
-
-          - In a ``do0[]``, this is the implicit item that just returns the
-            stored return value.
-
-        - The argument of a call to an escape continuation. The ``ec(...)`` call
-          itself does not need to be in tail position; escaping early is the
-          whole point of an ec.
-
-    All function definitions (``def`` and ``lambda``) lexically inside the block
-    undergo TCO transformation. The functions are automatically ``@trampolined``,
-    and any tail calls in their return values are converted to ``jump(...)``
-    for the TCO machinery.
-
-    Note in a ``def`` you still need the ``return``; it marks a return value.
-    But see ``autoreturn``::
-
-        with autoreturn, tco:
-            def evenp(x):
-                if x == 0:
-                    True
-                else:
-                    oddp(x - 1)
-            def oddp(x):
-                if x != 0:
-                    evenp(x - 1)
-                else:
-                    False
-            assert evenp(10000) is True
-
-    **CAUTION**: regarding escape continuations, only basic uses of ecs created
-    via ``call_ec`` are currently detected as being in tail position. Any other
-    custom escape mechanisms are not supported. (This is mainly of interest for
-    lambdas, which have no ``return``, and for "multi-return" from a nested
-    function.)
-
-    *Basic use* is defined as either of these two cases::
-
-        # use as decorator
-        @call_ec
-        def result(ec):
-            ...
-
-        # use directly on a literal lambda
-        result = call_ec(lambda ec: ...)
-
-    When macro expansion of the ``with tco`` block starts, names of escape
-    continuations created **anywhere lexically within** the ``with tco`` block
-    are captured. Lexically within the block, any call to a function having
-    any of the captured names, or as a fallback, one of the literal names
-    ``ec``, ``brk``, is interpreted as invoking an escape continuation.
-    """
-    # first pass, outside-in
-    userlambdas = _detect_lambda.collect(tree)
-    known_ecs = list(uniqify(detect_callec.collect(tree)))
-    tree = yield tree
-
-    transform_retexpr = partial(_transform_retexpr, gen_sym=gen_sym)
-
-    # second pass, inside-out
-    newtree = []
-    for stmt in tree:
-        stmt = _tco_transform_return.recurse(stmt, known_ecs=known_ecs,
-                                             transform_retexpr=transform_retexpr)
-        stmt = _tco_transform_def.recurse(stmt, preproc_cb=None)
-        stmt = _tco_transform_lambda.recurse(stmt, preproc_cb=None,
-                                             userlambdas=userlambdas,
-                                             known_ecs=known_ecs,
-                                             transform_retexpr=transform_retexpr)
-        stmt = _tco_fix_lambda_decorators(stmt)
-        newtree.append(stmt)
-    return newtree
-
-@Walker
-def _detect_lambda(tree, *, collect, stop, **kw):
-    """Find lambdas in tree. Helper for block macros.
-
-    Run ``_detect_lambda.collect(tree)`` in the first pass, before allowing any
-    nested macros to expand. (Those may generate more lambdas that your block
-    macro is not interested in).
-
-    The return value from ``.collect`` is a ``list``of ``id(lam)``, where ``lam``
-    is a Lambda node that appears in ``tree``. This list is suitable as
-    ``userlambdas`` for the TCO macros.
-
-    This ignores any "lambda e: ..." added by an already expanded ``do[]``,
-    to allow other block macros to better work together with ``with multilambda``
-    (which expands in the first pass, to eliminate semantic surprises).
-    """
-    if isdo(tree):
-        stop()
-        for item in tree.args:  # each arg to dof() is a lambda
-            _detect_lambda.collect(item.body)
-    if type(tree) is Lambda:
-        collect(id(tree))
-    return tree
-
-@Walker
-def _tco_transform_def(tree, *, preproc_cb, **kw):
-    if type(tree) in (FunctionDef, AsyncFunctionDef):
-        if preproc_cb:
-            tree = preproc_cb(tree)
-        # Enable TCO if not TCO'd already.
-        #
-        # @trampolined needs to be inside of @memoize, otherwise outermost;
-        # so that it is applied **after** any call_ec; this allows also escapes
-        # to return a jump object to the trampoline.
-        if not any(_is_decorator(x, fname) for fname in _tco_decorators for x in tree.decorator_list):
-            ismemoize = [_is_decorator(x, "memoize") for x in tree.decorator_list]
-            try:
-                k = ismemoize.index(True) + 1
-                rest = tree.decorator_list[k:] if len(tree.decorator_list) > k else []
-                tree.decorator_list = tree.decorator_list[:k] + [hq[trampolined]] + rest
-            except ValueError:  # no memoize decorator in list
-                tree.decorator_list = [hq[trampolined]] + tree.decorator_list
-    return tree
-
-# Transform return statements and calls to escape continuations (ec).
-# known_ecs: list of names (str) of known escape continuations.
-# transform_retexpr: return-value expression transformer.
-@Walker
-def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
-    treeisec = isec(tree, known_ecs)
-    if type(tree) is Return:
-        value = tree.value or q[None]  # return --> return None  (bare return has value=None in the AST)
-        if not treeisec:
-            return Return(value=transform_retexpr(value, known_ecs))
-        else:
-            # An ec call already escapes, so the return is redundant.
-            #
-            # If someone writes "return ec(...)" in a "with continuations" block,
-            # this cleans up the code, since eliminating the "return" allows us
-            # to omit a redundant "let".
-            return Expr(value=value)  # return ec(...) --> ec(...)
-    elif treeisec:  # TCO the arg of an ec(...) call
-        if len(tree.args) > 1:
-            assert False, "expected exactly one argument for escape continuation"
-        tree.args[0] = transform_retexpr(tree.args[0], known_ecs)
-    return tree
-
-# userlambdas: list of ids; the purpose is to avoid transforming lambdas implicitly added by macros (do, let).
-@Walker
-def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform_retexpr, stop, set_ctx, hastco=False, **kw):
-    # Detect a lambda which already has TCO applied.
-    if _is_decorated_lambda(tree, _lambda_decorator_detectors):
-        decorator_list, thelambda = _destructure_decorated_lambda(tree)
-        if id(thelambda) in userlambdas:
-            if any(_is_lambda_decorator(x, fname) for fname in _tco_decorators for x in decorator_list):
-                set_ctx(hastco=True)  # thelambda is the next Lambda node we will descend into.
-    elif type(tree) is Lambda and id(tree) in userlambdas:
-        if preproc_cb:
-            tree = preproc_cb(tree)
-        tree.body = transform_retexpr(tree.body, known_ecs)
-        lam = tree
-        if not hastco:  # Enable TCO if not TCO'd already.
-            tree = hq[trampolined(ast_literal[tree])]
-        # don't recurse on the lambda we just moved, but recurse inside it.
-        stop()
-        _tco_transform_lambda.recurse(lam.body,
-                                      preproc_cb=preproc_cb,
-                                      userlambdas=userlambdas,
-                                      known_ecs=known_ecs,
-                                      transform_retexpr=transform_retexpr,
-                                      hastco=False)
-    return tree
-
-# call_ec(trampolined(lambda ...: ...)) --> trampolined(call_ec(lambda ...: ...))
-# call_ec(curry(trampolined(lambda ...: ...))) --> trampolined(call_ec(curry(lambda ...: ...)))
-def _tco_fix_lambda_decorators(tree):
-    """Fix ordering of known lambda decorators.
-
-    Strictly, lambdas have no decorator_list, but can be decorated by explicitly
-    surrounding them with calls to decorator functions.
-    """
-    def prioritize(tree):  # sort key for Call nodes invoking known decorators
-        for k, f in enumerate(_lambda_decorator_detectors):
-            if f(tree):
-                return k
-        assert False  # we currently support known decorators only
-
-    @Walker
-    def fixit(tree, *, stop, **kw):
-        if _is_decorated_lambda(tree, _lambda_decorator_detectors):
-            decorator_list, thelambda = _destructure_decorated_lambda(tree)
-            # We can just swap the func attributes of the nodes.
-            ordered_decorator_list = sorted(decorator_list, key=prioritize)
-            ordered_funcs = [x.func for x in ordered_decorator_list]
-            for thecall, newfunc in zip(decorator_list, ordered_funcs):
-                thecall.func = newfunc
-            # don't recurse on the tail of the decorator list, but recurse into the lambda body.
-            stop()
-            fixit.recurse(thelambda.body)
-        return tree
-    return fixit.recurse(tree)
-
-def _is_decorator(tree, fname):
-    """Test tree whether it is the decorator ``fname``.
-
-    References of the forms ``f``, ``foo.f`` and ``hq[f]`` are supported.
-
-     We detect:
-
-        - ``Name``, ``Attribute`` or ``Captured`` matching the given ``fname``
-          (non-parametric decorator), and
-
-        - ``Call`` whose ``.func`` matches the above rule (parametric decorator).
-    """
-    return isx(tree, fname) or \
-           (type(tree) is Call and isx(tree.func, fname))
-
-def _is_lambda_decorator(tree, fname):
-    """Test tree whether it decorates a lambda with ``fname``.
-
-    A node is detected as a lambda decorator if it is a ``Call`` that supplies
-    exactly one positional argument, and its ``.func`` is a decorator
-    (``_is_decorator(tree.func)`` returns ``True``).
-
-    This function does not know or care whether a chain of ``Call`` nodes
-    terminates in a ``Lambda`` node. See ``_is_decorated_lambda``.
-
-    Examples::
-
-        trampolined(arg)                    # --> non-parametric decorator
-        looped_over(range(10), acc=0)(arg)  # --> parametric decorator
-    """
-    return (type(tree) is Call and len(tree.args) == 1) and _is_decorator(tree.func, fname)
-
-def _is_decorated_lambda(tree, detectors):
-    """Detect a tree of the form f(g(h(lambda ...: ...)))
-
-    We currently support known decorators only.
-
-    detectors: a list of predicates to detect a known decorator.
-    To build these easily, ``partial(_is_lambda_decorator, fname="whatever")``.
-    """
-    if type(tree) is not Call:
-        return False
-    if not any(f(tree) for f in detectors):
-        return False
-    if type(tree.args[0]) is Lambda:
-        return True
-    return _is_decorated_lambda(tree.args[0], detectors)
-
-def _destructure_decorated_lambda(tree):
-    """Get the AST nodes for ([f, g, h], lambda) in f(g(h(lambda ...: ...)))
-
-    Input must be a tree for which ``is_decorated_lambda`` returns ``True``.
-
-    This returns **the original AST nodes**, to allow in-place transformations.
-    """
-    def get(tree, lst):
-        if type(tree) is Call:
-            # collect tree itself, not tree.func, because we need to reorder the funcs later.
-            return get(tree.args[0], lst + [tree])
-        elif type(tree) is Lambda:
-            return lst, tree
-        assert False, "Expected a chain of Call nodes terminating in a Lambda node"
-    return get(tree, [])
-
-# Extensible system. List known decorators in the desired ordering,
-# outermost-to-innermost.
-#
-# "with curry" (--> hq[curryf(...)]) is expanded later, so we don't need to
-# worry about it here; we catch only explicit curry(...) in the client code,
-# which is already there when "with tco" or "with continuations" is expanded.
-#
-_tco_decorators = ["trampolined", "looped", "breakably_looped", "looped_over", "breakably_looped_over"]
-_decorator_registry = ["memoize", "fimemoize"] + _tco_decorators + ["call_ec", "call", "curry"]
-_lambda_decorator_detectors = [partial(_is_lambda_decorator, fname=x) for x in _decorator_registry]
-
-# Tail-position analysis for a return-value expression (also the body of a lambda).
-# Here we need to be very, very selective about where to recurse so this is not a Walker.
-def _transform_retexpr(tree, known_ecs, gen_sym, call_cb=None, data_cb=None):
-    """Analyze and TCO a return-value expression or a lambda body.
-
-    This performs a tail-position analysis on the given ``tree``, recursively
-    handling the builtins ``a if p else b``, ``and``, ``or``; and from
-    ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``.
-
-      - known_ecs: list of str, names of known escape continuations.
-
-      - call_cb(tree): either None; or tree -> tree, callback for Call nodes
-
-      - data_cb(tree): either None; or tree -> tree, callback for inert data nodes
-
-    The callbacks (if any) may perform extra transformations; they are applied
-    as postprocessing for each node of matching type, after any transformations
-    performed by this macro.
-
-    *Inert data* is defined as anything except Call, IfExp, BoolOp-with-tail-call,
-    or one of the supported macros from ``unpythonic.syntax``.
-    """
-    transform_call = call_cb or (lambda tree: tree)
-    transform_data = data_cb or (lambda tree: tree)
-    def transform(tree):
-        if isdo(tree) or islet(tree):
-            # Ignore the "lambda e: ...", and descend into the ..., in:
-            #   - let[] or letrec[] in tail position.
-            #     - letseq[] is a nested sequence of lets, so covers that too.
-            #   - do[] in tail position.
-            #     - May be generated also by a "with multilambda" block
-            #       that has already expanded.
-            tree.args[-1].body = transform(tree.args[-1].body)
-        elif type(tree) is Call:
-            # Apply TCO to tail calls.
-            #   - If already an explicit jump() or loop(), leave it alone.
-            #   - If a call to an ec, leave it alone.
-            #     - Because an ec call may appear anywhere, a tail-position
-            #       analysis will not find all of them.
-            #     - This function analyzes only tail positions within
-            #       a return-value expression.
-            #     - Hence, transform_return() calls us on the content of
-            #       all ec nodes directly. ec(...) is like return; the
-            #       argument is the retexpr.
-            if not (isx(tree.func, "jump") or isx(tree.func, "loop") or isec(tree, known_ecs)):
-                tree.args = [tree.func] + tree.args
-                tree.func = hq[jump]
-                tree = transform_call(tree)
-        elif type(tree) is IfExp:
-            # Only either body or orelse runs, so both of them are in tail position.
-            # test is not in tail position.
-            tree.body = transform(tree.body)
-            tree.orelse = transform(tree.orelse)
-        elif type(tree) is BoolOp:  # and, or
-            # and/or is a combined test-and-return. Any number of these may be nested.
-            # Because it is in general impossible to know beforehand how many
-            # items will be actually evaluated, we define only the last item
-            # (in the whole expression) to be in tail position.
-            if type(tree.values[-1]) in (Call, IfExp, BoolOp):  # must match above handlers
-                # other items: not in tail position, compute normally
-                if len(tree.values) > 2:
-                    op_of_others = BoolOp(op=tree.op, values=tree.values[:-1],
-                                          lineno=tree.lineno, col_offset=tree.col_offset)
-                else:
-                    op_of_others = tree.values[0]
-                if type(tree.op) is Or:
-                    # or(data1, ..., datan, tail) --> it if any(others) else tail
-                    tree = _aif(Tuple(elts=[op_of_others,
-                                            transform_data(Name(id="it",
-                                                                lineno=tree.lineno,
-                                                               col_offset=tree.col_offset)),
-                                            transform(tree.values[-1])],
-                                      lineno=tree.lineno, col_offset=tree.col_offset),
-                                gen_sym) # tail-call item
-                elif type(tree.op) is And:
-                    # and(data1, ..., datan, tail) --> tail if all(others) else False
-                    fal = q[False]
-                    fal = copy_location(fal, tree)
-                    tree = IfExp(test=op_of_others,
-                                 body=transform(tree.values[-1]),
-                                 orelse=transform_data(fal))
-                else:  # cannot happen
-                    assert False, "unknown BoolOp type {}".format(tree.op)
-            else:  # optimization: BoolOp, no call or compound in tail position --> treat as single data item
-                tree = transform_data(tree)
-        else:
-            tree = transform_data(tree)
-        return tree
-    return transform(tree)
-
-# Tail-position analysis for a function body.
-@macros.block
-def autoreturn(tree, **kw):
-    """[syntax, block] Implicit "return" in tail position, like in Lisps.
-
-    Each ``def`` function definition lexically within the ``with autoreturn``
-    block is examined, and if the last item within the body is an expression
-    ``expr``, it is transformed into ``return expr``.
-
-    If the last item is an if/elif/else block, the transformation is applied
-    to the last item in each of its branches.
-
-    If the last item is a ``with`` or ``async with`` block, the transformation
-    is applied to the last item in its body.
-
-    If the last item is a try/except/else/finally block, the rules are as follows.
-    If an ``else`` clause is present, the transformation is applied to the last
-    item in it; otherwise, to the last item in the ``try`` clause. Additionally,
-    in both cases, the transformation is applied to the last item in each of the
-    ``except`` clauses. The ``finally`` clause is not transformed; the intention
-    is it is usually a finalizer (e.g. to release resources) that runs after the
-    interesting value is already being returned by ``try``, ``else`` or ``except``.
-
-    Example::
-
-        with autoreturn:
-            def f():
-                "I'll just return this"
-            assert f() == "I'll just return this"
-
-            def g(x):
-                if x == 1:
-                    "one"
-                elif x == 2:
-                    "two"
-                else:
-                    "something else"
-            assert g(1) == "one"
-            assert g(2) == "two"
-            assert g(42) == "something else"
-
-    **CAUTION**: If the final ``else`` is omitted, as often in Python, then
-    only the ``else`` item is in tail position with respect to the function
-    definition - likely not what you want.
-
-    So with ``autoreturn``, the final ``else`` should be written out explicitly,
-    to make the ``else`` branch part of the same if/elif/else block.
-
-    **CAUTION**: ``for``, ``async for``, ``while`` are currently not analyzed;
-    effectively, these are defined as always returning ``None``. If the last item
-    in your function body is a loop, use an explicit return.
-
-    **CAUTION**: With ``autoreturn`` enabled, functions no longer return ``None``
-    by default; the whole point of this macro is to change the default return
-    value.
-
-    The default return value is ``None`` only if the tail position contains
-    a statement (because in a sense, a statement always returns ``None``).
-    """
-    @Walker
-    def transform_tailstmt(tree, **kw):
-        if type(tree) in (FunctionDef, AsyncFunctionDef):
-            tree.body[-1] = transform_one(tree.body[-1])
-        return tree
-    def transform_one(tree):
-        # TODO: For/AsyncFor/While?
-        if type(tree) is If:
-            tree.body[-1] = transform_one(tree.body[-1])
-            if tree.orelse:
-                tree.orelse[-1] = transform_one(tree.orelse[-1])
-        elif type(tree) in (With, AsyncWith):
-            tree.body[-1] = transform_one(tree.body[-1])
-        elif type(tree) is Try:
-            # We don't care about finalbody; it is typically a finalizer.
-            if tree.orelse:  # tail position is in else clause if present
-                tree.orelse[-1] = transform_one(tree.orelse[-1])
-            else:  # tail position is in the body of the "try"
-                tree.body[-1] = transform_one(tree.body[-1])
-            # additionally, tail position is in each "except" handler
-            for handler in tree.handlers:
-                handler.body[-1] = transform_one(handler.body[-1])
-        elif type(tree) is Expr:
-            tree = Return(value=tree.value)
-        return tree
-    # This is a first-pass macro. Any nested macros should get clean standard Python,
-    # not having to worry about implicit "return" statements.
-    yield transform_tailstmt.recurse(tree)
+    return (yield from _continuations(block_body=tree, gen_sym=gen_sym))
 
 # -----------------------------------------------------------------------------
 
@@ -1621,60 +1077,8 @@ def prefix(tree, **kw):
         - For ``*args``, to keep it lispy, maybe you want ``unpythonic.fun.apply``;
           this allows syntax such as ``(apply, f, 1, 2, lst)``.
     """
-    isquote = lambda tree: type(tree) is Name and tree.id == "q"
-    isunquote = lambda tree: type(tree) is Name and tree.id == "u"
-    iskwargs = lambda tree: type(tree) is Call and type(tree.func) is Name and tree.func.id == "kw"
-    @Walker
-    def transform(tree, *, quotelevel, set_ctx, **kw):
-        if not (type(tree) is Tuple and type(tree.ctx) is Load):
-            return tree
-        op, *data = tree.elts
-        while True:
-            if isunquote(op):
-                if quotelevel < 1:
-                    assert False, "unquote while not in quote"
-                quotelevel -= 1
-            elif isquote(op):
-                quotelevel += 1
-            else:
-                break
-            set_ctx(quotelevel=quotelevel)
-            if not len(data):
-                assert False, "a prefix tuple cannot contain only quote/unquote operators"
-            op, *data = data
-        if quotelevel > 0:
-            quoted = [op] + data
-            if any(iskwargs(x) for x in quoted):
-                assert False, "kw(...) may only appear in a prefix tuple representing a function call"
-            return q[(ast_literal[quoted],)]
-        # (f, a1, ..., an) --> f(a1, ..., an)
-        posargs = [x for x in data if not iskwargs(x)]
-        # TODO: tag *args and **kwargs in a kw() as invalid, too (currently just ignored)
-        invalids = list(flatmap(lambda x: x.args, filter(iskwargs, data)))
-        if invalids:
-            assert False, "kw(...) may only specify named args"
-        kwargs = flatmap(lambda x: x.keywords, filter(iskwargs, data))
-        kwargs = list(rev(uniqify(rev(kwargs), key=lambda x: x.arg)))  # latest wins, but keep original ordering
-        return Call(func=op, args=posargs, keywords=list(kwargs))
-    # This is a first-pass macro. Any nested macros should get clean standard Python,
-    # not having to worry about tuples possibly denoting function calls.
-    yield transform.recurse(tree, quotelevel=0)
+    return (yield from _prefix(block_body=tree))
 
-# note the exported "q" is ours, but the q we use in this module is a macro.
-class q:
-    """[syntax] Quote operator. Only meaningful in a tuple in a prefix block."""
-    def __repr__(self):  # in case one of these ends up somewhere at runtime
-        return "<quote>"
-q = q()
-
-class u:
-    """[syntax] Unquote operator. Only meaningful in a tuple in a prefix block."""
-    def __repr__(self):  # in case one of these ends up somewhere at runtime
-        return "<unquote>"
-u = u()
-
-def kw(**kwargs):
-    """[syntax] Pass-named-args operator. Only meaningful in a tuple in a prefix block."""
-    raise RuntimeError("kw only meaningful inside a tuple in a prefix block")
+from unpythonic.syntax.prefix import q, u, kw  # for re-export only
 
 # -----------------------------------------------------------------------------
