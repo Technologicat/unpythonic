@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Anaphoric if."""
 
-from ast import copy_location, Tuple
+from ast import Tuple
 
 from macropy.core.quotes import macros, q, ast_literal
 from macropy.core.hquotes import macros, hq
