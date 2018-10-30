@@ -100,6 +100,12 @@ class _Env(object):
         raise AttributeError("dynamic variable '{:s}' is not defined".format(name))
 
     def let(self, **bindings):
+        """Introduce dynamic bindings.
+
+        Context manager; usage is ``with dyn.let(name=value, ...):``
+
+        See ``dyn``.
+        """
         return _EnvBlock(bindings)
 
     def __setattr__(self, name, value):
