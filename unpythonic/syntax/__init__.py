@@ -29,6 +29,14 @@ from macropy.core.macros import Macros
 
 macros = Macros()
 
+# We pass gen_sym as a dynvar so it doesn't need to appear in the
+# formal parameter lists of the underlying syntax transformers.
+#
+# If you add new macros, use ``with dyn.let(gen_sym=gen_sym):`` if your
+# syntax transformer (or any syntax transformers it calls) needs gen_sym.
+# This default is here to yell if it's needed and missing; the traceback
+# will tell exactly which syntax transformer needed it.
+#
 def nogensym(*args, **kwargs):
     raise RuntimeError("No gen_sym function set")
 make_dynvar(gen_sym=nogensym)
