@@ -281,7 +281,7 @@ def continuations(block_body):
                                              transform_retexpr=transform_retexpr)
         # transform "with bind[]" blocks
         stmt = transform_withbind.recurse(stmt, deftypes=[])
-        check_for_strays.recurse(stmt)  # check that no stray bind[] expressions remain
+        check_for_strays.recurse(stmt)
         # transform all defs, including those added by "with bind[]".
         stmt = _tco_transform_def.recurse(stmt, preproc_cb=transform_args)
         stmt = _tco_transform_lambda.recurse(stmt, preproc_cb=transform_args,
@@ -345,13 +345,14 @@ def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform
     # Note at this point we haven't seen the lambda; at most, we're examining
     # a Call node. The checker internally descends if tree looks promising.
     if has_tco(tree, userlambdas):
-        set_ctx(hastco=True)  # thelambda is the next Lambda node we will descend into.
+        set_ctx(hastco=True)  # the lambda inside the trampolined(...) is the next Lambda node we will descend into.
     elif type(tree) is Lambda and id(tree) in userlambdas:
         if preproc_cb:
             tree = preproc_cb(tree)
         tree.body = transform_retexpr(tree.body, known_ecs)
         lam = tree
         if not hastco:  # Enable TCO if not TCO'd already.
+            # Just slap it on; we will later fix_lambda_decorators() to order it correctly w.r.t. other decorators.
             tree = hq[trampolined(ast_literal[tree])]
         # don't recurse on the lambda we just moved, but recurse inside it.
         stop()
