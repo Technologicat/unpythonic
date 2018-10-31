@@ -1328,9 +1328,9 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - `rfoldl`, `rreducel` reverse each input and then left-fold. This syncs the **right** ends.
  - `scanl`, `scanr`: scan (a.k.a. accumulate, partial fold); a lazy fold that returns a generator yielding intermediate results.
    - `scanl` is suitable for infinite inputs.
-   - Iteration stops after:
-     - For `scanl`, the final result; i.e. what `foldl` would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
-     - For `scanr`, the init value. In the case of `scanr`, the **first** yielded item corresponds to  the final result of `foldr` (like in Haskell).
+   - Iteration stops after the final result.
+     - For `scanl`, this is what `foldl` would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
+     - For `scanr`, **ordering of output is different from Haskell**: we yield the results in the order they are computed (via a linear process).
    - Multiple input iterables and shortest/longest termination supported; same semantics as in `foldl`, `foldr`.
    - One-input versions with optional init are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
    - `rscanl`, `rscanl1` reverse each input and then left-scan. This syncs the **right** ends.
@@ -1373,12 +1373,12 @@ from unpythonic import scanl, scanr, foldl, foldr, flatmap, mapr, zipr, \
                        unfold, unfold1, cons, nil, ll, curry
 
 assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
-assert tuple(scanr(add, 0, range(1, 5))) == (10, 9, 7, 4, 0)
+assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
 assert tuple(scanl(mul, 1, range(2, 6))) == (1, 2, 6, 24, 120)
-assert tuple(scanr(mul, 1, range(2, 6))) == (120, 60, 20, 5, 1)
+assert tuple(scanr(mul, 1, range(2, 6))) == (1, 5, 20, 60, 120)
 
 assert tuple(scanl(cons, nil, ll(1, 2, 3))) == (nil, ll(1), ll(2, 1), ll(3, 2, 1))
-assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (ll(1, 2, 3), ll(2, 3), ll(3), nil)
+assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (nil, ll(3), ll(2, 3), ll(1, 2, 3))
 
 def step2(k):  # x0, x0 + 2, x0 + 4, ...
     return (k, k + 2)  # value, newstate

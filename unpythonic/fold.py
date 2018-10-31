@@ -9,7 +9,7 @@ __all__ = ["scanl", "scanr", "scanl1", "scanr1",
 
 from functools import partial
 from itertools import zip_longest
-from collections import deque
+#from collections import deque
 
 from unpythonic.it import first, last, rev
 
@@ -62,9 +62,10 @@ def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
 
         from operator import add
         assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
-        assert tuple(scanr(add, 0, range(1, 5))) == (10, 9, 7, 4, 0)
+        assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
 
-    The ordering of the output matches Haskell's ``scanr``.
+    **CAUTION**: The ordering of the output is different from Haskell's ``scanr``;
+    we yield the results in the order they are computed (via a linear process).
 
     For multiple input iterables, the notion of *corresponding elements*
     is based on syncing the **left** ends.
@@ -83,8 +84,8 @@ def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
         # rfoldl: reverse each input, then left-fold
         assert rfoldl(append_tuple, (), (1, 2, 3), (4, 5)) == ((3, 5), (2, 4))
     """
-    # Linear process: sync left ends; reverse; scanl into a deque.
-    # (Flat is better than nested; applied to the call stack.)
+    # Linear process: sync left ends; reverse; scanl.
+    # (Flat is better than nested, also for the call stack.)
     #
     # The implicit tuple(...) in rev(...) may seem inelegant, but it doesn't
     # really matter whether we keep the data in stack frames (like in the
@@ -95,13 +96,23 @@ def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     xss = rev(z(iterable0, *iterables))
     if init_from_lastx:
         init = next(xss)[0]  # let StopIteration propagate
+
+#    # left-append into a deque to get same output order as in Haskell
+#    acc = init
+#    que = deque()
+#    que.appendleft(acc)
+#    for xs in xss:
+#        acc = proc(*(xs + (acc,)))
+#        que.appendleft(acc)
+#    yield from que
+
+    # to be more rackety/pythonic: yield results in the order they're computed
     acc = init
-    que = deque()
-    que.appendleft(acc)  # left-append to get same output order as in Haskell
+    yield acc
     for xs in xss:
         acc = proc(*(xs + (acc,)))
-        que.appendleft(acc)
-    yield from que
+        yield acc
+
 
 # Equivalent recursive process:
 #def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
@@ -183,8 +194,10 @@ def foldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
 
 def foldr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """Dual of foldl; fold from the right."""
-    return first(scanr(proc, init, iterable0, *iterables,
-                       longest=longest, fillvalue=fillvalue))
+    # if using the haskelly result ordering in scanr, then first(...);
+    # if ordering results as they are computed, then last(...)
+    return last(scanr(proc, init, iterable0, *iterables,
+                      longest=longest, fillvalue=fillvalue))
 
 def reducel(proc, iterable, init=None):
     """Foldl for a single iterable, with optional init.
@@ -199,7 +212,9 @@ def reducer(proc, iterable, init=None):
 
     If ``init is None``, use the last element from the iterable.
     """
-    return first(scanr1(proc, iterable, init))
+    # if using the haskelly result ordering in scanr, then first(...);
+    # if ordering results as they are computed, then last(...)
+    return last(scanr1(proc, iterable, init))
 
 def rscanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     """Reverse each input, then scanl.
@@ -327,12 +342,12 @@ def test():
 
     # scan/accumulate: lazy fold that yields intermediate results.
     assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
-    assert tuple(scanr(add, 0, range(1, 5))) == (10, 9, 7, 4, 0)
+    assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
     assert tuple(scanl(mul, 1, range(2, 6))) == (1, 2, 6, 24, 120)
-    assert tuple(scanr(mul, 1, range(2, 6))) == (120, 60, 20, 5, 1)
+    assert tuple(scanr(mul, 1, range(2, 6))) == (1, 5, 20, 60, 120)
 
     assert tuple(scanl(cons, nil, ll(1, 2, 3))) == (nil, ll(1), ll(2, 1), ll(3, 2, 1))
-    assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (ll(1, 2, 3), ll(2, 3), ll(3), nil)
+    assert tuple(scanr(cons, nil, ll(1, 2, 3))) == (nil, ll(3), ll(2, 3), ll(1, 2, 3))
 
     # in contrast, fold just returns the final result.
     assert foldl(cons, nil, ll(1, 2, 3)) == ll(3, 2, 1)
@@ -344,7 +359,7 @@ def test():
 
     # scanl1, scanr1 are a scan with a single input, with init optional.
     assert tuple(scanl1(add, (1, 2, 3))) == (1, 3, 6)
-    assert tuple(scanr1(add, (1, 2, 3))) == (6, 5, 3)
+    assert tuple(scanr1(add, (1, 2, 3))) == (3, 5, 6)
 
     psums = composer(tail, curry(scanl, add, 0))  # tail to drop the init value
     pprods = composer(tail, curry(scanl, mul, 1))
