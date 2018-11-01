@@ -350,16 +350,16 @@ def do(tree, gen_sym, **kw):
 
     Example::
 
-        do[localdef(x << 42),
+        do[local(x << 42),
            print(x),
            x << 23,
            x]
 
     This is sugar on top of ``unpythonic.seq.do``, but with some extra features.
 
-        - To declare and initialize a local name, use ``localdef(name << value)``.
+        - To declare and initialize a local name, use ``local(name << value)``.
 
-          The operator ``localdef`` is syntax, not really a function, and it
+          The operator ``local`` is syntax, not really a function, and it
           only exists inside a ``do``.
 
         - By design, there is no way to create an uninitialized variable;
@@ -371,15 +371,15 @@ def do(tree, gen_sym, **kw):
 
         - To assign to an already declared local name, use ``name << value``.
 
-    **localdef declarations**
+    **local name declarations**
 
-    A ``localdef`` declaration comes into effect in the expression following
+    A ``local`` declaration comes into effect in the expression following
     the one where it appears. Thus::
 
         result = []
-        let((lst, []))[do[result.append(lst),          # the let "lst"
-                          localdef(lst << lst + [1]),  # LHS: do "lst", RHS: let "lst"
-                          result.append(lst)]]         # the do "lst"
+        let((lst, []))[do[result.append(lst),       # the let "lst"
+                          local(lst << lst + [1]),  # LHS: do "lst", RHS: let "lst"
+                          result.append(lst)]]      # the do "lst"
         assert result == [[], [1]]
 
     **Syntactic ambiguity**
@@ -437,7 +437,7 @@ def do(tree, gen_sym, **kw):
     Macros are expanded in an inside-out order, so a nested ``let`` shadows
     names, if the same names appear in the ``do``::
 
-        do[localdef(x << 17),
+        do[local(x << 17),
            let((x, 23))[
              print(x)],  # 23, the "x" of the "let"
            print(x)]     # 17, the "x" of the "do"
@@ -446,15 +446,15 @@ def do(tree, gen_sym, **kw):
     to lexically outer environments from inside a ``do``::
 
         let((x, 17))[
-              do[x << 23,            # no localdef; update the "x" of the "let"
-                 localdef(y << 42),  # "y" is local to the "do"
+              do[x << 23,         # no "local(...)"; update the "x" of the "let"
+                 local(y << 42),  # "y" is local to the "do"
                  print(x, y)]]
 
     With the extra bracket syntax, the latter example can be written as::
 
         let((x, 17))[[
               x << 23,
-              localdef(y << 42),
+              local(y << 42),
               print(x, y)]]
 
     It's subtly different in that the first version has the do-items in a tuple,
@@ -464,7 +464,7 @@ def do(tree, gen_sym, **kw):
     to re-bind a name owned by an outer scope.
 
     The ``let`` constructs solve this problem by having the local bindings
-    declared in a separate block, which plays the role of ``localdef``.
+    declared in a separate block, which plays the role of ``local``.
     """
     with dyn.let(gen_sym=gen_sym):
         return _do(tree)

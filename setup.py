@@ -71,7 +71,7 @@ and venture beyond raw Python. For example::
     assert answer(42) == "something else"
 
     # do: imperative code in expression position
-    y = do[localdef(x << 17),
+    y = do[local(x << 17),
            print(x),
            x << 23,
            x]
@@ -99,7 +99,7 @@ and venture beyond raw Python. For example::
     # lambdas with multiple expressions, local variables, and a name
     with multilambda, namedlambda:
         myadd = lambda x, y: [print("myadding", x, y),
-                              localdef(tmp << x + y),
+                              local(tmp << x + y),
                               print("result is", tmp),
                               tmp]
         assert myadd(2, 3) == 5

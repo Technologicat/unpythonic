@@ -269,17 +269,17 @@ def do(tree):
     envset.body = let([q[(name["v"], name[expr])]], letbody)
 
     def islocaldef(tree):
-        return type(tree) is Call and type(tree.func) is Name and tree.func.id == "localdef"
+        return type(tree) is Call and type(tree.func) is Name and tree.func.id == "local"
     @Walker
     def find_localdefs(tree, collect, **kw):
         if islocaldef(tree):
             if len(tree.args) != 1:
-                assert False, "localdef(...) must have exactly one positional argument"
+                assert False, "local(...) must have exactly one positional argument"
             expr = tree.args[0]
             if not isenvassign(expr):
-                assert False, "localdef(...) argument must be of the form 'name << value'"
+                assert False, "local(...) argument must be of the form 'name << value'"
             collect(envassign_name(expr))
-            return expr  # localdef(...) -> ..., the localdef has done its job
+            return expr  # local(...) -> ..., the localdef has done its job
         return tree
 
     # a localdef starts taking effect on the line where it appears
@@ -289,7 +289,7 @@ def do(tree):
         expr, newnames = find_localdefs.recurse_collect(expr)
         if newnames:
             if any(x in names for x in newnames):
-                assert False, "localdef names must be unique in the same do"
+                assert False, "local names must be unique in the same do"
         # The envassignment transform (LHS) needs also "newnames", whereas
         # the name transform (RHS) should use the previous bindings, so that
         # the new binding takes effect starting from the **next** doitem.
@@ -303,7 +303,7 @@ def do0(tree):
         assert False, "do0 body: expected a sequence of comma-separated expressions"
     elts = tree.elts
     newelts = []
-    newelts.append(q[name["localdef"](name["_do0_result"] << (ast_literal[elts[0]]))])
+    newelts.append(q[name["local"](name["_do0_result"] << (ast_literal[elts[0]]))])
     newelts.extend(elts[1:])
     newelts.append(q[name["_do0_result"]])
 #    newtree = q[(ast_literal[newelts],)]  # TODO: doesn't work, missing lineno

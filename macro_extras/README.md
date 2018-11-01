@@ -309,20 +309,20 @@ This essentially allows writing imperative code in any expression position. For 
 ```python
 from unpythonic.syntax import macros, do
 
-y = do[localdef(x << 17),
+y = do[local(x << 17),
        print(x),
        x << 23,
        x]
 print(y)  # --> 23
 ```
 
-Local variables are declared and initialized with ``localdef(var << value)``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``.  A ``localdef`` declaration comes into effect in the expression following the one where it appears, capturing the declared name as a local variable for the **lexically** remaining part of the ``do``. In a ``localdef``, the RHS still sees the previous bindings, so this is valid (although maybe not readable):
+Local variables are declared and initialized with ``local(var << value)``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``.  A ``local`` declaration comes into effect in the expression following the one where it appears, capturing the declared name as a local variable for the **lexically** remaining part of the ``do``. In a ``local``, the RHS still sees the previous bindings, so this is valid (although maybe not readable):
 
 ```python
 result = []
-let((lst, []))[[result.append(lst),          # the let "lst"
-                localdef(lst << lst + [1]),  # LHS: do "lst", RHS: let "lst"
-                result.append(lst)]]         # the do "lst"
+let((lst, []))[[result.append(lst),       # the let "lst"
+                local(lst << lst + [1]),  # LHS: do "lst", RHS: let "lst"
+                result.append(lst)]]      # the do "lst"
 assert result == [[], [1]]
 ```
 
@@ -390,13 +390,13 @@ with multilambda:
 
     test = let((x, 0))[
              lambda: [x << x + 1,
-                      localdef(y << 42),  # y is local to the implicit do
+                      local(y << 42),  # y is local to the implicit do
                       (x, y)]]
     assert test() == (1, 42)
     assert test() == (2, 42)
 
     myadd = lambda x, y: [print("myadding", x, y),
-                          localdef(tmp << x + y),
+                          local(tmp << x + y),
                           print("result is", tmp),
                           tmp]
     assert myadd(2, 3) == 5

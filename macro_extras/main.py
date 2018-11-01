@@ -401,19 +401,19 @@ def main():
 
     assert let((x, "the let x"),
                (y, None))[
-                 do[y << x,                     # still the "x" of the let
-                    localdef(x << "the do x"),  # from here on, "x" refers to the "x" of the do
+                 do[y << x,                  # still the "x" of the let
+                    local(x << "the do x"),  # from here on, "x" refers to the "x" of the do
                     (x, y)]] == ("the do x", "the let x")
     # don't code like this! ...but the scoping mechanism should understand it
     result = []
-    let((lst, []))[do[result.append(lst),          # the let "lst"
-                      localdef(lst << lst + [1]),  # LHS: do "lst", RHS: let "lst"
-                      result.append(lst)]]         # the do "lst"
+    let((lst, []))[do[result.append(lst),       # the let "lst"
+                      local(lst << lst + [1]),  # LHS: do "lst", RHS: let "lst"
+                      result.append(lst)]]      # the do "lst"
     assert result == [[], [1]]
     # same with implicit do (extra set of brackets)
     result = []
     let((lst, []))[[result.append(lst),
-                    localdef(lst << lst + [1]),
+                    local(lst << lst + [1]),
                     result.append(lst)]]
     assert result == [[], [1]]
 
@@ -430,14 +430,14 @@ def main():
         assert count() == 2
 
         test = let((x, 0))[
-                 lambda: [x << x + 1,         # x belongs to the surrounding let
-                          localdef(y << 42),  # y is local to the implicit do
+                 lambda: [x << x + 1,      # x belongs to the surrounding let
+                          local(y << 42),  # y is local to the implicit do
                           (x, y)]]
         assert test() == (1, 42)
         assert test() == (2, 42)
 
         myadd = lambda x, y: [print("myadding", x, y),
-                              localdef(tmp << x + y),
+                              local(tmp << x + y),
                               print("result is", tmp),
                               tmp]
         assert myadd(2, 3) == 5
@@ -458,19 +458,19 @@ def main():
         assert hn == "f (lambda)"
 
     # macro wrapper for unpythonic.seq.do (stuff imperative code into a lambda)
-    #  - Declare and initialize a local variable with ``localdef(var << value)``.
+    #  - Declare and initialize a local variable with ``local(var << value)``.
     #    Is in scope from the next expression onward, for the remainder of the do.
     #  - Assignment is ``var << value``. Valid from any level inside the ``do``
     #    (including nested ``let`` constructs and similar).
     #  - No need for ``lambda e: ...`` wrappers. Inserted automatically,
     #    so the lines are only evaluated as the underlying seq.do() runs.
-    y = do[localdef(x << 17),
+    y = do[local(x << 17),
            print(x),
            x << 23,
            x]
     assert y == 23
 
-    y2 = do0[localdef(y << 5),
+    y2 = do0[local(y << 5),
              print("hi there, y =", y),
              42]  # evaluated but not used, do0 returns the first value
     assert y2 == 5
