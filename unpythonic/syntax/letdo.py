@@ -27,7 +27,6 @@ from unpythonic.lispylet import let as letf, letrec as letrecf, _dlet as dletf, 
 from unpythonic.seq import begin as beginf, do as dof
 from unpythonic.dynscope import dyn
 
-from unpythonic.syntax.util import isx
 from unpythonic.syntax.scoping import scoped_walker
 
 def let(bindings, body):
