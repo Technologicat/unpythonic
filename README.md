@@ -1330,7 +1330,7 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - `scanl` is suitable for infinite inputs.
    - Iteration stops after the final result.
      - For `scanl`, this is what `foldl` would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
-     - For `scanr`, **ordering of output is different from Haskell**: we yield the results in the order they are computed (via a linear process).
+     - *Changed in v0.11.0.* For `scanr`, **ordering of output is different from Haskell**: we yield the results in the order they are computed (via a linear process).
    - Multiple input iterables and shortest/longest termination supported; same semantics as in `foldl`, `foldr`.
    - One-input versions with optional init are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
    - `rscanl`, `rscanl1` reverse each input and then left-scan. This syncs the **right** ends.
