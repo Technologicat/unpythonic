@@ -19,7 +19,6 @@ from ast import Call, Name, Attribute, \
                 copy_location
 from unpythonic.syntax.astcompat import AsyncFunctionDef
 
-from macropy.core.macros import macro_stub
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
@@ -299,10 +298,13 @@ def do(tree):
         lines.append(expr)
     return hq[dof(ast_literal[lines])]
 
-@macro_stub
+# not a @macro_stub; it only raises a run-time error on foo[...], not foo(...)
 def local(*args, **kwargs):
-    """[syntax] Only meaningful in a "do[...]", "do0[...]", or an implicit do."""
-    pass
+    """[syntax] Declare a local name in a "do".
+
+    Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
+    (extra bracket syntax)."""
+    raise RuntimeError('local() only meaningful in a "do[...]", "do0[...]", or an implicit do')
 
 def do0(tree):
     if type(tree) not in (Tuple, List):
