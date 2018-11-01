@@ -4,7 +4,7 @@
 Experimental, not for use in production code.
 """
 
-from ast import Name, Call, Tuple, Load
+from ast import Name, Call, Tuple, Load, Subscript, Index
 
 from macropy.core.quotes import macros, q, u, ast_literal
 from macropy.core.walkers import Walker
@@ -16,7 +16,34 @@ def prefix(block_body):
     isunquote = lambda tree: type(tree) is Name and tree.id == "u"
     iskwargs = lambda tree: type(tree) is Call and type(tree.func) is Name and tree.func.id == "kw"
     @Walker
-    def transform(tree, *, quotelevel, set_ctx, **kw):
+    def transform(tree, *, quotelevel, set_ctx, stop, **kw):
+        # Not tuples but syntax: leave alone the:
+        #  - bindings blocks of let, letseq, letrec, and the d*, b* variants
+        #  - subscript part of an explicit do[]
+        # but recurse inside them.
+        #
+        # let and do have not expanded yet when prefix runs (better that way!),
+        # so we can't use the (expanded-form) detectors islet, isdo.
+        if type(tree) is Call and type(tree.func) is Name and \
+           any(tree.func.id == x for x in ("let", "letseq", "letrec",
+                                           "dlet", "dletseq", "dletrec",
+                                           "blet", "bletseq", "bletrec")):
+            # let((x, 42))[...] appears as Subscript(value=Call(...), ...)
+            stop()
+            for binding in tree.args:  # TODO: kwargs support for let(x=42)[...] if implemented later
+                _, value = binding.elts  # leave name alone, recurse into value
+                binding.elts[1] = transform.recurse(value, quotelevel=quotelevel)
+            return tree
+        elif type(tree) is Subscript and type(tree.value) is Name and \
+           any(tree.value.id == x for x in ("do", "do0")) and \
+           type(tree.slice) is Index and type(tree.slice.value) is Tuple:
+            stop()
+            newelts = []
+            for expr in tree.slice.value.elts:
+                newelts.append(transform.recurse(expr, quotelevel=quotelevel))
+            tree.slice.value.elts = newelts
+            return tree
+        # general case
         if not (type(tree) is Tuple and type(tree.ctx) is Load):
             return tree
         op, *data = tree.elts

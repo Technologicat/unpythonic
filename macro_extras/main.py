@@ -1031,6 +1031,30 @@ def main():
         a, b = (q, b, a)  # pythonic swap in prefix syntax; must quote RHS
         assert a == 200 and b == 100
 
+        # prefix has no effect on the let binding syntax ((name0, value0), ...)
+        a = let((x, 42))[x << x + 1]
+        assert a == 43
+
+        # but the RHSs of the bindings are transformed normally
+        def double(x):
+            return 2*x
+        a = let((x, (double, 21)))[x << x + 1]
+        assert a == 43
+
+        # similarly, prefix leaves the "body tuple" of a do alone
+        # (syntax, not semantically a tuple), but recurses into it:
+        a = do[1, 2, 3]
+        assert a == 3
+        a = do[1, 2, (double, 3)]
+        assert a == 6
+
+        # the extra bracket syntax has no danger of confusion, as it's a list, not tuple
+        a = let((x, 3))[[
+                  1,
+                  2,
+                  (double, x)]]
+        assert a == 6
+
     # Introducing LisThEll:
     with prefix, curry:  # important: apply prefix first, then curry
         mymap = lambda f: (foldr, (compose, cons, f), nil)
