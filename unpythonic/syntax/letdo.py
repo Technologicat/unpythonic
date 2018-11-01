@@ -195,11 +195,11 @@ def _dletseqimpl(bindings, fdef, kind):
     #
     # @dlet((x, 1))
     # def g(*args, **kwargs, e1):  # original args from tree go to the outermost def
-    #   @dlet((x, x+1))
+    #   @dlet((x, x+1))            # on RHS, important for e1.x to be in scope
     #   def g2(*, e2):
     #       @dlet((x, x+2))
     #       def g3(*, e3):         # expansion proceeds from inside out
-    #           return e3.x
+    #           return e3.x        # original args travel here by the closure property
     #       return g3()
     #   return g2()
     # assert g() == 4
