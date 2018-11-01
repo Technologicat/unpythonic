@@ -94,6 +94,7 @@ class u:
         return "<unquote>"
 u = u()
 
+# not a @macro_stub; it only raises a run-time error on foo[...], not foo(...)
 def kw(**kwargs):
     """[syntax] Pass-named-args operator. Only meaningful in a tuple in a prefix block."""
     raise RuntimeError("kw only meaningful inside a tuple in a prefix block")
