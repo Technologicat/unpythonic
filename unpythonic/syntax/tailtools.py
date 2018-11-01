@@ -22,7 +22,7 @@ from macropy.core.walkers import Walker
 
 from unpythonic.syntax.util import isx, isec, isdo, islet, \
                                    detect_callec, detect_lambda, \
-                                   has_tco, is_decorator, fix_lambda_decorators
+                                   has_tco, is_decorator, sort_lambda_decorators
 from unpythonic.syntax.ifexprs import aif
 from unpythonic.syntax.letdo import let
 
@@ -84,7 +84,7 @@ def tco(block_body):
                                              userlambdas=userlambdas,
                                              known_ecs=known_ecs,
                                              transform_retexpr=transform_retexpr)
-        stmt = fix_lambda_decorators(stmt)
+        stmt = sort_lambda_decorators(stmt)
         new_block_body.append(stmt)
     return new_block_body
 
@@ -288,7 +288,7 @@ def continuations(block_body):
                                              userlambdas=userlambdas,
                                              known_ecs=known_ecs,
                                              transform_retexpr=transform_retexpr)
-        stmt = fix_lambda_decorators(stmt)
+        stmt = sort_lambda_decorators(stmt)
         new_block_body.append(stmt)
     return new_block_body
 
@@ -352,7 +352,7 @@ def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform
         tree.body = transform_retexpr(tree.body, known_ecs)
         lam = tree
         if not hastco:  # Enable TCO if not TCO'd already.
-            # Just slap it on; we will later fix_lambda_decorators() to order it correctly w.r.t. other decorators.
+            # Just slap it on; we will sort_lambda_decorators() later.
             tree = hq[trampolined(ast_literal[tree])]
         # don't recurse on the lambda we just moved, but recurse inside it.
         stop()

@@ -206,7 +206,7 @@ def has_tco(tree, userlambdas=[]):
             return any(is_lambda_decorator(x, fname) for fname in tco_decorators for x in decorator_list)
     return None  # not applicable
 
-def fix_lambda_decorators(tree):
+def sort_lambda_decorators(tree):
     """Fix ordering of known lambda decorators (recursively) in ``tree``.
 
     Strictly, lambdas have no decorator_list, but can be decorated by explicitly
