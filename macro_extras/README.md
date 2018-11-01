@@ -316,6 +316,8 @@ y = do[local(x << 17),
 print(y)  # --> 23
 ```
 
+*Changed in v0.11.0.* ``localdef(...)`` is now just ``local(...)``. Shorter, and more descriptive, as it defines a local name, not a function.
+
 Local variables are declared and initialized with ``local(var << value)``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``.  A ``local`` declaration comes into effect in the expression following the one where it appears, capturing the declared name as a local variable for the **lexically** remaining part of the ``do``. In a ``local``, the RHS still sees the previous bindings, so this is valid (although maybe not readable):
 
 ```python
