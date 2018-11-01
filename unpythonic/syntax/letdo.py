@@ -19,6 +19,7 @@ from ast import Call, Name, Attribute, \
                 copy_location
 from unpythonic.syntax.astcompat import AsyncFunctionDef
 
+from macropy.core.macros import macro_stub
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
@@ -297,6 +298,11 @@ def do(tree):
         names = names + newnames
         lines.append(expr)
     return hq[dof(ast_literal[lines])]
+
+@macro_stub
+def local(*args, **kwargs):
+    """[syntax] Only meaningful in a "do[...]", "do0[...]", or an implicit do."""
+    pass
 
 def do0(tree):
     if type(tree) not in (Tuple, List):

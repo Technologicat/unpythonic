@@ -8,14 +8,14 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # contain the actual syntax transformers (regular functions that process ASTs)
 # that implement the macros.
 
-# insist, deny, it, bind are just for passing through to the client code that imports us.
+# insist, deny, it, local, bind are just for passing through to the client code that imports us.
 from unpythonic.syntax.curry import curry as _curry
 from unpythonic.syntax.forall import forall as _forall, insist, deny
 from unpythonic.syntax.fupstx import fup as _fup
 from unpythonic.syntax.ifexprs import aif as _aif, it, cond as _cond
 from unpythonic.syntax.lambdatools import multilambda as _multilambda, \
                                           namedlambda as _namedlambda
-from unpythonic.syntax.letdo import do as _do, do0 as _do0, \
+from unpythonic.syntax.letdo import do as _do, do0 as _do0, local, \
                                     let as _let, letseq as _letseq, letrec as _letrec, \
                                     dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
                                     blet as _blet, bletseq as _bletseq, bletrec as _bletrec

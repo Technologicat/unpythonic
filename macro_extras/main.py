@@ -13,7 +13,7 @@ from unpythonic.syntax import macros, \
                               let, letseq, letrec, \
                               dlet, dletseq, dletrec, \
                               blet, bletseq, bletrec, \
-                              do, do0, \
+                              do, do0, local, \
                               forall, insist, deny, \
                               aif, it, \
                               cond, \
