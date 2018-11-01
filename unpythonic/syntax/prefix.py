@@ -19,7 +19,7 @@ def prefix(block_body):
     def transform(tree, *, quotelevel, set_ctx, stop, **kw):
         # Not tuples but syntax: leave alone the:
         #  - bindings blocks of let, letseq, letrec, and the d*, b* variants
-        #  - subscript part of an explicit do[]
+        #  - subscript part of an explicit do[], do0[]
         # but recurse inside them.
         #
         # let and do have not expanded yet when prefix runs (better that way!),
@@ -28,9 +28,13 @@ def prefix(block_body):
            any(tree.func.id == x for x in ("let", "letseq", "letrec",
                                            "dlet", "dletseq", "dletrec",
                                            "blet", "bletseq", "bletrec")):
-            # let((x, 42))[...] appears as Subscript(value=Call(...), ...)
+            # let((x, 42))[...] appears as Subscript(value=Call(...), ...);
+            # we automatically recurse in other parts of the Subscript.
+            # Here we only need to treat how to proceed inside the Call part.
             stop()
             for binding in tree.args:  # TODO: kwargs support for let(x=42)[...] if implemented later
+                if type(binding) is not Tuple:
+                    assert False, "prefix: expected a tuple in let binding position"
                 _, value = binding.elts  # leave name alone, recurse into value
                 binding.elts[1] = transform.recurse(value, quotelevel=quotelevel)
             return tree
@@ -38,12 +42,11 @@ def prefix(block_body):
            any(tree.value.id == x for x in ("do", "do0")) and \
            type(tree.slice) is Index and type(tree.slice.value) is Tuple:
             stop()
-            newelts = []
-            for expr in tree.slice.value.elts:
-                newelts.append(transform.recurse(expr, quotelevel=quotelevel))
-            tree.slice.value.elts = newelts
+            tree.slice.value.elts = [transform.recurse(expr, quotelevel=quotelevel)
+                                       for expr in tree.slice.value.elts]
             return tree
         # general case
+        # macro-created nodes might not have a ctx, but we run in the first pass.
         if not (type(tree) is Tuple and type(tree.ctx) is Load):
             return tree
         op, *data = tree.elts
