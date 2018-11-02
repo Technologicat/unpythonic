@@ -1047,8 +1047,12 @@ To create a dynvar and set its default value, use ``make_dynvar``. Each dynamic 
 
 Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://github.com/suor/funcy/). In ``unpythonic``:
 
- - `memoize` caches also exceptions à la Racket.
-   - If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
+ - `memoize`:
+   - Caches also exceptions à la Racket. If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
+   - Works also on instance methods, with results cached separately for each instance.
+     - This is essentially because ``self`` is an argument, and custom classes have a default ``__hash__``.
+     - Hence it doesn't matter that the memo lives in the ``memoized`` closure on the class object (type), where the method is, and not directly on the instances. The memo itself is shared between instances, but calls with a different value of ``self`` will create unique entries in it.
+     - For a solution that performs memoization at the instance level, see [this ActiveState recipe](https://github.com/ActiveState/code/tree/master/recipes/Python/577452_memoize_decorator_instance) (and to demystify the magic contained therein, be sure you understand [descriptors](https://docs.python.org/3/howto/descriptor.html)).
  - `curry` comes with some extra features:
    - Passthrough on the right when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket)
      - If the intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
