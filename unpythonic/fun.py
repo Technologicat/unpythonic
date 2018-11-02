@@ -596,6 +596,40 @@ def test():
     t()
     assert evaluations == 1
 
+    # memoizing an instance method
+    #
+    # This works essentially because self is an argument, and custom classes
+    # have a default __hash__. Hence it doesn't matter that the memo lives in
+    # the "memoized" closure on the class object (type), where the method is,
+    # and not directly on the instances.
+    #
+    # For a solution storing the memo on the instances, see:
+    #    https://github.com/ActiveState/code/tree/master/recipes/Python/577452_memoize_decorator_instance
+    class Foo:
+        def __init__(self):
+            self.evaluations = Counter()
+            self.x = 42
+            self.lst = []  # mutable attribute, just to be sure this works generally
+        @memoize
+        def doit(self, y):
+            self.evaluations[(id(self), y)] += 1
+            return self.x*y
+    foo1 = Foo()
+    foo1.doit(1)
+    foo1.doit(1)
+    foo1.doit(2)
+    foo1.doit(3)
+    foo1.doit(2)
+    assert all(n == 1 for n in foo1.evaluations.values())
+    foo2 = Foo()
+    assert not foo2.evaluations
+    foo2.doit(1)
+    foo2.doit(1)
+    foo2.doit(2)
+    foo2.doit(3)
+    foo2.doit(2)
+    assert all(n == 1 for n in foo2.evaluations.values())
+
     # exception storage in memoize
     class AllOkJustTesting(Exception):
         pass
