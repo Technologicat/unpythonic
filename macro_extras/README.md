@@ -672,6 +672,8 @@ Write Python almost like Lisp!
 
 Lexically inside a ``with prefix`` block, any literal tuple denotes a function call, unless quoted. The first element is the operator, the rest are arguments.
 
+*Changed in v0.11.0.* Bindings of the ``let`` macros and the top-level tuple in a ``do[]`` are now left alone, but ``prefix`` recurses inside them (in the case of bindings, on each RHS).
+
 The rest is best explained by example:
 
 ```python
