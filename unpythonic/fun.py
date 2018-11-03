@@ -21,7 +21,7 @@ from operator import itemgetter
 
 from unpythonic.arity import arities, UnknownArity
 from unpythonic.fold import reducel
-from unpythonic.dynscope import dyn, make_dynvar
+from unpythonic.dynassign import dyn, make_dynvar
 
 def memoize(f):
     """Decorator: memoize the function f.

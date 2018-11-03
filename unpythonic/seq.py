@@ -12,7 +12,7 @@ from collections import namedtuple
 from unpythonic.env import env
 from unpythonic.misc import call
 from unpythonic.fun import curry, iscurried
-from unpythonic.dynscope import dyn
+from unpythonic.dynassign import dyn
 from unpythonic.arity import arity_includes, UnknownArity
 
 # sequence side effects in a lambda

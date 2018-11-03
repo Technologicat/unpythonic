@@ -10,7 +10,7 @@ __version__ = '0.11.0'
 from .amb import *
 from .arity import *
 from .assignonce import *
-from .dynscope import *
+from .dynassign import *
 from .ec import *
 from .fold import *
 from .fploop import *

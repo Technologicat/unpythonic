@@ -68,7 +68,7 @@ class _Env(object):
 
     Example::
 
-        from dynscope import dyn
+        from unpythonic.dynassign import dyn
 
         def f():
             print(dyn.a)

@@ -4,7 +4,7 @@
 
 __all__ = ["env"]
 
-from unpythonic.dynscope import dyn, make_dynvar
+from unpythonic.dynassign import dyn, make_dynvar
 from unpythonic.misc import namelambda
 
 # Whether to automatically name lambdas saved in an env.

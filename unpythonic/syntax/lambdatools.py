@@ -7,7 +7,7 @@ from macropy.core.quotes import macros, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
-from unpythonic.dynscope import dyn
+from unpythonic.dynassign import dyn
 from unpythonic.misc import namelambda
 
 from unpythonic.syntax.letdo import do

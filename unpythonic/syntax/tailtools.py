@@ -26,7 +26,7 @@ from unpythonic.syntax.util import isx, isec, isdo, islet, \
 from unpythonic.syntax.ifexprs import aif
 from unpythonic.syntax.letdo import let
 
-from unpythonic.dynscope import dyn
+from unpythonic.dynassign import dyn
 from unpythonic.it import uniqify
 from unpythonic.fun import identity
 from unpythonic.tco import trampolined, jump

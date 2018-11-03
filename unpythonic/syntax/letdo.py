@@ -25,7 +25,7 @@ from macropy.core.walkers import Walker
 
 from unpythonic.lispylet import let as letf, letrec as letrecf, _dlet as dletf, _blet as bletf
 from unpythonic.seq import begin as beginf, do as dof
-from unpythonic.dynscope import dyn
+from unpythonic.dynassign import dyn
 
 from unpythonic.syntax.scoping import scoped_walker
 

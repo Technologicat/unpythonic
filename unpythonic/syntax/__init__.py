@@ -23,7 +23,7 @@ from unpythonic.syntax.prefix import prefix as _prefix
 from unpythonic.syntax.tailtools import autoreturn as _autoreturn, tco as _tco, \
                                         continuations as _continuations, bind
 
-from unpythonic.dynscope import dyn, make_dynvar
+from unpythonic.dynassign import dyn, make_dynvar
 
 from macropy.core.macros import Macros
 

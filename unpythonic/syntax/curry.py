@@ -8,7 +8,7 @@ from macropy.core.quotes import macros, ast_literal
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
-from unpythonic.dynscope import dyn
+from unpythonic.dynassign import dyn
 from unpythonic.fun import curry as curryf, _currycall as currycall
 
 def curry(block_body):
