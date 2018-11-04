@@ -20,7 +20,9 @@ def let_syntax_expr(bindings, body):
         @Walker
         def splice(tree, **kw):
             if type(tree) is Name and tree.id == name:
-                tree = deepcopy(value)  # copy just to be on the safe side
+                # Copy just to be on the safe side. Different instances may be
+                # edited differently by other macros expanded later.
+                tree = deepcopy(value)
             return tree
         return splice.recurse(in_tree)
     for name, formalparams, value in templates:
