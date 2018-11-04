@@ -43,7 +43,11 @@ def islet(tree, expanded=True):
                                            "blet", "bletseq", "bletrec"))
 
 def isdo(tree, expanded=True):
-    """Detect whether tree is an already expanded ``do[]``."""
+    """Detect whether tree is a ``do[]`` or ``do0[]``.
+
+    expanded: if ``True``, test for the already expanded form.
+    If ``False``, test for the form that exists prior to macro expansion.
+    """
     if expanded:
         # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
         return type(tree) is Call and isx(tree.func, "dof")
