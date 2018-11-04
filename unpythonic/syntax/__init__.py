@@ -19,6 +19,7 @@ from unpythonic.syntax.letdo import do as _do, do0 as _do0, local, \
                                     let as _let, letseq as _letseq, letrec as _letrec, \
                                     dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
                                     blet as _blet, bletseq as _bletseq, bletrec as _bletrec
+from unpythonic.syntax.letsyntax import let_syntax_expr
 from unpythonic.syntax.prefix import prefix as _prefix
 from unpythonic.syntax.tailtools import autoreturn as _autoreturn, tco as _tco, \
                                         continuations as _continuations, bind
@@ -474,6 +475,61 @@ def do0(tree, gen_sym, **kw):
     """[syntax, expr] Like do, but return the value of the first expression."""
     with dyn.let(gen_sym=gen_sym):
         return _do0(tree)
+
+# -----------------------------------------------------------------------------
+
+@macros.expr
+def let_syntax(tree, args, gen_sym, **kw):
+    """Introduce local **syntactic** bindings.
+
+    Usage::
+
+        let_syntax((lhs, rhs), ...)[body]
+
+        let_syntax((lhs, rhs), ...)[[body0, ...]]
+
+    The bindings are applied **at macro expansion time**, substituting
+    the expression on the RHS for each instance of the corresponding LHS.
+    This macro runs in the first pass (outside in).
+
+    This is useful to e.g. locally abbreviate long macro names,
+    or to splice in several (parametric) instances of a common pattern.
+
+    The LHS may be:
+
+        - A bare name (e.g. ``x``), or
+
+        - A simple template of the form ``f(x, ...)``. The names inside the
+          parentheses declare the formal parameters of the template.
+
+          Templates support only positional arguments, with no default values.
+
+          In the body, a template is used like a function call. Just like in an
+          actual function call, when the template is substituted, the formal
+          parameters on its RHS get replaced by the argument values from the
+          "call" site; but ``let_syntax`` performs this at macro-expansion time.
+
+    This is a two-step process. In the first step, we apply template substitutions.
+    In the second step, we apply bare name substitutions to the result of the
+    first step. (So RHSs of templates may use any of the bare-name definitions.)
+
+    Within each step, the substitutions are applied **in the order specified**.
+    So if the bindings are ``((x, y), (y, z))``, then ``x`` transforms to ``z``.
+    But if the bindings are ``((y, z), (x, y))``, then ``x`` transforms to ``y``,
+    and only an explicit ``y`` at the use site transforms to ``z``.
+
+    Inspired by Racket's ``let-syntax``, see:
+        https://docs.racket-lang.org/reference/let.html
+
+    **CAUTION**: This is essentially a toy macro system inside a macro system.
+    The usual caveats of macro systems apply. Especially, we support absolutely
+    no form of hygiene. Be very, very careful to avoid name conflicts.
+
+    ``let_syntax`` is meant only for simple local substitutions. If you need to
+    do something complex, prefer writing a real macro directly in MacroPy.
+    """
+    with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
+        return (yield from let_syntax_expr(bindings=args, body=tree))
 
 # -----------------------------------------------------------------------------
 

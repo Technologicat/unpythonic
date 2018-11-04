@@ -13,6 +13,7 @@ from unpythonic.syntax import macros, \
                               let, letseq, letrec, \
                               dlet, dletseq, dletrec, \
                               blet, bletseq, bletrec, \
+                              let_syntax, \
                               do, do0, local, \
                               forall, insist, deny, \
                               aif, it, \
@@ -416,6 +417,23 @@ def main():
                     local(lst << lst + [1]),
                     result.append(lst)]]
     assert result == [[], [1]]
+
+    # local **syntactic** bindings (code splicing at macro-expansion time)
+    evaluations = 0
+    def verylongfunctionname(x=1):
+        nonlocal evaluations
+        evaluations += 1
+        return x
+    y = let_syntax((f, verylongfunctionname))[[  # extra brackets: implicit do
+                     f(),
+                     f(5)]]
+    assert evaluations == 2
+    assert y == 5
+    y = let_syntax((f(a), verylongfunctionname(2*a)))[[  # templating
+                     f(2),
+                     f(3)]]
+    assert evaluations == 4
+    assert y == 6
 
     # multilambda: multi-expression lambdas with implicit do
     with multilambda:
