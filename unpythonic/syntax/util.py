@@ -3,7 +3,7 @@
 
 from functools import partial
 
-from ast import Call, Name, Attribute, Lambda, FunctionDef
+from ast import Call, Name, Attribute, Lambda, FunctionDef, Subscript, Index, Tuple
 from unpythonic.syntax.astcompat import AsyncFunctionDef
 
 from macropy.core import Captured
@@ -28,15 +28,28 @@ def isx(tree, x, allow_attr=True):
            (type(tree) is Captured and tree.name == x) or \
            (allow_attr and type(tree) is Attribute and tree.attr == x)
 
-def islet(tree):
-    """Test whether tree is an already expanded ``let[]``, ``letseq[]`` or ``letrec[]``."""
-    # name must match what ``unpythonic.syntax.letdo._letimpl`` uses in its output.
-    return type(tree) is Call and isx(tree.func, "letter", allow_attr=False)
+def islet(tree, expanded=True):
+    """Test whether tree is a ``let[]``, ``letseq[]`` or ``letrec[]``.
 
-def isdo(tree):
+    expanded: if ``True``, test for the already expanded form.
+    If ``False``, test for the form that exists prior to macro expansion.
+    """
+    if expanded:
+        # name must match what ``unpythonic.syntax.letdo._letimpl`` uses in its output.
+        return type(tree) is Call and isx(tree.func, "letter", allow_attr=False)
+    return type(tree) is Call and type(tree.func) is Name and \
+           any(tree.func.id == x for x in ("let", "letseq", "letrec",
+                                           "dlet", "dletseq", "dletrec",
+                                           "blet", "bletseq", "bletrec"))
+
+def isdo(tree, expanded=True):
     """Detect whether tree is an already expanded ``do[]``."""
-    # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
-    return type(tree) is Call and isx(tree.func, "dof")
+    if expanded:
+        # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
+        return type(tree) is Call and isx(tree.func, "dof")
+    return type(tree) is Subscript and type(tree.value) is Name and \
+           any(tree.value.id == x for x in ("do", "do0")) and \
+           type(tree.slice) is Index and type(tree.slice.value) is Tuple
 
 def isec(tree, known_ecs):
     """Check if tree is a call to a function known to be an escape continuation.

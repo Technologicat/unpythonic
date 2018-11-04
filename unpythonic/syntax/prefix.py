@@ -4,10 +4,12 @@
 Experimental, not for use in production code.
 """
 
-from ast import Name, Call, Tuple, Load, Subscript, Index
+from ast import Name, Call, Tuple, Load
 
 from macropy.core.quotes import macros, q, u, ast_literal
 from macropy.core.walkers import Walker
+
+from unpythonic.syntax.util import islet, isdo
 
 from unpythonic.it import flatmap, rev, uniqify
 
@@ -22,12 +24,8 @@ def prefix(block_body):
         #  - subscript part of an explicit do[], do0[]
         # but recurse inside them.
         #
-        # let and do have not expanded yet when prefix runs (better that way!),
-        # so we can't use the (expanded-form) detectors islet, isdo.
-        if type(tree) is Call and type(tree.func) is Name and \
-           any(tree.func.id == x for x in ("let", "letseq", "letrec",
-                                           "dlet", "dletseq", "dletrec",
-                                           "blet", "bletseq", "bletrec")):
+        # let and do have not expanded yet when prefix runs (better that way!).
+        if islet(tree, expanded=False):
             # let((x, 42))[...] appears as Subscript(value=Call(...), ...);
             # we automatically recurse in other parts of the Subscript.
             # Here we only need to treat how to proceed inside the Call part.
@@ -38,9 +36,7 @@ def prefix(block_body):
                 _, value = binding.elts  # leave name alone, recurse into value
                 binding.elts[1] = transform.recurse(value, quotelevel=quotelevel)
             return tree
-        elif type(tree) is Subscript and type(tree.value) is Name and \
-           any(tree.value.id == x for x in ("do", "do0")) and \
-           type(tree.slice) is Index and type(tree.slice.value) is Tuple:
+        elif isdo(tree, expanded=False):
             stop()
             tree.slice.value.elts = [transform.recurse(expr, quotelevel=quotelevel)
                                        for expr in tree.slice.value.elts]
