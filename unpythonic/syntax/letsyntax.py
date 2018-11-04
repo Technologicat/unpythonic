@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # This is for introducing **syntactic** local bindings, i.e. simple code splicing
@@ -16,14 +15,14 @@ def let_syntax_expr(bindings, body):
     body = implicit_do(body)  # support the extra bracket syntax
     if not bindings:
         return body
-    templates, barenames = _split_bindings(bindings)
-    def substitute_barename(name, value, tree):
+    templates, barenames = _analyze_bindings(bindings)
+    def substitute_barename(name, value, in_tree):
         @Walker
         def splice(tree, **kw):
             if type(tree) is Name and tree.id == name:
-                tree = value
+                tree = deepcopy(value)  # copy just to be on the safe side
             return tree
-        return splice.recurse(tree)
+        return splice.recurse(in_tree)
     for name, formalparams, value in templates:
         @Walker
         def splice(tree, **kw):
@@ -43,13 +42,29 @@ def let_syntax_expr(bindings, body):
         body = substitute_barename(name, value, body)
     yield body  # first-pass macro (outside in) so that we can e.g. let_syntax((a, ast_literal))[...]
 
-# TODO: implement a block version; should probably support some form of "with" to allow substituting statements.
+# TODO: implement a block version:
+#
+# with let_syntax:
+#     with block as xs:  # capture a block of statements
+#         ...
+#     with block as fs(a, ...):
+#         ...
+#     with expr as x:    # capture a single expression
+#         ...            # can explicitly use do[] here if necessary
+#     with expr as f(a, ...):
+#         ...
+#     ...
+#
+# Each ``with ... as ...`` block is added to the currently active
+# substitutions for the lexical remainder of the ``with let_syntax``
+# block.
+#
 #def let_syntax_block(bindings, block_body):
 #    pass
 
 # -----------------------------------------------------------------------------
 
-def _split_bindings(bindings):  # bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
+def _analyze_bindings(bindings):  # bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     names = set()
     templates = []
     barenames = []
@@ -61,10 +76,10 @@ def _split_bindings(bindings):  # bindings: sequence of ast.Tuple: (k1, v1), (k2
         elif type(k) is Call and type(k.func) is Name:  # simple templating f(x, ...)
             name = k.func.id
             if any(type(a) is Starred for a in k.args):  # *args (Python 3.5+)
-                assert False, "in template, only positional slots supported (no *args)"
+                assert False, "in template, only positional parameters supported (no *args)"
             args = [a.id for a in k.args]
             if k.keywords:
-                assert False, "in template, only positional slots supported (no named args or **kwargs)"
+                assert False, "in template, only positional parameters supported (no named args or **kwargs)"
         else:
             assert False, "expected a name (e.g. x) or a template (e.g. f(x, ...)) on the LHS"
         if name in names:
