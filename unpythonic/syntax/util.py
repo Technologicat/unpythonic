@@ -98,10 +98,10 @@ def detect_callec(tree, *, collect, **kw):
     if type(tree) in (FunctionDef, AsyncFunctionDef) and any(iscallec(deco) for deco in tree.decorator_list):
         fdef = tree
         collect(fdef.args.args[0].arg)  # FunctionDef.arguments.(list of arg objects).arg
-    # TODO: decorated lambdas with other decorators in between
-    elif type(tree) is Call and iscallec(tree.func) and type(tree.args[0]) is Lambda:
-        lam = tree.args[0]
-        collect(lam.args.args[0].arg)
+    elif is_decorated_lambda(tree):
+        decorator_list, thelambda = destructure_decorated_lambda(tree)
+        if any(iscallec(decocall.func) for decocall in decorator_list):
+            collect(thelambda.args.args[0].arg)  # we assume it's the first arg, as that's what call_ec expects.
     return tree
 
 @Walker
