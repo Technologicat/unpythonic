@@ -60,11 +60,11 @@ def isdo(tree, expanded=True):
            type(tree.slice) is Index and type(tree.slice.value) is Tuple
 
 def isec(tree, known_ecs):
-    """Check if tree is a call to a function known to be an escape continuation.
+    """Test whether tree is a call to a function known to be an escape continuation.
 
-    known_ec: list of str, names of known escape continuations.
+    known_ecs: list of ``str``, names of known escape continuations.
 
-    Only bare-name references are supported.
+    **CAUTION**: Only bare-name references are supported.
     """
     return type(tree) is Call and type(tree.func) is Name and tree.func.id in known_ecs
 
