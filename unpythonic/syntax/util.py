@@ -9,16 +9,20 @@ from unpythonic.syntax.astcompat import AsyncFunctionDef
 from macropy.core import Captured
 from macropy.core.walkers import Walker
 
-def isx(tree, x, allow_attr=True):
-    """Check if tree is a reference to an object by the name ``x`` (str).
+def isx(tree, x, accept_attr=True):
+    """Test whether tree is a reference to the name ``x`` (str).
 
-    ``x`` is recognized both as a bare name and as an attribute, to support
+    Both bare names and attributes can be recognized, to support
     both from-imports and regular imports of ``somemodule.x``.
 
-    Additionally, we detect ``x`` inside ``Captured`` nodes, which may be
-    inserted during macro expansion.
+    We support:
 
-    allow_attr: can be set to ``False`` to disregard ``Attribute`` nodes.
+        - bare name ``x``
+
+        - ``x`` inside a ``macropy.core.Captured`` node, which may be inserted
+          during macro expansion
+
+        - ``x`` as an attribute (if ``accept_attr=True``)
     """
     # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? At which point are these removed?
     # Captured nodes only come from unpythonic.syntax, and we use from-imports
@@ -26,7 +30,7 @@ def isx(tree, x, allow_attr=True):
     # bare names or somemodule.f.
     return (type(tree) is Name and tree.id == x) or \
            (type(tree) is Captured and tree.name == x) or \
-           (allow_attr and type(tree) is Attribute and tree.attr == x)
+           (accept_attr and type(tree) is Attribute and tree.attr == x)
 
 def islet(tree, expanded=True):
     """Test whether tree is a ``let[]``, ``letseq[]`` or ``letrec[]``.
@@ -36,7 +40,7 @@ def islet(tree, expanded=True):
     """
     if expanded:
         # name must match what ``unpythonic.syntax.letdo._letimpl`` uses in its output.
-        return type(tree) is Call and isx(tree.func, "letter", allow_attr=False)
+        return type(tree) is Call and isx(tree.func, "letter", accept_attr=False)
     return type(tree) is Call and type(tree.func) is Name and \
            any(tree.func.id == x for x in ("let", "letseq", "letrec",
                                            "dlet", "dletseq", "dletrec",
