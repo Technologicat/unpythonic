@@ -13,7 +13,7 @@ from unpythonic.syntax import macros, \
                               let, letseq, letrec, \
                               dlet, dletseq, dletrec, \
                               blet, bletseq, bletrec, \
-                              let_syntax, \
+                              let_syntax, block, expr, \
                               do, do0, local, \
                               forall, insist, deny, \
                               aif, it, \
@@ -418,7 +418,9 @@ def main():
                     result.append(lst)]]
     assert result == [[], [1]]
 
-    # local **syntactic** bindings (code splicing at macro-expansion time)
+    # local **syntactic** bindings (code splicing at macro-expansion time).
+    # Expands in the first pass, outside in.
+    # **CAUTION**: currently no nesting support.
     evaluations = 0
     def verylongfunctionname(x=1):
         nonlocal evaluations
@@ -434,6 +436,30 @@ def main():
                      f(3)]]
     assert evaluations == 4
     assert y == 6
+
+    # block variant
+    with let_syntax:
+        with block as make123:  # capture one or more statements
+            lst = []
+            lst.append(1)
+            lst.append(2)
+            lst.append(3)
+        make123
+        assert lst == [1, 2, 3]
+        with expr as snd:  # capture a single expression
+            lst[1]
+        assert snd == 2
+        with block as make456:
+            lst = []
+            lst.append(4)
+            lst.append(5)
+            lst.append(6)
+        if 42 % 2 == 0:
+            make456
+        else:
+            make123
+        assert lst == [4, 5, 6]
+        assert snd == 5
 
     # multilambda: multi-expression lambdas with implicit do
     with multilambda:

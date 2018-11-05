@@ -9,7 +9,7 @@ from ast import Name, Call, Tuple, Load
 from macropy.core.quotes import macros, q, u, ast_literal
 from macropy.core.walkers import Walker
 
-from unpythonic.syntax.util import islet, isdo
+from unpythonic.syntax.util import islet, isletsyntax, isdo
 
 from unpythonic.it import flatmap, rev, uniqify
 
@@ -25,7 +25,7 @@ def prefix(block_body):
         # but recurse inside them.
         #
         # let and do have not expanded yet when prefix runs (better that way!).
-        if islet(tree, expanded=False):
+        if islet(tree, expanded=False) or isletsyntax(tree):
             # let((x, 42))[...] appears as Subscript(value=Call(...), ...);
             # we automatically recurse in other parts of the Subscript.
             # Here we only need to treat how to proceed inside the Call part.

@@ -3,7 +3,8 @@
 
 from functools import partial
 
-from ast import Call, Name, Attribute, Lambda, FunctionDef, Subscript, Index, Tuple
+from ast import Call, Name, Attribute, Lambda, FunctionDef, \
+                Subscript, Index, Tuple, With
 from unpythonic.syntax.astcompat import AsyncFunctionDef
 
 from macropy.core import Captured
@@ -32,6 +33,17 @@ def isx(tree, x, accept_attr=True):
            (type(tree) is Captured and tree.name == x) or \
            (accept_attr and type(tree) is Attribute and tree.attr == x)
 
+def isnamedwith(tree, name):
+    """Test whether tree is ``with name:``.
+
+    Only a simple with-block with only one context manager with a bare name
+    is supported.
+    """
+    if not (type(tree) is With and len(tree.items) == 1):
+        return False
+    ctxmanager = tree.items[0].context_expr
+    return type(ctxmanager) is Name and ctxmanager.id == name
+
 def islet(tree, expanded=True):
     """Test whether tree is a ``let[]``, ``letseq[]`` or ``letrec[]``.
 
@@ -45,6 +57,13 @@ def islet(tree, expanded=True):
            any(tree.func.id == x for x in ("let", "letseq", "letrec",
                                            "dlet", "dletseq", "dletrec",
                                            "blet", "bletseq", "bletrec"))
+
+def isletsyntax(tree):
+    """Test whether tree is an **unexpanded** ``let_syntax[]``.
+
+    (``let_syntax`` completely disappears at expansion time.)
+    """
+    return type(tree) is Call and type(tree.func) is Name and tree.func.id == "let_syntax"
 
 def isdo(tree, expanded=True):
     """Detect whether tree is a ``do[]`` or ``do0[]``.
