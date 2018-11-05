@@ -512,6 +512,17 @@ def main():
         makea(make456)
         assert lst == [4, 5, 6]
 
+    # parametric variant also works, but definition order is important
+    # (because within each kind (template, barename), expansions are applied
+    # in the same order they are defined)
+    with let_syntax:
+        with block(a) as makea:
+            a
+        with block(x, y, z) as makexyz:
+            lst = [x, y, z]
+        makea(makexyz(7, 8 ,9))  # a call is an expression, so as long as not yet expanded, this is ok
+        assert lst == [7, 8, 9]
+
     # abbrev: like let_syntax, but expands in the first pass, outside in
     #   - no lexically scoped nesting
     #   - but can locally rename also macros (since abbrev itself expands before its body)
