@@ -4,7 +4,6 @@
 # at macro expansion time. If you're looking for regular run-time let et al. macros,
 # see letdo.py.
 
-from functools import partial
 from copy import deepcopy
 from ast import Name, Call, Starred, If, Num, Expr, With
 
