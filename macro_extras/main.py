@@ -437,9 +437,9 @@ def main():
     assert evaluations == 4
     assert y == 6
 
-    # abbrev: same thing but expands in the first pass
-    #   - no nesting
-    #   - but can locally rename also macros
+    # abbrev: like let_syntax, but expands in the first pass, outside in
+    #   - no lexically scoped nesting
+    #   - but can locally rename also macros (since abbrev itself expands before its body)
     y = abbrev((f, verylongfunctionname))[[
                  f(),
                  f(5)]]

@@ -528,15 +528,15 @@ def let_syntax(tree, **kw):
       - A bare name (e.g. ``x``), or
 
       - A simple template of the form ``f(x, ...)``. The names inside the
-        parentheses declare the formal parameters of the template.
+        parentheses declare the formal parameters of the template (that can
+        then be used in the body).
 
     In the block variant:
 
-      - The name of the LHS goes in the **as-part**.
+      - The **as-part** specifies the name of the LHS.
 
       - If a template, the formal parameters are declared on the ``block``
-        or ``expr``. Parameters are always expressions (because they use the
-        function-call syntax).
+        or ``expr``, not on the as-part (due to syntactic limitations).
 
     **Templates**
 
@@ -544,12 +544,17 @@ def let_syntax(tree, **kw):
 
     Templates support only positional arguments, with no default values.
 
-    In the body, a template is used like a function call. Just like in an
-    actual function call, when the template is substituted, any instances
-    of its formal parameters on its RHS get replaced by the argument values
-    from the "call" site; but ``let_syntax`` performs this at macro-expansion
-    time. Note each instance of the same formal parameter gets a fresh copy
-    of the corresponding argument value.
+    Even in block templates, parameters are always expressions (because they
+    use the function-call syntax at the use site).
+
+    In the body of the ``let_syntax``, a template is used like a function call.
+    Just like in an actual function call, when the template is substituted,
+    any instances of its formal parameters on its RHS get replaced by the
+    argument values from the "call" site; but ``let_syntax`` performs this
+    at macro-expansion time.
+
+    Note each instance of the same formal parameter gets a fresh copy of the
+    corresponding argument value.
 
     **Substitution order**
 
@@ -587,19 +592,26 @@ def abbrev(tree, args, gen_sym, **kw):
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
         yield let_syntax_expr(bindings=args, body=tree)
 
-# TODO: abbrev does nest, but not in the lexical-scoping way. Update explanation!
 @macros.block
 def abbrev(tree, **kw):
     """Exactly like ``let_syntax``, but expands in the first pass, outside in.
 
-    Because this variant expands before any macros in the body, it can rename
-    other macros locally, e.g.::
+    Because this variant expands before any macros in the body, it can locally
+    rename other macros, e.g.::
 
         abbrev((a, ast_literal))[
                  a[tree1] if a[tree2] else a[tree3]]
 
-    **CAUTION**: Because of the expansion order, ``abbrev`` does not nest;
-    don't do that.
+    **CAUTION**: Because of the expansion order, nesting ``abbrev`` will not
+    lexically scope the substitutions. Instead, the outermost ``abbrev`` expands
+    first, and then any inner ones expand with whatever substitutions they have
+    remaining.
+
+    If the same name is used on the LHS in two or more nested ``abbrev``,
+    any inner ones will likely raise an error (unless the outer substitution
+    just replaces a name with another), because also the names on the LHS
+    in the inner ``abbrev`` will undergo substitution when the outer
+    ``abbrev`` expands.
     """
     yield let_syntax_block(block_body=tree)
 
