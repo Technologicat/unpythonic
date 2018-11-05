@@ -497,6 +497,21 @@ def main():
         makelst
         assert lst == [1, 2, 3]
 
+    # parameters are always expressions, but there's a trick:
+    #   - names are expressions
+    #   - all template substitutions are applied before any barename substitutions
+    with let_syntax:
+        with block as make123:
+            lst = [1, 2, 3]
+        with block as make456:
+            lst = [4, 5, 6]
+        with block(a) as makea:
+            a
+        makea(make123)
+        assert lst == [1, 2, 3]
+        makea(make456)
+        assert lst == [4, 5, 6]
+
     # abbrev: like let_syntax, but expands in the first pass, outside in
     #   - no lexically scoped nesting
     #   - but can locally rename also macros (since abbrev itself expands before its body)
