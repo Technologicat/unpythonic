@@ -13,7 +13,7 @@ from unpythonic.syntax import macros, \
                               let, letseq, letrec, \
                               dlet, dletseq, dletrec, \
                               blet, bletseq, bletrec, \
-                              let_syntax, block, expr, \
+                              let_syntax, abbrev, block, expr, \
                               do, do0, local, \
                               forall, insist, deny, \
                               aif, it, \
@@ -419,8 +419,8 @@ def main():
     assert result == [[], [1]]
 
     # local **syntactic** bindings (code splicing at macro-expansion time).
-    # Expands in the first pass, outside in.
-    # **CAUTION**: currently no nesting support.
+    #
+    # E.g. abbreviate long function names with zero run-time overhead:
     evaluations = 0
     def verylongfunctionname(x=1):
         nonlocal evaluations
@@ -437,7 +437,15 @@ def main():
     assert evaluations == 4
     assert y == 6
 
-    # block variant
+    # abbrev: same thing but expands in the first pass
+    #   - no nesting
+    #   - but can locally rename also macros
+    y = abbrev((f, verylongfunctionname))[[
+                 f(),
+                 f(5)]]
+    assert y == 5
+
+    # block variant: name a block of code, splice in several copies
     with let_syntax:
         with block as make123:  # capture one or more statements
             lst = []
@@ -445,6 +453,12 @@ def main():
             lst.append(2)
             lst.append(3)
         make123
+        try:
+            assert snd == 2
+        except NameError:
+            pass  # "snd" not defined yet
+        else:
+            assert False, "snd should not be defined yet"
         assert lst == [1, 2, 3]
         with expr as snd:  # capture a single expression
             lst[1]
@@ -460,6 +474,18 @@ def main():
             make123
         assert lst == [4, 5, 6]
         assert snd == 5
+
+    # nesting: each "with let_syntax" is a lexical scope for syntactic substitutions
+    with let_syntax:
+        with block as makelst:
+            lst = [1, 2, 3]
+        with let_syntax:
+            with block as makelst:
+                lst = [4, 5, 6]
+            makelst
+            assert lst == [4, 5, 6]
+        makelst
+        assert lst == [1, 2, 3]
 
     # multilambda: multi-expression lambdas with implicit do
     with multilambda:

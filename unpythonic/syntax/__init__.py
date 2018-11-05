@@ -482,7 +482,7 @@ def do0(tree, gen_sym, **kw):
 @macros.expr
 def let_syntax(tree, args, gen_sym, **kw):
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
-        return (yield from let_syntax_expr(bindings=args, body=tree))
+        return let_syntax_expr(bindings=args, body=tree)
 
 # Python has no function overloading, but expr and block macros go into
 # different parts of MacroPy's macro registry.
@@ -504,44 +504,43 @@ def let_syntax(tree, **kw):
         with let_syntax:
             with block as xs:  # capture a block of statements
                 ...
-            with block as fs(a, ...):
-                ...
             with expr as x:    # capture a single expression
                 ...            # (can explicitly use do[] here if necessary)
-            with expr as f(a, ...):
-                ...
             body0
             ...
 
-    **CAUTION**: Currently ``let_syntax`` does not handle nesting,
-    so don't do that. (This is possibly subject to change in a future version.)
-
     The bindings are applied **at macro expansion time**, substituting
     the expression on the RHS for each instance of the corresponding LHS.
-    This macro runs in the first pass (outside in).
+    Each substitution gets a fresh copy.
 
-    This is useful to e.g. locally abbreviate long function or macro names,
-    or to splice in several (possibly parametric) instances of a common pattern.
+    This is useful to e.g. locally abbreviate long function names at macro
+    expansion time (with zero run-time overhead), or to splice in several
+    (possibly parametric) instances of a common pattern.
 
     The LHS may be:
 
-        - A bare name (e.g. ``x``), or
+      - A bare name (e.g. ``x``), or
 
-        - A simple template of the form ``f(x, ...)``. The names inside the
-          parentheses declare the formal parameters of the template.
+      - A simple template of the form ``f(x, ...)``. The names inside the
+        parentheses declare the formal parameters of the template.
 
-          Templates support only positional arguments, with no default values.
+        Templates support only positional arguments, with no default values.
 
-          In the body, a template is used like a function call. Just like in an
-          actual function call, when the template is substituted, the formal
-          parameters on its RHS get replaced by the argument values from the
-          "call" site; but ``let_syntax`` performs this at macro-expansion time.
+        In the body, a template is used like a function call. Just like in an
+        actual function call, when the template is substituted, any instances
+        of its formal parameters on its RHS get replaced by the argument values
+        from the "call" site; but ``let_syntax`` performs this at macro-expansion
+        time. Note each instance of the same formal parameter gets a fresh copy
+        of the corresponding argument value.
 
     In the block variant, the **as-part** is the LHS, and the body of the
-    ``with block`` or ``with expr`` block is the RHS.
+    ``with block as ...`` or ``with expr as ...`` block is the RHS.
 
-    In a block-variant template, all formal parameters are also handled in
-    block mode, as statements. (This is subject to change in a future version.)
+    **CAUTION**: In a block-variant template, all formal parameters are also
+    handled in block mode, as statements. (This is subject to change in a
+    future version.)
+
+    **Substitution order**
 
     This is a two-step process. In the first step, we apply template substitutions.
     In the second step, we apply bare name substitutions to the result of the
@@ -552,18 +551,45 @@ def let_syntax(tree, **kw):
     But if the bindings are ``((y, z), (x, y))``, then ``x`` transforms to ``y``,
     and only an explicit ``y`` at the use site transforms to ``z``.
 
+    **Notes**
+
     Inspired by Racket's ``let-syntax`` and ``with-syntax``, see:
         https://docs.racket-lang.org/reference/let.html
         https://docs.racket-lang.org/reference/stx-patterns.html
 
-    **CAUTION**: This is essentially a toy macro system inside a macro system.
+    **CAUTION**: This is essentially a toy macro system inside the real
+    macro system, implemented with the real macro system.
+
     The usual caveats of macro systems apply. Especially, we support absolutely
     no form of hygiene. Be very, very careful to avoid name conflicts.
 
-    ``let_syntax`` is meant only for simple local substitutions. If you need to
-    do something complex, prefer writing a real macro directly in MacroPy.
+    ``let_syntax`` is meant only for simple local substitutions where the
+    elimination of repetition can shorten the code and improve readability.
+
+    If you need to do something complex, prefer writing a real macro directly
+    in MacroPy.
     """
-    return (yield from let_syntax_block(block_body=tree))
+    return let_syntax_block(block_body=tree)
+
+@macros.expr
+def abbrev(tree, args, gen_sym, **kw):
+    with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
+        yield let_syntax_expr(bindings=args, body=tree)
+
+@macros.block
+def abbrev(tree, **kw):
+    """Exactly like ``let_syntax``, but expands in the first pass, outside in.
+
+    Because this variant expands before any macros in the body, it can rename
+    other macros locally, e.g.::
+
+        abbrev((a, ast_literal))[
+                 a[tree1] if a[tree2] else a[tree3]]
+
+    **CAUTION**: Because of the expansion order, ``abbrev`` does not nest;
+    don't do that.
+    """
+    yield let_syntax_block(block_body=tree)
 
 # -----------------------------------------------------------------------------
 

@@ -63,7 +63,8 @@ def isletsyntax(tree):
 
     (``let_syntax`` completely disappears at expansion time.)
     """
-    return type(tree) is Call and type(tree.func) is Name and tree.func.id == "let_syntax"
+    return type(tree) is Call and type(tree.func) is Name and \
+           any(tree.func.id == x for x in ("let_syntax", "abbrev"))
 
 def isdo(tree, expanded=True):
     """Detect whether tree is a ``do[]`` or ``do0[]``.

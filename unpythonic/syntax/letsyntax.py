@@ -34,21 +34,20 @@ def let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1
     register_bindings()
     body = _substitute_templates(templates, body)
     body = _substitute_barenames(barenames, body)
-    yield body  # first-pass macro (outside in) so that we can e.g. let_syntax((a, ast_literal))[...]
+    return body
 
 # -----------------------------------------------------------------------------
+
+# TODO: parametric block, expr (currently doesn't work, assignment to something
+# TODO: that looks like a function call is syntactically invalid in Python)
 
 # block version:
 #
 # with let_syntax:
 #     with block as xs:  # capture a block of statements
 #         ...
-#     with block as fs(a, ...):
-#         ...
 #     with expr as x:    # capture a single expression
 #         ...            # can explicitly use do[] here if necessary
-#     with expr as f(a, ...):
-#         ...
 #     body0
 #     ...
 #
@@ -91,7 +90,7 @@ def let_syntax_block(block_body):
             stmt = _substitute_templates(templates, stmt)
             stmt = _substitute_barenames(barenames, stmt)
             new_block_body.append(stmt)
-    yield new_block_body
+    return new_block_body
 
 class block:
     """[syntax] Magic identifier for ``with block:`` inside a ``with let_syntax:``."""
