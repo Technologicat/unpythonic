@@ -437,14 +437,6 @@ def main():
     assert evaluations == 4
     assert y == 6
 
-    # abbrev: like let_syntax, but expands in the first pass, outside in
-    #   - no lexically scoped nesting
-    #   - but can locally rename also macros (since abbrev itself expands before its body)
-    y = abbrev((f, verylongfunctionname))[[
-                 f(),
-                 f(5)]]
-    assert y == 5
-
     # block variant: name a block of code, splice in several copies
     with let_syntax:
         with block as make123:  # capture one or more statements
@@ -475,6 +467,7 @@ def main():
         assert lst == [4, 5, 6]
         assert snd == 5
 
+    with let_syntax:  # parametric block - parameters are expressions
         with block(a, b, c) as makeabc:
             lst = [a, b, c]
         makeabc(3 + 4, 2**3, 3 * 3)
@@ -482,9 +475,8 @@ def main():
         with expr(n) as nth:
             lst[n]
         assert nth(2) == 9
-        # TODO: add more tests
 
-    with let_syntax:
+    with let_syntax:  # block using another
         lst = []
         with block as append123:
             lst += [1, 2, 3]
@@ -494,8 +486,7 @@ def main():
         maketwo123s
         assert lst == [1, 2, 3]*2
 
-    # nesting: each "with let_syntax" is a lexical scope for syntactic substitutions
-    with let_syntax:
+    with let_syntax:  # lexical scoping
         with block as makelst:
             lst = [1, 2, 3]
         with let_syntax:
@@ -505,6 +496,24 @@ def main():
             assert lst == [4, 5, 6]
         makelst
         assert lst == [1, 2, 3]
+
+    # abbrev: like let_syntax, but expands in the first pass, outside in
+    #   - no lexically scoped nesting
+    #   - but can locally rename also macros (since abbrev itself expands before its body)
+    y = abbrev((f, verylongfunctionname))[[
+                 f(),
+                 f(5)]]
+    assert y == 5
+
+    # in abbrev, outer expands first, so in the assert,
+    #     f -> longishname -> verylongfunctionname
+    with abbrev:
+        with expr as f:
+            longishname
+        with abbrev:
+            with expr as longishname:
+                verylongfunctionname
+            assert f(10) == 10
 
     # multilambda: multi-expression lambdas with implicit do
     with multilambda:
