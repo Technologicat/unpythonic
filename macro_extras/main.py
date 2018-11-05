@@ -484,6 +484,16 @@ def main():
         assert nth(2) == 9
         # TODO: add more tests
 
+    with let_syntax:
+        lst = []
+        with block as append123:
+            lst += [1, 2, 3]
+        with block as maketwo123s:
+            append123
+            append123
+        maketwo123s
+        assert lst == [1, 2, 3]*2
+
     # nesting: each "with let_syntax" is a lexical scope for syntactic substitutions
     with let_syntax:
         with block as makelst:

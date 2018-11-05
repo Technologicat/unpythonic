@@ -103,12 +103,12 @@ def let_syntax_block(block_body):
 
     new_block_body = []
     for stmt in block_body:
+        stmt = _substitute_templates(templates, stmt)
+        stmt = _substitute_barenames(barenames, stmt)
         binding_data = isbinding(stmt)
         if binding_data:
             register_binding(stmt, *binding_data)
         else:
-            stmt = _substitute_templates(templates, stmt)
-            stmt = _substitute_barenames(barenames, stmt)
             new_block_body.append(stmt)
     return new_block_body
 
