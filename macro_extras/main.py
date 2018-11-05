@@ -475,6 +475,15 @@ def main():
         assert lst == [4, 5, 6]
         assert snd == 5
 
+        with block(a, b, c) as makeabc:
+            lst = [a, b, c]
+        makeabc(3 + 4, 2**3, 3 * 3)
+        assert lst == [7, 8, 9]
+        with expr(n) as nth:
+            lst[n]
+        assert nth(2) == 9
+        # TODO: add more tests
+
     # nesting: each "with let_syntax" is a lexical scope for syntactic substitutions
     with let_syntax:
         with block as makelst:

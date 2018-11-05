@@ -502,12 +502,18 @@ def let_syntax(tree, **kw):
     Usage - block variant::
 
         with let_syntax:
-            with block as xs:  # capture a block of statements
+            with block as xs:          # capture a block of statements - bare name
                 ...
-            with expr as x:    # capture a single expression
-                ...            # (can explicitly use do[] here if necessary)
+            with block(a, ...) as xs:  # capture a block of statements - template
+                ...
+            with expr as x:            # capture a single expression - bare name
+                ...
+            with expr(a, ...) as x:    # capture a single expression - template
+                ...
             body0
             ...
+
+    A single expression can be a ``do[]`` if multiple expressions are needed.
 
     The bindings are applied **at macro expansion time**, substituting
     the expression on the RHS for each instance of the corresponding LHS.
@@ -517,28 +523,33 @@ def let_syntax(tree, **kw):
     expansion time (with zero run-time overhead), or to splice in several
     (possibly parametric) instances of a common pattern.
 
-    The LHS may be:
+    In the expression variant, ``lhs`` may be:
 
       - A bare name (e.g. ``x``), or
 
       - A simple template of the form ``f(x, ...)``. The names inside the
         parentheses declare the formal parameters of the template.
 
-        Templates support only positional arguments, with no default values.
+    In the block variant:
 
-        In the body, a template is used like a function call. Just like in an
-        actual function call, when the template is substituted, any instances
-        of its formal parameters on its RHS get replaced by the argument values
-        from the "call" site; but ``let_syntax`` performs this at macro-expansion
-        time. Note each instance of the same formal parameter gets a fresh copy
-        of the corresponding argument value.
+      - The name of the LHS goes in the **as-part**.
 
-    In the block variant, the **as-part** is the LHS, and the body of the
-    ``with block as ...`` or ``with expr as ...`` block is the RHS.
+      - If a template, the formal parameters are declared on the ``block``
+        or ``expr``. Parameters are always expressions (because they use the
+        function-call syntax).
 
-    **CAUTION**: In a block-variant template, all formal parameters are also
-    handled in block mode, as statements. (This is subject to change in a
-    future version.)
+    **Templates**
+
+    To make parametric substitutions, use templates.
+
+    Templates support only positional arguments, with no default values.
+
+    In the body, a template is used like a function call. Just like in an
+    actual function call, when the template is substituted, any instances
+    of its formal parameters on its RHS get replaced by the argument values
+    from the "call" site; but ``let_syntax`` performs this at macro-expansion
+    time. Note each instance of the same formal parameter gets a fresh copy
+    of the corresponding argument value.
 
     **Substitution order**
 
@@ -576,6 +587,7 @@ def abbrev(tree, args, gen_sym, **kw):
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
         yield let_syntax_expr(bindings=args, body=tree)
 
+# TODO: abbrev does nest, but not in the lexical-scoping way. Update explanation!
 @macros.block
 def abbrev(tree, **kw):
     """Exactly like ``let_syntax``, but expands in the first pass, outside in.

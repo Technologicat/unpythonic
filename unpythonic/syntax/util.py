@@ -33,17 +33,6 @@ def isx(tree, x, accept_attr=True):
            (type(tree) is Captured and tree.name == x) or \
            (accept_attr and type(tree) is Attribute and tree.attr == x)
 
-def isnamedwith(tree, name):
-    """Test whether tree is ``with name:``.
-
-    Only a simple with-block with only one context manager with a bare name
-    is supported.
-    """
-    if not (type(tree) is With and len(tree.items) == 1):
-        return False
-    ctxmanager = tree.items[0].context_expr
-    return type(ctxmanager) is Name and ctxmanager.id == name
-
 def islet(tree, expanded=True):
     """Test whether tree is a ``let[]``, ``letseq[]`` or ``letrec[]``.
 

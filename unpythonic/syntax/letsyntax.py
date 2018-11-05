@@ -6,11 +6,10 @@
 
 from functools import partial
 from copy import deepcopy
-from ast import Name, Call, Starred, If, Num, Expr
+from ast import Name, Call, Starred, If, Num, Expr, With
 
 from macropy.core.walkers import Walker
 
-from unpythonic.syntax.util import isnamedwith
 from unpythonic.syntax.letdo import implicit_do
 
 def let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
@@ -38,16 +37,17 @@ def let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1
 
 # -----------------------------------------------------------------------------
 
-# TODO: parametric block, expr (currently doesn't work, assignment to something
-# TODO: that looks like a function call is syntactically invalid in Python)
-
 # block version:
 #
 # with let_syntax:
-#     with block as xs:  # capture a block of statements
+#     with block as xs:
 #         ...
-#     with expr as x:    # capture a single expression
-#         ...            # can explicitly use do[] here if necessary
+#     with block(a, ...) as xs:
+#         ...
+#     with expr as x:
+#         ...
+#     with expr(a, ...) as x:
+#         ...
 #     body0
 #     ...
 #
@@ -55,13 +55,25 @@ def let_syntax_block(block_body):
     names_seen = set()
     templates = []
     barenames = []
-    def register_binding(withstmt, mode):  # "with block:" or "with expr:"
+    def register_binding(withstmt, mode, kind):
+        assert mode in ("block", "expr")
+        assert kind in ("barename", "template")
+        ctxmanager = withstmt.items[0].context_expr
         optvars = withstmt.items[0].optional_vars
         if not optvars:
-            assert False, "'with {}:': expected a name (e.g. x) or a template (e.g. f(x, ...)) as the as-part".format(mode)
-        name, args = _analyze_lhs(optvars)
+            assert False, "'with {}:': expected an as-part".format(mode)
+        if type(optvars) is not Name:
+            assert False, "'with {}:': expected exactly one name in the as-part".format(mode)
+
+        name = optvars.id
         if name in names_seen:
             assert False, "duplicate '{}'; as-parts in the same let_syntax block must be unique".format(name)
+
+        if kind == "template":
+            _, args = _analyze_lhs(ctxmanager)  # syntactic limitation, can't place formal parameter list on the as-part
+        else: # kind == "barename":
+            args = []
+
         if mode == "block":
             value = If(test=Num(n=1),
                        body=withstmt.body,
@@ -72,20 +84,28 @@ def let_syntax_block(block_body):
                 assert False, "'with expr:' expected a one-item body (use a do[] if need more)"
             theexpr = withstmt.body[0]
             if type(theexpr) is not Expr:
-                assert False, "'with expr:' expected an expression in body, got a statement"
+                assert False, "'with expr:' expected an expression body, got a statement"
             value = theexpr.value  # discard Expr wrapper in definition
         names_seen.add(name)
         target = templates if args else barenames
         target.append((name, args, value, mode))
 
-    iswithblock = partial(isnamedwith, name="block")  # "with block as ...:"
-    iswithexpr = partial(isnamedwith, name="expr")    # "with expr as ...:"
+    def isbinding(tree):
+        for mode in ("block", "expr"):
+            if not (type(tree) is With and len(tree.items) == 1):
+                continue
+            ctxmanager = tree.items[0].context_expr
+            if type(ctxmanager) is Name and ctxmanager.id == mode:
+                return mode, "barename"
+            if type(ctxmanager) is Call and type(ctxmanager.func) is Name and ctxmanager.func.id == mode:
+                return mode, "template"
+        return False
+
     new_block_body = []
     for stmt in block_body:
-        if iswithblock(stmt):
-            register_binding(stmt, "block")
-        elif iswithexpr(stmt):
-            register_binding(stmt, "expr")
+        binding_data = isbinding(stmt)
+        if binding_data:
+            register_binding(stmt, *binding_data)
         else:
             stmt = _substitute_templates(templates, stmt)
             stmt = _substitute_barenames(barenames, stmt)
@@ -161,9 +181,8 @@ def _substitute_templates(templates, tree):
                 # make a fresh deep copy of the RHS to avoid destroying the template.
                 tree = deepcopy(value)  # expand the f itself in f(x, ...)
                 for k, v in zip(formalparams, theargs):  # expand the x, ... in the expanded form of f
-                    # TODO: Currently all args of a block substitution are handled in block mode (as statements).
-                    # TODO: Some configurability may be needed here.
-                    tree = _substitute_barename(k, v, tree, mode)
+                    # can't put statements in a Call, so always treat args as expressions.
+                    tree = _substitute_barename(k, v, tree, "expr")
             return tree
         tree = splice.recurse(tree)
     return tree
