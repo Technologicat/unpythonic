@@ -344,7 +344,7 @@ def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform
     #
     # Note at this point we haven't seen the lambda; at most, we're examining
     # a Call node. The checker internally descends if tree looks promising.
-    if has_tco(tree, userlambdas):
+    if type(tree) is Call and has_tco(tree, userlambdas):
         set_ctx(hastco=True)  # the lambda inside the trampolined(...) is the next Lambda node we will descend into.
     elif type(tree) is Lambda and id(tree) in userlambdas:
         if preproc_cb:
