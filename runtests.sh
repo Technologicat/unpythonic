@@ -19,13 +19,18 @@ done
 
 echo -ne "\e[32m*** Testing macro_extras (DANGER: against INSTALLED unpythonic) ***\e[39m\n"
 cd macro_extras
-./macropy3 main
-if [ $? -ne 0 ]; then
-  echo -ne "\e[91m*** FAIL in macro_extras ***\e[39m\n"
-  let FAILS+=1
-else
-  echo -ne "\e[92m*** PASS ***\e[39m\n"
-fi
+for MODULE in test*.py; do
+  echo -ne "\e[32m*** Running $MODULE ***\e[39m\n"
+  ./macropy3 $(basename $MODULE .py)
+  if [ $? -ne 0 ]; then
+    echo -ne "\e[91m*** FAIL in $MODULE ***\e[39m\n"
+    # https://www.shell-tips.com/2010/06/14/performing-math-calculation-in-bash/
+    let FAILS+=1
+  else
+    echo -ne "\e[92m*** PASS ***\e[39m\n"
+  fi
+  echo -ne "\n"
+done
 cd ..
 
 if [ $FAILS -gt 0 ]; then
@@ -33,4 +38,3 @@ if [ $FAILS -gt 0 ]; then
 else
       echo -ne "\e[92m*** ALL OK ***\e[39m\n"
 fi
-
