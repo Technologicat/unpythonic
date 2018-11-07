@@ -13,6 +13,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [``curry``: Automatic currying for Python](#curry-automatic-currying-for-python)
  - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate
    - [``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions](#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)
+   - [``let_syntax``, ``abbrev``: syntactic local bindings](#let_syntax-abbrev-syntactic-local-bindings); splice code at macro expansion time
  - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
  - [``aif``: anaphoric if](#aif-anaphoric-if)
  - [``do`` as a macro: stuff imperative code into a lambda, *with style*](#do-as-a-macro-stuff-imperative-code-into-a-lambda-with-style)
@@ -246,6 +247,97 @@ except NameError:
 else:
     assert False, "should have tried to access the deleted global x"
 ```
+
+### ``let_syntax``, ``abbrev``: syntactic local bindings
+
+*Added in v0.11.0.* Locally splice code at macro expansion time:
+
+```python
+from unpythonic.syntax import macros, let_syntax, block, expr
+
+def verylongfunctionname(x=1):
+    return x
+
+# works as an expr macro
+y = let_syntax((f, verylongfunctionname))[[  # extra brackets: implicit do in body
+                 print(f()),
+                 f(5)]]
+assert y == 5
+
+y = let_syntax((f(a), verylongfunctionname(2*a)))[[
+                 print(f(2)),
+                 f(3)]]
+assert y == 6
+
+# works as a block macro
+with let_syntax:
+    with block(a, b, c) as makeabc:  # capture a block of statements
+        lst = [a, b, c]
+    makeabc(3 + 4, 2**3, 3 * 3)
+    assert lst == [7, 8, 9]
+    with expr(n) as nth:             # capture a single expression
+        lst[n]
+    assert nth(2) == 9
+
+with let_syntax:
+    with block(a) as twice:
+        a
+        a
+    with block(x, y, z) as appendxyz:
+        lst += [x, y, z]
+    lst = []
+    twice(appendxyz(7, 8, 9))
+    assert lst == [7, 8, 9]*2
+```
+
+After macro expansion completes, ``let_syntax`` has zero runtime overhead; it completely disappears in macro expansion.
+
+There are two kinds of substitutions: *bare name* and *template*. A bare name substitution has no parameters. A template substitution has positional parameters. (Named parameters, ``*args``, ``**kwargs`` and default values are currently **not** supported.)
+
+In the body of ``let_syntax``, a bare name substitution is invoked by name (just like a variable). A template substitution is invoked like a function call. Just like in an actual function call, when the template is substituted, any instances of its formal parameters in the definition get replaced by the argument values from the "call" site; but ``let_syntax`` performs this at macro-expansion time, and the "value" is a snippet of code.
+
+Note each instance of the same formal parameter (in the definition) gets a fresh copy of the corresponding argument value. In other words, in the example above, each ``a`` in the body of ``twice`` separately expands to a copy of whatever code was given as the positional argument ``a``.
+
+When used as a block macro, there are furthermore two capture modes: *block of statements*, and *single expression*. (The single expression can be an explicit ``do[]`` if multiple expressions are needed.) When invoking substitutions, keep in mind Python's usual rules regarding where statements or expressions may appear.
+
+(If you know about Python ASTs, don't worry about the ``ast.Expr`` wrapper needed to place an expression in a statement position; this is handled automatically.)
+
+**HINT**: If you get a compiler error that an ``If`` was encountered where an expression was expected, check your uses of ``let_syntax``. The most likely reason is that a substitution is trying to splice a block of statements into an expression position. A captured block of statements internally generates an ``if 1:``, which the Python compiler optimizes away (so that the block may replace a single statement); this is the ``If`` node referred to by the error message.
+
+Expansion of ``let_syntax`` is a two-step process:
+
+  - First, template substitutions.
+  - Then, bare name substitutions, applied to the result of the first step.
+
+This design is to avoid accidental substitutions of formal parameters of templates (that would usually break the template, resulting at best in a mysterious error, and at worst silently doing something unexpected), if the name of a formal parameter happens to match one of the currently active bare name substitutions.
+
+Within each step, the substitutions are applied **in definition order**:
+
+  - If the bindings are ``((x, y), (y, z))``, then an ``x`` at the use site transforms to ``z``. So does a ``y`` at the use site.
+  - But if the bindings are ``((y, z), (x, y))``, then an ``x`` at the use site transforms to ``y``, and only an explicit ``y`` at the use site transforms to ``z``.
+
+Even in block templates, parameters are always expressions, because invoking a template uses the function-call syntax. But names and calls are expressions, so a previously defined substitution (whether bare name or an invocation of a template) can be passed as an argument just fine. Definition order is then important; consult the rules above.
+
+It is allowed to nest ``let_syntax``, with lexical scoping (inner definitions of substitutions shadow outer ones).
+
+When used as an expr macro, all bindings are registered first, and then the body is evaluated. When used as a block macro, a new binding (substitution declaration) takes effect from the next statement onward, and remains active for the lexically remaining part of the ``with let_syntax:`` block.
+
+The ``abbrev`` macro is otherwise exactly like ``let_syntax``, but it expands in the first pass (outside in). Hence, no lexically scoped nesting, but it has the power to locally rename also macros, because the ``abbrev`` itself expands before any macros invoked in its body. This allows things like:
+
+```python
+abbrev((a, ast_literal))[
+         a[tree1] if a[tree2] else a[tree3]]
+```
+
+which can be useful when writing macros.
+
+**CAUTION**: ``let_syntax`` is essentially a toy macro system within the real macro system. The usual caveats of macro systems apply. Especially, we support absolutely no form of hygiene. Be very, very careful to avoid name conflicts.
+
+Inessential repetition is often introduced by syntactic constraints. The ``let_syntax`` macro is meant for simple local substitutions where the elimination of such repetition can shorten the code and improve its readability.
+
+If you need to do something complex (or indeed save a definition and reuse it somewhere else, non-locally), write a real macro directly in MacroPy.
+
+This was inspired by Racket's [``let-syntax``](https://docs.racket-lang.org/reference/let.html) and [``with-syntax``](https://docs.racket-lang.org/reference/stx-patterns.html).
 
 
 ## ``cond``: the missing ``elif`` for ``a if p else b``
