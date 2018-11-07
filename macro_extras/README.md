@@ -302,7 +302,7 @@ When used as a block macro, there are furthermore two capture modes: *block of s
 
 (If you know about Python ASTs, don't worry about the ``ast.Expr`` wrapper needed to place an expression in a statement position; this is handled automatically.)
 
-**HINT**: If you get a compiler error that an ``If`` was encountered where an expression was expected, check your uses of ``let_syntax``. The most likely reason is that a substitution is trying to splice a block of statements into an expression position. A captured block of statements internally generates an ``if 1:``, which the Python compiler optimizes away (so that the block may replace a single statement); this is the ``If`` node referred to by the error message.
+**HINT**: If you get a compiler error that an ``If`` was encountered where an expression was expected, check your uses of ``let_syntax``. The most likely reason is that a substitution is trying to splice a block of statements into an expression position. A captured block of statements internally generates an ``if 1:`` (so that the block may replace a single statement), which the Python compiler optimizes away; this is the ``If`` node referred to by the error message.
 
 Expansion of ``let_syntax`` is a two-step process:
 
