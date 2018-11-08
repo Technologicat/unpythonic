@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Assign-once environment."""
 
@@ -38,37 +37,3 @@ class assignonce(_envcls):
         # important part: bypass our own __setattr__, which would refuse the update.
         super().__setattr__(name, value)
         return value
-
-def test():
-    with assignonce() as e:
-        try:
-            e.a = 2
-            e.b = 3
-        except AttributeError as err:
-            print('Test 1 FAILED: {}'.format(err))
-        else:
-            print('Test 1 PASSED')
-
-        try:
-            e.a = 5  # fail, e.a already defined
-        except AttributeError:
-            print('Test 2 PASSED')
-        else:
-            print('Test 2 FAILED')
-
-        try:
-            e.set("a", 42)  # rebind
-        except AttributeError as err:
-            print('Test 3 FAILED: {}'.format(err))
-        else:
-            print('Test 3 PASSED')
-
-        try:
-            e.set("c", 3)  # fail, e.c not bound
-        except AttributeError as err:
-            print('Test 4 PASSED')
-        else:
-            print('Test 4 FAILED')
-
-if __name__ == '__main__':
-    test()
