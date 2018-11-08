@@ -22,6 +22,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
  - [``continuations``: a form of call/cc for Python](#continuations-a-form-of-callcc-for-python)
  - [``tco``: automatically apply tail call optimization](#tco-automatically-apply-tail-call-optimization)
+   - [TCO and continuations](#tco-and-continuations)
  - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position)
  - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence); with slice notation
  - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
@@ -686,13 +687,101 @@ To find the tail position inside a compound return value, this recursively handl
 
 **CAUTION**: In an ``and``/``or`` expression, only the last item of the whole expression is in tail position. This is because in general, it is impossible to know beforehand how many of the items will be evaluated.
 
-**CAUTION**: For escape continuations, only basic uses of ``call_ec`` are supported. The literal function names ``ec`` and ``brk`` are always interpreted as referring to an escape continuation; in addition, ec names are harvested from uses of ``call_ec``. See the docstring of ``unpythonic.syntax.tco`` for details. (Mainly of interest for lambdas, which have no ``return``, and for "multi-return" from a nested function.)
-
 **CAUTION**: In a ``def`` you still need the ``return``; it marks a return value.
 
-**CAUTION**: Do not combo with ``continuations``; it already implies TCO.
+**CAUTION**: Do not combo ``tco`` and ``continuations`` blocks; the latter already implies TCO. (They actually share a lot of the code that implements TCO.)
 
-This is based on a strategy similar to MacroPy's ``tco`` macro, but using unpythonic's TCO machinery, and working together with the macros introduced by ``unpythonic.syntax``. The semantics are slightly different; by design, ``unpythonic`` requires an explicit ``return`` to mark tail calls in a ``def``. A call that is strictly speaking in tail position, but lacks the ``return``, is not TCO'd, and the implicit ``return None`` then shuts down the trampoline, returning ``None`` as the result of the TCO chain.
+TCO is based on a strategy similar to MacroPy's ``tco`` macro, but using unpythonic's TCO machinery, and working together with the macros introduced by ``unpythonic.syntax``. The semantics are slightly different; by design, ``unpythonic`` requires an explicit ``return`` to mark tail calls in a ``def``. A call that is strictly speaking in tail position, but lacks the ``return``, is not TCO'd, and the implicit ``return None`` then shuts down the trampoline, returning ``None`` as the result of the TCO chain.
+
+### TCO and continuations
+
+#### TCO and ``call_ec``
+
+(Mainly of interest for lambdas, which have no ``return``, and for "multi-return" from a nested function.)
+
+For escape continuations in ``tco`` and ``continuations`` blocks, only basic uses of ``call_ec`` are supported. The literal function names ``ec`` and ``brk`` are always *understood as referring to* an escape continuation; in addition, ec names are harvested from uses of ``call_ec``.
+
+See the docstring of ``unpythonic.syntax.tco`` for details.
+
+However, the name ``ec`` or ``brk`` alone is not sufficient to make a function into an escape continuation, even though ``tco`` (and ``continuations``) will think of it as such. The function also needs to actually implement some kind of an escape mechanism. An easy way to get an escape continuation, where this has already been done for you, is to use ``call_ec``.
+
+#### In a ``with continuations`` block, why even use ``call_ec``?
+
+Pretty much by the definition of a continuation, in a ``with continuations`` block, another solution that *should* at first glance produce an escape is to set ``cc`` to the ``cc`` of the caller, and then return the desired value. There is however a subtle catch, due to the way we implement continuations. Consider:
+
+```python
+from unpythonic.syntax import macros, tco, continuations
+from unpythonic import call_ec, identity
+
+with tco:
+    def double_odd(x, ec):
+        if x % 2 == 0:  # reject even "x"
+            ec("not odd")
+        return 2*x
+    @call_ec
+    def result1(ec):
+        y = double_odd(42, ec)
+        z = double_odd(21, ec)  # avoid tail-calling because ec is not valid after result1() exits
+        return z
+    @call_ec
+    def result2(ec):
+        y = double_odd(21, ec)
+        z = double_odd(42, ec)
+        return z
+    assert result1 == "not odd"
+    assert result2 == "not odd"
+
+with continuations:
+    def double_odd(x, ec, *, cc):
+        if x % 2 == 0:
+            cc = ec
+            return "not odd"
+        return 2*x
+    def main1(*, cc):
+        y = double_odd(42, ec=cc)  # y = "not odd"
+        z = double_odd(21, ec=cc)  # we could tail-call, but let's keep this similar to the first example.
+        return z
+    def main2(*, cc):
+        y = double_odd(21, ec=cc)
+        z = double_odd(42, ec=cc)
+        return z
+    assert main1() == 42
+    assert main2() == "not odd"
+```
+
+In the first example, ``ec`` is the escape continuation of the ``result1``/``result2`` block, due to the placement of the ``call_ec``. In the second example, the ``cc`` inside ``double_odd`` is the implicitly passed ``cc``... which, naively, should represent the continuation of the current call into ``double_odd``. So far, so good.
+
+However, because in this example there are no ``with bind`` blocks, the actual value of ``cc``, anywhere in this example, is always just ``identity``. *It's not the actual continuation.* Even though we pass the ``cc`` of ``main1``/``main2`` as an explicit argument "``ec``" to use as an escape continuation (like the first example does with ``ec``), it is still ``identity`` - and hence cannot perform an escape.
+
+If we wish to use that strategy in this implementation, we must use ``with bind``, and place the rest of the original function body (i.e. *the actual continuation*) into the body of the ``with bind``, so that it is indeed captured as the continuation:
+
+```python
+from unpythonic.syntax import macros, continuations, bind
+from unpythonic import identity
+
+with continuations:
+    def double_odd(x, ec, *, cc):
+        if x % 2 == 0:
+            cc = ec
+            return "not odd"
+        return 2*x
+    def main1(*, cc):
+        with bind[double_odd(42, ec=cc)] as y:
+            return double_odd(21, ec=cc)
+    def main2(*, cc):
+        with bind[double_odd(21, ec=cc)] as y:
+            return double_odd(42, ec=cc)
+    assert main1() == "not odd"
+    assert main2() == "not odd"
+```
+
+This variant performs as expected.
+
+There's also a second, even subtler catch; instead of setting ``cc = ec`` and returning a value, just tail-calling ``ec`` with that value doesn't do what we want. This is because - as explained in the rules of the ``continuations`` macro, above - a tail-call is *inserted* between the end of the function, and whatever ``cc`` currently points to.
+
+Most often that's exactly what we want, but in this particular case, it causes *both* continuations to run, in sequence. But if we overwrite ``cc``, then the function's original ``cc`` argument is discarded, so it never runs - and we get the effect we want, *replacing* the ``cc`` by the ``ec``.
+
+Such subtleties arise essentially from the difference between a language that natively supports continuations (Scheme, Racket) and one that has continuations hacked on top of it as macros performing a CPS conversion only partially (like Python with ``unpythonic.syntax``, or Common Lisp with PG's continuation-passing macros). The macro approach works, but the programmer needs to be careful.
 
 
 ## ``autoreturn``: implicit ``return`` in tail position
