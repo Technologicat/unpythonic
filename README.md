@@ -30,7 +30,7 @@ We also provide a set of [macros](macro_extras/) that are designed to work toget
  - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
  - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
 
-For many examples, see the `test()` function in each submodule, the docstrings of the individual features, and this README.
+For many examples, see the unit tests located in [unpythonic/test/](unpythonic/test/), the docstrings of the individual features, and this README.
 
 *This README doubles as the API reference, but occasionally, may be out of date at places. In case of conflicts in documentation, believe the unit tests first. Docstrings and this README should reflect them.*
 

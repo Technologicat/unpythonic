@@ -2,7 +2,9 @@
 
 These optional features are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
 
-Because macro expansion occurs at import time, the usage example `main.py` cannot be run directly. Instead, run it via the bootstrap script `run.py`, or use the included [generic MacroPy3 bootstrapper](macropy3). Usage of the bootstrapper is `./macropy3 main`; see `-h` for options.
+Because macro expansion occurs at import time, the unit tests that contain usage examples (located in [unpythonic/syntax/test/](unpythonic/syntax/test/)) cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). Usage of the bootstrapper is `./macropy3 some.module` (like `python3 -m some.module`); see `-h` for options.
+
+The tests use relative imports; invoke them from the top-level directory of ``unpythonic`` as e.g. ``macro_extras/macropy3 unpythonic.syntax.test.test_curry``. This is to make the tests run against the source tree without installing it first; in your own code, once you have installed ``unpythonic``, feel free to use absolute imports, like those shown in this README.
 
 There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itself already provides ``lazy`` and ``interned``.
 
