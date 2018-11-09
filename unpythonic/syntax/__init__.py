@@ -10,22 +10,22 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 
 # insist, deny, it, local, block, expr, bind are just for passing through
 # to the client code that imports us.
-from unpythonic.syntax.curry import curry as _curry
-from unpythonic.syntax.forall import forall as _forall, insist, deny
-from unpythonic.syntax.fupstx import fup as _fup
-from unpythonic.syntax.ifexprs import aif as _aif, it, cond as _cond
-from unpythonic.syntax.lambdatools import multilambda as _multilambda, \
-                                          namedlambda as _namedlambda
-from unpythonic.syntax.letdo import do as _do, do0 as _do0, local, \
-                                    let as _let, letseq as _letseq, letrec as _letrec, \
-                                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
-                                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec
-from unpythonic.syntax.letsyntax import let_syntax_expr, let_syntax_block, block, expr
-from unpythonic.syntax.prefix import prefix as _prefix
-from unpythonic.syntax.tailtools import autoreturn as _autoreturn, tco as _tco, \
-                                        continuations as _continuations, bind
+from .curry import curry as _curry
+from .forall import forall as _forall, insist, deny
+from .fupstx import fup as _fup
+from .ifexprs import aif as _aif, it, cond as _cond
+from .lambdatools import multilambda as _multilambda, \
+                         namedlambda as _namedlambda
+from .letdo import do as _do, do0 as _do0, local, \
+                   let as _let, letseq as _letseq, letrec as _letrec, \
+                   dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
+                   blet as _blet, bletseq as _bletseq, bletrec as _bletrec
+from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
+from .prefix import prefix as _prefix
+from .tailtools import autoreturn as _autoreturn, tco as _tco, \
+                       continuations as _continuations, bind
 
-from unpythonic.dynassign import dyn, make_dynvar
+from ..dynassign import dyn, make_dynvar
 
 from macropy.core.macros import Macros
 
