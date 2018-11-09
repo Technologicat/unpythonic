@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tuple comprehension with multiple-expression body."""
 
-from unpythonic.syntax import macros, forall, insist, deny
+from ...syntax import macros, forall, insist, deny
 
 def test():
     # forall: pure AST transformation, with real lexical variables

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Continuations (essentially call/cc for Python)."""
 
-from unpythonic.syntax import macros, continuations, bind, multilambda, autoreturn, curry
+from ...syntax import macros, continuations, bind, multilambda, autoreturn, curry
 
-from unpythonic.ec import call_ec
+from ...ec import call_ec
 
 def test():
     # basic testing
@@ -135,7 +135,7 @@ def test():
     # curry combo
     def testcurrycombo():
         with continuations:
-            from unpythonic.fun import curry  # TODO: can't rename, unpythonic.syntax.util.sort_lambda_decorators won't detect it
+            from ...fun import curry  # TODO: can't rename, unpythonic.syntax.util.sort_lambda_decorators won't detect it
             # Currying here makes no sense, but test that it expands correctly.
             # We should get trampolined(call_ec(curry(...))), which produces the desired result.
             assert call_ec(curry(lambda ec, *, cc: ec(42))) == 42

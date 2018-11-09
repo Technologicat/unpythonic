@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Implicit return statements."""
 
-from unpythonic.syntax import macros, autoreturn
+from ...syntax import macros, autoreturn
 
-from unpythonic.env import env
+from ...env import env
 
 def test():
     # - in a function body, any expression "expr" in tail position

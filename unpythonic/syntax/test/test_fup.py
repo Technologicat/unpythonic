@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Functional update for sequences, with native slice syntax."""
 
-from unpythonic.syntax import macros, fup
+from ...syntax import macros, fup
 
 from itertools import repeat
 

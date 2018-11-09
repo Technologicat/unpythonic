@@ -11,7 +11,7 @@
 # At runtime (after macro expansion), let_syntax has zero performance overhead.
 #from macropy.tracing import macros, show_expanded
 
-from unpythonic.syntax import macros, let_syntax, abbrev, block, expr
+from ...syntax import macros, let_syntax, abbrev, block, expr
 
 def test():
     # expression variant

@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """Automatic currying."""
 
-from unpythonic.syntax import macros, curry
+from ...syntax import macros, curry
 
-from unpythonic import foldr, composerc as compose, cons, nil, ll
+from ...fold import foldr
+from ...fun import composerc as compose
+from ...llist import cons, nil, ll
 
 def test():
     with curry:

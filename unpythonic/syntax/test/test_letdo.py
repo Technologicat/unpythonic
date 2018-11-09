@@ -6,12 +6,12 @@
 # (aside from patching pyflakes and pylint to handle the binding forms that are
 # added by unpythonic).
 
-from unpythonic.syntax import macros, let, letseq, letrec, \
-                                      dlet, dletseq, dletrec, \
-                                      blet, bletseq, bletrec, \
-                                      do, do0, local
+from ...syntax import macros, let, letseq, letrec, \
+                              dlet, dletseq, dletrec, \
+                              blet, bletseq, bletrec, \
+                              do, do0, local
 
-from unpythonic import begin
+from ...seq import begin
 
 x = "the global x"  # for lexical scoping tests
 

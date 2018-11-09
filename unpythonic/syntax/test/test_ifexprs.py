@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Extended if-expressions."""
 
-from unpythonic.syntax import macros, aif, it, cond, local
+from ...syntax import macros, aif, it, cond, local
 
 def test():
     # Anaphoric if: aif[test, then, otherwise]

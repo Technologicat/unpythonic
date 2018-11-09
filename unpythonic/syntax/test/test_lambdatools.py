@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Multi-expression lambdas with implicit do; named lambdas."""
 
-from unpythonic.syntax import macros, multilambda, namedlambda, local, let
+from ...syntax import macros, multilambda, namedlambda, local, let
 
 def test():
     with multilambda:

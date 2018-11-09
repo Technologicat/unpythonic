@@ -6,9 +6,11 @@
 # Use "with show_expanded:" to see what it did.
 #from macropy.tracing import macros, show_expanded
 
-from unpythonic.syntax import macros, prefix, q, u, kw, curry, let, do
+from ...syntax import macros, prefix, q, u, kw, curry, let, do
 
-from unpythonic import foldr, composerc as compose, cons, nil, ll, apply
+from ...fold import foldr
+from ...fun import composerc as compose, apply
+from ...llist import cons, nil, ll
 
 def main():
     with prefix:

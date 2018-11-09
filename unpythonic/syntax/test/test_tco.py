@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """Automatic tail-call optimization (TCO)."""
 
-from unpythonic.syntax import macros, tco, autoreturn, curry, do, let, letseq, dletrec
+from ...syntax import macros, tco, autoreturn, curry, do, let, letseq, dletrec
 
-from unpythonic.ec import call_ec
+from ...ec import call_ec
+from ...fploop import looped_over
 
 def test():
     # - any explicit return statement in a function body is TCO'd
@@ -96,7 +97,7 @@ def test():
     # curry combo
     def testcurrycombo():
         with tco:
-            from unpythonic.fun import curry  # TODO: can't rename, unpythonic.syntax.util.sort_lambda_decorators won't detect it
+            from ...fun import curry  # TODO: can't rename, unpythonic.syntax.util.sort_lambda_decorators won't detect it
             # Currying here makes no sense, but test that it expands correctly.
             # We should get trampolined(call_ec(curry(...))), which produces the desired result.
             assert call_ec(curry(lambda ec: ec(42))) == 42
@@ -107,8 +108,8 @@ def test():
         with tco:
             assert call_ec(lambda ec: ec(42)) == 42
 
-    # fploop combo (requires special handling)
-    from unpythonic.fploop import looped_over
+    # fploop combo, requires special handling
+    # (has its own trampoline, must avoid adding another one)
     with tco:
         @looped_over(range(10), acc=0)
         def result(loop, x, acc):
