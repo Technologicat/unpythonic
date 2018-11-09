@@ -49,7 +49,7 @@ def test():
 
     # begin() returns the last value. What if we don't want that?
     # (this works because ec() uses the exception mechanism)
-    from unpythonic.seq import begin
+    from ..seq import begin
     result = call_ec(lambda ec:
                        begin(print("hi from lambda"),
                              ec(42),  # now we can effectively "return ..." at any point from a lambda!

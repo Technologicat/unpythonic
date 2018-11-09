@@ -1190,6 +1190,6 @@ def prefix(tree, **kw):
     return (yield from _prefix(block_body=tree))
 
 # TODO: using some name other than "kw" would silence the IDE warnings.
-from unpythonic.syntax.prefix import q, u, kw  # for re-export only
+from .prefix import q, u, kw  # for re-export only
 
 # -----------------------------------------------------------------------------
