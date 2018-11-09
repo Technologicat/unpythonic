@@ -19,6 +19,7 @@ such as that created by the "let" decorator macro ``@dlet``).
 
 from ast import Name, Tuple, \
                 Lambda, FunctionDef, ClassDef, \
+                List, For, Import, Try, With, \
                 ListComp, SetComp, GeneratorExp, DictComp, \
                 Store, Del, \
                 Global, Nonlocal
@@ -45,8 +46,6 @@ def scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ct
 
     callback: function, (tree, shadowed_names) --> tree
     """
-    # TODO: for..in, import, try..except, with
-    #     http://excess.org/article/2014/04/bar-foo/
     # TODO: think about proper handling of ClassDef
     if type(tree) in (Lambda, ListComp, SetComp, GeneratorExp, DictComp, ClassDef):
         moreargs, _ = getshadowers(tree)
@@ -152,18 +151,25 @@ def getshadowers(tree):
 
         return list(uniqify(targetnames)), []
 
-    # TODO: for..in, import, try..except, with
-    #     http://excess.org/article/2014/04/bar-foo/
-
     return [], []
 
 @Walker
 def get_names_in_store_context(tree, *, stop, collect, **kw):
-    """In a tree representing a statement, get names in store context.
+    """In a tree representing a statement, get names bound by that statement.
 
-    Additionally, get the name of any ``FunctionDef``, ``AsyncFunctionDef``
-    and ``ClassDef``, as these also introduce new names into the scope
-    where they appear.
+    This includes:
+
+        - Any ``Name`` in store context
+
+        - The name of ``FunctionDef``, ``AsyncFunctionDef`` or``ClassDef``
+
+        - The target(s) of ``For``
+
+        - The names (or asnames where applicable) of ``Import``
+
+        - The exception name of any ``except`` handlers
+
+        - The names in the as-part of ``With``
 
     Duplicates may be returned; use ``set(...)`` or ``list(uniqify(...))``
     on the output to remove them.
@@ -173,8 +179,29 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
     To find out new local vars, exclude any names in ``nonlocals`` as returned
     by ``_getshadowers``.
     """
+    def collect_name_or_list(t):
+        if type(t) is Name:
+            collect(t.id)
+        elif type(t) in (Tuple, List):
+            for x in t.elts:
+                collect(x.id)
+        else:
+            assert False, "unknown type {}".format(type(t))
+    # Useful article: http://excess.org/article/2014/04/bar-foo/
     if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
         collect(tree.name)
+    elif type(tree) is For:
+        collect_name_or_list(tree.target)
+    elif type(tree) is Import:
+        for x in tree.names:
+            collect(x.asname if x.asname is not None else x.name)
+    elif type(tree) is Try:
+        for h in tree.handlers:
+            collect(h.name)
+    elif type(tree) is With:
+        for item in tree.items:
+            if item.optional_vars is not None:
+                collect_name_or_list(item.optional_vars)
     if isnewscope(tree):
         stop()
     # macro-created nodes might not have a ctx, but our macros don't create lexical assignments.
