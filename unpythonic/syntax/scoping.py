@@ -45,6 +45,8 @@ def scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ct
 
     callback: function, (tree, shadowed_names) --> tree
     """
+    # TODO: for..in, import, try..except, with
+    #     http://excess.org/article/2014/04/bar-foo/
     # TODO: think about proper handling of ClassDef
     if type(tree) in (Lambda, ListComp, SetComp, GeneratorExp, DictComp, ClassDef):
         moreargs, _ = getshadowers(tree)
@@ -149,6 +151,9 @@ def getshadowers(tree):
                 assert False, "unimplemented: comprehension target of type {}".type(g.target)
 
         return list(uniqify(targetnames)), []
+
+    # TODO: for..in, import, try..except, with
+    #     http://excess.org/article/2014/04/bar-foo/
 
     return [], []
 
