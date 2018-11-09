@@ -3,8 +3,8 @@
 
 __all__ = ["env"]
 
-from unpythonic.dynassign import dyn, make_dynvar
-from unpythonic.misc import namelambda
+from .dynassign import dyn, make_dynvar
+from .misc import namelambda
 
 # Whether to automatically name lambdas saved in an env.
 # Use  with dyn.let(env_namedlambda=True): ...  to activate.

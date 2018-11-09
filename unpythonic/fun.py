@@ -18,9 +18,9 @@ __all__ = ["memoize", "curry", "iscurried",
 from functools import wraps, partial
 from operator import itemgetter
 
-from unpythonic.arity import arities, UnknownArity
-from unpythonic.fold import reducel
-from unpythonic.dynassign import dyn, make_dynvar
+from .arity import arities, UnknownArity
+from .fold import reducel
+from .dynassign import dyn, make_dynvar
 
 def memoize(f):
     """Decorator: memoize the function f.

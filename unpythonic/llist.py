@@ -7,9 +7,9 @@ Hashable, pickleable, hooks into the built-in reversed(), prints like in Lisps.
 from abc import ABCMeta, abstractmethod
 from itertools import zip_longest
 
-from unpythonic.fun import composer1i
-from unpythonic.fold import foldr, foldl
-from unpythonic.it import rev
+from .fun import composer1i
+from .fold import foldr, foldl
+from .it import rev
 
 # explicit list better for tooling support
 _exports = ["cons", "nil",

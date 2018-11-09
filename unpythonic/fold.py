@@ -10,8 +10,8 @@ from functools import partial
 from itertools import zip_longest
 #from collections import deque
 
-#from unpythonic.it import first, last, rev
-from unpythonic.it import last, rev
+#from .it import first, last, rev
+from .it import last, rev
 
 # Require at least one iterable to make this work seamlessly with curry. We take
 # this approach with any new function families the standard library doesn't provide.

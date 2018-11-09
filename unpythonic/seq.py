@@ -8,11 +8,11 @@ __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
            "do", "do0", "assign"]
 
 from collections import namedtuple
-from unpythonic.env import env
-from unpythonic.misc import call
-from unpythonic.fun import curry, iscurried
-from unpythonic.dynassign import dyn
-from unpythonic.arity import arity_includes, UnknownArity
+from .env import env
+from .misc import call
+from .fun import curry, iscurried
+from .dynassign import dyn
+from .arity import arity_includes, UnknownArity
 
 # sequence side effects in a lambda
 def begin(*vals):

@@ -3,7 +3,7 @@
 
 __all__ = ["assignonce"]
 
-from unpythonic.env import env as _envcls
+from .env import env as _envcls
 
 class assignonce(_envcls):
     """Environment with assign-once names.

@@ -28,9 +28,9 @@ __all__ = ["looped", "looped_over", "breakably_looped", "breakably_looped_over"]
 
 from functools import partial
 
-from unpythonic.ec import call_ec
-from unpythonic.arity import arity_includes, UnknownArity
-from unpythonic.tco import SELF, trampolined, _jump
+from .ec import call_ec
+from .arity import arity_includes, UnknownArity
+from .tco import SELF, trampolined, _jump
 
 def looped(body):
     """Decorator to make a functional loop and run it immediately.

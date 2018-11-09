@@ -27,8 +27,8 @@ __all__ = ["forall", "choice", "insist", "deny"]
 
 from collections import namedtuple
 
-from unpythonic.arity import arity_includes, UnknownArity
-from unpythonic.llist import nil  # we need a sentinel, let's recycle the existing one
+from .arity import arity_includes, UnknownArity
+from .llist import nil  # we need a sentinel, let's recycle the existing one
 
 Assignment = namedtuple("Assignment", "k v")
 

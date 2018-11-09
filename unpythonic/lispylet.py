@@ -5,9 +5,9 @@ __all__ = ["let", "letrec", "dlet", "dletrec", "blet", "bletrec"]
 
 from functools import wraps
 
-from unpythonic.misc import call
-from unpythonic.env import env as _envcls
-from unpythonic.arity import arity_includes, UnknownArity
+from .misc import call
+from .env import env as _envcls
+from .arity import arity_includes, UnknownArity
 
 def let(bindings, body):
     """``let`` expression.
