@@ -6,7 +6,7 @@ from ast import BinOp, LShift, Subscript, Index, Slice, ExtSlice
 from macropy.core.quotes import macros, q, ast_literal
 from macropy.core.hquotes import macros, hq
 
-from unpythonic.fup import fupdate
+from ..fup import fupdate
 
 # TODO: improve: multiple fupdate specs?
 def fup(tree):

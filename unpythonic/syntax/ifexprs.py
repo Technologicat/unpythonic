@@ -6,7 +6,7 @@ from ast import Tuple
 from macropy.core.quotes import macros, q, ast_literal
 from macropy.core.hquotes import macros, hq
 
-from unpythonic.syntax.letdo import implicit_do, let
+from .letdo import implicit_do, let
 
 # TODO: currently no "syntax-parameterize" in MacroPy. Would be convenient to
 # create a macro that expands to an error by default, and then override it

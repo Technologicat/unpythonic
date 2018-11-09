@@ -17,17 +17,17 @@ from ast import Call, Name, Attribute, \
                 arguments, arg, \
                 Load, \
                 copy_location
-from unpythonic.syntax.astcompat import AsyncFunctionDef
+from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
-from unpythonic.lispylet import let as letf, letrec as letrecf, _dlet as dletf, _blet as bletf
-from unpythonic.seq import begin as beginf, do as dof
-from unpythonic.dynassign import dyn
+from ..lispylet import let as letf, letrec as letrecf, _dlet as dletf, _blet as bletf
+from ..seq import begin as beginf, do as dof
+from ..dynassign import dyn
 
-from unpythonic.syntax.scoping import scoped_walker
+from .scoping import scoped_walker
 
 def let(bindings, body):
     return _letimpl(bindings, body, "let")

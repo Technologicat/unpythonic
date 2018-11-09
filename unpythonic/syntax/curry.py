@@ -2,14 +2,14 @@
 """Automatic currying. Transforms both function definitions and calls."""
 
 from ast import Call, Lambda, FunctionDef, With, withitem
-from unpythonic.syntax.astcompat import AsyncFunctionDef
+from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, ast_literal
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
-from unpythonic.dynassign import dyn
-from unpythonic.fun import curry as curryf, _currycall as currycall
+from ..dynassign import dyn
+from ..fun import curry as curryf, _currycall as currycall
 
 def curry(block_body):
     @Walker

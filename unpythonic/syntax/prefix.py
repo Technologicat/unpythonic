@@ -9,9 +9,9 @@ from ast import Name, Call, Tuple, Load
 from macropy.core.quotes import macros, q, u, ast_literal
 from macropy.core.walkers import Walker
 
-from unpythonic.syntax.util import islet, isletsyntax, isdo
+from .util import islet, isletsyntax, isdo
 
-from unpythonic.it import flatmap, rev, uniqify
+from ..it import flatmap, rev, uniqify
 
 def prefix(block_body):
     isquote = lambda tree: type(tree) is Name and tree.id == "q"

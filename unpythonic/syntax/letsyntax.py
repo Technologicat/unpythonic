@@ -9,7 +9,7 @@ from ast import Name, Call, Starred, If, Num, Expr, With
 
 from macropy.core.walkers import Walker
 
-from unpythonic.syntax.letdo import implicit_do
+from .letdo import implicit_do
 
 def let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     body = implicit_do(body)  # support the extra bracket syntax

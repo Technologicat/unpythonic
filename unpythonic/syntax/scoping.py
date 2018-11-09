@@ -22,11 +22,11 @@ from ast import Name, Tuple, \
                 ListComp, SetComp, GeneratorExp, DictComp, \
                 Store, Del, \
                 Global, Nonlocal
-from unpythonic.syntax.astcompat import AsyncFunctionDef
+from .astcompat import AsyncFunctionDef
 
 from macropy.core.walkers import Walker
 
-from unpythonic.it import uniqify
+from ..it import uniqify
 
 def isnewscope(tree):
     """Return whether tree introduces a new lexical scope.

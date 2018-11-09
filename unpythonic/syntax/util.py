@@ -5,7 +5,7 @@ from functools import partial
 
 from ast import Call, Name, Attribute, Lambda, FunctionDef, \
                 Subscript, Index, Tuple, With
-from unpythonic.syntax.astcompat import AsyncFunctionDef
+from .astcompat import AsyncFunctionDef
 
 from macropy.core import Captured
 from macropy.core.walkers import Walker

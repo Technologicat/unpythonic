@@ -7,9 +7,9 @@ from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
-from unpythonic.syntax.letdo import isenvassign, envassign_name, envassign_value
-from unpythonic.amb import monadify
-from unpythonic.amb import insist, deny  # for re-export only
+from .letdo import isenvassign, envassign_name, envassign_value
+from ..amb import monadify
+from ..amb import insist, deny  # for re-export only
 
 def forall(exprs):
     """[syntax, expr] Nondeterministic evaluation.

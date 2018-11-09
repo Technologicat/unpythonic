@@ -13,23 +13,23 @@ from ast import Lambda, FunctionDef, \
                 BoolOp, And, Or, \
                 With, If, IfExp, Try, Assign, Return, Expr, \
                 copy_location
-from unpythonic.syntax.astcompat import AsyncFunctionDef, AsyncWith
+from .astcompat import AsyncFunctionDef, AsyncWith
 
 from macropy.core.macros import macro_stub
 from macropy.core.quotes import macros, q, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
-from unpythonic.syntax.util import isx, isec, isdo, islet, \
-                                   detect_callec, detect_lambda, \
-                                   has_tco, is_decorator, sort_lambda_decorators
-from unpythonic.syntax.ifexprs import aif
-from unpythonic.syntax.letdo import let
+from .util import isx, isec, isdo, islet, \
+                  detect_callec, detect_lambda, \
+                  has_tco, is_decorator, sort_lambda_decorators
+from .ifexprs import aif
+from .letdo import let
 
-from unpythonic.dynassign import dyn
-from unpythonic.it import uniqify
-from unpythonic.fun import identity
-from unpythonic.tco import trampolined, jump
+from ..dynassign import dyn
+from ..it import uniqify
+from ..fun import identity
+from ..tco import trampolined, jump
 
 # -----------------------------------------------------------------------------
 # Implicit return. This performs a tail-position analysis of function bodies.
