@@ -43,6 +43,3 @@ def test():
         assert hn == "f (lambda)"
 
     print("All tests PASSED")
-
-if __name__ == '__main__':
-    test()

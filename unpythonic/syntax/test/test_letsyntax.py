@@ -152,6 +152,3 @@ def test():
             assert f(10) == 10
 
     print("All tests PASSED")
-
-if __name__ == '__main__':
-    test()

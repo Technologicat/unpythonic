@@ -426,6 +426,3 @@ def test():
     assert result == [[], [1]]
 
     print("All tests PASSED")
-
-if __name__ == '__main__':
-    test()

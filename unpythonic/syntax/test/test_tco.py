@@ -118,6 +118,3 @@ def test():
         assert looped_over(range(10), acc=0)(lambda loop, x, acc: loop(acc + x)) == 45
 
     print("All tests PASSED")
-
-if __name__ == '__main__':
-    test()

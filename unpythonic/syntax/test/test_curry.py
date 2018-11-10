@@ -45,6 +45,3 @@ def test():
     assert add3(1)(2)(3) == 6
 
     print("All tests PASSED")
-
-if __name__ == '__main__':
-    test()

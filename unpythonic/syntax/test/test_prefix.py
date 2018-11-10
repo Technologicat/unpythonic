@@ -99,6 +99,3 @@ def main():
         assert (mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)
 
     print("All tests PASSED")
-
-if __name__ == '__main__':
-    main()

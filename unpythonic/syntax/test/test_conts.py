@@ -394,6 +394,3 @@ def test():
             x = fail()
 
     print("All tests PASSED")
-
-if __name__ == '__main__':
-    test()

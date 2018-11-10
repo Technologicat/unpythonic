@@ -16,6 +16,3 @@ def test():
     assert lst == (1, 2, 3, 4, 5)
 
     print("All tests PASSED")
-
-if __name__ == '__main__':
-    test()
