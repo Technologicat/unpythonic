@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Generic bootstrapper to run a Python program with MacroPy3 enabled.
+
+Eliminates the need for a per-project bootstrapper."""
+
+import macropy.activate
+import imp
+import argparse
+
+__version__ = '1.1.0'
+
+def main():
+    """Handle command-line arguments and run the specified main program."""
+    parser = argparse.ArgumentParser(description="""Generic MacroPy3 bootstrapper: run a Python program with MacroPy3 enabled.""",
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument( '-v', '--version', action='version', version=('%(prog)s-bootstrapper ' + __version__) )
+    parser.add_argument(dest='module', default=None, type=str, metavar='module',
+                        help='The module name of the main program to start.')
+    parser.add_argument('-d', '--debug', dest='debug', action="store_true", default=False,
+                        help='Enable MacroPy logging.')
+    opts = parser.parse_args()
+
+    if opts.debug:
+        import macropy.logging
+
+    # Import the target module, but pretend its name is "__main__".
+    #
+    # We must import so that macros get expanded, so we can't use
+    # runpy.run_module here (which just execs without importing).
+    #
+    # This allows us to have the same semantics as "python3 -m some.module".
+    #
+    # ...but the price is the target module can't use relative imports
+    # (precisely because its name is now "__main__"!), which is bad
+    # for testing before the project is installed.
+    #
+    # TODO: once upgraded to Python 3.5+, replace the deprecated imp
+    #   https://stackoverflow.com/questions/6114251/how-to-make-name-main-when-running-module/6114411#6114411
+    #   https://docs.python.org/3/library/imp.html#imp.find_module
+    #   https://docs.python.org/3/library/imp.html#imp.load_module
+    #   https://docs.python.org/3/library/importlib.html#importlib.util.find_spec         (Python 3.4+)
+    #   https://docs.python.org/3/library/importlib.html#importlib.util.module_from_spec  (Python 3.5+)
+    def finder(dotted_modname, acc=[], path=None):
+        head, sep, tail = dotted_modname.partition('.')
+        spec = imp.find_module(head, path)
+        modname = ".".join(acc + [head])
+        if tail:
+            mod = imp.load_module(modname, *spec)
+            return finder(tail, acc=(acc + [head]), path=mod.__path__)
+        return spec
+    spec = finder(opts.module)
+    mod = imp.load_module("__main__", *spec)
+
+if __name__ == '__main__':
+    main()
