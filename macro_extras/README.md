@@ -267,7 +267,7 @@ y = let_syntax((f, verylongfunctionname))[[  # extra brackets: implicit do in bo
                  f(5)]]
 assert y == 5
 
-y = let_syntax((f(a), verylongfunctionname(2*a)))[[
+y = let_syntax((f(a), verylongfunctionname(2*a)))[[  # template with formal parameter "a"
                  print(f(2)),
                  f(3)]]
 assert y == 6
@@ -297,6 +297,8 @@ After macro expansion completes, ``let_syntax`` has zero runtime overhead; it co
 
 There are two kinds of substitutions: *bare name* and *template*. A bare name substitution has no parameters. A template substitution has positional parameters. (Named parameters, ``*args``, ``**kwargs`` and default values are currently **not** supported.)
 
+When used as an expr macro, the formal parameter declaration is placed where it belongs; on the name side (LHS) of the binding. In the above example, ``f(a)`` is a template with a formal parameter ``a``. But when used as a block macro, the formal parameters are declared on the ``block`` or ``expr`` "context manager" due to syntactic limitations of Python. To define a bare name substitution, just use ``with block as ...:`` or ``with expr as ...:`` with no arguments.
+
 In the body of ``let_syntax``, a bare name substitution is invoked by name (just like a variable). A template substitution is invoked like a function call. Just like in an actual function call, when the template is substituted, any instances of its formal parameters in the definition get replaced by the argument values from the "call" site; but ``let_syntax`` performs this at macro-expansion time, and the "value" is a snippet of code.
 
 Note each instance of the same formal parameter (in the definition) gets a fresh copy of the corresponding argument value. In other words, in the example above, each ``a`` in the body of ``twice`` separately expands to a copy of whatever code was given as the positional argument ``a``.
@@ -321,7 +323,7 @@ Within each step, the substitutions are applied **in definition order**:
 
 Even in block templates, parameters are always expressions, because invoking a template uses the function-call syntax. But names and calls are expressions, so a previously defined substitution (whether bare name or an invocation of a template) can be passed as an argument just fine. Definition order is then important; consult the rules above.
 
-It is allowed to nest ``let_syntax``, with lexical scoping (inner definitions of substitutions shadow outer ones).
+It is allowed to nest ``let_syntax``. Lexical scoping is supported (inner definitions of substitutions shadow outer ones).
 
 When used as an expr macro, all bindings are registered first, and then the body is evaluated. When used as a block macro, a new binding (substitution declaration) takes effect from the next statement onward, and remains active for the lexically remaining part of the ``with let_syntax:`` block.
 
