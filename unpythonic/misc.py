@@ -75,16 +75,17 @@ def call(f, *args, **kwargs):
     return f(*args, **kwargs)
 
 def callwith(*args, **kwargs):
-    """Argument freezer.
+    """Freeze arguments, choose function later.
 
-    **Used as decorator**::
+    **Used as decorator**, this is like ``@call``, but with arguments::
 
         @callwith(3)
         def result(x):
             return x**2
         assert result == 9
 
-    **Called normally**::
+    **Called normally**, this creates a function to apply the given arguments
+    to a callable to be specified later::
 
         def myadd(a, b):
             return a + b
