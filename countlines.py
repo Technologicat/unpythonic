@@ -11,7 +11,7 @@ from operator import itemgetter
 def listpy(path):
     return list(sorted(fn for fn in os.listdir(path) if fn.endswith(".py")))
 
-def loc(code, blanks=False, docstrings=False, comments=False):
+def loc(code, blanks, docstrings, comments):  # blanks et al.: include this item?
     if not docstrings:
         # TODO: make sure it's a docstring (and not some other """...""" string)
         code = re.sub(r'""".*?"""', r'', code, flags=(re.MULTILINE + re.DOTALL))
@@ -23,12 +23,7 @@ def loc(code, blanks=False, docstrings=False, comments=False):
         lines = [line for line in lines if not line.strip().startswith("#")]
     return len(lines)
 
-def main():
-    items = (("top level", ["."]),
-             ("regular code", ["unpythonic"]),
-             ("regular code tests", ["unpythonic", "test"]),
-             ("macros", ["unpythonic", "syntax"]),
-             ("macro tests", ["unpythonic", "syntax", "test"]))
+def analyze(items, blanks=False, docstrings=False, comments=False):
     grandtotal = 0
     for name, p in items:
         path = os.path.join(*p)
@@ -37,7 +32,7 @@ def main():
         for fn in files:
             with open(os.path.join(path, fn), "rt", encoding="utf-8") as f:
                 content = f.read()
-            ns.append(loc(content))
+            ns.append(loc(content, blanks, docstrings, comments))
         # report
         print("{}:".format(name))
         for fn, n in sorted(zip(files, ns), key=itemgetter(1)):
@@ -46,6 +41,17 @@ def main():
         print("  total for {} {}".format(name, grouptotal))
         grandtotal += grouptotal
     print("grand total {}".format(grandtotal))
+
+def main():
+    items = (("top level", ["."]),
+             ("regular code", ["unpythonic"]),
+             ("regular code tests", ["unpythonic", "test"]),
+             ("macros", ["unpythonic", "syntax"]),
+             ("macro tests", ["unpythonic", "syntax", "test"]))
+    print("Raw (with blanks, docstrings and comments)")
+    analyze(items, blanks=True, docstrings=True, comments=True)
+    print("\nFiltered (non-blank code lines only)")
+    analyze(items)
 
 if __name__ == '__main__':
     main()
