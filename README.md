@@ -1779,9 +1779,7 @@ Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a 
 
 ### ``@callwith``: freeze arguments, choose function later
 
-*Added in v0.11.0.*
-
-If you need to pass arguments when using ``@call`` as a decorator, use its cousin ``@callwith``:
+*Added in v0.11.0.* If you need to pass arguments when using ``@call`` as a decorator, use its cousin ``@callwith``:
 
 ```python
 from unpythonic import callwith
@@ -1833,6 +1831,16 @@ Another use case of ``callwith`` is ``map``, if we want to vary the function ins
 
 ```python
 m = map(callwith(3), [lambda x: 2*x, lambda x: x**2, lambda x: x**(1/2)])
+assert tuple(m) == (6, 9, 3**(1/2))
+```
+
+If you have MacroPy, this combines nicely with ``quick_lambda``:
+
+```python
+from macropy.quick_lambda import macros, f, _
+from unpythonic import callwith
+
+m = map(callwith(3), [f[2 * _], f[_**2], f[_**(1/2)]])
 assert tuple(m) == (6, 9, 3**(1/2))
 ```
 
