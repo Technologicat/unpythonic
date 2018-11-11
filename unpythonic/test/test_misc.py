@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from operator import add
+from functools import partial
 
-from ..misc import call, raisef, pack, namelambda
+from ..misc import call, callwith, raisef, pack, namelambda
 
 def test():
     # def as a code block (function overwritten by return value)
@@ -31,7 +32,58 @@ def test():
                 ... # more code here
     assert result == (6, 7)
 
+    # can also be used normally
     assert call(add, 2, 3) == add(2, 3)
+
+    # to pass arguments when used as decorator, use @callwith instead
+    @callwith(3)
+    def result(x):
+        return x**2
+    assert result == 9
+
+    # specialize for given arguments, choose function later
+    apply23 = callwith(2, 3)
+    def myadd(a, b):
+        return a + b
+    def mymul(a, b):
+        return a * b
+    assert apply23(myadd) == 5
+    assert apply23(mymul) == 6
+
+    # callwith is not essential; we can do the same pythonically like this:
+    a = [2, 3]
+    assert myadd(*a) == 5
+    assert mymul(*a) == 6
+
+    # build up the argument list as we go
+    #   - note curry does not help, must use partial; this is because curry
+    #     will happily call "callwith" (and thus terminate the gathering step)
+    #     as soon as it gets at least one argument.
+    p1 = partial(callwith, 2)
+    p2 = partial(p1, 3)
+    p3 = partial(p2, 4)
+    apply234 = p3()  # terminate gathering step by actually calling callwith
+    def add3(a, b, c):
+        return a + b + c
+    def mul3(a, b, c):
+        return a * b * c
+    assert apply234(add3) == 9
+    assert apply234(mul3) == 24
+
+    # pythonic solution:
+    a = [2]
+    a += [3]
+    a += [4]
+    assert add3(*a) == 9
+    assert mul3(*a) == 24
+
+    # callwith in map, if we want to vary the function instead of the data
+    m = map(callwith(3), [lambda x: 2*x, lambda x: x**2, lambda x: x**(1/2)])
+    assert tuple(m) == (6, 9, 3**(1/2))
+
+    # pythonic solution - use comprehension notation:
+    m = (f(3) for f in [lambda x: 2*x, lambda x: x**2, lambda x: x**(1/2)])
+    assert tuple(m) == (6, 9, 3**(1/2))
 
     l = lambda: raisef(ValueError, "all ok")
     try:
