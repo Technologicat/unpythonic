@@ -29,6 +29,7 @@ We also provide a set of [macros](macro_extras/) that are designed to work toget
  - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
  - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
  - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
+   - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
 
 For many examples, see the unit tests located in [unpythonic/test/](unpythonic/test/), the docstrings of the individual features, and this README.
 
@@ -1773,6 +1774,94 @@ Essentially the implementation is just `def call(thunk): return thunk()`. The po
  - Document that the block is going to be used only once. Tell the reader there's no need to remember this definition.
 
 Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a newline after a decorator.
+
+**NOTE**: ``call`` can also be used as a normal function: ``call(f, *a, **kw)`` is the same as ``f(*a, **kw)``. This is occasionally useful.
+
+### ``@callwith``: freeze arguments, choose function later
+
+*Added in v0.11.0.*
+
+If you need to pass arguments when using ``@call`` as a decorator, use its cousin ``@callwith``:
+
+```python
+from unpythonic import callwith
+
+@callwith(3)
+def result(x):
+    return x**2
+assert result == 9
+```
+
+Like ``call``, it can also be called normally. It's essentially an argument freezer:
+
+```python
+def myadd(a, b):
+    return a + b
+def mymul(a, b):
+    return a * b
+apply23 = callwith(2, 3)
+assert apply23(myadd) == 5
+assert apply23(mymul) == 6
+```
+
+When called normally, the two-step application is mandatory. The first step stores the given arguments. It returns a function ``f(callable)``. When ``f`` is called, it calls its ``callable`` argument, passing in the arguments stored in the first step.
+
+In other words, ``callwith`` is similar to ``functools.partial``, but without specializing to any particular function. The function to be called is given later, in the second step.
+
+Hence, ``callwith(2, 3)(myadd)`` means "make a function that passes in two positional arguments, with values ``2`` and ``3``. Then call this function for the callable ``myadd``". But if we instead write``callwith(2, 3, myadd)``, it means "make a function that passes in three positional arguments, with values ``2``, ``3`` and ``myadd`` - not what we want in the above example.
+
+If you want to specialize some arguments now and some later, combine with ``partial``:
+
+```python
+from functools import partial
+
+p1 = partial(callwith, 2)
+p2 = partial(p1, 3)
+p3 = partial(p2, 4)
+apply234 = p3()  # actually call callwith, get the function
+def add3(a, b, c):
+    return a + b + c
+def mul3(a, b, c):
+    return a * b * c
+assert apply234(add3) == 9
+assert apply234(mul3) == 24
+```
+
+If the code above feels weird, it should. Arguments are gathered first, and the function to which they will be passed is chosen in the last step.
+
+Another use case of ``callwith`` is ``map``, if we want to vary the function instead of the data:
+
+```python
+m = map(callwith(3), [lambda x: 2*x, lambda x: x**2, lambda x: x**(1/2)])
+assert tuple(m) == (6, 9, 3**(1/2))
+```
+
+A pythonic alternative to the above examples is:
+
+```python
+a = [2, 3]
+def myadd(a, b):
+    return a + b
+def mymul(a, b):
+    return a * b
+assert myadd(*a) == 5
+assert mymul(*a) == 6
+
+a = [2]
+a += [3]
+a += [4]
+def add3(a, b, c):
+    return a + b + c
+def mul3(a, b, c):
+    return a * b * c
+assert add3(*a) == 9
+assert mul3(*a) == 24
+
+m = (f(3) for f in [lambda x: 2*x, lambda x: x**2, lambda x: x**(1/2)])
+assert tuple(m) == (6, 9, 3**(1/2))
+```
+
+Inspired by *Function application with $* in [LYAH: Higher Order Functions](http://learnyouahaskell.com/higher-order-functions).
 
 
 ## Design notes
