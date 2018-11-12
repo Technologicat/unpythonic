@@ -464,7 +464,7 @@ assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                              (8, 15, 17), (9, 12, 15), (12, 16, 20))
 ```
 
-Assignment (with List-monadic magic) is ``var << iterable``. It transforms to ``choice(var=lambda e: iterable)``. It is only valid at the top level of the ``forall`` (e.g. not inside any possibly nested ``let``).
+Assignment (with List-monadic magic) is ``var << iterable``. It is only valid at the top level of the ``forall`` (e.g. not inside any possibly nested ``let``).
 
 ``insist`` and ``deny`` are not really macros; they are just the functions from ``unpythonic.amb``, re-exported for convenience.
 
