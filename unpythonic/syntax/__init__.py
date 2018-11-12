@@ -8,14 +8,15 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # contain the actual syntax transformers (regular functions that process ASTs)
 # that implement the macros.
 
-# insist, deny, it, local, block, expr, bind are just for passing through
+# insist, deny, it, f, _, local, block, expr, bind are just for passing through
 # to the client code that imports us.
 from .curry import curry as _curry
 from .forall import forall as _forall, insist, deny
 from .fupstx import fup as _fup
 from .ifexprs import aif as _aif, it, cond as _cond
 from .lambdatools import multilambda as _multilambda, \
-                         namedlambda as _namedlambda
+                         namedlambda as _namedlambda, \
+                         quicklambda as _quicklambda, f, _
 from .letdo import do as _do, do0 as _do0, local, \
                    let as _let, letseq as _letseq, letrec as _letrec, \
                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
@@ -708,6 +709,39 @@ def namedlambda(tree, **kw):
     body of the ``let``.
     """
     return _namedlambda(block_body=tree)
+
+@macros.block
+def quicklambda(tree, **kw):
+    """[syntax, block] Use ``macropy.quick_lambda`` with ``unpythonic.syntax``.
+
+    To be able to transform correctly, the block macros in ``unpythonic.syntax``
+    that transform lambdas (e.g. ``multilambda``, ``tco``) need to see all
+    ``lambda`` definitions written with Python's standard ``lambda``.
+
+    However, the highly useful ``macropy.quick_lambda`` uses the syntax
+    ``f[...]``, which (to the analyzer) does not look like a lambda definition.
+    This macro changes the expansion order, forcing any ``f[...]`` lexically
+    inside the block to expand in the first pass.
+
+    Any expression of the form ``f[...]`` (the ``f`` is literal) is understood
+    as a quick lambda, whether or not ``f`` and ``_`` are imported at the
+    call site.
+
+    Example - a quick multilambda::
+
+        from unpythonic.syntax import macros, multilambda, quicklambda, f, _, local
+
+        with quicklambda, multilambda:
+            func = f[[local(x << _),
+                      local(y << _),
+                      x + y]]
+            assert func(1, 2) == 3
+
+    (This is of course rather silly, as an unnamed argument can only be mentioned
+    once. If we're giving names to them, a regular ``lambda`` is shorter to write.
+    The point is, this combo is now possible in case it's ever needed.)
+    """
+    return (yield from _quicklambda(block_body=tree))
 
 # -----------------------------------------------------------------------------
 

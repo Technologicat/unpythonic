@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """Lambdas with multiple expressions, local variables, and a name."""
 
-from ast import Lambda, List, Name, Assign, With, withitem
+from ast import Lambda, List, Name, Assign, With, withitem, Subscript
 
 from macropy.core.quotes import macros, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
+from macropy.quick_lambda import f, _  # _ for re-export only
 
 from ..dynassign import dyn
 from ..misc import namelambda
@@ -69,3 +70,14 @@ def namedlambda(block_body):
     wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
                    body=new_block_body)
     return [wrapped]
+
+def quicklambda(block_body):
+    def isquicklambda(tree):
+        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "f"
+    @Walker
+    def transform(tree, **kw):
+        if isquicklambda(tree):
+            return f.transform(tree.slice.value)
+        return tree
+    new_block_body = [transform.recurse(stmt) for stmt in block_body]
+    yield new_block_body

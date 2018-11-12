@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Multi-expression lambdas with implicit do; named lambdas."""
 
-from ...syntax import macros, multilambda, namedlambda, local, let
+from ...syntax import macros, multilambda, namedlambda, quicklambda, f, _, local, let
 
 def test():
     with multilambda:
@@ -33,13 +33,19 @@ def test():
         assert t() == [1, 2]
 
     with namedlambda:
-        f = lambda x: x**3                       # lexical rule: name as "f"
-        assert f.__name__ == "f (lambda)"
+        f1 = lambda x: x**3                      # lexical rule: name as "f1"
+        assert f1.__name__ == "f1 (lambda)"
         gn, hn = let((x, 42), (g, None), (h, None))[[
                        g << (lambda x: x**2),    # dynamic rule: name as "g"
-                       h << f,                   # no-rename rule: still "f"
+                       h << f1,                  # no-rename rule: still "f1"
                        (g.__name__, h.__name__)]]
         assert gn == "g (lambda)"
-        assert hn == "f (lambda)"
+        assert hn == "f1 (lambda)"
+
+    with quicklambda, multilambda:
+        func = f[[local(x << _),
+                  local(y << _),
+                  x + y]]
+        assert func(1, 2) == 3
 
     print("All tests PASSED")

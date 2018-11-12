@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Automatic tail-call optimization (TCO)."""
 
-from ...syntax import macros, tco, autoreturn, curry, do, let, letseq, dletrec
+from ...syntax import macros, tco, autoreturn, curry, do, let, letseq, dletrec, \
+                      quicklambda, f, _
 
 from ...ec import call_ec
 from ...fploop import looped_over
@@ -41,22 +42,22 @@ def test():
         # works with let constructs
         @dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
                  (oddp,  lambda x: (x != 0) and evenp(x - 1)))
-        def f(x):
+        def g(x):
             return evenp(x)
-        assert f(9001) is False
-
-        def f(x):
-            return let((y, 3*x))[y]
-        assert f(10) == 30
+        assert g(9001) is False
 
         def g(x):
-            return let((y, 2*x))[f(y)]
-        assert g(10) == 60
+            return let((y, 3*x))[y]
+        assert g(10) == 30
+
+        def h(x):
+            return let((y, 2*x))[g(y)]
+        assert h(10) == 60
 
         def h(x):
             return letseq((y, x),
                           (y, y+1),
-                          (y, y+1))[f(y)]
+                          (y, y+1))[g(y)]
         assert h(10) == 36
 
     # test also lambdas with no surrounding def inside the "with tco" block
@@ -116,5 +117,17 @@ def test():
             return loop(acc + x)
         assert result == 45
         assert looped_over(range(10), acc=0)(lambda loop, x, acc: loop(acc + x)) == 45
+
+    # quicklambda combo (f[] must expand first so that tco sees it as a lambda)
+    # TODO: improve test to actually detect the tail call
+    with quicklambda:
+        with tco:
+            def g(x):
+                return 2*x
+            func1 = f[g(3*_)]  # tail call
+            assert func1(10) == 60
+
+            func2 = f[3*g(_)]  # no tail call
+            assert func2(10) == 60
 
     print("All tests PASSED")
