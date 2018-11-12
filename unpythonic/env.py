@@ -135,6 +135,10 @@ class env:
         """
         if name not in self:  # allow only rebinding
             raise AttributeError("name '{:s}' is not defined".format(name))
+        return self._set(name, value)
+
+    # for co-operation with the do[] macro: internal function with no already-defined check.
+    def _set(self, name, value):
         setattr(self, name, value)
         return value  # for convenience
 

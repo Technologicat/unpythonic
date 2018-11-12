@@ -15,8 +15,7 @@ from ast import Call, Name, Attribute, \
                 BinOp, LShift, \
                 FunctionDef, Return, \
                 arguments, arg, \
-                Load, \
-                copy_location
+                Load
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
@@ -24,7 +23,7 @@ from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
 from ..lispylet import let as letf, letrec as letrecf, _dlet as dletf, _blet as bletf
-from ..seq import begin as beginf, do as dof
+from ..seq import do as dof
 from ..dynassign import dyn
 
 from .scoping import scoped_walker
@@ -243,7 +242,7 @@ def _dletseqimpl(bindings, fdef, kind):
     return _dletseqimpl(rest, outer, kind)
 
 # -----------------------------------------------------------------------------
-# Imperative code in expresssion position. Uses the "let" machinery.
+# Imperative code in expression position. Uses the "let" machinery.
 
 def do(tree):
     if type(tree) not in (Tuple, List):
@@ -251,21 +250,7 @@ def do(tree):
 
     gen_sym = dyn.gen_sym
     e = gen_sym("e")
-    # We must use env.__setattr__ to allow defining new names; env.set only rebinds.
-    # But to keep assignments chainable, the assignment must return the value.
-    # Use a let[] to avoid recomputing it (could be expensive and/or have side effects).
-    # So we need:
-    #     lambda k, expr: let((v, expr))[begin(e.__setattr__(k, v), v)]
-    # ...but with gensym'd arg names to avoid spurious shadowing inside expr.
-    # TODO: cache the setter in e? Or even provide a new method in env that does this?
-    sa = Attribute(value=q[name[e]], attr="__setattr__", ctx=Load())
-    k = gen_sym("k")
-    expr = gen_sym("expr")
-    envset = q[lambda: None]
-    envset.args.args = [arg(arg=k), arg(arg=expr)]
-    letbody = hq[beginf(ast_literal[sa](name[k], name["v"]), name["v"])]
-    letbody = copy_location(letbody, tree)
-    envset.body = let([q[(name["v"], name[expr])]], letbody)
+    envset = Attribute(value=q[name[e]], attr="_set", ctx=Load())  # use internal _set to allow new definitions
 
     def islocaldef(tree):
         return type(tree) is Call and type(tree.func) is Name and tree.func.id == "local"
