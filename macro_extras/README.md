@@ -22,6 +22,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation)
  - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables
  - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
+ - [``quicklambda``: combo with ``macropy.quick_lambda``](#quicklambda-combo-with-macropyquick_lambda)
  - [``continuations``: a form of call/cc for Python](#continuations-a-form-of-callcc-for-python)
  - [``tco``: automatically apply tail call optimization](#tco-automatically-apply-tail-call-optimization)
    - [TCO and continuations](#tco-and-continuations)
@@ -533,6 +534,38 @@ All simple assignment statements lexically within the block, that assign a singl
 Assignment in unpythonic environments is tracked dynamically at run-time, for the dynamic extent of the block. This is done by setting the dynvar ``env_namedlambda`` to ``True``, by injecting a ``with dyn.let(env_namedlambda=True):`` around the block.
 
 For any function object instance representing a lambda, it takes the first name given to it, and keeps that; there is no renaming. See the function ``unpythonic.misc.namelambda``, which this uses internally.
+
+
+## ``quicklambda``: combo with ``macropy.quick_lambda``
+
+To be able to transform correctly, the block macros in ``unpythonic.syntax`` that transform lambdas (e.g. ``multilambda``, ``tco``) need to see all ``lambda`` definitions written with Python's standard ``lambda``. However, the highly useful ``macropy.quick_lambda`` uses the syntax ``f[...]``, which (to the analyzer) does not look like a lambda definition.
+
+This macro changes the expansion order, forcing any ``f[...]`` lexically inside the block to expand in the first pass. Any expression of the form ``f[...]`` (the ``f`` is literal) is understood as a quick lambda, whether or not ``f`` and ``_`` are imported at the call site.
+
+Example - a quick multilambda::
+
+```python
+from unpythonic.syntax import macros, multilambda, quicklambda, f, _, local
+
+with quicklambda, multilambda:
+    func = f[[local(x << _),
+              local(y << _),
+              x + y]]
+    assert func(1, 2) == 3
+```
+
+This is of course rather silly, as an unnamed argument can only be mentioned once. If we're giving names to them, a regular ``lambda`` is shorter to write. The point is, this combo is now possible in case it's ever needed. A more realistic combo is:
+
+```python
+with quicklambda, tco:
+    def g(x):
+        return 2*x
+    func1 = f[g(3*_)]  # tail call
+    assert func1(10) == 60
+
+    func2 = f[3*g(_)]  # no tail call
+    assert func2(10) == 60
+```
 
 
 ## ``continuations``: a form of call/cc for Python
