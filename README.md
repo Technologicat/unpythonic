@@ -1,10 +1,10 @@
 # Unpythonic: Lispy missing batteries for Python
 
-Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
+In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some haskellisms. We place a special emphasis on **clear, pythonic syntax**.
 
-In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python from the list processing tradition. We place a special emphasis on **clear, pythonic syntax**. Other design considerations are simplicity, robustness, and minimal dependencies (currently none). Pure Python 3.4.
+For the [adventurous](https://github.com/azazel75/macropy), we also provide a set of [syntactic macros](macro_extras/) that are designed to work together: e.g. automatic currying, automatic tail-call optimization, continuations (``call/cc``), lexically scoped ``let`` and ``do``, implicit return statements, and easy-to-use multi-expression lambdas with local variables.
 
-We also provide a set of [macros](macro_extras/) that are designed to work together, for those not afraid to install [MacroPy](https://github.com/azazel75/macropy) and venture beyond raw Python. For example, we have an autocurry that makes Python look somewhat like Haskell, a continuations macro with a form of call/cc for Python, various boilerplate-elimination macros (notably ``do``, ``let``, ``multilambda``) that improve readability of code using some of the functions presented here, and a TCO macro for automatic tail-call optimization. Macro design considerations are orthogonality, combinability, and clear, pythonic syntax.
+Design considerations are simplicity, robustness, and minimal dependencies (currently none required; MacroPy optional, to enable the syntactic macros). In macros we aim at orthogonality, combinability, and clear, pythonic syntax.
 
 **Contents**:
 
@@ -1999,6 +1999,8 @@ The trampoline implementation of ``unpythonic.tco`` takes its remarkably clean a
 Another important source of inspiration was [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
 
 ## Python-related FP resources
+
+Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
 
 - [Awesome Functional Python](https://github.com/sfermigier/awesome-functional-python), especially a list of useful libraries. Some picks:
 
