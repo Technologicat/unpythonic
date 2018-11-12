@@ -120,14 +120,13 @@ def test():
 
     # quicklambda combo (f[] must expand first so that tco sees it as a lambda)
     # TODO: improve test to actually detect the tail call
-    with quicklambda:
-        with tco:
-            def g(x):
-                return 2*x
-            func1 = f[g(3*_)]  # tail call
-            assert func1(10) == 60
+    with quicklambda, tco:
+        def g(x):
+            return 2*x
+        func1 = f[g(3*_)]  # tail call
+        assert func1(10) == 60
 
-            func2 = f[3*g(_)]  # no tail call
-            assert func2(10) == 60
+        func2 = f[3*g(_)]  # no tail call
+        assert func2(10) == 60
 
     print("All tests PASSED")
