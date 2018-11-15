@@ -145,14 +145,19 @@ def _substitute_barename(name, value, tree, mode):
         return type(tree) is Name and tree.id == name
     @Walker
     def splice(tree, *, stop, **kw):
-        # discard Expr wrapper at use site for a block substitution
-        if mode == "block" and type(tree) is Expr and isthisname(tree.value):
-            stop()
-            tree = splice.recurse(tree.value)
-        elif isthisname(tree):
+        def subst():
             # Copy just to be on the safe side. Different instances may be
             # edited differently by other macros expanded later.
-            tree = deepcopy(value)
+            return deepcopy(value)
+        # discard Expr wrapper (identifying a statement position) at use site
+        # when performing a block substitution
+        if mode == "block" and type(tree) is Expr and isthisname(tree.value):
+            stop()
+            tree = subst()
+        elif isthisname(tree):
+            if mode == "block":
+                assert False, "cannot substitute a block into expression position"
+            tree = subst()
         return tree
     return splice.recurse(tree)
 
@@ -165,23 +170,29 @@ def _substitute_templates(templates, tree):
     for name, formalparams, value, mode in templates:
         def isthisfunc(tree):
             return type(tree) is Call and type(tree.func) is Name and tree.func.id == name
+        def subst(tree):
+            theargs = tree.args
+            if len(theargs) != len(formalparams):
+                assert False, "let_syntax template '{}' expected {} arguments, got {}".format(name,
+                                                                                              len(formalparams),
+                                                                                              len(theargs))
+            # make a fresh deep copy of the RHS to avoid destroying the template.
+            tree = deepcopy(value)  # expand the f itself in f(x, ...)
+            for k, v in zip(formalparams, theargs):  # expand the x, ... in the expanded form of f
+                # can't put statements in a Call, so always treat args as expressions.
+                tree = _substitute_barename(k, v, tree, "expr")
+            return tree
         @Walker
         def splice(tree, *, stop, **kw):
-            # discard Expr wrapper at use site for a block substitution
+            # discard Expr wrapper (identifying a statement position) at use site
+            # when performing a block substitution
             if mode == "block" and type(tree) is Expr and isthisfunc(tree.value):
                 stop()
-                tree = splice.recurse(tree.value)
+                tree = subst(tree.value)
             elif isthisfunc(tree):
-                theargs = tree.args
-                if len(theargs) != len(formalparams):
-                    assert False, "let_syntax template '{}' expected {} arguments, got {}".format(name,
-                                                                                                  len(formalparams),
-                                                                                                  len(theargs))
-                # make a fresh deep copy of the RHS to avoid destroying the template.
-                tree = deepcopy(value)  # expand the f itself in f(x, ...)
-                for k, v in zip(formalparams, theargs):  # expand the x, ... in the expanded form of f
-                    # can't put statements in a Call, so always treat args as expressions.
-                    tree = _substitute_barename(k, v, tree, "expr")
+                if mode == "block":
+                    assert False, "cannot substitute a block into expression position"
+                tree = subst(tree)
             return tree
         tree = splice.recurse(tree)
     return tree
