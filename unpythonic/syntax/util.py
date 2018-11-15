@@ -4,7 +4,7 @@
 from functools import partial
 
 from ast import Call, Name, Attribute, Lambda, FunctionDef, \
-                Subscript, Index, Tuple, With
+                Subscript, Index, Tuple
 from .astcompat import AsyncFunctionDef
 
 from macropy.core import Captured
