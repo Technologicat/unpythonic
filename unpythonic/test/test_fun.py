@@ -7,7 +7,8 @@ from ..fun import memoize, curry, apply, \
                   andf, orf, notf, \
                   flip, rotate, \
                   composel1, composer1, composel, composer, \
-                  to1st, to2nd, tolast, to
+                  to1st, to2nd, tolast, to, \
+                  withself
 
 from ..dynassign import dyn
 
@@ -201,6 +202,9 @@ def test():
     assert pred(42) is True
     assert pred("foo") is True
     assert pred(None) is False  # neither condition holds
+
+    fact = withself(lambda self, n: n * self(n - 1) if n > 1 else 1)
+    assert fact(5) == 120
 
     print("All tests PASSED")
 

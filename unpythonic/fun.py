@@ -13,7 +13,8 @@ __all__ = ["memoize", "curry", "iscurried",
            "composer1", "composel1", "composer1i", "composel1i",  # single arg
            "composer",  "composel",  "composeri",  "composeli",   # multi-arg
            "composerc", "composelc", "composerci", "composelci",  # multi-arg w/ curry
-           "to1st", "to2nd", "tokth", "tolast", "to"]
+           "to1st", "to2nd", "tokth", "tolast", "to",
+           "withself"]
 
 from functools import wraps, partial
 from operator import itemgetter
@@ -568,3 +569,25 @@ def to(*specs):
         Function to (functionally) update args with the specs applied.
     """
     return composeli(tokth(k, f) for k, f in specs)
+
+def withself(f):
+    """Decorator. Allow a lambda to refer to itself.
+
+    This is essentially the Y combinator trick packaged as a decorator.
+
+    The reference to the lambda itself (the ``self`` argument) is passed as the
+    first positional argument. It is declared explicitly, but passed implicitly,
+    just like the ``self`` argument of a method.
+
+    Note there is no point using this with named functions, because they can
+    already refer to themselves via the name.
+
+    Example::
+
+        fact = withself(lambda self, n: n * self(n - 1) if n > 1 else 1)
+        assert fact(5) == 120
+    """
+    @wraps(f)
+    def fwithself(*args, **kwargs):
+        return f(fwithself, *args, **kwargs)
+    return fwithself

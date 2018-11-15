@@ -1073,13 +1073,15 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
  - `rotate`: a cousin of `flip`, for permuting positional arguments.
  - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting 1-in-1-out functions into m-in-n-out compose chains.
  - `identity`, `const` which sometimes come in handy when programming with higher-order functions.
+ - `withself`: essentially, the Y combinator trick as a decorator. Allows a lambda to refer to itself.
+   - The ``self`` argument is declared explicitly, but passed implicitly (as the first positional argument), just like the ``self`` argument of a method.
 
 Examples (see also the next section):
 
 ```python
 from operator import add, mul
 from unpythonic import andf, orf, flatmap, rotate, curry, dyn, zipr, rzip, \
-                       foldl, foldr, composer, to1st, cons, nil, ll
+                       foldl, foldr, composer, to1st, cons, nil, ll, withself
 
 isint  = lambda x: isinstance(x, int)
 iseven = lambda x: x % 2 == 0
@@ -1090,6 +1092,10 @@ pred = orf(isstr, andf(isint, iseven))
 assert pred(42) is True
 assert pred("foo") is True
 assert pred(None) is False
+
+# lambda that refers to itself
+fact = withself(lambda self, n: n * self(n - 1) if n > 1 else 1)
+assert fact(5) == 120
 
 @rotate(-1)  # cycle the argument slots to the left by one place, so "acc" becomes last
 def zipper(acc, *rest):   # so that we can use the *args syntax to declare this
