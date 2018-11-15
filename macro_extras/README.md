@@ -542,7 +542,7 @@ To be able to transform correctly, the block macros in ``unpythonic.syntax`` tha
 
 This macro changes the expansion order, forcing any ``f[...]`` lexically inside the block to expand in the first pass. Any expression of the form ``f[...]`` (the ``f`` is literal) is understood as a quick lambda, whether or not ``f`` and ``_`` are imported at the call site.
 
-Example - a quick multilambda::
+Example - a quick multilambda:
 
 ```python
 from unpythonic.syntax import macros, multilambda, quicklambda, f, _, local
