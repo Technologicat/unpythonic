@@ -176,11 +176,23 @@ class cons:
         """For lists. Caution: O(n), works by building a reversed list."""
         return LinkedListReverseIterator(self)
     def __repr__(self):
+        """Representation in pythonic notation.
+
+        Suitable for ``eval`` if all elements are."""
         try:  # duck test linked list (true list only, no single-cell pair)
             # listcomp, not genexpr, since we want to trigger any exceptions **now**.
-            result = [str(x) for x in LinkedListIterator(self, _fullerror=False)]
+            result = [repr(x) for x in LinkedListIterator(self, _fullerror=False)]
+            return "ll({})".format(", ".join(result))
         except TypeError:
-            result = (repr(self.car), ".", repr(self.cdr))
+            result = (repr(self.car), repr(self.cdr))
+            return "cons({})".format(", ".join(result))
+    def lispyrepr(self):
+        """Representation in Lisp-like dot notation."""
+        try:
+            result = [repr(x) for x in LinkedListIterator(self, _fullerror=False)]
+        except TypeError:
+            r = lambda obj: obj.lispyrepr() if hasattr(obj, "lispyrepr") else repr(obj)
+            result = (r(self.car), ".", r(self.cdr))
         return "({})".format(" ".join(result))
     def __eq__(self, other):
         if isinstance(other, cons):

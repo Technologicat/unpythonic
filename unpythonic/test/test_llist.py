@@ -55,8 +55,13 @@ def test():
     else:
         assert False, "binary tree should not be iterable as a linked list"
 
-    # should be able to repr() general cons structures
-    repr(t)  # should not crash
+    # repr
+    assert repr(cons(1, 2)) == "cons(1, 2)"
+    assert repr(ll(1, 2, 3)) == "ll(1, 2, 3)"
+    assert repr(t) == "cons(cons(1, 2), cons(3, 4))"
+    assert cons(1, 2).lispyrepr() == "(1 . 2)"
+    assert ll(1, 2, 3).lispyrepr() == "(1 2 3)"
+    assert t.lispyrepr() == "((1 . 2) . (3 . 4))"
 
     q = ll(cons(1, 2), cons(3, 4))  # list of pairs, not a tree!
     assert [f(q) for f in [caar, cdar, cadr, cddr]] == [1, 2, cons(3, 4), nil]

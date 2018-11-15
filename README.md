@@ -1661,13 +1661,23 @@ Iterators are supported to walk over linked lists (this also gives tuple unpacki
 
 Python's builtin ``reversed`` can be applied to linked lists; it will internally ``lreverse`` the list (which is O(n)), then return an iterator to that. The ``llist`` constructor is special-cased so that if the input is ``reversed(some_ll)``, it just returns the internal already reversed list. (This is safe because cons cells are immutable.)
 
-Cons structures are hashable and pickleable, and print like in Lisps:
+Cons structures are hashable and pickleable, and can optionally print like in Lisps:
 
 ```python
-print(cons(1, 2))                    # --> (1 . 2)
-print(ll(1, 2, 3))                   # --> (1 2 3)
-print(cons(cons(1, 2), cons(3, 4)))  # --> ((1 . 2) . (3 . 4))
+print(cons(1, 2).lispyrepr())                    # --> (1 . 2)
+print(ll(1, 2, 3).lispyrepr())                   # --> (1 2 3)
+print(cons(cons(1, 2), cons(3, 4)).lispyrepr())  # --> ((1 . 2) . (3 . 4))
 ```
+
+However, by default, they print in a pythonic format suitable for ``eval`` (if all elements are):
+
+```python
+print(cons(1, 2))                   # --> cons(1, 2)
+print(ll(1, 2, 3))                  # --> ll(1, 2, 3)
+print(cons(cons(1, 2), cons(3, 4))  # --> cons(cons(1, 2), cons(3, 4))
+```
+
+*Changed in v0.11.0.* In previous versions, the Lisp format was always used for printing.
 
 For more, see the ``llist`` submodule.
 
