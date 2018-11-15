@@ -181,7 +181,9 @@ def is_lambda_decorator(tree, fname):
 #  requires too much code if there is no real need to modify this at run-time.)
 #
 tco_decorators = ("trampolined", "looped", "breakably_looped", "looped_over", "breakably_looped_over")
-decorator_registry = ("memoize", "fimemoize") + tco_decorators + ("call_ec", "call", "curry")
+decorator_registry = ("memoize", "fimemoize") \
+                   + tco_decorators \
+                   + ("call_ec", "call", "callwith", "withself", "curry")
 lambda_decorator_detectors = tuple(partial(is_lambda_decorator, fname=x) for x in decorator_registry)
 
 def is_decorated_lambda(tree, detectors=lambda_decorator_detectors):
