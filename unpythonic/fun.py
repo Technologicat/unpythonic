@@ -61,8 +61,7 @@ def memoize(f):
 #        return memo[k]
 #    return memoized
 
-make_dynvar(curry_toplevel_passthrough=False)
-make_dynvar(_curry_context=[])
+make_dynvar(curry_context=[])
 make_dynvar(_curry_allow_uninspectable=False)  # if True, no-op if not inspectable.
 def _currycall(f, *args, **kwargs):
     """Co-operate with unpythonic.syntax.curry.
@@ -131,9 +130,11 @@ def curry(f, *args, _curry_force_call=False, **kwargs):
     because such usage often indicates a bug.
 
     This behavior can be locally modified by setting the dynvar
-    ``curry_toplevel_passthrough``::
+    ``curry_context``, which is a list representing the stack of
+    currently active curry contexts. A context is any object,
+    a human-readable label is fine::
 
-        with dyn.let(curry_toplevel_passthrough=True):
+        with dyn.let(curry_context=["whatever"]):
             curry(double, 2, "foo") == (4, "foo")
 
     Because it is a dynvar, it affects all ``curry`` calls in its dynamic extent,
@@ -178,8 +179,8 @@ def curry(f, *args, _curry_force_call=False, **kwargs):
         return f
     @wraps(f)
     def curried(*args, **kwargs):
-        outerctx = dyn._curry_context
-        with dyn.let(_curry_context=(outerctx + [f])):
+        outerctx = dyn.curry_context
+        with dyn.let(curry_context=(outerctx + [f])):
             if len(args) < min_arity:
                 return curry(partial(f, *args, **kwargs))
             # passthrough on right, like https://github.com/Technologicat/spicy
@@ -192,7 +193,7 @@ def curry(f, *args, _curry_force_call=False, **kwargs):
                     if not iscurried(now_result):
                         now_result = curry(now_result)
                     return now_result(*later_args)
-                if not (outerctx or dyn.curry_toplevel_passthrough):
+                if not outerctx:
                     raise TypeError("Top-level curry context exited with {:d} arg(s) remaining: {}".format(len(later_args),
                                                                                                            later_args))
                 # pass through to the curried procedure waiting in outerctx
@@ -432,7 +433,7 @@ def _make_compose(direction):  # "left", "right"
                 # co-operate with curry: provide a top-level curry context
                 # to allow passthrough from the function that is applied first
                 # to the function that is applied second.
-                bindings = {"_curry_context": dyn._curry_context + [composed]}
+                bindings = {"curry_context": dyn.curry_context + [composed]}
             with dyn.let(**bindings):
                 a = g(*args)
             # we could duck-test, but this is more predictable for the user

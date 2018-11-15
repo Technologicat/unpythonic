@@ -1058,7 +1058,8 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
    - Passthrough on the right when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket)
      - If the intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
      - For simplicity, all remaining keyword args are fed in at the first step that has too many positional args.
-     - What happens when more positional args are still remaining when the top-level curry context exits depends on the dynvar ``curry_toplevel_passthrough``. If it is ``False`` (default), ``TypeError`` is raised. If it is ``True``, the tuple becomes the final value of the expression. See docstring of ``curry`` for an example.
+     - If more positional args are still remaining when the top-level curry context exits, by default ``TypeError`` is raised.
+     - To override, set the dynvar ``curry_context``. It is a list representing the stack of currently active curry contexts. A context is any object, a human-readable label is fine. See below for an example.
    - Can be used both as a decorator and as a regular function.
      - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
    - **Caution**: If the positional arities of ``f`` cannot be inspected, currying fails, raising ``UnknownArity``. This may happen with builtins such as ``list.append``.
@@ -1102,10 +1103,10 @@ assert myzipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
 assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((2, 5, 8), (1, 4, 7))  # zip first
 assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))  # reverse first
 
-
-# passthrough on the right
+# curry with passthrough on the right
+# final result is a tuple of the result(s) and the leftover args
 double = lambda x: 2 * x
-with dyn.let(curry_toplevel_passthrough=True):
+with dyn.let(curry_context=["whatever"]):  # set a context to allow passthrough to the top level
     assert curry(double, 2, "foo") == (4, "foo")   # arity of double is 1
 
 mysum = curry(foldl, add, 0)
@@ -1114,7 +1115,7 @@ a = ll(1, 2)
 b = ll(3, 4)
 c = ll(5, 6)
 append_two = lambda a, b: foldr(cons, b, a)
-append_many = lambda *lsts: foldr(append_two, nil, lsts)  # see lappend
+append_many = lambda *lsts: foldr(append_two, nil, lsts)  # see unpythonic.lappend
 assert mysum(append_many(a, b, c)) == 21
 assert myprod(b) == 12
 
@@ -1176,7 +1177,7 @@ it means the following. Let ``m1`` and ``m2`` be the minimum and maximum positio
  - If ``n > m2``, call ``f`` with the first ``m2`` arguments.
    - If the result is a callable, curry it, and recurse.
    - Else form a tuple, where first item is the result, and the rest are the remaining arguments ``a[m2]``, ``a[m2+1]``, ..., ``a[n-1]``. Return it.
-     - What happens when more positional args are still remaining when the top-level curry context exits depends on the dynvar ``curry_toplevel_passthrough``. If it is ``False`` (default), ``TypeError`` is raised. If it is ``True``, the tuple becomes the final value of the expression. See docstring of ``curry`` for an example.
+     - If more positional args are still remaining when the top-level curry context exits, by default ``TypeError`` is raised. Use the dynvar ``curry_context`` to override; see above for an example.
  - If ``m1 <= n <= m2``, call ``f`` and return its result (like a normal function call).
    - **Any** positional arity accepted by ``f`` triggers the call; beware when working with [variadic](https://en.wikipedia.org/wiki/Variadic_function) functions.
  - If ``n < m1``, partially apply ``f`` to the given arguments, yielding a new function with smaller ``m1``, ``m2``. Then curry the result and return it.

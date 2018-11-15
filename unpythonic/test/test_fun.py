@@ -9,6 +9,8 @@ from ..fun import memoize, curry, apply, \
                   composel1, composer1, composel, composer, \
                   to1st, to2nd, tolast, to
 
+from ..dynassign import dyn
+
 def test():
     evaluations = Counter()
     @memoize
@@ -121,6 +123,18 @@ def test():
     add = lambda x, y: x + y
     a = curry(add)
     assert curry(a) is a  # curry wrappers should not stack
+
+    # top-level curry context handling
+    def double(x):
+        return 2*x
+    with dyn.let(curry_context=["whatever"]):
+        curry(double, 2, "foo") == (4, "foo")
+    try:
+        curry(double, 2, "foo")
+    except TypeError:
+        pass
+    else:
+        assert False, "should fail by default when top-level curry context exits with args remaining"
 
     # flip
     def f(a, b):
