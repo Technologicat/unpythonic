@@ -38,9 +38,9 @@ profile first.
 
    - Just keep in mind how Python expands the decorator syntax; the rest follows.
 
-   - Use the special target ``SELF``, as in ``jump(SELF, ...)``, for tail recursion.
+   - For tail recursion, use ``unpythonic.fun.withself`` (see below for an example).
 
-     - Just ``jump``, not ``return jump``, since lambdas do not use ``return``.
+   - Just ``jump``, not ``return jump``, since lambdas do not use ``return``.
 
    - Or assign the lambda expressions to names; this allows also mutual recursion.
 
@@ -69,10 +69,6 @@ if it has one - making sure this remains a one-trampoline party even if
 the tail-call target is another ``@trampolined`` function. So just declare
 anything using TCO as ``@trampolined`` and don't worry about stacking trampolines.
 
-SELF actually means "keep current target", so the last function that was
-jumped to by name in that trampoline remains as the target. When the trampoline
-starts, the current target is set to the initial entry point (also for lambdas).
-
 Beside TCO, trampolining can also be thought of as *explicit continuations*.
 Each trampolined function tells the trampoline where to go next, and with what
 parameters. All hail lambda, the ultimate GO TO!
@@ -92,9 +88,10 @@ slower than Python's ``for``.
     assert fact(4) == 24
 
     # tail recursion in a lambda
-    t = trampolined(lambda n, acc=1:
-                        acc if n == 0 else jump(SELF, n - 1, n * acc))
+    t = trampolined(withself(lambda self, n, acc=1:
+                               acc if n == 0 else jump(self, n - 1, n * acc)))
     assert t(4) == 24
+    t(5000)  # no crash
 
     # mutual recursion
     @trampolined
@@ -128,17 +125,10 @@ slower than Python's ``for``.
         pass
 """
 
-__all__ = ["SELF", "jump", "trampolined"]
+__all__ = ["jump", "trampolined"]
 
 from functools import wraps
 from sys import stderr
-
-from .misc import call
-
-@call  # make a singleton
-class SELF:  # sentinel, could be any object but we want a nice __repr__.
-    def __repr__(self):
-        return "SELF"
 
 def jump(target, *args, **kwargs):
     """A jump (noun, not verb).
@@ -151,10 +141,7 @@ def jump(target, *args, **kwargs):
 
     Parameters:
         target:
-            The function to be called. The special value SELF means
-            tail-recursion; useful with a ``lambda``. When the target
-            has a name, it is legal to explicitly give the name also
-            for tail-recursion.
+            The function to be called.
         *args:
             Positional arguments to be passed to `target`.
         **kwargs:
@@ -250,11 +237,10 @@ def trampolined(function):
                 v = f(*args, **kwargs)
             else:  # inert-data return value from call_ec or similar
                 v = f
-                def f(*a, **kw):  # protect against jump(SELF, ...) to inert data
-                    raise RuntimeError("Cannot call a non-callable return value '{}'".format(v))
             if isinstance(v, _jump):
-                if v.target is not SELF:  # if SELF, then keep current target
-                    f = v.target
+                f = v.target
+                if not callable(f):  # protect against jump() to inert data from call_ec or similar
+                    raise RuntimeError("Cannot jump into a non-callable value '{}'".format(f))
                 args = v.args
                 kwargs = v.kwargs
                 v._claimed = True

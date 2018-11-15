@@ -15,7 +15,7 @@ def test():
     def s(loop, acc=0, i=0):
         if i == 10:
             return acc  # there's no "break"; loop terminates at the first normal return
-        # same as return jump(SELF, acc+i, i+1), but sets up the "loop" arg.
+        # same as return jump(s, acc+i, i+1), but sets up the "loop" arg.
         return loop(acc + i, i + 1)
     assert s == 45
 

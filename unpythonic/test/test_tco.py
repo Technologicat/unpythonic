@@ -2,8 +2,9 @@
 
 from sys import stderr
 
-from ..tco import trampolined, jump, SELF
+from ..tco import trampolined, jump
 
+from ..fun import withself
 from ..let import letrec
 
 def test():
@@ -16,9 +17,10 @@ def test():
     assert fact(4) == 24
 
     # tail recursion in a lambda
-    t = trampolined(lambda n, acc=1:
-                        acc if n == 0 else jump(SELF, n - 1, n * acc))
+    t = trampolined(withself(lambda self, n, acc=1:
+                             acc if n == 0 else jump(self, n - 1, n * acc)))
     assert t(4) == 24
+    t(5000)  # no crash
 
     # mutual recursion
     @trampolined

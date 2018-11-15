@@ -586,6 +586,13 @@ def withself(f):
 
         fact = withself(lambda self, n: n * self(n - 1) if n > 1 else 1)
         assert fact(5) == 120
+
+    To TCO it, too::
+
+        fact = trampolined(withself(lambda self, n, acc=1:
+                             acc if n == 0 else jump(self, n - 1, n * acc)))
+        assert fact(5) == 120
+        fact(5000)  # no crash
     """
     @wraps(f)
     def fwithself(*args, **kwargs):

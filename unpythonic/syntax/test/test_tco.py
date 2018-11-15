@@ -6,6 +6,7 @@ from ...syntax import macros, tco, autoreturn, curry, do, let, letseq, dletrec, 
 
 from ...ec import call_ec
 from ...fploop import looped_over
+from ...fun import withself
 
 def test():
     # - any explicit return statement in a function body is TCO'd
@@ -65,6 +66,13 @@ def test():
         evenp = lambda x: (x == 0) or oddp(x - 1)
         oddp  = lambda x: (x != 0) and evenp(x - 1)
         assert evenp(10000) is True
+
+    # test also with self-referring lambda
+    with tco:
+        fact = withself(lambda self, n, acc=1:
+                          acc if n == 0 else self(n - 1, n * acc))
+        assert fact(5) == 120
+        fact(5000)  # no crash
 
     # tco and autoreturn combo (note: apply autoreturn first)
     with autoreturn, tco:

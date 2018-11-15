@@ -30,7 +30,7 @@ from functools import partial
 
 from .ec import call_ec
 from .arity import arity_includes, UnknownArity
-from .tco import SELF, trampolined, _jump
+from .tco import trampolined, _jump
 
 def looped(body):
     """Decorator to make a functional loop and run it immediately.
@@ -49,9 +49,9 @@ def looped(body):
           starts the loop by calling ``body`` with the magic ``loop`` parameter
           as the only argument.
 
-    The expression ``loop(...)`` is otherwise the same as ``jump(SELF, ...)``,
-    but it also inserts the magic parameter ``loop``, which can only be set up
-    via this mechanism.
+    The expression ``loop(...)`` is otherwise the same as ``jump(...)`` to the
+    loop body itself, but it also inserts the magic parameter ``loop``, which
+    can only be set up via this mechanism.
 
     **CAUTION**: ``loop`` is a noun, not a verb, because ``unpythonic.tco.jump`` is.
 
@@ -96,7 +96,7 @@ def looped(body):
             if i == 10:
                 return acc
             else:
-                return jump(s, acc + i, i + 1)  # or return jump(SELF, ...)
+                return jump(s, acc + i, i + 1)
         s = s()  # when using just @trampolined, must start the loop manually
         print(s)
 
@@ -112,10 +112,9 @@ def looped(body):
     # The magic parameter that, when called, inserts itself into the
     # positional args of the jump target.
     def loop(*args, **kwargs):
-        # This jump works because SELF actually means "keep current target".
-        # The client calls loop() normally, so the trampoline doesn't register us;
-        # hence the client itself remains as the current target.
-        return _jump(SELF, (loop,) + args, kwargs)  # already packed args, inst directly.
+        # Pass the original non-trampolined body; it is sufficient
+        # to have one trampoline at the top level.
+        return _jump(body, (loop,) + args, kwargs)  # already packed args, inst directly.
     try:
         if not arity_includes(body, 1):
             raise ValueError("Body arity mismatch. (Is 'loop' parameter declared? Do all extra parameters have their defaults set?)")
@@ -163,7 +162,7 @@ def breakably_looped(body):
     @call_ec
     def result(brk):
         def loop(*args, **kwargs):
-            return _jump(SELF, (loop, brk) + args, kwargs)  # already packed args, inst directly.
+            return _jump(body, (loop, brk) + args, kwargs)  # already packed args, inst directly.
         try:
             if not arity_includes(body, 2):
                 raise ValueError("Body arity mismatch. (Are (loop, brk) declared? Do all extra parameters have their defaults set?)")
@@ -198,9 +197,9 @@ def looped_over(iterable, acc=None):  # decorator factory
 
     The return value of the loop is always the final value of ``acc``.
 
-    The expression ``loop(...)`` is otherwise the same as ``jump(SELF, ...)``,
-    but it also inserts the magic parameters ``loop``, ``x`` and ``acc``,
-    which can only be set up via this mechanism.
+    The expression ``loop(...)`` is otherwise the same as ``jump(...)`` to the
+    loop body itself, but it also inserts the magic parameters ``loop``, ``x``
+    and ``acc``, which can only be set up via this mechanism.
 
     **CAUTION**: ``loop`` is a noun, not a verb, because ``unpythonic.tco.jump`` is.
 
@@ -243,7 +242,7 @@ def looped_over(iterable, acc=None):  # decorator factory
             except StopIteration:
                 return newacc
             rest = args[1:] if len(args) >= 2 else ()
-            return _jump(SELF, (loop, newx, newacc) + rest, kwargs)  # already packed args, inst directly.
+            return _jump(body, (loop, newx, newacc) + rest, kwargs)  # already packed args, inst directly.
         try:
             if not arity_includes(body, 3):
                 raise ValueError("Body arity mismatch. (Are (loop, x, acc) declared? Do all extra parameters have their defaults set?)")
@@ -313,7 +312,7 @@ def breakably_looped_over(iterable, acc=None):  # decorator factory
                     return newacc
                 rest = args[1:] if len(args) >= 2 else ()
                 cnt = partial(loop, oldacc)
-                return _jump(SELF, (loop, newx, newacc, cnt, brk) + rest, kwargs)  # already packed args, inst directly.
+                return _jump(body, (loop, newx, newacc, cnt, brk) + rest, kwargs)  # already packed args, inst directly.
             try:
                 if not arity_includes(body, 5):
                     raise ValueError("Body arity mismatch. (Are (loop, x, acc, cnt, brk) declared? Do all extra parameters have their defaults set?)")

@@ -408,12 +408,14 @@ When the `with` block exits, the environment clears itself. The environment inst
 
 **v0.10.0**: ``fasttco`` has been renamed ``tco``, and the exception-based old default implementation has been removed. See also [macros](macro_extras/) for an easy-to-use solution.
 
+**v0.11.1**: The special jump target ``SELF`` (keep current target) has been removed. If you need tail recursion in a lambda, use ``unpythonic.fun.withself`` to get a reference to the lambda itself. See example below.
+
 Express algorithms elegantly without blowing the call stack - with explicit, clear syntax.
 
 *Tail recursion*:
 
 ```python
-from unpythonic import trampolined, jump, SELF
+from unpythonic import trampolined, jump
 
 @trampolined
 def fact(n, acc=1):
@@ -436,17 +438,19 @@ Trying to ``jump(...)`` without the ``return`` does nothing useful, and will **u
 
 The final result is just returned normally. This shuts down the trampoline, and returns the given value from the initial call (to a ``@trampolined`` function) that originally started that trampoline.
 
+
 *Tail recursion in a lambda*:
 
 ```python
-t = trampolined(lambda n, acc=1:
-                    acc if n == 0 else jump(SELF, n - 1, n * acc))
+t = trampolined(withself(lambda self, n, acc=1:
+                           acc if n == 0 else jump(self, n - 1, n * acc)))
 print(t(4))  # 24
 ```
 
-To denote tail recursion in an anonymous function, use the special jump target `SELF` (all uppercase!). Here it's just `jump` instead of `return jump`, since lambda does not use the `return` syntax.
+Here the jump is just `jump` instead of `return jump`, since lambda does not use the `return` syntax.
 
-Technically, `SELF` means *keep current jump target*, so the function that was last explicitly tail-called by name in that particular trampoline remains as the target of the jump. When the trampoline starts, the current target is set to the initial entry point (also for lambdas).
+To denote tail recursion in an anonymous function, use ``unpythonic.fun.withself``. The ``self`` argument is declared explicitly, but passed implicitly, just like the ``self`` argument of a method.
+
 
 *Mutual recursion with TCO*:
 
@@ -509,12 +513,12 @@ def foo():
     return jump(bar)
 @trampolined
 def bar():
-    t = even(42)  # start another trampoline for even/odd, with SELF initially pointing to "even"
+    t = even(42)  # start another trampoline for even/odd
     return jump(baz, t)
 @trampolined
 def baz(result):
     print(result)
-foo()  # start trampoline, with SELF initially pointing to "foo"
+foo()  # start trampoline
 ```
 
 
@@ -564,7 +568,7 @@ In `@looped`, the function name of the loop body is the name of the final result
 
 The first parameter of the loop body is the magic parameter ``loop``. It is *self-ish*, representing a jump back to the loop body itself, starting a new iteration. Just like Python's ``self``, ``loop`` can have any name; it is passed positionally.
 
-Note that ``loop`` is **a noun, not a verb.** This is because the expression ``loop(...)`` is essentially the same as ``jump(SELF, ...)``. However, it also inserts the magic parameter ``loop``, which can only be set up via this mechanism.
+Note that ``loop`` is **a noun, not a verb.** This is because the expression ``loop(...)`` is essentially the same as ``jump(...)`` to the loop body itself. However, it also inserts the magic parameter ``loop``, which can only be set up via this mechanism.
 
 Additional arguments can be given to ``loop(...)``. When the loop body is called, any additional positional arguments are appended to the implicit ones, and can be anything. Additional arguments can also be passed by name. The initial values of any additional arguments **must** be declared as defaults in the formal parameter list of the loop body. The loop is automatically started by `@looped`, by calling the body with the magic ``loop`` as the only argument.
 
