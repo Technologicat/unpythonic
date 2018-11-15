@@ -202,7 +202,7 @@ The write of a ``name << value`` always occurs to the lexically innermost enviro
 
 As an exception to the rule, for the purposes of the scope analysis performed by ``unpythonic.syntax``, creations and deletions *of lexical local variables* take effect from the next statement, and remain in effect for the **lexically** remaining part of the current scope. This allows ``x = ...`` to see the old bindings on the RHS, as well as allows the client code to restore access to a surrounding env's ``x`` (by deleting a local ``x`` shadowing it) when desired.
 
-Note that this behaves differently from Python itself, where everything is dynamic. This is essentially because ``unpythonic.syntax`` needs to resolve references to env variables statically, at compile time.
+Note that this behaves differently from Python itself, where everything is dynamic. This is essentially because ``unpythonic.syntax`` needs to resolve references to env variables statically, at macro expansion time.
 
 To clarify, here's a sampling from the unit tests:
 
