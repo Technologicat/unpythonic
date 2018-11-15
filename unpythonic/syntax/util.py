@@ -117,7 +117,7 @@ def detect_callec(tree, *, collect, **kw):
 def detect_lambda(tree, *, collect, stop, **kw):
     """Find lambdas in tree. Helper for block macros.
 
-    Run ``_detect_lambda.collect(tree)`` in the first pass, before allowing any
+    Run ``detect_lambda.collect(tree)`` in the first pass, before allowing any
     nested macros to expand. (Those may generate more lambdas that your block
     macro is not interested in).
 
@@ -157,10 +157,10 @@ def is_lambda_decorator(tree, fname):
 
     A node is detected as a lambda decorator if it is a ``Call`` that supplies
     exactly one positional argument, and its ``.func`` is the decorator ``fname``
-    (``_is_decorator(tree.func, fname)`` returns ``True``).
+    (``is_decorator(tree.func, fname)`` returns ``True``).
 
     This function does not know or care whether a chain of ``Call`` nodes
-    terminates in a ``Lambda`` node. See ``_is_decorated_lambda``.
+    terminates in a ``Lambda`` node. See ``is_decorated_lambda``.
 
     Examples::
 
