@@ -34,14 +34,14 @@ SHORTDESC="Lispy (and some haskelly) missing batteries for Python."
 
 # Long description for package homepage on PyPI
 #
-DESC="""Python clearly wants to be an impure-FP language. A decorator with arguments
-is a curried closure - how much more FP can you get?
+DESC="""We provide missing features for Python, mainly from the list processing
+tradition, but with some haskellisms mixed in. We place a special emphasis on
+**clear, pythonic syntax**. For the adventurous, we also provide a set of
+syntactic macros that are designed to work together.
 
-We provide some missing features for Python from the list processing tradition,
-plus a few bonus haskellisms.
-
-We place a special emphasis on clear, pythonic syntax. Other design considerations
-are simplicity, robustness, and minimal dependencies (currently none).
+Design considerations are simplicity, robustness, and minimal dependencies
+(currently none required; MacroPy optional, to enable the syntactic macros).
+In macros we aim at orthogonality, combinability, and clear, pythonic syntax.
 
 Features include tail call optimization (TCO), TCO'd loops in FP style, call/ec,
 let & letrec, assign-once, multi-expression lambdas, def as a code block,
@@ -56,8 +56,15 @@ a callable return value on the remaining arguments. This is now valid Python::
     myadd = lambda a, b: a + b
     assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 
-Finally, we provide a set of macros for those not afraid to install MacroPy
-and venture beyond raw Python. For example::
+    with_n = lambda *args: (partial(f, n) for n, f in args)
+    look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
+    assert tuple(curry(look, 5, 10, range(20))) == tuple(range(5, 15))
+
+As macros we provide e.g. automatic currying, automatic tail-call optimization,
+continuations (``call/cc``), lexically scoped ``let`` and ``do``, implicit
+return statements, and easy-to-use multi-expression lambdas with local variables.
+
+For a taste of the macros::
 
     # let, letseq, letrec with no boilerplate
     a = let((x, 17),
@@ -91,6 +98,7 @@ and venture beyond raw Python. For example::
         myadd = lambda a, b: a + b
         assert mymap(myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 
+    # automatic tail-call optimization (TCO) like Scheme, Racket
     with tco:
         assert letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
                       (oddp,  lambda x: (x != 0) and evenp(x - 1)))[
@@ -122,6 +130,28 @@ and venture beyond raw Python. For example::
         assert g(1) == "one"
         assert g(2) == "two"
         assert g(42) == "something else"
+
+    # splice code at macro expansion time
+    with let_syntax:
+        with block(a) as twice:
+            a
+            a
+        with block(x, y, z) as appendxyz:
+            lst += [x, y, z]
+        lst = []
+        twice(appendxyz(7, 8, 9))
+        assert lst == [7, 8, 9]*2
+
+    # lispy prefix syntax for function calls
+    with prefix:
+        (print, "hello world")
+
+    # the LisThEll programming language
+    with prefix, curry:
+        mymap = lambda f: (foldr, (compose, cons, f), nil)
+        double = lambda x: 2 * x
+        (print, (mymap, double, (q, 1, 2, 3)))
+        assert (mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)
 
     # essentially call/cc for Python
     with continuations:

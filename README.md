@@ -1,6 +1,6 @@
-# Unpythonic: Lispy missing batteries for Python
+# Unpythonic: Lispy (and some haskelly) missing batteries for Python
 
-In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some haskellisms. We place a special emphasis on **clear, pythonic syntax**.
+In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some haskellisms mixed in. We place a special emphasis on **clear, pythonic syntax**.
 
 For the [adventurous](https://github.com/azazel75/macropy), we also provide a set of [syntactic macros](macro_extras/) that are designed to work together: e.g. automatic currying, automatic tail-call optimization, continuations (``call/cc``), lexically scoped ``let`` and ``do``, implicit return statements, and easy-to-use multi-expression lambdas with local variables.
 
