@@ -969,6 +969,8 @@ For the christmas tree combo, the block macros are designed to run in the follow
 prefix > autoreturn > multilambda, namedlambda > continuations, tco > curry
 ```
 
+The ``let_syntax`` block may be placed anywhere in the chain; just keep in mind what it does.
+
 For simplicity, **the block macros make no attempt to prevent invalid combos**. Be careful; e.g. don't nest several ``with tco`` blocks, that won't work.
 
 Other things to note:
