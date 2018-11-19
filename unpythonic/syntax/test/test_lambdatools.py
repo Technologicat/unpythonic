@@ -3,6 +3,10 @@
 
 from ...syntax import macros, multilambda, namedlambda, quicklambda, f, _, local, let
 
+from ...fun import withself, curry
+from ...tco import trampolined, jump
+from ...fploop import looped_over
+
 def test():
     with multilambda:
         # use brackets around the body of a lambda to denote a multi-expr body
@@ -41,6 +45,29 @@ def test():
                        (g.__name__, h.__name__)]]
         assert gn == "g (lambda)"
         assert hn == "f1 (lambda)"
+
+    # test naming a decorated lambda
+    with namedlambda:
+        f2 = trampolined(withself(lambda self, n, acc=1: jump(self, n-1, acc*n) if n > 1 else acc))
+        f2(5000)  # no crash since TCO
+        assert f2.__name__ == "f2 (lambda)"
+
+    # looped_over overwrites with the result, so nothing to name
+    with namedlambda:
+        result = looped_over(range(10), acc=0)(lambda loop, x, acc: loop(acc + x))
+        assert result == 45
+        try:
+            result.__name__
+        except AttributeError:
+            pass
+        else:
+            assert False, "should have returned an int (which has no __name__)"
+
+        # this more readable format is not recognized by namedlambda, anyway
+        result = curry(looped_over, range(10), 0,
+                         lambda loop, x, acc:
+                           loop(acc + x))
+        assert result == 45
 
     with quicklambda, multilambda:
         func = f[[local(x << _),
