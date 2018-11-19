@@ -12,6 +12,7 @@ from ..dynassign import dyn
 from ..misc import namelambda
 
 from .letdo import do
+from .util import is_decorated_lambda
 
 def multilambda(block_body):
     @Walker
@@ -41,7 +42,7 @@ def namedlambda(block_body):
 
     @Walker
     def transform(tree, *, stop, **kw):
-        if issingleassign(tree) and type(tree.value) is Lambda:
+        if issingleassign(tree) and (type(tree.value) is Lambda or is_decorated_lambda(tree.value)):
             # an assignment is a statement, so in the transformed tree,
             # we are free to use all of Python's syntax.
             myname = tree.targets[0].id
