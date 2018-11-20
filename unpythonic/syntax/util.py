@@ -152,7 +152,7 @@ def is_decorator(tree, fname):
     return isx(tree, fname) or \
            (type(tree) is Call and isx(tree.func, fname))
 
-def is_lambda_decorator(tree, fname):
+def is_lambda_decorator(tree, fname=None):
     """Test tree whether it decorates a lambda with ``fname``.
 
     A node is detected as a lambda decorator if it is a ``Call`` that supplies
@@ -162,12 +162,15 @@ def is_lambda_decorator(tree, fname):
     This function does not know or care whether a chain of ``Call`` nodes
     terminates in a ``Lambda`` node. See ``is_decorated_lambda``.
 
+    ``fname`` is optional; if ``None``, do not check the name.
+
     Examples::
 
         trampolined(arg)                    # --> non-parametric decorator
         looped_over(range(10), acc=0)(arg)  # --> parametric decorator
     """
-    return (type(tree) is Call and len(tree.args) == 1) and is_decorator(tree.func, fname)
+    return (type(tree) is Call and len(tree.args) == 1) and \
+           (fname is None or is_decorator(tree.func, fname))
 
 # Extensible system. List known decorators in the desired ordering,
 # outermost-to-innermost.
@@ -189,7 +192,9 @@ lambda_decorator_detectors = tuple(partial(is_lambda_decorator, fname=x) for x i
 def is_decorated_lambda(tree, detectors=lambda_decorator_detectors):
     """Detect a tree of the form f(g(h(lambda ...: ...)))
 
-    We currently support known decorators only.
+    By default, we support known decorators only. To instead match any
+    sequence of one-argument ``Call`` nodes terminating in a ``Lambda``,
+    use ``detectors=[is_lambda_decorator]``.
 
     detectors: a list of predicates to detect a known decorator.
     To build these easily, ``partial(is_lambda_decorator, fname="whatever")``.

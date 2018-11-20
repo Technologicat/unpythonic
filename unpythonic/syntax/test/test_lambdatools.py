@@ -3,6 +3,8 @@
 
 from ...syntax import macros, multilambda, namedlambda, quicklambda, f, _, local, let
 
+from functools import wraps
+
 from ...fun import withself, curry
 from ...tco import trampolined, jump
 from ...fploop import looped_over
@@ -52,6 +54,35 @@ def test():
         f2(5000)  # no crash since TCO
         assert f2.__name__ == "f2 (lambda)"
 
+        # works also with custom decorators
+        def mydeco(f):
+            @wraps(f)  # important! (without this returns "decorated", not "f")
+            def decorated(*args, **kwargs):
+                return f(*args, **kwargs)
+            return decorated
+        f3 = mydeco(lambda x: x**2)
+        assert f3(10) == 100
+        assert f3.__name__ == "f3 (lambda)"
+
+        # parametric decorators are defined as usual
+        def mypardeco(a, b):
+            def mydeco(f):
+                @wraps(f)
+                def decorated(*args, **kwargs):
+                    return (a, b, f(*args, **kwargs))
+                return decorated
+            return mydeco
+        f4 = mypardeco(2, 3)(lambda x: x**2)
+        assert f4(10) == (2, 3, 100)
+        assert f4.__name__ == "f4 (lambda)"
+
+        # to help readability of invocations of parametric decorators on lambdas,
+        # we recognize also curry with a lambda as the last argument
+        f5 = curry(mypardeco, 2, 3,
+                     lambda x: x**2)
+        assert f5(10) == (2, 3, 100)
+        assert f5.__name__ == "f5 (lambda)"
+
     # looped_over overwrites with the result, so nothing to name
     with namedlambda:
         result = looped_over(range(10), acc=0)(lambda loop, x, acc: loop(acc + x))
@@ -63,7 +94,6 @@ def test():
         else:
             assert False, "should have returned an int (which has no __name__)"
 
-        # this more readable format is not recognized by namedlambda, anyway
         result = curry(looped_over, range(10), 0,
                          lambda loop, x, acc:
                            loop(acc + x))

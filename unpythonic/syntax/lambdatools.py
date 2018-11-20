@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Lambdas with multiple expressions, local variables, and a name."""
 
-from ast import Lambda, List, Name, Assign, With, withitem, Subscript
+from ast import Lambda, List, Name, Assign, With, withitem, Subscript, Call
 
 from macropy.core.quotes import macros, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
@@ -12,7 +12,7 @@ from ..dynassign import dyn
 from ..misc import namelambda
 
 from .letdo import do
-from .util import is_decorated_lambda
+from .util import is_decorated_lambda, is_lambda_decorator, isx
 
 def multilambda(block_body):
     @Walker
@@ -41,9 +41,18 @@ def namedlambda(block_body):
     def issingleassign(tree):
         return type(tree) is Assign and len(tree.targets) == 1 and type(tree.targets[0]) is Name
 
+    def iscurrywithfinallambda(tree):
+        if not (type(tree) is Call and isx(tree.func, "curry") and tree.args):
+            return False
+        return type(tree.args[-1]) is Lambda
+
     @Walker
     def transform(tree, *, stop, **kw):
-        if issingleassign(tree) and (type(tree.value) is Lambda or is_decorated_lambda(tree.value)):
+        # for decorated lambdas, match any chain of one-argument calls.
+        if issingleassign(tree) and \
+               (type(tree.value) is Lambda or \
+                is_decorated_lambda(tree.value, detectors=[is_lambda_decorator]) or \
+                iscurrywithfinallambda(tree.value)):
             # an assignment is a statement, so in the transformed tree,
             # we are free to use all of Python's syntax.
             myname = tree.targets[0].id
