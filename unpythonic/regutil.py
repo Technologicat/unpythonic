@@ -4,7 +4,13 @@
 This is used to support decorated lambdas (chains of ``Call`` nodes terminating
 in a ``Lambda``), since some decorators must be applied in a particular order.
 
+Note it is **not** compulsory to register all decorators, but only those that
+should be available for decorating lambdas, so that the lambda decorator
+sorting logic in ``unpythonic.syntax.util`` will know in which order
+to place them.
+
 Especially the ``tco`` and ``continuations`` macros use this.
+See ``unpythonic.syntax.tailtools``.
 """
 
 # This module is kept separate from unpythonic.syntax.util simply to make
