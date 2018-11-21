@@ -304,6 +304,7 @@ def _tco_transform_def(tree, *, preproc_cb, **kw):
         # @trampolined needs to be inside of @memoize, otherwise outermost;
         # so that it is applied **after** any call_ec; this allows also escapes
         # to return a jump object to the trampoline.
+        # TODO: use unpythonic.regutil.decorator_registry to decide index to insert at
         if not has_tco(tree):
             ismemoize = [is_decorator(x, "memoize") for x in tree.decorator_list]
             try:
