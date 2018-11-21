@@ -130,6 +130,8 @@ __all__ = ["jump", "trampolined"]
 from functools import wraps
 from sys import stderr
 
+from .regutil import register_decorator
+
 def jump(target, *args, **kwargs):
     """A jump (noun, not verb).
 
@@ -222,6 +224,7 @@ class _jump:
 # We want @wraps to preserve docstrings, so the decorator must be a function, not a class.
 # https://stackoverflow.com/questions/6394511/python-functools-wraps-equivalent-for-classes
 # https://stackoverflow.com/questions/25973376/functools-update-wrapper-doesnt-work-properly#25973438
+@register_decorator(priority=40, istco=True)
 def trampolined(function):
     """Decorator to make a function trampolined.
 

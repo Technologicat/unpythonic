@@ -12,7 +12,7 @@ from ..dynassign import dyn
 from ..misc import namelambda
 
 from .letdo import do
-from .util import is_decorated_lambda, is_lambda_decorator, isx
+from .util import is_decorated_lambda, isx
 
 def multilambda(block_body):
     @Walker
@@ -51,7 +51,7 @@ def namedlambda(block_body):
         # for decorated lambdas, match any chain of one-argument calls.
         if issingleassign(tree) and \
                (type(tree.value) is Lambda or \
-                is_decorated_lambda(tree.value, detectors=[is_lambda_decorator]) or \
+                is_decorated_lambda(tree.value, mode="any") or \
                 iscurrywithfinallambda(tree.value)):
             # an assignment is a statement, so in the transformed tree,
             # we are free to use all of Python's syntax.

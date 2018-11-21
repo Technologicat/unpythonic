@@ -5,6 +5,8 @@ __all__ = ["escape", "setescape", "call_ec"]
 
 from functools import wraps
 
+from .regutil import register_decorator
+
 def escape(value, tag=None, allow_catchall=True):
     """Escape to a ``@setescape`` point.
 
@@ -171,6 +173,7 @@ def setescape(tags=None, catch_untagged=True):
         return escapepoint
     return decorator
 
+@register_decorator(priority=80)
 def call_ec(f):
     """Decorator. Call with escape continuation (call/ec).
 

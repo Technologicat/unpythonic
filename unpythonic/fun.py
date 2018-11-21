@@ -22,7 +22,9 @@ from operator import itemgetter
 from .arity import arities, UnknownArity
 from .fold import reducel
 from .dynassign import dyn, make_dynvar
+from .regutil import register_decorator
 
+@register_decorator(priority=10)
 def memoize(f):
     """Decorator: memoize the function f.
 
@@ -73,6 +75,8 @@ def _currycall(f, *args, **kwargs):
     Hence we provide this separate mode to curry-and-call even if no args.
     """
     return curry(f, *args, _curry_force_call=True, **kwargs)
+
+@register_decorator(priority=90)
 def curry(f, *args, _curry_force_call=False, **kwargs):
     """Decorator: curry the function f.
 
@@ -570,6 +574,7 @@ def to(*specs):
     """
     return composeli(tokth(k, f) for k, f in specs)
 
+@register_decorator(priority=80)
 def withself(f):
     """Decorator. Allow a lambda to refer to itself.
 

@@ -10,6 +10,8 @@ from operator import itemgetter
 from functools import wraps
 from threading import RLock
 
+from .regutil import register_decorator
+
 def gmemoize(gfunc):
     """Decorator: produce memoized generator instances.
 
@@ -160,6 +162,7 @@ def imemoize(iterable):
     # The lambda is the gfunc; decorate it with gmemoize and return that.
     return gmemoize(lambda: (yield from iterable))
 
+@register_decorator(priority=10)
 def fimemoize(ifactory):
     """Like imemoize, but for cases where creating the iterable needs arguments.
 

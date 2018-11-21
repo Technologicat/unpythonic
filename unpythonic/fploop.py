@@ -31,7 +31,9 @@ from functools import partial
 from .ec import call_ec
 from .arity import arity_includes, UnknownArity
 from .tco import trampolined, _jump
+from .regutil import register_decorator
 
+@register_decorator(priority=50, istco=True)
 def looped(body):
     """Decorator to make a functional loop and run it immediately.
 
@@ -123,6 +125,7 @@ def looped(body):
     tb = trampolined(body)  # enable "return jump(...)"
     return tb(loop)  # like @call, run the (now trampolined) body.
 
+@register_decorator(priority=50, istco=True)
 def breakably_looped(body):
     """Functionally loop over an iterable.
 
@@ -172,6 +175,7 @@ def breakably_looped(body):
         return tb(loop, brk)
     return result
 
+@register_decorator(priority=50, istco=True)
 def looped_over(iterable, acc=None):  # decorator factory
     """Functionally loop over an iterable.
 
@@ -256,6 +260,7 @@ def looped_over(iterable, acc=None):  # decorator factory
         return tb(loop, x0, acc)
     return run
 
+@register_decorator(priority=50, istco=True)
 def breakably_looped_over(iterable, acc=None):  # decorator factory
     """Functionally loop over an iterable.
 

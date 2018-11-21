@@ -6,6 +6,9 @@ __all__ = ["call", "callwith", "raisef", "pack", "namelambda"]
 from types import LambdaType
 import re
 
+from .regutil import register_decorator
+
+@register_decorator(priority=80)
 def call(f, *args, **kwargs):
     """Call the function f.
 
@@ -74,6 +77,7 @@ def call(f, *args, **kwargs):
     """
     return f(*args, **kwargs)
 
+@register_decorator(priority=80)
 def callwith(*args, **kwargs):
     """Freeze arguments, choose function later.
 

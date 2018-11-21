@@ -10,6 +10,8 @@ from .astcompat import AsyncFunctionDef
 from macropy.core import Captured
 from macropy.core.walkers import Walker
 
+from ..regutil import all_decorators, tco_decorators, decorator_registry
+
 def isx(tree, x, accept_attr=True):
     """Test whether tree is a reference to the name ``x`` (str).
 
@@ -107,7 +109,7 @@ def detect_callec(tree, *, collect, **kw):
     if type(tree) in (FunctionDef, AsyncFunctionDef) and any(iscallec(deco) for deco in tree.decorator_list):
         fdef = tree
         collect(fdef.args.args[0].arg)  # FunctionDef.arguments.(list of arg objects).arg
-    elif is_decorated_lambda(tree):
+    elif is_decorated_lambda(tree, mode="any"):
         decorator_list, thelambda = destructure_decorated_lambda(tree)
         if any(iscallec(decocall.func) for decocall in decorator_list):
             collect(thelambda.args.args[0].arg)  # we assume it's the first arg, as that's what call_ec expects.
@@ -172,43 +174,35 @@ def is_lambda_decorator(tree, fname=None):
     return (type(tree) is Call and len(tree.args) == 1) and \
            (fname is None or is_decorator(tree.func, fname))
 
-# Extensible system. List known decorators in the desired ordering,
-# outermost-to-innermost.
-#
-# "with curry" (--> hq[curryf(...)]) is expanded later, so we don't need to
-# worry about it here; we catch only explicit curry(...) in the client code,
-# which is already there when "with tco" or "with continuations" is expanded.
-#
-# We use tuples to emphasize that for now, these are immutable at run-time.
-# (The main issue is lambda_decorator_detectors must be kept up to date;
-#  requires too much code if there is no real need to modify this at run-time.)
-#
-tco_decorators = ("trampolined", "looped", "breakably_looped", "looped_over", "breakably_looped_over")
-decorator_registry = ("memoize", "fimemoize") \
-                   + tco_decorators \
-                   + ("call_ec", "call", "callwith", "withself", "curry")
-lambda_decorator_detectors = tuple(partial(is_lambda_decorator, fname=x) for x in decorator_registry)
-
-def is_decorated_lambda(tree, detectors=lambda_decorator_detectors):
+def is_decorated_lambda(tree, mode):
     """Detect a tree of the form f(g(h(lambda ...: ...)))
 
-    By default, we support known decorators only. To instead match any
-    sequence of one-argument ``Call`` nodes terminating in a ``Lambda``,
-    use ``detectors=[is_lambda_decorator]``.
+    mode: str, "known" or "any":
 
-    detectors: a list of predicates to detect a known decorator.
-    To build these easily, ``partial(is_lambda_decorator, fname="whatever")``.
+        "known": match a chain containing known decorators only.
+                 See ``unpythonic.regutil``.
 
-    The default list tests against those that were, at startup time, in
-    ``unpythonic.syntax.util.decorator_registry``.
+        "any": match any chain of one-argument ``Call`` nodes terminating
+               in a ``Lambda`` node.
+
+    Note this works also for parametric decorators; for them, the ``func``
+    of the ``Call`` is another ``Call`` (that specifies the parameters).
     """
-    if type(tree) is not Call:
-        return False
-    if not any(f(tree) for f in detectors):
-        return False
-    if type(tree.args[0]) is Lambda:
-        return True
-    return is_decorated_lambda(tree.args[0], detectors)
+    assert mode in ("known", "any")
+    if mode == "known":
+        detectors = [partial(is_lambda_decorator, fname=x) for x in all_decorators]
+    else: # mode == "any":
+        detectors = [is_lambda_decorator]
+
+    def detect(tree):
+        if type(tree) is not Call:
+            return False
+        if not any(f(tree) for f in detectors):
+            return False
+        if type(tree.args[0]) is Lambda:
+            return True
+        return detect(tree.args[0])
+    return detect(tree)
 
 def destructure_decorated_lambda(tree):
     """Get the AST nodes for ([f, g, h], lambda) in f(g(h(lambda ...: ...)))
@@ -219,7 +213,7 @@ def destructure_decorated_lambda(tree):
     """
     def get(tree, lst):
         if type(tree) is Call:
-            # collect tree itself, not tree.func, because we need to reorder the funcs later.
+            # collect tree itself, not tree.func, because sort_lambda_decorators needs to reorder the funcs.
             return get(tree.args[0], lst + [tree])
         elif type(tree) is Lambda:
             return lst, tree
@@ -229,15 +223,15 @@ def destructure_decorated_lambda(tree):
 def has_tco(tree, userlambdas=[]):
     """Return whether a FunctionDef or a decorated lambda has TCO applied.
 
-    userlambdas: list; when detecting a lambda, only consider it if its id
-    matches one of those in the list.
+    userlambdas: list of ``id(some_tree)``; when detecting a lambda,
+    only consider it if its id matches one of those in the list.
 
     Return value is ``True`` or ``False`` (depending on test result) if the
-    test was applicable, and ``None`` if it was not applicable.
+    test was applicable, and ``None`` if it was not applicable (no match on tree).
     """
     if type(tree) in (FunctionDef, AsyncFunctionDef):
         return any(is_decorator(x, fname) for fname in tco_decorators for x in tree.decorator_list)
-    elif is_decorated_lambda(tree):
+    elif is_decorated_lambda(tree, mode="any"):
         decorator_list, thelambda = destructure_decorated_lambda(tree)
         if (not userlambdas) or (id(thelambda) in userlambdas):
             return any(is_lambda_decorator(x, fname) for fname in tco_decorators for x in decorator_list)
@@ -257,21 +251,23 @@ def sort_lambda_decorators(tree):
             --> trampolined(call_ec(curry(lambda ...: ...)))
     """
     def prioritize(tree):  # sort key for Call nodes invoking known decorators
-        for k, f in enumerate(lambda_decorator_detectors):
-            if f(tree):
+        for k, (pri, fname) in enumerate(decorator_registry):
+            if is_lambda_decorator(tree, fname):
                 return k
         assert False  # we currently support known decorators only
 
     @Walker
     def fixit(tree, *, stop, **kw):
-        if is_decorated_lambda(tree, lambda_decorator_detectors):
+        # we can robustly sort only decorators for which we know the correct ordering.
+        if is_decorated_lambda(tree, mode="known"):
             decorator_list, thelambda = destructure_decorated_lambda(tree)
             # We can just swap the func attributes of the nodes.
             ordered_decorator_list = sorted(decorator_list, key=prioritize)
             ordered_funcs = [x.func for x in ordered_decorator_list]
             for thecall, newfunc in zip(decorator_list, ordered_funcs):
                 thecall.func = newfunc
-            # don't recurse on the tail of the decorator list, but recurse into the lambda body.
+            # don't recurse on the tail of the "decorator list" (call chain),
+            # but recurse into the lambda body.
             stop()
             fixit.recurse(thelambda.body)
         return tree
