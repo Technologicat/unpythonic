@@ -30,7 +30,7 @@ libname="unpythonic"
 
 # Short description for package list on PyPI
 #
-SHORTDESC="Lispy (and some haskelly) missing batteries for Python."
+SHORTDESC="Python meets (selected parts of) Lisp and Haskell."
 
 # Long description for package homepage on PyPI
 #
