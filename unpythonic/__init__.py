@@ -4,7 +4,7 @@
 See ``dir(unpythonic)`` and submodule docstrings for more.
 """
 
-__version__ = '0.11.1'
+__version__ = '0.11.2'
 
 from .amb import *
 from .arity import *
