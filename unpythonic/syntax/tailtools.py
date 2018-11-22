@@ -22,7 +22,8 @@ from macropy.core.walkers import Walker
 
 from .util import isx, isec, isdo, islet, \
                   detect_callec, detect_lambda, \
-                  has_tco, is_decorator, sort_lambda_decorators
+                  has_tco, is_decorator, sort_lambda_decorators, \
+                  suggest_decorator_index
 from .ifexprs import aif
 from .letdo import let
 
@@ -300,19 +301,12 @@ def _tco_transform_def(tree, *, preproc_cb, **kw):
         if preproc_cb:
             tree = preproc_cb(tree)
         # Enable TCO if not TCO'd already.
-        #
-        # @trampolined needs to be inside of @memoize, otherwise outermost;
-        # so that it is applied **after** any call_ec; this allows also escapes
-        # to return a jump object to the trampoline.
-        # TODO: use unpythonic.regutil.decorator_registry to decide index to insert at
         if not has_tco(tree):
-            ismemoize = [is_decorator(x, "memoize") for x in tree.decorator_list]
-            try:
-                k = ismemoize.index(True) + 1
-                rest = tree.decorator_list[k:] if len(tree.decorator_list) > k else []
-                tree.decorator_list = tree.decorator_list[:k] + [hq[trampolined]] + rest
-            except ValueError:  # no memoize decorator in list
-                tree.decorator_list = [hq[trampolined]] + tree.decorator_list
+            k = suggest_decorator_index("trampolined", tree.decorator_list)
+            if k is not None:
+                tree.decorator_list.insert(k, hq[trampolined])
+            else:  # couldn't determine insert position; just plonk it at the start and hope for the best
+                tree.decorator_list.insert(0, hq[trampolined])
     return tree
 
 # Transform return statements and calls to escape continuations (ec).

@@ -8,6 +8,8 @@ from macropy.core.quotes import macros, ast_literal
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
+from .util import suggest_decorator_index
+
 from ..dynassign import dyn
 from ..fun import curry as curryf, _currycall as currycall
 
@@ -18,8 +20,11 @@ def curry(block_body):
             tree.args = [tree.func] + tree.args
             tree.func = hq[currycall]
         elif type(tree) in (FunctionDef, AsyncFunctionDef):
-            # @curry must run before @trampolined, so put it on the inside
-            tree.decorator_list = tree.decorator_list + [hq[curryf]]
+            k = suggest_decorator_index("curry", tree.decorator_list)
+            if k is not None:
+                tree.decorator_list.insert(k, hq[curryf])
+            else:  # couldn't determine insert position; just plonk it at the end and hope for the best
+                tree.decorator_list.append(hq[curryf])
         elif type(tree) is Lambda:
             # This inserts curry() as the innermost "decorator", and the curry
             # macro is meant to run last (after e.g. tco), so we're fine.

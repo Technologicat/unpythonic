@@ -172,6 +172,9 @@ def _dletimpl(bindings, fdef, mode, kind):
         values = [t1(rhs) for rhs in values]
     fdef = t2(fdef)
 
+    # We place the let decorator in the innermost position. Hopefully this is ok.
+    # (unpythonic.syntax.util.suggest_decorator_index can't help us here,
+    #  since "let" is not one of the registered decorators)
     letter = dletf if kind == "decorate" else bletf
     bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
     fdef.decorator_list = fdef.decorator_list + [hq[letter((ast_literal[bindings],), mode=u[mode], _envname=u[e])]]

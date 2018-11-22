@@ -35,6 +35,21 @@ def isx(tree, x, accept_attr=True):
            (type(tree) is Captured and tree.name == x) or \
            (accept_attr and type(tree) is Attribute and tree.attr == x)
 
+def getname(tree, accept_attr=True):
+    """The cousin of ``isx``.
+
+    From the same types of trees, extract the name as str.
+
+    If no match on ``tree``, return ``None``.
+    """
+    if type(tree) is Name:
+        return tree.id
+    if type(tree) is Captured:
+        return tree.name
+    if accept_attr and type(tree) is Attribute:
+        return tree.attr
+    return None
+
 def islet(tree, expanded=True):
     """Test whether tree is a ``let[]``, ``letseq[]`` or ``letrec[]``.
 
@@ -272,3 +287,54 @@ def sort_lambda_decorators(tree):
             fixit.recurse(thelambda.body)
         return tree
     return fixit.recurse(tree)
+
+# TODO: should we just sort the decorators here, like we do for lambdas?
+# (The current solution is less magic, but less uniform.)
+def suggest_decorator_index(deco_name, decorator_list):
+    """Suggest insertion index for decorator deco_name in given decorator_list.
+
+    The return value ``k`` is intended to be used like this::
+
+        if k is not None:
+            decorator_list.insert(k, mydeco)
+        else:
+            decorator_list.append(mydeco)  # or do something else
+
+    If ``deco_name`` is not in the registry (see ``unpythonic.regutil``),
+    or if an approprite index could not be determined, the return value
+    is ``None``.
+    """
+    if deco_name not in all_decorators:
+        return None  # unknown decorator, don't know where it should go
+    names = [getname(tree) for tree in decorator_list]
+    pri_by_name = {dname: pri for pri, dname in decorator_registry}
+
+    # sanity check that existing known decorators are ordered correctly
+    # (otherwise there is no unique insert position)
+    knownnames = [x for x in names if x in pri_by_name]
+    knownpris = [pri_by_name[x] for x in knownnames]
+    def isascending(lst):
+        maxes = cummax(lst)
+        return all(b >= a for a, b in zip(maxes, maxes[1:]))
+    def cummax(lst):
+        m = float("-inf")
+        out = []
+        for x in lst:
+            m = max(x, m)
+            out.append(m)
+        return out
+    if not (knownpris and isascending(knownpris)):
+        return None
+
+    # when deciding the index, only care about known decorators (hence "suggest")
+    targetpri = pri_by_name[deco_name]
+    if targetpri < knownpris[0]:
+        return 0
+    if targetpri > knownpris[-1]:
+        return len(decorator_list)
+    for pri, dname in zip(knownpris, knownnames):
+        if targetpri >= pri:
+            break
+    else:
+        return None
+    return names.index(dname)
