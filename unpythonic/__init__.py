@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*
-"""Lispy missing batteries for Python.
+"""Python meets (selected parts of) Lisp and Haskell.
 
 See ``dir(unpythonic)`` and submodule docstrings for more.
 """
