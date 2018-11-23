@@ -1,4 +1,4 @@
-# Unpythonic: Python meets (some of) Lisp and Haskell
+# Unpythonic: Python meets Lisp and Haskell
 
 In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some haskellisms mixed in. We place a special emphasis on **clear, pythonic syntax**.
 
