@@ -17,6 +17,8 @@ Instead, what we have here is essentially a tuple comprehension that:
 The implementation is based on the List monad. This is a hack with the bare
 minimum of components to make it work, complete with a semi-usable syntax.
 
+For a friendlier syntax, if you use MacroPy, see ``unpythonic.syntax.forall``.
+
 If you need more monads, look into OSlash.
 
 Or if you want to roll your own, the parts of this module come from:
@@ -45,6 +47,7 @@ def choice(**binding):
     for k, v in binding.items():  # just one but we don't know its name
         return Assignment(k, v)
 
+# For a cleaner solution, see unpythonic.syntax.forall.
 def forall(*lines):
     """Nondeterministically evaluate lines.
 
