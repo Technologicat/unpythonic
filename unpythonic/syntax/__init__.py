@@ -19,6 +19,7 @@ from .lambdatools import multilambda as _multilambda, \
                          quicklambda as _quicklambda, f, _
 from .letdo import do as _do, do0 as _do0, local, \
                    let as _let, letseq as _letseq, letrec as _letrec, \
+                   let0 as _let0, letseq0 as _letseq0, letrec0 as _letrec0, \
                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
@@ -228,6 +229,51 @@ def letrec(tree, args, *, gen_sym, **kw):
     """
     with dyn.let(gen_sym=gen_sym):
         return _letrec(bindings=args, body=tree)
+
+# -----------------------------------------------------------------------------
+# Inverted let, for situations where a body-first style improves readability.
+
+@macros.expr
+def let0(tree, *, gen_sym, **kw):
+    """[syntax, expr] Inverted let.
+
+    Because sometimes it is more readable to give the body first.
+
+    Usage::
+
+        let0[body, where, ((k0, v0), ...)]
+        let0[[body0, ...], where, ((k0, v0), ...)]
+
+    The ``where`` is literal.
+
+    Inspired by Haskell's ``where``; this format is also common in mathematics.
+    """
+    with dyn.let(gen_sym=gen_sym):
+        return _let0(tree)
+
+@macros.expr
+def letseq0(tree, *, gen_sym, **kw):
+    """[syntax, expr] Inverted letseq.
+
+    Usage::
+
+        letseq0[body, where, ((k0, v0), ...)]
+        letseq0[[body0, ...], where, ((k0, v0), ...)]
+    """
+    with dyn.let(gen_sym=gen_sym):
+        return _letseq0(tree)
+
+@macros.expr
+def letrec0(tree, *, gen_sym, **kw):
+    """[syntax, expr] Inverted letrec.
+
+    Usage::
+
+        letrec0[body, where, ((k0, v0), ...)]
+        letrec0[[body0, ...], where, ((k0, v0), ...)]
+    """
+    with dyn.let(gen_sym=gen_sym):
+        return _letrec0(tree)
 
 # -----------------------------------------------------------------------------
 # Decorator versions, for "let over def".
