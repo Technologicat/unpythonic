@@ -4,8 +4,8 @@
 This is essentially a toy that has no more power than list comprehensions
 or nested for loops. An important feature of McCarthy's amb operator is its
 nonlocality - being able to jump back to a choice point, even after the
-dynamic extent of the function where it resides. (Sounds a lot like call/cc;
-which is how amb is usually implemented in Scheme.)
+dynamic extent of the function where it resides. (Sounds a lot like
+``call/cc``; which is how ``amb`` is usually implemented in Scheme.)
 
 Instead, what we have here is essentially a tuple comprehension that:
 
@@ -17,11 +17,16 @@ Instead, what we have here is essentially a tuple comprehension that:
 The implementation is based on the List monad. This is a hack with the bare
 minimum of components to make it work, complete with a semi-usable syntax.
 
-For a friendlier syntax, if you use MacroPy, see ``unpythonic.syntax.forall``.
+If you use MacroPy:
 
-If you need more monads, look into OSlash.
+  - For a friendlier syntax for this, see ``unpythonic.syntax.forall``.
 
-Or if you want to roll your own, the parts of this module come from:
+  - If you need the full(-ish) power of ``call/cc``, see
+    ``unpythonic.syntax.continuations`` (which can implement ``amb``).
+
+If you need more monads, look into the ``OSlash`` library.
+
+If you want to roll your own monads, the parts for this module come from:
     https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py
 """
 
@@ -47,7 +52,9 @@ def choice(**binding):
     for k, v in binding.items():  # just one but we don't know its name
         return Assignment(k, v)
 
-# For a cleaner solution, see unpythonic.syntax.forall.
+# Hacky code generator, because Python has ``eval`` but no syntactic macros.
+# For a cleaner solution based on AST transformation with MacroPy,
+# see unpythonic.syntax.forall.
 def forall(*lines):
     """Nondeterministically evaluate lines.
 
@@ -76,25 +83,26 @@ def forall(*lines):
         - All choices are evaluated, depth first, and set of results is
           returned as a tuple.
 
-          - The last line describes one item of the return value.
-
         - If a line returns an iterable, it is implicitly converted into a List
           monad containing the same items.
 
           - This applies also to the RHS of a ``choice``.
 
-        - If a line returns a single item, it is wrapped into a singleton List.
+          - As the only exception, the last line describes one item of the return
+            value; there the implicit conversion is skipped.
 
-        - The final result is **not** unpacked. This allows easily returning
-          a tuple from the computation.
+            This allows easily returning a tuple (as one result item) from the
+            computation, as in the above pythagorean triples example.
 
-          - The final result is converted from List monad to tuple for output.
+        - If a line returns a single item, it is wrapped into a singleton List
+          (a List containing that one item).
 
-        - The variables currently picked by the choices live in the environment.
-          To access it, use a ``lambda e: ...`` like in ``unpythonic.letrec``.
+        - The final result (containing all the results) is converted from
+          List monad to tuple for output.
 
-        - The List monad is internal to this module.
-
+        - The values currently picked by the choices are bound to names in
+          the environment. To access it, use a ``lambda e: ...`` like in
+          ``unpythonic.letrec``.
 
     Quick vocabulary for haskellers:
         - ``forall(...)`` = ``do ...``
@@ -185,7 +193,8 @@ def forall(*lines):
 
 #    print(allcode)  # DEBUG
 
-    # The eval'd code doesn't close over the current lexical scope,
+    # The eval'd code doesn't close over the current lexical scope at the site
+    # of the eval call, but runs in its own initially blank environment,
     # so provide the necessary names as its globals.
     mlst = eval(allcode, {"e": e, "bodys": bodys, "begin": begin, "monadify": monadify})
     return tuple(mlst)
