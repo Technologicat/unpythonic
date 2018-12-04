@@ -189,7 +189,7 @@ def let(tree, args, *, gen_sym, **kw):
 
         - The body is automatically wrapped in a ``lambda e: ...``.
 
-        - For all ``x`` in bindings, the macro transforms ``x --> e.x``.
+        - For all ``x`` in bindings, the macro transforms lookups ``x --> e.x``.
 
         - Lexical scoping is respected (so ``let`` constructs can be nested)
           by actually using a unique name (gensym) instead of just ``e``.
@@ -251,7 +251,8 @@ def dlet(tree, args, *, gen_sym, **kw):
     modeled after Python's standard scoping rules.)
 
     **CAUTION**: assignment to the let environment is ``name << value``;
-    the regular syntax ``name = value`` creates a local variable.
+    the regular syntax ``name = value`` creates a local variable in the
+    lexical scope of the ``def``.
     """
     with dyn.let(gen_sym=gen_sym):
         return _dlet(bindings=args, fdef=tree)
@@ -331,6 +332,18 @@ def bletrec(tree, args, *, gen_sym, **kw):
         @bletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
                  (oddp,  lambda x: (x != 0) and evenp(x - 1)))
         def result():
+            return evenp(42)
+        assert result is True
+
+    Because names inside a ``def`` have mutually recursive scope,
+    an almost equivalent pure Python solution (no macros) is::
+
+        from unpythonic.misc import call
+
+        @call
+        def result():
+            evenp = lambda x: (x == 0) or oddp(x - 1)
+            oddp = lambda x: (x != 0) and evenp(x - 1)
             return evenp(42)
         assert result is True
     """
@@ -739,7 +752,7 @@ def quicklambda(tree, **kw):
 
     (This is of course rather silly, as an unnamed argument can only be mentioned
     once. If we're giving names to them, a regular ``lambda`` is shorter to write.
-    The point is, this combo is now possible in case it's ever needed.)
+    The point is, this combo is now possible.)
     """
     return (yield from _quicklambda(block_body=tree))
 
@@ -859,7 +872,7 @@ def tco(tree, *, gen_sym, **kw):
 
     This recursively handles also builtins ``a if p else b``, ``and``, ``or``;
     and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``,
-    when used in computing a return value.
+    when used in computing a return value. (``aif[]`` and ``cond[]`` also work.)
 
     Note only calls **in tail position** will be TCO'd. Any other calls
     are left as-is. Tail positions are:
@@ -871,10 +884,11 @@ def tco(tree, *, gen_sym, **kw):
         - The last item in an ``and``/``or``. If these are nested, only the
           last item in the whole expression involving ``and``/``or``. E.g. in::
 
-              (1 and 2) or 3
-              1 and (2 or 3)
+              (a and b) or c
+              a and (b or c)
 
-          in either case, only the ``3`` is in tail position.
+          in either case, only ``c`` is in tail position, regardless of the
+          values of ``a``, ``b``.
 
         - The last item in a ``do[]``.
 
@@ -936,7 +950,7 @@ def continuations(tree, gen_sym, **kw):
     """[syntax, block] Semi-implicit continuations.
 
     Roughly, this allows saving the control state and then jumping back later
-    (in principle, any time later). Possible use cases:
+    (in principle, any time later). Some possible use cases:
 
       - Tree traversal (possibly a cartesian product of multiple trees, with the
         current position in each tracked automatically).
@@ -1007,7 +1021,8 @@ def continuations(tree, gen_sym, **kw):
         normally in any non-tail position.
 
         Continuation-enabled functions behave as regular functions when
-        called normally; only tail calls implicitly set ``cc``.
+        called normally; only tail calls implicitly set ``cc``. A normal call
+        uses ``identity`` as the default ``cc``.
 
       - Combo note:
 
@@ -1034,15 +1049,15 @@ def continuations(tree, gen_sym, **kw):
     **Manipulating the continuation**:
 
       - Use a ``with bind`` to capture the current continuation. It is almost
-        call/cc (call-with-current-continuation), but the continuation is
-        explicitly made from the given body.
+        ``call/cc`` (call-with-current-continuation), but the continuation is
+        explicitly made from the body of the ``with`` block.
 
         To grab a first-class reference to this continuation: it's the ``cc``
         argument of the function being called by the ``with bind``.
 
         Basically the only case in which ``cc`` will contain something other
         than the default continuation, is while inside the function called
-        by a ``with bind``. (So stash it from there.)
+        by a ``with bind``. (So stash it from there if you need it later.)
 
         A ``with bind`` works both inside a function definition, and at the
         top level of the ``with continuations`` block.
@@ -1065,7 +1080,7 @@ def continuations(tree, gen_sym, **kw):
         that instance of the ``somefunc`` closure was created. In this case,
         that continuation points to the body of the ``with bind`` in ``main``.
 
-      - Instead of setting ``cc``, can also just assign a captured continuation
+      - Instead of setting ``cc``, you can also assign a captured continuation
         to ``cc`` inside a function body. That changes the continuation for the
         rest of the dynamic extent of the function, not only for a particular
         tail call::
@@ -1094,7 +1109,7 @@ def continuations(tree, gen_sym, **kw):
       - ``with bind`` is one construct, not two. ``bind`` alone is a syntax error.
 
       - The function call in the brackets is performed, with the body of the
-        with block set as its continuation.
+        ``with`` block set as its continuation.
 
           - By stashing the ``cc`` from inside ``func``, to some place accessible
             from the outside, this allows the body to run multiple times.
@@ -1118,8 +1133,8 @@ def continuations(tree, gen_sym, **kw):
            use a tuple ``(r0, ...)``. **Parentheses are mandatory** due to
            the syntax of Python's ``with`` statement.
 
-           Tupleness is tested at run-time. For literal tuples, the run-time
-           check is omitted.
+           Tupleness is tested at run-time, except for literal tuples the
+           run-time check is automatically omitted.
 
       - When ``with bind`` appears inside a function definition:
 
@@ -1137,7 +1152,7 @@ def continuations(tree, gen_sym, **kw):
           - In this case it is not possible to get the return value of the body
             the first time it runs, because ``with`` is a statement.
 
-            If you stash the ``cc`` while inside ``func``, and then call it
+            If you stash ``cc`` while inside ``func``, and then call the ``cc``
             later from the top level, then on any further runs it is possible
             to get its return value as usual.
 
