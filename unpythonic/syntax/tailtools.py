@@ -50,7 +50,7 @@ def autoreturn(block_body):
         elif type(tree) in (With, AsyncWith):
             tree.body[-1] = transform_tailstmt(tree.body[-1])
         elif type(tree) is Try:
-            # We don't care about finalbody; it is typically a finalizer.
+            # We don't care about finalbody; typically used for unwinding only.
             if tree.orelse:  # tail position is in else clause if present
                 tree.orelse[-1] = transform_tailstmt(tree.orelse[-1])
             else:  # tail position is in the body of the "try"
