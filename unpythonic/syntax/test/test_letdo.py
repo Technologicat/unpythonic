@@ -428,14 +428,12 @@ def test():
 
     # inverted let, for situations where a body-first style improves readability:
     result = let0[foo + bar,
-                    where,
-                    ((foo, 5),
+               where((foo, 5),
                      (bar, 2))]
     assert result == 7
 
     result = letseq0[foo,
-                       where,
-                       ((foo, 100),
+                  where((foo, 100),
                         (foo, 2*foo),
                         (foo, 4*foo))]
     assert result == 800
@@ -444,9 +442,8 @@ def test():
     # (note the [] should then enclose the body only).
     result = letrec0[[print("hi from letrec0"),
                       evenp(42)],
-                       where,
-                       ((evenp, lambda x: (x == 0) or oddp(x - 1)),
-                        (oddp,  lambda x: (x != 0) and evenp(x - 1)))]
+                   where((evenp, lambda x: (x == 0) or oddp(x - 1)),
+                         (oddp,  lambda x: (x != 0) and evenp(x - 1)))]
     assert result is True
 
     print("All tests PASSED")

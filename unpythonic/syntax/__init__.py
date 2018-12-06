@@ -241,10 +241,13 @@ def let0(tree, *, gen_sym, **kw):
 
     Usage::
 
-        let0[body, where, ((k0, v0), ...)]
-        let0[[body0, ...], where, ((k0, v0), ...)]
+        let0[body, where((k0, v0), ...)]
+        let0[[body0, ...], where((k0, v0), ...)]
 
     The ``where`` is literal.
+
+    Use extra brackets around the body (only) for multiple-expression mode
+    (a.k.a. implicit ``do[]``).
 
     Inspired by Haskell's ``where``; this format is also common in mathematics.
     """
@@ -257,8 +260,8 @@ def letseq0(tree, *, gen_sym, **kw):
 
     Usage::
 
-        letseq0[body, where, ((k0, v0), ...)]
-        letseq0[[body0, ...], where, ((k0, v0), ...)]
+        letseq0[body, where((k0, v0), ...)]
+        letseq0[[body0, ...], where((k0, v0), ...)]
     """
     with dyn.let(gen_sym=gen_sym):
         return _letseq0(tree)
@@ -269,8 +272,8 @@ def letrec0(tree, *, gen_sym, **kw):
 
     Usage::
 
-        letrec0[body, where, ((k0, v0), ...)]
-        letrec0[[body0, ...], where, ((k0, v0), ...)]
+        letrec0[body, where((k0, v0), ...)]
+        letrec0[[body0, ...], where((k0, v0), ...)]
     """
     with dyn.let(gen_sym=gen_sym):
         return _letrec0(tree)
