@@ -8,7 +8,7 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # contain the actual syntax transformers (regular functions that process ASTs)
 # that implement the macros.
 
-# insist, deny, it, f, _, local, block, expr, bind are just for passing through
+# insist, deny, it, f, _, local, block, expr, with_cc are just for passing through
 # to the client code that imports us.
 from .curry import curry as _curry
 from .forall import forall as _forall, insist, deny
@@ -25,7 +25,7 @@ from .letdo import do as _do, do0 as _do0, local, \
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
 from .prefix import prefix as _prefix
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
-                       continuations as _continuations, bind
+                       continuations as _continuations, with_cc
 
 from ..dynassign import dyn, make_dynvar
 

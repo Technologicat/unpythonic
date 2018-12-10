@@ -9,7 +9,7 @@ from ast import Lambda, FunctionDef, \
                 arguments, arg, keyword, \
                 List, Tuple, \
                 Subscript, Index, \
-                Call, Name, Num, \
+                Call, Name, Starred, Num, \
                 BoolOp, And, Or, \
                 With, If, IfExp, Try, Assign, Return, Expr, \
                 copy_location
@@ -92,8 +92,8 @@ def tco(block_body):
 # -----------------------------------------------------------------------------
 
 @macro_stub
-def bind(tree, **kw):
-    """[syntax] Only meaningful in a "with bind[...] as ..."."""
+def with_cc(tree, **kw):
+    """[syntax] Only meaningful in a "with continuations" block."""
     pass
 
 def continuations(block_body):
@@ -179,111 +179,199 @@ def continuations(block_body):
         return tree
     transform_retexpr = partial(_transform_retexpr, call_cb=call_cb, data_cb=data_cb)
 
-    # Helper for "with bind".
-    # bind[func(arg0, ..., k0=v0, ...)] --> func(arg0, ..., cc=cc, k0=v0, ...)
-    # This roughly corresponds to PG's "=funcall".
-    def isbind(tree):
-        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "bind"
-    @Walker
-    def transform_bind(tree, *, contname, **kw):  # contname: name of function (as bare str) to use as continuation
-        if isbind(tree):
-            if not (type(tree.slice) is Index and type(tree.slice.value) is Call):
-                assert False, "bind: expected a single function call as subscript"
-            thecall = tree.slice.value
-            thecall.keywords = [keyword(arg="cc", value=q[name[contname]])] + thecall.keywords
-            return thecall  # discard the bind[] wrapper
-        return tree
-    # Inside FunctionDef nodes:
-    #     with bind[...] as ...: --> CPS transformation
-    # This corresponds to PG's "=bind". This is essentially the call/cc.
-    def iswithbind(tree):
-        if type(tree) is With:
-            if len(tree.items) == 1 and isbind(tree.items[0].context_expr):
+    # CPS conversion, essentially the call/cc. Corresponds to PG's "=bind".
+    #
+    # But we have a code walker, so we don't need to require the body to be
+    # specified inside the body of the macro invocation like PG's solution does.
+    # Instead, we capture as the continuation all remaining statements (i.e.
+    # those that lexically appear after the ``with_cc[]``) in the current block.
+    #
+    # To keep things relatively straightforward, the ``with_cc[]`` construct
+    # is only allowed to appear at the top level of:
+    #
+    #   - the ``with continuations:`` block itself
+    #   - a ``def`` or ``async def``
+    #
+    # Nested closures are ok; here "top level" only refers to the currently
+    # innermost ``def``.
+    #
+    # Syntax::
+    #
+    #   x = with_cc[func(...)]
+    #   *xs = with_cc[func(...)]
+    #   x0, ... = with_cc[func(...)]
+    #   x0, ..., *xs = with_cc[func(...)]
+    #   with_cc[func(...)]  # ignoring the return value of ``func`` is also ok
+    #
+    # On the LHS, the starred item, if it appears, must be last. This limitation
+    # is due to how Python handles varargs.
+    #
+    # The function ``func`` called by a ``with_cc[func(...)]`` is the only place
+    # where the ``cc`` argument is actually set. There it is the captured
+    # continuation, represented as a function object.
+    #
+    # The ``with_cc[]`` construct essentially splits the function at its use site
+    # into "before" and "after" parts, where the "after" part (the continuation)
+    # can be run multiple times, by calling the continuation as a function.
+    #
+    # The return value of the continuation is whatever the original function
+    # returns (for any ``return`` statement that appears lexically after the
+    # ``with_cc[]``).
+    #
+    # Multiple ``with_cc[]`` invocations in the same function are allowed.
+    # These essentially create nested closures.
+    #
+    # Note that when ``with_cc[]`` is used at the top level of the
+    # ``with continuations:`` block, the return value of the continuation
+    # is always ``None``, because the block itself returns nothing.
+    #
+    # For technical reasons, the ``return`` statement is not allowed at the
+    # top level of the ``with continuations:`` block. (Because the continuation
+    # is essentially a function, ``return`` would behave differently based on
+    # whether it is placed lexically before or after a ``with_cc[]``, which is
+    # needlessly complicated.)
+    #
+    # If you absolutely need to terminate the function surrounding the
+    # ``with continuations:`` block from inside the block, use an exception
+    # to escape; see ``call_ec``, ``setescape``, ``escape``.
+    def iswithcc(tree):
+        if type(tree) in (Assign, Expr):
+            tree = tree.value
+        if type(tree) is Subscript and type(tree.value) is Name \
+           and tree.value.id == "with_cc":
+            if type(tree.slice) is Index:
                 return True
-            if any(isbind(item.context_expr) for item in tree.items):
-                assert False, "the 'bind' in a 'with bind' statement must be the only context manager"
+            assert False, "expected single expr, not slice in with_cc[...]"
         return False
-    gen_sym = dyn.gen_sym
-    @Walker
-    def transform_withbind(tree, *, deftypes, set_ctx, **kw):
-        if type(tree) in (FunctionDef, AsyncFunctionDef):  # function definition **inside the "with continuations" block**
-            set_ctx(deftypes=(deftypes + [type(tree)]))
-        if not iswithbind(tree):
-            return tree
-        toplevel = not deftypes
-        ctxmanager = tree.items[0].context_expr
-        optvars = tree.items[0].optional_vars
-        if optvars:
-            if type(optvars) is Name:
-                posargs = [optvars.id]
-            elif type(optvars) in (List, Tuple):
-                if not all(type(x) is Name for x in optvars.elts):
-                    assert False, "with bind[...] as ... expected only names in as-part tuple/list"
-                posargs = list(x.id for x in optvars.elts)
-            else:
-                assert False, "with bind[...] as ... expected a name, list or tuple in as-part"
+    def split_at_withcc(body):
+        if not body:
+            return [], None, []
+        before, rest = [], body
+        while True:
+            stmt, *rest = rest
+            if iswithcc(stmt):
+                return before, stmt, rest
+            before.append(stmt)
+            if not rest:
+                return before, None, rest
+    def analyze_withcc(stmt):
+        starget = None  # "starget" = starred target, becomes the vararg for the cont
+        def maybe_starred(expr):  # return expr.id or set starget
+            nonlocal starget
+            if type(expr) is Name:
+                return [expr.id]
+            elif type(expr) is Starred:
+                if type(expr.value) is not Name:
+                    assert False, "with_cc[] starred assignment target must be a bare name"
+                starget = expr.value.id
+                return []
+            assert False, "all with_cc[] assignment targets must be bare names (last one may be starred)"
+        # extract the assignment targets (args of the cont)
+        if type(stmt) is Assign:
+            if len(stmt.targets) != 1:
+                assert False, "expected at most one '=' in a with_cc[] statement"
+            target = stmt.targets[0]
+            if type(target) in (Tuple, List):
+                rest, last = target.elts[:-1], target.elts[-1]
+                # TODO: limitation due to Python's vararg syntax - the "*args" must be after positional args.
+                if any(type(x) is Starred for x in rest):
+                    assert False, "in with_cc[], only the last assignment target may be starred"
+                if not all(type(x) is Name for x in rest):
+                    assert False, "all with_cc[] assignment targets must be bare names"
+                targets = [x.id for x in rest] + maybe_starred(last)
+            else:  # single target
+                targets = maybe_starred(target)
+        elif type(stmt) is Expr:  # no assignment targets, cont takes no args
+            if type(stmt.value) is not Subscript:
+                assert False, "expected a bare with_cc[] expr, got {}".format(stmt.value)
+            targets = []
         else:
-            posargs = []
+            assert False, "with_cc[]: expected an assignment or a bare expr, got {}".format(stmt)
+        # extract the function call
+        if type(stmt.value) is not Subscript:  # both Assign and Expr have a .value
+            assert False, "expected either an assignment with a with_cc[] expr on RHS, or a bare with_cc[] expr, got {}".format(stmt.value)
+        thecall = stmt.value.slice.value
+        if type(thecall) is not Call:
+            assert False, "the bracketed expression in with_cc[...] must be a function call"
+        return targets, starget, thecall
+    gen_sym = dyn.gen_sym
+    def make_continuation(owner, withcc, contbody):
+        targets, starget, thecall = analyze_withcc(withcc)
 
-        # Create the continuation function, set our body as its body.
+        # Set our captured continuation as the cc of func in with_cc[func(...)]
+        contname = gen_sym("cont")
+        thecall.keywords = [keyword(arg="cc", value=q[name[contname]])] + thecall.keywords
+
+        # Create the continuation function, set contbody as its body.
         #
         # Any return statements in the body have already been transformed,
-        # because they appear literally in the code at the use site.
-        thename = gen_sym("cont")
-        FDef = deftypes[-1] if deftypes else FunctionDef  # use same type (regular/async) as parent function
-        funcdef = FDef(name=thename,
-                       args=arguments(args=[arg(arg=x) for x in posargs],
+        # because they appear literally in the code at the use site,
+        # and our main processing logic runs the return statement transformer
+        # before transforming with_cc[].
+        FDef = type(owner) if owner else FunctionDef  # use same type (regular/async) as parent function
+        funcdef = FDef(name=contname,
+                       args=arguments(args=[arg(arg=x) for x in targets],
                                       kwonlyargs=[arg(arg="cc")],
-                                      vararg=None,
+                                      vararg=(arg(arg=starget) if starget else None),
                                       kwarg=None,
                                       defaults=[],
                                       kw_defaults=[None]),  # patched later by transform_def
-                       body=tree.body,
+                       body=contbody,
                        decorator_list=[],  # patched later by transform_def
                        returns=None)  # return annotation not used here
 
-        # Set up the call to func, specifying our new function as its continuation
-        thecall = transform_bind.recurse(ctxmanager, contname=thename)
-        if not toplevel:
-            # apply TCO
+        # in the output stmts, define the continuation function...
+        newstmts = [funcdef]
+        if owner:  # ...and tail-call it (if currently inside a def)
             thecall.args = [thecall.func] + thecall.args
             thecall.func = hq[jump]
-            # Inside a function definition, output a block that defines the
-            # continuation function and then calls func, **as a tail call**
-#            with q as newtree:
-#                if 1:
-#                    ast_literal[funcdef]  # TODO: doesn't work, why? (expected expr, not stmt - why?)
-#                    return ast_literal[thecall]
-#            return newtree[0]  # the if statement
-            newtree = If(test=Num(n=1),
-                         body=[q[ast_literal[funcdef]],
-                               Return(value=q[ast_literal[thecall]])],
-                         orelse=[])
-        else:
-            # At the top level, output a block that defines the
-            # continuation function and then calls func normally.
-            newtree = If(test=Num(n=1),
-                         body=[q[ast_literal[funcdef]],
-                               Expr(value=q[ast_literal[thecall]])],
-                         orelse=[])
-        return newtree
-
-    # set up the default continuation that just returns its args
-    new_block_body = [Assign(targets=[q[name["cc"]]], value=hq[identity])]
-    # CPS conversion
+            newstmts.append(Return(value=q[ast_literal[thecall]]))
+        else:  # ...and call it normally (if at the top level)
+            newstmts.append(Expr(value=q[ast_literal[thecall]]))
+        return newstmts
+    @Walker  # find and transform with_cc[] statements inside function bodies
+    def transform_withccs(tree, **kw):
+        if type(tree) in (FunctionDef, AsyncFunctionDef):
+            tree.body = transform_withcc(tree, tree.body)
+        return tree
+    def transform_withcc(owner, body):
+        # owner: FunctionDef or AsyncFunctionDef node, or None (top level of block)
+        # body: list of stmts
+        # we need to consider only one withcc in the body, because each one
+        # generates a new nested def for the walker to pick up.
+        before, withcc, after = split_at_withcc(body)
+        if withcc:
+            body = before + make_continuation(owner, withcc, contbody=after)
+        return body
+    # TODO: improve error reporting for stray with_cc[] invocations
     @Walker
     def check_for_strays(tree, **kw):
-        if isbind(tree):
-            assert False, "bind[...] may only appear as part of with bind[...] as ..."
+        if iswithcc(tree):
+            assert False, "with_cc[...] only allowed at the top level of a def or async def, or at the top level of the block; must appear as an expr or an assignment RHS"
         return tree
+
+    # Disallow return at the top level of the block, because it would behave
+    # differently depending on whether placed before or after the first with_cc[]
+    # invocation. (Because with_cc[] internally creates a function and calls it.)
     for stmt in block_body:
-        # transform "return" statements before "with bind[]"'s tail calls generate new ones.
-        stmt = _tco_transform_return.recurse(stmt, known_ecs=known_ecs,
-                                             transform_retexpr=transform_retexpr)
-        # transform "with bind[]" blocks
-        stmt = transform_withbind.recurse(stmt, deftypes=[])
+        if type(stmt) is Return:
+            assert False, "'return' not allowed at the top level of a 'with continuations' block"
+
+    # transform "return" statements before with_cc[] invocations generate new ones.
+    block_body = [_tco_transform_return.recurse(stmt, known_ecs=known_ecs,
+                                                transform_retexpr=transform_retexpr)
+                     for stmt in block_body]
+    # transform with_cc[] invocations
+    block_body = transform_withcc(owner=None, body=block_body)  # at top level
+    block_body = [transform_withccs.recurse(stmt) for stmt in block_body]  # inside defs
+    # Validate. Each with_cc[] reached by the transformer was in a syntactically correct
+    # position and has now been eliminated. Any remaining ones indicate syntax errors.
+    for stmt in block_body:
         check_for_strays.recurse(stmt)
-        # transform all defs, including those added by "with bind[]".
+    # set up the default continuation that just returns its args
+    new_block_body = [Assign(targets=[q[name["cc"]]], value=hq[identity])]
+    # transform all defs, including those added by with_cc[].
+    for stmt in block_body:
         stmt = _tco_transform_def.recurse(stmt, preproc_cb=transform_args)
         stmt = _tco_transform_lambda.recurse(stmt, preproc_cb=transform_args,
                                              userlambdas=userlambdas,
