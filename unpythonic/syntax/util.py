@@ -199,6 +199,11 @@ class UnexpandedLetView:
             # from the given tree, to send them to the let transformer).
             h = _ishaskellylet(tree)
             if not h:
+                # check a common mistake, missing trailing comma after a single binding ((k, v),)
+                if type(tree) is Compare and len(tree.ops) == 1 and type(tree.ops[0]) is In:
+                    bindings = tree.left
+                    if type(bindings) is Tuple and len(bindings.elts) == 2 and type(bindings.elts[0]) is Name:
+                        raise TypeError("expected a tree representing a let; maybe missing trailing comma after a single binding?")
                 raise TypeError("expected a tree representing a let, got {}".format(tree))
             data = (h, None)  # cannot detect mode, no access to the surrounding subscript form
         self._tree = tree
