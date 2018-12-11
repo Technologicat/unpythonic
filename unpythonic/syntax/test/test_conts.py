@@ -420,9 +420,6 @@ def test():
         def setk(*, cc):
             nonlocal k
             k = cc
-            # TODO: for now, _tco_transform_return() requires to have an explicit "return"
-            # to perform its tail-call transformation.
-            return
         print("starting loop 1")
         @looped
         def s(loop, acc=0, *, cc):
