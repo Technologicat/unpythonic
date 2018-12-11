@@ -26,12 +26,25 @@ def test():
     assert evaluations == 2
     assert y == 5
 
+    # haskelly syntax
+    y = let_syntax[((f, verylongfunctionname),)  # comma required, one-item tuple
+                   in [f(),
+                       f(17)]]
+    assert evaluations == 4
+    assert y == 17
+
+    y = let_syntax[[f(),
+                    f(23)],
+              where((f, verylongfunctionname))]  # no comma required, because using function-call syntax
+    assert evaluations == 6
+    assert y == 23
+
     # templates
     #   - positional parameters only, no default values
     y = let_syntax((f(a), verylongfunctionname(2*a)))[[
                      f(2),
                      f(3)]]
-    assert evaluations == 4
+    assert evaluations == 8
     assert y == 6
 
     # block variant
@@ -140,6 +153,17 @@ def test():
                  f(),
                  f(5)]]
     assert y == 5
+
+    # haskelly syntax
+    y = abbrev[((f, verylongfunctionname),)
+               in [f(),
+                   f(17)]]
+    assert y == 17
+
+    y = abbrev[[f(),
+                f(23)],
+          where((f, verylongfunctionname))]
+    assert y == 23
 
     # in abbrev, outer expands first, so in the assert,
     #     f -> longishname -> verylongfunctionname
