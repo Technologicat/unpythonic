@@ -131,34 +131,6 @@ def envwrap(tree, envname):
     return lam
 
 # -----------------------------------------------------------------------------
-# Inverted let, for situations where a body-first style improves readability.
-#    let0[body, where((k0, v0), ...)]
-#    let0[[body0, ...], where((k0, v0), ...)]
-def _validate_let0(tree, myname):
-    if not (type(tree) is Tuple and len(tree.elts) == 2 and
-            type(tree.elts[1]) is Call and \
-            type(tree.elts[1].func) is Name and tree.elts[1].func.id == "where"):
-        assert False, "expected {}[body, where((k0, v0), ...)]".format(myname)
-
-def _let0_body(tree):  # single expr, or list for implicit do
-    return tree.elts[0]
-
-def _let0_bindings(tree):  # list [(k0, v0), ...]
-    return tree.elts[1].args
-
-def let0(tree):
-    _validate_let0(tree, "let0")
-    return let(bindings=_let0_bindings(tree), body=_let0_body(tree))
-
-def letseq0(tree):
-    _validate_let0(tree, "letseq0")
-    return letseq(bindings=_let0_bindings(tree), body=_let0_body(tree))
-
-def letrec0(tree):
-    _validate_let0(tree, "letrec0")
-    return letrec(bindings=_let0_bindings(tree), body=_let0_body(tree))
-
-# -----------------------------------------------------------------------------
 # Decorator versions, for "let over def".
 
 def dlet(bindings, fdef):

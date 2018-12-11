@@ -9,7 +9,7 @@ from ast import Name, Call, Tuple, Load
 from macropy.core.quotes import macros, q, u, ast_literal
 from macropy.core.walkers import Walker
 
-from .util import islet, isletsyntax, isdo
+from .util import islet, isdo, UnexpandedLetView, UnexpandedDoView
 
 from ..it import flatmap, rev, uniqify
 
@@ -20,26 +20,27 @@ def prefix(block_body):
     @Walker
     def transform(tree, *, quotelevel, set_ctx, stop, **kw):
         # Not tuples but syntax: leave alone the:
-        #  - bindings blocks of let, letseq, letrec, and the d*, b* variants
+        #  - binding pair "tuples" of let, letseq, letrec, their d*, b* variants,
+        #    and let_syntax, abbrev
         #  - subscript part of an explicit do[], do0[]
         # but recurse inside them.
         #
         # let and do have not expanded yet when prefix runs (better that way!).
-        if islet(tree, expanded=False) or isletsyntax(tree):
-            # let((x, 42))[...] appears as Subscript(value=Call(...), ...);
-            # we automatically recurse in other parts of the Subscript.
-            # Here we only need to treat how to proceed inside the Call part.
+        if islet(tree, expanded=False):
             stop()
-            for binding in tree.args:  # TODO: kwargs support for let(x=42)[...] if implemented later
+            view = UnexpandedLetView(tree)
+            for binding in view.bindings:
                 if type(binding) is not Tuple:
                     assert False, "prefix: expected a tuple in let binding position"
                 _, value = binding.elts  # leave name alone, recurse into value
                 binding.elts[1] = transform.recurse(value, quotelevel=quotelevel)
+            if view.body:
+                view.body = transform.recurse(view.body, quotelevel=quotelevel)
             return tree
         elif isdo(tree, expanded=False):
             stop()
-            tree.slice.value.elts = [transform.recurse(expr, quotelevel=quotelevel)
-                                       for expr in tree.slice.value.elts]
+            view = UnexpandedDoView(tree)
+            view.body = [transform.recurse(expr, quotelevel=quotelevel) for expr in view.body]
             return tree
         # general case
         # macro-created nodes might not have a ctx, but we run in the first pass.

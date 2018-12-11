@@ -19,7 +19,6 @@ from .lambdatools import multilambda as _multilambda, \
                          quicklambda as _quicklambda, f, _
 from .letdo import do as _do, do0 as _do0, local, \
                    let as _let, letseq as _letseq, letrec as _letrec, \
-                   let0 as _let0, letseq0 as _letseq0, letrec0 as _letrec0, \
                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
@@ -27,6 +26,7 @@ from .prefix import prefix as _prefix
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, with_cc
 
+from .util import UnexpandedLetView
 from ..dynassign import dyn, make_dynvar
 
 from macropy.core.macros import Macros
@@ -160,16 +160,26 @@ def let(tree, args, *, gen_sym, **kw):
 
     Usage::
 
-        let(bindings)[body]
-        let(bindings)[[body0, ...]]
+        let((k0, v0), ...)[body]
+        let((k0, v0), ...)[[body0, ...]]
 
-    where ``bindings`` is a comma-separated sequence of pairs ``(name, value)``
-    and ``body`` is an expression. The names bound by ``let`` are local;
+    where ``body`` is an expression. The names bound by ``let`` are local;
     they are available in ``body``, and do not exist outside ``body``.
 
-    For a body with multiple expressions, use an extra set of brackets.
-    This inserts a ``do``. Only the outermost extra brackets are interpreted
-    specially; all others in the bodies are interpreted as usual, as lists.
+    Alternative haskelly syntax is also available::
+
+        let[((k0, v0), ...) in body]
+        let[((k0, v0), ...) in [body0, ...]]
+        let[body, where((k0, v0), ...)]
+        let[[body0, ...], where((k0, v0), ...)]
+
+    For a body with multiple expressions, use an extra set of brackets,
+    as shown above. This inserts a ``do``. Only the outermost extra brackets
+    are interpreted specially; all others in the bodies are interpreted
+    as usual, as lists.
+
+    Note that in the haskelly syntax, the extra brackets for a multi-expression
+    body should enclose only the ``body`` part.
 
     Each ``name`` in the same ``let`` must be unique.
 
@@ -199,7 +209,7 @@ def let(tree, args, *, gen_sym, **kw):
           is applied first to ``[body0, ...]``, and the result becomes ``body``.
     """
     with dyn.let(gen_sym=gen_sym):
-        return _let(bindings=args, body=tree)
+        return _destructure_and_apply_let(tree, args, _let)
 
 @macros.expr
 def letseq(tree, args, *, gen_sym, **kw):
@@ -211,7 +221,7 @@ def letseq(tree, args, *, gen_sym, **kw):
     Expands to nested ``let`` expressions.
     """
     with dyn.let(gen_sym=gen_sym):
-        return _letseq(bindings=args, body=tree)
+        return _destructure_and_apply_let(tree, args, _letseq)
 
 @macros.expr
 def letrec(tree, args, *, gen_sym, **kw):
@@ -228,55 +238,14 @@ def letrec(tree, args, *, gen_sym, **kw):
     This is useful for locally defining mutually recursive functions.
     """
     with dyn.let(gen_sym=gen_sym):
-        return _letrec(bindings=args, body=tree)
+        return _destructure_and_apply_let(tree, args, _letrec)
 
-# -----------------------------------------------------------------------------
-# Inverted let, for situations where a body-first style improves readability.
-
-@macros.expr
-def let0(tree, *, gen_sym, **kw):
-    """[syntax, expr] Inverted let.
-
-    Because sometimes it is more readable to give the body first.
-
-    Usage::
-
-        let0[body, where((k0, v0), ...)]
-        let0[[body0, ...], where((k0, v0), ...)]
-
-    The ``where`` is literal.
-
-    Use extra brackets around the body (only) for multiple-expression mode
-    (a.k.a. implicit ``do[]``).
-
-    Inspired by Haskell's ``where``; this format is also common in mathematics.
-    """
-    with dyn.let(gen_sym=gen_sym):
-        return _let0(tree)
-
-@macros.expr
-def letseq0(tree, *, gen_sym, **kw):
-    """[syntax, expr] Inverted letseq.
-
-    Usage::
-
-        letseq0[body, where((k0, v0), ...)]
-        letseq0[[body0, ...], where((k0, v0), ...)]
-    """
-    with dyn.let(gen_sym=gen_sym):
-        return _letseq0(tree)
-
-@macros.expr
-def letrec0(tree, *, gen_sym, **kw):
-    """[syntax, expr] Inverted letrec.
-
-    Usage::
-
-        letrec0[body, where((k0, v0), ...)]
-        letrec0[[body0, ...], where((k0, v0), ...)]
-    """
-    with dyn.let(gen_sym=gen_sym):
-        return _letrec0(tree)
+def _destructure_and_apply_let(tree, args, expander):
+    if args:
+        return expander(bindings=args, body=tree)
+    # haskelly syntax
+    view = UnexpandedLetView(tree)  # note this gets only the part inside the brackets
+    return expander(bindings=view.bindings, body=view.body)
 
 # -----------------------------------------------------------------------------
 # Decorator versions, for "let over def".

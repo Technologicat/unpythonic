@@ -7,7 +7,6 @@
 # added by unpythonic).
 
 from ...syntax import macros, let, letseq, letrec, \
-                              let0, letseq0, letrec0, \
                               dlet, dletseq, dletrec, \
                               blet, bletseq, bletrec, \
                               do, do0, local
@@ -426,13 +425,30 @@ def test():
                     result.append(lst)]]
     assert result == [[], [1]]
 
+    # haskelly syntax
+    result = let[((foo, 5),
+                  (bar, 2))
+                 in foo + bar]
+    assert result == 7
+
+    result = letseq[((foo, 100),
+                     (foo, 2*foo),
+                     (foo, 4*foo))
+                    in foo]
+    assert result == 800
+
+    result = letrec[((evenp, lambda x: (x == 0) or oddp(x - 1)),
+                     (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+                    in [print("hi from letrec-in"),
+                        evenp(42)]]
+
     # inverted let, for situations where a body-first style improves readability:
-    result = let0[foo + bar,
+    result = let[foo + bar,
                where((foo, 5),
                      (bar, 2))]
     assert result == 7
 
-    result = letseq0[foo,
+    result = letseq[foo,
                   where((foo, 100),
                         (foo, 2*foo),
                         (foo, 4*foo))]
@@ -440,8 +456,8 @@ def test():
 
     # can also use the extra bracket syntax to get an implicit do
     # (note the [] should then enclose the body only).
-    result = letrec0[[print("hi from letrec0"),
-                      evenp(42)],
+    result = letrec[[print("hi from letrec-where"),
+                     evenp(42)],
                    where((evenp, lambda x: (x == 0) or oddp(x - 1)),
                          (oddp,  lambda x: (x != 0) and evenp(x - 1)))]
     assert result is True
