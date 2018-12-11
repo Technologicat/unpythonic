@@ -437,10 +437,10 @@ def test():
     # To be able to resume from an arbitrary iteration, we need something like...
     with continuations:
         k = None
-        def setk(acc, *, cc):
+        def setk(x, *, cc):  # pass x through; as a side effect, set k
             nonlocal k
             k = cc
-            return acc
+            return x
         print("starting loop 2")
         @looped
         def s(loop, acc=0, *, cc):
