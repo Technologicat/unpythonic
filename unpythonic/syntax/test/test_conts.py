@@ -455,4 +455,27 @@ def test():
         s = k(5)  # send in the new initial acc
         print("s = {}".format(s))
 
+    # To always resume from the beginning, we can do something like this...
+    with continuations:
+        k = None
+        def setk(acc, *, cc):
+            nonlocal k
+            # because with_cc[] must be at the top level of a def,
+            # we just refactor the "if" here.
+            if acc == 0:
+                k = cc
+        print("starting loop 3")
+        @looped
+        def s(loop, acc=0, *, cc):
+            with_cc[setk(acc)]
+            print(acc)
+            if acc < 10:
+                return loop(acc + 1)
+            return acc
+        print("loop 3 done")
+        print("s = {}".format(s))
+        print("kontinuing loop 3")
+        s = k()
+        print("s = {}".format(s))
+
     print("All tests PASSED")
