@@ -298,6 +298,12 @@ def continuations(block_body):
     def make_continuation(owner, withcc, contbody):
         targets, starget, thecall = analyze_withcc(withcc)
 
+        # no-args special case: allow but ignore args so there won't be arity errors
+        # from a "return None"-generated None being passed into the cc
+        # (in Python, a function always has a return value, though it may be None)
+        if not targets and not starget:
+            starget = "_ignored_posargs"
+
         # Set our captured continuation as the cc of func in with_cc[func(...)]
         basename = "{}_cont".format(owner.name) if owner else "cont"
         contname = gen_sym(basename)

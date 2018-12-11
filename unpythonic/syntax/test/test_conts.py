@@ -426,10 +426,7 @@ def test():
         print("starting loop 1")
         @looped
         def s(loop, acc=0, *, cc):
-            # TODO: for now, with_cc[] sends a value also when the called func
-            # has "return None" or bare "return" (which _tco_transform_return()
-            # implicitly transforms into "return None")...
-            dummy = with_cc[setk()]
+            with_cc[setk()]
             print(acc)
             if acc < 10:
                 return loop(acc + 1)
@@ -437,7 +434,7 @@ def test():
         print("loop 1 done")
         print("s = {}".format(s))
         print("kontinuing loop 1")
-        s = k(None)
+        s = k()
         print("s = {}".format(s))
 
     # To be able to resume from an arbitrary iteration, we need something like...
