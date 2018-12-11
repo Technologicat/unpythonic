@@ -173,6 +173,23 @@ def test():
         print(k(['again']))
         print(k(['thrice', '!']))
 
+    # same, with multiple-return-values and a starred assignment target
+    with continuations:
+        k = None  # kontinuation
+        def setk(*args, cc):
+            nonlocal k
+            k = cc  # current continuation, i.e. where to go after setk() finishes
+            return args  # tuple means multiple-return-values
+        def doit(*, cc):
+            lst = ['the call returned']
+            *more = with_cc[setk('A')]
+            return lst + list(more)
+        print(doit())
+        # We can now send stuff into k, as long as it conforms to the
+        # signature of the assignment targets of the "with_cc".
+        print(k('again'))
+        print(k('thrice', '!'))
+
     # A top-level "with_cc" is also allowed.
     #
     # In that case the continuation always returns None, because the original
