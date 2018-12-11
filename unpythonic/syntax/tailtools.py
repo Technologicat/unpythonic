@@ -364,13 +364,19 @@ def continuations(block_body):
         if type(stmt) is Return:
             assert False, "'return' not allowed at the top level of a 'with continuations' block"
 
-    # transform "return" statements before with_cc[] invocations generate new ones.
-    #
     # Since we transform **all** returns (even those with an inert data value)
-    # into tail calls (to cc), we must first insert any missing implicit "return None"
+    # into tail calls (to cc), we must insert any missing implicit "return None"
     # so that _tco_transform_return() sees the return statements.
-    #
-    block_body = [_add_implicit_bare_return.recurse(stmt) for stmt in block_body]
+    @Walker
+    def add_implicit_bare_return(tree, **kw):
+        if type(tree) in (FunctionDef, AsyncFunctionDef):
+            if type(tree.body[-1]) is not Return:
+                tree.body.append(Return(value=None,  # bare "return"
+                                        lineno=tree.lineno, col_offset=tree.col_offset))
+        return tree
+    block_body = [add_implicit_bare_return.recurse(stmt) for stmt in block_body]
+
+    # transform "return" statements before with_cc[] invocations generate new ones.
     block_body = [_tco_transform_return.recurse(stmt, known_ecs=known_ecs,
                                                 transform_retexpr=transform_retexpr)
                      for stmt in block_body]
@@ -408,17 +414,6 @@ def _tco_transform_def(tree, *, preproc_cb, **kw):
                 tree.decorator_list.insert(k, hq[trampolined])
             else:  # couldn't determine insert position; just plonk it at the start and hope for the best
                 tree.decorator_list.insert(0, hq[trampolined])
-    return tree
-
-# Used by the continuations macro; it needs to send also an implicit None
-# return value into the cc. It hooks into _tco_transform_return, which needs
-# an explicit return statement. So add them where missing.
-@Walker
-def _add_implicit_bare_return(tree, **kw):
-    if type(tree) in (FunctionDef, AsyncFunctionDef):
-        if type(tree.body[-1]) is not Return:
-            tree.body.append(Return(value=None,  # bare "return"
-                                    lineno=tree.lineno, col_offset=tree.col_offset))
     return tree
 
 # Transform return statements and calls to escape continuations (ec).
