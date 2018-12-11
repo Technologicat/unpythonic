@@ -405,7 +405,9 @@ def _tco_transform_def(tree, *, preproc_cb, **kw):
 def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
     treeisec = isec(tree, known_ecs)
     if type(tree) is Return:
-        value = tree.value or q[None]  # return --> return None  (bare return has value=None in the AST)
+        non = q[None]
+        non = copy_location(non, tree)
+        value = tree.value or non  # return --> return None  (bare return has value=None in the AST)
         if not treeisec:
             return Return(value=transform_retexpr(value, known_ecs))
         else:
