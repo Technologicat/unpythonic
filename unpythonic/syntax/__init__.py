@@ -514,7 +514,7 @@ def do0(tree, gen_sym, **kw):
 @macros.expr
 def let_syntax(tree, args, gen_sym, **kw):
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
-        return let_syntax_expr(bindings=args, body=tree)
+        return _destructure_and_apply_let(tree, args, let_syntax_expr)
 
 # Python has no function overloading, but expr and block macros go into
 # different parts of MacroPy's macro registry.
@@ -528,8 +528,15 @@ def let_syntax(tree, **kw):
     Usage - expression variant::
 
         let_syntax((lhs, rhs), ...)[body]
-
         let_syntax((lhs, rhs), ...)[[body0, ...]]
+
+    Alternative haskelly syntax::
+
+        let_syntax[((lhs, rhs), ...) in body]
+        let_syntax[((lhs, rhs), ...) in [body0, ...]]
+
+        let_syntax[body, where((lhs, rhs), ...)]
+        let_syntax[[body0, ...], where((lhs, rhs), ...)]
 
     Usage - block variant::
 
@@ -622,7 +629,7 @@ def let_syntax(tree, **kw):
 @macros.expr
 def abbrev(tree, args, gen_sym, **kw):
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
-        yield let_syntax_expr(bindings=args, body=tree)
+        yield _destructure_and_apply_let(tree, args, let_syntax_expr)
 
 @macros.block
 def abbrev(tree, **kw):
