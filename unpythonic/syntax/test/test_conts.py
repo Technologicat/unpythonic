@@ -33,7 +33,6 @@ def test():
 
         xs, *a = with_cc[f(1, 2)]
         print(xs, a)
-        pass
 
     # an "and" or "or" return value may have a tail-call in the last item
     with continuations:
