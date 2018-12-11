@@ -982,7 +982,7 @@ def continuations(tree, gen_sym, **kw):
 
       - McCarthy's amb operator.
 
-    This is a loose pythonification of Paul Graham's continuation-passing macros,
+    This is a very loose pythonification of Paul Graham's continuation-passing macros,
     which implement continuations by chaining closures and passing the continuation
     semi-implicitly. For details, see chapter 20 in On Lisp:
 
@@ -1051,9 +1051,11 @@ def continuations(tree, gen_sym, **kw):
 
       - Combo note:
 
-        ``unpythonic.ec.call_ec`` can be used normally outside any ``with bind``;
-        but in a ``with bind`` block, the ``ec`` ceases to be valid. (This is
-        because the block is actually a tail call.)
+        ``unpythonic.ec.call_ec`` can be used normally **lexically before any**
+        ``with_cc[]``, but (in a given function) after at least one ``with_cc[]``
+        has run,  the ``ec`` ceases to be valid. (This is because ``with_cc[]``
+        actually splits the function into *before* and *after* parts, and
+        tail-calls the *after* part.)
 
         Usage of ``call_ec`` while inside a ``with continuations`` block is::
 
@@ -1073,37 +1075,44 @@ def continuations(tree, gen_sym, **kw):
 
     **Manipulating the continuation**:
 
-      - Use a ``with bind`` to capture the current continuation. It is almost
-        ``call/cc`` (call-with-current-continuation), but the continuation is
-        explicitly made from the body of the ``with`` block.
+      - Use a ``with_cc[]`` statement to capture the current continuation.
+
+        To keep things relatively straightforward, a ``with_cc[]`` is only
+        allowed to appear at the top level of:
+
+          - the ``with continuations:`` block itself
+          - a ``def`` or ``async def``
+
+        Nested closures are ok; here *top level* only refers to the currently
+        innermost ``def``.
+
+      - It is almost ``call/cc`` (call-with-current-continuation), but the
+        continuation is automatically delimited: it consists of the rest of
+        the statements in the current block.
 
         To grab a first-class reference to this continuation: it's the ``cc``
-        argument of the function being called by the ``with bind``.
+        argument of the function being called by the ``with_cc[]``.
 
         Basically the only case in which ``cc`` will contain something other
         than the default continuation, is while inside the function called
-        by a ``with bind``. (So stash it from there if you need it later.)
-
-        A ``with bind`` works both inside a function definition, and at the
-        top level of the ``with continuations`` block.
+        by a ``with_cc[]``. (So stash it from there if you need it later.)
 
       - Once you have a captured continuation, to use it, set ``cc=...``
         manually in a tail call. Typical usage::
 
             def main(*, cc):
-                with bind[myfunc()]:  # capture the current continuation...
-                    ...               # ...which is this body here
+                with_cc[myfunc()]  # capture the current continuation...
+                ...                # ...which is the rest of this block
 
             def myfunc(*, cc):
-                ourcc = cc  # save the captured continuation (sent by bind)
+                ourcc = cc  # save the captured continuation (sent by with_cc[])
                 def somefunc(*, cc):
                     return dostuff(..., cc=ourcc)  # and use it here
                 somestack.append(somefunc)
 
         In this example, when ``somefunc`` is called, it will tail-call ``dostuff``
         and then proceed with the continuation ``myfunc`` had at the time when
-        that instance of the ``somefunc`` closure was created. In this case,
-        that continuation points to the body of the ``with bind`` in ``main``.
+        that instance of the ``somefunc`` closure was created.
 
       - Instead of setting ``cc``, you can also assign a captured continuation
         to ``cc`` inside a function body. That changes the continuation for the
@@ -1117,72 +1126,66 @@ def continuations(tree, gen_sym, **kw):
                     return dostuff(...)
                 somestack.append(somefunc)
 
-    **The call/cc, "with bind"**::
+    **Syntax of with_cc[]**::
 
-        with bind[func(arg0, ..., k0=v0, ...)] as r:
-            body0
-            ...
+        x = with_cc[func(...)]
+        *xs = with_cc[func(...)]
+        x0, ... = with_cc[func(...)]
+        x0, ..., *xs = with_cc[func(...)]
+        with_cc[func(...)]  # ignoring the return value of ``func`` is also ok
 
-        with bind[func(arg0, ..., k0=v0, ...)] as (r0, ...):
-            body0
-            ...
+    The function call in the brackets is performed, with the lexically remaining
+    statements of the current block set as its continuation.
 
-    Rules:
+      - By stashing the ``cc`` from inside ``func``, to some place accessible
+        from the outside, this allows the body to run multiple times.
+        Calling the ``cc`` runs the body again.
 
-      - ``with bind`` may only appear inside a ``with continuations`` block.
+        Just like in ``call/cc``, the values that get bound to the assignment
+        targets on second and further calls are the arguments given to the
+        ``cc`` when it is called.
 
-      - ``with bind`` is one construct, not two. ``bind`` alone is a syntax error.
+      - Internally, the continuation gets transformed into a function definition
+        (named using a gensym); it implicitly gets its own ``cc``. Hence,
+        the value of ``cc`` in the continuation (i.e. lexically at any statement
+        after the ``with_cc[]``) is the **continuation's** ``cc``.
 
-      - The function call in the brackets is performed, with the body of the
-        ``with`` block set as its continuation.
-
-          - By stashing the ``cc`` from inside ``func``, to some place accessible
-            from the outside, this allows the body to run multiple times.
-            Calling the ``cc`` runs the body again.
-
-            Just like in ``call/cc``, the values that get bound to the as-part
-            on second and further calls are the arguments given to the ``cc``
-            when it is called.
-
-          - Internally, the body gets transformed into a function definition
-            (named using a gensym); it implicitly gets its own ``cc``. Hence,
-            the value of ``cc`` inside the body is the **body's** ``cc``.
-
-      - The optional as-part captures the return value of ``func`` (first time),
-        and whatever was sent into the continuation (second and further times).
+      - The optional assignment targets capture the return value of ``func``
+        (first time), and whatever was sent into the continuation (second and
+        further times).
 
          - To ignore the return value (useful if ``func`` was called only to
-           perform its side-effects), just omit the as-part.
+           perform its side-effects), just omit the assignment part.
 
          - To destructure a multiple-values (from a tuple return value),
-           use a tuple ``(r0, ...)``. **Parentheses are mandatory** due to
-           the syntax of Python's ``with`` statement.
+           use a tuple target.
 
-           Tupleness is tested at run-time, except for literal tuples the
-           run-time check is automatically omitted.
+           Tupleness is tested at run-time, except when returning a literal tuple
+           the run-time check is automatically omitted.
 
-      - When ``with bind`` appears inside a function definition:
+         - The last assignment target may be starred. It is transformed into
+           the vararg (a.k.a. ``*args``) of the continuation function.
+
+      - When ``with_cc[]`` appears inside a function definition:
 
           - This is technically a tail call that inserts the call to ``func``
-            and the given body before proceeding with the current continuation.
-
-          - The return value of the function containing the ``with bind``
-            is the return value of the body of the ``with bind``.
-
-      - When ``with bind`` appears at the top level:
-
-          - A normal call to ``func`` is made, proceeding with the body as the
+            and the remaining statements before proceeding with the current
             continuation.
 
-          - In this case it is not possible to get the return value of the body
-            the first time it runs, because ``with`` is a statement.
+          - The return value of the function containing the ``with_cc[]``
+            is the return value of the continuation.
 
-            If you stash ``cc`` while inside ``func``, and then call the ``cc``
-            later from the top level, then on any further runs it is possible
-            to get its return value as usual.
+      - When ``with_cc[]`` appears at the top level:
+
+          - A normal call to ``func`` is made, then proceeding with the remaining
+            statements.
+
+          - In this case the continuation has no return value (always returns
+            ``None``), because the top-level context (which runs the first time)
+            is not a function.
 
       - If you need to insert just a tail call (no extra body) before proceeding
-        with the current continuation, no need for ``with bind``; use
+        with the current continuation, no need for ``with_cc[]``; use
         ``return func(...)`` instead.
     """
     with dyn.let(gen_sym=gen_sym):
