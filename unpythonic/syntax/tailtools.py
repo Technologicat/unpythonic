@@ -370,7 +370,7 @@ def continuations(block_body):
     # into tail calls (to cc), we must first insert any missing implicit "return None"
     # so that _tco_transform_return() sees the return statements.
     #
-    block_body = [_add_implicit_return_none.recurse(stmt) for stmt in block_body]
+    block_body = [_add_implicit_bare_return.recurse(stmt) for stmt in block_body]
     block_body = [_tco_transform_return.recurse(stmt, known_ecs=known_ecs,
                                                 transform_retexpr=transform_retexpr)
                      for stmt in block_body]
@@ -410,21 +410,20 @@ def _tco_transform_def(tree, *, preproc_cb, **kw):
                 tree.decorator_list.insert(0, hq[trampolined])
     return tree
 
-# Used by the continuations macro; it needs to send also an implicit
-# "return None" to the cc. It hooks into _tco_transform_return,
-# which needs an explicit return statement.
+# Used by the continuations macro; it needs to send also an implicit None
+# return value into the cc. It hooks into _tco_transform_return, which needs
+# an explicit return statement. So add them where missing.
 @Walker
-def _add_implicit_return_none(tree, **kw):
+def _add_implicit_bare_return(tree, **kw):
     if type(tree) in (FunctionDef, AsyncFunctionDef):
         if type(tree.body[-1]) is not Return:
-            non = q[None]
-            non = copy_location(non, tree)
-            tree.body.append(Return(value=non))
+            tree.body.append(Return(value=None,  # bare "return"
+                                    lineno=tree.lineno, col_offset=tree.col_offset))
     return tree
 
 # Transform return statements and calls to escape continuations (ec).
 # known_ecs: list of names (str) of known escape continuations.
-# transform_retexpr: return-value expression transformer.
+# transform_retexpr: return-value expression transformer (for TCO and stuff).
 @Walker
 def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
     treeisec = isec(tree, known_ecs)
