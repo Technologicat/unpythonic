@@ -4,6 +4,7 @@
 from ...syntax import macros, continuations, with_cc, multilambda, autoreturn, curry
 
 from ...ec import call_ec
+from ...fploop import looped
 
 def test():
     # basic testing
@@ -412,5 +413,52 @@ def test():
         while x:
             print(x)
             x = fail()
+
+    # FP loop combo? Testing...
+    with continuations:
+        k = None
+        def setk(*, cc):
+            nonlocal k
+            k = cc
+            # TODO: for now, _tco_transform_return() requires to have an explicit "return"
+            # to perform its tail-call transformation.
+            return
+        print("starting loop 1")
+        @looped
+        def s(loop, acc=0, *, cc):
+            # TODO: for now, with_cc[] sends a value also when the called func
+            # has "return None" or bare "return" (which _tco_transform_return()
+            # implicitly transforms into "return None")...
+            dummy = with_cc[setk()]
+            print(acc)
+            if acc < 10:
+                return loop(acc + 1)
+            return acc
+        print("loop 1 done")
+        print("s = {}".format(s))
+        print("kontinuing loop 1")
+        s = k(None)
+        print("s = {}".format(s))
+
+    # To be able to resume from an arbitrary iteration, we need something like...
+    with continuations:
+        k = None
+        def setk(acc, *, cc):
+            nonlocal k
+            k = cc
+            return acc
+        print("starting loop 2")
+        @looped
+        def s(loop, acc=0, *, cc):
+            acc = with_cc[setk(acc)]
+            print(acc)
+            if acc < 10:
+                return loop(acc + 1)
+            return acc
+        print("loop 2 done")
+        print("s = {}".format(s))
+        print("kontinuing loop 2")
+        s = k(5)  # send in the new initial acc
+        print("s = {}".format(s))
 
     print("All tests PASSED")
