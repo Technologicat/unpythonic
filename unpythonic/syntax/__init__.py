@@ -972,7 +972,7 @@ def tco(tree, *, gen_sym, **kw):
 
 @macros.block
 def continuations(tree, gen_sym, **kw):
-    """[syntax, block] Semi-implicit continuations.
+    """[syntax, block] Essentially, call/cc for Python.
 
     Roughly, this allows saving the control state and then jumping back later
     (in principle, any time later). Some possible use cases:
@@ -982,16 +982,16 @@ def continuations(tree, gen_sym, **kw):
 
       - McCarthy's amb operator.
 
-    This is a very loose pythonification of Paul Graham's continuation-passing macros,
-    which implement continuations by chaining closures and passing the continuation
-    semi-implicitly. For details, see chapter 20 in On Lisp:
+    This is a very loose pythonification of Paul Graham's continuation-passing
+    macros, which implement continuations by chaining closures and passing the
+    continuation semi-implicitly. For details, see chapter 20 in On Lisp:
 
         http://paulgraham.com/onlisp.html
 
     Continuations are most readily implemented when the program is written in
     continuation-passing style (CPS), but that is unreadable for humans.
-    The purpose of this macro is to partly automate the CPS transformation,
-    so that at the use site, we can write CPS code in a much more readable fashion.
+    The purpose of this macro is to partly automate the CPS transformation, so
+    that at the use site, we can write CPS code in a much more readable fashion.
 
     To combo with multilambda, use this ordering::
 
@@ -1016,12 +1016,20 @@ def continuations(tree, gen_sym, **kw):
 
                     f = lambda *, cc: ...
 
-      - A ``with continuations`` block will automatically transform all ``def``
-        function definitions and ``return`` statements lexically contained within
-        it to use the continuation machinery.
+      - A ``with continuations`` block will automatically transform all
+        function definitions and ``return`` statements lexically contained
+        within the block to use the continuation machinery.
 
         - ``return somevalue`` actually means a tail-call to ``cc`` with the
-          given ``somevalue``. Multiple values can be returned as a ``tuple``.
+          given ``somevalue``.
+
+          Multiple values can be returned as a ``tuple``. Tupleness is tested
+          at run-time, except for literal tuple return values, for which the
+          check is omitted.
+
+          Any tuple return value is automatically unpacked to the positional
+          args of ``cc``. To return multiple things as one without the implicit
+          unpacking, use a ``list``.
 
         - An explicit ``return somefunc(arg0, ..., k0=v0, ...)`` actually means
           a tail-call to ``somefunc``, with its ``cc`` automatically set to our
@@ -1033,8 +1041,8 @@ def continuations(tree, gen_sym, **kw):
           returned to the top-level caller.
 
           (If the call succeeds at all; the ``cc`` argument is implicitly
-          filled in and passed by name, and most regular functions do not
-          have a named parameter ``cc``.)
+          filled in and passed by name. Regular functions usually do not
+          accept a named parameter ``cc``, let alone know what to do with it.)
 
       - Calls from functions defined in one ``with continuations`` block to those
         defined in another are ok; there is no state or context associated with
@@ -1049,11 +1057,147 @@ def continuations(tree, gen_sym, **kw):
         called normally; only tail calls implicitly set ``cc``. A normal call
         uses ``identity`` as the default ``cc``.
 
+      - For technical reasons, the ``return`` statement is not allowed at the
+        top level of the ``with continuations:`` block. (Because a continuation
+        is essentially a function, ``return`` would behave differently based on
+        whether it is placed lexically before or after a ``with_cc[]``.)
+
+        If you absolutely need to terminate the function surrounding the
+        ``with continuations:`` block from inside the block, use an exception
+        to escape; see ``call_ec``, ``setescape``, ``escape``.
+
+    **Capturing the continuation**:
+
+    Inside a ``with continuations:`` block, the ``with_cc[]`` statement
+    captures a continuation. Syntax::
+
+        x = with_cc[func(...)]
+        *xs = with_cc[func(...)]
+        x0, ... = with_cc[func(...)]
+        x0, ..., *xs = with_cc[func(...)]
+        with_cc[func(...)]
+
+    The function call in the brackets is performed, with its ``cc`` argument
+    set to the lexically remaining statements of the current block, represented
+    as a callable.
+
+    Note this is a *delimited continuation* that ends there; for example,
+    any computations performed by the caller are not part of the continuation.
+
+     - To destructure a multiple-values (from a tuple return value),
+       use a tuple assignment target (comma-separated names, as usual).
+
+     - The last assignment target may be starred. It is transformed into
+       the vararg (a.k.a. ``*args``) of the continuation function.
+
+     - To ignore the return value (useful if ``func`` was called only to
+       perform its side-effects), just omit the assignment part.
+
+    The function ``func`` called by a ``with_cc[func(...)]`` is the only place
+    where the ``cc`` argument is actually set. There it is the captured
+    continuation. Everywhere else, ``cc`` is just ``identity``.
+
+    The ``with_cc[]`` statement essentially splits its use site into *before*
+    and *after* parts, where the *after* part (the continuation) can be run
+    a second and further times, by later calling the callable that represents
+    the continuation.
+
+    The return value of the continuation is whatever the original function
+    returns, for any ``return`` statement that appears lexically after the
+    ``with_cc[]``.
+
+    To keep things relatively straightforward, a ``with_cc[]`` is only
+    allowed to appear **at the top level** of:
+
+      - the ``with continuations:`` block itself
+      - a ``def`` or ``async def``
+
+    Nested defs are ok; here *top level* only means the top level of the
+    *currently innermost* ``def``.
+
+    Multiple ``with_cc[]`` statements in the same function body are allowed.
+    These essentially create nested closures.
+
+    **Tips**:
+
+      - Once you have a captured continuation, one way to use it is to set
+        ``cc=...`` manually in a tail call. Typical usage::
+
+            def main(*, cc):
+                with_cc[myfunc()]  # call myfunc and capture the continuation...
+                ...                # ...which is the rest of the def
+
+            def myfunc(*, cc):
+                ourcc = cc  # save the captured continuation (sent by with_cc[])
+                def somefunc(*, cc):
+                    return dostuff(..., cc=ourcc)  # and use it here
+                somestack.append(somefunc)
+
+        In this example, when ``somefunc`` is eventually called, it will tail-call
+        ``dostuff`` and then proceed with the continuation ``myfunc`` had
+        at the time when that instance of the ``somefunc`` closure was created.
+
+        The machinery automatically detects if you have already set ``cc=...``
+        for a particular tail call, skipping the implicit cc passing step.
+
+      - Instead of setting ``cc``, you can also overwrite ``cc`` with a captured
+        continuation inside a function body. That sets the continuation (to be
+        passed implicitly) for the rest of the dynamic extent of the function,
+        not only for a particular tail call::
+
+            def myfunc(*, cc):
+                ourcc = cc
+                def somefunc(*, cc):
+                    cc = ourcc
+                    return dostuff(...)
+                somestack.append(somefunc)
+
+      - A captured continuation can also be called manually; it's just a callable.
+
+        The assignment targets, at the ``with_cc[]`` use site that spawned this
+        particular continuation, specify its call signature. All args (except
+        the implicitly passed ``cc``) are positional.
+
+      - Just like in ``call/cc``, the values that get bound to the ``with_cc[]``
+        assignment targets on second and further calls (when the continuation
+        runs) are the arguments given to the continuation when it is called
+        (whether implicitly or manually).
+
+      - Internally, the act of capturing a continuation creates a closure
+        (with the function named using a gensym); it implicitly gets its own
+        ``cc``. Hence, the value of ``cc`` in the continuation (i.e. lexically at
+        any statement after the ``with_cc[]``) is the **continuation's** ``cc``.
+
+      - When ``with_cc[]`` appears inside a function definition:
+
+          - It tail-calls ``func``, with its ``cc`` set to the captured
+            continuation, before proceeding with the previous ``cc``
+            (the *before* part's current continuation).
+
+          - The return value of the function containing one or more ``with_cc[]``
+            statements is the return value of the continuation.
+
+      - When ``with_cc[]`` appears at the top level of ``with continuations``:
+
+          - A normal call to ``func`` is made, then proceeding with the remaining
+            statements.
+
+          - In this case, if the continuation is called later, it always
+            returns ``None``, because the ``with_cc[]`` is not inside a
+            function definition.
+
+      - If you need to insert just a tail call (no further statements) before
+        proceeding with the current continuation, no need for ``with_cc[]``;
+        use ``return func(...)`` instead.
+
+        The purpose of ``with_cc[func(...)]`` is to capture the current
+        continuation, and hand it to ``func`` as a first-class value.
+
       - Combo note:
 
         ``unpythonic.ec.call_ec`` can be used normally **lexically before any**
         ``with_cc[]``, but (in a given function) after at least one ``with_cc[]``
-        has run,  the ``ec`` ceases to be valid. (This is because ``with_cc[]``
+        has run, the ``ec`` ceases to be valid. (This is because ``with_cc[]``
         actually splits the function into *before* and *after* parts, and
         tail-calls the *after* part.)
 
@@ -1061,7 +1205,7 @@ def continuations(tree, gen_sym, **kw):
 
             with continuations:
                 @call_ec
-                def result(ec, *, cc):  # note the signature
+                def result(ec, *, cc):
                     print("hi")
                     ec(42)
                     print("not reached")
@@ -1071,122 +1215,12 @@ def continuations(tree, gen_sym, **kw):
                                                       ec(42),
                                                       print("not reached")])
 
+        Note the signature of ``result``. Essentially, ``ec`` is a function
+        that raises an exception (to escape to a dynamically outer context),
+        whereas ``cc`` is the closure-based continuation handled by the
+        continuation machinery.
+
         See the ``tco`` macro for details on the ``call_ec`` combo.
-
-    **Manipulating the continuation**:
-
-      - Use a ``with_cc[]`` statement to capture the current continuation.
-
-        To keep things relatively straightforward, a ``with_cc[]`` is only
-        allowed to appear at the top level of:
-
-          - the ``with continuations:`` block itself
-          - a ``def`` or ``async def``
-
-        Nested closures are ok; here *top level* only refers to the currently
-        innermost ``def``.
-
-      - It is almost ``call/cc`` (call-with-current-continuation), but the
-        continuation is automatically delimited: it consists of the rest of
-        the statements in the current block.
-
-        To grab a first-class reference to this continuation: it's the ``cc``
-        argument of the function being called by the ``with_cc[]``.
-
-        Basically the only case in which ``cc`` will contain something other
-        than the default continuation, is while inside the function called
-        by a ``with_cc[]``. (So stash it from there if you need it later.)
-
-      - Once you have a captured continuation, to use it, set ``cc=...``
-        manually in a tail call. Typical usage::
-
-            def main(*, cc):
-                with_cc[myfunc()]  # capture the current continuation...
-                ...                # ...which is the rest of this block
-
-            def myfunc(*, cc):
-                ourcc = cc  # save the captured continuation (sent by with_cc[])
-                def somefunc(*, cc):
-                    return dostuff(..., cc=ourcc)  # and use it here
-                somestack.append(somefunc)
-
-        In this example, when ``somefunc`` is called, it will tail-call ``dostuff``
-        and then proceed with the continuation ``myfunc`` had at the time when
-        that instance of the ``somefunc`` closure was created.
-
-      - Instead of setting ``cc``, you can also assign a captured continuation
-        to ``cc`` inside a function body. That changes the continuation for the
-        rest of the dynamic extent of the function, not only for a particular
-        tail call::
-
-            def myfunc(*, cc):
-                ourcc = cc
-                def somefunc(*, cc):
-                    cc = ourcc
-                    return dostuff(...)
-                somestack.append(somefunc)
-
-    **Syntax of with_cc[]**::
-
-        x = with_cc[func(...)]
-        *xs = with_cc[func(...)]
-        x0, ... = with_cc[func(...)]
-        x0, ..., *xs = with_cc[func(...)]
-        with_cc[func(...)]  # ignoring the return value of ``func`` is also ok
-
-    The function call in the brackets is performed, with the lexically remaining
-    statements of the current block set as its continuation.
-
-      - By stashing the ``cc`` from inside ``func``, to some place accessible
-        from the outside, this allows the body to run multiple times.
-        Calling the ``cc`` runs the body again.
-
-        Just like in ``call/cc``, the values that get bound to the assignment
-        targets on second and further calls are the arguments given to the
-        ``cc`` when it is called.
-
-      - Internally, the continuation gets transformed into a function definition
-        (named using a gensym); it implicitly gets its own ``cc``. Hence,
-        the value of ``cc`` in the continuation (i.e. lexically at any statement
-        after the ``with_cc[]``) is the **continuation's** ``cc``.
-
-      - The optional assignment targets capture the return value of ``func``
-        (first time), and whatever was sent into the continuation (second and
-        further times).
-
-         - To ignore the return value (useful if ``func`` was called only to
-           perform its side-effects), just omit the assignment part.
-
-         - To destructure a multiple-values (from a tuple return value),
-           use a tuple target.
-
-           Tupleness is tested at run-time, except when returning a literal tuple
-           the run-time check is automatically omitted.
-
-         - The last assignment target may be starred. It is transformed into
-           the vararg (a.k.a. ``*args``) of the continuation function.
-
-      - When ``with_cc[]`` appears inside a function definition:
-
-          - This is technically a tail call that inserts the call to ``func``
-            and the remaining statements before proceeding with the current
-            continuation.
-
-          - The return value of the function containing the ``with_cc[]``
-            is the return value of the continuation.
-
-      - When ``with_cc[]`` appears at the top level:
-
-          - A normal call to ``func`` is made, then proceeding with the remaining
-            statements.
-
-          - In this case the continuation has no return value (always returns
-            ``None``), because the top-level context (which runs the first time)
-            is not a function.
-
-      - If you need to insert just a tail call (no extra body) before proceeding
-        with the current continuation, no need for ``with_cc[]``; use
-        ``return func(...)`` instead.
     """
     with dyn.let(gen_sym=gen_sym):
         return (yield from _continuations(block_body=tree))
