@@ -299,7 +299,8 @@ def continuations(block_body):
         targets, starget, thecall = analyze_withcc(withcc)
 
         # Set our captured continuation as the cc of func in with_cc[func(...)]
-        contname = gen_sym("cont")
+        basename = "{}_cont".format(owner.name) if owner else "cont"
+        contname = gen_sym(basename)
         thecall.keywords = [keyword(arg="cc", value=q[name[contname]])] + thecall.keywords
 
         # Create the continuation function, set contbody as its body.
