@@ -185,55 +185,6 @@ def continuations(block_body):
     # specified inside the body of the macro invocation like PG's solution does.
     # Instead, we capture as the continuation all remaining statements (i.e.
     # those that lexically appear after the ``with_cc[]``) in the current block.
-    #
-    # To keep things relatively straightforward, the ``with_cc[]`` construct
-    # is only allowed to appear at the top level of:
-    #
-    #   - the ``with continuations:`` block itself
-    #   - a ``def`` or ``async def``
-    #
-    # Nested closures are ok; here "top level" only refers to the currently
-    # innermost ``def``.
-    #
-    # Syntax::
-    #
-    #   x = with_cc[func(...)]
-    #   *xs = with_cc[func(...)]
-    #   x0, ... = with_cc[func(...)]
-    #   x0, ..., *xs = with_cc[func(...)]
-    #   with_cc[func(...)]  # ignoring the return value of ``func`` is also ok
-    #
-    # On the LHS, the starred item, if it appears, must be last. This limitation
-    # is due to how Python handles varargs.
-    #
-    # The function ``func`` called by a ``with_cc[func(...)]`` is the only place
-    # where the ``cc`` argument is actually set. There it is the captured
-    # continuation, represented as a function object.
-    #
-    # The ``with_cc[]`` construct essentially splits the function at its use site
-    # into "before" and "after" parts, where the "after" part (the continuation)
-    # can be run multiple times, by calling the continuation as a function.
-    #
-    # The return value of the continuation is whatever the original function
-    # returns (for any ``return`` statement that appears lexically after the
-    # ``with_cc[]``).
-    #
-    # Multiple ``with_cc[]`` invocations in the same function are allowed.
-    # These essentially create nested closures.
-    #
-    # Note that when ``with_cc[]`` is used at the top level of the
-    # ``with continuations:`` block, the return value of the continuation
-    # is always ``None``, because the block itself returns nothing.
-    #
-    # For technical reasons, the ``return`` statement is not allowed at the
-    # top level of the ``with continuations:`` block. (Because the continuation
-    # is essentially a function, ``return`` would behave differently based on
-    # whether it is placed lexically before or after a ``with_cc[]``, which is
-    # needlessly complicated.)
-    #
-    # If you absolutely need to terminate the function surrounding the
-    # ``with continuations:`` block from inside the block, use an exception
-    # to escape; see ``call_ec``, ``setescape``, ``escape``.
     def iswithcc(tree):
         if type(tree) in (Assign, Expr):
             tree = tree.value
