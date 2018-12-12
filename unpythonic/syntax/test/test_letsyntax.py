@@ -27,7 +27,7 @@ def test():
     assert y == 5
 
     # haskelly syntax
-    y = let_syntax[((f, verylongfunctionname),)  # comma required, one-item tuple
+    y = let_syntax[((f, verylongfunctionname))
                    in [f(),
                        f(17)]]
     assert evaluations == 4
@@ -35,7 +35,7 @@ def test():
 
     y = let_syntax[[f(),
                     f(23)],
-              where((f, verylongfunctionname))]  # no comma required, because using function-call syntax
+              where((f, verylongfunctionname))]
     assert evaluations == 6
     assert y == 23
 
@@ -155,7 +155,7 @@ def test():
     assert y == 5
 
     # haskelly syntax
-    y = abbrev[((f, verylongfunctionname),)
+    y = abbrev[((f, verylongfunctionname))
                in [f(),
                    f(17)]]
     assert y == 17
