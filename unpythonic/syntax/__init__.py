@@ -1077,12 +1077,25 @@ def continuations(tree, gen_sym, **kw):
         x0, ..., *xs = with_cc[func(...)]
         with_cc[func(...)]
 
-    The function call in the brackets is performed, with its ``cc`` argument
-    set to the lexically remaining statements of the current block, represented
-    as a callable.
+    Conditional variant::
 
-    Note this is a *delimited continuation* that ends there; for example,
-    any computations performed by the caller are not part of the continuation.
+        x = with_cc[f(...) if p else g(...)]
+        *xs = with_cc[f(...) if p else g(...)]
+        x0, ... = with_cc[f(...) if p else g(...)]
+        x0, ..., *xs = with_cc[f(...) if p else g(...)]
+        with_cc[f(...) if p else g(...)]
+
+    The function call ``func(...)`` in the brackets is performed, with its ``cc``
+    argument set to the lexically remaining statements of the current block,
+    represented as a callable.
+
+    The continuation itself ends there, but it will chain to the ``cc`` of the
+    original function, as if it was still just one function. Specifically, the
+    continuation is a closure; for chaining, it will use the value the original
+    function's ``cc`` had when the definition of the continuation was executed
+    (for that particular instance of the closure). Hence, calling the original
+    function again with another value for ``cc`` will produce a continuation
+    that chains into that new ``cc``.
 
      - To destructure a multiple-values (from a tuple return value),
        use a tuple assignment target (comma-separated names, as usual).
@@ -1092,6 +1105,25 @@ def continuations(tree, gen_sym, **kw):
 
      - To ignore the return value (useful if ``func`` was called only to
        perform its side-effects), just omit the assignment part.
+
+     - In the conditional variant, ``p`` is any expression. If truthy, ``f(...)``
+       is called, and if falsey, ``g(...)`` is called.
+
+     - Each of ``f(...)``, ``g(...)`` may be replaced with ``None``. A ``None``
+       skips the function call, proceeding directly to the continuation. Upon
+       skipping, all assignment targets (if any are present) are set to ``None``.
+       The starred assignment target (if present) gets the empty tuple.
+
+       The main use case of the conditional variant is for things like::
+
+            with continuations:
+                k = None
+                def setk(*, cc):
+                    global k
+                    k = cc
+                def dostuff(x, *, cc):
+                    with_cc[setk() if x > 10 else None]
+                    ...
 
     The function ``func`` called by a ``with_cc[func(...)]`` is the only place
     where the ``cc`` argument is actually set. There it is the captured

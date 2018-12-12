@@ -9,14 +9,14 @@ from ast import Lambda, FunctionDef, \
                 arguments, arg, keyword, \
                 List, Tuple, \
                 Subscript, Index, \
-                Call, Name, Starred, Num, \
+                Call, Name, Starred, Num, NameConstant, \
                 BoolOp, And, Or, \
                 With, If, IfExp, Try, Assign, Return, Expr, \
                 copy_location
 from .astcompat import AsyncFunctionDef, AsyncWith
 
 from macropy.core.macros import macro_stub
-from macropy.core.quotes import macros, q, ast_literal, name
+from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
@@ -287,27 +287,54 @@ def continuations(block_body):
             targets = []
         else:
             assert False, "with_cc[]: expected an assignment or a bare expr, got {}".format(stmt)
-        # extract the function call
+        # extract the function call(s)
         if type(stmt.value) is not Subscript:  # both Assign and Expr have a .value
             assert False, "expected either an assignment with a with_cc[] expr on RHS, or a bare with_cc[] expr, got {}".format(stmt.value)
-        thecall = stmt.value.slice.value
-        if type(thecall) is not Call:
-            assert False, "the bracketed expression in with_cc[...] must be a function call"
-        return targets, starget, thecall
+        theexpr = stmt.value.slice.value
+        if not (type(theexpr) in (Call, IfExp) or (type(theexpr) is NameConstant and theexpr.value is None)):
+            assert False, "the bracketed expression in with_cc[...] must be a function call, an if-expression, or None"
+        def extract_call(tree):
+            if type(tree) is Call:
+                return tree
+            elif type(tree) is NameConstant and tree.value is None:
+                return None
+            else:
+                assert False, "with_cc[...]: expected a function call or None"
+        if type(theexpr) is IfExp:
+            condition = theexpr.test
+            thecall = extract_call(theexpr.body)
+            altcall = extract_call(theexpr.orelse)
+        else:
+            condition = altcall = None
+            thecall = extract_call(theexpr)
+        return targets, starget, condition, thecall, altcall
     gen_sym = dyn.gen_sym
     def make_continuation(owner, withcc, contbody):
-        targets, starget, thecall = analyze_withcc(withcc)
+        targets, starget, condition, thecall, altcall = analyze_withcc(withcc)
 
-        # no-args special case: allow but ignore args so there won't be arity errors
+        # no-args special case: allow but ignore one arg so there won't be arity errors
         # from a "return None"-generated None being passed into the cc
         # (in Python, a function always has a return value, though it may be None)
         if not targets and not starget:
-            starget = "_ignored_posargs"
+            targets = ["_ignored_arg"]
+            posargdefaults = [q[None]]
+        else:
+            posargdefaults = []
 
-        # Set our captured continuation as the cc of func in with_cc[func(...)]
+        # Set our captured continuation as the cc of f and g in
+        #   with_cc[f(...)]
+        #   with_cc[f(...) if p else g(...)]
         basename = "{}_cont".format(owner.name) if owner else "cont"
         contname = gen_sym(basename)
-        thecall.keywords = [keyword(arg="cc", value=q[name[contname]])] + thecall.keywords
+        def prepare_call(tree):
+            if tree:
+                tree.keywords = [keyword(arg="cc", value=q[name[contname]])] + tree.keywords
+            else:  # no call means proceed to cont directly, with args set to None
+                tree = q[name[contname](*([None]*u[len(targets)]), cc=name["cc"])]
+            return tree
+        thecall = prepare_call(thecall)
+        if condition:
+            altcall = prepare_call(altcall)
 
         # Create the continuation function, set contbody as its body.
         #
@@ -321,8 +348,8 @@ def continuations(block_body):
                                       kwonlyargs=[arg(arg="cc")],
                                       vararg=(arg(arg=starget) if starget else None),
                                       kwarg=None,
-                                      defaults=[],
-                                      kw_defaults=[None]),  # patched later by transform_def
+                                      defaults=posargdefaults,
+                                      kw_defaults=[q[name["cc"]]]),  # chain to the outer function's cc
                        body=contbody,
                        decorator_list=[],  # patched later by transform_def
                        returns=None)  # return annotation not used here
@@ -330,11 +357,24 @@ def continuations(block_body):
         # in the output stmts, define the continuation function...
         newstmts = [funcdef]
         if owner:  # ...and tail-call it (if currently inside a def)
-            thecall.args = [thecall.func] + thecall.args
-            thecall.func = hq[jump]
-            newstmts.append(Return(value=q[ast_literal[thecall]]))
+            def jumpify(tree):
+                tree.args = [tree.func] + tree.args
+                tree.func = hq[jump]
+            jumpify(thecall)
+            if condition:
+                jumpify(altcall)
+                newstmts.append(If(test=condition,
+                                   body=[Return(value=q[ast_literal[thecall]])],
+                                   orelse=[Return(value=q[ast_literal[altcall]])]))
+            else:
+                newstmts.append(Return(value=q[ast_literal[thecall]]))
         else:  # ...and call it normally (if at the top level)
-            newstmts.append(Expr(value=q[ast_literal[thecall]]))
+            if condition:
+                newstmts.append(If(test=condition,
+                                   body=[Expr(value=q[ast_literal[thecall]])],
+                                   orelse=[Expr(value=q[ast_literal[altcall]])]))
+            else:
+                newstmts.append(Expr(value=q[ast_literal[thecall]]))
         return newstmts
     @Walker  # find and transform with_cc[] statements inside function bodies
     def transform_withccs(tree, **kw):
@@ -388,6 +428,7 @@ def continuations(block_body):
     for stmt in block_body:
         check_for_strays.recurse(stmt)
     # set up the default continuation that just returns its args
+    # (the top-level "cc" is only used for continuations created by with_cc[] at the top level of the block)
     new_block_body = [Assign(targets=[q[name["cc"]]], value=hq[identity])]
     # transform all defs, including those added by with_cc[].
     for stmt in block_body:
