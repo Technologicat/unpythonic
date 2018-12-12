@@ -197,14 +197,14 @@ def continuations(block_body):
     def split_at_withcc(body):
         if not body:
             return [], None, []
-        before, rest = [], body
+        before, after = [], body
         while True:
-            stmt, *rest = rest
+            stmt, *after = after
             if iswithcc(stmt):
-                return before, stmt, rest
+                return before, stmt, after
             before.append(stmt)
-            if not rest:
-                return before, None, rest
+            if not after:
+                return before, None, after
     def analyze_withcc(stmt):
         starget = None  # "starget" = starred target, becomes the vararg for the cont
         def maybe_starred(expr):  # return expr.id or set starget
