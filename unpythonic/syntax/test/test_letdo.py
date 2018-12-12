@@ -470,4 +470,9 @@ def test():
     result = let[2*x, where(x, 1)]
     assert result == 2
 
+    # TODO: for now, with more than one binding the outer parentheses
+    # are required, even in this format where they are somewhat redundant.
+    result = let[((x, 1), (y, 2)) in x + y]
+    assert result == 3
+
     print("All tests PASSED")
