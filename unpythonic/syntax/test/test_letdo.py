@@ -6,7 +6,7 @@
 # (aside from patching pyflakes and pylint to handle the binding forms that are
 # added by unpythonic).
 
-from ...syntax import macros, let, letseq, letrec, \
+from ...syntax import macros, let, letseq, letrec, where, \
                               dlet, dletseq, dletrec, \
                               blet, bletseq, bletrec, \
                               do, do0, local
@@ -461,5 +461,13 @@ def test():
                    where((evenp, lambda x: (x == 0) or oddp(x - 1)),
                          (oddp,  lambda x: (x != 0) and evenp(x - 1)))]
     assert result is True
+
+    # single binding special syntax, no need for outer parentheses
+    result = let(x, 1)[2*x]
+    assert result == 2
+    result = let[(x, 1) in 2*x]
+    assert result == 2
+    result = let[2*x, where(x, 1)]
+    assert result == 2
 
     print("All tests PASSED")

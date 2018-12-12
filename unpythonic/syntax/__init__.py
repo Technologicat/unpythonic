@@ -26,7 +26,8 @@ from .prefix import prefix as _prefix
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, with_cc
 
-from .letdoutil import UnexpandedLetView
+# "where" is only for passing through.
+from .letdoutil import UnexpandedLetView, _canonize_bindings, where
 from ..dynassign import dyn, make_dynvar
 
 from macropy.core.macros import Macros
@@ -240,9 +241,10 @@ def letrec(tree, args, *, gen_sym, **kw):
     with dyn.let(gen_sym=gen_sym):
         return _destructure_and_apply_let(tree, args, _letrec)
 
-def _destructure_and_apply_let(tree, args, expander):
+def _destructure_and_apply_let(tree, args, expander, allow_call_in_name_position=False):
     if args:
-        return expander(bindings=args, body=tree)
+        bs = _canonize_bindings(args, locref=tree, allow_call_in_name_position=allow_call_in_name_position)
+        return expander(bindings=bs, body=tree)
     # haskelly syntax
     view = UnexpandedLetView(tree)  # note this gets only the part inside the brackets
     return expander(bindings=view.bindings, body=view.body)
@@ -514,7 +516,7 @@ def do0(tree, gen_sym, **kw):
 @macros.expr
 def let_syntax(tree, args, gen_sym, **kw):
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
-        return _destructure_and_apply_let(tree, args, let_syntax_expr)
+        return _destructure_and_apply_let(tree, args, let_syntax_expr, allow_call_in_name_position=True)
 
 # Python has no function overloading, but expr and block macros go into
 # different parts of MacroPy's macro registry.
@@ -629,7 +631,7 @@ def let_syntax(tree, **kw):
 @macros.expr
 def abbrev(tree, args, gen_sym, **kw):
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
-        yield _destructure_and_apply_let(tree, args, let_syntax_expr)
+        yield _destructure_and_apply_let(tree, args, let_syntax_expr, allow_call_in_name_position=True)
 
 @macros.block
 def abbrev(tree, **kw):

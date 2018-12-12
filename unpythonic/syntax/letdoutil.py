@@ -9,10 +9,40 @@ from ast import Call, Name, Subscript, Index, Compare, In, Tuple, List
 
 from macropy.core import Captured
 
+def where(*bindings):
+    """[syntax] Only meaningful in a let[body, where((k0, v0), ...)]."""
+    raise RuntimeError("where() is only meaningful in a let[body, where((k0, v0), ...)]")
+
 # avoid circular dependency; can't import from .util
 def _isx(tree, x):
     return (type(tree) is Name and tree.id == x) or \
            (type(tree) is Captured and tree.name == x)
+
+def _canonize_bindings(elts, locref, allow_call_in_name_position=False):
+    """Wrap a single binding without container into a length-1 list.
+
+    Pass through multiple bindings as-is.
+
+    Yell if the input format is invalid.
+
+    elts: list of bindings, either::
+        [(k0, v0), ...]   # multiple bindings
+        [(k, v)]          # single binding also ok
+        [k, v]            # special single binding format, missing container
+
+    locref: AST node to copy location information from, in case we need to
+    make a wrapper for a single binding.
+
+    allow_call_in_name_position: used by let_syntax to allow template definitions.
+    """
+    def iskey(x):
+        return type(x) is Name or \
+               allow_call_in_name_position and type(x) is Call and type(x.func) is Name
+    if len(elts) == 2 and iskey(elts[0]):
+        return [Tuple(elts=elts, lineno=locref.lineno, col_offset=locref.col_offset)]
+    if all((type(b) is Tuple and len(b.elts) == 2 and iskey(b.elts[0])) for b in elts):
+        return elts
+    assert False, "expected bindings to be ((k0, v0), ...) or a single (k, v)"
 
 def islet(tree, expanded=True):
     """Test whether tree is a ``let[]``, ``letseq[]``, ``letrec[]``,
@@ -84,7 +114,7 @@ def _ishaskellylet(tree):
         # (For consistency of surface syntax with the other variants that don't
         #  require it, because they look like function calls in the AST.)
         if len(bindings.elts) == 2 and type(bindings.elts[0]) is Name:
-            return "in_expr_single"
+            return "in_expr"
     # let[body, where((k0, v0), ...)]
     elif type(tree) is Tuple and len(tree.elts) == 2 and type(tree.elts[1]) is Call:
         thecall = tree.elts[1]
@@ -179,19 +209,16 @@ class UnexpandedLetView:
     def _getbindings(self):
         t = self._type
         if t == "decorator":  # bare Call
-            return self._tree.args
+            return _canonize_bindings(self._tree.args, self._tree)
         elif t == "lispy_expr":  # Call inside a Subscript
-            return self._tree.value.args
+            return _canonize_bindings(self._tree.value.args, self._tree.value)
         else:  # haskelly let
             # self.mode is set if the Subscript container is present.
             theexpr = self._tree.slice.value if self.mode else self._tree
             if t == "in_expr":
-                return theexpr.left.elts
-            elif t == "in_expr_single":  # wrap in a length-1 list upon destructuring
-                b = theexpr.left
-                return [Tuple(elts=b.elts, lineno=b.lineno, col_offset=b.col_offset)]
+                return _canonize_bindings(theexpr.left.elts, theexpr.left)
             elif t == "where_expr":
-                return theexpr.elts[1].args
+                return _canonize_bindings(theexpr.elts[1].args, theexpr.elts[1])
             raise NotImplementedError("unknown let form type '{}'".format(t))
     def _setbindings(self, newbindings):
         t = self._type
@@ -201,7 +228,7 @@ class UnexpandedLetView:
             self._tree.value.args = newbindings
         else:
             theexpr = self._tree.slice.value if self.mode else self._tree
-            if t == "in_expr" or t == "in_expr_single":
+            if t == "in_expr":
                 theexpr.left.elts = newbindings
             elif t == "where_expr":
                 theexpr.elts[1].args = newbindings
@@ -217,7 +244,7 @@ class UnexpandedLetView:
             return self._tree.slice.value
         else:
             theexpr = self._tree.slice.value if self.mode else self._tree
-            if t == "in_expr" or t == "in_expr_single":
+            if t == "in_expr":
                 return theexpr.comparators[0]
             elif t == "where_expr":
                 return theexpr.elts[0]
@@ -231,7 +258,7 @@ class UnexpandedLetView:
             self._tree.slice.value = newbody
         else:
             theexpr = self._tree.slice.value if self.mode else self._tree
-            if t == "in_expr" or t == "in_expr_single":
+            if t == "in_expr":
                 theexpr.comparators[0] = newbody
             elif t == "where_expr":
                 theexpr.elts[0] = newbody
