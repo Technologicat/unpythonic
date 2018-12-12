@@ -7,6 +7,13 @@ Separate from util.py due to the length.
 
 from ast import Call, Name, Subscript, Index, Compare, In, Tuple, List
 
+from macropy.core import Captured
+
+# avoid circular dependency; can't import from .util
+def _isx(tree, x):
+    return (type(tree) is Name and tree.id == x) or \
+           (type(tree) is Captured and tree.name == x)
+
 def islet(tree, expanded=True):
     """Test whether tree is a ``let[]``, ``letseq[]``, ``letrec[]``,
     ``let_syntax[]``, or ``abbrev[]``.
@@ -21,7 +28,7 @@ def islet(tree, expanded=True):
     """
     if expanded:
         # name must match what ``unpythonic.syntax.letdo._letimpl`` uses in its output.
-        if type(tree) is Call and type(tree.func) is Name and tree.func.id == "letter":
+        if type(tree) is Call and _isx(tree.func, "letter"):
             return ("expanded", None)  # TODO: detect let/letseq/letrec mode also for expanded forms (from kwargs)
         return False
     # dlet((k0, v0), ...)  (call, usually in a decorator list)
@@ -93,7 +100,7 @@ def isdo(tree, expanded=True):
     """
     if expanded:
         # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
-        return type(tree) is Call and type(tree.func) is Name and tree.func.id == "dof"
+        return type(tree) is Call and _isx(tree.func, "dof")
     # TODO: detect also do[] with a single expression inside? (now requires a comma)
     return type(tree) is Subscript and \
            type(tree.value) is Name and any(tree.value.id == x for x in ("do", "do0")) and \
