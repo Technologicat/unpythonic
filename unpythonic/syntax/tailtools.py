@@ -9,7 +9,7 @@ from ast import Lambda, FunctionDef, \
                 arguments, arg, keyword, \
                 List, Tuple, \
                 Subscript, Index, \
-                Call, Name, Starred, Num, NameConstant, \
+                Call, Name, Starred, NameConstant, \
                 BoolOp, And, Or, \
                 With, If, IfExp, Try, Assign, Return, Expr, \
                 copy_location
@@ -20,10 +20,11 @@ from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
-from .util import isx, isec, isdo, islet, \
+from .util import isx, isec, \
                   detect_callec, detect_lambda, \
-                  has_tco, is_decorator, sort_lambda_decorators, \
+                  has_tco, sort_lambda_decorators, \
                   suggest_decorator_index
+from .letdoutil import isdo, islet
 from .ifexprs import aif
 from .letdo import let
 

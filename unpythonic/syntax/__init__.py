@@ -26,7 +26,7 @@ from .prefix import prefix as _prefix
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, with_cc
 
-from .util import UnexpandedLetView
+from .letdoutil import UnexpandedLetView
 from ..dynassign import dyn, make_dynvar
 
 from macropy.core.macros import Macros

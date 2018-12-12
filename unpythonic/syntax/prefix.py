@@ -9,7 +9,7 @@ from ast import Name, Call, Tuple, Load
 from macropy.core.quotes import macros, q, u, ast_literal
 from macropy.core.walkers import Walker
 
-from .util import islet, isdo, UnexpandedLetView, UnexpandedDoView
+from .letdoutil import islet, isdo, UnexpandedLetView, UnexpandedDoView
 
 from ..it import flatmap, rev, uniqify
 
