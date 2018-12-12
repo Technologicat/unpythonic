@@ -420,19 +420,19 @@ def test():
         def setk(*, cc):
             nonlocal k
             k = cc
-        print("starting loop 1")
+        out = []
         @looped
         def s(loop, acc=0, *, cc):
             with_cc[setk()]
-            print(acc)
+            out.append(acc)
             if acc < 10:
                 return loop(acc + 1)
             return acc
-        print("loop 1 done")
-        print("s = {}".format(s))
-        print("kontinuing loop 1")
-        s = k()
-        print("s = {}".format(s))
+        assert tuple(out) == tuple(range(11))
+        assert s == 10
+        s = k()  # k is re-captured at each iteration, so now acc=10...
+        assert tuple(out) == tuple(range(11)) + (10,)
+        assert s == 10
 
     # To be able to resume from an arbitrary iteration, we need something like...
     with continuations:
@@ -441,19 +441,19 @@ def test():
             nonlocal k
             k = cc
             return x
-        print("starting loop 2")
+        out = []
         @looped
         def s(loop, acc=0, *, cc):
             acc = with_cc[setk(acc)]
-            print(acc)
+            out.append(acc)
             if acc < 10:
                 return loop(acc + 1)
             return acc
-        print("loop 2 done")
-        print("s = {}".format(s))
-        print("kontinuing loop 2")
+        assert tuple(out) == tuple(range(11))
+        assert s == 10
         s = k(5)  # send in the new initial acc
-        print("s = {}".format(s))
+        assert tuple(out) == tuple(range(11)) + tuple(range(5, 11))
+        assert s == 10
 
     # To always resume from the beginning, we can do something like this...
     with continuations:
@@ -461,21 +461,64 @@ def test():
         def setk(acc, *, cc):
             nonlocal k
             # because with_cc[] must be at the top level of a def,
-            # we just refactor the "if" here.
+            # we refactor the "if" here (but see below).
             if acc == 0:
                 k = cc
-        print("starting loop 3")
+        out = []
         @looped
         def s(loop, acc=0, *, cc):
             with_cc[setk(acc)]
-            print(acc)
+            out.append(acc)
             if acc < 10:
                 return loop(acc + 1)
             return acc
-        print("loop 3 done")
-        print("s = {}".format(s))
-        print("kontinuing loop 3")
+        assert tuple(out) == tuple(range(11))
+        assert s == 10
         s = k()
-        print("s = {}".format(s))
+        assert tuple(out) == 2*tuple(range(11))
+        assert s == 10
+
+    # To eliminate the passing of acc into setk, let's use a closure:
+    with continuations:
+        k = None
+        out = []
+        @looped
+        def s(loop, acc=0, *, cc):
+            def setk(*, cc):
+                nonlocal k
+                if acc == 0:
+                    k = cc
+            with_cc[setk()]
+            out.append(acc)
+            if acc < 10:
+                return loop(acc + 1)
+            return acc
+        assert tuple(out) == tuple(range(11))
+        assert s == 10
+        s = k()
+        assert tuple(out) == 2*tuple(range(11))
+        assert s == 10
+
+    # conditional with_cc[f(...) if p else g(...)]
+    # each of the calls f(...), g(...) may be replaced with None, which means
+    # proceed directly to the cont, setting assignment targets (if any) to None.
+    with continuations:
+        k = None
+        def setk(*, cc):
+            nonlocal k
+            k = cc
+        out = []
+        @looped
+        def s(loop, acc=0, *, cc):
+            with_cc[setk() if acc == 0 else None]
+            out.append(acc)
+            if acc < 10:
+                return loop(acc + 1)
+            return acc
+        assert tuple(out) == tuple(range(11))
+        assert s == 10
+        s = k()
+        assert tuple(out) == 2*tuple(range(11))
+        assert s == 10
 
     print("All tests PASSED")
