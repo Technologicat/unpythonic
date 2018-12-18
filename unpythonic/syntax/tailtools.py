@@ -394,87 +394,29 @@ def continuations(block_body):
 
     # Define the _pcc/cc chaining handler (cleaner generated code if we centralize this)
     #
-    # This is what we're generating in AST form:
-    #
-    # def chain_conts(cc1, cc2, with_star=False):  # cc1=_pcc, cc2=cc
-    #     if with_star:  # to be chainable from a tail call, accept a multiple-values arglist
-    #         def cc(*value):
-    #             if (cc1 is not None):
-    #                 return jump(cc1, cc=cc2, *value)
-    #             else:
-    #                 return jump(cc2, *value)
-    #     else:  # for inert data value returns (this produces the multiple-values arglist)
-    #         def cc(value):
-    #             # Handle multiple-return-values like the rest of unpythonic does:
-    #             # returning a tuple means returning multiple values. Unpack them
-    #             # to cc's arglist.
-    #             if (cc1 is not None):
-    #                 if isinstance(value, tuple):
-    #                     return jump(cc1, cc=cc2, *value)
-    #                 else:
-    #                     return jump(cc1, value, cc=cc2)
-    #             if isinstance(value, tuple):
-    #                 return jump(cc2, *value)
-    #             else:
-    #                 return jump(cc2, value)
-    #     return cc
-    #
-    cc1_multi = hq[jump(name["cc1"], *name["value"], cc=name["cc2"])]
-    cc1_single = hq[jump(name["cc1"], name["value"], cc=name["cc2"])]
-    cc2_multi = hq[jump(name["cc2"], *name["value"])]
-    cc2_single = hq[jump(name["cc2"], name["value"])]
-    locref = block_body[0]  # bad, but no better source location reference node available.
-    sendbody1 = [If(test=q[name["cc1"] is not None],
-                    body=[If(test=q[isinstance(name["value"], tuple)],
-                             body=[Return(value=cc1_multi)],
-                             orelse=[Return(value=cc1_single)],
-                             lineno=locref.lineno, col_offset=locref.col_offset)],
-                    orelse=[],
-                    lineno=locref.lineno, col_offset=locref.col_offset)]
-    sendbody1.append(If(test=q[isinstance(name["value"], tuple)],
-                        body=[Return(value=cc2_multi)],
-                        orelse=[Return(value=cc2_single)],
-                        lineno=locref.lineno, col_offset=locref.col_offset))
-    send1 = FunctionDef(name="cc",
-                        args=arguments(args=[arg(arg="value")],
-                                       kwonlyargs=[],
-                                       vararg=None,
-                                       kwarg=None,
-                                       defaults=[],
-                                       kw_defaults=[]),
-                        body=[sendbody1],
-                        decorator_list=[],
-                        returns=None)  # return annotation not used here
-    sendbody2 = [If(test=q[name["cc1"] is not None],
-                    body=[Return(value=cc1_multi)],
-                    orelse=[Return(value=cc2_multi)],
-                    lineno=locref.lineno, col_offset=locref.col_offset)]
-    send2 = FunctionDef(name="cc",
-                        args=arguments(args=[],
-                                       kwonlyargs=[],
-                                       vararg=arg(arg="value"),
-                                       kwarg=None,
-                                       defaults=[],
-                                       kw_defaults=[]),
-                        body=[sendbody2],
-                        decorator_list=[],
-                        returns=None)  # return annotation not used here
-    chooser = If(test=q[name["with_star"]],
-                 body=[send2],
-                 orelse=[send1],
-                 lineno=locref.lineno, col_offset=locref.col_offset)
-    fal = q[False]
-    fal = copy_location(fal, locref)
-    chain_conts = FunctionDef(name="chain_conts",
-                              args=arguments(args=[arg(arg="cc1"), arg(arg="cc2"), arg(arg="with_star")],
-                                             kwonlyargs=[],
-                                             vararg=None,
-                                             kwarg=None,
-                                             defaults=[fal],
-                                             kw_defaults=[]),
-                              body=[chooser, Return(value=q[name["cc"]])],
-                              decorator_list=[],
-                              returns=None)  # return annotation not used here
+    with q as chain_conts:
+        def chain_conts(cc1, cc2, with_star=False):  # cc1=_pcc, cc2=cc
+            if with_star:  # to be chainable from a tail call, accept a multiple-values arglist
+                def cc(*value):
+                    if (cc1 is not None):
+                        return jump(cc1, cc=cc2, *value)
+                    else:
+                        return jump(cc2, *value)
+            else:  # for inert data value returns (this produces the multiple-values arglist)
+                def cc(value):
+                    # Handle multiple-return-values like the rest of unpythonic does:
+                    # returning a tuple means returning multiple values. Unpack them
+                    # to cc's arglist.
+                    if (cc1 is not None):
+                        if isinstance(value, tuple):
+                            return jump(cc1, cc=cc2, *value)
+                        else:
+                            return jump(cc1, value, cc=cc2)
+                    if isinstance(value, tuple):
+                        return jump(cc2, *value)
+                    else:
+                        return jump(cc2, value)
+            return cc
     new_block_body.append(chain_conts)
 
     # transform all defs (except the chaining handler), including those added by call_cc[].
