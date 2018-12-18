@@ -394,28 +394,34 @@ def continuations(block_body):
 
     # Define the _pcc/cc chaining handler (cleaner generated code if we centralize this)
     #
+    # Handle multiple-return-values like the rest of unpythonic does:
+    # returning a tuple means returning multiple values. Unpack them
+    # to cc's arglist.
     with q as chain_conts:
         def chain_conts(cc1, cc2, with_star=False):  # cc1=_pcc, cc2=cc
             if with_star:  # to be chainable from a tail call, accept a multiple-values arglist
-                def cc(*value):
-                    if (cc1 is not None):
+                if cc1 is not None:
+                    def cc(*value):
                         return jump(cc1, cc=cc2, *value)
-                    else:
-                        return jump(cc2, *value)
+                else:
+                    # Beside a small optimization, it is important to preserve
+                    # "identity" as "identity", so that the call_cc logic that
+                    # defines the continuation functions will detect it and
+                    # know when to set _pcc.
+                    cc = cc2
             else:  # for inert data value returns (this produces the multiple-values arglist)
-                def cc(value):
-                    # Handle multiple-return-values like the rest of unpythonic does:
-                    # returning a tuple means returning multiple values. Unpack them
-                    # to cc's arglist.
-                    if (cc1 is not None):
+                if cc1 is not None:
+                    def cc(value):
                         if isinstance(value, tuple):
                             return jump(cc1, cc=cc2, *value)
                         else:
                             return jump(cc1, value, cc=cc2)
-                    if isinstance(value, tuple):
-                        return jump(cc2, *value)
-                    else:
-                        return jump(cc2, value)
+                else:
+                    def cc(value):
+                        if isinstance(value, tuple):
+                            return jump(cc2, *value)
+                        else:
+                            return jump(cc2, value)
             return cc
     new_block_body.append(chain_conts)
 
