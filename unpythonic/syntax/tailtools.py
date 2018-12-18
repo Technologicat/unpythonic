@@ -160,48 +160,14 @@ def continuations(block_body):
     # Here we only customize the transform_retexpr callback.
     def call_cb(tree):  # add the cc kwarg (this plugs into the TCO transformation)
         # our input is "jump(some_target_func, *args)"
-#        b = q[(name["_thecont"], None)]
-#        b.elts[1] = IfExp(test=q[name["_pcc"] is not None],
-#                          body=q[lambda *args: jump(name["_pcc"], *args, cc=name["cc"])],  # composed cont
-#                          orelse=q[name["cc"]],
-#                          lineno=tree.lineno, col_offset=tree.col_offset)
-#        # Pass our current continuation (if no continuation already specified by user).
-#        hascc = any(kw.arg == "cc" for kw in tree.keywords)
-#        if not hascc:
-#            tree.keywords = [keyword(arg="cc", value=q[name["_thecont"]])] + tree.keywords
-#        newtree = let([b],
-#                      tree)
-#        return newtree
         # Pass our current continuation (if no continuation already specified by user).
+        # TODO: chain _pcc and user-provided cc, if any (currently user-provided cc overrides also _pcc)
         hascc = any(kw.arg == "cc" for kw in tree.keywords)
         if not hascc:
             tree.keywords = [keyword(arg="cc", value=q[chain_conts(name["_pcc"], name["cc"], with_star=True)])] + tree.keywords
         return tree
     def data_cb(tree):  # transform an inert-data return value into a tail-call to cc.
-        # Handle multiple-return-values like the rest of unpythonic does:
-        # returning a tuple means returning multiple values. Unpack them
-        # to cc's arglist.
         tree = q[chain_conts(name["_pcc"], name["cc"])(ast_literal[tree])]
-#        cc_multi = hq[jump(name["cc"], *name["_retval"])]
-#        cc_single = hq[jump(name["cc"], name["_retval"])]
-#        pcc_multi = hq[jump(name["_pcc"], *name["_retval"], cc=name["cc"])]
-#        pcc_single = hq[jump(name["_pcc"], name["_retval"], cc=name["cc"])]
-##        tree = let([q[(name["_retval"], ast_literal[tree])]],
-##                   q[ast_literal[cc_multi]  # TODO: doesn't work, IfExp missing line number
-##                     if isinstance(name["_retval"], tuple)
-##                     else ast_literal[cc_single]])
-##        tree = fill_line_numbers(newtree, tree.lineno, tree.col_offset)  # doesn't work even with this.
-#        tree = let([q[(name["_retval"], ast_literal[tree])]],
-#                   IfExp(test=q[name["_pcc"] is not None],
-#                         body=IfExp(test=q[isinstance(name["_retval"], tuple)],
-#                                    body=pcc_multi,
-#                                    orelse=pcc_single,
-#                                    lineno=tree.lineno, col_offset=tree.col_offset),
-#                         orelse=IfExp(test=q[isinstance(name["_retval"], tuple)],
-#                                      body=cc_multi,
-#                                      orelse=cc_single,
-#                                      lineno=tree.lineno, col_offset=tree.col_offset),
-#                         lineno=tree.lineno, col_offset=tree.col_offset))
         return tree
     transform_retexpr = partial(_transform_retexpr, call_cb=call_cb, data_cb=data_cb)
 
@@ -380,6 +346,10 @@ def continuations(block_body):
             assert False, "with_cc[...] only allowed at the top level of a def or async def, or at the top level of the block; must appear as an expr or an assignment RHS"
         return tree
 
+    # -------------------------------------------------------------------------
+    # Main processing logic begins here
+    # -------------------------------------------------------------------------
+
     # Disallow return at the top level of the block, because it would behave
     # differently depending on whether placed before or after the first with_cc[]
     # invocation. (Because with_cc[] internally creates a function and calls it.)
@@ -403,6 +373,7 @@ def continuations(block_body):
     block_body = [_tco_transform_return.recurse(stmt, known_ecs=known_ecs,
                                                 transform_retexpr=transform_retexpr)
                      for stmt in block_body]
+
     # transform with_cc[] invocations
     block_body = transform_withcc(owner=None, body=block_body)  # at top level
     block_body = [transform_withccs.recurse(stmt) for stmt in block_body]  # inside defs
@@ -415,23 +386,22 @@ def continuations(block_body):
     # (the top-level "cc" is only used for continuations created by with_cc[] at the top level of the block)
     new_block_body = [Assign(targets=[q[name["cc"]]], value=hq[identity])]
 
-    # define the pcc/cc chaining handler (cleaner generated code if we centralize this)
+    # Define the _pcc/cc chaining handler (cleaner generated code if we centralize this)
     #
-    # Handle multiple-return-values like the rest of unpythonic does:
-    # returning a tuple means returning multiple values. Unpack them
-    # to cc's arglist.
-    #
-    # This is the handler we're here producing in AST form:
+    # This is what we're generating in AST form:
     #
     # def chain_conts(cc1, cc2, with_star=False):  # cc1=_pcc, cc2=cc
-    #     if with_star:  # for tail calls
+    #     if with_star:  # to be chainable from a tail call, accept a multiple-values arglist
     #         def cc(*value):
     #             if (cc1 is not None):
     #                 return jump(cc1, cc=cc2, *value)
     #             else:
     #                 return jump(cc2, *value)
-    #     else:  # for inert data value returns
+    #     else:  # for inert data value returns (this produces the multiple-values arglist)
     #         def cc(value):
+    #             # Handle multiple-return-values like the rest of unpythonic does:
+    #             # returning a tuple means returning multiple values. Unpack them
+    #             # to cc's arglist.
     #             if (cc1 is not None):
     #                 if isinstance(value, tuple):
     #                     return jump(cc1, cc=cc2, *value)
@@ -447,12 +417,7 @@ def continuations(block_body):
     cc1_single = hq[jump(name["cc1"], name["value"], cc=name["cc2"])]
     cc2_multi = hq[jump(name["cc2"], *name["value"])]
     cc2_single = hq[jump(name["cc2"], name["value"])]
-#    tree = let([q[(name["_retval"], ast_literal[tree])]],
-#               q[ast_literal[cc_multi]  # TODO: doesn't work, IfExp missing line number
-#                 if isinstance(name["_retval"], tuple)
-#                 else ast_literal[cc_single]])
-#    tree = fill_line_numbers(newtree, tree.lineno, tree.col_offset)  # doesn't work even with this.
-    locref = block_body[0]
+    locref = block_body[0]  # bad, but no better source location reference node available.
     sendbody1 = [If(test=q[name["cc1"] is not None],
                     body=[If(test=q[isinstance(name["value"], tuple)],
                              body=[Return(value=cc1_multi)],
