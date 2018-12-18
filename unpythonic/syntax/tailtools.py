@@ -93,7 +93,7 @@ def tco(block_body):
 # -----------------------------------------------------------------------------
 
 @macro_stub
-def with_cc(tree, **kw):
+def call_cc(tree, **kw):
     """[syntax] Only meaningful in a "with continuations" block."""
     pass
 
@@ -181,28 +181,28 @@ def continuations(block_body):
     # But we have a code walker, so we don't need to require the body to be
     # specified inside the body of the macro invocation like PG's solution does.
     # Instead, we capture as the continuation all remaining statements (i.e.
-    # those that lexically appear after the ``with_cc[]``) in the current block.
-    def iswithcc(tree):
+    # those that lexically appear after the ``call_cc[]``) in the current block.
+    def iscallcc(tree):
         if type(tree) in (Assign, Expr):
             tree = tree.value
         if type(tree) is Subscript and type(tree.value) is Name \
-           and tree.value.id == "with_cc":
+           and tree.value.id == "call_cc":
             if type(tree.slice) is Index:
                 return True
-            assert False, "expected single expr, not slice in with_cc[...]"
+            assert False, "expected single expr, not slice in call_cc[...]"
         return False
-    def split_at_withcc(body):
+    def split_at_callcc(body):
         if not body:
             return [], None, []
         before, after = [], body
         while True:
             stmt, *after = after
-            if iswithcc(stmt):
+            if iscallcc(stmt):
                 return before, stmt, after
             before.append(stmt)
             if not after:
                 return before, None, after
-    def analyze_withcc(stmt):
+    def analyze_callcc(stmt):
         starget = None  # "starget" = starred target, becomes the vararg for the cont
         def maybe_starred(expr):  # return expr.id or set starget
             nonlocal starget
@@ -210,44 +210,44 @@ def continuations(block_body):
                 return [expr.id]
             elif type(expr) is Starred:
                 if type(expr.value) is not Name:
-                    assert False, "with_cc[] starred assignment target must be a bare name"
+                    assert False, "call_cc[] starred assignment target must be a bare name"
                 starget = expr.value.id
                 return []
-            assert False, "all with_cc[] assignment targets must be bare names (last one may be starred)"
+            assert False, "all call_cc[] assignment targets must be bare names (last one may be starred)"
         # extract the assignment targets (args of the cont)
         if type(stmt) is Assign:
             if len(stmt.targets) != 1:
-                assert False, "expected at most one '=' in a with_cc[] statement"
+                assert False, "expected at most one '=' in a call_cc[] statement"
             target = stmt.targets[0]
             if type(target) in (Tuple, List):
                 rest, last = target.elts[:-1], target.elts[-1]
                 # TODO: limitation due to Python's vararg syntax - the "*args" must be after positional args.
                 if any(type(x) is Starred for x in rest):
-                    assert False, "in with_cc[], only the last assignment target may be starred"
+                    assert False, "in call_cc[], only the last assignment target may be starred"
                 if not all(type(x) is Name for x in rest):
-                    assert False, "all with_cc[] assignment targets must be bare names"
+                    assert False, "all call_cc[] assignment targets must be bare names"
                 targets = [x.id for x in rest] + maybe_starred(last)
             else:  # single target
                 targets = maybe_starred(target)
         elif type(stmt) is Expr:  # no assignment targets, cont takes no args
             if type(stmt.value) is not Subscript:
-                assert False, "expected a bare with_cc[] expr, got {}".format(stmt.value)
+                assert False, "expected a bare call_cc[] expr, got {}".format(stmt.value)
             targets = []
         else:
-            assert False, "with_cc[]: expected an assignment or a bare expr, got {}".format(stmt)
+            assert False, "call_cc[]: expected an assignment or a bare expr, got {}".format(stmt)
         # extract the function call(s)
         if type(stmt.value) is not Subscript:  # both Assign and Expr have a .value
-            assert False, "expected either an assignment with a with_cc[] expr on RHS, or a bare with_cc[] expr, got {}".format(stmt.value)
+            assert False, "expected either an assignment with a call_cc[] expr on RHS, or a bare call_cc[] expr, got {}".format(stmt.value)
         theexpr = stmt.value.slice.value
         if not (type(theexpr) in (Call, IfExp) or (type(theexpr) is NameConstant and theexpr.value is None)):
-            assert False, "the bracketed expression in with_cc[...] must be a function call, an if-expression, or None"
+            assert False, "the bracketed expression in call_cc[...] must be a function call, an if-expression, or None"
         def extract_call(tree):
             if type(tree) is Call:
                 return tree
             elif type(tree) is NameConstant and tree.value is None:
                 return None
             else:
-                assert False, "with_cc[...]: expected a function call or None"
+                assert False, "call_cc[...]: expected a function call or None"
         if type(theexpr) is IfExp:
             condition = theexpr.test
             thecall = extract_call(theexpr.body)
@@ -257,8 +257,8 @@ def continuations(block_body):
             thecall = extract_call(theexpr)
         return targets, starget, condition, thecall, altcall
     gen_sym = dyn.gen_sym
-    def make_continuation(owner, withcc, contbody):
-        targets, starget, condition, thecall, altcall = analyze_withcc(withcc)
+    def make_continuation(owner, callcc, contbody):
+        targets, starget, condition, thecall, altcall = analyze_callcc(callcc)
 
         # no-args special case: allow but ignore one arg so there won't be arity errors
         # from a "return None"-generated None being passed into the cc
@@ -270,8 +270,8 @@ def continuations(block_body):
             posargdefaults = []
 
         # Set our captured continuation as the cc of f and g in
-        #   with_cc[f(...)]
-        #   with_cc[f(...) if p else g(...)]
+        #   call_cc[f(...)]
+        #   call_cc[f(...) if p else g(...)]
         basename = "{}_cont".format(owner.name) if owner else "cont"
         contname = gen_sym(basename)
         def prepare_call(tree):
@@ -289,14 +289,15 @@ def continuations(block_body):
         # Any return statements in the body have already been transformed,
         # because they appear literally in the code at the use site,
         # and our main processing logic runs the return statement transformer
-        # before transforming with_cc[].
+        # before transforming call_cc[].
         FDef = type(owner) if owner else FunctionDef  # use same type (regular/async) as parent function
+        locref = callcc  # bad but no better source location reference node available
         non = q[None]
-        non = copy_location(non, withcc)
+        non = copy_location(non, locref)
         maybe_capture = IfExp(test=hq[name["cc"] is not identity],
                               body=q[name["cc"]],
                               orelse=non,
-                              lineno=withcc.lineno, col_offset=withcc.col_offset)
+                              lineno=locref.lineno, col_offset=locref.col_offset)
         funcdef = FDef(name=contname,
                        args=arguments(args=[arg(arg=x) for x in targets],
                                       kwonlyargs=[arg(arg="cc"), arg(arg="_pcc")],
@@ -330,25 +331,25 @@ def continuations(block_body):
             else:
                 newstmts.append(Expr(value=q[ast_literal[thecall]]))
         return newstmts
-    @Walker  # find and transform with_cc[] statements inside function bodies
-    def transform_withccs(tree, **kw):
+    @Walker  # find and transform call_cc[] statements inside function bodies
+    def transform_callccs(tree, **kw):
         if type(tree) in (FunctionDef, AsyncFunctionDef):
-            tree.body = transform_withcc(tree, tree.body)
+            tree.body = transform_callcc(tree, tree.body)
         return tree
-    def transform_withcc(owner, body):
+    def transform_callcc(owner, body):
         # owner: FunctionDef or AsyncFunctionDef node, or None (top level of block)
         # body: list of stmts
-        # we need to consider only one withcc in the body, because each one
+        # we need to consider only one call_cc in the body, because each one
         # generates a new nested def for the walker to pick up.
-        before, withcc, after = split_at_withcc(body)
-        if withcc:
-            body = before + make_continuation(owner, withcc, contbody=after)
+        before, callcc, after = split_at_callcc(body)
+        if callcc:
+            body = before + make_continuation(owner, callcc, contbody=after)
         return body
-    # TODO: improve error reporting for stray with_cc[] invocations
+    # TODO: improve error reporting for stray call_cc[] invocations
     @Walker
     def check_for_strays(tree, **kw):
-        if iswithcc(tree):
-            assert False, "with_cc[...] only allowed at the top level of a def or async def, or at the top level of the block; must appear as an expr or an assignment RHS"
+        if iscallcc(tree):
+            assert False, "call_cc[...] only allowed at the top level of a def or async def, or at the top level of the block; must appear as an expr or an assignment RHS"
         return tree
 
     # -------------------------------------------------------------------------
@@ -356,8 +357,8 @@ def continuations(block_body):
     # -------------------------------------------------------------------------
 
     # Disallow return at the top level of the block, because it would behave
-    # differently depending on whether placed before or after the first with_cc[]
-    # invocation. (Because with_cc[] internally creates a function and calls it.)
+    # differently depending on whether placed before or after the first call_cc[]
+    # invocation. (Because call_cc[] internally creates a function and calls it.)
     for stmt in block_body:
         if type(stmt) is Return:
             assert False, "'return' not allowed at the top level of a 'with continuations' block"
@@ -374,21 +375,21 @@ def continuations(block_body):
         return tree
     block_body = [add_implicit_bare_return.recurse(stmt) for stmt in block_body]
 
-    # transform "return" statements before with_cc[] invocations generate new ones.
+    # transform "return" statements before call_cc[] invocations generate new ones.
     block_body = [_tco_transform_return.recurse(stmt, known_ecs=known_ecs,
                                                 transform_retexpr=transform_retexpr)
                      for stmt in block_body]
 
-    # transform with_cc[] invocations
-    block_body = transform_withcc(owner=None, body=block_body)  # at top level
-    block_body = [transform_withccs.recurse(stmt) for stmt in block_body]  # inside defs
-    # Validate. Each with_cc[] reached by the transformer was in a syntactically correct
+    # transform call_cc[] invocations
+    block_body = transform_callcc(owner=None, body=block_body)  # at top level
+    block_body = [transform_callccs.recurse(stmt) for stmt in block_body]  # inside defs
+    # Validate. Each call_cc[] reached by the transformer was in a syntactically correct
     # position and has now been eliminated. Any remaining ones indicate syntax errors.
     for stmt in block_body:
         check_for_strays.recurse(stmt)
 
     # set up the default continuation that just returns its args
-    # (the top-level "cc" is only used for continuations created by with_cc[] at the top level of the block)
+    # (the top-level "cc" is only used for continuations created by call_cc[] at the top level of the block)
     new_block_body = [Assign(targets=[q[name["cc"]]], value=hq[identity])]
 
     # Define the _pcc/cc chaining handler (cleaner generated code if we centralize this)
@@ -476,7 +477,7 @@ def continuations(block_body):
                               returns=None)  # return annotation not used here
     new_block_body.append(chain_conts)
 
-    # transform all defs (except the chaining handler), including those added by with_cc[].
+    # transform all defs (except the chaining handler), including those added by call_cc[].
     for stmt in block_body:
         stmt = _tco_transform_def.recurse(stmt, preproc_cb=transform_args)
         stmt = _tco_transform_lambda.recurse(stmt, preproc_cb=transform_args,
