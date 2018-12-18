@@ -157,13 +157,18 @@ def continuations(block_body):
     #     return value --> return jump(cc, value)
     #     return v1, ..., vn --> return jump(cc, *(v1, ..., vn))
     #
-    # Here we only customize the transform_retexpr callback.
+    # Here we only customize the transform_retexpr callback to pass our
+    # current continuation (if no continuation already specified by user).
     def call_cb(tree):  # add the cc kwarg (this plugs into the TCO transformation)
-        # our input is "jump(some_target_func, *args)"
-        # Pass our current continuation (if no continuation already specified by user).
-        # TODO: chain _pcc and user-provided cc, if any (currently user-provided cc overrides also _pcc)
+        # we're a postproc; our input is "jump(some_target_func, *args)"
         hascc = any(kw.arg == "cc" for kw in tree.keywords)
-        if not hascc:
+        if hascc:
+            # chain _pcc and user-provided cc
+            thekw = [kw for kw in tree.keywords if kw.arg == "cc"][0]  # exactly one
+            usercc = thekw.value
+            thekw.value = q[chain_conts(name["_pcc"], ast_literal[usercc], with_star=True)]
+        else:
+            # chain _pcc and the current value of cc
             tree.keywords = [keyword(arg="cc", value=q[chain_conts(name["_pcc"], name["cc"], with_star=True)])] + tree.keywords
         return tree
     def data_cb(tree):  # transform an inert-data return value into a tail-call to cc.
