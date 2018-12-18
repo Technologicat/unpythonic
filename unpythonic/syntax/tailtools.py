@@ -98,7 +98,7 @@ def with_cc(tree, **kw):
     pass
 
 def continuations(block_body):
-    # This is a loose pythonification of Paul Graham's continuation-passing
+    # This is a very loose pythonification of Paul Graham's continuation-passing
     # macros in On Lisp, chapter 20.
     #
     # We don't have an analog of PG's "=apply", since Python doesn't need "apply"
@@ -125,14 +125,20 @@ def continuations(block_body):
         hascc = any(x == "cc" for x in kwonlynames)
         if not hascc:
             assert False, "functions in a 'with continuations' block must have a by-name-only arg 'cc'"
-        # we could add it implicitly like this
-#            tree.args.kwonlyargs = [arg(arg="cc")] + tree.args.kwonlyargs
-#            tree.args.kw_defaults = [hq[identity]] + tree.args.kw_defaults
         # Patch in the default identity continuation to allow regular
         # (non-tail) calls without explicitly passing a continuation.
         j = kwonlynames.index("cc")
         if tree.args.kw_defaults[j] is None:
             tree.args.kw_defaults[j] = hq[identity]
+        # implicitly add "parent cc" arg for treating the tail of a computation
+        # as one entity (only actually used in continuation definitions created by
+        # call_cc; everywhere else, it's None). See the PDF for clarifying pictures.
+        haspcc = any(x == "_pcc" for x in kwonlynames)
+        if not haspcc:
+            non = q[None]
+            non = copy_location(non, tree)
+            tree.args.kwonlyargs = tree.args.kwonlyargs + [arg(arg="_pcc")]
+            tree.args.kw_defaults = tree.args.kw_defaults + [non]
         return tree
 
     # _tco_transform_return corresponds to PG's "=values".
@@ -153,30 +159,49 @@ def continuations(block_body):
     #
     # Here we only customize the transform_retexpr callback.
     def call_cb(tree):  # add the cc kwarg (this plugs into the TCO transformation)
+        # our input is "jump(some_target_func, *args)"
+#        b = q[(name["_thecont"], None)]
+#        b.elts[1] = IfExp(test=q[name["_pcc"] is not None],
+#                          body=q[lambda *args: jump(name["_pcc"], *args, cc=name["cc"])],  # composed cont
+#                          orelse=q[name["cc"]],
+#                          lineno=tree.lineno, col_offset=tree.col_offset)
+#        # Pass our current continuation (if no continuation already specified by user).
+#        hascc = any(kw.arg == "cc" for kw in tree.keywords)
+#        if not hascc:
+#            tree.keywords = [keyword(arg="cc", value=q[name["_thecont"]])] + tree.keywords
+#        newtree = let([b],
+#                      tree)
+#        return newtree
         # Pass our current continuation (if no continuation already specified by user).
         hascc = any(kw.arg == "cc" for kw in tree.keywords)
         if not hascc:
-            tree.keywords = [keyword(arg="cc", value=q[name["cc"]])] + tree.keywords
+            tree.keywords = [keyword(arg="cc", value=q[chain_conts(name["_pcc"], name["cc"], with_star=True)])] + tree.keywords
         return tree
     def data_cb(tree):  # transform an inert-data return value into a tail-call to cc.
         # Handle multiple-return-values like the rest of unpythonic does:
         # returning a tuple means returning multiple values. Unpack them
         # to cc's arglist.
-        if type(tree) is Tuple:  # optimization: literal tuple, always unpack
-            tree = hq[jump(name["cc"], *ast_literal[tree])]
-        else:  # general case: check tupleness at run-time
-            thecall_multi = hq[jump(name["cc"], *name["_retval"])]
-            thecall_single = hq[jump(name["cc"], name["_retval"])]
-#            tree = let([q[(name["_retval"], ast_literal[tree])]],
-#                       q[ast_literal[thecall_multi]  # TODO: doesn't work, IfExp missing line number
-#                         if isinstance(name["_retval"], tuple)
-#                         else ast_literal[thecall_single]])
-#            tree = fill_line_numbers(newtree, tree.lineno, tree.col_offset)  # doesn't work even with this.
-            tree = let([q[(name["_retval"], ast_literal[tree])]],
-                       IfExp(test=q[isinstance(name["_retval"], tuple)],
-                             body=thecall_multi,
-                             orelse=thecall_single,
-                             lineno=tree.lineno, col_offset=tree.col_offset))
+        tree = q[chain_conts(name["_pcc"], name["cc"])(ast_literal[tree])]
+#        cc_multi = hq[jump(name["cc"], *name["_retval"])]
+#        cc_single = hq[jump(name["cc"], name["_retval"])]
+#        pcc_multi = hq[jump(name["_pcc"], *name["_retval"], cc=name["cc"])]
+#        pcc_single = hq[jump(name["_pcc"], name["_retval"], cc=name["cc"])]
+##        tree = let([q[(name["_retval"], ast_literal[tree])]],
+##                   q[ast_literal[cc_multi]  # TODO: doesn't work, IfExp missing line number
+##                     if isinstance(name["_retval"], tuple)
+##                     else ast_literal[cc_single]])
+##        tree = fill_line_numbers(newtree, tree.lineno, tree.col_offset)  # doesn't work even with this.
+#        tree = let([q[(name["_retval"], ast_literal[tree])]],
+#                   IfExp(test=q[name["_pcc"] is not None],
+#                         body=IfExp(test=q[isinstance(name["_retval"], tuple)],
+#                                    body=pcc_multi,
+#                                    orelse=pcc_single,
+#                                    lineno=tree.lineno, col_offset=tree.col_offset),
+#                         orelse=IfExp(test=q[isinstance(name["_retval"], tuple)],
+#                                      body=cc_multi,
+#                                      orelse=cc_single,
+#                                      lineno=tree.lineno, col_offset=tree.col_offset),
+#                         lineno=tree.lineno, col_offset=tree.col_offset))
         return tree
     transform_retexpr = partial(_transform_retexpr, call_cb=call_cb, data_cb=data_cb)
 
@@ -295,13 +320,19 @@ def continuations(block_body):
         # and our main processing logic runs the return statement transformer
         # before transforming with_cc[].
         FDef = type(owner) if owner else FunctionDef  # use same type (regular/async) as parent function
+        non = q[None]
+        non = copy_location(non, withcc)
+        maybe_capture = IfExp(test=hq[name["cc"] is not identity],
+                              body=q[name["cc"]],
+                              orelse=non,
+                              lineno=withcc.lineno, col_offset=withcc.col_offset)
         funcdef = FDef(name=contname,
                        args=arguments(args=[arg(arg=x) for x in targets],
-                                      kwonlyargs=[arg(arg="cc")],
+                                      kwonlyargs=[arg(arg="cc"), arg(arg="_pcc")],
                                       vararg=(arg(arg=starget) if starget else None),
                                       kwarg=None,
                                       defaults=posargdefaults,
-                                      kw_defaults=[q[name["cc"]]]),  # chain to the outer function's cc
+                                      kw_defaults=[hq[identity], maybe_capture]),
                        body=contbody,
                        decorator_list=[],  # patched later by transform_def
                        returns=None)  # return annotation not used here
@@ -357,8 +388,8 @@ def continuations(block_body):
             assert False, "'return' not allowed at the top level of a 'with continuations' block"
 
     # Since we transform **all** returns (even those with an inert data value)
-    # into tail calls (to cc), we must insert any missing implicit "return None"
-    # so that _tco_transform_return() sees the return statements.
+    # into tail calls (to cc), we must insert any missing implicit "return"
+    # statements so that _tco_transform_return() sees them.
     @Walker
     def add_implicit_bare_return(tree, **kw):
         if type(tree) in (FunctionDef, AsyncFunctionDef):
@@ -379,10 +410,103 @@ def continuations(block_body):
     # position and has now been eliminated. Any remaining ones indicate syntax errors.
     for stmt in block_body:
         check_for_strays.recurse(stmt)
+
     # set up the default continuation that just returns its args
     # (the top-level "cc" is only used for continuations created by with_cc[] at the top level of the block)
     new_block_body = [Assign(targets=[q[name["cc"]]], value=hq[identity])]
-    # transform all defs, including those added by with_cc[].
+
+    # define the pcc/cc chaining handler (cleaner generated code if we centralize this)
+    #
+    # Handle multiple-return-values like the rest of unpythonic does:
+    # returning a tuple means returning multiple values. Unpack them
+    # to cc's arglist.
+    #
+    # This is the handler we're here producing in AST form:
+    #
+    # def chain_conts(cc1, cc2, with_star=False):  # cc1=_pcc, cc2=cc
+    #     if with_star:  # for tail calls
+    #         def cc(*value):
+    #             if (cc1 is not None):
+    #                 return jump(cc1, cc=cc2, *value)
+    #             else:
+    #                 return jump(cc2, *value)
+    #     else:  # for inert data value returns
+    #         def cc(value):
+    #             if (cc1 is not None):
+    #                 if isinstance(value, tuple):
+    #                     return jump(cc1, cc=cc2, *value)
+    #                 else:
+    #                     return jump(cc1, value, cc=cc2)
+    #             if isinstance(value, tuple):
+    #                 return jump(cc2, *value)
+    #             else:
+    #                 return jump(cc2, value)
+    #     return cc
+    #
+    cc1_multi = hq[jump(name["cc1"], *name["value"], cc=name["cc2"])]
+    cc1_single = hq[jump(name["cc1"], name["value"], cc=name["cc2"])]
+    cc2_multi = hq[jump(name["cc2"], *name["value"])]
+    cc2_single = hq[jump(name["cc2"], name["value"])]
+#    tree = let([q[(name["_retval"], ast_literal[tree])]],
+#               q[ast_literal[cc_multi]  # TODO: doesn't work, IfExp missing line number
+#                 if isinstance(name["_retval"], tuple)
+#                 else ast_literal[cc_single]])
+#    tree = fill_line_numbers(newtree, tree.lineno, tree.col_offset)  # doesn't work even with this.
+    locref = block_body[0]
+    sendbody1 = [If(test=q[name["cc1"] is not None],
+                    body=[If(test=q[isinstance(name["value"], tuple)],
+                             body=[Return(value=cc1_multi)],
+                             orelse=[Return(value=cc1_single)],
+                             lineno=locref.lineno, col_offset=locref.col_offset)],
+                    orelse=[],
+                    lineno=locref.lineno, col_offset=locref.col_offset)]
+    sendbody1.append(If(test=q[isinstance(name["value"], tuple)],
+                        body=[Return(value=cc2_multi)],
+                        orelse=[Return(value=cc2_single)],
+                        lineno=locref.lineno, col_offset=locref.col_offset))
+    send1 = FunctionDef(name="cc",
+                        args=arguments(args=[arg(arg="value")],
+                                       kwonlyargs=[],
+                                       vararg=None,
+                                       kwarg=None,
+                                       defaults=[],
+                                       kw_defaults=[]),
+                        body=[sendbody1],
+                        decorator_list=[],
+                        returns=None)  # return annotation not used here
+    sendbody2 = [If(test=q[name["cc1"] is not None],
+                    body=[Return(value=cc1_multi)],
+                    orelse=[Return(value=cc2_multi)],
+                    lineno=locref.lineno, col_offset=locref.col_offset)]
+    send2 = FunctionDef(name="cc",
+                        args=arguments(args=[],
+                                       kwonlyargs=[],
+                                       vararg=arg(arg="value"),
+                                       kwarg=None,
+                                       defaults=[],
+                                       kw_defaults=[]),
+                        body=[sendbody2],
+                        decorator_list=[],
+                        returns=None)  # return annotation not used here
+    chooser = If(test=q[name["with_star"]],
+                 body=[send2],
+                 orelse=[send1],
+                 lineno=locref.lineno, col_offset=locref.col_offset)
+    fal = q[False]
+    fal = copy_location(fal, locref)
+    chain_conts = FunctionDef(name="chain_conts",
+                              args=arguments(args=[arg(arg="cc1"), arg(arg="cc2"), arg(arg="with_star")],
+                                             kwonlyargs=[],
+                                             vararg=None,
+                                             kwarg=None,
+                                             defaults=[fal],
+                                             kw_defaults=[]),
+                              body=[chooser, Return(value=q[name["cc"]])],
+                              decorator_list=[],
+                              returns=None)  # return annotation not used here
+    new_block_body.append(chain_conts)
+
+    # transform all defs (except the chaining handler), including those added by with_cc[].
     for stmt in block_body:
         stmt = _tco_transform_def.recurse(stmt, preproc_cb=transform_args)
         stmt = _tco_transform_lambda.recurse(stmt, preproc_cb=transform_args,
