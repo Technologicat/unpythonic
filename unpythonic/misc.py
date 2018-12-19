@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["call", "callwith", "raisef", "pack", "namelambda"]
+__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "Box"]
 
 from types import LambdaType
 import re
@@ -249,3 +249,31 @@ def namelambda(function, name):
         function.__name__ = myname
         function.__qualname__ = re.sub("<lambda>$", myname, function.__qualname__)
     return function
+
+class Box:
+    """Minimalistic, mutable single-item container à la Racket.
+
+    Motivation::
+
+        v = 17
+        def f(v):
+            v = 23  # no!
+        f(v)
+        print(v)  # still 17
+
+    Solution - box it, to keep the actual data in an attribute::
+
+        b = Box(17)
+        def f(b):
+            b.value = 23  # yes!
+        f(b)
+        print(b.value)  # 23
+
+    **Disclaimer**: maybe silly. The standard pythonic solutions are to use
+    a single-item list, or the ``nonlocal`` or ``global`` statements as
+    appropriate for the particular situation.
+    """
+    def __init__(self, value=None):
+        self.value = value
+    def __repr__(self):
+        return "<Box at 0x{:x}, value={}>".format(id(self), self.value)
