@@ -984,6 +984,8 @@ def continuations(tree, gen_sym, **kw):
 
       - McCarthy's amb operator.
 
+      - Generators. (Though of course, Python already has them.)
+
     This is a very loose pythonification of Paul Graham's continuation-passing
     macros, which implement continuations by chaining closures and passing the
     continuation semi-implicitly. For details, see chapter 20 in On Lisp:
@@ -995,18 +997,13 @@ def continuations(tree, gen_sym, **kw):
     The purpose of this macro is to partly automate the CPS transformation, so
     that at the use site, we can write CPS code in a much more readable fashion.
 
-    To combo with multilambda, use this ordering::
-
-        with multilambda, continuations:
-            ...
-
     A ``with continuations`` block implies TCO; the same rules apply as in a
     ``with tco`` block. Furthermore, ``with continuations`` introduces the
     following additional rules:
 
       - Functions which make use of continuations, or call other functions that do,
-        must be defined within a ``with continuations`` block, using ``def``
-        or ``lambda``.
+        must be defined within a ``with continuations`` block, using the usual
+        ``def`` or ``lambda`` forms.
 
       - All function definitions in a ``with continuations`` block, including
         any nested definitions, must declare a by-name-only formal parameter
@@ -1026,8 +1023,7 @@ def continuations(tree, gen_sym, **kw):
           given ``somevalue``.
 
           Multiple values can be returned as a ``tuple``. Tupleness is tested
-          at run-time, except for literal tuple return values, for which the
-          check is omitted.
+          at run-time.
 
           Any tuple return value is automatically unpacked to the positional
           args of ``cc``. To return multiple things as one without the implicit
@@ -1036,7 +1032,8 @@ def continuations(tree, gen_sym, **kw):
         - An explicit ``return somefunc(arg0, ..., k0=v0, ...)`` actually means
           a tail-call to ``somefunc``, with its ``cc`` automatically set to our
           ``cc``. Hence this inserts a call to ``somefunc`` before proceeding
-          with our current continuation.
+          with our current continuation. (This is most often what we want when
+          making a tail-call from a continuation-enabled function.)
 
           Here ``somefunc`` **must** be a continuation-enabled function;
           otherwise the TCO chain will break and the result is immediately
@@ -1045,6 +1042,11 @@ def continuations(tree, gen_sym, **kw):
           (If the call succeeds at all; the ``cc`` argument is implicitly
           filled in and passed by name. Regular functions usually do not
           accept a named parameter ``cc``, let alone know what to do with it.)
+
+        - Just like in ``with tco``, a lambda body is analyzed as one big
+          return-value expression. This uses the exact same analyzer; for example,
+          ``do[]`` (including any implicit ``do[]``) and the ``let[]`` expression
+          family are supported.
 
       - Calls from functions defined in one ``with continuations`` block to those
         defined in another are ok; there is no state or context associated with
@@ -1071,7 +1073,11 @@ def continuations(tree, gen_sym, **kw):
     **Capturing the continuation**:
 
     Inside a ``with continuations:`` block, the ``call_cc[]`` statement
-    (which is actually a macro, for technical reasons) captures a continuation.
+    captures a continuation. (It is actually a macro, for technical reasons.)
+
+    For various possible program topologies that continuations may introduce, see
+    the clarifying pictures under ``macro_extras/`` in the source distribution.
+
     Syntax::
 
         x = call_cc[func(...)]
@@ -1080,7 +1086,7 @@ def continuations(tree, gen_sym, **kw):
         x0, ..., *xs = call_cc[func(...)]
         call_cc[func(...)]
 
-    A conditional variant is also supported::
+    Conditional variant::
 
         x = call_cc[f(...) if p else g(...)]
         *xs = call_cc[f(...) if p else g(...)]
@@ -1088,73 +1094,38 @@ def continuations(tree, gen_sym, **kw):
         x0, ..., *xs = call_cc[f(...) if p else g(...)]
         call_cc[f(...) if p else g(...)]
 
-    Note that unlike in Scheme/Racket, ``call_cc`` takes **a function call**
-    as its argument, not just a function reference. Also, there's no need for
-    it to be a one-argument function; any other args can be passed in the call.
-
-    The function call ``func(...)`` in the brackets is performed, with its ``cc``
-    argument set to the lexically remaining statements of the current block,
-    represented as a callable.
-
-    The continuation itself ends there (it is *delimited* in this particular
-    sense), but it will chain to the ``cc`` of the original function, as if it
-    was still just one function.
-
-    Due to the delimited extent of the continuations implemented here, the
-    ``call_cc`` may be need to be placed differently (at an outer level)
-    compared to the same program implemented in Scheme/Racket, where ``call/cc``
-    will capture also expressions occurring further up in the call stack.
-
-    The continuation is a closure; for chaining, it will use the value the
-    original function's ``cc`` had when the definition of the continuation
-    was executed (for that particular instance of the closure). Hence, calling
-    the original function again with its ``cc`` set to something else will
-    produce a new continuation instance that chains into that new ``cc``.
-
-    See clarifying pictures under ``macro_extras/`` in the distribution.
+    Assignment targets:
 
      - To destructure a multiple-values (from a tuple return value),
        use a tuple assignment target (comma-separated names, as usual).
 
      - The last assignment target may be starred. It is transformed into
        the vararg (a.k.a. ``*args``) of the continuation function.
+       (It will capture a whole tuple, or any excess items, as usual.)
 
      - To ignore the return value (useful if ``func`` was called only to
        perform its side-effects), just omit the assignment part.
 
-     - In the conditional variant, ``p`` is any expression. If truthy, ``f(...)``
-       is called, and if falsey, ``g(...)`` is called.
+    Conditional variant:
 
-     - In the conditional variant, each of ``f(...)``, ``g(...)`` may be ``None``.
-       A ``None`` skips the function call, proceeding directly to the continuation.
-       Upon skipping, all assignment targets (if any are present) are set to
-       ``None``. The starred assignment target (if present) gets the empty tuple.
+     - ``p`` is any expression. If truthy, ``f(...)`` is called, and if falsey,
+       ``g(...)`` is called.
 
-       The main use case of the conditional variant is for things like::
+     - Each of ``f(...)``, ``g(...)`` may be ``None``. A ``None`` skips the
+       function call, proceeding directly to the continuation. Upon skipping,
+       all assignment targets (if any are present) are set to ``None``.
+       The starred assignment target (if present) gets the empty tuple.
 
-            with continuations:
-                k = None
-                def setk(*, cc):
-                    global k
-                    k = cc
-                def dostuff(x, *, cc):
-                    call_cc[setk() if x > 10 else None]  # capture only if x > 10
-                    ...
+     - The main use case of the conditional variant is for things like::
 
-    The function ``func`` called by a ``call_cc[func(...)]`` is the only place
-    where the ``cc`` argument is actually set. There it is the captured
-    continuation. Everywhere else, ``cc`` is just ``identity``. (Except tail
-    calls; roughly, a tail call passes along the current value of ``cc``,
-    unless overridden by the user.)
-
-    The ``call_cc[]`` statement essentially splits its use site into *before*
-    and *after* parts, where the *after* part (the continuation) can be run
-    a second and further times, by later calling the callable that represents
-    the continuation.
-
-    The return value of the continuation is whatever the original function
-    returns, for any ``return`` statement that appears lexically after the
-    ``call_cc[]``.
+           with continuations:
+               k = None
+               def setk(*, cc):
+                   global k
+                   k = cc
+               def dostuff(x, *, cc):
+                   call_cc[setk() if x > 10 else None]  # capture only if x > 10
+                   ...
 
     To keep things relatively straightforward, a ``call_cc[]`` is only
     allowed to appear **at the top level** of:
@@ -1165,13 +1136,96 @@ def continuations(tree, gen_sym, **kw):
     Nested defs are ok; here *top level* only means the top level of the
     *currently innermost* ``def``.
 
+    If you need to place ``call_cc[]`` inside a loop, use ``@looped`` et al.
+    from ``unpythonic.fploop``; this has the loop body represented as the
+    top level of a ``def``.
+
     Multiple ``call_cc[]`` statements in the same function body are allowed.
     These essentially create nested closures.
+
+    **Main differences to Scheme and Racket**:
+
+    Compared to Scheme/Racket, where ``call/cc`` will capture also expressions
+    occurring further up in the call stack, our ``call_cc`` may be need to be
+    placed differently (further out, depending on what needs to be captured)
+    due to the delimited nature of the continuations implemented here.
+
+    Scheme and Racket implicitly capture the continuation at every position,
+    whereas we do it explicitly, only at the use sites of the ``call_cc`` macro.
+
+    Also, since there are limitations to where a ``call_cc[]`` may appear, some
+    code may need to be structured differently to do some particular thing, if
+    porting code examples originally written in Scheme or Racket.
+
+    Unlike ``call/cc`` in Scheme/Racket, ``call_cc`` takes **a function call**
+    as its argument, not just a function reference. Also, there's no need for
+    it to be a one-argument function; any other args can be passed in the call.
+
+    **Technical notes**:
+
+    The ``call_cc[]`` statement essentially splits its use site into *before*
+    and *after* parts, where the *after* part (the continuation) can be run
+    a second and further times, by later calling the callable that represents
+    the continuation. This makes a computation resumable from a desired point.
+
+    The return value of the continuation is whatever the original function
+    returns, for any ``return`` statement that appears lexically after the
+    ``call_cc[]``.
+
+    The effect of ``call_cc[]`` is that the function call ``func(...)`` in
+    the brackets is performed, with its ``cc`` argument set to the lexically
+    remaining statements of the current ``def`` (at the top level, the rest
+    of the ``with continuations`` block), represented as a callable.
+
+    The continuation itself ends there (it is *delimited* in this particular
+    sense), but it will chain to the ``cc`` of the function it appears in.
+    This is termed the *parent continuation* (**pcc**), stored in the internal
+    variable ``_pcc`` (which defaults to ``None``).
+
+    Via the use of the pcc, here ``f`` will maintain the illusion of being
+    just one function, even though a ``call_cc`` appears there::
+
+        def f(*, cc):
+            ...
+            call_cc[g(1, 2, 3)]
+            ...
+
+    The continuation is a closure. For the pcc, it will use the value the
+    original function's ``cc`` had when the definition of the continuation
+    was executed (for that particular instance of the closure). Hence, calling
+    the original function again with its ``cc`` set to something else will
+    produce a new continuation instance that chains into that new ``cc``.
+
+    The continuation's own ``cc`` will be ``identity``, to allow its use just
+    like any other function (also as argument of a ``call_cc`` or target of a
+    tail call).
+
+    When the pcc is set (not ``None``), the effect is to run the pcc first,
+    and ``cc`` only after that. This preserves the whole captured tail of a
+    computation also in the presence of nested ``call_cc`` invocations (in the
+    above example, this would occur if also ``g`` used ``call_cc``).
+
+    Continuations are not accessible by name (their definitions are named by
+    gensym). To get a reference to a continuation instance, stash the value
+    of the ``cc`` argument somewhere while inside the ``call_cc``.
+
+    The function ``func`` called by a ``call_cc[func(...)]`` is (almost) the
+    only place where the ``cc`` argument is actually set. There it is the
+    captured continuation. Roughly everywhere else, ``cc`` is just ``identity``.
+
+    Tail calls are an exception to the rule; a tail call passes along the current
+    value of ``cc``, unless overridden manually (by setting the ``cc=...`` kwarg
+    in the tail call).
+
+    When the pcc is set (not ``None``) at the site of the tail call, the
+    machinery will create a composed continuation that runs the pcc first,
+    and ``cc`` (whether current or manually overridden) after that. This
+    composed continuation is then passed to the tail call as its ``cc``.
 
     **Tips**:
 
       - Once you have a captured continuation, one way to use it is to set
-        ``cc=...`` manually in a tail call::
+        ``cc=...`` manually in a tail call, as was mentioned. Example::
 
             def main(*, cc):
                 call_cc[myfunc()]  # call myfunc, capturing the current cont...
@@ -1186,14 +1240,12 @@ def continuations(tree, gen_sym, **kw):
         In this example, when ``somefunc`` is eventually called, it will tail-call
         ``dostuff`` and then proceed with the continuation ``myfunc`` had
         at the time when that instance of the ``somefunc`` closure was created.
-
-        The machinery automatically detects if you have already set ``cc=...``
-        for a particular tail call, skipping the implicit cc passing step.
+        (This pattern is essentially how to build the ``amb`` operator.)
 
       - Instead of setting ``cc``, you can also overwrite ``cc`` with a captured
-        continuation inside a function body. That sets the continuation (to be
-        passed implicitly) for the rest of the dynamic extent of the function,
-        not only for a particular tail call::
+        continuation inside a function body. That overrides the continuation
+        for the rest of the dynamic extent of the function, not only for a
+        particular tail call::
 
             def myfunc(*, cc):
                 ourcc = cc
@@ -1213,57 +1265,63 @@ def continuations(tree, gen_sym, **kw):
         (when the continuation runs) are the arguments given to the continuation
         when it is called (whether implicitly or manually).
 
-      - Internally, the act of capturing a continuation creates a closure
-        (with the function named using a gensym); it implicitly gets its own
-        ``cc``. Hence, the value of ``cc`` in the continuation (i.e. lexically at
-        any statement after the ``call_cc[]``) is the **continuation's** ``cc``.
+      - Setting ``cc`` to ``unpythonic.fun.identity``, while inside a ``call_cc``,
+        will short-circuit the rest of the computation. In such a case, the
+        continuation will not be invoked automatically. A useful pattern for
+        suspend/resume.
 
-        The parent function's ``cc``, if not currently ``identity``, is captured
-        (by closure) and stored in the internal variable ``_pcc``. Everywhere
-        except in continuation functions created by ``call_cc``, ``_pcc`` is
-        ``None``. The machinery uses it to help treat the whole tail of a
-        computation as if it was a single function.
-
-      - The ``_pcc`` mechanism specifically allows confetti; it's perfectly fine
-        to ``call_cc`` or tail-call into a previously created continuation,
-        and it will behave just like a regular function.
-
-        It is currently not possible to prevent the rest of the tail of a
-        captured continuation from running, apart from manually setting ``_pcc``
-        to ``None``, but note this is not strictly speaking a supported feature.
+      - However, it is currently not possible to prevent the rest of the tail
+        of a captured continuation (the pcc) from running, apart from manually
+        setting ``_pcc`` to ``None`` before executing a ``return``. Note that
+        doing that is not strictly speaking supported (and may be subject to
+        change in a future version).
 
       - When ``call_cc[]`` appears inside a function definition:
 
           - It tail-calls ``func``, with its ``cc`` set to the captured
-            continuation, before proceeding with the previous ``cc``
-            (the *before* part's current continuation).
+            continuation.
 
           - The return value of the function containing one or more ``call_cc[]``
             statements is the return value of the continuation.
 
       - When ``call_cc[]`` appears at the top level of ``with continuations``:
 
-          - A normal call to ``func`` is made, then proceeding with the remaining
-            statements.
+          - A normal call to ``func`` is made, with its ``cc`` set to the captured
+            continuation.
 
           - In this case, if the continuation is called later, it always
-            returns ``None``, because the ``call_cc[]`` is not inside a
-            function definition.
+            returns ``None``, because the use site of ``call_cc[]`` is not
+            inside a function definition.
 
       - If you need to insert just a tail call (no further statements) before
         proceeding with the current continuation, no need for ``call_cc[]``;
         use ``return func(...)`` instead.
 
         The purpose of ``call_cc[func(...)]`` is to capture the current
-        continuation, and hand it to ``func`` as a first-class value.
+        continuation (the remaining statements), and hand it to ``func``
+        as a first-class value.
 
-      - Combo note:
+      - To combo with ``multilambda``, use this ordering::
 
-        ``unpythonic.ec.call_ec`` can be used normally **lexically before any**
+            with multilambda, continuations:
+                ...
+
+      - Some very limited comboability with ``call_ec``. May be better to plan
+        ahead, using ``call_cc[]`` at the appropriate outer level, and then
+        short-circuit (when needed) by setting ``cc`` to ``identity``.
+        This avoids the need to have both ``call_cc`` and ``call_ec`` at the
+        same time.
+
+      - ``unpythonic.ec.call_ec`` can be used normally **lexically before any**
         ``call_cc[]``, but (in a given function) after at least one ``call_cc[]``
-        has run, the ``ec`` ceases to be valid. (This is because our ``call_cc[]``
+        has run, the ``ec`` ceases to be valid. This is because our ``call_cc[]``
         actually splits the function into *before* and *after* parts, and
-        tail-calls the *after* part.)
+        **tail-calls** the *after* part.
+
+        (Wrapping the ``def`` in another ``def``, and placing the ``call_ec``
+        on the outer ``def``, does not help either, because even the outer
+        function has exited by the time *the continuation* is later called
+        the second and further times.)
 
         Usage of ``call_ec`` while inside a ``with continuations`` block is::
 
