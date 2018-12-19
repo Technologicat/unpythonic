@@ -22,7 +22,7 @@ or
 # General config
 #########################################################
 
-# Name of the top-level package of your library.
+# Name of the top-level package of the library.
 #
 # This is also the top level of its source tree, relative to the top-level project directory setup.py resides in.
 #
@@ -30,27 +30,27 @@ libname="unpythonic"
 
 # Short description for package list on PyPI
 #
-SHORTDESC="Python meets (selected parts of) Lisp and Haskell."
+SHORTDESC="Missing batteries included: Python meets Lisp and Haskell."
 
 # Long description for package homepage on PyPI
 #
 DESC="""We provide missing features for Python, mainly from the list processing
-tradition, but with some haskellisms mixed in. We place a special emphasis on
-**clear, pythonic syntax**. For the adventurous, we also provide a set of
-syntactic macros that are designed to work together.
+tradition, but with some haskellisms mixed in. For the adventurous, we include
+a set of syntactic macros (using MacroPy) that are designed to work together.
 
-Design considerations are simplicity, robustness, and minimal dependencies
-(currently none required; MacroPy optional, to enable the syntactic macros).
-In macros we aim at orthogonality, combinability, and clear, pythonic syntax.
+We place a special emphasis on **clear, pythonic syntax**. Design considerations
+are simplicity, robustness, and minimal dependencies.
 
-Features include tail call optimization (TCO), TCO'd loops in FP style, call/ec,
-let & letrec, assign-once, multi-expression lambdas, def as a code block,
-dynamic assignment, memoize (also for generators and iterables), compose,
+Without MacroPy, our features include tail call optimization (TCO), TCO'd loops
+in FP style, call/ec, let & letrec, assign-once, multi-expression lambdas,
+dynamic assignment (a.k.a. *parameterize*, *special variables*), memoization
+(also for generators and iterables), currying, function composition,
 folds and scans (left and right), unfold, lazy partial unpacking of iterables,
-functional sequence updates, pythonic lispy linked lists.
+functional update for sequences, and pythonic lispy linked lists (``cons``).
 
-We provide a curry that passes extra arguments through on the right, and calls
-a callable return value on the remaining arguments. This is now valid Python::
+Our curry slightly modifies Python's reduction rules. It passes any extra
+arguments through on the right, and calls a callable return value on the
+remaining arguments, so that we can::
 
     mymap = lambda f: curry(foldr, composerc(cons, f), nil)
     myadd = lambda a, b: a + b
@@ -60,16 +60,34 @@ a callable return value on the remaining arguments. This is now valid Python::
     look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
     assert tuple(curry(look, 5, 10, range(20))) == tuple(range(5, 15))
 
-As macros we provide e.g. automatic currying, automatic tail-call optimization,
-continuations (``call/cc``), lexically scoped ``let`` and ``do``, implicit
-return statements, and easy-to-use multi-expression lambdas with local variables.
+If MacroPy is installed, ``unpythonic.syntax`` becomes available. It provides
+macros that essentially extend the Python language, adding features that would
+be either complicated or impossible to provide (and/or use) otherwise.
 
-For a taste of the macros::
+Macro features include automatic currying, automatic tail-call optimization,
+continuations (``call/cc`` for Python), ``let-syntax`` (splice code at macro
+expansion time), lexically scoped ``let`` and ``do`` with lean syntax,
+implicit return statements, and easy-to-use multi-expression lambdas
+with local variables.
 
-    # let, letseq, letrec with no boilerplate
+The TCO macro has a fairly extensive expression analyzer, so things like ``and``,
+``or``, ``a if p else b`` and any uses of the ``do[]`` and ``let[]`` macros are
+accounted for when performing the tail-call transformation.
+
+The continuation system is based on a semi-automated partial conversion into
+continuation-passing style (CPS), with continuations represented as closures.
+It also automatically applies TCO, using the same machinery as the TCO macro.
+
+Macro examples::
+
+    # let, letseq (let*), letrec with no boilerplate
     a = let((x, 17),
             (y, 23))[
               (x, y)]
+
+    # alternate haskelly syntax
+    a = let[((x, 21),(y, 17), (z, 4)) in x + y + z]
+    a = let[x + y + z, where((x, 21), (y, 17), (z, 4))]
 
     # cond: multi-branch "if" expression
     answer = lambda x: cond[x == 2, "two",
@@ -153,7 +171,7 @@ For a taste of the macros::
         (print, (mymap, double, (q, 1, 2, 3)))
         assert (mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)
 
-    # essentially call/cc for Python
+    # call/cc for Python
     with continuations:
         stack = []
         def amb(lst, *, cc):  # McCarthy's amb operator
@@ -169,19 +187,42 @@ For a taste of the macros::
                 f = stack.pop()
                 return f()
 
-        def pyth(*, cc):
-            with bind[amb(tuple(range(1, 21)))] as z:
-                with bind[amb(tuple(range(1, z+1)))] as y:
-                    with bind[amb(tuple(range(1, y+1)))] as x:  # <-- the call/cc
-                        if x*x + y*y != z*z:                    # body is the cont
-                            return fail()
-                        return x, y, z
-        x = pyth()
+        def pythagorean_triples(maxn, *, cc):
+            z = call_cc[amb(tuple(range(1, maxn+1)))]
+            y = call_cc[amb(tuple(range(1, z+1)))]
+            x = call_cc[amb(tuple(range(1, y+1)))]
+            if x*x + y*y != z*z:
+                return fail()
+            return x, y, z
+        x = pythagorean_triples(20)
         while x:
             print(x)
             x = fail()
 
-For documentation and full examples, see the project's GitHub homepage.
+    # if Python didn't already have generators, we could add them with call/cc:
+    with continuations:
+        @dlet((k, None))
+        def g(*, cc):
+            if k:
+                return k()
+            def my_yield(value, *, cc):
+                k << cc
+                cc = identity
+                return value
+            # generator body
+            call_cc[my_yield(1)]
+            call_cc[my_yield(2)]
+            call_cc[my_yield(3)]
+        out = []
+        x = g()
+        while x is not None:
+            out.append(x)
+            x = g()
+        assert out == [1, 2, 3]
+
+For documentation and full examples, see the project's GitHub homepage,
+and the docstrings of the individual features. For even more examples,
+see the unit tests included in the source distribution.
 """
 
 # Set up data files for packaging.
