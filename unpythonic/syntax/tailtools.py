@@ -231,8 +231,6 @@ def continuations(block_body):
             else:  # single target
                 targets = maybe_starred(target)
         elif type(stmt) is Expr:  # no assignment targets, cont takes no args
-            if type(stmt.value) is not Subscript:
-                assert False, "expected a bare call_cc[] expr, got {}".format(stmt.value)
             targets = []
         else:
             assert False, "call_cc[]: expected an assignment or a bare expr, got {}".format(stmt)
