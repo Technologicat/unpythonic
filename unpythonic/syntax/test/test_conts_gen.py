@@ -23,8 +23,6 @@ from ...syntax import macros, continuations, call_cc, dlet
 from ...fploop import looped
 from ...fun import identity
 
-from macropy.tracing import macros, show_expanded
-
 def test():
     # a basic generator
     with continuations:
