@@ -183,8 +183,9 @@ def continuations(block_body):
     # Instead, we capture as the continuation all remaining statements (i.e.
     # those that lexically appear after the ``call_cc[]``) in the current block.
     def iscallcc(tree):
-        if type(tree) in (Assign, Expr):
-            tree = tree.value
+        if type(tree) not in (Assign, Expr):
+            return False
+        tree = tree.value
         if type(tree) is Subscript and type(tree.value) is Name \
            and tree.value.id == "call_cc":
             if type(tree.slice) is Index:
