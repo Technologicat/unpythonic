@@ -270,11 +270,23 @@ def continuations(block_body):
         else:
             posargdefaults = []
 
+        # Name the continuation: f_cont, f_cont1, f_cont2, ...
+        # if multiple call_cc[]s in the same function body.
+        if owner:
+            # return prefix of s before the first occurrence of suf.
+            def strip_suffix(s, suf):
+                n = s.find(suf)
+                if n == -1:
+                    return s
+                return s[:n]
+            basename = "{}_cont".format(strip_suffix(owner.name, "_cont"))
+        else:
+            basename = "cont"
+        contname = gen_sym(basename)
+
         # Set our captured continuation as the cc of f and g in
         #   call_cc[f(...)]
         #   call_cc[f(...) if p else g(...)]
-        basename = "{}_cont".format(owner.name) if owner else "cont"
-        contname = gen_sym(basename)
         def prepare_call(tree):
             if tree:
                 tree.keywords = [keyword(arg="cc", value=q[name[contname]])] + tree.keywords
