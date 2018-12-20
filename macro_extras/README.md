@@ -8,7 +8,7 @@ The tests use relative imports; invoke them from the top-level directory of ``un
 
 There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itself already provides ``lazy`` and ``interned``.
 
-!! **Currently** (10/2018) this requires the latest MacroPy from git HEAD. !!
+!! **Currently** (12/2018) this requires the latest MacroPy from git HEAD. !!
 
 **Contents**:
 
