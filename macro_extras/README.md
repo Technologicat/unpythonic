@@ -90,6 +90,8 @@ As seen in the examples, the syntax is similar to ``unpythonic.lispylet``. Assig
 
 The bindings are given as macro arguments as ``((name, value), ...)``, the body goes into the ``[...]``.
 
+### Alternate syntaxes
+
 *Added in v0.12.0.* The following Haskell-inspired, perhaps more pythonic alternate syntaxes are now available:
 
 ```python
@@ -106,11 +108,15 @@ let[x + y + z,
 
 These syntaxes take no macro arguments; both the let-body and the bindings are placed inside the same ``[...]``.
 
+Semantically, these do the exact same thing as the original lispy syntax: the bindings are evaluated first, and then the body is evaluated with the bindings in place. The purpose of the second variant (the *let-where*) is just readability; sometimes it looks clearer to place the body expression first, and only then explain what the symbols in it mean.
+
 These syntaxes are valid for all **expression forms** of ``let``, namely: ``let[]``, ``letseq[]``, ``letrec[]``, ``let_syntax[]`` and ``abbrev[]``. The decorator variants (``dlet`` et al., ``blet`` et al.) and the block variants (``with let_syntax``, ``with abbrev``) support only the original lispy syntax, because there the body is in any case placed differently.
 
 In the first variant above (the *let-in*), note the bindings block still needs the outer parentheses. This is due to Python's precedence rules; ``in`` binds more strongly than the comma (which makes sense almost everywhere else), so to make it refer to all of the bindings, the bindings block must be parenthesized. If the ``let`` expander complains your code does not look like a ``let`` form, check your parentheses.
 
 In the second variant (the *let-where*), note the comma between the body and ``where``; it is compulsory to make the expression into syntactically valid Python. (It's however semi-easyish to remember, since also English requires the comma for a where-expression.)
+
+### Special syntax for one binding
 
 *Added in v0.12.0.* If there is only one binding, to make the syntax more pythonic, now the outer parentheses may be omitted:
 
@@ -120,9 +126,66 @@ let[(x, 21) in 2*x]
 let[2*x, where(x, 21)]
 ```
 
-This is valid also in the middle variant, because there is still one set of parentheses enclosing the bindings block.
+This is valid also in the *let-in* variant, because there is still one set of parentheses enclosing the bindings block.
 
 This is essentially special-cased in the ``let`` expander. (If interested in the technical details, look at ``unpythonic.syntax.letdoutil.UnexpandedLetView``, which performs the destructuring. See also ``unpythonic.syntax.__init__.let``; MacroPy itself already destructures the original lispy syntax when the macro is invoked.)
+
+### Multiple expressions in body
+
+*Added in v0.9.2.* The `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body (like in `multilambda`; see below):
+
+```python
+let((x, 1),
+    (y, 2))[[  # note extra [
+      y << x + y,
+      print(y)]]
+
+let[((x, 1),      # v0.12.0+
+     (y, 2)) in
+    [y << x + y,  # body starts here
+     print(y)]]
+
+let[[y << x + y,  # v0.12.0+
+     print(y)],   # body ends here
+    where((x, 1),
+          (y, 2))]
+```
+
+The let macros implement this by inserting a ``do[...]`` (see below). In a multiple-expression body, also an internal definition context exists for local variables that are not part of the ``let``; see ``do`` for details.
+
+Only the outermost set of extra brackets is interpreted as a multiple-expression body; the rest are interpreted as usual, as lists. If you need to return a literal list from a ``let`` form with only one body expression, use three sets of brackets:
+
+```python
+let((x, 1),
+    (y, 2))[[
+      [x, y]]]
+
+let[((x, 1),      # v0.12.0+
+     (y, 2)) in
+    [[x, y]]]
+
+let[[[x, y]],     # v0.12.0+
+    where((x, 1),
+          (y, 2))]
+```
+
+The outermost brackets delimit the ``let`` form, the middle ones activate multiple-expression mode, and the innermost ones denote a list.
+
+Only brackets are affected; parentheses are interpreted as usual, so returning a literal tuple works as expected:
+
+```python
+let((x, 1),
+    (y, 2))[
+      (x, y)]
+
+let[((x, 1),      # v0.12.0+
+     (y, 2)) in
+    (x, y)]
+
+let[(x, y),       # v0.12.0+
+    where((x, 1),
+          (y, 2))]
+```
 
 ### Notes
 
@@ -138,45 +201,6 @@ letrec((z, 1))[[
 ```
 
 Hence the ``z`` in the inner scope expands to the inner environment's ``z``, which makes the outer expansion leave it alone. (This works by transforming only ``ast.Name`` nodes, stopping recursion when an ``ast.Attribute`` is encountered.)
-
-### Multiple expressions in body
-
-*Added in v0.9.2.* The `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body (like in `multilambda`; see below):
-
-```python
-let((x, 1),
-    (y, 2))[[  # note extra [
-      y << x + y,
-      print(y)]]
-```
-
-The let macros implement this by inserting a ``do[...]`` (see below). In a multiple-expression body, also an internal definition context exists for local variables that are not part of the ``let``; see ``do`` for details.
-
-Only the outermost set of extra brackets is interpreted as a multiple-expression body; the rest are interpreted as usual, as lists. If you need to return a literal list from a let with only one body expression, use three sets of brackets:
-
-```python
-let((x, 1),
-    (y, 2))[[
-      [x, y]]]
-```
-
-The outermost brackets delimit the ``let`` body, the middle ones activate multiple-expression mode, and the innermost ones denote a list.
-
-Only brackets are affected; parentheses are interpreted as usual, so returning a literal tuple works as expected:
-
-```python
-let((x, 1),
-    (y, 2))[
-      (x, y)]
-```
-
-### Note
-
-We also provide classical simple ``let`` and ``letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, this version of ``letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``let`` expressions, which expand to lambdas.
-
-These are however not meant to work together with the rest of the macros; for that, use the above ``let``, ``letseq`` and ``letrec`` from the module ``unpythonic.syntax``.
-
-*Changed in v0.11.0.* These additional constructs now live in the separate module ``unpythonic.syntax.simplelet``, and are imported like ``from unpythonic.syntax.simplelet import macros, let, letseq``.
 
 ### ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions
 
@@ -288,9 +312,17 @@ else:
     assert False, "should have tried to access the deleted global x"
 ```
 
+### Barebones version
+
+We also provide classical simple ``let`` and ``letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, this version of ``letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``let`` expressions, which expand to lambdas.
+
+These are however provided as a curiosity, and not meant to work together with the rest of the macros; for that, use the above ``let``, ``letseq`` and ``letrec`` from the module ``unpythonic.syntax``.
+
+*Changed in v0.11.0.* These additional constructs now live in the separate module ``unpythonic.syntax.simplelet``, and are imported like ``from unpythonic.syntax.simplelet import macros, let, letseq``.
+
 ### ``let_syntax``, ``abbrev``: syntactic local bindings
 
-*Added in v0.11.0.* Locally splice code at macro expansion time:
+*Added in v0.11.0.* Locally splice code at macro expansion time (it's almost like inlining functions):
 
 ```python
 from unpythonic.syntax import macros, let_syntax, block, expr
@@ -308,6 +340,20 @@ y = let_syntax((f(a), verylongfunctionname(2*a)))[[  # template with formal para
                  print(f(2)),
                  f(3)]]
 assert y == 6
+
+# v0.12.0+
+y = let_syntax[((f, verylongfunctionname)) in
+               [print(f()),
+                f(5)]]
+y = let_syntax[[print(f()),
+                f(5)],
+               where((f, verylongfunctionname))]
+y = let_syntax[((f(a), verylongfunctionname(2*a))) in
+               [print(f(2)),
+                f(3)]]
+y = let_syntax[[print(f(2)),
+                f(3)],
+               where((f(a), verylongfunctionname(2*a)))]
 
 # works as a block macro
 with let_syntax:
@@ -369,6 +415,12 @@ The ``abbrev`` macro is otherwise exactly like ``let_syntax``, but it expands in
 ```python
 abbrev((a, ast_literal))[
          a[tree1] if a[tree2] else a[tree3]]
+
+# v0.12.0+
+abbrev[((a, ast_literal)) in
+       a[tree1] if a[tree2] else a[tree3]]
+abbrev[a[tree1] if a[tree2] else a[tree3],
+       where((a, ast_literal))]
 ```
 
 which can be useful when writing macros.
