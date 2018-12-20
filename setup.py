@@ -30,7 +30,7 @@ libname="unpythonic"
 
 # Short description for package list on PyPI
 #
-SHORTDESC="Missing batteries included: Python meets Lisp and Haskell."
+SHORTDESC="Supercharge your Python with parts of Lisp and Haskell."
 
 # Long description for package homepage on PyPI
 #
@@ -41,16 +41,16 @@ a set of syntactic macros (using MacroPy) that are designed to work together.
 We place a special emphasis on **clear, pythonic syntax**. Design considerations
 are simplicity, robustness, and minimal dependencies.
 
-Without MacroPy, our features include tail call optimization (TCO), TCO'd loops
-in FP style, call/ec, let & letrec, assign-once, multi-expression lambdas,
+**Without macros**, our features include tail call optimization (TCO), TCO'd
+loops in FP style, call/ec, let & letrec, assign-once, multi-expression lambdas,
 dynamic assignment (a.k.a. *parameterize*, *special variables*), memoization
 (also for generators and iterables), currying, function composition,
 folds and scans (left and right), unfold, lazy partial unpacking of iterables,
 functional update for sequences, and pythonic lispy linked lists (``cons``).
 
-Our curry slightly modifies Python's reduction rules. It passes any extra
-arguments through on the right, and calls a callable return value on the
-remaining arguments, so that we can::
+Our curry modifies Python's reduction rules. It passes any extra arguments
+through on the right, and calls a callable return value on the remaining
+arguments, so that we can::
 
     mymap = lambda f: curry(foldr, composerc(cons, f), nil)
     myadd = lambda a, b: a + b
@@ -64,7 +64,7 @@ If MacroPy is installed, ``unpythonic.syntax`` becomes available. It provides
 macros that essentially extend the Python language, adding features that would
 be either complicated or impossible to provide (and/or use) otherwise.
 
-Macro features include automatic currying, automatic tail-call optimization,
+**With macros**, we add automatic currying, automatic tail-call optimization,
 continuations (``call/cc`` for Python), ``let-syntax`` (splice code at macro
 expansion time), lexically scoped ``let`` and ``do`` with lean syntax,
 implicit return statements, and easy-to-use multi-expression lambdas
@@ -77,6 +77,8 @@ accounted for when performing the tail-call transformation.
 The continuation system is based on a semi-automated partial conversion into
 continuation-passing style (CPS), with continuations represented as closures.
 It also automatically applies TCO, using the same machinery as the TCO macro.
+To keep the runtime overhead somewhat reasonable, the continuation is captured
+only where explicitly requested with ``call_cc[]``.
 
 Macro examples::
 
