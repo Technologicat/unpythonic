@@ -88,7 +88,43 @@ letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding
 
 As seen in the examples, the syntax is similar to ``unpythonic.lispylet``. Assignment to variables in the environment is supported via the left-shift syntax ``x << 42``.
 
-Note the ``[...]``; these are ``expr`` macros. The bindings are given as macro arguments as ``((name, value), ...)``, the body goes into the ``[...]``.
+The bindings are given as macro arguments as ``((name, value), ...)``, the body goes into the ``[...]``.
+
+*Added in v0.12.0.* The following Haskell-inspired, perhaps more pythonic alternate syntaxes are now available:
+
+```python
+let[((x, 21),
+     (y, 17),
+     (z, 4)) in
+    x + y + z]
+
+let[x + y + z,
+    where((x, 21),
+          (y, 17),
+          (z, 4))]
+```
+
+These syntaxes take no macro arguments; both the let-body and the bindings are placed inside the same ``[...]``.
+
+These syntaxes are valid for all **expression forms** of ``let``, namely: ``let[]``, ``letseq[]``, ``letrec[]``, ``let_syntax[]`` and ``abbrev[]``. The decorator variants (``dlet`` et al., ``blet`` et al.) and the block variants (``with let_syntax``, ``with abbrev``) support only the original lispy syntax, because there the body is in any case placed differently.
+
+In the first variant above (the *let-in*), note the bindings block still needs the outer parentheses. This is due to Python's precedence rules; ``in`` binds more strongly than the comma (which makes sense almost everywhere else), so to make it refer to all of the bindings, the bindings block must be parenthesized. If the ``let`` expander complains your code does not look like a ``let`` form, check your parentheses.
+
+In the second variant (the *let-where*), note the comma between the body and ``where``; it is compulsory to make the expression into syntactically valid Python. (It's however semi-easyish to remember, since also English requires the comma for a where-expression.)
+
+*Added in v0.12.0.* If there is only one binding, to make the syntax more pythonic, now the outer parentheses may be omitted:
+
+```python
+let(x, 21)[2*x]
+let[(x, 21) in 2*x]
+let[2*x, where(x, 21)]
+```
+
+This is valid also in the middle variant, because there is still one set of parentheses enclosing the bindings block.
+
+This is essentially special-cased in the ``let`` expander. (If interested in the technical details, look at ``unpythonic.syntax.letdoutil.UnexpandedLetView``, which performs the destructuring. See also ``unpythonic.syntax.__init__.let``; MacroPy itself already destructures the original lispy syntax when the macro is invoked.)
+
+### Notes
 
 ``let`` and ``letrec`` expand into the ``unpythonic.lispylet`` constructs, implicitly inserting the necessary boilerplate: the ``lambda e: ...`` wrappers, quoting variable names in definitions, and transforming ``x`` to ``e.x`` for all ``x`` declared in the bindings. Assignment syntax ``x << 42`` transforms to ``e.set('x', 42)``. The implicit environment argument ``e`` is actually named using a gensym, so lexically outer environments automatically show through. ``letseq`` expands into a chain of nested ``let`` expressions.
 
