@@ -23,7 +23,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables
  - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
  - [``quicklambda``: combo with ``macropy.quick_lambda``](#quicklambda-combo-with-macropyquick_lambda)
- - [``continuations``: a form of call/cc for Python](#continuations-a-form-of-callcc-for-python)
+ - [``continuations``: call/cc for Python](#continuations-callcc-for-python)
  - [``tco``: automatically apply tail call optimization](#tco-automatically-apply-tail-call-optimization)
    - [TCO and continuations](#tco-and-continuations)
  - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position)
@@ -656,14 +656,26 @@ with quicklambda, tco:
 ```
 
 
-## ``continuations``: a form of call/cc for Python
+## ``continuations``: call/cc for Python
 
-This is a loose pythonification of Paul Graham's continuation-passing macros, chapter 20 in [On Lisp](http://paulgraham.com/onlisp.html).
+*Where control flow is your playground.*
 
-Perhaps a demonstration is the best explanation:
+If you're new to continuations, see the [short and easy Python-based explanation](https://www.ps.uni-saarland.de/~duchier/python/continuations.html) of the basic idea.
+
+We provide a very loose pythonification of Paul Graham's continuation-passing macros, chapter 20 in [On Lisp](http://paulgraham.com/onlisp.html).
+
+The approach differs from native continuation support (such as in Scheme or Racket) in that the continuation is captured only where explicitly requested with ``call_cc[]``. This lets most of the code work as usual, while performing the continuation magic where explicitly desired.
+
+As a consequence of the approach, our continuations are *delimited* in the sense that the captured continuation ends at the end of the body where the *currently dynamically outermost* ``call_cc[]`` was used. Hence, if porting some code that uses ``call/cc`` from Racket to Python, in the Python version the ``call_cc[]`` may be need to be placed further out to capture the relevant part of the computation. For example, see ``amb`` in the demonstration below; a Scheme or Racket equivalent usually has the ``call/cc`` placed inside the ``amb`` operator itself, whereas in Python we must place the ``call_cc[]`` at the call site of ``amb``.
+
+For various possible program topologies that continuations may introduce, see [these clarifying pictures](callcc_topology.pdf).
+
+For full documentation, see the docstring of ``unpythonic.syntax.continuations``. The unit tests in ``unpythonic/syntax/test/test_conts.py`` and ``unpythonic/syntax/test/test_conts_gen.py`` may also be useful as usage examples.
+
+Demonstration:
 
 ```python
-from unpythonic.syntax import macros, continuations, bind
+from unpythonic.syntax import macros, continuations, call_cc
 
 with continuations:
     # basic example - how to call a continuation manually:
@@ -671,15 +683,14 @@ with continuations:
     def setk(*args, cc):
         global k
         k = cc
-        xs = list(args)
-        return xs
+        return args
     def doit(*, cc):
         lst = ['the call returned']
-        with bind[setk('A')] as more:  # <-- essentially call/cc
-            return lst + more          # ...with the body containing the continuation
+        *more = call_cc[setk('A')]
+        return lst + list(more)
     print(doit())
-    print(k(['again']))
-    print(k(['thrice', '!']))
+    print(k('again'))
+    print(k('thrice', '!'))
 
     # McCarthy's amb operator - yes, the real thing - in Python:
     stack = []
@@ -698,12 +709,12 @@ with continuations:
 
     # Pythagorean triples.
     def pt(*, cc):
-        with bind[amb(tuple(range(1, 21)))] as z:
-            with bind[amb(tuple(range(1, z+1)))] as y:
-                with bind[amb(tuple(range(1, y+1)))] as x:
-                    if x*x + y*y != z*z:
-                        return fail()
-                    return x, y, z
+        z = call_cc[amb(tuple(range(1, 21)))]
+        y = call_cc[amb(tuple(range(1, z+1)))]
+        x = call_cc[amb(tuple(range(1, y+1)))]
+        if x*x + y*y != z*z:
+            return fail()
+        return x, y, z
     print(pt())
     print(fail())  # ...outside the dynamic extent of pt()!
     print(fail())
@@ -716,33 +727,107 @@ with continuations:
 Code within a ``with continuations`` block is treated specially. Roughly:
 
  - Each function definition (``def`` or ``lambda``) in a ``with continuations`` block must take a by-name-only parameter ``cc``.
-   - It is a named parameter, so that we may inject a default value, to allow these functions to be called also normally without passing a ``cc``.
+   - It is a named parameter, so that the ``continutions`` macro may automatically inject a default value, to allow these functions to be called also normally without passing a ``cc``.
    - To keep things somewhat pythonic, the parameter must be spelled out explicitly even though it gets its value implicitly, just like ``self`` in object-oriented Python code.
 
- - In a function definition inside the block:
+ - In a function definition inside the ``with continuations`` block:
    - Most of the language works as usual; especially, any non-tail function calls can be made as usual.
-   - ``return value`` or ``return v0, ..., vn`` actually tail-calls ``cc`` with the given value(s).
-     - As in other parts of ``unpythonic``, returning a tuple means returning multiple-values. (This is important if the return value is received by the as-part of a ``with bind``.)
-   - ``return func(...)`` actually tail-calls ``func``, passing on (by default) the current value of ``cc`` to become its ``cc``.
-     - Hence, the tail call is inserted between the end of the current function and the invocation of ``cc``.
-     - To use some other continuation, specify the ``cc=...`` kwarg, as in ``return func(..., cc=mycc)``.
-     - The function ``func`` must be a defined in a ``with continuations`` block, so that it knows what to do with ``cc``.
-       - Attempting to tail-call a regular function breaks the TCO chain and immediately returns to the original caller (provided the function even accepts a ``cc`` named parameter).
-       - Hence, be careful: ``xs = list(args); return xs`` and ``return list(args)`` mean different things.
-   - TCO is automatically applied to these tail calls.
+   - ``return value`` or ``return v0, ..., vn`` is actually a tail-call into ``cc``, passing the given value(s) as arguments.
+     - As in other parts of ``unpythonic``, returning a tuple means returning multiple-values.
+       - This is important if the return value is received by the assignment targets of a ``call_cc[]``. If you get a ``TypeError`` concerning the arguments of a function with a name ending in ``_cont``, check your ``call_cc[]`` invocations and the ``return`` in the call_cc'd function.
+   - ``return func(...)`` is actually a tail-call into ``func``, passing along (by default) the current value of ``cc`` to become its ``cc``.
+     - Hence, the tail call is inserted between the end of the current function body and the start of the continuation ``cc``.
+     - To override which continuation to use, you can specify the ``cc=...`` kwarg, as in ``return func(..., cc=mycc)``.
+     - The function ``func`` must be a defined in a ``with continuations`` block, so that it knows what to do with the named argument ``cc``.
+       - Attempting to tail-call a regular function breaks the TCO chain and immediately returns to the original caller (provided the function even accepts a ``cc`` named argument).
+       - Be careful: ``xs = list(args); return xs`` and ``return list(args)`` mean different things.
+   - TCO is automatically applied to these tail calls. This uses the exact same machinery as the ``tco`` macro (see further below).
 
- - Essentially, ``with bind`` is a limited form of ``call/cc``, where the body of the ``with`` block is captured as the continuation.
-   - Unlike in Scheme/Racket, where continuations are built into the language itself, and the remaining expressions of the computation are in a sense captured automatically.
-   - Unlike in Scheme, manually calling a continuation won't replace the whole call stack - it just runs the remaining part of the computation and returns the result. Hence in the first example above, ``1 + k(['something'])`` would be an error, whereas Scheme would throw away the pending ``1 +``, because it's not part of the continuation, and return just the result of ``k(['something'])``.
-   - A first-class reference to the captured continuation is available in the function called by ``with bind``, as its ``cc`` argument.
-     - The continuation is a function that takes as many positional arguments as there are names in the as-part of the ``with bind``. Additionally, it may take a named argument ``cc``.
-       - If there are multiple names, **parentheses are mandatory**, due to the syntax of Python's ``with`` statement.
-       - The body is technically a function; it gets its own ``cc``.
-     - Basically everywhere else, ``cc`` points to the identity function - the default continuation just returns its arguments.
-   - Inside a ``def``, ``with bind`` generates a tail call, terminating the function. Any code the function needs to run after the ``with bind`` must be placed in the body of the ``with bind``. The return value of the function is the return value of the body.
-   - At the top level, ``with bind`` generates a normal call. In this case is not possible to capture the return value of the body the first time it runs, because ``with`` is a statement.
+ - The ``call_cc[]`` statement essentially splits its use site into *before* and *after* parts, where the *after* part (the continuation) can be run a second and further times, by later calling the callable that represents the continuation. This makes a computation resumable from a desired point.
+   - The continuation is essentially a closure.
+   - Just like in Scheme/Racket, only the control state is checkpointed by ``call_cc[]``; any modifications to mutable data remain.
+   - Assignment targets can be used to get the return value of the function called by ``call_cc[]``.
+   - Just like in Scheme/Racket's ``call/cc``, the values that get bound to the ``call_cc[]`` assignment targets on second and further calls (when the continuation runs) are the arguments given to the continuation when it is called (whether implicitly or manually).
+   - A first-class reference to the captured continuation is available in the function called by ``call_cc[]``, as its ``cc`` argument.
+     - The continuation is a function that takes positional arguments, plus a named argument ``cc``.
+       - The latter is there only so that a continuation behaves just like any continuation-enabled function when tail-called, or when used as the target of a ``call_cc[]``.
+       - The call signature for the positional arguments is determined by the assignment targets of the ``call_cc[]``.
+   - Basically everywhere else, ``cc`` points to the identity function - the default continuation just returns its arguments.
+     - This is unlike in Scheme or Racket, which implicitly capture the continuation at every expression.
+   - Inside a ``def``, ``call_cc[]`` generates a tail call, thus terminating the original (parent) function. (Hence ``call_ec`` does not combo well with this.)
+   - At the top level of the ``with continuations`` block, ``call_cc[]`` generates a normal call. In this case there is no return value (for the continuation, either), because the use site of the ``call_cc[]`` is not inside a function.
 
-For more details, see the docstring of ``unpythonic.syntax.continuations``.
+### Differences between ``call/cc`` and certain other language features
+
+ - Unlike **generators**, ``call_cc[]`` allows resuming also multiple times from an earlier checkpoint, even after execution has already proceeded further. Generators can be easily built on top of ``call/cc``. [Python version](../unpythonic/syntax/test/test_conts_gen.py), [Racket version](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt).
+
+ - Unlike **exceptions**, which only perform escapes, ``call_cc[]`` allows to jump back at an arbitrary time later, also after the dynamic extent of the original function where the ``call_cc[]`` appears. Exceptions are essentially based on (escape) continuations. Escape continuations are a special case of continuations, so exceptions can be built on top of ``call/cc``. See [this article by Matthew Might](http://matt.might.net/articles/implementing-exceptions/).
+
+### ``call_cc`` API reference
+
+To keep things relatively straightforward, our ``call_cc[]`` is only allowed to appear **at the top level** of:
+
+  - the ``with continuations`` block itself
+  - a ``def`` or ``async def``
+
+Nested defs are ok; here *top level* only means the top level of the *currently innermost* ``def``.
+
+If you need to place ``call_cc[]`` inside a loop, use ``@looped`` et al. from ``unpythonic.fploop``; this has the loop body represented as the top level of a ``def``.
+
+Multiple ``call_cc[]`` statements in the same function body are allowed. These essentially create nested closures.
+
+**Syntax**:
+
+```python
+x = call_cc[func(...)]
+*xs = call_cc[func(...)]
+x0, ... = call_cc[func(...)]
+x0, ..., *xs = call_cc[func(...)]
+call_cc[func(...)]
+
+x = call_cc[f(...) if p else g(...)]
+*xs = call_cc[f(...) if p else g(...)]
+x0, ... = call_cc[f(...) if p else g(...)]
+x0, ..., *xs = call_cc[f(...) if p else g(...)]
+call_cc[f(...) if p else g(...)]
+```
+
+**Assignment targets**:
+
+ - To destructure a multiple-values (from a tuple return value), use a tuple assignment target (comma-separated names, as usual).
+
+ - The last assignment target may be starred. It is transformed into the vararg (a.k.a. ``*args``) of the continuation function. (It will capture a whole tuple, or any excess items, as usual.)
+
+ - To ignore the return value, just omit the assignment part. Useful if ``func`` was called only to perform its side-effects (the classic side effect is to stash ``cc`` somewhere for later use).
+
+**Conditional variant**:
+
+ - ``p`` is any expression. If truthy, ``f(...)`` is called, and if falsey, ``g(...)`` is called.
+
+ - Each of ``f(...)``, ``g(...)`` may be ``None``. A ``None`` skips the function call, proceeding directly to the continuation. Upon skipping, all assignment targets (if any are present) are set to ``None``. The starred assignment target (if present) gets the empty tuple.
+
+The main use case of the conditional variant is for things like::
+
+```python
+with continuations:
+   k = None
+   def setk(*, cc):
+       global k
+       k = cc
+   def dostuff(x, *, cc):
+       call_cc[setk() if x > 10 else None]  # update stashed continuation only if x > 10
+       ...
+```
+
+**Main differences to ``call/cc`` in Scheme and Racket**:
+
+Compared to Scheme/Racket, where ``call/cc`` will capture also expressions occurring further up in the call stack, our ``call_cc`` may be need to be placed differently (further out, depending on what needs to be captured) due to the delimited nature of the continuations implemented here.
+
+Scheme and Racket implicitly capture the continuation at every position, whereas we do it explicitly, only at the use sites of the ``call_cc`` macro.
+
+Also, since there are limitations to where a ``call_cc[]`` may appear, some code may need to be structured differently to do some particular thing, if porting code examples originally written in Scheme or Racket.
+
+Unlike ``call/cc`` in Scheme/Racket, our ``call_cc`` takes **a function call** as its argument, not just a function reference. Also, there's no need for it to be a one-argument function; any other args can be passed in the call.
 
 ### Combo notes
 
@@ -760,24 +845,83 @@ We have chosen the implementation where ``continuations`` works with input that 
 
 **CAUTION**: Do not combo with ``tco``; the ``continuations`` block already implies TCO.
 
-### Is this useful?
+### Continuations as an escape mechanism
 
-For most use cases, probably not, because we could just:
+Pretty much by the definition of a continuation, in a ``with continuations`` block, a trick that *should* at first glance produce an escape is to set ``cc`` to the ``cc`` of the caller, and then return the desired value. There is however a subtle catch, due to the way we implement continuations. Consider:
 
 ```python
-def pt_gen():
-    for z in range(1, 21):
-        for y in range(1, z+1):
-            for x in range(1, y+1):
-                if x*x + y*y != z*z:
-                    continue
-                yield x, y, z
-print(tuple(pt_gen()))
+from unpythonic.syntax import macros, tco, continuations, call_cc
+from unpythonic import call_ec, identity
+
+with tco:  # see further below on the "tco" macro
+    def double_odd(x, ec):
+        if x % 2 == 0:  # reject even "x"
+            ec("not odd")
+        return 2*x
+    @call_ec
+    def result1(ec):
+        y = double_odd(42, ec)
+        z = double_odd(21, ec)  # avoid tail-calling because ec is not valid after result1() exits
+        return z
+    @call_ec
+    def result2(ec):
+        y = double_odd(21, ec)
+        z = double_odd(42, ec)
+        return z
+    assert result1 == "not odd"
+    assert result2 == "not odd"
+
+with continuations:
+    def double_odd(x, ec, *, cc):
+        if x % 2 == 0:
+            cc = ec
+            return "not odd"
+        return 2*x
+    def main1(*, cc):
+        y = double_odd(42, ec=cc)  # y = "not odd"
+        z = double_odd(21, ec=cc)  # we could tail-call, but let's keep this similar to the first example.
+        return z
+    def main2(*, cc):
+        y = double_odd(21, ec=cc)
+        z = double_odd(42, ec=cc)
+        return z
+    assert main1() == 42
+    assert main2() == "not odd"
 ```
 
-Generators already provide suspend-and-resume. Similarly to ``fail()`` above, here too ``next()`` can be called on the ``pt_gen`` instance after it has suspended itself at the ``yield``.
+In the first example, ``ec`` is the escape continuation of the ``result1``/``result2`` block, due to the placement of the ``call_ec``. In the second example, the ``cc`` inside ``double_odd`` is the implicitly passed ``cc``... which, naively, should represent the continuation of the current call into ``double_odd``. So far, so good.
 
-Finally, as a side note, generators [can be easily built](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt) on top of ``call/cc``.
+However, because in this example there are no ``call_cc[]`` statements, the actual value of ``cc``, anywhere in this example, is always just ``identity``. *It's not the actual continuation.* Even though we pass the ``cc`` of ``main1``/``main2`` as an explicit argument "``ec``" to use as an escape continuation (like the first example does with ``ec``), it is still ``identity`` - and hence cannot perform an escape.
+
+We must ``call_cc[]`` to request a capture of the actual continuation:
+
+```python
+from unpythonic.syntax import macros, continuations, call_cc
+from unpythonic import identity
+
+with continuations:
+    def double_odd(x, ec, *, cc):
+        if x % 2 == 0:
+            cc = ec
+            return "not odd"
+        return 2*x
+    def main1(*, cc):
+        y = call_cc[double_odd(42, ec=cc)]
+        return double_odd(21, ec=cc)  # tail call, no further code to run in main1 so no call_cc needed.
+    def main2(*, cc):
+        y = call_cc[double_odd(21, ec=cc)]
+        return double_odd(42, ec=cc)
+    assert main1() == "not odd"
+    assert main2() == "not odd"
+```
+
+This variant performs as expected.
+
+There's also a second, even subtler catch; instead of setting ``cc = ec`` and returning a value, just tail-calling ``ec`` with that value doesn't do what we want. This is because - as explained in the rules of the ``continuations`` macro, above - a tail-call is *inserted* between the end of the function, and whatever ``cc`` currently points to.
+
+Most often that's exactly what we want, but in this particular case, it causes *both* continuations to run, in sequence. But if we overwrite ``cc``, then the function's original ``cc`` argument (the one given by ``call_cc[]``) is discarded, so it never runs - and we get the effect we want, *replacing* the ``cc`` by the ``ec``.
+
+Such subtleties arise essentially from the difference between a language that natively supports continuations (Scheme, Racket) and one that has continuations hacked on top of it as macros performing a CPS conversion only partially (like Python with ``unpythonic.syntax``, or Common Lisp with PG's continuation-passing macros). The macro approach works, but the programmer needs to be careful.
 
 
 ## ``tco``: automatically apply tail call optimization
@@ -829,84 +973,6 @@ For escape continuations in ``tco`` and ``continuations`` blocks, only basic use
 See the docstring of ``unpythonic.syntax.tco`` for details.
 
 However, the name ``ec`` or ``brk`` alone is not sufficient to make a function into an escape continuation, even though ``tco`` (and ``continuations``) will think of it as such. The function also needs to actually implement some kind of an escape mechanism. An easy way to get an escape continuation, where this has already been done for you, is to use ``call_ec``.
-
-#### In a ``with continuations`` block, why even use ``call_ec``?
-
-Pretty much by the definition of a continuation, in a ``with continuations`` block, another solution that *should* at first glance produce an escape is to set ``cc`` to the ``cc`` of the caller, and then return the desired value. There is however a subtle catch, due to the way we implement continuations. Consider:
-
-```python
-from unpythonic.syntax import macros, tco, continuations
-from unpythonic import call_ec, identity
-
-with tco:
-    def double_odd(x, ec):
-        if x % 2 == 0:  # reject even "x"
-            ec("not odd")
-        return 2*x
-    @call_ec
-    def result1(ec):
-        y = double_odd(42, ec)
-        z = double_odd(21, ec)  # avoid tail-calling because ec is not valid after result1() exits
-        return z
-    @call_ec
-    def result2(ec):
-        y = double_odd(21, ec)
-        z = double_odd(42, ec)
-        return z
-    assert result1 == "not odd"
-    assert result2 == "not odd"
-
-with continuations:
-    def double_odd(x, ec, *, cc):
-        if x % 2 == 0:
-            cc = ec
-            return "not odd"
-        return 2*x
-    def main1(*, cc):
-        y = double_odd(42, ec=cc)  # y = "not odd"
-        z = double_odd(21, ec=cc)  # we could tail-call, but let's keep this similar to the first example.
-        return z
-    def main2(*, cc):
-        y = double_odd(21, ec=cc)
-        z = double_odd(42, ec=cc)
-        return z
-    assert main1() == 42
-    assert main2() == "not odd"
-```
-
-In the first example, ``ec`` is the escape continuation of the ``result1``/``result2`` block, due to the placement of the ``call_ec``. In the second example, the ``cc`` inside ``double_odd`` is the implicitly passed ``cc``... which, naively, should represent the continuation of the current call into ``double_odd``. So far, so good.
-
-However, because in this example there are no ``with bind`` blocks, the actual value of ``cc``, anywhere in this example, is always just ``identity``. *It's not the actual continuation.* Even though we pass the ``cc`` of ``main1``/``main2`` as an explicit argument "``ec``" to use as an escape continuation (like the first example does with ``ec``), it is still ``identity`` - and hence cannot perform an escape.
-
-If we wish to use that strategy in this implementation, we must use ``with bind``, and place the rest of the original function body (i.e. *the actual continuation*) into the body of the ``with bind``, so that it is indeed captured as the continuation:
-
-```python
-from unpythonic.syntax import macros, continuations, bind
-from unpythonic import identity
-
-with continuations:
-    def double_odd(x, ec, *, cc):
-        if x % 2 == 0:
-            cc = ec
-            return "not odd"
-        return 2*x
-    def main1(*, cc):
-        with bind[double_odd(42, ec=cc)] as y:
-            return double_odd(21, ec=cc)
-    def main2(*, cc):
-        with bind[double_odd(21, ec=cc)] as y:
-            return double_odd(42, ec=cc)
-    assert main1() == "not odd"
-    assert main2() == "not odd"
-```
-
-This variant performs as expected.
-
-There's also a second, even subtler catch; instead of setting ``cc = ec`` and returning a value, just tail-calling ``ec`` with that value doesn't do what we want. This is because - as explained in the rules of the ``continuations`` macro, above - a tail-call is *inserted* between the end of the function, and whatever ``cc`` currently points to.
-
-Most often that's exactly what we want, but in this particular case, it causes *both* continuations to run, in sequence. But if we overwrite ``cc``, then the function's original ``cc`` argument is discarded, so it never runs - and we get the effect we want, *replacing* the ``cc`` by the ``ec``.
-
-Such subtleties arise essentially from the difference between a language that natively supports continuations (Scheme, Racket) and one that has continuations hacked on top of it as macros performing a CPS conversion only partially (like Python with ``unpythonic.syntax``, or Common Lisp with PG's continuation-passing macros). The macro approach works, but the programmer needs to be careful.
 
 
 ## ``autoreturn``: implicit ``return`` in tail position
