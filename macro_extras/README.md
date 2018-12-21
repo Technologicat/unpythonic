@@ -806,7 +806,7 @@ call_cc[f(...) if p else g(...)]
 
  - Each of ``f(...)``, ``g(...)`` may be ``None``. A ``None`` skips the function call, proceeding directly to the continuation. Upon skipping, all assignment targets (if any are present) are set to ``None``. The starred assignment target (if present) gets the empty tuple.
 
-The main use case of the conditional variant is for things like::
+The main use case of the conditional variant is for things like:
 
 ```python
 with continuations:
