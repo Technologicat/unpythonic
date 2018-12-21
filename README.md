@@ -434,7 +434,9 @@ A tail call with target `f` is denoted `return jump(f, a, ..., kw=v, ...)`. This
 
 If the jump target has a trampoline, don't worry; the trampoline implementation will automatically strip it and jump into the actual entrypoint.
 
-Trying to ``jump(...)`` without the ``return`` does nothing useful, and will **usually** print a warning. It does this by checking a flag in the ``__del__`` method of ``jump``; any correctly used jump instance should have been claimed by a trampoline before it gets garbage-collected.
+Trying to ``jump(...)`` without the ``return`` does nothing useful, and will **usually** print an *unclaimed jump* warning. It does this by checking a flag in the ``__del__`` method of ``jump``; any correctly used jump instance should have been claimed by a trampoline before it gets garbage-collected.
+
+(Some *unclaimed jump* warnings may appear also if the process is terminated by Ctrl+C (``KeyboardInterrupt``). This is normal; it just means that the termination occurred after a jump object was instantiated but before it was claimed by the trampoline.)
 
 The final result is just returned normally. This shuts down the trampoline, and returns the given value from the initial call (to a ``@trampolined`` function) that originally started that trampoline.
 
