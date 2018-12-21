@@ -94,7 +94,28 @@ def tco(block_body):
 
 @macro_stub
 def call_cc(tree, **kw):
-    """[syntax] Only meaningful in a "with continuations" block."""
+    """[syntax] Only meaningful in a "with continuations" block.
+
+    Syntax cheat sheet::
+
+        x = call_cc[func(...)]
+        *xs = call_cc[func(...)]
+        x0, ... = call_cc[func(...)]
+        x0, ..., *xs = call_cc[func(...)]
+        call_cc[func(...)]
+
+    Conditional variant::
+
+        x = call_cc[f(...) if p else g(...)]
+        *xs = call_cc[f(...) if p else g(...)]
+        x0, ... = call_cc[f(...) if p else g(...)]
+        x0, ..., *xs = call_cc[f(...) if p else g(...)]
+        call_cc[f(...) if p else g(...)]
+
+    where ``f()`` or ``g()`` may be ``None`` instead of a function call.
+
+    For more, see the docstring of ``continuations``.
+    """
     pass
 
 def continuations(block_body):
