@@ -15,12 +15,13 @@ from ast import Call, Name, Attribute, \
                 BinOp, LShift, \
                 FunctionDef, Return, \
                 arguments, arg, \
-                Load
+                Load, Subscript, Index
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
+from macropy.core.macros import macro_stub
 
 from ..lispylet import let as letf, letrec as letrecf, _dlet as dletf, _blet as bletf
 from ..seq import do as dof
@@ -256,17 +257,17 @@ def do(tree):
     envset = Attribute(value=q[name[e]], attr="_set", ctx=Load())  # use internal _set to allow new definitions
 
     def islocaldef(tree):
-        return type(tree) is Call and type(tree.func) is Name and tree.func.id == "local"
+        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "local"
     @Walker
     def find_localdefs(tree, collect, **kw):
         if islocaldef(tree):
-            if len(tree.args) != 1:
-                assert False, "local(...) must have exactly one positional argument"
-            expr = tree.args[0]
+            if type(tree.slice) is not Index:  # no slice syntax allowed
+                assert False, "local[...] takes exactly one expression of the form 'name << value'"
+            expr = tree.slice.value
             if not isenvassign(expr):
-                assert False, "local(...) argument must be of the form 'name << value'"
+                assert False, "local(...) takes exactly one expression of the form 'name << value'"
             collect(envassign_name(expr))
-            return expr  # local(...) -> ..., the localdef has done its job
+            return expr  # local[...] -> ..., the "local" tag has done its job
         return tree
 
     # a localdef starts taking effect on the line where it appears
@@ -285,20 +286,20 @@ def do(tree):
         lines.append(expr)
     return hq[dof(ast_literal[lines])]
 
-# not a @macro_stub; it only raises a run-time error on foo[...], not foo(...)
+@macro_stub
 def local(*args, **kwargs):
     """[syntax] Declare a local name in a "do".
 
     Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
     (extra bracket syntax)."""
-    raise RuntimeError('local() only meaningful in a "do[...]", "do0[...]", or an implicit do')
+    pass
 
 def do0(tree):
     if type(tree) not in (Tuple, List):
         assert False, "do0 body: expected a sequence of comma-separated expressions"
     elts = tree.elts
     newelts = []
-    newelts.append(q[name["local"](name["_do0_result"] << (ast_literal[elts[0]]))])
+    newelts.append(q[name["local"][name["_do0_result"] << (ast_literal[elts[0]])]])
     newelts.extend(elts[1:])
     newelts.append(q[name["_do0_result"]])
 #    newtree = q[(ast_literal[newelts],)]  # TODO: doesn't work, missing lineno

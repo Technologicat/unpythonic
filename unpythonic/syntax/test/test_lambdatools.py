@@ -23,13 +23,13 @@ def test():
 
         test = let((x, 0))[
                  lambda: [x << x + 1,      # x belongs to the surrounding let
-                          local(y << 42),  # y is local to the implicit do
+                          local[y << 42],  # y is local to the implicit do
                           (x, y)]]
         assert test() == (1, 42)
         assert test() == (2, 42)
 
         myadd = lambda x, y: [print("myadding", x, y),
-                              local(tmp << x + y),
+                              local[tmp << x + y],
                               print("result is", tmp),
                               tmp]
         assert myadd(2, 3) == 5
@@ -100,8 +100,8 @@ def test():
         assert result == 45
 
     with quicklambda, multilambda:
-        func = f[[local(x << _),
-                  local(y << _),
+        func = f[[local[x << _],
+                  local[y << _],
                   x + y]]
         assert func(1, 2) == 3
 

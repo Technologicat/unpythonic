@@ -17,21 +17,21 @@ x = "the global x"  # for lexical scoping tests
 
 def test():
     # Macro wrapper for unpythonic.seq.do (imperative code in expression position)
-    #  - Declare and initialize a local variable with ``local(var << value)``.
+    #  - Declare and initialize a local variable with ``local[var << value]``.
     #    Is in scope from the next expression onward, for the (lexical) remainder
     #    of the do.
     #  - Assignment is ``var << value``. Valid from any level inside the ``do``
     #    (including nested ``let`` constructs and similar).
     #  - No need for ``lambda e: ...`` wrappers. Inserted automatically,
     #    so the lines are only evaluated as the underlying seq.do() runs.
-    d1 = do[local(x << 17),
+    d1 = do[local[x << 17],
             print(x),
             x << 23,
             x]  # do[] returns the value of the last expression
     assert d1 == 23
 
     # do0[]: like do[], but return the value of the **first** expression
-    d2 = do0[local(y << 5),
+    d2 = do0[local[y << 5],
              print("hi there, y =", y),
              42]  # evaluated but not used
     assert d2 == 5
@@ -404,24 +404,24 @@ def test():
     finally:  # restore the test environment
         x = "the nonlocal x"
 
-    # in do[] (also the implicit do), local() takes effect from the next item
+    # in do[] (also the implicit do), local[] takes effect from the next item
     assert let((x, "the let x"),
                (y, None))[
                  do[y << x,                  # still the "x" of the let
-                    local(x << "the do x"),  # from here on, "x" refers to the "x" of the do
+                    local[x << "the do x"],  # from here on, "x" refers to the "x" of the do
                     (x, y)]] == ("the do x", "the let x")
 
     # don't code like this! ...but the scoping mechanism should understand it
     result = []
     let((lst, []))[do[result.append(lst),       # the let "lst"
-                      local(lst << lst + [1]),  # LHS: do "lst", RHS: let "lst"
+                      local[lst << lst + [1]],  # LHS: do "lst", RHS: let "lst"
                       result.append(lst)]]      # the do "lst"
     assert result == [[], [1]]
 
     # same using implicit do
     result = []
     let((lst, []))[[result.append(lst),
-                    local(lst << lst + [1]),
+                    local[lst << lst + [1]],
                     result.append(lst)]]
     assert result == [[], [1]]
 

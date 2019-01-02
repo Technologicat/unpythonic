@@ -10,7 +10,7 @@ small twist: assignments (creation of local variables) and local deletes
 are considered to take effect **from the next statement onward**, for the
 **lexically remaining part** of the current scope.
 
-This is mainly for symmetry with how ``do[]`` handles ``local(...)``, but it also
+This is mainly for symmetry with how ``do[]`` handles ``local[...]``, but it also
 allows the RHS of an assignment to see the old bindings. This may be important
 if the RHS uses some ``env`` variables, so that things like "x = x" work (create
 new local x, assign value from an x that lives in a lexically surrounding ``env``,
