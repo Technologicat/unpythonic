@@ -174,7 +174,7 @@ def continuations(block_body):
     #     return f(...) --> return jump(f, ...)
     #
     # Additional transformations needed here:
-    #     return f(...) --> return jump(f, cc=cc, ...)  # customize the transform to add the cc kwarg
+    #     return jump(f, ...) --> return jump(f, cc=cc, ...)  # customize the transform to add the cc kwarg
     #     return value --> return jump(cc, value)
     #     return v1, ..., vn --> return jump(cc, *(v1, ..., vn))
     #
@@ -184,12 +184,12 @@ def continuations(block_body):
         # we're a postproc; our input is "jump(some_target_func, *args)"
         hascc = any(kw.arg == "cc" for kw in tree.keywords)
         if hascc:
-            # chain _pcc and user-provided cc
+            # chain our _pcc and the cc=... manually provided by the user
             thekw = [kw for kw in tree.keywords if kw.arg == "cc"][0]  # exactly one
             usercc = thekw.value
             thekw.value = q[chain_conts(name["_pcc"], ast_literal[usercc], with_star=True)]
         else:
-            # chain _pcc and the current value of cc
+            # chain our _pcc and the current value of cc
             tree.keywords = [keyword(arg="cc", value=q[chain_conts(name["_pcc"], name["cc"], with_star=True)])] + tree.keywords
         return tree
     def data_cb(tree):  # transform an inert-data return value into a tail-call to cc.
@@ -220,10 +220,11 @@ def continuations(block_body):
         while True:
             stmt, *after = after
             if iscallcc(stmt):
+                # after is always non-empty here (has at least the explicitified "return")
                 return before, stmt, after
             before.append(stmt)
             if not after:
-                return before, None, after
+                return before, None, []
     def analyze_callcc(stmt):
         starget = None  # "starget" = starred target, becomes the vararg for the cont
         def maybe_starred(expr):  # return expr.id or set starget
@@ -292,6 +293,7 @@ def continuations(block_body):
         # Name the continuation: f_cont, f_cont1, f_cont2, ...
         # if multiple call_cc[]s in the same function body.
         if owner:
+            # TODO: robustness: use regexes, strip suf and any numbers at the end, until no match.
             # return prefix of s before the first occurrence of suf.
             def strip_suffix(s, suf):
                 n = s.find(suf)
@@ -382,6 +384,10 @@ def continuations(block_body):
     def check_for_strays(tree, **kw):
         if iscallcc(tree):
             assert False, "call_cc[...] only allowed at the top level of a def or async def, or at the top level of the block; must appear as an expr or an assignment RHS"
+        if type(tree) in (Assign, Expr):
+            v = tree.value
+            if type(v) is Call and type(v.func) is Name and v.func.id == "call_cc":
+                assert False, "call_cc(...) should be call_cc[...] (note brackets; it's a macro)"
         return tree
 
     # -------------------------------------------------------------------------
