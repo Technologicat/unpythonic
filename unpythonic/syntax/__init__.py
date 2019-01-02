@@ -721,7 +721,7 @@ def namedlambda(tree, **kw):
 
     Lexically inside a ``with namedlambda`` block, any literal ``lambda``
     that is assigned to a name using a simple assignment of the form
-    ``f = lambda ...: ...``, is named as "f (lambda)", where the name ``f``
+    ``f = lambda ...: ...``, is named as "f", where the name ``f``
     is captured from the assignment statement at macro expansion time.
 
     For capturing the name, the assignment must be of a single ``lambda`` value
