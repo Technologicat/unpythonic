@@ -100,7 +100,7 @@ def test():
     square = lambda x: x**2
     assert square.__name__ == "<lambda>"
     square = namelambda(square, "square")
-    assert square.__name__ == "square (lambda)"
+    assert square.__name__ == "square"
 
     print("All tests PASSED")
 

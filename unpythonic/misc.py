@@ -245,7 +245,7 @@ def namelambda(function, name):
     This is used by ``env``, and by the ``namedlambda`` macro.
     """
     if isinstance(function, LambdaType) and function.__name__ == "<lambda>":
-        myname = "{} (lambda)".format(name)
+        myname = "{}".format(name)
         function.__name__ = myname
         function.__qualname__ = re.sub("<lambda>$", myname, function.__qualname__)
     return function

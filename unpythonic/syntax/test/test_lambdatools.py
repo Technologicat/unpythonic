@@ -40,19 +40,19 @@ def test():
 
     with namedlambda:
         f1 = lambda x: x**3                      # lexical rule: name as "f1"
-        assert f1.__name__ == "f1 (lambda)"
+        assert f1.__name__ == "f1"
         gn, hn = let((x, 42), (g, None), (h, None))[[
                        g << (lambda x: x**2),    # dynamic rule: name as "g"
                        h << f1,                  # no-rename rule: still "f1"
                        (g.__name__, h.__name__)]]
-        assert gn == "g (lambda)"
-        assert hn == "f1 (lambda)"
+        assert gn == "g"
+        assert hn == "f1"
 
     # test naming a decorated lambda
     with namedlambda:
         f2 = trampolined(withself(lambda self, n, acc=1: jump(self, n-1, acc*n) if n > 1 else acc))
         f2(5000)  # no crash since TCO
-        assert f2.__name__ == "f2 (lambda)"
+        assert f2.__name__ == "f2"
 
         # works also with custom decorators
         def mydeco(f):
@@ -62,7 +62,7 @@ def test():
             return decorated
         f3 = mydeco(lambda x: x**2)
         assert f3(10) == 100
-        assert f3.__name__ == "f3 (lambda)"
+        assert f3.__name__ == "f3"
 
         # parametric decorators are defined as usual
         def mypardeco(a, b):
@@ -74,14 +74,14 @@ def test():
             return mydeco
         f4 = mypardeco(2, 3)(lambda x: x**2)
         assert f4(10) == (2, 3, 100)
-        assert f4.__name__ == "f4 (lambda)"
+        assert f4.__name__ == "f4"
 
         # to help readability of invocations of parametric decorators on lambdas,
         # we recognize also curry with a lambda as the last argument
         f5 = curry(mypardeco, 2, 3,
                      lambda x: x**2)
         assert f5(10) == (2, 3, 100)
-        assert f5.__name__ == "f5 (lambda)"
+        assert f5.__name__ == "f5"
 
     # looped_over overwrites with the result, so nothing to name
     with namedlambda:
