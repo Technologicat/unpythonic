@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*
-"""Python meets (selected parts of) Lisp and Haskell.
+"""Supercharge your Python with parts of Lisp and Haskell.
 
 See ``dir(unpythonic)`` and submodule docstrings for more.
+
+If you have MacroPy installed, see also ``unpythonic.syntax``.
 """
 
 __version__ = '0.12.0'
