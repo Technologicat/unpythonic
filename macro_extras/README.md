@@ -743,6 +743,7 @@ Code within a ``with continuations`` block is treated specially. Roughly:
    - ``return func(...)`` is actually a tail-call into ``func``, passing along (by default) the current value of ``cc`` to become its ``cc``.
      - Hence, the tail call is inserted between the end of the current function body and the start of the continuation ``cc``.
      - To override which continuation to use, you can specify the ``cc=...`` kwarg, as in ``return func(..., cc=mycc)``.
+       - The ``cc`` argument, if passed explicitly, **must be passed by name**.
      - The function ``func`` must be a defined in a ``with continuations`` block, so that it knows what to do with the named argument ``cc``.
        - Attempting to tail-call a regular function breaks the TCO chain and immediately returns to the original caller (provided the function even accepts a ``cc`` named argument).
        - Be careful: ``xs = list(args); return xs`` and ``return list(args)`` mean different things.
