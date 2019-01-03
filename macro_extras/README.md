@@ -728,8 +728,9 @@ with continuations:
 
 Code within a ``with continuations`` block is treated specially. Roughly:
 
- - Each function definition (``def`` or ``lambda``) in a ``with continuations`` block have an implicit formal parameter ``cc``, **even if not explicitly declared** in the formal parameter list.
+ - Each function definition (``def`` or ``lambda``) in a ``with continuations`` block has an implicit formal parameter ``cc``, **even if not explicitly declared** in the formal parameter list.
    - If ``cc`` is declared explicitly, and if it is in a position that can accept a default value (either the last parameter that has no default, or a by-name-only parameter), then the continuation machinery will set the default value of ``cc`` to the default continuation (``identity``), which just returns its arguments.
+     - In the above ``amb`` example, note the use of ``ourcc``; the lambda implicitly has its own ``cc``, so the continuation passed in from outside must be named something else.
    - The default value allows these functions to be called also normally without passing a ``cc``.
    - Having a hidden parameter is somewhat magic, but overall improves readability, as this allows declaring ``cc`` only where actually explicitly needed.
    - Beside ``cc``, there's also a mechanism to keep track of the captured tail of a computation, which is important to have edge cases work correctly. See the note on **pcc** (*parent continuation*) in the docstring of ``unpythonic.syntax.continuations``, and [the pictures](callcc_topology.pdf).
@@ -932,9 +933,9 @@ Such subtleties arise essentially from the difference between a language that na
 
 Strictly speaking, ``True``. The implementation is very different (much more than just [copying a hidden parameter](https://www.ps.uni-saarland.de/~duchier/python/continuations.html)), not to mention it has to be a macro, because it triggers capture - something that would not need to be requested for separately, had we converted the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style).
 
-The selective capture approach is however more efficient when we implement the continuation system in Python, indeed *on Python* (in the sense of [On Lisp](paulgraham.com/onlisp.html)), since we want to run most of the program the usual way with no magic attached. This way there is no need to sprinkle absolutely every statement and expression with a ``def`` or a ``lambda``. (Not to mention Python's ``lambda`` is underpowered due to the existence of some language features only as statements, so we would need to use a mixture of both, which is already unnecessarily complicated.) Function definitions are not intended as [the only control flow construct](https://dspace.mit.edu/handle/1721.1/5753) in Python, so the compiler likely won't optimize heavily enough (i.e. eliminate **almost all** of the implicitly introduced function definitions), if we attempted to use them as such.
+The selective capture approach is however more efficient when we implement the continuation system in Python, indeed *on Python* (in the sense of [On Lisp](paulgraham.com/onlisp.html)), since we want to run most of the program the usual way with no magic attached. This way there is no need to sprinkle absolutely every statement and expression with a ``def`` or a ``lambda``. (Not to mention Python's ``lambda`` is underpowered due to the existence of some language features only as statements, so we would need to use a mixture of both, which is already unnecessarily complicated.) Function definitions are not intended as [the only control flow construct](https://dspace.mit.edu/handle/1721.1/5753) in Python, so the compiler likely wouldn't optimize heavily enough (i.e. eliminate **almost all** of the implicitly introduced function definitions), if we attempted to use them as such.
 
-Continuations only need to come into play when we explicitly request to get one ([ZoP §2](https://www.python.org/dev/peps/pep-0020/)); this avoids introducing any more extra function definitions than needed.
+Continuations only need to come into play when we explicitly request for one ([ZoP §2](https://www.python.org/dev/peps/pep-0020/)); this avoids introducing any more extra function definitions than needed.
 
 The name is nevertheless ``call_cc``, because the resulting behavior is close enough to ``call/cc``.
 
@@ -944,10 +945,10 @@ Racket provides delimited continuations and [prompts](https://docs.racket-lang.o
 
 ### Why this syntax?
 
-As regard to a function call in ``call_cc[...]`` vs. just a function reference: Typical lispy usage of ``call/cc`` uses an inline lambda, with the closure property passing in everything except ``cc``, but in Python ``def`` is a statement. A technically possible alternative syntax, allowing lispy usage, would be:
+As regard to a function call in ``call_cc[...]`` vs. just a function reference: Typical lispy usage of ``call/cc`` uses an inline lambda, with the closure property passing in everything except ``cc``, but in Python ``def`` is a statement. A technically possible alternative syntax would be:
 
 ```python
-with call_cc(f):
+with call_cc(f):  # currently doesn't support this syntax!
     def f(cc):
         ...
 ```
@@ -956,7 +957,7 @@ but the expr macro variant provides better options for receiving multiple return
 
 The ``call_cc[]`` explicitly suggests that these are (almost) the only places where the ``cc`` argument obtains a non-default value. It also visually indicates the exact position of the checkpoint, while keeping to standard Python syntax.
 
-(*"Almost"*: As explained above, a tail call passes along the current value of ``cc``, and ``cc`` can be set manually.)
+(*Almost*: As explained above, a tail call passes along the current value of ``cc``, and ``cc`` can be set manually.)
 
 
 ## ``tco``: automatically apply tail call optimization
