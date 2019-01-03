@@ -857,7 +857,7 @@ Pretty much by the definition of a continuation, in a ``with continuations`` blo
 
 ```python
 from unpythonic.syntax import macros, tco, continuations, call_cc
-from unpythonic import call_ec, identity
+from unpythonic import call_ec
 
 with tco:  # see further below on the "tco" macro
     def double_odd(x, ec):
@@ -904,7 +904,6 @@ We must ``call_cc[]`` to request a capture of the actual continuation:
 
 ```python
 from unpythonic.syntax import macros, continuations, call_cc
-from unpythonic import identity
 
 with continuations:
     def double_odd(x, ec, cc):
