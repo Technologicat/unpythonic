@@ -28,10 +28,10 @@ def test():
     with continuations:
         # logic to resume after the last executed my_yield, if any
         @dlet((k, None))
-        def g(*, cc):
+        def g():
             if k:
                 return k()
-            def my_yield(value, *, cc):
+            def my_yield(value, cc):
                 k << cc
                 cc = identity
                 return value
@@ -52,16 +52,16 @@ def test():
     with continuations:
         # logic to resume after the last executed my_yield, if any
         @dlet((k, None))
-        def g(*, cc):
+        def g():
             if k:
                 return k()
-            def my_yield(value, *, cc):
+            def my_yield(value, cc):
                 k << cc
                 cc = identity
                 return value
             # generator body
             @looped
-            def result(loop, i=0, *, cc):
+            def result(loop, i=0):
                 call_cc[my_yield(i)]
                 return loop(i+1)
             # To actually return the value when the yield escapes, pass it along.

@@ -1006,14 +1006,35 @@ def continuations(tree, gen_sym, **kw):
         ``def`` or ``lambda`` forms.
 
       - All function definitions in a ``with continuations`` block, including
-        any nested definitions, must declare a by-name-only formal parameter
-        ``cc``::
+        any nested definitions, have an implicit formal parameter ``cc``,
+        **even if not explicitly declared** in the formal parameter list.
+
+        If declared explicitly, ``cc`` must be in a position that can accept a
+        default value.
+
+        This means ``cc`` must be declared either as by-name-only::
 
             with continuations:
-                def myfunc(*, cc):
+                def myfunc(a, b, *, cc):
                     ...
 
                     f = lambda *, cc: ...
+
+        or as the last parameter that has no default::
+
+            with continuations:
+                def myfunc(a, b, cc):
+                    ...
+
+                    f = lambda cc: ...
+
+        Then the continuation machinery will automaticlly set the default value
+        of ``cc`` to the default continuation (``identity``), which just returns
+        its arguments.
+
+        The most common use case for explicitly declaring ``cc`` is that the
+        function is the target of a ``call_cc[]``; then it helps readability
+        to make the ``cc`` parameter explicit.
 
       - A ``with continuations`` block will automatically transform all
         function definitions and ``return`` statements lexically contained
@@ -1120,10 +1141,10 @@ def continuations(tree, gen_sym, **kw):
 
            with continuations:
                k = None
-               def setk(*, cc):
+               def setk(cc):
                    global k
                    k = cc
-               def dostuff(x, *, cc):
+               def dostuff(x):
                    call_cc[setk() if x > 10 else None]  # capture only if x > 10
                    ...
 
@@ -1160,6 +1181,8 @@ def continuations(tree, gen_sym, **kw):
     Unlike ``call/cc`` in Scheme/Racket, ``call_cc`` takes **a function call**
     as its argument, not just a function reference. Also, there's no need for
     it to be a one-argument function; any other args can be passed in the call.
+    The ``cc`` argument is filled implicitly and passed by name; any others are
+    passed exactly as written in the client code.
 
     **Technical notes**:
 
@@ -1190,7 +1213,7 @@ def continuations(tree, gen_sym, **kw):
             call_cc[g(1, 2, 3)]
             ...
 
-    The continuation is a closure. For the pcc, it will use the value the
+    The continuation is a closure. For its pcc, it will use the value the
     original function's ``cc`` had when the definition of the continuation
     was executed (for that particular instance of the closure). Hence, calling
     the original function again with its ``cc`` set to something else will
@@ -1213,7 +1236,7 @@ def continuations(tree, gen_sym, **kw):
     only place where the ``cc`` argument is actually set. There it is the
     captured continuation. Roughly everywhere else, ``cc`` is just ``identity``.
 
-    Tail calls are an exception to the rule; a tail call passes along the current
+    Tail calls are an exception to this rule; a tail call passes along the current
     value of ``cc``, unless overridden manually (by setting the ``cc=...`` kwarg
     in the tail call).
 
@@ -1227,13 +1250,13 @@ def continuations(tree, gen_sym, **kw):
       - Once you have a captured continuation, one way to use it is to set
         ``cc=...`` manually in a tail call, as was mentioned. Example::
 
-            def main(*, cc):
+            def main():
                 call_cc[myfunc()]  # call myfunc, capturing the current cont...
                 ...                # ...which is the rest of "main"
 
-            def myfunc(*, cc):
+            def myfunc(cc):
                 ourcc = cc  # save the captured continuation (sent by call_cc[])
-                def somefunc(*, cc):
+                def somefunc():
                     return dostuff(..., cc=ourcc)  # and use it here
                 somestack.append(somefunc)
 
@@ -1247,9 +1270,9 @@ def continuations(tree, gen_sym, **kw):
         for the rest of the dynamic extent of the function, not only for a
         particular tail call::
 
-            def myfunc(*, cc):
+            def myfunc(cc):
                 ourcc = cc
-                def somefunc(*, cc):
+                def somefunc():
                     cc = ourcc
                     return dostuff(...)
                 somestack.append(somefunc)
@@ -1257,8 +1280,8 @@ def continuations(tree, gen_sym, **kw):
       - A captured continuation can also be called manually; it's just a callable.
 
         The assignment targets, at the ``call_cc[]`` use site that spawned this
-        particular continuation, specify its call signature. All args (except
-        the implicitly passed ``cc``) are positional.
+        particular continuation, specify its call signature. All args are
+        positional, except the implicit ``cc``, which is by-name-only.
 
       - Just like in Scheme/Racket's ``call/cc``, the values that get bound
         to the ``call_cc[]`` assignment targets on second and further calls
@@ -1327,20 +1350,20 @@ def continuations(tree, gen_sym, **kw):
 
             with continuations:
                 @call_ec
-                def result(ec, *, cc):
+                def result(ec):
                     print("hi")
                     ec(42)
                     print("not reached")
                 assert result == 42
 
-                result = call_ec(lambda ec, *, cc: do[print("hi"),
-                                                      ec(42),
-                                                      print("not reached")])
+                result = call_ec(lambda ec: do[print("hi"),
+                                               ec(42),
+                                               print("not reached")])
 
         Note the signature of ``result``. Essentially, ``ec`` is a function
         that raises an exception (to escape to a dynamically outer context),
-        whereas ``cc`` is the closure-based continuation handled by the
-        continuation machinery.
+        whereas the implicit ``cc`` is the closure-based continuation handled
+        by the continuation machinery.
 
         See the ``tco`` macro for details on the ``call_ec`` combo.
     """

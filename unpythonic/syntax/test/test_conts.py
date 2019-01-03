@@ -9,24 +9,26 @@ from ...fploop import looped
 def test():
     # basic testing
     with continuations:
-        def add1(x, *, cc):
+        def add1(x):
             return 1 + x
         assert add1(2) == 3
 
-        def message(*, cc):
+        def message(cc):
             return ("hello", "there")
-        def baz(*, cc):
-            m, n = call_cc[message()]
+        def baz():
+            m, n = call_cc[message()]  # The cc arg is passed implicitly.
             return [m, n]
         assert baz() == ["hello", "there"]
 
-        def f(a, b, *, cc):
+        # The cc arg must be declared as the last one that has no default value,
+        # or declared as by-name-only. It's always passed by name.
+        def f(a, b, cc):
             return 2*a, 3*b
         assert f(3, 4) == (6, 12)
         x, y = f(3, 4)
         assert x == 6 and y == 12
 
-        def g(a, b, *, cc):
+        def g(a, b):
             x, y = call_cc[f(a, b)]
             return x, y
             assert False, "never reached"
@@ -38,79 +40,79 @@ def test():
     # an "and" or "or" return value may have a tail-call in the last item
     with continuations:
         # "or"
-        def h1(a, b, *, cc):
+        def h1(a, b):
             x, y = call_cc[f(a, b)]
             return None or f(3, 4)  # the f from the previous "with continuations" block
         assert h1(3, 4) == (6, 12)
 
-        def h2(a, b, *, cc):
+        def h2(a, b):
             x, y = call_cc[f(a, b)]
             return True or f(3, 4)
         assert h2(3, 4) is True
 
         # "or" with 3 or more items (testing; handled differently internally)
-        def h3(a, b, *, cc):
+        def h3(a, b):
             x, y = call_cc[f(a, b)]
             return None or False or f(3, 4)
         assert h3(3, 4) == (6, 12)
 
-        def h4(a, b, *, cc):
+        def h4(a, b):
             x, y = call_cc[f(a, b)]
             return None or True or f(3, 4)
         assert h4(3, 4) is True
 
-        def h5(a, b, *, cc):
+        def h5(a, b):
             x, y = call_cc[f(a, b)]
             return 42 or None or f(3, 4)
         assert h5(3, 4) == 42
 
         # "and"
-        def i1(a, b, *, cc):
+        def i1(a, b):
             x, y = call_cc[f(a, b)]
             return True and f(3, 4)
         assert i1(3, 4) == (6, 12)
 
-        def i2(a, b, *, cc):
+        def i2(a, b):
             x, y = call_cc[f(a, b)]
             return False and f(3, 4)
         assert i2(3, 4) is False
 
         # "and" with 3 or more items
-        def i3(a, b, *, cc):
+        def i3(a, b):
             x, y = call_cc[f(a, b)]
             return True and 42 and f(3, 4)
         assert i3(3, 4) == (6, 12)
 
-        def i4(a, b, *, cc):
+        def i4(a, b):
             x, y = call_cc[f(a, b)]
             return True and False and f(3, 4)
         assert i4(3, 4) is False
 
-        def i5(a, b, *, cc):
+        def i5(a, b):
             x, y = call_cc[f(a, b)]
             return None and False and f(3, 4)
         assert i5(3, 4) is False
 
         # combination of "and" and "or"
-        def j1(a, b, *, cc):
+        def j1(a, b):
             x, y = call_cc[f(a, b)]
             return None or True and f(3, 4)
         assert j1(3, 4) == (6, 12)
 
     # call_ec combo
     with continuations:
-        def g(x, *, cc):
+        def g(x, cc):
             return 2*x
 
         @call_ec
-        def result(ec, *, cc):
+        def result(ec):
             ec(g(21))
         assert result == 42
 
 #        # ec doesn't work from inside a continuation, because the function
 #        # containing the "call_cc" actually tail-calls the continuation and exits.
 #        @call_ec
-#        def doit(ec, *, cc):
+#        def doit(ec):
 #            x = call_cc[g(21)]
 #            ec(x)  # we're actually outside doit(); ec no longer valid
 
@@ -119,8 +121,8 @@ def test():
 #        # result() will already have exited so the ec no longer works.
 #        # (That's just the nature of exceptions.)
 #        @call_ec
-#        def result(ec, *, cc):
-#            def doit(*, cc):
+#        def result(ec):
+#            def doit():
 #                x = call_cc[g(21)]
 #                ec(x)
 #            r = doit()  # don't tail-call it; result() must be still running when the ec is invoked
@@ -130,11 +132,11 @@ def test():
     # test that ecs expand correctly
     with continuations:
         @call_ec
-        def result(ec, *, cc):
+        def result(ec):
             return ec(42)  # doesn't need the "return"; the macro eliminates it
         assert result == 42
 
-        assert call_ec(lambda ec, *, cc: ec(42)) == 42
+        assert call_ec(lambda ec: ec(42)) == 42
 
     # curry combo
     def testcurrycombo():
@@ -142,13 +144,13 @@ def test():
             from ...fun import curry  # TODO: can't rename, unpythonic.syntax.util.sort_lambda_decorators won't detect it
             # Currying here makes no sense, but test that it expands correctly.
             # We should get trampolined(call_ec(curry(...))), which produces the desired result.
-            assert call_ec(curry(lambda ec, *, cc: ec(42))) == 42
+            assert call_ec(curry(lambda ec: ec(42))) == 42
     testcurrycombo()
     # This version auto-inserts curry after the inner macros have expanded.
     # This should work, too.
     with curry:
         with continuations:
-            assert call_ec(lambda ec, *, cc: ec(42)) == 42
+            assert call_ec(lambda ec: ec(42)) == 42
 
     # silly call/cc example (Paul Graham: On Lisp, p. 261), pythonified
     with continuations:
@@ -164,7 +166,7 @@ def test():
             # - list instead of tuple to return it as one value
             #   (a tuple return value is interpreted as multiple-return-values)
             return xs
-        def doit(*, cc):
+        def doit():
             lst = ['the call returned']
             more = call_cc[setk('A')]
             return lst + more  # The remaining stmts in the body are the continuation.
@@ -181,7 +183,7 @@ def test():
             nonlocal k
             k = cc  # current continuation, i.e. where to go after setk() finishes
             return args  # tuple means multiple-return-values
-        def doit(*, cc):
+        def doit():
             lst = ['the call returned']
             *more = call_cc[setk('A')]
             return lst + list(more)
@@ -211,7 +213,7 @@ def test():
 
     # multilambda combo
     with multilambda, continuations:
-        f = lambda x, *, cc: [print(x), x**2]
+        f = lambda x: [print(x), x**2]
         assert f(42) == 1764
 
     # depth-first tree traversal (Paul Graham: On Lisp, p. 271)
@@ -235,7 +237,7 @@ def test():
 
     with continuations:
         saved = []
-        def dft_node(tree, *, cc):
+        def dft_node(tree, cc):
             if not tree:
                 return restart()
             if atom(tree):
@@ -243,15 +245,15 @@ def test():
             first, *rest = tree
             ourcc = cc  # capture our current continuation
             # override default continuation in the tail-call in the lambda
-            saved.append(lambda *, cc: dft_node(rest, cc=ourcc))
+            saved.append(lambda: dft_node(rest, cc=ourcc))
             return dft_node(first)
-        def restart(*, cc):
+        def restart():
             if saved:
                 f = saved.pop()
                 return f()
             else:
                 return "done"
-        def dft2(tree, *, cc):
+        def dft2(tree):
             nonlocal saved
             saved = []
             node = call_cc[dft_node(tree)]
@@ -265,7 +267,7 @@ def test():
 
         # The continuation version allows to easily walk two trees simultaneously,
         # generating their cartesian product (example from On Lisp, p. 272):
-        def treeprod(ta, tb, *, cc):
+        def treeprod(ta, tb):
             node1 = call_cc[dft_node(ta)]
             if node1 == "done":
                 return "done"
@@ -283,8 +285,7 @@ def test():
     # We can define and use this outside the block, since at this level
     # we don't need to manipulate cc.
     #
-    # (We could as well define and use it inside the block, by adding "*, cc"
-    # to the args of the def.)
+    # (We could as well define and use it inside the block.)
     def treeprod_gen(ta, tb):
         x = treeprod(t1, t2)
         while x != "done":
@@ -310,21 +311,21 @@ def test():
     # McCarthy's amb operator is very similar to dft, if a bit shorter:
     with continuations:
         stack = []
-        def amb(lst, *, cc):
+        def amb(lst, cc):
             if not lst:
                 return fail()
             first, *rest = lst
             if rest:
                 ourcc = cc
-                stack.append(lambda *, cc: amb(rest, cc=ourcc))
+                stack.append(lambda: amb(rest, cc=ourcc))
             return first
-        def fail(*, cc):
+        def fail():
             if stack:
                 f = stack.pop()
                 return f()
 
         # testing
-        def doit1(*, cc):
+        def doit1():
             c1 = call_cc[amb((1, 2, 3))]
             c2 = call_cc[amb((10, 20))]
             if c1 and c2:
@@ -341,7 +342,7 @@ def test():
         print(fail())
         print(fail())
 
-        def doit2(*, cc):
+        def doit2():
             c1 = call_cc[amb((1, 2, 3))]
             c2 = call_cc[amb((10, 20))]
             if c1 + c2 != 22:  # we can require conditions like this
@@ -352,7 +353,7 @@ def test():
 
         # Pythagorean triples.
         count = 0
-        def pt(*, cc):
+        def pt():
             # This generates 1540 combinations, with several nested tail-calls each,
             # so we really need TCO here. (Without TCO, nothing would return until
             # the whole computation is done; it would blow the call stack very quickly.)
@@ -387,21 +388,21 @@ def test():
 #     with curry:  # major slowdown, but works; must be in a separate "with"  # TODO: why separate?
     with autoreturn, continuations:
         stack = []
-        def amb(lst, *, cc):
+        def amb(lst, cc):
             if lst:
                 first, *rest = lst
                 if rest:
                     ourcc = cc
-                    stack.append(lambda *, cc: amb(rest, cc=ourcc))
+                    stack.append(lambda: amb(rest, cc=ourcc))
                 first
             else:
                 fail()
-        def fail(*, cc):
+        def fail():
             if stack:
                 f = stack.pop()
                 f()
 
-        def pyth(*, cc):
+        def pyth():
             z = call_cc[amb(tuple(range(1, 21)))]
             y = call_cc[amb(tuple(range(1, z+1)))]
             x = call_cc[amb(tuple(range(1, y+1)))]
@@ -417,12 +418,12 @@ def test():
     # FP loop combo? Testing...
     with continuations:
         k = None
-        def setk(*, cc):
+        def setk(cc):
             nonlocal k
             k = cc
         out = []
         @looped
-        def s(loop, acc=0, *, cc):
+        def s(loop, acc=0):
             call_cc[setk()]
             out.append(acc)
             if acc < 10:
@@ -437,13 +438,13 @@ def test():
     # To be able to resume from an arbitrary iteration, we need something like...
     with continuations:
         k = None
-        def setk(x, *, cc):  # pass x through; as a side effect, set k
+        def setk(x, cc):  # pass x through; as a side effect, set k
             nonlocal k
             k = cc
             return x
         out = []
         @looped
-        def s(loop, acc=0, *, cc):
+        def s(loop, acc=0):
             acc = call_cc[setk(acc)]
             out.append(acc)
             if acc < 10:
@@ -458,7 +459,7 @@ def test():
     # To always resume from the beginning, we can do something like this...
     with continuations:
         k = None
-        def setk(acc, *, cc):
+        def setk(acc, cc):
             nonlocal k
             # because call_cc[] must be at the top level of a def,
             # we refactor the "if" here (but see below).
@@ -466,7 +467,7 @@ def test():
                 k = cc
         out = []
         @looped
-        def s(loop, acc=0, *, cc):
+        def s(loop, acc=0):
             call_cc[setk(acc)]
             out.append(acc)
             if acc < 10:
@@ -483,8 +484,8 @@ def test():
         k = None
         out = []
         @looped
-        def s(loop, acc=0, *, cc):
-            def setk(*, cc):
+        def s(loop, acc=0):
+            def setk(cc):
                 nonlocal k
                 if acc == 0:
                     k = cc
@@ -504,12 +505,12 @@ def test():
     # proceed directly to the cont, setting assignment targets (if any) to None.
     with continuations:
         k = None
-        def setk(*, cc):
+        def setk(cc):
             nonlocal k
             k = cc
         out = []
         @looped
-        def s(loop, acc=0, *, cc):
+        def s(loop, acc=0):
             call_cc[setk() if acc == 0 else None]
             out.append(acc)
             if acc < 10:

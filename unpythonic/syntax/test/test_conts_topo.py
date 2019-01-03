@@ -18,9 +18,9 @@ def test():
     # basic case: one continuation
     with continuations:
         out = []
-        def g(*, cc):
+        def g(cc):
             out.append(me())
-        def f(*, cc):
+        def f():
             out.append(me())
             call_cc[g()]
             out.append(me())
@@ -30,11 +30,11 @@ def test():
     # sequence of continuations
     with continuations:
         out = []
-        def g(*, cc):
+        def g(cc):
             out.append(me())
-        def h(*, cc):
+        def h(cc):
             out.append(me())
-        def f(*, cc):
+        def f():
             out.append(me())
             call_cc[g()]
             out.append(me())
@@ -46,13 +46,13 @@ def test():
     # nested continuations, case 1 (left in the picture)
     with continuations:
         out = []
-        def h(*, cc):
+        def h(cc):
             out.append(me())
-        def g(*, cc):
+        def g(cc):
             out.append(me())
             call_cc[h()]
             out.append(me())
-        def f(*, cc):
+        def f():
             out.append(me())
             call_cc[g()]
             out.append(me())
@@ -62,16 +62,19 @@ def test():
     # nested continuations, case 2a, tail-call in f1 (right in the picture)
     with continuations:
         out = []
-        def w(*, cc):
+        def w(cc):
             out.append(me())
-        def v(*, cc):
+        def v():
             out.append(me())
             call_cc[w()]
             out.append(me())
-        def f1(*, cc):
+        def f1(cc):
             out.append(me())
             return v()
-        def f2(dummy, *, cc):
+        # To be eligible to act as a continuation, f2 must accept
+        # one positional arg, because the implicit "return None" in v()
+        # will send one (then passed along by f1).
+        def f2(dummy):
             out.append(me())
         f1(cc=f2)
         assert out == ['f1', 'v', 'w', 'v_cont', 'f2']
@@ -79,20 +82,17 @@ def test():
     # nested continuations, case 2b, call_cc in f1
     with continuations:
         out = []
-        def w(*, cc):
+        def w(cc):
             out.append(me())
-        def v(*, cc):
+        def v(cc):
             out.append(me())
             call_cc[w()]
             out.append(me())
-        def f1(*, cc):
+        def f1(cc):
             out.append(me())
             call_cc[v()]
             out.append(me())
-        # To be eligible to act as a continuation, a function must accept
-        # at least one positional arg, because the implicit "return None"
-        # will always send one.
-        def f2(dummy, *, cc):
+        def f2(dummy):
             out.append(me())
         f1(cc=f2)
         assert out == ['f1', 'v', 'w', 'v_cont1', 'f1_cont', 'f2']
@@ -101,15 +101,15 @@ def test():
     with continuations:
         out = []
         k = None
-        def h(*, cc):
+        def h(cc):
             nonlocal k
             k = cc
             out.append(me())
-        def g(*, cc):
+        def g(cc):
             out.append(me())
             call_cc[h()]
             out.append(me())  # g_cont1
-        def f(*, cc):
+        def f():
             out.append(me())
             call_cc[g()]
             out.append(me())  # f_cont4
@@ -118,7 +118,7 @@ def test():
     # confetti 1a - call_cc'ing into a saved continuation
     with continuations:
         out = []
-        def v(*, cc):
+        def v():
             out.append(me())
             call_cc[k()]
             out.append(me())
@@ -128,9 +128,9 @@ def test():
     # confetti 1b - tail-calling a saved continuation
     with continuations:
         out = []
-        def f2(dummy, *, cc):
+        def f2(dummy):
             out.append(me())
-        def f1(*, cc):
+        def f1():
             out.append(me())
             return k(cc=f2)
         f1()
@@ -140,15 +140,15 @@ def test():
     with continuations:
         out = []
         k2 = None
-        def t(*, cc):
+        def t(cc):
             nonlocal k2
             k2 = cc
             out.append(me())
-        def s(*, cc):
+        def s(cc):
             out.append(me())
             call_cc[t()]
             out.append(me())  # s_cont
-        def r(*, cc):
+        def r():
             out.append(me())
             call_cc[s()]
             out.append(me())  # r_cont
@@ -156,15 +156,15 @@ def test():
 
         out = []
         k3 = None
-        def qq(*, cc):
+        def qq(cc):
             nonlocal k3
             k3 = cc
             out.append(me())
-        def q(*, cc):
+        def q(cc):
             out.append(me())
             call_cc[qq()]
             out.append(me())  # q_cont
-        def p(*, cc):
+        def p():
             out.append(me())
             call_cc[q()]
             out.append(me())  # p_cont
@@ -174,9 +174,9 @@ def test():
     # confetti 2a (second picture from bottom)
     with continuations:
         out = []
-        def f2(dummy, *, cc):
+        def f2(dummy):
             out.append(me())
-        def f1(*, cc):
+        def f1():
             out.append(me())
             return k3(cc=f2)
         f1()
@@ -186,16 +186,16 @@ def test():
     with continuations:
         out = []
         k4 = None
-        def z(*, cc):
+        def z(cc):
             nonlocal k4
             k4 = cc
             out.append(me())
-        def y(*, cc):
+        def y(cc):
             out.append(me())
             call_cc[z()]
             out.append(me())  # y_cont
             return k2()
-        def x(*, cc):
+        def x():
             out.append(me())
             call_cc[y()]
             out.append(me())  # x_cont
@@ -204,9 +204,9 @@ def test():
     # confetti 2b (bottommost picture)
     with continuations:
         out = []
-        def f2(dummy, *, cc):
+        def f2(dummy):
             out.append(me())
-        def f1(*, cc):
+        def f1():
             out.append(me())
             return k4(cc=f2)
         f1()

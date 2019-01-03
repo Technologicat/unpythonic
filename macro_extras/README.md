@@ -686,7 +686,7 @@ with continuations:
         global k
         k = cc
         return args
-    def doit(*, cc):
+    def doit():
         lst = ['the call returned']
         *more = call_cc[setk('A')]
         return lst + list(more)
@@ -696,21 +696,21 @@ with continuations:
 
     # McCarthy's amb operator - yes, the real thing - in Python:
     stack = []
-    def amb(lst, *, cc):
+    def amb(lst, cc):
         if not lst:
             return fail()
         first, *rest = lst
         if rest:
             ourcc = cc
-            stack.append(lambda *, cc: amb(rest, cc=ourcc))
+            stack.append(lambda: amb(rest, cc=ourcc))
         return first
-    def fail(*, cc):
+    def fail():
         if stack:
             f = stack.pop()
             return f()
 
     # Pythagorean triples.
-    def pt(*, cc):
+    def pt():
         z = call_cc[amb(tuple(range(1, 21)))]
         y = call_cc[amb(tuple(range(1, z+1)))]
         x = call_cc[amb(tuple(range(1, y+1)))]
@@ -728,9 +728,11 @@ with continuations:
 
 Code within a ``with continuations`` block is treated specially. Roughly:
 
- - Each function definition (``def`` or ``lambda``) in a ``with continuations`` block must take a by-name-only parameter ``cc``.
-   - It is a named parameter, so that the ``continutions`` macro may automatically inject a default value, to allow these functions to be called also normally without passing a ``cc``.
-   - To keep things somewhat pythonic, the parameter must be spelled out explicitly even though it gets its value implicitly, just like ``self`` in object-oriented Python code.
+ - Each function definition (``def`` or ``lambda``) in a ``with continuations`` block have an implicit formal parameter ``cc``, **even if not explicitly declared** in the formal parameter list.
+   - If ``cc`` is declared explicitly, and if it is in a position that can accept a default value (either the last parameter that has no default, or a by-name-only parameter), then the continuation machinery will set the default value of ``cc`` to the default continuation (``identity``), which just returns its arguments.
+   - The default value allows these functions to be called also normally without passing a ``cc``.
+   - Having a hidden parameter is somewhat magic, but overall improves readability, as this allows declaring ``cc`` only where actually explicitly needed.
+   - Beside ``cc``, there's also a mechanism to keep track of the captured tail of a computation, which is important to have edge cases work correctly. See the note on **pcc** (*parent continuation*) in the docstring of ``unpythonic.syntax.continuations``, and [the pictures](callcc_topology.pdf).
 
  - In a function definition inside the ``with continuations`` block:
    - Most of the language works as usual; especially, any non-tail function calls can be made as usual.
@@ -798,7 +800,7 @@ call_cc[f(...) if p else g(...)]
 
  - To destructure a multiple-values (from a tuple return value), use a tuple assignment target (comma-separated names, as usual).
 
- - The last assignment target may be starred. It is transformed into the vararg (a.k.a. ``*args``) of the continuation function. (It will capture a whole tuple, or any excess items, as usual.)
+ - The last assignment target may be starred. It is transformed into the vararg (a.k.a. ``*args``, star-args) of the continuation function. (It will capture a whole tuple, or any excess items, as usual.)
 
  - To ignore the return value, just omit the assignment part. Useful if ``func`` was called only to perform its side-effects (the classic side effect is to stash ``cc`` somewhere for later use).
 
@@ -813,10 +815,10 @@ The main use case of the conditional variant is for things like:
 ```python
 with continuations:
    k = None
-   def setk(*, cc):
+   def setk(cc):
        global k
        k = cc
-   def dostuff(x, *, cc):
+   def dostuff(x):
        call_cc[setk() if x > 10 else None]  # update stashed continuation only if x > 10
        ...
 ```
@@ -829,7 +831,7 @@ Scheme and Racket implicitly capture the continuation at every position, whereas
 
 Also, since there are limitations to where a ``call_cc[]`` may appear, some code may need to be structured differently to do some particular thing, if porting code examples originally written in Scheme or Racket.
 
-Unlike ``call/cc`` in Scheme/Racket, our ``call_cc`` takes **a function call** as its argument, not just a function reference. Also, there's no need for it to be a one-argument function; any other args can be passed in the call.
+Unlike ``call/cc`` in Scheme/Racket, our ``call_cc`` takes **a function call** as its argument, not just a function reference. Also, there's no need for it to be a one-argument function; any other args can be passed in the call. The ``cc`` argument is filled implicitly and passed by name; any others are passed exactly as written in the client code.
 
 ### Combo notes
 
@@ -837,7 +839,7 @@ If you need both ``continuations`` and ``multilambda`` simultaneously, the incan
 
 ```python
 with multilambda, continuations:
-    f = lambda x, *, cc: [print(x), x**2]
+    f = lambda x: [print(x), x**2]
     assert f(42) == 1764
 ```
 
@@ -874,16 +876,17 @@ with tco:  # see further below on the "tco" macro
     assert result2 == "not odd"
 
 with continuations:
-    def double_odd(x, ec, *, cc):
+    def double_odd(x, ec, cc):
         if x % 2 == 0:
             cc = ec
             return "not odd"
         return 2*x
-    def main1(*, cc):
+    def main1(cc):
+        # cc actually has a default, so it's ok to not pass anything as cc here.
         y = double_odd(42, ec=cc)  # y = "not odd"
         z = double_odd(21, ec=cc)  # we could tail-call, but let's keep this similar to the first example.
         return z
-    def main2(*, cc):
+    def main2(cc):
         y = double_odd(21, ec=cc)
         z = double_odd(42, ec=cc)
         return z
@@ -902,15 +905,15 @@ from unpythonic.syntax import macros, continuations, call_cc
 from unpythonic import identity
 
 with continuations:
-    def double_odd(x, ec, *, cc):
+    def double_odd(x, ec, cc):
         if x % 2 == 0:
             cc = ec
             return "not odd"
         return 2*x
-    def main1(*, cc):
+    def main1(cc):
         y = call_cc[double_odd(42, ec=cc)]
         return double_odd(21, ec=cc)  # tail call, no further code to run in main1 so no call_cc needed.
-    def main2(*, cc):
+    def main2(cc):
         y = call_cc[double_odd(21, ec=cc)]
         return double_odd(42, ec=cc)
     assert main1() == "not odd"

@@ -139,27 +139,33 @@ def continuations(block_body):
     # we need for the continuation machinery.
     def transform_args(tree):
         assert type(tree) in (FunctionDef, AsyncFunctionDef, Lambda)
-        # require explicit by-name-only arg for continuation, "cc"
-        # (by name because we need to set a default value; otherwise "cc"
-        #  could be positional and be placed just after "self" or "cls", if any)
+        # Add a cc kwarg if the function has no cc arg.
+        posnames = [a.arg for a in tree.args.args]  # positional-or-keyword
         kwonlynames = [a.arg for a in tree.args.kwonlyargs]
-        hascc = any(x == "cc" for x in kwonlynames)
-        if not hascc:
-            assert False, "functions in a 'with continuations' block must have a by-name-only arg 'cc'"
-        # Patch in the default identity continuation to allow regular
-        # (non-tail) calls without explicitly passing a continuation.
-        j = kwonlynames.index("cc")
-        if tree.args.kw_defaults[j] is None:
-            tree.args.kw_defaults[j] = hq[identity]
+        if "cc" not in posnames + kwonlynames:
+            tree.args.kwonlyargs = tree.args.kwonlyargs + [arg(arg="cc")]
+            tree.args.kw_defaults = tree.args.kw_defaults + [None]  # not set
+            kwonlynames.append("cc")
+        # Patch in the default (if possible), i.e. the identity continuation,
+        # to allow regular (non-tail) calls without explicitly passing a continuation.
+        if "cc" in posnames:
+            j = posnames.index("cc")
+            na = len(posnames)
+            nd = len(tree.args.defaults)  # defaults apply to n last args
+            if j == na - nd - 1:  # last one that has no default
+                tree.args.defaults.insert(0, hq[identity])
+        else: # "cc" in kwonlynames:
+            j = kwonlynames.index("cc")
+            if tree.args.kw_defaults[j] is None:  # not already set
+                tree.args.kw_defaults[j] = hq[identity]
         # implicitly add "parent cc" arg for treating the tail of a computation
         # as one entity (only actually used in continuation definitions created by
         # call_cc; everywhere else, it's None). See the PDF for clarifying pictures.
-        haspcc = any(x == "_pcc" for x in kwonlynames)
-        if not haspcc:
+        if "_pcc" not in kwonlynames:
             non = q[None]
             non = copy_location(non, tree)
             tree.args.kwonlyargs = tree.args.kwonlyargs + [arg(arg="_pcc")]
-            tree.args.kw_defaults = tree.args.kw_defaults + [non]
+            tree.args.kw_defaults = tree.args.kw_defaults + [non]  # has the value None **at runtime**
         return tree
 
     # _tco_transform_return corresponds to PG's "=values".
@@ -445,7 +451,7 @@ def continuations(block_body):
                     # Beside a small optimization, it is important to preserve
                     # "identity" as "identity", so that the call_cc logic that
                     # defines the continuation functions will detect it and
-                    # know when to set _pcc.
+                    # know when to set _pcc (and importantly, when not to).
                     cc = cc2
             else:  # for inert data value returns (this produces the multiple-values arglist)
                 if cc1 is not None:
