@@ -608,13 +608,13 @@ from unpythonic.syntax import macros, namedlambda
 
 with namedlambda:
     f = lambda x: x**3                       # lexical rule: name as "f"
-    assert f.__name__ == "f (lambda)"
+    assert f.__name__ == "f"
     gn, hn = let((x, 42), (g, None), (h, None))[[
                    g << (lambda x: x**2),    # dynamic rule: name as "g"
                    h << f,                   # no-rename rule: still "f"
                    (g.__name__, h.__name__)]]
-    assert gn == "g (lambda)"
-    assert hn == "f (lambda)"
+    assert gn == "g"
+    assert hn == "f"
 ```
 
 This is a block macro that supports both simple assignment statements of the form ``f = lambda ...: ...``, and ``name << (lambda ...: ...)`` expression assignments to ``unpythonic`` environments.
