@@ -928,6 +928,36 @@ Most often that's exactly what we want, but in this particular case, it causes *
 
 Such subtleties arise essentially from the difference between a language that natively supports continuations (Scheme, Racket) and one that has continuations hacked on top of it as macros performing a CPS conversion only partially (like Python with ``unpythonic.syntax``, or Common Lisp with PG's continuation-passing macros). The macro approach works, but the programmer needs to be careful.
 
+### This isn't ``call/cc``!
+
+Strictly speaking, ``True``. The implementation is very different (much more than just [copying a hidden parameter](https://www.ps.uni-saarland.de/~duchier/python/continuations.html)), not to mention it has to be a macro, because it triggers capture - something that would not need to be requested for separately, had we converted the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style).
+
+The selective capture approach is however more efficient when we implement the continuation system in Python, indeed *on Python* (in the sense of [On Lisp](paulgraham.com/onlisp.html)), since we want to run most of the program the usual way with no magic attached. This way there is no need to sprinkle absolutely every statement and expression with a ``def`` or a ``lambda``. (Not to mention Python's ``lambda`` is underpowered due to the existence of some language features only as statements, so we would need to use a mixture of both, which is already unnecessarily complicated.) Function definitions are not intended as [the only control flow construct](https://dspace.mit.edu/handle/1721.1/5753) in Python, so the compiler likely won't optimize heavily enough (i.e. eliminate **almost all** of the implicitly introduced function definitions), if we attempted to use them as such.
+
+Continuations only need to come into play when we explicitly request to get one ([ZoP §2](https://www.python.org/dev/peps/pep-0020/)); this avoids introducing any more extra function definitions than needed.
+
+The name is nevertheless ``call_cc``, because the resulting behavior is close enough to ``call/cc``.
+
+Is it as general? I'm not an expert on this. If you have a theoretical result that proves that continuations delimited in the way they are in ``unpythonic`` are equally powerful to classic ``call/cc``, or a counterexample that shows they aren't, I'm interested - this information should be in the README.
+
+Racket provides delimited continuations and [prompts](https://docs.racket-lang.org/guide/prompt.html) to control them; no doubt much more thought has gone into designing and implementing *that*.
+
+### Why this syntax?
+
+As regard to a function call in ``call_cc[...]`` vs. just a function reference: Typical lispy usage of ``call/cc`` uses an inline lambda, with the closure property passing in everything except ``cc``, but in Python ``def`` is a statement. A technically possible alternative syntax, allowing lispy usage, would be:
+
+```python
+with call_cc(f):
+    def f(cc):
+        ...
+```
+
+but the expr macro variant provides better options for receiving multiple return values, and perhaps remains closer to standard Python.
+
+The ``call_cc[]`` explicitly suggests that these are (almost) the only places where the ``cc`` argument obtains a non-default value. It also visually indicates the exact position of the checkpoint, while keeping to standard Python syntax.
+
+(*"Almost"*: As explained above, a tail call passes along the current value of ``cc``, and ``cc`` can be set manually.)
+
 
 ## ``tco``: automatically apply tail call optimization
 
