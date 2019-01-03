@@ -98,7 +98,7 @@ Macro examples::
     assert answer(42) == "something else"
 
     # do: imperative code in expression position
-    y = do[local(x << 17),
+    y = do[local[x << 17],
            print(x),
            x << 23,
            x]
@@ -127,11 +127,11 @@ Macro examples::
     # lambdas with multiple expressions, local variables, and a name
     with multilambda, namedlambda:
         myadd = lambda x, y: [print("myadding", x, y),
-                              local(tmp << x + y),
+                              local[tmp << x + y],
                               print("result is", tmp),
                               tmp]
         assert myadd(2, 3) == 5
-        assert myadd.__name__ == "myadd (lambda)"
+        assert myadd.__name__ == "myadd"
 
     # implicit "return" in tail position, like Lisps
     with autoreturn:
@@ -176,20 +176,20 @@ Macro examples::
     # call/cc for Python
     with continuations:
         stack = []
-        def amb(lst, *, cc):  # McCarthy's amb operator
+        def amb(lst, cc):  # McCarthy's amb operator
             if not lst:
                 return fail()
             first, *rest = lst
             if rest:
                 ourcc = cc
-                stack.append(lambda *, cc: amb(rest, cc=ourcc))
+                stack.append(lambda: amb(rest, cc=ourcc))
             return first
-        def fail(*, cc):
+        def fail():
             if stack:
                 f = stack.pop()
                 return f()
 
-        def pythagorean_triples(maxn, *, cc):
+        def pythagorean_triples(maxn):
             z = call_cc[amb(tuple(range(1, maxn+1)))]
             y = call_cc[amb(tuple(range(1, z+1)))]
             x = call_cc[amb(tuple(range(1, y+1)))]
@@ -204,10 +204,10 @@ Macro examples::
     # if Python didn't already have generators, we could add them with call/cc:
     with continuations:
         @dlet((k, None))
-        def g(*, cc):
+        def g():
             if k:
                 return k()
-            def my_yield(value, *, cc):
+            def my_yield(value, cc):
                 k << cc
                 cc = identity
                 return value
