@@ -919,10 +919,12 @@ with continuations:
         return 2*x
     def main1(cc):
         y = call_cc[double_odd(42, ec=cc)]
-        return double_odd(21, ec=cc)  # tail call, no further code to run in main1 so no call_cc needed.
+        z = call_cc[double_odd(21, ec=cc)]
+        return z
     def main2(cc):
         y = call_cc[double_odd(21, ec=cc)]
-        return double_odd(42, ec=cc)
+        z = call_cc[double_odd(42, ec=cc)]
+        return z
     assert main1() == "not odd"
     assert main2() == "not odd"
 ```
