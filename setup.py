@@ -208,8 +208,8 @@ Macro examples::
             if k:
                 return k()
             def my_yield(value, cc):
-                k << cc
-                cc = identity
+                k << cc        # rebind the k in the @dlet env
+                cc = identity  # override current continuation
                 return value
             # generator body
             call_cc[my_yield(1)]
