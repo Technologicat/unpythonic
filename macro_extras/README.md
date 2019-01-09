@@ -672,7 +672,7 @@ As a consequence of the approach, our continuations are *delimited* in the sense
 
 For various possible program topologies that continuations may introduce, see [these clarifying pictures](callcc_topology.pdf).
 
-For full documentation, see the docstring of ``unpythonic.syntax.continuations``. The unit tests in ``unpythonic/syntax/test/test_conts.py`` and ``unpythonic/syntax/test/test_conts_gen.py`` may also be useful as usage examples.
+For full documentation, see the docstring of ``unpythonic.syntax.continuations``. The unit tests in ``unpythonic/syntax/test/test_conts.py``, ``unpythonic/syntax/test/test_conts_escape.py``, ``unpythonic/syntax/test/test_conts_gen.py`` and ``unpythonic/syntax/test/test_conts_topo.py`` may also be useful as usage examples.
 
 Demonstration:
 
