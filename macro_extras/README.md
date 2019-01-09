@@ -766,8 +766,12 @@ Code within a ``with continuations`` block is treated specially. Roughly:
 ### Differences between ``call/cc`` and certain other language features
 
  - Unlike **generators**, ``call_cc[]`` allows resuming also multiple times from an earlier checkpoint, even after execution has already proceeded further. Generators can be easily built on top of ``call/cc``. [Python version](../unpythonic/syntax/test/test_conts_gen.py), [Racket version](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt).
+   - The Python version is a pattern that could be packaged into a macro with MacroPy; the Racket version has been packaged as a macro.
+   - Both versions are just demonstrations for teaching purposes. In production code, use the language's native functionality.
+     - Python's builtin generators have no restriction on where ``yield`` can be placed, and provide better performance.
+     - Racket's standard library provides [generators](https://docs.racket-lang.org/reference/Generators.html).
 
- - Unlike **exceptions**, which only perform escapes, ``call_cc[]`` allows to jump back at an arbitrary time later, also after the dynamic extent of the original function where the ``call_cc[]`` appears. Exceptions are essentially based on (escape) continuations. Escape continuations are a special case of continuations, so exceptions can be built on top of ``call/cc``. See [this article by Matthew Might](http://matt.might.net/articles/implementing-exceptions/).
+ - Unlike **exceptions**, which only perform escapes, ``call_cc[]`` allows to jump back at an arbitrary time later, also after the dynamic extent of the original function where the ``call_cc[]`` appears. Escape continuations are a special case of continuations, so exceptions can be built on top of ``call/cc``. ([As explained in detail by Matthew Might](http://matt.might.net/articles/implementing-exceptions/), exceptions are fundamentally based on (escape) continuations; the *"unwinding the call stack"* mental image is ["not even wrong"](https://en.wikiquote.org/wiki/Wolfgang_Pauli).)
 
 ### ``call_cc`` API reference
 
@@ -929,9 +933,25 @@ Most often that's exactly what we want, but in this particular case, it causes *
 
 Such subtleties arise essentially from the difference between a language that natively supports continuations (Scheme, Racket) and one that has continuations hacked on top of it as macros performing a CPS conversion only partially (like Python with ``unpythonic.syntax``, or Common Lisp with PG's continuation-passing macros). The macro approach works, but the programmer needs to be careful.
 
+### What can be used as a continuation?
+
+A continuation is just a function. It must be able to take as many positional arguments as the previous function in the TCO chain is trying to pass into it. Keep in mind that:
+
+ - In ``unpythonic``, a tuple represents multiple return values. So a ``return a, b``, which is being fed into the continuation, implies that the continuation must be able to take two positional arguments.
+
+ - At the end of any function in Python, at least an implicit bare ``return`` always exists. It will try to pass in the value ``None`` to the continuation, so the continuation must be able to accept one positional argument.
+
+If there is an arity mismatch, Python will raise ``TypeError`` as usual. (The actual error message may be unhelpful due to the macro transformations; look for a mismatch in the number of values between a ``return`` and the call signature of a function used as a continuation (most often, the ``f`` in a ``cc=f``).)
+
+Usually, a function to be used as a continuation is defined inside the ``with continuations`` block. This automatically introduces the implicit ``cc`` parameter, and in general makes the source code undergo the transformations needed by the continuation machinery.
+
+However, as the only exception to this rule, if the continuation is meant to act as the endpoint of the TCO chain - i.e. terminating the chain and returning to the original top-level caller - then it may be defined outside the ``with continuations`` block. Recall that in a ``with continuations`` block, returning an inert data value (i.e. not making a tail call) transforms into a tail-call into the ``cc`` (with the given data becoming its argument(s)); it does not set the ``cc`` argument of the continuation being called, or even require that it has one. (However, a continuation that has no ``cc`` parameter cannot be explicitly tail-called, since a tail-call sets the ``cc`` parameter of the function being tail-called.)
+
+These observations make ``unpythonic.fun.identity`` eligible as a continuation, even though it is defined elsewhere in the library and has no ``cc`` parameter.
+
 ### This isn't ``call/cc``!
 
-Strictly speaking, ``True``. The implementation is very different (much more than just [copying a hidden parameter](https://www.ps.uni-saarland.de/~duchier/python/continuations.html)), not to mention it has to be a macro, because it triggers capture - something that would not need to be requested for separately, had we converted the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style).
+Strictly speaking, ``True``. The implementation is very different (much more than just [exposing a hidden parameter](https://www.ps.uni-saarland.de/~duchier/python/continuations.html)), not to mention it has to be a macro, because it triggers capture - something that would not need to be requested for separately, had we converted the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style).
 
 The selective capture approach is however more efficient when we implement the continuation system in Python, indeed *on Python* (in the sense of [On Lisp](paulgraham.com/onlisp.html)), since we want to run most of the program the usual way with no magic attached. This way there is no need to sprinkle absolutely every statement and expression with a ``def`` or a ``lambda``. (Not to mention Python's ``lambda`` is underpowered due to the existence of some language features only as statements, so we would need to use a mixture of both, which is already unnecessarily complicated.) Function definitions are not intended as [the only control flow construct](https://dspace.mit.edu/handle/1721.1/5753) in Python, so the compiler likely wouldn't optimize heavily enough (i.e. eliminate **almost all** of the implicitly introduced function definitions), if we attempted to use them as such.
 
@@ -939,7 +959,7 @@ Continuations only need to come into play when we explicitly request for one ([Z
 
 The name is nevertheless ``call_cc``, because the resulting behavior is close enough to ``call/cc``.
 
-Is it as general? I'm not an expert on this. If you have a theoretical result that proves that continuations delimited in the way they are in ``unpythonic`` are equally powerful to classic ``call/cc``, or a counterexample that shows they aren't, I'm interested - this information should be in the README.
+Is it as general? I'm not an expert on this. If you have a theoretical result that proves that continuations delimited in the way they are in ``unpythonic`` are equally powerful to classic ``call/cc``, or a counterexample that shows they aren't, I'm interested - this information should be in the README. (Note that beside the delimited capture, we provide a kludge that allows manually overriding ``cc``, useful for implementing things like ``amb``.)
 
 Racket provides delimited continuations and [prompts](https://docs.racket-lang.org/guide/prompt.html) to control them; no doubt much more thought has gone into designing and implementing *that*.
 
@@ -948,7 +968,7 @@ Racket provides delimited continuations and [prompts](https://docs.racket-lang.o
 As regard to a function call in ``call_cc[...]`` vs. just a function reference: Typical lispy usage of ``call/cc`` uses an inline lambda, with the closure property passing in everything except ``cc``, but in Python ``def`` is a statement. A technically possible alternative syntax would be:
 
 ```python
-with call_cc(f):  # currently doesn't support this syntax!
+with call_cc(f):  # this syntax not supported!
     def f(cc):
         ...
 ```
