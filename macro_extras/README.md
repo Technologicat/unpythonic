@@ -788,6 +788,8 @@ Multiple ``call_cc[]`` statements in the same function body are allowed. These e
 
 **Syntax**:
 
+In ``unpythonic``, ``call_cc`` is a **statement**, with the following syntaxes:
+
 ```python
 x = call_cc[func(...)]
 *xs = call_cc[func(...)]
