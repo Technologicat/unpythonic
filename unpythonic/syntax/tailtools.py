@@ -441,7 +441,7 @@ def continuations(block_body):
     # Handle multiple-return-values like the rest of unpythonic does:
     # returning a tuple means returning multiple values. Unpack them
     # to cc's arglist.
-    with q as chain_conts:
+    with hq as chain_conts:
         def chain_conts(cc1, cc2, with_star=False):  # cc1=_pcc, cc2=cc
             if with_star:  # to be chainable from a tail call, accept a multiple-values arglist
                 if cc1 is not None:
