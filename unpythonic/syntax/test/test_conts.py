@@ -185,7 +185,7 @@ def test():
             return args  # tuple means multiple-return-values
         def doit():
             lst = ['the call returned']
-            *more = call_cc[setk('A')]
+            *more, = call_cc[setk('A')]
             return lst + list(more)
         print(doit())
         # We can now send stuff into k, as long as it conforms to the
