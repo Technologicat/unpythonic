@@ -179,7 +179,7 @@ Macro examples::
         def amb(lst, cc):  # McCarthy's amb operator
             if not lst:
                 return fail()
-            first, *rest = lst
+            first, *rest = tuple(lst)
             if rest:
                 ourcc = cc
                 stack.append(lambda: amb(rest, cc=ourcc))
@@ -190,9 +190,9 @@ Macro examples::
                 return f()
 
         def pythagorean_triples(maxn):
-            z = call_cc[amb(tuple(range(1, maxn+1)))]
-            y = call_cc[amb(tuple(range(1, z+1)))]
-            x = call_cc[amb(tuple(range(1, y+1)))]
+            z = call_cc[amb(range(1, maxn+1))]
+            y = call_cc[amb(range(1, z+1))]
+            x = call_cc[amb(range(1, y+1))]
             if x*x + y*y != z*z:
                 return fail()
             return x, y, z
