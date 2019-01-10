@@ -1,6 +1,6 @@
-# ``unpythonic.syntax``: macro extras
+# ``unpythonic.syntax``: Language extensions
 
-These optional features are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
+These optional features, providing language extensions, are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
 
 Because macro expansion occurs at import time, the unit tests that contain usage examples (located in [unpythonic/syntax/test/](../unpythonic/syntax/test/)) cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). Usage of the bootstrapper is `./macropy3 some.module` (like `python3 -m some.module`); see `-h` for options.
 
@@ -24,6 +24,13 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
  - [``quicklambda``: combo with ``macropy.quick_lambda``](#quicklambda-combo-with-macropyquick_lambda)
  - [``continuations``: call/cc for Python](#continuations-callcc-for-python)
+   - [Differences between ``call/cc`` and certain other language features](#differences-between-callcc-and-certain-other-language-features) (generators, exceptions)
+   - [``call_cc`` API reference](#call_cc-api-reference)
+   - [Combo notes](#combo-notes)
+   - [Continuations as an escape mechanism](#continuations-as-an-escape-mechanism)
+   - [What can be used as a continuation?](#what-can-be-used-as-a-continuation)
+   - [This isn't ``call/cc``!](#this-isnt-callcc)
+   - [Why this syntax?](#why-this-syntax)
  - [``tco``: automatically apply tail call optimization](#tco-automatically-apply-tail-call-optimization)
    - [TCO and continuations](#tco-and-continuations)
  - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position)
@@ -189,7 +196,7 @@ let[(x, y),       # v0.12.0+
 
 ### Notes
 
-``let`` and ``letrec`` expand into the ``unpythonic.lispylet`` constructs, implicitly inserting the necessary boilerplate: the ``lambda e: ...`` wrappers, quoting variable names in definitions, and transforming ``x`` to ``e.x`` for all ``x`` declared in the bindings. Assignment syntax ``x << 42`` transforms to ``e.set('x', 42)``. The implicit environment argument ``e`` is actually named using a gensym, so lexically outer environments automatically show through. ``letseq`` expands into a chain of nested ``let`` expressions.
+``let`` and ``letrec`` expand into the ``unpythonic.lispylet`` constructs, implicitly inserting the necessary boilerplate: the ``lambda e: ...`` wrappers, quoting variable names in definitions, and transforming ``x`` to ``e.x`` for all ``x`` declared in the bindings. Assignment syntax ``x << 42`` transforms to ``e.set('x', 42)``. The implicit environment parameter ``e`` is actually named using a gensym, so lexically outer environments automatically show through. ``letseq`` expands into a chain of nested ``let`` expressions.
 
 Nesting utilizes the fact that MacroPy3 (as of v1.1.0) expands macros in an inside-out order:
 
@@ -261,8 +268,6 @@ The write of a ``name << value`` always occurs to the lexically innermost enviro
 **CAUTION**: formal parameters of a function definition, local variables, and any names declared as ``global`` or ``nonlocal`` in a given lexical scope shadow names from the ``let`` environment. Mostly, this applies *to the entirety of that lexical scope*. This is modeled after Python's standard scoping rules.
 
 As an exception to the rule, for the purposes of the scope analysis performed by ``unpythonic.syntax``, creations and deletions *of lexical local variables* take effect from the next statement, and remain in effect for the **lexically** remaining part of the current scope. This allows ``x = ...`` to see the old bindings on the RHS, as well as allows the client code to restore access to a surrounding env's ``x`` (by deleting a local ``x`` shadowing it) when desired.
-
-Note that this behaves differently from Python itself, where everything is dynamic. This is essentially because ``unpythonic.syntax`` needs to resolve references to env variables statically, at macro expansion time.
 
 To clarify, here's a sampling from the unit tests:
 
@@ -397,14 +402,14 @@ Expansion of ``let_syntax`` is a two-step process:
   - First, template substitutions.
   - Then, bare name substitutions, applied to the result of the first step.
 
-This design is to avoid accidental substitutions of formal parameters of templates (that would usually break the template, resulting at best in a mysterious error, and at worst silently doing something unexpected), if the name of a formal parameter happens to match one of the currently active bare name substitutions.
+This design is to avoid accidental substitutions into formal parameters of templates (that would usually break the template, resulting at best in a mysterious error, and at worst silently doing something unexpected), if the name of a formal parameter happens to match one of the currently active bare name substitutions.
 
 Within each step, the substitutions are applied **in definition order**:
 
   - If the bindings are ``((x, y), (y, z))``, then an ``x`` at the use site transforms to ``z``. So does a ``y`` at the use site.
   - But if the bindings are ``((y, z), (x, y))``, then an ``x`` at the use site transforms to ``y``, and only an explicit ``y`` at the use site transforms to ``z``.
 
-Even in block templates, parameters are always expressions, because invoking a template uses the function-call syntax. But names and calls are expressions, so a previously defined substitution (whether bare name or an invocation of a template) can be passed as an argument just fine. Definition order is then important; consult the rules above.
+Even in block templates, arguments are always expressions, because invoking a template uses the function-call syntax. But names and calls are expressions, so a previously defined substitution (whether bare name or an invocation of a template) can be passed as an argument just fine. Definition order is then important; consult the rules above.
 
 It is allowed to nest ``let_syntax``. Lexical scoping is supported (inner definitions of substitutions shadow outer ones).
 
@@ -427,9 +432,7 @@ which can be useful when writing macros.
 
 **CAUTION**: ``let_syntax`` is essentially a toy macro system within the real macro system. The usual caveats of macro systems apply. Especially, we support absolutely no form of hygiene. Be very, very careful to avoid name conflicts.
 
-Inessential repetition is often introduced by syntactic constraints. The ``let_syntax`` macro is meant for simple local substitutions where the elimination of such repetition can shorten the code and improve its readability.
-
-If you need to do something complex (or indeed save a definition and reuse it somewhere else, non-locally), write a real macro directly in MacroPy.
+The ``let_syntax`` macro is meant for simple local substitutions where the elimination of repetition can shorten the code and improve its readability. If you need to do something complex (or indeed save a definition and reuse it somewhere else, non-locally), write a real macro directly in MacroPy.
 
 This was inspired by Racket's [``let-syntax``](https://docs.racket-lang.org/reference/let.html) and [``with-syntax``](https://docs.racket-lang.org/reference/stx-patterns.html).
 
@@ -644,7 +647,7 @@ with quicklambda, multilambda:
     assert func(1, 2) == 3
 ```
 
-This is of course rather silly, as an unnamed argument can only be mentioned once. If we're giving names to them, a regular ``lambda`` is shorter to write. The point is, this combo is now possible in case it's ever needed. A more realistic combo is:
+This is of course rather silly, as an unnamed argument can only be mentioned once. If we're giving names to them, a regular ``lambda`` is shorter to write. A more realistic combo is:
 
 ```python
 with quicklambda, tco:
@@ -688,7 +691,7 @@ with continuations:
         return args
     def doit():
         lst = ['the call returned']
-        *more = call_cc[setk('A')]
+        *more, = call_cc[setk('A')]
         return lst + list(more)
     print(doit())
     print(k('again'))
@@ -699,7 +702,7 @@ with continuations:
     def amb(lst, cc):
         if not lst:
             return fail()
-        first, *rest = lst
+        first, *rest = tuple(lst)
         if rest:
             ourcc = cc
             stack.append(lambda: amb(rest, cc=ourcc))
@@ -709,11 +712,11 @@ with continuations:
             f = stack.pop()
             return f()
 
-    # Pythagorean triples.
+    # Pythagorean triples
     def pt():
-        z = call_cc[amb(tuple(range(1, 21)))]
-        y = call_cc[amb(tuple(range(1, z+1)))]
-        x = call_cc[amb(tuple(range(1, y+1)))]
+        z = call_cc[amb(range(1, 21))]
+        y = call_cc[amb(range(1, z+1)))]
+        x = call_cc[amb(range(1, y+1))]
         if x*x + y*y != z*z:
             return fail()
         return x, y, z
@@ -729,10 +732,15 @@ with continuations:
 Code within a ``with continuations`` block is treated specially. Roughly:
 
  - Each function definition (``def`` or ``lambda``) in a ``with continuations`` block has an implicit formal parameter ``cc``, **even if not explicitly declared** in the formal parameter list.
-   - If ``cc`` is declared explicitly, and if it is in a position that can accept a default value (either the last parameter that has no default, or a by-name-only parameter), then the continuation machinery will set the default value of ``cc`` to the default continuation (``identity``), which just returns its arguments.
-     - In the above ``amb`` example, note the use of ``ourcc``; the lambda implicitly has its own ``cc``, so the continuation passed in from outside must be named something else.
-   - The default value allows these functions to be called also normally without passing a ``cc``.
+   - The continuation machinery will set the default value of ``cc`` to the default continuation (``identity``), which just returns its arguments.
+     - The default value allows these functions to be called also normally without passing a ``cc``. In effect, the function will then return normally.
+   - If ``cc`` is not declared explicitly, it is implicitly declared as a by-name-only parameter named ``cc``, and the default value is set automatically.
+   - If ``cc`` is declared explicitly, the default value is set automatically if ``cc`` is in a position that can accept a default value, and no default has been set by the user.
+     - Positions that can accept a default value are the last positional parameter that has no default, and a by-name-only parameter in any syntactically allowed position.
    - Having a hidden parameter is somewhat magic, but overall improves readability, as this allows declaring ``cc`` only where actually explicitly needed.
+     - **CAUTION**: Usability trap: in nested function definitions, each ``def`` and ``lambda`` comes with **its own** implicit ``cc``.
+       - In the above ``amb`` example, the local variable is named ``ourcc``, so that the continuation passed in from outside (into the ``lambda``, by closure) will have a name different from the ``cc`` implicitly introduced by the ``lambda`` itself.
+       - This is possibly subject to change in a future version (pending the invention of a better API), but for now just be aware of this gotcha.
    - Beside ``cc``, there's also a mechanism to keep track of the captured tail of a computation, which is important to have edge cases work correctly. See the note on **pcc** (*parent continuation*) in the docstring of ``unpythonic.syntax.continuations``, and [the pictures](callcc_topology.pdf).
 
  - In a function definition inside the ``with continuations`` block:
@@ -744,6 +752,7 @@ Code within a ``with continuations`` block is treated specially. Roughly:
      - Hence, the tail call is inserted between the end of the current function body and the start of the continuation ``cc``.
      - To override which continuation to use, you can specify the ``cc=...`` kwarg, as in ``return func(..., cc=mycc)``.
        - The ``cc`` argument, if passed explicitly, **must be passed by name**.
+         - **CAUTION**: This is **not** enforced, as the machinery does not analyze positional arguments in any great detail. The machinery will most likely break in unintuitive ways (or at best, raise a mysterious ``TypeError``) if this rule is violated.
      - The function ``func`` must be a defined in a ``with continuations`` block, so that it knows what to do with the named argument ``cc``.
        - Attempting to tail-call a regular function breaks the TCO chain and immediately returns to the original caller (provided the function even accepts a ``cc`` named argument).
        - Be careful: ``xs = list(args); return xs`` and ``return list(args)`` mean different things.
@@ -756,8 +765,8 @@ Code within a ``with continuations`` block is treated specially. Roughly:
    - Just like in Scheme/Racket's ``call/cc``, the values that get bound to the ``call_cc[]`` assignment targets on second and further calls (when the continuation runs) are the arguments given to the continuation when it is called (whether implicitly or manually).
    - A first-class reference to the captured continuation is available in the function called by ``call_cc[]``, as its ``cc`` argument.
      - The continuation is a function that takes positional arguments, plus a named argument ``cc``.
-       - The latter is there only so that a continuation behaves just like any continuation-enabled function when tail-called, or when used as the target of a ``call_cc[]``.
        - The call signature for the positional arguments is determined by the assignment targets of the ``call_cc[]``.
+       - The ``cc`` parameter is there only so that a continuation behaves just like any continuation-enabled function when tail-called, or when later used as the target of another ``call_cc[]``.
    - Basically everywhere else, ``cc`` points to the identity function - the default continuation just returns its arguments.
      - This is unlike in Scheme or Racket, which implicitly capture the continuation at every expression.
    - Inside a ``def``, ``call_cc[]`` generates a tail call, thus terminating the original (parent) function. (Hence ``call_ec`` does not combo well with this.)
@@ -771,7 +780,8 @@ Code within a ``with continuations`` block is treated specially. Roughly:
      - Python's builtin generators have no restriction on where ``yield`` can be placed, and provide better performance.
      - Racket's standard library provides [generators](https://docs.racket-lang.org/reference/Generators.html).
 
- - Unlike **exceptions**, which only perform escapes, ``call_cc[]`` allows to jump back at an arbitrary time later, also after the dynamic extent of the original function where the ``call_cc[]`` appears. Escape continuations are a special case of continuations, so exceptions can be built on top of ``call/cc``. ([As explained in detail by Matthew Might](http://matt.might.net/articles/implementing-exceptions/), exceptions are fundamentally based on (escape) continuations; the *"unwinding the call stack"* mental image is ["not even wrong"](https://en.wikiquote.org/wiki/Wolfgang_Pauli).)
+ - Unlike **exceptions**, which only perform escapes, ``call_cc[]`` allows to jump back at an arbitrary time later, also after the dynamic extent of the original function where the ``call_cc[]`` appears. Escape continuations are a special case of continuations, so exceptions can be built on top of ``call/cc``.
+   - [As explained in detail by Matthew Might](http://matt.might.net/articles/implementing-exceptions/), exceptions are fundamentally based on (escape) continuations; the *"unwinding the call stack"* mental image is ["not even wrong"](https://en.wikiquote.org/wiki/Wolfgang_Pauli).
 
 ### ``call_cc`` API reference
 
@@ -843,6 +853,8 @@ Unlike ``call/cc`` in Scheme/Racket, our ``call_cc`` takes **a function call** a
 
 ### Combo notes
 
+**CAUTION**: Do not combo with ``tco``; the ``continuations`` block already implies TCO.
+
 If you need both ``continuations`` and ``multilambda`` simultaneously, the incantation is:
 
 ```python
@@ -855,33 +867,49 @@ The way this works is that ``continuations`` knows what ``multilambda`` does; it
 
 We have chosen the implementation where ``continuations`` works with input that has already been transformed by ``multilambda``. This is safer, because there is no risk to misinterpret a list in a lambda body, and it works also for any explicit use of ``do[]`` in a lambda body or in a ``return`` (recall that macros expand from inside out).
 
-**CAUTION**: Do not combo with ``tco``; the ``continuations`` block already implies TCO.
+Similarly, if you need ``quicklambda``, apply it first:
+
+```python
+with quicklambda, continuations:
+    g = f[_**2]
+    assert g(42) == 1764
+```
+
+This ordering makes the ``f[...]`` notation expand into standard ``lambda`` notation before ``continuations`` is expanded.
+
+To enable both of these, use ``with quicklambda, multilambda, continuations`` (although the usefulness of this combo may be questionable).
 
 ### Continuations as an escape mechanism
 
-Pretty much by the definition of a continuation, in a ``with continuations`` block, a trick that *should* at first glance produce an escape is to set ``cc`` to the ``cc`` of the caller, and then return the desired value. There is however a subtle catch, due to the way we implement continuations. Consider:
+Pretty much by the definition of a continuation, in a ``with continuations`` block, a trick that *should* at first glance produce an escape is to set ``cc`` to the ``cc`` of the caller, and then return the desired value. There is however a subtle catch, due to the way we implement continuations.
+
+First, consider this basic strategy, without any macros:
 
 ```python
-from unpythonic.syntax import macros, tco, continuations, call_cc
 from unpythonic import call_ec
 
-with tco:  # see further below on the "tco" macro
-    def double_odd(x, ec):
-        if x % 2 == 0:  # reject even "x"
-            ec("not odd")
-        return 2*x
-    @call_ec
-    def result1(ec):
-        y = double_odd(42, ec)
-        z = double_odd(21, ec)  # avoid tail-calling because ec is not valid after result1() exits
-        return z
-    @call_ec
-    def result2(ec):
-        y = double_odd(21, ec)
-        z = double_odd(42, ec)
-        return z
-    assert result1 == "not odd"
-    assert result2 == "not odd"
+def double_odd(x, ec):
+    if x % 2 == 0:  # reject even "x"
+        ec("not odd")
+    return 2*x
+@call_ec
+def result1(ec):
+    y = double_odd(42, ec)
+    z = double_odd(21, ec)
+    return z
+@call_ec
+def result2(ec):
+    y = double_odd(21, ec)
+    z = double_odd(42, ec)
+    return z
+assert result1 == "not odd"
+assert result2 == "not odd"
+```
+
+Now, can we use the same strategy with the continuation machinery?
+
+```python
+from unpythonic.syntax import macros, continuations, call_cc
 
 with continuations:
     def double_odd(x, ec, cc):
@@ -904,7 +932,7 @@ with continuations:
 
 In the first example, ``ec`` is the escape continuation of the ``result1``/``result2`` block, due to the placement of the ``call_ec``. In the second example, the ``cc`` inside ``double_odd`` is the implicitly passed ``cc``... which, naively, should represent the continuation of the current call into ``double_odd``. So far, so good.
 
-However, because in this example there are no ``call_cc[]`` statements, the actual value of ``cc``, anywhere in this example, is always just ``identity``. *It's not the actual continuation.* Even though we pass the ``cc`` of ``main1``/``main2`` as an explicit argument "``ec``" to use as an escape continuation (like the first example does with ``ec``), it is still ``identity`` - and hence cannot perform an escape.
+However, because the example code contains no ``call_cc[]`` statements, the actual value of ``cc``, anywhere in this example, is always just ``identity``. *It's not the actual continuation.* Even though we pass the ``cc`` of ``main1``/``main2`` as an explicit argument "``ec``" to use as an escape continuation (like the first example does with ``ec``), it is still ``identity`` - and hence cannot perform an escape.
 
 We must ``call_cc[]`` to request a capture of the actual continuation:
 
@@ -918,7 +946,7 @@ with continuations:
             return "not odd"
         return 2*x
     def main1(cc):
-        y = call_cc[double_odd(42, ec=cc)]
+        y = call_cc[double_odd(42, ec=cc)]  # the call_cc[...] are the only changes to the example
         z = call_cc[double_odd(21, ec=cc)]
         return z
     def main2(cc):
@@ -949,9 +977,11 @@ If there is an arity mismatch, Python will raise ``TypeError`` as usual. (The ac
 
 Usually, a function to be used as a continuation is defined inside the ``with continuations`` block. This automatically introduces the implicit ``cc`` parameter, and in general makes the source code undergo the transformations needed by the continuation machinery.
 
-However, as the only exception to this rule, if the continuation is meant to act as the endpoint of the TCO chain - i.e. terminating the chain and returning to the original top-level caller - then it may be defined outside the ``with continuations`` block. Recall that in a ``with continuations`` block, returning an inert data value (i.e. not making a tail call) transforms into a tail-call into the ``cc`` (with the given data becoming its argument(s)); it does not set the ``cc`` argument of the continuation being called, or even require that it has one. (However, a continuation that has no ``cc`` parameter cannot be explicitly tail-called, since a tail-call sets the ``cc`` parameter of the function being tail-called.)
+However, as the only exception to this rule, if the continuation is meant to act as the endpoint of the TCO chain - i.e. terminating the chain and returning to the original top-level caller - then it may be defined outside the ``with continuations`` block. Recall that in a ``with continuations`` block, returning an inert data value (i.e. not making a tail call) transforms into a tail-call into the ``cc`` (with the given data becoming its argument(s)); it does not set the ``cc`` argument of the continuation being called, or even require that it has a ``cc`` parameter that could accept one.
 
-These observations make ``unpythonic.fun.identity`` eligible as a continuation, even though it is defined elsewhere in the library and has no ``cc`` parameter.
+(Note also that a continuation that has no ``cc`` parameter cannot be used as the target of an explicit tail-call in the client code, since a tail-call in a ``with continuations`` block will attempt to supply a ``cc`` argument to the function being tail-called. Likewise, it cannot be used as the target of a ``call_cc[]``, since this will also attempt to supply a ``cc`` argument.)
+
+These observations make ``unpythonic.fun.identity`` eligible as a continuation, even though it is defined elsewhere in the library and it has no ``cc`` parameter.
 
 ### This isn't ``call/cc``!
 
@@ -1016,38 +1046,44 @@ To find the tail position inside a compound return value, this recursively handl
 
 **CAUTION**: In an ``and``/``or`` expression, only the last item of the whole expression is in tail position. This is because in general, it is impossible to know beforehand how many of the items will be evaluated.
 
-**CAUTION**: In a ``def`` you still need the ``return``; it marks a return value.
+**CAUTION**: In a ``def`` you still need the ``return``; it marks a return value. If you want the tail position to imply a ``return``, use the combo ``with autoreturn, tco`` (on ``autoreturn``, see below).
 
-**CAUTION**: Do not combo ``tco`` and ``continuations`` blocks; the latter already implies TCO. (They actually share a lot of the code that implements TCO.)
-
-TCO is based on a strategy similar to MacroPy's ``tco`` macro, but using unpythonic's TCO machinery, and working together with the macros introduced by ``unpythonic.syntax``. The semantics are slightly different; by design, ``unpythonic`` requires an explicit ``return`` to mark tail calls in a ``def``. A call that is strictly speaking in tail position, but lacks the ``return``, is not TCO'd, and the implicit ``return None`` then shuts down the trampoline, returning ``None`` as the result of the TCO chain.
+TCO is based on a strategy similar to MacroPy's ``tco`` macro, but using unpythonic's TCO machinery, and working together with the macros introduced by ``unpythonic.syntax``. The semantics are slightly different; by design, ``unpythonic`` requires an explicit ``return`` to mark tail calls in a ``def``. A call that is strictly speaking in tail position, but lacks the ``return``, is not TCO'd, and Python's implicit ``return None`` then shuts down the trampoline, returning ``None`` as the result of the TCO chain.
 
 ### TCO and continuations
+
+**CAUTION**: Do not combo ``tco`` and ``continuations`` blocks; the latter already implies TCO. (They actually share a lot of the code that implements TCO; ``continuations`` just hooks into some callbacks to perform additional processing.)
 
 #### TCO and ``call_ec``
 
 (Mainly of interest for lambdas, which have no ``return``, and for "multi-return" from a nested function.)
 
-For escape continuations in ``tco`` and ``continuations`` blocks, only basic uses of ``call_ec`` are supported. The literal function names ``ec`` and ``brk`` are always *understood as referring to* an escape continuation; in addition, ec names are harvested from uses of ``call_ec``.
+It is important to recognize a call to an escape continuation as such, because the argument given to an escape continuation is essentially a return value. If this argument is itself a call, it needs the TCO transformation to be applied to it.
 
-See the docstring of ``unpythonic.syntax.tco`` for details.
+For escape continuations in ``tco`` and ``continuations`` blocks, only basic uses of ``call_ec`` are supported, for automatically harvesting names referring to an escape continuation. In addition, the literal function names ``ec`` and ``brk`` are always *understood as referring to* an escape continuation.
 
 However, the name ``ec`` or ``brk`` alone is not sufficient to make a function into an escape continuation, even though ``tco`` (and ``continuations``) will think of it as such. The function also needs to actually implement some kind of an escape mechanism. An easy way to get an escape continuation, where this has already been done for you, is to use ``call_ec``.
+
+See the docstring of ``unpythonic.syntax.tco`` for details.
 
 
 ## ``autoreturn``: implicit ``return`` in tail position
 
-In Lisps, a function implicitly returns the value of the expression in tail position (along the code path being executed). Now Python can, too:
+In Lisps, a function implicitly returns the value of the expression in tail position (along the code path being executed). Python's ``lambda`` also behaves like this (the whole body is just one return-value expression), but ``def`` doesn't.
+
+Now ``def`` can have this feature, too:
 
 ```python
 from unpythonic.syntax import macros, autoreturn
 
 with autoreturn:
     def f():
+        ...
         "I'll just return this"
     assert f() == "I'll just return this"
 
     def g(x):
+        ...
         if x == 1:
             "one"
         elif x == 2:
@@ -1065,7 +1101,12 @@ Each ``def`` function definition lexically within the ``with autoreturn`` block 
 
  - If the last item is a ``with`` or ``async with`` block, the transformation is applied to the last item in its body.
 
- - If the last item is a ``try``/``except``/``else``/``finally`` block, the rules are as follows. If an ``else`` clause is present, the transformation is applied to the last item in it; otherwise, to the last item in the ``try`` clause. Additionally, in both cases, the transformation is applied to the last item in each of the ``except`` clauses. The ``finally`` clause is not transformed; the intention is it is usually a finalizer (e.g. to release resources) that runs after the interesting value is already being returned by ``try``, ``else`` or ``except``.
+ - If the last item is a ``try``/``except``/``else``/``finally`` block:
+   - **If** an ``else`` clause is present, the transformation is applied to the last item in it; **otherwise**, to the last item in the ``try`` clause. These are the positions that indicate a normal return (no exception was raised).
+   - In both cases, the transformation is applied to the last item in each of the ``except`` clauses.
+   - The ``finally`` clause is not transformed; the intention is it is usually a finalizer (e.g. to release resources) that runs after the interesting value is already being returned by ``try``, ``else`` or ``except``.
+
+If needed, the above rules are applied recursively to locate the tail position(s).
 
 Any explicit ``return`` statements are left alone, so ``return`` can still be used as usual.
 
@@ -1073,7 +1114,7 @@ Any explicit ``return`` statements are left alone, so ``return`` can still be us
 
 **CAUTION**: ``for``, ``async for``, ``while`` are currently not analyzed; effectively, these are defined as always returning ``None``. If the last item in your function body is a loop, use an explicit return.
 
-**CAUTION**: With ``autoreturn`` enabled, functions no longer return ``None`` by default; the whole point of this macro is to change the default return value. The default return value is ``None`` only if the tail position contains a statement (because in a sense, a statement always returns ``None``).
+**CAUTION**: With ``autoreturn`` enabled, functions no longer return ``None`` by default; the whole point of this macro is to change the default return value. The default return value is ``None`` only if the tail position contains a statement other than ``if``, ``with``, ``async with`` or ``try``.
 
 If you wish to omit ``return`` in tail calls, this comboes with ``tco``; just apply ``autoreturn`` first (either ``with autoreturn, tco:`` or in nested format, ``with tco:``, ``with autoreturn:``).
 
@@ -1180,7 +1221,7 @@ If some particular combo doesn't work and it's not at least documented as such, 
 For the christmas tree combo, the block macros are designed to run in the following order (leftmost first):
 
 ```
-prefix > autoreturn > multilambda, namedlambda > continuations, tco > curry
+prefix > autoreturn, quicklambda > multilambda, namedlambda > continuations, tco > curry
 ```
 
 The ``let_syntax`` block may be placed anywhere in the chain; just keep in mind what it does.
@@ -1191,16 +1232,18 @@ Other things to note:
 
  - ``continuations`` and ``tco`` are mutually exclusive, since ``continuations`` already implies TCO.
 
- - ``prefix``, ``autoreturn`` and ``multilambda`` are first-pass macros (expand from outside in), because they change the semantics:
+ - ``prefix``, ``autoreturn``, ``quicklambda`` and ``multilambda`` are first-pass macros (expand from outside in), because they change the semantics:
    - ``prefix`` transforms things-that-look-like-tuples into function calls,
    - ``autoreturn`` adds ``return`` statements where there weren't any,
-   - ``multilambda`` transforms things-that-look-like-lists into sequences of multiple expressions, using ``do[]``.
+   - ``quicklambda`` transforms things-that-look-like-list-lookups into ``lambda`` function definitions,
+   - ``multilambda`` transforms things-that-look-like-lists (in the body of a ``lambda``) into sequences of multiple expressions, using ``do[]``.
    - Hence, a lexically outer block of one of these types *will expand first*, before any macros inside it are expanded, in contrast to the default *from inside out* expansion order.
    - This yields clean, standard-ish Python for the rest of the macros, which then don't need to worry about their input meaning something completely different from what it looks like.
 
  - An already expanded ``do[]`` (including that inserted by `multilambda`) is accounted for by all ``unpythonic.syntax`` macros when handling expressions.
    - For simplicity, this is **the only** type of sequencing understood by the macros.
    - E.g. the more rudimentary ``unpythonic.seq.begin`` is not treated as a sequencing operation. This matters especially in ``tco``, where it is critically important to correctly detect a tail position in a return-value expression or (multi-)lambda body.
+   - *Sequencing* is here meant in the Racket/Haskell sense of *running sub-operations in a specified order*, unrelated to Python's *sequences*.
 
  - The TCO transformation knows about TCO-enabling decorators provided by ``unpythonic``, and adds the ``@trampolined`` decorator to a function definition only when it is not already TCO'd.
    - This applies also to lambdas; they are decorated by directly wrapping them with a call: ``trampolined(lambda ...: ...)``.
@@ -1219,10 +1262,8 @@ Other things to note:
        - ``unpythonic.fploop.breakably_looped`` internally inserts the ``call_ec`` at the right step, and gives you the ec as ``brk``.
 
  - Some of the block macros can be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``curry``) require their own ``with`` statement.
-   - This is a known bug. Probably something to do with the semantics of a ``with`` statement in MacroPy.
+   - This is a [known issue in MacroPy](https://github.com/azazel75/macropy/issues/21). I have made a [fix](https://github.com/azazel75/macropy/pull/22), but still need to make proper test cases to get it merged.
    - If something goes wrong in the expansion of one block macro in a ``with`` statement that specifies several block macros, surprises may occur.
    - When in doubt, use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks.
-
-
-*Toto, I've a feeling we're not in Python anymore.*
+     - Test one step at a time with the ``macropy.tracing.show_expanded`` block macro to make sure the expansion looks like what you intended.
 
