@@ -6,6 +6,24 @@ from ...ec import call_ec
 
 def test():
     # basic strategy using an escape continuation
+    def double_odd(x, ec):
+        if x % 2 == 0:  # reject even "x"
+            ec("not odd")
+        return 2*x
+    @call_ec
+    def result1(ec):
+        y = double_odd(42, ec)
+        z = double_odd(21, ec)
+        return z
+    @call_ec
+    def result2(ec):
+        y = double_odd(21, ec)
+        z = double_odd(42, ec)
+        return z
+    assert result1 == "not odd"
+    assert result2 == "not odd"
+
+    # should work also in a "with tco" block
     with tco:
         def double_odd(x, ec):
             if x % 2 == 0:  # reject even "x"
@@ -68,7 +86,8 @@ def test():
     # the second call to double_odd(), there is no more code to run in each
     # main function.
     #
-    # We can just as well use a tail-call, optimizing away a redundant capture:
+    # We can just as well use a tail-call, optimizing away a redundant
+    # continuation capture:
     with continuations:
         def double_odd(x, ec, cc):
             if x % 2 == 0:
