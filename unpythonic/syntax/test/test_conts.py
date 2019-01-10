@@ -314,7 +314,7 @@ def test():
         def amb(lst, cc):
             if not lst:
                 return fail()
-            first, *rest = lst
+            first, *rest = tuple(lst)
             if rest:
                 ourcc = cc
                 stack.append(lambda: amb(rest, cc=ourcc))
@@ -357,9 +357,9 @@ def test():
             # This generates 1540 combinations, with several nested tail-calls each,
             # so we really need TCO here. (Without TCO, nothing would return until
             # the whole computation is done; it would blow the call stack very quickly.)
-            z = call_cc[amb(tuple(range(1, 21)))]
-            y = call_cc[amb(tuple(range(1, z+1)))]
-            x = call_cc[amb(tuple(range(1, y+1)))]
+            z = call_cc[amb(range(1, 21))]
+            y = call_cc[amb(range(1, z+1))]
+            x = call_cc[amb(range(1, y+1))]
             nonlocal count
             count += 1
             if x*x + y*y != z*z:
@@ -390,7 +390,7 @@ def test():
         stack = []
         def amb(lst, cc):
             if lst:
-                first, *rest = lst
+                first, *rest = tuple(lst)
                 if rest:
                     ourcc = cc
                     stack.append(lambda: amb(rest, cc=ourcc))
@@ -403,9 +403,9 @@ def test():
                 f()
 
         def pyth():
-            z = call_cc[amb(tuple(range(1, 21)))]
-            y = call_cc[amb(tuple(range(1, z+1)))]
-            x = call_cc[amb(tuple(range(1, y+1)))]
+            z = call_cc[amb(range(1, 21))]
+            y = call_cc[amb(range(1, z+1))]
+            x = call_cc[amb(range(1, y+1))]
             if x*x + y*y == z*z:
                 x, y, z
             else:
