@@ -1,6 +1,6 @@
 # ``unpythonic.syntax``: Language extensions
 
-These optional features, providing language extensions, are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
+These optional features, providing extensions to the Python language as syntactic macros, are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
 
 Because macro expansion occurs at import time, the unit tests that contain usage examples (located in [unpythonic/syntax/test/](../unpythonic/syntax/test/)) cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). Usage of the bootstrapper is `./macropy3 some.module` (like `python3 -m some.module`); see `-h` for options.
 
@@ -675,7 +675,7 @@ As a consequence of the approach, our continuations are *delimited* in the sense
 
 For various possible program topologies that continuations may introduce, see [these clarifying pictures](callcc_topology.pdf).
 
-For full documentation, see the docstring of ``unpythonic.syntax.continuations``. The unit tests in ``unpythonic/syntax/test/test_conts.py``, ``unpythonic/syntax/test/test_conts_escape.py``, ``unpythonic/syntax/test/test_conts_gen.py`` and ``unpythonic/syntax/test/test_conts_topo.py`` may also be useful as usage examples.
+For full documentation, see the docstring of ``unpythonic.syntax.continuations``. The unit tests [[1]](../unpythonic/syntax/test/test_conts.py) [[2]](../unpythonic/syntax/test/test_conts_escape.py) [[3]](../unpythonic/syntax/test/test_conts_gen.py) [[4]](../unpythonic/syntax/test/test_conts_topo.py) may also be useful as usage examples.
 
 Demonstration:
 
@@ -814,6 +814,10 @@ x0, ..., *xs = call_cc[f(...) if p else g(...)]
 call_cc[f(...) if p else g(...)]
 ```
 
+*NOTE*: ``*xs`` may need to be written as ``*xs,`` in order to explicitly make the LHS into a tuple. The variant without the comma seems to work when run with [the bootstrapper](macropy3) from a ``.py``, but fails in code run interactively in [the IPython+MacroPy console](https://github.com/azazel75/macropy/pull/20).
+
+*NOTE*: ``f()`` and ``g()`` must be **literal function calls**. Sneaky trickery (such as calling indirectly via ``unpythonic.misc.call`` or ``unpythonic.fun.curry``) is not supported. (The ``prefix`` and ``curry`` macros, however, **are** supported; just order the block macros as shown in the final section of this README.) This limitation is for simplicity; the ``call_cc[]`` needs to patch the ``cc=...`` kwarg of the call being made.
+
 **Assignment targets**:
 
  - To destructure a multiple-values (from a tuple return value), use a tuple assignment target (comma-separated names, as usual).
@@ -946,12 +950,12 @@ with continuations:
             return "not odd"
         return 2*x
     def main1(cc):
-        y = call_cc[double_odd(42, ec=cc)]  # the call_cc[...] are the only changes to the example
-        z = call_cc[double_odd(21, ec=cc)]
+        y = call_cc[double_odd(42, ec=cc)]  # <-- the only change is adding the call_cc[]
+        z = call_cc[double_odd(21, ec=cc)]  # <--
         return z
     def main2(cc):
-        y = call_cc[double_odd(21, ec=cc)]
-        z = call_cc[double_odd(42, ec=cc)]
+        y = call_cc[double_odd(21, ec=cc)]  # <--
+        z = call_cc[double_odd(42, ec=cc)]  # <--
         return z
     assert main1() == "not odd"
     assert main2() == "not odd"

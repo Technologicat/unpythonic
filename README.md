@@ -2,11 +2,13 @@
 
 In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some haskellisms mixed in. We place a special emphasis on **clear, pythonic syntax**.
 
-For the [adventurous](https://github.com/azazel75/macropy), we also provide a set of [syntactic macros](macro_extras/) that are designed to work together: e.g. automatic currying, automatic tail-call optimization, continuations (``call/cc``), lexically scoped ``let`` and ``do``, implicit return statements, and easy-to-use multi-expression lambdas with local variables.
+For the [adventurous](https://github.com/azazel75/macropy), we also provide extensions to the Python language as a set of [syntactic macros](macro_extras/) that are designed to work together: e.g. automatic currying, automatic tail-call optimization, continuations (``call/cc``), lexically scoped ``let`` and ``do``, implicit return statements, and easy-to-use multi-expression lambdas with local variables. Each macro adds an orthogonal piece of functionality that can (mostly) be mixed and matched with the others.
 
-Design considerations are simplicity, robustness, and minimal dependencies (currently none required; MacroPy optional, to enable the syntactic macros). In macros we aim at orthogonality, combinability, and clear, pythonic syntax.
+Design considerations are simplicity, robustness, and minimal dependencies (currently none required; MacroPy optional, to enable the syntactic macros).
 
 **Contents**:
+
+This README documents the pure-Python part of ``unpythonic``, i.e. everything that does not use macros. For documentation on the macros, see [here](macro_extras/).
 
  - [Assign-once](#assign-once)
  - [Multi-expression lambdas](#multi-expression-lambdas)
