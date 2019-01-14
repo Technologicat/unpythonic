@@ -35,7 +35,7 @@ def test():
         assert g(3, 4) == (6, 12)
 
         xs, *a = call_cc[f(1, 2)]
-        print(xs, a)
+        assert xs == 2 and a == (6,)
 
     # an "and" or "or" return value may have a tail-call in the last item
     with continuations:
@@ -170,11 +170,11 @@ def test():
             lst = ['the call returned']
             more = call_cc[setk('A')]
             return lst + more  # The remaining stmts in the body are the continuation.
-        print(doit())
+        assert doit() == ['the call returned', 'A']
         # We can now send stuff into k, as long as it conforms to the
         # signature of the assignment targets of the "call_cc".
-        print(k(['again']))
-        print(k(['thrice', '!']))
+        assert k(['again']) == ['the call returned', 'again']
+        assert k(['thrice', '!']) == ['the call returned', 'thrice', '!']
 
     # same, with multiple-return-values and a starred assignment target
     with continuations:
@@ -187,34 +187,38 @@ def test():
             lst = ['the call returned']
             *more, = call_cc[setk('A')]
             return lst + list(more)
-        print(doit())
+        assert doit() == ['the call returned', 'A']
         # We can now send stuff into k, as long as it conforms to the
         # signature of the assignment targets of the "call_cc".
-        print(k('again'))
-        print(k('thrice', '!'))
+        assert k('again') == ['the call returned', 'again']
+        assert k('thrice', '!') == ['the call returned', 'thrice', '!']
 
     # A top-level "call_cc" is also allowed.
     #
     # In that case the continuation always returns None, because the original
     # use site was not a function.
+    vals = 1, 2
     with continuations:
         k = None
         def setk(*args, cc):
             nonlocal k
             k = cc
             return args  # tuple return value (if not literal, tested at run-time) --> multiple-values
-        x, y = call_cc[setk(1, 2)]
-        print(x, y)
+        x, y = call_cc[setk(*vals)]
+        assert x, y == vals
     # end the block to end capture, and start another one to resume programming
     # in continuation-enabled mode.
     with continuations:
-        assert k(3, 4) == None
-        assert k(5, 6) == None
+        vals = 3, 4
+        assert k(*vals) == None
+        vals = 5, 6
+        assert k(*vals) == None
 
     # multilambda combo
     with multilambda, continuations:
-        f = lambda x: [print(x), x**2]
-        assert f(42) == 1764
+        out = []
+        f = lambda x: [out.append(x), x**2]
+        assert f(42) == 1764 and out == [42]
 
     # depth-first tree traversal (Paul Graham: On Lisp, p. 271)
     def atom(x):
@@ -222,18 +226,19 @@ def test():
     t1 = ["a", ["b", ["d", "h"]], ["c", "e", ["f", "i"], "g"]]
     t2 = [1, [2, [3, 6, 7], 4, 5]]
 
+    out = ""
     def dft(tree):  # classical, no continuations
         if not tree:
             return
         if atom(tree):
-            print(tree, end='')
+            nonlocal out
+            out += tree
             return
         first, *rest = tree
         dft(first)
         dft(rest)
-    print("dft")
-    dft(t1)  # abdhcefig
-    print()
+    dft(t1)
+    assert out == "abdhcefig"
 
     with continuations:
         saved = []
@@ -253,17 +258,18 @@ def test():
                 return f()
             else:
                 return "done"
+        out = ""
         def dft2(tree):
             nonlocal saved
             saved = []
             node = call_cc[dft_node(tree)]
             if node == "done":
                 return "done"
-            print(node, end='')
+            nonlocal out  # must be placed after call_cc[]; we write to out **in the continuation part**
+            out += node
             return restart()
-        print("dft2")
         dft2(t1)
-        print()
+        assert out == "abdhcefig"
 
         # The continuation version allows to easily walk two trees simultaneously,
         # generating their cartesian product (example from On Lisp, p. 272):
@@ -278,7 +284,15 @@ def test():
         while x != "done":
             out.append(x)
             x = restart()
-        print(out)
+        assert out == [['a', 1], ['a', 2], ['a', 3], ['a', 6], ['a', 7], ['a', 4], ['a', 5],
+                       ['b', 1], ['b', 2], ['b', 3], ['b', 6], ['b', 7], ['b', 4], ['b', 5],
+                       ['d', 1], ['d', 2], ['d', 3], ['d', 6], ['d', 7], ['d', 4], ['d', 5],
+                       ['h', 1], ['h', 2], ['h', 3], ['h', 6], ['h', 7], ['h', 4], ['h', 5],
+                       ['c', 1], ['c', 2], ['c', 3], ['c', 6], ['c', 7], ['c', 4], ['c', 5],
+                       ['e', 1], ['e', 2], ['e', 3], ['e', 6], ['e', 7], ['e', 4], ['e', 5],
+                       ['f', 1], ['f', 2], ['f', 3], ['f', 6], ['f', 7], ['f', 4], ['f', 5],
+                       ['i', 1], ['i', 2], ['i', 3], ['i', 6], ['i', 7], ['i', 4], ['i', 5],
+                       ['g', 1], ['g', 2], ['g', 3], ['g', 6], ['g', 7], ['g', 4], ['g', 5]]
 
     # maybe more pythonic to make it a generator?
     #
@@ -291,8 +305,8 @@ def test():
         while x != "done":
             yield x
             x = restart()
-    out2 = tuple(treeprod_gen(t1, t2))
-    print(out2)
+    out2 = list(treeprod_gen(t1, t2))
+    assert out2 == out
 
     # The most pythonic way, of course, is to define dft as a generator,
     # since that already provides suspend-and-resume...
@@ -305,8 +319,7 @@ def test():
         first, *rest = tree
         yield from dft3(first)
         yield from dft3(rest)
-    print("dft3")
-    print("".join(dft3(t1)))  # abdhcefig
+    assert list(dft3(t1)) == [x for x in "abdhcefig"]
 
     # McCarthy's amb operator is very similar to dft, if a bit shorter:
     with continuations:
@@ -330,17 +343,19 @@ def test():
             c2 = call_cc[amb((10, 20))]
             if c1 and c2:
                 return c1 + c2
-        print(doit1())
+        assert doit1() == 11
         # How this differs from a comprehension is that we can fail()
         # **outside** the dynamic extent of doit1. Doing that rewinds,
         # and returns the next value. The control flow state is kept
         # on the continuation stack just like in Scheme/Racket.
-        print(fail())
-        print(fail())
-        print(fail())
-        print(fail())
-        print(fail())
-        print(fail())
+        #
+        # (The last call_cc[] is the innermost loop.)
+        assert fail() == 21
+        assert fail() == 12
+        assert fail() == 22
+        assert fail() == 13
+        assert fail() == 23
+        assert fail() == None
 
         def doit2():
             c1 = call_cc[amb((1, 2, 3))]
@@ -348,16 +363,27 @@ def test():
             if c1 + c2 != 22:  # we can require conditions like this
                 return fail()
             return c1, c2
-        print(doit2())
-        print(fail())
+        assert doit2() == (2, 20)
+        assert fail() == None
 
+    # Pythagorean triples, pythonic way (to generate a reference solution)
+    def pt_gen(maxn):
+        for z in range(1, maxn+1):
+            for y in range(1, z+1):
+                for x in range(1, y+1):
+                    if x*x + y*y != z*z:
+                        continue
+                    yield x, y, z
+    pts = list(pt_gen(20))
+
+    with continuations:
         # Pythagorean triples.
         count = 0
-        def pt():
+        def pt(maxn):
             # This generates 1540 combinations, with several nested tail-calls each,
             # so we really need TCO here. (Without TCO, nothing would return until
             # the whole computation is done; it would blow the call stack very quickly.)
-            z = call_cc[amb(range(1, 21))]
+            z = call_cc[amb(range(1, maxn+1))]
             y = call_cc[amb(range(1, z+1))]
             x = call_cc[amb(range(1, y+1))]
             nonlocal count
@@ -365,24 +391,13 @@ def test():
             if x*x + y*y != z*z:
                 return fail()
             return x, y, z
-        print(pt())
-        print(fail())
-        print(fail())
-        print(fail())
-        print(fail())
-        print(fail())
-        print(fail())
-        print("combinations tested: {:d}".format(count))
-
-    # Pythagorean triples, pythonic way
-    def pt_gen():
-        for z in range(1, 21):
-            for y in range(1, z+1):
-                for x in range(1, y+1):
-                    if x*x + y*y != z*z:
-                        continue
-                    yield x, y, z
-    print(tuple(pt_gen()))
+        out = []
+        x = pt(20)
+        while x is not None:
+            out.append(x)
+            x = fail()
+        assert out == pts
+        print("combinations tested for Pythagorean triples: {:d}".format(count))
 
     # autoreturn combo
 #     with curry:  # major slowdown, but works; must be in a separate "with"  # TODO: why separate?
@@ -402,18 +417,20 @@ def test():
                 f = stack.pop()
                 f()
 
-        def pyth():
-            z = call_cc[amb(range(1, 21))]
+        def pt(maxn):
+            z = call_cc[amb(range(1, maxn+1))]
             y = call_cc[amb(range(1, z+1))]
             x = call_cc[amb(range(1, y+1))]
             if x*x + y*y == z*z:
                 x, y, z
             else:
                 fail()
-        x = pyth()
-        while x:
-            print(x)
+        out = []
+        x = pt(20)
+        while x is not None:
+            out.append(x)
             x = fail()
+        assert out == pts
 
     # FP loop combo? Testing...
     with continuations:
