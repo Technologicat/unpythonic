@@ -227,6 +227,9 @@ def continuations(block_body):
             stmt, *after = after
             if iscallcc(stmt):
                 # after is always non-empty here (has at least the explicitified "return")
+                # ...unless we're at the top level of the "with continuations" block
+                if not after:
+                    assert False, "call_cc[] cannot appear as the last statement of a 'with continuations' block (no continuation to capture)"
                 return before, stmt, after
             before.append(stmt)
             if not after:
