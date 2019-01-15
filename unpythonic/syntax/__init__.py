@@ -275,7 +275,7 @@ def dlet(tree, args, *, gen_sym, **kw):
     lexical scope of the ``def``.
     """
     with dyn.let(gen_sym=gen_sym):
-        return _dlet(bindings=args, fdef=tree)
+        return _destructure_and_apply_let(tree, args, _dlet)
 
 @macros.decorator
 def dletseq(tree, args, gen_sym, **kw):
@@ -293,7 +293,7 @@ def dletseq(tree, args, gen_sym, **kw):
         assert g(10) == 14
     """
     with dyn.let(gen_sym=gen_sym):
-        return _dletseq(bindings=args, fdef=tree)
+        return _destructure_and_apply_let(tree, args, _dletseq)
 
 @macros.decorator
 def dletrec(tree, args, *, gen_sym, **kw):
@@ -311,7 +311,7 @@ def dletrec(tree, args, *, gen_sym, **kw):
     Same cautions apply as to ``dlet``.
     """
     with dyn.let(gen_sym=gen_sym):
-        return _dletrec(bindings=args, fdef=tree)
+        return _destructure_and_apply_let(tree, args, _dletrec)
 
 @macros.decorator
 def blet(tree, args, *, gen_sym, **kw):
@@ -325,7 +325,7 @@ def blet(tree, args, *, gen_sym, **kw):
         assert result == 42
     """
     with dyn.let(gen_sym=gen_sym):
-        return _blet(bindings=args, fdef=tree)
+        return _destructure_and_apply_let(tree, args, _blet)
 
 @macros.decorator
 def bletseq(tree, args, gen_sym, **kw):
@@ -341,7 +341,7 @@ def bletseq(tree, args, gen_sym, **kw):
         assert result == 4
     """
     with dyn.let(gen_sym=gen_sym):
-        return _bletseq(bindings=args, fdef=tree)
+        return _destructure_and_apply_let(tree, args, _bletseq)
 
 @macros.decorator
 def bletrec(tree, args, *, gen_sym, **kw):
@@ -368,7 +368,7 @@ def bletrec(tree, args, *, gen_sym, **kw):
         assert result is True
     """
     with dyn.let(gen_sym=gen_sym):
-        return _bletrec(bindings=args, fdef=tree)
+        return _destructure_and_apply_let(tree, args, _bletrec)
 
 # -----------------------------------------------------------------------------
 # Imperative code in expression position.

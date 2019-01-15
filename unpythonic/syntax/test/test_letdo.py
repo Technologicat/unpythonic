@@ -470,6 +470,36 @@ def test():
     result = let[2*x, where(x, 1)]
     assert result == 2
 
+    @dlet(x, 1)
+    def qux():
+        return x
+    assert qux() == 1
+
+    @dletseq(x, 1)
+    def qux():
+        return x
+    assert qux() == 1
+
+    @dletrec(x, 1)
+    def qux():
+        return x
+    assert qux() == 1
+
+    @blet(x, 1)
+    def quux():
+        return x
+    assert quux == 1
+
+    @bletseq(x, 1)
+    def quux():
+        return x
+    assert quux == 1
+
+    @bletrec(x, 1)
+    def quux():
+        return x
+    assert quux == 1
+
     # TODO: for now, with more than one binding the outer parentheses
     # are required, even in this format where they are somewhat redundant.
     result = let[((x, 1), (y, 2)) in x + y]

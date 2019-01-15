@@ -134,32 +134,32 @@ def envwrap(tree, envname):
 # -----------------------------------------------------------------------------
 # Decorator versions, for "let over def".
 
-def dlet(bindings, fdef):
-    return _dletimpl(bindings, fdef, "let", "decorate")
+def dlet(bindings, body):
+    return _dletimpl(bindings, body, "let", "decorate")
 
-def dletseq(bindings, fdef):
-    return _dletseqimpl(bindings, fdef, "decorate")
+def dletseq(bindings, body):
+    return _dletseqimpl(bindings, body, "decorate")
 
-def dletrec(bindings, fdef):
-    return _dletimpl(bindings, fdef, "letrec", "decorate")
+def dletrec(bindings, body):
+    return _dletimpl(bindings, body, "letrec", "decorate")
 
-def blet(bindings, fdef):
-    return _dletimpl(bindings, fdef, "let", "call")
+def blet(bindings, body):
+    return _dletimpl(bindings, body, "let", "call")
 
-def bletseq(bindings, fdef):
-    return _dletseqimpl(bindings, fdef, "call")
+def bletseq(bindings, body):
+    return _dletseqimpl(bindings, body, "call")
 
-def bletrec(bindings, fdef):
-    return _dletimpl(bindings, fdef, "letrec", "call")
+def bletrec(bindings, body):
+    return _dletimpl(bindings, body, "letrec", "call")
 
 # Very similar to _letimpl, but perhaps more readable to keep these separate.
-def _dletimpl(bindings, fdef, mode, kind):
+def _dletimpl(bindings, body, mode, kind):
     assert mode in ("let", "letrec")
     assert kind in ("decorate", "call")
-    if type(fdef) not in (FunctionDef, AsyncFunctionDef):
+    if type(body) not in (FunctionDef, AsyncFunctionDef):
         assert False, "Expected a function definition to decorate"
     if not bindings:
-        return fdef
+        return body
 
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
@@ -171,19 +171,19 @@ def _dletimpl(bindings, fdef, mode, kind):
     t2 = partial(t1, dowrap=False)
     if mode == "letrec":
         values = [t1(rhs) for rhs in values]
-    fdef = t2(fdef)
+    body = t2(body)
 
     # We place the let decorator in the innermost position. Hopefully this is ok.
     # (unpythonic.syntax.util.suggest_decorator_index can't help us here,
     #  since "let" is not one of the registered decorators)
     letter = dletf if kind == "decorate" else bletf
     bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
-    fdef.decorator_list = fdef.decorator_list + [hq[letter((ast_literal[bindings],), mode=u[mode], _envname=u[e])]]
-    fdef.args.kwonlyargs = fdef.args.kwonlyargs + [arg(arg=e)]
-    fdef.args.kw_defaults = fdef.args.kw_defaults + [None]
-    return fdef
+    body.decorator_list = body.decorator_list + [hq[letter((ast_literal[bindings],), mode=u[mode], _envname=u[e])]]
+    body.args.kwonlyargs = body.args.kwonlyargs + [arg(arg=e)]
+    body.args.kw_defaults = body.args.kw_defaults + [None]
+    return body
 
-def _dletseqimpl(bindings, fdef, kind):
+def _dletseqimpl(bindings, body, kind):
     # What we want:
     #
     # @dletseq((x, 1),
@@ -207,22 +207,22 @@ def _dletseqimpl(bindings, fdef, kind):
     # assert g() == 4
     #
     assert kind in ("decorate", "call")
-    if type(fdef) not in (FunctionDef, AsyncFunctionDef):
+    if type(body) not in (FunctionDef, AsyncFunctionDef):
         assert False, "Expected a function definition to decorate"
     if not bindings:
-        return fdef
+        return body
 
-    userargs = fdef.args  # original arguments to the def
-    fname = fdef.name
+    userargs = body.args  # original arguments to the def
+    fname = body.name
     noargs = arguments(args=[], kwonlyargs=[], vararg=None, kwarg=None,
                        defaults=[], kw_defaults=[])
     iname = dyn.gen_sym("{}_inner".format(fname))
-    fdef.args = noargs
-    fdef.name = iname
+    body.args = noargs
+    body.name = iname
 
     *rest, last = bindings
     dletter = dlet if kind == "decorate" else blet
-    innerdef = dletter([last], fdef)
+    innerdef = dletter([last], body)
 
     # optimization: in the final step, no need to generate a wrapper function
     if not rest:
