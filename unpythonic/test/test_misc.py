@@ -3,7 +3,7 @@
 from operator import add
 from functools import partial
 
-from ..misc import call, callwith, raisef, pack, namelambda, timer
+from ..misc import call, callwith, raisef, pack, namelambda, Box, timer
 
 def test():
     # def as a code block (function overwritten by return value)
@@ -101,6 +101,13 @@ def test():
     assert square.__name__ == "<lambda>"
     square = namelambda(square, "square")
     assert square.__name__ == "square"
+
+    b = Box(17)  # mutable single-item container à la Racket
+    def f(b):
+        b.value = 23
+    assert b.value == 17
+    f(b)
+    assert b.value == 23
 
     with timer() as tictoc:
         for _ in range(int(1e6)):
