@@ -22,6 +22,7 @@ from .letdo import do as _do, do0 as _do0, local, \
                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
+from .nb import nb as _nb
 from .prefix import prefix as _prefix
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, call_cc
@@ -1369,6 +1370,28 @@ def continuations(tree, gen_sym, **kw):
     """
     with dyn.let(gen_sym=gen_sym):
         return (yield from _continuations(block_body=tree))
+
+# -----------------------------------------------------------------------------
+
+@macros.block
+def nb(tree, **kw):
+    """[syntax, block] Ultralight math notebook.
+
+    Auto-print top-level expressions, auto-assign last result as _.
+
+    Example::
+
+        with nb:
+            2 + 3
+            42 * _
+
+        from sympy import *
+        with nb:
+            x, y = symbols("x, y")
+            x * y
+            3 * _
+    """
+    return _nb(body=tree)
 
 # -----------------------------------------------------------------------------
 
