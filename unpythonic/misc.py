@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "Box", "timer"]
+__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "box", "timer"]
 
 from types import LambdaType
 import re
@@ -251,33 +251,38 @@ def namelambda(function, name):
         function.__qualname__ = re.sub("<lambda>$", myname, function.__qualname__)
     return function
 
-class Box:
+class box:
     """Minimalistic, mutable single-item container à la Racket.
 
     Motivation::
 
-        v = 17
-        def f(v):
-            v = 23  # no!
-        f(v)
-        print(v)  # still 17
+        x = 17
+        def f(x):
+            x = 23  # no!
+        f(x)
+        print(x)  # still 17
 
     Solution - box it, to keep the actual data in an attribute::
 
-        b = Box(17)
+        b = box(17)
         def f(b):
-            b.value = 23  # yes!
+            b.x = 23  # yes!
         f(b)
-        print(b.value)  # 23
+        print(b.x)  # 23
 
-    **Disclaimer**: maybe silly. The standard pythonic solutions are to use
-    a single-item list, or the ``nonlocal`` or ``global`` statements as
-    appropriate for the particular situation.
+    (It's called ``x`` and not ``value`` to minimize the number of additional
+    keystrokes needed.)
+
+    **Disclaimer**: maybe silly. The standard pythonic solutions are to box
+    with a ``list`` (then trying to remember it represents a box, not a list),
+    or use the ``nonlocal`` or ``global`` statements if lexically appropriate
+    for the particular situation. This class just makes the programmer's intent
+    more explicit.
     """
-    def __init__(self, value=None):
-        self.value = value
+    def __init__(self, x=None):
+        self.x = x
     def __repr__(self):
-        return "<Box at 0x{:x}, value={}>".format(id(self), self.value)
+        return "<box at 0x{:x}, x={}>".format(id(self), self.x)
 
 class timer:
     """Simplistic context manager for performance-testing sections of code.
