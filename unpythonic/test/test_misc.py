@@ -3,7 +3,7 @@
 from operator import add
 from functools import partial
 
-from ..misc import call, callwith, raisef, pack, namelambda
+from ..misc import call, callwith, raisef, pack, namelambda, timer
 
 def test():
     # def as a code block (function overwritten by return value)
@@ -101,6 +101,15 @@ def test():
     assert square.__name__ == "<lambda>"
     square = namelambda(square, "square")
     assert square.__name__ == "square"
+
+    with timer() as tictoc:
+        for _ in range(int(1e6)):
+            pass
+    assert tictoc.dt > 0  # elapsed time in seconds (float)
+
+    with timer(p=True):
+        for _ in range(int(1e6)):
+            pass
 
     print("All tests PASSED")
 

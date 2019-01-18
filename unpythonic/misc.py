@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "Box"]
+__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "Box", "timer"]
 
 from types import LambdaType
 import re
+from time import time
 
 from .regutil import register_decorator
 
@@ -277,3 +278,33 @@ class Box:
         self.value = value
     def __repr__(self):
         return "<Box at 0x{:x}, value={}>".format(id(self), self.value)
+
+class timer:
+    """Simplistic context manager for performance-testing sections of code.
+
+    Example::
+
+        with timer() as tictoc:
+            for _ in range(int(1e7)):
+                pass
+        print(tictoc.dt)  # elapsed time in seconds (float)
+
+    If only interested in printing the result::
+
+        with timer(p=True):
+            for _ in range(int(1e7)):
+                pass
+    """
+    def __init__(self, p=False):
+        """p: if True, print the delta-t when done.
+
+        Regardless of ``p``, the result is always accessible as the ``dt``.
+        """
+        self.p = p
+    def __enter__(self):
+        self.t0 = time()
+        return self
+    def __exit__(self, exctype, excvalue, traceback):
+        self.dt = time() - self.t0
+        if self.p:
+            print(self.dt)
