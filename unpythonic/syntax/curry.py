@@ -20,6 +20,7 @@ def curry(block_body):
             tree.args = [tree.func] + tree.args
             tree.func = hq[currycall]
         elif type(tree) in (FunctionDef, AsyncFunctionDef):
+            # TODO: detect there's no curry already.
             k = suggest_decorator_index("curry", tree.decorator_list)
             if k is not None:
                 tree.decorator_list.insert(k, hq[curryf])
@@ -28,6 +29,7 @@ def curry(block_body):
         elif type(tree) is Lambda:
             # This inserts curry() as the innermost "decorator", and the curry
             # macro is meant to run last (after e.g. tco), so we're fine.
+            # TODO: detect there's no curry already.
             tree = hq[curryf(ast_literal[tree])]
             # don't recurse on the lambda we just moved, but recurse inside it.
             stop()
