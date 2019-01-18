@@ -5,7 +5,7 @@ from ..tco import trampolined, jump
 
 from ..let import let
 from ..seq import begin
-from ..misc import call
+from ..misc import call, timer
 from ..ec import setescape, escape
 
 def test():
@@ -363,32 +363,28 @@ def test():
 
     # loop performance?
     n = 100000
-    import time
 
-    t0 = time.time()
-    for i in range(n):
-        pass
-    dt_ip = time.time() - t0
+    with timer() as ip:
+        for i in range(n):
+            pass
 
-    t0 = time.time()
-    @looped
-    def _ignored3(loop, i=0):
-        if i < n:
-            return loop(i + 1)
-    dt_fp2 = time.time() - t0
+    with timer() as fp2:
+        @looped
+        def _ignored3(loop, i=0):
+            if i < n:
+                return loop(i + 1)
 
-    t0 = time.time()
-    @looped_over(range(n))  # no need for acc, not interested in it
-    def _ignored4(loop, x, acc):    # but body always takes at least these three parameters
-        return loop()
-    dt_fp3 = time.time() - t0
+    with timer() as fp3:
+        @looped_over(range(n))  # no need for acc, not interested in it
+        def _ignored4(loop, x, acc):    # but body always takes at least these three parameters
+            return loop()
 
     print("do-nothing loop, {:d} iterations:".format(n))
-    print("  builtin for {:g}s ({:g}s/iter)".format(dt_ip, dt_ip/n))
-    print("  @looped {:g}s ({:g}s/iter)".format(dt_fp2, dt_fp2/n))
-    print("  @looped_over {:g}s ({:g}s/iter)".format(dt_fp3, dt_fp3/n))
-    print("@looped slowdown {:g}x".format(dt_fp2/dt_ip))
-    print("@looped_over slowdown {:g}x".format(dt_fp3/dt_ip))
+    print("  builtin for {:g}s ({:g}s/iter)".format(ip.dt, ip.dt/n))
+    print("  @looped {:g}s ({:g}s/iter)".format(fp2.dt, fp2.dt/n))
+    print("  @looped_over {:g}s ({:g}s/iter)".format(fp3.dt, fp3.dt/n))
+    print("@looped slowdown {:g}x".format(fp2.dt/ip.dt))
+    print("@looped_over slowdown {:g}x".format(fp3.dt/ip.dt))
 
 if __name__ == '__main__':
     test()

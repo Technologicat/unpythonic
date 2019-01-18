@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from time import time
 from itertools import count, takewhile
 from collections import Counter
 
 from ..gmemo import gmemoize, imemoize, fimemoize
 
 from ..it import take, drop, last
-from ..misc import call
+from ..misc import call, timer
 
 def test():
     total_evaluations = 0
@@ -153,10 +152,9 @@ def test():
     n = 2500
     print("Performance for first {:d} primes:".format(n))
     for g in (primes(), mprimes(), memo_primes()):
-        t0 = time()
-        last(take(n, g))
-        dt = time() - t0
-        print(g, dt)
+        with timer() as tictoc:
+            last(take(n, g))
+        print(g, tictoc.dt)
 
     print("All tests PASSED")
 

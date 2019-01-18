@@ -6,6 +6,7 @@ from ..tco import trampolined, jump
 
 from ..fun import withself
 from ..let import letrec
+from ..misc import timer
 
 def test():
     # tail recursion
@@ -79,25 +80,22 @@ def test():
 
     # loop performance?
     n = 100000
-    import time
 
-    t0 = time.time()
-    for _ in range(n):
-        pass
-    dt_ip = time.time() - t0
+    with timer() as ip:
+        for _ in range(n):
+            pass
 
-    t0 = time.time()
-    @trampolined
-    def dowork(i=0):
-        if i < n:
-            return jump(dowork, i + 1)
-    dowork()
-    dt_fp1 = time.time() - t0
+    with timer() as fp1:
+        @trampolined
+        def dowork(i=0):
+            if i < n:
+                return jump(dowork, i + 1)
+        dowork()
 
     print("do-nothing loop, {:d} iterations:".format(n))
-    print("  builtin for {:g}s ({:g}s/iter)".format(dt_ip, dt_ip/n))
-    print("  @trampolined {:g}s ({:g}s/iter)".format(dt_fp1, dt_fp1/n))
-    print("@trampolined slowdown {:g}x".format(dt_fp1/dt_ip))
+    print("  builtin for {:g}s ({:g}s/iter)".format(ip.dt, ip.dt/n))
+    print("  @trampolined {:g}s ({:g}s/iter)".format(fp1.dt, fp1.dt/n))
+    print("@trampolined slowdown {:g}x".format(fp1.dt/ip.dt))
 
 if __name__ == '__main__':
     test()
