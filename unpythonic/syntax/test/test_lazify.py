@@ -5,6 +5,8 @@ from ...misc import raisef
 
 from ...syntax import macros, lazify
 
+from macropy.quick_lambda import macros, lazy
+
 from macropy.tracing import macros, show_expanded
 
 def test():
@@ -75,5 +77,26 @@ def test():
         # accessing only part of kwargs (at the receiving end)
         assert bar(a=1, b=2, c=1/0) == (1, 2)
         assert bar(**{"a": 1, "b": 2, "c": 1/0}) == (1, 2)
+
+        # CAUTION: overwriting a formal with a new value needs a manual lazy[],
+        # to honor the contract that formal parameter names refer to promises.
+        def f(x):
+            x = lazy[2*21]
+            assert x == 42  # auto-evaluated because "x" is the name of a formal
+
+            x = 17  # DANGER! NO! ("x" originally referred to a formal parameter)
+            try:
+                print(x)
+            except TypeError:  # int is not callable
+                pass
+            else:
+                assert False, "int should not be callable"
+        f(17)
+
+        def g(x):
+            y = x  # this auto-evaluates due to the read on the RHS
+            assert y == 42  # y is just a value
+            assert x == 42  # auto-evaluated (now cached value) since "x" is the original name
+        g(2*21)
 
     print("All tests PASSED")
