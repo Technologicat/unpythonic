@@ -5,7 +5,7 @@ from functools import wraps
 
 from ast import Lambda, FunctionDef, Call, Name, \
                 Starred, keyword, List, Tuple, Dict, \
-                Subscript, Index, Slice
+                Subscript, Index, Slice, Load
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
@@ -137,7 +137,7 @@ def lazify(body):
                                               formals=newformals)
 
         # force the accessed part of *args or **kwargs (at the receiving end)
-        elif type(tree) is Subscript:
+        elif type(tree) is Subscript and type(tree.ctx) is Load:
             if type(tree.value) is Name:
                 # force now only those items that are actually used here
                 if tree.value.id in varargs:
@@ -164,7 +164,7 @@ def lazify(body):
                         assert False, "lazify: expected Index in subscripting a formal **kwargs"
 
         # force formal parameters, including any uses of the whole *args or **kwargs
-        elif type(tree) is Name:
+        elif type(tree) is Name and type(tree.ctx) is Load:
             stop()  # must not recurse even when a Name changes into a Call.
             if tree.id in formals:
                 tree = q[ast_literal[tree]()]  # force the promise
