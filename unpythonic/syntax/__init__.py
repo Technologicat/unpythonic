@@ -1421,7 +1421,14 @@ def lazify(tree, *, gen_sym, **kw):
 
     When a lazy function takes ``*args``, the whole tuple is treated as an
     atomic lazy construct; accessing any part of it causes all of its elements
-    to be evaluated. (This is for simplicity.)
+    to be evaluated. The same applies to ``**kwargs``. (This is for simplicity.)
+
+    **CAUTION**: Currently, passing ``*args`` and/or ``**kwargs`` in a call
+    in a ``with lazify`` block is only supported on Python 3.4. Support for
+    Python 3.5 and later is subject to a future expansion of this feature.
+
+    At the receiving end, ``*args`` and ``**kwargs`` already work also in
+    Python 3.5+.
 
     Some care is taken to support:
 

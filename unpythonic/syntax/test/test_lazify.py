@@ -8,18 +8,21 @@ from ...syntax import macros, lazify
 from macropy.tracing import macros, show_expanded
 
 def test():
-    with show_expanded:
-      # in a "with lazify" block, function arguments are evaluated only when actually used.
-      with lazify:
+#    with show_expanded:
+    # in a "with lazify" block, function arguments are evaluated only when actually used.
+    with lazify:
+        # basic usage
         def my_if(p, a, b):
             if p:
                 return a  # b never evaluated in this code path
             else:
                 return b  # a never evaluated in this code path
 
+        # basic test for argument passing/returns
         assert my_if(True, 23, 0) == 23
         assert my_if(False, 0, 42) == 42
 
+        # test the laziness
         # note the raisef() calls; in regular Python, they'd run anyway before my_if() gets control.
         assert my_if(True, 23, raisef(RuntimeError, "I was evaluated!")) == 23
         assert my_if(False, raisef(RuntimeError, "I was evaluated!"), 42) == 42
@@ -40,6 +43,23 @@ def test():
         # starargs
         def foo(*args):
             return args
+        # case 1: pass as regular positional args
         assert foo(1, 2, 3) == (1, 2, 3)
+        # case 2: pass a literal tuple of computations as *args
+        assert foo(*(2+2, 2+3, 3+3)) == (4, 5, 6)
+        # case 3: pass already computed data as *args
+        t = (4, 5, 6)
+        assert foo(*t) == (4, 5, 6)
+
+        # kwargs
+        def bar(**dic):
+            return dic["a"], dic["b"]
+        # case 1: pass as regular named args
+        assert bar(a="tavern", b="pub") == ("tavern", "pub")
+        # case 2: pass a literal dict of computations as **kwargs
+        assert bar(**{"a": ("tav"+"ern"), "b": ("p"+"ub")}) == ("tavern", "pub")
+        # case 3: pass already computed data as **kwargs
+        d = {"a": "tavern", "b": "pub"}
+        assert bar(**d) == ("tavern", "pub")
 
     print("All tests PASSED")
