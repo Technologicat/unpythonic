@@ -17,6 +17,7 @@ from .ifexprs import aif as _aif, it, cond as _cond
 from .lambdatools import multilambda as _multilambda, \
                          namedlambda as _namedlambda, \
                          quicklambda as _quicklambda, f, _
+from .lazify import lazify as _lazify
 from .letdo import do as _do, do0 as _do0, local, \
                    let as _let, letseq as _letseq, letrec as _letrec, \
                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
@@ -1392,6 +1393,15 @@ def nb(tree, **kw):
             3 * _
     """
     return _nb(body=tree)
+
+# -----------------------------------------------------------------------------
+
+@macros.block
+def lazify(tree, *, gen_sym, **kw):
+    """[syntax, block] Automatic lazy evaluation of function arguments."""
+    # TODO: document this
+    with dyn.let(gen_sym=gen_sym):
+        return (yield from _lazify(body=tree))
 
 # -----------------------------------------------------------------------------
 
