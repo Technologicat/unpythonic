@@ -4,7 +4,7 @@
 from functools import wraps
 from copy import deepcopy
 
-from ast import Lambda, FunctionDef, Call, Name, Starred
+from ast import Lambda, FunctionDef, Call, Name, Starred, arg, keyword
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, ast_literal, name
@@ -19,6 +19,7 @@ from .letdo import let
 from .letdoutil import islet, isdo
 from ..regutil import register_decorator
 from ..it import uniqify
+from ..dynassign import dyn
 
 from macropy.core import unparse
 
@@ -80,43 +81,71 @@ def lazify(body):
                 pass  # known to be strict, no need to introduce lazy[]
             else:
                 stop()
+                gen_sym = dyn.gen_sym
 
                 # Delay evaluation of the args, but only if the call target is
                 # a lazy function (i.e. expects delayed args).
                 #
                 # We need this runtime detection to support calls to strict
                 # (regular Python) functions from within the "with lazify" block.
-                #
-                # Also, evaluate the operator (.func of the Call node) just once.
-                # TODO: mention the arg ASTs just once, and recurse into them
+
+                # Evaluate the operator (.func of the Call node) just once.
                 thefunc = tree.func
                 thefunc = transform.recurse(thefunc, formals=formals)  # recurse into the operator
-                letbindings = [q[(name["_thefunc"], ast_literal[thefunc])]]
-                tree.func = q[name["_thefunc"]]
-                lazytree = deepcopy(tree)
+                fname = gen_sym("f")
+                letbindings = [q[(name[fname], ast_literal[thefunc])]]
 
-                newargs = []
-                for x in lazytree.args:
+                # Delay the args.
+                anames = []
+                for x in tree.args:
                     if type(x) is Starred:  # Python 3.5+
+                        x.value = transform.recurse(x.value, formals=formals)
                         x.value = hq[lazy[ast_literal[x.value]]]
                     else:
+                        x = transform.recurse(x, formals=formals)
                         x = hq[lazy[ast_literal[x]]]
-                    newargs.append(x)
-                lazytree.args = newargs
+                    localname = gen_sym("a")
+                    letbindings.append(q[(name[localname], ast_literal[x])])
+                    anames.append(localname)
 
-                newkeywords = []
-                for x in lazytree.keywords:
+                kwmap = []
+                for x in tree.keywords:
+                    x.value = transform.recurse(x.value, formals=formals)
                     x.value = hq[lazy[ast_literal[x.value]]]
-                    newkeywords.append(x)
-                lazytree.keywords = newkeywords
+                    localname = gen_sym("kw")
+                    letbindings.append(q[(name[localname], x)])
+                    kwmap.append((x.arg, localname))
+
+                # Construct the calls.
+                ln, co = tree.lineno, tree.col_offset
+                lazycall = Call(func=q[name[fname]],
+                                args=[q[name[x]] for x in anames],
+                                keywords=[keyword(arg=k, value=q[name[x]]) for k, x in kwmap],
+                                lineno=ln, col_offset=co)
+                strictcall = Call(func=q[name[fname]],
+                                  args=[q[name[x]()] for x in anames],
+                                  keywords=[keyword(arg=k, value=q[name[x]]()) for k, x in kwmap],
+                                  lineno=ln, col_offset=co)
 
                 # Python 3.4
-                if hasattr(lazytree, "starargs") and lazytree.starargs is not None:
-                    lazytree.starargs = hq[lazy[ast_literal[lazytree.starargs]]]
-                if hasattr(lazytree, "kwargs") and lazytree.kwargs is not None:
-                    lazytree.kwargs = hq[lazy[ast_literal[lazytree.kwargs]]]
+                if hasattr(tree, "starargs"):
+                    if tree.starargs is not None:
+                        tree.starargs = transform.recurse(tree.starargs, formals=formals)
+                        letbindings.append(q[(name["_starargs"], ast_literal[tree.starargs])])
+                        lazycall.starargs = q[name["_starargs"]]
+                        strictcall.starargs = q[name["_starargs"]()]
+                    else:
+                        lazycall.starargs = strictcall.starargs = None
+                if hasattr(tree, "kwargs"):
+                    if tree.kwargs is not None:
+                        tree.kwargs = transform.recurse(tree.kwargs, formals=formals)
+                        letbindings.append(q[(name["_kwargs"], ast_literal[tree.kwargs])])
+                        lazycall.kwargs = q[name["_kwargs"]]
+                        strictcall.kwargs = q[name["_kwargs"]()]
+                    else:
+                        lazycall.kwargs = strictcall.kwargs = None
 
-                letbody = q[ast_literal[lazytree] if hasattr(name["_thefunc"], "_lazy") else ast_literal[tree]]
+                letbody = q[ast_literal[lazycall] if hasattr(name[fname], "_lazy") else ast_literal[strictcall]]
                 tree = let(letbindings, letbody)
 
         return tree
