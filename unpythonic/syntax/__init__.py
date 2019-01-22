@@ -1438,7 +1438,10 @@ def lazify(tree, *, gen_sym, **kw):
     Inspired by Haskell.
 
     **CAUTION**: This is a very rough first draft; e.g. lazy ``curry`` is
-    currently **not** supported.
+    currently **not** supported, ``call`` and ``callwith`` might not be
+    supported, and interaction with other macros is limited to ``let[]``
+    and ``do[]``. (Intuition says this should be expanded **after**
+    ``continuations``, if you want to try comboing them.)
     """
     with dyn.let(gen_sym=gen_sym):
         return (yield from _lazify(body=tree))
