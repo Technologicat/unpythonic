@@ -61,7 +61,7 @@ def _letimpl(bindings, body, mode):
 
     letter = letf if mode == "let" else letrecf
     bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
-    newtree = hq[letter((ast_literal[bindings],), ast_literal[body])]
+    newtree = hq[letter(ast_literal[Tuple(elts=bindings)], ast_literal[body])]
     return newtree
 
 def letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
