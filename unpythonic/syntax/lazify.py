@@ -2,9 +2,8 @@
 """Automatic lazy evaluation of function arguments."""
 
 from functools import wraps
-from copy import deepcopy
 
-from ast import Lambda, FunctionDef, Call, Name, Starred, arg, keyword
+from ast import Lambda, FunctionDef, Call, Name, Starred, keyword
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, ast_literal, name
@@ -21,11 +20,14 @@ from ..regutil import register_decorator
 from ..it import uniqify
 from ..dynassign import dyn
 
-from macropy.core import unparse
-
 @register_decorator(priority=95)
 def mark_lazy(f):
-    """Internal helper decorator for the lazify macro."""
+    """Internal helper decorator for the lazify macro.
+
+    Marks a function as lazy, and adds a wrapper that allows it to be called
+    with strict (already evaluated) arguments, which occurs if called from
+    outside any ``with lazify`` block.
+    """
     @wraps(f)
     def lazified(*args, **kwargs):
         # support calls coming in from outside of the "with lazify" block,
