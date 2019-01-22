@@ -130,18 +130,20 @@ def lazify(body):
                 # Python 3.4
                 if hasattr(tree, "starargs"):
                     if tree.starargs is not None:
+                        saname = gen_sym("sa")
                         tree.starargs = transform.recurse(tree.starargs, formals=formals)
-                        letbindings.append(q[(name["_starargs"], ast_literal[tree.starargs])])
-                        lazycall.starargs = q[name["_starargs"]]
-                        strictcall.starargs = q[name["_starargs"]()]
+                        letbindings.append(q[(name[saname], ast_literal[tree.starargs])])
+                        lazycall.starargs = q[name[saname]]
+                        strictcall.starargs = q[name[saname]()]
                     else:
                         lazycall.starargs = strictcall.starargs = None
                 if hasattr(tree, "kwargs"):
                     if tree.kwargs is not None:
+                        kwaname = gen_sym("kwa")
                         tree.kwargs = transform.recurse(tree.kwargs, formals=formals)
-                        letbindings.append(q[(name["_kwargs"], ast_literal[tree.kwargs])])
-                        lazycall.kwargs = q[name["_kwargs"]]
-                        strictcall.kwargs = q[name["_kwargs"]()]
+                        letbindings.append(q[(name[kwaname], ast_literal[tree.kwargs])])
+                        lazycall.kwargs = q[name[kwaname]]
+                        strictcall.kwargs = q[name[kwaname]()]
                     else:
                         lazycall.kwargs = strictcall.kwargs = None
 
