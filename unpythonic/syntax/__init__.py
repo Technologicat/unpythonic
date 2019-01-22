@@ -279,7 +279,7 @@ def dlet(tree, args, *, gen_sym, **kw):
         return _destructure_and_apply_let(tree, args, _dlet)
 
 @macros.decorator
-def dletseq(tree, args, gen_sym, **kw):
+def dletseq(tree, args, *, gen_sym, **kw):
     """[syntax, decorator] Decorator version of letseq, for 'letseq over def'.
 
     Expands to nested function definitions, each with one ``dlet`` decorator.
@@ -329,7 +329,7 @@ def blet(tree, args, *, gen_sym, **kw):
         return _destructure_and_apply_let(tree, args, _blet)
 
 @macros.decorator
-def bletseq(tree, args, gen_sym, **kw):
+def bletseq(tree, args, *, gen_sym, **kw):
     """[syntax, decorator] def --> letseq block.
 
     Example::
@@ -375,7 +375,7 @@ def bletrec(tree, args, *, gen_sym, **kw):
 # Imperative code in expression position.
 
 @macros.expr
-def do(tree, gen_sym, **kw):
+def do(tree, *, gen_sym, **kw):
     """[syntax, expr] Stuff imperative code into an expression position.
 
     Return value is the value of the last expression inside the ``do``.
@@ -507,7 +507,7 @@ def do(tree, gen_sym, **kw):
         return _do(tree)
 
 @macros.expr
-def do0(tree, gen_sym, **kw):
+def do0(tree, *, gen_sym, **kw):
     """[syntax, expr] Like do, but return the value of the first expression."""
     with dyn.let(gen_sym=gen_sym):
         return _do0(tree)
@@ -515,7 +515,7 @@ def do0(tree, gen_sym, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.expr
-def let_syntax(tree, args, gen_sym, **kw):
+def let_syntax(tree, args, *, gen_sym, **kw):
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
         return _destructure_and_apply_let(tree, args, let_syntax_expr, allow_call_in_name_position=True)
 
@@ -630,7 +630,7 @@ def let_syntax(tree, **kw):
     return let_syntax_block(block_body=tree)
 
 @macros.expr
-def abbrev(tree, args, gen_sym, **kw):
+def abbrev(tree, args, *, gen_sym, **kw):
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
         yield _destructure_and_apply_let(tree, args, let_syntax_expr, allow_call_in_name_position=True)
 
@@ -682,7 +682,7 @@ def forall(tree, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.block
-def multilambda(tree, gen_sym, **kw):
+def multilambda(tree, *, gen_sym, **kw):
     """[syntax, block] Supercharge your lambdas: multiple expressions, local variables.
 
     For all ``lambda`` lexically inside the ``with multilambda`` block,
@@ -974,7 +974,7 @@ def tco(tree, *, gen_sym, **kw):
         return (yield from _tco(block_body=tree))
 
 @macros.block
-def continuations(tree, gen_sym, **kw):
+def continuations(tree, *, gen_sym, **kw):
     """[syntax, block] call/cc for Python.
 
     This allows saving the control state and then jumping back later
