@@ -89,8 +89,8 @@ def lazify(body):
                 #
                 # Also, evaluate the operator (.func of the Call node) just once.
                 # TODO: mention the arg ASTs just once, and recurse into them
-                # TODO: recurse into the operator
                 thefunc = tree.func
+                thefunc = transform.recurse(thefunc, formals=formals)  # recurse into the operator
                 letbindings = [q[(name["_thefunc"], ast_literal[thefunc])]]
                 tree.func = q[name["_thefunc"]]
                 lazytree = deepcopy(tree)
