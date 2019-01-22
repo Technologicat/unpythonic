@@ -1401,7 +1401,7 @@ def lazify(tree, *, gen_sym, **kw):
     """[syntax, block] Automatic lazy evaluation of function arguments.
 
     In a ``with lazify`` block, function arguments are evaluated only when
-    actually used::
+    actually used, so we can build things like this silly contrived example::
 
         with lazify:
             def my_if(p, a, b):
@@ -1417,13 +1417,17 @@ def lazify(tree, *, gen_sym, **kw):
     Essentially, each argument is made into a promise, which is then forced
     when the function needs its value. If, in a particular code path, some
     argument is never used, then it is not evaluated, either. Evaluation of
-    each argument is guaranteed to occur at most once.
+    each argument is guaranteed to occur at most once. Order of evaluation is
+    determined by the order in which the function actually uses its arguments.
 
     When a lazy function has ``*args`` or ``**kwargs`` formal parameters, then
     inside that function, each item within them is treated separately. Only the
     items that are actually read will be evaluated. (This is done by treating
     subscript references like ``args[...]`` separately, at a higher precedence
     than name references like ``args`` (which will evaluate all of ``*args``).)
+
+    This macro affects only function argument passing; everything else works
+    as usual.
 
     Some care is taken to support:
 
@@ -1443,6 +1447,36 @@ def lazify(tree, *, gen_sym, **kw):
 
     Inspired by Haskell.
 
+    **CAUTION**: When **assigning a new value** to a name that was originally
+    a formal parameter, it needs an explicit ``lazy[]`` to honor the contract
+    that **formal-parameter names represent promises**::
+
+        from macropy.quick_lambda import macros, lazy
+
+        with lazify:
+            def f(x):
+                x = lazy[2*21]
+                print(x)  # auto-evaluated because "x" is the name of a formal
+            f(17)
+
+    Each read of a name that originally referred to a formal parameter
+    will assume it's lazy, and attempt to force the promise. If the new value
+    is inert data without a ``lazy[]``, the program will crash (not callable).
+    If it happens to be a callable without a ``lazy[]``, and happens to be such
+    that it can be called with no args, omitting the ``lazy[]`` will cause a bug
+    that may be hard to track down.
+
+    Furthermore, formal parameters are evaluated automatically **only when
+    referred to using their original names**. But this is not an issue.
+    To assign the value somewhere else, first it must be read, which will
+    already trigger evaluation::
+
+        with lazify:
+            def g(x):
+                y = x       # the read on the RHS triggers evaluation of "x"
+                print(y)    # 42
+            f(2*21)
+
     **CAUTION**: Currently, passing ``*args`` and/or ``**kwargs`` in a call
     in a ``with lazify`` block is only supported on Python 3.4. Support for
     Python 3.5 and later is subject to a future expansion of this feature.
@@ -1450,17 +1484,11 @@ def lazify(tree, *, gen_sym, **kw):
     At the receiving end, ``*args`` and ``**kwargs`` already work also in
     Python 3.5+.
 
-    **CAUTION**: Overwriting formal parameters by assignment is not supported
-    by the machinery. If you need to do that, wrap the new value in a
-    ``lazy[...]`` manually (because each read of a formal parameter will assume
-    it's lazy, and attempt to force it).
-    (It's found as ``from macropy.quick_lambda import macros, lazy``)
-
     **CAUTION**: This is a very rough first draft; e.g. lazy ``curry`` is
     currently **not** supported, ``call`` and ``callwith`` might not be
     supported, and interaction with other macros is limited to ``let[]``
     and ``do[]``. (Intuition says this should be expanded **after**
-    ``continuations``, if you want to try comboing them.)
+    ``continuations``, if you want to try comboing them. But that's untested.)
     """
     with dyn.let(gen_sym=gen_sym):
         return (yield from _lazify(body=tree))
