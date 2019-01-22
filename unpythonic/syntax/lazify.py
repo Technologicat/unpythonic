@@ -6,7 +6,7 @@ from functools import wraps
 from ast import Lambda, FunctionDef, Call, Name, Starred, keyword
 from .astcompat import AsyncFunctionDef
 
-from macropy.core.quotes import macros, q, ast_literal, name
+from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
@@ -115,7 +115,7 @@ def lazify(body):
                     x.value = transform.recurse(x.value, formals=formals)
                     x.value = hq[lazy[ast_literal[x.value]]]
                     localname = gen_sym("kw")
-                    letbindings.append(q[(name[localname], x)])
+                    letbindings.append(q[(name[localname], ast_literal[x.value])])
                     kwmap.append((x.arg, localname))
 
                 # Construct the calls.
@@ -126,7 +126,7 @@ def lazify(body):
                                 lineno=ln, col_offset=co)
                 strictcall = Call(func=q[name[fname]],
                                   args=[q[name[x]()] for x in anames],
-                                  keywords=[keyword(arg=k, value=q[name[x]]()) for k, x in kwmap],
+                                  keywords=[keyword(arg=k, value=q[name[x]()]) for k, x in kwmap],
                                   lineno=ln, col_offset=co)
 
                 # Python 3.4

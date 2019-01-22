@@ -28,4 +28,13 @@ def test():
         assert my_if(True, 23, 1/0) == 23
         assert my_if(False, 1/0, 42) == 42
 
+        # named args
+        def my_if2(*, test, then, otherwise):
+            if test:
+                return then
+            else:
+                return otherwise
+        assert my_if2(test=True, then=23, otherwise=1/0) == 23
+        assert my_if2(test=False, then=1/0, otherwise=42) == 42
+
     print("All tests PASSED")
