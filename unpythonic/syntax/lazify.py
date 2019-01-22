@@ -41,41 +41,30 @@ def mark_lazy(f):
     return lazified
 
 def forcestarargs(x):
-    """Internal helper for the lazify macro.
-
-    Forces all items of an ``*args`` object.
-    """
+    """Internal helper. Force all items of a lazy iterable."""
     return tuple(elt() for elt in x)
 
 def forcekwargs(x):
-    """Internal helper for the lazify macro.
-
-    Forces all items of a ``**kwargs`` object.
-    """
+    """Internal helper. Force all items of a dictionary with lazy values."""
     return {k: v() for k, v in x.items()}
 
 def dataseq(x):
-    """Internal helper for the lazify macro.
-
-    Counterpart of ``forcestarargs``; makes an already evaluated iterable
-    containing data appear as if each item was lazy. (I.e., for each item,
-    a call is needed to extract the value.)
-    """
+    """Internal helper. Wrap all items of a data iterable with lazy[]."""
     lz = lambda x: lazy[x]  # capture the *value*, not the binding "elt"
     return tuple(lz(elt) for elt in x)
 
 def datadic(x):
-    """Internal helper for the lazify macro.
-
-    Counterpart of ``forcekwargs``; makes an already evaluated dictionary
-    containing data appear as if each item was lazy. (I.e., for each item,
-    a call is needed to extract the value.)
-    """
+    """Internal helper. Wrap all values of a data dictionary with lazy[]."""
     lz = lambda x: lazy[x]
     return {k: lz(v) for k, v in x.items()}
 
 # TODO: support curry, call, callwith (may need changes to their implementations, too)
+
 # TODO: detect and handle overwrites of formals (new value should be lazified, too)
+# ...or maybe not; the current solution (use lazy[] manually in such cases)
+# is simple and uniform, which an automated mechanism could not be, due to the
+# high complexity of assignment syntax in Python (esp. with sequence unpacking
+# generalizations in Python 3.5+).
 
 def lazify(body):
     # first pass, outside-in
@@ -181,7 +170,6 @@ def lazify(body):
                 # Delay the args (first, recurse into them).
 
                 def transform_starred(tree):  # transform a "*t" item in a call
-                    tree = rec(tree)
                     # literal list or tuple containing computations that should be evaluated lazily
                     if type(tree) in (List, Tuple):
                         tree.elts = [hq[lazy[ast_literal[x]]] for x in tree.elts]
@@ -190,7 +178,6 @@ def lazify(body):
                     return tree
 
                 def transform_dstarred(tree):  # transform a "**d" item in a call
-                    tree = rec(tree)
                     # literal dictionary where the values contain computations that should be evaluated lazily
                     if type(tree) is Dict:
                         tree.values = [hq[lazy[ast_literal[x]]] for x in tree.values]
@@ -202,7 +189,8 @@ def lazify(body):
                 for x in tree.args:
                     if type(x) is Starred:  # Python 3.5+
                         raise NotImplementedError("lazify: sorry, passing *args in a call currently not supported for Python 3.5+")
-                        v = transform_starred(x.value)
+                        v = rec(x.value)
+                        v = transform_starred(v)
                         # TODO: finish *args support, mirroring the Python 3.4 implementation below
                     else:
                         v = rec(x)
@@ -215,7 +203,8 @@ def lazify(body):
                 for x in tree.keywords:
                     if x.arg is None:
                         raise NotImplementedError("lazify: sorry, passing **kwargs in a call currently not supported for Python 3.5+")
-                        v = transform_dstarred(x.value)
+                        v = rec(x.value)
+                        v = transform_dstarred(v)
                         # TODO: finish **kwargs support, mirroring the Python 3.4 implementation below
                     else:
                         v = rec(x.value)
