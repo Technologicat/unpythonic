@@ -95,7 +95,7 @@ def lazify(body):
                 fname = gen_sym("f")
                 letbindings = [q[(name[fname], ast_literal[thefunc])]]
 
-                # Delay the args.
+                # Delay the args (first, recurse into them).
                 anames = []
                 for x in tree.args:
                     if type(x) is Starred:  # Python 3.5+
