@@ -1398,8 +1398,48 @@ def nb(tree, **kw):
 
 @macros.block
 def lazify(tree, *, gen_sym, **kw):
-    """[syntax, block] Automatic lazy evaluation of function arguments."""
-    # TODO: document this
+    """[syntax, block] Automatic lazy evaluation of function arguments.
+
+    In a ``with lazify`` block, function arguments are evaluated only when
+    actually used::
+
+        with lazify:
+            def my_if(p, a, b):
+                if p:
+                    return a  # b never evaluated in this code path...
+                else:
+                    return b  # a never evaluated in this code path...
+
+            # ...hence the divisions by zero here are never performed.
+            assert my_if(True, 23, 1/0) == 23
+            assert my_if(False, 1/0, 42) == 42
+
+    Essentially, each argument is made into a promise, which is then forced
+    when the function needs its value. If, in a particular code path, some
+    argument is never used, then it is not evaluated, either. Evaluation of
+    each argumemt is guaranteed to occur at most once.
+
+    Some care is taken to support:
+
+        - calls *into* lazy functions *from outside* the ``with lazify`` block,
+          by automatically wrapping the already-evaluated argument values into
+          promises (that just pass through the already computed value).
+
+        - calls *from* lazy functions *to outside* the ``with lazify`` block
+          (into regular functions), by evaluating the arguments in the usual
+          manner whenever the target of a call is **not** a lazy function.
+
+    Like ``with continuations``, no state or context is associated with a
+    ``with lazify`` block, so lazy functions defined in one block may call
+    those defined in another.
+
+    The implementation is based on MacroPy's ``lazy[]`` expr macro.
+
+    Inspired by Haskell.
+
+    **CAUTION**: This is a very rough first draft; e.g. lazy ``curry`` is
+    currently **not** supported.
+    """
     with dyn.let(gen_sym=gen_sym):
         return (yield from _lazify(body=tree))
 
