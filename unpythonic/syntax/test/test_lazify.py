@@ -37,4 +37,9 @@ def test():
         assert my_if2(test=True, then=23, otherwise=1/0) == 23
         assert my_if2(test=False, then=1/0, otherwise=42) == 42
 
+        # starargs
+        def foo(*args):
+            return args
+        assert foo(1, 2, 3) == (1, 2, 3)
+
     print("All tests PASSED")
