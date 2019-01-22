@@ -73,6 +73,7 @@ def datadic(x):
     return {k: lz(v) for k, v in x.items()}
 
 # TODO: support curry, call, callwith (may need changes to their implementations, too)
+# TODO: detect and handle overwrites of formals (new value should be lazified, too)
 
 def lazify(body):
     # first pass, outside-in
