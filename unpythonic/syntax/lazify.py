@@ -85,6 +85,12 @@ def lazify(body):
     # second pass, inside-out
     @Walker
     def transform(tree, *, formals, varargs, kwargs, stop, **kw):
+        def rec(tree):  # boilerplate eliminator for recursion in current scope
+            return transform.recurse(tree,
+                                     varargs=varargs,
+                                     kwargs=kwargs,
+                                     formals=formals)
+
         # transform function definitions
         if type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
             if type(tree) is Lambda and id(tree) not in userlambdas:
@@ -93,10 +99,7 @@ def lazify(body):
                 stop()
 
                 # transform decorators using previous scope
-                tree.decorator_list = transform.recurse(tree.decorator_list,
-                                                        varargs=varargs,
-                                                        kwargs=kwargs,
-                                                        formals=formals)
+                tree.decorator_list = rec(tree.decorator_list)
 
                 # gather the names of formal parameters
                 a = tree.args
@@ -130,7 +133,7 @@ def lazify(body):
                     else:
                         tree.decorator_list.append(hq[mark_lazy])
 
-                # transform body using the new inner scope
+                # transform body using **the new inner scope**
                 tree.body = transform.recurse(tree.body,
                                               varargs=newvarargs,
                                               kwargs=newkwargs,
@@ -142,10 +145,7 @@ def lazify(body):
                 # force now only those items that are actually used here
                 if tree.value.id in varargs:
                     stop()
-                    tree.slice = transform.recurse(tree.slice,
-                                                   varargs=varargs,
-                                                   kwargs=kwargs,
-                                                   formals=formals)
+                    tree.slice = rec(tree.slice)
                     if type(tree.slice) is Index:
                         tree = q[ast_literal[tree]()]
                     elif type(tree.slice) is Slice:
@@ -154,10 +154,7 @@ def lazify(body):
                         assert False, "lazify: expected Index or Slice in subscripting a formal *args"
                 elif tree.value.id in kwargs:
                     stop()
-                    tree.slice = transform.recurse(tree.slice,
-                                                   varargs=varargs,
-                                                   kwargs=kwargs,
-                                                   formals=formals)
+                    tree.slice = rec(tree.slice)
                     if type(tree.slice) is Index:
                         tree = q[ast_literal[tree]()]
                     else:
@@ -189,47 +186,55 @@ def lazify(body):
 
                 # Evaluate the operator (.func of the Call node) just once.
                 thefunc = tree.func
-                thefunc = transform.recurse(thefunc,
-                                            varargs=varargs,
-                                            kwargs=kwargs,
-                                            formals=formals)  # recurse into the operator
+                thefunc = rec(thefunc)  # recurse into the operator
                 fname = gen_sym("f")
                 letbindings = [q[(name[fname], ast_literal[thefunc])]]
 
                 # Delay the args (first, recurse into them).
+
+                def transform_starred(tree):  # transform a "*t" item in a call
+                    tree = rec(tree)
+                    # literal list or tuple containing computations that should be evaluated lazily
+                    if type(tree) in (List, Tuple):
+                        tree.elts = [hq[lazy[ast_literal[x]]] for x in tree.elts]
+                    else:  # something else - assume an iterable
+                        tree = hq[dataseq(ast_literal[tree])]
+                    return tree
+
+                def transform_dstarred(tree):  # transform a "**d" item in a call
+                    tree = rec(tree)
+                    # literal dictionary where the values contain computations that should be evaluated lazily
+                    if type(tree) is Dict:
+                        tree.values = [hq[lazy[ast_literal[x]]] for x in tree.values]
+                    else: # something else - assume a mapping
+                        tree = hq[datadic(ast_literal[tree])]
+                    return tree
+
                 anames = []
                 for x in tree.args:
                     if type(x) is Starred:  # Python 3.5+
                         raise NotImplementedError("lazify: sorry, passing *args in a call currently not supported for Python 3.5+")
+                        v = transform_starred(x.value)
                         # TODO: finish *args support, mirroring the Python 3.4 implementation below
-                        x.value = transform.recurse(x.value,
-                                                    varargs=varargs,
-                                                    kwargs=kwargs,
-                                                    formals=formals)
-                        x.value = hq[lazy[ast_literal[x.value]]]
                     else:
-                        x = transform.recurse(x,
-                                              varargs=varargs,
-                                              kwargs=kwargs,
-                                              formals=formals)
-                        x = hq[lazy[ast_literal[x]]]
+                        v = rec(x)
+                        v = hq[lazy[ast_literal[v]]]
                     localname = gen_sym("a")
-                    letbindings.append(q[(name[localname], ast_literal[x])])
+                    letbindings.append(q[(name[localname], ast_literal[v])])
                     anames.append(localname)
 
                 kwmap = []
                 for x in tree.keywords:
                     if x.arg is None:
                         raise NotImplementedError("lazify: sorry, passing **kwargs in a call currently not supported for Python 3.5+")
-                    # TODO: finish **kwargs support, mirroring the Python 3.4 implementation below
-                    x.value = transform.recurse(x.value,
-                                                varargs=varargs,
-                                                kwargs=kwargs,
-                                                formals=formals)
-                    x.value = hq[lazy[ast_literal[x.value]]]
-                    localname = gen_sym("kw")
-                    letbindings.append(q[(name[localname], ast_literal[x.value])])
-                    kwmap.append((x.arg, localname))
+                        v = transform_dstarred(x.value)
+                        # TODO: finish **kwargs support, mirroring the Python 3.4 implementation below
+                    else:
+                        v = rec(x.value)
+                        v = hq[lazy[ast_literal[v]]]
+                        localname = gen_sym("kw")
+                        letbindings.append(q[(name[localname], ast_literal[v])])
+                        kwmap.append((x.arg, localname))
 
                 # Construct the calls.
                 ln, co = tree.lineno, tree.col_offset
@@ -250,16 +255,7 @@ def lazify(body):
                 if hasattr(tree, "starargs"):
                     if tree.starargs is not None:
                         saname = gen_sym("sa")
-                        tree.starargs = transform.recurse(tree.starargs,
-                                                          varargs=varargs,
-                                                          kwargs=kwargs,
-                                                          formals=formals)
-                        # literal list or tuple containing computations that should be evaluated lazily
-                        if type(tree.starargs) in (List, Tuple):
-                            tree.starargs.elts = [hq[lazy[ast_literal[x]]] for x in tree.starargs.elts]
-                        else:  # something else - assume an iterable
-                            tree.starargs = hq[dataseq(ast_literal[tree.starargs])]
-                        letbindings.append(hq[(name[saname], ast_literal[tree.starargs])])
+                        letbindings.append(q[(name[saname], ast_literal[transform_starred(tree.starargs)])])
                         lazycall.starargs = q[name[saname]]
                         strictcall.starargs = hq[forcestarargs(name[saname])]
                     else:
@@ -267,16 +263,7 @@ def lazify(body):
                 if hasattr(tree, "kwargs"):
                     if tree.kwargs is not None:
                         kwaname = gen_sym("kwa")
-                        tree.kwargs = transform.recurse(tree.kwargs,
-                                                        varargs=varargs,
-                                                        kwargs=kwargs,
-                                                        formals=formals)
-                        # literal dictionary where the values contain computations that should be evaluated lazily
-                        if type(tree.kwargs) is Dict:
-                            tree.kwargs.values = [hq[lazy[ast_literal[x]]] for x in tree.kwargs.values]
-                        else: # something else - assume a mapping
-                            tree.kwargs = hq[datadic(ast_literal[tree.kwargs])]
-                        letbindings.append(q[(name[kwaname], ast_literal[tree.kwargs])])
+                        letbindings.append(q[(name[kwaname], ast_literal[transform_dstarred(tree.kwargs)])])
                         lazycall.kwargs = q[name[kwaname]]
                         strictcall.kwargs = hq[forcekwargs(name[kwaname])]
                     else:
