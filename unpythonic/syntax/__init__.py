@@ -1419,6 +1419,10 @@ def lazify(tree, *, gen_sym, **kw):
     argument is never used, then it is not evaluated, either. Evaluation of
     each argument is guaranteed to occur at most once.
 
+    When a lazy function takes ``*args``, the whole tuple is treated as an
+    atomic lazy construct; accessing any part of it causes all of its elements
+    to be evaluated. (This is for simplicity.)
+
     Some care is taken to support:
 
         - calls *into* lazy functions *from outside* the ``with lazify`` block,
