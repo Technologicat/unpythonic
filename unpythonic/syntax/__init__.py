@@ -1417,7 +1417,7 @@ def lazify(tree, *, gen_sym, **kw):
     Essentially, each argument is made into a promise, which is then forced
     when the function needs its value. If, in a particular code path, some
     argument is never used, then it is not evaluated, either. Evaluation of
-    each argumemt is guaranteed to occur at most once.
+    each argument is guaranteed to occur at most once.
 
     Some care is taken to support:
 
