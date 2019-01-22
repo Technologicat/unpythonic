@@ -107,20 +107,8 @@ def lazify(body):
                 for s in (a.args, a.kwonlyargs):
                     newformals += [x.arg for x in s if x is not None]
                 newformals = list(uniqify(newformals))
-
-                if a.vararg is not None:
-                    newvarargs = varargs.copy()
-                    newvarargs.append(a.vararg.arg)
-                    newvarargs = list(uniqify(newvarargs))
-                else:
-                    newvarargs = varargs
-
-                if a.kwarg is not None:
-                    newkwargs = kwargs.copy()
-                    newkwargs.append(a.kwarg.arg)
-                    newkwargs = list(uniqify(newkwargs))
-                else:
-                    newkwargs = kwargs
+                newvarargs = list(uniqify(varargs + [a.vararg.arg])) if a.vararg is not None else varargs
+                newkwargs = list(uniqify(kwargs + [a.kwarg.arg])) if a.kwarg is not None else kwargs
 
                 # mark this definition as lazy, and insert the interface wrapper
                 if type(tree) is Lambda:
