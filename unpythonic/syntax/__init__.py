@@ -1419,16 +1419,11 @@ def lazify(tree, *, gen_sym, **kw):
     argument is never used, then it is not evaluated, either. Evaluation of
     each argument is guaranteed to occur at most once.
 
-    When a lazy function takes ``*args``, the whole tuple is treated as an
-    atomic lazy construct; accessing any part of it causes all of its elements
-    to be evaluated. The same applies to ``**kwargs``. (This is for simplicity.)
-
-    **CAUTION**: Currently, passing ``*args`` and/or ``**kwargs`` in a call
-    in a ``with lazify`` block is only supported on Python 3.4. Support for
-    Python 3.5 and later is subject to a future expansion of this feature.
-
-    At the receiving end, ``*args`` and ``**kwargs`` already work also in
-    Python 3.5+.
+    When a lazy function has ``*args`` or ``**kwargs`` formal parameters, then
+    inside that function, each item within them is treated separately. Only the
+    items that are actually read will be evaluated. (This is done by treating
+    subscript references like ``args[...]`` separately, at a higher precedence
+    than name references like ``args`` (which will evaluate all of ``*args``).)
 
     Some care is taken to support:
 
@@ -1447,6 +1442,19 @@ def lazify(tree, *, gen_sym, **kw):
     The implementation is based on MacroPy's ``lazy[]`` expr macro.
 
     Inspired by Haskell.
+
+    **CAUTION**: Currently, passing ``*args`` and/or ``**kwargs`` in a call
+    in a ``with lazify`` block is only supported on Python 3.4. Support for
+    Python 3.5 and later is subject to a future expansion of this feature.
+
+    At the receiving end, ``*args`` and ``**kwargs`` already work also in
+    Python 3.5+.
+
+    **CAUTION**: Overwriting formal parameters by assignment is not supported
+    by the machinery. If you need to do that, wrap the new value in a
+    ``lazy[...]`` manually (because each read of a formal parameter will assume
+    it's lazy, and attempt to force it).
+    (It's found as ``from macropy.quick_lambda import macros, lazy``)
 
     **CAUTION**: This is a very rough first draft; e.g. lazy ``curry`` is
     currently **not** supported, ``call`` and ``callwith`` might not be

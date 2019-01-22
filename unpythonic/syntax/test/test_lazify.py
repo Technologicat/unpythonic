@@ -51,6 +51,16 @@ def test():
         t = (4, 5, 6)
         assert foo(*t) == (4, 5, 6)
 
+        # accessing only part of starargs (at the receiving end)
+        def foo2(*args):
+            return args[0]
+        assert foo2(42, 1/0, 1/0) == 42
+        assert foo2(*(42, 1/0, 1/0)) == 42
+        def foo3(*args):
+            return args[:-1]
+        assert foo3(23, 42, 1/0) == (23, 42)
+        assert foo3(*(23, 42, 1/0)) == (23, 42)
+
         # kwargs
         def bar(**dic):
             return dic["a"], dic["b"]
@@ -61,5 +71,9 @@ def test():
         # case 3: pass already computed data as **kwargs
         d = {"a": "tavern", "b": "pub"}
         assert bar(**d) == ("tavern", "pub")
+
+        # accessing only part of kwargs (at the receiving end)
+        assert bar(a=1, b=2, c=1/0) == (1, 2)
+        assert bar(**{"a": 1, "b": 2, "c": 1/0}) == (1, 2)
 
     print("All tests PASSED")

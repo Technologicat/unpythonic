@@ -3,7 +3,9 @@
 
 from functools import wraps
 
-from ast import Lambda, FunctionDef, Call, Name, Starred, keyword, List, Tuple, Dict
+from ast import Lambda, FunctionDef, Call, Name, \
+                Starred, keyword, List, Tuple, Dict, \
+                Subscript, Index, Slice
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
@@ -83,6 +85,7 @@ def lazify(body):
     # second pass, inside-out
     @Walker
     def transform(tree, *, formals, varargs, kwargs, stop, **kw):
+        # transform function definitions
         if type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
             if type(tree) is Lambda and id(tree) not in userlambdas:
                 pass  # ignore macro-introduced lambdas
@@ -133,29 +136,56 @@ def lazify(body):
                                               kwargs=newkwargs,
                                               formals=newformals)
 
+        # force the accessed part of *args or **kwargs (at the receiving end)
+        elif type(tree) is Subscript:
+            if type(tree.value) is Name:
+                # force now only those items that are actually used here
+                if tree.value.id in varargs:
+                    stop()
+                    tree.slice = transform.recurse(tree.slice,
+                                                   varargs=varargs,
+                                                   kwargs=kwargs,
+                                                   formals=formals)
+                    if type(tree.slice) is Index:
+                        tree = q[ast_literal[tree]()]
+                    elif type(tree.slice) is Slice:
+                        tree = hq[forcestarargs(ast_literal[tree])]
+                    else:
+                        assert False, "lazify: expected Index or Slice in subscripting a formal *args"
+                elif tree.value.id in kwargs:
+                    stop()
+                    tree.slice = transform.recurse(tree.slice,
+                                                   varargs=varargs,
+                                                   kwargs=kwargs,
+                                                   formals=formals)
+                    if type(tree.slice) is Index:
+                        tree = q[ast_literal[tree]()]
+                    else:
+                        assert False, "lazify: expected Index in subscripting a formal **kwargs"
+
+        # force formal parameters, including any uses of the whole *args or **kwargs
         elif type(tree) is Name:
             stop()  # must not recurse even when a Name changes into a Call.
             if tree.id in formals:
                 tree = q[ast_literal[tree]()]  # force the promise
-            # TODO: more sophisticated handling to force only a part when accessed as args[k], args[a:b:c]
             elif tree.id in varargs:
                 tree = hq[forcestarargs(ast_literal[tree])]
-            # TODO: more sophisticated handling to force only a part when accessed as kwargs["foo"]
             elif tree.id in kwargs:
                 tree = hq[forcekwargs(ast_literal[tree])]
 
+        # transform calls
+        #
+        # Delay evaluation of the args, but only if the call target is
+        # a lazy function (i.e. expects delayed args).
+        #
+        # We need this runtime detection to support calls to strict
+        # (regular Python) functions from within the "with lazify" block.
         elif type(tree) is Call:
             if isdo(tree) or islet(tree):
                 pass  # known to be strict, no need to introduce lazy[]
             else:
                 stop()
                 gen_sym = dyn.gen_sym
-
-                # Delay evaluation of the args, but only if the call target is
-                # a lazy function (i.e. expects delayed args).
-                #
-                # We need this runtime detection to support calls to strict
-                # (regular Python) functions from within the "with lazify" block.
 
                 # Evaluate the operator (.func of the Call node) just once.
                 thefunc = tree.func
