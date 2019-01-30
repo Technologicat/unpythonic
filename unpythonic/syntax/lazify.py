@@ -191,7 +191,6 @@ def lazify(body):
                 for x in tree.args:
                     localname = gen_sym("a")
                     if type(x) is Starred:  # *seq in Python 3.5+
-                        raise NotImplementedError("lazify: sorry, passing *args in a call currently not supported for Python 3.5+")
                         v = rec(x.value)
                         v = transform_starred(v)
                         # build Starred AST nodes that point to the local binding
