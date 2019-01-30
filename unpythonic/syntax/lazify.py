@@ -22,6 +22,17 @@ from ..regutil import register_decorator
 from ..it import uniqify
 from ..dynassign import dyn
 
+# Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
+def force(x):
+    """Force a MacroPy lazy[] promise.
+
+    For a promise ``x``, the effect of ``force(x)`` is the same as ``x()``,
+    except that ``force `` first checks that ``x`` is a promise.
+    """
+    if not isinstance(x, Lazy):
+        raise TypeError("expected a lazy[] promise, got {} with value {}".format(type(x), x))
+    return x()
+
 @register_decorator(priority=95)
 def mark_lazy(f):
     """Internal helper decorator for the lazify macro.
@@ -41,19 +52,21 @@ def mark_lazy(f):
 def forceseq(x, check=True):
     """Internal helper. Force all items of a lazy iterable."""
     if check:
-        return tuple((elt() if isinstance(elt, Lazy) else elt) for elt in x)
+        return tuple((force(elt) if isinstance(elt, Lazy) else elt) for elt in x)
     else:
-        return tuple(elt() for elt in x)
+        return tuple(force(elt) for elt in x)
 
 def forcedic(x, check=True):
     """Internal helper. Force all items of a dictionary with lazy values."""
     if check:
-        return {k: (v() if isinstance(v, Lazy) else v) for k, v in x.items()}
+        return {k: (force(v) if isinstance(v, Lazy) else v) for k, v in x.items()}
     else:
-        return {k: v() for k, v in x.items()}
+        return {k: force(v) for k, v in x.items()}
 
 def wrapseq(x, check=True):
     """Internal helper. Wrap all items of a data iterable with lazy[]."""
+    # It doesn't matter that the function call lz(elt) evaluates elt,
+    # since the input is already-evaluated data values.
     lz = lambda x: lazy[x]  # capture the *value*, not the binding "elt"
     if check:
         return tuple((elt if isinstance(elt, Lazy) else lz(elt)) for elt in x)
@@ -134,7 +147,7 @@ def lazify(body):
                     stop()
                     tree.slice = rec(tree.slice)
                     if type(tree.slice) is Index:
-                        tree = q[ast_literal[tree]()]
+                        tree = hq[force(ast_literal[tree])]
                     elif type(tree.slice) is Slice:
                         tree = hq[forceseq(ast_literal[tree])]
                     else:
@@ -143,7 +156,7 @@ def lazify(body):
                     stop()
                     tree.slice = rec(tree.slice)
                     if type(tree.slice) is Index:
-                        tree = q[ast_literal[tree]()]
+                        tree = hq[force(ast_literal[tree])]
                     else:
                         assert False, "lazify: expected Index in subscripting a formal **kwargs"
 
@@ -151,7 +164,7 @@ def lazify(body):
         elif type(tree) is Name and type(tree.ctx) is Load:
             stop()  # must not recurse even when a Name changes into a Call.
             if tree.id in formals:
-                tree = q[ast_literal[tree]()]  # force the promise
+                tree = hq[force(ast_literal[tree])]
             elif tree.id in varargs:
                 tree = hq[forceseq(ast_literal[tree])]
             elif tree.id in kwargs:
@@ -208,8 +221,8 @@ def lazify(body):
                     else:
                         v = rec(x)
                         v = hq[lazy[ast_literal[v]]]
-                        a_lazy = q[name[localname]]      # arg for lazy call
-                        a_strict = q[name[localname]()]  # arg for strict call
+                        a_lazy = q[name[localname]]            # arg for lazy call
+                        a_strict = hq[force(name[localname])]  # arg for strict call
                     adata.append((a_lazy, a_strict))
                     letbindings.append(q[(name[localname], ast_literal[v])])
 
@@ -224,7 +237,7 @@ def lazify(body):
                         a_strict = hq[forcedic(name[localname])]  # kw value for strict call
                     else:
                         v = hq[lazy[ast_literal[v]]]
-                        a_strict = q[name[localname]()]  # kw value for strict call
+                        a_strict = hq[force(name[localname])]  # kw value for strict call
                     kwdata.append((x.arg, (a_lazy, a_strict)))
                     letbindings.append(q[(name[localname], ast_literal[v])])
 
