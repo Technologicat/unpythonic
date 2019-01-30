@@ -2,6 +2,7 @@
 """Automatic lazy evaluation of function arguments."""
 
 from functools import wraps
+from copy import deepcopy
 
 from ast import Lambda, FunctionDef, Call, Name, \
                 Starred, keyword, List, Tuple, Dict, \
@@ -169,7 +170,7 @@ def lazify(body):
 
                 # Delay the args (first, recurse into them).
 
-                def transform_starred(tree):  # transform a "*t" item in a call
+                def transform_starred(tree):  # transform a *seq item in a call
                     # literal list or tuple containing computations that should be evaluated lazily
                     if type(tree) in (List, Tuple):
                         tree.elts = [hq[lazy[ast_literal[x]]] for x in tree.elts]
@@ -177,7 +178,7 @@ def lazify(body):
                         tree = hq[dataseq(ast_literal[tree])]
                     return tree
 
-                def transform_dstarred(tree):  # transform a "**d" item in a call
+                def transform_dstarred(tree):  # transform a **dic item in a call
                     # literal dictionary where the values contain computations that should be evaluated lazily
                     if type(tree) is Dict:
                         tree.values = [hq[lazy[ast_literal[x]]] for x in tree.values]
@@ -185,43 +186,50 @@ def lazify(body):
                         tree = hq[datadic(ast_literal[tree])]
                     return tree
 
-                anames = []
+                # TODO: test *args support in Python 3.5+ (this **should** work according to the AST specs)
+                adata = []  # [(is_starred, localname), ...]
                 for x in tree.args:
-                    if type(x) is Starred:  # Python 3.5+
+                    localname = gen_sym("a")
+                    if type(x) is Starred:  # *seq in Python 3.5+
                         raise NotImplementedError("lazify: sorry, passing *args in a call currently not supported for Python 3.5+")
                         v = rec(x.value)
                         v = transform_starred(v)
-                        # TODO: finish *args support, mirroring the Python 3.4 implementation below
+                        # build Starred AST nodes that point to the local binding
+                        a_lazy = deepcopy(x)
+                        a_lazy.value = q[name[localname]]      # arg for lazy call
+                        a_strict = deepcopy(x)
+                        a_strict.value = q[name[localname]()]  # arg for strict call
                     else:
                         v = rec(x)
                         v = hq[lazy[ast_literal[v]]]
-                    localname = gen_sym("a")
+                        a_lazy = q[name[localname]]      # arg for lazy call
+                        a_strict = q[name[localname]()]  # arg for strict call
+                    adata.append((a_lazy, a_strict))
                     letbindings.append(q[(name[localname], ast_literal[v])])
-                    anames.append(localname)
 
-                kwmap = []
+                # TODO: test **kwargs support in Python 3.5+ (this **should** work according to the AST specs)
+                kwdata = []
                 for x in tree.keywords:
-                    if x.arg is None:
-                        raise NotImplementedError("lazify: sorry, passing **kwargs in a call currently not supported for Python 3.5+")
-                        v = rec(x.value)
+                    localname = gen_sym("kw")
+                    v = rec(x.value)
+                    a_lazy = q[name[localname]]      # kw value for lazy call
+                    a_strict = q[name[localname]()]  # kw value for strict call
+                    if x.arg is None:  # **dic in Python 3.5+
                         v = transform_dstarred(v)
-                        # TODO: finish **kwargs support, mirroring the Python 3.4 implementation below
                     else:
-                        v = rec(x.value)
                         v = hq[lazy[ast_literal[v]]]
-                        localname = gen_sym("kw")
-                        letbindings.append(q[(name[localname], ast_literal[v])])
-                        kwmap.append((x.arg, localname))
+                    kwdata.append((x.arg, (a_lazy, a_strict)))
+                    letbindings.append(q[(name[localname], ast_literal[v])])
 
                 # Construct the calls.
                 ln, co = tree.lineno, tree.col_offset
                 lazycall = Call(func=q[name[fname]],
-                                args=[q[name[x]] for x in anames],
-                                keywords=[keyword(arg=k, value=q[name[x]]) for k, x in kwmap],
+                                args=[q[ast_literal[x]] for (x, _) in adata],
+                                keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, (x, _) in kwdata],
                                 lineno=ln, col_offset=co)
                 strictcall = Call(func=q[name[fname]],
-                                  args=[q[name[x]()] for x in anames],
-                                  keywords=[keyword(arg=k, value=q[name[x]()]) for k, x in kwmap],
+                                  args=[q[ast_literal[x]] for (_, x) in adata],
+                                  keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, (_, x) in kwdata],
                                   lineno=ln, col_offset=co)
 
                 # Python 3.4 starargs/kwargs handling
