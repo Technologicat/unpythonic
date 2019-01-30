@@ -232,6 +232,7 @@ def lazify(body):
                 if hasattr(tree, "starargs"):
                     if tree.starargs is not None:
                         saname = gen_sym("sa")
+                        tree.starargs = rec(tree.starargs)
                         letbindings.append(q[(name[saname], ast_literal[transform_starred(tree.starargs)])])
                         lazycall.starargs = q[name[saname]]
                         strictcall.starargs = hq[forcestarargs(name[saname])]
@@ -240,6 +241,7 @@ def lazify(body):
                 if hasattr(tree, "kwargs"):
                     if tree.kwargs is not None:
                         kwaname = gen_sym("kwa")
+                        tree.kwargs = rec(tree.kwargs)
                         letbindings.append(q[(name[kwaname], ast_literal[transform_dstarred(tree.kwargs)])])
                         lazycall.kwargs = q[name[kwaname]]
                         strictcall.kwargs = hq[forcekwargs(name[kwaname])]
