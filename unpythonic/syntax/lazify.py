@@ -2,14 +2,13 @@
 """Automatic lazy evaluation of function arguments."""
 
 from functools import wraps
-from copy import deepcopy
 
 from ast import Lambda, FunctionDef, Call, Name, \
                 Starred, keyword, List, Tuple, Dict, \
                 Subscript, Index, Slice, Load
 from .astcompat import AsyncFunctionDef
 
-from macropy.core.quotes import macros, q, u, ast_literal, name
+from macropy.core.quotes import macros, q, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
@@ -35,29 +34,39 @@ def mark_lazy(f):
     def lazified(*args, **kwargs):
         # support calls coming in from outside of the "with lazify" block,
         # by wrapping already evaluated args.
-        newargs = [(x if isinstance(x, Lazy) else lazy[x]) for x in args]
-        newkwas = {k: (v if isinstance(v, Lazy) else lazy[v]) for k, v in kwargs.items()}
-        return f(*newargs, **newkwas)
+        return f(*wrapseq(args), **wrapdic(kwargs))
     lazified._lazy = True  # stash for call logic
     return lazified
 
-def forceseq(x):
+def forceseq(x, check=True):
     """Internal helper. Force all items of a lazy iterable."""
-    return tuple(elt() for elt in x)
+    if check:
+        return tuple((elt() if isinstance(elt, Lazy) else elt) for elt in x)
+    else:
+        return tuple(elt() for elt in x)
 
-def forcedic(x):
+def forcedic(x, check=True):
     """Internal helper. Force all items of a dictionary with lazy values."""
-    return {k: v() for k, v in x.items()}
+    if check:
+        return {k: (v() if isinstance(v, Lazy) else v) for k, v in x.items()}
+    else:
+        return {k: v() for k, v in x.items()}
 
-def wrapseq(x):
+def wrapseq(x, check=True):
     """Internal helper. Wrap all items of a data iterable with lazy[]."""
     lz = lambda x: lazy[x]  # capture the *value*, not the binding "elt"
-    return tuple(lz(elt) for elt in x)
+    if check:
+        return tuple((elt if isinstance(elt, Lazy) else lz(elt)) for elt in x)
+    else:
+        return tuple(lz(elt) for elt in x)
 
-def wrapdic(x):
+def wrapdic(x, check=True):
     """Internal helper. Wrap all values of a data dictionary with lazy[]."""
     lz = lambda x: lazy[x]
-    return {k: lz(v) for k, v in x.items()}
+    if check:
+        return {k: (v if isinstance(v, Lazy) else lz(v)) for k, v in x.items()}
+    else:
+        return {k: lz(v) for k, v in x.items()}
 
 # TODO: support curry, call, callwith (may need changes to their implementations, too)
 
@@ -161,6 +170,7 @@ def lazify(body):
             else:
                 stop()
                 gen_sym = dyn.gen_sym
+                ln, co = tree.lineno, tree.col_offset
 
                 # Evaluate the operator (.func of the Call node) just once.
                 thefunc = tree.func
@@ -187,17 +197,14 @@ def lazify(body):
                     return tree
 
                 # TODO: test *args support in Python 3.5+ (this **should** work according to the AST specs)
-                adata = []  # [(is_starred, localname), ...]
+                adata = []
                 for x in tree.args:
                     localname = gen_sym("a")
                     if type(x) is Starred:  # *seq in Python 3.5+
                         v = rec(x.value)
                         v = transform_starred(v)
-                        # build Starred AST nodes that point to the local binding
-                        a_lazy = deepcopy(x)
-                        a_lazy.value = q[name[localname]]      # arg for lazy call
-                        a_strict = deepcopy(x)
-                        a_strict.value = q[name[localname]()]  # arg for strict call
+                        a_lazy = Starred(value=q[name[localname]], lineno=ln, col_offset=co)
+                        a_strict = Starred(value=hq[forceseq(name[localname])], lineno=ln, col_offset=co)
                     else:
                         v = rec(x)
                         v = hq[lazy[ast_literal[v]]]
@@ -212,16 +219,16 @@ def lazify(body):
                     localname = gen_sym("kw")
                     v = rec(x.value)
                     a_lazy = q[name[localname]]      # kw value for lazy call
-                    a_strict = q[name[localname]()]  # kw value for strict call
                     if x.arg is None:  # **dic in Python 3.5+
                         v = transform_dstarred(v)
+                        a_strict = hq[forcedic(name[localname])]  # kw value for strict call
                     else:
                         v = hq[lazy[ast_literal[v]]]
+                        a_strict = q[name[localname]()]  # kw value for strict call
                     kwdata.append((x.arg, (a_lazy, a_strict)))
                     letbindings.append(q[(name[localname], ast_literal[v])])
 
                 # Construct the calls.
-                ln, co = tree.lineno, tree.col_offset
                 lazycall = Call(func=q[name[fname]],
                                 args=[q[ast_literal[x]] for (x, _) in adata],
                                 keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, (x, _) in kwdata],
