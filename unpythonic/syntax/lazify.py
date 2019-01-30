@@ -41,11 +41,11 @@ def mark_lazy(f):
     lazified._lazy = True  # stash for call logic
     return lazified
 
-def forcestarargs(x):
+def forceseq(x):
     """Internal helper. Force all items of a lazy iterable."""
     return tuple(elt() for elt in x)
 
-def forcekwargs(x):
+def forcedic(x):
     """Internal helper. Force all items of a dictionary with lazy values."""
     return {k: v() for k, v in x.items()}
 
@@ -127,7 +127,7 @@ def lazify(body):
                     if type(tree.slice) is Index:
                         tree = q[ast_literal[tree]()]
                     elif type(tree.slice) is Slice:
-                        tree = hq[forcestarargs(ast_literal[tree])]
+                        tree = hq[forceseq(ast_literal[tree])]
                     else:
                         assert False, "lazify: expected Index or Slice in subscripting a formal *args"
                 elif tree.value.id in kwargs:
@@ -144,9 +144,9 @@ def lazify(body):
             if tree.id in formals:
                 tree = q[ast_literal[tree]()]  # force the promise
             elif tree.id in varargs:
-                tree = hq[forcestarargs(ast_literal[tree])]
+                tree = hq[forceseq(ast_literal[tree])]
             elif tree.id in kwargs:
-                tree = hq[forcekwargs(ast_literal[tree])]
+                tree = hq[forcedic(ast_literal[tree])]
 
         # transform calls
         #
@@ -242,7 +242,7 @@ def lazify(body):
                         tree.starargs = rec(tree.starargs)
                         letbindings.append(q[(name[saname], ast_literal[transform_starred(tree.starargs)])])
                         lazycall.starargs = q[name[saname]]
-                        strictcall.starargs = hq[forcestarargs(name[saname])]
+                        strictcall.starargs = hq[forceseq(name[saname])]
                     else:
                         lazycall.starargs = strictcall.starargs = None
                 if hasattr(tree, "kwargs"):
@@ -251,7 +251,7 @@ def lazify(body):
                         tree.kwargs = rec(tree.kwargs)
                         letbindings.append(q[(name[kwaname], ast_literal[transform_dstarred(tree.kwargs)])])
                         lazycall.kwargs = q[name[kwaname]]
-                        strictcall.kwargs = hq[forcekwargs(name[kwaname])]
+                        strictcall.kwargs = hq[forcedic(name[kwaname])]
                     else:
                         lazycall.kwargs = strictcall.kwargs = None
 
