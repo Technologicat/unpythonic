@@ -78,25 +78,21 @@ def test():
         assert bar(a=1, b=2, c=1/0) == (1, 2)
         assert bar(**{"a": 1, "b": 2, "c": 1/0}) == (1, 2)
 
-        # CAUTION: overwriting a formal with a new value needs a manual lazy[],
-        # to honor the contract that formal parameter names refer to promises.
         def f(x):
-            x = lazy[2*21]
-            assert x == 42  # auto-evaluated because "x" is the name of a formal
+            assert x == 17  # auto-forced because "x" is the name of a formal parameter
 
-            x = 17  # DANGER! NO! ("x" originally referred to a formal parameter)
-            try:
-                print(x)
-            except TypeError:  # int is not callable
-                pass
-            else:
-                assert False, "int should not be callable"
+            x = lazy[2*21]  # assign another promise
+            assert x == 42  # still auto-forced due to name "x"
+
+            x = 23          # assign a bare data value
+            assert x == 23  # still auto-forced due to name "x", but ok, because
+                            # force(x) evaluates to x when x is not a promise.
         f(17)
 
         def g(x):
-            y = x  # this auto-evaluates due to the read on the RHS
+            y = x  # auto-forced due to the read of a formal parameter on the RHS
             assert y == 42  # y is just a value
-            assert x == 42  # auto-evaluated (now cached value) since "x" is the original name
+            assert x == 42  # auto-forced (now gets the cached value) since "x" is the original name
         g(2*21)
 
     print("All tests PASSED")

@@ -22,17 +22,6 @@ from ..regutil import register_decorator
 from ..it import uniqify
 from ..dynassign import dyn
 
-# Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
-def force(x):
-    """Force a MacroPy lazy[] promise.
-
-    For a promise ``x``, the effect of ``force(x)`` is the same as ``x()``,
-    except that ``force `` first checks that ``x`` is a promise.
-    """
-    if not isinstance(x, Lazy):
-        raise TypeError("expected a lazy[] promise, got {} with value {}".format(type(x), x))
-    return x()
-
 @register_decorator(priority=95)
 def mark_lazy(f):
     """Internal helper decorator for the lazify macro.
@@ -49,37 +38,39 @@ def mark_lazy(f):
     lazified._lazy = True  # stash for call logic
     return lazified
 
-def forceseq(x, check=True):
+# Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
+def force(x):
+    """Force a MacroPy lazy[] promise.
+
+    For a promise ``x``, the effect of ``force(x)`` is the same as ``x()``,
+    except that ``force `` first checks that ``x`` is a promise.
+
+    If ``x`` is not a promise, it is returned as-is (à la Racket).
+    """
+    return x() if isinstance(x, Lazy) else x
+
+def wrap(x):
+    """Wrap an already evaluated data value into a MacroPy lazy[] promise.
+
+    If ``x`` is already a promise, it is returned as-is.
+    """
+    return x if isinstance(x, Lazy) else lazy[x]
+
+def forceseq(x):
     """Internal helper. Force all items of a lazy iterable."""
-    if check:
-        return tuple((force(elt) if isinstance(elt, Lazy) else elt) for elt in x)
-    else:
-        return tuple(force(elt) for elt in x)
+    return tuple(force(elt) for elt in x)
 
-def forcedic(x, check=True):
+def forcedic(x):
     """Internal helper. Force all items of a dictionary with lazy values."""
-    if check:
-        return {k: (force(v) if isinstance(v, Lazy) else v) for k, v in x.items()}
-    else:
-        return {k: force(v) for k, v in x.items()}
+    return {k: force(v) for k, v in x.items()}
 
-def wrapseq(x, check=True):
+def wrapseq(x):
     """Internal helper. Wrap all items of a data iterable with lazy[]."""
-    # It doesn't matter that the function call lz(elt) evaluates elt,
-    # since the input is already-evaluated data values.
-    lz = lambda x: lazy[x]  # capture the *value*, not the binding "elt"
-    if check:
-        return tuple((elt if isinstance(elt, Lazy) else lz(elt)) for elt in x)
-    else:
-        return tuple(lz(elt) for elt in x)
+    return tuple(wrap(elt) for elt in x)
 
-def wrapdic(x, check=True):
+def wrapdic(x):
     """Internal helper. Wrap all values of a data dictionary with lazy[]."""
-    lz = lambda x: lazy[x]
-    if check:
-        return {k: (v if isinstance(v, Lazy) else lz(v)) for k, v in x.items()}
-    else:
-        return {k: lz(v) for k, v in x.items()}
+    return {k: wrap(v) for k, v in x.items()}
 
 # TODO: support curry, call, callwith (may need changes to their implementations, too)
 
