@@ -1447,15 +1447,20 @@ def lazify(tree, *, gen_sym, **kw):
 
     Inspired by Haskell.
 
-    **CAUTION**: When **assigning a new value** to a name that was originally
-    a formal parameter, it needs an explicit ``lazy[]`` to honor the contract
-    that **formal-parameter names represent promises**::
+    **CAUTION**: Function arguments are currently the only binding construct
+    to which auto-lazification is applied. Support for other forms of binding
+    such as assignment and the context manager is subject to addition in a
+    future version.
+
+    **CAUTION**: Hence, when **assigning a new value** to a name that was
+    originally a formal parameter, it needs an explicit ``lazy[]`` to honor
+    the contract that **formal-parameter names represent promises**::
 
         from macropy.quick_lambda import macros, lazy
 
         with lazify:
             def f(x):
-                x = lazy[2*21]
+                x = lazy[2*21]  # assignments are currently not auto-lazified
                 print(x)  # auto-evaluated because "x" is the name of a formal
             f(17)
 
@@ -1476,13 +1481,6 @@ def lazify(tree, *, gen_sym, **kw):
                 y = x       # the read on the RHS triggers evaluation of "x"
                 print(y)    # 42
             f(2*21)
-
-    **CAUTION**: Currently, passing ``*args`` and/or ``**kwargs`` in a call
-    in a ``with lazify`` block is only supported on Python 3.4. Support for
-    Python 3.5 and later is subject to a future expansion of this feature.
-
-    At the receiving end, ``*args`` and ``**kwargs`` already work also in
-    Python 3.5+.
 
     **CAUTION**: This is a very rough first draft; e.g. lazy ``curry`` is
     currently **not** supported, ``call`` and ``callwith`` might not be
