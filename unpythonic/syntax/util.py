@@ -235,7 +235,8 @@ def sort_lambda_decorators(tree):
         for k, (pri, fname) in enumerate(decorator_registry):
             if is_lambda_decorator(tree, fname):
                 return k
-        assert False  # we currently support known decorators only
+        x = getname(tree.func) if type(tree) is Call else "<unknown>"
+        assert False, "Only registered decorators can be auto-sorted, '{:s}' is not; see unpythonic.regutil".format(x)
 
     @Walker
     def fixit(tree, *, stop, **kw):
