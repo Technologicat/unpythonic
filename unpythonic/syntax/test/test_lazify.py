@@ -95,4 +95,18 @@ def test():
             assert x == 42  # auto-forced (now gets the cached value) since "x" is the original name
         g(2*21)
 
+        # passthrough (**CAUTION**: pre-alpha development status!)
+        def f2(a, b):
+            return a
+        def f1(a, b):
+            return f2(a, b)
+        assert f1(42, 1/0) == 42
+
+        # with named args
+        def f4(*, a, b):
+            return a
+        def f3(*, a, b):
+            return f4(a=a, b=b)
+        assert f3(a=42, b=1/0) == 42
+
     print("All tests PASSED")

@@ -130,37 +130,6 @@ def lazify(body):
                                               kwargs=newkwargs,
                                               formals=newformals)
 
-        # force the accessed part of *args or **kwargs (at the receiving end)
-        elif type(tree) is Subscript and type(tree.ctx) is Load:
-            if type(tree.value) is Name:
-                # force now only those items that are actually used here
-                if tree.value.id in varargs:
-                    stop()
-                    tree.slice = rec(tree.slice)
-                    if type(tree.slice) is Index:
-                        tree = hq[force(ast_literal[tree])]
-                    elif type(tree.slice) is Slice:
-                        tree = hq[forceseq(ast_literal[tree])]
-                    else:
-                        assert False, "lazify: expected Index or Slice in subscripting a formal *args"
-                elif tree.value.id in kwargs:
-                    stop()
-                    tree.slice = rec(tree.slice)
-                    if type(tree.slice) is Index:
-                        tree = hq[force(ast_literal[tree])]
-                    else:
-                        assert False, "lazify: expected Index in subscripting a formal **kwargs"
-
-        # force formal parameters, including any uses of the whole *args or **kwargs
-        elif type(tree) is Name and type(tree.ctx) is Load:
-            stop()  # must not recurse even when a Name changes into a Call.
-            if tree.id in formals:
-                tree = hq[force(ast_literal[tree])]
-            elif tree.id in varargs:
-                tree = hq[forceseq(ast_literal[tree])]
-            elif tree.id in kwargs:
-                tree = hq[forcedic(ast_literal[tree])]
-
         # transform calls
         #
         # Delay evaluation of the args, but only if the call target is
@@ -187,17 +156,23 @@ def lazify(body):
                 def transform_starred(tree):  # transform a *seq item in a call
                     # literal list or tuple containing computations that should be evaluated lazily
                     if type(tree) in (List, Tuple):
+                        # TODO: support passthrough (explicit list/tuple of formals, vararg or kwarg)
                         tree.elts = [hq[lazy[ast_literal[x]]] for x in tree.elts]
                     else:  # something else - assume an iterable
-                        tree = hq[wrapseq(ast_literal[tree])]
+                        # TODO: support passthrough (may use a formal or vararg as a starred item in a call)
+                        # fallback case: force first to normalize the input
+                        tree = hq[wrapseq(forceseq(ast_literal[tree]))]
                     return tree
 
                 def transform_dstarred(tree):  # transform a **dic item in a call
                     # literal dictionary where the values contain computations that should be evaluated lazily
                     if type(tree) is Dict:
+                        # TODO: support passthrough (explicit dictionary with formals, vararg or kwarg as values)
                         tree.values = [hq[lazy[ast_literal[x]]] for x in tree.values]
                     else: # something else - assume a mapping
-                        tree = hq[wrapdic(ast_literal[tree])]
+                        # TODO: support passthrough (may use a formal or kwarg as a dstarred item in a call)
+                        # fallback case: force first to normalize the input
+                        tree = hq[wrapdic(forcedic(ast_literal[tree]))]
                     return tree
 
                 # TODO: test *args support in Python 3.5+ (this **should** work according to the AST specs)
@@ -205,13 +180,18 @@ def lazify(body):
                 for x in tree.args:
                     localname = gen_sym("a")
                     if type(x) is Starred:  # *seq in Python 3.5+
+                        # TODO: support passthrough; do we need to change something here?
                         v = rec(x.value)
                         v = transform_starred(v)
                         a_lazy = Starred(value=q[name[localname]], lineno=ln, col_offset=co)
                         a_strict = Starred(value=hq[forceseq(name[localname])], lineno=ln, col_offset=co)
                     else:
-                        v = rec(x)
-                        v = hq[lazy[ast_literal[v]]]
+                        # TODO: vararg, kwarg?
+                        if type(x) is Name and x.id in formals:  # passthrough
+                            v = x
+                        else:
+                            v = rec(x)
+                            v = hq[lazy[ast_literal[v]]]
                         a_lazy = q[name[localname]]            # arg for lazy call
                         a_strict = hq[force(name[localname])]  # arg for strict call
                     adata.append((a_lazy, a_strict))
@@ -221,13 +201,19 @@ def lazify(body):
                 kwdata = []
                 for x in tree.keywords:
                     localname = gen_sym("kw")
-                    v = rec(x.value)
                     a_lazy = q[name[localname]]      # kw value for lazy call
                     if x.arg is None:  # **dic in Python 3.5+
+                        # TODO: support passthrough; do we need to change something here?
+                        v = rec(x.value)
                         v = transform_dstarred(v)
                         a_strict = hq[forcedic(name[localname])]  # kw value for strict call
                     else:
-                        v = hq[lazy[ast_literal[v]]]
+                        # TODO: vararg, kwarg?
+                        if type(x.value) is Name and x.value.id in formals:  # passthrough
+                            v = x.value
+                        else:
+                            v = rec(x.value)
+                            v = hq[lazy[ast_literal[v]]]
                         a_strict = hq[force(name[localname])]  # kw value for strict call
                     kwdata.append((x.arg, (a_lazy, a_strict)))
                     letbindings.append(q[(name[localname], ast_literal[v])])
@@ -268,6 +254,37 @@ def lazify(body):
 
                 letbody = q[ast_literal[lazycall] if hasattr(name[fname], "_lazy") else ast_literal[strictcall]]
                 tree = let(letbindings, letbody)
+
+        # force the accessed part of *args or **kwargs (at the receiving end)
+        elif type(tree) is Subscript and type(tree.ctx) is Load:
+            if type(tree.value) is Name:
+                # force now only those items that are actually used here
+                if tree.value.id in varargs:
+                    stop()
+                    tree.slice = rec(tree.slice)
+                    if type(tree.slice) is Index:
+                        tree = hq[force(ast_literal[tree])]
+                    elif type(tree.slice) is Slice:
+                        tree = hq[forceseq(ast_literal[tree])]
+                    else:
+                        assert False, "lazify: expected Index or Slice in subscripting a formal *args"
+                elif tree.value.id in kwargs:
+                    stop()
+                    tree.slice = rec(tree.slice)
+                    if type(tree.slice) is Index:
+                        tree = hq[force(ast_literal[tree])]
+                    else:
+                        assert False, "lazify: expected Index in subscripting a formal **kwargs"
+
+        # force formal parameters, including any uses of the whole *args or **kwargs
+        elif type(tree) is Name and type(tree.ctx) is Load:
+            stop()  # must not recurse even when a Name changes into a Call.
+            if tree.id in formals:
+                tree = hq[force(ast_literal[tree])]
+            elif tree.id in varargs:
+                tree = hq[forceseq(ast_literal[tree])]
+            elif tree.id in kwargs:
+                tree = hq[forcedic(ast_literal[tree])]
 
         return tree
     newbody = []
