@@ -49,12 +49,12 @@ def forcedic(x):
     """Internal helper. Force all items of a dictionary with lazy values."""
     return {k: v() for k, v in x.items()}
 
-def dataseq(x):
+def wrapseq(x):
     """Internal helper. Wrap all items of a data iterable with lazy[]."""
     lz = lambda x: lazy[x]  # capture the *value*, not the binding "elt"
     return tuple(lz(elt) for elt in x)
 
-def datadic(x):
+def wrapdic(x):
     """Internal helper. Wrap all values of a data dictionary with lazy[]."""
     lz = lambda x: lazy[x]
     return {k: lz(v) for k, v in x.items()}
@@ -175,7 +175,7 @@ def lazify(body):
                     if type(tree) in (List, Tuple):
                         tree.elts = [hq[lazy[ast_literal[x]]] for x in tree.elts]
                     else:  # something else - assume an iterable
-                        tree = hq[dataseq(ast_literal[tree])]
+                        tree = hq[wrapseq(ast_literal[tree])]
                     return tree
 
                 def transform_dstarred(tree):  # transform a **dic item in a call
@@ -183,7 +183,7 @@ def lazify(body):
                     if type(tree) is Dict:
                         tree.values = [hq[lazy[ast_literal[x]]] for x in tree.values]
                     else: # something else - assume a mapping
-                        tree = hq[datadic(ast_literal[tree])]
+                        tree = hq[wrapdic(ast_literal[tree])]
                     return tree
 
                 # TODO: test *args support in Python 3.5+ (this **should** work according to the AST specs)
