@@ -39,40 +39,17 @@ def mark_lazy(f):
     lazified._lazy = True  # stash for call logic
     return lazified
 
-# wrappers for lazified literal containers, to make them easily detectable by isinstance()
-class LazySequence(Sequence): pass
-class LazyMutableMapping(MutableMapping): pass
-class LazyMutableSet(MutableSet): pass
-
-class LazyTuple(tuple, LazySequence):
-    def __init__(self, thunks):
-        tuple.__init__(thunks)  # TODO: figure out why super() returns object
-class LazyList(list, LazySequence):
-    def __init__(self, thunks):
-        list.__init__(thunks)
-class LazyDict(dict, LazyMutableMapping):
-    def __init__(self, m):  # m: mapping
-        dict.__init__(self)
-        self.update(m)
-class LazySet(set, LazyMutableSet):  # bad name, should reserve LazySet for the ABC of the immutable variant
-    def __init__(self, thunks):
-        set.__init__(thunks)
-
-# syntax transformers to make lazified containers out of built-in container literals
+# syntax transformers to lazify elements in built-in container literals
 def lazyseq(tree):
     if type(tree) not in (Tuple, List, Set):
         assert False, "expected a literal tuple, list or set"
     tree.elts = [hq[lazy[ast_literal[x]]] for x in tree.elts]
-    if type(tree) is Tuple:
-        return hq[LazyTuple(ast_literal[tree])]
-    elif type(tree) is List:
-        return hq[LazyList(ast_literal[tree])]
-    return hq[LazySet(ast_literal[tree])]
+    return tree
 def lazydict(tree):
     if type(tree) is not Dict:
         assert False, "expected a literal dict"
     tree.values = [hq[lazy[ast_literal[x]]] for x in tree.values]
-    return hq[LazyDict(ast_literal[tree])]
+    return tree
 # TODO: support frozenset, unpythonic.fup.frozendict? (these appear as a Call in the AST)
 
 # Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
@@ -85,43 +62,35 @@ def force(x):
 
     If ``x`` is not a promise, it is returned as-is (à la Racket).
 
-    This recurses into ``LazyList``, ``LazyTuple`` and ``LazyDict``.
+    This recurses into ``list``, ``tuple``, ``dict`` and ``set``.
     """
-    return _force(x)
-
-# the rawtuple/rawdict hack is needed for *args, **kwargs which come in a raw tuple/dict.
-def _force(x, rawtuple=False, rawdict=False):
-    def f(x):
-        if isinstance(x, LazyTuple) or (rawtuple and isinstance(x, tuple)):
-            return tuple(f(elt) for elt in x)
-        elif isinstance(x, LazyList):
-            return [f(elt) for elt in x]
-        elif isinstance(x, LazySet):
-            return {f(elt) for elt in x}
-        elif isinstance(x, LazyDict) or (rawdict and isinstance(x, dict)):
-            return {k: f(v) for k, v in x.items()}
-        elif isinstance(x, Lazy):
-            return x()
-        return x
-    return f(x)
+    if isinstance(x, tuple):
+        return tuple(force(elt) for elt in x)
+    elif isinstance(x, list):
+        return [force(elt) for elt in x]
+    elif isinstance(x, set):
+        return {force(elt) for elt in x}
+    elif isinstance(x, dict):
+        return {k: force(v) for k, v in x.items()}
+    elif isinstance(x, Lazy):
+        return x()
+    return x
 
 def wrap(x):
     """Wrap an already evaluated data value into a MacroPy lazy[] promise.
 
     If ``x`` is already a promise, it is returned as-is.
 
-    This recurses into the built-in ``list``, ``tuple`` and ``dict`` types,
-    converting them to ``LazyList``, ``LazyTuple`` and ``LazyDict``, respectively.
-    This is done so that ``force`` can then undo the transformation.
+    This recurses into ``list``, ``tuple``, ``dict`` and ``set``.
     """
     if isinstance(x, tuple):
-        return LazyTuple(wrap(elt) for elt in x)
+        return tuple(wrap(elt) for elt in x)
     elif isinstance(x, list):
-        return LazyList(wrap(elt) for elt in x)
+        return [wrap(elt) for elt in x]
     elif isinstance(x, set):
-        return LazySet(wrap(elt) for elt in x)
+        return {wrap(elt) for elt in x}
     elif isinstance(x, dict):
-        return LazyDict({k: wrap(v) for k, v in x.items()})
+        return {k: wrap(v) for k, v in x.items()}
     elif isinstance(x, Lazy):
         return x
     return lazy[x]  # wrap the already evaluated x into a promise
@@ -316,10 +285,8 @@ def lazify(body):
                 if tree.value.id in varargs:
                     stop()
                     tree.slice = rec(tree.slice)
-                    if type(tree.slice) is Index:
+                    if type(tree.slice) in (Index, Slice):
                         tree = hq[force(ast_literal[tree])]
-                    elif type(tree.slice) is Slice:
-                        tree = hq[_force(ast_literal[tree], rawtuple=True)]
                     else:
                         assert False, "lazify: expected Index or Slice in subscripting a formal *args"
                 elif tree.value.id in kwargs:
@@ -333,12 +300,8 @@ def lazify(body):
         # force formal parameters, including any uses of the whole *args or **kwargs
         elif type(tree) is Name and type(tree.ctx) is Load:
             stop()  # must not recurse even when a Name changes into a Call.
-            if tree.id in formals:
+            if tree.id in formals + varargs + kwargs:
                 tree = hq[force(ast_literal[tree])]
-            elif tree.id in varargs:
-                tree = hq[_force(ast_literal[tree], rawtuple=True)]
-            elif tree.id in kwargs:
-                tree = hq[_force(ast_literal[tree], rawdict=True)]
 
         return tree
     newbody = []
