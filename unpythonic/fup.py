@@ -1,24 +1,82 @@
 # -*- coding: utf-8 -*-
 """Functionally update sequences and mappings."""
 
-__all__ = ["fupdate", "ShadowedSequence", "in_slice", "index_in_slice"]
+__all__ = ["fupdate", "frozendict", "ShadowedSequence", "in_slice", "index_in_slice"]
 
 from collections.abc import Sequence
 from operator import lt, le, ge, gt
 from copy import copy
 
+class frozendict(dict):
+    """Immutable dictionary.
+
+    Usage::
+
+        d = frozendict(m)
+        d = frozendict({'a': 1, 'b': 2})
+        d = frozendict(a=1, b=2)
+        d = frozendict(m, a=1, b=2)  # functional update
+
+    where ``m`` is a mapping (any type understood by ``dict.update``).
+
+    Then ``d`` behaves just like a regular dictionary, except it is not writable;
+    attempting to set a new value for a key in a ``frozendict`` raises
+    ``TypeError``. As usual, this does **not** protect from mutating the values
+    themselves, if they happen to be mutable objects (such as containers).
+
+    We also do not protect from creative abuses of Python; only regular
+    subscripting ``d[k] = v`` writes into a ``frozendict`` raise ``TypeError``.
+
+    When a mapping is used to initialize a ``frozendict``, it is shallow-copied
+    to make sure the bindings in the ``frozendict`` do not change even if the
+    original is later mutated.
+
+    In the last variant above, the data is first initialized from ``m``, and
+    then (imperatively) updated from the kwargs. The result is a functional
+    update of ``m``, represented as a ``frozendict``.
+    """
+    def __init__(self, m=None, **mappings):
+        """Arguments:
+
+               m: mapping or None
+                   Input mapping to freeze. Optional. Accepts any type understood
+                   by ``dict.update``.
+
+               mappings: kwargs in the form key=value
+                   Use this to functionally update ``d`` when creating the
+                   ``frozendict`` instance.
+        """
+        super().__init__()
+        try:
+            self.update(m)
+        except TypeError:
+            pass
+        self.update(mappings)
+    def __setitem__(self, k, v):
+        raise TypeError("frozendict is not writable, attempted to set key '{}'".format(k))
+    def __repr__(self):
+        return "frozendict({})".format(super().__repr__())
+
 def fupdate(target, indices=None, values=None, **mappings):
-    """Return a functionally updated copy of a sequence or mapping.
+    """Return a functionally updated copy of a sequence or a mapping.
 
-    The input sequence can be immutable. For mappings, only mutables are
-    supported (since Python doesn't provide an immutable dict type).
+    The input can be mutable or immutable; it does not matter.
 
-    The requirement for sequences is that the target's type must provide a way
-    to construct an instance from an iterable.
+    **For mappings**, ``fupdate`` supports any mutable mapping that has an
+    ``.update(**kwargs)`` method (such as ``dict``), and the immutable mapping
+    ``unpythonic.fup.frozendict``.
+
+    By design, the behavior of ``fupdate`` differs from ``collections.ChainMap``.
+    Whereas ``ChainMap`` keeps references to the original mappings, ``fupdate``
+    makes a shallow copy, to prevent any later mutations of the original from
+    affecting the functionally updated copy.
+
+    **For sequences**, the requirement is that the target's type must provide
+    a way to construct an instance from an iterable.
 
     We first check whether target's type provides ``._make(iterable)``,
     and if so, call that to build the output. Otherwise, we call the
-    regular constructor.
+    regular constructor, which must then accept a single iterable argument.
 
     In Python's standard library, the ``._make`` mechanism is used by classes
     created by ``collections.namedtuple``.
@@ -41,7 +99,13 @@ def fupdate(target, indices=None, values=None, **mappings):
             Use the kwargs syntax to provide any number of ``key=new_value`` pairs.
 
     Returns:
-        The updated sequence or mapping. The input is not modified.
+        The updated sequence or mapping.
+
+        The input is never mutated, and it is **always** shallow-copied, so any
+        later mutations to the original do not affect the functionally updated
+        copy.
+
+        Also, the invariant ``type(output) is type(input)`` holds.
 
     **Examples**::
 
@@ -105,8 +169,12 @@ def fupdate(target, indices=None, values=None, **mappings):
             seq = ShadowedSequence(seq, index, value)
         return make_output(seq)
     if mappings:
+        if isinstance(target, frozendict):
+            cls = type(target)  # subclassing is possible...
+            return cls(target, **mappings)
+        # assume mutable mapping
         t = copy(target)
-        t.update(**mappings)  # TODO: use collections.ChainMap instead?
+        t.update(**mappings)
         return t
     return copy(target)
 
@@ -114,7 +182,8 @@ def fupdate(target, indices=None, values=None, **mappings):
 class ShadowedSequence(Sequence):
     """Sequence with some elements shadowed by those from another sequence.
 
-    Or in other words, a functionally updated view of a sequence.
+    Or in other words, a functionally updated view of a sequence. Or somewhat
+    like ``collections.ChainMap``, but for sequences.
 
     Essentially, ``out[k] = v[index_in_slice(k, ix)] if in_slice(k, ix) else seq[k]``,
     but doesn't actually allocate ``out``.

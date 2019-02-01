@@ -3,7 +3,7 @@
 from itertools import repeat
 from collections import namedtuple
 
-from ..fup import fupdate
+from ..fup import fupdate, frozendict
 
 def test():
     # mutable input
@@ -11,12 +11,14 @@ def test():
     out = fupdate(lst, 1, 42)
     assert lst == [1, 2, 3]
     assert out == [1, 42, 3]
+    assert type(out) is type(lst)
 
     # immutable input
     lst = (1, 2, 3, 4, 5)
     out = fupdate(lst, slice(1, 5, 2), tuple(repeat(10, 2)))
     assert lst == (1, 2, 3, 4, 5)
     assert out == (1, 10, 3, 10, 5)
+    assert type(out) is type(lst)
 
     # negative index
     lst = [1, 2, 3]
@@ -82,6 +84,7 @@ def test():
     d2 = fupdate(d1, foo='tavern')
     assert sorted(d1.items()) == [('foo', 'bar'), ('fruit', 'apple')]
     assert sorted(d2.items()) == [('foo', 'tavern'), ('fruit', 'apple')]
+    assert type(d2) is type(d1)
 
     # namedtuple
     A = namedtuple("A", "p q")
@@ -89,6 +92,26 @@ def test():
     out = fupdate(a, 0, 42)
     assert a == A(17, 23)
     assert out == A(42, 23)
+    assert type(out) is type(a)
+
+    # frozendict - like frozenset, but for dictionaries
+    d3 = frozendict({'a': 1, 'b': 2})
+    assert d3['a'] == 1
+    try:
+        d3['c'] = 42
+    except TypeError:
+        pass
+    else:
+        assert False, "frozendict should not be writable"
+
+    d4 = frozendict(d3, a=42)  # functional update
+    assert d4['a'] == 42 and d4['b'] == 2
+    assert d3['a'] == 1  # original not mutated
+
+    d5 = fupdate(d3, a=23)  # also fupdate supports frozendict
+    assert d5['a'] == 23 and d5['b'] == 2
+    assert d3['a'] == 1
+    assert type(d5) is type(d3)
 
     print("All tests PASSED")
 
