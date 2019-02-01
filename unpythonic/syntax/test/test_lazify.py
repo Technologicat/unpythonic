@@ -95,18 +95,62 @@ def test():
             assert x == 42  # auto-forced (now gets the cached value) since "x" is the original name
         g(2*21)
 
-        # passthrough (**CAUTION**: pre-alpha development status!)
+    # Passthrough of lazy args.
+    #
+    # Python's highly irregular argument passing syntax is very convenient
+    # for humans, but a mess to work with when writing macros that must
+    # deal with it.
+    #
+    # The following are currently the only combinations supported by
+    # lazy passthrough.
+    #
+    # Any non-supported passthrough attempt causes the arg to be passed
+    # eagerly. (This is done automatically by forcing the promise, and
+    # then wrapping the evaluated value into a dummy promise that just
+    # returns the already computed value.)
+    with lazify:
+        # positional arg -> positional arg
         def f2(a, b):
             return a
         def f1(a, b):
             return f2(a, b)
         assert f1(42, 1/0) == 42
 
-        # with named args
+        # named arg -> named arg
         def f4(*, a, b):
             return a
         def f3(*, a, b):
             return f4(a=a, b=b)
         assert f3(a=42, b=1/0) == 42
+
+        # positional arg -> named arg
+        def f11(*, a, b):
+            return a
+        def f10(a, b):
+            return f11(a=a, b=b)
+        assert f10(42, 1/0) == 42
+
+        # named arg -> positional arg
+        def f13(a, b):
+            return a
+        def f12(*, a, b):
+            return f13(a, b)
+        assert f12(a=42, b=1/0) == 42
+
+        # received *args -> *args in a call (in Python 3.5+, multiple *args in a call possible)
+        def f6(*args):
+            return args[0]
+        def f5(*args):
+            return f6(*args)
+        assert f5(42, 1/0) == 42
+        assert f5(*(42, 1/0)) == 42
+
+        # received **kwargs -> **kwargs in a call (in Python 3.5+, multiple **kwargs in a call possible)
+        def f8(**kwargs):
+            return kwargs['a']
+        def f7(**kwargs):
+            return f8(**kwargs)
+        assert f7(a=42, b=1/0) == 42
+        assert f7(**{'a': 42, 'b': 1/0}) == 42
 
     print("All tests PASSED")
