@@ -2,7 +2,6 @@
 """Automatic lazy evaluation of function arguments."""
 
 from functools import wraps
-from collections.abc import Sequence, MutableMapping, MutableSet
 
 from ast import Lambda, FunctionDef, Call, Name, \
                 Starred, keyword, List, Tuple, Dict, Set, \
