@@ -108,10 +108,15 @@ def test():
     assert d4['a'] == 42 and d4['b'] == 2
     assert d3['a'] == 1  # original not mutated
 
-    d5 = fupdate(d3, a=23)  # also fupdate supports frozendict
-    assert d5['a'] == 23 and d5['b'] == 2
+    d5 = frozendict({'a': 1, 'b': 2}, {'a': 42})  # rightmost definition of each key wins
+    assert d5['a'] == 42 and d5['b'] == 2
+
+    d6 = fupdate(d3, a=23)  # also fupdate supports frozendict
+    assert d6['a'] == 23 and d6['b'] == 2
     assert d3['a'] == 1
-    assert type(d5) is type(d3)
+    assert type(d6) is type(d3)
+
+    assert frozendict() is frozendict()  # empty-frozendict singleton property
 
     print("All tests PASSED")
 

@@ -7,17 +7,24 @@ from collections.abc import Sequence
 from operator import lt, le, ge, gt
 from copy import copy
 
+_the_empty_frozendict = None
 class frozendict(dict):
     """Immutable dictionary.
 
-    Usage::
+    Basic usage::
 
         d = frozendict(m)
         d = frozendict({'a': 1, 'b': 2})
         d = frozendict(a=1, b=2)
-        d = frozendict(m, a=1, b=2)  # functional update
 
     where ``m`` is a mapping (any type understood by ``dict.update``).
+
+    Functional update::
+
+        d = frozendict(m0, m1, ...)
+        d = frozendict({'a': 1, 'b': 2}, {'a': 42})
+        d = frozendict(m, a=1, b=2)
+        d = frozendict(m0, m1, ..., a=1, b=2)
 
     Then ``d`` behaves just like a regular dictionary, except it is not writable;
     attempting to set a new value for a key in a ``frozendict`` raises
@@ -27,30 +34,43 @@ class frozendict(dict):
     We also do not protect from creative abuses of Python; only regular
     subscripting ``d[k] = v`` writes into a ``frozendict`` raise ``TypeError``.
 
-    When a mapping is used to initialize a ``frozendict``, it is shallow-copied
+    Any mappings used in the initialization of a ``frozendict`` are shallow-copied
     to make sure the bindings in the ``frozendict`` do not change even if the
     original is later mutated.
 
-    In the last variant above, the data is first initialized from ``m``, and
-    then (imperatively) updated from the kwargs. The result is a functional
-    update of ``m``, represented as a ``frozendict``.
+    Just like for ``tuple`` and ``frozenset``, the empty ``frozendict`` is a
+    singleton; each no-argument call ``frozenset()`` will return the same object
+    instance. (But don't pickle it; it is freshly created in each session).
     """
-    def __init__(self, m=None, **mappings):
+    def __new__(cls, *ms, **mappings):  # make the empty frozendict() a singleton
+        if not ms and not mappings:
+            global _the_empty_frozendict
+            if _the_empty_frozendict is None:
+                _the_empty_frozendict = super().__new__(cls)
+            return _the_empty_frozendict
+        return super().__new__(cls, *ms, **mappings)
+
+    def __init__(self, *ms, **mappings):
         """Arguments:
 
-               m: mapping or None
-                   Input mapping to freeze. Optional. Accepts any type understood
-                   by ``dict.update``.
+               ms: mappings; optional
+                   If one argument is provided: the input mapping to freeze.
 
-               mappings: kwargs in the form key=value
-                   Use this to functionally update ``d`` when creating the
-                   ``frozendict`` instance.
+                   If more are provided, the second and later ones will
+                   functionally update the data, in the order given.
+
+                   Accepts any type understood by ``dict.update``.
+
+               mappings: kwargs in the form key=value; optional
+                   Functional updates applied at the end, after the last mapping
+                   in ``ms``. Can be useful for overriding individual items.
         """
         super().__init__()
-        try:
-            self.update(m)
-        except TypeError:
-            pass
+        for m in ms:
+            try:
+                self.update(m)
+            except TypeError:
+                pass
         self.update(mappings)
     def __setitem__(self, k, v):
         raise TypeError("frozendict is not writable, attempted to set key '{}'".format(k))
