@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from operator import lt, le, ge, gt
 from copy import copy
 
+# TODO: frozendict inherits the wrong ABC from dict, it should be only a Mapping, not a MutableMapping.
 _the_empty_frozendict = None
 class frozendict(dict):
     """Immutable dictionary.
