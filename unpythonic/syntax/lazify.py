@@ -189,6 +189,26 @@ def lazify(body):
 
                 # Delay the args (first, recurse into them).
 
+                def transform_arg(tree):
+                    if type(tree) is Name and tree.id in formals:
+                        pass  # optimized passthrough for arg -> arg (both positional and named)
+                    else:
+                        tree = rec(tree)  # add any needed force() invocations inside the tree
+                        tree = hq[lazy[ast_literal[tree]]]
+                    return tree
+
+                def transform_starred(tree, dstarred=False):
+                    optimizable_names = kwargs if dstarred else varargs
+                    if type(tree) is Name and tree.id in optimizable_names:
+                        pass  # optimized passthrough for *args -> *args, **kwargs -> **kwargs
+                    else:
+                        tree = rec(tree)
+                        # lazify items if we have a literal container
+                        # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
+                        if is_unpackable_literal(tree, dictsonly=dstarred):
+                            tree = lazyrec(tree)
+                    return tree
+
                 def is_unpackable_literal(tree, dictsonly=False):  # containers understood by lazyrec[]
                     if not dictsonly:
                         if type(tree) in (List, Tuple, Set): return True
@@ -202,23 +222,10 @@ def lazify(body):
                 for x in tree.args:
                     localname = gen_sym("a")
                     if type(x) is Starred:  # *seq in Python 3.5+
-                        # optimized passthrough *args -> *args
-                        if type(x.value) is Name and x.value.id in varargs:
-                            v = x.value
-                        else:
-                            v = rec(x.value)    # add any needed force() invocations inside the tree
-                            # lazify items if we have a literal container
-                            # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
-                            if is_unpackable_literal(v):
-                                v = lazyrec(v)
+                        v = transform_starred(x.value)
                         a = Starred(value=q[name[localname]], lineno=ln, col_offset=co)
                     else:
-                        # optimized passthrough arg -> positional arg
-                        if type(x) is Name and x.id in formals:
-                            v = x
-                        else:
-                            v = rec(x)
-                            v = hq[lazy[ast_literal[v]]]
+                        v = transform_arg(x)
                         a = q[name[localname]]
                     adata.append(a)
                     letbindings.append(q[(name[localname], ast_literal[v])])
@@ -227,22 +234,11 @@ def lazify(body):
                 kwdata = []
                 for x in tree.keywords:
                     localname = gen_sym("kw")
-                    a = q[name[localname]]
                     if x.arg is None:  # **dic in Python 3.5+
-                        # optimized passthrough **kwargs -> **kwargs
-                        if type(x.value) is Name and x.value.id in kwargs:
-                            v = x.value
-                        else:
-                            v = rec(x.value)
-                            if is_unpackable_literal(v, dictsonly=True):
-                                v = lazyrec(v)
+                        v = transform_starred(x.value, dstarred=True)
                     else:
-                        # optimized passthrough arg -> named arg
-                        if type(x.value) is Name and x.value.id in formals:
-                            v = x.value
-                        else:
-                            v = rec(x.value)
-                            v = hq[lazy[ast_literal[v]]]
+                        v = transform_arg(x.value)
+                    a = q[name[localname]]
                     kwdata.append((x.arg, a))
                     letbindings.append(q[(name[localname], ast_literal[v])])
 
@@ -260,14 +256,7 @@ def lazify(body):
                 if hasattr(tree, "starargs"):
                     if tree.starargs is not None:
                         saname = gen_sym("sa")
-                        x = tree.starargs
-                        # optimized passthrough *args -> *args
-                        if type(x) is Name and x.id in varargs:
-                            v = x
-                        else:
-                            v = rec(x)
-                            if is_unpackable_literal(v):
-                                v = lazyrec(v)
+                        v = transform_starred(tree.starargs)
                         letbindings.append(q[(name[saname], ast_literal[v])])
                         mycall.starargs = q[name[saname]]
                     else:
@@ -275,14 +264,7 @@ def lazify(body):
                 if hasattr(tree, "kwargs"):
                     if tree.kwargs is not None:
                         kwaname = gen_sym("kwa")
-                        x = tree.kwargs
-                        # optimized passthrough **kwargs -> **kwargs
-                        if type(x) is Name and x.id in kwargs:
-                            v = x
-                        else:
-                            v = rec(x)
-                            if is_unpackable_literal(v, dictsonly=True):
-                                v = lazyrec(v)
+                        v = transform_starred(tree.kwargs, dstarred=True)
                         letbindings.append(q[(name[kwaname], ast_literal[v])])
                         mycall.kwargs = q[name[kwaname]]
                     else:
