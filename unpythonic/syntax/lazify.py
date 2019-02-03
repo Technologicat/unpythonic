@@ -25,19 +25,19 @@ from ..fup import frozendict
 
 @register_decorator(priority=95)
 def mark_lazy(f):
-    """Internal helper decorator for the lazify macro.
-
-    Marks a function as lazy, and adds a wrapper that allows it to be called
-    with strict (already evaluated) arguments, which occurs if called from
-    outside any ``with lazify`` block.
-    """
+    """Internal. Helps calling lazy functions from outside a ``with lazify`` block."""
     @wraps(f)
     def lazified(*args, **kwargs):
-        # support calls coming in from outside of the "with lazify" block,
-        # by wrapping already evaluated args.
         return f(*wrap(args), **wrap(kwargs))
-    lazified._lazy = True  # stash for call logic
+    lazified._lazy = True
+    lazified._entrypoint = f
     return lazified
+
+def lazycall(_func, *args, **kwargs):
+    """Internal. Helps calling strict functions from inside a ``with lazify`` block."""
+    if hasattr(_func, '_lazy'):
+        return _func._entrypoint(*args, **kwargs)  # skip the lazified() wrapper
+    return _func(*force(args), **force(kwargs))
 
 # syntax transformer: lazify elements in container literals, recursively
 def lazyrec(tree):
@@ -211,8 +211,7 @@ def lazify(body):
                             # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
                             if is_unpackable_literal(v):
                                 v = lazyrec(v)
-                        a_lazy = Starred(value=q[name[localname]], lineno=ln, col_offset=co)
-                        a_strict = Starred(value=hq[force(name[localname])], lineno=ln, col_offset=co)
+                        a = Starred(value=q[name[localname]], lineno=ln, col_offset=co)
                     else:
                         # TODO: passthrough of varargs, kwargs -> (positional) arg
                         if type(x) is Name and x.id in formals:  # passthrough arg -> arg
@@ -220,16 +219,15 @@ def lazify(body):
                         else:
                             v = rec(x)
                             v = hq[lazy[ast_literal[v]]]
-                        a_lazy = q[name[localname]]
-                        a_strict = hq[force(name[localname])]
-                    adata.append((a_lazy, a_strict))
+                        a = q[name[localname]]
+                    adata.append(a)
                     letbindings.append(q[(name[localname], ast_literal[v])])
 
                 # TODO: test **kwargs support in Python 3.5+ (this **should** work according to the AST specs)
                 kwdata = []
                 for x in tree.keywords:
                     localname = gen_sym("kw")
-                    a_lazy = q[name[localname]]
+                    a = q[name[localname]]
                     if x.arg is None:  # **dic in Python 3.5+
                         # TODO: passthrough of formals, varargs -> **kwargs
                         if type(x.value) is Name and x.value.id in kwargs:  # passthrough **kwargs -> **kwargs
@@ -238,7 +236,6 @@ def lazify(body):
                             v = rec(x.value)
                             if is_unpackable_literal(v, dictsonly=True):
                                 v = lazyrec(v)
-                        a_strict = hq[force(name[localname])]
                     else:
                         # TODO: passthrough of varargs, kwargs -> (named) arg
                         if type(x.value) is Name and x.value.id in formals:  # passthrough (named) arg -> arg
@@ -246,19 +243,14 @@ def lazify(body):
                         else:
                             v = rec(x.value)
                             v = hq[lazy[ast_literal[v]]]
-                        a_strict = hq[force(name[localname])]
-                    kwdata.append((x.arg, (a_lazy, a_strict)))
+                    kwdata.append((x.arg, a))
                     letbindings.append(q[(name[localname], ast_literal[v])])
 
-                # Construct the calls.
-                lazycall = Call(func=q[name[fname]],
-                                args=[q[ast_literal[x]] for (x, _) in adata],
-                                keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, (x, _) in kwdata],
-                                lineno=ln, col_offset=co)
-                strictcall = Call(func=q[name[fname]],
-                                  args=[q[ast_literal[x]] for (_, x) in adata],
-                                  keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, (_, x) in kwdata],
-                                  lineno=ln, col_offset=co)
+                # Construct the call
+                mycall = Call(func=hq[lazycall],
+                              args=[q[name[fname]]] + [q[ast_literal[x]] for x in adata],
+                              keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, x in kwdata],
+                              lineno=ln, col_offset=co)
 
                 # Python 3.4 starargs/kwargs handling
                 #
@@ -277,10 +269,9 @@ def lazify(body):
                             if is_unpackable_literal(v):
                                 v = lazyrec(v)
                         letbindings.append(q[(name[saname], ast_literal[v])])
-                        lazycall.starargs = q[name[saname]]
-                        strictcall.starargs = hq[force(name[saname])]
+                        mycall.starargs = q[name[saname]]
                     else:
-                        lazycall.starargs = strictcall.starargs = None
+                        mycall.starargs = None
                 if hasattr(tree, "kwargs"):
                     if tree.kwargs is not None:
                         kwaname = gen_sym("kwa")
@@ -293,12 +284,11 @@ def lazify(body):
                             if is_unpackable_literal(v, dictsonly=True):
                                 v = lazyrec(v)
                         letbindings.append(q[(name[kwaname], ast_literal[v])])
-                        lazycall.kwargs = q[name[kwaname]]
-                        strictcall.kwargs = hq[force(name[kwaname])]
+                        mycall.kwargs = q[name[kwaname]]
                     else:
-                        lazycall.kwargs = strictcall.kwargs = None
+                        mycall.kwargs = None
 
-                letbody = q[ast_literal[lazycall] if hasattr(name[fname], "_lazy") else ast_literal[strictcall]]
+                letbody = mycall
                 tree = let(letbindings, letbody)
 
         # force the accessed part of *args or **kwargs (at the receiving end)
