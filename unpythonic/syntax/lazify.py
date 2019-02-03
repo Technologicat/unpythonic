@@ -49,10 +49,12 @@ def lazyrec(tree):
         elif type(tree) is Dict:
             stop()
             tree.values = [transform.recurse(x) for x in tree.values]
-        elif type(tree) is Call and isx(tree.func, "frozenset") and len(tree.args) == 1:
+        elif type(tree) is Call and isx(tree.func, "frozenset") and \
+             len(tree.args) == 1 and type(tree.args[0]) is Set:
             stop()
             tree.args[0] = transform.recurse(tree.args[0])
-        elif type(tree) is Call and isx(tree.func, "frozendict") and len(tree.args) == 1:
+        elif type(tree) is Call and isx(tree.func, "frozendict") and \
+             len(tree.args) == 1 and type(tree.args[0]) is Dict:
             stop()
             tree.args[0] = transform.recurse(tree.args[0])
         # TODO: this might not catch what we want; lazy[] seems to expand immediately even though quoted here.
