@@ -130,7 +130,6 @@ def lazify(body):
                                      kwargs=kwargs,
                                      formals=formals)
 
-        # transform function definitions
         if type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
             if type(tree) is Lambda and id(tree) not in userlambdas:
                 pass  # ignore macro-introduced lambdas
@@ -150,6 +149,7 @@ def lazify(body):
                 newkwargs = list(uniqify(kwargs + [a.kwarg.arg])) if a.kwarg is not None else kwargs
 
                 # mark this definition as lazy, and insert the interface wrapper
+                # to allow also strict code to call this function
                 if type(tree) is Lambda:
                     tree = hq[mark_lazy(ast_literal[tree])]
                     tree = sort_lambda_decorators(tree)
@@ -166,13 +166,6 @@ def lazify(body):
                                               kwargs=newkwargs,
                                               formals=newformals)
 
-        # transform calls
-        #
-        # Delay evaluation of the args, but only if the call target is
-        # a lazy function (i.e. expects delayed args).
-        #
-        # We need this runtime detection to support calls to strict
-        # (regular Python) functions from within the "with lazify" block.
         elif type(tree) is Call:
             if isdo(tree) or islet(tree):
                 pass  # known to be strict, no need to introduce lazy[] (note we still recurse)
