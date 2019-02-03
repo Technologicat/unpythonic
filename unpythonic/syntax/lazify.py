@@ -5,7 +5,7 @@ from functools import wraps
 
 from ast import Lambda, FunctionDef, Call, Name, \
                 Starred, keyword, List, Tuple, Dict, Set, \
-                Subscript, Index, Slice, Load
+                Subscript, Load
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, ast_literal, name
