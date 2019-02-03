@@ -95,19 +95,7 @@ def test():
             assert x == 42  # auto-forced (now gets the cached value) since "x" is the original name
         g(2*21)
 
-    # Passthrough of lazy args.
-    #
-    # Python's highly irregular argument passing syntax is very convenient
-    # for humans, but a mess to work with when writing macros that must
-    # deal with it.
-    #
-    # The following are currently the only combinations supported by
-    # lazy passthrough.
-    #
-    # Any non-supported passthrough attempt causes the arg to be passed
-    # eagerly. (This is done automatically by forcing the promise, and
-    # then wrapping the evaluated value into a dummy promise that just
-    # returns the already computed value.)
+    # Passthrough of lazy args
     with lazify:
         # positional arg -> positional arg
         def f2(a, b):
@@ -152,5 +140,13 @@ def test():
             return f8(**kwargs)
         assert f7(a=42, b=1/0) == 42
         assert f7(**{'a': 42, 'b': 1/0}) == 42
+
+        # computation involving a positional arg -> positional arg
+        # The "2*b" is never evaluated, because f15 does not use its "b".
+        def f15(a, b):
+            return a
+        def f14(a, b):
+            return f15(2*a, 2*b)
+        assert f14(21, 1/0) == 42
 
     print("All tests PASSED")
