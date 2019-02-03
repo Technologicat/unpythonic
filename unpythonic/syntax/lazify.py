@@ -202,8 +202,8 @@ def lazify(body):
                 for x in tree.args:
                     localname = gen_sym("a")
                     if type(x) is Starred:  # *seq in Python 3.5+
-                        # TODO: passthrough of formals, kwargs -> *args
-                        if type(x.value) is Name and x.value.id in varargs:  # passthrough *args -> *args
+                        # optimized passthrough *args -> *args
+                        if type(x.value) is Name and x.value.id in varargs:
                             v = x.value
                         else:
                             v = rec(x.value)    # add any needed force() invocations inside the tree
@@ -213,8 +213,8 @@ def lazify(body):
                                 v = lazyrec(v)
                         a = Starred(value=q[name[localname]], lineno=ln, col_offset=co)
                     else:
-                        # TODO: passthrough of varargs, kwargs -> (positional) arg
-                        if type(x) is Name and x.id in formals:  # passthrough arg -> arg
+                        # optimized passthrough arg -> positional arg
+                        if type(x) is Name and x.id in formals:
                             v = x
                         else:
                             v = rec(x)
@@ -229,16 +229,16 @@ def lazify(body):
                     localname = gen_sym("kw")
                     a = q[name[localname]]
                     if x.arg is None:  # **dic in Python 3.5+
-                        # TODO: passthrough of formals, varargs -> **kwargs
-                        if type(x.value) is Name and x.value.id in kwargs:  # passthrough **kwargs -> **kwargs
+                        # optimized passthrough **kwargs -> **kwargs
+                        if type(x.value) is Name and x.value.id in kwargs:
                             v = x.value
                         else:
                             v = rec(x.value)
                             if is_unpackable_literal(v, dictsonly=True):
                                 v = lazyrec(v)
                     else:
-                        # TODO: passthrough of varargs, kwargs -> (named) arg
-                        if type(x.value) is Name and x.value.id in formals:  # passthrough (named) arg -> arg
+                        # optimized passthrough arg -> named arg
+                        if type(x.value) is Name and x.value.id in formals:
                             v = x.value
                         else:
                             v = rec(x.value)
@@ -260,9 +260,9 @@ def lazify(body):
                 if hasattr(tree, "starargs"):
                     if tree.starargs is not None:
                         saname = gen_sym("sa")
-                        # TODO: passthrough of formals, kwargs -> *args
                         x = tree.starargs
-                        if type(x) is Name and x.id in varargs:  # passthrough *args -> *args
+                        # optimized passthrough *args -> *args
+                        if type(x) is Name and x.id in varargs:
                             v = x
                         else:
                             v = rec(x)
@@ -275,9 +275,9 @@ def lazify(body):
                 if hasattr(tree, "kwargs"):
                     if tree.kwargs is not None:
                         kwaname = gen_sym("kwa")
-                        # TODO: passthrough of arg, varargs -> **kwargs
                         x = tree.kwargs
-                        if type(x) is Name and x.id in kwargs:  # passthrough **kwargs --> **kwargs
+                        # optimized passthrough **kwargs -> **kwargs
+                        if type(x) is Name and x.id in kwargs:
                             v = x
                         else:
                             v = rec(x)
