@@ -293,21 +293,10 @@ def lazify(body):
 
         # force the accessed part of *args or **kwargs (at the receiving end)
         elif type(tree) is Subscript and type(tree.ctx) is Load:
-            if type(tree.value) is Name:
-                if tree.value.id in varargs:
-                    stop()
-                    tree.slice = rec(tree.slice)
-                    if type(tree.slice) in (Index, Slice):
-                        tree = hq[force(ast_literal[tree])]
-                    else:
-                        assert False, "lazify: expected Index or Slice in subscripting a formal *args"
-                elif tree.value.id in kwargs:
-                    stop()
-                    tree.slice = rec(tree.slice)
-                    if type(tree.slice) is Index:
-                        tree = hq[force(ast_literal[tree])]
-                    else:
-                        assert False, "lazify: expected Index in subscripting a formal **kwargs"
+            if type(tree.value) is Name and tree.value.id in varargs + kwargs:
+                stop()
+                tree.slice = rec(tree.slice)
+                tree = hq[force(ast_literal[tree])]
 
         # force formal parameters, including any uses of the whole *args or **kwargs
         elif type(tree) is Name and type(tree.ctx) is Load:
