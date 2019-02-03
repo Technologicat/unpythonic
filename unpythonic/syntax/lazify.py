@@ -15,12 +15,13 @@ from macropy.core.walkers import Walker
 from macropy.quick_lambda import macros, lazy
 from macropy.quick_lambda import Lazy
 
-from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda
+from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, isx
 from .letdo import let
 from .letdoutil import islet, isdo
 from ..regutil import register_decorator
 from ..it import uniqify
 from ..dynassign import dyn
+from ..fup import frozendict
 
 @register_decorator(priority=95)
 def mark_lazy(f):
@@ -38,22 +39,30 @@ def mark_lazy(f):
     lazified._lazy = True  # stash for call logic
     return lazified
 
-# syntax transformers to lazify elements in built-in container literals
-def _can_lazyseq(tree):
-    return type(tree) in (Tuple, List, Set)
-def lazyseq(tree):
-    if type(tree) not in (Tuple, List, Set):
-        assert False, "expected a literal tuple, list or set"
-    tree.elts = [hq[lazy[ast_literal[x]]] for x in tree.elts]
-    return tree
-def _can_lazydict(tree):
-    return type(tree) is Dict
-def lazydict(tree):
-    if type(tree) is not Dict:
-        assert False, "expected a literal dict"
-    tree.values = [hq[lazy[ast_literal[x]]] for x in tree.values]
-    return tree
-# TODO: support frozenset, unpythonic.fup.frozendict? (these appear as a Call in the AST)
+# syntax transformer: lazify elements in container literals, recursively
+def lazyrec(tree):
+    @Walker
+    def transform(tree, *, stop, **kw):
+        if type(tree) in (Tuple, List, Set):
+            stop()
+            tree.elts = [transform.recurse(x) for x in tree.elts]
+        elif type(tree) is Dict:
+            stop()
+            tree.values = [transform.recurse(x) for x in tree.values]
+        elif type(tree) is Call and isx(tree.func, "frozenset") and len(tree.args) == 1:
+            stop()
+            tree.args[0] = transform.recurse(tree.args[0])
+        elif type(tree) is Call and isx(tree.func, "frozendict") and len(tree.args) == 1:
+            stop()
+            tree.args[0] = transform.recurse(tree.args[0])
+        # TODO: this might not catch what we want; lazy[] seems to expand immediately even though quoted here.
+        elif type(tree) is Subscript and isx(tree.value, 'lazy'):
+            stop()
+        else:
+            stop()
+            tree = hq[lazy[ast_literal[tree]]]
+        return tree
+    return transform.recurse(tree)
 
 # Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
 def force(x):
@@ -64,38 +73,40 @@ def force(x):
 
     If ``x`` is not a promise, it is returned as-is (à la Racket).
 
-    This recurses into ``list``, ``tuple``, ``dict`` and ``set``.
+    This recurses into ``list``, ``tuple``, ``dict``, ``set``, ``frozenset``,
+    and ``unpythonic.fup.frozendict``.
     """
-    if isinstance(x, tuple):
-        return tuple(force(elt) for elt in x)
-    elif isinstance(x, list):
-        return [force(elt) for elt in x]
-    elif isinstance(x, set):
-        return {force(elt) for elt in x}
-    elif isinstance(x, dict):
-        return {k: force(v) for k, v in x.items()}
-    elif isinstance(x, Lazy):
-        return x()
-    return x
+    return _f(x, iflazyatom=lambda x: x(), otherwise=lambda x: x)
 
 def wrap(x):
     """Wrap an already evaluated data value into a MacroPy lazy[] promise.
 
     If ``x`` is already a promise, it is returned as-is.
 
-    This recurses into ``list``, ``tuple``, ``dict`` and ``set``.
+    This recurses into ``list``, ``tuple``, ``dict``, ``set``, ``frozenset``,
+    and ``unpythonic.fup.frozendict``.
     """
-    if isinstance(x, tuple):
-        return tuple(wrap(elt) for elt in x)
-    elif isinstance(x, list):
-        return [wrap(elt) for elt in x]
-    elif isinstance(x, set):
-        return {wrap(elt) for elt in x}
-    elif isinstance(x, dict):
-        return {k: wrap(v) for k, v in x.items()}
-    elif isinstance(x, Lazy):
-        return x
-    return lazy[x]  # wrap the already evaluated x into a promise
+    # The otherwise case wraps the already evaluated x into a promise.
+    return _f(x, iflazyatom=lambda x: x, otherwise=lambda x: lazy[x])
+
+def _f(x, iflazyatom, otherwise):  # common skeleton for force/wrap
+    def doit(x):
+        if isinstance(x, tuple):
+            return tuple(doit(elt) for elt in x)
+        elif isinstance(x, list):
+            return [doit(elt) for elt in x]
+        elif isinstance(x, set):
+            return {doit(elt) for elt in x}
+        elif isinstance(x, frozenset):
+            return frozenset({doit(elt) for elt in x})
+        elif isinstance(x, dict):
+            return {k: doit(v) for k, v in x.items()}
+        elif isinstance(x, frozendict):
+            return frozendict({k: doit(v) for k, v in x.items()})
+        elif isinstance(x, Lazy):
+            return iflazyatom(x)
+        return otherwise(x)
+    return doit(x)
 
 # TODO: support curry, call, callwith (may need changes to their implementations, too)
 
@@ -178,24 +189,13 @@ def lazify(body):
 
                 # Delay the args (first, recurse into them).
 
-                # handle literal lists/tuples/dicts of computations that should be evaluated lazily
-                def transform_starred(tree):  # transform a *seq item in a call
-                    if _can_lazyseq(tree):
-                        # TODO: passthrough if an elt contains a bare formal, vararg or kwarg
-                        tree = lazyseq(tree)
-                    else:  # anything else - force, then wrap
-                        # TODO: passthrough: may use a formal or vararg as *args in a call
-                        tree = hq[wrap(force(ast_literal[tree]))]
-                    return tree
-
-                def transform_dstarred(tree):  # transform a **dic item in a call
-                    if _can_lazydict(tree):
-                        # TODO: passthrough if a value contains a bare formal, vararg or kwarg
-                        tree = lazydict(tree)
-                    else:  # anything else - force, then wrap
-                        # TODO: passthrough: may use a formal or kwarg as **kwargs in a call
-                        tree = hq[wrap(force(ast_literal[tree]))]
-                    return tree
+                def is_unpackable_literal(tree, dictsonly=False):  # containers understood by lazyrec[]
+                    if not dictsonly:
+                        if type(tree) in (List, Tuple, Set): return True
+                        if type(tree) is Call and isx(tree.func, 'frozenset'): return True
+                    if type(tree) is Dict: return True
+                    if type(tree) is Call and isx(tree.func, 'frozendict'): return True
+                    return False
 
                 # TODO: test *args support in Python 3.5+ (this **should** work according to the AST specs)
                 adata = []
@@ -206,8 +206,11 @@ def lazify(body):
                         if type(x.value) is Name and x.value.id in varargs:  # passthrough *args -> *args
                             v = x.value
                         else:
-                            v = rec(x.value)
-                            v = transform_starred(v)
+                            v = rec(x.value)    # add any needed force() invocations inside the tree
+                            # lazify items if we have a literal container
+                            # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
+                            if is_unpackable_literal(v):
+                                v = lazyrec(v)
                         a_lazy = Starred(value=q[name[localname]], lineno=ln, col_offset=co)
                         a_strict = Starred(value=hq[force(name[localname])], lineno=ln, col_offset=co)
                     else:
@@ -233,7 +236,8 @@ def lazify(body):
                             v = x.value
                         else:
                             v = rec(x.value)
-                            v = transform_dstarred(v)
+                            if is_unpackable_literal(v, dictsonly=True):
+                                v = lazyrec(v)
                         a_strict = hq[force(name[localname])]
                     else:
                         # TODO: passthrough of varargs, kwargs -> (named) arg
@@ -270,7 +274,8 @@ def lazify(body):
                             v = x
                         else:
                             v = rec(x)
-                            v = transform_starred(v)
+                            if is_unpackable_literal(v):
+                                v = lazyrec(v)
                         letbindings.append(q[(name[saname], ast_literal[v])])
                         lazycall.starargs = q[name[saname]]
                         strictcall.starargs = hq[force(name[saname])]
@@ -285,7 +290,8 @@ def lazify(body):
                             v = x
                         else:
                             v = rec(x)
-                            v = transform_dstarred(v)
+                            if is_unpackable_literal(v, dictsonly=True):
+                                v = lazyrec(v)
                         letbindings.append(q[(name[kwaname], ast_literal[v])])
                         lazycall.kwargs = q[name[kwaname]]
                         strictcall.kwargs = hq[force(name[kwaname])]
