@@ -59,7 +59,7 @@ def _letimpl(bindings, body, mode):
         values = [t(rhs) for rhs in values]  # RHSs of bindings
     body = t(body)
 
-    letter = letf
+    letter = letf  # letdoutil relies on the literal name "letter" to detect expanded forms
     bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
     newtree = hq[letter(ast_literal[Tuple(elts=bindings)], ast_literal[body], mode=u[mode])]
     return newtree
@@ -178,7 +178,8 @@ def _dletimpl(bindings, body, mode, kind):
     #  since "let" is not one of the registered decorators)
     letter = dletf if kind == "decorate" else bletf
     bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
-    body.decorator_list = body.decorator_list + [hq[letter((ast_literal[bindings],), mode=u[mode], _envname=u[e])]]
+    # letdoutil relies on the presence of _envname to detect this is a decorator (seeing only the Call node)
+    body.decorator_list = body.decorator_list + [hq[letter(ast_literal[Tuple(elts=bindings)], mode=u[mode], _envname=u[e])]]
     body.args.kwonlyargs = body.args.kwonlyargs + [arg(arg=e)]
     body.args.kw_defaults = body.args.kw_defaults + [None]
     return body
