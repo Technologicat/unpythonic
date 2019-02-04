@@ -42,7 +42,7 @@ def scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ct
 
     Names in an unpythonic env can be shadowed by e.g. real lexical variables,
     formal parameters of function definitions, or names declared ``nonlocal``
-    or ``global``. See ``_getshadowers``.
+    or ``global``. See ``getshadowers``.
 
     callback: function, (tree, shadowed_names) --> tree
     """
