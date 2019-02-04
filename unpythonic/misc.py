@@ -234,6 +234,7 @@ def pack(*args):
     """
     return args  # pretty much like in Lisps, (define (list . args) args)
 
+@register_decorator(priority=95)  # allow sorting by unpythonic.syntax.sort_lambda_decorators
 def namelambda(function, name):
     """Name a lambda function.
 
