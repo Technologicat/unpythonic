@@ -17,7 +17,7 @@ from .ifexprs import aif as _aif, it, cond as _cond
 from .lambdatools import multilambda as _multilambda, \
                          namedlambda as _namedlambda, \
                          quicklambda as _quicklambda, f, _
-from .lazify import lazify as _lazify, force
+from .lazify import lazify as _lazify, lazyrec as _lazyrec, force
 from .letdo import do as _do, do0 as _do0, local, \
                    let as _let, letseq as _letseq, letrec as _letrec, \
                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
@@ -1580,6 +1580,43 @@ def lazify(tree, *, gen_sym, **kw):
     """
     with dyn.let(gen_sym=gen_sym):
         return (yield from _lazify(body=tree))
+
+@macros.expr
+def lazyrec(tree, **kw):
+    """[syntax, expr] Delay items of a literal container, recursively.
+
+    Essentially, this distributes ``lazy[]`` into the items inside a literal
+    ``list``, ``tuple``, ``set`` or ``frozenset``, and into the values of a
+    literal ``dict`` or ``unpythonic.fup.frozendict``.
+
+    The container itself is not lazified, only the items inside it are, to keep
+    the lazification from interfering with unpacking. This allows things such as
+    ``f(*lazyrec[(1*2*3, 4*5*6)])`` to work as expected.
+
+    See also ``macropy.quick_lambda.lazy`` (the effect on each item) and
+    ``unpythonic.syntax.force`` (the inverse of ``lazyrec[]``).
+
+    For a single item, ``lazyrec[]`` has the same effect as ``lazy[]``::
+
+        lazyrec[dostuff()] --> lazy[dostuff()]
+
+    For a literal container, ``lazyrec[]`` descends into it::
+
+        lazyrec[(2*21, 1/0)] --> (lazy[2*21], lazy[1/0])
+        lazyrec[{'a': 2*21, 'b': 1/0}] --> {'a': lazy[2*21], 'b': lazy[1/0]}
+
+    Nested containers (with any combination of types) are processed recursively,
+    for example::
+
+        lazyrec[((2*21, 1/0), (1+2+3, 4+5+6))] --> ((lazy[2*21], lazy[1/0]),
+                                                    (lazy[1+2+3], lazy[4+5+6]))
+
+    **CAUTION**: For ``frozenset`` and ``frozendict``, we support only the
+    one-argument form: ``frozenset({1, 2, 3})``, ``frozendict({1: 2, 3: 4})``.
+    The literal ``set`` or ``dict`` must appear as the only argument of the
+    constructor. (This limitation may be removed in a future version.)
+    """
+    return _lazyrec(tree)
 
 # -----------------------------------------------------------------------------
 
