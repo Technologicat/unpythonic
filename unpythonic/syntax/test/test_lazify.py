@@ -2,14 +2,59 @@
 """Automatic lazy evaluation of function arguments."""
 
 from ...misc import raisef
+from ...it import flatten
+from ...fup import frozendict
 
-from ...syntax import macros, lazify
+from ...syntax import macros, lazify, lazyrec
+from ...syntax import force
 
 from macropy.quick_lambda import macros, lazy
+from macropy.quick_lambda import Lazy  # usually not needed in client code; for our tests only
 
 from macropy.tracing import macros, show_expanded
 
 def test():
+    # first test the low-level tools
+
+    # supported container types: tuple, list, set, frozenset, dict, frozendict
+    tpl = lazyrec[(2+3, 2*21, 1/0)]
+    assert all(type(x) is Lazy for x in tpl)
+
+    lst = lazyrec[[2+3, 2*21, 1/0]]
+    assert all(type(x) is Lazy for x in lst)
+
+    s = lazyrec[{2+3, 2*21, 1/0}]
+    assert all(type(x) is Lazy for x in s)
+
+    fs = lazyrec[frozenset({2+3, 2*21, 1/0})]
+    assert all(type(x) is Lazy for x in fs)
+
+    dic = lazyrec[{'a': 2+3, 'b': 2*21, 'c': 1/0}]
+    assert all(type(v) is Lazy for k, v in dic.items())
+
+    fdic = lazyrec[frozendict({'a': 2+3, 'b': 2*21, 'c': 1/0})]
+    assert all(type(v) is Lazy for k, v in fdic.items())
+
+    # force(), the inverse of lazyrec[]
+    tpl = lazyrec[(2+3, 2*21)]
+    assert force(tpl) == (5, 42)
+
+    assert force(dic['a']) == 5
+    assert force(dic['b']) == 42
+    try:
+        force(dic['c'])
+    except ZeroDivisionError:
+        pass
+    else:
+        assert False, "should have attempted to divide by zero"
+
+    # recursion into nested containers
+    tpl = lazyrec[((2+3, 2*21, (1/0, 2/1)), (4*5, 6*7))]
+    assert all(type(x) is Lazy for x in flatten(tpl))
+
+    tpl = lazyrec[((1+2, 3+4), (5+6, 7+8))]
+    assert force(tpl) == ((3, 7), (11, 15))
+
 #    with show_expanded:
     # in a "with lazify" block, function arguments are evaluated only when actually used.
     with lazify:
