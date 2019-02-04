@@ -17,6 +17,7 @@ def nb(body):
             continue
         with q as newstmts:
             _ = ast_literal[stmt.value]
-            print(_)
+            if _ is not None:
+                print(_)
         newbody.extend(newstmts)
     return newbody
