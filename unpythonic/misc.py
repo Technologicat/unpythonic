@@ -3,7 +3,7 @@
 
 __all__ = ["call", "callwith", "raisef", "pack", "namelambda", "box", "timer"]
 
-from types import LambdaType
+from types import LambdaType, CodeType
 import re
 from time import time
 
@@ -248,8 +248,21 @@ def namelambda(function, name):
     """
     if isinstance(function, LambdaType) and function.__name__ == "<lambda>":
         myname = "{}".format(name)
-        function.__name__ = myname
-        function.__qualname__ = re.sub("<lambda>$", myname, function.__qualname__)
+        # https://stackoverflow.com/questions/40661758/name-of-a-python-function-in-a-stack-trace
+        # https://stackoverflow.com/questions/16064409/how-to-create-a-code-object-in-python
+        function.__name__ = myname  # tools like pydoc
+        function.__qualname__ = re.sub("<lambda>$", myname, function.__qualname__)  # repr
+        # Stack traces actually use .__code__.__name__, which is read-only,
+        # but there's a types.CodeType constructor that we can use to re-create
+        # the code object with the new name (not for the faint of heart).
+        co = function.__code__
+        function.__code__ = CodeType(co.co_argcount, co.co_kwonlyargcount,
+                                     co.co_nlocals, co.co_stacksize, co.co_flags,
+                                     co.co_code, co.co_consts, co.co_names,
+                                     co.co_varnames, co.co_filename,
+                                     myname,
+                                     co.co_firstlineno, co.co_lnotab, co.co_freevars,
+                                     co.co_cellvars)
     return function
 
 class box:
