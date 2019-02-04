@@ -7,6 +7,8 @@ Separate from util.py due to the length.
 
 from ast import Call, Name, Subscript, Index, Compare, In, Tuple, List
 
+from .letdo import do
+
 from macropy.core import Captured
 
 def where(*bindings):
@@ -169,6 +171,8 @@ def isdo(tree, expanded=True):
            type(tree.value) is Name and any(tree.value.id == x for x in ("do", "do0")) and \
            type(tree.slice) is Index and type(tree.slice.value) is Tuple
 
+# -----------------------------------------------------------------------------
+
 # TODO: kwargs support for let(x=42)[...] if implemented later
 class UnexpandedLetView:
     """Destructure a let form, writably.
@@ -208,9 +212,10 @@ class UnexpandedLetView:
         ``(k, v)``, where ``k`` is an ``ast.Name``. Writing to ``bindings`` updates
         the original.
 
-        ``body`` (when available) is an AST representing an expression. If the
-        outermost layer is an ``ast.List``, it means an implicit ``do[]``
-        (handled by the ``let`` expander), allowing a multiple-expression body.
+        ``body`` (when available) is an AST representing a single expression.
+        If it is an ``ast.List``, it means an implicit ``do[]`` (handled by the
+        ``let`` expander), allowing a multiple-expression body.
+
         Writing to ``body`` updates the original.
 
         When not available, ``body is None``.
@@ -236,6 +241,8 @@ class UnexpandedLetView:
             data = (h, None)  # cannot detect mode, no access to the surrounding subscript form
         self._tree = tree
         self._type, self.mode = data
+        if self._type not in ("decorator", "lispy_expr", "in_expr", "where_expr"):
+            raise NotImplementedError("unknown unexpanded let form type '{}'".format(self._type))
         if self._type == "decorator":
             self.body = None
 
@@ -252,7 +259,6 @@ class UnexpandedLetView:
                 return _canonize_bindings(theexpr.left.elts, theexpr.left)
             elif t == "where_expr":
                 return _canonize_bindings(theexpr.elts[1].args, theexpr.elts[1])
-            raise NotImplementedError("unknown let form type '{}'".format(t))
     def _setbindings(self, newbindings):
         t = self._type
         if t == "decorator":
@@ -265,7 +271,6 @@ class UnexpandedLetView:
                 theexpr.left.elts = newbindings
             elif t == "where_expr":
                 theexpr.elts[1].args = newbindings
-            raise NotImplementedError("unknown let form type '{}'".format(t))
     bindings = property(fget=_getbindings, fset=_setbindings, doc="The bindings subform of the let. Writable.")
 
     def _getbody(self):
@@ -281,7 +286,6 @@ class UnexpandedLetView:
                 return theexpr.comparators[0]
             elif t == "where_expr":
                 return theexpr.elts[0]
-            raise NotImplementedError("unknown let form type '{}'".format(t))
     def _setbody(self, newbody):
         t = self._type
         if t == "decorator":
@@ -295,16 +299,7 @@ class UnexpandedLetView:
                 theexpr.comparators[0] = newbody
             elif t == "where_expr":
                 theexpr.elts[0] = newbody
-            raise NotImplementedError("unknown let form type '{}'".format(t))
     body = property(fget=_getbody, fset=_setbody, doc="The body subform of the let (only for expr forms). Writable.")
-
-#class ExpandedLetView:
-#    def __init__(self, tree):
-#        data = islet(tree, expanded=True)
-#        if not data:
-#            raise TypeError("expected a tree representing an expanded let, got {}".format(tree))
-#        self._tree = tree
-#        self._type, self._mode = data
 
 class UnexpandedDoView:
     """Destructure a do form, writably.
@@ -345,3 +340,92 @@ class UnexpandedDoView:
         else:
             self._tree.elts = newbody
     body = property(fget=_getbody, fset=_setbody, doc="The body of the do. Writable.")
+
+# -----------------------------------------------------------------------------
+
+class ExpandedLetView:
+    """Like UnexpandedLetView, but for already expanded let constructs.
+
+    Depending on whether let mode is "let" or "letrec", each binding is a bare
+    value or a lambda, respectively.
+
+    Usually ``body``, when available, is a single expression. In the case of a
+    multiple-expression body, ``body`` is represented as a list of expressions.
+
+    Writing a list to body makes a multiple-expression body, whether or not it
+    was originally such.
+
+    Writing a single expression makes a single-expression body, also whether or
+    not it was originally such.
+    """
+    def __init__(self, tree):
+        data = islet(tree, expanded=True)
+        if not data:
+            raise TypeError("expected a tree representing an expanded let, got {}".format(tree))
+        self._tree = tree
+        self._type, self._mode = data
+        if self._type not in ("expanded_decorator", "expanded_expr"):
+            raise NotImplementedError("unknown expanded let form type '{}'".format(self._type))
+        if self._type == "expanded_decorator":
+            self.body = None
+
+    def _getbindings(self):
+        return self._tree.args[0]
+    def _setbindings(self, newbindings):
+        if type(newbindings) is not Tuple:
+            raise TypeError("Expected ast.Tuple as the new bindings of the let, got {}".format(type(newbindings)))
+        if not all(type(elt) is Tuple for elt in newbindings.elts):
+            raise TypeError("Expected ast.Tuple of ast.Tuple as the new bindings of the let")
+        if not all(len(binding.elts) == 2 for binding in newbindings.elts):
+            raise TypeError("Expected ast.Tuple of length-2 ast.Tuple as the new bindings of the let")
+        self._tree.args[0] = newbindings
+    bindings = property(fget=_getbindings, fset=_setbindings, doc="The bindings subform of the let. Writable.")
+
+    def _getbody(self):
+        t = self._type
+        if t == "expanded_decorator":  # not reached
+            raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
+        elif t == "expanded_expr":
+            b = self._tree.args[1]
+            if isdo(b, expanded=True):  # extra bracket syntax
+                return ExpandedDoView(b).body  # list of expressions
+            else:
+                return b
+    def _setbody(self, newbody):
+        t = self._type
+        if t == "expanded_decorator":  # not reached
+            raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
+        elif t == "expanded_expr":
+            b = self._tree.args[1]
+            old_isdo = isdo(b, expanded=True)
+            new_isdo = isinstance(newbody, list)
+            if not old_isdo and not new_isdo:   # single -> single
+                self._tree.args[1] = newbody
+            elif old_isdo and new_isdo:         # multi -> multi, just replace the list
+                view = ExpandedDoView(b)
+                view.body = newbody
+            elif not old_isdo and new_isdo:     # single -> multi
+                self._tree.args[1] = do(newbody)
+            else: # old_isdo and not new_isdo:  # multi -> single
+                self._tree.args[1] = newbody
+    body = property(fget=_getbody, fset=_setbody, doc="The body subform of the let (only for expr forms). Writable.")
+
+class ExpandedDoView:
+    """Like UnexpandedDoView, but for already expanded do forms.
+
+    Each item in the ``body`` list is a lambda.
+    """
+    def __init__(self, tree):
+        if not isdo(tree, expanded=True):
+            raise TypeError("expected a tree representing an expanded do, got {}".format(tree))
+        self._tree = tree
+
+    def _getbody(self):
+        return self._tree.args
+    def _setbody(self, newbody):
+        if not isinstance(newbody, list):  # yes, a runtime list!
+            raise TypeError("Expected list as the new body of the do, got {}".format(type(newbody)))
+        self._tree.args = newbody
+    body = property(fget=_getbody, fset=_setbody, doc="The body of the do. Writable.")
+
+# -----------------------------------------------------------------------------
