@@ -23,7 +23,7 @@ from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 from macropy.core.macros import macro_stub
 
-from ..lispylet import let as letf, letrec as letrecf, _dlet as dletf, _blet as bletf
+from ..lispylet import _let as letf, _dlet as dletf, _blet as bletf
 from ..seq import do as dof
 from ..dynassign import dyn
 
@@ -59,9 +59,9 @@ def _letimpl(bindings, body, mode):
         values = [t(rhs) for rhs in values]  # RHSs of bindings
     body = t(body)
 
-    letter = letf if mode == "let" else letrecf
+    letter = letf
     bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
-    newtree = hq[letter(ast_literal[Tuple(elts=bindings)], ast_literal[body])]
+    newtree = hq[letter(ast_literal[Tuple(elts=bindings)], ast_literal[body], mode=u[mode])]
     return newtree
 
 def letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
