@@ -131,8 +131,8 @@ class _Env(object):
     # no __next__, iterating over dict.
 
     def items(self):
-        """Like dict.items(). Return a snapshot of the current state."""
-        return self._asdict().items()
+        """Like dict.items(), but a snapshot (won't reflect later changes)."""
+        return self._asdict().items()  # TODO: implement a live-update view to dyn, like dict has
 
     def __len__(self):
         return len(self._asdict())
