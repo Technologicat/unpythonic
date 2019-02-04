@@ -48,6 +48,9 @@ def test():
     else:
         assert False, "should have attempted to divide by zero"
 
+    tpl = lazyrec[(2+3, 2*21, 1/0)]
+    assert force(tpl[:-1]) == (5, 42)
+
     # recursion into nested containers
     tpl = lazyrec[((2+3, 2*21, (1/0, 2/1)), (4*5, 6*7))]
     assert all(type(x) is Lazy for x in flatten(tpl))
