@@ -247,7 +247,7 @@ def _let(bindings, body, *, env=None, mode="let"):
             pass
         v = v(env)
     env[k] = v
-    return _let(more, body, env=env, mode=mode)  # FP loop (without TCO)
+    return _let(more, body, env=env, mode=mode)  # loop
 
 # _envname is for co-operation with the dlet macro.
 def _dlet(bindings, mode="let", _envname="env"):  # let and letrec decorator factory
