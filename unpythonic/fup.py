@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 """Functionally update sequences and mappings."""
 
-__all__ = ["fupdate", "frozendict", "ShadowedSequence", "in_slice", "index_in_slice"]
+__all__ = ["fupdate", "frozendict", "get_collection_abcs",
+           "ShadowedSequence", "in_slice", "index_in_slice"]
 
-from collections.abc import Sequence
+from functools import wraps
+import collections
+from collections.abc import Sequence, MutableMapping, Hashable
+from inspect import isclass
 from operator import lt, le, ge, gt
 from copy import copy
 
-# TODO: frozendict inherits the wrong ABC from dict, it should be only a Mapping, not a MutableMapping.
 _the_empty_frozendict = None
-class frozendict(dict):
+class frozendict:
     """Immutable dictionary.
 
     Basic usage::
@@ -18,7 +21,7 @@ class frozendict(dict):
         d = frozendict({'a': 1, 'b': 2})
         d = frozendict(a=1, b=2)
 
-    where ``m`` is a mapping (any type understood by ``dict.update``).
+    where ``m`` is any type valid for ``E`` in ``dict.update``.
 
     Functional update::
 
@@ -27,21 +30,24 @@ class frozendict(dict):
         d = frozendict(m, a=1, b=2)
         d = frozendict(m0, m1, ..., a=1, b=2)
 
-    Then ``d`` behaves just like a regular dictionary, except it is not writable;
-    attempting to set a new value for a key in a ``frozendict`` raises
-    ``TypeError``. As usual, this does **not** protect from mutating the values
-    themselves, if they happen to be mutable objects (such as containers).
+    Then ``d`` behaves just like a regular dictionary, except it is not writable.
+    As usual, this does **not** protect from mutating the values themselves,
+    if they happen to be mutable objects (such as containers).
 
-    We also do not protect from creative abuses of Python; only regular
-    subscripting ``d[k] = v`` writes into a ``frozendict`` raise ``TypeError``.
-
-    Any mappings used in the initialization of a ``frozendict`` are shallow-copied
+    Any ``m`` used in the initialization of a ``frozendict`` is shallow-copied
     to make sure the bindings in the ``frozendict`` do not change even if the
     original is later mutated.
 
     Just like for ``tuple`` and ``frozenset``, the empty ``frozendict`` is a
-    singleton; each no-argument call ``frozenset()`` will return the same object
+    singleton; each no-argument call ``frozendict()`` will return the same object
     instance. (But don't pickle it; it is freshly created in each session).
+
+    In terms of ``collections.abc``, a ``frozendict`` is a ``Container``,
+    ``Hashable``, ``Iterable``, ``Mapping`` and ``Sized``.
+
+    Just like for ``dict``, the abstract superclasses are virtual; they are
+    detected by the built-ins ``issubclass`` and ``isinstance``, but they are
+    not part of the MRO.
     """
     def __new__(cls, *ms, **mappings):  # make the empty frozendict() a singleton
         if not ms and not mappings:
@@ -49,7 +55,7 @@ class frozendict(dict):
             if _the_empty_frozendict is None:
                 _the_empty_frozendict = super().__new__(cls)
             return _the_empty_frozendict
-        return super().__new__(cls, *ms, **mappings)
+        return super().__new__(cls)  # object() takes no args, but we need to see them
 
     def __init__(self, *ms, **mappings):
         """Arguments:
@@ -63,20 +69,79 @@ class frozendict(dict):
                    Accepts any type understood by ``dict.update``.
 
                mappings: kwargs in the form key=value; optional
+                   Essentially like the ``**F`` argument of ``dict.update``.
+
                    Functional updates applied at the end, after the last mapping
                    in ``ms``. Can be useful for overriding individual items.
         """
         super().__init__()
+        self._data = {}
         for m in ms:
             try:
-                self.update(m)
+                self._data.update(m)
             except TypeError:
                 pass
-        self.update(mappings)
-    def __setitem__(self, k, v):
-        raise TypeError("frozendict is not writable, attempted to set key '{}'".format(k))
+        self._data.update(mappings)
+
+    @wraps(dict.__repr__)
     def __repr__(self):
-        return "frozendict({})".format(super().__repr__())
+        return "frozendict({})".format(self._data.__repr__())
+
+    def __hash__(self):
+        return hash(frozenset(self.items()))
+
+    # Provide any read-access parts of the dict API.
+    #
+    # This is somewhat hacky, but "composition over inheritance", and if we
+    # subclassed dict, that would give us the wrong ABC (MutableMapping)
+    # with no way to customize it away (short of monkey-patching MutableMapping).
+    #
+    # https://docs.python.org/3/library/collections.abc.html
+    # https://docs.python.org/3/reference/datamodel.html#emulating-container-types
+    @wraps(dict.__getitem__)
+    def __getitem__(self, k):
+        return self._data.__getitem__(k)
+    @wraps(dict.__iter__)
+    def __iter__(self):
+        return self._data.__iter__()
+    @wraps(dict.__len__)
+    def __len__(self):
+        return self._data.__len__()
+    @wraps(dict.__contains__)
+    def __contains__(self, k):
+        return self._data.__contains__(k)
+    @wraps(dict.keys)
+    def keys(self):
+        return self._data.keys()
+    @wraps(dict.items)
+    def items(self):
+        return self._data.items()
+    @wraps(dict.values)
+    def values(self):
+        return self._data.values()
+    @wraps(dict.get)
+    def get(self, k, *d):
+        return self._data.get(k, *d)
+    @wraps(dict.__eq__)
+    def __eq__(self, other):
+        other = other._data if isinstance(other, frozendict) else other
+        return self._data.__eq__(other)
+    @wraps(dict.__ne__)
+    def __ne__(self, other):
+        other = other._data if isinstance(other, frozendict) else other
+        return self._data.__ne__(other)
+
+# Register implicit ABCs for frozendict (like dict has).
+#
+# https://stackoverflow.com/questions/42781267/is-there-a-pythonics-way-to-distinguish-sequences-objects-like-tuple-and-list
+# https://docs.python.org/3/library/abc.html#abc.ABCMeta.register
+# Further reading: https://stackoverflow.com/questions/40764347/python-subclasscheck-subclasshook
+def get_collection_abcs(cls):
+    """Return a set of the collections.abc superclasses of cls (virtuals too)."""
+    return {v for k, v in vars(collections.abc).items() if isclass(v) and issubclass(cls, v)}
+for abscls in get_collection_abcs(dict) - {MutableMapping} | {Hashable}:
+    abscls.register(frozendict)
+del abscls  # namespace cleanup
 
 def fupdate(target, indices=None, values=None, **mappings):
     """Return a functionally updated copy of a sequence or a mapping.

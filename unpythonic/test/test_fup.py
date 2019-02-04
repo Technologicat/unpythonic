@@ -2,6 +2,7 @@
 
 from itertools import repeat
 from collections import namedtuple
+from collections.abc import Mapping, MutableMapping, Hashable
 
 from ..fup import fupdate, frozendict
 
@@ -117,6 +118,28 @@ def test():
     assert type(d6) is type(d3)
 
     assert frozendict() is frozendict()  # empty-frozendict singleton property
+
+    d7 = frozendict({1:2, 3:4})
+    assert 3 in d7
+    assert len(d7) == 2
+    assert set(d7.keys()) == {1, 3}
+    assert set(d7.values()) == {2, 4}
+    assert set(d7.items()) == {(1, 2), (3, 4)}
+    assert d7 == frozendict({1:2, 3:4})
+    assert d7 != frozendict({1:2})
+    assert d7 == {1:2, 3:4}  # like frozenset, __eq__ doesn't care whether mutable or not
+    assert d7 != {1:2}
+    assert {k for k in d7} == {1, 3}
+    assert d7.get(3) == 4
+    assert d7.get(5, 0) == 0
+    assert d7.get(5) is None
+
+    assert issubclass(frozendict, Mapping)
+    assert not issubclass(frozendict, MutableMapping)
+
+    assert issubclass(frozendict, Hashable)
+    assert hash(d7) == hash(frozendict({1:2, 3:4}))
+    assert hash(d7) != hash(frozendict({1:2}))
 
     print("All tests PASSED")
 
