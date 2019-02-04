@@ -1398,7 +1398,10 @@ def nb(tree, **kw):
 
 @macros.block
 def lazify(tree, *, gen_sym, **kw):
-    """[syntax, block] Automatic lazy evaluation of function arguments.
+    """[syntax, block] Call-by-need for Python.
+
+    This macro affects only function argument passing; everything else works
+    as usual.
 
     In a ``with lazify`` block, function arguments are evaluated only when
     actually used, so we can build things like this silly contrived example::
@@ -1414,52 +1417,116 @@ def lazify(tree, *, gen_sym, **kw):
             assert my_if(True, 23, 1/0) == 23
             assert my_if(False, 1/0, 42) == 42
 
-    Essentially, at call time, each argument is converted into a promise,
-    which is then forced when its value is read. If, in a particular code path,
-    some argument is never used, then it is not evaluated, either. Evaluation
-    of each argument is guaranteed to occur at most once. Order of evaluation
-    is determined by the order in which the function actually uses its arguments.
-
-    When a lazy function has ``*args`` or ``**kwargs`` formal parameters, then
-    inside that function, each item within them is treated separately. Only the
-    items that are actually read will be evaluated. (This is done by treating
-    subscript references like ``args[...]`` separately, at a higher precedence
-    than name references like ``args`` (which will evaluate all of ``*args``).)
-
-    This macro affects only function argument passing; everything else works
-    as usual.
-
-    This macro attempts to integrate with some of the rest of Python:
-
-        - Calls *into* lazy functions *from outside* the ``with lazify`` block
-          automatically wrap the already-evaluated argument values into promises
-          (that just pass through the already computed value).
-
-        - Calls *from* lazy functions *to outside* the ``with lazify`` block
-          (into regular functions) evaluate the arguments in the usual manner
-          whenever the target of a call is **not** a lazy function.
+    Note ``my_if`` is a run-of-the-mill runtime function, not a macro. Only the
+    ``with lazify`` is imbued with any magic.
 
     Like ``with continuations``, no state or context is associated with a
     ``with lazify`` block, so lazy functions defined in one block may call
     those defined in another.
 
-    The implementation uses MacroPy's ``lazy[]`` expr macro.
+    Evaluation of each lazified argument is guaranteed to occur at most once;
+    the value is cached. Order of evaluation of lazy arguments is determined
+    by the order in which the lazified code actually uses them.
 
-    We provide also a function ``force``. If ``x`` is a MacroPy ``lazy[]``
-    promise, ``force(x)`` forces it and returns the value. If not, ``force(x)``
-    evaluates to ``x``, à la Racket. This is a convenience feature that makes
-    the programmer's intent explicit; MacroPy itself uses the function call
-    syntax ``x()`` to force a promise.
+    Essentially, the above code expands into::
+
+        from macropy.quick_lambda import macros, lazy
+        from unpythonic.syntax import force
+
+        with lazify:
+            def my_if(p, a, b):
+                if force(p):
+                    return force(a)
+                else:
+                    return force(b)
+            assert my_if(lazy[True], lazy[23], lazy[1/0]) == 23
+            assert my_if(lazy[False], lazy[1/0], lazy[42]) == 42
+
+    plus some clerical details to allow lazy and strict code to be mixed.
+
+    Just passing through a lazy argument to another lazy function will
+    not trigger evaluation::
+
+        with lazify:
+            def g(a, b):
+                return a
+            def f(a, b):
+                return g(2*a, 3*b)
+            assert f(21, 1/0) == 42
+
+    The division by zero is never performed, because the value of ``b`` is
+    not needed to compute the result (worded less magically, that promise is
+    never forced in the code path that produces the result). Essentially,
+    the above code expands into::
+
+        from macropy.quick_lambda import macros, lazy
+        from unpythonic.syntax import force
+
+        def g(a, b):
+            return force(a)
+        def f(a, b):
+            return g(lazy[2*force(a)], lazy[3*force(b)])
+        assert f(lazy[21], lazy[1/0]) == 42
+
+    This relies on the magic of closures to capture f's ``a`` and ``b`` into
+    the promises.
+
+    Passthrough is optimized to skip the re-thunking if the passed-through
+    argument is one of the existing formals::
+
+        def g(a):
+            return a
+        def f(a):
+            return g(a)
+        assert f(42) == 42
+
+    expands into::
+
+        def g(a):
+            return force(a)
+        def f(a):
+            return g(a)  # <-- optimized; lazy[force(a)] -> a
+        assert f(lazy[42]) == 42
+
+    For forcing promises, we provide a function ``force`` that (recursively)
+    descends into ``tuple``, ``list``, ``set``, ``frozenset``, and the values
+    in ``dict`` and ``unpythonic.fup.frozendict``.
+
+    When ``force`` encounters an atom ``x`` (i.e. anything that is not one of
+    these containers), then, if ``x`` is a MacroPy ``lazy[]`` promise, it will
+    be forced, and the resulting value is returned. If ``x`` is not a promise,
+    ``x`` itself is returned, à la Racket.
 
     Inspired by Haskell, and Racket's (delay) and (force).
 
-    **Notes**
+    **Mixing lazy and strict code**
+
+    Lazy code is allowed to call strict functions and vice versa, without
+    requiring any additional effort.
+
+    Keep in mind what this implies: when calling a strict function, any arguments
+    given to it will be automatically evaluated!
+
+    In the other direction, when calling a lazy function from outside any
+    ``with lazify`` block, the arguments are evaluated by the strict calling
+    code before the lazy code gets control. Then, the values are automatically
+    wrapped into dummy promises that just return the already computed values.
+
+    If you want to lazily pass an argument from strict code, use syntax like
+    ``f(lazy[...], ...)``. The machinery detects any args that are already
+    promises, and just passes them through.
+
+    **Overwriting and renaming formals**
 
     You can overwrite names that were originally formal parameters with data
     values; the new values may, but do not need to be, promises. Mostly, this
     shouldn't break anything, since ``force(x)`` evaluates to ``x`` when ``x``
-    is not a promise. But if you overwrite the ``*args`` tuple or the ``**kwargs``
-    dictionary, be sure that the new value is also a tuple/dictionary.
+    is not a promise, and calls into lazy functions auto-wrap any already
+    evaluated args.
+
+    But if you overwrite the ``*args`` tuple or the ``**kwargs`` dictionary,
+    be sure that the new value is also a tuple/dictionary, because the lazy args
+    passthrough optimizer expects that.
 
     If you want to manually introduce a promise, use ``lazy[]`` from MacroPy::
 
@@ -1471,7 +1538,7 @@ def lazify(tree, *, gen_sym, **kw):
                 print(x)        # the implicit force(x) evaluates the promise
             f(17)
 
-    But this also works::
+    This also works::
 
         with lazify:
             def f(x):
@@ -1479,9 +1546,8 @@ def lazify(tree, *, gen_sym, **kw):
                 print(x)  # the implicit force(x) evaluates to x
             f(17)
 
-    The macro replaces each read of a name ``x`` that originally referred to a
-    formal parameter by ``force(x)``. Note only the original names of formal
-    parameters introduce this implicit ``force``.
+    Note only the original names of formal parameters introduce the implicit
+    ``force``.
 
     Assigning a formal to a new name triggers the implicit force, because this
     implies reading the original::
@@ -1494,23 +1560,21 @@ def lazify(tree, *, gen_sym, **kw):
 
     **CAUTION**: Argument passing by function call is currently the only binding
     construct to which auto-lazification is applied. Support for other forms of
-    binding such as assignment and the context manager is subject to possible
+    binding such as assignment and the context manager is subject to **possible**
     addition in a future version.
 
-    **CAUTION**: This is a very rough first draft. For example:
+    **CAUTION**: Lazy evaluation is a low-level language feature that is difficult
+    to bolt on after the fact. Hence, some things will not work. For example:
 
-        - Lazy ``curry`` is currently **not** supported.
+        - Lazy ``curry`` is currently **not** supported. Making ``curry`` work
+          properly with lazy functions requires modifying ``curry`` itself.
 
-        - ``call`` and ``callwith`` are not supported.
+        - ``call``, ``callwith`` and ``compose`` are not supported. (Similarly.)
 
         - Interaction with other macros is limited to ``let[]`` and ``do[]``.
           Intuition says this should be expanded **after** ``continuations``,
           if you want to try comboing them. But that's untested, and likely to
           remain so at least for a while.
-
-        - Passing through a received lazy argument to another lazy function,
-          without triggering intermediate evaluation, is not supported.
-          (This major limitation is subject to be removed in a future version.)
 
     **CAUTION**: This macro is experimental, not intended for production use.
     """
