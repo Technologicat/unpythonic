@@ -8,7 +8,7 @@ from ast import Lambda, FunctionDef, Call, Name, \
                 Subscript, Load
 from .astcompat import AsyncFunctionDef
 
-from macropy.core.quotes import macros, q, ast_literal, name
+from macropy.core.quotes import macros, q, ast_literal
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
@@ -16,11 +16,9 @@ from macropy.quick_lambda import macros, lazy
 from macropy.quick_lambda import Lazy
 
 from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, isx
-from .letdo import let
 from .letdoutil import islet, isdo
 from ..regutil import register_decorator
 from ..it import uniqify
-from ..dynassign import dyn
 from ..fup import frozendict
 
 @register_decorator(priority=95)
@@ -171,14 +169,11 @@ def lazify(body):
                 pass  # known to be strict, no need to introduce lazy[] (just let the transformer recurse)
             else:
                 stop()
-                gen_sym = dyn.gen_sym
                 ln, co = tree.lineno, tree.col_offset
 
-                # Evaluate the operator (.func of the Call node) just once.
+                # Evaluate the operator (.func of the Call node).
                 thefunc = tree.func
                 thefunc = rec(thefunc)  # recurse into the operator
-                fname = gen_sym("f")
-                letbindings = [q[(name[fname], ast_literal[thefunc])]]
 
                 # Delay the args (first, recurse into them).
 
@@ -213,31 +208,25 @@ def lazify(body):
                 # TODO: test *args support in Python 3.5+ (this **should** work according to the AST specs)
                 adata = []
                 for x in tree.args:
-                    localname = gen_sym("a")
                     if type(x) is Starred:  # *seq in Python 3.5+
                         v = transform_starred(x.value)
-                        a = Starred(value=q[name[localname]], lineno=ln, col_offset=co)
+                        v = Starred(value=q[ast_literal[v]], lineno=ln, col_offset=co)
                     else:
                         v = transform_arg(x)
-                        a = q[name[localname]]
-                    adata.append(a)
-                    letbindings.append(q[(name[localname], ast_literal[v])])
+                    adata.append(v)
 
                 # TODO: test **kwargs support in Python 3.5+ (this **should** work according to the AST specs)
                 kwdata = []
                 for x in tree.keywords:
-                    localname = gen_sym("kw")
                     if x.arg is None:  # **dic in Python 3.5+
                         v = transform_starred(x.value, dstarred=True)
                     else:
                         v = transform_arg(x.value)
-                    a = q[name[localname]]
-                    kwdata.append((x.arg, a))
-                    letbindings.append(q[(name[localname], ast_literal[v])])
+                    kwdata.append((x.arg, v))
 
                 # Construct the call
                 mycall = Call(func=hq[lazycall],
-                              args=[q[name[fname]]] + [q[ast_literal[x]] for x in adata],
+                              args=[q[ast_literal[thefunc]]] + [q[ast_literal[x]] for x in adata],
                               keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, x in kwdata],
                               lineno=ln, col_offset=co)
 
@@ -248,23 +237,16 @@ def lazify(body):
                 # the function definition transformer.
                 if hasattr(tree, "starargs"):
                     if tree.starargs is not None:
-                        saname = gen_sym("sa")
-                        v = transform_starred(tree.starargs)
-                        letbindings.append(q[(name[saname], ast_literal[v])])
-                        mycall.starargs = q[name[saname]]
+                        mycall.starargs = transform_starred(tree.starargs)
                     else:
                         mycall.starargs = None
                 if hasattr(tree, "kwargs"):
                     if tree.kwargs is not None:
-                        kwaname = gen_sym("kwa")
-                        v = transform_starred(tree.kwargs, dstarred=True)
-                        letbindings.append(q[(name[kwaname], ast_literal[v])])
-                        mycall.kwargs = q[name[kwaname]]
+                        mycall.kwargs = transform_starred(tree.kwargs, dstarred=True)
                     else:
                         mycall.kwargs = None
 
-                letbody = mycall
-                tree = let(letbindings, letbody)
+                tree = mycall
 
         # force the accessed part of *args or **kwargs (at the receiving end)
         elif type(tree) is Subscript and type(tree.ctx) is Load:
