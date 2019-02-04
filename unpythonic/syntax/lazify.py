@@ -33,11 +33,11 @@ def mark_lazy(f):
     lazified._entrypoint = f
     return lazified
 
-def lazycall(_func, *args, **kwargs):
+def lazycall(_func, *thunks, **kwthunks):
     """Internal. Helps calling strict functions from inside a ``with lazify`` block."""
     if hasattr(_func, '_lazy'):
-        return _func._entrypoint(*args, **kwargs)  # skip the lazified() wrapper
-    return _func(*force(args), **force(kwargs))
+        return _func._entrypoint(*thunks, **kwthunks)  # skip the lazified() wrapper
+    return _func(*force(thunks), **force(kwthunks))
 
 # syntax transformer: lazify elements in container literals, recursively
 def lazyrec(tree):
