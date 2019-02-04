@@ -168,7 +168,7 @@ def lazify(body):
 
         elif type(tree) is Call:
             if isdo(tree) or islet(tree):
-                pass  # known to be strict, no need to introduce lazy[] (note we still recurse)
+                pass  # known to be strict, no need to introduce lazy[] (just let the transformer recurse)
             else:
                 stop()
                 gen_sym = dyn.gen_sym
@@ -187,7 +187,7 @@ def lazify(body):
                         pass  # optimized passthrough for arg -> arg (both positional and named)
                     else:
                         tree = rec(tree)  # add any needed force() invocations inside the tree
-                        tree = hq[lazy[ast_literal[tree]]]
+                        tree = hq[lazy[ast_literal[tree]]]  # thunkify *the whole tree*
                     return tree
 
                 def transform_starred(tree, dstarred=False):
