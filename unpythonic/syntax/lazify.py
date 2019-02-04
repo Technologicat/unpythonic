@@ -112,11 +112,9 @@ def _f(x, iflazyatom, otherwise):  # common skeleton for force/wrap
 
 # TODO: support curry, call, callwith (may need changes to their implementations, too)
 
-# TODO: detect and handle overwrites of formals (new value should be lazified, too)
-# ...or maybe not; the current solution (use lazy[] manually in such cases)
-# is simple and uniform, which an automated mechanism could not be, due to the
-# high complexity of assignment syntax in Python (esp. with sequence unpacking
-# generalizations in Python 3.5+).
+# TODO: collect localvars (if not already in formals) from assignments, lazify RHS
+# TODO: other binding constructs? Maybe "with": wrap(ctxmgr(...)) to eagerly init, but return a dummy promise
+# full list: see unpythonic.syntax.scoping.get_names_in_store_context (and the link therein)
 
 def lazify(body):
     # first pass, outside-in
