@@ -177,7 +177,7 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
     This stops at the boundary of any nested scopes.
 
     To find out new local vars, exclude any names in ``nonlocals`` as returned
-    by ``_getshadowers``.
+    by ``getshadowers``.
     """
     def collect_name_or_list(t):
         if type(t) is Name:
