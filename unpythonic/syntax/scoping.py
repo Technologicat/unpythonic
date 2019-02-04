@@ -78,7 +78,7 @@ def scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ct
 def getshadowers(tree):
     """In a tree representing a lexical scope, get names that shadow names in unpythonic envs.
 
-    An AST node represents a scope if ``_isnewscope(tree)`` returns ``True``.
+    An AST node represents a scope if ``isnewscope(tree)`` returns ``True``.
 
     This collects:
 
