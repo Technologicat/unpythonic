@@ -14,6 +14,52 @@ def get_abcs(cls):
     """Return a set of the collections.abc superclasses of cls (virtuals too)."""
     return {v for k, v in vars(abc).items() if isclass(v) and issubclass(cls, v)}
 
+# TODO: allow multiple input container args in mogrify, like map does (also support longest, fillvalue)
+# TODO: support llist (need to be able to copy-construct an arbitrary cons structure)
+# TODO: move to unpythonic.it? This is a spork...
+def mogrify(func, container):
+    """In-place map for mutable containers.
+
+    Recurse on container, apply func to each atom. Containers can be nested,
+    with an arbitrary combination of types.
+
+    Supported container types are the builtins ``list``, ``tuple``, ``dict``,
+    ``set``, ``frozenset``, and from ``unpythonic.collections``, ``frozendict``
+    and ``box``. A value of any other type is treated as an atom.
+
+    Any **immutable** container encountered (``tuple``, ``frozenset``,
+    ``frozendict``) is transformed into a new copy, just like in ``map``.
+
+    Any **mutable** container is updated in-place.
+    """
+    def doit(x):
+        if isinstance(x, list):
+            y = [doit(elt) for elt in x]
+            x.clear()
+            x.extend(y)
+            return x
+        elif isinstance(x, set):
+            y = {doit(elt) for elt in x}
+            x.clear()
+            x.update(y)
+            return x
+        elif isinstance(x, dict):
+            y = {k: doit(v) for k, v in x.items()}
+            x.clear()
+            x.update(y)
+            return x
+        elif isinstance(x, box):
+            x.x = doit(x.x)  # unfortunate attr name :)
+            return x
+        elif isinstance(x, tuple):
+            return tuple(doit(elt) for elt in x)
+        elif isinstance(x, frozenset):
+            return frozenset({doit(elt) for elt in x})
+        elif isinstance(x, frozendict):
+            return frozendict({k: doit(v) for k, v in x.items()})
+        return func(x)  # atom
+    return doit(container)
+
 # -----------------------------------------------------------------------------
 
 class box:

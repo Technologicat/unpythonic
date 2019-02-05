@@ -19,7 +19,7 @@ from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda
 from .letdoutil import islet, isdo
 from ..regutil import register_decorator
 from ..it import uniqify
-from ..collections import frozendict, box
+from ..collections import frozendict, box, mogrify
 
 @register_decorator(priority=95)
 def mark_lazy(f):
@@ -77,10 +77,12 @@ def force(x):
     If ``x`` is not a promise, it is returned as-is (à la Racket).
 
     This recurses into ``list``, ``tuple``, ``dict``, ``set``, ``frozenset``,
-    ``unpythonic.collections.frozendict`` and ``unpythonic.misc.box``.
-    For the output, new container instances are created.
+    and from ``unpythonic.collections``, ``frozendict`` and ``box``.
+    Mutable containers are updated in-place, for immutables a new instance
+    is created.
     """
-    return _f(x, iflazyatom=lambda x: x(), otherwise=lambda x: x)
+    f = lambda elt: elt() if isinstance(elt, Lazy) else elt
+    return mogrify(f, x)  # in-place update to allow lazy functions to have writable list arguments
 
 def wrap(x):
     """Wrap an already evaluated data value into a MacroPy lazy[] promise.
@@ -88,11 +90,13 @@ def wrap(x):
     If ``x`` is already a promise, it is returned as-is.
 
     This recurses into ``list``, ``tuple``, ``dict``, ``set``, ``frozenset``,
-    ``unpythonic.collections.frozendict``  and ``unpythonic.misc.box``.
-    For the output, new container instances are created.
+    and from ``unpythonic.collections``, ``frozendict`` and ``box``.
+    Mutable containers are updated in-place, for immutables a new instance
+    is created.
     """
-    # The otherwise case wraps the already evaluated x into a promise.
-    return _f(x, iflazyatom=lambda x: x, otherwise=lambda x: lazy[x])
+    # the else wraps the already evaluated elt into a promise
+    f = lambda elt: elt if isinstance(elt, Lazy) else lazy[elt]
+    return mogrify(f, x)
 
 def _f(x, iflazyatom, otherwise):  # common skeleton for force/wrap
     def doit(x):

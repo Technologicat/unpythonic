@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping, MutableMapping, Hashable
 
-from ..collections import box, frozendict
+from ..collections import box, frozendict, mogrify
 
 def test():
     # box: mutable single-item container à la Racket
@@ -17,6 +17,7 @@ def test():
     assert 17 in b2
     assert 23 not in b2
     assert [x for x in b2] == [17]
+    assert b2 == 17  # for convenience, a box is considered equal to the item it contains
     assert len(b2) == 1
     assert b2 != b
 
@@ -71,6 +72,48 @@ def test():
     assert issubclass(frozendict, Hashable)
     assert hash(d7) == hash(frozendict({1:2, 3:4}))
     assert hash(d7) != hash(frozendict({1:2}))
+
+    # in-place map
+    double = lambda x: 2*x
+    lst = [1, 2, 3]
+    lst2 = mogrify(double, lst)
+    assert lst2 == [2, 4, 6]
+    assert lst2 is lst
+
+    s = {1, 2, 3}
+    s2 = mogrify(double, s)
+    assert s2 == {2, 4, 6}
+    assert s2 is s
+
+    d = {1: 2, 3: 4}
+    d2 = mogrify(double, d)
+    assert set(d2.items()) == {(1, 4), (3, 8)}
+    assert d2 is d
+
+    b = box(17)
+    b2 = mogrify(double, b)
+    assert b2 == 34
+    assert b2 is b
+
+    tup = (1, 2, 3)
+    tup2 = mogrify(double, tup)
+    assert tup2 == (2, 4, 6)
+    assert tup2 is not tup  # immutable, cannot be updated in-place
+
+    fs = frozenset({1, 2, 3})
+    fs2 = mogrify(double, fs)
+    assert fs2 == {2, 4, 6}
+    assert fs2 is not fs
+
+    fd = frozendict({1: 2, 3: 4})
+    fd2 = mogrify(double, fd)
+    assert set(fd2.items()) == {(1, 4), (3, 8)}
+    assert fd2 is not fd
+
+    atom = 17
+    atom2 = mogrify(double, atom)
+    assert atom2 == 34
+    assert atom2 is not atom
 
     print("All tests PASSED")
 
