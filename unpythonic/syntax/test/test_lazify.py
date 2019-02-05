@@ -144,8 +144,7 @@ def test():
         g(2*21)
 
     # mutable container as function argument
-    with show_expanded:
-      with lazify:
+    with lazify:
         def f(lst):
             lst[0] = 10*lst[0]
         lst = [1, 2, 3]
