@@ -251,30 +251,33 @@ def lazify(body):
             # Lazy() is a strict function, takes a lambda, constructs a Lazy object
             if isdo(tree) or islet(tree) or isx(tree.func, "namelambda") or \
                any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, isLazy):
-                pass
+                # here we know the operator (.func) to be one of specific names;
+                # don't transform it to avoid confusing lazyrec[] (important if this
+                # is an inner call in the arglist of an outer, lazy call, since it
+                # must see any container constructors in the args)
+                stop()
+                tree.args = rec(tree.args)
+                tree.keywords = rec(tree.keywords)
+                if hasattr(tree, "starargs"): tree.starargs = rec(tree.starargs)  # Python 3.4
+                if hasattr(tree, "kwargs"): tree.kwargs = rec(tree.kwargs)  # Python 3.4
             else:
                 stop()
                 ln, co = tree.lineno, tree.col_offset
 
                 # Evaluate the operator (.func of the Call node).
                 thefunc = tree.func
-                thefunc = rec(thefunc)  # recurse into the operator
+                thefunc = rec(thefunc)
 
                 # Delay the args (first, recurse into them).
 
                 def transform_arg(tree):
-                    if type(tree) is Name and tree.id in formals:
-                        pass  # optimized passthrough for arg -> arg (both positional and named)
-                    else:
+                    if type(tree) is not Name:
                         tree = rec(tree)      # add any needed force() invocations inside the tree
                         tree = lazyrec(tree)  # (re-)thunkify
                     return tree
 
                 def transform_starred(tree, dstarred=False):
-                    optimizable_names = kwargs if dstarred else varargs
-                    if type(tree) is Name and tree.id in optimizable_names:
-                        pass  # optimized passthrough for *args -> *args, **kwargs -> **kwargs
-                    else:
+                    if type(tree) is not Name:
                         tree = rec(tree)
                         # lazify items if we have a literal container
                         # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
@@ -346,9 +349,8 @@ def lazify(body):
 
         # force formal parameters, including any uses of the whole *args or **kwargs
         elif type(tree) is Name and type(tree.ctx) is Load:
-            stop()  # must not recurse even when a Name changes into a Call.
-            if tree.id in formals + varargs + kwargs:
-                tree = hq[force(ast_literal[tree])]
+            stop()  # must not recurse when a Name changes into a Call.
+            tree = hq[force(ast_literal[tree])]
 
         return tree
     newbody = []
