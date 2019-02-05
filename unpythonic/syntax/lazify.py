@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Automatic lazy evaluation of function arguments."""
 
-from functools import wraps
 from copy import copy
 
 from ast import Lambda, FunctionDef, Call, Name, \
@@ -20,24 +19,38 @@ from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda
                   isx, make_isxpred, getname
 from .letdoutil import islet, isdo
 from ..regutil import register_decorator
-from ..it import uniqify
 from ..collections import mogrify
 
 @register_decorator(priority=95)
 def mark_lazy(f):
     """Internal. Helps calling lazy functions from outside a ``with lazify`` block."""
-    @wraps(f)
-    def lazified(*args, **kwargs):
-        return f(*wrap(args), **wrap(kwargs))
-    lazified._lazy = True
-    lazified._entrypoint = f
-    return lazified
+    f._lazy = True
+    return f
 
 def lazycall(_func, *thunks, **kwthunks):
     """Internal. Helps calling strict functions from inside a ``with lazify`` block."""
     if hasattr(_func, '_lazy'):
-        return _func._entrypoint(*thunks, **kwthunks)  # skip the lazified() wrapper
+        return _func(*thunks, **kwthunks)
     return _func(*force(thunks), **force(kwthunks))
+
+# -----------------------------------------------------------------------------
+
+# Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
+def force(x):
+    """Force a MacroPy lazy[] promise.
+
+    For a promise ``x``, the effect of ``force(x)`` is the same as ``x()``,
+    except that ``force `` first checks that ``x`` is a promise.
+
+    If ``x`` is not a promise, it is returned as-is (à la Racket).
+
+    This recurses on any containers with the appropriate ``collections.abc``
+    abstract base classes (virtuals ok too). Mutable containers are updated
+    in-place, for immutables a new instance is created. For details, see
+    ``unpythonic.collections.mogrify``.
+    """
+    f = lambda elt: elt() if isinstance(elt, Lazy) else elt
+    return mogrify(f, x)  # in-place update to allow lazy functions to have writable list arguments
 
 # -----------------------------------------------------------------------------
 
@@ -156,43 +169,13 @@ def is_literal_container(tree, maps_only=False):  # containers understood by laz
 
 # -----------------------------------------------------------------------------
 
-# Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
-def force(x):
-    """Force a MacroPy lazy[] promise.
-
-    For a promise ``x``, the effect of ``force(x)`` is the same as ``x()``,
-    except that ``force `` first checks that ``x`` is a promise.
-
-    If ``x`` is not a promise, it is returned as-is (à la Racket).
-
-    This recurses on any containers with the appropriate ``collections.abc``
-    abstract base classes (virtuals ok too). Mutable containers are updated
-    in-place, for immutables a new instance is created. For details, see
-    ``unpythonic.collections.mogrify``.
-    """
-    f = lambda elt: elt() if isinstance(elt, Lazy) else elt
-    return mogrify(f, x)  # in-place update to allow lazy functions to have writable list arguments
-
-def wrap(x):
-    """Wrap an already evaluated data value into a MacroPy lazy[] promise.
-
-    If ``x`` is already a promise, it is returned as-is.
-
-    This recurses on any containers with the appropriate ``collections.abc``
-    abstract base classes (virtuals ok too). Mutable containers are updated
-    in-place, for immutables a new instance is created. For details, see
-    ``unpythonic.collections.mogrify``.
-    """
-    # the else wraps the already evaluated elt into a promise
-    f = lambda elt: elt if isinstance(elt, Lazy) else lazy[elt]
-    return mogrify(f, x)
-
-# -----------------------------------------------------------------------------
-
 # TODO: support curry, call, callwith (may need changes to their implementations, too)
 
-# TODO: collect localvars (if not already in formals) from assignments, lazify RHS
-# TODO: other binding constructs? Maybe "with": wrap(ctxmgr(...)) to eagerly init, but return a dummy promise
+# TODO: lazify assignment RHS
+# TODO: other binding constructs?
+#   - keep in mind that force(x) == x if x is a non-promise atom, so a wrapper is not needed
+#   - not "with", eager init is the whole point of a context manager
+#   - not "for", it's a rapidly changing loop counter
 # full list: see unpythonic.syntax.scoping.get_names_in_store_context (and the link therein)
 
 def lazify(body):
@@ -202,30 +185,15 @@ def lazify(body):
 
     # second pass, inside-out
     @Walker
-    def transform(tree, *, formals, varargs, kwargs, stop, **kw):
-        def rec(tree):  # boilerplate eliminator for recursion in current scope
-            return transform.recurse(tree,
-                                     varargs=varargs,
-                                     kwargs=kwargs,
-                                     formals=formals)
-
+    def transform(tree, *, stop, **kw):
         if type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
             if type(tree) is Lambda and id(tree) not in userlambdas:
                 pass  # ignore macro-introduced lambdas
             else:
                 stop()
 
-                # transform decorators using previous scope
+                # transform decorators
                 tree.decorator_list = rec(tree.decorator_list)
-
-                # gather the names of formal parameters
-                a = tree.args
-                newformals = formals.copy()
-                for s in (a.args, a.kwonlyargs):
-                    newformals += [x.arg for x in s if x is not None]
-                newformals = list(uniqify(newformals))
-                newvarargs = list(uniqify(varargs + [a.vararg.arg])) if a.vararg is not None else varargs
-                newkwargs = list(uniqify(kwargs + [a.kwarg.arg])) if a.kwarg is not None else kwargs
 
                 # mark this definition as lazy, and insert the interface wrapper
                 # to allow also strict code to call this function
@@ -239,11 +207,8 @@ def lazify(body):
                     else:
                         tree.decorator_list.append(hq[mark_lazy])
 
-                # transform body using **the new inner scope**
-                tree.body = transform.recurse(tree.body,
-                                              varargs=newvarargs,
-                                              kwargs=newkwargs,
-                                              formals=newformals)
+                # transform body
+                tree.body = rec(tree.body)
 
         elif type(tree) is Call:
             # For some important functions known to be strict, just let the transformer recurse
@@ -347,15 +312,18 @@ def lazify(body):
                 tmp.value = hq[ast_literal[tree.value]()]
                 tree = hq[force(ast_literal[tmp]) if isinstance(ast_literal[tree.value], Lazy) else force(ast_literal[tree])]
 
-        # force formal parameters, including any uses of the whole *args or **kwargs
+        # force uses of names
+        # TODO: what about attributes? should probably force them, too?
         elif type(tree) is Name and type(tree.ctx) is Load:
             stop()  # must not recurse when a Name changes into a Call.
             tree = hq[force(ast_literal[tree])]
 
         return tree
+
+    rec = transform.recurse
     newbody = []
     for stmt in body:
-        newbody.append(transform.recurse(stmt, varargs=[], kwargs=[], formals=[]))
+        newbody.append(rec(stmt))
     return newbody
 
 # -----------------------------------------------------------------------------
