@@ -37,6 +37,8 @@ def lazycall(_func, *thunks, **kwthunks):
         return _func._entrypoint(*thunks, **kwthunks)  # skip the lazified() wrapper
     return _func(*force(thunks), **force(kwthunks))
 
+# -----------------------------------------------------------------------------
+
 # lazyrec: syntax transformer, recursively lazify elements in container literals
 #
 # **CAUTION**: There are some containers whose constructors appear as a Call node,
@@ -143,6 +145,8 @@ def is_literal_container(tree, maps_only=False):  # containers understood by laz
     if type(tree) is Call and any(isx(tree.func, s) for s in _ctorcalls_map): return True
     return False
 
+# -----------------------------------------------------------------------------
+
 # Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
 def force(x):
     """Force a MacroPy lazy[] promise.
@@ -173,6 +177,8 @@ def wrap(x):
     # the else wraps the already evaluated elt into a promise
     f = lambda elt: elt if isinstance(elt, Lazy) else lazy[elt]
     return mogrify(f, x)
+
+# -----------------------------------------------------------------------------
 
 # TODO: support curry, call, callwith (may need changes to their implementations, too)
 
@@ -324,3 +330,5 @@ def lazify(body):
     for stmt in body:
         newbody.append(transform.recurse(stmt, varargs=[], kwargs=[], formals=[]))
     return newbody
+
+# -----------------------------------------------------------------------------
