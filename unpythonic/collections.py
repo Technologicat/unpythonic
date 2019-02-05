@@ -12,12 +12,13 @@ from collections.abc import Container, Iterable, Hashable, Sized, \
 from inspect import isclass
 from operator import lt, le, ge, gt
 
+from .llist import cons
+
 def get_abcs(cls):
     """Return a set of the collections.abc superclasses of cls (virtuals too)."""
     return {v for k, v in vars(abc).items() if isclass(v) and issubclass(cls, v)}
 
 # TODO: allow multiple input container args in mogrify, like map does (also support longest, fillvalue)
-# TODO: support llist (need to be able to copy-construct an arbitrary cons structure)
 # TODO: move to unpythonic.it? This is a spork...
 def mogrify(func, container):
     """In-place recursive map for mutable containers.
@@ -48,8 +49,12 @@ def mogrify(func, container):
 
           (If you want to process strings, implement it in your ``func``.)
 
-        - The ``box`` container provided by this module; its update is not
-          conveniently expressible by the APIs guaranteed by the abcs.
+        - The ``box`` container provided by this module; although mutable,
+          its update is not conveniently expressible by the abc APIs.
+
+        - The ``cons`` container from ``unpythonic.llist`` (including the
+          ``llist`` linked lists). This is treated with the general tree
+          strategy, so for long linked lists this will crash.
 
     Any value that does not match any of these is treated as an atom.
 
@@ -59,6 +64,7 @@ def mogrify(func, container):
     just like in ``map``.
     """
     def doit(x):
+        # mutable containers
         if isinstance(x, MutableSequence):
             y = [doit(elt) for elt in x]
             if hasattr(x, "clear"):
@@ -85,6 +91,9 @@ def mogrify(func, container):
         elif isinstance(x, box):
             x.x = doit(x.x)  # unfortunate attr name :)
             return x
+        # immutable containers
+        elif isinstance(x, cons):
+            return cons(doit(x.car), doit(x.cdr))
         elif isinstance(x, Mapping):
             ctor = type(x)
             return ctor({k: doit(v) for k, v in x.items()})
