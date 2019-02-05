@@ -36,6 +36,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position)
  - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence); with slice notation
  - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
+ - [``lazify``: call-by-need for Python](#lazify-call-by-need-for-python)
 
 Meta:
 
@@ -1214,6 +1215,69 @@ with prefix, curry:  # important: apply prefix first, then curry
 ```
 
 **CAUTION**: The ``prefix`` macro is experimental and not intended for use in production code.
+
+
+## ``lazify``: call-by-need for Python
+
+You know you want to:
+
+```python
+with lazify:
+    def my_if(p, a, b):
+        if p:
+            return a  # b never evaluated in this code path
+        else:
+            return b  # a never evaluated in this code path
+    assert my_if(True, 23, 1/0) == 23
+    assert my_if(False, 1/0, 42) == 42
+
+    def g(a, b):
+        return a
+    def f(a, b):
+        return g(2*a, 3*b)
+    assert f(21, 1/0) == 42
+```
+
+In a ``with lazify`` block, function arguments are evaluated only when actually used, at most once each, and in the order in which they are actually used. Passing an argument to another lazy function does not count as a use; a use occurs only if the callee reads the value. This macro affects only function argument passing; everything else works as usual.
+
+Note ``my_if`` in the example is a run-of-the-mill runtime function, not a macro. Only the ``with lazify`` is imbued with any magic. Essentially, the above code expands into:
+
+```python
+from macropy.quick_lambda import macros, lazy
+from unpythonic.syntax import force
+
+def my_if(p, a, b):
+    if force(p):
+        return force(a)
+    else:
+        return force(b)
+assert my_if(lazy[True], lazy[23], lazy[1/0]) == 23
+assert my_if(lazy[False], lazy[1/0], lazy[42]) == 42
+
+def g(a, b):
+    return force(a)
+def f(a, b):
+    return g(lazy[2*force(a)], lazy[3*force(b)])
+assert f(lazy[21], lazy[1/0]) == 42
+```
+
+This relies on the magic of closures to capture f's ``a`` and ``b`` into the promises.
+
+For forcing promises, we provide a function ``unpythonic.syntax.force`` that (recursively) descends into ``tuple``, ``list``, ``set``, ``frozenset``, and the values in ``dict`` and ``unpythonic.fup.frozendict``. When ``force`` encounters an atom ``x`` (i.e. anything that is not one of these containers), then, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket.
+
+Like ``with continuations``, no state or context is associated with a ``with lazify`` block, so lazy functions defined in one block may call those defined in another.
+
+Lazy code is allowed to call strict functions and vice versa, without requiring any additional effort.
+
+For more details, see the docstring of ``unpythonic.syntax.lazify``.
+
+See also ``unpythonic.syntax.lazyrec`` (lazify items in (possibly nested) containers, recursively; expr macro).
+
+Inspired by Haskell, and Racket's ``(delay)`` and ``(force)``.
+
+**CAUTION**: Argument passing by function call is currently the only binding construct to which auto-lazification is applied. Support for other forms of binding such as assignment and the context manager is subject to **possible** addition in a future version.
+
+**CAUTION**: The ``lazify`` macro is experimental and not intended for use in production code.
 
 
 ## Comboability
