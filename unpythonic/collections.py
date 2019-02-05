@@ -19,6 +19,7 @@ def get_abcs(cls):
     return {v for k, v in vars(abc).items() if isclass(v) and issubclass(cls, v)}
 
 # TODO: allow multiple input container args in mogrify, like map does (also support longest, fillvalue)
+#   OTOH, that's assuming an ordered iterable... so maybe not for general containers?
 # TODO: move to unpythonic.it? This is a spork...
 def mogrify(func, container):
     """In-place recursive map for mutable containers.
