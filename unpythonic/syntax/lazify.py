@@ -39,6 +39,8 @@ def lazycall(_func, *thunks, **kwthunks):
 
 # syntax transformer: lazify elements in container literals, recursively
 def lazyrec(tree):
+    # TODO: maybe needs a registry for container constructors? (maybe overkill.)
+    custom_container_constructors = ("frozenset", "box", "frozendict", "cons", "llist", "ll")
     @Walker
     def transform(tree, *, stop, **kw):
         if type(tree) in (Tuple, List, Set):
@@ -47,13 +49,7 @@ def lazyrec(tree):
         elif type(tree) is Dict:
             stop()
             tree.values = [transform.recurse(x) for x in tree.values]
-        elif type(tree) is Call and any(isx(tree.func, s) for s in ("frozenset", "box")):
-            if not (len(tree.args) <= 1 and not tree.keywords):
-                assert False, "expected at most one positional argument for '{}'".format(getname(tree.func))
-            stop()
-            if tree.args:
-                tree.args[0] = transform.recurse(tree.args[0])
-        elif type(tree) is Call and any(isx(tree.func, s) for s in ("frozendict", "cons", "llist", "ll")):
+        elif type(tree) is Call and any(isx(tree.func, ctor) for ctor in custom_container_constructors):
             stop()
             newargs = []
             for a in tree.args:
