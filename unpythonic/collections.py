@@ -2,13 +2,19 @@
 """Additional containers and container utilities."""
 
 __all__ = ["box", "frozendict", "ShadowedSequence",
-           "get_collection_abcs", "in_slice", "index_in_slice"]
+           "get_abcs", "in_slice", "index_in_slice"]
 
 from functools import wraps
-import collections
-from collections.abc import MutableMapping, Hashable, Sequence
+from collections import abc
+from collections.abc import Container, Iterable, Sequence, MutableMapping, Hashable, Sized
 from inspect import isclass
 from operator import lt, le, ge, gt
+
+def get_abcs(cls):
+    """Return a set of the collections.abc superclasses of cls (virtuals too)."""
+    return {v for k, v in vars(abc).items() if isclass(v) and issubclass(cls, v)}
+
+# -----------------------------------------------------------------------------
 
 class box:
     """Minimalistic, mutable single-item container à la Racket.
@@ -32,6 +38,9 @@ class box:
     (It's called ``x`` and not ``value`` to minimize the number of additional
     keystrokes needed.)
 
+    In terms of ``collections.abc``, a ``box`` is a ``Container``, ``Iterable``
+    and ``Sized``.
+
     **Disclaimer**: maybe silly. The standard pythonic solutions are to box
     with a ``list`` (then trying to remember it represents a box, not a list),
     or use the ``nonlocal`` or ``global`` statements if lexically appropriate
@@ -42,6 +51,20 @@ class box:
         self.x = x
     def __repr__(self):
         return "<box at 0x{:x}, x={}>".format(id(self), self.x)
+    def __contains__(self, x):
+        return self.x == x
+    def __iter__(self):
+        return (x for x in (self.x,))
+    def __len__(self):
+        return 1
+    def __eq__(self, other):
+        if isinstance(other, box):
+            other = other.x
+        return self.x == other
+    def __ne__(self, other):
+        if isinstance(other, box):
+            other = other.x
+        return self.x != other
 
 _the_empty_frozendict = None
 class frozendict:
@@ -163,17 +186,18 @@ class frozendict:
         other = other._data if isinstance(other, frozendict) else other
         return self._data.__ne__(other)
 
-# Register virtual ABCs for frozendict (like dict has).
+# Register virtual ABCs for our collections (like the builtins have).
 #
 # https://stackoverflow.com/questions/42781267/is-there-a-pythonics-way-to-distinguish-sequences-objects-like-tuple-and-list
 # https://docs.python.org/3/library/abc.html#abc.ABCMeta.register
 # Further reading: https://stackoverflow.com/questions/40764347/python-subclasscheck-subclasshook
-def get_collection_abcs(cls):
-    """Return a set of the collections.abc superclasses of cls (virtuals too)."""
-    return {v for k, v in vars(collections.abc).items() if isclass(v) and issubclass(cls, v)}
-for abscls in get_collection_abcs(dict) - {MutableMapping} | {Hashable}:
+for abscls in get_abcs(dict) - {MutableMapping} | {Hashable}:
     abscls.register(frozendict)
+for abscls in (Container, Iterable, Sized):
+    abscls.register(box)
 del abscls  # namespace cleanup
+
+# -----------------------------------------------------------------------------
 
 class ShadowedSequence(Sequence):
     """Sequence with some elements shadowed by those from another sequence.

@@ -13,6 +13,24 @@ def test():
     f(b)
     assert b.x == 23
 
+    b2 = box(17)
+    assert 17 in b2
+    assert 23 not in b2
+    assert [x for x in b2] == [17]
+    assert len(b2) == 1
+    assert b2 != b
+
+    b3 = box(17)
+    assert b3 == b2  # boxes are considered equal if their contents are
+
+    try:
+        d = {}
+        d[b] = "foo"
+    except TypeError:
+        pass
+    else:
+        assert False, "box should not be hashable"
+
     # frozendict: like frozenset, but for dictionaries
     d3 = frozendict({'a': 1, 'b': 2})
     assert d3['a'] == 1
