@@ -1433,14 +1433,13 @@ def lazify(tree, *, gen_sym, **kw):
         from macropy.quick_lambda import macros, lazy
         from unpythonic.syntax import force
 
-        with lazify:
-            def my_if(p, a, b):
-                if force(p):
-                    return force(a)
-                else:
-                    return force(b)
-            assert my_if(lazy[True], lazy[23], lazy[1/0]) == 23
-            assert my_if(lazy[False], lazy[1/0], lazy[42]) == 42
+        def my_if(p, a, b):
+            if force(p):
+                return force(a)
+            else:
+                return force(b)
+        assert my_if(lazy[True], lazy[23], lazy[1/0]) == 23
+        assert my_if(lazy[False], lazy[1/0], lazy[42]) == 42
 
     plus some clerical details to allow lazy and strict code to be mixed.
 
