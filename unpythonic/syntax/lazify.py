@@ -158,7 +158,7 @@ def lazyrec(tree):
     rec = transform.recurse
     return rec(tree)
 
-def is_literal_container(tree, maps_only=False):  # containers understood by lazyrec[]
+def is_literal_container(tree, maps_only=False):
     """Test whether tree is a container literal understood by lazyrec[]."""
     if not maps_only:
         if type(tree) in (List, Tuple, Set): return True
@@ -191,8 +191,6 @@ def lazify(body):
                 pass  # ignore macro-introduced lambdas
             else:
                 stop()
-
-                # transform decorators
                 tree.decorator_list = rec(tree.decorator_list)
 
                 # mark this definition as lazy, and insert the interface wrapper
@@ -207,11 +205,10 @@ def lazify(body):
                     else:
                         tree.decorator_list.append(hq[mark_lazy])
 
-                # transform body
                 tree.body = rec(tree.body)
 
         elif type(tree) is Call:
-            # For some important functions known to be strict, just let the transformer recurse
+            # For some important functions known to be strict, just recurse
             # namelambda() is used by let[] and do[]
             # Lazy() is a strict function, takes a lambda, constructs a Lazy object
             if isdo(tree) or islet(tree) or isx(tree.func, "namelambda") or \
@@ -219,7 +216,7 @@ def lazify(body):
                 # here we know the operator (.func) to be one of specific names;
                 # don't transform it to avoid confusing lazyrec[] (important if this
                 # is an inner call in the arglist of an outer, lazy call, since it
-                # must see any container constructors in the args)
+                # must see any container constructor calls that appear in the args)
                 stop()
                 tree.args = rec(tree.args)
                 tree.keywords = rec(tree.keywords)
@@ -228,12 +225,7 @@ def lazify(body):
             else:
                 stop()
                 ln, co = tree.lineno, tree.col_offset
-
-                # Evaluate the operator (.func of the Call node).
-                thefunc = tree.func
-                thefunc = rec(thefunc)
-
-                # Delay the args (first, recurse into them).
+                thefunc = rec(tree.func)
 
                 def transform_arg(tree):
                     if type(tree) is not Name:
@@ -253,7 +245,7 @@ def lazify(body):
                 # TODO: test *args support in Python 3.5+ (this **should** work according to the AST specs)
                 adata = []
                 for x in tree.args:
-                    if type(x) is Starred:  # *seq in Python 3.5+
+                    if type(x) is Starred:  # *args in Python 3.5+
                         v = transform_starred(x.value)
                         v = Starred(value=q[ast_literal[v]], lineno=ln, col_offset=co)
                     else:
@@ -263,7 +255,7 @@ def lazify(body):
                 # TODO: test **kwargs support in Python 3.5+ (this **should** work according to the AST specs)
                 kwdata = []
                 for x in tree.keywords:
-                    if x.arg is None:  # **dic in Python 3.5+
+                    if x.arg is None:  # **kwargs in Python 3.5+
                         v = transform_starred(x.value, dstarred=True)
                     else:
                         v = transform_arg(x.value)
@@ -275,17 +267,12 @@ def lazify(body):
                               keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, x in kwdata],
                               lineno=ln, col_offset=co)
 
-                # Python 3.4 starargs/kwargs handling
-                #
-                # Note this pertains to the presence of *args and **kwargs
-                # arguments **in a call**. The receiving end is handled by
-                # the function definition transformer.
-                if hasattr(tree, "starargs"):
+                if hasattr(tree, "starargs"):  # *args in Python 3.4
                     if tree.starargs is not None:
                         mycall.starargs = transform_starred(tree.starargs)
                     else:
                         mycall.starargs = None
-                if hasattr(tree, "kwargs"):
+                if hasattr(tree, "kwargs"):  # **kwargs in Python 3.4
                     if tree.kwargs is not None:
                         mycall.kwargs = transform_starred(tree.kwargs, dstarred=True)
                     else:
