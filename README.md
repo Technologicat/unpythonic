@@ -28,6 +28,7 @@ This README documents the pure-Python part of ``unpythonic``, i.e. everything th
    - [Memoization for generators](#memoization-for-generators), iterables and iterator factories: `gmemoize`, `imemoize`, `fimemoize`.
  - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables
  - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
+   - [``frozendict``, an immutable dictionary type](#frozendict-an-immutable-dictionary-type)
  - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
  - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
  - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
@@ -1539,7 +1540,7 @@ assert sorted(d1.items()) == [('foo', 'bar'), ('fruit', 'apple')]
 assert sorted(d2.items()) == [('foo', 'tavern'), ('fruit', 'apple')]
 ```
 
-But there is no support for immutable mappings, because Python's standard library doesn't provide an immutable dict type. For mappings, ``fupdate`` is essentially just ``copy.copy()`` and then ``.update()`` (which wouldn't exist for immutable inputs).
+For immutable mappings, ``fupdate`` supports ``frozendict`` (see below). Any other mapping is assumed mutable, and ``fupdate`` essentially just performs ``copy.copy()`` and then ``.update()``.
 
 We can also functionally update a namedtuple:
 
@@ -1555,6 +1556,87 @@ assert out == A(42, 23)
 Namedtuples export only a sequence interface, so they cannot be treated as mappings.
 
 Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
+
+
+#### ``frozendict``, an immutable dictionary type
+
+Since Python itself doesn't provide an immutable dictionary type, we do. It's essentially modeled as a crossover of the builtins ``dict`` and ``frozenset``:
+
+```python
+from unpythonic import frozendict
+
+d = frozendict({'a': 1, 'b': 2})
+d['a']      # OK
+d['c'] = 3  # TypeError, not writable
+```
+
+Functional updates are supported:
+
+```python
+d2 = frozendict(d, a=42)
+assert d2['a'] == 42 and d2['b'] == 2
+assert d['a'] == 1  # original not mutated
+
+d3 = frozendict({'a': 1, 'b': 2}, {'a': 42})  # rightmost definition of each key wins
+assert d3['a'] == 42 and d3['b'] == 2
+
+# ...also using fupdate
+d4 = fupdate(d3, a=23)
+assert d4['a'] == 23 and d4['b'] == 2
+assert d3['a'] == 42 and d3['b'] == 2  # ...of course without touching the original
+```
+
+Any mappings used when creating an instance are shallow-copied, so that the bindings of the ``frozendict`` do not change even if the original input is later mutated:
+
+```python
+d = {1:2, 3:4}
+fd = frozendict(d)
+d[5] = 6
+assert d == {1: 2, 3: 4, 5: 6}
+assert fd == {1: 2, 3: 4}
+```
+
+**The usual caution** concerning immutable containers in Python applies: the container protects only the bindings against changes. If the values themselves are mutable, the container cannot protect from mutations inside them.
+
+All the usual read-access stuff works:
+
+```python
+d7 = frozendict({1:2, 3:4})
+assert 3 in d7
+assert len(d7) == 2
+assert set(d7.keys()) == {1, 3}
+assert set(d7.values()) == {2, 4}
+assert set(d7.items()) == {(1, 2), (3, 4)}
+assert d7 == frozendict({1:2, 3:4})
+assert d7 != frozendict({1:2})
+assert d7 == {1:2, 3:4}  # like frozenset, __eq__ doesn't care whether mutable or not
+assert d7 != {1:2}
+assert {k for k in d7} == {1, 3}
+assert d7.get(3) == 4
+assert d7.get(5, 0) == 0
+assert d7.get(5) is None
+```
+
+In terms of ``collections.abc``, a ``frozendict`` is a hashable immutable mapping:
+
+```python
+assert issubclass(frozendict, Mapping)
+assert not issubclass(frozendict, MutableMapping)
+
+assert issubclass(frozendict, Hashable)
+assert hash(d7) == hash(frozendict({1:2, 3:4}))
+assert hash(d7) != hash(frozendict({1:2}))
+```
+
+The abstract superclasses are virtual, just like for ``dict`` (i.e. they do not appear in the MRO).
+
+Finally, ``frozendict`` obeys the empty-immutable-container singleton property:
+
+```python
+assert frozendict() is frozendict()
+```
+
+...but don't pickle the empty ``frozendict`` and expect this to work; it's freshly created in each session.
 
 
 ### Nondeterministic evaluation
