@@ -37,10 +37,82 @@ def lazycall(_func, *thunks, **kwthunks):
         return _func._entrypoint(*thunks, **kwthunks)  # skip the lazified() wrapper
     return _func(*force(thunks), **force(kwthunks))
 
-# syntax transformer: lazify elements in container literals, recursively
+# lazyrec: syntax transformer, recursively lazify elements in container literals
+#
+# **CAUTION**: There are some containers whose constructors appear as a Call node,
+# and also ``list``, ``tuple`` and ``set`` can be created via explicit calls.
+#
+# To treat these cases correctly, we must know which arguments to the
+# constructors refer to other containers (to be unpacked into the new one)
+# and which refer to atoms (to be added as individual items).
+#
+# Args that represent atoms should be lazified, so that they enter the container
+# as lazy items.
+#
+# For args that represent containers:
+#
+#   - Args that opaquely refer to an existing container should not be lazified,
+#     to avoid interfering with their unpacking.
+#
+#   - Args where the value is a literal container should be lazified by descending
+#     into it, to lazify its items.
+#
+# For example::
+#
+#     s = {1, 2, 3}
+#     fs = frozenset(s)          # opaque container argument, do nothing
+#     fs = frozenset({1, 2, 3})  # literal container argument, descend
+#
+#     d1 = {'a': 'foo', 'b': 'bar'}
+#     d2 = {'c': 'baz'}
+#     fd = frozendict(d1, d2, d='qux')  # d1, d2 opaque containers; any kws are atoms
+#     fd = frozendict({1: 2, 3: 4}, d2, d='qux')  # literal container, opaque container, atom
+#
+# In any case, *args and **kwargs are lazified only if literal containers;
+# whatever they are, the result must be unpackable to perform the function call.
+_ctorcalls_map = ("frozendict", "dict")
+_ctorcalls_seq = ("list", "tuple", "set", "frozenset", "box", "cons", "llist", "ll")
+# when to lazify individual (positional, keyword) args.
+_ctor_handling_modes = {  # constructors that take iterable(s) as positional args.
+                        "dict": ("literal_only", "all"),
+                        "frozendict": ("literal_only", "all"), # same ctor API as dict
+                        "list": ("literal_only", "all"),  # doesn't take kws, "all" is ok
+                        "tuple": ("literal_only", "all"),
+                        "set": ("literal_only", "all"),
+                        "frozenset": ("literal_only", "all"),
+                        "llist": ("literal_only", "all"),
+                        # constructors that take individual items.
+                        "box": ("all", "all"),
+                        "cons": ("all", "all"),
+                        "ll": ("all", "all")}
+_ctorcalls_all = _ctorcalls_map + _ctorcalls_seq
 def lazyrec(tree):
-    # TODO: maybe needs a registry for container constructors? (maybe overkill.)
-    custom_container_constructors = ("frozenset", "box", "frozendict", "cons", "llist", "ll")
+    def lazify_ctorcall(tree, positionals="all", keywords="all"):
+        newargs = []
+        for a in tree.args:
+            if type(a) is Starred:  # *args in Python 3.5+
+                if is_literal_container(a.value, maps_only=False):
+                    a.value = transform.recurse(a.value)
+                # else do nothing
+            elif positionals == "all" or is_literal_container(a, maps_only=False):  # single positional arg
+                a = transform.recurse(a)
+            newargs.append(a)
+        tree.args = newargs
+        for kw in tree.keywords:
+            if kw.arg is None:  # **kwargs in Python 3.5+
+                if is_literal_container(kw.value, maps_only=True):
+                    kw.value = transform.recurse(kw.value)
+                # else do nothing
+            elif keywords == "all" or is_literal_container(kw.value, maps_only=True):  # single named arg
+                kw.value = transform.recurse(kw.value)
+        # *args and **kwargs in Python 3.4
+        if hasattr(tree, "starargs"):
+            if tree.starargs is not None and is_literal_container(tree.starargs, maps_only=False):
+                tree.starargs = transform.recurse(tree.starargs)
+        if hasattr(tree, "kwargs"):
+            if tree.kwargs is not None and is_literal_container(tree.kwargs, maps_only=True):
+                tree.kwargs = transform.recurse(tree.kwargs)
+
     @Walker
     def transform(tree, *, stop, **kw):
         if type(tree) in (Tuple, List, Set):
@@ -49,22 +121,10 @@ def lazyrec(tree):
         elif type(tree) is Dict:
             stop()
             tree.values = [transform.recurse(x) for x in tree.values]
-        elif type(tree) is Call and any(isx(tree.func, ctor) for ctor in custom_container_constructors):
+        elif type(tree) is Call and any(isx(tree.func, ctor) for ctor in _ctorcalls_all):
             stop()
-            newargs = []
-            for a in tree.args:
-                if type(a) is Starred:  # *args in Python 3.5+
-                    a.value = transform.recurse(a.value)
-                else:
-                    a = transform.recurse(a)
-                newargs.append(a)
-            tree.args = newargs
-            for kw in tree.keywords:
-                # here kw.arg may be anything (also None, for **kwargs in Python 3.5+), doesn't matter.
-                kw.value = transform.recurse(kw.value)
-            # *args and **kwargs in Python 3.4
-            if hasattr(tree, "starargs"): tree.starargs = transform.recurse(tree.starargs)
-            if hasattr(tree, "kwargs"): tree.kwargs = transform.recurse(tree.kwargs)
+            p, k = _ctor_handling_modes[getname(tree.func)]
+            tree = lazify_ctorcall(tree, p, k)
         # TODO: this might not catch what we want; lazy[] seems to expand immediately even though quoted here.
         elif type(tree) is Subscript and isx(tree.value, 'lazy'):
             stop()
@@ -73,6 +133,15 @@ def lazyrec(tree):
             tree = hq[lazy[ast_literal[tree]]]
         return tree
     return transform.recurse(tree)
+
+def is_literal_container(tree, maps_only=False):  # containers understood by lazyrec[]
+    """Test whether tree is a container literal understood by lazyrec[]."""
+    if not maps_only:
+        if type(tree) in (List, Tuple, Set): return True
+        if type(tree) is Call and any(isx(tree.func, s) for s in _ctorcalls_seq): return True
+    if type(tree) is Dict: return True
+    if type(tree) is Call and any(isx(tree.func, s) for s in _ctorcalls_map): return True
+    return False
 
 # Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
 def force(x):
@@ -190,17 +259,9 @@ def lazify(body):
                         tree = rec(tree)
                         # lazify items if we have a literal container
                         # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
-                        if is_unpackable_literal(tree, dictsonly=dstarred):
+                        if is_literal_container(tree, maps_only=dstarred):
                             tree = lazyrec(tree)
                     return tree
-
-                def is_unpackable_literal(tree, dictsonly=False):  # containers understood by lazyrec[]
-                    if not dictsonly:
-                        if type(tree) in (List, Tuple, Set): return True
-                        if type(tree) is Call and isx(tree.func, 'frozenset'): return True
-                    if type(tree) is Dict: return True
-                    if type(tree) is Call and isx(tree.func, 'frozendict'): return True
-                    return False
 
                 # TODO: test *args support in Python 3.5+ (this **should** work according to the AST specs)
                 adata = []
