@@ -6,7 +6,9 @@ __all__ = ["box", "frozendict", "ShadowedSequence",
 
 from functools import wraps
 from collections import abc
-from collections.abc import Container, Iterable, Sequence, MutableMapping, Hashable, Sized
+from collections.abc import Container, Iterable, Hashable, Sized, \
+                            Sequence, Mapping, Set, \
+                            MutableSequence, MutableMapping, MutableSet
 from inspect import isclass
 from operator import lt, le, ge, gt
 
@@ -18,32 +20,64 @@ def get_abcs(cls):
 # TODO: support llist (need to be able to copy-construct an arbitrary cons structure)
 # TODO: move to unpythonic.it? This is a spork...
 def mogrify(func, container):
-    """In-place map for mutable containers.
+    """In-place recursive map for mutable containers.
 
     Recurse on container, apply func to each atom. Containers can be nested,
     with an arbitrary combination of types.
 
-    Supported container types are the builtins ``list``, ``tuple``, ``dict``,
-    ``set``, ``frozenset``, and from ``unpythonic.collections``, ``frozendict``
-    and ``box``. A value of any other type is treated as an atom.
+    Containers are detected by checking for instances of ``collections.abc``
+    superclasses (also virtuals are ok).
 
-    Any **immutable** container encountered (``tuple``, ``frozenset``,
-    ``frozendict``) is transformed into a new copy, just like in ``map``.
+    Supported abcs are ``MutableMapping``, ``MutableSequence``, ``MutableSet``,
+    ``Mapping``, ``Sequence`` and ``Set``.
 
-    Any **mutable** container is updated in-place.
+    For convenience, we introduce some special cases:
+
+        - Any classes created by ``collections.namedtuple``, because they
+          do not conform to the standard constructor API for a ``Sequence``.
+
+          Thus, for a ``Sequence``, we first check for the presence of a
+          ``._make()`` method, and if found, use it as the constructor.
+          Otherwise we use the regular constructor.
+
+        - ``str`` is treated as an atom, although technically a ``Sequence``.
+
+          It doesn't conform to the exact same API (its constructor does not take
+          an iterable), and often we don't want to mogrify strings inside other
+          containers anyway.
+
+          (If you want to process strings, implement it in your ``func``.)
+
+        - The ``box`` container provided by this module; its update is not
+          conveniently expressible by the APIs guaranteed by the abcs.
+
+    Any value that does not match any of these is treated as an atom.
+
+    Any **mutable** container encountered is updated in-place.
+
+    Any **immutable** container encountered is transformed into a new copy,
+    just like in ``map``.
     """
     def doit(x):
-        if isinstance(x, list):
+        if isinstance(x, MutableSequence):
             y = [doit(elt) for elt in x]
-            x.clear()
+            if hasattr(x, "clear"):
+                x.clear()  # list has this, but not guaranteed by MutableSequence
+            else:
+                while x:
+                    x.pop()
             x.extend(y)
             return x
-        elif isinstance(x, set):
+        elif isinstance(x, MutableSet):
             y = {doit(elt) for elt in x}
             x.clear()
-            x.update(y)
+            if hasattr(x, "update"):
+                x.update(y)  # set has this, but not guaranteed by MutableSet
+            else:
+                for elt in y:
+                    x.add(elt)
             return x
-        elif isinstance(x, dict):
+        elif isinstance(x, MutableMapping):
             y = {k: doit(v) for k, v in x.items()}
             x.clear()
             x.update(y)
@@ -51,12 +85,17 @@ def mogrify(func, container):
         elif isinstance(x, box):
             x.x = doit(x.x)  # unfortunate attr name :)
             return x
-        elif isinstance(x, tuple):
-            return tuple(doit(elt) for elt in x)
-        elif isinstance(x, frozenset):
-            return frozenset({doit(elt) for elt in x})
-        elif isinstance(x, frozendict):
-            return frozendict({k: doit(v) for k, v in x.items()})
+        elif isinstance(x, Mapping):
+            ctor = type(x)
+            return ctor({k: doit(v) for k, v in x.items()})
+        elif isinstance(x, Sequence) and not isinstance(x, str):
+            # namedtuple support (nonstandard constructor for a Sequence!)
+            cls = type(x)
+            ctor = cls._make if hasattr(cls, "_make") else cls
+            return ctor(doit(elt) for elt in x)
+        elif isinstance(x, Set):
+            ctor = type(x)
+            return ctor({doit(elt) for elt in x})
         return func(x)  # atom
     return doit(container)
 
