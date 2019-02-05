@@ -772,7 +772,7 @@ Code within a ``with continuations`` block is treated specially. Roughly:
    - Basically everywhere else, ``cc`` points to the identity function - the default continuation just returns its arguments.
      - This is unlike in Scheme or Racket, which implicitly capture the continuation at every expression.
    - Inside a ``def``, ``call_cc[]`` generates a tail call, thus terminating the original (parent) function. (Hence ``call_ec`` does not combo well with this.)
-   - At the top level of the ``with continuations`` block, ``call_cc[]`` generates a normal call. In this case there is no return value (for the continuation, either), because the use site of the ``call_cc[]`` is not inside a function.
+   - At the top level of the ``with continuations`` block, ``call_cc[]`` generates a normal call. In this case there is no return value for the block (for the continuation, either), because the use site of the ``call_cc[]`` is not inside a function.
 
 ### Differences between ``call/cc`` and certain other language features
 
@@ -851,7 +851,7 @@ with continuations:
 
 Compared to Scheme/Racket, where ``call/cc`` will capture also expressions occurring further up in the call stack, our ``call_cc`` may be need to be placed differently (further out, depending on what needs to be captured) due to the delimited nature of the continuations implemented here.
 
-Scheme and Racket implicitly capture the continuation at every position, whereas we do it explicitly, only at the use sites of the ``call_cc`` macro.
+Scheme and Racket implicitly capture the continuation at every position, whereas we do it explicitly, only at the use sites of the ``call_cc[]`` macro.
 
 Also, since there are limitations to where a ``call_cc[]`` may appear, some code may need to be structured differently to do some particular thing, if porting code examples originally written in Scheme or Racket.
 
@@ -869,9 +869,7 @@ with multilambda, continuations:
     assert f(42) == 1764
 ```
 
-The way this works is that ``continuations`` knows what ``multilambda`` does; it must, to correctly deduce which expressions are return values in tail position.
-
-We have chosen the implementation where ``continuations`` works with input that has already been transformed by ``multilambda``. This is safer, because there is no risk to misinterpret a list in a lambda body, and it works also for any explicit use of ``do[]`` in a lambda body or in a ``return`` (recall that macros expand from inside out).
+This works, because the ``continuations`` macro understands already expanded ``let[]`` and ``do[]``, and ``multilambda`` generates and expands a ``do[]``. (Any explicit use of ``do[]`` in a lambda body or in a ``return`` is also ok; recall that macros expand from inside out.)
 
 Similarly, if you need ``quicklambda``, apply it first:
 
