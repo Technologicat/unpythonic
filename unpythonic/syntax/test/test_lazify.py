@@ -3,7 +3,7 @@
 
 from ...misc import raisef
 from ...it import flatten
-from ...fup import frozendict
+from ...collections import frozendict
 
 from ...syntax import macros, lazify, lazyrec
 from ...syntax import force

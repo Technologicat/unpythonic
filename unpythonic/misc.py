@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "box", "timer"]
+__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer"]
 
 from types import LambdaType, CodeType
 import re
@@ -264,39 +264,6 @@ def namelambda(function, name):
                                      co.co_firstlineno, co.co_lnotab, co.co_freevars,
                                      co.co_cellvars)
     return function
-
-class box:
-    """Minimalistic, mutable single-item container à la Racket.
-
-    Motivation::
-
-        x = 17
-        def f(x):
-            x = 23  # no!
-        f(x)
-        print(x)  # still 17
-
-    Solution - box it, to keep the actual data in an attribute::
-
-        b = box(17)
-        def f(b):
-            b.x = 23  # yes!
-        f(b)
-        print(b.x)  # 23
-
-    (It's called ``x`` and not ``value`` to minimize the number of additional
-    keystrokes needed.)
-
-    **Disclaimer**: maybe silly. The standard pythonic solutions are to box
-    with a ``list`` (then trying to remember it represents a box, not a list),
-    or use the ``nonlocal`` or ``global`` statements if lexically appropriate
-    for the particular situation. This class just makes the programmer's intent
-    more explicit.
-    """
-    def __init__(self, x=None):
-        self.x = x
-    def __repr__(self):
-        return "<box at 0x{:x}, x={}>".format(id(self), self.x)
 
 class timer:
     """Simplistic context manager for performance-testing sections of code.

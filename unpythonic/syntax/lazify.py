@@ -19,8 +19,7 @@ from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda
 from .letdoutil import islet, isdo
 from ..regutil import register_decorator
 from ..it import uniqify
-from ..fup import frozendict
-from ..misc import box
+from ..collections import frozendict, box
 
 @register_decorator(priority=95)
 def mark_lazy(f):
@@ -78,8 +77,8 @@ def force(x):
     If ``x`` is not a promise, it is returned as-is (à la Racket).
 
     This recurses into ``list``, ``tuple``, ``dict``, ``set``, ``frozenset``,
-    ``unpythonic.fup.frozendict`` and ``unpythonic.misc.box``. For the output,
-    new container instances are created.
+    ``unpythonic.collections.frozendict`` and ``unpythonic.misc.box``.
+    For the output, new container instances are created.
     """
     return _f(x, iflazyatom=lambda x: x(), otherwise=lambda x: x)
 
@@ -89,8 +88,8 @@ def wrap(x):
     If ``x`` is already a promise, it is returned as-is.
 
     This recurses into ``list``, ``tuple``, ``dict``, ``set``, ``frozenset``,
-    ``unpythonic.fup.frozendict``  and ``unpythonic.misc.box``. For the output,
-    new container instances are created.
+    ``unpythonic.collections.frozendict``  and ``unpythonic.misc.box``.
+    For the output, new container instances are created.
     """
     # The otherwise case wraps the already evaluated x into a promise.
     return _f(x, iflazyatom=lambda x: x, otherwise=lambda x: lazy[x])

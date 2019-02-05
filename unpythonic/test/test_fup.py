@@ -2,19 +2,19 @@
 
 from itertools import repeat
 from collections import namedtuple
-from collections.abc import Mapping, MutableMapping, Hashable
 
-from ..fup import fupdate, frozendict
+from ..fup import fupdate
+from ..collections import frozendict
 
 def test():
-    # mutable input
+    # mutable sequence
     lst = [1, 2, 3]
     out = fupdate(lst, 1, 42)
     assert lst == [1, 2, 3]
     assert out == [1, 42, 3]
     assert type(out) is type(lst)
 
-    # immutable input
+    # immutable sequence
     lst = (1, 2, 3, 4, 5)
     out = fupdate(lst, slice(1, 5, 2), tuple(repeat(10, 2)))
     assert lst == (1, 2, 3, 4, 5)
@@ -80,13 +80,6 @@ def test():
     else:
         assert False
 
-    # mapping
-    d1 = {'foo': 'bar', 'fruit': 'apple'}
-    d2 = fupdate(d1, foo='tavern')
-    assert sorted(d1.items()) == [('foo', 'bar'), ('fruit', 'apple')]
-    assert sorted(d2.items()) == [('foo', 'tavern'), ('fruit', 'apple')]
-    assert type(d2) is type(d1)
-
     # namedtuple
     A = namedtuple("A", "p q")
     a = A(17, 23)
@@ -95,51 +88,19 @@ def test():
     assert out == A(42, 23)
     assert type(out) is type(a)
 
-    # frozendict - like frozenset, but for dictionaries
+    # mutable mapping
+    d1 = {'foo': 'bar', 'fruit': 'apple'}
+    d2 = fupdate(d1, foo='tavern')
+    assert sorted(d1.items()) == [('foo', 'bar'), ('fruit', 'apple')]
+    assert sorted(d2.items()) == [('foo', 'tavern'), ('fruit', 'apple')]
+    assert type(d2) is type(d1)
+
+    # unpythonic.collections.frozendict
     d3 = frozendict({'a': 1, 'b': 2})
+    d4 = fupdate(d3, a=23)
+    assert d4['a'] == 23 and d4['b'] == 2
     assert d3['a'] == 1
-    try:
-        d3['c'] = 42
-    except TypeError:
-        pass
-    else:
-        assert False, "frozendict should not be writable"
-
-    d4 = frozendict(d3, a=42)  # functional update
-    assert d4['a'] == 42 and d4['b'] == 2
-    assert d3['a'] == 1  # original not mutated
-
-    d5 = frozendict({'a': 1, 'b': 2}, {'a': 42})  # rightmost definition of each key wins
-    assert d5['a'] == 42 and d5['b'] == 2
-
-    d6 = fupdate(d3, a=23)  # also fupdate supports frozendict
-    assert d6['a'] == 23 and d6['b'] == 2
-    assert d3['a'] == 1
-    assert type(d6) is type(d3)
-
-    assert frozendict() is frozendict()  # empty-frozendict singleton property
-
-    d7 = frozendict({1:2, 3:4})
-    assert 3 in d7
-    assert len(d7) == 2
-    assert set(d7.keys()) == {1, 3}
-    assert set(d7.values()) == {2, 4}
-    assert set(d7.items()) == {(1, 2), (3, 4)}
-    assert d7 == frozendict({1:2, 3:4})
-    assert d7 != frozendict({1:2})
-    assert d7 == {1:2, 3:4}  # like frozenset, __eq__ doesn't care whether mutable or not
-    assert d7 != {1:2}
-    assert {k for k in d7} == {1, 3}
-    assert d7.get(3) == 4
-    assert d7.get(5, 0) == 0
-    assert d7.get(5) is None
-
-    assert issubclass(frozendict, Mapping)
-    assert not issubclass(frozendict, MutableMapping)
-
-    assert issubclass(frozendict, Hashable)
-    assert hash(d7) == hash(frozendict({1:2, 3:4}))
-    assert hash(d7) != hash(frozendict({1:2}))
+    assert type(d4) is type(d3)
 
     print("All tests PASSED")
 

@@ -1489,7 +1489,7 @@ def lazify(tree, *, gen_sym, **kw):
 
     For forcing promises, we provide a function ``force`` that (recursively)
     descends into ``tuple``, ``list``, ``set``, ``frozenset``, and the values
-    in ``dict`` and ``unpythonic.fup.frozendict``.
+    in ``dict`` and ``unpythonic.collections.frozendict``.
 
     When ``force`` encounters an atom ``x`` (i.e. anything that is not one of
     these containers), then, if ``x`` is a MacroPy ``lazy[]`` promise, it will
@@ -1586,7 +1586,7 @@ def lazyrec(tree, **kw):
 
     Essentially, this distributes ``lazy[]`` into the items inside a literal
     ``list``, ``tuple``, ``set`` or ``frozenset``, and into the values of a
-    literal ``dict`` or ``unpythonic.fup.frozendict``.
+    literal ``dict`` or ``unpythonic.collections.frozendict``.
 
     The container itself is not lazified, only the items inside it are, to keep
     the lazification from interfering with unpacking. This allows things such as

@@ -1292,7 +1292,7 @@ assert f(lazy[21], lazy[1/0]) == 42
 
 This relies on the magic of closures to capture f's ``a`` and ``b`` into the promises.
 
-For forcing promises, we provide a function ``unpythonic.syntax.force`` that (recursively) descends into ``tuple``, ``list``, ``set``, ``frozenset``, and the values in ``dict`` and ``unpythonic.fup.frozendict``. When ``force`` encounters an atom ``x`` (i.e. anything that is not one of these containers), then, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket.
+For forcing promises, we provide a function ``unpythonic.syntax.force`` that (recursively) descends into ``tuple``, ``list``, ``set``, ``frozenset``, and the values in ``dict`` and ``unpythonic.collections.frozendict``. When ``force`` encounters an atom ``x`` (i.e. anything that is not one of these containers), then, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket.
 
 Like ``with continuations``, no state or context is associated with a ``with lazify`` block, so lazy functions defined in one block may call those defined in another.
 

@@ -11,6 +11,7 @@ __version__ = '0.12.1'
 from .amb import *
 from .arity import *
 from .assignonce import *
+from .collections import *
 from .dynassign import *
 from .ec import *
 from .fold import *
