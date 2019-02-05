@@ -143,6 +143,15 @@ def test():
             assert x == 42  # auto-forced (now gets the cached value) since "x" is the original name
         g(2*21)
 
+    # mutable container as function argument
+    with show_expanded:
+      with lazify:
+        def f(lst):
+            lst[0] = 10*lst[0]
+        lst = [1, 2, 3]
+        f(lst)
+        assert lst == [10, 2, 3]
+
     # Passthrough of lazy args
     with lazify:
         # positional arg -> positional arg
