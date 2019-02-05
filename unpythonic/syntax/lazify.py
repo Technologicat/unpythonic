@@ -2,6 +2,7 @@
 """Automatic lazy evaluation of function arguments."""
 
 from functools import wraps
+from copy import copy
 
 from ast import Lambda, FunctionDef, Call, Name, \
                 Starred, keyword, List, Tuple, Dict, Set, \
@@ -15,7 +16,8 @@ from macropy.core.walkers import Walker
 from macropy.quick_lambda import macros, lazy
 from macropy.quick_lambda import Lazy
 
-from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, isx, getname
+from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, \
+                  isx, make_isxpred, getname
 from .letdoutil import islet, isdo
 from ..regutil import register_decorator
 from ..it import uniqify
@@ -88,53 +90,60 @@ _ctor_handling_modes = {  # constructors that take iterable(s) as positional arg
                         "cons": ("all", "all"),
                         "ll": ("all", "all")}
 _ctorcalls_all = _ctorcalls_map + _ctorcalls_seq
-def lazyrec(tree):
-    def lazify_ctorcall(tree, positionals="all", keywords="all"):
-        newargs = []
-        for a in tree.args:
-            if type(a) is Starred:  # *args in Python 3.5+
-                if is_literal_container(a.value, maps_only=False):
-                    a.value = transform.recurse(a.value)
-                # else do nothing
-            elif positionals == "all" or is_literal_container(a, maps_only=False):  # single positional arg
-                a = transform.recurse(a)
-            newargs.append(a)
-        tree.args = newargs
-        for kw in tree.keywords:
-            if kw.arg is None:  # **kwargs in Python 3.5+
-                if is_literal_container(kw.value, maps_only=True):
-                    kw.value = transform.recurse(kw.value)
-                # else do nothing
-            elif keywords == "all" or is_literal_container(kw.value, maps_only=True):  # single named arg
-                kw.value = transform.recurse(kw.value)
-        # *args and **kwargs in Python 3.4
-        if hasattr(tree, "starargs"):
-            if tree.starargs is not None and is_literal_container(tree.starargs, maps_only=False):
-                tree.starargs = transform.recurse(tree.starargs)
-        if hasattr(tree, "kwargs"):
-            if tree.kwargs is not None and is_literal_container(tree.kwargs, maps_only=True):
-                tree.kwargs = transform.recurse(tree.kwargs)
 
+islazy = make_isxpred("lazy")  # unexpanded
+isLazy = make_isxpred("Lazy")  # expanded
+def lazyrec(tree):
     @Walker
     def transform(tree, *, stop, **kw):
         if type(tree) in (Tuple, List, Set):
             stop()
-            tree.elts = [transform.recurse(x) for x in tree.elts]
+            tree.elts = [rec(x) for x in tree.elts]
         elif type(tree) is Dict:
             stop()
-            tree.values = [transform.recurse(x) for x in tree.values]
+            tree.values = [rec(x) for x in tree.values]
         elif type(tree) is Call and any(isx(tree.func, ctor) for ctor in _ctorcalls_all):
             stop()
             p, k = _ctor_handling_modes[getname(tree.func)]
             tree = lazify_ctorcall(tree, p, k)
-        # TODO: this might not catch what we want; lazy[] seems to expand immediately even though quoted here.
-        elif type(tree) is Subscript and isx(tree.value, 'lazy'):
+        # TODO: lazy[] seems to expand immediately even though quoted in our atom case?
+        elif type(tree) is Subscript and isx(tree.value, islazy):  # unexpanded
+            stop()
+        elif type(tree) is Call and isx(tree.func, isLazy):  # expanded
             stop()
         else:
             stop()
             tree = hq[lazy[ast_literal[tree]]]
         return tree
-    return transform.recurse(tree)
+
+    def lazify_ctorcall(tree, positionals="all", keywords="all"):
+        newargs = []
+        for a in tree.args:
+            if type(a) is Starred:  # *args in Python 3.5+
+                if is_literal_container(a.value, maps_only=False):
+                    a.value = rec(a.value)
+                # else do nothing
+            elif positionals == "all" or is_literal_container(a, maps_only=False):  # single positional arg
+                a = rec(a)
+            newargs.append(a)
+        tree.args = newargs
+        for kw in tree.keywords:
+            if kw.arg is None:  # **kwargs in Python 3.5+
+                if is_literal_container(kw.value, maps_only=True):
+                    kw.value = rec(kw.value)
+                # else do nothing
+            elif keywords == "all" or is_literal_container(kw.value, maps_only=True):  # single named arg
+                kw.value = rec(kw.value)
+        # *args and **kwargs in Python 3.4
+        if hasattr(tree, "starargs"):
+            if tree.starargs is not None and is_literal_container(tree.starargs, maps_only=False):
+                tree.starargs = rec(tree.starargs)
+        if hasattr(tree, "kwargs"):
+            if tree.kwargs is not None and is_literal_container(tree.kwargs, maps_only=True):
+                tree.kwargs = rec(tree.kwargs)
+
+    rec = transform.recurse
+    return rec(tree)
 
 def is_literal_container(tree, maps_only=False):  # containers understood by lazyrec[]
     """Test whether tree is a container literal understood by lazyrec[]."""
@@ -237,8 +246,12 @@ def lazify(body):
                                               formals=newformals)
 
         elif type(tree) is Call:
-            if isdo(tree) or islet(tree) or isx(tree.func, "namelambda"):
-                pass  # known to be strict, no need to introduce lazy[] (just let the transformer recurse)
+            # For some important functions known to be strict, just let the transformer recurse
+            # namelambda() is used by let[] and do[]
+            # Lazy() is a strict function, takes a lambda, constructs a Lazy object
+            if isdo(tree) or islet(tree) or isx(tree.func, "namelambda") or \
+               any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, isLazy):
+                pass
             else:
                 stop()
                 ln, co = tree.lineno, tree.col_offset
@@ -253,8 +266,8 @@ def lazify(body):
                     if type(tree) is Name and tree.id in formals:
                         pass  # optimized passthrough for arg -> arg (both positional and named)
                     else:
-                        tree = rec(tree)  # add any needed force() invocations inside the tree
-                        tree = hq[lazy[ast_literal[tree]]]  # thunkify *the whole tree*
+                        tree = rec(tree)      # add any needed force() invocations inside the tree
+                        tree = lazyrec(tree)  # (re-)thunkify
                     return tree
 
                 def transform_starred(tree, dstarred=False):
@@ -312,12 +325,24 @@ def lazify(body):
 
                 tree = mycall
 
-        # force the accessed part of *args or **kwargs (at the receiving end)
+        # force the accessed part of obj[...]
         elif type(tree) is Subscript and type(tree.ctx) is Load:
-            if type(tree.value) is Name and tree.value.id in varargs + kwargs:
+            if type(tree.value) is Name:
                 stop()
                 tree.slice = rec(tree.slice)
-                tree = hq[force(ast_literal[tree])]
+                # consider e.g. "force(lst()[...]) if isinstance(lst, Lazy) else force(lst[...])"
+                #
+                # Usually interpolating the same tree more than once in the output
+                # is a phenomenally bad idea in macros, but here tree.value is known
+                # to be a Name (so referring to it multiple times is ok), and each time
+                # this expr is reached in the expanded code, only one branch of the if runs.
+                #
+                # We could use a let, but it's inefficient since it's not needed.
+                #
+                # shallow-force top-level promise to get the actual container without evaluating its items.
+                tmp = copy(tree)
+                tmp.value = hq[ast_literal[tree.value]()]
+                tree = hq[force(ast_literal[tmp]) if isinstance(ast_literal[tree.value], Lazy) else force(ast_literal[tree])]
 
         # force formal parameters, including any uses of the whole *args or **kwargs
         elif type(tree) is Name and type(tree.ctx) is Load:

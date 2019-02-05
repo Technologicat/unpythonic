@@ -143,12 +143,35 @@ def test():
             assert x == 42  # auto-forced (now gets the cached value) since "x" is the original name
         g(2*21)
 
-    # mutable container as function argument
+    # construct a container in a function argument
+    with lazify:
+        def f(lst):
+            return lst[:-1]
+        assert f([1, 2, 3/0]) == [1, 2]
+
+        # construct using function call syntax
+        def f(lst):
+            return lst[:-1]
+        assert f(list((1, 2, 3/0))) == [1, 2]
+
+        def g(s):
+            return s
+        assert g(frozenset({1, 2, 3})) == {1, 2, 3}
+
+    # mutable container as a function argument
     with lazify:
         def f(lst):
             lst[0] = 10*lst[0]
         lst = [1, 2, 3]
         f(lst)
+        assert lst == [10, 2, 3]
+
+    # already lazy argument (from manual lazification)
+    with lazify:
+        def f(lst):
+            lst[0] = 10*lst[0]
+        lst = [1, 2, 3]
+        f(lazy[lst])
         assert lst == [10, 2, 3]
 
     # Passthrough of lazy args
