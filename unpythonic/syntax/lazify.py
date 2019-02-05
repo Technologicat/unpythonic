@@ -165,7 +165,7 @@ def lazify(body):
                                               formals=newformals)
 
         elif type(tree) is Call:
-            if isdo(tree) or islet(tree):
+            if isdo(tree) or islet(tree) or isx(tree.func, "namelambda"):
                 pass  # known to be strict, no need to introduce lazy[] (just let the transformer recurse)
             else:
                 stop()

@@ -24,7 +24,7 @@ from .util import isx, isec, \
                   detect_callec, detect_lambda, \
                   has_tco, sort_lambda_decorators, \
                   suggest_decorator_index
-from .letdoutil import isdo, islet
+from .letdoutil import isdo, islet, ExpandedLetView, ExpandedDoView
 from .ifexprs import aif
 from .letdo import let
 
@@ -576,14 +576,21 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
     transform_call = call_cb or (lambda tree: tree)
     transform_data = data_cb or (lambda tree: tree)
     def transform(tree):
-        if isdo(tree) or islet(tree):
-            # Ignore the "lambda e: ...", and descend into the ..., in:
-            #   - let[] or letrec[] in tail position.
-            #     - letseq[] is a nested sequence of lets, so covers that too.
-            #   - do[] in tail position.
-            #     - May be generated also by a "with multilambda" block
-            #       that has already expanded.
-            tree.args[-1].body = transform(tree.args[-1].body)
+        # Ignore the "lambda e: ...", and descend into the ..., in:
+        #   - let[] or letrec[] in tail position.
+        #     - letseq[] is a nested sequence of lets, so covers that too.
+        #   - do[] in tail position.
+        #     - May be generated also by a "with multilambda" block
+        #       that has already expanded.
+        if islet(tree):
+            thebody = ExpandedLetView(tree).body  # namelambda((lambda e: ...), "let_body")
+            thelambda = thebody.args[0]
+            thelambda.body = transform(thelambda.body)
+        elif isdo(tree):
+            thebody = ExpandedDoView(tree).body   # list of do-items
+            lastitem = thebody[-1]  # namelambda((lambda e: ...), "do_lineXXX")
+            thelambda = lastitem.args[0]
+            thelambda.body = transform(thelambda.body)
         elif type(tree) is Call:
             # Apply TCO to tail calls.
             #   - If already an explicit jump() or loop(), leave it alone.

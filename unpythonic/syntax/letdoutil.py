@@ -346,17 +346,13 @@ class UnexpandedDoView:
 class ExpandedLetView:
     """Like UnexpandedLetView, but for already expanded let constructs.
 
-    Depending on whether let mode is "let" or "letrec", each binding is a bare
-    value or a lambda, respectively.
+    Depending on whether let mode is "let" or "letrec", each binding is a
+    bare value or ``namelambda((lambda e: ...), "letrec_bindingXXX_YYY")``,
+    respectively.
 
     Usually ``body``, when available, is a single expression. In the case of a
-    multiple-expression body, ``body`` is represented as a list of expressions.
-
-    Writing a list to body makes a multiple-expression body, whether or not it
-    was originally such.
-
-    Writing a single expression makes a single-expression body, also whether or
-    not it was originally such.
+    multiple-expression body, ``body`` is an expanded ``do``, which can be
+    destructured using ``ExpandedDoView``.
     """
     def __init__(self, tree):
         data = islet(tree, expanded=True)
@@ -386,34 +382,20 @@ class ExpandedLetView:
         if t == "expanded_decorator":  # not reached
             raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
         elif t == "expanded_expr":
-            b = self._tree.args[1]
-            if isdo(b, expanded=True):  # extra bracket syntax
-                return ExpandedDoView(b).body  # list of expressions
-            else:
-                return b
+            return self._tree.args[1]
     def _setbody(self, newbody):
         t = self._type
         if t == "expanded_decorator":  # not reached
             raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
         elif t == "expanded_expr":
-            b = self._tree.args[1]
-            old_isdo = isdo(b, expanded=True)
-            new_isdo = isinstance(newbody, list)
-            if not old_isdo and not new_isdo:   # single -> single
-                self._tree.args[1] = newbody
-            elif old_isdo and new_isdo:         # multi -> multi, just replace the list
-                view = ExpandedDoView(b)
-                view.body = newbody
-            elif not old_isdo and new_isdo:     # single -> multi
-                self._tree.args[1] = do(newbody)
-            else: # old_isdo and not new_isdo:  # multi -> single
-                self._tree.args[1] = newbody
+            self._tree.args[1] = newbody
     body = property(fget=_getbody, fset=_setbody, doc="The body subform of the let (only for expr forms). Writable.")
 
 class ExpandedDoView:
     """Like UnexpandedDoView, but for already expanded do forms.
 
-    Each item in the ``body`` list is a lambda.
+    Each item in the ``body`` list is of the form
+    ``namelambda((lambda e: ...), "do_lineXXX")``.
     """
     def __init__(self, tree):
         if not isdo(tree, expanded=True):

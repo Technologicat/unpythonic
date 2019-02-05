@@ -9,7 +9,7 @@ from .astcompat import AsyncFunctionDef
 from macropy.core import Captured
 from macropy.core.walkers import Walker
 
-from .letdoutil import isdo
+from .letdoutil import isdo, ExpandedDoView
 
 from ..regutil import all_decorators, tco_decorators, decorator_registry
 
@@ -28,7 +28,7 @@ def isx(tree, x, accept_attr=True):
 
         - ``x`` as an attribute (if ``accept_attr=True``)
     """
-    # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (_islet)? At which point are these removed?
+    # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (letdoutil.islet)? At which point are these removed?
     # Captured nodes only come from unpythonic.syntax, and we use from-imports
     # and bare names for anything hq[]'d; but explicit references may use either
     # bare names or somemodule.f.
@@ -114,8 +114,10 @@ def detect_lambda(tree, *, collect, stop, **kw):
     """
     if isdo(tree):
         stop()
-        for item in tree.args:  # each arg to dof() is a lambda
-            detect_lambda.collect(item.body)
+        thebody = ExpandedDoView(tree).body
+        for item in thebody:  # namelambda((lambda e: ...), "do_lineXXX")
+            thelambda = item.args[0]
+            detect_lambda.collect(thelambda.body)
     if type(tree) is Lambda:
         collect(id(tree))
     return tree

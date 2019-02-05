@@ -26,6 +26,7 @@ from macropy.core.macros import macro_stub
 from ..lispylet import _let as letf, _dlet as dletf, _blet as bletf
 from ..seq import do as dof
 from ..dynassign import dyn
+from ..misc import namelambda
 
 from .scoping import scoped_walker
 
@@ -57,7 +58,10 @@ def _letimpl(bindings, body, mode):
     t = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
     if mode == "letrec":
         values = [t(rhs) for rhs in values]  # RHSs of bindings
+        values = [hq[namelambda(ast_literal[rhs], u["letrec_binding{}_{}".format(j, lhs)])]
+                    for j, (lhs, rhs) in enumerate(zip(names, values), start=1)]
     body = t(body)
+    body = hq[namelambda(ast_literal[body], u["{}_body".format(mode)])]
 
     letter = letf  # letdoutil relies on the literal name "letter" to detect expanded forms
     bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
@@ -171,6 +175,8 @@ def _dletimpl(bindings, body, mode, kind):
     t2 = partial(t1, dowrap=False)
     if mode == "letrec":
         values = [t1(rhs) for rhs in values]
+        values = [hq[namelambda(ast_literal[rhs], u["letrec_binding{}_{}".format(j, lhs)])]
+                    for j, (lhs, rhs) in enumerate(zip(names, values), start=1)]
     body = t2(body)
 
     # We place the let decorator in the innermost position. Hopefully this is ok.
@@ -274,7 +280,7 @@ def do(tree):
     # a localdef starts taking effect on the line where it appears
     names = []
     lines = []
-    for expr in tree.elts:
+    for j, expr in enumerate(tree.elts, start=1):
         expr, newnames = find_localdefs.recurse_collect(expr)
         if newnames:
             if any(x in names for x in newnames):
@@ -283,6 +289,7 @@ def do(tree):
         # the name transform (RHS) should use the previous bindings, so that
         # the new binding takes effect starting from the **next** doitem.
         expr = letlike_transform(expr, e, names + newnames, names, envset)
+        expr = hq[namelambda(ast_literal[expr], u["do_line{}".format(j)])]
         names = names + newnames
         lines.append(expr)
     return hq[dof(ast_literal[lines])]
