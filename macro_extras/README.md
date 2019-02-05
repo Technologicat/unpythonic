@@ -35,6 +35,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
    - [TCO and continuations](#tco-and-continuations)
  - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position)
  - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence); with slice notation
+ - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
  - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
  - [``lazify``: call-by-need for Python](#lazify-call-by-need-for-python)
 
@@ -1142,6 +1143,34 @@ Currently only one update specification is supported in a single ``fup[]``.
 The notation follows the ``unpythonic.syntax`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched.
 
 The transformation is ``fup[seq[idx] << value] --> fupdate(seq, idx, value)`` for a single index, and ``fup[seq[slicestx] << iterable] --> fupdate(seq, slice(...), iterable)`` for a slice. The main point of this macro is that slices are specified in the native slicing syntax. (Contrast the direct use of the underlying ``fupdate`` function, which requires manually calling ``slice``.)
+
+
+## ``nb``: silly ultralight math notebook
+
+Mix regular code with math-notebook-like code in a ``.py`` file. To enable notebook mode, ``with nb``:
+
+```python
+from unpythonic.syntax import nb
+from sympy import symbols
+
+with nb:
+    2 + 3          # expressions at the top level of the block autoprint, and auto-assign result to _
+    assert _ == 5  # ...and only expressions do that, so...
+    _ * 42         # ...here _ stll has the value from the first line.
+    assert _ == 210
+
+    x, y = symbols("x, y")
+    x * y
+    assert _ == x * y
+    3 * _
+    assert _ == 3 * x * y
+```
+
+Autoprint is skipped when the result is ``None`` (a common return value of Python's imperative operations).
+
+A **possible** future extension is adding support for SymPy's ``pprint``, but nothing conclusive is planned for now.
+
+Obviously not intended for production use, although is very likely to work anywhere.
 
 
 ## ``prefix``: prefix function call syntax for Python
