@@ -1488,12 +1488,11 @@ def lazify(tree, *, gen_sym, **kw):
         assert f(lazy[42]) == 42
 
     For forcing promises, we provide a function ``force`` that (recursively)
-    descends into ``tuple``, ``list``, ``set``, ``frozenset``, and the values
-    in ``dict`` and ``unpythonic.collections.frozendict``.
+    descends into containers.
 
-    When ``force`` encounters an atom ``x`` (i.e. anything that is not one of
-    these containers), then, if ``x`` is a MacroPy ``lazy[]`` promise, it will
-    be forced, and the resulting value is returned. If ``x`` is not a promise,
+    When ``force`` encounters an atom ``x`` (i.e. anything that is not a
+    container), then, if ``x`` is a MacroPy ``lazy[]`` promise, it will be
+    forced, and the resulting value is returned. If ``x`` is not a promise,
     ``x`` itself is returned, à la Racket.
 
     Inspired by Haskell, and Racket's (delay) and (force).
@@ -1585,8 +1584,12 @@ def lazyrec(tree, **kw):
     """[syntax, expr] Delay items of a literal container, recursively.
 
     Essentially, this distributes ``lazy[]`` into the items inside a literal
-    ``list``, ``tuple``, ``set`` or ``frozenset``, and into the values of a
-    literal ``dict`` or ``unpythonic.collections.frozendict``.
+    ``list``, ``tuple``, ``set``, ``frozenset``, ``unpythonic.collections.box``
+    or ``unpythonic.llist.cons``, and into the values of a literal ``dict`` or
+    ``unpythonic.collections.frozendict``.
+
+    Because this is a macro and must work by names only, these are the only
+    container types currently supported.
 
     The container itself is not lazified, only the items inside it are, to keep
     the lazification from interfering with unpacking. This allows things such as
@@ -1595,7 +1598,7 @@ def lazyrec(tree, **kw):
     See also ``macropy.quick_lambda.lazy`` (the effect on each item) and
     ``unpythonic.syntax.force`` (the inverse of ``lazyrec[]``).
 
-    For a single item, ``lazyrec[]`` has the same effect as ``lazy[]``::
+    For an atom, ``lazyrec[]`` has the same effect as ``lazy[]``::
 
         lazyrec[dostuff()] --> lazy[dostuff()]
 
@@ -1604,16 +1607,11 @@ def lazyrec(tree, **kw):
         lazyrec[(2*21, 1/0)] --> (lazy[2*21], lazy[1/0])
         lazyrec[{'a': 2*21, 'b': 1/0}] --> {'a': lazy[2*21], 'b': lazy[1/0]}
 
-    Nested containers (with any combination of types) are processed recursively,
-    for example::
+    Nested containers (with any combination of known types) are processed
+    recursively, for example::
 
         lazyrec[((2*21, 1/0), (1+2+3, 4+5+6))] --> ((lazy[2*21], lazy[1/0]),
                                                     (lazy[1+2+3], lazy[4+5+6]))
-
-    **CAUTION**: For ``frozenset`` and ``frozendict``, we support only the
-    one-argument form: ``frozenset({1, 2, 3})``, ``frozendict({1: 2, 3: 4})``.
-    The literal ``set`` or ``dict`` must appear as the only argument of the
-    constructor. (This limitation may be removed in a future version.)
     """
     return _lazyrec(tree)
 

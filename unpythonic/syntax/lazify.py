@@ -15,11 +15,11 @@ from macropy.core.walkers import Walker
 from macropy.quick_lambda import macros, lazy
 from macropy.quick_lambda import Lazy
 
-from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, isx
+from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, isx, getname
 from .letdoutil import islet, isdo
 from ..regutil import register_decorator
 from ..it import uniqify
-from ..collections import frozendict, box, mogrify
+from ..collections import mogrify
 
 @register_decorator(priority=95)
 def mark_lazy(f):
@@ -47,17 +47,28 @@ def lazyrec(tree):
         elif type(tree) is Dict:
             stop()
             tree.values = [transform.recurse(x) for x in tree.values]
-        elif type(tree) is Call and isx(tree.func, "frozenset") and \
-             len(tree.args) == 1 and type(tree.args[0]) is Set:
+        elif type(tree) is Call and any(isx(tree.func, s) for s in ("frozenset", "box")):
+            if not (len(tree.args) <= 1 and not tree.keywords):
+                assert False, "expected at most one positional argument for '{}'".format(getname(tree.func))
             stop()
-            tree.args[0] = transform.recurse(tree.args[0])
-        elif type(tree) is Call and isx(tree.func, "frozendict") and \
-             len(tree.args) == 1 and type(tree.args[0]) is Dict:
+            if tree.args:
+                tree.args[0] = transform.recurse(tree.args[0])
+        elif type(tree) is Call and any(isx(tree.func, s) for s in ("frozendict", "cons", "llist", "ll")):
             stop()
-            tree.args[0] = transform.recurse(tree.args[0])
-        elif type(tree) is Call and isx(tree.func, "box") and len(tree.args) == 1:
-            stop()
-            tree.args[0] = transform.recurse(tree.args[0])
+            newargs = []
+            for a in tree.args:
+                if type(a) is Starred:  # *args in Python 3.5+
+                    a.value = transform.recurse(a.value)
+                else:
+                    a = transform.recurse(a)
+                newargs.append(a)
+            tree.args = newargs
+            for kw in tree.keywords:
+                # here kw.arg may be anything (also None, for **kwargs in Python 3.5+), doesn't matter.
+                kw.value = transform.recurse(kw.value)
+            # *args and **kwargs in Python 3.4
+            if hasattr(tree, "starargs"): tree.starargs = transform.recurse(tree.starargs)
+            if hasattr(tree, "kwargs"): tree.kwargs = transform.recurse(tree.kwargs)
         # TODO: this might not catch what we want; lazy[] seems to expand immediately even though quoted here.
         elif type(tree) is Subscript and isx(tree.value, 'lazy'):
             stop()
@@ -76,10 +87,10 @@ def force(x):
 
     If ``x`` is not a promise, it is returned as-is (à la Racket).
 
-    This recurses into ``list``, ``tuple``, ``dict``, ``set``, ``frozenset``,
-    and from ``unpythonic.collections``, ``frozendict`` and ``box``.
-    Mutable containers are updated in-place, for immutables a new instance
-    is created.
+    This recurses on any containers with the appropriate ``collections.abc``
+    abstract base classes (virtuals ok too). Mutable containers are updated
+    in-place, for immutables a new instance is created. For details, see
+    ``unpythonic.collections.mogrify``.
     """
     f = lambda elt: elt() if isinstance(elt, Lazy) else elt
     return mogrify(f, x)  # in-place update to allow lazy functions to have writable list arguments
@@ -89,36 +100,14 @@ def wrap(x):
 
     If ``x`` is already a promise, it is returned as-is.
 
-    This recurses into ``list``, ``tuple``, ``dict``, ``set``, ``frozenset``,
-    and from ``unpythonic.collections``, ``frozendict`` and ``box``.
-    Mutable containers are updated in-place, for immutables a new instance
-    is created.
+    This recurses on any containers with the appropriate ``collections.abc``
+    abstract base classes (virtuals ok too). Mutable containers are updated
+    in-place, for immutables a new instance is created. For details, see
+    ``unpythonic.collections.mogrify``.
     """
     # the else wraps the already evaluated elt into a promise
     f = lambda elt: elt if isinstance(elt, Lazy) else lazy[elt]
     return mogrify(f, x)
-
-def _f(x, iflazyatom, otherwise):  # common skeleton for force/wrap
-    def doit(x):
-        if isinstance(x, tuple):
-            return tuple(doit(elt) for elt in x)
-        elif isinstance(x, list):
-            return [doit(elt) for elt in x]
-        elif isinstance(x, set):
-            return {doit(elt) for elt in x}
-        elif isinstance(x, frozenset):
-            return frozenset({doit(elt) for elt in x})
-        elif isinstance(x, dict):
-            return {k: doit(v) for k, v in x.items()}
-        elif isinstance(x, frozendict):
-            return frozendict({k: doit(v) for k, v in x.items()})
-        elif isinstance(x, box):
-            # TODO: the whole point of box is to remain while its content changes; too FP-ish for it?
-            return box(doit(x.x))  # unfortunate attr name :)
-        elif isinstance(x, Lazy):
-            return iflazyatom(x)
-        return otherwise(x)
-    return doit(x)
 
 # TODO: support curry, call, callwith (may need changes to their implementations, too)
 

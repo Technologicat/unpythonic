@@ -1292,7 +1292,9 @@ assert f(lazy[21], lazy[1/0]) == 42
 
 This relies on the magic of closures to capture f's ``a`` and ``b`` into the promises.
 
-For forcing promises, we provide a function ``unpythonic.syntax.force`` that (recursively) descends into ``tuple``, ``list``, ``set``, ``frozenset``, and the values in ``dict`` and ``unpythonic.collections.frozendict``. When ``force`` encounters an atom ``x`` (i.e. anything that is not one of these containers), then, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket.
+For forcing promises, we provide a function ``unpythonic.syntax.force`` that (recursively) descends into containers. Roughly, *container* means anything with an appropriate ``collections.abc``. Mutable containers are updated in-place, to allow also lazy functions to use the pythonic pattern of passing in a list to be mutated by the callee. For immutable containers a new instance is created, but as a side effect the promise objects **in the input container** will be forced.
+
+When ``force`` encounters an atom ``x`` (i.e. anything that is not a container), then, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket.
 
 Like ``with continuations``, no state or context is associated with a ``with lazify`` block, so lazy functions defined in one block may call those defined in another.
 
@@ -1300,7 +1302,7 @@ Lazy code is allowed to call strict functions and vice versa, without requiring 
 
 For more details, see the docstring of ``unpythonic.syntax.lazify``.
 
-See also ``unpythonic.syntax.lazyrec`` (lazify items in (possibly nested) containers, recursively; expr macro).
+See also ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside literal containers, recursively. This allows code like ``lazyrec[(1*2*3, 4*5*6)]``. Each item becomes wrapped with ``lazy[]``, but the container itself is left alone, to avoid interfering with unpacking. Because ``lazyrec[]`` is a macro and must work by names only, it supports a fixed set of container types: ``list``, ``tuple``, ``set``, ``dict``, ``frozenset``, ``unpythonic.collections.frozendict``, ``unpythonic.collections.box``, and ``unpythonic.llist.cons`` (specifically, the constructors ``cons``, ``ll`` and ``llist``).
 
 Inspired by Haskell, and Racket's ``(delay)`` and ``(force)``.
 
