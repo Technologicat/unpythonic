@@ -39,7 +39,17 @@ class box:
     keystrokes needed.)
 
     In terms of ``collections.abc``, a ``box`` is a ``Container``, ``Iterable``
-    and ``Sized``.
+    and ``Sized``. A box is **not** hashable, because it is a mutable container.
+
+    Additionally, ``box`` supports equality testing with ``==`` and ``!=``.
+    A box is considered equal to the item it contains, and two boxes with
+    items that compare equal are considered equal.
+
+    Iterating over the box returns the item and then stops iteration.
+
+    The length of a ``box`` is always 1; even if ``x is None``, the box still
+    has the empty slot. (Or in other words, ``None`` in a box is just a data
+    value like any other.)
 
     **Disclaimer**: maybe silly. The standard pythonic solutions are to box
     with a ``list`` (then trying to remember it represents a box, not a list),
@@ -50,7 +60,7 @@ class box:
     def __init__(self, x=None):
         self.x = x
     def __repr__(self):
-        return "<box at 0x{:x}, x={}>".format(id(self), self.x)
+        return "box({})".format(repr(self.x))
     def __contains__(self, x):
         return self.x == x
     def __iter__(self):
