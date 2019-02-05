@@ -20,6 +20,7 @@ from .letdoutil import islet, isdo
 from ..regutil import register_decorator
 from ..it import uniqify
 from ..fup import frozendict
+from ..misc import box
 
 @register_decorator(priority=95)
 def mark_lazy(f):
@@ -55,6 +56,9 @@ def lazyrec(tree):
              len(tree.args) == 1 and type(tree.args[0]) is Dict:
             stop()
             tree.args[0] = transform.recurse(tree.args[0])
+        elif type(tree) is Call and isx(tree.func, "box") and len(tree.args) == 1:
+            stop()
+            tree.args[0] = transform.recurse(tree.args[0])
         # TODO: this might not catch what we want; lazy[] seems to expand immediately even though quoted here.
         elif type(tree) is Subscript and isx(tree.value, 'lazy'):
             stop()
@@ -74,7 +78,8 @@ def force(x):
     If ``x`` is not a promise, it is returned as-is (à la Racket).
 
     This recurses into ``list``, ``tuple``, ``dict``, ``set``, ``frozenset``,
-    and ``unpythonic.fup.frozendict``.
+    ``unpythonic.fup.frozendict`` and ``unpythonic.misc.box``. For the output,
+    new container instances are created.
     """
     return _f(x, iflazyatom=lambda x: x(), otherwise=lambda x: x)
 
@@ -84,7 +89,8 @@ def wrap(x):
     If ``x`` is already a promise, it is returned as-is.
 
     This recurses into ``list``, ``tuple``, ``dict``, ``set``, ``frozenset``,
-    and ``unpythonic.fup.frozendict``.
+    ``unpythonic.fup.frozendict``  and ``unpythonic.misc.box``. For the output,
+    new container instances are created.
     """
     # The otherwise case wraps the already evaluated x into a promise.
     return _f(x, iflazyatom=lambda x: x, otherwise=lambda x: lazy[x])
@@ -103,6 +109,9 @@ def _f(x, iflazyatom, otherwise):  # common skeleton for force/wrap
             return {k: doit(v) for k, v in x.items()}
         elif isinstance(x, frozendict):
             return frozendict({k: doit(v) for k, v in x.items()})
+        elif isinstance(x, box):
+            # TODO: the whole point of box is to remain while its content changes; too FP-ish for it?
+            return box(doit(x.x))  # unfortunate attr name :)
         elif isinstance(x, Lazy):
             return iflazyatom(x)
         return otherwise(x)
