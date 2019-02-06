@@ -190,6 +190,14 @@ def lazify(body):
         def rec(tree):
             return transform.recurse(tree, forcing_mode=forcing_mode)
 
+        def force_if_load_ctx(tree):
+            if type(tree.ctx) is Load:
+                if forcing_mode == "recursive":
+                    return hq[force(ast_literal[tree])]
+                else: # forcing_mode == "flat":
+                    return hq[force1(ast_literal[tree])]
+            return tree
+
         if type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
             if type(tree) is Lambda and id(tree) not in userlambdas:
                 pass  # ignore macro-introduced lambdas
@@ -322,11 +330,7 @@ def lazify(body):
             tree.slice = rec(tree.slice)
             # shallow-force top-level promise to get the actual container without evaluating its items.
             tree.value = hq[force1(ast_literal[tree.value])]
-            if type(tree.ctx) is Load:
-                if forcing_mode == "recursive":
-                    tree = hq[force(ast_literal[tree])]
-                else: # forcing_mode == "flat":
-                    tree = hq[force1(ast_literal[tree])]
+            tree = force_if_load_ctx(tree)
 
         elif type(tree) is Attribute:
             #   a.b.c --> force1(force1(force1(a).b).c)  (Load)
@@ -345,15 +349,11 @@ def lazify(body):
             # TODO: ...or perhaps just its top level? This too may depend on context?
             stop()
             tree.value = transform.recurse(tree.value, forcing_mode="flat")
-            if type(tree.ctx) is Load:  # force the attr itself (once lookup complete)
-                tree = hq[force1(ast_literal[tree])]
+            tree = force_if_load_ctx(tree)  # force the attr itself (once lookup complete)
 
         elif type(tree) is Name and type(tree.ctx) is Load:
             stop()  # must not recurse when a Name changes into a Call.
-            if forcing_mode == "recursive":
-                tree = hq[force(ast_literal[tree])]
-            else: # forcing_mode == "flat":
-                tree = hq[force1(ast_literal[tree])]
+            tree = force_if_load_ctx(tree)
 
         return tree
 
