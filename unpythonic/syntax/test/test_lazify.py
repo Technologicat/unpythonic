@@ -143,13 +143,13 @@ def test():
             assert x == 42  # auto-forced (now gets the cached value) since "x" is the original name
         g(2*21)
 
-    # construct a container in a function argument
+    # constructing a literal container in a function argument auto-lazifies it
     with lazify:
         def f(lst):
             return lst[:-1]
         assert f([1, 2, 3/0]) == [1, 2]
 
-        # construct using function call syntax
+        # works also using function call syntax (only for certain types; see lazyrec[])
         def f(lst):
             return lst[:-1]
         assert f(list((1, 2, 3/0))) == [1, 2]
@@ -166,13 +166,32 @@ def test():
         f(lst)
         assert lst == [10, 2, 3]
 
-    # already lazy argument (from manual lazification)
+    # manually lazified mutable container
+    with lazify:
+        def f(lst):
+            lst[0] = 10*lst[0]
+        lst = lazyrec[[1, 2, 3/0]]
+        f(lst)
+        assert lst[:-1] == [10, 2]
+
+    # manually lazified argument, should not stack Lazy
     with lazify:
         def f(lst):
             lst[0] = 10*lst[0]
         lst = [1, 2, 3]
         f(lazy[lst])
         assert lst == [10, 2, 3]
+
+    # attributes
+    with lazify:
+        class C:
+            def __init__(self):
+                self.x = 1
+                self.y = [1, 2, 3]
+        c = C()
+        assert c.x == 1
+        c.y.append(4)
+        assert c.y == [1, 2, 3, 4]
 
     # Passthrough of lazy args
     with lazify:

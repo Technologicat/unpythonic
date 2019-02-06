@@ -3,9 +3,9 @@
 
 from copy import copy
 
-from ast import Lambda, FunctionDef, Call, Name, \
+from ast import Lambda, FunctionDef, Call, Name, Attribute, \
                 Starred, keyword, List, Tuple, Dict, Set, \
-                Subscript, Load
+                Subscript, Load, Store
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, ast_literal
@@ -36,21 +36,25 @@ def lazycall(_func, *thunks, **kwthunks):
 # -----------------------------------------------------------------------------
 
 # Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
-def force(x):
+def force1(x):
     """Force a MacroPy lazy[] promise.
 
-    For a promise ``x``, the effect of ``force(x)`` is the same as ``x()``,
-    except that ``force `` first checks that ``x`` is a promise.
+    For a promise ``x``, the effect of ``force1(x)`` is the same as ``x()``,
+    except that ``force1 `` first checks that ``x`` is a promise.
 
     If ``x`` is not a promise, it is returned as-is (à la Racket).
+    """
+    return x() if isinstance(x, Lazy) else x
+
+def force(x):
+    """Like force1, but recurse into containers.
 
     This recurses on any containers with the appropriate ``collections.abc``
     abstract base classes (virtuals ok too). Mutable containers are updated
     in-place, for immutables a new instance is created. For details, see
     ``unpythonic.collections.mogrify``.
     """
-    f = lambda elt: elt() if isinstance(elt, Lazy) else elt
-    return mogrify(f, x)  # in-place update to allow lazy functions to have writable list arguments
+    return mogrify(force1, x)  # in-place update to allow lazy functions to have writable list arguments
 
 # -----------------------------------------------------------------------------
 
@@ -171,7 +175,6 @@ def is_literal_container(tree, maps_only=False):
 
 # TODO: support curry, call, callwith (may need changes to their implementations, too)
 
-# TODO: lazify assignment RHS
 # TODO: other binding constructs?
 #   - keep in mind that force(x) == x if x is a non-promise atom, so a wrapper is not needed
 #   - not "with", eager init is the whole point of a context manager
@@ -206,6 +209,39 @@ def lazify(body):
                         tree.decorator_list.append(hq[mark_lazy])
 
                 tree.body = rec(tree.body)
+
+#        # This is one place where explicit is better than implicit; with
+#        # auto-lazification of assignments it is too easy to accidentally set up
+#        # an infinite loop.
+#        # This is ok:
+#        #   force1(lst)[0] = (10 * (force1(lst()[0]) if isinstance(lst, Lazy1) else force1(lst[0])))
+#        # but this blows up later when we eventually force lst[0]:
+#        #   force1(lst)[0] = Lazy1(lambda: (10 * (force1(lst()[0]) if isinstance(lst, Lazy1) else force1(lst[0]))))
+#        # TODO: solve this by forcing and capturing the current value before assigning,
+#        # TODO: instead of allowing the promise to refer to a list element.
+#        # TODO: OTOH, that's a **use** of the current value, so we may as well do nothing,
+#        # TODO: causing the RHS to be evaluated.
+#        elif type(tree) is Assign:  # lazify RHS
+#            stop()
+#            tree.targets = rec(tree.targets)
+#            tree.value = rec(tree.value)          # add any needed force() invocations inside the tree
+#            if type(tree) is not Name:
+#                tree.value = lazyrec(tree.value)  # (re-)thunkify
+#
+#        elif type(tree) is AnnAssign:  # TODO: test in Python 3.6+
+#            stop()
+#            if tree.value is not None:
+#                tree.target = rec(tree.target)
+#                tree.value = rec(tree.value)
+#                if type(tree) is not Name:
+#                    tree.value = lazyrec(tree.value)
+#
+#        elif type(tree) is AugAssign:
+#            stop()
+#            tree.target = rec(tree.target)
+#            tree.value = rec(tree.value)
+#            if type(tree) is not Name:
+#                tree.value = lazyrec(tree.value)
 
         elif type(tree) is Call:
             # For some important functions known to be strict, just recurse
@@ -280,27 +316,27 @@ def lazify(body):
 
                 tree = mycall
 
-        # force the accessed part of obj[...]
-        elif type(tree) is Subscript and type(tree.ctx) is Load:
+        elif type(tree) is Subscript:  # force only accessed part of obj[...]
             if type(tree.value) is Name:
                 stop()
                 tree.slice = rec(tree.slice)
-                # consider e.g. "force(lst()[...]) if isinstance(lst, Lazy) else force(lst[...])"
-                #
-                # Usually interpolating the same tree more than once in the output
-                # is a phenomenally bad idea in macros, but here tree.value is known
-                # to be a Name (so referring to it multiple times is ok), and each time
-                # this expr is reached in the expanded code, only one branch of the if runs.
-                #
-                # We could use a let, but it's inefficient since it's not needed.
-                #
                 # shallow-force top-level promise to get the actual container without evaluating its items.
-                tmp = copy(tree)
-                tmp.value = hq[ast_literal[tree.value]()]
-                tree = hq[force(ast_literal[tmp]) if isinstance(ast_literal[tree.value], Lazy) else force(ast_literal[tree])]
+                tree.value = hq[force1(ast_literal[tree.value])]
+                if type(tree.ctx) is Load:
+                    tree = hq[force(ast_literal[tree])]
 
-        # force uses of names
-        # TODO: what about attributes? should probably force them, too?
+        elif type(tree) is Attribute:
+            stop()
+            # a.b.c --> force(force(force(a).b).c)  (Load)
+            #       -->       force(force(a).b).c   (Store)
+            # attr="c", value=a.b
+            # attr="b", value=a
+            # Note in case of assignment to a compound, only the outermost
+            # Attribute is in Store context.
+            tree.value = rec(tree.value)
+            if type(tree.ctx) is Load:
+                tree = hq[force(ast_literal[tree])]
+
         elif type(tree) is Name and type(tree.ctx) is Load:
             stop()  # must not recurse when a Name changes into a Call.
             tree = hq[force(ast_literal[tree])]
