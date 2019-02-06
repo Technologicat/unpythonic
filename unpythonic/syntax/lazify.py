@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """Automatic lazy evaluation of function arguments."""
 
-from copy import copy
-
 from ast import Lambda, FunctionDef, Call, Name, Attribute, \
                 Starred, keyword, List, Tuple, Dict, Set, \
-                Subscript, Load, Store
+                Subscript, Load
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, ast_literal
