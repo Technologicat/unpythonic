@@ -186,7 +186,10 @@ def lazify(body):
 
     # second pass, inside-out
     @Walker
-    def transform(tree, *, stop, **kw):
+    def transform(tree, *, forcing_mode, stop, **kw):
+        def rec(tree):
+            return transform.recurse(tree, forcing_mode=forcing_mode)
+
         if type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
             if type(tree) is Lambda and id(tree) not in userlambdas:
                 pass  # ignore macro-introduced lambdas
@@ -315,36 +318,48 @@ def lazify(body):
                 tree = mycall
 
         elif type(tree) is Subscript:  # force only accessed part of obj[...]
-            if type(tree.value) is Name:
-                stop()
-                tree.slice = rec(tree.slice)
-                # shallow-force top-level promise to get the actual container without evaluating its items.
-                tree.value = hq[force1(ast_literal[tree.value])]
-                if type(tree.ctx) is Load:
+            stop()
+            tree.slice = rec(tree.slice)
+            # shallow-force top-level promise to get the actual container without evaluating its items.
+            tree.value = hq[force1(ast_literal[tree.value])]
+            if type(tree.ctx) is Load:
+                if forcing_mode == "recursive":
                     tree = hq[force(ast_literal[tree])]
+                else: # forcing_mode == "flat":
+                    tree = hq[force1(ast_literal[tree])]
 
         elif type(tree) is Attribute:
-            stop()
-            # a.b.c --> force(force(force(a).b).c)  (Load)
-            #       -->       force(force(a).b).c   (Store)
-            # attr="c", value=a.b
-            # attr="b", value=a
+            #   a.b.c --> force1(force1(force1(a).b).c)  (Load)
+            #         -->        force1(force1(a).b).c   (Store)
+            #   attr="c", value=a.b
+            #   attr="b", value=a
             # Note in case of assignment to a compound, only the outermost
             # Attribute is in Store context.
-            tree.value = rec(tree.value)
-            if type(tree.ctx) is Load:
-                tree = hq[force(ast_literal[tree])]
+            #
+            # Recurse in flat mode. Consider lst = [[1, 2], 3]
+            #   lst[0] --> force(force1(lst)[0]), but
+            #   lst[0].append --> force1(force1(force1(lst)[0]).append)
+            # Hence, looking up an attribute should only force **the object**
+            # so that we can perform the attribute lookup on it, whereas
+            # looking up values should force the whole slice.
+            # TODO: ...or perhaps just its top level? This too may depend on context?
+            stop()
+            tree.value = transform.recurse(tree.value, forcing_mode="flat")
+            if type(tree.ctx) is Load:  # force the attr itself (once lookup complete)
+                tree = hq[force1(ast_literal[tree])]
 
         elif type(tree) is Name and type(tree.ctx) is Load:
             stop()  # must not recurse when a Name changes into a Call.
-            tree = hq[force(ast_literal[tree])]
+            if forcing_mode == "recursive":
+                tree = hq[force(ast_literal[tree])]
+            else: # forcing_mode == "flat":
+                tree = hq[force1(ast_literal[tree])]
 
         return tree
 
-    rec = transform.recurse
     newbody = []
     for stmt in body:
-        newbody.append(rec(stmt))
+        newbody.append(transform.recurse(stmt, forcing_mode="recursive"))
     return newbody
 
 # -----------------------------------------------------------------------------

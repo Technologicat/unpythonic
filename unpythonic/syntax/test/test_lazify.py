@@ -193,6 +193,14 @@ def test():
         c.y.append(4)
         assert c.y == [1, 2, 3, 4]
 
+        lst = lazyrec[[1, 2, 3/0]]
+        lst.append(lazy[4])
+        assert lst[0] == 1
+
+        lst = lazyrec[[[1, 2/0], 3/0]]
+        lst[0].append(lazy[4])
+        assert lst[0][0] == 1 and lst[0][2] == 4
+
     # Passthrough of lazy args
     with lazify:
         # positional arg -> positional arg
