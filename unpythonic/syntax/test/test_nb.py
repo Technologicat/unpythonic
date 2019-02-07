@@ -6,15 +6,15 @@ def test():
     with nb:
         2 + 3          # top-level expressions autoprint, and auto-assign result to _
         assert _ == 5  # ...and only expressions do that, so...
-        _ * 42         # ...here _ stll has the value from the first line.
+        _ * 42         # ...here _ still has the value from the first line.
         assert _ == 210
 
     try:
-        from sympy import symbols
+        from sympy import symbols, pprint
     except ImportError:
         print("*** SymPy not installed, skipping symbolic math test ***")
     else:
-        with nb:
+        with nb(pprint):  # you can specify a custom print function (first positional arg)
             x, y = symbols("x, y")
             x * y
             assert _ == x * y

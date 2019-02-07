@@ -9,8 +9,12 @@ from ast import Expr
 
 from macropy.core.quotes import macros, q, ast_literal
 
-def nb(body):
+def nb(body, args):
+    p = args[0] if args else q[print]  # custom print function hook
     newbody = []
+    with q as init:
+        theprint = ast_literal[p]
+    newbody.append(init)
     for stmt in body:
         if type(stmt) is not Expr:
             newbody.append(stmt)
@@ -18,6 +22,6 @@ def nb(body):
         with q as newstmts:
             _ = ast_literal[stmt.value]
             if _ is not None:
-                print(_)
+                theprint(_)
         newbody.extend(newstmts)
     return newbody

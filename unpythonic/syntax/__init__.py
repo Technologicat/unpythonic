@@ -1375,10 +1375,12 @@ def continuations(tree, *, gen_sym, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.block
-def nb(tree, **kw):
+def nb(tree, args, **kw):
     """[syntax, block] Ultralight math notebook.
 
     Auto-print top-level expressions, auto-assign last result as _.
+
+    A custom print function can be supplied as the first positional argument.
 
     Example::
 
@@ -1387,12 +1389,12 @@ def nb(tree, **kw):
             42 * _
 
         from sympy import *
-        with nb:
+        with nb(pprint):
             x, y = symbols("x, y")
             x * y
             3 * _
     """
-    return _nb(body=tree)
+    return _nb(body=tree, args=args)
 
 # -----------------------------------------------------------------------------
 
