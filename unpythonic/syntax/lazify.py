@@ -343,23 +343,24 @@ def lazify(body):
             tree = force_if_load_ctx(tree)
 
         elif type(tree) is Attribute:
-            #   a.b.c --> force1(force1(force1(a).b).c)  (Load)
-            #         -->        force1(force1(a).b).c   (Store)
+            #   a.b.c --> f(force1(force1(a).b).c)  (Load)
+            #         -->   force1(force1(a).b).c   (Store)
             #   attr="c", value=a.b
             #   attr="b", value=a
             # Note in case of assignment to a compound, only the outermost
             # Attribute is in Store context.
             #
             # Recurse in flat mode. Consider lst = [[1, 2], 3]
-            #   lst[0] --> force(force1(lst)[0]), but
+            #   lst[0] --> f(force1(lst)[0]), but
             #   lst[0].append --> force1(force1(force1(lst)[0]).append)
             # Hence, looking up an attribute should only force **the object**
             # so that we can perform the attribute lookup on it, whereas
-            # looking up values should force the whole slice.
-            # TODO: ...or perhaps just its top level? This too may depend on context?
+            # looking up values should finally f() the whole slice.
+            # (In the above examples, we have omitted f() when it is identity;
+            #  in reality there is always an f() around the whole expr.)
             stop()
             tree.value = rec(tree.value, forcing_mode="flat")
-            tree = force_if_load_ctx(tree)  # force the attr itself (once lookup complete)
+            tree = force_if_load_ctx(tree)
 
         elif type(tree) is Name and type(tree.ctx) is Load:
             stop()  # must not recurse when a Name changes into a Call.
