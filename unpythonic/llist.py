@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Cons and friends.
 
-Hashable, pickleable, hooks into the built-in reversed(), prints like in Lisps.
+Hashable, pickleable, hooks into the built-in reversed(), can print like in Lisps.
 """
 
 from abc import ABCMeta, abstractmethod
@@ -10,6 +10,7 @@ from itertools import zip_longest
 from .fun import composer1i
 from .fold import foldr, foldl
 from .it import rev
+from .gtco import gtrampolined
 
 # explicit list better for tooling support
 _exports = ["cons", "nil",
@@ -66,7 +67,7 @@ class ConsIterator(metaclass=ABCMeta):
     def __init__(self, startcell, walker):
         if not isinstance(startcell, cons):
             raise TypeError("Expected a cons, got {} with value {}".format(type(startcell), startcell))
-        self.walker = walker(startcell)
+        self.walker = iter(walker(startcell))  # iter() needed to support gtrampolined generators
     def __iter__(self):
         return self
     def __next__(self):
@@ -92,7 +93,8 @@ class LinkedListReverseIterator(LinkedListIterator):
     """Iterator for walking a linked list backwards.
 
     Computes the reversed list at init time, so it can then be walked forward.
-    Cost O(n)."""
+    Cost O(n).
+    """
     def __init__(self, head, _fullerror=True):
         self._data = lreverse(head)
         super().__init__(self._data, _fullerror)
@@ -146,6 +148,39 @@ class BinaryTreeIterator(ConsIterator):
                     yield from walker(x)
                 else:
                     yield x
+        super().__init__(root, walker)
+
+class JackOfAllTradesIterator(ConsIterator):
+    """Iterator that supports both binary trees and linked lists.
+
+    An optimized tail call is used to descend into the cdr half, so this supports
+    also long linked lists.
+
+    **CAUTION**: *jack of all trades*, because:
+
+        - To handle trees correctly, this iterator descends into any cons cell
+          contained in the input, **also in the car half**. This implies that
+          **nested linked lists will be flattened**.
+
+        - To handle list termination correctly, whenever the **cdr half**
+          contains a ``nil``, it will be omitted from the output. This implies
+          that for a tree which contains ``nil`` entries, **some** of those
+          ``nil`` may be missing from the output.
+
+    If you want the ace for a particular trade, use the specific iterator for
+    the specific kind of cons structure you have.
+    """
+    def __init__(self, root):
+        @gtrampolined
+        def walker(cell):
+            if isinstance(cell.car, cons):
+                yield from walker(cell.car)
+            else:
+                yield cell.car
+            if isinstance(cell.cdr, cons):
+                return walker(cell.cdr)  # signal gtrampolined to tail-chain
+            elif cell.cdr is not nil:
+                yield cell.cdr
         super().__init__(root, walker)
 
 class cons:

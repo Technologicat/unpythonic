@@ -3,7 +3,7 @@
 from ..llist import cons, car, cdr, nil, ll, llist, \
                     caar, cdar, cadr, cddr, caddr, cdddr, \
                     member, lreverse, lappend, lzip, \
-                    BinaryTreeIterator
+                    BinaryTreeIterator, JackOfAllTradesIterator
 
 from ..fold import foldl, foldr
 
@@ -54,6 +54,24 @@ def test():
         pass
     else:
         assert False, "binary tree should not be iterable as a linked list"
+
+    # generic iterator that understands both linked lists and trees
+    assert tuple(JackOfAllTradesIterator(ll(1, 2, 3, 4))) == (1, 2, 3, 4)
+    assert tuple(JackOfAllTradesIterator(t)) == (1, 2, 3, 4)
+
+    c = ll(cons(1, 2), cons(3, 4))
+    assert tuple(JackOfAllTradesIterator(c)) == (1, 2, 3, 4)
+    assert tuple(c) == (cons(1, 2), cons(3, 4))
+
+    t2 = cons(cons(1, nil), cons(2, nil))
+    assert tuple(BinaryTreeIterator(t2)) == (1, nil, 2, nil)
+    assert tuple(JackOfAllTradesIterator(t2)) == (1, 2)  # skips nil in any cdr slot for list compatibility
+
+    t2 = cons(cons(nil, 1), cons(nil, 2))
+    assert tuple(BinaryTreeIterator(t2)) == (nil, 1, nil, 2)
+    assert tuple(JackOfAllTradesIterator(t2)) == (nil, 1, nil, 2)  # but doesn't skip nil in the car slot
+
+    assert tuple(JackOfAllTradesIterator(llist(range(10000)))) == tuple(range(10000))  # no crash
 
     # repr
     assert repr(cons(1, 2)) == "cons(1, 2)"
