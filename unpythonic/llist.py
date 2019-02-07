@@ -242,7 +242,7 @@ class cons:
         return False
     def __hash__(self):
         try:  # duck test linked list
-            tpl = tuple(self)
+            tpl = tuple(LinkedListIterator(self))
         except TypeError:
             tpl = (self.car, self.cdr)
         return hash(tpl)
