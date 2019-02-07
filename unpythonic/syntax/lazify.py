@@ -285,17 +285,16 @@ def lazify(body):
                     isref = type(tree) in (Name, Attribute, Subscript)
                     tree = rec(tree, forcing_mode=("off" if isref else "full"))
                     if not isref:
-                        tree = lazyrec(tree)  # (re-)thunkify
+                        tree = lazyrec(tree)  # (re-)thunkify expr
                     return tree
 
                 def transform_starred(tree, dstarred=False):
                     isref = type(tree) in (Name, Attribute, Subscript)
                     tree = rec(tree, forcing_mode=("off" if isref else "full"))
-                    if not isref:
-                        # lazify items if we have a literal container
-                        # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
-                        if is_literal_container(tree, maps_only=dstarred):
-                            tree = lazyrec(tree)
+                    # lazify items if we have a literal container
+                    # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
+                    if is_literal_container(tree, maps_only=dstarred):
+                        tree = lazyrec(tree)
                     return tree
 
                 # TODO: test *args support in Python 3.5+ (this **should** work according to the AST specs)
