@@ -59,6 +59,10 @@ def test():
     assert tuple(JackOfAllTradesIterator(ll(1, 2, 3, 4))) == (1, 2, 3, 4)
     assert tuple(JackOfAllTradesIterator(t)) == (1, 2, 3, 4)
 
+    nstd = ll(ll(1, 2), ll(3, 4))
+    assert tuple(JackOfAllTradesIterator(nstd)) == (1, 2, 3, 4)  # flattens nested lists
+    assert tuple(nstd) == (ll(1, 2), ll(3, 4))
+
     c = ll(cons(1, 2), cons(3, 4))
     assert tuple(JackOfAllTradesIterator(c)) == (1, 2, 3, 4)
     assert tuple(c) == (cons(1, 2), cons(3, 4))
