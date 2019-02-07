@@ -55,9 +55,10 @@ def test():
     else:
         assert False, "binary tree should not be iterable as a linked list"
 
-    # generic iterator that understands both linked lists and trees
+    # generic iterator that understands both linked lists and binary trees
     assert tuple(JackOfAllTradesIterator(ll(1, 2, 3, 4))) == (1, 2, 3, 4)
     assert tuple(JackOfAllTradesIterator(t)) == (1, 2, 3, 4)
+    assert tuple(JackOfAllTradesIterator(cons(1, 2))) == (1, 2)  # a single cons is a degenerate binary tree
 
     nstd = ll(ll(1, 2), ll(3, 4))
     assert tuple(JackOfAllTradesIterator(nstd)) == (1, 2, 3, 4)  # flattens nested lists
