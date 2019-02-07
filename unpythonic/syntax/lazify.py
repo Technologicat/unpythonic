@@ -225,7 +225,7 @@ def lazify(body):
         # a promise if it happens to be inside one, but don't force its elements
         # just for the sake of resolving the reference. Then, apply f to the
         # whole subscript term (forcing the accessed slice of the list, if necessary).
-        def force_if_load_ctx(tree):  # this function is the "f" above.
+        def f(tree):
             if type(tree.ctx) is Load:
                 if forcing_mode == "full":
                     return hq[force(ast_literal[tree])]
@@ -284,8 +284,8 @@ def lazify(body):
                     # but leave the top level of simple references untouched.
                     isref = type(tree) in (Name, Attribute, Subscript)
                     tree = rec(tree, forcing_mode=("off" if isref else "full"))
-                    if not isref:
-                        tree = lazyrec(tree)  # (re-)thunkify expr
+                    if not isref:  # (re-)thunkify expr; a reference can be passed as-is.
+                        tree = lazyrec(tree)
                     return tree
 
                 def transform_starred(tree, dstarred=False):
@@ -337,10 +337,10 @@ def lazify(body):
 
         elif type(tree) is Subscript:  # force only accessed part of obj[...]
             stop()
-            tree.slice = rec(tree.slice)
-            # flat-force top-level promise to get the actual container without evaluating its items.
+            tree.slice = rec(tree.slice, forcing_mode="full")
+            # resolve reference to the actual container without forcing its items.
             tree.value = rec(tree.value, forcing_mode="flat")
-            tree = force_if_load_ctx(tree)
+            tree = f(tree)
 
         elif type(tree) is Attribute:
             #   a.b.c --> f(force1(force1(a).b).c)  (Load)
@@ -360,11 +360,11 @@ def lazify(body):
             #  in reality there is always an f() around the whole expr.)
             stop()
             tree.value = rec(tree.value, forcing_mode="flat")
-            tree = force_if_load_ctx(tree)
+            tree = f(tree)
 
         elif type(tree) is Name and type(tree.ctx) is Load:
             stop()  # must not recurse when a Name changes into a Call.
-            tree = force_if_load_ctx(tree)
+            tree = f(tree)
 
         return tree
 
