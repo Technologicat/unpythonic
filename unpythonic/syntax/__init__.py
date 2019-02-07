@@ -1400,9 +1400,6 @@ def nb(tree, **kw):
 def lazify(tree, *, gen_sym, **kw):
     """[syntax, block] Call-by-need for Python.
 
-    This macro affects only function argument passing; everything else works
-    as usual.
-
     In a ``with lazify`` block, function arguments are evaluated only when
     actually used, so we can build things like this silly contrived example::
 
@@ -1422,11 +1419,12 @@ def lazify(tree, *, gen_sym, **kw):
 
     Like ``with continuations``, no state or context is associated with a
     ``with lazify`` block, so lazy functions defined in one block may call
-    those defined in another.
+    those defined in another. Calls between lazy and strict code are also
+    supported (in both directions), without requiring any extra effort.
 
     Evaluation of each lazified argument is guaranteed to occur at most once;
     the value is cached. Order of evaluation of lazy arguments is determined
-    by the order in which the lazified code actually uses them.
+    by the (dynamic) order in which the lazy code actually uses them.
 
     Essentially, the above code expands into::
 
@@ -1444,7 +1442,8 @@ def lazify(tree, *, gen_sym, **kw):
     plus some clerical details to allow lazy and strict code to be mixed.
 
     Just passing through a lazy argument to another lazy function will
-    not trigger evaluation::
+    not trigger evaluation, even when it appears in a computation inlined
+    to the argument list::
 
         with lazify:
             def g(a, b):
@@ -1470,8 +1469,21 @@ def lazify(tree, *, gen_sym, **kw):
     This relies on the magic of closures to capture f's ``a`` and ``b`` into
     the promises.
 
-    Passthrough is optimized to skip the re-thunking if the passed-through
-    argument is one of the existing formals::
+    But be careful; assignments do not auto-lazify, so this does **not** work::
+
+        with lazify:
+            def g(a, b):
+                return a
+            def f(a, b):
+                c = 3*b  # not in an arglist, b gets evaluated!
+                return g(2*a, c)
+            assert f(21, 1/0) == 42
+
+    (To avoid that, explicitly wrap the computation into a ``lazy[]``. For why
+    assignment RHSs are not auto-lazified, see the section on pitfalls below.)
+
+    In calls, bare references (name, subscript, attribute) are detected and for
+    them, re-thunking is skipped. For example::
 
         def g(a):
             return a
@@ -1484,18 +1496,18 @@ def lazify(tree, *, gen_sym, **kw):
         def g(a):
             return force(a)
         def f(a):
-            return g(a)  # <-- optimized; lazy[force(a)] -> a
+            return g(a)  # <-- no lazy[force(a)] since "a" is just a name
         assert f(lazy[42]) == 42
 
-    For forcing promises, we provide a function ``force`` that (recursively)
-    descends into containers.
+    When resolving references, subscripts and attributes are forced just enough
+    to obtain the containing object from a promise, if any; for example, the
+    elements of a list ``lst`` will not be evaluated just because the user code
+    happens to use ``lst.append(...)``; this only forces the object ``lst``
+    itself.
 
-    When ``force`` encounters an atom ``x`` (i.e. anything that is not a
-    container), then, if ``x`` is a MacroPy ``lazy[]`` promise, it will be
-    forced, and the resulting value is returned. If ``x`` is not a promise,
-    ``x`` itself is returned, à la Racket.
-
-    Inspired by Haskell, and Racket's (delay) and (force).
+    A ``lst`` appearing by itself evaluates the whole list. Similarly, ``lst[0]``
+    by itself evaluates only the first element, and ``lst[:-1]`` by itself
+    evaluates all but the last element.
 
     **Mixing lazy and strict code**
 
@@ -1503,36 +1515,46 @@ def lazify(tree, *, gen_sym, **kw):
     requiring any additional effort.
 
     Keep in mind what this implies: when calling a strict function, any arguments
-    given to it will be automatically evaluated!
+    given to it will be evaluated!
 
-    In the other direction, when calling a lazy function from outside any
-    ``with lazify`` block, the arguments are evaluated by the strict calling
-    code before the lazy code gets control. Then, the values are automatically
-    wrapped into dummy promises that just return the already computed values.
+    In the other direction, when calling a lazy function from strict code, the
+    arguments are evaluated by the caller before the lazy code gets control.
+    The lazy code gets just the evaluated values.
 
-    If you want to lazily pass an argument from strict code, use syntax like
-    ``f(lazy[...], ...)``. The machinery detects any args that are already
-    promises, and just passes them through.
+    If you have, in strict code, an argument expression you want to pass lazily,
+    use syntax like ``f(lazy[...], ...)``. If you accidentally do this in lazy
+    code, it shouldn't break anything; ``with lazify`` detects any argument
+    expressions that are already promises, and just passes them through.
 
-    **Overwriting and renaming formals**
+    **Forcing promises manually**
+
+    This is mainly useful if you ``lazy[]`` or ``lazyrec[]`` something explicitly,
+    and want to compute its value outside a ``with lazify`` block.
+
+    We provide the functions ``force1`` and ``force``.
+
+    Using ``force1``, if ``x`` is a MacroPy ``lazy[]`` promise, it will be
+    forced, and the resulting value is returned. If ``x`` is not a promise,
+    ``x`` itself is returned, à la Racket.
+
+    The function ``force``, in addition, descends into containers (recursively).
+    When an atom ``x`` (i.e. anything that is not a container) is encountered,
+    it is processed using ``force1``.
+
+    Mutable containers are updated in-place; for immutables, a new instance is
+    created. Any container with a compatible ``collections.abc`` is supported.
+    (See ``unpythonic.collections.mogrify`` for details.) In addition, as
+    special cases ``unpythonic.collections.box`` and ``unpythonic.llist.cons``
+    are supported.
+
+    **Tips, tricks and pitfalls**
 
     You can overwrite names that were originally formal parameters with data
     values; the new values may, but do not need to be, promises. Mostly, this
     shouldn't break anything, since ``force(x)`` evaluates to ``x`` when ``x``
-    is not a promise, and calls into lazy functions auto-wrap any already
-    evaluated args.
+    is not a promise, and lazy functions accept also already evaluated args.
 
-    If you want to manually introduce a promise, use ``lazy[]`` from MacroPy::
-
-        from macropy.quick_lambda import macros, lazy
-
-        with lazify:
-            def f(x):
-                x = lazy[2*21]  # assign a new promise
-                print(x)        # the implicit force(x) evaluates the promise
-            f(17)
-
-    This also works::
+    So this is just fine::
 
         with lazify:
             def f(x):
@@ -1540,11 +1562,87 @@ def lazify(tree, *, gen_sym, **kw):
                 print(x)  # the implicit force(x) evaluates to x
             f(17)
 
-    Note only the original names of formal parameters introduce the implicit
-    ``force``.
+    If you want to manually introduce a promise, use ``lazy[]`` from MacroPy::
 
-    Assigning a formal to a new name triggers the implicit force, because this
-    implies reading the original::
+        from macropy.quick_lambda import macros, lazy
+        from unpythonic.syntax import macros, lazify
+
+        with lazify:
+            def f(x):
+                x = lazy[2*21]  # assign a new promise
+                print(x)        # the implicit force(x) evaluates the promise
+            f(17)
+
+    If you have a container literal and want to lazify it recursively, we provide
+    a macro ``lazyrec[]`` (see its docstring for details)::
+
+        from unpythonic.syntax import macros, lazify, lazyrec
+
+        with lazify:
+            def f(x):
+                return x[:-1]
+            lst = lazyrec[[1, 2, 3/0]]
+            assert f(lst) == [1, 2]
+
+    For non-literal containers, use ``lazy[]`` for each item as appropriate::
+
+        def f(lst):
+            lst.append(lazy["I'm lazy"])
+            lst.append(lazy["Don't call me lazy, I'm just evaluated later!"])
+
+    Keep in mind, though, that ``lazy[]`` will introduce a lambda, so there's
+    the usual pitfall::
+
+        from macropy.quick_lambda import macros, lazy
+        from unpythonic.syntax import macros, lazify
+
+        with lazify:
+            lst = []
+            for x in range(3):       # only one "x", mutated imperatively
+                lst.append(lazy[x])  # all these closures capture the same "x"
+            print(lst[0])  # 2
+            print(lst[1])  # 2
+            print(lst[2])  # 2
+
+    So use the usual workaround, the wrapper lambda (here written more readably
+    as a let, which it really is)::
+
+        from macropy.quick_lambda import macros, lazy
+        from unpythonic.syntax import macros, lazify, let
+
+        with lazify:
+            lst = []
+            for x in range(3):
+                lst.append(let[(y, x) in lazy[y]])
+            print(lst[0])  # 0
+            print(lst[1])  # 1
+            print(lst[2])  # 2
+
+    Be careful not to ``lazy[]`` or ``lazyrec[]`` too much::
+
+        with lazify:
+            a = 10
+            a = lazy[2*a]  # 20, right?
+            print(a)       # crash!
+
+    Why does this example crash? The expanded code is::
+
+        with lazify:
+            a = 10
+            a = lazy[2*force(a)]
+            print(force(a))
+
+    The ``lazy[]`` sets up a promise, which will force ``a`` **at the time when
+    the containing promise is forced**, but at that time the name ``a`` points
+    to a promise, which will force...
+
+    The fundamental issue is that ``a = 2*a`` is not an equation, but an
+    imperative update; if you need to do that, just let Python evaluate the
+    RHS normally (i.e. use the value the name ``a`` points to **at the time
+    when the RHS runs**).
+
+    Assigning a lazy value to a new name evaluates it, because any read access
+    triggers evaluation::
 
         with lazify:
             def g(x):
@@ -1552,13 +1650,14 @@ def lazify(tree, *, gen_sym, **kw):
                 print(y)    # bare data value
             f(2*21)
 
-    **CAUTION**: Argument passing by function call is currently the only binding
-    construct to which auto-lazification is applied. Support for other forms of
-    binding such as assignment and the context manager is subject to **possible**
-    addition in a future version.
+    Inspired by Haskell, and Racket's (delay) and (force).
 
-    **CAUTION**: Lazy evaluation is a low-level language feature that is difficult
-    to bolt on after the fact. Hence, some things will not work. For example:
+    **CAUTION**: Argument passing by function call is currently the only binding
+    construct to which auto-lazification is applied.
+
+    **CAUTION**: Call-by-need is a low-level language feature that is difficult
+    to bolt on after the fact; especially since the resulting language is not
+    uniformly so. Hence, some things will not work. For example:
 
         - Lazy ``curry`` is currently **not** supported. Making ``curry`` work
           properly with lazy functions requires modifying ``curry`` itself.
@@ -1584,8 +1683,8 @@ def lazyrec(tree, **kw):
     or ``unpythonic.llist.cons``, and into the values of a literal ``dict`` or
     ``unpythonic.collections.frozendict``.
 
-    Because this is a macro and must work by names only, these are the only
-    container types currently supported.
+    Because this is a macro and must work by names only, only this fixed set of
+    container types is supported.
 
     The container itself is not lazified, only the items inside it are, to keep
     the lazification from interfering with unpacking. This allows things such as
@@ -1602,6 +1701,10 @@ def lazyrec(tree, **kw):
 
         lazyrec[(2*21, 1/0)] --> (lazy[2*21], lazy[1/0])
         lazyrec[{'a': 2*21, 'b': 1/0}] --> {'a': lazy[2*21], 'b': lazy[1/0]}
+
+    Constructor call syntax is also supported::
+
+        lazyrec[list(2*21, 1/0)] --> [lazy[2*21], lazy[1/0]]
 
     Nested containers (with any combination of known types) are processed
     recursively, for example::
