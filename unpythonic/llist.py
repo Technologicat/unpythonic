@@ -153,8 +153,7 @@ class BinaryTreeIterator(ConsIterator):
 class JackOfAllTradesIterator(ConsIterator):
     """Iterator that supports both binary trees and linked lists.
 
-    An optimized tail call is used to descend into the cdr half, so this supports
-    also long linked lists.
+    An optimized tail call is used to descend into the cdr half.
 
     **CAUTION**: *jack of all trades*, because:
 
