@@ -1560,6 +1560,8 @@ Support for ``namedtuple`` requires an extra feature, which is available for cus
 
 #### ``frozendict``, an immutable dictionary type
 
+*Added in v0.13.0.*
+
 Since Python itself doesn't provide an immutable dictionary type, we do. It's essentially modeled as a crossover of the builtins ``dict`` and ``frozenset``:
 
 ```python

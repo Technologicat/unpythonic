@@ -1147,6 +1147,8 @@ The transformation is ``fup[seq[idx] << value] --> fupdate(seq, idx, value)`` fo
 
 ## ``nb``: silly ultralight math notebook
 
+*Added in v0.13.0.*
+
 Mix regular code with math-notebook-like code in a ``.py`` file. To enable notebook mode, ``with nb``:
 
 ```python
@@ -1248,6 +1250,8 @@ with prefix, curry:  # important: apply prefix first, then curry
 
 
 ## ``lazify``: call-by-need for Python
+
+*Added in v0.13.0.*
 
 You know you want to:
 
