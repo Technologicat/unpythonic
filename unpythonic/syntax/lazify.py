@@ -171,13 +171,28 @@ def is_literal_container(tree, maps_only=False):
 
 # -----------------------------------------------------------------------------
 
-# TODO: support curry, call, callwith (may need changes to their implementations, too)
+# Note we do **not** lazify the RHS of assignments. This is one place where
+# explicit is better than implicit; with auto-lazification of assignment RHSs
+# it is too easy to accidentally set up an infinite recursion.
+#
+# This is ok:
+#   force1(lst)[0] = (10 * (force1(lst()[0]) if isinstance(lst, Lazy1) else force1(lst[0])))
+#
+# but this blows up (by infinite recursion) later when we eventually force lst[0]:
+#   force1(lst)[0] = Lazy1(lambda: (10 * (force1(lst()[0]) if isinstance(lst, Lazy1) else force1(lst[0]))))
+#
+# We **could** solve this by forcing and capturing the current value before assigning,
+# instead of allowing the RHS to refer to a lazy list element. But on the other hand,
+# that's a **use** of the current value, so we may as well do nothing, causing
+# the RHS to be evaluated, without the need to have any extra code here. :)
 
 # TODO: other binding constructs?
 #   - keep in mind that force(x) == x if x is a non-promise atom, so a wrapper is not needed
-#   - not "with", eager init is the whole point of a context manager
-#   - not "for", it's a rapidly changing loop counter
+#   - don't lazify "with", eager init is the whole point of a context manager
+#   - don't lazify "for", the loop counter changes value imperatively (and usually rather rapidly)
 # full list: see unpythonic.syntax.scoping.get_names_in_store_context (and the link therein)
+
+# TODO: support curry, call, callwith (needs changes to their implementations, too)
 
 def lazify(body):
     # first pass, outside-in
@@ -187,15 +202,34 @@ def lazify(body):
     # second pass, inside-out
     @Walker
     def transform(tree, *, forcing_mode, stop, **kw):
-        def rec(tree):
+        def rec(tree, forcing_mode=forcing_mode):  # shorthand that defaults to current mode
             return transform.recurse(tree, forcing_mode=forcing_mode)
 
+        # Forcing references (Name, Attribute, Subscript) in Load context:
+        #   x -> f(x)
+        #   a.x -> f(force1(a).x)
+        #   a.b.x -> f(force1(force1(a).b).x)
+        #   a[j] -> f((force1(a))[force(j)])
+        #   a[j][k] -> f(force1(force1(a)[force(j)])[force(k)])
+        #
+        # where f is force, force1 or identity (optimized away) depending on
+        # where the term appears; j and k may be indices or slices.
+        #
+        # The idea is to apply just the right level of forcing to be able to
+        # resolve the reference, and then decide what to do with the resolved
+        # reference based on where it appears.
+        #
+        # For example, when subscripting a list, force1 it to unwrap it from
+        # a promise if it happens to be inside one, but don't force its elements
+        # just for the sake of resolving the reference. Then, apply f to the
+        # whole subscript term (forcing the accessed slice of the list, if necessary).
         def force_if_load_ctx(tree):
             if type(tree.ctx) is Load:
-                if forcing_mode == "recursive":
+                if forcing_mode == "full":
                     return hq[force(ast_literal[tree])]
-                else: # forcing_mode == "flat":
+                elif forcing_mode == "flat":
                     return hq[force1(ast_literal[tree])]
+                # else forcing_mode == "off"
             return tree
 
         if type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
@@ -219,39 +253,6 @@ def lazify(body):
 
                 tree.body = rec(tree.body)
 
-#        # This is one place where explicit is better than implicit; with
-#        # auto-lazification of assignments it is too easy to accidentally set up
-#        # an infinite loop.
-#        # This is ok:
-#        #   force1(lst)[0] = (10 * (force1(lst()[0]) if isinstance(lst, Lazy1) else force1(lst[0])))
-#        # but this blows up later when we eventually force lst[0]:
-#        #   force1(lst)[0] = Lazy1(lambda: (10 * (force1(lst()[0]) if isinstance(lst, Lazy1) else force1(lst[0]))))
-#        # TODO: solve this by forcing and capturing the current value before assigning,
-#        # TODO: instead of allowing the promise to refer to a list element.
-#        # TODO: OTOH, that's a **use** of the current value, so we may as well do nothing,
-#        # TODO: causing the RHS to be evaluated.
-#        elif type(tree) is Assign:  # lazify RHS
-#            stop()
-#            tree.targets = rec(tree.targets)
-#            tree.value = rec(tree.value)          # add any needed force() invocations inside the tree
-#            if type(tree) is not Name:
-#                tree.value = lazyrec(tree.value)  # (re-)thunkify
-#
-#        elif type(tree) is AnnAssign:  # TODO: test in Python 3.6+
-#            stop()
-#            if tree.value is not None:
-#                tree.target = rec(tree.target)
-#                tree.value = rec(tree.value)
-#                if type(tree) is not Name:
-#                    tree.value = lazyrec(tree.value)
-#
-#        elif type(tree) is AugAssign:
-#            stop()
-#            tree.target = rec(tree.target)
-#            tree.value = rec(tree.value)
-#            if type(tree) is not Name:
-#                tree.value = lazyrec(tree.value)
-
         elif type(tree) is Call:
             # For some important functions known to be strict, just recurse
             # namelambda() is used by let[] and do[]
@@ -263,24 +264,32 @@ def lazify(body):
                 # is an inner call in the arglist of an outer, lazy call, since it
                 # must see any container constructor calls that appear in the args)
                 stop()
+                # TODO: correct forcing mode? We shouldn't need to forcibly use "full",
+                # since lazycall() already forces any remaining promises (in full mode)
+                # in args of strict functions.
                 tree.args = rec(tree.args)
                 tree.keywords = rec(tree.keywords)
-                if hasattr(tree, "starargs"): tree.starargs = rec(tree.starargs)  # Python 3.4
-                if hasattr(tree, "kwargs"): tree.kwargs = rec(tree.kwargs)  # Python 3.4
+                # Python 3.4
+                if hasattr(tree, "starargs"): tree.starargs = rec(tree.starargs)
+                if hasattr(tree, "kwargs"): tree.kwargs = rec(tree.kwargs)
             else:
                 stop()
                 ln, co = tree.lineno, tree.col_offset
                 thefunc = rec(tree.func)
 
                 def transform_arg(tree):
-                    if type(tree) is not Name:
-                        tree = rec(tree)      # add any needed force() invocations inside the tree
+                    # add any needed force() invocations inside the tree,
+                    # but leave the top level of simple references untouched.
+                    isref = type(tree) in (Name, Attribute, Subscript)
+                    tree = rec(tree, forcing_mode=("off" if isref else "full"))
+                    if not isref:
                         tree = lazyrec(tree)  # (re-)thunkify
                     return tree
 
                 def transform_starred(tree, dstarred=False):
-                    if type(tree) is not Name:
-                        tree = rec(tree)
+                    isref = type(tree) in (Name, Attribute, Subscript)
+                    tree = rec(tree, forcing_mode=("off" if isref else "full"))
+                    if not isref:
                         # lazify items if we have a literal container
                         # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
                         if is_literal_container(tree, maps_only=dstarred):
@@ -328,8 +337,8 @@ def lazify(body):
         elif type(tree) is Subscript:  # force only accessed part of obj[...]
             stop()
             tree.slice = rec(tree.slice)
-            # shallow-force top-level promise to get the actual container without evaluating its items.
-            tree.value = hq[force1(ast_literal[tree.value])]
+            # flat-force top-level promise to get the actual container without evaluating its items.
+            tree.value = rec(tree.value, forcing_mode="flat")
             tree = force_if_load_ctx(tree)
 
         elif type(tree) is Attribute:
@@ -348,7 +357,7 @@ def lazify(body):
             # looking up values should force the whole slice.
             # TODO: ...or perhaps just its top level? This too may depend on context?
             stop()
-            tree.value = transform.recurse(tree.value, forcing_mode="flat")
+            tree.value = rec(tree.value, forcing_mode="flat")
             tree = force_if_load_ctx(tree)  # force the attr itself (once lookup complete)
 
         elif type(tree) is Name and type(tree.ctx) is Load:
@@ -359,7 +368,7 @@ def lazify(body):
 
     newbody = []
     for stmt in body:
-        newbody.append(transform.recurse(stmt, forcing_mode="recursive"))
+        newbody.append(transform.recurse(stmt, forcing_mode="full"))
     return newbody
 
 # -----------------------------------------------------------------------------
