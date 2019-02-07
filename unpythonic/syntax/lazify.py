@@ -205,7 +205,7 @@ def lazify(body):
         def rec(tree, forcing_mode=forcing_mode):  # shorthand that defaults to current mode
             return transform.recurse(tree, forcing_mode=forcing_mode)
 
-        # Forcing references (Name, Attribute, Subscript) in Load context:
+        # Forcing references (Name, Attribute, Subscript):
         #   x -> f(x)
         #   a.x -> f(force1(a).x)
         #   a.b.x -> f(force1(force1(a).b).x)
@@ -215,6 +215,8 @@ def lazify(body):
         # where f is force, force1 or identity (optimized away) depending on
         # where the term appears; j and k may be indices or slices.
         #
+        # Whenever not in Load context, f is identity.
+        #
         # The idea is to apply just the right level of forcing to be able to
         # resolve the reference, and then decide what to do with the resolved
         # reference based on where it appears.
@@ -223,7 +225,7 @@ def lazify(body):
         # a promise if it happens to be inside one, but don't force its elements
         # just for the sake of resolving the reference. Then, apply f to the
         # whole subscript term (forcing the accessed slice of the list, if necessary).
-        def force_if_load_ctx(tree):
+        def force_if_load_ctx(tree):  # this function is the "f" above.
             if type(tree.ctx) is Load:
                 if forcing_mode == "full":
                     return hq[force(ast_literal[tree])]
