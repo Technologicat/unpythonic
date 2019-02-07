@@ -35,8 +35,8 @@ def isx(tree, x, accept_attr=True):
     """
     # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (letdoutil.islet)? At which point are these removed?
     # Captured nodes only come from unpythonic.syntax, and we use from-imports
-    # and bare names for anything hq[]'d; but explicit references may use either
-    # bare names or somemodule.f.
+    # and bare names for anything hq[]'d; but any references that appear
+    # explicitly in the user code may use either bare names or somemodule.f.
     ismatch = x if callable(x) else lambda s: s == x
     return (type(tree) is Name and ismatch(tree.id)) or \
            (type(tree) is Captured and ismatch(tree.name)) or \
