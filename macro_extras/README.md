@@ -1151,14 +1151,15 @@ Mix regular code with math-notebook-like code in a ``.py`` file. To enable noteb
 
 ```python
 from unpythonic.syntax import nb
-from sympy import symbols
+from sympy import symbols, pprint
 
 with nb:
-    2 + 3          # expressions at the top level of the block autoprint, and auto-assign result to _
-    assert _ == 5  # ...and only expressions do that, so...
-    _ * 42         # ...here _ stll has the value from the first line.
+    2 + 3
+    assert _ == 5
+    _ * 42
     assert _ == 210
 
+with nb(pprint):
     x, y = symbols("x, y")
     x * y
     assert _ == x * y
@@ -1166,9 +1167,9 @@ with nb:
     assert _ == 3 * x * y
 ```
 
-Autoprint is skipped when the result is ``None`` (a common return value of Python's imperative operations).
+Expressions at the top level auto-assign the result to ``_``, and auto-print it the value is not ``None``. Only expressions do that; for any statement that is not an expression, ``_`` retains its previous value.
 
-A **possible** future extension is adding support for SymPy's ``pprint``, but nothing conclusive is planned for now.
+A custom print function can be supplied as the first positional argument to ``nb``. This is useful with SymPy (and [latex-input](https://github.com/clarkgrubb/latex-input) to use α, β, γ, ... as actual variable names).
 
 Obviously not intended for production use, although is very likely to work anywhere.
 
