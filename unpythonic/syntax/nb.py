@@ -15,7 +15,7 @@ def nb(body, args):
     with q as init:
         _ = None
         theprint = ast_literal[p]
-    newbody.append(init)
+    newbody.extend(init)
     for stmt in body:
         if type(stmt) is not Expr:
             newbody.append(stmt)
