@@ -1522,10 +1522,6 @@ def lazify(tree, *, gen_sym, **kw):
     is not a promise, and calls into lazy functions auto-wrap any already
     evaluated args.
 
-    But if you overwrite the ``*args`` tuple or the ``**kwargs`` dictionary,
-    be sure that the new value is also a tuple/dictionary, because the lazy args
-    passthrough optimizer expects that.
-
     If you want to manually introduce a promise, use ``lazy[]`` from MacroPy::
 
         from macropy.quick_lambda import macros, lazy
