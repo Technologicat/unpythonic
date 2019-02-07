@@ -6,7 +6,7 @@ See ``dir(unpythonic)`` and submodule docstrings for more.
 If you have MacroPy installed, see also ``unpythonic.syntax``.
 """
 
-__version__ = '0.12.1'
+__version__ = '0.13.0'
 
 from .amb import *
 from .arity import *
