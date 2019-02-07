@@ -127,7 +127,7 @@ In the second variant (the *let-where*), note the comma between the body and ``w
 
 ### Special syntax for one binding
 
-*Added in v0.12.1.* Now supported also by the bindings block of ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq`` and ``bletrec``.
+*Added in v0.13.0.* Now supported also by the bindings block of ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq`` and ``bletrec``.
 
 *Added in v0.12.0.* If there is only one binding, to make the syntax more pythonic, the outer parentheses may be omitted in the bindings block of the **expr forms** of ``let``, ``letseq``, ``letrec``, ``let_syntax`` and ``abbrev``:
 
