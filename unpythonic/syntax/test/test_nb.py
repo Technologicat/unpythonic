@@ -4,6 +4,7 @@ from ...syntax import macros, nb
 
 def test():
     with nb:
+        assert _ is None
         2 + 3          # top-level expressions autoprint, and auto-assign result to _
         assert _ == 5  # ...and only expressions do that, so...
         _ * 42         # ...here _ still has the value from the first line.
@@ -15,6 +16,7 @@ def test():
         print("*** SymPy not installed, skipping symbolic math test ***")
     else:
         with nb(pprint):  # you can specify a custom print function (first positional arg)
+            assert _ is None
             x, y = symbols("x, y")
             x * y
             assert _ == x * y

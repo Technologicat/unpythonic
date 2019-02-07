@@ -13,6 +13,7 @@ def nb(body, args):
     p = args[0] if args else q[print]  # custom print function hook
     newbody = []
     with q as init:
+        _ = None
         theprint = ast_literal[p]
     newbody.append(init)
     for stmt in body:
