@@ -50,7 +50,7 @@ def make_isxpred(x):
     by MacroPy's ``hq[]``.
     """
     rematch = re.match
-    pat = re.compile(r"{}\d*$".format(x))
+    pat = re.compile(r"^{}\d*$".format(x))
     return lambda s: rematch(pat, s)
 
 def getname(tree, accept_attr=True):
