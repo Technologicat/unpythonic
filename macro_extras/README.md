@@ -1268,7 +1268,7 @@ with lazify:
     assert f(21, 1/0) == 42
 ```
 
-In a ``with lazify`` block, function arguments are evaluated only when actually used, at most once each, and in the order in which they are actually used. Passing an argument to another lazy function does not count as a use; a use occurs only if the callee reads the value. This macro affects only function argument passing; everything else works as usual.
+In a ``with lazify`` block, function arguments are evaluated only when actually used, at most once each, and in the order in which they are actually used.
 
 Note ``my_if`` in the example is a run-of-the-mill runtime function, not a macro. Only the ``with lazify`` is imbued with any magic. Essentially, the above code expands into:
 
@@ -1291,11 +1291,15 @@ def f(a, b):
 assert f(lazy[21], lazy[1/0]) == 42
 ```
 
-This relies on the magic of closures to capture f's ``a`` and ``b`` into the promises.
+plus some clerical details to allow mixing lazy and strict code.
 
-For forcing promises, we provide a function ``unpythonic.syntax.force`` that (recursively) descends into containers. Roughly, *container* means anything with an appropriate ``collections.abc``. Mutable containers are updated in-place, to allow also lazy functions to use the pythonic pattern of passing in a list to be mutated by the callee. For immutable containers a new instance is created, but as a side effect the promise objects **in the input container** will be forced.
+This second example relies on the magic of closures to capture f's ``a`` and ``b`` into the promises.
 
-When ``force`` encounters an atom ``x`` (i.e. anything that is not a container), then, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket.
+For forcing promises manually, we provide the functions ``force1`` and ``force``. This is mainly useful if you ``lazy[]`` or ``lazyrec[]`` something explicitly, and want to compute its value outside a ``with lazify`` block.
+
+Using ``force1``, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket. The function ``force``, in addition, descends into containers (recursively). When an atom ``x`` (i.e. anything that is not a container) is encountered, it is processed using ``force1``.
+
+Mutable containers are updated in-place; for immutables, a new instance is created, but as a side effect the promise objects **in the input container** will be forced. Any container with a compatible ``collections.abc`` is supported. (See ``unpythonic.collections.mogrify`` for details.) In addition, as special cases ``unpythonic.collections.box`` and ``unpythonic.llist.cons`` are supported.
 
 Like ``with continuations``, no state or context is associated with a ``with lazify`` block, so lazy functions defined in one block may call those defined in another.
 
@@ -1307,7 +1311,7 @@ See also ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions 
 
 Inspired by Haskell, and Racket's ``(delay)`` and ``(force)``.
 
-**CAUTION**: Argument passing by function call is currently the only binding construct to which auto-lazification is applied. Support for other forms of binding such as assignment and the context manager is subject to **possible** addition in a future version.
+**CAUTION**: Argument passing by function call is currently the only binding construct to which auto-lazification is applied.
 
 **CAUTION**: The ``lazify`` macro is experimental and not intended for use in production code.
 
