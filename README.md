@@ -32,6 +32,7 @@ This README documents the pure-Python part of ``unpythonic``, i.e. everything th
  - [Containers](#containers)
    - [``frozendict``, an immutable dictionary](#frozendict-an-immutable-dictionary)
    - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
+   - [``box``, a mutable single-item container](#box-a-mutable-single-item-container)
  - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
    - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
 
