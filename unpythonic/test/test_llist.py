@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from pickle import dumps, loads
+
 from ..llist import cons, car, cdr, nil, ll, llist, \
                     caar, cdar, cadr, cddr, caddr, cdddr, \
                     member, lreverse, lappend, lzip, \
@@ -113,7 +115,6 @@ def test():
     assert tuple(zip(ll(1, 2, 3), ll(4, 5, 6))) == ((1, 4), (2, 5), (3, 6))
     assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
 
-    from pickle import dumps, loads
     l = ll(1, 2, 3)
     k = loads(dumps(l))
     # should iterate without crashing, since the nil is refreshed.
