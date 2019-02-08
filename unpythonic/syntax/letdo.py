@@ -63,7 +63,12 @@ def _letimpl(bindings, body, mode):
     body = t(body)
     body = hq[namelambda(ast_literal[body], u["{}_body".format(mode)])]
 
-    letter = letf  # letdoutil relies on the literal name "letter" to detect expanded forms
+    # CAUTION: letdoutil.py relies on:
+    #  - the literal name "letter" to detect expanded forms
+    #  - the "mode" kwarg to detect let/letrec mode
+    #  - the absence of an "_envname" kwarg to detect this tree represents a let-expr (vs. a let-decorator),
+    #    seeing only the Call node
+    letter = letf
     bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
     newtree = hq[letter(ast_literal[Tuple(elts=bindings)], ast_literal[body], mode=u[mode])]
     return newtree
@@ -184,7 +189,11 @@ def _dletimpl(bindings, body, mode, kind):
     #  since "let" is not one of the registered decorators)
     letter = dletf if kind == "decorate" else bletf
     bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
-    # letdoutil relies on the presence of _envname to detect this is a decorator (seeing only the Call node)
+    # CAUTION: letdoutil.py relies on:
+    #  - the literal name "letter" to detect expanded forms
+    #  - the "mode" kwarg to detect let/letrec mode
+    #  - the presence of an "_envname" kwarg to detect this tree represents a let-decorator (vs. a let-expr),
+    #    seeing only the Call node
     body.decorator_list = body.decorator_list + [hq[letter(ast_literal[Tuple(elts=bindings)], mode=u[mode], _envname=u[e])]]
     body.args.kwonlyargs = body.args.kwonlyargs + [arg(arg=e)]
     body.args.kw_defaults = body.args.kw_defaults + [None]
