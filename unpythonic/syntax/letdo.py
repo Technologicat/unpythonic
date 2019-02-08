@@ -64,7 +64,7 @@ def _letimpl(bindings, body, mode):
     body = hq[namelambda(ast_literal[body], u["{}_body".format(mode)])]
 
     # CAUTION: letdoutil.py relies on:
-    #  - the literal name "letter" to detect expanded forms
+    #  - the literal name "letter" to detect expanded let forms
     #  - the "mode" kwarg to detect let/letrec mode
     #  - the absence of an "_envname" kwarg to detect this tree represents a let-expr (vs. a let-decorator),
     #    seeing only the Call node
@@ -190,7 +190,7 @@ def _dletimpl(bindings, body, mode, kind):
     letter = dletf if kind == "decorate" else bletf
     bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
     # CAUTION: letdoutil.py relies on:
-    #  - the literal name "letter" to detect expanded forms
+    #  - the literal name "letter" to detect expanded let forms
     #  - the "mode" kwarg to detect let/letrec mode
     #  - the presence of an "_envname" kwarg to detect this tree represents a let-decorator (vs. a let-expr),
     #    seeing only the Call node
@@ -301,6 +301,7 @@ def do(tree):
         expr = hq[namelambda(ast_literal[expr], u["do_line{}".format(j)])]
         names = names + newnames
         lines.append(expr)
+    # CAUTION: letdoutil.py depends on the literal name "dof" to detect expanded do forms.
     return hq[dof(ast_literal[lines])]
 
 @macro_stub
