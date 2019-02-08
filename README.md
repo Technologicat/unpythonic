@@ -28,9 +28,10 @@ This README documents the pure-Python part of ``unpythonic``, i.e. everything th
    - [Memoization for generators](#memoization-for-generators), iterables and iterator factories: `gmemoize`, `imemoize`, `fimemoize`.
  - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables
  - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
-   - [``frozendict``, an immutable dictionary type](#frozendict-an-immutable-dictionary-type)
  - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
- - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
+ - [Containers](#containers)
+   - [``frozendict``, an immutable dictionary](#frozendict-an-immutable-dictionary)
+   - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
  - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
    - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
 
@@ -1558,89 +1559,6 @@ Namedtuples export only a sequence interface, so they cannot be treated as mappi
 Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
 
 
-#### ``frozendict``, an immutable dictionary type
-
-*Added in v0.13.0.*
-
-Since Python itself doesn't provide an immutable dictionary type, we do. It's essentially modeled as a crossover of the builtins ``dict`` and ``frozenset``:
-
-```python
-from unpythonic import frozendict
-
-d = frozendict({'a': 1, 'b': 2})
-d['a']      # OK
-d['c'] = 3  # TypeError, not writable
-```
-
-Functional updates are supported:
-
-```python
-d2 = frozendict(d, a=42)
-assert d2['a'] == 42 and d2['b'] == 2
-assert d['a'] == 1  # original not mutated
-
-d3 = frozendict({'a': 1, 'b': 2}, {'a': 42})  # rightmost definition of each key wins
-assert d3['a'] == 42 and d3['b'] == 2
-
-# ...also using fupdate
-d4 = fupdate(d3, a=23)
-assert d4['a'] == 23 and d4['b'] == 2
-assert d3['a'] == 42 and d3['b'] == 2  # ...of course without touching the original
-```
-
-Any mappings used when creating an instance are shallow-copied, so that the bindings of the ``frozendict`` do not change even if the original input is later mutated:
-
-```python
-d = {1:2, 3:4}
-fd = frozendict(d)
-d[5] = 6
-assert d == {1: 2, 3: 4, 5: 6}
-assert fd == {1: 2, 3: 4}
-```
-
-**The usual caution** concerning immutable containers in Python applies: the container protects only the bindings against changes. If the values themselves are mutable, the container cannot protect from mutations inside them.
-
-All the usual read-access stuff works:
-
-```python
-d7 = frozendict({1:2, 3:4})
-assert 3 in d7
-assert len(d7) == 2
-assert set(d7.keys()) == {1, 3}
-assert set(d7.values()) == {2, 4}
-assert set(d7.items()) == {(1, 2), (3, 4)}
-assert d7 == frozendict({1:2, 3:4})
-assert d7 != frozendict({1:2})
-assert d7 == {1:2, 3:4}  # like frozenset, __eq__ doesn't care whether mutable or not
-assert d7 != {1:2}
-assert {k for k in d7} == {1, 3}
-assert d7.get(3) == 4
-assert d7.get(5, 0) == 0
-assert d7.get(5) is None
-```
-
-In terms of ``collections.abc``, a ``frozendict`` is a hashable immutable mapping:
-
-```python
-assert issubclass(frozendict, Mapping)
-assert not issubclass(frozendict, MutableMapping)
-
-assert issubclass(frozendict, Hashable)
-assert hash(d7) == hash(frozendict({1:2, 3:4}))
-assert hash(d7) != hash(frozendict({1:2}))
-```
-
-The abstract superclasses are virtual, just like for ``dict`` (i.e. they do not appear in the MRO).
-
-Finally, ``frozendict`` obeys the empty-immutable-container singleton property:
-
-```python
-assert frozendict() is frozendict()
-```
-
-...but don't pickle the empty ``frozendict`` and expect this to work; it's freshly created in each session.
-
-
 ### Nondeterministic evaluation
 
 We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. An important feature of McCarthy's [`amb` operator](https://rosettacode.org/wiki/Amb) is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. This sounds a lot like ``call/cc``; which is how ``amb`` is usually implemented. See implementations [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html).
@@ -1717,7 +1635,94 @@ The implementation is based on the List monad, and a bastardized variant of do-n
  - Last line = implicit ``return ...``
 
 
-### `cons` and friends
+### Containers
+
+We provide some additional containers. The class names are lowercase, because these are intended as low-level utility classes in principle on par with the builtins.
+
+#### ``frozendict``, an immutable dictionary
+
+*Added in v0.13.0.*
+
+Given the existence of ``dict`` and ``frozenset``, this one is oddly missing from the language and the standard library.
+
+```python
+from unpythonic import frozendict
+
+d = frozendict({'a': 1, 'b': 2})
+d['a']      # OK
+d['c'] = 3  # TypeError, not writable
+```
+
+Functional updates are supported:
+
+```python
+d2 = frozendict(d, a=42)
+assert d2['a'] == 42 and d2['b'] == 2
+assert d['a'] == 1  # original not mutated
+
+d3 = frozendict({'a': 1, 'b': 2}, {'a': 42})  # rightmost definition of each key wins
+assert d3['a'] == 42 and d3['b'] == 2
+
+# ...also using fupdate
+d4 = fupdate(d3, a=23)
+assert d4['a'] == 23 and d4['b'] == 2
+assert d3['a'] == 42 and d3['b'] == 2  # ...of course without touching the original
+```
+
+Any mappings used when creating an instance are shallow-copied, so that the bindings of the ``frozendict`` do not change even if the original input is later mutated:
+
+```python
+d = {1:2, 3:4}
+fd = frozendict(d)
+d[5] = 6
+assert d == {1: 2, 3: 4, 5: 6}
+assert fd == {1: 2, 3: 4}
+```
+
+**The usual caution** concerning immutable containers in Python applies: the container protects only the bindings against changes. If the values themselves are mutable, the container cannot protect from mutations inside them.
+
+All the usual read-access stuff works:
+
+```python
+d7 = frozendict({1:2, 3:4})
+assert 3 in d7
+assert len(d7) == 2
+assert set(d7.keys()) == {1, 3}
+assert set(d7.values()) == {2, 4}
+assert set(d7.items()) == {(1, 2), (3, 4)}
+assert d7 == frozendict({1:2, 3:4})
+assert d7 != frozendict({1:2})
+assert d7 == {1:2, 3:4}  # like frozenset, __eq__ doesn't care whether mutable or not
+assert d7 != {1:2}
+assert {k for k in d7} == {1, 3}
+assert d7.get(3) == 4
+assert d7.get(5, 0) == 0
+assert d7.get(5) is None
+```
+
+In terms of ``collections.abc``, a ``frozendict`` is a hashable immutable mapping:
+
+```python
+assert issubclass(frozendict, Mapping)
+assert not issubclass(frozendict, MutableMapping)
+
+assert issubclass(frozendict, Hashable)
+assert hash(d7) == hash(frozendict({1:2, 3:4}))
+assert hash(d7) != hash(frozendict({1:2}))
+```
+
+The abstract superclasses are virtual, just like for ``dict`` (i.e. they do not appear in the MRO).
+
+Finally, ``frozendict`` obeys the empty-immutable-container singleton invariant:
+
+```python
+assert frozendict() is frozendict()
+```
+
+...but don't pickle the empty ``frozendict`` and expect this invariant to hold; it's freshly created in each session.
+
+
+#### `cons` and friends
 
 *Laugh, it's funny.*
 
@@ -1780,7 +1785,7 @@ print(cons(cons(1, 2), cons(3, 4))  # --> cons(cons(1, 2), cons(3, 4))
 
 For more, see the ``llist`` submodule.
 
-#### Notes
+##### Notes
 
 There is no ``copy`` method or ``lcopy`` function, because cons cells are immutable; which makes cons structures immutable.
 
@@ -1788,9 +1793,70 @@ There is no ``copy`` method or ``lcopy`` function, because cons cells are immuta
 
 In general, copying cons structures can be error-prone. Given just a starting cell it is impossible to tell if a given instance of a cons structure represents a linked list, or something more general (such as a binary tree) that just happens to locally look like one, along the path that would be traversed if it was indeed a linked list.
 
-The linked list iteration strategy does not recurse in the ``car`` half, which could lead to incomplete copying. The tree strategy that recurses on both halves, on the other hand, is not safe to use on linked lists, because if the list is long, it will cause a stack overflow (due to lack of TCO in Python). With the tools in this library it would be possible to make a tree recurser with TCO applied in the `cdr` half, but the current generator-based implementation of ``BinaryTreeIterator`` is much shorter.
+The linked list iteration strategy (which supports arbitrarily long lists) does not recurse in the ``car`` half, which could lead to incomplete copying. The tree strategy that recurses on both halves, on the other hand, is not safe to use on linked lists, because if the list is long, it will cause a stack overflow (due to lack of TCO in Python).
+
+*Added in v0.13.0.* We provide a ``JackOfAllTradesIterator`` that uses unpythonic's TCO and understands both trees and linked lists, but it has to make some compromises to be able to do this: nested lists will be flattened, and in a tree any ``nil`` in a ``cdr`` position will be omitted from the output.
 
 **Caution**: the ``nil`` singleton is freshly created in each session; newnil is not oldnil, so don't pickle a standalone ``nil``. The unpickler of ``cons`` automatically refreshes any ``nil`` instances inside a pickled cons structure, so that **cons structures** support the illusion that ``nil`` is a special value like ``None`` or ``...``. After unpickling, ``car(c) is nil`` and ``cdr(c) is nil`` still work as expected, even though ``id(nil)`` has changed.
+
+
+#### ``box``, a mutable single-item container
+
+*Added in v0.12.0.*
+
+*Changed in v0.13.0.* The class and the data attribute have been renamed to ``box`` and ``x``, respectively.
+
+No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
+
+```python
+a = 23
+
+def f(x):
+    x = 17  # but I want to update the existing a!
+
+f(a)
+assert a == 23
+```
+
+Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to remember it is supposed to hold only a single item), or using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
+
+As an alternative to the rampant abuse of lists, we provide a rackety ``box``, which is a minimalistic mutable container that holds exactly one item. The data in the box is accessed via an attribute, so any code that has a reference to the box can update the data in it:
+
+```python
+from unpythonic import box
+
+a = box(23)
+
+def f(b):
+    b.x = 17
+
+f(a)
+assert a == 17
+```
+
+The attribute name is just ``x`` to reduce the number of additional keystrokes required. The ``box`` API is summarized by:
+
+```python
+b1 = box(23)
+b2 = box(23)
+b3 = box(17)
+
+assert b1.x == 23    # data lives in the attribute .x
+assert 23 in b1      # content is "in" the box, also syntactically
+assert 17 not in b1
+
+assert [x for x in b1] == [23]  # box is iterable
+assert len(b1) == 1             # and always has length 1
+
+assert b1 == 23      # for equality testing, a box is considered equal to its content
+
+assert b2 == b1      # contents are equal, but
+assert b2 is not b1  # different boxes
+
+assert b3 != b1      # different contents
+```
+
+The expression ``item in b`` has the same meaning as ``b.x == item``. Note ``box`` is a mutable container, so it is **not hashable**.
 
 
 ### ``def`` as a code block: ``@call``
@@ -2027,7 +2093,7 @@ Without macros, in raw Python, we could abuse `e.foo << newval`, which transform
 
 If we later choose go this route nevertheless, `<<` is a better choice for the syntax than `<<=`, because `let` needs `e.set(...)` to be valid in an expression context.
 
-The current solution for the assignment syntax issue is to use macros, to have both clean syntax at the use site and a relatively non-hacky implementation.
+The current solution for the assignment syntax issue is to use macros, to have both clean syntax at the use site and a relatively hackfree implementation.
 
 ### TCO syntax and speed
 

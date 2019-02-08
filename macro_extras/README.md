@@ -675,7 +675,7 @@ We provide a very loose pythonification of Paul Graham's continuation-passing ma
 
 The approach differs from native continuation support (such as in Scheme or Racket) in that the continuation is captured only where explicitly requested with ``call_cc[]``. This lets most of the code work as usual, while performing the continuation magic where explicitly desired.
 
-As a consequence of the approach, our continuations are *delimited* in the sense that the captured continuation ends at the end of the body where the *currently dynamically outermost* ``call_cc[]`` was used. Hence, if porting some code that uses ``call/cc`` from Racket to Python, in the Python version the ``call_cc[]`` may be need to be placed further out to capture the relevant part of the computation. For example, see ``amb`` in the demonstration below; a Scheme or Racket equivalent usually has the ``call/cc`` placed inside the ``amb`` operator itself, whereas in Python we must place the ``call_cc[]`` at the call site of ``amb``.
+As a consequence of the approach, our continuations are *delimited* in the very crude sense that the captured continuation ends at the end of the body where the *currently dynamically outermost* ``call_cc[]`` was used. Hence, if porting some code that uses ``call/cc`` from Racket to Python, in the Python version the ``call_cc[]`` may be need to be placed further out to capture the relevant part of the computation. For example, see ``amb`` in the demonstration below; a Scheme or Racket equivalent usually has the ``call/cc`` placed inside the ``amb`` operator itself, whereas in Python we must place the ``call_cc[]`` at the call site of ``amb``.
 
 For various possible program topologies that continuations may introduce, see [these clarifying pictures](callcc_topology.pdf).
 
@@ -999,13 +999,13 @@ Continuations only need to come into play when we explicitly request for one ([Z
 
 The name is nevertheless ``call_cc``, because the resulting behavior is close enough to ``call/cc``.
 
-Is it as general? I'm not an expert on this. If you have a theoretical result that proves that continuations delimited in the way they are in ``unpythonic`` are equally powerful to classic ``call/cc``, or a counterexample that shows they aren't, I'm interested - this information should be in the README. (Note that beside the delimited capture, we provide a kludge that allows manually overriding ``cc``, useful for implementing things like ``amb``.)
+Is it as general? I'm not an expert on this. If you have a theoretical result that proves that continuations delimited in the (very crude) way they are in ``unpythonic`` are equally powerful to classic ``call/cc``, or a counterexample that shows they aren't, I'm interested - this information should be in the README. (Note that beside the delimited capture, we provide a kludge that allows manually overriding ``cc``, useful for implementing things like ``amb``.)
 
-Racket provides delimited continuations and [prompts](https://docs.racket-lang.org/guide/prompt.html) to control them; no doubt much more thought has gone into designing and implementing *that*.
+Racket provides properly delimited continuations and [prompts](https://docs.racket-lang.org/guide/prompt.html) to control them; no doubt much more thought has gone into designing and implementing *that*.
 
 ### Why this syntax?
 
-As regard to a function call in ``call_cc[...]`` vs. just a function reference: Typical lispy usage of ``call/cc`` uses an inline lambda, with the closure property passing in everything except ``cc``, but in Python ``def`` is a statement. A technically possible alternative syntax would be:
+As for a function call in ``call_cc[...]`` vs. just a function reference: Typical lispy usage of ``call/cc`` uses an inline lambda, with the closure property passing in everything except ``cc``, but in Python ``def`` is a statement. A technically possible alternative syntax would be:
 
 ```python
 with call_cc(f):  # this syntax not supported!
