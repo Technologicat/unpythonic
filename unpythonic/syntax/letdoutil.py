@@ -6,6 +6,7 @@ Separate from util.py due to the length.
 """
 
 from ast import Call, Name, Subscript, Index, Compare, In, Tuple, List, Str
+import re
 
 from macropy.core import Captured
 
@@ -13,10 +14,17 @@ def where(*bindings):
     """[syntax] Only meaningful in a let[body, where((k0, v0), ...)]."""
     raise RuntimeError("where() is only meaningful in a let[body, where((k0, v0), ...)]")
 
-# avoid circular dependency; can't import from .util
+# avoid circular dependency; can't import from .util, so implement a minimal isx() for what we need
 def _isx(tree, x):
-    return (type(tree) is Name and tree.id == x) or \
-           (type(tree) is Captured and tree.name == x)
+    ismatch = x if callable(x) else lambda s: s == x
+    return (type(tree) is Name and ismatch(tree.id)) or \
+           (type(tree) is Captured and ismatch(tree.name))
+def _pred(x):
+    rematch = re.match
+    pat = re.compile(r"^{}\d*$".format(x))
+    return lambda s: rematch(pat, s)
+_isletf = _pred("letter")  # name must match what ``unpythonic.syntax.letdo._letimpl`` uses in its output.
+_isdof = _pred("dof")      # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
 
 def _canonize_bindings(elts, locref, allow_call_in_name_position=False):
     """Wrap a single binding without container into a length-1 list.
@@ -82,8 +90,7 @@ def islet(tree, expanded=True):
     in unpythonic.)
     """
     if expanded:
-        # name must match what ``unpythonic.syntax.letdo._letimpl`` uses in its output.
-        if not (type(tree) is Call and _isx(tree.func, "letter")):
+        if not (type(tree) is Call and _isx(tree.func, _isletf)):
             return False
         mode = [kw.value for kw in tree.keywords if kw.arg == "mode"]
         assert len(mode) == 1 and type(mode[0]) is Str
@@ -162,8 +169,7 @@ def isdo(tree, expanded=True):
     If ``False``, test for the form that exists prior to macro expansion.
     """
     if expanded:
-        # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
-        return type(tree) is Call and _isx(tree.func, "dof")
+        return type(tree) is Call and _isx(tree.func, _isdof)
     # TODO: detect also do[] with a single expression inside? (now requires a comma)
     return type(tree) is Subscript and \
            type(tree.value) is Name and any(tree.value.id == x for x in ("do", "do0")) and \
