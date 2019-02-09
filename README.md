@@ -10,239 +10,63 @@ Design considerations are simplicity, robustness, and minimal dependencies (curr
 
 This README documents the pure-Python part of ``unpythonic``, i.e. everything that does not use macros. For documentation on the macros, see [here](macro_extras/).
 
- - [Assign-once](#assign-once)
- - [Multi-expression lambdas](#multi-expression-lambdas)
-   - [Sequence side effects: ``begin``](#sequence-side-effects-begin)
-   - [Stuff imperative code into a lambda: ``do``](#stuff-imperative-code-into-a-lambda-do)
-   - [Sequence functions: ``pipe``, ``piped``, ``lazy_piped``](#sequence-functions-pipe-piped-lazy_piped)
- - [Introduce local bindings: ``let``, ``letrec``](#introduce-local-bindings-let-letrec)
-   - [The environment: ``env``](#the-environment-env)
- - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
-   - [Loops in FP style (with TCO)](#loops-in-fp-style-with-tco): FP looping constructs.
-   - [Generators with TCO](#generators-with-tco): tail-chaining; like ``itertools.chain``, but from inside a generator.
- - [Escape continuations (ec)](#escape-continuations-ec)
-   - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
- - [Dynamic assignment](#dynamic-assignment) (a.k.a. parameterize, special variables, "dynamic scoping")
- - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`
-   - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
-   - [Memoization for generators](#memoization-for-generators), iterables and iterator factories: `gmemoize`, `imemoize`, `fimemoize`.
- - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables
- - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
- - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
- - [Containers](#containers)
-   - [``frozendict``, an immutable dictionary](#frozendict-an-immutable-dictionary)
-   - [`cons` and friends](#cons-and-friends): pythonic lispy linked lists
-   - [``box``, a mutable single-item container](#box-a-mutable-single-item-container)
- - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
-   - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
-
 For many examples, see the unit tests located in [unpythonic/test/](unpythonic/test/), the docstrings of the individual features, and this README.
 
 *This README doubles as the API reference, but occasionally, may be out of date at places. In case of conflicts in documentation, believe the unit tests first. Docstrings and this README should reflect them.*
 
-Meta:
+ - [**Bindings**](#bindings)
+   - [Local bindings in an expression: ``let``, ``letrec``](#local-bindings-in-an-expression-let-letrec)
+     - [Lispylet: alternative syntax](#lispylet-alternative-syntax)
+   - [The environment: ``env``](#the-environment-env)
+   - [Assign-once](#assign-once), a relative of ``env``
+   - [Dynamic assignment](#dynamic-assignment) (a.k.a. parameterize, special variables, "dynamic scoping")
 
- - [Design notes](#design-notes)
- - [Installation](#installation)
- - [License](#license)
- - [Acknowledgements](#acknowledgements)
- - [Python-related FP resources](#python-related-fp-resources)
+ - [**Containers**](#containers)
+   - [``frozendict``, an immutable dictionary](#frozendict-an-immutable-dictionary)
+   - [`cons` and friends, pythonic lispy linked lists](#cons-and-friends-pythonic-lispy-linked-lists)
+   - [``box``, a mutable single-item container](#box-a-mutable-single-item-container)
 
-### Assign-once
+ - [**Sequencing**](#sequencing), run multiple expressions in any expression position (incl. ``lambda``)
+   - [Sequence side effects: ``begin``](#sequence-side-effects-begin)
+   - [Stuff imperative code into an expression: ``do``](#stuff-imperative-code-into-an-expression-do)
+   - [Sequence functions: ``pipe``, ``piped``, ``lazy_piped``](#sequence-functions-pipe-piped-lazy_piped)
 
-In Scheme terms, make `define` and `set!` look different:
+ - [**Batteries**](#batteries) missing from the standard library
+   - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`
+     - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
+     - [Memoization for generators](#memoization-for-generators), iterables and iterator factories: `gmemoize`, `imemoize`, `fimemoize`.
+   - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables
+   - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
 
-```python
-from unpythonic import assignonce
+ - [**Control flow tools**](#control-flow-tools)
+   - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
+     - [Loops in FP style (with TCO)](#loops-in-fp-style-with-tco): FP looping constructs.
+     - [Generators with TCO](#generators-with-tco): tail-chaining; like ``itertools.chain``, but from inside a generator.
+   - [Escape continuations (ec)](#escape-continuations-ec)
+     - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
+   - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
 
-with assignonce() as e:
-    e.foo = "bar"           # new definition, ok
-    e.set("foo", "tavern")  # explicitly rebind e.foo, ok
-    e << ("foo", "tavern")  # same thing (but return e instead of new value, suitable for chaining)
-    e.foo = "quux"          # AttributeError, e.foo already defined.
-```
+ - [**Other**](#other)
+   - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
+   - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
 
-It's a subclass of ``env``, so it shares most of the same [features](#the-environment-env) and allows similar usage.
+ - [**Advanced: syntactic macros**](macro_extras/): the second half of ``unpythonic``. (separate README)
 
-
-### Multi-expression lambdas
-
-Keep in mind the only reason to ever need multiple expressions: *side effects.*
-
-(Assignment is a side effect, too; it modifies the environment. In functional style, intermediate named definitions to increase readability are the most useful kind of side effect.)
-
-See also ``multilambda`` in [macros](macro_extras/).
-
-#### Sequence side effects: ``begin``
-
-```python
-from unpythonic import begin, begin0
-
-f1 = lambda x: begin(print("cheeky side effect"),
-                     42*x)
-f1(2)  # --> 84
-
-f2 = lambda x: begin0(42*x,
-                      print("cheeky side effect"))
-f2(2)  # --> 84
-```
-
-Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`unpythonic.seq`](unpythonic/seq.py) for details.
-
-#### Stuff imperative code into a lambda: ``do``
-
-No monadic magic. Basically, ``do`` is:
-
-  - An improved ``begin`` that can bind names to intermediate results and then use them in later items.
-
-  - A ``let*`` (technically, ``letrec``) where making a binding is optional, so that some items can have only side effects if so desired. No semantically distinct ``body``; all items play the same role.
-
-Like in ``letrec`` (see below), use ``lambda e: ...`` to access the environment, and to wrap callable values (to prevent misunderstandings).
-
-We also provide a ``do[]`` [macro](macro_extras/) that makes the construct easier to use.
-
-```python
-from unpythonic import do, assign
-
-y = do(assign(x=17),          # create and set e.x
-       lambda e: print(e.x),  # 17; uses environment, needs lambda e: ...
-       assign(x=23),          # overwrite e.x
-       lambda e: print(e.x),  # 23
-       42)                    # return value
-assert y == 42
-
-y = do(assign(x=17),
-       assign(z=lambda e: 2*e.x),
-       lambda e: e.z)
-assert y == 34
-
-y = do(assign(x=5),
-       assign(f=lambda e: lambda x: x**2),  # callable, needs lambda e: ...
-       print("hello from 'do'"),  # value is None; not callable
-       lambda e: e.f(e.x))
-assert y == 25
-```
-
-If you need to return the first value instead of the last one, use this trick:
-
-```python
-y = do(assign(result=17),
-       print("assigned 'result' in env"),
-       lambda e: e.result)  # return value
-assert y == 17
-```
-
-Or use ``do0``, which does it for you:
-
-```python
-from unpythonic import do0, assign
-
-y = do0(17,
-        assign(x=42),
-        lambda e: print(e.x),
-        print("hello from 'do0'"))
-assert y == 17
-
-y = do0(assign(x=17),  # the first item of do0 can be an assignment, too
-        lambda e: print(e.x))
-assert y == 17
-```
-
-Beware of this pitfall:
-
-```python
-do(lambda e: print("hello 2 from 'do'"),  # delayed because lambda e: ...
-   print("hello 1 from 'do'"),  # Python prints immediately before do()
-   "foo")                       # gets control, because technically, it is
-                                # **the return value** that is an argument
-                                # for do().
-```
-
-Unlike ``begin`` (and ``begin0``), there is no separate ``lazy_do`` (``lazy_do0``), because using a ``lambda e: ...`` wrapper will already delay evaluation of an item. If you want a lazy variant, just wrap each item (also those which don't otherwise need it).
-
-The above pitfall also applies to using escape continuations inside a ``do``. To do that, wrap the ec call into a ``lambda e: ...`` to delay its evaluation until the ``do`` actually runs:
-
-```python
-call_ec(
-  lambda ec:
-    do(assign(x=42),
-       lambda e: ec(e.x),                  # IMPORTANT: must delay this!
-       lambda e: print("never reached")))  # and this (as above)
-```
-
-This way, any assignments made in the ``do`` (which occur only after ``do`` gets control), performed above the line with the ``ec`` call, will have been performed when the ``ec`` is called.
+ - [**Meta**](#meta)
+   - [Design notes](#design-notes)
+   - [Installation](#installation)
+   - [License](#license)
+   - [Acknowledgements](#acknowledgements)
+   - [Python-related FP resources](#python-related-fp-resources)
 
 
-#### Sequence functions: ``pipe``, ``piped``, ``lazy_piped``
+## Bindings
 
-Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/). A pipe performs a sequence of operations, starting from an initial value, and then returns the final value. It's just function composition, but with an emphasis on data flow, which helps improve readability:
+Tools to bind identifiers in ways not ordinarily supported by Python.
 
-```python
-from unpythonic import pipe
+### Local bindings in an expression: ``let``, ``letrec``
 
-double = lambda x: 2 * x
-inc    = lambda x: x + 1
-
-x = pipe(42, double, inc)
-assert x == 85
-```
-
-We also provide ``pipec``, which curries the functions before applying them. Useful with passthrough (see below on ``curry``).
-
-Optional **shell-like syntax**, with purely functional updates:
-
-```python
-from unpythonic import piped, getvalue
-
-x = piped(42) | double | inc | getvalue
-assert x == 85
-
-p = piped(42) | double
-assert p | inc | getvalue == 85
-assert p | getvalue == 84  # p itself is never modified by the pipe system
-```
-
-Set up a pipe by calling ``piped`` for the initial value. Pipe into the sentinel ``getvalue`` to exit the pipe and return the current value.
-
-**Lazy pipes**, useful for mutable initial values. To perform the planned computation, pipe into the sentinel ``runpipe``:
-
-```python
-from unpythonic import lazy_piped1, runpipe
-
-lst = [1]
-def append_succ(l):
-    l.append(l[-1] + 1)
-    return l  # this return value is handed to the next function in the pipe
-p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
-assert lst == [1]        # nothing done yet
-p | runpipe              # run the computation
-assert lst == [1, 2, 3]  # now the side effect has updated lst.
-```
-
-Lazy pipe as an unfold:
-
-```python
-from unpythonic import lazy_piped, runpipe
-
-fibos = []
-def nextfibo(a, b):      # multiple arguments allowed
-    fibos.append(a)      # store result by side effect
-    return (b, a + b)    # new state, handed to next function in the pipe
-p = lazy_piped(1, 1)     # load initial state
-for _ in range(10):      # set up pipeline
-    p = p | nextfibo
-p | runpipe
-assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
-```
-
-Both one-in-one-out (*1-to-1*) and n-in-m-out (*n-to-m*) pipes are provided. The 1-to-1 versions have names suffixed with ``1``. The use case is one-argument functions that return one value (which may also be a tuple).
-
-In the n-to-m versions, when a function returns a tuple, it is unpacked to the argument list of the next function in the pipe. At ``getvalue`` or ``runpipe`` time, the tuple wrapper (if any) around the final result is discarded if it contains only one item. (This allows the n-to-m versions to work also with a single value, as long as it is not a tuple.) The main use case is computations that deal with multiple values, the number of which may also change during the computation (as long as there are as many "slots" on both sides of each individual connection).
-
-
-### Introduce local bindings: ``let``, ``letrec``
-
-For easy-to-use versions of these constructs that look almost like normal Python, see [macros](macro_extras/).
+Introduce bindings local to an expression, like Scheme's ``let`` and ``letrec``. For easy-to-use versions of these constructs that look almost like normal Python, see [macros](macro_extras/). This section documents the underlying pure-Python API, which can also be used directly if you don't want to depend on MacroPy.
 
 In ``let``, the bindings are independent (do not see each other). A binding is of the form ``name=value``, where ``name`` is a Python identifier, and ``value`` is any expression.
 
@@ -340,7 +164,7 @@ Trying to access `e.foo` from `e.bar` arbitrarily produces either the intended v
 
 This has been fixed in Python 3.6, see [PEP 468](https://www.python.org/dev/peps/pep-0468/).
 
-#### Lispylet
+#### Lispylet: alternative syntax
 
 If you need **guaranteed left-to-right initialization** of `letrec` bindings in Pythons older than 3.6, there is also an alternative implementation for all the `let` constructs, with positional syntax and more parentheses. The only difference is the syntax; the behavior is identical with the default implementation.
 
@@ -368,6 +192,8 @@ letrec((("evenp", lambda e:
 ```
 
 The syntax is `let(bindings, body)` (respectively `letrec(bindings, body)`), where `bindings` is `((name, value), ...)`, and `body` is like in the default variants. The same rules concerning `name` and `value` apply.
+
+The let macros internally use this *lispylet* implementation.
 
 
 ### The environment: ``env``
@@ -409,608 +235,22 @@ print(e)  # empty!
 When the `with` block exits, the environment clears itself. The environment instance itself remains alive due to Python's scoping rules.
 
 
-### Tail call optimization (TCO) / explicit continuations
+### Assign-once
 
-**v0.10.0**: ``fasttco`` has been renamed ``tco``, and the exception-based old default implementation has been removed. See also [macros](macro_extras/) for an easy-to-use solution.
-
-**v0.11.1**: The special jump target ``SELF`` (keep current target) has been removed. If you need tail recursion in a lambda, use ``unpythonic.fun.withself`` to get a reference to the lambda itself. See example below.
-
-Express algorithms elegantly without blowing the call stack - with explicit, clear syntax.
-
-*Tail recursion*:
+In Scheme terms, make `define` and `set!` look different:
 
 ```python
-from unpythonic import trampolined, jump
+from unpythonic import assignonce
 
-@trampolined
-def fact(n, acc=1):
-    if n == 0:
-        return acc
-    else:
-        return jump(fact, n - 1, n * acc)
-print(fact(4))  # 24
+with assignonce() as e:
+    e.foo = "bar"           # new definition, ok
+    e.set("foo", "tavern")  # explicitly rebind e.foo, ok
+    e << ("foo", "tavern")  # same thing (but return e instead of new value, suitable for chaining)
+    e.foo = "quux"          # AttributeError, e.foo already defined.
 ```
 
-Functions that use TCO **must** be `@trampolined`. Calling a trampolined function normally starts the trampoline.
+It's a subclass of ``env``, so it shares most of the same [features](#the-environment-env) and allows similar usage.
 
-Inside a trampolined function, a normal call `f(a, ..., kw=v, ...)` remains a normal call.
-
-A tail call with target `f` is denoted `return jump(f, a, ..., kw=v, ...)`. This explicitly marks that it is indeed a tail call (due to the explicit ``return``). Note that `jump` is **a noun, not a verb**. The `jump(f, ...)` part just evaluates to a `jump` instance, which on its own does nothing. Returning it to the trampoline actually performs the tail call.
-
-If the jump target has a trampoline, don't worry; the trampoline implementation will automatically strip it and jump into the actual entrypoint.
-
-Trying to ``jump(...)`` without the ``return`` does nothing useful, and will **usually** print an *unclaimed jump* warning. It does this by checking a flag in the ``__del__`` method of ``jump``; any correctly used jump instance should have been claimed by a trampoline before it gets garbage-collected.
-
-(Some *unclaimed jump* warnings may appear also if the process is terminated by Ctrl+C (``KeyboardInterrupt``). This is normal; it just means that the termination occurred after a jump object was instantiated but before it was claimed by the trampoline.)
-
-The final result is just returned normally. This shuts down the trampoline, and returns the given value from the initial call (to a ``@trampolined`` function) that originally started that trampoline.
-
-
-*Tail recursion in a lambda*:
-
-```python
-t = trampolined(withself(lambda self, n, acc=1:
-                           acc if n == 0 else jump(self, n - 1, n * acc)))
-print(t(4))  # 24
-```
-
-Here the jump is just `jump` instead of `return jump`, since lambda does not use the `return` syntax.
-
-To denote tail recursion in an anonymous function, use ``unpythonic.fun.withself``. The ``self`` argument is declared explicitly, but passed implicitly, just like the ``self`` argument of a method.
-
-
-*Mutual recursion with TCO*:
-
-```python
-@trampolined
-def even(n):
-    if n == 0:
-        return True
-    else:
-        return jump(odd, n - 1)
-@trampolined
-def odd(n):
-    if n == 0:
-        return False
-    else:
-        return jump(even, n - 1)
-assert even(42) is True
-assert odd(4) is False
-assert even(10000) is True  # no crash
-```
-
-*Mutual recursion in `letrec` with TCO*:
-
-```python
-letrec(evenp=lambda e:
-               trampolined(lambda x:
-                             (x == 0) or jump(e.oddp, x - 1)),
-       oddp=lambda e:
-               trampolined(lambda x:
-                             (x != 0) and jump(e.evenp, x - 1)),
-       body=lambda e:
-               e.evenp(10000))
-```
-
-
-#### Reinterpreting TCO as explicit continuations
-
-TCO from another viewpoint:
-
-```python
-@trampolined
-def foo():
-    return jump(bar)
-@trampolined
-def bar():
-    return jump(baz)
-@trampolined
-def baz():
-    print("How's the spaghetti today?")
-foo()
-```
-
-Each function in the TCO call chain tells the trampoline where to go next (and with what parameters). All hail [lambda, the ultimate GOTO](http://hdl.handle.net/1721.1/5753)!
-
-Each TCO call chain brings its own trampoline, so they nest as expected:
-
-```python
-@trampolined
-def foo():
-    return jump(bar)
-@trampolined
-def bar():
-    t = even(42)  # start another trampoline for even/odd
-    return jump(baz, t)
-@trampolined
-def baz(result):
-    print(result)
-foo()  # start trampoline
-```
-
-
-### Loops in FP style (with TCO)
-
-*Functional loop with automatic tail call optimization* (for calls re-invoking the loop body):
-
-```python
-from unpythonic import looped, looped_over
-
-@looped
-def s(loop, acc=0, i=0):
-    if i == 10:
-        return acc
-    else:
-        return loop(acc + i, i + 1)
-print(s)  # 45
-```
-
-Compare the sweet-exp Racket:
-
-```racket
-define s
-  let loop ([acc 0] [i 0])
-    cond
-      {i = 10}
-        acc
-      else
-        loop {acc + i} {i + 1}
-displayln s  ; 45
-```
-
-The `@looped` decorator is essentially sugar. Behaviorally equivalent code:
-
-```python
-@trampolined
-def s(acc=0, i=0):
-    if i == 10:
-        return acc
-    else:
-        return jump(s, acc + i, i + 1)
-s = s()
-print(s)  # 45
-```
-
-In `@looped`, the function name of the loop body is the name of the final result, like in `@call`. The final result of the loop is just returned normally.
-
-The first parameter of the loop body is the magic parameter ``loop``. It is *self-ish*, representing a jump back to the loop body itself, starting a new iteration. Just like Python's ``self``, ``loop`` can have any name; it is passed positionally.
-
-Note that ``loop`` is **a noun, not a verb.** This is because the expression ``loop(...)`` is essentially the same as ``jump(...)`` to the loop body itself. However, it also inserts the magic parameter ``loop``, which can only be set up via this mechanism.
-
-Additional arguments can be given to ``loop(...)``. When the loop body is called, any additional positional arguments are appended to the implicit ones, and can be anything. Additional arguments can also be passed by name. The initial values of any additional arguments **must** be declared as defaults in the formal parameter list of the loop body. The loop is automatically started by `@looped`, by calling the body with the magic ``loop`` as the only argument.
-
-Any loop variables such as ``i`` in the above example are **in scope only in the loop body**; there is no ``i`` in the surrounding scope. Moreover, it's a fresh ``i`` at each iteration; nothing is mutated by the looping mechanism. (But be careful if you use a mutable object instance as a loop variable. The loop body is just a function call like any other, so the usual rules apply.)
-
-FP loops don't have to be pure:
-
-```python
-out = []
-@looped
-def _(loop, i=0):
-    if i <= 3:
-        out.append(i)  # cheeky side effect
-        return loop(i + 1)
-    # the implicit "return None" terminates the loop.
-assert out == [0, 1, 2, 3]
-```
-
-Keep in mind, though, that this pure-Python FP looping mechanism is slow, so it may make sense to use it only when "the FP-ness" (no mutation, scoping) is important.
-
-Also be aware that `@looped` is specifically neither a ``for`` loop nor a ``while`` loop; instead, it is a general looping mechanism that can express both kinds of loops.
-
-*Typical `while True` loop in FP style*:
-
-```python
-@looped
-def _(loop):
-    print("Enter your name (or 'q' to quit): ", end='')
-    s = input()
-    if s.lower() == 'q':
-        return  # ...the implicit None. In a "while True:", "break" here.
-    else:
-        print("Hello, {}!".format(s))
-        return loop()
-```
-
-#### FP loop over an iterable
-
-In Python, loops often run directly over the elements of an iterable, which markedly improves readability compared to dealing with indices. Enter ``@looped_over``:
-
-```python
-@looped_over(range(10), acc=0)
-def s(loop, x, acc):
-    return loop(acc + x)
-assert s == 45
-```
-
-The ``@looped_over`` decorator is essentially sugar. Behaviorally equivalent code:
-
-```python
-@call
-def s(iterable=range(10)):
-    it = iter(iterable)
-    @looped
-    def _tmp(loop, acc=0):
-        try:
-            x = next(it)
-            return loop(acc + x)
-        except StopIteration:
-            return acc
-    return _tmp
-assert s == 45
-```
-
-In ``@looped_over``, the loop body takes three magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element. The third parameter ``acc`` is initialized to the ``acc`` value given to ``@looped_over``, and then (functionally) updated at each iteration, taking as the new value the first positional argument given to ``loop(...)``, if any positional arguments were given. Otherwise ``acc`` retains its last value.
-
-Additional arguments can be given to ``loop(...)``. The same notes as above apply. For example, here we have the additional parameters ``fruit`` and ``number``. The first one is passed positionally, and the second one by name:
-
-```python
-@looped_over(range(10), acc=0)
-def s(loop, x, acc, fruit="pear", number=23):
-    print(fruit, number)
-    newfruit = "orange" if fruit == "apple" else "apple"
-    newnumber = number + 1
-    return loop(acc + x, newfruit, number=newnumber)
-assert s == 45
-```
-
-The loop body is called once for each element in the iterable. When the iterable runs out of elements, the last ``acc`` value that was given to ``loop(...)`` becomes the return value of the loop. If the iterable is empty, the body never runs; then the return value of the loop is the initial value of ``acc``.
-
-To terminate the loop early, just ``return`` your final result normally, like in ``@looped``. (It can be anything, does not need to be ``acc``.)
-
-Multiple input iterables work somewhat like in Python's ``for``, except any tuple unpacking must be performed inside the body:
-
-```python
-@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
-def p(loop, item, acc):
-    numb, lett = item
-    return loop(acc + ("{:d}{:s}".format(numb, lett),))
-assert p == ('1a', '2b', '3c')
-
-@looped_over(enumerate(zip((1, 2, 3), ('a', 'b', 'c'))), acc=())
-def q(loop, item, acc):
-    idx, (numb, lett) = item
-    return loop(acc + ("Item {:d}: {:d}{:s}".format(idx, numb, lett),))
-assert q == ('Item 0: 1a', 'Item 1: 2b', 'Item 2: 3c')
-```
-
-FP loops can be nested (also those over iterables):
-
-```python
-@looped_over(range(1, 4), acc=())
-def outer_result(outer_loop, y, outer_acc):
-    @looped_over(range(1, 3), acc=())
-    def inner_result(inner_loop, x, inner_acc):
-        return inner_loop(inner_acc + (y*x,))
-    return outer_loop(outer_acc + (inner_result,))
-assert outer_result == ((1, 2), (2, 4), (3, 6))
-```
-
-If you feel the trailing commas ruin the aesthetics, see ``unpythonic.misc.pack``.
-
-#### Accumulator type and runtime cost
-
-As [the reference warns (note 6)](https://docs.python.org/3/library/stdtypes.html#common-sequence-operations), repeated concatenation of tuples has an O(n²) runtime cost, because each concatenation creates a new tuple, which needs to copy all of the already existing elements. To keep the runtime O(n), there are two options:
-
- - *Pythonic solution*: Destructively modify a mutable sequence. Particularly, ``list`` is a dynamic array that has a low amortized cost for concatenation (most often O(1), with the occasional O(n) when the allocated storage grows).
- - *Unpythonic solution*: ``cons`` a linked list, and reverse it at the end. Cons cells are immutable; consing a new element to the front costs O(1). Reversing the list costs O(n).
-
-Mutable sequence (Python ``list``):
-
-```python
-@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=[])
-def p(loop, item, acc):
-    numb, lett = item
-    acc.append("{:d}{:s}".format(numb, lett))
-    return loop(acc)
-assert p == ['1a', '2b', '3c']
-```
-
-Linked list:
-
-```python
-from unpythonic import cons, nil, ll
-
-@lreverse
-@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
-def p(loop, item, acc):
-    numb, lett = item
-    return loop(cons("{:d}{:s}".format(numb, lett), acc))
-assert p == ll('1a', '2b', '3c')
-```
-
-Note the unpythonic use of the ``lreverse`` function as a decorator. ``@looped_over`` overwrites the def'd name by the return value of the loop; then ``lreverse`` takes that as input, and overwrites once more. Thus ``p`` becomes the final list.
-
-To get the output as a tuple, we can add ``tuple`` to the decorator chain:
-
-```python
-@tuple
-@lreverse
-@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
-def p(loop, item, acc):
-    numb, lett = item
-    return loop(cons("{:d}{:s}".format(numb, lett), acc))
-assert p == ('1a', '2b', '3c')
-```
-
-This works in both solutions. The cost is an additional O(n) step.
-
-#### ``break``
-
-The main way to exit an FP loop (also early) is, at any time, to just ``return`` the final result normally.
-
-If you want to exit the function *containing* the loop from inside the loop, see **escape continuations** below.
-
-#### ``continue``
-
-The main way to *continue* an FP loop is, at any time, to ``loop(...)`` with the appropriate arguments that will make it proceed to the next iteration. Or package the appropriate `loop(...)` expression into your own function ``cont``, and then use ``cont(...)``:
-
-```python
-@looped
-def s(loop, acc=0, i=0):
-    cont = lambda newacc=acc: loop(newacc, i + 1)  # always increase i; by default keep current value of acc
-    if i <= 4:
-        return cont()  # essentially "continue" for this FP loop
-    elif i == 10:
-        return acc
-    else:
-        return cont(acc + i)
-print(s)  # 35
-```
-
-This approach separates the computations of the new values for the iteration counter and the accumulator.
-
-#### Prepackaged ``break`` and ``continue``
-
-See ``@breakably_looped`` (offering `brk`) and ``@breakably_looped_over`` (offering `brk` and `cnt`).
-
-The point of `brk(value)` over just `return value` is that `brk` is first-class, so it can be passed on to functions called by the loop body (so that those functions then have the power to directly terminate the loop).
-
-In ``@looped``, a library-provided ``cnt`` wouldn't make sense, since all parameters except ``loop`` are user-defined. *The client code itself defines what it means to proceed to the "next" iteration*. Really the only way in a construct with this degree of flexibility is for the client code to fill in all the arguments itself.
-
-Because ``@looped_over`` is a more specific abstraction, there the concept of *continue* is much more clear-cut. We define `cnt` to mean *proceed to take the next element from the iterable, keeping the current value of `acc`*. Essentially `cnt` is a partially applied `loop(...)` with the first positional argument set to the current value of `acc`.
-
-#### FP loops using a lambda as body
-
-Just call the `looped()` decorator manually:
-
-```python
-s = looped(lambda loop, acc=0, i=0:
-             loop(acc + i, i + 1) if i < 10 else acc)
-print(s)
-```
-
-It's not just a decorator; in Lisps, a construct like this would likely be named ``call/looped``.
-
-We can also use ``let`` to make local definitions:
-
-```python
-s = looped(lambda loop, acc=0, i=0:
-             let(cont=lambda newacc=acc:
-                        loop(newacc, i + 1),
-                 body=lambda e:
-                        e.cont(acc + i) if i < 10 else acc)
-print(s)
-```
-
-The `looped_over()` decorator also works, if we just keep in mind that parameterized decorators in Python are actually decorator factories:
-
-```python
-r10 = looped_over(range(10), acc=0)
-s = r10(lambda loop, x, acc:
-          loop(acc + x))
-assert s == 45
-```
-
-If you **really** need to make that into an expression, bind ``r10`` using ``let`` (if you use ``letrec``, keeping in mind it is a callable), or to make your code unreadable, just inline it.
-
-With ``curry``, this is also a possible solution:
-
-```python
-s = curry(looped_over, range(10), 0,
-            lambda loop, x, acc:
-              loop(acc + x))
-assert s == 45
-```
-
-#### Generators with TCO
-
-In ``unpythonic``, a generator can tail-chain into another generator. This is like invoking ``itertools.chain``, but as a tail call from inside the generator - so the generator itself can choose the next iterable in the chain. If the next iterable is a generator, it can again tail-chain into something else. If it is not a generator, it becomes the last iterable in the TCO chain.
-
-Python provides a convenient hook to build things like this, in the guise of ``return``:
-
-```python
-from unpythonic import gtco, take, last
-
-def march():
-    yield 1
-    yield 2
-    return march()  # tail-chain to a new instance of itself
-assert tuple(take(6, gtco(march()))) == (1, 2, 1, 2, 1, 2)
-last(take(10000, gtco(march())))  # no crash
-```
-
-Note the calls to ``gtco`` at the use sites. For convenience, we provide ``@gtrampolined``, which automates that:
-
-```python
-from unpythonic import gtrampolined, take, last
-
-@gtrampolined
-def ones():
-    yield 1
-    return ones()
-assert tuple(take(10, ones())) == (1,) * 10
-last(take(10000, ones()))  # no crash
-```
-
-It is safe to tail-chain into a ``@gtrampolined`` generator; the system strips the TCO target's trampoline if it has one.
-
-Like all tail calls, this works for any *iterative* process. In contrast, this **does not work**:
-
-```python
-from operator import add
-from unpythonic import gtrampolined, scanl, take
-
-@gtrampolined
-def fibos():  # see numerics.py
-    yield 1
-    return scanl(add, 1, fibos())
-print(tuple(take(10, fibos())))  # --> (1, 1, 2), only 3 terms?!
-```
-
-This sequence (technically iterable, but in the mathematical sense) is recursively defined, and the ``return`` shuts down the generator before it can yield more terms into ``scanl``. With ``yield from`` instead of ``return`` the second example works (but since it is recursive, it eventually blows the call stack).
-
-This particular example can be converted into a linear process with a different higher-order function, no TCO needed:
-
-```python
-from unpythonic import unfold, take, last
-def fibos():
-    def nextfibo(a, b):
-        return a, b, a + b  # value, *newstates
-    return unfold(nextfibo, 1, 1)
-assert tuple(take(10, fibos())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
-last(take(10000, fibos()))  # no crash
-```
-
-
-### Escape continuations (ec)
-
-Escape continuations can be used as a *multi-return*:
-
-```python
-from unpythonic import setescape, escape
-
-@setescape()  # note the parentheses
-def f():
-    def g():
-        escape("hello from g")  # the argument becomes the return value of f()
-        print("not reached")
-    g()
-    print("not reached either")
-assert f() == "hello from g"
-```
-
-**CAUTION**: The implementation is based on exceptions, so catch-all ``except:`` statements will intercept also escapes, breaking the escape mechanism. As you already know, be specific in what you catch!
-
-In Lisp terms, `@setescape` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `escape(value)`. The function decorated with `@setescape` immediately terminates, returning ``value``.
-
-In Python terms, an escape means just raising a specific type of exception; the usual rules concerning ``try/except/else/finally`` and ``with`` blocks apply. It is a function call, so it works also in lambdas.
-
-Escaping the function surrounding an FP loop, from inside the loop:
-
-```python
-@setescape()
-def f():
-    @looped
-    def s(loop, acc=0, i=0):
-        if i > 5:
-            escape(acc)
-        return loop(acc + i, i + 1)
-    print("never reached")
-f()  # --> 15
-```
-
-For more control, both ``@setescape`` points and escape instances can be tagged:
-
-```python
-@setescape(tags="foo")  # setescape point tags can be single value or tuple (tuples OR'd, like isinstance())
-def foo():
-    @call
-    @setescape(tags="bar")
-    def bar():
-        @looped
-        def s(loop, acc=0, i=0):
-            if i > 5:
-                escape(acc, tag="foo")  # escape instance tag must be a single value
-            return loop(acc + i, i + 1)
-        print("never reached")
-        return False
-    print("never reached either")
-    return False
-assert foo() == 15
-```
-
-For details on tagging, especially how untagged and tagged escapes and points interact, and how to make one-to-one connections, see the docstring for ``@setescape``.
-
-
-### First-class escape continuations: ``call/ec``
-
-We provide ``call/ec`` (a.k.a. ``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@call``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an escape point, and hands a **first-class escape continuation** to the callee.
-
-The function to be decorated **must** take one positional argument, the ec instance.
-
-The ec instance itself is another function, which takes one positional argument: the value to send to the escape point. The ec instance and the escape point are connected one-to-one. No other ``@setescape`` point will catch the ec instance, and the escape point catches only this particular ec instance and nothing else.
-
-Any particular ec instance is only valid inside the dynamic extent of the ``call_ec`` invocation that created it. Attempting to call the ec later raises ``RuntimeError``.
-
-This builds on ``@setescape`` and ``escape``, so the caution about catch-all ``except:`` statements applies here, too.
-
-```python
-from unpythonic import call_ec
-
-@call_ec
-def result(ec):  # effectively, just a code block, capturing the ec as an argument
-    answer = 42
-    ec(answer)  # here this has the same effect as "return answer"...
-    print("never reached")
-    answer = 23
-    return answer
-assert result == 42
-
-@call_ec
-def result(ec):
-    answer = 42
-    def inner():
-        ec(answer)  # ...but here this directly escapes from the outer def
-        print("never reached")
-        return 23
-    answer = inner()
-    print("never reached either")
-    return answer
-assert result == 42
-```
-
-The ec doesn't have to be called from the lexical scope of the call_ec'd function, as long as the call occurs within the dynamic extent of the ``call_ec``. It's essentially a *return from me* for the original function:
-
-```python
-def f(ec):
-    print("hi from f")
-    ec(42)
-
-@call_ec
-def result(ec):
-    f(ec)  # pass on the ec - it's a first-class value
-    print("never reached")
-assert result == 42
-```
-
-This also works with lambdas, by using ``call_ec()`` directly. No need for a trampoline:
-
-```python
-result = call_ec(lambda ec:
-                   begin(print("hi from lambda"),
-                         ec(42),
-                         print("never reached")))
-assert result == 42
-```
-
-Normally ``begin()`` would return the last value, but the ec overrides that; it is effectively a ``return`` for multi-expression lambdas!
-
-But wait, doesn't Python evaluate all the arguments of `begin(...)` before the `begin` itself has a chance to run? Why doesn't the example print also *never reached*? This is because escapes are implemented using exceptions. Evaluating the ec call raises an exception, preventing any further elements from being evaluated.
-
-This usage is valid with named functions, too - ``call_ec`` is not only a decorator:
-
-```python
-def f(ec):
-    print("hi from f")
-    ec(42)
-    print("never reached")
-
-# ...possibly somewhere else, possibly much later...
-
-result = call_ec(f)
-assert result == 42
-```
 
 ### Dynamic assignment
 
@@ -1054,6 +294,413 @@ Finally, there is one global dynamic scope shared between all threads, where the
 
 To create a dynvar and set its default value, use ``make_dynvar``. Each dynamic variable, of the same name, should only have one default set; the (dynamically) latest definition always overwrites. However, we do not prevent overwrites, because in some codebases the same module may run its top-level initialization code multiple times (e.g. if a module has a ``main()`` for tests, and the file gets loaded both as a module and as the main program).
 
+
+## Containers
+
+We provide some additional containers.
+
+The class names are lowercase, because these are intended as low-level utility classes in principle on par with the builtins. The immutable containers are hashable. All containers are pickleable (if their contents are).
+
+### ``frozendict``, an immutable dictionary
+
+*Added in v0.13.0.*
+
+Given the existence of ``dict`` and ``frozenset``, this one is oddly missing from the standard library.
+
+```python
+from unpythonic import frozendict
+
+d = frozendict({'a': 1, 'b': 2})
+d['a']      # OK
+d['c'] = 3  # TypeError, not writable
+```
+
+Functional updates are supported:
+
+```python
+d2 = frozendict(d, a=42)
+assert d2['a'] == 42 and d2['b'] == 2
+assert d['a'] == 1  # original not mutated
+
+d3 = frozendict({'a': 1, 'b': 2}, {'a': 42})  # rightmost definition of each key wins
+assert d3['a'] == 42 and d3['b'] == 2
+
+# ...also using unpythonic.fupdate
+d4 = fupdate(d3, a=23)
+assert d4['a'] == 23 and d4['b'] == 2
+assert d3['a'] == 42 and d3['b'] == 2  # ...of course without touching the original
+```
+
+Any mappings used when creating an instance are shallow-copied, so that the bindings of the ``frozendict`` do not change even if the original input is later mutated:
+
+```python
+d = {1:2, 3:4}
+fd = frozendict(d)
+d[5] = 6
+assert d == {1: 2, 3: 4, 5: 6}
+assert fd == {1: 2, 3: 4}
+```
+
+**The usual caution** concerning immutable containers in Python applies: the container protects only the bindings against changes. If the values themselves are mutable, the container cannot protect from mutations inside them.
+
+All the usual read-access stuff works:
+
+```python
+d7 = frozendict({1:2, 3:4})
+assert 3 in d7
+assert len(d7) == 2
+assert set(d7.keys()) == {1, 3}
+assert set(d7.values()) == {2, 4}
+assert set(d7.items()) == {(1, 2), (3, 4)}
+assert d7 == frozendict({1:2, 3:4})
+assert d7 != frozendict({1:2})
+assert d7 == {1:2, 3:4}  # like frozenset, __eq__ doesn't care whether mutable or not
+assert d7 != {1:2}
+assert {k for k in d7} == {1, 3}
+assert d7.get(3) == 4
+assert d7.get(5, 0) == 0
+assert d7.get(5) is None
+```
+
+In terms of ``collections.abc``, a ``frozendict`` is a hashable immutable mapping:
+
+```python
+assert issubclass(frozendict, Mapping)
+assert not issubclass(frozendict, MutableMapping)
+
+assert issubclass(frozendict, Hashable)
+assert hash(d7) == hash(frozendict({1:2, 3:4}))
+assert hash(d7) != hash(frozendict({1:2}))
+```
+
+The abstract superclasses are virtual, just like for ``dict`` (i.e. they do not appear in the MRO).
+
+Finally, ``frozendict`` obeys the empty-immutable-container singleton invariant:
+
+```python
+assert frozendict() is frozendict()
+```
+
+...but don't pickle the empty ``frozendict`` and expect this invariant to hold; it's freshly created in each session.
+
+
+### `cons` and friends, pythonic lispy linked lists
+
+*Laugh, it's funny.*
+
+```python
+from unpythonic import cons, nil, ll, llist, car, cdr, caar, cdar, cadr, cddr, \
+                       member, lreverse, lappend, lzip, BinaryTreeIterator
+
+c = cons(1, 2)
+assert car(c) == 1 and cdr(c) == 2
+
+# ll(...) is like [...] or (...), but for linked lists:
+assert ll(1, 2, 3) == cons(1, cons(2, cons(3, nil)))
+
+t = cons(cons(1, 2), cons(3, 4))  # binary tree
+assert [f(t) for f in [caar, cdar, cadr, cddr]] == [1, 2, 3, 4]
+
+# default iteration scheme is "single cell or linked list":
+a, b = cons(1, 2)                   # unpacking a cons cell
+a, b, c = ll(1, 2, 3)               # unpacking a linked list
+a, b, c, d = BinaryTreeIterator(t)  # unpacking a binary tree: use a non-default iteration scheme
+
+assert list(ll(1, 2, 3)) == [1, 2, 3]
+assert tuple(ll(1, 2, 3)) == (1, 2, 3)
+assert llist((1, 2, 3)) == ll(1, 2, 3)  # llist() is like list() or tuple(), but for linked lists
+
+l = ll(1, 2, 3)
+assert member(2, l) == ll(2, 3)
+assert not member(5, l)
+
+assert lreverse(ll(1, 2, 3)) == ll(3, 2, 1)
+assert lappend(ll(1, 2), ll(3, 4), ll(5, 6)) == ll(1, 2, 3, 4, 5, 6)
+assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
+```
+
+Cons cells are immutable à la Racket (no `set-car!`/`rplaca`, `set-cdr!`/`rplacd`). Accessors are provided up to `caaaar`, ..., `cddddr`.
+
+Although linked lists are created with ``ll`` or ``llist``, the data type (for e.g. ``isinstance``) is ``cons``.
+
+Iterators are supported to walk over linked lists (this also gives tuple unpacking support). When ``next()`` is called, we return the car of the current cell the iterator points to, and the iterator moves to point to the cons cell in the cdr, if any. When the cdr is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
+
+Python's builtin ``reversed`` can be applied to linked lists; it will internally ``lreverse`` the list (which is O(n)), then return an iterator to that. The ``llist`` constructor is special-cased so that if the input is ``reversed(some_ll)``, it just returns the internal already reversed list. (This is safe because cons cells are immutable.)
+
+Cons structures can optionally print like in Lisps:
+
+```python
+print(cons(1, 2).lispyrepr())                    # --> (1 . 2)
+print(ll(1, 2, 3).lispyrepr())                   # --> (1 2 3)
+print(cons(cons(1, 2), cons(3, 4)).lispyrepr())  # --> ((1 . 2) . (3 . 4))
+```
+
+However, by default, they print in a pythonic format suitable for ``eval`` (if all elements are):
+
+```python
+print(cons(1, 2))                   # --> cons(1, 2)
+print(ll(1, 2, 3))                  # --> ll(1, 2, 3)
+print(cons(cons(1, 2), cons(3, 4))  # --> cons(cons(1, 2), cons(3, 4))
+```
+
+*Changed in v0.11.0.* In previous versions, the Lisp format was always used for printing.
+
+For more, see the ``llist`` submodule.
+
+#### Notes
+
+There is no ``copy`` method or ``lcopy`` function, because cons cells are immutable; which makes cons structures immutable.
+
+(However, for example, it is possible to `cons` a new item onto an existing linked list; that's fine because it produces a new cons structure - which shares data with the original, just like in Racket.)
+
+In general, copying cons structures can be error-prone. Given just a starting cell it is impossible to tell if a given instance of a cons structure represents a linked list, or something more general (such as a binary tree) that just happens to locally look like one, along the path that would be traversed if it was indeed a linked list.
+
+The linked list iteration strategy (which supports arbitrarily long lists) does not recurse in the ``car`` half, which could lead to incomplete copying. The tree strategy that recurses on both halves, on the other hand, is not safe to use on linked lists, because if the list is long, it will cause a stack overflow (due to lack of TCO in Python).
+
+*Added in v0.13.0.* We provide a ``JackOfAllTradesIterator`` that uses unpythonic's TCO and understands both trees and linked lists, but it has to make some compromises to be able to do this: nested lists will be flattened, and in a tree any ``nil`` in a ``cdr`` position will be omitted from the output.
+
+**Caution**: the ``nil`` singleton is freshly created in each session; newnil is not oldnil, so don't pickle a standalone ``nil``. The unpickler of ``cons`` automatically refreshes any ``nil`` instances inside a pickled cons structure, so that **cons structures** support the illusion that ``nil`` is a special value like ``None`` or ``...``. After unpickling, ``car(c) is nil`` and ``cdr(c) is nil`` still work as expected, even though ``id(nil)`` has changed.
+
+
+### ``box``, a mutable single-item container
+
+*Added in v0.12.0.*
+
+*Changed in v0.13.0.* The class and the data attribute have been renamed to ``box`` and ``x``, respectively.
+
+No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
+
+```python
+a = 23
+
+def f(x):
+    x = 17  # but I want to update the existing a!
+
+f(a)
+assert a == 23
+```
+
+Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to remember it is supposed to hold only a single item), or using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
+
+As an alternative to the rampant abuse of lists, we provide a rackety ``box``, which is a minimalistic mutable container that holds exactly one item. The data in the box is accessed via an attribute, so any code that has a reference to the box can update the data in it:
+
+```python
+from unpythonic import box
+
+a = box(23)
+
+def f(b):
+    b.x = 17
+
+f(a)
+assert a == 17
+```
+
+The attribute name is just ``x`` to reduce the number of additional keystrokes required. The ``box`` API is summarized by:
+
+```python
+b1 = box(23)
+b2 = box(23)
+b3 = box(17)
+
+assert b1.x == 23    # data lives in the attribute .x
+assert 23 in b1      # content is "in" the box, also syntactically
+assert 17 not in b1
+
+assert [x for x in b1] == [23]  # box is iterable
+assert len(b1) == 1             # and always has length 1
+
+assert b1 == 23      # for equality testing, a box is considered equal to its content
+
+assert b2 == b1      # contents are equal, but
+assert b2 is not b1  # different boxes
+
+assert b3 != b1      # different contents
+```
+
+The expression ``item in b`` has the same meaning as ``b.x == item``. Note ``box`` is a mutable container, so it is **not hashable**.
+
+
+## Sequencing
+
+Sequencing refers to running multiple expressions, in sequence, in place of one expression.
+
+Keep in mind the only reason to ever need multiple expressions: *side effects.* (Assignment is a side effect, too; it modifies the environment. In functional style, intermediate named definitions to increase readability are perhaps the most useful kind of side effect.)
+
+See also ``multilambda`` in [macros](macro_extras/).
+
+
+### Sequence side effects: ``begin``
+
+```python
+from unpythonic import begin, begin0
+
+f1 = lambda x: begin(print("cheeky side effect"),
+                     42*x)
+f1(2)  # --> 84
+
+f2 = lambda x: begin0(42*x,
+                      print("cheeky side effect"))
+f2(2)  # --> 84
+```
+
+Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`unpythonic.seq`](unpythonic/seq.py) for details.
+
+
+### Stuff imperative code into an expression: ``do``
+
+No monadic magic. Basically, ``do`` is:
+
+  - An improved ``begin`` that can bind names to intermediate results and then use them in later items.
+
+  - A ``let*`` (technically, ``letrec``) where making a binding is optional, so that some items can have only side effects if so desired. No semantically distinct ``body``; all items play the same role.
+
+Like in ``letrec`` (see below), use ``lambda e: ...`` to access the environment, and to wrap callable values (to prevent misunderstandings).
+
+We also provide a ``do[]`` [macro](macro_extras/) that makes the construct easier to use.
+
+```python
+from unpythonic import do, assign
+
+y = do(assign(x=17),          # create and set e.x
+       lambda e: print(e.x),  # 17; uses environment, needs lambda e: ...
+       assign(x=23),          # overwrite e.x
+       lambda e: print(e.x),  # 23
+       42)                    # return value
+assert y == 42
+
+y = do(assign(x=17),
+       assign(z=lambda e: 2*e.x),
+       lambda e: e.z)
+assert y == 34
+
+y = do(assign(x=5),
+       assign(f=lambda e: lambda x: x**2),  # callable, needs lambda e: ...
+       print("hello from 'do'"),  # value is None; not callable
+       lambda e: e.f(e.x))
+assert y == 25
+```
+
+If you need to return the first value instead of the last one, use this trick:
+
+```python
+y = do(assign(result=17),
+       print("assigned 'result' in env"),
+       lambda e: e.result)  # return value
+assert y == 17
+```
+
+Or use ``do0``, which does it for you:
+
+```python
+from unpythonic import do0, assign
+
+y = do0(17,
+        assign(x=42),
+        lambda e: print(e.x),
+        print("hello from 'do0'"))
+assert y == 17
+
+y = do0(assign(x=17),  # the first item of do0 can be an assignment, too
+        lambda e: print(e.x))
+assert y == 17
+```
+
+Beware of this pitfall:
+
+```python
+do(lambda e: print("hello 2 from 'do'"),  # delayed because lambda e: ...
+   print("hello 1 from 'do'"),  # Python prints immediately before do()
+   "foo")                       # gets control, because technically, it is
+                                # **the return value** that is an argument
+                                # for do().
+```
+
+Unlike ``begin`` (and ``begin0``), there is no separate ``lazy_do`` (``lazy_do0``), because using a ``lambda e: ...`` wrapper will already delay evaluation of an item. If you want a lazy variant, just wrap each item (also those which don't otherwise need it).
+
+The above pitfall also applies to using escape continuations inside a ``do``. To do that, wrap the ec call into a ``lambda e: ...`` to delay its evaluation until the ``do`` actually runs:
+
+```python
+call_ec(
+  lambda ec:
+    do(assign(x=42),
+       lambda e: ec(e.x),                  # IMPORTANT: must delay this!
+       lambda e: print("never reached")))  # and this (as above)
+```
+
+This way, any assignments made in the ``do`` (which occur only after ``do`` gets control), performed above the line with the ``ec`` call, will have been performed when the ``ec`` is called.
+
+
+### Sequence functions: ``pipe``, ``piped``, ``lazy_piped``
+
+Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/). A pipe performs a sequence of operations, starting from an initial value, and then returns the final value. It's just function composition, but with an emphasis on data flow, which helps improve readability:
+
+```python
+from unpythonic import pipe
+
+double = lambda x: 2 * x
+inc    = lambda x: x + 1
+
+x = pipe(42, double, inc)
+assert x == 85
+```
+
+We also provide ``pipec``, which curries the functions before applying them. Useful with passthrough (see below on ``curry``).
+
+Optional **shell-like syntax**, with purely functional updates:
+
+```python
+from unpythonic import piped, getvalue
+
+x = piped(42) | double | inc | getvalue
+assert x == 85
+
+p = piped(42) | double
+assert p | inc | getvalue == 85
+assert p | getvalue == 84  # p itself is never modified by the pipe system
+```
+
+Set up a pipe by calling ``piped`` for the initial value. Pipe into the sentinel ``getvalue`` to exit the pipe and return the current value.
+
+**Lazy pipes**, useful for mutable initial values. To perform the planned computation, pipe into the sentinel ``runpipe``:
+
+```python
+from unpythonic import lazy_piped1, runpipe
+
+lst = [1]
+def append_succ(l):
+    l.append(l[-1] + 1)
+    return l  # this return value is handed to the next function in the pipe
+p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
+assert lst == [1]        # nothing done yet
+p | runpipe              # run the computation
+assert lst == [1, 2, 3]  # now the side effect has updated lst.
+```
+
+Lazy pipe as an unfold:
+
+```python
+from unpythonic import lazy_piped, runpipe
+
+fibos = []
+def nextfibo(a, b):      # multiple arguments allowed
+    fibos.append(a)      # store result by side effect
+    return (b, a + b)    # new state, handed to next function in the pipe
+p = lazy_piped(1, 1)     # load initial state
+for _ in range(10):      # set up pipeline
+    p = p | nextfibo
+p | runpipe
+assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+```
+
+Both one-in-one-out (*1-to-1*) and n-in-m-out (*n-to-m*) pipes are provided. The 1-to-1 versions have names suffixed with ``1``. The use case is one-argument functions that return one value (which may also be a tuple).
+
+In the n-to-m versions, when a function returns a tuple, it is unpacked to the argument list of the next function in the pipe. At ``getvalue`` or ``runpipe`` time, the tuple wrapper (if any) around the final result is discarded if it contains only one item. (This allows the n-to-m versions to work also with a single value, as long as it is not a tuple.) The main use case is computations that deal with multiple values, the number of which may also change during the computation (as long as there are as many "slots" on both sides of each individual connection).
+
+
+## Batteries
+
+Things missing from the standard library.
 
 ### Batteries for functools
 
@@ -1560,6 +1207,614 @@ Namedtuples export only a sequence interface, so they cannot be treated as mappi
 Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
 
 
+## Control flow tools
+
+Tools related to control flow.
+
+### Tail call optimization (TCO) / explicit continuations
+
+**v0.10.0**: ``fasttco`` has been renamed ``tco``, and the exception-based old default implementation has been removed. See also [macros](macro_extras/) for an easy-to-use solution.
+
+**v0.11.1**: The special jump target ``SELF`` (keep current target) has been removed. If you need tail recursion in a lambda, use ``unpythonic.fun.withself`` to get a reference to the lambda itself. See example below.
+
+Express algorithms elegantly without blowing the call stack - with explicit, clear syntax.
+
+*Tail recursion*:
+
+```python
+from unpythonic import trampolined, jump
+
+@trampolined
+def fact(n, acc=1):
+    if n == 0:
+        return acc
+    else:
+        return jump(fact, n - 1, n * acc)
+print(fact(4))  # 24
+```
+
+Functions that use TCO **must** be `@trampolined`. Calling a trampolined function normally starts the trampoline.
+
+Inside a trampolined function, a normal call `f(a, ..., kw=v, ...)` remains a normal call.
+
+A tail call with target `f` is denoted `return jump(f, a, ..., kw=v, ...)`. This explicitly marks that it is indeed a tail call (due to the explicit ``return``). Note that `jump` is **a noun, not a verb**. The `jump(f, ...)` part just evaluates to a `jump` instance, which on its own does nothing. Returning it to the trampoline actually performs the tail call.
+
+If the jump target has a trampoline, don't worry; the trampoline implementation will automatically strip it and jump into the actual entrypoint.
+
+Trying to ``jump(...)`` without the ``return`` does nothing useful, and will **usually** print an *unclaimed jump* warning. It does this by checking a flag in the ``__del__`` method of ``jump``; any correctly used jump instance should have been claimed by a trampoline before it gets garbage-collected.
+
+(Some *unclaimed jump* warnings may appear also if the process is terminated by Ctrl+C (``KeyboardInterrupt``). This is normal; it just means that the termination occurred after a jump object was instantiated but before it was claimed by the trampoline.)
+
+The final result is just returned normally. This shuts down the trampoline, and returns the given value from the initial call (to a ``@trampolined`` function) that originally started that trampoline.
+
+
+*Tail recursion in a lambda*:
+
+```python
+t = trampolined(withself(lambda self, n, acc=1:
+                           acc if n == 0 else jump(self, n - 1, n * acc)))
+print(t(4))  # 24
+```
+
+Here the jump is just `jump` instead of `return jump`, since lambda does not use the `return` syntax.
+
+To denote tail recursion in an anonymous function, use ``unpythonic.fun.withself``. The ``self`` argument is declared explicitly, but passed implicitly, just like the ``self`` argument of a method.
+
+
+*Mutual recursion with TCO*:
+
+```python
+@trampolined
+def even(n):
+    if n == 0:
+        return True
+    else:
+        return jump(odd, n - 1)
+@trampolined
+def odd(n):
+    if n == 0:
+        return False
+    else:
+        return jump(even, n - 1)
+assert even(42) is True
+assert odd(4) is False
+assert even(10000) is True  # no crash
+```
+
+*Mutual recursion in `letrec` with TCO*:
+
+```python
+letrec(evenp=lambda e:
+               trampolined(lambda x:
+                             (x == 0) or jump(e.oddp, x - 1)),
+       oddp=lambda e:
+               trampolined(lambda x:
+                             (x != 0) and jump(e.evenp, x - 1)),
+       body=lambda e:
+               e.evenp(10000))
+```
+
+
+#### Reinterpreting TCO as explicit continuations
+
+TCO from another viewpoint:
+
+```python
+@trampolined
+def foo():
+    return jump(bar)
+@trampolined
+def bar():
+    return jump(baz)
+@trampolined
+def baz():
+    print("How's the spaghetti today?")
+foo()
+```
+
+Each function in the TCO call chain tells the trampoline where to go next (and with what parameters). All hail [lambda, the ultimate GOTO](http://hdl.handle.net/1721.1/5753)!
+
+Each TCO call chain brings its own trampoline, so they nest as expected:
+
+```python
+@trampolined
+def foo():
+    return jump(bar)
+@trampolined
+def bar():
+    t = even(42)  # start another trampoline for even/odd
+    return jump(baz, t)
+@trampolined
+def baz(result):
+    print(result)
+foo()  # start trampoline
+```
+
+
+#### Loops in FP style (with TCO)
+
+*Functional loop with automatic tail call optimization* (for calls re-invoking the loop body):
+
+```python
+from unpythonic import looped, looped_over
+
+@looped
+def s(loop, acc=0, i=0):
+    if i == 10:
+        return acc
+    else:
+        return loop(acc + i, i + 1)
+print(s)  # 45
+```
+
+Compare the sweet-exp Racket:
+
+```racket
+define s
+  let loop ([acc 0] [i 0])
+    cond
+      {i = 10}
+        acc
+      else
+        loop {acc + i} {i + 1}
+displayln s  ; 45
+```
+
+The `@looped` decorator is essentially sugar. Behaviorally equivalent code:
+
+```python
+@trampolined
+def s(acc=0, i=0):
+    if i == 10:
+        return acc
+    else:
+        return jump(s, acc + i, i + 1)
+s = s()
+print(s)  # 45
+```
+
+In `@looped`, the function name of the loop body is the name of the final result, like in `@call`. The final result of the loop is just returned normally.
+
+The first parameter of the loop body is the magic parameter ``loop``. It is *self-ish*, representing a jump back to the loop body itself, starting a new iteration. Just like Python's ``self``, ``loop`` can have any name; it is passed positionally.
+
+Note that ``loop`` is **a noun, not a verb.** This is because the expression ``loop(...)`` is essentially the same as ``jump(...)`` to the loop body itself. However, it also inserts the magic parameter ``loop``, which can only be set up via this mechanism.
+
+Additional arguments can be given to ``loop(...)``. When the loop body is called, any additional positional arguments are appended to the implicit ones, and can be anything. Additional arguments can also be passed by name. The initial values of any additional arguments **must** be declared as defaults in the formal parameter list of the loop body. The loop is automatically started by `@looped`, by calling the body with the magic ``loop`` as the only argument.
+
+Any loop variables such as ``i`` in the above example are **in scope only in the loop body**; there is no ``i`` in the surrounding scope. Moreover, it's a fresh ``i`` at each iteration; nothing is mutated by the looping mechanism. (But be careful if you use a mutable object instance as a loop variable. The loop body is just a function call like any other, so the usual rules apply.)
+
+FP loops don't have to be pure:
+
+```python
+out = []
+@looped
+def _(loop, i=0):
+    if i <= 3:
+        out.append(i)  # cheeky side effect
+        return loop(i + 1)
+    # the implicit "return None" terminates the loop.
+assert out == [0, 1, 2, 3]
+```
+
+Keep in mind, though, that this pure-Python FP looping mechanism is slow, so it may make sense to use it only when "the FP-ness" (no mutation, scoping) is important.
+
+Also be aware that `@looped` is specifically neither a ``for`` loop nor a ``while`` loop; instead, it is a general looping mechanism that can express both kinds of loops.
+
+*Typical `while True` loop in FP style*:
+
+```python
+@looped
+def _(loop):
+    print("Enter your name (or 'q' to quit): ", end='')
+    s = input()
+    if s.lower() == 'q':
+        return  # ...the implicit None. In a "while True:", "break" here.
+    else:
+        print("Hello, {}!".format(s))
+        return loop()
+```
+
+#### FP loop over an iterable
+
+In Python, loops often run directly over the elements of an iterable, which markedly improves readability compared to dealing with indices. Enter ``@looped_over``:
+
+```python
+@looped_over(range(10), acc=0)
+def s(loop, x, acc):
+    return loop(acc + x)
+assert s == 45
+```
+
+The ``@looped_over`` decorator is essentially sugar. Behaviorally equivalent code:
+
+```python
+@call
+def s(iterable=range(10)):
+    it = iter(iterable)
+    @looped
+    def _tmp(loop, acc=0):
+        try:
+            x = next(it)
+            return loop(acc + x)
+        except StopIteration:
+            return acc
+    return _tmp
+assert s == 45
+```
+
+In ``@looped_over``, the loop body takes three magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element. The third parameter ``acc`` is initialized to the ``acc`` value given to ``@looped_over``, and then (functionally) updated at each iteration, taking as the new value the first positional argument given to ``loop(...)``, if any positional arguments were given. Otherwise ``acc`` retains its last value.
+
+Additional arguments can be given to ``loop(...)``. The same notes as above apply. For example, here we have the additional parameters ``fruit`` and ``number``. The first one is passed positionally, and the second one by name:
+
+```python
+@looped_over(range(10), acc=0)
+def s(loop, x, acc, fruit="pear", number=23):
+    print(fruit, number)
+    newfruit = "orange" if fruit == "apple" else "apple"
+    newnumber = number + 1
+    return loop(acc + x, newfruit, number=newnumber)
+assert s == 45
+```
+
+The loop body is called once for each element in the iterable. When the iterable runs out of elements, the last ``acc`` value that was given to ``loop(...)`` becomes the return value of the loop. If the iterable is empty, the body never runs; then the return value of the loop is the initial value of ``acc``.
+
+To terminate the loop early, just ``return`` your final result normally, like in ``@looped``. (It can be anything, does not need to be ``acc``.)
+
+Multiple input iterables work somewhat like in Python's ``for``, except any tuple unpacking must be performed inside the body:
+
+```python
+@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
+def p(loop, item, acc):
+    numb, lett = item
+    return loop(acc + ("{:d}{:s}".format(numb, lett),))
+assert p == ('1a', '2b', '3c')
+
+@looped_over(enumerate(zip((1, 2, 3), ('a', 'b', 'c'))), acc=())
+def q(loop, item, acc):
+    idx, (numb, lett) = item
+    return loop(acc + ("Item {:d}: {:d}{:s}".format(idx, numb, lett),))
+assert q == ('Item 0: 1a', 'Item 1: 2b', 'Item 2: 3c')
+```
+
+FP loops can be nested (also those over iterables):
+
+```python
+@looped_over(range(1, 4), acc=())
+def outer_result(outer_loop, y, outer_acc):
+    @looped_over(range(1, 3), acc=())
+    def inner_result(inner_loop, x, inner_acc):
+        return inner_loop(inner_acc + (y*x,))
+    return outer_loop(outer_acc + (inner_result,))
+assert outer_result == ((1, 2), (2, 4), (3, 6))
+```
+
+If you feel the trailing commas ruin the aesthetics, see ``unpythonic.misc.pack``.
+
+#### Accumulator type and runtime cost
+
+As [the reference warns (note 6)](https://docs.python.org/3/library/stdtypes.html#common-sequence-operations), repeated concatenation of tuples has an O(n²) runtime cost, because each concatenation creates a new tuple, which needs to copy all of the already existing elements. To keep the runtime O(n), there are two options:
+
+ - *Pythonic solution*: Destructively modify a mutable sequence. Particularly, ``list`` is a dynamic array that has a low amortized cost for concatenation (most often O(1), with the occasional O(n) when the allocated storage grows).
+ - *Unpythonic solution*: ``cons`` a linked list, and reverse it at the end. Cons cells are immutable; consing a new element to the front costs O(1). Reversing the list costs O(n).
+
+Mutable sequence (Python ``list``):
+
+```python
+@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=[])
+def p(loop, item, acc):
+    numb, lett = item
+    acc.append("{:d}{:s}".format(numb, lett))
+    return loop(acc)
+assert p == ['1a', '2b', '3c']
+```
+
+Linked list:
+
+```python
+from unpythonic import cons, nil, ll
+
+@lreverse
+@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
+def p(loop, item, acc):
+    numb, lett = item
+    return loop(cons("{:d}{:s}".format(numb, lett), acc))
+assert p == ll('1a', '2b', '3c')
+```
+
+Note the unpythonic use of the ``lreverse`` function as a decorator. ``@looped_over`` overwrites the def'd name by the return value of the loop; then ``lreverse`` takes that as input, and overwrites once more. Thus ``p`` becomes the final list.
+
+To get the output as a tuple, we can add ``tuple`` to the decorator chain:
+
+```python
+@tuple
+@lreverse
+@looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
+def p(loop, item, acc):
+    numb, lett = item
+    return loop(cons("{:d}{:s}".format(numb, lett), acc))
+assert p == ('1a', '2b', '3c')
+```
+
+This works in both solutions. The cost is an additional O(n) step.
+
+#### ``break``
+
+The main way to exit an FP loop (also early) is, at any time, to just ``return`` the final result normally.
+
+If you want to exit the function *containing* the loop from inside the loop, see **escape continuations** below.
+
+#### ``continue``
+
+The main way to *continue* an FP loop is, at any time, to ``loop(...)`` with the appropriate arguments that will make it proceed to the next iteration. Or package the appropriate `loop(...)` expression into your own function ``cont``, and then use ``cont(...)``:
+
+```python
+@looped
+def s(loop, acc=0, i=0):
+    cont = lambda newacc=acc: loop(newacc, i + 1)  # always increase i; by default keep current value of acc
+    if i <= 4:
+        return cont()  # essentially "continue" for this FP loop
+    elif i == 10:
+        return acc
+    else:
+        return cont(acc + i)
+print(s)  # 35
+```
+
+This approach separates the computations of the new values for the iteration counter and the accumulator.
+
+#### Prepackaged ``break`` and ``continue``
+
+See ``@breakably_looped`` (offering `brk`) and ``@breakably_looped_over`` (offering `brk` and `cnt`).
+
+The point of `brk(value)` over just `return value` is that `brk` is first-class, so it can be passed on to functions called by the loop body (so that those functions then have the power to directly terminate the loop).
+
+In ``@looped``, a library-provided ``cnt`` wouldn't make sense, since all parameters except ``loop`` are user-defined. *The client code itself defines what it means to proceed to the "next" iteration*. Really the only way in a construct with this degree of flexibility is for the client code to fill in all the arguments itself.
+
+Because ``@looped_over`` is a more specific abstraction, there the concept of *continue* is much more clear-cut. We define `cnt` to mean *proceed to take the next element from the iterable, keeping the current value of `acc`*. Essentially `cnt` is a partially applied `loop(...)` with the first positional argument set to the current value of `acc`.
+
+#### FP loops using a lambda as body
+
+Just call the `looped()` decorator manually:
+
+```python
+s = looped(lambda loop, acc=0, i=0:
+             loop(acc + i, i + 1) if i < 10 else acc)
+print(s)
+```
+
+It's not just a decorator; in Lisps, a construct like this would likely be named ``call/looped``.
+
+We can also use ``let`` to make local definitions:
+
+```python
+s = looped(lambda loop, acc=0, i=0:
+             let(cont=lambda newacc=acc:
+                        loop(newacc, i + 1),
+                 body=lambda e:
+                        e.cont(acc + i) if i < 10 else acc)
+print(s)
+```
+
+The `looped_over()` decorator also works, if we just keep in mind that parameterized decorators in Python are actually decorator factories:
+
+```python
+r10 = looped_over(range(10), acc=0)
+s = r10(lambda loop, x, acc:
+          loop(acc + x))
+assert s == 45
+```
+
+If you **really** need to make that into an expression, bind ``r10`` using ``let`` (if you use ``letrec``, keeping in mind it is a callable), or to make your code unreadable, just inline it.
+
+With ``curry``, this is also a possible solution:
+
+```python
+s = curry(looped_over, range(10), 0,
+            lambda loop, x, acc:
+              loop(acc + x))
+assert s == 45
+```
+
+#### Generators with TCO
+
+In ``unpythonic``, a generator can tail-chain into another generator. This is like invoking ``itertools.chain``, but as a tail call from inside the generator - so the generator itself can choose the next iterable in the chain. If the next iterable is a generator, it can again tail-chain into something else. If it is not a generator, it becomes the last iterable in the TCO chain.
+
+Python provides a convenient hook to build things like this, in the guise of ``return``:
+
+```python
+from unpythonic import gtco, take, last
+
+def march():
+    yield 1
+    yield 2
+    return march()  # tail-chain to a new instance of itself
+assert tuple(take(6, gtco(march()))) == (1, 2, 1, 2, 1, 2)
+last(take(10000, gtco(march())))  # no crash
+```
+
+Note the calls to ``gtco`` at the use sites. For convenience, we provide ``@gtrampolined``, which automates that:
+
+```python
+from unpythonic import gtrampolined, take, last
+
+@gtrampolined
+def ones():
+    yield 1
+    return ones()
+assert tuple(take(10, ones())) == (1,) * 10
+last(take(10000, ones()))  # no crash
+```
+
+It is safe to tail-chain into a ``@gtrampolined`` generator; the system strips the TCO target's trampoline if it has one.
+
+Like all tail calls, this works for any *iterative* process. In contrast, this **does not work**:
+
+```python
+from operator import add
+from unpythonic import gtrampolined, scanl, take
+
+@gtrampolined
+def fibos():  # see numerics.py
+    yield 1
+    return scanl(add, 1, fibos())
+print(tuple(take(10, fibos())))  # --> (1, 1, 2), only 3 terms?!
+```
+
+This sequence (technically iterable, but in the mathematical sense) is recursively defined, and the ``return`` shuts down the generator before it can yield more terms into ``scanl``. With ``yield from`` instead of ``return`` the second example works (but since it is recursive, it eventually blows the call stack).
+
+This particular example can be converted into a linear process with a different higher-order function, no TCO needed:
+
+```python
+from unpythonic import unfold, take, last
+def fibos():
+    def nextfibo(a, b):
+        return a, b, a + b  # value, *newstates
+    return unfold(nextfibo, 1, 1)
+assert tuple(take(10, fibos())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+last(take(10000, fibos()))  # no crash
+```
+
+
+### Escape continuations (ec)
+
+Escape continuations can be used as a *multi-return*:
+
+```python
+from unpythonic import setescape, escape
+
+@setescape()  # note the parentheses
+def f():
+    def g():
+        escape("hello from g")  # the argument becomes the return value of f()
+        print("not reached")
+    g()
+    print("not reached either")
+assert f() == "hello from g"
+```
+
+**CAUTION**: The implementation is based on exceptions, so catch-all ``except:`` statements will intercept also escapes, breaking the escape mechanism. As you already know, be specific in what you catch!
+
+In Lisp terms, `@setescape` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `escape(value)`. The function decorated with `@setescape` immediately terminates, returning ``value``.
+
+In Python terms, an escape means just raising a specific type of exception; the usual rules concerning ``try/except/else/finally`` and ``with`` blocks apply. It is a function call, so it works also in lambdas.
+
+Escaping the function surrounding an FP loop, from inside the loop:
+
+```python
+@setescape()
+def f():
+    @looped
+    def s(loop, acc=0, i=0):
+        if i > 5:
+            escape(acc)
+        return loop(acc + i, i + 1)
+    print("never reached")
+f()  # --> 15
+```
+
+For more control, both ``@setescape`` points and escape instances can be tagged:
+
+```python
+@setescape(tags="foo")  # setescape point tags can be single value or tuple (tuples OR'd, like isinstance())
+def foo():
+    @call
+    @setescape(tags="bar")
+    def bar():
+        @looped
+        def s(loop, acc=0, i=0):
+            if i > 5:
+                escape(acc, tag="foo")  # escape instance tag must be a single value
+            return loop(acc + i, i + 1)
+        print("never reached")
+        return False
+    print("never reached either")
+    return False
+assert foo() == 15
+```
+
+For details on tagging, especially how untagged and tagged escapes and points interact, and how to make one-to-one connections, see the docstring for ``@setescape``.
+
+
+#### First-class escape continuations: ``call/ec``
+
+We provide ``call/ec`` (a.k.a. ``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@call``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an escape point, and hands a **first-class escape continuation** to the callee.
+
+The function to be decorated **must** take one positional argument, the ec instance.
+
+The ec instance itself is another function, which takes one positional argument: the value to send to the escape point. The ec instance and the escape point are connected one-to-one. No other ``@setescape`` point will catch the ec instance, and the escape point catches only this particular ec instance and nothing else.
+
+Any particular ec instance is only valid inside the dynamic extent of the ``call_ec`` invocation that created it. Attempting to call the ec later raises ``RuntimeError``.
+
+This builds on ``@setescape`` and ``escape``, so the caution about catch-all ``except:`` statements applies here, too.
+
+```python
+from unpythonic import call_ec
+
+@call_ec
+def result(ec):  # effectively, just a code block, capturing the ec as an argument
+    answer = 42
+    ec(answer)  # here this has the same effect as "return answer"...
+    print("never reached")
+    answer = 23
+    return answer
+assert result == 42
+
+@call_ec
+def result(ec):
+    answer = 42
+    def inner():
+        ec(answer)  # ...but here this directly escapes from the outer def
+        print("never reached")
+        return 23
+    answer = inner()
+    print("never reached either")
+    return answer
+assert result == 42
+```
+
+The ec doesn't have to be called from the lexical scope of the call_ec'd function, as long as the call occurs within the dynamic extent of the ``call_ec``. It's essentially a *return from me* for the original function:
+
+```python
+def f(ec):
+    print("hi from f")
+    ec(42)
+
+@call_ec
+def result(ec):
+    f(ec)  # pass on the ec - it's a first-class value
+    print("never reached")
+assert result == 42
+```
+
+This also works with lambdas, by using ``call_ec()`` directly. No need for a trampoline:
+
+```python
+result = call_ec(lambda ec:
+                   begin(print("hi from lambda"),
+                         ec(42),
+                         print("never reached")))
+assert result == 42
+```
+
+Normally ``begin()`` would return the last value, but the ec overrides that; it is effectively a ``return`` for multi-expression lambdas!
+
+But wait, doesn't Python evaluate all the arguments of `begin(...)` before the `begin` itself has a chance to run? Why doesn't the example print also *never reached*? This is because escapes are implemented using exceptions. Evaluating the ec call raises an exception, preventing any further elements from being evaluated.
+
+This usage is valid with named functions, too - ``call_ec`` is not only a decorator:
+
+```python
+def f(ec):
+    print("hi from f")
+    ec(42)
+    print("never reached")
+
+# ...possibly somewhere else, possibly much later...
+
+result = call_ec(f)
+assert result == 42
+```
+
+
 ### Nondeterministic evaluation
 
 We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. An important feature of McCarthy's [`amb` operator](https://rosettacode.org/wiki/Amb) is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. This sounds a lot like ``call/cc``; which is how ``amb`` is usually implemented. See implementations [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html).
@@ -1636,229 +1891,9 @@ The implementation is based on the List monad, and a bastardized variant of do-n
  - Last line = implicit ``return ...``
 
 
-### Containers
+## Other
 
-We provide some additional containers. The class names are lowercase, because these are intended as low-level utility classes in principle on par with the builtins.
-
-#### ``frozendict``, an immutable dictionary
-
-*Added in v0.13.0.*
-
-Given the existence of ``dict`` and ``frozenset``, this one is oddly missing from the language and the standard library.
-
-```python
-from unpythonic import frozendict
-
-d = frozendict({'a': 1, 'b': 2})
-d['a']      # OK
-d['c'] = 3  # TypeError, not writable
-```
-
-Functional updates are supported:
-
-```python
-d2 = frozendict(d, a=42)
-assert d2['a'] == 42 and d2['b'] == 2
-assert d['a'] == 1  # original not mutated
-
-d3 = frozendict({'a': 1, 'b': 2}, {'a': 42})  # rightmost definition of each key wins
-assert d3['a'] == 42 and d3['b'] == 2
-
-# ...also using fupdate
-d4 = fupdate(d3, a=23)
-assert d4['a'] == 23 and d4['b'] == 2
-assert d3['a'] == 42 and d3['b'] == 2  # ...of course without touching the original
-```
-
-Any mappings used when creating an instance are shallow-copied, so that the bindings of the ``frozendict`` do not change even if the original input is later mutated:
-
-```python
-d = {1:2, 3:4}
-fd = frozendict(d)
-d[5] = 6
-assert d == {1: 2, 3: 4, 5: 6}
-assert fd == {1: 2, 3: 4}
-```
-
-**The usual caution** concerning immutable containers in Python applies: the container protects only the bindings against changes. If the values themselves are mutable, the container cannot protect from mutations inside them.
-
-All the usual read-access stuff works:
-
-```python
-d7 = frozendict({1:2, 3:4})
-assert 3 in d7
-assert len(d7) == 2
-assert set(d7.keys()) == {1, 3}
-assert set(d7.values()) == {2, 4}
-assert set(d7.items()) == {(1, 2), (3, 4)}
-assert d7 == frozendict({1:2, 3:4})
-assert d7 != frozendict({1:2})
-assert d7 == {1:2, 3:4}  # like frozenset, __eq__ doesn't care whether mutable or not
-assert d7 != {1:2}
-assert {k for k in d7} == {1, 3}
-assert d7.get(3) == 4
-assert d7.get(5, 0) == 0
-assert d7.get(5) is None
-```
-
-In terms of ``collections.abc``, a ``frozendict`` is a hashable immutable mapping:
-
-```python
-assert issubclass(frozendict, Mapping)
-assert not issubclass(frozendict, MutableMapping)
-
-assert issubclass(frozendict, Hashable)
-assert hash(d7) == hash(frozendict({1:2, 3:4}))
-assert hash(d7) != hash(frozendict({1:2}))
-```
-
-The abstract superclasses are virtual, just like for ``dict`` (i.e. they do not appear in the MRO).
-
-Finally, ``frozendict`` obeys the empty-immutable-container singleton invariant:
-
-```python
-assert frozendict() is frozendict()
-```
-
-...but don't pickle the empty ``frozendict`` and expect this invariant to hold; it's freshly created in each session.
-
-
-#### `cons` and friends
-
-*Laugh, it's funny.*
-
-```python
-from unpythonic import cons, nil, ll, llist, car, cdr, caar, cdar, cadr, cddr, \
-                       member, lreverse, lappend, lzip, BinaryTreeIterator
-
-c = cons(1, 2)
-assert car(c) == 1 and cdr(c) == 2
-
-# ll(...) is like [...] or (...), but for linked lists:
-assert ll(1, 2, 3) == cons(1, cons(2, cons(3, nil)))
-
-t = cons(cons(1, 2), cons(3, 4))  # binary tree
-assert [f(t) for f in [caar, cdar, cadr, cddr]] == [1, 2, 3, 4]
-
-# default iteration scheme is "single cell or linked list":
-a, b = cons(1, 2)                   # unpacking a cons cell
-a, b, c = ll(1, 2, 3)               # unpacking a linked list
-a, b, c, d = BinaryTreeIterator(t)  # unpacking a binary tree: use a non-default iteration scheme
-
-assert list(ll(1, 2, 3)) == [1, 2, 3]
-assert tuple(ll(1, 2, 3)) == (1, 2, 3)
-assert llist((1, 2, 3)) == ll(1, 2, 3)  # llist() is like list() or tuple(), but for linked lists
-
-l = ll(1, 2, 3)
-assert member(2, l) == ll(2, 3)
-assert not member(5, l)
-
-assert lreverse(ll(1, 2, 3)) == ll(3, 2, 1)
-assert lappend(ll(1, 2), ll(3, 4), ll(5, 6)) == ll(1, 2, 3, 4, 5, 6)
-assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
-```
-
-Cons cells are immutable à la Racket (no `set-car!`/`rplaca`, `set-cdr!`/`rplacd`). Accessors are provided up to `caaaar`, ..., `cddddr`.
-
-Although linked lists are created with ``ll`` or ``llist``, the data type (for e.g. ``isinstance``) is ``cons``.
-
-Iterators are supported to walk over linked lists (this also gives tuple unpacking support). When ``next()`` is called, we return the car of the current cell the iterator points to, and the iterator moves to point to the cons cell in the cdr, if any. When the cdr is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
-
-Python's builtin ``reversed`` can be applied to linked lists; it will internally ``lreverse`` the list (which is O(n)), then return an iterator to that. The ``llist`` constructor is special-cased so that if the input is ``reversed(some_ll)``, it just returns the internal already reversed list. (This is safe because cons cells are immutable.)
-
-Cons structures are hashable and pickleable, and can optionally print like in Lisps:
-
-```python
-print(cons(1, 2).lispyrepr())                    # --> (1 . 2)
-print(ll(1, 2, 3).lispyrepr())                   # --> (1 2 3)
-print(cons(cons(1, 2), cons(3, 4)).lispyrepr())  # --> ((1 . 2) . (3 . 4))
-```
-
-However, by default, they print in a pythonic format suitable for ``eval`` (if all elements are):
-
-```python
-print(cons(1, 2))                   # --> cons(1, 2)
-print(ll(1, 2, 3))                  # --> ll(1, 2, 3)
-print(cons(cons(1, 2), cons(3, 4))  # --> cons(cons(1, 2), cons(3, 4))
-```
-
-*Changed in v0.11.0.* In previous versions, the Lisp format was always used for printing.
-
-For more, see the ``llist`` submodule.
-
-##### Notes
-
-There is no ``copy`` method or ``lcopy`` function, because cons cells are immutable; which makes cons structures immutable.
-
-(However, for example, it is possible to `cons` a new item onto an existing linked list; that's fine because it produces a new cons structure - which shares data with the original, just like in Racket.)
-
-In general, copying cons structures can be error-prone. Given just a starting cell it is impossible to tell if a given instance of a cons structure represents a linked list, or something more general (such as a binary tree) that just happens to locally look like one, along the path that would be traversed if it was indeed a linked list.
-
-The linked list iteration strategy (which supports arbitrarily long lists) does not recurse in the ``car`` half, which could lead to incomplete copying. The tree strategy that recurses on both halves, on the other hand, is not safe to use on linked lists, because if the list is long, it will cause a stack overflow (due to lack of TCO in Python).
-
-*Added in v0.13.0.* We provide a ``JackOfAllTradesIterator`` that uses unpythonic's TCO and understands both trees and linked lists, but it has to make some compromises to be able to do this: nested lists will be flattened, and in a tree any ``nil`` in a ``cdr`` position will be omitted from the output.
-
-**Caution**: the ``nil`` singleton is freshly created in each session; newnil is not oldnil, so don't pickle a standalone ``nil``. The unpickler of ``cons`` automatically refreshes any ``nil`` instances inside a pickled cons structure, so that **cons structures** support the illusion that ``nil`` is a special value like ``None`` or ``...``. After unpickling, ``car(c) is nil`` and ``cdr(c) is nil`` still work as expected, even though ``id(nil)`` has changed.
-
-
-#### ``box``, a mutable single-item container
-
-*Added in v0.12.0.*
-
-*Changed in v0.13.0.* The class and the data attribute have been renamed to ``box`` and ``x``, respectively.
-
-No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
-
-```python
-a = 23
-
-def f(x):
-    x = 17  # but I want to update the existing a!
-
-f(a)
-assert a == 23
-```
-
-Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to remember it is supposed to hold only a single item), or using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
-
-As an alternative to the rampant abuse of lists, we provide a rackety ``box``, which is a minimalistic mutable container that holds exactly one item. The data in the box is accessed via an attribute, so any code that has a reference to the box can update the data in it:
-
-```python
-from unpythonic import box
-
-a = box(23)
-
-def f(b):
-    b.x = 17
-
-f(a)
-assert a == 17
-```
-
-The attribute name is just ``x`` to reduce the number of additional keystrokes required. The ``box`` API is summarized by:
-
-```python
-b1 = box(23)
-b2 = box(23)
-b3 = box(17)
-
-assert b1.x == 23    # data lives in the attribute .x
-assert 23 in b1      # content is "in" the box, also syntactically
-assert 17 not in b1
-
-assert [x for x in b1] == [23]  # box is iterable
-assert len(b1) == 1             # and always has length 1
-
-assert b1 == 23      # for equality testing, a box is considered equal to its content
-
-assert b2 == b1      # contents are equal, but
-assert b2 is not b1  # different boxes
-
-assert b3 != b1      # different contents
-```
-
-The expression ``item in b`` has the same meaning as ``b.x == item``. Note ``box`` is a mutable container, so it is **not hashable**.
-
+Stuff that didn't fit elsewhere.
 
 ### ``def`` as a code block: ``@call``
 
@@ -1952,6 +1987,7 @@ Essentially the implementation is just `def call(thunk): return thunk()`. The po
 Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a newline after a decorator.
 
 **NOTE**: ``call`` can also be used as a normal function: ``call(f, *a, **kw)`` is the same as ``f(*a, **kw)``. This is occasionally useful.
+
 
 ### ``@callwith``: freeze arguments, choose function later
 
@@ -2048,9 +2084,11 @@ assert tuple(m) == (6, 9, 3**(1/2))
 Inspired by *Function application with $* in [LYAH: Higher Order Functions](http://learnyouahaskell.com/higher-order-functions).
 
 
-## Design notes
+## Meta
 
-### On ``let`` and Python
+### Design notes
+
+#### On ``let`` and Python
 
 Why no `let*`, as a function? In Python, name lookup always occurs at runtime. Python gives us no compile-time guarantees that no binding refers to a later one - in [Racket](http://racket-lang.org/), this guarantee is the main difference between `let*` and `letrec`.
 
@@ -2066,7 +2104,7 @@ The [macro versions](macro_extras/) of the `let` constructs **are** lexically sc
 
 Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
 
-### Python is not a Lisp
+#### Python is not a Lisp
 
 The point behind providing `let` and `begin` (and the ``let[]`` and ``do[]`` [macros](macro_extras/)) is to make Python lambdas slightly more useful - which was really the starting point for this whole experiment.
 
@@ -2079,7 +2117,7 @@ The oft-quoted single-expression limitation of the Python ``lambda`` is ultimate
 
 Still, ultimately one must keep in mind that Python is not a Lisp. Not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful, even though it does have a side effect.
 
-### Assignment syntax
+#### Assignment syntax
 
 Why the clunky `e.set("foo", newval)` or `e << ("foo", newval)`, which do not directly mention `e.foo`? This is mainly because in Python, the language itself is not customizable. If we could define a new operator `e.foo <op> newval` to transform to `e.set("foo", newval)`, this would be easily solved.
 
@@ -2096,7 +2134,7 @@ If we later choose go this route nevertheless, `<<` is a better choice for the s
 
 The current solution for the assignment syntax issue is to use macros, to have both clean syntax at the use site and a relatively hackfree implementation.
 
-### TCO syntax and speed
+#### TCO syntax and speed
 
 Benefits and costs of ``return jump(...)``:
 
@@ -2120,7 +2158,7 @@ For other libraries bringing TCO to Python, see:
  - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the original source of the approach used here.
  - [MacroPy](https://github.com/azazel75/macropy) uses an approach similar to ``fn.py``.
 
-### Wait, no monads?
+#### Wait, no monads?
 
 (Beside List inside ``forall``.)
 
@@ -2128,9 +2166,10 @@ Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done else
 
 If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
 
-## Installation
 
-### PyPI
+### Installation
+
+#### PyPI
 
 Usually one of:
 
@@ -2140,7 +2179,7 @@ Usually one of:
 
 depending on what you want.
 
-### GitHub
+#### GitHub
 
 Clone (or pull) from GitHub. Then, usually one of:
 
@@ -2150,7 +2189,7 @@ Clone (or pull) from GitHub. Then, usually one of:
 
 depending on what you want.
 
-### Uninstall
+#### Uninstall
 
 ```pip3 uninstall unpythonic```
 
@@ -2158,7 +2197,8 @@ with ``sudo`` if needed.
 
 Must be invoked in a folder which has no subfolder called `unpythonic`, so that `pip` recognizes it as a package name (instead of a filename).
 
-## License
+
+### License
 
 2-clause [BSD](LICENSE.md).
 
@@ -2166,7 +2206,8 @@ Dynamic assignment based on [StackOverflow answer by Jason Orendorff (2010)](htt
 
 Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
 
-## Acknowledgements
+
+### Acknowledgements
 
 Thanks to [TUT](http://www.tut.fi/en/home) for letting me teach [RAK-19006 in spring term 2018](https://github.com/Technologicat/python-3-scicomp-intro); early versions of parts of this library were originally developed as teaching examples for that course. Thanks to @AgenttiX for feedback.
 
@@ -2174,7 +2215,8 @@ The trampoline implementation of ``unpythonic.tco`` takes its remarkably clean a
 
 Another important source of inspiration was [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
 
-## Python-related FP resources
+
+### Python-related FP resources
 
 Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
 
