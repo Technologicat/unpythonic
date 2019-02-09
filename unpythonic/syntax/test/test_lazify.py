@@ -167,6 +167,9 @@ def test():
         assert lst == [10, 2, 3]
 
     # manually lazified mutable container
+    # note we **do not** auto-lazify assignment RHSs, because that creates an
+    # infinite loop trap for the unwary (since assignment allows imperative update,
+    # which is not an equation)
     with lazify:
         def f(lst):
             lst[0] = 10*lst[0]
@@ -174,7 +177,7 @@ def test():
         f(lst)
         assert lst[:-1] == [10, 2]
 
-    # manually lazified argument, should not stack Lazy
+    # manually lazified argument; not necessary, but allowed; should not stack Lazy
     with lazify:
         def f(lst):
             lst[0] = 10*lst[0]
