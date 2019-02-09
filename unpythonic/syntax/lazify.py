@@ -271,8 +271,8 @@ def lazify(body):
                 # must see any container constructor calls that appear in the args)
                 stop()
                 # TODO: correct forcing mode? We shouldn't need to forcibly use "full",
-                # since lazycall() already forces any remaining promises (in full mode)
-                # in args of strict functions.
+                # since lazycall() already fully forces any remaining promises
+                # in the args when calling a strict function.
                 tree.args = rec(tree.args)
                 tree.keywords = rec(tree.keywords)
                 # Python 3.4
