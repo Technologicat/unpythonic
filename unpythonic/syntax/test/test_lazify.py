@@ -5,7 +5,7 @@ from ...misc import raisef
 from ...it import flatten
 from ...collections import frozendict
 
-from ...syntax import macros, lazify, lazyrec, let
+from ...syntax import macros, lazify, lazyrec, let, letseq, letrec
 from ...syntax import force
 
 from macropy.quick_lambda import macros, lazy
@@ -267,5 +267,11 @@ def test():
         # a reference on a let binding RHS works like a reference in a function call: just pass it through
         e = lazy[1/0]
         assert let[((c, 42), (d, e)) in f(c, d)] == 42
+
+        # nested lets
+        assert letseq[((c, 42), (d, e)) in f(c, d)] == 42
+
+        # letrec injects lambdas into its bindings, so test it too.
+        assert letrec[((c, 42), (d, e)) in f(c, d)] == 42
 
     print("All tests PASSED")

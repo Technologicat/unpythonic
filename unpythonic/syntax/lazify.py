@@ -283,8 +283,13 @@ def lazify(body):
             if islet(tree):
                 stop()
                 view = ExpandedLetView(tree)
-                for b in view.bindings.elts:
-                    b.elts[1] = transform_arg(b.elts[1])
+                if view.mode == "let":
+                    for b in view.bindings.elts:  # b = (name, value)
+                        b.elts[1] = transform_arg(b.elts[1])
+                else: # view.mode == "letrec":
+                    for b in view.bindings.elts:  # b = (name, namelambda("letrec_bindingXXX_YYY")(lambda e: ...))
+                        thelambda = b.elts[1].args[0]
+                        thelambda.body = transform_arg(thelambda.body)
                 thelambda = view.body.args[0]
                 thelambda.body = rec(thelambda.body)
             # For some important functions known to be strict, just recurse
