@@ -5,6 +5,8 @@ from ...syntax import macros, multilambda, namedlambda, quicklambda, f, _, local
 
 from functools import wraps
 
+# not really redefining "curry", the first one went into MacroPy's macro registry
+# (although this does mean the docstring of the macro will not be accessible from here)
 from ...fun import withself, curry
 from ...tco import trampolined, jump
 from ...fploop import looped_over
