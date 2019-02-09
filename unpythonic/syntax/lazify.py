@@ -15,7 +15,7 @@ from macropy.quick_lambda import Lazy
 
 from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, \
                   isx, make_isxpred, getname, is_decorator
-from .letdoutil import islet, isdo
+from .letdoutil import islet, isdo, ExpandedLetView
 from ..regutil import register_decorator
 from ..collections import mogrify
 
@@ -260,10 +260,37 @@ def lazify(body):
                 tree.body = rec(tree.body)
 
         elif type(tree) is Call:
+            def transform_arg(tree):
+                # add any needed force() invocations inside the tree,
+                # but leave the top level of simple references untouched.
+                isref = type(tree) in (Name, Attribute, Subscript)
+                tree = rec(tree, forcing_mode=("off" if isref else "full"))
+                if not isref:  # (re-)thunkify expr; a reference can be passed as-is.
+                    tree = lazyrec(tree)
+                return tree
+
+            def transform_starred(tree, dstarred=False):
+                isref = type(tree) in (Name, Attribute, Subscript)
+                tree = rec(tree, forcing_mode=("off" if isref else "full"))
+                # lazify items if we have a literal container
+                # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
+                if is_literal_container(tree, maps_only=dstarred):
+                    tree = lazyrec(tree)
+                return tree
+
+            # let bindings have a role similar to function arguments, so auto-lazify there
+            # (LHSs are always new names, so no infinite loop trap for the unwary)
+            if islet(tree):
+                stop()
+                view = ExpandedLetView(tree)
+                for b in view.bindings.elts:
+                    b.elts[1] = transform_arg(b.elts[1])
+                thelambda = view.body.args[0]
+                thelambda.body = rec(thelambda.body)
             # For some important functions known to be strict, just recurse
             # namelambda() is used by let[] and do[]
             # Lazy() is a strict function, takes a lambda, constructs a Lazy object
-            if isdo(tree) or islet(tree) or is_decorator(tree.func, "namelambda") or \
+            elif isdo(tree) or is_decorator(tree.func, "namelambda") or \
                any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, isLazy):
                 # here we know the operator (.func) to be one of specific names;
                 # don't transform it to avoid confusing lazyrec[] (important if this
@@ -282,24 +309,6 @@ def lazify(body):
                 stop()
                 ln, co = tree.lineno, tree.col_offset
                 thefunc = rec(tree.func)
-
-                def transform_arg(tree):
-                    # add any needed force() invocations inside the tree,
-                    # but leave the top level of simple references untouched.
-                    isref = type(tree) in (Name, Attribute, Subscript)
-                    tree = rec(tree, forcing_mode=("off" if isref else "full"))
-                    if not isref:  # (re-)thunkify expr; a reference can be passed as-is.
-                        tree = lazyrec(tree)
-                    return tree
-
-                def transform_starred(tree, dstarred=False):
-                    isref = type(tree) in (Name, Attribute, Subscript)
-                    tree = rec(tree, forcing_mode=("off" if isref else "full"))
-                    # lazify items if we have a literal container
-                    # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
-                    if is_literal_container(tree, maps_only=dstarred):
-                        tree = lazyrec(tree)
-                    return tree
 
                 # TODO: test *args support in Python 3.5+ (this **should** work according to the AST specs)
                 adata = []

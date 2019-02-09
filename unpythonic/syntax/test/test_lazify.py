@@ -5,7 +5,7 @@ from ...misc import raisef
 from ...it import flatten
 from ...collections import frozendict
 
-from ...syntax import macros, lazify, lazyrec
+from ...syntax import macros, lazify, lazyrec, let
 from ...syntax import force
 
 from macropy.quick_lambda import macros, lazy
@@ -257,5 +257,15 @@ def test():
         def f14(a, b):
             return f15(2*a, 2*b)
         assert f14(21, 1/0) == 42
+
+    # let bindings have a role similar to function arguments, so we auto-lazify there
+    with lazify:
+        def f(a, b):
+            return a
+        assert let[((c, 42), (d, 1/0)) in f(c, d)] == 42
+
+        # a reference on a let binding RHS works like a reference in a function call: just pass it through
+        e = lazy[1/0]
+        assert let[((c, 42), (d, e)) in f(c, d)] == 42
 
     print("All tests PASSED")
