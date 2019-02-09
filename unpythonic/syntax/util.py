@@ -132,8 +132,8 @@ def detect_lambda(tree, *, collect, stop, **kw):
     if isdo(tree):
         stop()
         thebody = ExpandedDoView(tree).body
-        for item in thebody:  # namelambda("do_lineXXX", (lambda e: ...))
-            thelambda = item.args[1]
+        for item in thebody:  # namelambda("do_lineXXX")(lambda e: ...)
+            thelambda = item.args[0]
             detect_lambda.collect(thelambda.body)
     if type(tree) is Lambda:
         collect(id(tree))

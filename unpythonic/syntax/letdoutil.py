@@ -351,7 +351,7 @@ class ExpandedLetView:
     """Like UnexpandedLetView, but for already expanded let constructs.
 
     Depending on whether let mode is "let" or "letrec", each binding is a
-    bare value or ``namelambda("letrec_bindingXXX_YYY", (lambda e: ...))``,
+    bare value or ``namelambda("letrec_bindingXXX_YYY")(lambda e: ...)``,
     respectively.
 
     Usually ``body``, when available, is a single expression. In the case of a
@@ -399,7 +399,7 @@ class ExpandedDoView:
     """Like UnexpandedDoView, but for already expanded do forms.
 
     Each item in the ``body`` list is of the form
-    ``namelambda("do_lineXXX", (lambda e: ...))``.
+    ``namelambda("do_lineXXX")(lambda e: ...)``.
     """
     def __init__(self, tree):
         if not isdo(tree, expanded=True):

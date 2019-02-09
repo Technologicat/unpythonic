@@ -66,11 +66,11 @@ def namedlambda(block_body):
                iscurrywithfinallambda(tree.value):
                 stop()
                 thelambda = tree.value
-                tree.value = hq[namelambda(u[myname], ast_literal[thelambda])]
+                tree.value = hq[namelambda(u[myname])(ast_literal[thelambda])]
             elif isautocurrywithfinallambda(tree.value):
                 stop()
                 thelambda = tree.value.args[-1].args[-1]
-                tree.value.args[-1].args[-1] = hq[namelambda(u[myname], ast_literal[thelambda])]
+                tree.value.args[-1].args[-1] = hq[namelambda(u[myname])(ast_literal[thelambda])]
         return tree
 
     new_block_body = [transform.recurse(stmt) for stmt in block_body]

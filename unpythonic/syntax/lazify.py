@@ -14,7 +14,7 @@ from macropy.quick_lambda import macros, lazy
 from macropy.quick_lambda import Lazy
 
 from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, \
-                  isx, make_isxpred, getname
+                  isx, make_isxpred, getname, is_decorator
 from .letdoutil import islet, isdo
 from ..regutil import register_decorator
 from ..collections import mogrify
@@ -259,7 +259,7 @@ def lazify(body):
             # For some important functions known to be strict, just recurse
             # namelambda() is used by let[] and do[]
             # Lazy() is a strict function, takes a lambda, constructs a Lazy object
-            if isdo(tree) or islet(tree) or isx(tree.func, "namelambda") or \
+            if isdo(tree) or islet(tree) or is_decorator(tree.func, "namelambda") or \
                any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, isLazy):
                 # here we know the operator (.func) to be one of specific names;
                 # don't transform it to avoid confusing lazyrec[] (important if this

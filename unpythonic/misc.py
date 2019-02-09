@@ -9,6 +9,11 @@ from time import time
 
 from .regutil import register_decorator
 
+# Only the single-argument form (just f) is supported by unpythonic.syntax.util.sort_lambda_decorators.
+#
+# This is as it should be; if given any arguments beside f, the call doesn't conform
+# to the decorator API, but is a normal function call. See "callwith" if you need to
+# pass arguments and then call f in a decorator position.
 @register_decorator(priority=80)
 def call(f, *args, **kwargs):
     """Call the function f.
@@ -235,7 +240,7 @@ def pack(*args):
     return args  # pretty much like in Lisps, (define (list . args) args)
 
 @register_decorator(priority=95)  # allow sorting by unpythonic.syntax.sort_lambda_decorators
-def namelambda(name, function):
+def namelambda(name):
     """Name a lambda function.
 
     To avoid spurious renaming, names only once per object. If the original name
@@ -245,25 +250,35 @@ def namelambda(name, function):
     the object is returned.
 
     This is used by ``env``, and by the ``namedlambda`` macro.
+
+    To support ``unpythonic.syntax.util.sort_lambda_decorators``, this is a
+    standard parametric decorator, called like::
+
+        foo = namelambda("foo")(lambda ...: ...)
+
+    The first call returns a *foo-renamer*, and supplying a lambda to that
+    actually renames the lambda to have the name *foo*.
     """
-    if isinstance(function, LambdaType) and function.__name__ == "<lambda>":
-        myname = "{}".format(name)
-        # https://stackoverflow.com/questions/40661758/name-of-a-python-function-in-a-stack-trace
-        # https://stackoverflow.com/questions/16064409/how-to-create-a-code-object-in-python
-        function.__name__ = myname  # tools like pydoc
-        function.__qualname__ = re.sub("<lambda>$", myname, function.__qualname__)  # repr
-        # Stack traces actually use .__code__.__name__, which is read-only,
-        # but there's a types.CodeType constructor that we can use to re-create
-        # the code object with the new name (not for the faint of heart).
-        co = function.__code__
-        function.__code__ = CodeType(co.co_argcount, co.co_kwonlyargcount,
-                                     co.co_nlocals, co.co_stacksize, co.co_flags,
-                                     co.co_code, co.co_consts, co.co_names,
-                                     co.co_varnames, co.co_filename,
-                                     myname,
-                                     co.co_firstlineno, co.co_lnotab, co.co_freevars,
-                                     co.co_cellvars)
-    return function
+    def renamer(f):
+        if isinstance(f, LambdaType) and f.__name__ == "<lambda>":
+            myname = "{}".format(name)
+            # https://stackoverflow.com/questions/40661758/name-of-a-python-function-in-a-stack-trace
+            # https://stackoverflow.com/questions/16064409/how-to-create-a-code-object-in-python
+            f.__name__ = myname  # tools like pydoc
+            f.__qualname__ = re.sub("<lambda>$", myname, f.__qualname__)  # repr
+            # Stack traces actually use .__code__.co_name, which is read-only,
+            # but there's a types.CodeType constructor that we can use to re-create
+            # the code object with the new name (not for the faint of heart).
+            co = f.__code__
+            f.__code__ = CodeType(co.co_argcount, co.co_kwonlyargcount,
+                                  co.co_nlocals, co.co_stacksize, co.co_flags,
+                                  co.co_code, co.co_consts, co.co_names,
+                                  co.co_varnames, co.co_filename,
+                                  myname,
+                                  co.co_firstlineno, co.co_lnotab, co.co_freevars,
+                                  co.co_cellvars)
+        return f
+    return renamer
 
 class timer:
     """Simplistic context manager for performance-testing sections of code.

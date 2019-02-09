@@ -58,10 +58,10 @@ def _letimpl(bindings, body, mode):
     t = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
     if mode == "letrec":
         values = [t(rhs) for rhs in values]  # RHSs of bindings
-        values = [hq[namelambda(u["letrec_binding{}_{}".format(j, lhs)], ast_literal[rhs])]
+        values = [hq[namelambda(u["letrec_binding{}_{}".format(j, lhs)])(ast_literal[rhs])]
                     for j, (lhs, rhs) in enumerate(zip(names, values), start=1)]
     body = t(body)
-    body = hq[namelambda(u["{}_body".format(mode)], ast_literal[body])]
+    body = hq[namelambda(u["{}_body".format(mode)])(ast_literal[body])]
 
     # CAUTION: letdoutil.py relies on:
     #  - the literal name "letter" to detect expanded let forms
@@ -181,7 +181,7 @@ def _dletimpl(bindings, body, mode, kind):
     t2 = partial(t1, dowrap=False)
     if mode == "letrec":
         values = [t1(rhs) for rhs in values]
-        values = [hq[namelambda(u["letrec_binding{}_{}".format(j, lhs)], ast_literal[rhs])]
+        values = [hq[namelambda(u["letrec_binding{}_{}".format(j, lhs)])(ast_literal[rhs])]
                     for j, (lhs, rhs) in enumerate(zip(names, values), start=1)]
     body = t2(body)
 
@@ -300,7 +300,7 @@ def do(tree):
         # the name transform (RHS) should use the previous bindings, so that
         # the new binding takes effect starting from the **next** doitem.
         expr = letlike_transform(expr, e, names + newnames, names, envset)
-        expr = hq[namelambda(u["do_line{}".format(j)], ast_literal[expr])]
+        expr = hq[namelambda(u["do_line{}".format(j)])(ast_literal[expr])]
         names = names + newnames
         lines.append(expr)
     # CAUTION: letdoutil.py depends on the literal name "dof" to detect expanded do forms.
