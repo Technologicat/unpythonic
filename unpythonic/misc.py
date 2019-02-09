@@ -30,13 +30,13 @@ def call(f, *args, **kwargs):
 
     *Why ever use call() normally?*
 
-      - Readability and aesthetics in cases like ``makef(mogrify(args))()``,
+      - Readability and aesthetics in cases like ``makef(dostuffwith(args))()``,
         where ``makef`` is a function factory, and we want to immediately
         call its result.
 
-        Rewriting this as ``call(makef(mogrify(args)))`` relocates the odd one out
-        from the mass of parentheses at the end. (A real FP example would likely
-        have more levels of nesting.)
+        Rewriting this as ``call(makef(dostuffwith(args)))`` relocates the
+        odd one out from the mass of parentheses at the end. (A real FP example
+        would likely have more levels of nesting.)
 
       - Notational uniformity with ``curry(f, *args, **kwargs)`` for cases
         without currying. See ``unpythonic.fun.curry``.
