@@ -79,7 +79,7 @@ class env:
 #        value = self._wrap(name, value)  # for "e.x << value" rebind syntax.
         self._env[name] = value  # make all other attrs else live inside _env
         if dyn.env_namedlambda:  # name lambdas saved to an unpythonic.env
-            value = namelambda(value, name)
+            value = namelambda(name, value)
 
     def __getattr__(self, name):
         # Block invalid names in subscripting (which redirects here).

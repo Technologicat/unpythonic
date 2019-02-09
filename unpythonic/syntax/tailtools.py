@@ -583,13 +583,13 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
         #     - May be generated also by a "with multilambda" block
         #       that has already expanded.
         if islet(tree):
-            thebody = ExpandedLetView(tree).body  # namelambda((lambda e: ...), "let_body")
-            thelambda = thebody.args[0]
+            thebody = ExpandedLetView(tree).body  # namelambda("let_body", (lambda e: ...))
+            thelambda = thebody.args[1]
             thelambda.body = transform(thelambda.body)
         elif isdo(tree):
             thebody = ExpandedDoView(tree).body   # list of do-items
-            lastitem = thebody[-1]  # namelambda((lambda e: ...), "do_lineXXX")
-            thelambda = lastitem.args[0]
+            lastitem = thebody[-1]  # namelambda("do_lineXXX", (lambda e: ...))
+            thelambda = lastitem.args[1]
             thelambda.body = transform(thelambda.body)
         elif type(tree) is Call:
             # Apply TCO to tail calls.

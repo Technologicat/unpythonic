@@ -55,7 +55,7 @@ def namedlambda(block_body):
                 iscurrywithfinallambda(tree.value)):
             stop()  # prevent infinite loop
             myname = tree.targets[0].id
-            tree.value = hq[namelambda(ast_literal[tree.value], u[myname])]
+            tree.value = hq[namelambda(u[myname], ast_literal[tree.value])]
             return tree
         return tree
 

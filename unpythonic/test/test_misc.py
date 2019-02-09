@@ -101,7 +101,7 @@ def test():
     assert square.__code__.co_name == "<lambda>"
     assert square.__name__ == "<lambda>"
     assert square.__qualname__ == "test.<locals>.<lambda>"
-    square = namelambda(square, "square")
+    square = namelambda("square", square)
     assert square.__code__.co_name == "square"
     assert square.__name__ == "square"
     assert square.__qualname__ == "test.<locals>.square"
