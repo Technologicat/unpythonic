@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Nondeterministic evaluation (a tuple comprehension with multi-expr body)."""
+"""Nondeterministic evaluation (a tuple comprehension with a multi-expr body)."""
 
 from ast import Tuple, Name, arg
 
@@ -34,7 +34,7 @@ def forall(exprs):
         if not lines:
             return tree
         line, *rest = lines
-        if isenvassign(line):
+        if isenvassign(line):  # no need for "let"; we just borrow a very small part of its syntax machinery.
             k, v = envassign_name(line), envassign_value(line)
         else:
             k, v = "_ignored", line
