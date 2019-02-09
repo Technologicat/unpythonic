@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from collections.abc import Mapping, MutableMapping, Hashable
+from collections.abc import Mapping, MutableMapping, Hashable, Container, Iterable, Sized
 from pickle import dumps, loads
 
 from ..collections import box, frozendict, mogrify
@@ -32,6 +32,11 @@ def test():
         pass
     else:
         assert False, "box should not be hashable"
+
+    assert not issubclass(box, Hashable)
+    assert issubclass(box, Container)
+    assert issubclass(box, Iterable)
+    assert issubclass(box, Sized)
 
     b1 = box("abcdefghijklmnopqrstuvwxyzåäö")
     b2 = loads(dumps(b1))  # pickling
@@ -77,6 +82,10 @@ def test():
     assert issubclass(frozendict, Hashable)
     assert hash(d7) == hash(frozendict({1:2, 3:4}))
     assert hash(d7) != hash(frozendict({1:2}))
+
+    assert issubclass(frozendict, Container)
+    assert issubclass(frozendict, Iterable)
+    assert issubclass(frozendict, Sized)
 
     d1 = frozendict({1: 2, 3: 4, "somekey": "somevalue"})
     d2 = loads(dumps(d1))  # pickling
