@@ -13,7 +13,7 @@ from .regutil import register_decorator
 #
 # This is as it should be; if given any arguments beside f, the call doesn't conform
 # to the decorator API, but is a normal function call. See "callwith" if you need to
-# pass arguments and then call f in a decorator position.
+# pass arguments and then call f from a decorator position.
 @register_decorator(priority=80)
 def call(f, *args, **kwargs):
     """Call the function f.
