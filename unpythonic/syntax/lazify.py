@@ -122,6 +122,10 @@ def lazyrec(tree):
             p, k = _ctor_handling_modes[getname(tree.func)]
             tree = lazify_ctorcall(tree, p, k)
         # TODO: lazy[] seems to expand immediately even though quoted in our atom case?
+        # Seems that in MacroPy, quote doesn't prevent macro expansion; the lazy[] is injected
+        # by this module, so if all macros expand before the module runs, we will actually splice
+        # *expanded* lazy[] forms into the user code.
+        # Maybe could be worked around by not importing lazy here, but that defeats hygiene.
         elif type(tree) is Subscript and isx(tree.value, islazy):  # unexpanded
             stop()
         elif type(tree) is Call and isx(tree.func, isLazy):  # expanded
