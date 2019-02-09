@@ -12,70 +12,54 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
 
 **Contents**:
 
- - [``curry``: Automatic currying for Python](#curry-automatic-currying-for-python)
- - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate
+ - [**Bindings**](#bindings)
+   - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate
    - [``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions](#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)
+   - [Barebones version](#barebones-version) (pure AST transformation of ``let`` into a ``lambda``)
    - [``let_syntax``, ``abbrev``: syntactic local bindings](#let_syntax-abbrev-syntactic-local-bindings); splice code at macro expansion time
- - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
- - [``aif``: anaphoric if](#aif-anaphoric-if)
- - [``do`` as a macro: stuff imperative code into a lambda, *with style*](#do-as-a-macro-stuff-imperative-code-into-a-lambda-with-style)
- - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation)
- - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables
- - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
- - [``quicklambda``: combo with ``macropy.quick_lambda``](#quicklambda-combo-with-macropyquick_lambda)
- - [``continuations``: call/cc for Python](#continuations-callcc-for-python)
-   - [Differences between ``call/cc`` and certain other language features](#differences-between-callcc-and-certain-other-language-features) (generators, exceptions)
-   - [``call_cc`` API reference](#call_cc-api-reference)
-   - [Combo notes](#combo-notes)
-   - [Continuations as an escape mechanism](#continuations-as-an-escape-mechanism)
-   - [What can be used as a continuation?](#what-can-be-used-as-a-continuation)
-   - [This isn't ``call/cc``!](#this-isnt-callcc)
-   - [Why this syntax?](#why-this-syntax)
- - [``tco``: automatically apply tail call optimization](#tco-automatically-apply-tail-call-optimization)
-   - [TCO and continuations](#tco-and-continuations)
- - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position)
- - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence); with slice notation
- - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
- - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
- - [``lazify``: call-by-need for Python](#lazify-call-by-need-for-python)
 
-Meta:
+ - [**Sequencing**](#sequencing)
+   - [``do`` as a macro: stuff imperative code into an expression, *with style*](#do-as-a-macro-stuff-imperative-code-into-an-expression-with-style)
 
- - [Comboability](#comboability): notes on the macros working together
+ - [**Tools for lambdas**](#tools-for-lambdas)
+   - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables
+   - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
+   - [``quicklambda``: combo with ``macropy.quick_lambda``](#quicklambda-combo-with-macropyquick_lambda)
 
+ - [**Language features**](#language-features)
+   - [``curry``: automatic currying for Python](#curry-automatic-currying-for-python)
+   - [``lazify``: call-by-need for Python](#lazify-call-by-need-for-python)
+   - [``tco``: automatic tail call optimization for Python](#tco-automatic-tail-call-optimization)
+     - [TCO and continuations](#tco-and-continuations)
+   - [``continuations``: call/cc for Python](#continuations-callcc-for-python)
+     - [Differences between ``call/cc`` and certain other language features](#differences-between-callcc-and-certain-other-language-features) (generators, exceptions)
+     - [``call_cc`` API reference](#call_cc-api-reference)
+     - [Combo notes](#combo-notes)
+     - [Continuations as an escape mechanism](#continuations-as-an-escape-mechanism)
+     - [What can be used as a continuation?](#what-can-be-used-as-a-continuation)
+     - [This isn't ``call/cc``!](#this-isnt-callcc)
+     - [Why this syntax?](#why-this-syntax)
+   - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
+   - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position) like in Lisps
+   - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation) with monadic do-notation for Python
 
-## ``curry``: Automatic currying for Python
+ - [**Convenience features**](#convenience-features)
+   - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
+   - [``aif``: anaphoric if](#aif-anaphoric-if), the test result is ``it``
+   - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence) with slice notation
 
-```python
-from unpythonic.syntax import macros, curry
-from unpythonic import foldr, composerc as compose, cons, nil
+ - [**Other**](#other)
+   - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
 
-with curry:
-    def add3(a, b, c):
-        return a + b + c
-    assert add3(1)(2)(3) == 6
-    assert add3(1, 2)(3) == 6
-    assert add3(1)(2, 3) == 6
-    assert add3(1, 2, 3) == 6
-
-    mymap = lambda f: foldr(compose(cons, f), nil)
-    double = lambda x: 2 * x
-    print(mymap(double, (1, 2, 3)))
-
-# The definition was auto-curried, so this works here too.
-# (Provided add3 contains no calls to uninspectable functions, since
-#  we are now outside the dynamic extent of the ``with curry`` block.)
-assert add3(1)(2)(3) == 6
-```
-
-All **function calls** and **function definitions** (``def``, ``lambda``) *lexically* inside a ``with curry`` block are automatically curried, somewhat like in Haskell, or in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy).
-
-**CAUTION**: Some builtins are uninspectable or may report their arities incorrectly; in those cases, ``curry`` may fail, occasionally in mysterious ways. The function ``unpythonic.arity.arities``, which ``unpythonic.fun.curry`` internally uses, has a workaround for the inspectability problems of all builtins in the top-level namespace (as of Python 3.7), but e.g. methods of builtin types are not handled.
-
-In a ``with curry`` block, ``unpythonic.fun.curry`` runs in a special mode that no-ops on uninspectable functions instead of raising ``TypeError`` as usual. This special mode is enabled for the *dynamic extent* of the ``with curry`` block.
+ - [**Meta**](#meta)
+   - [Comboability](#comboability): notes on the macros working together
 
 
-## ``let``, ``letseq``, ``letrec`` as macros
+## Bindings
+
+Macros that introduce new ways to bind identifiers.
+
+### ``let``, ``letseq``, ``letrec`` as macros
 
 Properly lexically scoped ``let`` constructs, no boilerplate:
 
@@ -99,7 +83,7 @@ As seen in the examples, the syntax is similar to ``unpythonic.lispylet``. Assig
 
 The bindings are given as macro arguments as ``((name, value), ...)``, the body goes into the ``[...]``.
 
-### Alternate syntaxes
+#### Alternate syntaxes
 
 *Added in v0.12.0.* The following Haskell-inspired, perhaps more pythonic alternate syntaxes are now available:
 
@@ -121,15 +105,15 @@ Semantically, these do the exact same thing as the original lispy syntax: the bi
 
 These syntaxes are valid for all **expression forms** of ``let``, namely: ``let[]``, ``letseq[]``, ``letrec[]``, ``let_syntax[]`` and ``abbrev[]``. The decorator variants (``dlet`` et al., ``blet`` et al.) and the block variants (``with let_syntax``, ``with abbrev``) support only the original lispy syntax, because there the body is in any case placed differently.
 
-In the first variant above (the *let-in*), note the bindings block still needs the outer parentheses. This is due to Python's precedence rules; ``in`` binds more strongly than the comma (which makes sense almost everywhere else), so to make it refer to all of the bindings, the bindings block must be parenthesized. If the ``let`` expander complains your code does not look like a ``let`` form, check your parentheses.
+In the first variant above (the *let-in*), note the bindings block still needs the outer parentheses. This is due to Python's precedence rules; ``in`` binds more strongly than the comma (which makes sense almost everywhere else), so to make it refer to all of the bindings, the bindings block must be parenthesized. If the ``let`` expander complains your code does not look like a ``let`` form and you have used *let-in*, check your parentheses.
 
 In the second variant (the *let-where*), note the comma between the body and ``where``; it is compulsory to make the expression into syntactically valid Python. (It's however semi-easyish to remember, since also English requires the comma for a where-expression.)
 
-### Special syntax for one binding
+#### Special syntax for one binding
 
-*Added in v0.13.0.* Now supported also by the bindings block of ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq`` and ``bletrec``.
+*Added in v0.12.0.* If there is only one binding, to make the syntax more pythonic, the outer parentheses may be omitted in the bindings block of the **expr forms** of ``let``, ``letseq``, ``letrec``, ``let_syntax`` and ``abbrev``.
 
-*Added in v0.12.0.* If there is only one binding, to make the syntax more pythonic, the outer parentheses may be omitted in the bindings block of the **expr forms** of ``let``, ``letseq``, ``letrec``, ``let_syntax`` and ``abbrev``:
+*Changed in v0.13.0.* Now supported also by the bindings block of ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq`` and ``bletrec``.
 
 ```python
 let(x, 21)[2*x]
@@ -141,7 +125,7 @@ This is valid also in the *let-in* variant, because there is still one set of pa
 
 This is essentially special-cased in the ``let`` expander. (If interested in the technical details, look at ``unpythonic.syntax.letdoutil.UnexpandedLetView``, which performs the destructuring. See also ``unpythonic.syntax.__init__.let``; MacroPy itself already destructures the original lispy syntax when the macro is invoked.)
 
-### Multiple expressions in body
+#### Multiple expressions in body
 
 *Added in v0.9.2.* The `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body (like in `multilambda`; see below):
 
@@ -198,7 +182,7 @@ let[(x, y),       # v0.12.0+
           (y, 2))]
 ```
 
-### Notes
+#### Notes
 
 ``let`` and ``letrec`` expand into the ``unpythonic.lispylet`` constructs, implicitly inserting the necessary boilerplate: the ``lambda e: ...`` wrappers, quoting variable names in definitions, and transforming ``x`` to ``e.x`` for all ``x`` declared in the bindings. Assignment syntax ``x << 42`` transforms to ``e.set('x', 42)``. The implicit environment parameter ``e`` is actually named using a gensym, so lexically outer environments automatically show through. ``letseq`` expands into a chain of nested ``let`` expressions.
 
@@ -213,9 +197,10 @@ letrec((z, 1))[[
 
 Hence the ``z`` in the inner scope expands to the inner environment's ``z``, which makes the outer expansion leave it alone. (This works by transforming only ``ast.Name`` nodes, stopping recursion when an ``ast.Attribute`` is encountered.)
 
+
 ### ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions
 
-*Added in v0.10.4.* Similarly to ``let``, ``letseq``, ``letrec``, these are sugar around the corresponding ``unpythonic.lispylet`` constructs, with the ``dletseq`` and ``bletseq`` constructs existing only as macros (they expand to nested ``dlet`` or ``blet``, respectively).
+*Added in v0.10.4.* Similarly to ``let``, ``letseq``, ``letrec``, these sugar the corresponding ``unpythonic.lispylet`` constructs, with the ``dletseq`` and ``bletseq`` constructs existing only as macros (expanding to nested ``dlet`` or ``blet``, respectively).
 
 Lexical scoping is respected; each environment is internally named using a gensym. Nesting is allowed.
 
@@ -321,13 +306,15 @@ else:
     assert False, "should have tried to access the deleted global x"
 ```
 
+
 ### Barebones version
 
-We also provide classical simple ``let`` and ``letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, this version of ``letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``let`` expressions, which expand to lambdas.
+As a bonus, we provide classical simple ``let`` and ``letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, this version of ``letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``let`` expressions, which expand to lambdas.
 
-These are however provided as a curiosity, and not meant to work together with the rest of the macros; for that, use the above ``let``, ``letseq`` and ``letrec`` from the module ``unpythonic.syntax``.
+These are provided as a curiosity, and not designed to work together with the rest of the macros; for that, use the above ``let``, ``letseq`` and ``letrec`` from the module ``unpythonic.syntax``.
 
-*Changed in v0.11.0.* These additional constructs now live in the separate module ``unpythonic.syntax.simplelet``, and are imported like ``from unpythonic.syntax.simplelet import macros, let, letseq``.
+*Changed in v0.11.0.* The barebones constructs now live in the separate module ``unpythonic.syntax.simplelet``, and are imported like ``from unpythonic.syntax.simplelet import macros, let, letseq``.
+
 
 ### ``let_syntax``, ``abbrev``: syntactic local bindings
 
@@ -441,59 +428,11 @@ The ``let_syntax`` macro is meant for simple local substitutions where the elimi
 This was inspired by Racket's [``let-syntax``](https://docs.racket-lang.org/reference/let.html) and [``with-syntax``](https://docs.racket-lang.org/reference/stx-patterns.html).
 
 
-## ``cond``: the missing ``elif`` for ``a if p else b``
+## Sequencing
 
-Now lambdas too can have multi-branch conditionals, yet remain human-readable:
+Macros that run multiple expressions, in sequence, in place of one expression.
 
-```python
-from unpythonic.syntax import macros, cond
-
-answer = lambda x: cond[x == 2, "two",
-                        x == 3, "three",
-                        "something else"]
-print(answer(42))
-```
-
-Syntax is ``cond[test1, then1, test2, then2, ..., otherwise]``. Expansion raises an error if the ``otherwise`` branch is missing.
-
-*Added in v0.10.0.* Any part of ``cond`` may have multiple expressions by surrounding it with brackets:
-
-```python
-cond[[pre1, ..., test1], [post1, ..., then1],
-     [pre2, ..., test2], [post2, ..., then2],
-     ...
-     [postn, ..., otherwise]]
-```
-
-To denote a single expression that is a literal list, use an extra set of brackets: ``[[1, 2, 3]]``.
-
-
-## ``aif``: anaphoric if
-
-This is mainly of interest as a point of [comparison with Racket](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/aif.rkt); ``aif`` is about the simplest macro that relies on either the lack of hygiene or breaking thereof.
-
-```python
-from unpythonic.syntax import macros, aif
-
-aif[2*21,
-    print("it is {}".format(it)),
-    print("it is False")]
-```
-
-Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to the test result while (lexically) inside the ``aif``, and does not exist outside the ``aif``.
-
-*Added in v0.10.0.* Any part of ``aif`` may have multiple expressions by surrounding it with brackets:
-
-```python
-aif[[pre, ..., test],
-    [post_true, ..., then],        # "then" branch
-    [post_false, ..., otherwise]]  # "otherwise" branch
-```
-
-To denote a single expression that is a literal list, use an extra set of brackets: ``[[1, 2, 3]]``.
-
-
-## ``do`` as a macro: stuff imperative code into a lambda, *with style*
+### ``do`` as a macro: stuff imperative code into an expression, *with style*
 
 We provide an ``expr`` macro wrapper for ``unpythonic.seq.do``, with some extra features.
 
@@ -533,40 +472,14 @@ The necessary boilerplate (notably the ``lambda e: ...`` wrappers) is inserted a
 
 When running, ``do`` behaves like ``letseq``; assignments **above** the current line are in effect (and have been performed in the order presented). Re-assigning to the same name later overwrites (this is afterall an imperative tool).
 
-There is also a ``do0`` macro, which returns the value of the first expression, instead of the last.
+We also provide a ``do0`` macro, which returns the value of the first expression, instead of the last.
 
 
-## ``forall``: nondeterministic evaluation
+## Tools for lambdas
 
-*Changed in v0.11.0.* The previous ``forall_simple`` has been renamed ``forall``; the macro wrapper for the hacky function version of ``forall`` is gone. This change has the effect of changing the error raised by an undefined name in a ``forall`` section; previously it was ``AttributeError``, now it is ``NameError``.
+Macros that introduce additional features for Python's lambdas.
 
-Behaves the same as the multiple-body-expression tuple comprehension ``unpythonic.amb.forall``, but implemented purely by AST transformation, with real lexical variables. This is essentially Haskell's do-notation for Python, specialized to the List monad.
-
-```python
-from unpythonic.syntax import macros, forall, insist, deny
-
-out = forall[y << range(3),
-             x << range(3),
-             insist(x % 2 == 0),
-             (x, y)]
-assert out == ((0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2))
-
-# pythagorean triples
-pt = forall[z << range(1, 21),   # hypotenuse
-            x << range(1, z+1),  # shorter leg
-            y << range(x, z+1),  # longer leg
-            insist(x*x + y*y == z*z),
-            (x, y, z)]
-assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
-                             (8, 15, 17), (9, 12, 15), (12, 16, 20))
-```
-
-Assignment (with List-monadic magic) is ``var << iterable``. It is only valid at the top level of the ``forall`` (e.g. not inside any possibly nested ``let``).
-
-``insist`` and ``deny`` are not really macros; they are just the functions from ``unpythonic.amb``, re-exported for convenience.
-
-
-## ``multilambda``: supercharge your lambdas
+### ``multilambda``: supercharge your lambdas
 
 **Multiple expressions**: use ``[...]`` to denote a multiple-expression body. The macro implements this by inserting a ``do``.
 
@@ -606,7 +519,7 @@ with multilambda:
 In the second example, returning ``x`` separately is redundant, because the assignment to the let environment already returns the new value, but it demonstrates the usage of multiple expressions in a lambda.
 
 
-## ``namedlambda``: auto-name your lambdas
+### ``namedlambda``: auto-name your lambdas
 
 Who said lambdas have to be anonymous?
 
@@ -632,8 +545,10 @@ Assignment in unpythonic environments is tracked dynamically at run-time, for th
 
 For any function object instance representing a lambda, it takes the first name given to it, and keeps that; there is no renaming. See the function ``unpythonic.misc.namelambda``, which this uses internally.
 
+*Changed in v0.13.0.* Now lambdas are named also in stack traces.
 
-## ``quicklambda``: combo with ``macropy.quick_lambda``
+
+### ``quicklambda``: combo with ``macropy.quick_lambda``
 
 To be able to transform correctly, the block macros in ``unpythonic.syntax`` that transform lambdas (e.g. ``multilambda``, ``tco``) need to see all ``lambda`` definitions written with Python's standard ``lambda``. However, the highly useful ``macropy.quick_lambda`` uses the syntax ``f[...]``, which (to the analyzer) does not look like a lambda definition.
 
@@ -665,7 +580,166 @@ with quicklambda, tco:
 ```
 
 
-## ``continuations``: call/cc for Python
+## Language features
+
+To boldly go where Python without macros just won't. Macros that change the rules by code-walking and making significant rewrites.
+
+### ``curry``: automatic currying for Python
+
+```python
+from unpythonic.syntax import macros, curry
+from unpythonic import foldr, composerc as compose, cons, nil
+
+with curry:
+    def add3(a, b, c):
+        return a + b + c
+    assert add3(1)(2)(3) == 6
+    assert add3(1, 2)(3) == 6
+    assert add3(1)(2, 3) == 6
+    assert add3(1, 2, 3) == 6
+
+    mymap = lambda f: foldr(compose(cons, f), nil)
+    double = lambda x: 2 * x
+    print(mymap(double, (1, 2, 3)))
+
+# The definition was auto-curried, so this works here too.
+# (Provided add3 contains no calls to uninspectable functions, since
+#  we are now outside the dynamic extent of the ``with curry`` block.)
+assert add3(1)(2)(3) == 6
+```
+
+All **function calls** and **function definitions** (``def``, ``lambda``) *lexically* inside a ``with curry`` block are automatically curried, somewhat like in Haskell, or in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy).
+
+**CAUTION**: Some builtins are uninspectable or may report their arities incorrectly; in those cases, ``curry`` may fail, occasionally in mysterious ways. The function ``unpythonic.arity.arities``, which ``unpythonic.fun.curry`` internally uses, has a workaround for the inspectability problems of all builtins in the top-level namespace (as of Python 3.7), but e.g. methods of builtin types are not handled.
+
+In a ``with curry`` block, ``unpythonic.fun.curry`` runs in a special mode that no-ops on uninspectable functions instead of raising ``TypeError`` as usual. This special mode is enabled for the *dynamic extent* of the ``with curry`` block.
+
+
+### ``lazify``: call-by-need for Python
+
+*Added in v0.13.0.*
+
+You know you want to:
+
+```python
+with lazify:
+    def my_if(p, a, b):
+        if p:
+            return a  # b never evaluated in this code path
+        else:
+            return b  # a never evaluated in this code path
+    assert my_if(True, 23, 1/0) == 23
+    assert my_if(False, 1/0, 42) == 42
+
+    def g(a, b):
+        return a
+    def f(a, b):
+        return g(2*a, 3*b)
+    assert f(21, 1/0) == 42
+```
+
+In a ``with lazify`` block, function arguments are evaluated only when actually used, at most once each, and in the order in which they are actually used.
+
+Note ``my_if`` in the example is a run-of-the-mill runtime function, not a macro. Only the ``with lazify`` is imbued with any magic. Essentially, the above code expands into:
+
+```python
+from macropy.quick_lambda import macros, lazy
+from unpythonic.syntax import force
+
+def my_if(p, a, b):
+    if force(p):
+        return force(a)
+    else:
+        return force(b)
+assert my_if(lazy[True], lazy[23], lazy[1/0]) == 23
+assert my_if(lazy[False], lazy[1/0], lazy[42]) == 42
+
+def g(a, b):
+    return force(a)
+def f(a, b):
+    return g(lazy[2*force(a)], lazy[3*force(b)])
+assert f(lazy[21], lazy[1/0]) == 42
+```
+
+plus some clerical details to allow mixing lazy and strict code.
+
+This second example relies on the magic of closures to capture f's ``a`` and ``b`` into the promises.
+
+For forcing promises manually, we provide the functions ``force1`` and ``force``. This is mainly useful if you ``lazy[]`` or ``lazyrec[]`` something explicitly, and want to compute its value outside a ``with lazify`` block.
+
+Using ``force1``, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket. The function ``force``, in addition, descends into containers (recursively). When an atom ``x`` (i.e. anything that is not a container) is encountered, it is processed using ``force1``.
+
+Mutable containers are updated in-place; for immutables, a new instance is created, but as a side effect the promise objects **in the input container** will be forced. Any container with a compatible ``collections.abc`` is supported. (See ``unpythonic.collections.mogrify`` for details.) In addition, as special cases ``unpythonic.collections.box`` and ``unpythonic.llist.cons`` are supported.
+
+Like ``with continuations``, no state or context is associated with a ``with lazify`` block, so lazy functions defined in one block may call those defined in another.
+
+Lazy code is allowed to call strict functions and vice versa, without requiring any additional effort.
+
+For more details, see the docstring of ``unpythonic.syntax.lazify``.
+
+See also ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside literal containers, recursively. This allows code like ``lazyrec[(1*2*3, 4*5*6)]``. Each item becomes wrapped with ``lazy[]``, but the container itself is left alone, to avoid interfering with unpacking. Because ``lazyrec[]`` is a macro and must work by names only, it supports a fixed set of container types: ``list``, ``tuple``, ``set``, ``dict``, ``frozenset``, ``unpythonic.collections.frozendict``, ``unpythonic.collections.box``, and ``unpythonic.llist.cons`` (specifically, the constructors ``cons``, ``ll`` and ``llist``).
+
+Inspired by Haskell, and Racket's ``(delay)`` and ``(force)``.
+
+**CAUTION**: Argument passing by function call is currently the only binding construct to which auto-lazification is applied.
+
+**CAUTION**: The ``lazify`` macro is experimental and not intended for use in production code.
+
+
+### ``tco``: automatic tail call optimization for Python
+
+```python
+from unpythonic.syntax import macros, tco
+
+with tco:
+    evenp = lambda x: (x == 0) or oddp(x - 1)
+    oddp  = lambda x: (x != 0) and evenp(x - 1)
+    assert evenp(10000) is True
+
+with tco:
+    def evenp(x):
+        if x == 0:
+            return True
+        return oddp(x - 1)
+    def oddp(x):
+        if x != 0:
+            return evenp(x - 1)
+        return False
+    assert evenp(10000) is True
+```
+
+All function definitions (``def`` and ``lambda``) lexically inside the block undergo TCO transformation. The functions are automatically ``@trampolined``, and any tail calls in their return values are converted to ``jump(...)`` for the TCO machinery. Here *return value* is defined as:
+
+ - In a ``def``, the argument expression of ``return``, or of a call to an escape continuation.
+
+ - In a ``lambda``, the whole body, as well as the argument expression of a call to an escape continuation.
+
+To find the tail position inside a compound return value, this recursively handles any combination of ``a if p else b``, ``and``, ``or``; and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``. Support for ``do[]`` includes also any ``multilambda`` blocks that have already expanded when ``tco`` is processed. The macros ``aif[]`` and ``cond[]`` are also supported, because they expand into a combination of ``let[]``, ``do[]``, and ``a if p else b``.
+
+**CAUTION**: In an ``and``/``or`` expression, only the last item of the whole expression is in tail position. This is because in general, it is impossible to know beforehand how many of the items will be evaluated.
+
+**CAUTION**: In a ``def`` you still need the ``return``; it marks a return value. If you want the tail position to imply a ``return``, use the combo ``with autoreturn, tco`` (on ``autoreturn``, see below).
+
+TCO is based on a strategy similar to MacroPy's ``tco`` macro, but using unpythonic's TCO machinery, and working together with the macros introduced by ``unpythonic.syntax``. The semantics are slightly different; by design, ``unpythonic`` requires an explicit ``return`` to mark tail calls in a ``def``. A call that is strictly speaking in tail position, but lacks the ``return``, is not TCO'd, and Python's implicit ``return None`` then shuts down the trampoline, returning ``None`` as the result of the TCO chain.
+
+#### TCO and continuations
+
+**CAUTION**: Do not combo ``tco`` and ``continuations`` blocks; the latter already implies TCO. (They actually share a lot of the code that implements TCO; ``continuations`` just hooks into some callbacks to perform additional processing.)
+
+#### TCO and ``call_ec``
+
+(Mainly of interest for lambdas, which have no ``return``, and for "multi-return" from a nested function.)
+
+It is important to recognize a call to an escape continuation as such, because the argument given to an escape continuation is essentially a return value. If this argument is itself a call, it needs the TCO transformation to be applied to it.
+
+For escape continuations in ``tco`` and ``continuations`` blocks, only basic uses of ``call_ec`` are supported, for automatically harvesting names referring to an escape continuation. In addition, the literal function names ``ec`` and ``brk`` are always *understood as referring to* an escape continuation.
+
+However, the name ``ec`` or ``brk`` alone is not sufficient to make a function into an escape continuation, even though ``tco`` (and ``continuations``) will think of it as such. The function also needs to actually implement some kind of an escape mechanism. An easy way to get an escape continuation, where this has already been done for you, is to use ``call_ec``.
+
+See the docstring of ``unpythonic.syntax.tco`` for details.
+
+
+### ``continuations``: call/cc for Python
 
 *Where control flow is your playground.*
 
@@ -776,7 +850,7 @@ Code within a ``with continuations`` block is treated specially. Roughly:
    - Inside a ``def``, ``call_cc[]`` generates a tail call, thus terminating the original (parent) function. (Hence ``call_ec`` does not combo well with this.)
    - At the top level of the ``with continuations`` block, ``call_cc[]`` generates a normal call. In this case there is no return value for the block (for the continuation, either), because the use site of the ``call_cc[]`` is not inside a function.
 
-### Differences between ``call/cc`` and certain other language features
+#### Differences between ``call/cc`` and certain other language features
 
  - Unlike **generators**, ``call_cc[]`` allows resuming also multiple times from an earlier checkpoint, even after execution has already proceeded further. Generators can be easily built on top of ``call/cc``. [Python version](../unpythonic/syntax/test/test_conts_gen.py), [Racket version](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt).
    - The Python version is a pattern that could be packaged into a macro with MacroPy; the Racket version has been packaged as a macro.
@@ -787,7 +861,7 @@ Code within a ``with continuations`` block is treated specially. Roughly:
  - Unlike **exceptions**, which only perform escapes, ``call_cc[]`` allows to jump back at an arbitrary time later, also after the dynamic extent of the original function where the ``call_cc[]`` appears. Escape continuations are a special case of continuations, so exceptions can be built on top of ``call/cc``.
    - [As explained in detail by Matthew Might](http://matt.might.net/articles/implementing-exceptions/), exceptions are fundamentally based on (escape) continuations; the *"unwinding the call stack"* mental image is ["not even wrong"](https://en.wikiquote.org/wiki/Wolfgang_Pauli).
 
-### ``call_cc`` API reference
+#### ``call_cc`` API reference
 
 To keep things relatively straightforward, our ``call_cc[]`` is only allowed to appear **at the top level** of:
 
@@ -859,7 +933,7 @@ Also, since there are limitations to where a ``call_cc[]`` may appear, some code
 
 Unlike ``call/cc`` in Scheme/Racket, our ``call_cc`` takes **a function call** as its argument, not just a function reference. Also, there's no need for it to be a one-argument function; any other args can be passed in the call. The ``cc`` argument is filled implicitly and passed by name; any others are passed exactly as written in the client code.
 
-### Combo notes
+#### Combo notes
 
 **CAUTION**: Do not combo with ``tco``; the ``continuations`` block already implies TCO.
 
@@ -885,7 +959,7 @@ This ordering makes the ``f[...]`` notation expand into standard ``lambda`` nota
 
 To enable both of these, use ``with quicklambda, multilambda, continuations`` (although the usefulness of this combo may be questionable).
 
-### Continuations as an escape mechanism
+#### Continuations as an escape mechanism
 
 Pretty much by the definition of a continuation, in a ``with continuations`` block, a trick that *should* at first glance produce an escape is to set ``cc`` to the ``cc`` of the caller, and then return the desired value. There is however a subtle catch, due to the way we implement continuations.
 
@@ -971,9 +1045,11 @@ Most often that's exactly what we want, but in this particular case, it causes *
 
 Such subtleties arise essentially from the difference between a language that natively supports continuations (Scheme, Racket) and one that has continuations hacked on top of it as macros performing a CPS conversion only partially (like Python with ``unpythonic.syntax``, or Common Lisp with PG's continuation-passing macros). The macro approach works, but the programmer needs to be careful.
 
-### What can be used as a continuation?
+#### What can be used as a continuation?
 
-A continuation is just a function. It must be able to take as many positional arguments as the previous function in the TCO chain is trying to pass into it. Keep in mind that:
+In ``unpythonic``, a continuation is just a function. ([As John Shutt has pointed out](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html), in general this is not true. The calculus underlying the language becomes much cleaner if continuations are defined as a separate control flow mechanism orthogonal to function application. Continuations are not intrinsically a whole-computation device, either.)
+
+The continuation function must be able to take as many positional arguments as the previous function in the TCO chain is trying to pass into it. Keep in mind that:
 
  - In ``unpythonic``, a tuple represents multiple return values. So a ``return a, b``, which is being fed into the continuation, implies that the continuation must be able to take two positional arguments.
 
@@ -989,7 +1065,7 @@ However, as the only exception to this rule, if the continuation is meant to act
 
 These observations make ``unpythonic.fun.identity`` eligible as a continuation, even though it is defined elsewhere in the library and it has no ``cc`` parameter.
 
-### This isn't ``call/cc``!
+#### This isn't ``call/cc``!
 
 Strictly speaking, ``True``. The implementation is very different (much more than just [exposing a hidden parameter](https://www.ps.uni-saarland.de/~duchier/python/continuations.html)), not to mention it has to be a macro, because it triggers capture - something that would not need to be requested for separately, had we converted the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style).
 
@@ -1003,7 +1079,7 @@ Is it as general? I'm not an expert on this. If you have a theoretical result th
 
 Racket provides properly delimited continuations and [prompts](https://docs.racket-lang.org/guide/prompt.html) to control them; no doubt much more thought has gone into designing and implementing *that*.
 
-### Why this syntax?
+#### Why this syntax?
 
 As for a function call in ``call_cc[...]`` vs. just a function reference: Typical lispy usage of ``call/cc`` uses an inline lambda, with the closure property passing in everything except ``cc``, but in Python ``def`` is a statement. A technically possible alternative syntax would be:
 
@@ -1020,163 +1096,7 @@ The ``call_cc[]`` explicitly suggests that these are (almost) the only places wh
 (*Almost*: As explained above, a tail call passes along the current value of ``cc``, and ``cc`` can be set manually.)
 
 
-## ``tco``: automatically apply tail call optimization
-
-```python
-from unpythonic.syntax import macros, tco
-
-with tco:
-    evenp = lambda x: (x == 0) or oddp(x - 1)
-    oddp  = lambda x: (x != 0) and evenp(x - 1)
-    assert evenp(10000) is True
-
-with tco:
-    def evenp(x):
-        if x == 0:
-            return True
-        return oddp(x - 1)
-    def oddp(x):
-        if x != 0:
-            return evenp(x - 1)
-        return False
-    assert evenp(10000) is True
-```
-
-All function definitions (``def`` and ``lambda``) lexically inside the block undergo TCO transformation. The functions are automatically ``@trampolined``, and any tail calls in their return values are converted to ``jump(...)`` for the TCO machinery. Here *return value* is defined as:
-
- - In a ``def``, the argument expression of ``return``, or of a call to an escape continuation.
-
- - In a ``lambda``, the whole body, as well as the argument expression of a call to an escape continuation.
-
-To find the tail position inside a compound return value, this recursively handles any combination of ``a if p else b``, ``and``, ``or``; and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``. Support for ``do[]`` includes also any ``multilambda`` blocks that have already expanded when ``tco`` is processed. The macros ``aif[]`` and ``cond[]`` are also supported, because they expand into a combination of ``let[]``, ``do[]``, and ``a if p else b``.
-
-**CAUTION**: In an ``and``/``or`` expression, only the last item of the whole expression is in tail position. This is because in general, it is impossible to know beforehand how many of the items will be evaluated.
-
-**CAUTION**: In a ``def`` you still need the ``return``; it marks a return value. If you want the tail position to imply a ``return``, use the combo ``with autoreturn, tco`` (on ``autoreturn``, see below).
-
-TCO is based on a strategy similar to MacroPy's ``tco`` macro, but using unpythonic's TCO machinery, and working together with the macros introduced by ``unpythonic.syntax``. The semantics are slightly different; by design, ``unpythonic`` requires an explicit ``return`` to mark tail calls in a ``def``. A call that is strictly speaking in tail position, but lacks the ``return``, is not TCO'd, and Python's implicit ``return None`` then shuts down the trampoline, returning ``None`` as the result of the TCO chain.
-
-### TCO and continuations
-
-**CAUTION**: Do not combo ``tco`` and ``continuations`` blocks; the latter already implies TCO. (They actually share a lot of the code that implements TCO; ``continuations`` just hooks into some callbacks to perform additional processing.)
-
-#### TCO and ``call_ec``
-
-(Mainly of interest for lambdas, which have no ``return``, and for "multi-return" from a nested function.)
-
-It is important to recognize a call to an escape continuation as such, because the argument given to an escape continuation is essentially a return value. If this argument is itself a call, it needs the TCO transformation to be applied to it.
-
-For escape continuations in ``tco`` and ``continuations`` blocks, only basic uses of ``call_ec`` are supported, for automatically harvesting names referring to an escape continuation. In addition, the literal function names ``ec`` and ``brk`` are always *understood as referring to* an escape continuation.
-
-However, the name ``ec`` or ``brk`` alone is not sufficient to make a function into an escape continuation, even though ``tco`` (and ``continuations``) will think of it as such. The function also needs to actually implement some kind of an escape mechanism. An easy way to get an escape continuation, where this has already been done for you, is to use ``call_ec``.
-
-See the docstring of ``unpythonic.syntax.tco`` for details.
-
-
-## ``autoreturn``: implicit ``return`` in tail position
-
-In Lisps, a function implicitly returns the value of the expression in tail position (along the code path being executed). Python's ``lambda`` also behaves like this (the whole body is just one return-value expression), but ``def`` doesn't.
-
-Now ``def`` can have this feature, too:
-
-```python
-from unpythonic.syntax import macros, autoreturn
-
-with autoreturn:
-    def f():
-        ...
-        "I'll just return this"
-    assert f() == "I'll just return this"
-
-    def g(x):
-        ...
-        if x == 1:
-            "one"
-        elif x == 2:
-            "two"
-        else:
-            "something else"
-    assert g(1) == "one"
-    assert g(2) == "two"
-    assert g(42) == "something else"
-```
-
-Each ``def`` function definition lexically within the ``with autoreturn`` block is examined, and if the last item within the body is an expression ``expr``, it is transformed into ``return expr``. Additionally:
-
- - If the last item is an ``if``/``elif``/``else`` block, the transformation is applied to the last item in each of its branches.
-
- - If the last item is a ``with`` or ``async with`` block, the transformation is applied to the last item in its body.
-
- - If the last item is a ``try``/``except``/``else``/``finally`` block:
-   - **If** an ``else`` clause is present, the transformation is applied to the last item in it; **otherwise**, to the last item in the ``try`` clause. These are the positions that indicate a normal return (no exception was raised).
-   - In both cases, the transformation is applied to the last item in each of the ``except`` clauses.
-   - The ``finally`` clause is not transformed; the intention is it is usually a finalizer (e.g. to release resources) that runs after the interesting value is already being returned by ``try``, ``else`` or ``except``.
-
-If needed, the above rules are applied recursively to locate the tail position(s).
-
-Any explicit ``return`` statements are left alone, so ``return`` can still be used as usual.
-
-**CAUTION**: If the final ``else`` of an ``if``/``elif``/``else`` is omitted, as often in Python, then only the ``else`` item is in tail position with respect to the function definition - likely not what you want. So with ``autoreturn``, the final ``else`` should be written out explicitly, to make the ``else`` branch part of the same ``if``/``elif``/``else`` block.
-
-**CAUTION**: ``for``, ``async for``, ``while`` are currently not analyzed; effectively, these are defined as always returning ``None``. If the last item in your function body is a loop, use an explicit return.
-
-**CAUTION**: With ``autoreturn`` enabled, functions no longer return ``None`` by default; the whole point of this macro is to change the default return value. The default return value is ``None`` only if the tail position contains a statement other than ``if``, ``with``, ``async with`` or ``try``.
-
-If you wish to omit ``return`` in tail calls, this comboes with ``tco``; just apply ``autoreturn`` first (either ``with autoreturn, tco:`` or in nested format, ``with tco:``, ``with autoreturn:``).
-
-
-## ``fup``: functionally update a sequence
-
-This is a macro wrapper for ``unpythonic.fup.fupdate``, providing more natural syntax:
-
-```python
-from unpythonic.syntax import macros, fup
-from itertools import repeat
-
-lst = (1, 2, 3, 4, 5)
-assert fup[lst[3] << 42] == (1, 2, 3, 42, 5)
-assert fup[lst[0::2] << tuple(repeat(10, 3))] == (10, 2, 10, 4, 10)
-```
-
-Currently only one update specification is supported in a single ``fup[]``.
-
-The notation follows the ``unpythonic.syntax`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched.
-
-The transformation is ``fup[seq[idx] << value] --> fupdate(seq, idx, value)`` for a single index, and ``fup[seq[slicestx] << iterable] --> fupdate(seq, slice(...), iterable)`` for a slice. The main point of this macro is that slices are specified in the native slicing syntax. (Contrast the direct use of the underlying ``fupdate`` function, which requires manually calling ``slice``.)
-
-
-## ``nb``: silly ultralight math notebook
-
-*Added in v0.13.0.*
-
-Mix regular code with math-notebook-like code in a ``.py`` file. To enable notebook mode, ``with nb``:
-
-```python
-from unpythonic.syntax import nb
-from sympy import symbols, pprint
-
-with nb:
-    2 + 3
-    assert _ == 5
-    _ * 42
-    assert _ == 210
-
-with nb(pprint):
-    x, y = symbols("x, y")
-    x * y
-    assert _ == x * y
-    3 * _
-    assert _ == 3 * x * y
-```
-
-Expressions at the top level auto-assign the result to ``_``, and auto-print it the value is not ``None``. Only expressions do that; for any statement that is not an expression, ``_`` retains its previous value.
-
-A custom print function can be supplied as the first positional argument to ``nb``. This is useful with SymPy (and [latex-input](https://github.com/clarkgrubb/latex-input) to use α, β, γ, ... as actual variable names).
-
-Obviously not intended for production use, although is very likely to work anywhere.
-
-
-## ``prefix``: prefix function call syntax for Python
+### ``prefix``: prefix function call syntax for Python
 
 Write Python almost like Lisp!
 
@@ -1249,78 +1169,202 @@ with prefix, curry:  # important: apply prefix first, then curry
 **CAUTION**: The ``prefix`` macro is experimental and not intended for use in production code.
 
 
-## ``lazify``: call-by-need for Python
+### ``autoreturn``: implicit ``return`` in tail position
+
+In Lisps, a function implicitly returns the value of the expression in tail position (along the code path being executed). Python's ``lambda`` also behaves like this (the whole body is just one return-value expression), but ``def`` doesn't.
+
+Now ``def`` can, too:
+
+```python
+from unpythonic.syntax import macros, autoreturn
+
+with autoreturn:
+    def f():
+        ...
+        "I'll just return this"
+    assert f() == "I'll just return this"
+
+    def g(x):
+        ...
+        if x == 1:
+            "one"
+        elif x == 2:
+            "two"
+        else:
+            "something else"
+    assert g(1) == "one"
+    assert g(2) == "two"
+    assert g(42) == "something else"
+```
+
+Each ``def`` function definition lexically within the ``with autoreturn`` block is examined, and if the last item within the body is an expression ``expr``, it is transformed into ``return expr``. Additionally:
+
+ - If the last item is an ``if``/``elif``/``else`` block, the transformation is applied to the last item in each of its branches.
+
+ - If the last item is a ``with`` or ``async with`` block, the transformation is applied to the last item in its body.
+
+ - If the last item is a ``try``/``except``/``else``/``finally`` block:
+   - **If** an ``else`` clause is present, the transformation is applied to the last item in it; **otherwise**, to the last item in the ``try`` clause. These are the positions that indicate a normal return (no exception was raised).
+   - In both cases, the transformation is applied to the last item in each of the ``except`` clauses.
+   - The ``finally`` clause is not transformed; the intention is it is usually a finalizer (e.g. to release resources) that runs after the interesting value is already being returned by ``try``, ``else`` or ``except``.
+
+If needed, the above rules are applied recursively to locate the tail position(s).
+
+Any explicit ``return`` statements are left alone, so ``return`` can still be used as usual.
+
+**CAUTION**: If the final ``else`` of an ``if``/``elif``/``else`` is omitted, as often in Python, then only the ``else`` item is in tail position with respect to the function definition - likely not what you want. So with ``autoreturn``, the final ``else`` should be written out explicitly, to make the ``else`` branch part of the same ``if``/``elif``/``else`` block.
+
+**CAUTION**: ``for``, ``async for``, ``while`` are currently not analyzed; effectively, these are defined as always returning ``None``. If the last item in your function body is a loop, use an explicit return.
+
+**CAUTION**: With ``autoreturn`` enabled, functions no longer return ``None`` by default; the whole point of this macro is to change the default return value. The default return value is ``None`` only if the tail position contains a statement other than ``if``, ``with``, ``async with`` or ``try``.
+
+If you wish to omit ``return`` in tail calls, this comboes with ``tco``; just apply ``autoreturn`` first (either ``with autoreturn, tco:`` or in nested format, ``with tco:``, ``with autoreturn:``).
+
+
+### ``forall``: nondeterministic evaluation
+
+*Changed in v0.11.0.* The previous ``forall_simple`` has been renamed ``forall``; the macro wrapper for the hacky function version of ``forall`` is gone. This change has the effect of changing the error raised by an undefined name in a ``forall`` section; previously it was ``AttributeError``, now it is ``NameError``.
+
+Behaves the same as the multiple-body-expression tuple comprehension ``unpythonic.amb.forall``, but implemented purely by AST transformation, with real lexical variables. This is essentially a MacroPy implementation of Haskell's do-notation for Python, specialized to the List monad (but the code is generic and very short; see ``unpythonic.syntax.forall``).
+
+```python
+from unpythonic.syntax import macros, forall, insist, deny
+
+out = forall[y << range(3),
+             x << range(3),
+             insist(x % 2 == 0),
+             (x, y)]
+assert out == ((0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2))
+
+# pythagorean triples
+pt = forall[z << range(1, 21),   # hypotenuse
+            x << range(1, z+1),  # shorter leg
+            y << range(x, z+1),  # longer leg
+            insist(x*x + y*y == z*z),
+            (x, y, z)]
+assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
+                             (8, 15, 17), (9, 12, 15), (12, 16, 20))
+```
+
+Assignment (with List-monadic magic) is ``var << iterable``. It is only valid at the top level of the ``forall`` (e.g. not inside any possibly nested ``let``).
+
+``insist`` and ``deny`` are not really macros; they are just the functions from ``unpythonic.amb``, re-exported for convenience.
+
+
+## Convenience features
+
+Small macros that are not essential but make some things easier or simpler.
+
+### ``cond``: the missing ``elif`` for ``a if p else b``
+
+Now lambdas too can have multi-branch conditionals, yet remain human-readable:
+
+```python
+from unpythonic.syntax import macros, cond
+
+answer = lambda x: cond[x == 2, "two",
+                        x == 3, "three",
+                        "something else"]
+print(answer(42))
+```
+
+Syntax is ``cond[test1, then1, test2, then2, ..., otherwise]``. Expansion raises an error if the ``otherwise`` branch is missing.
+
+*Added in v0.10.0.* Any part of ``cond`` may have multiple expressions by surrounding it with brackets:
+
+```python
+cond[[pre1, ..., test1], [post1, ..., then1],
+     [pre2, ..., test2], [post2, ..., then2],
+     ...
+     [postn, ..., otherwise]]
+```
+
+To denote a single expression that is a literal list, use an extra set of brackets: ``[[1, 2, 3]]``.
+
+
+### ``aif``: anaphoric if
+
+This is mainly of interest as a point of [comparison with Racket](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/aif.rkt); ``aif`` is about the simplest macro that relies on either the lack of hygiene or breaking thereof.
+
+```python
+from unpythonic.syntax import macros, aif
+
+aif[2*21,
+    print("it is {}".format(it)),
+    print("it is False")]
+```
+
+Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to the test result while (lexically) inside the ``aif``, and does not exist outside the ``aif``.
+
+*Added in v0.10.0.* Any part of ``aif`` may have multiple expressions by surrounding it with brackets:
+
+```python
+aif[[pre, ..., test],
+    [post_true, ..., then],        # "then" branch
+    [post_false, ..., otherwise]]  # "otherwise" branch
+```
+
+To denote a single expression that is a literal list, use an extra set of brackets: ``[[1, 2, 3]]``.
+
+
+### ``fup``: functionally update a sequence
+
+This is a macro wrapper for ``unpythonic.fup.fupdate``, providing more natural syntax:
+
+```python
+from unpythonic.syntax import macros, fup
+from itertools import repeat
+
+lst = (1, 2, 3, 4, 5)
+assert fup[lst[3] << 42] == (1, 2, 3, 42, 5)
+assert fup[lst[0::2] << tuple(repeat(10, 3))] == (10, 2, 10, 4, 10)
+```
+
+Currently only one update specification is supported in a single ``fup[]``.
+
+The notation follows the ``unpythonic.syntax`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched.
+
+The transformation is ``fup[seq[idx] << value] --> fupdate(seq, idx, value)`` for a single index, and ``fup[seq[slicestx] << iterable] --> fupdate(seq, slice(...), iterable)`` for a slice. The main point of this macro is that slices are specified in the native slicing syntax. (Contrast the direct use of the underlying ``fupdate`` function, which requires manually calling ``slice``.)
+
+
+## Other
+
+Stuff that didn't fit elsewhere.
+
+### ``nb``: silly ultralight math notebook
 
 *Added in v0.13.0.*
 
-You know you want to:
+Mix regular code with math-notebook-like code in a ``.py`` file. To enable notebook mode, ``with nb``:
 
 ```python
-with lazify:
-    def my_if(p, a, b):
-        if p:
-            return a  # b never evaluated in this code path
-        else:
-            return b  # a never evaluated in this code path
-    assert my_if(True, 23, 1/0) == 23
-    assert my_if(False, 1/0, 42) == 42
+from unpythonic.syntax import nb
+from sympy import symbols, pprint
 
-    def g(a, b):
-        return a
-    def f(a, b):
-        return g(2*a, 3*b)
-    assert f(21, 1/0) == 42
+with nb:
+    2 + 3
+    assert _ == 5
+    _ * 42
+    assert _ == 210
+
+with nb(pprint):
+    x, y = symbols("x, y")
+    x * y
+    assert _ == x * y
+    3 * _
+    assert _ == 3 * x * y
 ```
 
-In a ``with lazify`` block, function arguments are evaluated only when actually used, at most once each, and in the order in which they are actually used.
+Expressions at the top level auto-assign the result to ``_``, and auto-print it the value is not ``None``. Only expressions do that; for any statement that is not an expression, ``_`` retains its previous value.
 
-Note ``my_if`` in the example is a run-of-the-mill runtime function, not a macro. Only the ``with lazify`` is imbued with any magic. Essentially, the above code expands into:
+A custom print function can be supplied as the first positional argument to ``nb``. This is useful with SymPy (and [latex-input](https://github.com/clarkgrubb/latex-input) to use α, β, γ, ... as actual variable names).
 
-```python
-from macropy.quick_lambda import macros, lazy
-from unpythonic.syntax import force
-
-def my_if(p, a, b):
-    if force(p):
-        return force(a)
-    else:
-        return force(b)
-assert my_if(lazy[True], lazy[23], lazy[1/0]) == 23
-assert my_if(lazy[False], lazy[1/0], lazy[42]) == 42
-
-def g(a, b):
-    return force(a)
-def f(a, b):
-    return g(lazy[2*force(a)], lazy[3*force(b)])
-assert f(lazy[21], lazy[1/0]) == 42
-```
-
-plus some clerical details to allow mixing lazy and strict code.
-
-This second example relies on the magic of closures to capture f's ``a`` and ``b`` into the promises.
-
-For forcing promises manually, we provide the functions ``force1`` and ``force``. This is mainly useful if you ``lazy[]`` or ``lazyrec[]`` something explicitly, and want to compute its value outside a ``with lazify`` block.
-
-Using ``force1``, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket. The function ``force``, in addition, descends into containers (recursively). When an atom ``x`` (i.e. anything that is not a container) is encountered, it is processed using ``force1``.
-
-Mutable containers are updated in-place; for immutables, a new instance is created, but as a side effect the promise objects **in the input container** will be forced. Any container with a compatible ``collections.abc`` is supported. (See ``unpythonic.collections.mogrify`` for details.) In addition, as special cases ``unpythonic.collections.box`` and ``unpythonic.llist.cons`` are supported.
-
-Like ``with continuations``, no state or context is associated with a ``with lazify`` block, so lazy functions defined in one block may call those defined in another.
-
-Lazy code is allowed to call strict functions and vice versa, without requiring any additional effort.
-
-For more details, see the docstring of ``unpythonic.syntax.lazify``.
-
-See also ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside literal containers, recursively. This allows code like ``lazyrec[(1*2*3, 4*5*6)]``. Each item becomes wrapped with ``lazy[]``, but the container itself is left alone, to avoid interfering with unpacking. Because ``lazyrec[]`` is a macro and must work by names only, it supports a fixed set of container types: ``list``, ``tuple``, ``set``, ``dict``, ``frozenset``, ``unpythonic.collections.frozendict``, ``unpythonic.collections.box``, and ``unpythonic.llist.cons`` (specifically, the constructors ``cons``, ``ll`` and ``llist``).
-
-Inspired by Haskell, and Racket's ``(delay)`` and ``(force)``.
-
-**CAUTION**: Argument passing by function call is currently the only binding construct to which auto-lazification is applied.
-
-**CAUTION**: The ``lazify`` macro is experimental and not intended for use in production code.
+Obviously not intended for production use, although is very likely to work anywhere.
 
 
-## Comboability
+## Meta
+
+### Comboability
 
 The macros in ``unpythonic.syntax`` are designed to work together, in principle in arbitrary combinations, but some care needs to be taken regarding the order in which they expand.
 
