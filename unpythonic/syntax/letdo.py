@@ -10,7 +10,7 @@
 
 from functools import partial
 
-from ast import Call, Name, Attribute, \
+from ast import Name, Attribute, \
                 Tuple, List, \
                 BinOp, LShift, \
                 FunctionDef, Return, \
