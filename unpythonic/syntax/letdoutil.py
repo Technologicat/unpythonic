@@ -363,7 +363,7 @@ class ExpandedLetView:
         if not data:
             raise TypeError("expected a tree representing an expanded let, got {}".format(tree))
         self._tree = tree
-        self._type, self._mode = data
+        self._type, self.mode = data
         if self._type not in ("expanded_decorator", "expanded_expr"):
             raise NotImplementedError("unknown expanded let form type '{}'".format(self._type))
         if self._type == "expanded_decorator":
