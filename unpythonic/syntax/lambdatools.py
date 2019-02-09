@@ -12,7 +12,7 @@ from ..dynassign import dyn
 from ..misc import namelambda
 
 from .letdo import do
-from .util import is_decorated_lambda, isx
+from .util import is_decorated_lambda, isx, make_isxpred
 
 def multilambda(block_body):
     @Walker
@@ -41,22 +41,36 @@ def namedlambda(block_body):
     def issingleassign(tree):
         return type(tree) is Assign and len(tree.targets) == 1 and type(tree.targets[0]) is Name
 
-    def iscurrywithfinallambda(tree):
-        if not (type(tree) is Call and isx(tree.func, "curry") and tree.args):
+    iscurry = make_isxpred("curry")
+    def iscurrywithfinallambda(tree):  # detect a manual curry
+        if not (type(tree) is Call and isx(tree.func, iscurry) and tree.args):
             return False
         return type(tree.args[-1]) is Lambda
+    # Detect an autocurry from an already expanded "with curry".
+    # CAUTION: These must match what unpythonic.syntax.curry.curry uses in its output.
+    iscurrycall = make_isxpred("currycall")
+    iscurryf = make_isxpred("curryf")
+    def isautocurrywithfinallambda(tree):
+        if not (type(tree) is Call and isx(tree.func, iscurrycall) and tree.args and \
+                type(tree.args[-1]) is Call and isx(tree.args[-1].func, iscurryf)):
+            return False
+        return type(tree.args[-1].args[-1]) is Lambda
 
     @Walker
     def transform(tree, *, stop, **kw):
-        # for decorated lambdas, match any chain of one-argument calls.
-        if issingleassign(tree) and \
-               (type(tree.value) is Lambda or \
-                is_decorated_lambda(tree.value, mode="any") or \
-                iscurrywithfinallambda(tree.value)):
-            stop()  # prevent infinite loop
+        if issingleassign(tree):
             myname = tree.targets[0].id
-            tree.value = hq[namelambda(u[myname], ast_literal[tree.value])]
-            return tree
+            # for decorated lambdas, match any chain of one-argument calls.
+            if type(tree.value) is Lambda or \
+               is_decorated_lambda(tree.value, mode="any") or \
+               iscurrywithfinallambda(tree.value):
+                stop()
+                thelambda = tree.value
+                tree.value = hq[namelambda(u[myname], ast_literal[thelambda])]
+            elif isautocurrywithfinallambda(tree.value):
+                stop()
+                thelambda = tree.value.args[-1].args[-1]
+                tree.value.args[-1].args[-1] = hq[namelambda(u[myname], ast_literal[thelambda])]
         return tree
 
     new_block_body = [transform.recurse(stmt) for stmt in block_body]

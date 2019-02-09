@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Multi-expression lambdas with implicit do; named lambdas."""
 
-from ...syntax import macros, multilambda, namedlambda, quicklambda, f, _, local, let
+from ...syntax import macros, multilambda, namedlambda, quicklambda, f, _, local, let, curry
 
 from functools import wraps
 
@@ -82,6 +82,12 @@ def test():
                      lambda x: x**2)
         assert f5(10) == (2, 3, 100)
         assert f5.__name__ == "f5"
+
+    # also autocurry with a lambda as the last argument is recognized (just make sure the curry expands first!)
+    with curry, namedlambda:
+        f6 = mypardeco(2, 3, lambda x: x**2)
+        assert f6(10) == (2, 3, 100)
+        assert f6.__name__ == "f6"
 
     # looped_over overwrites with the result, so nothing to name
     with namedlambda:

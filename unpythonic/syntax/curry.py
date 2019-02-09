@@ -11,6 +11,9 @@ from macropy.core.walkers import Walker
 from .util import suggest_decorator_index
 
 from ..dynassign import dyn
+
+# CAUTION: unpythonic.syntax.lambdatools.namedlambda depends on the exact names
+# "curryf" and "currycall" to detect an auto-curried expression with a final lambda.
 from ..fun import curry as curryf, _currycall as currycall
 
 def curry(block_body):
