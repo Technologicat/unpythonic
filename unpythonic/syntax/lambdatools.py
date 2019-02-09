@@ -53,19 +53,10 @@ def namedlambda(block_body):
                (type(tree.value) is Lambda or \
                 is_decorated_lambda(tree.value, mode="any") or \
                 iscurrywithfinallambda(tree.value)):
-            # an assignment is a statement, so in the transformed tree,
-            # we are free to use all of Python's syntax.
-            myname = tree.targets[0].id
-            value = tree.value
-            # trick from MacroPy: to replace one statement with multiple statements,
-            # use an "if 1:" block; the Python compiler optimizes it away.
-            with hq as newtree:
-                if 1:
-#                    ast_literal[tree]   # TODO: doesn't work, why?
-                    name[myname] = ast_literal[value]  # do the same thing as ast_literal[tree] should
-                    namelambda(name[myname], u[myname])
             stop()  # prevent infinite loop
-            return newtree[0]  # the if statement
+            myname = tree.targets[0].id
+            tree.value = hq[namelambda(ast_literal[tree.value], u[myname])]
+            return tree
         return tree
 
     new_block_body = [transform.recurse(stmt) for stmt in block_body]
