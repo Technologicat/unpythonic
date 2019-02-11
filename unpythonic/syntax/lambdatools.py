@@ -3,7 +3,7 @@
 
 from ast import Lambda, List, Name, Assign, With, withitem, Subscript, Call
 
-from macropy.core.quotes import macros, u, ast_literal, name
+from macropy.core.quotes import macros, u, ast_literal
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 from macropy.quick_lambda import f, _  # _ for re-export only
