@@ -12,7 +12,6 @@ from functools import partial
 
 from ast import Name, Attribute, \
                 Tuple, List, \
-                BinOp, LShift, \
                 FunctionDef, Return, \
                 arguments, arg, \
                 Load, Subscript, Index
@@ -29,6 +28,7 @@ from ..dynassign import dyn
 from ..misc import namelambda
 
 from .scoping import scoped_walker
+from .letdoutil import isenvassign, UnexpandedEnvAssignView
 
 def let(bindings, body):
     return _letimpl(bindings, body, "let")
@@ -96,24 +96,14 @@ def letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
         tree = envwrap(tree, envname)
     return tree
 
-def isenvassign(tree):
-    """Detect ``name << value`` syntax to assign variables in an unpythonic ``env``."""
-    return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
-def envassign_name(tree):  # rackety accessors
-    """Get the name part of an envassign, as ``str``."""
-    return tree.left.id
-def envassign_value(tree):
-    """Get the value part of an envassign, as an AST."""
-    return tree.right
-
 def transform_envassignment(tree, lhsnames, envset):
     """x << val --> e.set('x', val)  (for names bound in this environment)"""
     def t(tree, shadowed):
         if isenvassign(tree):
-            varname = envassign_name(tree)
+            view = UnexpandedEnvAssignView(tree)
+            varname = view.name
             if varname in lhsnames and varname not in shadowed:
-                value = envassign_value(tree)
-                return q[ast_literal[envset](u[varname], ast_literal[value])]
+                return q[ast_literal[envset](u[varname], ast_literal[view.value])]
         return tree
     return scoped_walker.recurse(tree, callback=t)
 
@@ -284,7 +274,8 @@ def do(tree):
             expr = tree.slice.value
             if not isenvassign(expr):
                 assert False, "local(...) takes exactly one expression of the form 'name << value'"
-            collect(envassign_name(expr))
+            view = UnexpandedEnvAssignView(expr)
+            collect(view.name)
             return expr  # local[...] -> ..., the "local" tag has done its job
         return tree
 

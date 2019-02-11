@@ -7,7 +7,7 @@ from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
-from .letdo import isenvassign, envassign_name, envassign_value
+from .letdoutil import isenvassign, UnexpandedEnvAssignView
 from ..amb import monadify
 from ..amb import insist, deny  # for re-export only
 
@@ -35,7 +35,8 @@ def forall(exprs):
             return tree
         line, *rest = lines
         if isenvassign(line):  # no need for "let"; we just borrow a very small part of its syntax machinery.
-            k, v = envassign_name(line), envassign_value(line)
+            view = UnexpandedEnvAssignView(line)
+            k, v = view.name, view.value
         else:
             k, v = "_ignored", line
         islast = not rest

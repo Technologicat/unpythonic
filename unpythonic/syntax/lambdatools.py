@@ -12,8 +12,8 @@ from macropy.quick_lambda import f, _  # _ for re-export only
 from ..misc import namelambda
 from ..fun import orf
 
-from .letdo import do, isenvassign
-from .letdoutil import islet, UnexpandedLetView
+from .letdo import do
+from .letdoutil import islet, isenvassign, UnexpandedLetView, UnexpandedEnvAssignView
 from .util import is_decorated_lambda, isx, make_isxpred, has_deco, destructure_decorated_lambda
 
 def multilambda(block_body):
@@ -97,12 +97,12 @@ def namedlambda(block_body):
         # assumption: no one left-shifts by a literal lambda :)
         elif isenvassign(tree):  # f << (lambda ...: ...)
             stop()
-            # TODO: make an EnvAssignView to fix the leaky abstraction (cannot write into envassign_value(...))
-            tree.right, thelambda, match = nameit(tree.left.id, tree.right)
+            view = UnexpandedEnvAssignView(tree)
+            view.value, thelambda, match = nameit(view.name, view.value)
             if match:
                 thelambda.body = rec(thelambda.body)
             else:
-                tree.right = rec(tree.right)
+                view.value = rec(view.value)
         elif issingleassign(tree):
             stop()
             tree.value, thelambda, match = nameit(tree.targets[0].id, tree.value)
