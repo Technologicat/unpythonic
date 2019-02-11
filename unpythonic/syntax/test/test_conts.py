@@ -400,7 +400,7 @@ def test():
         print("combinations tested for Pythagorean triples: {:d}".format(count))
 
     # autoreturn combo
-#     with curry:  # major slowdown, but works; must be in a separate "with"  # TODO: why separate?
+#     with curry:  # major slowdown, but works; must be in a separate "with"  # TODO: why separate?  https://github.com/azazel75/macropy/issues/21
     with autoreturn, continuations:
         stack = []
         def amb(lst, cc):

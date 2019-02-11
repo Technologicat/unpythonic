@@ -151,7 +151,7 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
         #  we are now outside the dynamic extent of the ``with curry`` block.)
         assert add3(1)(2)(3) == 6
     """
-    return (yield from _curry(block_body=tree))
+    return _curry(block_body=tree)
 
 # -----------------------------------------------------------------------------
 

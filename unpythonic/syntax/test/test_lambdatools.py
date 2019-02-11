@@ -45,10 +45,13 @@ def test():
         assert f1.__name__ == "f1"
         gn, hn = let((x, 42), (g, None), (h, None))[[
                        g << (lambda x: x**2),    # env-assignment: name as "g"
-                       h << f1,                  # no-rename rule: still "f1"
+                       h << f1,                  # still "f1" (RHS is not a literal lambda)
                        (g.__name__, h.__name__)]]
         assert gn == "g"
         assert hn == "f1"
+
+        foo = let[(f7, lambda x: x) in f7]       # let-binding: name as "f7"
+        assert foo.__name__ == "f7"
 
     # naming a decorated lambda
     with namedlambda:
@@ -85,24 +88,18 @@ def test():
         assert f5(10) == (2, 3, 100)
         assert f5.__name__ == "f5"
 
-    # also autocurry with a lambda as the last argument is recognized (just make sure the curry expands first!)
-    with namedlambda, curry:
+    # also autocurry with a lambda as the last argument is recognized
+    # TODO: fix MacroPy #21 properly; https://github.com/azazel75/macropy/issues/21
+    with namedlambda:
+      with curry:
         f6 = mypardeco(2, 3, lambda x: x**2)
         assert f6(10) == (2, 3, 100)
         assert f6.__name__ == "f6"
 
     # presence of autocurry should not confuse the first-pass output
-    with namedlambda, curry:
+    with namedlambda:
+      with curry:
         foo = let[(f7, None) in f7 << (lambda x: x)]
-        assert foo.__name__ == "f7"
-
-        f6 = mypardeco(2, 3, lambda x: x**2)
-        assert f6(10) == (2, 3, 100)
-        assert f6.__name__ == "f6"
-
-    with namedlambda, curry, namedlambda:
-        foo = let[(f7, lambda x: x) in f7]
-        print(foo)
         assert foo.__name__ == "f7"
 
         f6 = mypardeco(2, 3, lambda x: x**2)

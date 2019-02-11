@@ -12,7 +12,8 @@ from macropy.quick_lambda import f, _  # _ for re-export only
 from ..misc import namelambda
 from ..fun import orf
 
-from .letdo import do, isenvassign, envassign_name, envassign_value
+from .letdo import do, isenvassign
+from .letdoutil import islet, UnexpandedLetView
 from .util import is_decorated_lambda, isx, make_isxpred, has_deco, destructure_decorated_lambda
 
 def multilambda(block_body):
@@ -42,11 +43,13 @@ def namedlambda(block_body):
     def issingleassign(tree):
         return type(tree) is Assign and len(tree.targets) == 1 and type(tree.targets[0]) is Name
 
+    # detect a manual curry
     iscurry = make_isxpred("curry")
-    def iscurrywithfinallambda(tree):  # detect a manual curry
+    def iscurrywithfinallambda(tree):
         if not (type(tree) is Call and isx(tree.func, iscurry) and tree.args):
             return False
         return type(tree.args[-1]) is Lambda
+
     # Detect an autocurry from an already expanded "with curry".
     # CAUTION: These must match what unpythonic.syntax.curry.curry uses in its output.
     iscurrycall = make_isxpred("currycall")
@@ -81,19 +84,37 @@ def namedlambda(block_body):
 
     @Walker
     def transform(tree, *, stop, **kw):
-        match = False
-        if issingleassign(tree):
-            tree.value, thelambda, match = nameit(tree.targets[0].id, tree.value)
-        elif isenvassign(tree):
-            # TODO: make an EnvAssignView to fix the leaky abstraction
-            tree.right, thelambda, match = nameit(envassign_name(tree), envassign_value(tree))
-        if match:
+        if islet(tree, expanded=False):  # let bindings
             stop()
-            thelambda.body = transform.recurse(thelambda.body)
+            view = UnexpandedLetView(tree)
+            for b in view.bindings:
+                b.elts[1], thelambda, match = nameit(b.elts[0].id, b.elts[1])
+                if match:
+                    thelambda.body = rec(thelambda.body)
+                else:
+                    b.elts[1] = rec(b.elts[1])
+            view.body = rec(view.body)
+        # assumption: no one left-shifts by a literal lambda :)
+        elif isenvassign(tree):  # f << (lambda ...: ...)
+            stop()
+            # TODO: make an EnvAssignView to fix the leaky abstraction (cannot write into envassign_value(...))
+            tree.right, thelambda, match = nameit(tree.left.id, tree.right)
+            if match:
+                thelambda.body = rec(thelambda.body)
+            else:
+                tree.right = rec(tree.right)
+        elif issingleassign(tree):
+            stop()
+            tree.value, thelambda, match = nameit(tree.targets[0].id, tree.value)
+            if match:
+                thelambda.body = rec(thelambda.body)
+            else:
+                tree.value = rec(tree.value)
         return tree
 
-    newbody = yield [transform.recurse(stmt) for stmt in block_body]   # transform in unexpanded let[] forms
-    return [transform.recurse(stmt) for stmt in newbody]               # transform in expanded autocurry
+    rec = transform.recurse
+    newbody = yield [rec(stmt) for stmt in block_body]   # first pass: transform in unexpanded let[] forms
+    return [rec(stmt) for stmt in newbody]               # second pass: transform in expanded autocurry
 
 def quicklambda(block_body):
     def isquicklambda(tree):
