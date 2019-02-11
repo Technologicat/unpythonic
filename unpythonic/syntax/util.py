@@ -4,8 +4,9 @@
 from functools import partial
 import re
 
-from ast import Call, Name, Attribute, Lambda, FunctionDef
-from .astcompat import AsyncFunctionDef
+from ast import Call, Name, Attribute, Lambda, FunctionDef, \
+                If, Num, NameConstant, For, While, With, Try, ClassDef
+from .astcompat import AsyncFunctionDef, AsyncFor, AsyncWith
 
 from macropy.core import Captured
 from macropy.core.walkers import Walker
@@ -348,3 +349,57 @@ def suggest_decorator_index(deco_name, decorator_list):
     else:
         return None
     return names.index(dname)
+
+def eliminate_ifones(body):
+    """Eliminate ``if 1`` by splicing the contents into the surrounding body.
+
+    We also support "if True", "if 0", "if False" and "if None". The *then* or
+    *else* branch is spliced accordingly.
+
+    Here ``body`` is a ``list`` of statements.
+
+    **NOTE**: The Python compiler already performs this optimization, but the
+    ``call_cc`` macro must be placed at the top level of a function body, and
+    ``let_syntax`` (and its cousin ``abbrev``) generates these ``if 1`` blocks.
+    So to be able to use ``let_syntax`` in block mode, when the RHS happens to
+    include a ``call_cc`` (see the example in test_conts_gen.py)...
+    """
+    def isifone(tree):
+        if type(tree) is If:
+            if type(tree.test) is Num:
+                if tree.test.n == 1:
+                    return "then"
+                elif tree.test.n == 0:
+                    return "else"
+            elif type(tree.test) is NameConstant:
+                if tree.test.value is True:
+                    return "then"
+                elif tree.test.value in (False, None):
+                    return "else"
+        return False
+
+    def transform_one(tree):  # stmt -> list of stmts
+        t = isifone(tree)
+        if t:
+            branch = tree.body if t == "then" else tree.orelse
+            return branch
+        return [tree]
+
+    def rec(tree):  # Recurse over statement positions.
+        # TODO: brittle, may need changes as the Python AST evolves. Better ways to do this?
+        if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef, With, AsyncWith):
+            tree.body = rec(tree.body)
+        elif type(tree) in (If, For, While, AsyncFor):
+            tree.body = rec(tree.body)
+            tree.orelse = rec(tree.orelse)
+        elif type(tree) is Try:
+            tree.body = rec(tree.body)
+            tree.orelse = rec(tree.orelse)
+            tree.finalbody = rec(tree.finalbody)
+            for handler in tree.handlers:
+                handler.body = rec(handler.body)
+        elif type(tree) is list:  # multiple-statement body in AST
+            return [output_stmt for input_stmt in tree for output_stmt in rec(input_stmt)]
+        return transform_one(tree)  # a single statement
+
+    return rec(body)
