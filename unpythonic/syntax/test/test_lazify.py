@@ -270,6 +270,15 @@ def test():
 
         # nested lets
         assert letseq[((c, 42), (d, e)) in f(c, d)] == 42
+        assert letseq[((a, 2), (a, 2*a), (a, 2*a)) in a] == 8  # name shadowing, no infinite loop
+
+        b = 2  # let[] should already have taken care of resolving references when lazify expands
+        assert letseq[((b, 2*b), (b, 2*b)) in b] == 8
+        assert b == 2
+
+        b = lazy[2]  # should work also for lazy input
+        assert letseq[((b, 2*b), (b, 2*b)) in b] == 8
+        assert b == 2
 
         # letrec injects lambdas into its bindings, so test it too.
         assert letrec[((c, 42), (d, e)) in f(c, d)] == 42
