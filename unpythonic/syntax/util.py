@@ -229,7 +229,7 @@ def has_tco(tree, userlambdas=[]):
     Return value is ``True`` or ``False`` (depending on test result) if the
     test was applicable, and ``None`` if it was not applicable (no match on tree).
     """
-    return _has_deco(tco_decorators, tree, userlambdas)
+    return has_deco(tco_decorators, tree, userlambdas)
 
 def has_curry(tree, userlambdas=[]):
     """Return whether a FunctionDef or a decorated lambda has curry applied.
@@ -240,9 +240,19 @@ def has_curry(tree, userlambdas=[]):
     Return value is ``True`` or ``False`` (depending on test result) if the
     test was applicable, and ``None`` if it was not applicable (no match on tree).
     """
-    return _has_deco(["curry"], tree, userlambdas)
+    return has_deco(["curry"], tree, userlambdas)
 
-def _has_deco(deconames, tree, userlambdas=[]):
+def has_deco(deconames, tree, userlambdas=[]):
+    """Return whether a FunctionDef or a decorated lambda has any given deco applied.
+
+    deconames: list of decorator names to test.
+
+    userlambdas: list of ``id(some_tree)``; when detecting a lambda,
+    only consider it if its id matches one of those in the list.
+
+    Return value is ``True`` or ``False`` (depending on test result) if the
+    test was applicable, and ``None`` if it was not applicable (no match on tree).
+    """
     if type(tree) in (FunctionDef, AsyncFunctionDef):
         return any(is_decorator(x, fname) for fname in deconames for x in tree.decorator_list)
     elif is_decorated_lambda(tree, mode="any"):
