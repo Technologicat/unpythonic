@@ -42,9 +42,12 @@ def test():
         stuffinto(lst)(4)
         assert lst == [1, 2, 3, 4]
 
-    # Outside the with block, autocurry for calls is not active, but the function
-    # was defined inside the block, so it has implicit @curry.
+    # The function "add3" was defined inside the block, so it has the implicit
+    # @curry decorator. Hence a call into "add3" is a curry context.
     assert add3(1)(2)(3) == 6
+    assert add3(1, 2)(3) == 6
+    assert add3(1)(2, 3) == 6
+    assert add3(1, 2, 3) == 6
 
     stuffinto(lst)(5)
     assert lst == [1, 2, 3, 4, 5]
