@@ -378,14 +378,42 @@ def eliminate_ifones(body):
                     return "else"
         return False
 
-    def transform_one(tree):  # stmt -> list of stmts
+    def optimize(tree):  # stmt -> list of stmts
         t = isifone(tree)
         if t:
             branch = tree.body if t == "then" else tree.orelse
             return branch
         return [tree]
 
-    def rec(tree):  # Recurse over statement positions.
+    return transform_statements(optimize, body)
+
+def transform_statements(f, body):
+    """Recurse over statement positions and apply the syntax transformer ``f``.
+
+    This function understands statements such as ``def``, ``with``, ``if`` and
+    ``for``, and calls ``f`` for each statement in their bodies, recursively.
+    For example, for an ``if``, statements in all branches are processed through
+    the transformation ``f``.
+
+    ``f`` is a one-argument function that takes an AST representing a single
+    statement, and returns a ``list`` of ASTs representing statements.
+    If the output is such a ``list``, it will be spliced to replace the
+    input statement. This allows ``f`` to drop a statement (1->0) or to
+    replace one statement with several (1->n), beside making one-to-one (1->1)
+    transformations.
+
+    (Transformations requiring n input statements are currently not supported.)
+
+    ``body`` may be an AST representing a single statement, or a ``list`` of
+    such ASTs (e.g. the ``body`` of an ``ast.With``).
+
+    The input is modified in-place, provided ``f`` does so. In any case, the
+    original lists inside the ASTs containing the statements are in-place
+    replaced with the transformed ones.
+
+    The return value is the transformed ``body``. It is always a ``list`` of ASTs.
+    """
+    def rec(tree):
         # TODO: brittle, may need changes as the Python AST evolves. Better ways to do this?
         if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef, With, AsyncWith):
             tree.body = rec(tree.body)
@@ -400,6 +428,5 @@ def eliminate_ifones(body):
                 handler.body = rec(handler.body)
         elif type(tree) is list:  # multiple-statement body in AST
             return [output_stmt for input_stmt in tree for output_stmt in rec(input_stmt)]
-        return transform_one(tree)  # a single statement
-
+        return f(tree)  # a single statement
     return rec(body)
