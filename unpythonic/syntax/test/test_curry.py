@@ -7,6 +7,8 @@ from ...fold import foldr
 from ...fun import composerc as compose
 from ...llist import cons, nil, ll
 
+from macropy.tracing import macros, show_expanded
+
 def test():
     with curry:
         mymap = lambda f: foldr(compose(cons, f), nil)
@@ -48,5 +50,24 @@ def test():
 
     stuffinto(lst, 5)
     assert lst == [1, 2, 3, 4, 5]
+
+    # should not insert an extra @curry even if we curry manually
+    # (convenience, for with-currying existing code)
+    with show_expanded:
+     with curry:
+        from unpythonic.fun import curry
+        @curry
+        def add3(a, b, c):
+            return a + b + c
+        assert add3(1)(2)(3) == 6
+
+        f = curry(lambda a, b, c: a + b + c)
+        assert f(1)(2)(3) == 6
+
+        from unpythonic.tco import trampolined, jump
+        from unpythonic.fun import withself
+        fact = trampolined(withself(curry(lambda self, n, acc=1:
+                                    acc if n == 0 else jump(self, n - 1, n * acc))))
+        assert fact(5) == 120
 
     print("All tests PASSED")

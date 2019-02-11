@@ -26,7 +26,6 @@ from .util import isx, isec, \
                   suggest_decorator_index
 from .letdoutil import isdo, islet, ExpandedLetView, ExpandedDoView
 from .ifexprs import aif
-from .letdo import let
 
 from ..dynassign import dyn
 from ..it import uniqify
