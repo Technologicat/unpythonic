@@ -7,8 +7,6 @@ from ...fold import foldr
 from ...fun import composerc as compose
 from ...llist import cons, nil, ll
 
-from macropy.tracing import macros, show_expanded
-
 def test():
     with curry:
         mymap = lambda f: foldr(compose(cons, f), nil)
@@ -53,8 +51,7 @@ def test():
 
     # should not insert an extra @curry even if we curry manually
     # (convenience, for with-currying existing code)
-    with show_expanded:
-     with curry:
+    with curry:
         from unpythonic.fun import curry
         @curry
         def add3(a, b, c):
