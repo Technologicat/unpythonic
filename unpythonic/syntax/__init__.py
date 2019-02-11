@@ -725,7 +725,7 @@ def namedlambda(tree, **kw):
 
     We support:
 
-        - Single-item assignments, ``f = lambda ...: ...``
+        - Single-item assignments to a local name, ``f = lambda ...: ...``
 
         - Assignments to unpythonic environments, ``f << (lambda ...: ...)``
 
