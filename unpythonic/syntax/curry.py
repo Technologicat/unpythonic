@@ -38,10 +38,4 @@ def curry(block_body):
             stop()
             tree.args[0].body = transform_call.recurse(tree.args[0].body)
         return tree
-    block_body = transform_call.recurse(block_body)
-    # Wrap the body in "with dyn.let(_curry_allow_uninspectable=True):"
-    # to avoid crash with uninspectable builtins
-    item = hq[dyn.let(_curry_allow_uninspectable=True)]
-    wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
-                   body=block_body)
-    return [wrapped]  # block macro: got a list, must return a list.
+    return transform_call.recurse(block_body)

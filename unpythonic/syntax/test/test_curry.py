@@ -36,12 +36,17 @@ def test():
 #        f = myadd(1)
 #        assert f(2) == 3
 
+        def stuffinto(lst, x):
+            lst.append(x)  # uninspectable, currycall should no-op
+        lst = [1, 2, 3]
+        stuffinto(lst, 4)
+        assert lst == [1, 2, 3, 4]
+
     # Outside the with block, autocurry is not active, but the function was
     # defined inside the block, so it has implicit @curry.
-    #
-    # Note this works only if add3 contains no uninspectable functions,
-    # because we are now outside the dynamic extent of the "with curry" block,
-    # so the special mode of unpythonic.fun.curry is no longer active.
     assert add3(1)(2)(3) == 6
+
+    stuffinto(lst, 5)
+    assert lst == [1, 2, 3, 4, 5]
 
     print("All tests PASSED")

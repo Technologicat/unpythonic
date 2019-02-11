@@ -65,7 +65,6 @@ def memoize(f):
 #    return memoized
 
 make_dynvar(curry_context=[])
-make_dynvar(_curry_allow_uninspectable=False)  # if True, no-op if not inspectable.
 def _currycall(f, *args, **kwargs):
     """Co-operate with unpythonic.syntax.curry.
 
@@ -73,11 +72,14 @@ def _currycall(f, *args, **kwargs):
     to ``curry(f)``, but definitions can be curried as usual.
 
     Hence we provide this separate mode to curry-and-call even if no args.
+
+    This mode also no-ops when ``f`` is not inspectable, instead of raising
+    an ``unpythonic.arity.UnknownArity`` exception.
     """
-    return curry(f, *args, _curry_force_call=True, **kwargs)
+    return curry(f, *args, _curry_force_call=True, _curry_allow_uninspectable=True, **kwargs)
 
 @register_decorator(priority=90)
-def curry(f, *args, _curry_force_call=False, **kwargs):
+def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, **kwargs):
     """Decorator: curry the function f.
 
     Essentially, the resulting function automatically chains partial application
@@ -176,7 +178,7 @@ def curry(f, *args, _curry_force_call=False, **kwargs):
     try:
         min_arity, max_arity = arities(f)
     except UnknownArity:  # likely a builtin
-        if not dyn._curry_allow_uninspectable:  # usual behavior
+        if not _curry_allow_uninspectable:  # usual behavior
             raise
         # co-operate with unpythonic.syntax.curry; don't crash on builtins
         if args or kwargs or _curry_force_call:
