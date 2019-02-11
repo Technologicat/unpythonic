@@ -5,11 +5,14 @@
 # see letdo.py.
 
 from copy import deepcopy
-from ast import Name, Call, Starred, If, Num, Expr, With
+from ast import Name, Call, Starred, If, Num, Expr, With, \
+                FunctionDef, ClassDef, Attribute
+from .astcompat import AsyncFunctionDef
 
 from macropy.core.walkers import Walker
 
 from .letdo import implicit_do
+from .util import eliminate_ifones
 
 def let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     body = implicit_do(body)  # support the extra bracket syntax
@@ -109,7 +112,7 @@ def let_syntax_block(block_body):
             register_binding(stmt, *binding_data)
         else:
             new_block_body.append(stmt)
-    return new_block_body
+    return eliminate_ifones(new_block_body)
 
 class block:
     """[syntax] Magic identifier for ``with block:`` inside a ``with let_syntax:``."""
@@ -164,7 +167,25 @@ def _substitute_barename(name, value, tree, mode):
                 assert False, "cannot substitute a block into expression position"
             tree = subst()
         return tree
-    return splice.recurse(tree)
+
+    # if the new value is also bare name, perform the substitution (now as a string)
+    # also in the name part of def and similar, to support human intuition of "renaming"
+    if type(value) is Name:
+        newname = value.id
+        @Walker
+        def splice_barestring(tree, *, stop, **kw):
+            if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
+                if tree.name == name:
+                    tree.name = newname
+            elif type(tree) is Attribute:
+                if tree.attr == name:
+                    tree.attr = newname
+            return tree
+        postproc = splice_barestring.recurse
+    else:
+        postproc = lambda x: x
+
+    return postproc(splice.recurse(tree))
 
 def _substitute_barenames(barenames, tree):
     for name, _, value, mode in barenames:
