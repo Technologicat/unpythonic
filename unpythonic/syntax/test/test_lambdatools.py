@@ -41,16 +41,19 @@ def test():
         assert t() == [1, 2]
 
     with namedlambda:
-        f1 = lambda x: x**3                      # lexical rule: name as "f1"
+        f1 = lambda x: x**3                      # assignment: name as "f1"
         assert f1.__name__ == "f1"
         gn, hn = let((x, 42), (g, None), (h, None))[[
-                       g << (lambda x: x**2),    # dynamic rule: name as "g"
-                       h << f1,                  # no-rename rule: still "f1"
+                       g << (lambda x: x**2),    # env-assignment: name as "g"
+                       h << f1,                  # still "f1" (RHS is not a literal lambda)
                        (g.__name__, h.__name__)]]
         assert gn == "g"
         assert hn == "f1"
 
-    # test naming a decorated lambda
+        foo = let[(f7, lambda x: x) in f7]       # let-binding: name as "f7"
+        assert foo.__name__ == "f7"
+
+    # naming a decorated lambda
     with namedlambda:
         f2 = trampolined(withself(lambda self, n, acc=1: jump(self, n-1, acc*n) if n > 1 else acc))
         f2(5000)  # no crash since TCO
@@ -58,7 +61,7 @@ def test():
 
         # works also with custom decorators
         def mydeco(f):
-            @wraps(f)  # important! (without this returns "decorated", not "f")
+            @wraps(f)  # important! (without this the name is "decorated", not "f")
             def decorated(*args, **kwargs):
                 return f(*args, **kwargs)
             return decorated
@@ -85,8 +88,20 @@ def test():
         assert f5(10) == (2, 3, 100)
         assert f5.__name__ == "f5"
 
-    # also autocurry with a lambda as the last argument is recognized (just make sure the curry expands first!)
-    with curry, namedlambda:
+    # also autocurry with a lambda as the last argument is recognized
+    # TODO: fix MacroPy #21 properly; https://github.com/azazel75/macropy/issues/21
+    with namedlambda:
+      with curry:
+        f6 = mypardeco(2, 3, lambda x: x**2)
+        assert f6(10) == (2, 3, 100)
+        assert f6.__name__ == "f6"
+
+    # presence of autocurry should not confuse the first-pass output
+    with namedlambda:
+      with curry:
+        foo = let[(f7, None) in f7 << (lambda x: x)]
+        assert foo.__name__ == "f7"
+
         f6 = mypardeco(2, 3, lambda x: x**2)
         assert f6(10) == (2, 3, 100)
         assert f6.__name__ == "f6"

@@ -750,7 +750,7 @@ def namedlambda(tree, **kw):
     even after the name ``h`` is made to point to the same object inside the
     body of the ``let``.
     """
-    return _namedlambda(block_body=tree)
+    return (yield from _namedlambda(block_body=tree))
 
 @macros.block
 def quicklambda(tree, **kw):
