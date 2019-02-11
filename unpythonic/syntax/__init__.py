@@ -124,10 +124,9 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
     builtins in the top-level namespace (as of Python 3.7), but e.g. methods
     of builtin types are not handled.
 
-    In a ``with curry`` block, ``unpythonic.fun.curry`` runs in a special mode
-    that no-ops on uninspectable functions instead of raising ``TypeError``
-    as usual. This special mode is enabled for the *dynamic extent* of the
-    ``with curry`` block.
+    Lexically inside a ``with curry`` block, the auto-curried function calls
+    will skip the curry if the function is uninspectable, instead of raising
+    ``TypeError`` as usual.
 
     Example::
 
@@ -147,8 +146,6 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
             assert mymap(double, ll(1, 2, 3)) == ll(2, 4, 6)
 
         # The definition was auto-curried, so this works here too.
-        # (Provided add3 contains no calls to uninspectable functions, since
-        #  we are now outside the dynamic extent of the ``with curry`` block.)
         assert add3(1)(2)(3) == 6
     """
     return _curry(block_body=tree)
@@ -719,36 +716,45 @@ def multilambda(tree, *, gen_sym, **kw):
 
 @macros.block
 def namedlambda(tree, **kw):
-    """[syntax, block] Implicitly named lambdas.
+    """[syntax, block] Name lambdas implicitly.
 
     Lexically inside a ``with namedlambda`` block, any literal ``lambda``
-    that is assigned to a name using a simple assignment of the form
-    ``f = lambda ...: ...``, is named as "f", where the name ``f``
-    is captured from the assignment statement at macro expansion time.
+    that is assigned to a name using one of the supported assignment forms
+    is named to have the name of the LHS of the assignment. The name is
+    captured at macro expansion time.
 
-    For capturing the name, the assignment must be of a single ``lambda`` value
-    to a single name; other forms of assignment are not supported. (This may be
-    subject to change in a future version.)
+    We support:
 
-    Additionally, during the dynamic extent of the ``with namedlambda`` block,
-    assigning a lambda to a name in an ``unpythonic.env`` instance will cause
-    that lambda to be named, capturing the name it is assigned to in the env.
-    This is performed at run time.
+        - Single-item assignments, ``f = lambda ...: ...``
 
-    Naming modifies the original function object (specifically, its ``__name__``
-    and ``__qualname__`` attributes). The name is set only once per object, so in::
+        - Assignments to unpythonic environments, ``f << (lambda ...: ...)``
+
+        - Let bindings, ``let[(f, (lambda ...: ...)) in ...]``, using any
+          let syntax supported by unpythonic (here using the haskelly let-in
+          just as an example).
+
+    Support for other forms of assignment might or might not be added in a
+    future version.
+
+    Naming modifies the original function object. The name is set only once per
+    object, so in::
 
         with namedlambda:
-            f = lambda x: x**3        # lexical rule: name as "f"
+            f = lambda x: x**3        # assignment: name as "f"
 
             let((x, 42), (g, None), (h, None))[[
-              g << (lambda x: x**2),  # dynamic rule: name as "g"
-              h << f,                 # no-rename rule: still "f"
+              g << (lambda x: x**2),  # env-assignment: name as "g"
+              h << f,                 # still "f" (no literal lambda on RHS)
               (g(x), h(x))]]
+
+            foo = let[(f7, lambda x: x) in f7]  # let-binding: name as "f7"
 
     the name of the first lambda will be set as ``f``, and it will remain as ``f``
     even after the name ``h`` is made to point to the same object inside the
     body of the ``let``.
+
+    The naming is performed using the function ``unpythonic.misc.namelambda``,
+    which will update ``__name__``, ``__qualname__`` and ``__code__.co_name``.
     """
     return (yield from _namedlambda(block_body=tree))
 
