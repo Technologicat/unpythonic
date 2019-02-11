@@ -37,16 +37,16 @@ def test():
 #        assert f(2) == 3
 
         def stuffinto(lst, x):
-            lst.append(x)  # uninspectable, currycall should no-op
+            lst.append(x)  # uninspectable, currycall should no-op and pass the given args through as-is
         lst = [1, 2, 3]
-        stuffinto(lst, 4)
+        stuffinto(lst)(4)
         assert lst == [1, 2, 3, 4]
 
-    # Outside the with block, autocurry is not active, but the function was
-    # defined inside the block, so it has implicit @curry.
+    # Outside the with block, autocurry for calls is not active, but the function
+    # was defined inside the block, so it has implicit @curry.
     assert add3(1)(2)(3) == 6
 
-    stuffinto(lst, 5)
+    stuffinto(lst)(5)
     assert lst == [1, 2, 3, 4, 5]
 
     # should not insert an extra @curry even if we curry manually
