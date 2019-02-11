@@ -41,4 +41,4 @@ def curry(block_body):
                 tree.args[0].body = transform.recurse(tree.args[0].body, hascurry=False)
         return tree
     newbody = transform.recurse(block_body, hascurry=False)
-    return sort_lambda_decorators(newbody)
+    yield sort_lambda_decorators(newbody)

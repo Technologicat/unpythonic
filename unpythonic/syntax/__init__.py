@@ -151,7 +151,7 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
         #  we are now outside the dynamic extent of the ``with curry`` block.)
         assert add3(1)(2)(3) == 6
     """
-    return _curry(block_body=tree)
+    return (yield from _curry(block_body=tree))
 
 # -----------------------------------------------------------------------------
 
@@ -750,7 +750,7 @@ def namedlambda(tree, **kw):
     even after the name ``h`` is made to point to the same object inside the
     body of the ``let``.
     """
-    return _namedlambda(block_body=tree)
+    return (yield from _namedlambda(block_body=tree))
 
 @macros.block
 def quicklambda(tree, **kw):

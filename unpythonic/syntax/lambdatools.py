@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 """Lambdas with multiple expressions, local variables, and a name."""
 
-from ast import Lambda, List, Name, Assign, With, withitem, Subscript, Call
+from ast import Lambda, List, Name, Assign, Subscript, Call
 
-from macropy.core.quotes import macros, u, ast_literal, name
+from macropy.core.quotes import macros, u, ast_literal
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 from macropy.quick_lambda import f, _  # _ for re-export only
 
-from ..dynassign import dyn
+#from ..dynassign import dyn
 from ..misc import namelambda
+from ..fun import orf
 
-from .letdo import do
-from .util import is_decorated_lambda, isx, make_isxpred
+from .letdo import do, isenvassign, envassign_name, envassign_value
+from .util import is_decorated_lambda, isx, make_isxpred, has_deco, destructure_decorated_lambda
 
 def multilambda(block_body):
     @Walker
@@ -49,43 +50,50 @@ def namedlambda(block_body):
     # Detect an autocurry from an already expanded "with curry".
     # CAUTION: These must match what unpythonic.syntax.curry.curry uses in its output.
     iscurrycall = make_isxpred("currycall")
-    iscurryf = make_isxpred("curryf")
+    iscurryf = orf(make_isxpred("curryf"), make_isxpred("curry"))  # auto or manual curry in a "with curry"
     def isautocurrywithfinallambda(tree):
         if not (type(tree) is Call and isx(tree.func, iscurrycall) and tree.args and \
                 type(tree.args[-1]) is Call and isx(tree.args[-1].func, iscurryf)):
             return False
         return type(tree.args[-1].args[-1]) is Lambda
 
+    def nameit(myname, tree):
+        match, thelambda = False, None
+        # for decorated lambdas, match any chain of one-argument calls.
+        d = is_decorated_lambda(tree, mode="any") and not has_deco(tree, "namelambda")
+        c = iscurrywithfinallambda(tree)
+        # this matches only during the second pass (after "with curry" has expanded)
+        # so it can't have namelambda already applied
+        if isautocurrywithfinallambda(tree):  # "currycall(..., curryf(lambda ...: ...))"
+            match = True
+            thelambda = tree.args[-1].args[-1]
+            tree.args[-1].args[-1] = hq[namelambda(u[myname])(ast_literal[thelambda])]
+        elif type(tree) is Lambda or d or c:
+            match = True
+            if d:
+                decorator_list, thelambda = destructure_decorated_lambda(tree)
+            elif c:
+                thelambda = tree.args[-1]
+            else:
+                thelambda = tree
+            tree = hq[namelambda(u[myname])(ast_literal[tree])]  # plonk it as outermost and hope for the best
+        return tree, thelambda, match
+
     @Walker
     def transform(tree, *, stop, **kw):
+        match = False
         if issingleassign(tree):
-            myname = tree.targets[0].id
-            # for decorated lambdas, match any chain of one-argument calls.
-            if type(tree.value) is Lambda or \
-               is_decorated_lambda(tree.value, mode="any") or \
-               iscurrywithfinallambda(tree.value):
-                stop()
-                thelambda = tree.value
-                tree.value = hq[namelambda(u[myname])(ast_literal[thelambda])]
-            elif isautocurrywithfinallambda(tree.value):
-                stop()
-                thelambda = tree.value.args[-1].args[-1]
-                tree.value.args[-1].args[-1] = hq[namelambda(u[myname])(ast_literal[thelambda])]
+            tree.value, thelambda, match = nameit(tree.targets[0].id, tree.value)
+        elif isenvassign(tree):
+            # TODO: make an EnvAssignView to fix the leaky abstraction
+            tree.right, thelambda, match = nameit(envassign_name(tree), envassign_value(tree))
+        if match:
+            stop()
+            thelambda.body = transform.recurse(thelambda.body)
         return tree
 
-    new_block_body = [transform.recurse(stmt) for stmt in block_body]
-
-#    # TODO: this syntax doesn't work due to missing line numbers?
-#    with q as wrapped:  # name lambdas also in env
-#        with dyn.let(env_namedlambda=True):
-#            ast_literal[newtree]
-#    return wrapped
-
-    # name lambdas also in env (enabled for the dynamic extent of the block)
-    item = hq[dyn.let(env_namedlambda=True)]
-    wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
-                   body=new_block_body)
-    return [wrapped]
+    newbody = yield [transform.recurse(stmt) for stmt in block_body]   # transform in unexpanded let[] forms
+    return [transform.recurse(stmt) for stmt in newbody]               # transform in expanded autocurry
 
 def quicklambda(block_body):
     def isquicklambda(tree):
