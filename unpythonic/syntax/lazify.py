@@ -11,48 +11,11 @@ from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
 from macropy.quick_lambda import macros, lazy
-from macropy.quick_lambda import Lazy
 
 from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, \
                   isx, make_isxpred, getname, is_decorator
 from .letdoutil import islet, isdo, ExpandedLetView
-from ..regutil import register_decorator
-from ..collections import mogrify
-
-@register_decorator(priority=95)
-def mark_lazy(f):
-    """Internal. Helps calling lazy functions from outside a ``with lazify`` block."""
-    f._lazy = True
-    return f
-
-def lazycall(_func, *thunks, **kwthunks):
-    """Internal. Helps calling strict functions from inside a ``with lazify`` block."""
-    if hasattr(_func, '_lazy'):
-        return _func(*thunks, **kwthunks)
-    return _func(*force(thunks), **force(kwthunks))
-
-# -----------------------------------------------------------------------------
-
-# Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
-def force1(x):
-    """Force a MacroPy lazy[] promise.
-
-    For a promise ``x``, the effect of ``force1(x)`` is the same as ``x()``,
-    except that ``force1 `` first checks that ``x`` is a promise.
-
-    If ``x`` is not a promise, it is returned as-is (à la Racket).
-    """
-    return x() if isinstance(x, Lazy) else x
-
-def force(x):
-    """Like force1, but recurse into containers.
-
-    This recurses on any containers with the appropriate ``collections.abc``
-    abstract base classes (virtuals ok too). Mutable containers are updated
-    in-place, for immutables a new instance is created. For details, see
-    ``unpythonic.collections.mogrify``.
-    """
-    return mogrify(force1, x)  # in-place update to allow lazy functions to have writable list arguments
+from ..lazyutil import mark_lazy, force, force1, lazycall
 
 # -----------------------------------------------------------------------------
 
@@ -243,7 +206,7 @@ def lazify(body):
                 pass  # ignore macro-introduced lambdas
             else:
                 stop()
-                tree.decorator_list = rec(tree.decorator_list)
+                #tree.decorator_list = rec(tree.decorator_list)
 
                 # mark this definition as lazy, and insert the interface wrapper
                 # to allow also strict code to call this function

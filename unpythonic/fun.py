@@ -24,6 +24,9 @@ from .fold import reducel
 from .dynassign import dyn, make_dynvar
 from .regutil import register_decorator
 
+# we use @mark_lazy (and handle possible lazy args) to support unpythonic.syntax.lazify.
+from .lazyutil import mark_lazy, islazy, force, force1, lazycall
+
 @register_decorator(priority=10)
 def memoize(f):
     """Decorator: memoize the function f.
@@ -44,7 +47,7 @@ def memoize(f):
         k = (args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
         if k not in memo:
             try:
-                result = (success, f(*args, **kwargs))
+                result = (success, lazycall(f, *args, **kwargs))
             except BaseException as err:
                 result = (fail, err)
             memo[k] = result  # should yell separately if k is not a valid key
@@ -52,6 +55,8 @@ def memoize(f):
         if kind is fail:
             raise value
         return value
+    if islazy(f):
+        memoized = mark_lazy(memoized)
     return memoized
 
 #def memoize_simple(f):  # essential idea, without exception handling
@@ -65,6 +70,7 @@ def memoize(f):
 #    return memoized
 
 make_dynvar(curry_context=[])
+@mark_lazy
 def _currycall(f, *args, **kwargs):
     """Co-operate with unpythonic.syntax.curry.
 
@@ -79,6 +85,7 @@ def _currycall(f, *args, **kwargs):
     return curry(f, *args, _curry_force_call=True, _curry_allow_uninspectable=True, **kwargs)
 
 @register_decorator(priority=90)
+@mark_lazy
 def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, **kwargs):
     """Decorator: curry the function f.
 
@@ -168,10 +175,11 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
         look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
         assert tuple(curry(look, 5, 10, range(20))) == tuple(range(5, 15))
     """
+    f = force(f)  # lazify support: we need the value of f
     # trivial case first: prevent stacking curried wrappers
     if iscurried(f):
         if args or kwargs or _curry_force_call:
-            return f(*args, **kwargs)
+            return lazycall(f, *args, **kwargs)
         return f
     # TODO: improve: all required name-only args should be present before calling f.
     # Difficult, partial() doesn't remove an already-set kwarg from the signature.
@@ -182,18 +190,22 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             raise
         # co-operate with unpythonic.syntax.curry; don't crash on builtins
         if args or kwargs or _curry_force_call:
-            return f(*args, **kwargs)
+            return lazycall(f, *args, **kwargs)
         return f
     @wraps(f)
     def curried(*args, **kwargs):
         outerctx = dyn.curry_context
         with dyn.let(curry_context=(outerctx + [f])):
             if len(args) < min_arity:
-                return curry(partial(f, *args, **kwargs))
+                p = partial(f, *args, **kwargs)
+                if islazy(f):
+                    p = mark_lazy(p)
+                return curry(p)
             # passthrough on right, like https://github.com/Technologicat/spicy
             if len(args) > max_arity:
                 now_args, later_args = args[:max_arity], args[max_arity:]
-                now_result = f(*now_args, **kwargs)  # use up all kwargs now
+                now_result = lazycall(f, *now_args, **kwargs)  # use up all kwargs now
+                now_result = force(now_result) if not isinstance(now_result, tuple) else force1(now_result)
                 if callable(now_result):
                     # curry it now, to sustain the chain in case we have
                     # too many (or too few) args for it.
@@ -208,11 +220,13 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                 if isinstance(now_result, tuple):
                     return now_result + later_args
                 return (now_result,) + later_args
-            return f(*args, **kwargs)
+            return lazycall(f, *args, **kwargs)
+    if islazy(f):
+        curried = mark_lazy(curried)
     curried._is_curried_function = True  # stash for detection
     # curry itself is curried: if we get args, they're the first step
     if args or kwargs or _curry_force_call:
-        return curried(*args, **kwargs)
+        return lazycall(curried, *args, **kwargs)
     return curried
 
 def iscurried(f):
@@ -232,7 +246,9 @@ def flip(f):
     """Decorator: flip (reverse) the positional arguments of f."""
     @wraps(f)
     def flipped(*args, **kwargs):
-        return f(*reversed(args), **kwargs)
+        return lazycall(f, *reversed(args), **kwargs)
+    if islazy(f):
+        flipped = mark_lazy(flipped)
     return flipped
 
 def rotate(k):
@@ -258,10 +274,13 @@ def rotate(k):
                 raise TypeError("Expected at least one argument")
             j = -k % n
             rargs = args[-j:] + args[:-j]
-            return f(*rargs, **kwargs)
+            return lazycall(f, *rargs, **kwargs)
+        if islazy(f):
+            rotated = mark_lazy(rotated)
         return rotated
     return rotate_k
 
+@mark_lazy
 def apply(f, arg0, *more, **kwargs):
     """Scheme/Racket-like apply.
 
@@ -277,13 +296,15 @@ def apply(f, arg0, *more, **kwargs):
 
     The ``**kwargs`` are passed to `f`, allowing to pass also named arguments.
     """
+    f = force(f)
     if not more:
         args, lst = (), tuple(arg0)
     else:
         args = (arg0,) + more[:-1]
         lst = tuple(more[-1])
-    return f(*(args + lst), **kwargs)
+    return lazycall(f, *(args + lst), **kwargs)
 
+@mark_lazy
 def identity(*args):
     """Identity function.
 
@@ -298,6 +319,8 @@ def identity(*args):
     """
     return args if len(args) > 1 else args[0]
 
+# In lazify, return values are always just values, so we have to force args
+# to compute the return value; as a shortcut, just don't mark this as lazy.
 def const(*args):
     """Constant function.
 
@@ -324,7 +347,9 @@ def notf(f):  # Racket: negate
         assert notf(lambda x: 2*x)(0) is True
     """
     def negated(*args, **kwargs):
-        return not f(*args, **kwargs)
+        return not lazycall(f, *args, **kwargs)
+    if islazy(f):
+        negated = mark_lazy(negated)
     return negated
 
 def andf(*fs):  # Racket: conjoin
@@ -345,10 +370,12 @@ def andf(*fs):  # Racket: conjoin
     def conjoined(*args, **kwargs):
         b = True
         for f in fs:
-            b = b and f(*args, **kwargs)
+            b = b and lazycall(f, *args, **kwargs)
             if not b:
                 return False
         return b
+    if all(islazy(f) for f in fs):
+        conjoined = mark_lazy(conjoined)
     return conjoined
 
 def orf(*fs):  # Racket: disjoin
@@ -371,15 +398,18 @@ def orf(*fs):  # Racket: disjoin
     def disjoined(*args, **kwargs):
         b = False
         for f in fs:
-            b = b or f(*args, **kwargs)
+            b = b or lazycall(f, *args, **kwargs)
             if b:
                 return b
         return False
+    if all(islazy(f) for f in fs):
+        disjoined = mark_lazy(disjoined)
     return disjoined
 
 def _make_compose1(direction):  # "left", "right"
     def compose1_two(f, g):
-        return lambda x: f(g(x))
+#        return lambda x: f(g(x))
+        return lambda x: lazycall(f, lazycall(g, x))
     if direction == "right":
         compose1_two = flip(compose1_two)
     def compose1(fs):
@@ -394,7 +424,10 @@ def _make_compose1(direction):  # "left", "right"
         # Using reducel is particularly nice here:
         #  - if fs is empty, we output None
         #  - if fs contains only one item, we output it as-is
-        return reducel(compose1_two, fs)  # op(elt, acc)
+        composed = reducel(compose1_two, fs)  # op(elt, acc)
+        if all(islazy(f) for f in fs):
+            composed = mark_lazy(composed)
+        return composed
     return compose1
 
 _compose1_left = _make_compose1("left")
@@ -442,18 +475,21 @@ def _make_compose(direction):  # "left", "right"
                 # to the function that is applied second.
                 bindings = {"curry_context": dyn.curry_context + [composed]}
             with dyn.let(**bindings):
-                a = g(*args)
+                a = lazycall(g, *args)
             # we could duck-test, but this is more predictable for the user
             # (consider chaining functions that manipulate a generator), and
             # tuple specifically is the pythonic multiple-return-values thing.
             if isinstance(a, tuple):
-                return f(*a)
-            return f(a)
+                return lazycall(f, *a)
+            return lazycall(f, a)
         return composed
     if direction == "right":
         compose_two = flip(compose_two)
     def compose(fs):
-        return reducel(compose_two, fs)  # op(elt, acc)
+        composed = reducel(compose_two, fs)  # op(elt, acc)
+        if all(islazy(f) for f in fs):
+            composed = mark_lazy(composed)
+        return composed
     return compose
 
 _compose_left = _make_compose("left")
@@ -531,10 +567,12 @@ def tokth(k, f):
         if n < m:
             raise TypeError("Expected at least {:d} arguments, got {:d}".format(m, n))
         out = list(args[:j])
-        out.append(f(args[j]))  # mth argument
+        out.append(lazycall(f, args[j]))  # mth argument
         if n > m:
             out.extend(args[m:])
         return tuple(out)
+    if islazy(f):
+        apply_f_to_kth_arg = mark_lazy(apply_f_to_kth_arg)
     return apply_f_to_kth_arg
 
 def to1st(f):
@@ -603,5 +641,8 @@ def withself(f):
     """
     @wraps(f)
     def fwithself(*args, **kwargs):
-        return f(fwithself, *args, **kwargs)
+        #return f(fwithself, *args, **kwargs)
+        return lazycall(f, fwithself, *args, **kwargs)  # support unpythonic.syntax.lazify
+    if islazy(f):
+        fwithself = mark_lazy(fwithself)
     return fwithself

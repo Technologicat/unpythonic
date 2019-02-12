@@ -9,7 +9,6 @@ __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
 
 from collections import namedtuple
 from .env import env
-from .misc import call
 from .fun import curry, iscurried
 from .dynassign import dyn
 from .arity import arity_includes, UnknownArity
@@ -137,12 +136,12 @@ def pipe1(value0, *bodys):
         x = update(x)
     return x
 
-@call  # make a singleton
 class getvalue:  # sentinel with a nice repr
     """Sentinel; pipe into this to exit a shell-like pipe and return the current value."""
     def __repr__(self):
         return "<sentinel for pipe exit>"
-runpipe = getvalue  # same thing, but semantically better name for lazy pipes
+getvalue = getvalue()  # singleton
+runpipe = getvalue  # same thing as getvalue, but semantically better name for lazy pipes
 
 class piped1:
     """Shell-like piping syntax.

@@ -32,3 +32,8 @@ from .llist import *
 from .misc import *
 from .seq import *
 from .tco import *
+
+# HACK: break dependency loop
+from .lazyutil import _init_module
+_init_module()
+del _init_module

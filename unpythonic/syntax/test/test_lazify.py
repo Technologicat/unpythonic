@@ -5,8 +5,12 @@ from ...misc import raisef
 from ...it import flatten
 from ...collections import frozendict
 
-from ...syntax import macros, lazify, lazyrec, let, letseq, letrec
+from ...syntax import macros, lazify, lazyrec, let, letseq, letrec, curry
 from ...syntax import force
+
+# doesn't really override the earlier curry import, the first one went into MacroPy's macro registry
+from ...fun import curry
+from ...misc import call, callwith
 
 from macropy.quick_lambda import macros, lazy
 from macropy.quick_lambda import Lazy  # usually not needed in client code; for our tests only
@@ -282,5 +286,40 @@ def test():
 
         # letrec injects lambdas into its bindings, so test it too.
         assert letrec[((c, 42), (d, e)) in f(c, d)] == 42
+
+    # functions that shuffle around calls
+    with lazify:
+        @curry
+        def add2first(a, b, c):
+            return a + b
+        assert add2first(2)(3)(1/0) == 5
+
+        assert call(add2first, 2)(3)(1/0) == 5
+        assert call(add2first, 2)(3, 1/0) == 5
+        assert call(add2first, 2, 3)(1/0) == 5
+
+        assert (callwith(2)(add2first))(3, 1/0) == 5
+        assert (callwith(2)(add2first))(3)(1/0) == 5
+        assert (callwith(2, 3)(add2first))(1/0) == 5
+
+    # introducing the HasThon programming language (it has 100% more Thon than popular brands)
+#    with curry, lazify:
+    with lazify:
+      with curry:
+        def add3(a, b, c):
+            return a + b + c
+        assert add3(1)(2)(3) == 6
+
+        def add2first(a, b, c):
+            return a + b
+        assert add2first(2)(3)(1/0) == 5
+
+#        # TODO: this doesn't yet work; what's the best approach here?
+#        #  - take a page from namedlambda, and work with let[] in the first pass, before they expand away?
+#        #    (curry is a pass-2 macro, so it hasn't yet been applied at that point; simplifies things)
+#        #  - detect currycall(letter, ...) as an expanded let form? (overly complicated)
+#        def f(a, b):
+#            return a
+#        assert let[((c, 42), (d, 1/0)) in f(c)(d)] == 42
 
     print("All tests PASSED")

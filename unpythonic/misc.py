@@ -8,6 +8,7 @@ import re
 from time import time
 
 from .regutil import register_decorator
+from .lazyutil import mark_lazy, lazycall, force
 
 # Only the single-argument form (just f) is supported by unpythonic.syntax.util.sort_lambda_decorators.
 #
@@ -15,6 +16,7 @@ from .regutil import register_decorator
 # to the decorator API, but is a normal function call. See "callwith" if you need to
 # pass arguments and then call f from a decorator position.
 @register_decorator(priority=80)
+@mark_lazy
 def call(f, *args, **kwargs):
     """Call the function f.
 
@@ -81,9 +83,11 @@ def call(f, *args, **kwargs):
     Note that in the multi-break case, ``x`` and ``y`` are no longer in scope
     outside the block, since the block is a function.
     """
-    return f(*args, **kwargs)
+#    return f(*args, **kwargs)
+    return lazycall(force(f), *args, **kwargs)  # support unpythonic.syntax.lazify
 
 @register_decorator(priority=80)
+@mark_lazy
 def callwith(*args, **kwargs):
     """Freeze arguments, choose function later.
 
@@ -180,7 +184,7 @@ def callwith(*args, **kwargs):
         http://learnyouahaskell.com/higher-order-functions
     """
     def applyfrozenargsto(f):
-        return f(*args, **kwargs)
+        return lazycall(force(f), *args, **kwargs)
     return applyfrozenargsto
 
 def raisef(exctype, *args, **kwargs):

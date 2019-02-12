@@ -98,7 +98,7 @@ def mogrify(func, container):
         elif isinstance(x, Mapping):
             ctor = type(x)
             return ctor({k: doit(v) for k, v in x.items()})
-        elif isinstance(x, Sequence) and not isinstance(x, str):
+        elif isinstance(x, Sequence) and not isinstance(x, (str, bytes, range)):
             # namedtuple support (nonstandard constructor for a Sequence!)
             cls = type(x)
             ctor = cls._make if hasattr(cls, "_make") else cls
