@@ -1660,22 +1660,15 @@ def lazify(tree, *, gen_sym, **kw):
 
     Inspired by Haskell, and Racket's (delay) and (force).
 
-    **CAUTION**: Argument passing by function call is currently the only binding
-    construct to which auto-lazification is applied.
-
     **CAUTION**: Call-by-need is a low-level language feature that is difficult
-    to bolt on after the fact; especially since the resulting language is not
-    uniformly so. Hence, some things will not work. For example:
+    to bolt on after the fact. Some things might not work.
 
-        - Lazy ``curry`` is currently **not** supported. Making ``curry`` work
-          properly with lazy functions requires modifying ``curry`` itself.
+    **CAUTION**: The functions in ``unpythonic.fun`` are lazify-aware (so that
+    e.g. curry and compose work with lazy functions), as are ``call`` and
+    ``callwith`` in ``unpythonic.misc``, but the rest of ``unpythonic`` is not.
 
-        - ``call``, ``callwith`` and ``compose`` are not supported. (Similarly.)
-
-        - Interaction with other macros is limited to ``let[]`` and ``do[]``.
-          Intuition says this should be expanded **after** ``continuations``,
-          if you want to try comboing them. But that's untested, and likely to
-          remain so at least for a while.
+    **CAUTION**: Argument passing by function call, and let-bindings are
+    currently the only binding constructs to which auto-lazification is applied.
 
     **CAUTION**: This macro is experimental, not intended for production use.
     """
