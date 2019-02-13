@@ -1373,12 +1373,28 @@ If some particular combo doesn't work and it's not at least documented as such, 
 For the christmas tree combo, the block macros are designed to run in the following order (leftmost first):
 
 ```
-prefix > autoreturn, quicklambda > multilambda > continuations, tco > curry > namedlambda
+prefix > autoreturn, quicklambda > multilambda > continuations or tco > curry > namedlambda > lazify
 ```
 
 The ``let_syntax`` block may be placed anywhere in the chain; just keep in mind what it does.
 
 For simplicity, **the block macros make no attempt to prevent invalid combos**. Be careful; e.g. don't nest several ``with tco`` blocks, that won't work.
+
+Example combo in the single-line format:
+
+```python
+with autoreturn, tco, lazify:
+    ...
+```
+
+In the multiline format:
+
+```python
+with lazify:
+  with tco:
+    with autoreturn:
+      ...
+```
 
 Other things to note:
 
@@ -1413,7 +1429,9 @@ Other things to note:
        - The problem with a direct combo is that the required ordering is the trampoline (inside ``looped``) outermost, then ``call_ec``, and then the actual loop, but because an escape continuation is only valid for the dynamic extent of the ``call_ec``, the whole loop must be run inside the dynamic extent of the ``call_ec``.
        - ``unpythonic.fploop.breakably_looped`` internally inserts the ``call_ec`` at the right step, and gives you the ec as ``brk``.
 
- - ``namedlambda`` comes last so that its detection for a curried function call with a lambda as the last argument works also with automatic currying (i.e. inside a ``with curry`` block).
+ - ``namedlambda`` is a two-pass macro. In the first pass (outside-in), it names lambdas inside ``let[]`` expressions. It must be placed after ``curry`` to analyze, in the second pass (inside-out), the auto-curried code produced by ``with curry``.
+
+ - ``lazify`` is a rather invasive rewrite that needs to see the output from the other macros, including ``curry``.
 
  - Some of the block macros can be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``curry``) require their own ``with`` statement.
    - This is a [known issue in MacroPy](https://github.com/azazel75/macropy/issues/21). I have made a [fix](https://github.com/azazel75/macropy/pull/22), but still need to make proper test cases to get it merged.
