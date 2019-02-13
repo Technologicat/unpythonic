@@ -9,7 +9,7 @@ from ...syntax import macros, lazify, lazyrec, let, letseq, letrec, curry
 from ...syntax import force
 
 # doesn't really override the earlier curry import, the first one went into MacroPy's macro registry
-from ...fun import curry
+from ...fun import curry, memoize, flip, rotate, apply
 from ...misc import call, callwith
 
 from macropy.quick_lambda import macros, lazy
@@ -287,7 +287,7 @@ def test():
         # letrec injects lambdas into its bindings, so test it too.
         assert letrec[((c, 42), (d, e)) in f(c, d)] == 42
 
-    # functions that shuffle around calls
+    # various higher-order functions, mostly from unpythonic.fun
     with lazify:
         @curry
         def add2first(a, b, c):
@@ -301,6 +301,26 @@ def test():
         assert (callwith(2)(add2first))(3, 1/0) == 5
         assert (callwith(2)(add2first))(3)(1/0) == 5
         assert (callwith(2, 3)(add2first))(1/0) == 5
+
+        @memoize
+        def add2first(a, b, c):
+            return a + b
+        assert add2first(2, 3, 1/0) == 5
+        assert add2first(2, 3, 1/0) == 5  # from memo
+
+        @flip
+        def add2last(a, b, c):
+            return a + b
+        assert add2last(1/0, 2, 3) == 5
+
+        @rotate(1)
+        def derp(a, b, c):
+            return (c, a)
+        assert derp(1, 2, 3/0) == (1, 2)
+
+        assert apply(derp, (1, 2, 3/0)) == (1, 2)
+        assert apply(derp, 1, (2, 3/0)) == (1, 2)
+        assert apply(derp, 1, 2, (3/0,)) == (1, 2)
 
     # introducing the HasThon programming language (it has 100% more Thon than popular brands)
 #    with curry, lazify:
