@@ -206,7 +206,7 @@ def lazify(body):
                 pass  # ignore macro-introduced lambdas
             else:
                 stop()
-                #tree.decorator_list = rec(tree.decorator_list)
+                tree.decorator_list = rec(tree.decorator_list)
 
                 # mark this definition as lazy, and insert the interface wrapper
                 # to allow also strict code to call this function
