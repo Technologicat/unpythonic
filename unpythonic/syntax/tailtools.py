@@ -587,6 +587,7 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
         #       that has already expanded.
         if islet(tree):
             view = ExpandedLetView(tree)
+            assert view.body, "BUG: what's this, a decorator inside a lambda?"
             thelambda = view.body  # lambda e: ...
             thelambda.body = transform(thelambda.body)
         elif isdo(tree):

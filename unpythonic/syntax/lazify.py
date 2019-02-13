@@ -252,8 +252,9 @@ def lazify(body):
                     for b in view.bindings.elts:  # b = (name, (lambda e: ...))
                         thelambda = b.elts[1]
                         thelambda.body = transform_arg(thelambda.body)
-                thelambda = view.body
-                thelambda.body = rec(thelambda.body)
+                if view.body:  # let decorators have no body inside the Call node
+                    thelambda = view.body
+                    thelambda.body = rec(thelambda.body)
             # namelambda() is used by let[] and do[]
             # Lazy() is a strict function, takes a lambda, constructs a Lazy object
             elif isdo(tree) or is_decorator(tree.func, "namelambda") or \
