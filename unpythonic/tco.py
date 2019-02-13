@@ -131,9 +131,12 @@ from functools import wraps
 from sys import stderr
 
 from .regutil import register_decorator
-from .lazyutil import islazy, mark_lazy, force, lazycall
+from .lazyutil import islazy, mark_lazy, lazycall
+from .dynassign import dyn
 
-@mark_lazy
+# In principle, jump should have @mark_lazy, but for performance reasons
+# it doesn't. "force(target)" is slow, so strict code shouldn't have to do that.
+# This is handled by a special case in lazycall.
 def jump(target, *args, **kwargs):
     """A jump (noun, not verb).
 
@@ -151,7 +154,7 @@ def jump(target, *args, **kwargs):
         **kwargs:
             Named arguments to be passed to  `target`.
     """
-    return _jump(force(target), args, kwargs)
+    return _jump(target, args, kwargs)
 
 class _jump:
     """The actual class representing a jump.
@@ -234,35 +237,63 @@ def trampolined(function):
     to perform optimized tail calls. (*Optimized* in the sense of not
     increasing the call stack depth, not for speed.)
     """
-    @wraps(function)
-    def trampoline(*args, **kwargs):
-        f = function
-        while True:
-            if callable(f):  # general case
-                v = lazycall(f, *args, **kwargs)
-            else:  # inert-data return value from call_ec or similar
-                v = f
-            if isinstance(v, _jump):
-                f = v.target
-                if not callable(f):  # protect against jump() to inert data from call_ec or similar
-                    raise RuntimeError("Cannot jump into a non-callable value '{}'".format(f))
-                args = v.args
-                kwargs = v.kwargs
-                v._claimed = True
-            else:  # final result, exit trampoline
-                return v
-    # Work together with call_ec and other do-it-now decorators.
-    #
-    # The function has already been replaced by its return value. E.g. call_ec
-    # must work that way, because the ec is only valid during the dynamic extent
-    # of the call_ec. OTOH, the trampoline must be **outside**, to be able to
-    # catch a jump() from the result of the call_ec. So we treat a non-callable
-    # "function" as an inert-data return value.
-    if callable(function):
-        # fortunately functions in Python are just objects; stash for jump constructor
-        trampoline._entrypoint = function
-        if islazy(function):
-            trampoline = mark_lazy(trampoline)
-        return trampoline
-    else:  # return value from call_ec or similar do-it-now decorator
-        return trampoline()
+    if not dyn._build_lazy_trampoline:
+        # building a trampoline for regular strict code
+        @wraps(function)
+        def trampoline(*args, **kwargs):
+            f = function
+            while True:
+                if callable(f):  # general case
+                    v = f(*args, **kwargs)
+                else:  # inert-data return value from call_ec or similar
+                    v = f
+                if isinstance(v, _jump):
+                    f = v.target
+                    if not callable(f):  # protect against jump() to inert data from call_ec or similar
+                        raise RuntimeError("Cannot jump into a non-callable value '{}'".format(f))
+                    args = v.args
+                    kwargs = v.kwargs
+                    v._claimed = True
+                else:  # final result, exit trampoline
+                    return v
+        # Work together with call_ec and other do-it-now decorators.
+        #
+        # The function has already been replaced by its return value. E.g. call_ec
+        # must work that way, because the ec is only valid during the dynamic extent
+        # of the call_ec. OTOH, the trampoline must be **outside**, to be able to
+        # catch a jump() from the result of the call_ec. So we treat a non-callable
+        # "function" as an inert-data return value.
+        if callable(function):
+            # fortunately functions in Python are just objects; stash for jump constructor
+            trampoline._entrypoint = function
+            return trampoline
+        else:  # return value from call_ec or similar do-it-now decorator
+            return trampoline()
+    else:
+        # Exact same code as above, except has the lazify-aware stuff.
+        # This is to avoid a drastic (~10x) performance hit in trampolines
+        # built for regular strict code.
+        @wraps(function)
+        def trampoline(*args, **kwargs):
+            f = function
+            while True:
+                if callable(f):
+                    v = lazycall(f, *args, **kwargs)  # <-- this causes the performance hit
+                else:
+                    v = f
+                if isinstance(v, _jump):
+                    f = v.target
+                    if not callable(f):
+                        raise RuntimeError("Cannot jump into a non-callable value '{}'".format(f))
+                    args = v.args
+                    kwargs = v.kwargs
+                    v._claimed = True
+                else:  # final result, exit trampoline
+                    return v
+        if callable(function):
+            trampoline._entrypoint = function
+            if islazy(function):                    # <--
+                trampoline = mark_lazy(trampoline)  # <--
+            return trampoline
+        else:
+            return trampoline()

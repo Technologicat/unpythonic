@@ -3,7 +3,7 @@
 
 from ast import Lambda, FunctionDef, Call, Name, Attribute, \
                 Starred, keyword, List, Tuple, Dict, Set, \
-                Subscript, Load
+                Subscript, Load, With, withitem
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, ast_literal
@@ -16,6 +16,7 @@ from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda
                   isx, make_isxpred, getname, is_decorator
 from .letdoutil import islet, isdo, ExpandedLetView
 from ..lazyutil import mark_lazy, force, force1, lazycall
+from ..dynassign import dyn
 
 # -----------------------------------------------------------------------------
 
@@ -349,6 +350,52 @@ def lazify(body):
     newbody = []
     for stmt in body:
         newbody.append(transform.recurse(stmt, forcing_mode="full"))
-    return newbody
+
+    # Pay-as-you-go: to avoid a drastic performance hit (~10x) in trampolines
+    # built by unpythonic.tco.trampolined for regular strict code, a special mode
+    # must be enabled to build lazify-aware trampolines.
+    #
+    # The idea is that the mode is enabled while any function definitions in the
+    # "with lazify" block run, so they get a lazify-aware trampoline.
+    # This should be determined lexically, but that's complicated to do API-wise,
+    # so we currently enable the mode for the dynamic extent of the "with lazify".
+    # Usually this is close enough; the main case where this can behave
+    # unexpectedly is::
+    #
+    #     @trampolined  # strict trampoline
+    #     def g():
+    #         ...
+    #
+    #     def make_f():
+    #         @trampolined  # which kind of trampoline is this?
+    #         def f():
+    #             ...
+    #         return f
+    #
+    #     f1 = make_f()  # f1 gets the strict trampoline
+    #
+    #     with lazify:
+    #         @trampolined  # lazify-aware trampoline
+    #         def h():
+    #             ...
+    #
+    #         f2 = make_f()  # f2 gets the lazify-aware trampoline
+    #
+    # TCO chains with an arbitrary mix of lazy and strict functions should work
+    # as long as the first function in the chain has a lazify-aware trampoline
+    # (because the chain runs under the trampoline of the first function).
+    #
+    # Tail-calling from a strict function into a lazy function should work, because
+    # all arguments are evaluated at the strict side before the call is made.
+    #
+    # But tail-calling strict -> lazy -> strict will fail in some cases.
+    # The second strict callee may get promises instead of values, because the
+    # strict trampoline does not have the lazycall (that usually forces the args
+    # when lazy code calls into strict code).
+    item = hq[dyn.let(_build_lazy_trampoline=True)]
+    wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
+                   body=newbody,
+                   lineno=body[0].lineno, col_offset=body[0].col_offset)
+    return [wrapped]
 
 # -----------------------------------------------------------------------------

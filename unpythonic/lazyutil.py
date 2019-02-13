@@ -8,19 +8,24 @@ upon which other regular code is allowed to depend.
 __all__ = ["mark_lazy", "lazycall", "force1", "force"]
 
 from .regutil import register_decorator
+from .dynassign import make_dynvar
 
 # HACK: break dependency loop llist -> fun -> lazyutil -> collections -> llist
 #from .collections import mogrify
 _init_done = False
+jump = object()  # gensym, nothing else "is" this
 def _init_module():  # called by unpythonic.__init__ when otherwise done
-    global mogrify, _init_done
+    global mogrify, jump, _init_done
     from .collections import mogrify
+    from .tco import jump
     _init_done = True
 
 try:  # MacroPy is optional for unpythonic
     from macropy.quick_lambda import Lazy
 except ImportError:
     Lazy = type()
+
+make_dynvar(_build_lazy_trampoline=False)  # interaction with TCO
 
 # -----------------------------------------------------------------------------
 
@@ -37,6 +42,9 @@ def islazy(f):
 
 def lazycall(f, *thunks, **kwthunks):
     """Internal. Helps calling strict functions from inside a ``with lazify`` block."""
+    if f is jump:  # special case to avoid drastic performance hit in strict code
+        target, *argthunks = thunks
+        return jump(force(target), *argthunks, **kwthunks)
     if islazy(f):
         return f(*thunks, **kwthunks)
     return f(*force(thunks), **force(kwthunks))
