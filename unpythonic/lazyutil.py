@@ -32,7 +32,7 @@ def mark_lazy(f):
 
 def islazy(f):
     """Internal. Return whether the function f is marked as lazy."""
-    # special-case the expanded let form to support the lazify/curry combo
+    # special-case "_let" for lazify/curry combo when let[] expressions are present
     return hasattr(f, "_lazy") or (hasattr(f, "__name__") and f.__name__ == "_let")
 
 def lazycall(f, *thunks, **kwthunks):

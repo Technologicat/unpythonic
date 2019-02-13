@@ -304,7 +304,8 @@ def apply(f, arg0, *more, **kwargs):
         lst = tuple(more[-1])
     return lazycall(f, *(args + lst), **kwargs)
 
-@mark_lazy
+# Not marking this as lazy-aware works better with continuations (since this
+# is the default cont, and return values should be values, not lazy[])
 def identity(*args):
     """Identity function.
 

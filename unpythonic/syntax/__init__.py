@@ -1669,8 +1669,6 @@ def lazify(tree, *, gen_sym, **kw):
 
     **CAUTION**: Argument passing by function call, and let-bindings are
     currently the only binding constructs to which auto-lazification is applied.
-
-    **CAUTION**: This macro is experimental, not intended for production use.
     """
     with dyn.let(gen_sym=gen_sym):
         return (yield from _lazify(body=tree))

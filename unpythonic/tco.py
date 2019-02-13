@@ -131,7 +131,9 @@ from functools import wraps
 from sys import stderr
 
 from .regutil import register_decorator
+from .lazyutil import islazy, mark_lazy, force, lazycall
 
+@mark_lazy
 def jump(target, *args, **kwargs):
     """A jump (noun, not verb).
 
@@ -149,7 +151,7 @@ def jump(target, *args, **kwargs):
         **kwargs:
             Named arguments to be passed to  `target`.
     """
-    return _jump(target, args, kwargs)
+    return _jump(force(target), args, kwargs)
 
 class _jump:
     """The actual class representing a jump.
@@ -237,7 +239,7 @@ def trampolined(function):
         f = function
         while True:
             if callable(f):  # general case
-                v = f(*args, **kwargs)
+                v = lazycall(f, *args, **kwargs)
             else:  # inert-data return value from call_ec or similar
                 v = f
             if isinstance(v, _jump):
@@ -259,6 +261,8 @@ def trampolined(function):
     if callable(function):
         # fortunately functions in Python are just objects; stash for jump constructor
         trampoline._entrypoint = function
+        if islazy(function):
+            trampoline = mark_lazy(trampoline)
         return trampoline
     else:  # return value from call_ec or similar do-it-now decorator
         return trampoline()

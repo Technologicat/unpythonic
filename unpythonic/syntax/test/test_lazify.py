@@ -5,7 +5,8 @@ from ...misc import raisef
 from ...it import flatten
 from ...collections import frozendict
 
-from ...syntax import macros, lazify, lazyrec, let, letseq, letrec, curry, local
+from ...syntax import macros, lazify, lazyrec, let, letseq, letrec, curry, local, \
+                              continuations, call_cc
 from ...syntax import force
 
 # doesn't really override the earlier curry import, the first one went into MacroPy's macro registry
@@ -323,9 +324,8 @@ def test():
         assert apply(derp, 1, 2, (3/0,)) == (1, 2)
 
     # introducing the HasThon programming language (it has 100% more Thon than popular brands)
-#    with curry, lazify:
-    with lazify:
-      with curry:
+    # If you want a continuation-enabled HasThon, use "with continuations, curry, lazify".
+    with curry, lazify:
         def add3(a, b, c):
             return a + b + c
         assert add3(1)(2)(3) == 6
@@ -341,5 +341,33 @@ def test():
 
         assert letrec[((c, 42), (d, 1/0), (e, 2*c)) in [local[x << f(e)(d)],
                                                         x/2]] == 42
+
+    # works also with continuations
+    #  - also conts are transformed into lazy functions
+    #  - cc built by chain_conts is treated as lazy, **itself**; then it's up to
+    #    the continuations chained by it to decide whether to force their args.
+    #  - the default cont ``identity`` is strict, so it will force return values
+    with continuations, lazify:
+        k = None
+        def setk(*args, cc):
+            nonlocal k
+            k = cc
+            return args[0]
+        def doit():
+            lst = ['the call returned']
+            *more, = call_cc[setk('A', 1/0)]  # <-- this 1/0 goes into setk's args
+            return lst + [more[0]]
+        assert doit() == ['the call returned', 'A']
+        # We can now send stuff into k, as long as it conforms to the
+        # signature of the assignment targets of the "call_cc".
+        assert k('again') == ['the call returned', 'again']
+        # beware; if the cont tries to read the 1/0, that will lead to lots of
+        # head-scratching, as the error will appear to come from this line
+        # with no further debug info. (That's a limitation of the CPS conversion
+        # technique combined with Python's insistence that there must be a line
+        # and column in the original source file where the error occurred.)
+        #
+        # this 1/0 is sent directly into "more", as the call_cc returns again
+        assert k('thrice', 1/0) == ['the call returned', 'thrice']
 
     print("All tests PASSED")
