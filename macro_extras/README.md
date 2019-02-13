@@ -29,7 +29,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [**Language features**](#language-features)
    - [``curry``: automatic currying for Python](#curry-automatic-currying-for-python)
    - [``lazify``: call-by-need for Python](#lazify-call-by-need-for-python)
-   - [``tco``: automatic tail call optimization for Python](#tco-automatic-tail-call-optimization)
+   - [``tco``: automatic tail call optimization for Python](#tco-automatic-tail-call-optimization-for-python)
      - [TCO and continuations](#tco-and-continuations)
    - [``continuations``: call/cc for Python](#continuations-callcc-for-python)
      - [Differences between ``call/cc`` and certain other language features](#differences-between-callcc-and-certain-other-language-features) (generators, exceptions)
