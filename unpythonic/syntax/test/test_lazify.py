@@ -5,7 +5,7 @@ from ...misc import raisef
 from ...it import flatten
 from ...collections import frozendict
 
-from ...syntax import macros, lazify, lazyrec, let, letseq, letrec, curry
+from ...syntax import macros, lazify, lazyrec, let, letseq, letrec, curry, local
 from ...syntax import force
 
 # doesn't really override the earlier curry import, the first one went into MacroPy's macro registry
@@ -334,12 +334,12 @@ def test():
             return a + b
         assert add2first(2)(3)(1/0) == 5
 
-#        # TODO: this doesn't yet work; what's the best approach here?
-#        #  - take a page from namedlambda, and work with let[] in the first pass, before they expand away?
-#        #    (curry is a pass-2 macro, so it hasn't yet been applied at that point; simplifies things)
-#        #  - detect currycall(letter, ...) as an expanded let form? (overly complicated)
-#        def f(a, b):
-#            return a
-#        assert let[((c, 42), (d, 1/0)) in f(c)(d)] == 42
+        def f(a, b):
+            return a
+        assert let[((c, 42), (d, 1/0)) in f(c)(d)] == 42
+        assert letrec[((c, 42), (d, 1/0), (e, 2*c)) in f(e)(d)] == 84
+
+        assert letrec[((c, 42), (d, 1/0), (e, 2*c)) in [local[x << f(e)(d)],
+                                                        x/2]] == 42
 
     print("All tests PASSED")

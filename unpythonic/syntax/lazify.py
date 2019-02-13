@@ -159,8 +159,6 @@ def is_literal_container(tree, maps_only=False):
 #   - don't lazify "for", the loop counter changes value imperatively (and usually rather rapidly)
 # full list: see unpythonic.syntax.scoping.get_names_in_store_context (and the link therein)
 
-# TODO: support curry, call, callwith (needs changes to their implementations, too)
-
 def lazify(body):
     # first pass, outside-in
     userlambdas = detect_lambda.collect(body)
@@ -250,12 +248,11 @@ def lazify(body):
                     for b in view.bindings.elts:  # b = (name, value)
                         b.elts[1] = transform_arg(b.elts[1])
                 else: # view.mode == "letrec":
-                    for b in view.bindings.elts:  # b = (name, namelambda("letrec_bindingXXX_YYY")(lambda e: ...))
-                        thelambda = b.elts[1].args[0]
+                    for b in view.bindings.elts:  # b = (name, (lambda e: ...))
+                        thelambda = b.elts[1]
                         thelambda.body = transform_arg(thelambda.body)
-                thelambda = view.body.args[0]
+                thelambda = view.body
                 thelambda.body = rec(thelambda.body)
-            # For some important functions known to be strict, just recurse
             # namelambda() is used by let[] and do[]
             # Lazy() is a strict function, takes a lambda, constructs a Lazy object
             elif isdo(tree) or is_decorator(tree.func, "namelambda") or \

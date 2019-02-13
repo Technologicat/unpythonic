@@ -11,12 +11,7 @@ from .regutil import register_decorator
 
 # HACK: break dependency loop llist -> fun -> lazyutil -> collections -> llist
 #from .collections import mogrify
-def _make_init_error_reporter(fname):
-    def init_error_reporter(*args, **kwargs):
-        raise RuntimeError("Module must be initialized by _init_module before using '{}'".format(fname))
-    return init_error_reporter
 _init_done = False
-mogrify = _make_init_error_reporter("mogrify")
 def _init_module():  # called by unpythonic.__init__ when otherwise done
     global mogrify, _init_done
     from .collections import mogrify
@@ -37,7 +32,8 @@ def mark_lazy(f):
 
 def islazy(f):
     """Internal. Return whether the function f is marked as lazy."""
-    return hasattr(f, "_lazy")
+    # special-case the expanded let form to support the lazify/curry combo
+    return hasattr(f, "_lazy") or (hasattr(f, "__name__") and f.__name__ == "_let")
 
 def lazycall(f, *thunks, **kwthunks):
     """Internal. Helps calling strict functions from inside a ``with lazify`` block."""
