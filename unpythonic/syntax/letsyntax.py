@@ -112,7 +112,10 @@ def let_syntax_block(block_body):
             register_binding(stmt, *binding_data)
         else:
             new_block_body.append(stmt)
-    return eliminate_ifones(new_block_body)
+    new_block_body = eliminate_ifones(new_block_body)
+    if not new_block_body:
+        assert False, "let_syntax: expected at least one statement beside definitions"
+    return new_block_body
 
 class block:
     """[syntax] Magic identifier for ``with block:`` inside a ``with let_syntax:``."""
