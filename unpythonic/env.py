@@ -41,7 +41,7 @@ class env:
         with env(s="hello", orange="fruit", answer=42) as e:
             ...  # ...code that uses e...
 
-    When the `with` block exits, `e` forgets all its bindings. The ``e``
+    When the `with` block exits, ``e`` forgets all its bindings. The ``e``
     instance itself will remain alive due to Python's scoping rules.
     """
     # do not allow bindings that would break functionality.
