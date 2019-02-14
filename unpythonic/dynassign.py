@@ -92,7 +92,7 @@ class _Env(object):
     https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python
     """
     def __getattr__(self, name):
-        # Essentially, _asdict() and look up, but without creating the ChainMap every time.
+        # Essentially asdict() and look up, but without creating the ChainMap every time.
         for scope in reversed(_getstack()):
             if name in scope:
                 return scope[name]
@@ -121,19 +121,24 @@ class _Env(object):
             return False
 
     # iteration
-    def _asdict(self):
+    def asdict(self):
+        """Return a view as a collections.ChainMap.
+
+        Note it will not detect any new scopes (or when old ones exit), because
+        the list of mappings the view uses is baked in when ``asdict()`` is called.
+        """
         return ChainMap(*(list(reversed(_getstack())) + [_global_dynvars]))
 
     def __iter__(self):
-        return iter(self._asdict())
+        return iter(self.asdict())
     # no __next__, iterating over dict.
 
     def items(self):
-        """Like dict.items(), but a snapshot (won't reflect later changes)."""
-        return self._asdict().items()
+        """Abbreviation for asdict().items()."""
+        return self.asdict().items()
 
     def __len__(self):
-        return len(self._asdict())
+        return len(self.asdict())
 
     # subscripting
     def __getitem__(self, k):
