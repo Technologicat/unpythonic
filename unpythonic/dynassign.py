@@ -31,15 +31,30 @@ def _getstack():
         _L._stack = _L.default_stack.copy()  # copy main thread's current stack
     return _L._stack
 
+_observers = {}
 class _EnvBlock(object):
     def __init__(self, bindings):
         self.bindings = bindings
     def __enter__(self):
         if self.bindings:  # optimization, skip pushing an empty scope
             _getstack().append(self.bindings)
+            for o in _observers.values():
+                o._refresh()
     def __exit__(self, t, v, tb):
         if self.bindings:
             _getstack().pop()
+            for o in _observers.values():
+                o._refresh()
+
+class _DynLiveView(ChainMap):
+    def __init__(self):
+        super().__init__(self)
+        self._refresh()
+        _observers[id(self)] = self
+    def __del__(self):
+        del _observers[id(self)]
+    def _refresh(self):
+        self.maps = list(reversed(_getstack())) + [_global_dynvars]
 
 class _Env(object):
     """This module exports a single object instance, ``dyn``, which provides
@@ -87,7 +102,7 @@ class _Env(object):
 
         main()
 
-    Based on StackOverflow answer by Jason Orendorff (2010).
+    Initial version of this was based on a StackOverflow answer by Jason Orendorff (2010).
 
     https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python
     """
@@ -122,20 +137,20 @@ class _Env(object):
 
     # iteration
     def asdict(self):
-        """Return a view as a collections.ChainMap.
+        """Return a view of dyn as a ``collections.ChainMap``.
 
-        Note it will not detect any new scopes (or when old ones exit), because
-        the list of mappings the view uses is baked in when ``asdict()`` is called.
+        When new dynamic scopes begin or old ones exit, its ``.maps`` attribute
+        is automatically updated to reflect the changes.
         """
-        return ChainMap(*(list(reversed(_getstack())) + [_global_dynvars]))
-
-    def __iter__(self):
-        return iter(self.asdict())
-    # no __next__, iterating over dict.
+        return _DynLiveView()
 
     def items(self):
         """Abbreviation for asdict().items()."""
         return self.asdict().items()
+
+    def __iter__(self):
+        return iter(self.asdict())
+    # no __next__, iterating over dict.
 
     def __len__(self):
         return len(self.asdict())
