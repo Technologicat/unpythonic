@@ -4,6 +4,7 @@
 __all__ = ["dyn", "make_dynvar"]
 
 import threading
+from collections import ChainMap
 
 # Each new thread, when spawned, inherits the contents of the main thread's
 # dynamic scope stack.
@@ -91,6 +92,7 @@ class _Env(object):
     https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python
     """
     def __getattr__(self, name):
+        # Essentially, _asdict() and look up, but without creating the ChainMap every time.
         for scope in reversed(_getstack()):
             if name in scope:
                 return scope[name]
@@ -120,11 +122,7 @@ class _Env(object):
 
     # iteration
     def _asdict(self):
-        data = {}
-        data.update(_global_dynvars)
-        for scope in _getstack():
-            data.update(scope)
-        return data
+        return ChainMap(*(list(reversed(_getstack())) + [_global_dynvars]))
 
     def __iter__(self):
         return iter(self._asdict())
@@ -132,7 +130,7 @@ class _Env(object):
 
     def items(self):
         """Like dict.items(), but a snapshot (won't reflect later changes)."""
-        return self._asdict().items()  # TODO: implement a live-update view to dyn, like dict has
+        return self._asdict().items()
 
     def __len__(self):
         return len(self._asdict())
