@@ -4,6 +4,7 @@ from operator import add
 from functools import partial
 
 from ..misc import call, callwith, raisef, pack, namelambda, timer
+from ..fun import withself
 
 def test():
     # def as a code block (function overwritten by return value)
@@ -105,6 +106,11 @@ def test():
     assert square.__code__.co_name == "square"
     assert square.__name__ == "square"
     assert square.__qualname__ == "test.<locals>.square"
+
+    # CAUTION: in case of nested lambdas, the inner doesn't see the outer's new name:
+    nested = namelambda("outer")(lambda: namelambda("inner")(withself(lambda self: self)))
+    assert nested.__qualname__ == "test.<locals>.outer"
+    assert nested().__qualname__ == "test.<locals>.<lambda>.<locals>.inner"
 
     with timer() as tictoc:
         for _ in range(int(1e6)):

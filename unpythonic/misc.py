@@ -3,8 +3,7 @@
 
 __all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer"]
 
-from types import LambdaType, CodeType
-import re
+from types import LambdaType, FunctionType, CodeType
 from time import time
 
 from .regutil import register_decorator
@@ -243,46 +242,66 @@ def pack(*args):
     """
     return args  # pretty much like in Lisps, (define (list . args) args)
 
-@register_decorator(priority=95)  # allow sorting by unpythonic.syntax.sort_lambda_decorators
+@register_decorator(priority=5)  # allow sorting by unpythonic.syntax.sort_lambda_decorators
 def namelambda(name):
-    """Name a lambda function.
-
-    To avoid spurious renaming, names only once per object. If the original name
-    is something other than ``<lambda>``, this has no effect.
+    """Rename a function. Decorator.
 
     The original function object is modified in-place; for convenience,
     the object is returned.
 
-    This is used by ``env``, and by the ``namedlambda`` macro.
+    This can be used to give a lambda a meaningful name, which is especially
+    useful for debugging in cases where a lambda is returned as a closure,
+    and the actual call into it occurs much later (so that if the call crashes,
+    the stack trace will report a meaningful name, not just ``"<lambda>"``).
 
-    To support ``unpythonic.syntax.util.sort_lambda_decorators``, this is a
-    standard parametric decorator, called like::
+    To support reordering by ``unpythonic.syntax.util.sort_lambda_decorators``,
+    this is a standard parametric decorator, called like::
 
         foo = namelambda("foo")(lambda ...: ...)
 
-    The first call returns a *foo-renamer*, and supplying a lambda to that
-    actually renames the lambda to have the name *foo*.
+    The first call returns a *foo-renamer*, and supplying the lambda to that
+    actually modifies the lambda to have the name *foo*.
+
+    This is used internally by some macros (``namedlambda``, ``let``, ``do``),
+    but also provided as part of unpythonic's public API in case it's useful
+    elsewhere.
+
+    **CAUTION**: When a function definition is executed, the names the parent
+    scopes had at that time are baked into the function's ``__qualname__``.
+    Hence renaming a function after it is defined will not affect the
+    dotted names of any closures defined *inside* that function.
+
+    This is mainly an issue for nested lambdas::
+
+        from unpythonic import namelambda, withself
+        nested = namelambda("outer")(lambda: namelambda("inner")(withself(lambda self: self)))
+        print(nested.__qualname__)    # "outer"
+        print(nested().__qualname__)  # "<lambda>.<locals>.inner"
+
+    Note the inner lambda does not see the outer's new name.
     """
-    def renamer(f):
-        if isinstance(f, LambdaType) and f.__name__ == "<lambda>":
-            myname = "{}".format(name)
-            # https://stackoverflow.com/questions/40661758/name-of-a-python-function-in-a-stack-trace
-            # https://stackoverflow.com/questions/16064409/how-to-create-a-code-object-in-python
-            f.__name__ = myname  # tools like pydoc
-            f.__qualname__ = re.sub("<lambda>$", myname, f.__qualname__)  # repr
-            # Stack traces actually use .__code__.co_name, which is read-only,
-            # but there's a types.CodeType constructor that we can use to re-create
-            # the code object with the new name (not for the faint of heart).
-            co = f.__code__
-            f.__code__ = CodeType(co.co_argcount, co.co_kwonlyargcount,
-                                  co.co_nlocals, co.co_stacksize, co.co_flags,
-                                  co.co_code, co.co_consts, co.co_names,
-                                  co.co_varnames, co.co_filename,
-                                  myname,
-                                  co.co_firstlineno, co.co_lnotab, co.co_freevars,
-                                  co.co_cellvars)
+    def rename(f):
+        if not isinstance(f, (LambdaType, FunctionType)):
+            return f
+        # __name__ for tools like pydoc; __qualname__ for repr(); __code__.co_name for stack traces
+        #     https://stackoverflow.com/questions/40661758/name-of-a-python-function-in-a-stack-trace
+        #     https://stackoverflow.com/questions/16064409/how-to-create-a-code-object-in-python
+        f.__name__ = name
+        j = f.__qualname__.rfind('.')
+        f.__qualname__ = "{}.{}".format(f.__qualname__[:j], name) if j != -1 else name
+        # __code__.co_name is read-only, but there's a types.CodeType constructor
+        # that we can use to re-create the code object with the new name.
+        # (This is no worse than what the stdlib's Lib/modulefinder.py already does.)
+        co = f.__code__
+        f.__code__ = CodeType(co.co_argcount, co.co_kwonlyargcount,
+                              co.co_nlocals, co.co_stacksize, co.co_flags,
+                              co.co_code, co.co_consts, co.co_names,
+                              co.co_varnames, co.co_filename,
+                              name,
+                              co.co_firstlineno, co.co_lnotab, co.co_freevars,
+                              co.co_cellvars)
         return f
-    return renamer
+    return rename
 
 class timer:
     """Simplistic context manager for performance-testing sections of code.
