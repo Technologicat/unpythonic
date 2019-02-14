@@ -31,28 +31,32 @@ def _getstack():
         _L._stack = _L.default_stack.copy()  # copy main thread's current stack
     return _L._stack
 
-_observers = {}
+def _getobservers():
+    if not hasattr(_L, "_observers"):
+        _L._observers = {}
+    return _L._observers
+
 class _EnvBlock(object):
     def __init__(self, bindings):
         self.bindings = bindings
     def __enter__(self):
         if self.bindings:  # optimization, skip pushing an empty scope
             _getstack().append(self.bindings)
-            for o in _observers.values():
+            for o in _getobservers().values():
                 o._refresh()
     def __exit__(self, t, v, tb):
         if self.bindings:
             _getstack().pop()
-            for o in _observers.values():
+            for o in _getobservers().values():
                 o._refresh()
 
 class _DynLiveView(ChainMap):
     def __init__(self):
         super().__init__(self)
         self._refresh()
-        _observers[id(self)] = self
+        _getobservers()[id(self)] = self
     def __del__(self):
-        del _observers[id(self)]
+        del _getobservers()[id(self)]
     def _refresh(self):
         self.maps = list(reversed(_getstack())) + [_global_dynvars]
 
