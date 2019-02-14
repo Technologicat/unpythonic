@@ -3,8 +3,6 @@
 
 __all__ = ["env"]
 
-from .dynassign import dyn, make_dynvar
-
 class env:
     """Environment for let-like constructs.
 
