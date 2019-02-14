@@ -386,7 +386,8 @@ def continuations(block_body):
                                       kw_defaults=[hq[identity], maybe_capture]),
                        body=contbody,
                        decorator_list=[],  # patched later by transform_def
-                       returns=None)  # return annotation not used here
+                       returns=None,  # return annotation not used here
+                       lineno=locref.lineno, col_offset=locref.col_offset)
 
         # in the output stmts, define the continuation function...
         newstmts = [funcdef]
