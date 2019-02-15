@@ -23,7 +23,7 @@ from ast import Name, Tuple, \
                 ListComp, SetComp, GeneratorExp, DictComp, \
                 Store, Del, \
                 Global, Nonlocal
-from .astcompat import AsyncFunctionDef
+from .astcompat import AsyncFunctionDef, AsyncFor, AsyncWith
 
 from macropy.core.walkers import Walker
 
@@ -190,7 +190,7 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
     # Useful article: http://excess.org/article/2014/04/bar-foo/
     if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
         collect(tree.name)
-    elif type(tree) is For:
+    elif type(tree) is (For, AsyncFor):
         collect_name_or_list(tree.target)
     elif type(tree) is Import:
         for x in tree.names:
@@ -198,7 +198,7 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
     elif type(tree) is Try:
         for h in tree.handlers:
             collect(h.name)
-    elif type(tree) is With:
+    elif type(tree) is (With, AsyncWith):
         for item in tree.items:
             if item.optional_vars is not None:
                 collect_name_or_list(item.optional_vars)
