@@ -710,7 +710,7 @@ Mutable containers are updated in-place; for immutables, a new instance is creat
 
 #### Binding constructs and auto-lazification
 
-Why do we auto-lazify in certain kinds of binding constructs, but not in others? Function calls and let-bindings have one feature in common: both are guaranteed to bind only new names. Auto-lazification of all assignments, on the other hand, in an language that allows mutation is dangerous, because then this superficially innocuous code will fail:
+Why do we auto-lazify in certain kinds of binding constructs, but not in others? Function calls and let-bindings have one feature in common: both are guaranteed to bind only new names. Auto-lazification of all assignments, on the other hand, in a language that allows mutation is dangerous, because then this superficially innocuous code will fail:
 
 ```python
 a = 10
