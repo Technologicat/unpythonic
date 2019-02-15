@@ -545,7 +545,7 @@ with namedlambda:
 
 Lexically inside a ``with namedlambda`` block, any literal ``lambda`` that is assigned to a name using one of the supported assignment forms is named to have the name of the LHS of the assignment. The name is captured at macro expansion time. Naming modifies the original function object.
 
-Decorated lambdas are also supported, as is a ``curry`` (manual or auto) where the last argument is a lambda (this is a convenience feature, mainly for applying parametric decorators to lambdas). See [the unit tests](../unpythonic/syntax/test/test_lambdatools.py) for detailed examples.
+Decorated lambdas are also supported, as is a ``curry`` (manual or auto) where the last argument is a lambda. The latter is a convenience feature, mainly for applying parametric decorators to lambdas. See [the unit tests](../unpythonic/syntax/test/test_lambdatools.py) for detailed examples.
 
 The naming is performed using the function ``unpythonic.misc.namelambda``, which will update ``__name__``, ``__qualname__`` and ``__code__.co_name``.
 
@@ -594,7 +594,7 @@ with quicklambda, tco:
 
 ## Language features
 
-To boldly go where Python without macros just won't. Macros that change the rules by code-walking and making significant rewrites.
+To boldly go where Python without macros just won't. Changing the rules by code-walking and making significant rewrites.
 
 ### ``curry``: automatic currying for Python
 
@@ -654,9 +654,9 @@ with lazify:
     assert f(21, 1/0) == 42
 ```
 
-In a ``with lazify`` block, function arguments are evaluated only when actually used, at most once each, and in the order in which they are actually used. Automatic lazification applies to arguments in function calls and to let-bindings (since they play a similar role). **No other binding forms are auto-lazified.**
+In a ``with lazify`` block, function arguments are evaluated only when actually used, at most once each, and in the order in which they are actually used. Promises are automatically forced on access. Automatic lazification applies to arguments in function calls and to let-bindings, since they play a similar role. **No other binding forms are auto-lazified.**
 
-Automatic lazification uses the ``lazyrec[]`` macro (see below), which recurses into certain types of containers, so that the lazification will not interfere with unpacking.
+Automatic lazification uses the ``lazyrec[]`` macro (see below), which recurses into certain types of container literals, so that the lazification will not interfere with unpacking.
 
 Note ``my_if`` in the example is a run-of-the-mill runtime function, not a macro. Only the ``with lazify`` is imbued with any magic. Essentially, the above code expands into:
 
@@ -1430,11 +1430,15 @@ Obviously not intended for production use, although is very likely to work anywh
 
 ### Comboability
 
-The macros in ``unpythonic.syntax`` are designed to work together, in principle in arbitrary combinations, but some care needs to be taken regarding the order in which they expand.
+The macros in ``unpythonic.syntax`` are designed to work together, but some care needs to be taken regarding the order in which they expand.
 
-If some particular combo doesn't work and it's not at least documented as such, please raise an issue.
+Making macros work together is nontrivial, essentially because *macros don't compose*. ([As pointed out by John Shutt](https://fexpr.blogspot.com/2013/12/abstractive-power.html)), in a multilayered language extension implemented with macros, the second layer of macros needs to understand all of the first layer. The issue is that the macro abstraction leaks the details of its expansion. Contrast with functions, which operate on values: the process that was used to arrive at a value doesn't matter. It's always possible for a function to take this value and transform it into another value, which can then be used as input for the next layer of functions. That's composability at its finest.
 
-For the christmas tree combo, the block macros are designed to run in the following order (leftmost first):
+The need for interaction between macros may arise already in what *feels* like a single layer of abstraction; for example, it's not only that the block macros must understand ``let[]``, but some of them must understand other block macros. The intuition is simply mistaken; what feels like one layer of abstraction is actually implemented as a number of separate macros, which run in a specific order. Thus, from the viewpoint of actually applying the macros, if the resulting software is to work correctly, the mere act of allowing combos between the block macros already makes them into a multilayer system. The compartmentalization of conceptually separate features into separate macros facilitates understanding and maintainability, but fails to reach the ideal of modularity (independent pieces).
+
+Therefore, any particular combination of macros that has not been specifically tested might not work. That said, if some particular combo doesn't work and *is not at least documented as such*, that's an error; please raise an issue. The unit tests should cover the combos that on the surface seem the most useful, but there's no guarantee that they cover everything that actually is useful somewhere.
+
+The block macros are designed to run in the following order (leftmost first):
 
 ```
 prefix > autoreturn, quicklambda > multilambda > continuations or tco > curry > namedlambda > lazify
@@ -1442,7 +1446,7 @@ prefix > autoreturn, quicklambda > multilambda > continuations or tco > curry > 
 
 The ``let_syntax`` block may be placed anywhere in the chain; just keep in mind what it does.
 
-For simplicity, **the block macros make no attempt to prevent invalid combos**. Be careful; e.g. don't nest several ``with tco`` blocks, that won't work.
+For simplicity, **the block macros make no attempt to prevent invalid combos**. Be careful; e.g. don't nest several ``with tco`` blocks (lexically), that won't work.
 
 Example combo in the single-line format:
 
