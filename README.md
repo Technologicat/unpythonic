@@ -2,9 +2,9 @@
 
 In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some haskellisms mixed in. We place a special emphasis on **clear, pythonic syntax**.
 
-For the [adventurous](https://github.com/azazel75/macropy), we also provide extensions to the Python language as a set of [syntactic macros](macro_extras/) that are designed to work together: e.g. automatic currying, automatic tail-call optimization, continuations (``call/cc``), lexically scoped ``let`` and ``do``, implicit return statements, and easy-to-use multi-expression lambdas with local variables. Each macro adds an orthogonal piece of functionality that can (mostly) be mixed and matched with the others.
+We also provide extensions to the Python language as a set of [syntactic macros](macro_extras/), built on [MacroPy](https://github.com/azazel75/macropy), that are designed to work together: e.g. automatic currying, automatic tail-call optimization, call-by-need (lazy functions), continuations (``call/cc``), lexically scoped ``let`` and ``do``, implicit return statements, and easy-to-use multi-expression lambdas with local variables. Each macro adds an orthogonal piece of functionality that can (mostly) be mixed and matched with the others.
 
-Design considerations are simplicity, robustness, and minimal dependencies (currently none required; MacroPy optional, to enable the syntactic macros).
+Design considerations are simplicity, robustness, and minimal dependencies. Currently none required; MacroPy optional, to enable the syntactic macros.
 
 **Contents**:
 
@@ -12,7 +12,7 @@ This README documents the pure-Python part of ``unpythonic``, i.e. everything th
 
 For many examples, see the unit tests located in [unpythonic/test/](unpythonic/test/), the docstrings of the individual features, and this README.
 
-*This README doubles as the API reference, but occasionally, may be out of date at places. In case of conflicts in documentation, believe the unit tests first. Docstrings and this README should reflect them.*
+*This README doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out of date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this README) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
 
  - [**Bindings**](#bindings)
    - [Local bindings in an expression: ``let``, ``letrec``](#local-bindings-in-an-expression-let-letrec)
@@ -37,6 +37,7 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
      - [Memoization for generators](#memoization-for-generators), iterables and iterator factories: `gmemoize`, `imemoize`, `fimemoize`.
    - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables
    - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
+   - [``mogrify``, update mutable containers in-place](#mogrify-update-mutable-containers-in-place)
 
  - [**Control flow tools**](#control-flow-tools)
    - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
@@ -49,8 +50,10 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
  - [**Other**](#other)
    - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
    - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
+   - [``namelambda``, rename a function](#namelambda-rename-a-function)
+   - [``timer``, a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
 
- - [**Advanced: syntactic macros**](macro_extras/): the second half of ``unpythonic``. (separate README)
+ - [**Advanced: syntactic macros**](macro_extras/): the second half of ``unpythonic``, providing features such as ``call/cc``, autocurry and call-by-need.
 
  - [**Meta**](#meta)
    - [Design notes](#design-notes)
@@ -82,7 +85,7 @@ L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
 u(L)  # --> [1, 3, 2, 4]
 ```
 
-Generally speaking, `body` is a one-argument function, which takes in the environment instance as the first positional parameter (usually named `env` or `e` for readability). In typical inline usage, `body` is `lambda e: expr`.
+Generally speaking, `body` is a one-argument function, which takes in the environment instance as the first positional parameter (by convention, named `e` or `env`). In typical inline usage, `body` is `lambda e: expr`.
 
 *Let over lambda*. Here the inner ``lambda`` is the definition of the function ``counter``:
 
@@ -293,6 +296,18 @@ The source of the copy is always the main thread mainly because Python's `thread
 Finally, there is one global dynamic scope shared between all threads, where the default values of dynvars live. The default value is used when ``dyn`` is queried for the value outside the dynamic extent of any ``with dyn.let()`` blocks. Having a default value is convenient for eliminating the need for ``if "x" in dyn`` checks, since the variable will always exist (after the global definition has been executed).
 
 To create a dynvar and set its default value, use ``make_dynvar``. Each dynamic variable, of the same name, should only have one default set; the (dynamically) latest definition always overwrites. However, we do not prevent overwrites, because in some codebases the same module may run its top-level initialization code multiple times (e.g. if a module has a ``main()`` for tests, and the file gets loaded both as a module and as the main program).
+
+See also the methods of ``dyn``; particularly noteworthy are ``asdict`` and ``items``, which give access to a live view to dyn's contents in a dictionary format (intended for reading only!). The ``asdict`` method essentially creates a ``collections.ChainMap`` instance, while ``items`` is an abbreviation for ``asdict().items()``. The ``dyn`` object itself can also be iterated over; this creates a ``ChainMap`` instance and redirects to iterate over it.
+
+To support dictionary-like idioms in iteration, dynvars can alternatively be accessed by subscripting; ``dyn["x"]`` has the same meaning as ``dyn.x``, so you can do things like:
+
+```python
+print(tuple((k, dyn[k]) for k in dyn))
+```
+
+Finally, ``dyn`` supports membership testing as ``"x" in dyn``, ``"y" not in dyn``, where the string is the name of the dynvar whose presence is being tested.
+
+For some more details, see [the unit tests](unpythonic/test/test_dynassign.py).
 
 
 ## Containers
@@ -1207,6 +1222,47 @@ Namedtuples export only a sequence interface, so they cannot be treated as mappi
 Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
 
 
+### ``mogrify``, update mutable containers in-place
+
+*Added in v0.13.0.*
+
+Recurse on given container, apply a function to each atom. If the container is mutable, then update in-place; if not, then construct a new copy like ``map`` does.
+
+If the container is a mapping, the function is applied to the values; keys are left untouched.
+
+Unlike ``map`` and its cousins, only a single input container is supported. (Supporting multiple containers as input would require enforcing some compatibility constraints on their type and shape, since ``mogrify`` is not limited to sequences.)
+
+```python
+from unpythonic import mogrify
+
+lst1 = [1, 2, 3]
+lst2 = mogrify(lst1, lambda x: x**2)
+assert lst2 == [2, 4, 6]
+assert lst2 is lst1
+```
+
+Containers are detected by checking for instances of ``collections.abc`` superclasses (also virtuals are ok). Supported abcs are ``MutableMapping``, ``MutableSequence``, ``MutableSet``, ``Mapping``, ``Sequence`` and ``Set``. Any value that does not match any of these is treated as an atom. Containers can be nested, with an arbitrary combination of the types supported.
+
+For convenience, we introduce some special cases:
+
+  - Any classes created by ``collections.namedtuple``, because they do not conform to the standard constructor API for a ``Sequence``.
+
+    Thus, for (an immutable) ``Sequence``, we first check for the presence of a ``._make()`` method, and if found, use it as the constructor. Otherwise we use the regular constructor.
+
+  - ``str`` is treated as an atom, although technically a ``Sequence``.
+
+    It doesn't conform to the exact same API (its constructor does not take an iterable), and often we don't want to treat strings as containers anyway.
+
+    If you want to process strings, implement it in your function that is called by ``mogrify``.
+
+  - The ``box`` container from ``unpythonic.collections``; although mutable, its update is not conveniently expressible by the ``collections.abc`` APIs.
+
+  - The ``cons`` container from ``unpythonic.llist`` (including the ``ll``, ``llist`` linked lists). This is treated with the general tree strategy, so for long linked lists this will crash when the maximum call stack depth runs out.
+
+    Note that since ``cons`` is immutable, anyway, if you know you have a long linked list where you need to update the values, just iterate over it and produce a new copy - that will work as intended.
+
+
+
 ## Control flow tools
 
 Tools related to control flow.
@@ -2082,6 +2138,61 @@ assert tuple(m) == (6, 9, 3**(1/2))
 ```
 
 Inspired by *Function application with $* in [LYAH: Higher Order Functions](http://learnyouahaskell.com/higher-order-functions).
+
+
+### ``namelambda``, rename a function
+
+*Changed in v0.13.0.* Now supports renaming any function object (``isinstance(f, (types.LambdaType, types.FunctionType))``), and will rename a lambda even if it has already been named.
+
+For those situations where you return a lambda as a closure, call it much later, and it happens to crash - so you can tell from the stack trace *which* of the *N* lambdas in the codebase it is.
+
+For technical reasons, ``namelambda`` conforms to the parametric decorator API. Usage:
+
+```python
+from unpythonic import namelambda
+
+square = namelambda("square")(lambda x: x**2)
+assert square.__name__ == "square"
+
+kaboom = namelambda("kaboom")(lambda: some_typoed_name)
+kaboom()  # --> stack trace, showing the function name "kaboom"
+```
+
+The first call returns a *foo-renamer*, which takes a function object and renames it to have the name *foo*.
+
+Technically, this updates ``__name__`` (the obvious place), ``__qualname__`` (used by ``repr()``), and ``__code__.co_name`` (used by stack traces).
+
+**CAUTION**: There is one pitfall:
+
+```python
+from unpythonic import namelambda, withself
+
+nested = namelambda("outer")(lambda: namelambda("inner")(withself(lambda self: self)))
+print(nested.__qualname__)    # "outer"
+print(nested().__qualname__)  # "<lambda>.<locals>.inner"
+```
+
+The inner lambda does not see the outer's new name; the parent scope names are baked into a function's ``__qualname__`` too early for the outer rename to be in effect at that time.
+
+
+### ``timer``, a context manager for performance testing
+
+*Added in v0.13.0.*
+
+```python
+from unpythonic import timer
+
+with timer() as tim:
+    for _ in range(int(1e6)):
+        pass
+print(tim.dt)  # elapsed time in seconds (float)
+
+with timer(p=True):  # if p, auto-print result
+    for _ in range(int(1e6)):
+        pass
+```
+
+The auto-print mode is a convenience feature to minimize bureaucracy if you just want to see the *Δt*. To instead access the *Δt* programmatically, name the timer instance using the ``with ... as ...`` syntax. After the context exits, the *Δt* is available in its ``dt`` attribute.
 
 
 ## Meta

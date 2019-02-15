@@ -29,6 +29,8 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [**Language features**](#language-features)
    - [``curry``: automatic currying for Python](#curry-automatic-currying-for-python)
    - [``lazify``: call-by-need for Python](#lazify-call-by-need-for-python)
+     - [Forcing promises manually](#forcing-promises-manually)
+     - [Binding constructs and auto-lazification](#binding-constructs-and-auto-lazification)
    - [``tco``: automatic tail call optimization for Python](#tco-automatic-tail-call-optimization-for-python)
      - [TCO and continuations](#tco-and-continuations)
    - [``continuations``: call/cc for Python](#continuations-callcc-for-python)
@@ -386,7 +388,7 @@ When used as a block macro, there are furthermore two capture modes: *block of s
 
 (If you know about Python ASTs, don't worry about the ``ast.Expr`` wrapper needed to place an expression in a statement position; this is handled automatically.)
 
-**HINT**: If you get a compiler error that an ``If`` was encountered where an expression was expected, check your uses of ``let_syntax``. The most likely reason is that a substitution is trying to splice a block of statements into an expression position. A captured block of statements internally generates an ``if 1:`` (so that the block may replace a single statement), which the Python compiler optimizes away; this is the ``If`` node referred to by the error message.
+**HINT**: If you get a compiler error that some sort of statement was encountered where an expression was expected, check your uses of ``let_syntax``. The most likely reason is that a substitution is trying to splice a block of statements into an expression position.
 
 Expansion of ``let_syntax`` is a two-step process:
 
@@ -521,31 +523,41 @@ In the second example, returning ``x`` separately is redundant, because the assi
 
 ### ``namedlambda``: auto-name your lambdas
 
+*Changed in v0.13.0.* Env-assignments are now processed lexically, just like regular assignments. Added support for let-bindings.
+
 Who said lambdas have to be anonymous?
 
 ```python
 from unpythonic.syntax import macros, namedlambda
 
 with namedlambda:
-    f = lambda x: x**3                       # lexical rule: name as "f"
+    f = lambda x: x**3                       # assignment: name as "f"
     assert f.__name__ == "f"
     gn, hn = let((x, 42), (g, None), (h, None))[[
-                   g << (lambda x: x**2),    # dynamic rule: name as "g"
-                   h << f,                   # no-rename rule: still "f"
+                   g << (lambda x: x**2),    # env-assignment: name as "g"
+                   h << f,                   # still "f" (no literal lambda on RHS)
                    (g.__name__, h.__name__)]]
     assert gn == "g"
     assert hn == "f"
+
+    foo = let[(f7, lambda x: x) in f7]       # let-binding: name as "f7"
 ```
 
-This is a block macro that supports both simple assignment statements of the form ``f = lambda ...: ...``, and ``name << (lambda ...: ...)`` expression assignments to ``unpythonic`` environments.
+Lexically inside a ``with namedlambda`` block, any literal ``lambda`` that is assigned to a name using one of the supported assignment forms is named to have the name of the LHS of the assignment. The name is captured at macro expansion time. Naming modifies the original function object.
 
-All simple assignment statements lexically within the block, that assign a single lambda to a single name, will get code injected at macro-expansion time, to set the name of the resulting function object to the name the lambda is being assigned to.
+Decorated lambdas are also supported, as is a ``curry`` (manual or auto) where the last argument is a lambda (this is a convenience feature, mainly for applying parametric decorators to lambdas). See [the unit tests](../unpythonic/syntax/test/test_lambdatools.py) for detailed examples.
 
-Assignment in unpythonic environments is tracked dynamically at run-time, for the dynamic extent of the block. This is done by setting the dynvar ``env_namedlambda`` to ``True``, by injecting a ``with dyn.let(env_namedlambda=True):`` around the block.
+The naming is performed using the function ``unpythonic.misc.namelambda``, which will update ``__name__``, ``__qualname__`` and ``__code__.co_name``.
 
-For any function object instance representing a lambda, it takes the first name given to it, and keeps that; there is no renaming. See the function ``unpythonic.misc.namelambda``, which this uses internally.
+Supported assignment forms:
 
-*Changed in v0.13.0.* Now lambdas are named also in stack traces.
+ - Single-item assignment to a local name, ``f = lambda ...: ...``
+
+ - Expression-assignment to an unpythonic environment, ``f << (lambda ...: ...)``
+
+ - Let bindings, ``let[(f, (lambda ...: ...)) in ...]``, using any let syntax supported by unpythonic (here using the haskelly let-in just as an example).
+
+Support for other forms of assignment might or might not be added in a future version.
 
 
 ### ``quicklambda``: combo with ``macropy.quick_lambda``
@@ -608,18 +620,22 @@ with curry:
 assert add3(1)(2)(3) == 6
 ```
 
-All **function calls** and **function definitions** (``def``, ``lambda``) *lexically* inside a ``with curry`` block are automatically curried, somewhat like in Haskell, or in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy).
+*Lexically* inside a ``with curry`` block:
+
+ - All **function calls** and **function definitions** (``def``, ``lambda``) are automatically curried, somewhat like in Haskell, or in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy).
+
+ - Function calls are autocurried, and run ``unpythonic.fun.curry`` in a special mode that no-ops on uninspectable functions (triggering a standard function call with the given args immediately) instead of raising ``TypeError`` as usual.
 
 **CAUTION**: Some builtins are uninspectable or may report their arities incorrectly; in those cases, ``curry`` may fail, occasionally in mysterious ways. The function ``unpythonic.arity.arities``, which ``unpythonic.fun.curry`` internally uses, has a workaround for the inspectability problems of all builtins in the top-level namespace (as of Python 3.7), but e.g. methods of builtin types are not handled.
 
-In a ``with curry`` block, ``unpythonic.fun.curry`` runs in a special mode that no-ops on uninspectable functions instead of raising ``TypeError`` as usual. This special mode is enabled for the *dynamic extent* of the ``with curry`` block.
+*Changed in v0.13.0.* The special mode for uninspectables used to be enabled for the dynamic extent of the ``with curry`` block; the new lexical behavior is easier to reason about. Manual uses of the ``curry`` decorator (on both ``def`` and ``lambda``) are now detected, and in such cases the macro now skips adding the decorator.
 
 
 ### ``lazify``: call-by-need for Python
 
 *Added in v0.13.0.*
 
-You know you want to:
+Also known as *lazy functions*. Like [lazy/racket](https://docs.racket-lang.org/lazy/index.html), but for Python.
 
 ```python
 with lazify:
@@ -638,7 +654,9 @@ with lazify:
     assert f(21, 1/0) == 42
 ```
 
-In a ``with lazify`` block, function arguments are evaluated only when actually used, at most once each, and in the order in which they are actually used.
+In a ``with lazify`` block, function arguments are evaluated only when actually used, at most once each, and in the order in which they are actually used. Automatic lazification applies to arguments in function calls and to let-bindings (since they play a similar role). **No other binding forms are auto-lazified.**
+
+Automatic lazification uses the ``lazyrec[]`` macro (see below), which recurses into certain types of containers, so that the lazification will not interfere with unpacking.
 
 Note ``my_if`` in the example is a run-of-the-mill runtime function, not a macro. Only the ``with lazify`` is imbued with any magic. Essentially, the above code expands into:
 
@@ -661,29 +679,75 @@ def f(a, b):
 assert f(lazy[21], lazy[1/0]) == 42
 ```
 
-plus some clerical details to allow mixing lazy and strict code.
-
-This second example relies on the magic of closures to capture f's ``a`` and ``b`` into the promises.
-
-For forcing promises manually, we provide the functions ``force1`` and ``force``. This is mainly useful if you ``lazy[]`` or ``lazyrec[]`` something explicitly, and want to compute its value outside a ``with lazify`` block.
-
-Using ``force1``, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket. The function ``force``, in addition, descends into containers (recursively). When an atom ``x`` (i.e. anything that is not a container) is encountered, it is processed using ``force1``.
-
-Mutable containers are updated in-place; for immutables, a new instance is created, but as a side effect the promise objects **in the input container** will be forced. Any container with a compatible ``collections.abc`` is supported. (See ``unpythonic.collections.mogrify`` for details.) In addition, as special cases ``unpythonic.collections.box`` and ``unpythonic.llist.cons`` are supported.
+plus some clerical details to allow mixing lazy and strict code. This second example relies on the magic of closures to capture f's ``a`` and ``b`` into the promises.
 
 Like ``with continuations``, no state or context is associated with a ``with lazify`` block, so lazy functions defined in one block may call those defined in another.
 
 Lazy code is allowed to call strict functions and vice versa, without requiring any additional effort.
 
+Comboing with other block macros in ``unpythonic.syntax`` is supported, including ``curry`` and ``continuations``. See the [meta](#meta) section of this README for the correct ordering.
+
 For more details, see the docstring of ``unpythonic.syntax.lazify``.
 
-See also ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside literal containers, recursively. This allows code like ``lazyrec[(1*2*3, 4*5*6)]``. Each item becomes wrapped with ``lazy[]``, but the container itself is left alone, to avoid interfering with unpacking. Because ``lazyrec[]`` is a macro and must work by names only, it supports a fixed set of container types: ``list``, ``tuple``, ``set``, ``dict``, ``frozenset``, ``unpythonic.collections.frozendict``, ``unpythonic.collections.box``, and ``unpythonic.llist.cons`` (specifically, the constructors ``cons``, ``ll`` and ``llist``).
+See also ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside literal containers, recursively. This allows code like ``tpl = lazyrec[(1*2*3, 4*5*6)]``. Each item becomes wrapped with ``lazy[]``, but the container itself is left alone, to avoid interfering with unpacking. Because ``lazyrec[]`` is a macro and must work by names only, it supports a fixed set of container types: ``list``, ``tuple``, ``set``, ``dict``, ``frozenset``, ``unpythonic.collections.frozendict``, ``unpythonic.collections.box``, and ``unpythonic.llist.cons`` (specifically, the constructors ``cons``, ``ll`` and ``llist``).
 
-Inspired by Haskell, and Racket's ``(delay)`` and ``(force)``.
+(It must work by names only, because in an eager language any lazification must be performed as a syntax transformation before the code actually runs. Lazification in an eager language is a hack, by necessity. [Fexprs](https://fexpr.blogspot.com/2011/04/fexpr.html) (along with [a new calculus to go with them](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html)) would be a much more elegant approach, but this requires redesigning the whole language from ground up. Of course, if you're fine with a language not particularly designed for extensibility, and lazy evaluation is your top requirement, just use Haskell.)
 
-**CAUTION**: Argument passing by function call is currently the only binding construct to which auto-lazification is applied.
+Inspired by Haskell, Racket's ``(delay)`` and ``(force)``, and [lazy/racket](https://docs.racket-lang.org/lazy/index.html).
 
-**CAUTION**: The ``lazify`` macro is experimental and not intended for use in production code.
+**CAUTION**: The functions in ``unpythonic.fun`` are lazify-aware (so that e.g. ``curry`` and ``compose`` work with lazy functions), as are ``call`` and ``callwith`` in ``unpythonic.misc``, but a large part of ``unpythonic`` is not. Keep in mind that any call to a strict (regular Python) function will evaluate all of its arguments.
+
+#### Forcing promises manually
+
+This is mainly useful if you ``lazy[]`` or ``lazyrec[]`` something explicitly, and want to compute its value outside a ``with lazify`` block.
+
+We provide the functions ``force1`` and ``force``. Using ``force1``, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket. The function ``force``, in addition, descends into containers (recursively). When an atom ``x`` (i.e. anything that is not a container) is encountered, it is processed using ``force1``.
+
+Mutable containers are updated in-place; for immutables, a new instance is created, but as a side effect the promise objects **in the input container** will be forced. Any container with a compatible ``collections.abc`` is supported. (See ``unpythonic.collections.mogrify`` for details.) In addition, as special cases ``unpythonic.collections.box`` and ``unpythonic.llist.cons`` are supported.
+
+#### Binding constructs and auto-lazification
+
+Why do we auto-lazify in certain kinds of binding constructs, but not in others? Function calls and let-bindings have one feature in common: both are guaranteed to bind only new names. Auto-lazification of all assignments, on the other hand, in an language that allows mutation is dangerous, because then this superficially innocuous code will fail:
+
+```python
+a = 10
+a = 2*a
+print(a)  # 20, right?
+```
+
+If we chose to auto-lazify assignments, this would expand to:
+
+```python
+from macropy.quick_lambda import macros, lazy
+from unpythonic.syntax import force
+
+a = lazy[10]
+a = lazy[2*force(a)]
+print(force(a))
+```
+
+In the second assignment, the ``lazy[]`` sets up a promise, which will force ``a`` *at the time when the containing promise is forced*, but at that time the name ``a`` points to a promise, which will force...
+
+The fundamental issue is that ``a = 2*a`` is an imperative update. Therefore, to avoid this infinite loop trap for the unwary, assignments are not auto-lazified. Note that if we use two different names, this works just fine:
+
+```python
+from macropy.quick_lambda import macros, lazy
+from unpythonic.syntax import force
+
+a = lazy[10]
+b = lazy[2*force(a)]
+print(force(b))
+```
+
+because now at the time when ``b`` is forced, the name ``a`` still points to the value we intended it to.
+
+So if you're sure you have *new definitions* and not *imperative updates*, just manually use ``lazy[]`` (or ``lazyrec[]``, as appropriate) on the RHS. Or if it's fine to use eager evaluation, just omit the ``lazy[]``, thus allowing Python to evaluate the RHS immediately.
+
+Beside function calls (which bind arguments for the callee) and assignments, there are many other binding constructs in Python. For a full list, see [here](http://excess.org/article/2014/04/bar-foo/), or locally [here](../unpythonic/syntax/scoping.py), in function ``get_names_in_store_context``. Particularly noteworthy in the context of lazification are the ``for`` loop and the ``with`` context manager.
+
+In Python's ``for``, the loop counter is an imperatively updated single name. In many use cases a rapid update is desirable for performance reasons, and in any case, the whole point of the loop is (almost always) to read the counter (and do something with the value) at least once per iteration. So it is much simpler, faster, and equally correct not to lazify there.
+
+In ``with``, the whole point of a context manager is that it is eagerly initialized when the ``with`` block is entered (and finalized when the block exits). Since our lazy code can transparently use both bare values and promises (due to the semantics of our ``force1``), and the context manager would have to be eagerly initialized anyway, we can choose not to lazify there.
 
 
 ### ``tco``: automatic tail call optimization for Python
