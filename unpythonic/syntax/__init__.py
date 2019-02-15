@@ -1413,9 +1413,9 @@ def lazify(tree, *, gen_sym, **kw):
     let-bindings, since they play a similar role. **No other binding forms
     are auto-lazified.**
 
-    Automatic lazification uses the ``lazyrec[]`` macro (see below), which
-    recurses into certain types of container literals, so that the lazification
-    will not interfere with unpacking.
+    Automatic lazification uses the ``lazyrec[]`` macro, which recurses into
+    certain types of container literals, so that the lazification will not
+    interfere with unpacking. See its docstring for details.
 
     Comboing with other block macros in ``unpythonic.syntax`` is supported,
     including ``curry`` and ``continuations``.
@@ -1594,8 +1594,8 @@ def lazify(tree, *, gen_sym, **kw):
             f(17)
 
     If you have a container literal and want to lazify it recursively in a
-    position that does not auto-lazify, we provide a macro ``lazyrec[]``
-    (see its docstring for details)::
+    position that does not auto-lazify, use ``lazyrec[]`` (see its docstring
+    for details)::
 
         from unpythonic.syntax import macros, lazify, lazyrec
 
@@ -1739,7 +1739,7 @@ def lazify(tree, *, gen_sym, **kw):
 
 @macros.expr
 def lazyrec(tree, **kw):
-    """[syntax, expr] Delay items of a literal container, recursively.
+    """[syntax, expr] Delay items in a container literal, recursively.
 
     Essentially, this distributes ``lazy[]`` into the items inside a literal
     ``list``, ``tuple``, ``set``, ``frozenset``, ``unpythonic.collections.box``
@@ -1760,17 +1760,17 @@ def lazyrec(tree, **kw):
 
         lazyrec[dostuff()] --> lazy[dostuff()]
 
-    For a literal container, ``lazyrec[]`` descends into it::
+    For a container literal, ``lazyrec[]`` descends into it::
 
         lazyrec[(2*21, 1/0)] --> (lazy[2*21], lazy[1/0])
         lazyrec[{'a': 2*21, 'b': 1/0}] --> {'a': lazy[2*21], 'b': lazy[1/0]}
 
-    Constructor call syntax is also supported::
+    Constructor call syntax for container literals is also supported::
 
         lazyrec[list(2*21, 1/0)] --> [lazy[2*21], lazy[1/0]]
 
-    Nested containers (with any combination of known types) are processed
-    recursively, for example::
+    Nested container literals (with any combination of known types) are
+    processed recursively, for example::
 
         lazyrec[((2*21, 1/0), (1+2+3, 4+5+6))] --> ((lazy[2*21], lazy[1/0]),
                                                     (lazy[1+2+3], lazy[4+5+6]))

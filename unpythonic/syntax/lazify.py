@@ -383,8 +383,8 @@ def lazify(body):
     #         f2 = make_f()  # f2 gets the lazify-aware trampoline
     #
     # TCO chains with an arbitrary mix of lazy and strict functions should work
-    # as long as the first function in the chain has a lazify-aware trampoline
-    # (because the chain runs under the trampoline of the first function).
+    # as long as the first function in the chain has a lazify-aware trampoline,
+    # because the chain runs under the trampoline of the first function.
     #
     # Tail-calling from a strict function into a lazy function should work, because
     # all arguments are evaluated at the strict side before the call is made.

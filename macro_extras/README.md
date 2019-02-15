@@ -31,6 +31,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
    - [``lazify``: call-by-need for Python](#lazify-call-by-need-for-python)
      - [Forcing promises manually](#forcing-promises-manually)
      - [Binding constructs and auto-lazification](#binding-constructs-and-auto-lazification)
+     - [Note about TCO](#note-about-tco)
    - [``tco``: automatic tail call optimization for Python](#tco-automatic-tail-call-optimization-for-python)
      - [TCO and continuations](#tco-and-continuations)
    - [``continuations``: call/cc for Python](#continuations-callcc-for-python)
@@ -635,7 +636,9 @@ assert add3(1)(2)(3) == 6
 
 *Added in v0.13.0.*
 
-Also known as *lazy functions*. Like [lazy/racket](https://docs.racket-lang.org/lazy/index.html), but for Python.
+Also known as *lazy functions*. Like [lazy/racket](https://docs.racket-lang.org/lazy/index.html), but for Python. Note if you want *lazy sequences* instead, Python already provides those; just use the generator facility (and decorate your gfunc with ``unpythonic.gmemoize`` if needed).
+
+Lazy function example:
 
 ```python
 with lazify:
@@ -689,7 +692,7 @@ Comboing with other block macros in ``unpythonic.syntax`` is supported, includin
 
 For more details, see the docstring of ``unpythonic.syntax.lazify``.
 
-See also ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside literal containers, recursively. This allows code like ``tpl = lazyrec[(1*2*3, 4*5*6)]``. Each item becomes wrapped with ``lazy[]``, but the container itself is left alone, to avoid interfering with unpacking. Because ``lazyrec[]`` is a macro and must work by names only, it supports a fixed set of container types: ``list``, ``tuple``, ``set``, ``dict``, ``frozenset``, ``unpythonic.collections.frozendict``, ``unpythonic.collections.box``, and ``unpythonic.llist.cons`` (specifically, the constructors ``cons``, ``ll`` and ``llist``).
+See also ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside container literals, recursively. This allows code like ``tpl = lazyrec[(1*2*3, 4*5*6)]``. Each item becomes wrapped with ``lazy[]``, but the container itself is left alone, to avoid interfering with unpacking. Because ``lazyrec[]`` is a macro and must work by names only, it supports a fixed set of container types: ``list``, ``tuple``, ``set``, ``dict``, ``frozenset``, ``unpythonic.collections.frozendict``, ``unpythonic.collections.box``, and ``unpythonic.llist.cons`` (specifically, the constructors ``cons``, ``ll`` and ``llist``).
 
 (It must work by names only, because in an eager language any lazification must be performed as a syntax transformation before the code actually runs. Lazification in an eager language is a hack, by necessity. [Fexprs](https://fexpr.blogspot.com/2011/04/fexpr.html) (along with [a new calculus to go with them](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html)) would be a much more elegant approach, but this requires redesigning the whole language from ground up. Of course, if you're fine with a language not particularly designed for extensibility, and lazy evaluation is your top requirement, just use Haskell.)
 
@@ -715,7 +718,7 @@ a = 2*a
 print(a)  # 20, right?
 ```
 
-If we chose to auto-lazify assignments, this would expand to:
+If we chose to auto-lazify assignments, then assuming a ``with lazify`` around the example, it would expand to:
 
 ```python
 from macropy.quick_lambda import macros, lazy
@@ -741,13 +744,48 @@ print(force(b))
 
 because now at the time when ``b`` is forced, the name ``a`` still points to the value we intended it to.
 
-So if you're sure you have *new definitions* and not *imperative updates*, just manually use ``lazy[]`` (or ``lazyrec[]``, as appropriate) on the RHS. Or if it's fine to use eager evaluation, just omit the ``lazy[]``, thus allowing Python to evaluate the RHS immediately.
+If you're sure you have *new definitions* and not *imperative updates*, just manually use ``lazy[]`` (or ``lazyrec[]``, as appropriate) on the RHS. Or if it's fine to use eager evaluation, just omit the ``lazy[]``, thus allowing Python to evaluate the RHS immediately.
 
 Beside function calls (which bind arguments for the callee) and assignments, there are many other binding constructs in Python. For a full list, see [here](http://excess.org/article/2014/04/bar-foo/), or locally [here](../unpythonic/syntax/scoping.py), in function ``get_names_in_store_context``. Particularly noteworthy in the context of lazification are the ``for`` loop and the ``with`` context manager.
 
 In Python's ``for``, the loop counter is an imperatively updated single name. In many use cases a rapid update is desirable for performance reasons, and in any case, the whole point of the loop is (almost always) to read the counter (and do something with the value) at least once per iteration. So it is much simpler, faster, and equally correct not to lazify there.
 
 In ``with``, the whole point of a context manager is that it is eagerly initialized when the ``with`` block is entered (and finalized when the block exits). Since our lazy code can transparently use both bare values and promises (due to the semantics of our ``force1``), and the context manager would have to be eagerly initialized anyway, we can choose not to lazify there.
+
+#### Note about TCO
+
+To borrow a term from PG's On Lisp, to make ``lazify`` *pay-as-you-go*, a special mode in ``unpythonic.tco.trampolined`` is automatically enabled by ``with lazify`` to build lazify-aware trampolines in order to avoid a drastic performance hit (~10x) in trampolines built for regular strict code.
+
+The idea is that the mode is enabled while any function definitions in the ``with lazify`` block run, so they get a lazify-aware trampoline when the ``trampolined`` decorator is applied. This should be determined lexically, but that's complicated to do API-wise, so we currently enable the mode for the dynamic extent of the ``with lazify``. Usually this is close enough; the main case where this can behave unexpectedly is:
+
+```python
+@trampolined  # strict trampoline
+def g():
+    ...
+
+def make_f():
+    @trampolined  # which kind of trampoline is this?
+    def f():
+        ...
+    return f
+
+f1 = make_f()  # f1 gets the strict trampoline
+
+with lazify:
+    @trampolined  # lazify-aware trampoline
+    def h():
+        ...
+
+    f2 = make_f()  # f2 gets the lazify-aware trampoline
+```
+
+TCO chains with an arbitrary mix of lazy and strict functions should work as long as the first function in the chain has a lazify-aware trampoline, because the chain runs under the trampoline of the first function (the trampolines of any tail-called functions are stripped away by the TCO machinery).
+
+Tail-calling from a strict function into a lazy function should work, because all arguments are evaluated at the strict side before the call is made.
+
+But tail-calling ``strict -> lazy -> strict`` will fail in some cases. The second strict callee may get promises instead of values, because the strict trampoline does not have the ``lazycall`` (the mechanism ``with lazify`` uses to force the args when lazy code calls into strict code).
+
+The reason we have this hack is that it allows the performance of strict code using unpythonic's TCO machinery, not even caring that a ``lazify`` exists, to be unaffected by the additional machinery used to support automatic lazy-strict interaction.
 
 
 ### ``tco``: automatic tail call optimization for Python
@@ -774,9 +812,11 @@ with tco:
 
 All function definitions (``def`` and ``lambda``) lexically inside the block undergo TCO transformation. The functions are automatically ``@trampolined``, and any tail calls in their return values are converted to ``jump(...)`` for the TCO machinery. Here *return value* is defined as:
 
- - In a ``def``, the argument expression of ``return``, or of a call to an escape continuation.
+ - In a ``def``, the argument expression of ``return``, or of a call to a known escape continuation.
 
- - In a ``lambda``, the whole body, as well as the argument expression of a call to an escape continuation.
+ - In a ``lambda``, the whole body, as well as the argument expression of a call to a known escape continuation.
+
+What is a *known escape continuation* is explained below, in the section [TCO and ``call_ec``](#tco-and-call-ec).
 
 To find the tail position inside a compound return value, this recursively handles any combination of ``a if p else b``, ``and``, ``or``; and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``. Support for ``do[]`` includes also any ``multilambda`` blocks that have already expanded when ``tco`` is processed. The macros ``aif[]`` and ``cond[]`` are also supported, because they expand into a combination of ``let[]``, ``do[]``, and ``a if p else b``.
 
@@ -798,7 +838,7 @@ It is important to recognize a call to an escape continuation as such, because t
 
 For escape continuations in ``tco`` and ``continuations`` blocks, only basic uses of ``call_ec`` are supported, for automatically harvesting names referring to an escape continuation. In addition, the literal function names ``ec`` and ``brk`` are always *understood as referring to* an escape continuation.
 
-However, the name ``ec`` or ``brk`` alone is not sufficient to make a function into an escape continuation, even though ``tco`` (and ``continuations``) will think of it as such. The function also needs to actually implement some kind of an escape mechanism. An easy way to get an escape continuation, where this has already been done for you, is to use ``call_ec``.
+The name ``ec`` or ``brk`` alone is not sufficient to make a function into an escape continuation, even though ``tco`` (and ``continuations``) will think of it as such. The function also needs to actually implement some kind of an escape mechanism. An easy way to get an escape continuation, where this has already been done for you, is to use ``call_ec``.
 
 See the docstring of ``unpythonic.syntax.tco`` for details.
 
@@ -818,6 +858,8 @@ As a consequence of the approach, our continuations are *delimited* in the very 
 For various possible program topologies that continuations may introduce, see [these clarifying pictures](callcc_topology.pdf).
 
 For full documentation, see the docstring of ``unpythonic.syntax.continuations``. The unit tests [[1]](../unpythonic/syntax/test/test_conts.py) [[2]](../unpythonic/syntax/test/test_conts_escape.py) [[3]](../unpythonic/syntax/test/test_conts_gen.py) [[4]](../unpythonic/syntax/test/test_conts_topo.py) may also be useful as usage examples.
+
+**Note on debugging**: If a function containing a ``call_cc[]`` crashes below the ``call_cc[]``, the stack trace will usually have the continuation function somewhere in it, containing the line number information, so you can pinpoint the source code line where the error occurred. (For a function ``f``, it is named ``f_cont``, ``f_cont1``, ...) But be aware that especially in complex macro combos (e.g. ``continuations, curry, lazify``), the other block macros may spit out many internal function calls *after* the relevant stack frame that points to the actual user program. So check the stack trace as usual, but check further up than usual.
 
 Demonstration:
 
@@ -1158,6 +1200,7 @@ but the expr macro variant provides better options for receiving multiple return
 The ``call_cc[]`` explicitly suggests that these are (almost) the only places where the ``cc`` argument obtains a non-default value. It also visually indicates the exact position of the checkpoint, while keeping to standard Python syntax.
 
 (*Almost*: As explained above, a tail call passes along the current value of ``cc``, and ``cc`` can be set manually.)
+
 
 
 ### ``prefix``: prefix function call syntax for Python
