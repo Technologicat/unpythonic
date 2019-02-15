@@ -309,6 +309,8 @@ Finally, ``dyn`` supports membership testing as ``"x" in dyn``, ``"y" not in dyn
 
 For some more details, see [the unit tests](unpythonic/test/test_dynassign.py).
 
+*Changed in v0.13.0.* The ``asdict`` and ``items`` methods previously returned a snapshot; now they return a live view.
+
 
 ## Containers
 
