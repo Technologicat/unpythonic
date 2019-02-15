@@ -723,6 +723,8 @@ def namedlambda(tree, **kw):
     is named to have the name of the LHS of the assignment. The name is
     captured at macro expansion time.
 
+    Naming modifies the original function object.
+
     We support:
 
         - Single-item assignments to a local name, ``f = lambda ...: ...``
@@ -736,8 +738,7 @@ def namedlambda(tree, **kw):
     Support for other forms of assignment might or might not be added in a
     future version.
 
-    Naming modifies the original function object. The name is set only once per
-    object, so in::
+    Example::
 
         with namedlambda:
             f = lambda x: x**3        # assignment: name as "f"
@@ -748,10 +749,6 @@ def namedlambda(tree, **kw):
               (g(x), h(x))]]
 
             foo = let[(f7, lambda x: x) in f7]  # let-binding: name as "f7"
-
-    the name of the first lambda will be set as ``f``, and it will remain as ``f``
-    even after the name ``h`` is made to point to the same object inside the
-    body of the ``let``.
 
     The naming is performed using the function ``unpythonic.misc.namelambda``,
     which will update ``__name__``, ``__qualname__`` and ``__code__.co_name``.
@@ -1658,7 +1655,7 @@ def lazify(tree, *, gen_sym, **kw):
                 print(y)    # bare data value
             f(2*21)
 
-    Inspired by Haskell, and Racket's (delay) and (force).
+    Inspired by Haskell, Racket's (delay) and (force), and lazy/racket.
 
     **CAUTION**: Call-by-need is a low-level language feature that is difficult
     to bolt on after the fact. Some things might not work.
