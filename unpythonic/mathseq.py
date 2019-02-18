@@ -355,17 +355,17 @@ def _make_termwise_stream_op(op):
 
 _add = _make_termwise_stream_op(primitive_add)
 def add(s1, s2):
-    """a + b when one or both are stream (generators). If both, then termwise."""
+    """a + b when one or both are streams (generators). If both, then termwise."""
     return _add(s1, s2)
 
 _mul = _make_termwise_stream_op(primitive_mul)
 def mul(s1, s2):
-    """a*b when one or both are stream (generators). If both, then termwise."""
+    """a*b when one or both are streams (generators). If both, then termwise."""
     return _mul(s1, s2)
 
 _pow = _make_termwise_stream_op(primitive_pow)
 def pow(s1, s2):
-    """a**b when one or both are stream (generators). If both, then termwise."""
+    """a**b when one or both are streams (generators). If both, then termwise."""
     return _pow(s1, s2)
 
 def cauchyprod(s1, s2):
