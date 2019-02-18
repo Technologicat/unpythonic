@@ -131,6 +131,10 @@ def s(*spec):
         s(x0, x0*k, x0*k**2, ..., x0*k**5)
         s(x0, -x0*k, x0*k**2, ..., -x0*k**5)
 
+        x0, k = symbols("x0, k", positive=True)
+        s(x0, x0**k, x0**(k**2), ...)
+        s(x0, x0**k, x0**(k**2), ..., x0**(k**5))
+
     For a symbolic geometric sequence with a final term, it is important that
     SymPy can determine the correct sign; hence in this example we have declared
     ``k`` as positive.
