@@ -6,10 +6,13 @@ Numeric (int, float, mpmath) and symbolic (SymPy) formats are supported.
 Avoids accumulating roundoff error when used with floating-point.
 """
 
-__all__ = ["s"]
+__all__ = ["s", "add", "mul", "pow"]
 
 from itertools import repeat
 from .it import take
+
+from inspect import isgenerator
+from operator import add as primitive_add, mul as primitive_mul, pow as primitive_pow
 
 # stuff to support float, mpf and SymPy expressions transparently
 #
@@ -329,3 +332,33 @@ def s(*spec):
                     yield x0**(1/(kinv**j))
                     j += 1
         return power() if n is infty else take(n, power())
+
+def _make_termwise_stream_op(op):
+    def sop(s1, s2):
+        ig = [isgenerator(x) for x in (s1, s2)]
+        if not any(ig):
+            raise TypeError("Expected at least one generator, got '{}', '{}'".format(type(s1), type(s2)))
+        if all(ig):
+            return (op(a, b) for a, b in zip(s1, s2))
+        elif ig[0]:
+            c = s2
+            return (op(a, c) for a in s1)
+        else:  # s2 is a generator, s1 isn't
+            c = s1
+            return (op(c, a) for a in s2)  # careful; op might not be commutative
+    return sop
+
+_add = _make_termwise_stream_op(primitive_add)
+def add(s1, s2):
+    """a + b when one or both are stream (generators). If both, then termwise."""
+    return _add(s1, s2)
+
+_mul = _make_termwise_stream_op(primitive_mul)
+def mul(s1, s2):
+    """a*b when one or both are stream (generators). If both, then termwise."""
+    return _mul(s1, s2)
+
+_pow = _make_termwise_stream_op(primitive_pow)
+def pow(s1, s2):
+    """a**b when one or both are stream (generators). If both, then termwise."""
+    return _pow(s1, s2)

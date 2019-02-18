@@ -3,7 +3,7 @@
 from sys import float_info
 from math import floor, log2
 
-from ..mathseq import s
+from ..mathseq import s, add, mul, pow
 from ..it import take, last
 
 def test():
@@ -56,6 +56,19 @@ def test():
     assert tuple(take(5, s(2, 4, 16, ..., 65536))) == (2, 4, 16, 256, 65536)
     assert tuple(take(5, s(2, 2**(1/2), 2**(1/4), ...))) == (2, 2**(1/2), 2**(1/4), 2**(1/8), 2**(1/16))
     assert last(s(2, 2**(1/2), 2**(1/4), ..., 2**(1/1048576))) == 2**(1/1048576)
+
+    # operations
+    assert tuple(take(5, add(s(1, 3, ...), s(2, 4, ...)))) == (3, 7, 11, 15, 19)
+    assert tuple(take(5, add(1, s(1, 3, ...)))) == (2, 4, 6, 8, 10)
+    assert tuple(take(5, add(s(1, 3, ...), 1))) == (2, 4, 6, 8, 10)
+
+    assert tuple(take(5, mul(s(1, 3, ...), s(2, 4, ...)))) == (2, 12, 30, 56, 90)
+    assert tuple(take(5, mul(2, s(1, 3, ...)))) == (2, 6, 10, 14, 18)
+    assert tuple(take(5, mul(s(1, 3, ...), 2))) == (2, 6, 10, 14, 18)
+
+    assert tuple(take(5, pow(s(1, 3, ...), s(2, 4, ...)))) == (1, 3**4, 5**6, 7**8, 9**10)
+    assert tuple(take(5, pow(s(1, 3, ...), 2))) == (1, 3**2, 5**2, 7**2, 9**2)
+    assert tuple(take(5, pow(2, s(1, 3, ...)))) == (2**1, 2**3, 2**5, 2**7, 2**9)
 
     # Our generators avoid accumulating roundoff error
 
