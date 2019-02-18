@@ -73,9 +73,9 @@ def test():
         # m_min = abs. value represented by a mantissa of 1.0, with the same exponent as x has
         m_min = 2**floor(log2(abs(x)))
         return m_min * eps
-    assert abs(last(tuple(s(0.01, 0.02, ..., 100))) - 100.0) <= ulp(100.0)
-    assert abs(last(tuple(s(0.01, 0.02, ..., 1000))) - 1000.0) <= ulp(1000.0)
-    assert abs(last(tuple(s(0.01, 0.02, ..., 10000))) - 10000.0) <= ulp(10000.0)
+    assert abs(last(s(0.01, 0.02, ..., 100)) - 100.0) <= ulp(100.0)
+    assert abs(last(s(0.01, 0.02, ..., 1000)) - 1000.0) <= ulp(1000.0)
+    assert abs(last(s(0.01, 0.02, ..., 10000)) - 10000.0) <= ulp(10000.0)
 
     try:
         s(1, ..., 1)  # length of a constant sequence cannot be determined from a final element
