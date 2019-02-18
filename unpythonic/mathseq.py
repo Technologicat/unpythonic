@@ -250,10 +250,10 @@ def s(*spec):
                     return False
                 return 1 + int(a)
         else: # seqtype == "power":
-            # elt = x0**(a**k) --> a**k = logx0 elt --> a = logk (logx0 elt)
+            # elt = x0**(k**a) --> k**a = logx0 elt --> a = logk (logx0 elt)
             a = log(log(abs(elt), abs(x0)), abs(k))
             if is_almost_int(a) and a > 0:
-                if not eq(x0**(a**k), elt):
+                if not eq(x0**(k**a), elt):
                     return False
                 return 1 + int(a)
         return False
