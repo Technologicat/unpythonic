@@ -386,7 +386,6 @@ def cauchyprod(s1, s2):
         while True:
             a = take(n, g_s1())
             b = rev(take(n, g_s2()))
-            terms = tuple(mul(a, b))
-            yield sum(terms)
+            yield sum(mul(a, b))
             n += 1
     return cauchy()
