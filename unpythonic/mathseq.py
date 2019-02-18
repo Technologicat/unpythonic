@@ -6,12 +6,12 @@ Numeric (int, float, mpmath) and symbolic (SymPy) formats are supported.
 Avoids accumulating roundoff error when used with floating-point.
 """
 
-__all__ = ["s", "add", "mul", "pow"]
+__all__ = ["s", "add", "mul", "pow", "cauchyprod"]
 
 from itertools import repeat
-from .it import take
+from .it import take, rev
+from .gmemo import imemoize
 
-from inspect import isgenerator
 from operator import add as primitive_add, mul as primitive_mul, pow as primitive_pow
 
 # stuff to support float, mpf and SymPy expressions transparently
@@ -142,6 +142,11 @@ def s(*spec):
 
         1, 4, 9, 16, ...:       (x**2 for x in s(1, 2, ...))
         1, 1/2, 1/3, 1/4, ...:  (1/x for x in s(1, 2, ...))
+
+        x = symbols("x", real=True)  # SymPy
+        px = lambda stream: mul(stream, s(1, x, x**2, ...))
+        s1 = px(s(1, 3, 5, ...))  # 1, 3*x, 5*x**2, ...
+        s2 = px(s(2, 4, 6, ...))  # 2, 4*x, 6*x**2, ...
 
     **Notes**
 
@@ -335,7 +340,7 @@ def s(*spec):
 
 def _make_termwise_stream_op(op):
     def sop(s1, s2):
-        ig = [isgenerator(x) for x in (s1, s2)]
+        ig = [hasattr(x, "__iter__") for x in (s1, s2)]
         if not any(ig):
             raise TypeError("Expected at least one generator, got '{}', '{}'".format(type(s1), type(s2)))
         if all(ig):
@@ -362,3 +367,26 @@ _pow = _make_termwise_stream_op(primitive_pow)
 def pow(s1, s2):
     """a**b when one or both are stream (generators). If both, then termwise."""
     return _pow(s1, s2)
+
+def cauchyprod(s1, s2):
+    """Cauchy product of infinite sequences.
+
+    Formula::
+
+        out[k] = sum(s1[j]*s2[k-j], j = 0, 1, ..., k)
+
+    **CAUTION**: This will ``imemoize`` both inputs; the usual caveats apply.
+    """
+    if not all(hasattr(x, "__iter__") for x in (s1, s2)):
+        raise TypeError("Expected two generators, got '{}', '{}'".format(type(s1), type(s2)))
+    g_s1 = imemoize(s1)
+    g_s2 = imemoize(s2)
+    def cauchy():
+        n = 1
+        while True:
+            a = take(n, g_s1())
+            b = rev(take(n, g_s2()))
+            terms = tuple(mul(a, b))
+            yield sum(terms)
+            n += 1
+    return cauchy()

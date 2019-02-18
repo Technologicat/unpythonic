@@ -3,7 +3,7 @@
 from sys import float_info
 from math import floor, log2
 
-from ..mathseq import s, add, mul, pow
+from ..mathseq import s, add, mul, pow, cauchyprod
 from ..it import take, last
 
 def test():
@@ -69,6 +69,8 @@ def test():
     assert tuple(take(5, pow(s(1, 3, ...), s(2, 4, ...)))) == (1, 3**4, 5**6, 7**8, 9**10)
     assert tuple(take(5, pow(s(1, 3, ...), 2))) == (1, 3**2, 5**2, 7**2, 9**2)
     assert tuple(take(5, pow(2, s(1, 3, ...)))) == (2**1, 2**3, 2**5, 2**7, 2**9)
+
+    assert tuple(take(3, cauchyprod(s(1, 3, 5, ...), s(2, 4, 6, ...)))) == (2, 10, 28)
 
     # Our generators avoid accumulating roundoff error
 
@@ -155,6 +157,16 @@ def test():
             pass
         else:
             assert False
+
+        x0, k = symbols("x0, k", positive=True)
+        assert tuple(s(x0, x0**k, x0**(k**2), ..., x0**(k**5))) == (x0, x0**k, x0**(k**2), x0**(k**3), x0**(k**4), x0**(k**5))
+
+        x = symbols("x", real=True)
+        px = lambda stream: mul(stream, s(1, x, x**2, ...))
+        s1 = px(s(1, 3, 5, ...))
+        s2 = px(s(2, 4, 6, ...))
+        assert tuple(take(3, cauchyprod(s1, s2))) == (2, 10*x, 28*x**2)
+
     except ImportError:
         print("*** SymPy not installed, skipping symbolic math sequence test ***")
 
