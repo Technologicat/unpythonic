@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Create lazy constant, arithmetic and geometric sequences with compact syntax.
+"""Lazy constant, arithmetic, geometric and power sequences with compact syntax.
 
 Numeric (int, float, mpmath) and symbolic (SymPy) formats are supported.
 
@@ -216,7 +216,7 @@ def s(*spec):
             if abs(a0) != 1 and a1 != 0 and a2 != 0:
                 p1 = log(abs(a1), abs(a0))
                 p2 = log(abs(a2), abs(a1))
-                if eq(p1, p2):  # a0, a0**p, (a0**p)**p, ...   [a0, **p]
+                if eq(p1, p2):  # a0, a0**p, (a0**p)**p, ...  [a0, **p]
                     p = (p1 + p2)/2
                     return ("power", a0, p)
             raise SyntaxError("Specification did not match any supported formula: '{}'".format(origspec))
