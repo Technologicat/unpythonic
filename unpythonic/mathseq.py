@@ -6,7 +6,7 @@ Numeric (int, float, mpmath) and symbolic (SymPy) formats are supported.
 Avoids accumulating roundoff error when used with floating-point.
 """
 
-__all__ = ["s", "add", "mul", "pow", "cauchyprod"]
+__all__ = ["s", "sadd", "smul", "spow", "cauchyprod"]
 
 from itertools import repeat
 from .it import take, rev
@@ -352,17 +352,17 @@ def _make_termwise_stream_op(op):
     return sop
 
 _add = _make_termwise_stream_op(primitive_add)
-def add(s1, s2):
+def sadd(s1, s2):
     """a + b when one or both are streams (generators). If both, then termwise."""
     return _add(s1, s2)
 
 _mul = _make_termwise_stream_op(primitive_mul)
-def mul(s1, s2):
+def smul(s1, s2):
     """a*b when one or both are streams (generators). If both, then termwise."""
     return _mul(s1, s2)
 
 _pow = _make_termwise_stream_op(primitive_pow)
-def pow(s1, s2):
+def spow(s1, s2):
     """a**b when one or both are streams (generators). If both, then termwise."""
     return _pow(s1, s2)
 
@@ -384,6 +384,6 @@ def cauchyprod(s1, s2):
         while True:
             a = take(n, g_s1())
             b = rev(take(n, g_s2()))
-            yield sum(mul(a, b))
+            yield sum(smul(a, b))
             n += 1
     return cauchy()
