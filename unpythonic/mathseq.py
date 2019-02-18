@@ -290,7 +290,7 @@ def s(*spec):
 
     # generate the sequence
     if seqtype == "const":
-        return repeat(x0) if n is infty else repeat(x0, n)
+        return MathStream(repeat(x0) if n is infty else repeat(x0, n))
     elif seqtype == "arith":
         # itertools.count doesn't avoid accumulating roundoff error for floats, so we implement our own.
         # This should be, for any j, within 1 ULP of the true result.
@@ -299,7 +299,8 @@ def s(*spec):
             while True:
                 yield x0 + j*k
                 j += 1
-        return arith() if n is infty else take(n, arith())
+        return MathStream(arith() if n is infty else take(n, arith()))
+
     elif seqtype == "geom":
         if isinstance(k, _symExpr) or abs(k) >= 1:
             def geom():
@@ -319,7 +320,7 @@ def s(*spec):
                 while True:
                     yield x0/(kinv**j)
                     j += 1
-        return geom() if n is infty else take(n, geom())
+        return MathStream(geom() if n is infty else take(n, geom()))
     else: # seqtype == "power":
         if isinstance(k, _symExpr) or abs(k) >= 1:
             def power():
@@ -334,21 +335,60 @@ def s(*spec):
                 while True:
                     yield x0**(1/(kinv**j))
                     j += 1
-        return power() if n is infty else take(n, power())
+        return MathStream(power() if n is infty else take(n, power()))
+
+class MathStream:
+    """Base class for a numeric or symbolic mathematical sequence.
+
+    This is used to enable infix arithmetic on sequences.
+    """
+    def __init__(self, generator_instance):
+        self._g = generator_instance
+    def __iter__(self):
+        return self._g
+    # TODO: the rest of the numeric methods
+    # https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
+    def __add__(self, other):
+        return sadd(self, other)
+    def __radd__(self, other):
+        return sadd(other, self)
+    def __sub__(self, other):
+        return sadd(self, smul(other, -1))
+    def __rsub__(self, other):
+        return sadd(other, smul(self, -1))
+    def __mul__(self, other):
+        return smul(self, other)
+    def __rmul__(self, other):
+        return smul(other, self)
+    def __truediv__(self, other):
+        return smul(self, spow(other, -1))
+    def __rtruediv__(self, other):
+        return smul(other, spow(self, -1))
+    def __pow__(self, other):
+        return spow(self, other)
+    def __rpow__(self, other):
+        return spow(other, self)
+    def __neg__(self):
+        return smul(self, -1)
+    def __pos__(self):
+        return self
+    def __abs__(self):
+        return MathStream(abs(x) for x in iter(self))
 
 def _make_termwise_stream_op(op):
     def sop(s1, s2):
         ig = [hasattr(x, "__iter__") for x in (s1, s2)]
-        if not any(ig):
-            raise TypeError("Expected at least one generator, got '{}', '{}'".format(type(s1), type(s2)))
         if all(ig):
-            return (op(a, b) for a, b in zip(s1, s2))
+            # it's very convenient here that zip() terminates when the shorter input runs out.
+            return MathStream(op(a, b) for a, b in zip(s1, s2))
+        elif not any(ig):
+            return op(s1, s2)
         elif ig[0]:
             c = s2
-            return (op(a, c) for a in s1)
-        else:  # s2 is a generator, s1 isn't
+            return MathStream(op(a, c) for a in s1)
+        else: # ig[1]:
             c = s1
-            return (op(c, a) for a in s2)  # careful; op might not be commutative
+            return MathStream(op(c, a) for a in s2)  # careful; op might not be commutative
     return sop
 
 _add = _make_termwise_stream_op(primitive_add)
@@ -384,6 +424,9 @@ def cauchyprod(s1, s2):
         while True:
             a = take(n, g_s1())
             b = rev(take(n, g_s2()))
-            yield sum(smul(a, b))
+            terms = tuple(smul(a, b))
+            if len(terms) < n:  # at least one of the inputs ran out
+                break
+            yield sum(terms)
             n += 1
-    return cauchy()
+    return MathStream(cauchy())

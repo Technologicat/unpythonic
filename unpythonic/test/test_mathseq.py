@@ -72,6 +72,23 @@ def test():
 
     assert tuple(take(3, cauchyprod(s(1, 3, 5, ...), s(2, 4, 6, ...)))) == (2, 10, 28)
 
+    # infix syntax for operations
+    assert tuple(take(5, s(1, 3, 5, ...) + s(2, 4, 6, ...))) == (3, 7, 11, 15, 19)
+    assert tuple(take(5, 1 + s(1, 3, ...))) == (2, 4, 6, 8, 10)
+    assert tuple(take(5, 1 - s(1, 3, ...))) == (0, -2, -4, -6, -8)
+    assert tuple(take(5, s(1, 3, ...) + 1)) == (2, 4, 6, 8, 10)
+    assert tuple(take(5, s(1, 3, ...) - 1)) == (0, 2, 4, 6, 8)
+
+    assert tuple(take(5, s(1, 3, ...) * s(2, 4, ...))) == (2, 12, 30, 56, 90)
+    assert tuple(take(5, 2 * s(1, 3, ...))) == (2, 6, 10, 14, 18)
+    assert tuple(take(5, s(1, 3, ...) * 2)) == (2, 6, 10, 14, 18)
+    assert tuple(take(5, s(2, 4, ...) / 2)) == (1, 2, 3, 4, 5)
+    assert tuple(take(5, 1 / s(1, 2, ...))) == (1, 1/2, 1/3, 1/4, 1/5)
+
+    assert tuple(take(5, s(1, 3, ...)**s(2, 4, ...))) == (1, 3**4, 5**6, 7**8, 9**10)
+    assert tuple(take(5, s(1, 3, ...)**2)) == (1, 3**2, 5**2, 7**2, 9**2)
+    assert tuple(take(5, 2**s(1, 3, ...))) == (2**1, 2**3, 2**5, 2**7, 2**9)
+
     # Our generators avoid accumulating roundoff error
 
     # values not exactly representable in base-2; the sequence terms should roundoff the same way as the RHS
@@ -162,7 +179,7 @@ def test():
         assert tuple(s(x0, x0**k, x0**(k**2), ..., x0**(k**5))) == (x0, x0**k, x0**(k**2), x0**(k**3), x0**(k**4), x0**(k**5))
 
         x = symbols("x", real=True)
-        px = lambda stream: smul(stream, s(1, x, x**2, ...))
+        px = lambda stream: stream * s(1, x, x**2, ...)
         s1 = px(s(1, 3, 5, ...))
         s2 = px(s(2, 4, 6, ...))
         assert tuple(take(3, cauchyprod(s1, s2))) == (2, 10*x, 28*x**2)
