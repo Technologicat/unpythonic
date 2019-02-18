@@ -140,13 +140,15 @@ def s(*spec):
     We support only these four basic kinds of sequences, because many more
     can be built using them as building blocks. For example::
 
-        1, 4, 9, 16, ...:       (x**2 for x in s(1, 2, ...))
-        1, 1/2, 1/3, 1/4, ...:  (1/x for x in s(1, 2, ...))
+        1, 4, 9, 16, ...:       s(1, 2, ...)**2
+        1, 1/2, 1/3, 1/4, ...:  1 / s(1, 2, ...)
 
         x = symbols("x", real=True)  # SymPy
-        px = lambda stream: mul(stream, s(1, x, x**2, ...))
+        px = lambda stream: stream * s(1, x, x**2, ...)
         s1 = px(s(1, 3, 5, ...))  # 1, 3*x, 5*x**2, ...
         s2 = px(s(2, 4, 6, ...))  # 2, 4*x, 6*x**2, ...
+
+    Sequences returned by ``s()`` support infix math syntax.
 
     **Notes**
 
