@@ -183,7 +183,7 @@ def s(*spec):
 
     def is_almost_int(x):
         try:
-            return eq(float(int(x)), x)
+            return eq(float(round(x)), x)
         except TypeError:  # likely a SymPy expression that didn't simplify to a number
             return False
 
@@ -241,21 +241,21 @@ def s(*spec):
             # elt = x0 + a*k --> a = (elt - x0) / k
             a = (elt - x0) / k
             if is_almost_int(a) and a > 0:
-                return 1 + int(a)  # fencepost
+                return 1 + round(a)  # fencepost
         elif seqtype == "geom":
             # elt = x0*(k**a) --> k**a = (elt/x0) --> a = logk(elt/x0)
             a = log(abs(elt/x0), abs(k))
             if is_almost_int(a) and a > 0:
                 if not eq(x0*(k**a), elt):  # check parity of final term, could be an alternating sequence
                     return False
-                return 1 + int(a)
+                return 1 + round(a)
         else: # seqtype == "power":
             # elt = x0**(k**a) --> k**a = logx0 elt --> a = logk (logx0 elt)
             a = log(log(abs(elt), abs(x0)), abs(k))
             if is_almost_int(a) and a > 0:
-                if not eq(x0**(k**a), elt):
+                if not eq(x0**(k**a), elt):  # parity
                     return False
-                return 1 + int(a)
+                return 1 + round(a)
         return False
 
     # analyze the specification
@@ -313,10 +313,19 @@ def s(*spec):
                     j += 1
         return geom() if n is infty else take(n, geom())
     else: # seqtype == "power":
-        def power():
-            yield x0
-            j = 1
-            while True:
-                yield x0**(k**j)
-                j += 1
+        if isinstance(k, _symExpr) or abs(k) >= 1:
+            def power():
+                yield x0
+                j = 1
+                while True:
+                    yield x0**(k**j)
+                    j += 1
+        else:
+            kinv = 1/k
+            def power():
+                yield x0
+                j = 1
+                while True:
+                    yield x0**(1/(kinv**j))
+                    j += 1
         return power() if n is infty else take(n, power())
