@@ -96,17 +96,16 @@ def s(*spec):
 
     Specified as ``s(a0, a1, a2, ...)``, it must hold that ``a0, a1, a2 != 0``.
 
-    Note the sequence ``a0, a0**2, a0**3, ...`` is a special case of a geometric
-    sequence, with ``r = a0``.
+    The sequence ``a0, a0**2, a0**3, ...`` is just a special case of a geometric
+    sequence, with ``r = a0``, so e.g. ``s(3, 9, 27, ...)`` works as expected.
 
-    *Power sequence*: ``[a0, **p] -> a0, a0**p, a0**(2 p), ...``
+    *Power sequence*: ``[a0, **p] -> a0, a0**p, a0**(p**2), ...``
 
     Three terms required, more allowed if consistent. Syntax::
 
-        s(2, 32, 1024, ...)        #  2,      2**5,       2**10,  ...
-        s(2, 1/32, 1/1024, ...)    #  2,    2**(-5),    2**(-10), ...
-        s(-2, -32, 1024, ...)      # -2,   (-2)**5,    (-2)**10,  ...
-        s(-2, -1/32, 1/1024, ...)  # -2, (-2)**(-5), (-2)**(-10), ...
+        s(2, 4, 16, ...)
+        s(2, 2**2, 2**4, ...)  # equivalent
+        s(2, 2**(1/2), 2**(1/4), ...)
 
     Specified as ``s(a0, a1, a2, ...)``, it must hold that ``|a0| != 1`` and
     ``a1, a2 != 0``.
@@ -149,6 +148,12 @@ def s(*spec):
     error (unlike e.g. ``itertools.count``). Even for a long but finite arithmetic
     sequence where the start value and the diff are not exactly representable
     by base-2 floats, the final value should be within 1 ULP of the true value.
+
+    Note this reverse-engineers the given numbers to figure out which case the
+    input corresponds to. Although we take some care to avoid roundoff errors
+    with floating-point input, it may sometimes occur that roundoff prevents
+    correct detection of the sequence (especially for power sequences, since
+    their detection requires taking logarithms).
 
     Inspired by Haskell's sequence notation.
     """
@@ -200,18 +205,21 @@ def s(*spec):
             if d2 == d1 == 0:   # a0, a0, a0, ...             [a0, identity]
                 return ("const", a0, None)
             if eq(d2, d1):      # a0, a0 + d, a0 + 2 d, ...   [a0, +d]
-                return ("arith", a0, d1)
+                d = (d1 + d2)/2  # average to give roundoff errors a chance to cancel
+                return ("arith", a0, d)
             if a0 != 0 and a1 != 0 and a2 != 0:
                 r1 = a1/a0
                 r2 = a2/a1
                 if eq(r2, r1):  # a0, a0*r, a0*r**2, ...      [a0, *r]
-                    return ("geom", a0, r1)
+                    r = (r1 + r2)/2
+                    return ("geom", a0, r)
             if abs(a0) != 1 and a1 != 0 and a2 != 0:
                 p1 = log(abs(a1), abs(a0))
-                p2 = log(abs(a2), abs(a0))
-                if is_almost_int(p2/p1):  # a0, a0**p, a0**(2*p), ...   [a0, **p]
-                    return ("power", a0, p1)
-            raise SyntaxError("Unsupported specification '{}'".format(origspec))
+                p2 = log(abs(a2), abs(a1))
+                if eq(p1, p2):  # a0, a0**p, (a0**p)**p, ...   [a0, **p]
+                    p = (p1 + p2)/2
+                    return ("power", a0, p)
+            raise SyntaxError("Specification did not match any supported formula: '{}'".format(origspec))
         else:  # more elements are optional but must be consistent
             data = [analyze(*triplet) for triplet in zip(spec, spec[1:], spec[2:])]
             seqtypes, x0s, ks = zip(*data)
@@ -224,7 +232,7 @@ def s(*spec):
 
     # final term handler for finite sequences - compute how many terms we should generate in total
     infty = float("inf")
-    def nofterms(desc, elt):  # return number of terms in sequence or False
+    def nofterms(desc, elt):  # return total number of terms in sequence or False
         seqtype, x0, k = desc
         if seqtype == "const":
             if elt == x0:
@@ -238,19 +246,15 @@ def s(*spec):
             # elt = x0*(k**a) --> k**a = (elt/x0) --> a = logk(elt/x0)
             a = log(abs(elt/x0), abs(k))
             if is_almost_int(a) and a > 0:
-                if k < 0:  # check parity of final term for alternating geometric sequence
-                    m = +1 if int(a) % 2 == 0 else -1
-                    if not (sign(elt) == m*sign(x0)):
-                        return False
+                if not eq(x0*(k**a), elt):  # check parity of final term, could be an alternating sequence
+                    return False
                 return 1 + int(a)
         else: # seqtype == "power":
-            # elt = x0**(a*k) --> k a = logx0 elt --> a = (logx0 elt) / k
-            a = log(abs(elt), abs(x0)) / k
+            # elt = x0**(a**k) --> a**k = logx0 elt --> a = logk (logx0 elt)
+            a = log(log(abs(elt), abs(x0)), abs(k))
             if is_almost_int(a) and a > 0:
-                if x0 < 0:  # alternating power sequence
-                    m = +1 if int(a) % 2 == 0 else -1
-                    if not (sign(elt) == m*sign(x0)):
-                        return False
+                if not eq(x0**(a**k), elt):
+                    return False
                 return 1 + int(a)
         return False
 
@@ -313,6 +317,6 @@ def s(*spec):
             yield x0
             j = 1
             while True:
-                yield x0**(j*k)
+                yield x0**(k**j)
                 j += 1
         return power() if n is infty else take(n, power())
