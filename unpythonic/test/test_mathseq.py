@@ -11,24 +11,52 @@ def test():
     assert tuple(s(1)) == (1,)
     assert tuple(s(1, 2, 3, 4, 5)) == (1, 2, 3, 4, 5)
 
-    # constant sequence (always infinite length)
+    # constant sequence: [a0, identity] -> a0, a0, a0, ...
+    # always infinite length, because final element cannot be used to deduce length.
     assert tuple(take(10, s(1, ...))) == (1,)*10
 
-    # arithmetic sequence
+    # arithmetic sequence [a0, +d] -> a0, a0 + d, a0 + 2 d + ...
     assert tuple(take(10, s(1, 2, ...))) == tuple(range(1, 11))     # two elements is enough
     assert tuple(take(10, s(1, 2, 3, ...))) == tuple(range(1, 11))  # more is allowed if consistent
 
-    # geometric sequence
+    # geometric sequence [a0, *r] -> a0, a0*r, a0*r**2, ...
     # three elements is enough, more allowed if consistent
     assert tuple(take(10, s(1, 2, 4, ...))) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
     assert tuple(take(10, s(1, 2, 4, 8, ...))) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
     assert tuple(take(10, s(1, 1/2, 1/4, ...))) == (1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64, 1/128, 1/256, 1/512)
     assert tuple(take(10, s(1, 1/2, 1/4, 1/8, ...))) == (1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64, 1/128, 1/256, 1/512)
+    assert tuple(take(5, s(3, 9, 27, ...))) == (3, 9, 27, 81, 243)
 
-    # specify a final element to get a finite arithmetic or geometric sequence
+    # specify a final element to get a finite sequence (except constant sequences)
+    # this is an abbreviation for take(...), computing n for you
+    # (or takewhile(...) with the appropriate end condition)
     assert tuple(s(1, 2, ..., 10)) == tuple(range(1, 11))
     assert tuple(s(1, 2, 4, ..., 512)) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
     assert tuple(s(1, 1/2, 1/4, ..., 1/512)) == (1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64, 1/128, 1/256, 1/512)
+
+    # alternating geometric sequences also ok
+    assert tuple(take(5, s(1, -1, 1, ...))) == (1, -1, 1, -1, 1)
+    assert tuple(take(5, s(-1, 1, -1, ...))) == (-1, 1, -1, 1, -1)
+    assert tuple(take(10, s(1, -2, 4, ...))) == (1, -2, 4, -8, 16, -32, 64, -128, 256, -512)
+    assert tuple(take(10, s(1, -1/2, 1/4, ...))) == (1, -1/2, 1/4, -1/8, 1/16, -1/32, 1/64, -1/128, 1/256, -1/512)
+    assert tuple(s(1, -2, 4, ..., -512)) == (1, -2, 4, -8, 16, -32, 64, -128, 256, -512)
+    assert tuple(s(1, -1/2, 1/4, ..., -1/512)) == (1, -1/2, 1/4, -1/8, 1/16, -1/32, 1/64, -1/128, 1/256, -1/512)
+    assert tuple(take(5, s(3, -9, 27, ...))) == (3, -9, 27, -81, 243)
+    assert tuple(take(5, s(-3, 9, -27, ...))) == (-3, 9, -27, 81, -243)
+
+    # power sequence [a0, **p] -> a0, a0**p, a0**(2 p), ...
+    # three elements is enough, more allowed if consistent
+    assert tuple(take(5, s(2, 32, 1024, ...))) == (2, 32, 1024, 32768, 1048576)  # 2, 2**5, 2**10, ...
+    assert tuple(take(5, s(2, 1/32, 1/1024, ...))) == (2, 1/32, 1/1024, 1/32768, 1/1048576)  # 2, 2**-5, 2**-10, ...
+
+    assert tuple(take(5, s(-2, -32, 1024, ...))) == (-2, -32, 1024, -32768, 1048576)  # -2, (-2)**5, (-2)**10, ...
+    assert tuple(take(5, s(-2, -1/32, 1/1024, ...))) == (-2, -1/32, 1/1024, -1/32768, 1/1048576)  # -2, (-2)**-5, (-2)**-10, ...
+
+    assert tuple(take(5, s(2, 32, 1024, 32768, ...))) == (2, 32, 1024, 32768, 1048576)
+    assert tuple(take(5, s(2, 1/32, 1/1024, 1/32768, ...))) == (2, 1/32, 1/1024, 1/32768, 1/1048576)
+
+    assert tuple(s(2, 32, 1024, ..., 1048576)) == (2, 32, 1024, 32768, 1048576)
+    assert tuple(s(2, 1/32, 1/1024, ..., 1/1048576)) == (2, 1/32, 1/1024, 1/32768, 1/1048576)
 
     # Our generators avoid accumulating roundoff error
 
@@ -96,7 +124,8 @@ def test():
     # works for symbolic input, too
     try:
         from sympy import symbols
-        x0, k = symbols("x0, k", real=True)
+        x0 = symbols("x0", real=True)
+        k = symbols("k", positive=True)  # important for geometric series
 
         assert tuple(take(4, s(x0, ...))) == (x0, x0, x0, x0)
         assert tuple(take(4, s(x0, x0 + k, ...))) == (x0, x0 + k, x0 + 2*k, x0 + 3*k)
@@ -105,6 +134,8 @@ def test():
         assert tuple(s(x0, x0 + k, ..., x0 + 3*k)) == (x0, x0 + k, x0 + 2*k, x0 + 3*k)
         assert tuple(s(x0, x0*k, x0*k**2, ..., x0*k**3)) == (x0, x0*k, x0*k**2, x0*k**3)
         assert tuple(s(x0, x0*k, x0*k**2, ..., x0*k**5)) == (x0, x0*k, x0*k**2, x0*k**3, x0*k**4, x0*k**5)
+
+        assert tuple(s(x0, -x0*k, x0*k**2, ..., -x0*k**3)) == (x0, -x0*k, x0*k**2, -x0*k**3)
 
         try:  # too few terms, should think it's supposed to be an arithmetic sequence
             assert tuple(s(x0, x0*k, ..., x0*k**3)) == (x0, x0*k, x0*k**2, x0*k**3)
