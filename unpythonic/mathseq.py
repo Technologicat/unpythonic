@@ -323,16 +323,14 @@ def s(*spec):
     else: # seqtype == "power":
         if isinstance(k, _symExpr) or abs(k) >= 1:
             def power():
-                yield x0
-                j = 1
+                j = 0
                 while True:
                     yield x0**(k**j)
                     j += 1
         else:
             kinv = 1/k
             def power():
-                yield x0
-                j = 1
+                j = 0
                 while True:
                     yield x0**(1/(kinv**j))
                     j += 1
