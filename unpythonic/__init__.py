@@ -29,6 +29,7 @@ from .lispylet import let as ordered_let, letrec as ordered_letrec, \
                       blet as ordered_blet, bletrec as ordered_bletrec
 
 from .llist import *
+from .mathseq import *
 from .misc import *
 from .seq import *
 from .tco import *
