@@ -6,13 +6,15 @@ Numeric (int, float, mpmath) and symbolic (SymPy) formats are supported.
 Avoids accumulating roundoff error when used with floating-point.
 """
 
-__all__ = ["s", "sadd", "smul", "spow", "cauchyprod"]
+__all__ = ["s", "sadd", "smul", "spow", "smod", "sfloordiv", "sdivmod", "cauchyprod"]
 
 from itertools import repeat
 from .it import take, rev
 from .gmemo import imemoize
 
-from operator import add as primitive_add, mul as primitive_mul, pow as primitive_pow
+from operator import add as primitive_add, mul as primitive_mul, \
+                     pow as primitive_pow, mod as primitive_mod, \
+                     floordiv as primitive_floordiv
 
 # stuff to support float, mpf and SymPy expressions transparently
 #
@@ -370,7 +372,19 @@ class MathStream:
         return smul(self, spow(other, -1))
     def __rtruediv__(self, other):
         return smul(other, spow(self, -1))
-    def __pow__(self, other):
+    def __floordiv__(self, other):
+        return sfloordiv(self, other)
+    def __rfloordiv__(self, other):
+        return sfloordiv(other, self)
+    def __divmod__(self, other):
+        return sdivmod(self, other)
+    def __rdivmod__(self, other):
+        return sdivmod(other, self)
+    def __mod__(self, other):
+        return smod(self, other)
+    def __rmod__(self, other):
+        return smod(other, self)
+    def __pow__(self, other):  # TODO: support 3-argument syntax for pow()?
         return spow(self, other)
     def __rpow__(self, other):
         return spow(other, self)
@@ -380,6 +394,15 @@ class MathStream:
         return self
     def __abs__(self):
         return MathStream(abs(x) for x in iter(self))
+    # we leave out the logical and shift operators on purpose
+    # conversions - this, or don't implement?
+    def __complex__(self):
+        return MathStream(x+0j for x in iter(self))
+    def __int__(self):
+        return MathStream(int(x) for x in iter(self))
+    def __float__(self):
+        return MathStream(float(x) for x in iter(self))
+    # TODO: round, trunc, floor, ceil
 
 def _make_termwise_stream_op(op):
     def sop(s1, s2):
@@ -397,20 +420,31 @@ def _make_termwise_stream_op(op):
             return MathStream(op(c, a) for a in s2)  # careful; op might not be commutative
     return sop
 
+# TODO: expose full set of MathStream operators also as functions
 _add = _make_termwise_stream_op(primitive_add)
+_mul = _make_termwise_stream_op(primitive_mul)
+_pow = _make_termwise_stream_op(primitive_pow)
+_mod = _make_termwise_stream_op(primitive_mod)
+_floordiv = _make_termwise_stream_op(primitive_floordiv)
+_divmod = _make_termwise_stream_op(divmod)  # builtin
 def sadd(s1, s2):
     """a + b when one or both are streams (generators). If both, then termwise."""
     return _add(s1, s2)
-
-_mul = _make_termwise_stream_op(primitive_mul)
 def smul(s1, s2):
     """a*b when one or both are streams (generators). If both, then termwise."""
     return _mul(s1, s2)
-
-_pow = _make_termwise_stream_op(primitive_pow)
 def spow(s1, s2):
     """a**b when one or both are streams (generators). If both, then termwise."""
     return _pow(s1, s2)
+def smod(s1, s2):
+    """a % b when one or both are streams (generators). If both, then termwise."""
+    return _mod(s1, s2)
+def sfloordiv(s1, s2):
+    """a // b when one or both are streams (generators). If both, then termwise."""
+    return _floordiv(s1, s2)
+def sdivmod(s1, s2):
+    """(a // b, a % b) when one or both are streams (generators). If both, then termwise."""
+    return _divmod(s1, s2)
 
 def cauchyprod(s1, s2):
     """Cauchy product of infinite sequences.
