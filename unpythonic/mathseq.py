@@ -6,7 +6,8 @@ Numeric (int, float, mpmath) and symbolic (SymPy) formats are supported.
 Avoids accumulating roundoff error when used with floating-point.
 """
 
-__all__ = ["s", "sadd", "smul", "spow", "smod", "sfloordiv", "sdivmod", "cauchyprod"]
+__all__ = ["s", "MathStream", "sadd", "ssub", "sneg", "sabs", "smul", "spow",
+           "smod", "struediv", "sfloordiv", "sdivmod", "cauchyprod"]
 
 from itertools import repeat
 from .it import take, rev
@@ -14,7 +15,8 @@ from .gmemo import imemoize
 
 from operator import add as primitive_add, mul as primitive_mul, \
                      pow as primitive_pow, mod as primitive_mod, \
-                     floordiv as primitive_floordiv
+                     floordiv as primitive_floordiv, truediv as primitive_truediv, \
+                     sub as primitive_sub, neg as primitive_neg
 
 # stuff to support float, mpf and SymPy expressions transparently
 #
@@ -345,33 +347,29 @@ def s(*spec):
                     j += 1
         return MathStream(power() if n is infty else take(n, power()))
 
+# https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 class MathStream:
-    """Base class for a numeric or symbolic mathematical sequence.
-
-    This is used to enable infix arithmetic on sequences.
-    """
-    def __init__(self, generator_instance):
-        self._g = generator_instance
+    """Add termwise infix math support to any iterable."""
+    def __init__(self, iterable):
+        self._g = iterable
     def __iter__(self):
         return self._g
-    # TODO: the rest of the numeric methods
-    # https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
     def __add__(self, other):
         return sadd(self, other)
     def __radd__(self, other):
         return sadd(other, self)
     def __sub__(self, other):
-        return sadd(self, smul(other, -1))
+        return ssub(self, other)
     def __rsub__(self, other):
-        return sadd(other, smul(self, -1))
+        return ssub(other, self)
     def __mul__(self, other):
         return smul(self, other)
     def __rmul__(self, other):
         return smul(other, self)
     def __truediv__(self, other):
-        return smul(self, spow(other, -1))
+        return struediv(self, other)
     def __rtruediv__(self, other):
-        return smul(other, spow(self, -1))
+        return struediv(other, self)
     def __floordiv__(self, other):
         return sfloordiv(self, other)
     def __rfloordiv__(self, other):
@@ -384,74 +382,94 @@ class MathStream:
         return smod(self, other)
     def __rmod__(self, other):
         return smod(other, self)
-    def __pow__(self, other):  # TODO: support 3-argument syntax for pow()?
+    def __pow__(self, other):  # TODO: support 3-argument powmod syntax for the builtin function pow()?
         return spow(self, other)
     def __rpow__(self, other):
         return spow(other, self)
     def __neg__(self):
-        return smul(self, -1)
+        return sneg(self)
     def __pos__(self):
         return self
     def __abs__(self):
         return MathStream(abs(x) for x in iter(self))
-    # we leave out the logical and shift operators on purpose
-    # conversions - this, or don't implement?
-    def __complex__(self):
-        return MathStream(x+0j for x in iter(self))
-    def __int__(self):
-        return MathStream(int(x) for x in iter(self))
-    def __float__(self):
-        return MathStream(float(x) for x in iter(self))
+    # we leave out the logical, shift and conversion operators on purpose
     # TODO: round, trunc, floor, ceil
 
-def _make_termwise_stream_op(op):
+def _make_termwise_stream_unop(op):
+    def sop(s1):
+        if hasattr(s1, "__iter__"):
+            return MathStream(op(x) for x in s1)
+        return op(s1)
+    return sop
+def _make_termwise_stream_binop(op):
     def sop(s1, s2):
         ig = [hasattr(x, "__iter__") for x in (s1, s2)]
         if all(ig):
             # it's very convenient here that zip() terminates when the shorter input runs out.
             return MathStream(op(a, b) for a, b in zip(s1, s2))
-        elif not any(ig):
-            return op(s1, s2)
         elif ig[0]:
             c = s2
             return MathStream(op(a, c) for a in s1)
-        else: # ig[1]:
+        elif ig[1]:
             c = s1
             return MathStream(op(c, a) for a in s2)  # careful; op might not be commutative
+        else: # not any(ig):
+            return op(s1, s2)
     return sop
 
 # TODO: expose full set of MathStream operators also as functions
-_add = _make_termwise_stream_op(primitive_add)
-_mul = _make_termwise_stream_op(primitive_mul)
-_pow = _make_termwise_stream_op(primitive_pow)
-_mod = _make_termwise_stream_op(primitive_mod)
-_floordiv = _make_termwise_stream_op(primitive_floordiv)
-_divmod = _make_termwise_stream_op(divmod)  # builtin
+_add = _make_termwise_stream_binop(primitive_add)
+_sub = _make_termwise_stream_binop(primitive_sub)
+_neg = _make_termwise_stream_unop(primitive_neg)
+_abs = _make_termwise_stream_unop(abs)  # builtin
+_mul = _make_termwise_stream_binop(primitive_mul)
+_pow = _make_termwise_stream_binop(primitive_pow)
+_truediv = _make_termwise_stream_binop(primitive_truediv)
+_floordiv = _make_termwise_stream_binop(primitive_floordiv)
+_mod = _make_termwise_stream_binop(primitive_mod)
+_divmod = _make_termwise_stream_binop(divmod)  # builtin
 def sadd(s1, s2):
     """a + b when one or both are streams (generators). If both, then termwise."""
     return _add(s1, s2)
+def ssub(s1, s2):
+    """a - b when one or both are streams (generators). If both, then termwise."""
+    return _sub(s1, s2)
+def sneg(s1):
+    """-a for a stream, termwise."""
+    return _neg(s1)
+def sabs(s1):
+    """abs(a) for a stream, termwise."""
+    return _abs(s1)
 def smul(s1, s2):
     """a*b when one or both are streams (generators). If both, then termwise."""
     return _mul(s1, s2)
 def spow(s1, s2):
     """a**b when one or both are streams (generators). If both, then termwise."""
     return _pow(s1, s2)
-def smod(s1, s2):
-    """a % b when one or both are streams (generators). If both, then termwise."""
-    return _mod(s1, s2)
+def struediv(s1, s2):
+    """a / b when one or both are streams (generators). If both, then termwise."""
+    return _truediv(s1, s2)
 def sfloordiv(s1, s2):
     """a // b when one or both are streams (generators). If both, then termwise."""
     return _floordiv(s1, s2)
+def smod(s1, s2):
+    """a % b when one or both are streams (generators). If both, then termwise."""
+    return _mod(s1, s2)
 def sdivmod(s1, s2):
     """(a // b, a % b) when one or both are streams (generators). If both, then termwise."""
     return _divmod(s1, s2)
 
 def cauchyprod(s1, s2):
-    """Cauchy product of infinite sequences.
+    """Cauchy product of sequences.
 
     Formula::
 
         out[k] = sum(s1[j]*s2[k-j], j = 0, 1, ..., k)
+
+    Both infinite and finite inputs accepted. For finite inputs, the Cauchy
+    product runs, with increasing ``k``, as long as all terms of the above sum
+    can be formed. Once the shorter input runs out and hence there are no more
+    terms in the product, the generator raises ``StopIteration``.
 
     **CAUTION**: This will ``imemoize`` both inputs; the usual caveats apply.
     """
