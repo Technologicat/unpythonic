@@ -551,7 +551,11 @@ def sdivmod(a, b):
     """Termwise (a // b, a % b) when one or both are iterables."""
     return _divmod(a, b)
 def sround(a, *ndigits):
-    """Termwise round(a) for an iterable."""
+    """Termwise round(a) for an iterable.
+
+    An optional second argument is supported, and passed through to the
+    built-in ``round`` function.
+    """
     op = _make_termwise_stream_unop(round, ndigits[0]) if ndigits else _round
     return op(a)
 def strunc(a):
