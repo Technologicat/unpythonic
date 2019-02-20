@@ -3,7 +3,7 @@
 from sys import float_info
 from math import floor, log2
 
-from ..mathseq import s, sadd, smul, spow, cauchyprod
+from ..mathseq import s, m, sadd, smul, spow, cauchyprod
 from ..it import take, last
 
 def test():
@@ -88,6 +88,21 @@ def test():
     assert tuple(take(5, s(1, 3, ...)**s(2, 4, ...))) == (1, 3**4, 5**6, 7**8, 9**10)
     assert tuple(take(5, s(1, 3, ...)**2)) == (1, 3**2, 5**2, 7**2, 9**2)
     assert tuple(take(5, 2**s(1, 3, ...))) == (2**1, 2**3, 2**5, 2**7, 2**9)
+
+    a = s(1, 3, ...)
+    b = s(2, 4, ...)
+    c = a + b
+    assert isinstance(c, m)
+    assert tuple(take(5, c)) == (3, 7, 11, 15, 19)
+
+    d = 1 / (a + b)
+    assert isinstance(d, m)
+
+    e = take(5, c)
+    assert not isinstance(e, m)
+
+    f = m(take(5, c))
+    assert isinstance(f, m)
 
     # Our generators avoid accumulating roundoff error
 

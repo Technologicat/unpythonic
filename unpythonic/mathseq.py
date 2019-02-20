@@ -1,31 +1,41 @@
 # -*- coding: utf-8 -*-
-"""Lazy constant, arithmetic, geometric and power sequences with compact syntax.
+"""Mathematical sequences.
 
-Numeric (int, float, mpmath) and symbolic (SymPy) formats are supported.
+We provide a compact syntax to create lazy constant, arithmetic, geometric and
+power. Numeric (int, float, mpmath) and symbolic (SymPy) formats are supported.
+We avoid accumulating roundoff error when used with floating-point.
 
-Avoids accumulating roundoff error when used with floating-point.
+We also provide arithmetic operation support for iterables (termwise).
+
+The function versions of the arithmetic operations have an **s** prefix (short
+for mathematical **sequence**), because in Python the **i** prefix (which could
+stand for *iterable*) is already used to denote the in-place operators.
 """
 
-__all__ = ["s", "MathStream", "sadd", "ssub", "sneg", "sabs", "smul", "spow",
-           "smod", "struediv", "sfloordiv", "sdivmod", "cauchyprod"]
+__all__ = ["s", "m", "almosteq",
+           "sadd", "ssub", "sabs", "spos", "sneg", "smul", "spow",
+           "struediv", "sfloordiv", "smod", "sdivmod",
+           "sround", "strunc", "sfloor", "sceil",
+           "cauchyprod"]
 
 from itertools import repeat
-from .it import take, rev
-from .gmemo import imemoize
-
 from operator import add as primitive_add, mul as primitive_mul, \
                      pow as primitive_pow, mod as primitive_mod, \
                      floordiv as primitive_floordiv, truediv as primitive_truediv, \
-                     sub as primitive_sub, neg as primitive_neg
+                     sub as primitive_sub, \
+                     neg as primitive_neg, pos as primitive_pos
+
+from .it import take, rev
+from .gmemo import imemoize
 
 # stuff to support float, mpf and SymPy expressions transparently
 #
 from sys import float_info
-from math import log as math_log, copysign
+from math import log as math_log, copysign, trunc, floor, ceil
 try:
-    from mpmath import mpf, almosteq
+    from mpmath import mpf, almosteq as mpf_almosteq
 except ImportError:
-    mpf = almosteq = None
+    mpf = mpf_almosteq = None
 
 def _numsign(x):
     if x == 0:
@@ -47,18 +57,56 @@ except ImportError:
     log = math_log
     sign = _numsign
 
+def almosteq(a, b, tol=1e-8):
+    """Almost-equality that supports several formats.
+
+    The tolerance ``tol`` is used for the builtin ``float`` and ``mpmath.mpf``.
+
+    For ``mpmath.mpf``, we just delegate to ``mpmath.almosteq``, with the given
+    ``tol``. For ``float``, we use the strategy suggested in:
+
+        https://floating-point-gui.de/errors/comparison/
+
+    Anything else, for example SymPy expressions, strings, and containers
+    (regardless of content), is tested for exact equality.
+
+    **CAUTION**: Although placed in ``unpythonic.mathseq``, this function
+    **does not** support iterables; rather, it is a low-level tool that is
+    exposed in the public API in the hope it may be useful elsewhere.
+    """
+    if a == b:  # infinities and such, plus any non-float type
+        return True
+
+    if isinstance(a, mpf) and isinstance(b, mpf):
+        return mpf_almosteq(a, b, tol)
+    # compare as native float if only one is an mpf
+    elif isinstance(a, mpf) and isinstance(b, float):
+        a = float(a)
+    elif isinstance(a, float) and isinstance(b, mpf):
+        b = float(b)
+
+    if not all(isinstance(x, float) for x in (a, b)):
+        return False  # non-float type, already determined that a != b
+    min_normal = float_info.min
+    max_float = float_info.max
+    d = abs(a - b)
+    if a == 0 or b == 0 or d < min_normal:
+        return d < tol * min_normal
+    return d / min(abs(a) + abs(b), max_float) < tol
+
 def s(*spec):
     """Create a lazy mathematical sequence.
 
-    The sequence is returned as a generator object.
+    The sequence is returned as a generator object that supports infix math
+    (see ``m``).
 
     **Formats**
 
-    Any ellipsis ``...`` inside an ``s()`` is meant literally.
+    Below, any ellipsis ``...`` inside an ``s()`` is meant literally.
 
     The sequence specification may have an optional final element, which must
     belong to the sequence being described. If a final element is specified,
-    a finite sequence is returned.
+    a finite sequence is returned, terminating after the given final element.
 
     *Convenience fallback*:
 
@@ -151,12 +199,15 @@ def s(*spec):
         1, 4, 9, 16, ...:       s(1, 2, ...)**2
         1, 1/2, 1/3, 1/4, ...:  1 / s(1, 2, ...)
 
+    Sequences returned by ``s()`` support infix math syntax, so the above
+    expressions with ``s()`` are valid Python code.
+
+    A symbolic example::
+
         x = symbols("x", real=True)  # SymPy
-        px = lambda stream: stream * s(1, x, x**2, ...)
+        px = lambda stream: stream * s(1, x, x**2, ...)  # powers of x
         s1 = px(s(1, 3, 5, ...))  # 1, 3*x, 5*x**2, ...
         s2 = px(s(2, 4, 6, ...))  # 2, 4*x, 6*x**2, ...
-
-    Sequences returned by ``s()`` support infix math syntax.
 
     **Notes**
 
@@ -166,42 +217,23 @@ def s(*spec):
     error (unlike e.g. ``itertools.count``). Even for a long but finite arithmetic
     sequence where the start value and the diff are not exactly representable
     by base-2 floats, the final value should be within 1 ULP of the true value.
+    This is because once the input has been analyzed, the terms are generated
+    from the closed-form formula for the nth term of the sequence that was
+    described by the input; nothing is actually accumulated.
 
     Note this reverse-engineers the given numbers to figure out which case the
     input corresponds to. Although we take some care to avoid roundoff errors
-    with floating-point input, it may sometimes occur that roundoff prevents
-    correct detection of the sequence (especially for power sequences, since
-    their detection requires taking logarithms).
+    in this analysis when used with floating-point input, it may sometimes occur
+    that roundoff prevents correct detection of the sequence (especially for
+    power sequences, since their detection requires taking logarithms).
 
     Inspired by Haskell's sequence notation.
     """
     origspec = spec  # for error messages
 
-    def eq(a, b, tol=1e-8):
-        # https://floating-point-gui.de/errors/comparison/
-        if a == b:  # infinities and such, plus any non-float type
-            return True
-
-        if isinstance(a, mpf) and isinstance(b, mpf):
-            return almosteq(a, b, tol)
-        # compare as native float if only one is an mpf
-        elif isinstance(a, mpf) and isinstance(b, float):
-            a = float(a)
-        elif isinstance(a, float) and isinstance(b, mpf):
-            b = float(b)
-
-        if not all(isinstance(x, float) for x in (a, b)):
-            return False  # non-float type, already determined that a != b
-        min_normal = float_info.min
-        max_float = float_info.max
-        d = abs(a - b)
-        if a == 0 or b == 0 or d < min_normal:
-            return d < tol * min_normal
-        return d / min(abs(a) + abs(b), max_float) < tol
-
     def is_almost_int(x):
         try:
-            return eq(float(round(x)), x)
+            return almosteq(float(round(x)), x)
         except TypeError:  # likely a SymPy expression that didn't simplify to a number
             return False
 
@@ -217,24 +249,24 @@ def s(*spec):
                 return ("const", a0, None)
             return ("arith", a0, d1)
         elif l == 3:
-            a0, a1, a2 = spec[:3]
+            a0, a1, a2 = spec
             d1 = a1 - a0
             d2 = a2 - a1
-            if d2 == d1 == 0:   # a0, a0, a0, ...             [a0, identity]
+            if d2 == d1 == 0:         # a0, a0, a0, ...             [a0, identity]
                 return ("const", a0, None)
-            if eq(d2, d1):      # a0, a0 + d, a0 + 2 d, ...   [a0, +d]
+            if almosteq(d2, d1):      # a0, a0 + d, a0 + 2 d, ...   [a0, +d]
                 d = (d1 + d2)/2  # average to give roundoff errors a chance to cancel
                 return ("arith", a0, d)
             if a0 != 0 and a1 != 0 and a2 != 0:
                 r1 = a1/a0
                 r2 = a2/a1
-                if eq(r2, r1):  # a0, a0*r, a0*r**2, ...      [a0, *r]
+                if almosteq(r2, r1):  # a0, a0*r, a0*r**2, ...      [a0, *r]
                     r = (r1 + r2)/2
                     return ("geom", a0, r)
             if abs(a0) != 1 and a1 != 0 and a2 != 0:
                 p1 = log(abs(a1), abs(a0))
                 p2 = log(abs(a2), abs(a1))
-                if eq(p1, p2):  # a0, a0**p, (a0**p)**p, ...  [a0, **p]
+                if almosteq(p1, p2):  # a0, a0**p, (a0**p)**p, ...  [a0, **p]
                     p = (p1 + p2)/2
                     return ("power", a0, p)
             raise SyntaxError("Specification did not match any supported formula: '{}'".format(origspec))
@@ -243,7 +275,7 @@ def s(*spec):
             seqtypes, x0s, ks = zip(*data)
             def isconst(*xs):
                 first, *rest = xs
-                return all(eq(x, first) for x in rest)
+                return all(almosteq(x, first) for x in rest)
             if not isconst(seqtypes) or not isconst(ks):
                 raise SyntaxError("Inconsistent specification '{}'".format(origspec))
             return data[0]
@@ -264,14 +296,14 @@ def s(*spec):
             # elt = x0*(k**a) --> k**a = (elt/x0) --> a = logk(elt/x0)
             a = log(abs(elt/x0), abs(k))
             if is_almost_int(a) and a > 0:
-                if not eq(x0*(k**a), elt):  # check parity of final term, could be an alternating sequence
+                if not almosteq(x0*(k**a), elt):  # check parity of final term, could be an alternating sequence
                     return False
                 return 1 + round(a)
         else: # seqtype == "power":
             # elt = x0**(k**a) --> k**a = logx0 elt --> a = logk (logx0 elt)
             a = log(log(abs(elt), abs(x0)), abs(k))
             if is_almost_int(a) and a > 0:
-                if not eq(x0**(k**a), elt):  # parity
+                if not almosteq(x0**(k**a), elt):  # parity
                     return False
                 return 1 + round(a)
         return False
@@ -300,7 +332,7 @@ def s(*spec):
 
     # generate the sequence
     if seqtype == "const":
-        return MathStream(repeat(x0) if n is infty else repeat(x0, n))
+        return m(repeat(x0) if n is infty else repeat(x0, n))
     elif seqtype == "arith":
         # itertools.count doesn't avoid accumulating roundoff error for floats, so we implement our own.
         # This should be, for any j, within 1 ULP of the true result.
@@ -309,8 +341,7 @@ def s(*spec):
             while True:
                 yield x0 + j*k
                 j += 1
-        return MathStream(arith() if n is infty else take(n, arith()))
-
+        return m(arith() if n is infty else take(n, arith()))
     elif seqtype == "geom":
         if isinstance(k, _symExpr) or abs(k) >= 1:
             def geom():
@@ -330,7 +361,7 @@ def s(*spec):
                 while True:
                     yield x0/(kinv**j)
                     j += 1
-        return MathStream(geom() if n is infty else take(n, geom()))
+        return m(geom() if n is infty else take(n, geom()))
     else: # seqtype == "power":
         if isinstance(k, _symExpr) or abs(k) >= 1:
             def power():
@@ -345,11 +376,50 @@ def s(*spec):
                 while True:
                     yield x0**(1/(kinv**j))
                     j += 1
-        return MathStream(power() if n is infty else take(n, power()))
+        return m(power() if n is infty else take(n, power()))
 
 # https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
-class MathStream:
-    """Add termwise infix math support to any iterable."""
+class m:
+    """Endow any iterable with infix math support (termwise).
+
+    The original iterable is saved to an attribute, and ``m.__iter__`` redirects
+    to it. No caching is performed, so performing a math operation on the m'd
+    iterable will still consume the iterable (if it is consumable, for example
+    a generator).
+
+    This adds infix math only; to apply a function (e.g. ``sin``) termwise to
+    an iterable, use the comprehension syntax or ``map``, as usual.
+
+    The mathematical sequences (Python-technically, iterables) returned by
+    ``s()`` are automatically m'd, as is the result of any infix arithmetic
+    operation performed on an already m'd iterable.
+
+    **CAUTION**: When an operation meant for general iterables is applied to an
+    m'd iterable, the math support vanishes (because the operation returns a
+    general iterable, not an m'd one), but can be restored by m'ing again.
+
+    **NOTE**: The function versions of the operations (``sadd`` etc.) work on
+    general iterables (so you don't need to ``m`` their inputs), and return
+    an m'd iterable. The ``m`` operation is only needed for infix math, to make
+    arithmetic-heavy code more readable.
+
+    Examples::
+
+        a = s(1, 3, ...)
+        b = s(2, 4, ...)
+        c = a + b
+        assert isinstance(c, m)  # the result still has math support
+        assert tuple(take(5, c)) == (3, 7, 11, 15, 19)  # + was applied termwise
+
+        d = 1 / (a**2 + b**2)
+        assert isinstance(d, m)
+
+        e = take(5, c)     # general iterable operation drops math support...
+        assert not isinstance(e, m)
+
+        f = m(take(5, c))  # ...and it can be restored by m'ing again.
+        assert isinstance(f, m)
+    """
     def __init__(self, iterable):
         self._g = iterable
     def __iter__(self):
@@ -362,6 +432,12 @@ class MathStream:
         return ssub(self, other)
     def __rsub__(self, other):
         return ssub(other, self)
+    def __abs__(self):
+        return sabs(self)
+    def __pos__(self):
+        return self
+    def __neg__(self):
+        return sneg(self)
     def __mul__(self, other):
         return smul(self, other)
     def __rmul__(self, other):
@@ -382,109 +458,138 @@ class MathStream:
         return smod(self, other)
     def __rmod__(self, other):
         return smod(other, self)
-    def __pow__(self, other):  # TODO: support 3-argument powmod syntax for the builtin function pow()?
-        return spow(self, other)
+    def __pow__(self, other, *mod):
+        return spow(self, other, *mod)
     def __rpow__(self, other):
         return spow(other, self)
-    def __neg__(self):
-        return sneg(self)
-    def __pos__(self):
-        return self
-    def __abs__(self):
-        return MathStream(abs(x) for x in iter(self))
-    # we leave out the logical, shift and conversion operators on purpose
-    # TODO: round, trunc, floor, ceil
+    def __round__(self, *ndigits):
+        return sround(self, *ndigits)
+    def __trunc__(self):
+        return strunc(self)
+    def __floor__(self):
+        return sfloor(self)
+    def __ceil__(self):
+        return sceil(self)
+    # TODO: logical, shift, conversion, and comparison operators? Do we want those?
 
-def _make_termwise_stream_unop(op):
-    def sop(s1):
-        if hasattr(s1, "__iter__"):
-            return MathStream(op(x) for x in s1)
-        return op(s1)
+# The *settings mechanism is used by round and pow.
+# These are recursive to support iterables containing iterables (e.g. an iterable of math sequences).
+def _make_termwise_stream_unop(op, *settings):
+    def sop(a):
+        if hasattr(a, "__iter__"):
+            return m(sop(x, *settings) for x in a)
+        return op(a, *settings)
     return sop
-def _make_termwise_stream_binop(op):
-    def sop(s1, s2):
-        ig = [hasattr(x, "__iter__") for x in (s1, s2)]
+def _make_termwise_stream_binop(op, *settings):
+    def sop(a, b):
+        ig = [hasattr(x, "__iter__") for x in (a, b)]
         if all(ig):
             # it's very convenient here that zip() terminates when the shorter input runs out.
-            return MathStream(op(a, b) for a, b in zip(s1, s2))
+            return m(sop(x, y, *settings) for x, y in zip(a, b))
         elif ig[0]:
-            c = s2
-            return MathStream(op(a, c) for a in s1)
+            c = b
+            return m(sop(x, c, *settings) for x in a)
         elif ig[1]:
-            c = s1
-            return MathStream(op(c, a) for a in s2)  # careful; op might not be commutative
+            c = a
+            return m(sop(c, y, *settings) for y in b)  # careful; op might not be commutative
         else: # not any(ig):
-            return op(s1, s2)
+            return op(a, b, *settings)
     return sop
 
-# TODO: expose full set of MathStream operators also as functions
+# We expose the full set of "m" operators also as functions à la the ``operator`` module.
 _add = _make_termwise_stream_binop(primitive_add)
 _sub = _make_termwise_stream_binop(primitive_sub)
+_abs = _make_termwise_stream_unop(abs)
+_pos = _make_termwise_stream_unop(primitive_pos)
 _neg = _make_termwise_stream_unop(primitive_neg)
-_abs = _make_termwise_stream_unop(abs)  # builtin
 _mul = _make_termwise_stream_binop(primitive_mul)
-_pow = _make_termwise_stream_binop(primitive_pow)
+_pow = _make_termwise_stream_binop(primitive_pow)  # 2-arg form
 _truediv = _make_termwise_stream_binop(primitive_truediv)
 _floordiv = _make_termwise_stream_binop(primitive_floordiv)
 _mod = _make_termwise_stream_binop(primitive_mod)
-_divmod = _make_termwise_stream_binop(divmod)  # builtin
-def sadd(s1, s2):
-    """a + b when one or both are streams (generators). If both, then termwise."""
-    return _add(s1, s2)
-def ssub(s1, s2):
-    """a - b when one or both are streams (generators). If both, then termwise."""
-    return _sub(s1, s2)
-def sneg(s1):
-    """-a for a stream, termwise."""
-    return _neg(s1)
-def sabs(s1):
-    """abs(a) for a stream, termwise."""
-    return _abs(s1)
-def smul(s1, s2):
-    """a*b when one or both are streams (generators). If both, then termwise."""
-    return _mul(s1, s2)
-def spow(s1, s2):
-    """a**b when one or both are streams (generators). If both, then termwise."""
-    return _pow(s1, s2)
-def struediv(s1, s2):
-    """a / b when one or both are streams (generators). If both, then termwise."""
-    return _truediv(s1, s2)
-def sfloordiv(s1, s2):
-    """a // b when one or both are streams (generators). If both, then termwise."""
-    return _floordiv(s1, s2)
-def smod(s1, s2):
-    """a % b when one or both are streams (generators). If both, then termwise."""
-    return _mod(s1, s2)
-def sdivmod(s1, s2):
-    """(a // b, a % b) when one or both are streams (generators). If both, then termwise."""
-    return _divmod(s1, s2)
+_divmod = _make_termwise_stream_binop(divmod)
+_round = _make_termwise_stream_unop(round)  # 1-arg form
+_trunc = _make_termwise_stream_unop(trunc)
+_floor = _make_termwise_stream_unop(floor)
+_ceil = _make_termwise_stream_unop(ceil)
+def sadd(a, b):
+    """Termwise a + b when one or both are iterables."""
+    return _add(a, b)
+def ssub(a, b):
+    """Termwise a - b when one or both are iterables."""
+    return _sub(a, b)
+def sabs(a):
+    """Termwise abs(a) for an iterable."""
+    return _abs(a)
+def spos(a):
+    """Termwise +a for an iterable."""
+    return _pos(a)
+def sneg(a):
+    """Termwise -a for an iterable."""
+    return _neg(a)
+def smul(a, b):
+    """Termwise a * b when one or both are iterables."""
+    return _mul(a, b)
+def spow(a, b, *mod):
+    """Termwise a ** b when one or both are iterables.
 
-def cauchyprod(s1, s2):
-    """Cauchy product of sequences.
+    An optional third argument is supported, and passed through to the
+    built-in ``pow`` function.
+    """
+    op = _make_termwise_stream_binop(pow, mod[0]) if mod else _pow
+    return op(a, b)
+def struediv(a, b):
+    """Termwise a / b when one or both are iterables."""
+    return _truediv(a, b)
+def sfloordiv(a, b):
+    """Termwise a // b when one or both are iterables."""
+    return _floordiv(a, b)
+def smod(a, b):
+    """Termwise a % b when one or both are iterables."""
+    return _mod(a, b)
+def sdivmod(a, b):
+    """Termwise (a // b, a % b) when one or both are iterables."""
+    return _divmod(a, b)
+def sround(a, *ndigits):
+    """Termwise round(a) for an iterable."""
+    op = _make_termwise_stream_unop(round, ndigits[0]) if ndigits else _round
+    return op(a)
+def strunc(a):
+    """Termwise math.trunc(a) for an iterable."""
+    return _trunc(a)
+def sfloor(a):
+    """Termwise math.floor(a) for an iterable."""
+    return _floor(a)
+def sceil(a):
+    """Termwise math.ceil(a) for an iterable."""
+    return _ceil(a)
 
-    Formula::
+def cauchyprod(a, b):
+    """Cauchy product of two (possibly infinite) iterables.
 
-        out[k] = sum(s1[j]*s2[k-j], j = 0, 1, ..., k)
+    Defined by::
 
-    Both infinite and finite inputs accepted. For finite inputs, the Cauchy
-    product runs, with increasing ``k``, as long as all terms of the above sum
-    can be formed. Once the shorter input runs out and hence there are no more
-    terms in the product, the generator raises ``StopIteration``.
+        c[k] = sum(a[j] * b[k-j], j = 0, 1, ..., k),  where k = 0, 1, ...
+
+    When at least one of the inputs is finite, the Cauchy product runs, with
+    increasing ``k``, as long as all terms of the above sum can be formed.
+    Once the shorter input runs out and hence there are no more terms in the
+    product, the generator raises ``StopIteration``.
 
     **CAUTION**: This will ``imemoize`` both inputs; the usual caveats apply.
     """
-    if not all(hasattr(x, "__iter__") for x in (s1, s2)):
-        raise TypeError("Expected two generators, got '{}', '{}'".format(type(s1), type(s2)))
-    g_s1 = imemoize(s1)
-    g_s2 = imemoize(s2)
+    if not all(hasattr(x, "__iter__") for x in (a, b)):
+        raise TypeError("Expected two iterables, got '{}', '{}'".format(type(a), type(b)))
+    ga = imemoize(a)
+    gb = imemoize(b)
     def cauchy():
         n = 1
         while True:
-            a = take(n, g_s1())
-            b = rev(take(n, g_s2()))
-            terms = tuple(smul(a, b))
+            xs = take(n, ga())
+            ys = rev(take(n, gb()))
+            terms = tuple(smul(xs, ys))
             if len(terms) < n:  # at least one of the inputs ran out
                 break
             yield sum(terms)
             n += 1
-    return MathStream(cauchy())
+    return m(cauchy())
