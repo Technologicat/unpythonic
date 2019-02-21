@@ -575,10 +575,33 @@ def cauchyprod(a, b):
 
         c[k] = sum(a[j] * b[k-j], j = 0, 1, ..., k),  where k = 0, 1, ...
 
-    When at least one of the inputs is finite, the Cauchy product runs, with
-    increasing ``k``, as long as all terms of the above sum can be formed.
-    Once the shorter input runs out and hence there are no more terms in the
-    product, the generator raises ``StopIteration``.
+    Presented as a table, this is a diagonal construction::
+
+              j
+              0 1 2 3 ...
+            +-----------
+        i 0 | 0 1 2 3
+          1 | 1 2 3
+          2 | 2 3 .
+          3 | 3     .
+        ... |         .
+
+    The element ``c[k]`` of the product is formed by summing all such
+    ``a[i] * b[j]`` for which the table entry at ``(i, j)`` is ``k``.
+
+    When at least one of the inputs is finite, the Cauchy product runs,
+    with increasing ``k``, as long any term in the above sum can be formed.
+    When ``k`` has reached a value for which no terms can be formed,
+    the generator raises ``StopIteration``.
+
+    In terms of the above table, for finite inputs, the table is cut by vertical
+    and horizontal lines just after the maximum possible ``i`` and ``j``, and
+    only the terms in the upper left quadrant contribute to the sum (since these
+    are the only terms that can be formed).
+
+    For example, if both ``a`` and ``b`` have length 2, then the
+    iterable ``c`` will consist of three terms: ``c[0] = a[0]*b[0]``,
+    ``c[1] = a[0]*b[1] + a[1]*b[0]``, and ``c[2] = a[1] * b[1]``.
 
     **CAUTION**: This will ``imemoize`` both inputs; the usual caveats apply.
     """
@@ -587,13 +610,23 @@ def cauchyprod(a, b):
     ga = imemoize(a)
     gb = imemoize(b)
     def cauchy():
-        n = 1
+        n = 1  # how many terms to take from a and b; k = n - 1
         while True:
-            xs = take(n, ga())
-            ys = rev(take(n, gb()))
-            terms = tuple(smul(xs, ys))
-            if len(terms) < n:  # at least one of the inputs ran out
+            xs, ys = (tuple(take(n, g())) for g in (ga, gb))
+            lx, ly = len(xs), len(ys)
+            if lx == ly and lx < n:  # both ran out simultaneously
+                j = n - lx
+                xs = xs[j:]
+                ys = ys[j:]
+            elif lx < ly:  # "a" ran out first
+                xs = xs[(n - ly):]
+                ys = ys[(n - lx):]
+            elif ly < lx:  # "b" ran out first
+                xs = xs[(n - ly):]
+                ys = ys[(n - lx):]
+            assert len(xs) == len(ys)
+            if not xs:
                 break
-            yield sum(terms)
+            yield sum(smul(xs, rev(ys)))
             n += 1
     return m(cauchy())
