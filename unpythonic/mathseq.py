@@ -631,8 +631,8 @@ def diagonal_reduce(a, b, *, combine, reduce, require="any"):
 
           Roughly speaking, it gets the slices ``a[:(k+1)]`` and ``b[k::-1]``
           as its input iterables. (Roughly speaking, because of caching and
-          finite input handling as in ``cauchyprod``.) The inputs are guaranteed
-          to have the same length.
+          finite input handling.) The inputs are guaranteed to have the same
+          length.
 
         - ``reduce = reduce(a)`` is a unary operation that accepts one iterable,
           and produces a scalar. The reduction is only invoked if there is
