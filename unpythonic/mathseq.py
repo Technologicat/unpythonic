@@ -610,21 +610,14 @@ def cauchyprod(a, b):
     ga = imemoize(a)
     gb = imemoize(b)
     def cauchy():
-        n = 1  # how many terms to take from a and b; k = n - 1
+        n = 1  # how many terms to take from a and b; output index k = n - 1
         while True:
             xs, ys = (tuple(take(n, g())) for g in (ga, gb))
             lx, ly = len(xs), len(ys)
-            if lx == ly and lx < n:  # both ran out simultaneously
-                j = n - lx
-                xs = xs[j:]
-                ys = ys[j:]
-            elif lx < ly:  # "a" ran out first
+            if (lx == ly and lx < n) or lx < ly or ly < lx:
                 xs = xs[(n - ly):]
                 ys = ys[(n - lx):]
-            elif ly < lx:  # "b" ran out first
-                xs = xs[(n - ly):]
-                ys = ys[(n - lx):]
-            assert len(xs) == len(ys)
+            assert len(xs) == len(ys)  # TODO: maybe take this out later?
             if not xs:
                 break
             yield sum(smul(xs, rev(ys)))
