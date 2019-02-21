@@ -10,6 +10,9 @@ We also provide arithmetic operation support for iterables (termwise).
 The function versions of the arithmetic operations have an **s** prefix (short
 for mathematical **sequence**), because in Python the **i** prefix (which could
 stand for *iterable*) is already used to denote the in-place operators.
+
+Finally, we provide the Cauchy product, and its generalization, the diagonal
+combination-reduction, for two (possibly infinite) iterables.
 """
 
 __all__ = ["s", "m", "almosteq",
