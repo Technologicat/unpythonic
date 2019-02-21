@@ -71,11 +71,19 @@ def test():
     assert tuple(take(5, spow(2, s(1, 3, ...)))) == (2**1, 2**3, 2**5, 2**7, 2**9)
 
     assert tuple(take(3, cauchyprod(s(1, 3, 5, ...), s(2, 4, 6, ...)))) == (2, 10, 28)
+    assert tuple(take(3, cauchyprod(s(1, 3, 5, ...), s(2, 4, 6, ...), require="all"))) == (2, 10, 28)
+
     assert tuple(cauchyprod((1, 3), (2, 4))) == (2, 10, 12)
     assert tuple(cauchyprod((1, 3, 5), (2, 4))) == (2, 10, 22, 20)
     assert tuple(cauchyprod((1, 3, 5), (2,))) == (2, 6, 10)
     assert tuple(cauchyprod((2, 4), (1, 3, 5))) == (2, 10, 22, 20)
     assert tuple(cauchyprod((2,), (1, 3, 5))) == (2, 6, 10)
+
+    assert tuple(cauchyprod((1, 3), (2, 4), require="all")) == (2, 10)
+    assert tuple(cauchyprod((1, 3, 5), (2, 4), require="all")) == (2, 10)
+    assert tuple(cauchyprod((1, 3, 5), (2,), require="all")) == (2,)
+    assert tuple(cauchyprod((2, 4), (1, 3, 5), require="all")) == (2, 10)
+    assert tuple(cauchyprod((2,), (1, 3, 5), require="all")) == (2,)
 
     # infix syntax for operations
     assert tuple(take(5, s(1, 3, 5, ...) + s(2, 4, 6, ...))) == (3, 7, 11, 15, 19)

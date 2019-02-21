@@ -568,7 +568,7 @@ def sceil(a):
     """Termwise math.ceil(a) for an iterable."""
     return _ceil(a)
 
-def cauchyprod(a, b):
+def cauchyprod(a, b, require="any"):
     """Cauchy product of two (possibly infinite) iterables.
 
     Defined by::
@@ -587,12 +587,15 @@ def cauchyprod(a, b):
         ... |         .
 
     The element ``c[k]`` of the product is formed by summing all such
-    ``a[i] * b[j]`` for which the table entry at ``(i, j)`` is ``k``.
+    ``a[i]*b[j]`` for which the table entry at ``(i, j)`` is ``k``.
 
-    When at least one of the inputs is finite, the Cauchy product runs,
-    with increasing ``k``, as long any term in the above sum can be formed.
-    When ``k`` has reached a value for which no terms can be formed,
-    the generator raises ``StopIteration``.
+    **CAUTION**: This will ``imemoize`` both inputs; the usual caveats apply.
+
+    **Finite inputs**
+
+    **When** ``require="any"``, the Cauchy product runs, with increasing ``k``,
+    as long **any** term in the above sum can be formed. When ``k`` has reached a
+    value for which no terms can be formed, the generator raises ``StopIteration``.
 
     In terms of the above table, for finite inputs, the table is cut by vertical
     and horizontal lines just after the maximum possible ``i`` and ``j``, and
@@ -601,12 +604,28 @@ def cauchyprod(a, b):
 
     For example, if both ``a`` and ``b`` have length 2, then the
     iterable ``c`` will consist of three terms: ``c[0] = a[0]*b[0]``,
-    ``c[1] = a[0]*b[1] + a[1]*b[0]``, and ``c[2] = a[1] * b[1]``.
+    ``c[1] = a[0]*b[1] + a[1]*b[0]``, and ``c[2] = a[1]*b[1]``.
 
-    **CAUTION**: This will ``imemoize`` both inputs; the usual caveats apply.
+    **When** ``require="all"``, the Cauchy product runs, with increasing ``k``,
+    until either end of the diagonal falls of the end of the shorter input.
+    (In the case of inputs of equal length, both ends fall off simultaneously.)
+    In other words, ``c[k]`` is formed only if all terms that would contribute
+    to it (if the inputs were infinite) can be formed.
+
+    In terms of the above table, the diagonal marked with the same value ``k``
+    is considered, and ``c[k]`` is formed only if **all** its entries
+    ``a[i]*b[j]`` can be formed from the given finite inputs.
+
+    For example, if both ``a`` and ``b`` have length 2, then the
+    iterable ``c`` will consist of two terms: ``c[0] = a[0]*b[0]``,
+    ``c[1] = a[0]*b[1] + a[1]*b[0]``. The term ``c[2]`` is not formed,
+    because the terms ``a[0]*b[2]`` and ``a[2]*b[0]`` cannot be formed
+    from length-2 inputs.
     """
     if not all(hasattr(x, "__iter__") for x in (a, b)):
         raise TypeError("Expected two iterables, got '{}', '{}'".format(type(a), type(b)))
+    if require not in ("all", "any"):
+        raise ValueError("require must be 'all' or 'any'; got '{}'".format(require))
     ga = imemoize(a)
     gb = imemoize(b)
     def cauchy():
@@ -614,6 +633,8 @@ def cauchyprod(a, b):
         while True:
             xs, ys = (tuple(take(n, g())) for g in (ga, gb))
             lx, ly = len(xs), len(ys)
+            if require == "all" and (lx < n or ly < n):
+                break
             if (lx == ly and lx < n) or lx < ly or ly < lx:
                 xs = xs[(n - ly):]
                 ys = ys[(n - lx):]
