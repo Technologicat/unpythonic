@@ -16,7 +16,7 @@ __all__ = ["s", "m", "almosteq",
            "sadd", "ssub", "sabs", "spos", "sneg", "smul", "spow",
            "struediv", "sfloordiv", "smod", "sdivmod",
            "sround", "strunc", "sfloor", "sceil",
-           "cauchyprod"]
+           "cauchyprod", "diagonal_reduce"]
 
 from itertools import repeat
 from operator import add as primitive_add, mul as primitive_mul, \
@@ -568,14 +568,14 @@ def sceil(a):
     """Termwise math.ceil(a) for an iterable."""
     return _ceil(a)
 
-def cauchyprod(a, b, require="any"):
+def cauchyprod(a, b, *, require="any"):
     """Cauchy product of two (possibly infinite) iterables.
 
     Defined by::
 
-        c[k] = sum(a[j] * b[k-j], j = 0, 1, ..., k),  where k = 0, 1, ...
+        c[k] = sum(a[j] * b[k-j], j = 0, 1, ..., k),  k = 0, 1, ...
 
-    Presented as a table, this is a diagonal construction::
+    As a table::
 
               j
               0 1 2 3 ...
@@ -589,38 +589,95 @@ def cauchyprod(a, b, require="any"):
     The element ``c[k]`` of the product is formed by summing all such
     ``a[i]*b[j]`` for which the table entry at ``(i, j)`` is ``k``.
 
-    **CAUTION**: This will ``imemoize`` both inputs; the usual caveats apply.
+    For more details (esp. the option ``require``, used for finite inputs),
+    see the docstring of ``diagonal_reduce``, which is the general case of
+    this diagonal construction, when we allow custom operations to take the
+    roles of ``*`` and ``sum``.
+    """
+    return diagonal_reduce(a, b, require=require, combine=smul, reduce=sum)
+
+def diagonal_reduce(a, b, *, combine, reduce, require="any"):
+    """Diagonal combination-reduction for two (possibly infinite) iterables.
+
+    Defined by::
+
+        c[k] = reduce(combine(a[j], b[k-j]), j = 0, 1, ..., k),  k = 0, 1, ...
+
+    As a table::
+
+              j
+              0 1 2 3 ...
+            +-----------
+        i 0 | 0 1 2 3
+          1 | 1 2 3
+          2 | 2 3 .
+          3 | 3     .
+        ... |         .
+
+    The element ``c[k]`` is formed by reducing over all combinations of
+    ``a[i], b[j]`` for which the table entry at ``(i, j)`` is ``k``.
+
+    The Cauchy product is the special case with ``combine=smul, reduce=sum``.
+
+    The output is automatically m'd so that it supports infix arithmetic.
+
+    The operations:
+
+        - ``combine = combine(a, b)`` is a binary operation that accepts
+          two iterables, and combines them termwise into a new iterable.
+
+          Roughly speaking, it gets the slices ``a[:(k+1)]`` and ``b[k::-1]``
+          as its input iterables. (Roughly speaking, because of caching and
+          finite input handling as in ``cauchyprod``.) The inputs are guaranteed
+          to have the same length.
+
+        - ``reduce = reduce(a)`` is a unary operation that accepts one iterable,
+          and produces a scalar. The reduction is only invoked if there is
+          at least one term to process.
+
+    The computations for ``a[i]`` and ``b[j]`` are triggered only once (ever)
+    for each value of ``i`` or ``j``. The values then enter a local cache.
+
+    The computational cost for the term ``c[k]`` is ``O(k)``, because although
+    ``a[i]`` and ``b[j]`` are cached, the reduction itself consists of ``k + 1``
+    terms that are all formed with new combinations of ``i`` and ``j``. This means
+    the total cost of computing the ``n`` first terms of ``c`` is ``O(n**2)``.
+
+    **CAUTION**: The caching works by applying ``imemoize`` to both inputs;
+    the usual caveats apply.
 
     **Finite inputs**
 
-    **When** ``require="any"``, the Cauchy product runs, with increasing ``k``,
-    as long **any** term in the above sum can be formed. When ``k`` has reached a
-    value for which no terms can be formed, the generator raises ``StopIteration``.
+    **When** ``require="any"``, we run with increasing ``k`` as long **any**
+    combination appearing inside the above reduction can be formed. When ``k``
+    has reached a value for which no combinations can be formed, the generator
+    raises ``StopIteration``.
 
-    In terms of the above table, for finite inputs, the table is cut by vertical
-    and horizontal lines just after the maximum possible ``i`` and ``j``, and
-    only the terms in the upper left quadrant contribute to the sum (since these
-    are the only terms that can be formed).
+    In terms of the above table, the table is cut by vertical and horizontal lines
+    just after the maximum possible ``i`` and ``j``, and only the terms in the
+    upper left quadrant contribute to the reduction (since these are the only
+    terms that can be formed).
 
-    For example, if both ``a`` and ``b`` have length 2, then the
-    iterable ``c`` will consist of three terms: ``c[0] = a[0]*b[0]``,
-    ``c[1] = a[0]*b[1] + a[1]*b[0]``, and ``c[2] = a[1]*b[1]``.
+    For example, if both ``a`` and ``b`` have length 2, and we are computing the
+    Cauchy product, then the iterable ``c`` will consist of *three* terms:
+    ``c[0] = a[0]*b[0]``, ``c[1] = a[0]*b[1] + a[1]*b[0]``, and
+    ``c[2] = a[1]*b[1]``.
 
-    **When** ``require="all"``, the Cauchy product runs, with increasing ``k``,
-    until either end of the diagonal falls of the end of the shorter input.
-    (In the case of inputs of equal length, both ends fall off simultaneously.)
-    In other words, ``c[k]`` is formed only if all terms that would contribute
-    to it (if the inputs were infinite) can be formed.
+    **When** ``require="all"``, we run with increasing ``k`` until either end
+    of the diagonal falls of the end of the shorter input. (In the case of inputs
+    of equal length, both ends fall off simultaneously.) In other words, ``c[k]``
+    is formed only if **all** combinations that would contribute to it (in the
+    infinite case) can be formed.
 
-    In terms of the above table, the diagonal marked with the same value ``k``
-    is considered, and ``c[k]`` is formed only if **all** its entries
-    ``a[i]*b[j]`` can be formed from the given finite inputs.
+    In terms of the above table, the diagonal marked with the value ``k`` is
+    considered, and ``c[k]`` is formed only if all its combinations of
+    ``a[i], b[j]`` can be formed from the given finite inputs.
 
-    For example, if both ``a`` and ``b`` have length 2, then the
-    iterable ``c`` will consist of two terms: ``c[0] = a[0]*b[0]``,
-    ``c[1] = a[0]*b[1] + a[1]*b[0]``. The term ``c[2]`` is not formed,
-    because the terms ``a[0]*b[2]`` and ``a[2]*b[0]`` cannot be formed
-    from length-2 inputs.
+    For example, if both ``a`` and ``b`` have length 2, and we are computing the
+    Cauchy product, then the iterable ``c`` will consist of *two* terms:
+    ``c[0] = a[0]*b[0]``, and ``c[1] = a[0]*b[1] + a[1]*b[0]``. The term ``c[2]``
+    is not formed, because the terms ``a[0]*b[2]`` and ``a[2]*b[0]`` (that would
+    contribute to it in the infinite case) cannot be formed from length-2 inputs.
     """
     if not all(hasattr(x, "__iter__") for x in (a, b)):
         raise TypeError("Expected two iterables, got '{}', '{}'".format(type(a), type(b)))
@@ -628,7 +685,7 @@ def cauchyprod(a, b, require="any"):
         raise ValueError("require must be 'all' or 'any'; got '{}'".format(require))
     ga = imemoize(a)
     gb = imemoize(b)
-    def cauchy():
+    def diagonal():
         n = 1  # how many terms to take from a and b; output index k = n - 1
         while True:
             xs, ys = (tuple(take(n, g())) for g in (ga, gb))
@@ -641,6 +698,6 @@ def cauchyprod(a, b, require="any"):
             assert len(xs) == len(ys)  # TODO: maybe take this out later?
             if not xs:
                 break
-            yield sum(smul(xs, rev(ys)))
+            yield reduce(combine(xs, rev(ys)))
             n += 1
-    return m(cauchy())
+    return m(diagonal())
