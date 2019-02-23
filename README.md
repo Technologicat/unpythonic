@@ -25,6 +25,7 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
    - [``frozendict``, an immutable dictionary](#frozendict-an-immutable-dictionary)
    - [`cons` and friends, pythonic lispy linked lists](#cons-and-friends-pythonic-lispy-linked-lists)
    - [``box``, a mutable single-item container](#box-a-mutable-single-item-container)
+   - [Container utilities](#container-utilities)
 
  - [**Sequencing**](#sequencing), run multiple expressions in any expression position (incl. ``lambda``)
    - [Sequence side effects: ``begin``](#sequence-side-effects-begin)
@@ -52,6 +53,7 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
    - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
    - [``namelambda``, rename a function](#namelambda-rename-a-function)
    - [``timer``, a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
+   - [Function signature inspection utilities](#function-signature-inspection-utilities)
 
  - [**Advanced: syntactic macros**](macro_extras/): the second half of ``unpythonic``, providing features such as ``call/cc``, autocurry and call-by-need.
 
@@ -536,6 +538,46 @@ assert b3 != b1      # different contents
 ```
 
 The expression ``item in b`` has the same meaning as ``b.x == item``. Note ``box`` is a mutable container, so it is **not hashable**.
+
+
+### Container utilities
+
+**Inspect the superclasses** that a particular container type has:
+
+```python
+from unpythonic import get_abcs
+print(get_abcs(list))
+```
+
+This includes virtual superclasses, i.e. those that are not part of the MRO. This works by ``issubclass(cls, v)`` on all classes defined in ``collections.abc``.
+
+**In-place map** a container, recursively:
+
+```python
+from unpythonic import mogrify
+
+double = lambda x: 2*x
+lst = [1, 2, 3]
+lst2 = mogrify(double, lst)
+assert lst2 == [2, 4, 6]
+assert lst2 is lst
+```
+
+Any mutable container encountered during the recursion is updated in-place. Any immutable container is transformed into a new copy, just like in ``map``. Roughly speaking, any mapping, sequence or set is supported, as are classes created by ``namedtuple``, and from unpythonic, ``box`` and ``cons``. (``frozendict`` is a mapping; supported too.) See the docstring for details.
+
+**Reflection on slices**:
+
+```python
+from unpythonic import in_slice, index_in_slice
+
+s = slice(1, 11, 2)  # 1, 3, 5, 7, 9
+assert in_slice(5, s)
+assert not in_slice(6, s)
+assert index_in_slice(5, s) == 2
+```
+
+An optional length argument can be given to interpret negative indices. See the docstrings for details.
+
 
 
 ## Sequencing
@@ -2195,6 +2237,66 @@ with timer(p=True):  # if p, auto-print result
 ```
 
 The auto-print mode is a convenience feature to minimize bureaucracy if you just want to see the *Δt*. To instead access the *Δt* programmatically, name the timer instance using the ``with ... as ...`` syntax. After the context exits, the *Δt* is available in its ``dt`` attribute.
+
+
+### Function signature inspection utilities
+
+Convenience functions providing an easy-to-use API for inspecting a function's signature. The heavy lifting is done by ``inspect``.
+
+Methods on objects and classes are treated specially, so that the reported arity matches what the programmer actually needs to supply when calling the method (i.e., implicit ``self`` and ``cls`` are ignored).
+
+```python
+from unpythonic import arities, arity_includes, UnknownArity, \
+                       kwargs, required_kwargs, optional_kwargs,
+
+f = lambda a, b: None
+assert arities(f) == (2, 2)  # min, max positional arity
+
+f = lambda a, b=23: None
+assert arities(f) == (1, 2)
+assert arity_includes(f, 2) is True
+assert arity_includes(f, 3) is False
+
+f = lambda a, *args: None
+assert arities(f) == (1, float("+inf"))
+
+f = lambda *, a, b, c=42: None
+assert arities(f) == (0, 0)
+assert required_kwargs(f) == set(('a', 'b'))
+assert optional_kwargs(f) == set(('c'))
+assert kwargs(f) == (set(('a', 'b')), set(('c')))
+
+class A:
+    def __init__(self):
+        pass
+    def meth(self, x):
+        pass
+    @classmethod
+    def classmeth(cls, x):
+        pass
+    @staticmethod
+    def staticmeth(x):
+        pass
+assert arities(A) == (0, 0)  # constructor of "A" takes no args beside the implicit self
+# methods on the class
+assert arities(A.meth) == (2, 2)
+assert arities(A.classmeth) == (1, 1)
+assert arities(A.staticmeth) == (1, 1)
+# methods on an instance
+a = A()
+assert arities(a.meth) == (1, 1)       # self is implicit, so just one
+assert arities(a.classmeth) == (1, 1)  # cls is implicit
+assert arities(a.staticmeth) == (1, 1)
+```
+
+We special-case the builtin functions that either fail to return any arity (are uninspectable) or report incorrect arity information, so that also their arities are reported correctly. Note we **do not** special-case the *methods* of any builtin classes, so e.g. ``list.append`` remains uninspectable. This limitation might or might not be lifted in a future version.
+
+If the arity cannot be inspected, and the function is not one of the special-cased builtins, the ``UnknownArity`` exception is raised.
+
+These functions are internally used in various places in unpythonic, particularly ``curry``. The FP looping constructs also use these to emit a meaningful error message if the signature of the loop body does not match what is expected.
+
+Inspired by various Racket functions such as ``(arity-includes?)`` and ``(procedure-keywords)``.
+
 
 
 ## Meta
