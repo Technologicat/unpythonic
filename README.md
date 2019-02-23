@@ -1175,7 +1175,7 @@ The function versions of the arithmetic operations (also provided, à la the ``o
 Finally, we provide the [Cauchy product](https://en.wikipedia.org/wiki/Cauchy_product), and its generalization, the diagonal combination-reduction, for two (possibly infinite) iterables. Note ``cauchyprod`` does not sum the series; given the input sequences ``a`` and ``b``, the call ``cauchyprod(a, b)`` computes the elements of the output sequence ``c``.
 
 ```python
-from unpythonic import s, m, sadd, smul, spow, cauchyprod, take, last
+from unpythonic import s, m, cauchyprod, take, last
 
 assert tuple(take(10, s(1, ...))) == (1,)*10
 assert tuple(take(10, s(1, 2, ...))) == tuple(range(1, 11))
