@@ -37,6 +37,7 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
      - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
      - [Memoization for generators](#memoization-for-generators), iterables and iterator factories: `gmemoize`, `imemoize`, `fimemoize`.
    - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables
+     - [Lazy mathematical sequences with infix arithmetic](#lazy-mathematical-sequences-with-infix-arithmetic)
    - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
    - [``mogrify``, update mutable containers in-place](#mogrify-update-mutable-containers-in-place)
 
@@ -1168,11 +1169,98 @@ look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
 assert tuple(look(5, 10)(range(20))) == tuple(range(5, 15))
 ```
 
-In the last example, essentially we just want to `look 5 10 (range 20)`, the grouping of the parentheses being pretty much an implementation detail. With ``curry`` from the previous section, we can rewrite the last line as:
+In the last example, essentially we just want to `look 5 10 (range 20)`, the grouping of the parentheses being pretty much an implementation detail. With ``curry``, we can rewrite the last line as:
 
 ```python
 assert tuple(curry(look, 5, 10, range(20)) == tuple(range(5, 15))
 ```
+
+
+#### Lazy mathematical sequences with infix arithmetic
+
+We provide a compact syntax to create lazy constant, arithmetic, geometric and power sequences. Numeric (``int``, ``float``, ``mpmath``) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
+
+We also provide arithmetic operation support for iterables (termwise). To make any iterable infix math aware, use ``m(iterable)``. The arithmetic is lazy; it just plans computations, returning a new lazy mathematical sequence. To extract values, iterate over the result. (Note this implies that expressions consisting of thousands of operations will overflow Python's call stack. In practice this shouldn't be a problem.)
+
+The function versions of the arithmetic operations (also provided, à la the ``operator`` module) have an **s** prefix (short for mathematical **sequence**), because in Python the **i** prefix (which could stand for *iterable*) is already used to denote the in-place operators.
+
+Finally, we provide the [Cauchy product](https://en.wikipedia.org/wiki/Cauchy_product), and its generalization, the diagonal combination-reduction, for two (possibly infinite) iterables. Note ``cauchyprod`` does not sum the series; given the input sequences ``a`` and ``b``, the call ``cauchyprod(a, b)`` computes the elements of the output sequence ``c``.
+
+```python
+from unpythonic import s, m, sadd, smul, spow, cauchyprod, take, last
+
+assert tuple(take(10, s(1, ...))) == (1,)*10
+assert tuple(take(10, s(1, 2, ...))) == tuple(range(1, 11))
+assert tuple(take(10, s(1, 2, 4, ...))) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
+assert tuple(take(5, s(2, 4, 16, ...))) == (2, 4, 16, 256, 65536)  # 2, 2**2, (2**2)**2, ...
+
+assert tuple(s(1, 2, ..., 10)) == tuple(range(1, 11))
+assert tuple(s(1, 2, 4, ..., 512)) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
+
+assert tuple(take(5, s(1, -1, 1, ...))) == (1, -1, 1, -1, 1)
+
+assert tuple(take(5, s(1, 3, 5, ...) + s(2, 4, 6, ...))) == (3, 7, 11, 15, 19)
+assert tuple(take(5, s(1, 3, ...) * s(2, 4, ...))) == (2, 12, 30, 56, 90)
+
+assert tuple(take(5, s(1, 3, ...)**s(2, 4, ...))) == (1, 3**4, 5**6, 7**8, 9**10)
+assert tuple(take(5, s(1, 3, ...)**2)) == (1, 3**2, 5**2, 7**2, 9**2)
+assert tuple(take(5, 2**s(1, 3, ...))) == (2**1, 2**3, 2**5, 2**7, 2**9)
+
+assert tuple(take(3, cauchyprod(s(1, 3, 5, ...), s(2, 4, 6, ...)))) == (2, 10, 28)
+```
+
+A math iterable (i.e. one that has infix math support) is an instance of the class ``m``:
+
+```python
+a = s(1, 3, ...)
+b = s(2, 4, ...)
+c = a + b
+assert isinstance(a, m)
+assert isinstance(b, m)
+assert isinstance(c, m)
+assert tuple(take(5, c)) == (3, 7, 11, 15, 19)
+
+d = 1 / (a + b)
+assert isinstance(d, m)
+```
+
+Applying an operation meant for regular (non-math) iterables will drop the arithmetic support, but it can be restored by m'ing manually:
+
+```python
+e = take(5, c)
+assert not isinstance(e, m)
+
+f = m(take(5, c))
+assert isinstance(f, m)
+```
+
+Symbolic expression support with SymPy:
+
+```python
+from unpythonic import s
+from sympy import symbols
+
+x0 = symbols("x0", real=True)
+k = symbols("k", positive=True)
+
+assert tuple(take(4, s(x0, ...))) == (x0, x0, x0, x0)
+assert tuple(take(4, s(x0, x0 + k, ...))) == (x0, x0 + k, x0 + 2*k, x0 + 3*k)
+assert tuple(take(4, s(x0, x0*k, x0*k**2, ...))) == (x0, x0*k, x0*k**2, x0*k**3)
+
+assert tuple(s(x0, x0 + k, ..., x0 + 3*k)) == (x0, x0 + k, x0 + 2*k, x0 + 3*k)
+assert tuple(s(x0, x0*k, x0*k**2, ..., x0*k**5)) == (x0, x0*k, x0*k**2, x0*k**3, x0*k**4, x0*k**5)
+
+x0, k = symbols("x0, k", positive=True)
+assert tuple(s(x0, x0**k, x0**(k**2), ..., x0**(k**4))) == (x0, x0**k, x0**(k**2), x0**(k**3), x0**(k**4))
+
+x = symbols("x", real=True)
+px = lambda stream: stream * s(1, x, x**2, ...)  # powers of x
+s1 = px(s(1, 3, 5, ...))  # 1, 3*x, 5*x**2, ...
+s2 = px(s(2, 4, 6, ...))  # 2, 4*x, 6*x**2, ...
+assert tuple(take(3, cauchyprod(s1, s2))) == (2, 10*x, 28*x**2)
+```
+
+Inspired by Haskell.
 
 
 ### Functional update, sequence shadowing
