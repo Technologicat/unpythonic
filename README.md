@@ -1164,6 +1164,8 @@ assert tuple(curry(look, 5, 10, range(20)) == tuple(range(5, 15))
 
 #### Lazy mathematical sequences with infix arithmetic
 
+*Added in v0.13.0.*
+
 We provide a compact syntax to create lazy constant, arithmetic, geometric and power sequences. Numeric (``int``, ``float``, ``mpmath``) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
 
 We also provide arithmetic operation support for iterables (termwise). To make any iterable infix math aware, use ``m(iterable)``. The arithmetic is lazy; it just plans computations, returning a new lazy mathematical sequence. To extract values, iterate over the result. (Note this implies that expressions consisting of thousands of operations will overflow Python's call stack. In practice this shouldn't be a problem.)
