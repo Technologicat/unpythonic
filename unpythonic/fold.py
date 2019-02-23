@@ -1,5 +1,15 @@
 # -*- coding: utf-8 -*-
-"""Folds, scans (lazy partial folds), and unfold."""
+"""Folds, scans (lazy partial folds), and unfold.
+
+For more batteries for itertools, see also the ``unpythonic.it`` module.
+
+Racket-like multi-input ``foldl`` and ``foldr`` based on
+  https://docs.racket-lang.org/reference/pairs.html
+
+``scanl`  and ``scanr`` inspired by ``itertools.accumulate``, Haskell,
+and (stream-scan) in SRFI-41.
+  https://srfi.schemers.org/srfi-41/srfi-41.html
+"""
 
 __all__ = ["scanl", "scanr", "scanl1", "scanr1",
            "foldl", "foldr", "reducel", "reducer",

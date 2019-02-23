@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
 """Missing batteries for itertools.
 
-Racket-like multi-input ``foldl`` and ``foldr`` based on
-  https://docs.racket-lang.org/reference/pairs.html
-
-``scanl`  and ``scanr`` inspired by ``itertools.accumulate``, Haskell,
-and (stream-scan) in SRFI-41.
-  https://srfi.schemers.org/srfi-41/srfi-41.html
+For more batteries for itertools, see also the ``unpythonic.fold`` module.
 
 ``flatten`` based on Danny Yoo's version:
   http://rightfootin.blogspot.fi/2006/09/more-on-python-flatten.html
