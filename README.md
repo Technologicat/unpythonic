@@ -51,6 +51,8 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
  - [**Other**](#other)
    - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
    - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
+   - [``raisef``: ``raise`` as a function](#raisef-raise-as-a-function)
+   - [``pack``: multi-arg constructor for tuple](#pack-multi-arg-constructor-for-tuple)
    - [``namelambda``, rename a function](#namelambda-rename-a-function)
    - [``timer``, a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
    - [Function signature inspection utilities](#function-signature-inspection-utilities)
@@ -1094,6 +1096,7 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - `iterate1` is for 1-to-1 functions; `iterate` for n-to-n, unpacking the return value to the argument list of the next call.
  - `partition` from `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
  - `rev` is a convenience function that tries `reversed`, and if the input was not a sequence, converts it to a tuple and reverses that. The return value is a `reversed` object.
+ - `scons`: prepend one element to the start of an iterable, return new iterable. ``scons(x, iterable)`` is shorthand for ``itertools.chain((x,), iterable)``.
 
 Examples:
 
@@ -2186,6 +2189,30 @@ assert tuple(m) == (6, 9, 3**(1/2))
 Inspired by *Function application with $* in [LYAH: Higher Order Functions](http://learnyouahaskell.com/higher-order-functions).
 
 
+### ``raisef``: ``raise`` as a function
+
+Raise an exception from an expression position:
+
+```python
+from unpythonic import raisef
+
+f = lambda x: raisef(RuntimeError, "I'm in ur lambda raising exceptions")
+```
+
+
+### ``pack``: multi-arg constructor for tuple
+
+The default ``tuple`` constructor accepts a single iterable. But sometimes one needs to pass in the elements separately. Most often a literal tuple such as ``(1, 2, 3)`` is then the right solution, but there are situations that do not admit a literal tuple. Enter ``pack``:
+
+```python
+from unpythonic import pack
+
+myzip = lambda lol: map(pack, *lol)
+lol = ((1, 2), (3, 4), (5, 6))
+assert tuple(myzip(lol)) == ((1, 3, 5), (2, 4, 6))
+```
+
+
 ### ``namelambda``, rename a function
 
 *Changed in v0.13.0.* Now supports renaming any function object (``isinstance(f, (types.LambdaType, types.FunctionType))``), and will rename a lambda even if it has already been named.
@@ -2295,7 +2322,7 @@ We special-case the builtin functions that either fail to return any arity (are 
 
 If the arity cannot be inspected, and the function is not one of the special-cased builtins, the ``UnknownArity`` exception is raised.
 
-These functions are internally used in various places in unpythonic, particularly ``curry``. The FP looping constructs also use these to emit a meaningful error message if the signature of the loop body does not match what is expected.
+These functions are internally used in various places in unpythonic, particularly ``curry``. The ``let`` and FP looping constructs also use these to emit a meaningful error message if the signature of user-provided function does not match what is expected.
 
 Inspired by various Racket functions such as ``(arity-includes?)`` and ``(procedure-keywords)``.
 
