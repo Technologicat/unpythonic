@@ -554,20 +554,6 @@ print(get_abcs(list))
 
 This includes virtual superclasses, i.e. those that are not part of the MRO. This works by ``issubclass(cls, v)`` on all classes defined in ``collections.abc``.
 
-**In-place map** a container, recursively:
-
-```python
-from unpythonic import mogrify
-
-double = lambda x: 2*x
-lst = [1, 2, 3]
-lst2 = mogrify(double, lst)
-assert lst2 == [2, 4, 6]
-assert lst2 is lst
-```
-
-Any mutable container encountered during the recursion is updated in-place. Any immutable container is transformed into a new copy, just like in ``map``. Roughly speaking, any mapping, sequence or set is supported, as are classes created by ``namedtuple``, and from unpythonic, ``box`` and ``cons``. (``frozendict`` is a mapping; supported too.) See the docstring for details.
-
 **Reflection on slices**:
 
 ```python
