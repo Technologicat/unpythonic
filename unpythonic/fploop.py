@@ -229,7 +229,12 @@ def looped_over(iterable, acc=None):  # decorator factory
         assert s == 45
 
     If you **really** need to make that into an expression, bind ``r10`` using ``let``,
-    or to make your code unreadable, just inline it.
+    or to make your code unreadable, just inline it. Or use ``curry``:
+
+        s = curry(looped_over, range(10), 0,
+                    lambda loop, x, acc:
+                      loop(acc + x))
+        assert s == 45
     """
     # Decorator that plays the role of @call, with "iterable" bound by closure.
     def run(body):
