@@ -9,7 +9,8 @@ Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 
 __all__ = ["memoize", "curry", "iscurried",
            "flip", "rotate",
-           "apply", "identity", "const", "notf", "andf", "orf",
+           "apply", "identity", "const",
+           "notf", "andf", "orf",
            "composer1", "composel1", "composer1i", "composel1i",  # single arg
            "composer",  "composel",  "composeri",  "composeli",   # multi-arg
            "composerc", "composelc", "composerci", "composelci",  # multi-arg w/ curry

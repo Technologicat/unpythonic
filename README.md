@@ -763,7 +763,7 @@ Things missing from the standard library.
 
 ### Batteries for functools
 
-Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://github.com/suor/funcy/). In ``unpythonic``:
+We provide the following functions:
 
  - `memoize`:
    - Caches also exceptions à la Racket. If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
@@ -786,9 +786,11 @@ Some overlap with [toolz](https://github.com/pytoolz/toolz) and [funcy](https://
      - An implicit top-level curry context is inserted around all the functions except the one that is applied last.
    - `composel1`, `composer1`: 1-in-1-out chains (faster; also useful for a single value that is a tuple).
    - suffix `i` to use with an iterable (`composeli`, `composeri`, `composelci`, `composerci`, `composel1i`, `composer1i`)
+ - `apply`: the lispy approach to starargs. Mainly useful with the ``prefix`` [macro](macro_extras/).
  - `andf`, `orf`, `notf`: compose predicates (like Racket's `conjoin`, `disjoin`, `negate`).
- - `rotate`: a cousin of `flip`, for permuting positional arguments.
- - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting 1-in-1-out functions into m-in-n-out compose chains.
+ - `flip`: reverse the order of positional arguments.
+ - `rotate`: a cousin of `flip`. Permute the order of positional arguments in a cycle.
+ - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting 1-in-1-out functions into m-in-n-out compose chains. (Currying can eliminate the need for these.)
  - `identity`, `const` which sometimes come in handy when programming with higher-order functions.
  - `withself`: essentially, the Y combinator trick as a decorator. Allows a lambda to refer to itself.
    - The ``self`` argument is declared explicitly, but passed implicitly (as the first positional argument), just like the ``self`` argument of a method.
