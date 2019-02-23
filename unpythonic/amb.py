@@ -243,8 +243,13 @@ class MonadicList:
             return cls(True)  # List with one element; value not intended to be actually used.
         return cls()  # 0-element List; short-circuit this branch of the computation.
 
-    def __getitem__(self, i): # make List iterable so that "for result in f(elt)" works
-        return self.x[i]      # (when f outputs a List monad)
+    # make List iterable so that "for result in f(elt)" works (when f outputs a List monad)
+    def __iter__(self):
+        return iter(self.x)
+    def __len__(self):
+        return len(self.x)
+    def __getitem__(self, i):
+        return self.x[i]
 
     def __add__(self, other): # concatenation of Lists, for convenience
         cls = self.__class__
@@ -282,8 +287,8 @@ class MonadicList:
         return cls.from_iterable(elt for sublist in self.x for elt in sublist)
 
 insist = MonadicList.guard  # retroactively require expr to be True
-def deny(expr):      # end a branch of the computation if expr is True
-    return insist(not expr)
+def deny(v):      # end a branch of the computation if expr is True
+    return insist(not v)
 
 # TODO: export these or not? insist and deny already cover the interesting usage.
 # anything with one item (except nil), actual value is not used
