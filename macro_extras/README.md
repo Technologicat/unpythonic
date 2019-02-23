@@ -746,7 +746,7 @@ because now at the time when ``b`` is forced, the name ``a`` still points to the
 
 If you're sure you have *new definitions* and not *imperative updates*, just manually use ``lazy[]`` (or ``lazyrec[]``, as appropriate) on the RHS. Or if it's fine to use eager evaluation, just omit the ``lazy[]``, thus allowing Python to evaluate the RHS immediately.
 
-Beside function calls (which bind arguments for the callee) and assignments, there are many other binding constructs in Python. For a full list, see [here](http://excess.org/article/2014/04/bar-foo/), or locally [here](../unpythonic/syntax/scoping.py), in function ``get_names_in_store_context``. Particularly noteworthy in the context of lazification are the ``for`` loop and the ``with`` context manager.
+Beside function calls (which bind the parameters of the callee to the argument values of the call) and assignments, there are many other binding constructs in Python. For a full list, see [here](http://excess.org/article/2014/04/bar-foo/), or locally [here](../unpythonic/syntax/scoping.py), in function ``get_names_in_store_context``. Particularly noteworthy in the context of lazification are the ``for`` loop and the ``with`` context manager.
 
 In Python's ``for``, the loop counter is an imperatively updated single name. In many use cases a rapid update is desirable for performance reasons, and in any case, the whole point of the loop is (almost always) to read the counter (and do something with the value) at least once per iteration. So it is much simpler, faster, and equally correct not to lazify there.
 
