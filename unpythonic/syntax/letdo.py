@@ -290,7 +290,7 @@ def do(tree):
         # The envassignment transform (LHS) needs also "newnames", whereas
         # the name transform (RHS) should use the previous bindings, so that
         # the new binding takes effect starting from the **next** doitem.
-        expr = letlike_transform(expr, e, names + newnames, names, envset)
+        expr = letlike_transform(expr, e, lhsnames=names + newnames, rhsnames=names, setter=envset)
         expr = hq[namelambda(u["do_line{}".format(j)])(ast_literal[expr])]
         names = names + newnames
         lines.append(expr)
@@ -323,7 +323,7 @@ def implicit_do(tree):
 
     Apply ``do[]`` if ``tree`` is a ``List``, otherwise return ``tree`` as-is.
 
-    Hence, in client code, to represent a sequence of expressions, use brackets::
+    Hence, in user code, to represent a sequence of expressions, use brackets::
 
         [expr0, ...]
 

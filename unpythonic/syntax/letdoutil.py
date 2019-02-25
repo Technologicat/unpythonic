@@ -81,8 +81,9 @@ def islet(tree, expanded=True):
 
     **If expanded=True**:
 
-    Then ``kind`` is one of ``"expanded_decorator"`` or ``"expanded_expr"``,
-    and ``mode`` is ``"let"`` or ``"letrec"``.
+    Then ``kind`` is one of ``"expanded_decorator"``, ``"expanded_expr"``,
+    ``"curried_decorator"`` or ``"curried_expr"``, and ``mode`` is
+    ``"let"`` or ``"letrec"``.
 
     Keep in mind that ``letseq[]`` expands into a sequence of nested ``let[]``.
 
@@ -173,6 +174,17 @@ def isdo(tree, expanded=True):
 
     expanded: if ``True``, test for the already expanded form.
     If ``False``, test for the form that exists prior to macro expansion.
+
+    Return a truthy value if ``tree`` is a do form, ``False`` if not.
+
+    **If expanded=False**:
+
+    Then the truthy return value is just ``True``.
+
+    **If expanded=True**:
+
+    Then the truthy return value is one of the strings ``"expanded"`` or
+    ``"curried"``.
     """
     if expanded:
         if type(tree) is not Call:
@@ -254,6 +266,7 @@ class UnexpandedLetView:
     """
     def __init__(self, tree):
         data = islet(tree, expanded=False)
+        self._has_subscript_container = True
         if not data:
             # the macro interface only gets the bracketed part as tree,
             # so we jump through hoops to make this usable both from
@@ -264,6 +277,7 @@ class UnexpandedLetView:
             if not h:
                 raise TypeError("expected a tree representing an unexpanded let, got {}".format(tree))
             data = (h, None)  # cannot detect mode, no access to the surrounding subscript form
+            self._has_subscript_container = False
         self._tree = tree
         self._type, self.mode = data
         if self._type not in ("decorator", "lispy_expr", "in_expr", "where_expr"):
@@ -278,8 +292,7 @@ class UnexpandedLetView:
         elif t == "lispy_expr":  # Call inside a Subscript
             return _canonize_bindings(self._tree.value.args, self._tree.value)
         else:  # haskelly let
-            # self.mode is set if the Subscript container is present.
-            theexpr = self._tree.slice.value if self.mode else self._tree
+            theexpr = self._tree.slice.value if self._has_subscript_container else self._tree
             if t == "in_expr":
                 return _canonize_bindings(theexpr.left.elts, theexpr.left)
             elif t == "where_expr":
@@ -291,7 +304,7 @@ class UnexpandedLetView:
         elif t == "lispy_expr":
             self._tree.value.args = newbindings
         else:
-            theexpr = self._tree.slice.value if self.mode else self._tree
+            theexpr = self._tree.slice.value if self._has_subscript_container else self._tree
             if t == "in_expr":
                 theexpr.left.elts = newbindings
             elif t == "where_expr":
@@ -306,7 +319,7 @@ class UnexpandedLetView:
         elif t == "lispy_expr":
             return self._tree.slice.value
         else:
-            theexpr = self._tree.slice.value if self.mode else self._tree
+            theexpr = self._tree.slice.value if self._has_subscript_container else self._tree
             if t == "in_expr":
                 return theexpr.comparators[0]
             elif t == "where_expr":
@@ -319,7 +332,7 @@ class UnexpandedLetView:
         elif t == "lispy_expr":
             self._tree.slice.value = newbody
         else:
-            theexpr = self._tree.slice.value if self.mode else self._tree
+            theexpr = self._tree.slice.value if self._has_subscript_container else self._tree
             if t == "in_expr":
                 theexpr.comparators[0] = newbody
             elif t == "where_expr":
@@ -460,7 +473,7 @@ class ExpandedLetView:
             raise TypeError("Expected ast.Tuple of ast.Tuple as the new bindings of the let")
         if not all(len(binding.elts) == 2 for binding in newbindings.elts):
             raise TypeError("Expected ast.Tuple of length-2 ast.Tuple as the new bindings of the let")
-        if len(newbindings) != len(self.bindings):
+        if len(newbindings.elts) != len(self.bindings.elts):
             assert False, "changing the number of items currently not supported by this view (do that before the let[] expands)"
         thebindings = self._tree.args[1] if self.curried else self._tree.args[0]
         if self.mode == "letrec":

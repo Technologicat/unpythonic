@@ -616,8 +616,6 @@ with curry:
     print(mymap(double, (1, 2, 3)))
 
 # The definition was auto-curried, so this works here too.
-# (Provided add3 contains no calls to uninspectable functions, since
-#  we are now outside the dynamic extent of the ``with curry`` block.)
 assert add3(1)(2)(3) == 6
 ```
 
@@ -629,7 +627,7 @@ assert add3(1)(2)(3) == 6
 
 **CAUTION**: Some builtins are uninspectable or may report their arities incorrectly; in those cases, ``curry`` may fail, occasionally in mysterious ways. The function ``unpythonic.arity.arities``, which ``unpythonic.fun.curry`` internally uses, has a workaround for the inspectability problems of all builtins in the top-level namespace (as of Python 3.7), but e.g. methods of builtin types are not handled.
 
-*Changed in v0.13.0.* The special mode for uninspectables used to be enabled for the dynamic extent of the ``with curry`` block; the new lexical behavior is easier to reason about. Manual uses of the ``curry`` decorator (on both ``def`` and ``lambda``) are now detected, and in such cases the macro now skips adding the decorator.
+*Changed in v0.13.0.* The special mode for uninspectables used to be enabled for the dynamic extent of the ``with curry`` block; the new lexical behavior is easier to reason about. Also, manual uses of the ``curry`` decorator (on both ``def`` and ``lambda``) are now detected, and in such cases the macro now skips adding the decorator.
 
 
 ### ``lazify``: call-by-need for Python

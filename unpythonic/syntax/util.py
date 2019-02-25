@@ -20,7 +20,7 @@ def isx(tree, x, accept_attr=True):
 
     Alternatively, ``x`` may be a predicate that accepts a ``str``
     and returns whether it matches, to support more complex matching
-    (e.g. ``lambda s: s.beginswith("foo")``).
+    (e.g. ``lambda s: s.startswith("foo")``).
 
     Both bare names and attributes can be recognized, to support
     both from-imports and regular imports of ``somemodule.x``.

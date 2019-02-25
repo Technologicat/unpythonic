@@ -31,7 +31,7 @@ from ..dynassign import dyn
 from ..it import uniqify
 from ..fun import identity
 from ..tco import trampolined, jump
-from ..lazyutil import islazy, mark_lazy
+from ..lazyutil import mark_lazy
 
 # -----------------------------------------------------------------------------
 # Implicit return. This performs a tail-position analysis of function bodies.
@@ -196,7 +196,7 @@ def continuations(block_body):
                 tree.args.kw_defaults[j] = hq[identity]
         # implicitly add "parent cc" arg for treating the tail of a computation
         # as one entity (only actually used in continuation definitions created by
-        # call_cc; everywhere else, it's None). See the PDF for clarifying pictures.
+        # call_cc; everywhere else, it's None). See callcc_topology.pdf for clarifying pictures.
         if "_pcc" not in kwonlynames:
             non = q[None]
             non = copy_location(non, tree)

@@ -217,6 +217,8 @@ def lazify(body):
                     if k is not None:
                         tree.decorator_list.insert(k, hq[mark_lazy])
                     else:
+                        # mark_lazy should generally be as innermost as possible
+                        # (so that e.g. the curry decorator will see the function as lazy)
                         tree.decorator_list.append(hq[mark_lazy])
 
                 tree.body = rec(tree.body)
