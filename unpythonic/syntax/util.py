@@ -78,8 +78,7 @@ def isec(tree, known_ecs):
     """
     return type(tree) is Call and type(tree.func) is Name and tree.func.id in known_ecs
 
-@Walker
-def detect_callec(tree, *, collect, **kw):
+def detect_callec(tree):
     """Collect names of escape continuations from call_ec invocations in tree.
 
     Currently supported and unsupported cases::
@@ -101,18 +100,19 @@ def detect_callec(tree, *, collect, **kw):
     # literal function names that are always interpreted as an ec.
     # "brk" is needed to combo with unpythonic.fploop.breakably_looped.
     fallbacks = ["ec", "brk"]
-    for x in fallbacks:
-        collect(x)
     iscallec = partial(isx, make_isxpred("call_ec"))
-    # TODO: add support for general use of call_ec as a function (difficult)
-    if type(tree) in (FunctionDef, AsyncFunctionDef) and any(iscallec(deco) for deco in tree.decorator_list):
-        fdef = tree
-        collect(fdef.args.args[0].arg)  # FunctionDef.arguments.(list of arg objects).arg
-    elif is_decorated_lambda(tree, mode="any"):
-        decorator_list, thelambda = destructure_decorated_lambda(tree)
-        if any(iscallec(decocall.func) for decocall in decorator_list):
-            collect(thelambda.args.args[0].arg)  # we assume it's the first arg, as that's what call_ec expects.
-    return tree
+    @Walker
+    def detect(tree, *, collect, **kw):
+        # TODO: add support for general use of call_ec as a function (difficult)
+        if type(tree) in (FunctionDef, AsyncFunctionDef) and any(iscallec(deco) for deco in tree.decorator_list):
+            fdef = tree
+            collect(fdef.args.args[0].arg)  # FunctionDef.arguments.(list of arg objects).arg
+        elif is_decorated_lambda(tree, mode="any"):
+            decorator_list, thelambda = destructure_decorated_lambda(tree)
+            if any(iscallec(decocall.func) for decocall in decorator_list):
+                collect(thelambda.args.args[0].arg)  # we assume it's the first arg, as that's what call_ec expects.
+        return tree
+    return fallbacks + detect.collect(tree)
 
 @Walker
 def detect_lambda(tree, *, collect, stop, **kw):

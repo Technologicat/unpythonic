@@ -72,7 +72,7 @@ def autoreturn(block_body):
 def tco(block_body):
     # first pass, outside-in
     userlambdas = detect_lambda.collect(block_body)
-    known_ecs = list(uniqify(detect_callec.collect(block_body)))
+    known_ecs = list(uniqify(detect_callec(block_body)))
     block_body = yield block_body
 
     # second pass, inside-out
@@ -163,7 +163,7 @@ def continuations(block_body):
 
     # first pass, outside-in
     userlambdas = detect_lambda.collect(block_body)
-    known_ecs = list(uniqify(detect_callec.collect(block_body)))
+    known_ecs = list(uniqify(detect_callec(block_body)))
     block_body = yield block_body
 
     # second pass, inside-out
