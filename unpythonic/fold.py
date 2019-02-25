@@ -14,10 +14,12 @@ and (stream-scan) in SRFI-41.
 __all__ = ["scanl", "scanr", "scanl1", "scanr1",
            "foldl", "foldr", "reducel", "reducer",
            "rscanl", "rscanl1", "rfoldl", "rreducel",  # reverse each input, then left-scan/fold
-           "unfold", "unfold1"]
+           "unfold", "unfold1",
+           "prod"]
 
 from functools import partial
 from itertools import zip_longest
+from operator import mul
 #from collections import deque
 
 #from .it import first, last, rev
@@ -343,3 +345,7 @@ def unfold(proc, *inits):
 #    def identity(*args):  # unpythonic.fun.identity, but dependency loop
 #        return args
 #    return mapr(identity, *iterables)
+
+def prod(iterable, start=1):
+    """Like the builtin sum, but compute the product."""
+    return reducel(mul, iterable, init=start)
