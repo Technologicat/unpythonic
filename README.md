@@ -1493,7 +1493,7 @@ def baz():
 foo()
 ```
 
-Each function in the TCO call chain tells the trampoline where to go next (and with what parameters). All hail [lambda, the ultimate GOTO](http://hdl.handle.net/1721.1/5753)!
+Each function in the TCO call chain tells the trampoline where to go next (and with what arguments). All hail [lambda, the ultimate GOTO](http://hdl.handle.net/1721.1/5753)!
 
 Each TCO call chain brings its own trampoline, so they nest as expected:
 
