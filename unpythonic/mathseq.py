@@ -25,7 +25,8 @@ __all__ = ["s", "m", "almosteq",
            "cauchyprod", "diagonal_reduce",
            "fibonacci", "primes"]
 
-from itertools import repeat, chain, count, product, takewhile
+from threading import RLock
+from itertools import repeat, chain, count, takewhile
 from operator import add as primitive_add, mul as primitive_mul, \
                      pow as primitive_pow, mod as primitive_mod, \
                      floordiv as primitive_floordiv, truediv as primitive_truediv, \
@@ -722,17 +723,32 @@ def fibonacci():
         yield a
         a, b = b, a + b
 
+# Manual memoization for speed. One global memo to save memory when several
+# instances of primes() are created in the same session.
+_primesmemo = [2, 3]
+_primeslock = RLock()
 def primes():
     """Return the prime numbers 2, 3, 5, 7, 11, 13, ... as a lazy sequence.
 
     Implementation is based on an FP version of the sieve of Eratosthenes,
     with internal memoization.
     """
-    memo = []  # we memoize manually for speed (see test_gmemo.py)
+    # TODO: utilize the memo also when already in the loop.
     def memoprimes():
-        for n in chain([2, 3, 5, 7], (sum(xs) for k in count(10, step=10)
-                                              for xs in product([k], [1, 3, 7, 9]))):
-            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, memo)):
-                memo.append(n)
+        # to avoid a race condition, we must know the last p actually yielded by us
+        # (since some other thread may insert a new entry to _primesmemo between
+        #  our last yield and when we read _primesmemo[-1] for the divmod check)
+        for p in _primesmemo:
+            yield p
+        # find the next candidate
+        decade, mod = divmod(p, 10)
+        inits = range(mod + 2, 10, 2) if mod < 9 else []
+        inits = (10*decade + k for k in inits)
+        for n in chain(inits, (d + k for d in count(10*(decade + 1), step=10)
+                                     for k in [1, 3, 7, 9])):
+            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, _primesmemo)):
+                with _primeslock:  # lock to make test-and-update atomic.
+                    if _primesmemo[-1] < n:
+                        _primesmemo.append(n)
                 yield n
     return m(memoprimes())

@@ -219,6 +219,9 @@ def test():
     assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
     assert tuple(take(10, fibonacci())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 
+    assert tuple(take(20, primes())) == tuple(take(20, primes()))  # caching
+    assert last(take(21, primes())) == 73
+
     print("All tests PASSED")
 
 if __name__ == '__main__':

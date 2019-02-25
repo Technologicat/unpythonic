@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from itertools import count, takewhile, product, chain
+from itertools import count, takewhile, chain
 from collections import Counter
 
 from ..gmemo import gmemoize, imemoize, fimemoize
@@ -137,8 +137,8 @@ def test():
     @gmemoize  # skip testing 15, 25, 35, ...
     def mprimes2():
         yield 2
-        for n in chain([3, 5, 7], (sum(xs) for k in count(10, step=10)
-                                           for xs in product([k], [1, 3, 7, 9]))):
+        for n in chain([3, 5, 7], (d + k for d in count(10, step=10)
+                                         for k in [1, 3, 7, 9])):
             if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, mprimes2())):
                 yield n
 
