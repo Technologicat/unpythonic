@@ -30,7 +30,10 @@ from operator import add as primitive_add, mul as primitive_mul, \
                      pow as primitive_pow, mod as primitive_mod, \
                      floordiv as primitive_floordiv, truediv as primitive_truediv, \
                      sub as primitive_sub, \
-                     neg as primitive_neg, pos as primitive_pos
+                     neg as primitive_neg, pos as primitive_pos, \
+                     and_ as primitive_and, xor as primitive_xor, or_ as primitive_or, \
+                     lshift as primitive_lshift, rshift as primitive_rshift, \
+                     invert as primitive_invert
 
 from .it import take, rev
 from .gmemo import imemoize, gmemoize
@@ -447,6 +450,8 @@ class m:
         return self
     def __neg__(self):
         return sneg(self)
+    def __invert__(self):
+        return sinvert(self)
     def __mul__(self, other):
         return smul(self, other)
     def __rmul__(self, other):
@@ -479,7 +484,27 @@ class m:
         return sfloor(self)
     def __ceil__(self):
         return sceil(self)
-    # TODO: logical, shift, conversion, and comparison operators? Do we want those?
+    def __lshift__(self, other):
+        return slshift(self, other)
+    def __rlshift__(self, other):
+        return slshift(other, self)
+    def __rshift__(self, other):
+        return srshift(self, other)
+    def __rrshift__(self, other):
+        return srshift(other, self)
+    def __and__(self, other):
+        return sand(self, other)
+    def __rand__(self, other):
+        return sand(other, self)
+    def __xor__(self, other):
+        return sxor(self, other)
+    def __rxor__(self, other):
+        return sxor(other, self)
+    def __or__(self, other):
+        return sor(self, other)
+    def __ror__(self, other):
+        return sor(other, self)
+    # TODO: conversion (bool, complex, int, float) and comparison operators? Do we want those?
 
 # The *settings mechanism is used by round and pow.
 # These are recursive to support iterables containing iterables (e.g. an iterable of math sequences).
@@ -521,6 +546,12 @@ _round = _make_termwise_stream_unop(round)  # 1-arg form
 _trunc = _make_termwise_stream_unop(trunc)
 _floor = _make_termwise_stream_unop(floor)
 _ceil = _make_termwise_stream_unop(ceil)
+_lshift = _make_termwise_stream_binop(primitive_lshift)
+_rshift = _make_termwise_stream_binop(primitive_rshift)
+_and = _make_termwise_stream_binop(primitive_and)
+_xor = _make_termwise_stream_binop(primitive_xor)
+_or = _make_termwise_stream_binop(primitive_or)
+_invert = _make_termwise_stream_unop(primitive_invert)
 def sadd(a, b):
     """Termwise a + b when one or both are iterables."""
     return _add(a, b)
@@ -536,6 +567,9 @@ def spos(a):
 def sneg(a):
     """Termwise -a for an iterable."""
     return _neg(a)
+def sinvert(a):
+    """Termwise ~a for an iterable."""
+    return _invert(a)
 def smul(a, b):
     """Termwise a * b when one or both are iterables."""
     return _mul(a, b)
@@ -576,6 +610,21 @@ def sfloor(a):
 def sceil(a):
     """Termwise math.ceil(a) for an iterable."""
     return _ceil(a)
+def slshift(a, b):
+    """Termwise a << b when one or both are iterables."""
+    return _lshift(a, b)
+def srshift(a, b):
+    """Termwise a >> b when one or both are iterables."""
+    return _rshift(a, b)
+def sand(a, b):
+    """Termwise a & b when one or both are iterables."""
+    return _and(a, b)
+def sxor(a, b):
+    """Termwise a ^ b when one or both are iterables."""
+    return _xor(a, b)
+def sor(a, b):
+    """Termwise a | b when one or both are iterables."""
+    return _or(a, b)
 
 # -----------------------------------------------------------------------------
 
