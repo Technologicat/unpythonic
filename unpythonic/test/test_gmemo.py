@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from itertools import count, takewhile
+from itertools import count, takewhile, product, chain
 from collections import Counter
 
 from ..gmemo import gmemoize, imemoize, fimemoize
@@ -134,6 +134,14 @@ def test():
             if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, mprimes())):
                 yield n
 
+    @gmemoize  # skip testing 15, 25, 35, ...
+    def mprimes2():
+        yield 2
+        for n in chain([3, 5, 7], (sum(xs) for k in count(10, step=10)
+                                           for xs in product([k], [1, 3, 7, 9]))):
+            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, mprimes2())):
+                yield n
+
     def memo_primes():  # with manually implemented memoization
         memo = []
         def manual_mprimes():
@@ -147,11 +155,12 @@ def test():
 
     assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
     assert tuple(take(10, mprimes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
+    assert tuple(take(10, mprimes2())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
     assert tuple(take(10, memo_primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
 
     n = 2500
     print("Performance for first {:d} primes:".format(n))
-    for g in (primes(), mprimes(), memo_primes()):
+    for g in (primes(), mprimes(), mprimes2(), memo_primes()):
         with timer() as tictoc:
             last(take(n, g))
         print(g, tictoc.dt)
