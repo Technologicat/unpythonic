@@ -3,7 +3,7 @@
 from sys import float_info
 from math import floor, log2
 
-from ..mathseq import s, m, sadd, smul, spow, cauchyprod
+from ..mathseq import s, m, sadd, smul, spow, cauchyprod, primes, fibonacci
 from ..it import take, last
 
 def test():
@@ -214,6 +214,10 @@ def test():
 
     except ImportError:
         print("*** SymPy not installed, skipping symbolic math sequence test ***")
+
+    # some special sequences
+    assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
+    assert tuple(take(10, fibonacci())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 
     print("All tests PASSED")
 

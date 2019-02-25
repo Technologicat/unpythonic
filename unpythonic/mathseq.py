@@ -11,17 +11,21 @@ The function versions of the arithmetic operations have an **s** prefix (short
 for mathematical **sequence**), because in Python the **i** prefix (which could
 stand for *iterable*) is already used to denote the in-place operators.
 
-Finally, we provide the Cauchy product, and its generalization, the diagonal
+We provide the Cauchy product, and its generalization, the diagonal
 combination-reduction, for two (possibly infinite) iterables.
+
+Finally, we provide ready-made generators that yield some common sequences
+(currently, the Fibonacci numbers and the prime numbers).
 """
 
 __all__ = ["s", "m", "almosteq",
            "sadd", "ssub", "sabs", "spos", "sneg", "smul", "spow",
            "struediv", "sfloordiv", "smod", "sdivmod",
            "sround", "strunc", "sfloor", "sceil",
-           "cauchyprod", "diagonal_reduce"]
+           "cauchyprod", "diagonal_reduce",
+           "fibonacci", "primes"]
 
-from itertools import repeat
+from itertools import repeat, chain, count, product, takewhile
 from operator import add as primitive_add, mul as primitive_mul, \
                      pow as primitive_pow, mod as primitive_mod, \
                      floordiv as primitive_floordiv, truediv as primitive_truediv, \
@@ -381,6 +385,8 @@ def s(*spec):
                     j += 1
         return m(power() if n is infty else take(n, power()))
 
+# -----------------------------------------------------------------------------
+
 # https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 class m:
     """Endow any iterable with infix math support (termwise).
@@ -571,6 +577,8 @@ def sceil(a):
     """Termwise math.ceil(a) for an iterable."""
     return _ceil(a)
 
+# -----------------------------------------------------------------------------
+
 def cauchyprod(a, b, *, require="any"):
     """Cauchy product of two (possibly infinite) iterables.
 
@@ -704,3 +712,27 @@ def diagonal_reduce(a, b, *, combine, reduce, require="any"):
             yield reduce(combine(xs, rev(ys)))
             n += 1
     return m(diagonal())
+
+# -----------------------------------------------------------------------------
+
+def fibonacci():
+    """Return the Fibonacci numbers 1, 1, 2, 3, 5, 8, ... as a lazy sequence."""
+    a, b = 1, 1
+    while True:
+        yield a
+        a, b = b, a + b
+
+def primes():
+    """Return the prime numbers 2, 3, 5, 7, 11, 13, ... as a lazy sequence.
+
+    Implementation is based on an FP version of the sieve of Eratosthenes,
+    with internal memoization.
+    """
+    memo = []  # we memoize manually for speed (see test_gmemo.py)
+    def memoprimes():
+        for n in chain([2, 3, 5, 7], (sum(xs) for k in count(10, step=10)
+                                              for xs in product([k], [1, 3, 7, 9]))):
+            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, memo)):
+                memo.append(n)
+                yield n
+    return m(memoprimes())
