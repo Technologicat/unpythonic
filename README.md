@@ -445,7 +445,7 @@ Cons cells are immutable à la Racket (no `set-car!`/`rplaca`, `set-cdr!`/`rplac
 
 Although linked lists are created with ``ll`` or ``llist``, the data type (for e.g. ``isinstance``) is ``cons``.
 
-Iterators are supported to walk over linked lists (this also gives tuple unpacking support). When ``next()`` is called, we return the car of the current cell the iterator points to, and the iterator moves to point to the cons cell in the cdr, if any. When the cdr is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
+Iterators are supported to walk over linked lists (this also gives sequence unpacking support). When ``next()`` is called, we return the car of the current cell the iterator points to, and the iterator moves to point to the cons cell in the cdr, if any. When the cdr is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
 
 Python's builtin ``reversed`` can be applied to linked lists; it will internally ``lreverse`` the list (which is O(n)), then return an iterator to that. The ``llist`` constructor is special-cased so that if the input is ``reversed(some_ll)``, it just returns the internal already reversed list. (This is safe because cons cells are immutable.)
 
@@ -1641,7 +1641,7 @@ The loop body is called once for each element in the iterable. When the iterable
 
 To terminate the loop early, just ``return`` your final result normally, like in ``@looped``. (It can be anything, does not need to be ``acc``.)
 
-Multiple input iterables work somewhat like in Python's ``for``, except any tuple unpacking must be performed inside the body:
+Multiple input iterables work somewhat like in Python's ``for``, except any sequence unpacking must be performed inside the body:
 
 ```python
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
