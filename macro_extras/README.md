@@ -938,7 +938,7 @@ Code within a ``with continuations`` block is treated specially. Roughly:
      - The function ``func`` must be a defined in a ``with continuations`` block, so that it knows what to do with the named argument ``cc``.
        - Attempting to tail-call a regular function breaks the TCO chain and immediately returns to the original caller (provided the function even accepts a ``cc`` named argument).
        - Be careful: ``xs = list(args); return xs`` and ``return list(args)`` mean different things.
-   - TCO is automatically applied to these tail calls. This uses the exact same machinery as the ``tco`` macro (see further below).
+   - TCO is automatically applied to these tail calls. This uses the exact same machinery as the ``tco`` macro.
 
  - The ``call_cc[]`` statement essentially splits its use site into *before* and *after* parts, where the *after* part (the continuation) can be run a second and further times, by later calling the callable that represents the continuation. This makes a computation resumable from a desired point.
    - The continuation is essentially a closure.
