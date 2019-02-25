@@ -35,18 +35,24 @@ SHORTDESC="Supercharge your Python with parts of Lisp and Haskell."
 # Long description for package homepage on PyPI
 #
 DESC="""We provide missing features for Python, mainly from the list processing
-tradition, but with some haskellisms mixed in. For the adventurous, we include
-a set of syntactic macros (using MacroPy) that are designed to work together.
+tradition, but with some haskellisms mixed in. We place a special emphasis on
+**clear, pythonic syntax**.
 
-We place a special emphasis on **clear, pythonic syntax**. Design considerations
-are simplicity, robustness, and minimal dependencies.
+Optionally, we also provide extensions to the Python language as a set of
+syntactic macros that are designed to work together. Each macro adds an
+orthogonal piece of functionality that can (mostly) be mixed and matched
+with the others.
+
+Design considerations are simplicity, robustness, and minimal dependencies.
+Currently none required; MacroPy optional, to enable the syntactic macros.
 
 **Without macros**, our features include tail call optimization (TCO), TCO'd
 loops in FP style, call/ec, let & letrec, assign-once, multi-expression lambdas,
 dynamic assignment (a.k.a. *parameterize*, *special variables*), memoization
 (also for generators and iterables), currying, function composition,
 folds and scans (left and right), unfold, lazy partial unpacking of iterables,
-functional update for sequences, and pythonic lispy linked lists (``cons``).
+functional update for sequences, pythonic lispy linked lists (``cons``), and
+compact syntax for creating mathematical sequences that support infix math.
 
 Our curry modifies Python's reduction rules. It passes any extra arguments
 through on the right, and calls a callable return value on the remaining
@@ -64,15 +70,15 @@ If MacroPy is installed, ``unpythonic.syntax`` becomes available. It provides
 macros that essentially extend the Python language, adding features that would
 be either complicated or impossible to provide (and/or use) otherwise.
 
-**With macros**, we add automatic currying, automatic tail-call optimization,
-continuations (``call/cc`` for Python), ``let-syntax`` (splice code at macro
-expansion time), lexically scoped ``let`` and ``do`` with lean syntax,
-implicit return statements, and easy-to-use multi-expression lambdas
-with local variables.
+**With macros**, we add automatic currying, automatic tail-call optimization
+(TCO), call-by-need (lazy functions), continuations (``call/cc`` for Python),
+``let-syntax`` (splice code at macro expansion time), lexically scoped
+``let`` and ``do`` with lean syntax, implicit return statements, and
+easy-to-use multi-expression lambdas with local variables.
 
-The TCO macro has a fairly extensive expression analyzer, so things like ``and``,
-``or``, ``a if p else b`` and any uses of the ``do[]`` and ``let[]`` macros are
-accounted for when performing the tail-call transformation.
+The TCO macro has a fairly extensive expression analyzer, so things like
+``and``, ``or``, ``a if p else b`` and any uses of the ``do[]`` and ``let[]``
+macros are accounted for when performing the tail-call transformation.
 
 The continuation system is based on a semi-automated partial conversion into
 continuation-passing style (CPS), with continuations represented as closures.
@@ -97,7 +103,7 @@ Macro examples::
                             "something else"]
     assert answer(42) == "something else"
 
-    # do: imperative code in expression position
+    # do: imperative code in any expression position
     y = do[local[x << 17],
            print(x),
            x << 23,
@@ -117,6 +123,14 @@ Macro examples::
         mymap = lambda f: foldr(composerc(cons, f), nil)
         myadd = lambda a, b: a + b
         assert mymap(myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
+
+    # lazy functions (call-by-need) like Haskell
+    with lazify:
+        def f(a, b):
+            return a
+        def g(a, b):
+            return f(2*a, 3*b)
+        assert g(21, 1/0) == 42  # the 1/0 is never evaluated
 
     # automatic tail-call optimization (TCO) like Scheme, Racket
     with tco:
@@ -173,6 +187,17 @@ Macro examples::
         (print, (mymap, double, (q, 1, 2, 3)))
         assert (mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)
 
+    # the HasThon programming language
+    with curry, lazify:
+        def add2first(a, b, c):
+            return a + b
+        assert add2first(2)(3)(1/0) == 5
+
+        assert letrec[((c, 42),
+                       (d, 1/0),
+                       (e, 2*c)) in
+                      add2first(c)(e)(d)] == 126
+
     # call/cc for Python
     with continuations:
         stack = []
@@ -203,7 +228,7 @@ Macro examples::
 
     # if Python didn't already have generators, we could add them with call/cc:
     with continuations:
-        @dlet((k, None))
+        @dlet((k, None))  # let-over-def decorator
         def g():
             if k:
                 return k()
