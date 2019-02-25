@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from functools import partial
-from itertools import tee
+from itertools import tee, count, takewhile
 from operator import add, itemgetter
 
 from ..it import mapr, rmap, zipr, rzip, \
@@ -14,9 +14,12 @@ from ..it import mapr, rmap, zipr, rzip, \
                  rev, \
                  uniqify, uniq, \
                  flatten, flatten1, flatten_in, \
-                 unpack
+                 unpack, \
+                 inn, iindex
 
 from ..fun import composel, identity
+from ..gmemo import imemoize, gmemoize
+from ..mathseq import s
 
 def test():
     def noneadd(a, b):
@@ -159,6 +162,30 @@ def test():
     g = mygen()
     g = dostuff(g)  # advances g, but then overwrites name g with the returned tail
     assert next(g) == 10
+
+    # inn: contains-check with automatic termination for monotonic iterables
+    evens = imemoize(s(2, 4, ...))
+    assert inn(42, evens())
+    assert not inn(41, evens())
+
+    @gmemoize
+    def primes():
+        yield 2
+        for n in count(start=3, step=2):
+            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
+                yield n
+    assert inn(31337, primes())
+    assert not inn(1337, primes())
+
+    # iindex: find index of item in iterable (mostly only makes sense for memoized input)
+    assert iindex(2, (1, 2, 3)) == 1
+    assert iindex(31337, primes()) == 3378
+    try:
+        iindex(4, (1, 2, 3))
+    except ValueError:
+        pass  # 4 is not in iterable
+    else:
+        assert False
 
     print("All tests PASSED")
 

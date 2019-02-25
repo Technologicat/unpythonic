@@ -22,10 +22,11 @@ __all__ = ["rev", "map_longest",
            "scons",
            "flatten", "flatten1", "flatten_in",
            "iterate", "iterate1",
-           "partition"]
+           "partition",
+           "inn", "iindex"]
 
 from operator import itemgetter
-from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby
+from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby, takewhile
 from collections import deque
 
 def rev(iterable):
@@ -532,3 +533,82 @@ def partition(pred, iterable):
     # iterable is walked only once; tee handles the intermediate storage.
     t1, t2 = tee(iterable)
     return filterfalse(pred, t1), filter(pred, t2)
+
+def inn(x, iterable):
+    """Contains-check (``x in iterable``) with automatic termination.
+
+    ``iterable`` may be infinite.
+
+    We assume ``iterable`` is **monotonic**. In other words, we require
+    ``it[k+1] >= it[k]`` or ``it[k+1] <= it[k]``. If ``iterable`` is
+    not monotonic, this function may fail to terminate.
+
+    This is fully duck-typed; we only require that ``x`` and the elements of
+    ``iterable`` are comparable by ``==``, ``<=`` and ``>=``.
+
+    Examples::
+
+        from unpythonic import inn, s, imemoize, gmemoize
+        from itertools import count, takewhile
+
+        evens = imemoize(s(2, 4, ...))
+        assert inn(42, evens())
+        assert not inn(41, evens())
+
+        @gmemoize
+        def primes():
+            yield 2
+            for n in count(start=3, step=2):
+                if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
+                    yield n
+        assert inn(31337, primes())
+        assert not inn(1337, primes())
+
+    Whether the input is increasing or decreasing is determined automatically
+    from the first elements ``it[0]`` and  ``it[j]``, for the first ``j > 0``
+    such that ``it[j] > it[0]`` or ``it[j] < it[0]``. After the direction has
+    been determined, the monotonicity of the input is no longer monitored.
+
+    The actual search is performed by ``itertools.takewhile``, terminating
+    (in the worst case) after we can be sure that ``x`` does not appear in
+    ``iterable``.
+
+    The name is a weak pun on ``in``. We provide this functionality as a function
+    ``inn`` instead of customizing ``unpythonic.mathseq.m.__contains__`` in order
+    to keep things explicit. The m-ness of an iterable is silently dropped by any
+    function that operates on general iterables, so the other solution could
+    easily lead to, by accident, performing a search that will not terminate
+    (on an infinite iterable that is not m'd and does not contain ``x``).
+    """
+    it = iter(iterable)
+    try:
+        y0 = next(it)
+    except StopIteration:
+        return False
+    if y0 == x: return True
+    yj = y0
+    while yj == y0:
+        try:
+            yj = next(it)
+        except StopIteration:
+            return False
+    if yj == x: return True
+    d = yj - y0
+    assert d != 0
+    pred = (lambda elt: elt <= x) if d > 0 else (lambda elt: elt >= x)
+    return x in takewhile(pred, it)
+
+def iindex(x, iterable):
+    """Like list.index, but for a general iterable.
+
+    Note that just like ``x in iterable``, this will not terminate if ``iterable``
+    is infinite, and ``x`` is not in it.
+
+    Note that as usual when working with general iterables, the iterable will
+    be consumed, so this only makes sense for memoized iterables (and even then
+    it may be better to extract the desired part as a list and then search there).
+    """
+    for j, elt in enumerate(iterable):
+        if elt == x:
+            return j
+    raise ValueError("{} is not in iterable".format(x))
