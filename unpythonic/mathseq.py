@@ -19,9 +19,10 @@ Finally, we provide ready-made generators that yield some common sequences
 """
 
 __all__ = ["s", "m", "almosteq",
-           "sadd", "ssub", "sabs", "spos", "sneg", "smul", "spow",
+           "sadd", "ssub", "sabs", "spos", "sneg", "sinvert", "smul", "spow",
            "struediv", "sfloordiv", "smod", "sdivmod",
            "sround", "strunc", "sfloor", "sceil",
+           "slshift", "srshift", "sand", "sxor", "sor",
            "cauchyprod", "diagonal_reduce",
            "fibonacci", "primes"]
 
