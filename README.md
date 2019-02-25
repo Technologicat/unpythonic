@@ -984,6 +984,11 @@ assert nth(3378, primes()) == 31337  # with memo, linear process; no crash
 # but be careful:
 31337 in primes()  # --> True
 1337 in takewhile(lambda p: p <= 1337, primes())  # not prime, need takewhile() to stop
+
+# or use unpythonic.inn, which auto-terminates on monotonic iterables:
+from unpythonic import inn
+inn(31337, primes())  # --> True
+inn(1337, primes())  # --> False
 ```
 
 Memoizing only a part of an iterable. This is where `imemoize` and `fimemoize` can be useful. The basic idea is to make a chain of generators, and only memoize the last one:
@@ -1084,6 +1089,9 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
  - `partition` from `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
  - `rev` is a convenience function that tries `reversed`, and if the input was not a sequence, converts it to a tuple and reverses that. The return value is a `reversed` object.
  - `scons`: prepend one element to the start of an iterable, return new iterable. ``scons(x, iterable)`` is shorthand for ``itertools.chain((x,), iterable)``.
+ - `inn`: contains-check (``x in iterable``) with automatic termination for monotonic infinite iterables. *Added in v0.13.1.*
+   - Only applicable to monotonic inputs. Increasing/decreasing is auto-detected, but may fail to terminate if the input is not monotonic.
+ - `iindex`: like ``list.index``, but for a general iterable. Consumes the iterable, so only makes sense for memoized inputs. *Added in v0.13.1.*
 
 Examples:
 
@@ -1091,7 +1099,7 @@ Examples:
 from functools import partial
 from unpythonic import scanl, scanr, foldl, foldr, flatmap, mapr, zipr, \
                        uniqify, uniq, flatten1, flatten, flatten_in, take, drop, \
-                       unfold, unfold1, cons, nil, ll, curry
+                       unfold, unfold1, cons, nil, ll, curry, s, inn, iindex
 
 assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
 assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
@@ -1118,6 +1126,25 @@ a1, a2, a3, tl = unpack(3, fibos())
 a4, a5, tl = unpack(2, tl)
 print(a1, a2, a3, a4, a5, tl)  # --> 1 1 2 3 5 <generator object fibos at 0x7fe65fb9f798>
 
+# inn: contains-check with automatic termination for monotonic iterables (infinites ok)
+evens = imemoize(s(2, 4, ...))
+assert inn(42, evens())
+assert not inn(41, evens())
+
+@gmemoize
+def primes():
+    yield 2
+    for n in count(start=3, step=2):
+        if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
+            yield n
+assert inn(31337, primes())
+assert not inn(1337, primes())
+
+# iindex: find index of item in iterable (mostly only makes sense for memoized input)
+assert iindex(2, (1, 2, 3)) == 1
+assert iindex(31337, primes()) == 3378
+
+# flatmap
 def msqrt(x):  # multivalued sqrt
     if x == 0.:
         return (0.,)
