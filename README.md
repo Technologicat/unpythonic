@@ -27,7 +27,7 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
    - [``box``, a mutable single-item container](#box-a-mutable-single-item-container)
    - [Container utilities](#container-utilities)
 
- - [**Sequencing**](#sequencing), run multiple expressions in any expression position (incl. ``lambda``)
+ - [**Sequencing**](#sequencing), run multiple expressions in any expression position (incl. inside a ``lambda``)
    - [Sequence side effects: ``begin``](#sequence-side-effects-begin)
    - [Stuff imperative code into an expression: ``do``](#stuff-imperative-code-into-an-expression-do)
    - [Sequence functions: ``pipe``, ``piped``, ``lazy_piped``](#sequence-functions-pipe-piped-lazy_piped)
