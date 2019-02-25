@@ -103,7 +103,7 @@ def detect_callec(tree, *, collect, **kw):
     fallbacks = ["ec", "brk"]
     for x in fallbacks:
         collect(x)
-    iscallec = partial(isx, x="call_ec")
+    iscallec = partial(isx, make_isxpred("call_ec"))
     # TODO: add support for general use of call_ec as a function (difficult)
     if type(tree) in (FunctionDef, AsyncFunctionDef) and any(iscallec(deco) for deco in tree.decorator_list):
         fdef = tree
@@ -141,6 +141,8 @@ def detect_lambda(tree, *, collect, stop, **kw):
 
 def is_decorator(tree, fname):
     """Test tree whether it is the decorator ``fname``.
+
+    ``fname`` may be ``str`` or a predicate, see ``isx``.
 
     References of the forms ``f``, ``foo.f`` and ``hq[f]`` are supported.
 
