@@ -482,6 +482,8 @@ The linked list iteration strategy (which supports arbitrarily long lists) does 
 
 *Added in v0.13.0.* We provide a ``JackOfAllTradesIterator`` that uses unpythonic's TCO and understands both trees and linked lists, but it has to make some compromises to be able to do this: nested lists will be flattened, and in a tree any ``nil`` in a ``cdr`` position will be omitted from the output.
 
+``cons`` has no ``collections.abc`` virtual superclasses (except the implicit ``Hashable`` since ``cons`` provides ``__hash__`` and ``__eq__``), because general cons structures do not fit into the contracts represented by membership in those classes. For example, size cannot be known without iterating, and depends on which iteration scheme is used (e.g. ``nil`` dropping, flattening); which scheme is appropriate depends on the content.
+
 **Caution**: the ``nil`` singleton is freshly created in each session; newnil is not oldnil, so don't pickle a standalone ``nil``. The unpickler of ``cons`` automatically refreshes any ``nil`` instances inside a pickled cons structure, so that **cons structures** support the illusion that ``nil`` is a special value like ``None`` or ``...``. After unpickling, ``car(c) is nil`` and ``cdr(c) is nil`` still work as expected, even though ``id(nil)`` has changed.
 
 
