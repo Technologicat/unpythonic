@@ -12,7 +12,6 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # are just for passing through to the client code that imports us.
 from .curry import curry as _curry
 from .forall import forall as _forall, insist, deny
-from .fupstx import fup as _fup, view as _view
 from .ifexprs import aif as _aif, it, cond as _cond
 from .lambdatools import multilambda as _multilambda, \
                          namedlambda as _namedlambda, \
@@ -25,6 +24,7 @@ from .letdo import do as _do, do0 as _do0, local, \
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
 from .nb import nb as _nb
 from .prefix import prefix as _prefix
+from .slicing import fup as _fup, view as _view
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, call_cc
 
