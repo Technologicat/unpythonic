@@ -312,6 +312,88 @@ del abscls  # namespace cleanup
 
 # -----------------------------------------------------------------------------
 
+class SequenceViewIterator:
+    def __init__(self, theview):
+        self.view = theview
+        self._reset()
+    def __iter__(self):
+        self._reset()
+        return self
+    def __next__(self):
+        j = self.j
+        if j >= len(self.view.range):
+            raise StopIteration()
+        self.j += 1
+        return self.view.seq[self.view.range[j]]
+    def _reset(self):
+        self.j = 0
+
+class SequenceView(Sequence):
+    """Writable view into any constant-length sequence.
+
+    Supports slicing (also recursively, i.e. can be sliced again).
+
+    Does **not** support ``append``, ``extend``, ``pop``, ``remove`` or
+    ``__iadd__``. If a length-changing operation is applied to the underlying
+    sequence, the view will (in the best case) crash when accessed.
+
+    **Not** hashable, since the whole point is a live view to input whose
+    elements may be replaced at any time.
+
+    Based on StackOverflow answer by Mathieu Caroff (2018):
+
+        http://stackoverflow.com/q/3485475/can-i-create-a-view-on-a-python-list
+    """
+    def __init__(self, sequence, s=None):
+        """If s is None, view the whole input. If s is a slice, view that slice."""
+        if s is None:
+            s = slice(len(sequence))
+        if isinstance(sequence, SequenceView):
+            self.seq = sequence.seq
+            self.range = sequence.range[s]
+        else:
+            self.seq = sequence
+            self.range = range(len(sequence))[s]
+
+    def __iter__(self):
+        return SequenceViewIterator(self)
+    def __len__(self):
+        return len(self.range)
+    def __getitem__(self, s):
+        if isinstance(s, slice):
+            return SequenceView(self, s)
+        return self.seq[self.range[s]]
+    def __setitem__(self, s, v):
+        if isinstance(s, slice):
+            view = SequenceView(self, s)
+            for j, k in enumerate(view.range):
+                view.seq[k] = v[j]
+        else:
+            self.seq[self.range[s]] = v
+    def reverse(self):
+        self[::-1] = [x for x in self]
+
+    def __str__(self):
+        r = self.range
+        s = slice(r.start, r.stop, r.step)
+        return str(self.seq[s])
+    def __repr__(self):
+        r = self.range
+        s = slice(r.start, r.stop, r.step)
+        return "SequenceView({!r})".format(self.seq[s])
+
+    def __eq__(self, other):
+        if other is self:
+            return True
+        if len(self) != len(other):
+            return False
+        for v, w in zip(self, other):
+            if v != w:
+                return False
+        return True
+
+# -----------------------------------------------------------------------------
+
 class ShadowedSequence(Sequence):
     """Sequence with some elements shadowed by those from another sequence.
 

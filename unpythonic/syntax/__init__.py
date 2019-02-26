@@ -12,7 +12,7 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # are just for passing through to the client code that imports us.
 from .curry import curry as _curry
 from .forall import forall as _forall, insist, deny
-from .fupstx import fup as _fup
+from .fupstx import fup as _fup, view as _view
 from .ifexprs import aif as _aif, it, cond as _cond
 from .lambdatools import multilambda as _multilambda, \
                          namedlambda as _namedlambda, \
@@ -814,6 +814,29 @@ def fup(tree, **kw):
     Named after the sound a sequence makes when it is hit by a functional update.
     """
     return _fup(tree)
+
+@macros.expr
+def view(tree, **kw):
+    """[syntax, expr] Writable view into a sequence.
+
+    Examples::
+
+        lst = [1, 2, 3, 4, 5]
+        v = view[lst[2:4]]
+        v[:] = [10, 20]
+        assert lst == [1, 2, 10, 20, 5]
+
+        lst = [1, 2, 3, 4, 5]
+        v = view[lst]
+        v[2:4] = [10, 20]
+        assert lst == [1, 2, 10, 20, 5]
+
+    The transformation is::
+
+        view[seq] --> SequenceView(seq)
+        view[seq[slicestx]] --> SequenceView(seq, slice(...))
+    """
+    return _view(tree)
 
 # -----------------------------------------------------------------------------
 
