@@ -50,6 +50,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
    - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
    - [``aif``: anaphoric if](#aif-anaphoric-if), the test result is ``it``
    - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence) with slice notation
+   - [``view``: writable view into a sequence](#view-writable-view-into-a-sequence) with slice notation
 
  - [**Other**](#other)
    - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
@@ -1430,6 +1431,33 @@ Currently only one update specification is supported in a single ``fup[]``.
 The notation follows the ``unpythonic.syntax`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched.
 
 The transformation is ``fup[seq[idx] << value] --> fupdate(seq, idx, value)`` for a single index, and ``fup[seq[slicestx] << iterable] --> fupdate(seq, slice(...), iterable)`` for a slice. The main point of this macro is that slices are specified in the native slicing syntax. (Contrast the direct use of the underlying ``fupdate`` function, which requires manually calling ``slice``.)
+
+
+### ``view``: writable view into a sequence
+
+*Added in v0.13.1.*
+
+This is a macro wrapper for ``unpythonic.collections.SequenceView``, providing more natural syntax:
+
+```python
+from unpythonic.syntax import macros, view
+
+lst = list(range(10))
+v = view[lst[::2]]
+assert v == [0, 2, 4, 6, 8]
+v2 = view[v[1:-1]]
+assert v2 == [2, 4, 6]
+v2[1:] = (10, 20)
+assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
+
+lst[2] = 42
+assert v == [0, 42, 10, 20, 8]
+assert v2 == [42, 10, 20]
+```
+
+The transformation is ``view[seq] --> SequenceView(seq)``, and ``view[seq[slicestx]] --> SequenceView(seq, slice(...))``.
+
+**CAUTION**: The length of the underlying sequence must not change while a view is being used, or (in the best case) the view will crash.
 
 
 ## Other

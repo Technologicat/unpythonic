@@ -39,6 +39,7 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
    - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables
      - [Lazy mathematical sequences with infix arithmetic](#lazy-mathematical-sequences-with-infix-arithmetic)
    - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
+   - [``SequenceView``](#sequenceview): writable view for sequences, with slicing support
    - [``mogrify``, update mutable containers in-place](#mogrify-update-mutable-containers-in-place)
 
  - [**Control flow tools**](#control-flow-tools)
@@ -1383,6 +1384,35 @@ Namedtuples export only a sequence interface, so they cannot be treated as mappi
 Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
 
 
+### ``SequenceView``
+
+*Added in v0.13.1.*
+
+Writable view into sequences, with slicing, so you can take a slice of a slice (of a slice ...), and it reflects the original both ways:
+
+```python
+from unpythonic import SequenceView
+
+lst = list(range(10))
+v = SequenceView(lst, slice(None, None, 2))
+assert v == [0, 2, 4, 6, 8]
+v2 = SequenceView(v, slice(1, -1))
+assert v2 == [2, 4, 6]
+v2[1:] = (10, 20)
+assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
+
+lst[2] = 42
+assert v == [0, 42, 10, 20, 8]
+assert v2 == [42, 10, 20]
+```
+
+While ``fupdate`` lets you be more functional than Python otherwise allows, ``SequenceView`` lets you be more imperative than Python otherwise allows.
+
+See also the ``view`` [macro](macro_extras/), which adds support for the regular slicing syntax.
+
+**CAUTION**: The length of the underlying sequence must not change while a view is being used, or (in the best case) the view will crash.
+
+
 ### ``mogrify``, update mutable containers in-place
 
 *Added in v0.13.0.*
@@ -2561,6 +2591,8 @@ Must be invoked in a folder which has no subfolder called `unpythonic`, so that 
 Dynamic assignment based on [StackOverflow answer by Jason Orendorff (2010)](https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python), used under CC-BY-SA. The threading support is original to our version.
 
 Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
+
+`SequenceView` based on [StackOverflow answer by Mathieu Caroff (2018)](https://stackoverflow.com/a/53253136), used under the MIT license. Our additions include write support, iteration based on `__iter__`, and in-place reverse.
 
 
 ### Acknowledgements

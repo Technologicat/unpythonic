@@ -118,6 +118,18 @@ def test():
     v2[2] = 10
     assert lst == [0, 1, 2, 3, 10, 20, 6, 7, 8, 9]
 
+    lst = list(range(10))
+    v = SequenceView(lst, slice(None, None, 2))
+    assert v == [0, 2, 4, 6, 8]
+    v2 = SequenceView(v, slice(1, -1))
+    assert v2 == [2, 4, 6]
+    v2[1:] = (10, 20)
+    assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
+
+    lst[2] = 42
+    assert v == [0, 42, 10, 20, 8]
+    assert v2 == [42, 10, 20]
+
     # supports in-place reverse
     lst = list(range(5))
     v = SequenceView(lst)
