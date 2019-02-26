@@ -168,12 +168,6 @@ class box:
         if isinstance(other, box):
             other = other.x
         return self.x == other
-    def __ne__(self, other):
-        if other is self:
-            return False
-        if isinstance(other, box):
-            other = other.x
-        return self.x != other
 
 _the_empty_frozendict = None
 class frozendict:
