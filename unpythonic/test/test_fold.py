@@ -5,7 +5,7 @@ from functools import partial
 
 from ..fold import scanl, scanr, scanl1, scanr1, rscanl, \
                    foldl, foldr, reducel, reducer, rfoldl, \
-                   unfold, unfold1
+                   unfold, unfold1, prod
 from ..fun import curry, composer, composerc, composel, to1st, rotate
 from ..llist import cons, nil, ll, lreverse
 from ..it import take, tail
@@ -173,6 +173,8 @@ def test():
     assert tuple(take(10, unfold(fibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
     assert tuple(take(5, unfold(myiterate, lambda x: x**2, 2))) == (2, 4, 16, 256, 65536)
     assert tuple(unfold(zip_two, (1, 2, 3, 4), (5, 6, 7))) == ((1, 5), (2, 6), (3, 7))
+
+    assert prod((2, 3, 4)) == 24
 
     print("All tests PASSED")
 
