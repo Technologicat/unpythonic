@@ -241,6 +241,39 @@ def test():
         return manual_mprimes3()
     assert tuple(take(500, memo_primes3())) == tuple(take(500, mprimes2()))
 
+    @gmemoize
+    def memo_primes4():
+        memo = []
+        def manual_mprimes4():
+            for p in (2, 3, 5):
+                memo.append(p)
+                yield p
+            p, b, np = 3, 6, 2
+            lastdigits = [1, 3, 5]
+            maxnp = 5  # --> b = 2*3*5*7*11 = 2310; optimal setting depends on CPU cache size
+
+            while True:
+                nextp = memo[np]
+                lastdigits = [n for n in lastdigits if not n % p == 0]
+                ns = [k*b + m for k in range(1, nextp)
+                              for m in lastdigits]
+                for n in ns:
+                    if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, drop(np, memo))):
+                        memo.append(n)
+                        yield n
+                if np == maxnp:  # avoid table becoming too big (leading to memory bus dominated run time)
+                    break
+                b *= nextp; p = nextp; np += 1
+                lastdigits += ns
+            # once maximum b reached, stay at that b, using the final table of lastdigits
+            for kb in count(nextp*b, step=b):
+                for n in (kb + m for m in lastdigits):
+                    if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, drop(np, memo))):
+                        memo.append(n)
+                        yield n
+        return manual_mprimes4()
+    assert tuple(take(500, memo_primes4())) == tuple(take(500, mprimes2()))
+
     assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
     assert tuple(take(10, mprimes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
     assert tuple(take(10, memo_primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
@@ -251,7 +284,7 @@ def test():
 
     n = 2500
     print("Performance for first {:d} primes:".format(n))
-    for g in (mprimes(), memo_primes(), mprimes2(), memo_primes2(), mprimes3(), memo_primes3()):
+    for g in (mprimes(), memo_primes(), mprimes2(), memo_primes2(), mprimes3(), memo_primes3(), memo_primes4()):
         with timer() as tictoc:
             last(take(n, g))
         print(g, tictoc.dt)
