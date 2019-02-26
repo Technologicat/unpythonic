@@ -1092,6 +1092,7 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
  - `inn`: contains-check (``x in iterable``) with automatic termination for monotonic infinite iterables. *Added in v0.13.1.*
    - Only applicable to monotonic inputs. Increasing/decreasing is auto-detected, but may fail to terminate if the input is not monotonic.
  - `iindex`: like ``list.index``, but for a general iterable. Consumes the iterable, so only makes sense for memoized inputs. *Added in v0.13.1.*
+ - `prod`: like the builtin `sum`, but compute the product. Oddly missing from the standard library. *Added in v0.13.1.*
 
 Examples:
 
@@ -1193,16 +1194,20 @@ assert tuple(curry(look, 5, 10, range(20)) == tuple(range(5, 15))
 
 *Added in v0.13.0.*
 
+*Added in v0.13.1:* ``primes`` and ``fibonacci``.
+
 We provide a compact syntax to create lazy constant, arithmetic, geometric and power sequences. Numeric (``int``, ``float``, ``mpmath``) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
 
 We also provide arithmetic operation support for iterables (termwise). To make any iterable infix math aware, use ``m(iterable)``. The arithmetic is lazy; it just plans computations, returning a new lazy mathematical sequence. To extract values, iterate over the result. (Note this implies that expressions consisting of thousands of operations will overflow Python's call stack. In practice this shouldn't be a problem.)
 
 The function versions of the arithmetic operations (also provided, à la the ``operator`` module) have an **s** prefix (short for mathematical **sequence**), because in Python the **i** prefix (which could stand for *iterable*) is already used to denote the in-place operators.
 
-Finally, we provide the [Cauchy product](https://en.wikipedia.org/wiki/Cauchy_product), and its generalization, the diagonal combination-reduction, for two (possibly infinite) iterables. Note ``cauchyprod`` does not sum the series; given the input sequences ``a`` and ``b``, the call ``cauchyprod(a, b)`` computes the elements of the output sequence ``c``.
+We provide the [Cauchy product](https://en.wikipedia.org/wiki/Cauchy_product), and its generalization, the diagonal combination-reduction, for two (possibly infinite) iterables. Note ``cauchyprod`` does not sum the series; given the input sequences ``a`` and ``b``, the call ``cauchyprod(a, b)`` computes the elements of the output sequence ``c``.
+
+Finally, we provide ready-made generators that yield some common sequences (currently, the Fibonacci numbers and the prime numbers). The prime generator is an FP-ized sieve of Eratosthenes, accelerated with a base-b representation to reduce candidate inputs.
 
 ```python
-from unpythonic import s, m, cauchyprod, take, last
+from unpythonic import s, m, cauchyprod, take, last, fibonacci, primes
 
 assert tuple(take(10, s(1, ...))) == (1,)*10
 assert tuple(take(10, s(1, 2, ...))) == tuple(range(1, 11))
@@ -1222,6 +1227,9 @@ assert tuple(take(5, s(1, 3, ...)**2)) == (1, 3**2, 5**2, 7**2, 9**2)
 assert tuple(take(5, 2**s(1, 3, ...))) == (2**1, 2**3, 2**5, 2**7, 2**9)
 
 assert tuple(take(3, cauchyprod(s(1, 3, 5, ...), s(2, 4, 6, ...)))) == (2, 10, 28)
+
+assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
+assert tuple(take(10, fibonacci())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 ```
 
 A math iterable (i.e. one that has infix math support) is an instance of the class ``m``:
