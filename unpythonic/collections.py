@@ -286,12 +286,6 @@ class frozendict:
             return True
         other = other._data if isinstance(other, frozendict) else other
         return self._data.__eq__(other)
-    @wraps(dict.__ne__)
-    def __ne__(self, other):
-        if other is self:
-            return False
-        other = other._data if isinstance(other, frozendict) else other
-        return self._data.__ne__(other)
 
 # Register virtual ABCs for our collections (like the builtins have).
 #
