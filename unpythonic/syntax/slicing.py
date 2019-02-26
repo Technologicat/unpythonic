@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Functionally update sequences - macro wrapper for slice syntax."""
+"""Macro wrappers for operations using slice syntax."""
 
 from ast import BinOp, LShift, Subscript, Index, Slice, ExtSlice
 
