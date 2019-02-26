@@ -10,7 +10,7 @@ from ..it import mapr, rmap, zipr, rzip, \
                  first, second, nth, last, \
                  scons, tail, butlast, butlastn, \
                  flatmap, \
-                 take, drop, split_at, \
+                 take, drop, clip, split_at, \
                  rev, \
                  uniqify, uniq, \
                  flatten, flatten1, flatten_in, \
@@ -186,6 +186,9 @@ def test():
         pass  # 4 is not in iterable
     else:
         assert False
+
+    # clip: drop n1 items, then take n2 items
+    assert tuple(clip(10, 5, s(1, 2, ...))) == (11, 12, 13, 14, 15)
 
     print("All tests PASSED")
 

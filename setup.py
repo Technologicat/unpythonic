@@ -63,8 +63,8 @@ arguments, so that we can::
     assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 
     with_n = lambda *args: (partial(f, n) for n, f in args)
-    look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
-    assert tuple(curry(look, 5, 10, range(20))) == tuple(range(5, 15))
+    clip = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
+    assert tuple(curry(clip, 5, 10, range(20))) == tuple(range(5, 15))
 
 If MacroPy is installed, ``unpythonic.syntax`` becomes available. It provides
 macros that essentially extend the Python language, adding features that would

@@ -173,8 +173,8 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
         from unpythonic import curry, composel, drop, take
 
         with_n = lambda *args: (partial(f, n) for n, f in args)
-        look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
-        assert tuple(curry(look, 5, 10, range(20))) == tuple(range(5, 15))
+        clip = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
+        assert tuple(curry(clip, 5, 10, range(20))) == tuple(range(5, 15))
     """
     f = force(f)  # lazify support: we need the value of f
     # trivial case first: prevent stacking curried wrappers

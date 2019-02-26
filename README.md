@@ -1080,6 +1080,7 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - `flatten_in`: recursive, with an optional predicate; but recurse also into items which don't match the predicate.
  - `take`, `drop`, `split_at`: based on `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
    - Especially useful for testing generators.
+ - `clip`: drop ``n1`` items, then take ``n2`` items. *Added in v0.13.1.*
  - `tail`: return the tail of an iterable. Same as `drop(1, iterable)`; common use case.
  - `butlast`, `butlastn`: return a generator that yields from iterable, dropping the last `n` items if the iterable is finite. Inspired by a similar utility in PG's [On Lisp](http://paulgraham.com/onlisp.html).
    - Works by using intermediate storage. **Do not** use the original iterator after a call to `butlast` or `butlastn`.
@@ -1179,14 +1180,14 @@ assert tuple(flatten(data, is_nested))    == (((1, 2), ((3, 4), (5, 6)), 7), (8,
 assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8, 9), (10, 11))
 
 with_n = lambda *args: (partial(f, n) for n, f in args)
-look = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
-assert tuple(look(5, 10)(range(20))) == tuple(range(5, 15))
+clip = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
+assert tuple(clip(5, 10)(range(20))) == tuple(range(5, 15))
 ```
 
-In the last example, essentially we just want to `look 5 10 (range 20)`, the grouping of the parentheses being pretty much an implementation detail. With ``curry``, we can rewrite the last line as:
+In the last example, essentially we just want to `clip 5 10 (range 20)`, the grouping of the parentheses being pretty much an implementation detail. With ``curry``, we can rewrite the last line as:
 
 ```python
-assert tuple(curry(look, 5, 10, range(20)) == tuple(range(5, 15))
+assert tuple(curry(clip, 5, 10, range(20)) == tuple(range(5, 15))
 ```
 
 

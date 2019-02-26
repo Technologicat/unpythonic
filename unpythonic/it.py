@@ -15,7 +15,7 @@ __all__ = ["rev", "map_longest",
            "mapr", "zipr", "mapr_longest", "zipr_longest",
            "flatmap",
            "uniqify", "uniq",
-           "take", "drop", "split_at",
+           "take", "drop", "clip", "split_at",
            "unpack",
            "tail", "butlast", "butlastn",
            "first", "second", "nth", "last",
@@ -263,6 +263,10 @@ def drop(n, iterable):
     else:
         next(islice(it, n, n), None)  # advance it to empty slice starting at n
     return it
+
+def clip(n1, n2, iterable):
+    """Drop n1 items, then take n2 items from iterable."""
+    return take(n2, drop(n1, iterable))
 
 def split_at(n, iterable):
     """Split iterable at position n.
