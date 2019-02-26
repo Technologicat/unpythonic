@@ -149,6 +149,12 @@ def test():
     # external memo for users, separate manual internal memo
     # doubles memory usage due to exactly one internal memo; almost as fast as memo_primes
     # since the tight inner loop skips the very general gmemoize machinery
+    #
+    # This version wins in speed for moderate n (1e5) on typical architectures where
+    # the memory bus is a bottleneck, since the rule for generating new candidates is
+    # simple arithmetic. Contrast memo_primes3, which needs to keep a table that gets
+    # larger as n grows (so memory transfers dominate for large n). That strategy
+    # seems faster for n ~ 1e3, though.
     @gmemoize
     def memo_primes2():
         memo = []
@@ -183,6 +189,10 @@ def test():
     # m: last digit in base-b representation of n, note m < b
     #    for a number represented in base-b to be prime, m must not be divisible by any factor of b
     # Only the numbers up to b must be checked separately (and already have when we reach the next b).
+    #
+    # For the first 5e4 primes, about 20% of the integers within each range are candidates.
+    # If you want the details, add this just before "for n in ns:":
+    #    print(b, ns[-1]**(1/2), len(ns), (nextp-1)*b, len(ns)/((nextp-1)*b))
     @gmemoize
     def mprimes3():
         # minimal init takes three terms; b = 2*3 = 6 > 5, so no overlap in output of init and general loop
@@ -190,19 +200,20 @@ def test():
         yield from (2, 3, 5)
         theprimes = mprimes3()
         ps = list(take(2, theprimes))  # factors of b; b is chosen s.t. each factor is a different prime
-        b = prod(ps)
-        lastdigits = [1, 3, 5]  # up to b=6, after ruling out multiples of 2
+        p, b, np = ps[-1], prod(ps), len(ps)
+        lastdigits = [1, 3, 5]  # last digits in base-6 that are not divisible by 2
 
         while True:
             nextp = next(theprimes)
-            lastdigits = [n for n in lastdigits if not n % ps[-1] == 0]
+            lastdigits = [n for n in lastdigits if not n % p == 0]
             ns = [k*b + m for k in range(1, nextp)
                           for m in lastdigits]
+            # in ns, we have already eliminated the first np primes as possible factors, so skip checking them
             for n in ns:
-                if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, mprimes3())):
+                if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, drop(np, mprimes3()))):
                     yield n
             ps.append(nextp)
-            b *= nextp
+            b *= nextp; p = nextp; np += 1
             lastdigits = lastdigits + ns
     assert tuple(take(500, mprimes3())) == tuple(take(500, mprimes2()))
 
@@ -213,23 +224,20 @@ def test():
             for p in (2, 3, 5):
                 memo.append(p)
                 yield p
-            theprimes = memo_primes3()  # use outer memo for getting new factors, no major cache pressure
-            ps = list(take(2, theprimes))
-            b = prod(ps)
+            p, b, np = 3, 6, 2
             lastdigits = [1, 3, 5]
 
             while True:
-                nextp = next(theprimes)
-                lastdigits = [n for n in lastdigits if not n % ps[-1] == 0]
+                nextp = memo[np]
+                lastdigits = [n for n in lastdigits if not n % p == 0]
                 ns = [k*b + m for k in range(1, nextp)
                               for m in lastdigits]
                 for n in ns:
-                    if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, memo)):
+                    if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, drop(np, memo))):
                         memo.append(n)
                         yield n
-                ps.append(nextp)
-                b *= nextp
-                lastdigits = lastdigits + ns
+                b *= nextp; p = nextp; np += 1
+                lastdigits += ns
         return manual_mprimes3()
     assert tuple(take(500, memo_primes3())) == tuple(take(500, mprimes2()))
 
@@ -241,7 +249,7 @@ def test():
     assert tuple(take(10, mprimes3())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
     assert tuple(take(10, memo_primes3())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
 
-    n = 5000
+    n = 2500
     print("Performance for first {:d} primes:".format(n))
     for g in (mprimes(), memo_primes(), mprimes2(), memo_primes2(), mprimes3(), memo_primes3()):
         with timer() as tictoc:
