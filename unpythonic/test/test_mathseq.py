@@ -5,6 +5,7 @@ from math import floor, log2
 
 from ..mathseq import s, m, sadd, smul, spow, cauchyprod, primes, fibonacci
 from ..it import take, last
+from ..misc import timer
 
 def test():
     # convenience: explicitly listed elements, same as a genexpr using tuple input
@@ -218,6 +219,13 @@ def test():
     # some special sequences
     assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
     assert tuple(take(10, fibonacci())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+
+    n = 5000
+    with timer() as tictoc:
+        last(take(n, primes()))
+    print("First {:d} primes: {:g}s".format(n, tictoc.dt))
+
+    assert last(take(3379, primes())) == 31337  # test the base-b representation switcher across some seams
 
     print("All tests PASSED")
 

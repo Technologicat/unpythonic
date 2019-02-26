@@ -26,7 +26,7 @@ __all__ = ["s", "m", "almosteq",
            "cauchyprod", "diagonal_reduce",
            "fibonacci", "primes"]
 
-from itertools import repeat, chain, count, takewhile
+from itertools import repeat, takewhile
 from operator import add as primitive_add, mul as primitive_mul, \
                      pow as primitive_pow, mod as primitive_mod, \
                      floordiv as primitive_floordiv, truediv as primitive_truediv, \
@@ -37,6 +37,7 @@ from operator import add as primitive_add, mul as primitive_mul, \
                      invert as primitive_invert
 
 from .it import take, rev
+from .fold import prod
 from .gmemo import imemoize, gmemoize
 
 # stuff to support float, mpf and SymPy expressions transparently
@@ -774,16 +775,83 @@ def fibonacci():
             a, b = b, a + b
     return m(fibos())
 
+# see test_gmemo.py for history
+#
+# This is an FP-ized sieve of Eratosthenes. To reduce candidates that must undergo
+# the O(n**(1/2)) testing step, we use a base-b representation, switching to a larger b
+# at appropriate points:
+#   n = k*b + m
+#   b = 2*3, 2*3*5, 2*3*5*7, ...
+# k: integer,  1, 2, ..., {next factor to account for in b} - 1
+#    so e.g. when b=6, we check from 6 to 29; when b=30, from 30 to 209, ...
+# m: last digit in base-b representation of n, note m < b
+#    for a number represented in base-b to be prime, m must not be divisible by any factor of b
+# Only the numbers up to b must be checked separately (and already have when we reach the next b).
+#
+# For computing the N first primes, this should scale at a bit under O(N**(3/2)), since for any given b,
+# we can skip checking most m. When b switches, there will be an extra cost due to initializing the next stage.
 @gmemoize
 def _primes():  # at the top level; we want only one global memo shared across all instances
-    yield 2
-    for n in chain([3, 5, 7], (d + k for d in count(10, step=10)
-                                     for k in [1, 3, 7, 9])):
-        if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, _primes())):
-            yield n
-def primes():
+    # minimal init takes three terms; b = 2*3 = 6 > 5, so no overlap in output of init and general loop
+    # (and this init yields all primes up to b = 6)
+    yield from (2, 3, 5)
+    theprimes = _primes()
+    ps = list(take(2, theprimes))  # factors of b; b is chosen s.t. each factor is a different prime
+    b = prod(ps)
+    lastdigits = [1, 3, 5]  # up to b=6, after ruling out multiples of 2
+
+    while True:
+        nextp = next(theprimes)
+        lastdigits = [n for n in lastdigits if not n % ps[-1] == 0]
+        ns = [k*b + m for k in range(1, nextp)
+                      for m in lastdigits]
+        for n in ns:
+            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, _primes())):
+                yield n
+        ps.append(nextp)
+        b *= nextp
+        lastdigits = lastdigits + ns
+
+@gmemoize
+def _fastprimes():
+    memo = []
+    def primes():
+        for p in (2, 3, 5):
+            memo.append(p)
+            yield p
+        theprimes = _fastprimes()  # use outer memo for getting new factors, no major cache pressure
+        ps = list(take(2, theprimes))
+        b = prod(ps)
+        lastdigits = [1, 3, 5]
+
+        while True:
+            nextp = next(theprimes)
+            lastdigits = [n for n in lastdigits if not n % ps[-1] == 0]
+            ns = [k*b + m for k in range(1, nextp)
+                          for m in lastdigits]
+            for n in ns:
+                if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, memo)):
+                    memo.append(n)
+                    yield n
+            ps.append(nextp)
+            b *= nextp
+            lastdigits = lastdigits + ns
+    return primes()
+
+def primes(optimize="speed"):
     """Return the prime numbers 2, 3, 5, 7, 11, 13, ... as a lazy sequence.
 
     FP sieve of Eratosthenes with memoization.
+
+    ``optimize`` is one of ``"memory"`` or ``"speed"``. The memory-optimized
+    version shares one global memo, which is re-used also in the tight inner loop,
+    whereas the speed-optimized one keeps exactly one more copy of the results
+    as an internal memo (double memory usage, but faster, as it skips the very
+    general ``gmemoize`` machinery in the inner loop).
     """
-    return m(_primes())
+    if optimize not in ("memory", "speed"):
+        raise ValueError("optimize must be 'memory' or 'speed'; got '{}'".format(optimize))
+    if optimize == "speed":
+        return m(_fastprimes())
+    else: # optimize == "memory":
+        return m(_primes())
