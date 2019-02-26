@@ -337,7 +337,8 @@ class SequenceView(Sequence):
     ``__iadd__``.
 
     **Not** hashable, since the whole point is a live view to input whose
-    elements may be replaced at any time.
+    elements may be replaced at any time. (Perhaps, indeed, to replace those
+    items by writing into the view, just like for NumPy arrays.)
 
     Based on StackOverflow answer by Mathieu Caroff (2018):
 
