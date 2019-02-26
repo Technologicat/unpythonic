@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Additional containers and container utilities."""
 
-__all__ = ["box", "frozendict", "ShadowedSequence",
+__all__ = ["box", "frozendict", "SequenceView", "ShadowedSequence",
            "get_abcs", "in_slice", "index_in_slice"]
 
 from functools import wraps
