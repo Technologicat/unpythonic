@@ -794,6 +794,8 @@ def quicklambda(tree, **kw):
 def fup(tree, **kw):
     """[syntax, expr] Functionally update a sequence.
 
+    For when you want to be more functional than Python allows.
+
     Example::
 
         from itertools import repeat
@@ -819,6 +821,8 @@ def fup(tree, **kw):
 def view(tree, **kw):
     """[syntax, expr] Writable view into a sequence.
 
+    For when you want to be more imperative than Python allows.
+
     Examples::
 
         lst = [1, 2, 3, 4, 5]
@@ -835,6 +839,9 @@ def view(tree, **kw):
 
         view[seq] --> SequenceView(seq)
         view[seq[slicestx]] --> SequenceView(seq, slice(...))
+
+    **CAUTION**: The length of the underlying sequence must not change
+    while a view is being used, or (in the best case) the view will crash.
     """
     return _view(tree)
 

@@ -334,8 +334,7 @@ class SequenceView(Sequence):
     Supports slicing (also recursively, i.e. can be sliced again).
 
     Does **not** support ``append``, ``extend``, ``pop``, ``remove`` or
-    ``__iadd__``. If a length-changing operation is applied to the underlying
-    sequence, the view will (in the best case) crash when accessed.
+    ``__iadd__``.
 
     **Not** hashable, since the whole point is a live view to input whose
     elements may be replaced at any time.
@@ -343,6 +342,9 @@ class SequenceView(Sequence):
     Based on StackOverflow answer by Mathieu Caroff (2018):
 
         http://stackoverflow.com/q/3485475/can-i-create-a-view-on-a-python-list
+
+    **CAUTION**: The length of the underlying sequence must not change
+    while a view is being used, or (in the best case) the view will crash.
     """
     def __init__(self, sequence, s=None):
         """If s is None, view the whole input. If s is a slice, view that slice."""
