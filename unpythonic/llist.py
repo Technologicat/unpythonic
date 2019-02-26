@@ -229,6 +229,8 @@ class cons:
             result = (r(self.car), ".", r(self.cdr))
         return "({})".format(" ".join(result))
     def __eq__(self, other):
+        if other is self:
+            return True
         if isinstance(other, cons):
             try:  # duck test linked lists
                 ia, ib = (LinkedListIterator(x) for x in (self, other))

@@ -163,10 +163,14 @@ class box:
     def __len__(self):
         return 1
     def __eq__(self, other):
+        if other is self:
+            return True
         if isinstance(other, box):
             other = other.x
         return self.x == other
     def __ne__(self, other):
+        if other is self:
+            return False
         if isinstance(other, box):
             other = other.x
         return self.x != other
@@ -284,10 +288,14 @@ class frozendict:
         return self._data.get(k, *d)
     @wraps(dict.__eq__)
     def __eq__(self, other):
+        if other is self:
+            return True
         other = other._data if isinstance(other, frozendict) else other
         return self._data.__eq__(other)
     @wraps(dict.__ne__)
     def __ne__(self, other):
+        if other is self:
+            return False
         other = other._data if isinstance(other, frozendict) else other
         return self._data.__ne__(other)
 
