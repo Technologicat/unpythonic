@@ -391,8 +391,9 @@ class SequenceView(Sequence):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
             start, stop, step = _canonize_slice(self.slice, len(self.seq))
+            wrap = _make_negidx_converter(ceil((stop - start) / step))  # len, but avoid extra canonization
             outside = ge if step > 0 else le
-            idx = start + k*step
+            idx = start + wrap(k)*step
             if outside(idx, stop):
                 raise IndexError()
             return self.seq[idx]
@@ -405,8 +406,9 @@ class SequenceView(Sequence):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
             start, stop, step = _canonize_slice(self.slice, len(self.seq))
+            wrap = _make_negidx_converter(ceil((stop - start) / step))  # len, but avoid extra canonization
             outside = ge if step > 0 else le
-            idx = start + k*step
+            idx = start + wrap(k)*step
             if outside(idx, stop):
                 raise IndexError()
             self.seq[idx] = v

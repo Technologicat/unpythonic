@@ -150,6 +150,7 @@ def test():
     v = SequenceView(lst, slice(2, 4))
     v[:] = (10, 20)
     assert lst == [0, 1, 10, 20, 4]
+    assert v[-1] == 20
 
     # we store slice specs, not actual indices, so it doesn't matter if the
     # underlying sequence undergoes length changes
