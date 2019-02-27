@@ -359,8 +359,8 @@ class SequenceView(Sequence):
     Python does, before we get control. To slice lazily, pass a ``slice`` object
     into the ``SequenceView`` constructor.
 
-    The view can be efficiently iterated over. Iteration assumes that the
-    underlying sequence does not change during the iteration.
+    The view can be (somewhat) efficiently iterated over. Iteration assumes
+    that the underlying sequence does not change during the iteration.
 
     Getting/setting an item (subscripting) applies the slice spec to the current
     state of the underlying sequence during each access, so it can be slow.
