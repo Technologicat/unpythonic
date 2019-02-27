@@ -422,6 +422,7 @@ class SequenceView(_StrReprEqMixin, Sequence):
         data, r = self._update_cache()
         if isinstance(k, slice):
             # TODO: would be nicer if we could convert a range into a slice, then just data[rk] = v.
+            # TODO: The problem is that we need transformations like range(4, -1, -1) --> slice(4, None, -1)
             for j, item in zip(r[k], v):
                 data[j] = item
         elif isinstance(k, tuple):
