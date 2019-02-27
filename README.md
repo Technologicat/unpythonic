@@ -40,7 +40,7 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
      - [Lazy mathematical sequences with infix arithmetic](#lazy-mathematical-sequences-with-infix-arithmetic)
    - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
    - [``SequenceView``](#sequenceview): writable view for sequences, with slicing support
-   - [``mogrify``, update mutable containers in-place](#mogrify-update-mutable-containers-in-place)
+   - [``mogrify``: update mutable containers in-place](#mogrify-update-mutable-containers-in-place)
 
  - [**Control flow tools**](#control-flow-tools)
    - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
@@ -56,7 +56,8 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
    - [``raisef``: ``raise`` as a function](#raisef-raise-as-a-function)
    - [``pack``: multi-arg constructor for tuple](#pack-multi-arg-constructor-for-tuple)
    - [``namelambda``, rename a function](#namelambda-rename-a-function)
-   - [``timer``, a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
+   - [``timer``: a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
+   - [``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers](#getattrrec-setattrrec-access-underlying-data-in-an-onion-of-wrappers)
    - [Function signature inspection utilities](#function-signature-inspection-utilities)
 
  - [**Advanced: syntactic macros**](macro_extras/): the second half of ``unpythonic``, providing features such as ``call/cc``, autocurry and call-by-need.
@@ -1415,7 +1416,7 @@ Slicing a view returns a new view. Slicing anything else will usually copy, beca
 See also the ``view`` [macro](macro_extras/), which adds support for the regular slicing syntax.
 
 
-### ``mogrify``, update mutable containers in-place
+### ``mogrify``: update mutable containers in-place
 
 *Added in v0.13.0.*
 
@@ -2392,7 +2393,7 @@ print(nested().__qualname__)  # "<lambda>.<locals>.inner"
 The inner lambda does not see the outer's new name; the parent scope names are baked into a function's ``__qualname__`` too early for the outer rename to be in effect at that time.
 
 
-### ``timer``, a context manager for performance testing
+### ``timer``: a context manager for performance testing
 
 *Added in v0.13.0.*
 
@@ -2410,6 +2411,29 @@ with timer(p=True):  # if p, auto-print result
 ```
 
 The auto-print mode is a convenience feature to minimize bureaucracy if you just want to see the *Δt*. To instead access the *Δt* programmatically, name the timer instance using the ``with ... as ...`` syntax. After the context exits, the *Δt* is available in its ``dt`` attribute.
+
+
+### ``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers
+
+*Added in v0.13.1.*
+
+```python
+from unpythonic import getattrrec
+
+class Wrapper:
+    def __init__(self, x):
+        self.x = x
+
+w = Wrapper(Wrapper(42))
+assert type(getattr(w, "x")) == Wrapper
+assert type(getattrrec(w, "x")) == int
+assert getattrrec(w, "x") == 42
+
+setattrrec(w, "x", 23)
+assert type(getattr(w, "x")) == Wrapper
+assert type(getattrrec(w, "x")) == int
+assert getattrrec(w, "x") == 23
+```
 
 
 ### Function signature inspection utilities

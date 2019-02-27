@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous lispy constructs."""
 
-__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer"]
+__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer", "getattrrec", "setattrrec"]
 
 from types import LambdaType, FunctionType, CodeType
 from time import time
@@ -332,3 +332,28 @@ class timer:
         self.dt = time() - self.t0
         if self.p:
             print(self.dt)
+
+def getattrrec(object, name, *default):
+    """Extract the underlying data from an onion of wrapper objects.
+
+    ``r = object.name``, and then get ``r.name`` recursively, as long as
+    it exists. Return the final result.
+
+    The ``default`` parameter acts as in ``getattr``.
+
+    See also ``setattrrec``.
+    """
+    o = getattr(object, name, *default)
+    while hasattr(o, name):
+        o = getattr(o, name, *default)
+    return o
+
+def setattrrec(object, name, value):
+    """Inject data into the innermost layer in an onion of wrapper objects.
+
+    See also ``getattrrec``.
+    """
+    o = object
+    while hasattr(o, name) and hasattr(getattr(o, name), name):
+        o = getattr(o, name)
+    setattr(o, name, value)

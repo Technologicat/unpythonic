@@ -3,7 +3,7 @@
 from operator import add
 from functools import partial
 
-from ..misc import call, callwith, raisef, pack, namelambda, timer
+from ..misc import call, callwith, raisef, pack, namelambda, timer, getattrrec, setattrrec
 from ..fun import withself
 
 def test():
@@ -120,6 +120,21 @@ def test():
     with timer(p=True):
         for _ in range(int(1e6)):
             pass
+
+    # access underlying data in an onion of wrappers
+    class Wrapper:
+        def __init__(self, x):
+            self.x = x
+
+    w = Wrapper(Wrapper(42))
+    assert type(getattr(w, "x")) == Wrapper
+    assert type(getattrrec(w, "x")) == int
+    assert getattrrec(w, "x") == 42
+
+    setattrrec(w, "x", 23)
+    assert type(getattr(w, "x")) == Wrapper
+    assert type(getattrrec(w, "x")) == int
+    assert getattrrec(w, "x") == 23
 
     print("All tests PASSED")
 
