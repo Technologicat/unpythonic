@@ -2418,7 +2418,7 @@ The auto-print mode is a convenience feature to minimize bureaucracy if you just
 *Added in v0.13.1.*
 
 ```python
-from unpythonic import getattrrec
+from unpythonic import getattrrec, setattrrec
 
 class Wrapper:
     def __init__(self, x):
