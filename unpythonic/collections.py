@@ -301,7 +301,7 @@ del abscls  # namespace cleanup
 
 # -----------------------------------------------------------------------------
 
-class SequenceViewIterator:  # essentially this islices manually.
+class SequenceViewIterator:  # essentially this islices manually (also backwards).
     def __init__(self, theview):
         self.view = theview
         self._reset()
