@@ -1386,6 +1386,8 @@ Namedtuples export only a sequence interface, so they cannot be treated as mappi
 
 Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
 
+*Changed in v0.13.1.* Added support to ``ShadowedSequence`` for slicing (read-only), equality comparison, ``str`` and ``repr``. Out-of-range read access to a single item emits a meaningful error, like in ``list``.
+
 
 ### ``SequenceView``
 
