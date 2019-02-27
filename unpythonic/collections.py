@@ -387,6 +387,8 @@ class SequenceView(Sequence):
             if k == slice(None, None, None):  # v[:]
                 return self
             return SequenceView(self, k)
+        elif isinstance(k, tuple):
+            raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
             start, stop, step = _canonize_slice(self.slice, len(self.seq))
             outside = ge if step > 0 else le
@@ -399,6 +401,8 @@ class SequenceView(Sequence):
             view = self if k == slice(None, None, None) else SequenceView(self, k)
             for j, item in enumerate(v):
                 view[j] = item
+        elif isinstance(k, tuple):
+            raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
             start, stop, step = _canonize_slice(self.slice, len(self.seq))
             outside = ge if step > 0 else le
