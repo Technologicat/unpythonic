@@ -51,7 +51,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
    - [``aif``: anaphoric if](#aif-anaphoric-if), the test result is ``it``
    - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence) with slice notation
    - [``view``: writable view into a sequence](#view-writable-view-into-a-sequence) with slice notation
-   - [``islice``: slice syntax for ``itertools.islice``](#islice-slice-syntax-for-itertools-islice)
+   - [``islice``: slice syntax for ``itertools.islice``](#islice-slice-syntax-for-itertoolsislice)
 
  - [**Other**](#other)
    - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
