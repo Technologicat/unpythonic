@@ -839,9 +839,6 @@ def view(tree, **kw):
 
         view[seq] --> SequenceView(seq)
         view[seq[slicestx]] --> SequenceView(seq, slice(...))
-
-    **CAUTION**: The length of the underlying sequence must not change
-    while a view is being used, or (in the best case) the view will crash.
     """
     return _view(tree)
 
