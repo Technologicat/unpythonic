@@ -363,36 +363,22 @@ class SequenceView(Sequence):
         self._seql = None
 
     # Fast-ish iteration.
-    #  - at the outermost layer, prefer range(...) over manually computing the raw index.
-    #  - if no nested views, read from the underlying sequence directly.
-    #  - when nested, update caches just once for all nested views,
-    #    and use a lightweight getter that doesn't perform bounds checking.
+    #  - prefer range(...) over manually computing the raw index
+    #  - combine nested ranges by slicing
+    #  - read from the underlying data directly.
     def __iter__(self):
-        self._update_cache()
-        start, stop, step, _, _ = self._cache
-        seq = self.seq
-        if not isinstance(seq, SequenceView):  # performance optimization
-            def SequenceViewIterator():
-                for j in range(start, stop, step):
-                    yield seq[j]
-            return SequenceViewIterator()
-        # update the caches only once, at the start of iteration.
-        while isinstance(seq, SequenceView):
-            seq._update_cache()
-            seq = seq.seq
-        unsafe_get = self._unsafe_get
-        def NestedSequenceViewIterator():
-            for j in range(start, stop, step):
-                yield unsafe_get(j)
-        return NestedSequenceViewIterator()
-    # Get one item; no bounds checking, safe for iteration only.
-    # Note raw idx in self.seq, **not** the usual k (index in self).
-    def _unsafe_get(self, idx):
-        seq = self.seq
-        if isinstance(seq, SequenceView):
-            start, _, step, wrap, _ = seq._cache
-            return seq._unsafe_get(start + wrap(idx)*step)
-        return seq[idx]
+        def buildr(seq):
+            if not isinstance(seq.seq, SequenceView):
+                start, stop, step, _, _ = seq._update_cache()
+                return seq.seq, range(start, stop, step)
+            data, r = buildr(seq.seq)
+            start, stop, step, _, _ = seq._update_cache()
+            return data, r[start:stop:step]
+        data, r = buildr(self)
+        def SequenceViewIterator():
+            for j in r:
+                yield data[j]
+        return SequenceViewIterator()
 
     def __len__(self):
         self._update_cache()
