@@ -1410,7 +1410,7 @@ assert v2 == [42, 10, 20]
 
 While ``fupdate`` lets you be more functional than Python otherwise allows, ``SequenceView`` lets you be more imperative than Python otherwise allows.
 
-Slicing a view returns a new view. Slicing anything else will copy, because Python does, before we get control. To slice lazily, pass a ``slice`` object into the ``SequenceView`` constructor.
+Slicing a view returns a new view. Slicing anything else will usually copy, because the object being sliced does, before we get control. To slice lazily, pass a ``slice`` object into the ``SequenceView`` constructor.
 
 See also the ``view`` [macro](macro_extras/), which adds support for the regular slicing syntax.
 

@@ -355,9 +355,9 @@ class SequenceView(Sequence):
         assert v == [1, 2, 3, 4, 5]
         assert lst == [42, 0, 1, 2, 3, 4, 5]
 
-    Slicing a view returns a new view. Slicing anything else will copy, because
-    Python does, before we get control. To slice lazily, pass a ``slice`` object
-    into the ``SequenceView`` constructor.
+    Slicing a view returns a new view. Slicing anything else will usually copy,
+    because the object being sliced does, before we get control. To slice lazily,
+    pass a ``slice`` object into the ``SequenceView`` constructor.
 
     The view can be (somewhat) efficiently iterated over. Iteration assumes
     that the underlying sequence does not change during the iteration.
