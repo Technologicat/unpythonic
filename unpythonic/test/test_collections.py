@@ -3,7 +3,7 @@
 from collections.abc import Mapping, MutableMapping, Hashable, Container, Iterable, Sized
 from pickle import dumps, loads
 
-from ..collections import box, frozendict, SequenceView, mogrify
+from ..collections import box, frozendict, SequenceView, ShadowedSequence, mogrify
 
 def test():
     # box: mutable single-item container à la Racket
@@ -164,7 +164,28 @@ def test():
     assert v == [1, 2, 3, 4, 5]
     assert lst == [42, 0, 1, 2, 3, 4, 5]
 
-    # in-place map
+    # sequence shadowing
+    tpl = (1, 2, 3, 4, 5)
+    s = ShadowedSequence(tpl, 2, 42)
+    assert s == (1, 2, 42, 4, 5)
+    assert tpl == (1, 2, 3, 4, 5)
+    assert s[2:] == (42, 4, 5)
+
+    s2 = ShadowedSequence(tpl, slice(2, 4), (23, 42))
+    assert s2 == (1, 2, 23, 42, 5)
+    assert tpl == (1, 2, 3, 4, 5)
+    assert s2[2:] == (23, 42, 5)
+    assert s2[::-1] == (5, 42, 23, 2, 1)
+
+    s3 = ShadowedSequence(tpl)
+    assert s3 == tpl
+
+    s4 = ShadowedSequence(s2, slice(3, 5), (100, 200))
+    assert s4 == (1, 2, 23, 100, 200)
+    assert s2 == (1, 2, 23, 42, 5)
+    assert tpl == (1, 2, 3, 4, 5)
+
+     # in-place map
     double = lambda x: 2*x
     lst = [1, 2, 3]
     lst2 = mogrify(double, lst)

@@ -302,7 +302,27 @@ del abscls  # namespace cleanup
 
 # -----------------------------------------------------------------------------
 
-class SequenceView(Sequence):
+class _StrReprEqMixin:
+    def _lowlevel_repr(self):
+        cls = type(getattrrec(self, "seq"))  # de-onionize
+        ctor = tuple if hasattr(cls, "_make") else cls  # slice of namedtuple -> tuple
+        return ctor(x for x in self)
+    def __str__(self):
+        return str(self._lowlevel_repr())
+    def __repr__(self):
+        return "{:s}({!r})".format(self.__class__.__name__, self._lowlevel_repr())
+
+    def __eq__(self, other):
+        if other is self:
+            return True
+        if len(self) != len(other):
+            return False
+        for v, w in zip(self, other):
+            if v != w:
+                return False
+        return True
+
+class SequenceView(_StrReprEqMixin, Sequence):
     """Writable view into a sequence.
 
     Supports slicing (also recursively, i.e. can be sliced again).
@@ -414,28 +434,9 @@ class SequenceView(Sequence):
     def reverse(self):
         self[::-1] = [x for x in self]
 
-    def _lowlevel_repr(self):
-        cls = type(getattrrec(self, "seq"))  # de-onionize
-        ctor = tuple if hasattr(cls, "_make") else cls  # slice of namedtuple -> tuple
-        return ctor(x for x in self)
-    def __str__(self):
-        return str(self._lowlevel_repr())
-    def __repr__(self):
-        return "SequenceView({!r})".format(self._lowlevel_repr())
-
-    def __eq__(self, other):
-        if other is self:
-            return True
-        if len(self) != len(other):
-            return False
-        for v, w in zip(self, other):
-            if v != w:
-                return False
-        return True
-
 # -----------------------------------------------------------------------------
 
-class ShadowedSequence(Sequence):
+class ShadowedSequence(_StrReprEqMixin, Sequence):
     """Sequence with some elements shadowed by those from another sequence.
 
     Or in other words, a functionally updated view of a sequence. Or somewhat
@@ -444,11 +445,12 @@ class ShadowedSequence(Sequence):
     Essentially, ``out[k] = v[index_in_slice(k, ix)] if in_slice(k, ix) else seq[k]``,
     but doesn't actually allocate ``out``.
 
-    ``ix`` may be integer (if ``v`` represents one item only)
-    or slice (if ``v`` is intended as a sequence).
+    ``ix`` may be integer (if ``v`` represents one item only) or slice (if ``v``
+    is intended as a sequence). The default ``None`` means ``out[k] = seq[k]``
+    with no shadower.
     """
-    def __init__(self, seq, ix, v):
-        if not isinstance(ix, (slice, int)):
+    def __init__(self, seq, ix=None, v=None):
+        if ix is not None and not isinstance(ix, (slice, int)):
             raise TypeError("ix: expected slice or int, got {} with value {}".format(type(ix), ix))
         self.seq = seq
         self.ix = ix
@@ -459,20 +461,36 @@ class ShadowedSequence(Sequence):
     # getting caught by the genexpr in unpythonic.fup.fupdate when it builds
     # the output sequence.
     def __iter__(self):
+        if self.ix is None:  # allow no-op ShadowedSequences since the repr suggests one could do that
+            return iter(self.seq)
         l = len(self)
+        getone = self._getone
         def ShadowedSequenceIterator():
             for j in range(l):
-                yield self[j]
+                yield getone(j)
         return ShadowedSequenceIterator()
 
     def __len__(self):
         return len(self.seq)
 
     def __getitem__(self, k):
+        if self.ix is None:  # allow no-op ShadowedSequences since the repr suggests one could do that
+            return self.seq[k]
+        l = len(self)
+        if isinstance(k, slice):
+            cls = type(self.seq)
+            ctor = tuple if hasattr(cls, "_make") else cls  # slice of namedtuple -> tuple
+            return ctor(self._getone(j) for j in range(l)[k])
+        elif isinstance(k, tuple):
+            raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
+        else:
+            if k >= l or k < -l:
+                raise IndexError("ShadowedSequence index out of range")
+            return self._getone(k)
+
+    def _getone(self, k):
         ix = self.ix
         l = len(self)
-        if k >= l or k < -l:
-            raise IndexError("ShadowedSequence index out of range")
         if in_slice(k, ix, l):
             if isinstance(ix, int):
                 return self.v  # just one item
