@@ -1443,9 +1443,9 @@ This is a macro wrapper for ``unpythonic.collections.SequenceView``, providing m
 from unpythonic.syntax import macros, view
 
 lst = list(range(10))
-v = view[lst[::2]]
+v = view[lst[::2]]  # with the macro, can use slice syntax to create the first view, too
 assert v == [0, 2, 4, 6, 8]
-v2 = view[v[1:-1]]
+v2 = v[1:-1]
 assert v2 == [2, 4, 6]
 v2[1:] = (10, 20)
 assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
