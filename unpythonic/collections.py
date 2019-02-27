@@ -409,6 +409,8 @@ class SequenceView(_StrReprEqMixin, Sequence):
         if isinstance(k, slice):
             if k == slice(None, None, None):  # v[:]
                 return self
+            if self.slice == slice(None, None, None):  # bypass us if we're a no-op
+                return SequenceView(self.seq, k)
             return SequenceView(self, k)
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
