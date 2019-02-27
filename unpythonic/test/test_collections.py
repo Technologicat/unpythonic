@@ -121,7 +121,7 @@ def test():
     lst = list(range(10))
     v = SequenceView(lst, slice(None, None, 2))
     assert v == [0, 2, 4, 6, 8]
-    v2 = SequenceView(v, slice(1, -1))
+    v2 = v[1:-1]  # slicing a view returns a new view
     assert v2 == [2, 4, 6]
     v2[1:] = (10, 20)
     assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
@@ -150,6 +150,17 @@ def test():
     v = SequenceView(lst, slice(2, 4))
     v[:] = (10, 20)
     assert lst == [0, 1, 10, 20, 4]
+
+    # we store slice specs, not actual indices, so it doesn't matter if the
+    # underlying sequence undergoes length changes
+    lst = list(range(5))
+    v = SequenceView(lst, slice(2, None))
+    assert v == [2, 3, 4]
+    lst.append(5)
+    assert v == [2, 3, 4, 5]
+    lst.insert(0, 42)
+    assert v == [1, 2, 3, 4, 5]
+    assert lst == [42, 0, 1, 2, 3, 4, 5]
 
     # in-place map
     double = lambda x: 2*x

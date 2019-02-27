@@ -1398,7 +1398,7 @@ from unpythonic import SequenceView
 lst = list(range(10))
 v = SequenceView(lst, slice(None, None, 2))
 assert v == [0, 2, 4, 6, 8]
-v2 = SequenceView(v, slice(1, -1))
+v2 = v[1:-1]
 assert v2 == [2, 4, 6]
 v2[1:] = (10, 20)
 assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
@@ -1410,9 +1410,9 @@ assert v2 == [42, 10, 20]
 
 While ``fupdate`` lets you be more functional than Python otherwise allows, ``SequenceView`` lets you be more imperative than Python otherwise allows.
 
-See also the ``view`` [macro](macro_extras/), which adds support for the regular slicing syntax.
+Slicing a view returns a new view. Slicing anything else will copy, because Python does, before we get control. To slice lazily, pass a ``slice`` object into the ``SequenceView`` constructor.
 
-**CAUTION**: The length of the underlying sequence must not change while a view is being used, or (in the best case) the view will crash.
+See also the ``view`` [macro](macro_extras/), which adds support for the regular slicing syntax.
 
 
 ### ``mogrify``, update mutable containers in-place
@@ -2594,7 +2594,7 @@ Dynamic assignment based on [StackOverflow answer by Jason Orendorff (2010)](htt
 
 Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
 
-`SequenceView` based on [StackOverflow answer by Mathieu Caroff (2018)](https://stackoverflow.com/a/53253136), used under the MIT license. Our additions include write support, iteration based on `__iter__`, and in-place reverse.
+Core idea of `SequenceView` based on [StackOverflow answer by Mathieu Caroff (2018)](https://stackoverflow.com/a/53253136), used under the MIT license. Our additions include support for sequences with changing length, write support, iteration based on `__iter__`, and in-place reverse.
 
 
 ### Acknowledgements

@@ -11,6 +11,7 @@ from collections.abc import Container, Iterable, Hashable, Sized, \
                             MutableSequence, MutableMapping, MutableSet
 from inspect import isclass
 from operator import lt, le, ge, gt
+from math import ceil
 
 from .llist import cons
 
@@ -309,69 +310,108 @@ class SequenceViewIterator:
         return self
     def __next__(self):
         j = self.j
-        if j >= len(self.view.range):
+        if not self.cmp(j, self.stop):
             raise StopIteration()
-        self.j += 1
-        return self.view.seq[self.view.range[j]]
+        self.j += self.step
+        return self.view.seq[j]
     def _reset(self):
-        self.j = 0
+        self.start, self.stop, self.step = _canonize_slice(self.view.slice, len(self.view.seq))
+        self.cmp = lt if self.step > 0 else gt
+        self.j = self.start
 
 class SequenceView(Sequence):
-    """Writable view into any constant-length sequence.
+    """Writable view into a sequence.
 
     Supports slicing (also recursively, i.e. can be sliced again).
 
     Does **not** support ``append``, ``extend``, ``pop``, ``remove`` or
-    ``__iadd__``.
+    ``__iadd__``. But we store slice specs, not actual indices, so this
+    works also if the underlying sequence itself undergoes length changes.
 
-    **Not** hashable, since the whole point is a live view to input whose
-    elements may be replaced at any time. (Perhaps, indeed, to replace those
-    items by writing into the view, just like for NumPy arrays.)
+    **Not** hashable, since the whole point is a live view to input that may
+    change at any time. (Perhaps, indeed, by writing into the view, just like
+    for NumPy arrays.)
 
-    Based on StackOverflow answer by Mathieu Caroff (2018):
+    Examples::
+
+        lst = list(range(10))
+        v = SequenceView(lst, slice(None, None, 2))
+        assert v == [0, 2, 4, 6, 8]
+        v2 = v[1:-1]
+        assert v2 == [2, 4, 6]
+        v2[1:] = (10, 20)
+        assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
+
+        lst[2] = 42
+        assert v == [0, 42, 10, 20, 8]
+        assert v2 == [42, 10, 20]
+
+        lst = list(range(5))
+        v = SequenceView(lst, slice(2, None))
+        assert v == [2, 3, 4]
+        lst.append(5)
+        assert v == [2, 3, 4, 5]
+        lst.insert(0, 42)
+        assert v == [1, 2, 3, 4, 5]
+        assert lst == [42, 0, 1, 2, 3, 4, 5]
+
+    Slicing a view returns a new view. Slicing anything else will copy, because
+    Python does, before we get control. To slice lazily, pass a ``slice`` object
+    into the ``SequenceView`` constructor.
+
+    Core idea based on StackOverflow answer by Mathieu Caroff (2018):
 
         http://stackoverflow.com/q/3485475/can-i-create-a-view-on-a-python-list
-
-    **CAUTION**: The length of the underlying sequence must not change
-    while a view is being used, or (in the best case) the view will crash.
     """
     def __init__(self, sequence, s=None):
         """If s is None, view the whole input. If s is a slice, view that slice."""
         if s is None:
-            s = slice(len(sequence))
-        if isinstance(sequence, SequenceView):
-            self.seq = sequence.seq
-            self.range = sequence.range[s]
-        else:
-            self.seq = sequence
-            self.range = range(len(sequence))[s]
-
+            s = slice(None, None, None)
+        self.seq = sequence
+        self.slice = s
     def __iter__(self):
         return SequenceViewIterator(self)
     def __len__(self):
-        return len(self.range)
-    def __getitem__(self, s):
-        if isinstance(s, slice):
-            return SequenceView(self, s)
-        return self.seq[self.range[s]]
-    def __setitem__(self, s, v):
-        if isinstance(s, slice):
-            view = SequenceView(self, s)
-            for j, k in enumerate(view.range):
-                view.seq[k] = v[j]
+        start, stop, step = _canonize_slice(self.slice, len(self.seq))
+        return ceil((stop - start) / step)
+    def __getitem__(self, k):
+        if isinstance(k, slice):
+            if k == slice(None, None, None):  # v[:]
+                return self
+            return SequenceView(self, k)
         else:
-            self.seq[self.range[s]] = v
+            start, stop, step = _canonize_slice(self.slice, len(self.seq))
+            outside = ge if step > 0 else le
+            idx = start + k*step
+            if outside(idx, stop):
+                raise IndexError()
+            return self.seq[idx]
+    def __setitem__(self, k, v):
+        if isinstance(k, slice):
+            view = SequenceView(self, k)
+            for j, item in enumerate(v):
+                view[j] = item
+        else:
+            start, stop, step = _canonize_slice(self.slice, len(self.seq))
+            outside = ge if step > 0 else le
+            idx = start + k*step
+            if outside(idx, stop):
+                raise IndexError()
+            self.seq[idx] = v
     def reverse(self):
         self[::-1] = [x for x in self]
 
+    def _lowlevel_repr(self):
+        r = self.seq
+        while type(r) is SequenceView:
+            r = r.seq
+        cls = type(r)
+        ctor = cls._make if hasattr(cls, "_make") else cls
+        return ctor(x for x in self)
     def __str__(self):
-        r = self.range
-        s = slice(r.start, r.stop, r.step)
-        return str(self.seq[s])
+        return str(self._lowlevel_repr())
     def __repr__(self):
-        r = self.range
-        s = slice(r.start, r.stop, r.step)
-        return "SequenceView({!r})".format(self.seq[s])
+        return "SequenceView({!r})".format(self._lowlevel_repr())
 
     def __eq__(self, other):
         if other is self:

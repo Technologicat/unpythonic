@@ -1457,8 +1457,6 @@ assert v2 == [42, 10, 20]
 
 The transformation is ``view[seq] --> SequenceView(seq)``, and ``view[seq[slicestx]] --> SequenceView(seq, slice(...))``.
 
-**CAUTION**: The length of the underlying sequence must not change while a view is being used, or (in the best case) the view will crash.
-
 
 ## Other
 

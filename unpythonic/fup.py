@@ -107,10 +107,9 @@ def fupdate(target, indices=None, values=None, **mappings):
     if indices is not None:
         def make_output(seq):
             cls = type(target)
+            ctor = cls._make if hasattr(cls, "_make") else cls  # namedtuple support
             gen = (x for x in seq)
-            if hasattr(cls, "_make"):  # namedtuple support
-                return cls._make(gen)
-            return cls(gen)
+            return ctor(gen)
         if not isinstance(indices, (list, tuple)):
             # one index (or slice), value(s) pair only
             return make_output(ShadowedSequence(target, indices, values))
