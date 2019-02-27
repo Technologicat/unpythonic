@@ -301,7 +301,7 @@ del abscls  # namespace cleanup
 
 # -----------------------------------------------------------------------------
 
-class SequenceViewIterator:
+class SequenceViewIterator:  # essentially this islices manually.
     def __init__(self, theview):
         self.view = theview
         self._reset()
@@ -310,13 +310,13 @@ class SequenceViewIterator:
         return self
     def __next__(self):
         j = self.j
-        if not self.cmp(j, self.stop):
+        if self.outside(j, self.stop):
             raise StopIteration()
         self.j += self.step
         return self.view.seq[j]
     def _reset(self):
         self.start, self.stop, self.step = _canonize_slice(self.view.slice, len(self.view.seq))
-        self.cmp = lt if self.step > 0 else gt
+        self.outside = ge if self.step > 0 else le
         self.j = self.start
 
 class SequenceView(Sequence):
@@ -359,6 +359,14 @@ class SequenceView(Sequence):
     Python does, before we get control. To slice lazily, pass a ``slice`` object
     into the ``SequenceView`` constructor.
 
+    The view can be efficiently iterated over. Iteration assumes that the
+    underlying sequence does not change during the iteration.
+
+    Getting/setting an item (subscripting) applies the slice spec to the current
+    state of the underlying sequence during each access, so it can be slow.
+    Setting a slice creates a view for that slice, and uses it to update the
+    items individually.
+
     Core idea based on StackOverflow answer by Mathieu Caroff (2018):
 
         http://stackoverflow.com/q/3485475/can-i-create-a-view-on-a-python-list
@@ -388,7 +396,7 @@ class SequenceView(Sequence):
             return self.seq[idx]
     def __setitem__(self, k, v):
         if isinstance(k, slice):
-            view = SequenceView(self, k)
+            view = self if k == slice(None, None, None) else SequenceView(self, k)
             for j, item in enumerate(v):
                 view[j] = item
         else:
