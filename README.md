@@ -1328,7 +1328,7 @@ If you want to use Python's standard slicing syntax to functionally update a seq
 
 When ``fupdate`` constructs its output, the replacement occurs by walking *the input sequence* left-to-right, and pulling an item from the replacement sequence when the given replacement specification so requires. Hence the replacement sequence is not necessarily accessed left-to-right. (In the last example above, ``tuple(range(5))`` was read in the order ``(4, 3, 2, 1, 0)``.)
 
-The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored, but if the replacement is too short, ``ValueError`` is raised.
+The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored, but if the replacement is too short, ``IndexError`` is raised. (*Changed in v0.13.1.* This was previously ``ValueError``.)
 
 It is also possible to replace multiple individual items. These are treated as separate specifications, applied left to right (so later updates shadow earlier ones, if updating at the same index):
 
