@@ -1291,7 +1291,7 @@ Inspired by Haskell.
 
 ### Functional update, sequence shadowing
 
-We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). For details, see ``unpythonic.fup``.
+We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). See its docstring for details.
 
 ``ShadowedSequence`` is used by the function ``fupdate``, which functionally updates sequences and mappings. Whereas ``ShadowedSequence`` reads directly from the original sequences at access time, ``fupdate`` makes a shallow copy (of the same type as the given input sequence) when it finalizes its output (this trades some memory for performance, useful if the same data is read often).
 
