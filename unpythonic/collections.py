@@ -378,11 +378,26 @@ class SequenceView(Sequence):
             s = slice(None, None, None)
         self.seq = sequence
         self.slice = s
+        self._seql = None
+        self._update_cache()
     def __iter__(self):
         return SequenceViewIterator(self)
     def __len__(self):
-        start, stop, step = _canonize_slice(self.slice, len(self.seq))
-        return ceil((stop - start) / step)
+        self._update_cache()
+        return self._selfl
+
+    def _update_cache(self):
+        seql = len(self.seq)
+        if seql != self._seql:
+            start, stop, step = _canonize_slice(self.slice, seql)
+            selfl = ceil((stop - start) / step)
+            wrap = _make_negidx_converter(selfl)  # getitem/setitem k indexes self, not the underlying seq
+            outside = ge if step > 0 else le
+            self._seql = seql
+            self._selfl = selfl
+            self._cache = start, stop, step, wrap, outside
+        return self._cache
+
     def __getitem__(self, k):
         if isinstance(k, slice):
             if k == slice(None, None, None):  # v[:]
@@ -391,20 +406,15 @@ class SequenceView(Sequence):
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
-            # note k indexes self, but self.slice indexes self.seq.
-            start, stop, step = _canonize_slice(self.slice, len(self.seq))
-            wrap = _make_negidx_converter(ceil((stop - start) / step))  # len, but avoid extra canonization
-            outside = ge if step > 0 else le
+            start, stop, step, wrap, outside = self._update_cache()
             idx = start + wrap(k)*step
             if outside(idx, stop):
                 raise IndexError("SequenceView index out of range")
             return self.seq[idx]
     def __setitem__(self, k, v):
-        start, stop, step = _canonize_slice(self.slice, len(self.seq))
-        wrap = _make_negidx_converter(ceil((stop - start) / step))  # len, but avoid extra canonization
-        outside = ge if step > 0 else le
+        start, stop, step, wrap, outside = self._update_cache()
         if isinstance(k, slice):
-            startk, stopk, stepk = _canonize_slice(k, len(self))
+            startk, stopk, stepk = _canonize_slice(k, self._selfl)
             for k, item in zip(range(startk, stopk, stepk), v):
                 idx = start + wrap(k)*step
                 if outside(idx, stop):
