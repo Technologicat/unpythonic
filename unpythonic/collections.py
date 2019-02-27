@@ -379,7 +379,6 @@ class SequenceView(Sequence):
         self.seq = sequence
         self.slice = s
         self._seql = None
-        self._update_cache()
     def __iter__(self):
         return SequenceViewIterator(self)
     def __len__(self):
