@@ -362,16 +362,37 @@ class SequenceView(Sequence):
         self.slice = s
         self._seql = None
 
-    # This skips one layer of indirection when iterating over self,
-    # so the iteration is highly efficient when there are no nested views.
+    # Fast-ish iteration.
+    #  - at the outermost layer, prefer range(...) over manually computing the raw index.
+    #  - if no nested views, read from the underlying sequence directly.
+    #  - when nested, update caches just once for all nested views,
+    #    and use a lightweight getter that doesn't perform bounds checking.
     def __iter__(self):
         self._update_cache()
         start, stop, step, _, _ = self._cache
         seq = self.seq
-        def SequenceViewIterator():
+        if not isinstance(seq, SequenceView):  # performance optimization
+            def SequenceViewIterator():
+                for j in range(start, stop, step):
+                    yield seq[j]
+            return SequenceViewIterator()
+        # update the caches only once, at the start of iteration.
+        while isinstance(seq, SequenceView):
+            seq._update_cache()
+            seq = seq.seq
+        unsafe_get = self._unsafe_get
+        def NestedSequenceViewIterator():
             for j in range(start, stop, step):
-                yield seq[j]
-        return SequenceViewIterator()
+                yield unsafe_get(j)
+        return NestedSequenceViewIterator()
+    # Get one item; no bounds checking, safe for iteration only.
+    # Note raw idx in self.seq, **not** the usual k (index in self).
+    def _unsafe_get(self, idx):
+        seq = self.seq
+        if isinstance(seq, SequenceView):
+            start, _, step, wrap, _ = seq._cache
+            return seq._unsafe_get(start + wrap(idx)*step)
+        return seq[idx]
 
     def __len__(self):
         self._update_cache()
@@ -389,6 +410,7 @@ class SequenceView(Sequence):
             self._cache = start, stop, step, wrap, outside
         return self._cache
 
+    # Get or set single items or slices. k is the index (or slice) in self.
     def __getitem__(self, k):
         if isinstance(k, slice):
             if k == slice(None, None, None):  # v[:]
