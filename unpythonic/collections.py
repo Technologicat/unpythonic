@@ -447,6 +447,23 @@ class SequenceView(Sequence):
 
 # -----------------------------------------------------------------------------
 
+# We have this so we can raise StopIteration, not IndexError, when the sequence runs out.
+class ShadowedSequenceIterator:
+    def __init__(self, seq):
+        self.seq = seq
+        self._reset()
+    def __iter__(self):
+        self._reset()
+        return self
+    def __next__(self):
+        j = self.j
+        if j >= len(self.seq.seq):
+            raise StopIteration()
+        self.j += 1
+        return self.seq[j]
+    def _reset(self):
+        self.j = 0
+
 class ShadowedSequence(Sequence):
     """Sequence with some elements shadowed by those from another sequence.
 
@@ -466,6 +483,15 @@ class ShadowedSequence(Sequence):
         self.ix = ix
         self.v = v
 
+    # Provide __iter__ so that our __getitem__ can raise IndexError when needed,
+    # without it getting caught by the genexpr in unpythonic.fup.fupdate
+    # when it builds the output sequence.
+    def __iter__(self):
+        return ShadowedSequenceIterator(self)
+
+    def __len__(self):
+        return len(self.seq)
+
     def __getitem__(self, k):
         ix = self.ix
         l = len(self)
@@ -475,14 +501,9 @@ class ShadowedSequence(Sequence):
             # we already know k is in ix, so skip validation for speed.
             i = _index_in_slice(k, ix, l, _validate=False)
             if i >= len(self.v):
-                # TODO: Would be nice to raise IndexError, but the genexpr in
-                # unpythonic.fup.fupdate catches that, hiding the error.
-                raise ValueError("Replacement sequence too short; attempted to access index {} with len {} (items: {})".format(i, len(self.v), self.v))
+                raise IndexError("Replacement sequence too short; attempted to access index {} with len {} (items: {})".format(i, len(self.v), self.v))
             return self.v[i]
         return self.seq[k]  # not in slice
-
-    def __len__(self):
-        return len(self.seq)
 
 def in_slice(i, s, l=None):
     """Return whether the int i is in the slice s.

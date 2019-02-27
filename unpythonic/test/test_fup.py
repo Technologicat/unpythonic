@@ -75,7 +75,7 @@ def test():
     try:
         lst = (1, 2, 3, 4, 5)
         out = fupdate(lst, slice(1, None, 2), (10,))  # need 2 items, have 1
-    except ValueError:
+    except IndexError:
         pass
     else:
         assert False
