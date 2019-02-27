@@ -390,6 +390,7 @@ class SequenceView(Sequence):
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
+            # note k indexes self, but self.slice indexes self.seq.
             start, stop, step = _canonize_slice(self.slice, len(self.seq))
             wrap = _make_negidx_converter(ceil((stop - start) / step))  # len, but avoid extra canonization
             outside = ge if step > 0 else le
@@ -398,16 +399,23 @@ class SequenceView(Sequence):
                 raise IndexError()
             return self.seq[idx]
     def __setitem__(self, k, v):
+        start, stop, step = _canonize_slice(self.slice, len(self.seq))
+        wrap = _make_negidx_converter(ceil((stop - start) / step))  # len, but avoid extra canonization
+        outside = ge if step > 0 else le
         if isinstance(k, slice):
-            view = self if k == slice(None, None, None) else SequenceView(self, k)
-            for j, item in enumerate(v):
-                view[j] = item
+#            # elegant but inefficient
+#            view = self if k == slice(None, None, None) else SequenceView(self, k)
+#            for j, item in enumerate(v):
+#                view[j] = item
+            startk, stopk, stepk = _canonize_slice(k, len(self))
+            for k, item in zip(range(startk, stopk, stepk), v):
+                idx = start + wrap(k)*step
+                if outside(idx, stop):
+                    raise IndexError()
+                self.seq[idx] = item
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
-            start, stop, step = _canonize_slice(self.slice, len(self.seq))
-            wrap = _make_negidx_converter(ceil((stop - start) / step))  # len, but avoid extra canonization
-            outside = ge if step > 0 else le
             idx = start + wrap(k)*step
             if outside(idx, stop):
                 raise IndexError()
