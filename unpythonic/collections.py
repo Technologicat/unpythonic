@@ -14,6 +14,7 @@ from operator import lt, le, ge, gt
 from math import ceil
 
 from .llist import cons
+from .misc import getattrrec
 
 def get_abcs(cls):
     """Return a set of the collections.abc superclasses of cls (virtuals too)."""
@@ -301,7 +302,7 @@ del abscls  # namespace cleanup
 
 # -----------------------------------------------------------------------------
 
-class SequenceViewIterator:  # essentially this islices manually (also backwards).
+class SequenceViewIterator:  # essentially this islices manually (but also backwards).
     def __init__(self, theview):
         self.view = theview
         self._reset()
@@ -396,22 +397,18 @@ class SequenceView(Sequence):
             outside = ge if step > 0 else le
             idx = start + wrap(k)*step
             if outside(idx, stop):
-                raise IndexError()
+                raise IndexError("SequenceView index out of range")
             return self.seq[idx]
     def __setitem__(self, k, v):
         start, stop, step = _canonize_slice(self.slice, len(self.seq))
         wrap = _make_negidx_converter(ceil((stop - start) / step))  # len, but avoid extra canonization
         outside = ge if step > 0 else le
         if isinstance(k, slice):
-#            # elegant but inefficient
-#            view = self if k == slice(None, None, None) else SequenceView(self, k)
-#            for j, item in enumerate(v):
-#                view[j] = item
             startk, stopk, stepk = _canonize_slice(k, len(self))
             for k, item in zip(range(startk, stopk, stepk), v):
                 idx = start + wrap(k)*step
                 if outside(idx, stop):
-                    raise IndexError()
+                    raise IndexError("SequenceView assignment index out of range")
                 self.seq[idx] = item
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
@@ -424,10 +421,7 @@ class SequenceView(Sequence):
         self[::-1] = [x for x in self]
 
     def _lowlevel_repr(self):
-        r = self.seq
-        while type(r) is SequenceView:
-            r = r.seq
-        cls = type(r)
+        cls = type(getattrrec(self, "seq"))  # de-onionize
         ctor = cls._make if hasattr(cls, "_make") else cls
         return ctor(x for x in self)
     def __str__(self):
