@@ -394,7 +394,8 @@ class SequenceView(Sequence):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
             data, r = self._update_cache()
-            if k >= len(r):
+            l = len(r)
+            if k >= l or k < -l:
                 raise IndexError("SequenceView index out of range")
             return data[r[k]]
     def __setitem__(self, k, v):
@@ -406,7 +407,8 @@ class SequenceView(Sequence):
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
-            if k >= len(r):
+            l = len(r)
+            if k >= l or k < -l:
                 raise IndexError("SequenceView assigment index out of range")
             data[r[k]] = v
     def reverse(self):
