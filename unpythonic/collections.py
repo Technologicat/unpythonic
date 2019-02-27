@@ -342,13 +342,12 @@ class SequenceView(Sequence):
     because the object being sliced does, before we get control. To slice lazily,
     pass a ``slice`` object into the ``SequenceView`` constructor.
 
-    The view can be (somewhat) efficiently iterated over. Iteration assumes
-    that the underlying sequence does not change during the iteration.
+    The view can be efficiently iterated over. As usual, iteration assumes that
+    no inserts/deletes in the underlying sequence occur during the iteration.
 
-    Getting/setting an item (subscripting) applies the slice spec to the current
-    state of the underlying sequence during each access, so it can be slow.
-    Setting a slice creates a view for that slice, and uses it to update the
-    items individually.
+    Getting/setting an item (subscripting) checks whether the index cache needs
+    updating during each access, so it can be a bit slow. Setting a slice checks
+    just once, and then updates the underlying iterable directly.
 
     Core idea based on StackOverflow answer by Mathieu Caroff (2018):
 
@@ -362,40 +361,30 @@ class SequenceView(Sequence):
         self.slice = s
         self._seql = None
 
-    # Fast iteration.
-    #  - prefer range(...) over manually computing the raw index
-    #  - combine nested ranges by slicing
-    #  - read from the underlying data directly.
     def __iter__(self):
-        def build_range(seq):
-            if not isinstance(seq, SequenceView):
-                return seq, range(len(seq))
-            data, r = build_range(seq.seq)
-            start, stop, step, _, _ = seq._update_cache()
-            return data, r[start:stop:step]
-        data, r = build_range(self)
+        data, r = self._update_cache()
         def SequenceViewIterator():
             for j in r:
                 yield data[j]
         return SequenceViewIterator()
-
     def __len__(self):
-        self._update_cache()
-        return self._selfl
+        _, r = self._update_cache()
+        return len(r)
 
     def _update_cache(self):
         seql = len(self.seq)
         if seql != self._seql:
-            start, stop, step = _canonize_slice(self.slice, seql)
-            selfl = ceil((stop - start) / step)
-            wrap = _make_negidx_converter(selfl)  # getitem/setitem k indexes self, not the underlying seq
-            outside = ge if step > 0 else le
             self._seql = seql
-            self._selfl = selfl
-            self._cache = start, stop, step, wrap, outside
+            self._cache = self._range()
         return self._cache
+    def _range(self):  # return underlying sequence, current range of all elements of self in it
+        def buildr(seq):
+            if not isinstance(seq, SequenceView):
+                return seq, range(len(seq))
+            data, r = buildr(seq.seq)
+            return data, r[seq.slice]
+        return buildr(self)
 
-    # Get or set single items or slices. k is the index (or slice) in self.
     def __getitem__(self, k):
         if isinstance(k, slice):
             if k == slice(None, None, None):  # v[:]
@@ -404,27 +393,18 @@ class SequenceView(Sequence):
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
-            start, stop, step, wrap, outside = self._update_cache()
-            idx = start + wrap(k)*step
-            if outside(idx, stop):
-                raise IndexError("SequenceView index out of range")
-            return self.seq[idx]
+            data, r = self._update_cache()
+            return data[r[k]]
     def __setitem__(self, k, v):
-        start, stop, step, wrap, outside = self._update_cache()
+        data, r = self._update_cache()
         if isinstance(k, slice):
-            startk, stopk, stepk = _canonize_slice(k, self._selfl)
-            for k, item in zip(range(startk, stopk, stepk), v):
-                idx = start + wrap(k)*step
-                if outside(idx, stop):
-                    raise IndexError("SequenceView assignment index out of range")
-                self.seq[idx] = item
+            # TODO: would be nicer if we could convert a range into a slice, then just data[rk] = v.
+            for j, item in zip(r[k], v):
+                data[j] = item
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
-            idx = start + wrap(k)*step
-            if outside(idx, stop):
-                raise IndexError()
-            self.seq[idx] = v
+            data[r[k]] = v
     def reverse(self):
         self[::-1] = [x for x in self]
 

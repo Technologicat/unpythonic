@@ -106,13 +106,14 @@ def test():
     assert len(v) == 5
     assert v.index(10) == 2
     assert v.count(10) == 1
+    assert v[:] is v
 
     # views may be created also of slices, but note the syntax
     # (see also unpythonic.syntax.view, which lets use the regular slice syntax)
     lst = list(range(10))
     v = SequenceView(lst, slice(2, None))
     assert v == [2, 3, 4, 5, 6, 7, 8, 9]
-    v2 = SequenceView(v, slice(None, -2))
+    v2 = v[:-2]  # slicing a view returns a new view
     assert v2 == [2, 3, 4, 5, 6, 7]
     v[3] = 20
     v2[2] = 10
@@ -121,7 +122,7 @@ def test():
     lst = list(range(10))
     v = SequenceView(lst, slice(None, None, 2))
     assert v == [0, 2, 4, 6, 8]
-    v2 = v[1:-1]  # slicing a view returns a new view
+    v2 = v[1:-1]
     assert v2 == [2, 4, 6]
     v2[1:] = (10, 20)
     assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
