@@ -24,7 +24,7 @@ from .letdo import do as _do, do0 as _do0, local, \
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
 from .nb import nb as _nb
 from .prefix import prefix as _prefix
-from .slicing import fup as _fup, view as _view
+from .slicing import fup as _fup, view as _view, islice as _islice
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, call_cc
 
@@ -841,6 +841,40 @@ def view(tree, **kw):
         view[seq[slicestx]] --> SequenceView(seq, slice(...))
     """
     return _view(tree)
+
+@macros.expr
+def islice(tree, **kw):
+    """[syntax, expr] Use itertools.islice with slice syntax.
+
+    An ``islice[]`` slicing expression transforms into a call to
+    ``itertools.islice`` with the corresponding slicing parameters.
+
+    As a convenience feature: inside an ``islice[]`` expression, a single index
+    is interpreted as a length-1 islice starting at that index. The slice is then
+    immediately evaluated and the item is returned.
+
+    Examples::
+
+        from unpythonic.syntax import macros, islice
+        from unpythonic import primes, s
+
+        p = primes()
+        assert tuple(islice[p[10:15]]) == (31, 37, 41, 43, 47)
+
+        assert tuple(islice[primes()[10:15]]) == (31, 37, 41, 43, 47)
+
+        p = primes()
+        assert islice[p[10]] == 31
+
+        odds = islice[s(1, 2, ...)[::2]]
+        assert tuple(islice[odds[:5]]) == (1, 3, 5, 7, 9)
+        assert tuple(islice[odds[:5]]) == (11, 13, 15, 17, 19)  # five more
+
+    **CAUTION**: Keep in mind ``itertools.islice`` does not support negative
+    indexing for any of ``start``, ``stop`` or ``step``, and that the slicing
+    process consumes elements from the iterable.
+    """
+    return _islice(tree)
 
 # -----------------------------------------------------------------------------
 

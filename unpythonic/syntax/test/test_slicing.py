@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Sequence operations with native slice syntax."""
 
-from ...syntax import macros, fup, view
+from ...syntax import macros, fup, view, islice
+from ...mathseq import primes, s
 
 from itertools import repeat
 
@@ -27,5 +28,18 @@ def test():
     v = view[lst]
     v[2:4] = [10, 20]
     assert lst == [1, 2, 10, 20, 5]
+
+    # slice syntax wrapper for itertools.islice
+    p = primes()
+    assert tuple(islice[p[10:15]]) == (31, 37, 41, 43, 47)
+
+    assert tuple(islice[primes()[10:15]]) == (31, 37, 41, 43, 47)
+
+    p = primes()
+    assert islice[p[10]] == 31
+
+    odds = islice[s(1, 2, ...)[::2]]
+    assert tuple(islice[odds[:5]]) == (1, 3, 5, 7, 9)
+    assert tuple(islice[odds[:5]]) == (11, 13, 15, 17, 19)  # five more
 
     print("All tests PASSED")

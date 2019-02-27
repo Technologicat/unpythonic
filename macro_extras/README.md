@@ -51,6 +51,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
    - [``aif``: anaphoric if](#aif-anaphoric-if), the test result is ``it``
    - [``fup``: functionally update a sequence](#fup-functionally-update-a-sequence) with slice notation
    - [``view``: writable view into a sequence](#view-writable-view-into-a-sequence) with slice notation
+   - [``islice``: slice syntax for ``itertools.islice``](#islice-slice-syntax-for-itertools-islice)
 
  - [**Other**](#other)
    - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
@@ -1456,6 +1457,38 @@ assert v2 == [42, 10, 20]
 ```
 
 The transformation is ``view[seq] --> SequenceView(seq)``, and ``view[seq[slicestx]] --> SequenceView(seq, slice(...))``.
+
+
+### ``islice``: slice syntax for ``itertools.islice``
+
+*Added in v0.13.1.*
+
+Slice an iterable, using the regular slicing syntax:
+
+```python
+from unpythonic.syntax import macros, islice
+from unpythonic import primes, s
+
+p = primes()
+assert tuple(islice[p[10:15]]) == (31, 37, 41, 43, 47)
+
+assert tuple(islice[primes()[10:15]]) == (31, 37, 41, 43, 47)
+
+p = primes()
+assert islice[p[10]] == 31
+
+odds = islice[s(1, 2, ...)[::2]]
+assert tuple(islice[odds[:5]]) == (1, 3, 5, 7, 9)
+assert tuple(islice[odds[:5]]) == (11, 13, 15, 17, 19)  # five more
+```
+
+An ``islice[]`` slicing expression transforms into a call to ``itertools.islice`` with the corresponding slicing parameters. Hence the result is still a lazy sequence.
+
+As a convenience feature: inside an ``islice[]`` expression, a single index is interpreted as a length-1 islice starting at that index. The slice is then immediately evaluated and the item is returned.
+
+**CAUTION**: Keep in mind ``itertools.islice`` does not support negative indexing for any of ``start``, ``stop`` or ``step``, and that the slicing process consumes elements from the iterable.
+
+Inspired by Python itself.
 
 
 ## Other
