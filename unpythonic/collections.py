@@ -410,7 +410,7 @@ class SequenceView(Sequence):
 
     def _lowlevel_repr(self):
         cls = type(getattrrec(self, "seq"))  # de-onionize
-        ctor = cls._make if hasattr(cls, "_make") else cls
+        ctor = tuple if hasattr(cls, "_make") else cls  # slice of namedtuple -> tuple
         return ctor(x for x in self)
     def __str__(self):
         return str(self._lowlevel_repr())
