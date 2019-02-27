@@ -12,7 +12,7 @@ def fupdate(target, indices=None, values=None, **bindings):
 
     The input can be mutable or immutable; it does not matter.
 
-    **For bindings**, ``fupdate`` supports any mutable mapping that has an
+    **For mappings**, ``fupdate`` supports any mutable mapping that has an
     ``.update(**kwargs)`` method (such as ``dict``), and the immutable mapping
     ``unpythonic.collections.frozendict``.
 
