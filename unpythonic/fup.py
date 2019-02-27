@@ -7,12 +7,12 @@ from copy import copy
 
 from .collections import frozendict, ShadowedSequence
 
-def fupdate(target, indices=None, values=None, **mappings):
+def fupdate(target, indices=None, values=None, **bindings):
     """Return a functionally updated copy of a sequence or a mapping.
 
     The input can be mutable or immutable; it does not matter.
 
-    **For mappings**, ``fupdate`` supports any mutable mapping that has an
+    **For bindings**, ``fupdate`` supports any mutable mapping that has an
     ``.update(**kwargs)`` method (such as ``dict``), and the immutable mapping
     ``unpythonic.collections.frozendict``.
 
@@ -102,8 +102,8 @@ def fupdate(target, indices=None, values=None, **mappings):
         assert sorted(d1.items()) == [('foo', 'bar'), ('fruit', 'apple')]
         assert sorted(d2.items()) == [('foo', 'tavern'), ('fruit', 'apple')]
     """
-    if indices is not None and mappings:
-        raise ValueError("Cannot use both indices and mappings.")
+    if indices is not None and bindings:
+        raise ValueError("Cannot use both indices and bindings.")
     if indices is not None:
         def make_output(seq):
             cls = type(target)
@@ -117,12 +117,12 @@ def fupdate(target, indices=None, values=None, **mappings):
         for index, value in zip(indices, values):
             seq = ShadowedSequence(seq, index, value)
         return make_output(seq)
-    if mappings:
+    if bindings:
         if isinstance(target, frozendict):
             cls = type(target)  # subclassing is possible...
-            return cls(target, **mappings)
+            return cls(target, **bindings)
         # assume mutable mapping
         t = copy(target)
-        t.update(**mappings)
+        t.update(**bindings)
         return t
     return copy(target)

@@ -208,15 +208,15 @@ class frozendict:
     detected by the built-ins ``issubclass`` and ``isinstance``, but they are
     not part of the MRO.
     """
-    def __new__(cls, *ms, **mappings):  # make the empty frozendict() a singleton
-        if not ms and not mappings:
+    def __new__(cls, *ms, **bindings):  # make the empty frozendict() a singleton
+        if not ms and not bindings:
             global _the_empty_frozendict
             if _the_empty_frozendict is None:
                 _the_empty_frozendict = super().__new__(cls)
             return _the_empty_frozendict
         return super().__new__(cls)  # object() takes no args, but we need to see them
 
-    def __init__(self, *ms, **mappings):
+    def __init__(self, *ms, **bindings):
         """Arguments:
 
                ms: mappings; optional
@@ -227,7 +227,7 @@ class frozendict:
 
                    Accepts any type understood by ``dict.update``.
 
-               mappings: kwargs in the form key=value; optional
+               bindings: kwargs in the form key=value; optional
                    Essentially like the ``**F`` argument of ``dict.update``.
 
                    Functional updates applied at the end, after the last mapping
@@ -240,7 +240,7 @@ class frozendict:
                 self._data.update(m)
             except TypeError:
                 pass
-        self._data.update(mappings)
+        self._data.update(bindings)
 
     @wraps(dict.__repr__)
     def __repr__(self):
