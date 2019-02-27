@@ -471,6 +471,8 @@ class ShadowedSequence(Sequence):
     def __getitem__(self, k):
         ix = self.ix
         l = len(self)
+        if k >= l or k < -l:
+            raise IndexError("ShadowedSequence index out of range")
         if in_slice(k, ix, l):
             if isinstance(ix, int):
                 return self.v  # just one item
