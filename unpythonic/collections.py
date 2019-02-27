@@ -302,24 +302,6 @@ del abscls  # namespace cleanup
 
 # -----------------------------------------------------------------------------
 
-class SequenceViewIterator:  # essentially this islices manually (but also backwards).
-    def __init__(self, theview):
-        self.view = theview
-        self._reset()
-    def __iter__(self):
-        self._reset()
-        return self
-    def __next__(self):
-        j = self.j
-        if self.outside(j, self.stop):
-            raise StopIteration()
-        self.j += self.step
-        return self.view.seq[j]
-    def _reset(self):
-        self.start, self.stop, self.step = _canonize_slice(self.view.slice, len(self.view.seq))
-        self.outside = ge if self.step > 0 else le
-        self.j = self.start
-
 class SequenceView(Sequence):
     """Writable view into a sequence.
 
@@ -379,8 +361,18 @@ class SequenceView(Sequence):
         self.seq = sequence
         self.slice = s
         self._seql = None
+
+    # This skips one layer of indirection when iterating over self,
+    # so the iteration is highly efficient when there are no nested views.
     def __iter__(self):
-        return SequenceViewIterator(self)
+        self._update_cache()
+        start, stop, step, _, _ = self._cache
+        seq = self.seq
+        def SequenceViewIterator():
+            for j in range(start, stop, step):
+                yield seq[j]
+        return SequenceViewIterator()
+
     def __len__(self):
         self._update_cache()
         return self._selfl
@@ -450,23 +442,6 @@ class SequenceView(Sequence):
 
 # -----------------------------------------------------------------------------
 
-# We have this so we can raise StopIteration, not IndexError, when the sequence runs out.
-class ShadowedSequenceIterator:
-    def __init__(self, seq):
-        self.seq = seq
-        self._reset()
-    def __iter__(self):
-        self._reset()
-        return self
-    def __next__(self):
-        j = self.j
-        if j >= len(self.seq.seq):
-            raise StopIteration()
-        self.j += 1
-        return self.seq[j]
-    def _reset(self):
-        self.j = 0
-
 class ShadowedSequence(Sequence):
     """Sequence with some elements shadowed by those from another sequence.
 
@@ -486,11 +461,16 @@ class ShadowedSequence(Sequence):
         self.ix = ix
         self.v = v
 
-    # Provide __iter__ so that our __getitem__ can raise IndexError when needed,
-    # without it getting caught by the genexpr in unpythonic.fup.fupdate
-    # when it builds the output sequence.
+    # Provide __iter__ (even though implemented using len() and __getitem__())
+    # so that our __getitem__ can raise IndexError when needed, without it
+    # getting caught by the genexpr in unpythonic.fup.fupdate when it builds
+    # the output sequence.
     def __iter__(self):
-        return ShadowedSequenceIterator(self)
+        l = len(self)
+        def ShadowedSequenceIterator():
+            for j in range(l):
+                yield self[j]
+        return ShadowedSequenceIterator()
 
     def __len__(self):
         return len(self.seq)
