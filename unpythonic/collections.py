@@ -362,19 +362,18 @@ class SequenceView(Sequence):
         self.slice = s
         self._seql = None
 
-    # Fast-ish iteration.
+    # Fast iteration.
     #  - prefer range(...) over manually computing the raw index
     #  - combine nested ranges by slicing
     #  - read from the underlying data directly.
     def __iter__(self):
-        def buildr(seq):
-            if not isinstance(seq.seq, SequenceView):
-                start, stop, step, _, _ = seq._update_cache()
-                return seq.seq, range(start, stop, step)
-            data, r = buildr(seq.seq)
+        def build_range(seq):
+            if not isinstance(seq, SequenceView):
+                return seq, range(len(seq))
+            data, r = build_range(seq.seq)
             start, stop, step, _, _ = seq._update_cache()
             return data, r[start:stop:step]
-        data, r = buildr(self)
+        data, r = build_range(self)
         def SequenceViewIterator():
             for j in r:
                 yield data[j]
