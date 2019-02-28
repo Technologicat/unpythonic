@@ -3,7 +3,7 @@
 
 from itertools import repeat
 
-from ..slicing import fup, view, islice
+from ..slicing import fup, islice
 from ..mathseq import primes, s
 
 def test():
@@ -16,18 +16,6 @@ def test():
     assert fup(lst)[::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)
     assert fup(lst)[::-1] << tuple(range(5)) == (4, 3, 2, 1, 0)
     assert lst == (1, 2, 3, 4, 5)
-
-    # writable view for sequences
-    # (when you want to be more imperative than Python allows)
-    lst = [1, 2, 3, 4, 5]
-    v = view(lst)[2:4]
-    v[:] = [10, 20]
-    assert lst == [1, 2, 10, 20, 5]
-
-    lst = [1, 2, 3, 4, 5]
-    v = view(lst)
-    v[2:4] = [10, 20]
-    assert lst == [1, 2, 10, 20, 5]
 
     # slice syntax wrapper for itertools.islice
     p = primes()

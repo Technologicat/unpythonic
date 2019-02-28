@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 """Operations on sequences with native slice syntax. Syntactic sugar, pure Python."""
 
-__all__ = ["view", "islice", "fup"]
+__all__ = ["islice", "fup"]
 
 from itertools import islice as islicef
 
-from .collections import SequenceView
 from .fup import fupdate
-
-view = SequenceView
 
 def islice(iterable):
     """Use itertools.islice with slice syntax.

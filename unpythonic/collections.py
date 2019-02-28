@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """Additional containers and container utilities."""
 
-__all__ = ["box", "frozendict", "SequenceView", "ShadowedSequence",
-           "get_abcs", "in_slice", "index_in_slice"]
+__all__ = ["box", "frozendict", "view", "ShadowedSequence",
+           "get_abcs", "in_slice", "index_in_slice",
+           "SequenceView", "MutableSequenceView"]  # ABCs
 
 from functools import wraps
 from itertools import repeat
+from abc import abstractmethod
 from collections import abc
 from collections.abc import Container, Iterable, Hashable, Sized, \
                             Sequence, Mapping, Set, \
@@ -302,6 +304,32 @@ del abscls  # namespace cleanup
 
 # -----------------------------------------------------------------------------
 
+class SequenceView(Sequence):
+    """ABC: view of a sequence.
+
+    Provides the same API as ``collections.abc.Sequence``."""
+
+class MutableSequenceView(SequenceView):
+    """ABC: mutable view of a sequence.
+
+    Provides the same API as ``SequenceView``, plus ``__setitem__`` and ``reverse``.
+
+    Unlike ``MutableSequence``, does **not** provide ``append``, ``extend``,
+    ``pop``, ``remove`` or ``__iadd__``. (Use those of the underlying sequence
+    instead.)
+
+    The length of the underlying sequence **is allowed to change at any time**;
+    classes that implement ``MutableSequenceView`` must account for this.
+    """
+    @abstractmethod
+    def __setitem__(self, k, v):
+        pass
+    @abstractmethod
+    def reverse(self):
+        pass
+
+# -----------------------------------------------------------------------------
+
 class _StrReprEqMixin:
     def _lowlevel_repr(self):
         cls = type(getattrrec(self, "seq"))  # de-onionize
@@ -322,26 +350,28 @@ class _StrReprEqMixin:
                 return False
         return True
 
-class SequenceView(_StrReprEqMixin, Sequence):
+# TODO: is there a way to inherit from an ABC without causing the metaclass to change to ABCMeta?
+# TODO: (we want the default implementations of e.g. count, index in the MRO; but this is a concrete class.)
+class view(MutableSequenceView, _StrReprEqMixin):
     """Writable view into a sequence.
-
-    ``unpythonic.slicing.view`` is an alias for
-    ``unpythonic.collections.SequenceView``.
 
     Supports slicing (also recursively, i.e. can be sliced again).
 
-    Does **not** support ``append``, ``extend``, ``pop``, ``remove`` or
-    ``__iadd__``. But we store slice specs, not actual indices, so this
-    works also if the underlying sequence itself undergoes length changes.
+    We store slice specs, not actual indices, so this works also if the
+    underlying sequence undergoes length changes.
 
     **Not** hashable, since the whole point is a live view to input that may
     change at any time. (Perhaps, indeed, by writing into the view, just like
     for NumPy arrays. And yes, when writing a slice, a scalar value broadcasts.)
 
+    In terms of ABCs, this is an ``unpythonic.collections.MutableSequenceView``.
+    Viewing immutable sequences with ``view`` is fine; just don't call the
+    ``.reverse`` method on them.
+
     Examples::
 
         lst = list(range(10))
-        v = SequenceView(lst, slice(None, None, 2))  # or SequenceView(lst)[::2]
+        v = view(lst, slice(None, None, 2))  # or view(lst)[::2]
         assert v == [0, 2, 4, 6, 8]
         v2 = v[1:-1]
         assert v2 == [2, 4, 6]
@@ -353,12 +383,12 @@ class SequenceView(_StrReprEqMixin, Sequence):
         assert v2 == [42, 10, 20]
 
         lst = list(range(5))
-        v = SequenceView(lst, slice(2, 4))  # or SequenceView(lst)[2:4]
+        v = view(lst, slice(2, 4))  # or view(lst)[2:4]
         v[:] = 42  # scalar broadcast
         assert lst == [0, 1, 42, 42, 4]
 
         lst = list(range(5))
-        v = SequenceView(lst, slice(2, None))  # or SequenceView(lst)[2:]
+        v = view(lst, slice(2, None))  # or view(lst)[2:]
         assert v == [2, 3, 4]
         lst.append(5)
         assert v == [2, 3, 4, 5]
@@ -385,7 +415,12 @@ class SequenceView(_StrReprEqMixin, Sequence):
         http://stackoverflow.com/q/3485475/can-i-create-a-view-on-a-python-list
     """
     def __init__(self, sequence, s=None):
-        """If s is None, view the whole input. If s is a slice, view that slice."""
+        """If s is None, view the whole input. If s is a slice, view that slice.
+
+        The slice can also be specified later by subscripting with a slice
+        (doing that creates a new ``view`` instance, which bypasses the
+        original no-op view).
+        """
         if s is None:
             s = slice(None, None, None)
         self.seq = sequence
@@ -394,10 +429,10 @@ class SequenceView(_StrReprEqMixin, Sequence):
 
     def __iter__(self):
         data, r = self._update_cache()
-        def SequenceViewIterator():
+        def view_iterator():
             for j in r:
                 yield data[j]
-        return SequenceViewIterator()
+        return view_iterator()
     def __len__(self):
         _, r = self._update_cache()
         return len(r)
@@ -410,7 +445,7 @@ class SequenceView(_StrReprEqMixin, Sequence):
         return self._cache
     def _range(self):  # return underlying sequence, current range of all elements of self in it
         def buildr(seq):
-            if not isinstance(seq, SequenceView):
+            if not isinstance(seq, view):
                 return seq, range(len(seq))
             data, r = buildr(seq.seq)
             return data, r[seq.slice]
@@ -420,16 +455,16 @@ class SequenceView(_StrReprEqMixin, Sequence):
         if isinstance(k, slice):
             if k == slice(None, None, None):  # v[:]
                 return self
-            if self.slice == slice(None, None, None):  # bypass us if we're a no-op
-                return SequenceView(self.seq, k)
-            return SequenceView(self, k)
+            if self.slice == slice(None, None, None):  # bypass us if we're a no-op (good for subscript curry)
+                return view(self.seq, k)
+            return view(self, k)
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
             data, r = self._update_cache()
             l = len(r)
             if k >= l or k < -l:
-                raise IndexError("SequenceView index out of range")
+                raise IndexError("view index out of range")
             return data[r[k]]
     def __setitem__(self, k, v):
         data, r = self._update_cache()
@@ -447,14 +482,16 @@ class SequenceView(_StrReprEqMixin, Sequence):
         else:
             l = len(r)
             if k >= l or k < -l:
-                raise IndexError("SequenceView assigment index out of range")
+                raise IndexError("view assigment index out of range")
             data[r[k]] = v
     def reverse(self):
         self[::-1] = [x for x in self]
 
 # -----------------------------------------------------------------------------
 
-class ShadowedSequence(_StrReprEqMixin, Sequence):
+# TODO: is there a way to inherit from an ABC without causing the metaclass to change to ABCMeta?
+# TODO: (we want the default implementations of e.g. count, index in the MRO; but this is a concrete class.)
+class ShadowedSequence(Sequence, _StrReprEqMixin):
     """Sequence with some elements shadowed by those from another sequence.
 
     Or in other words, a functionally updated view of a sequence. Or somewhat

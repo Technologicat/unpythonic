@@ -1345,7 +1345,7 @@ The ``fup`` call is essentially curried. It takes in the sequence to be function
 
 *Added in v0.13.1.*
 
-The short, all-lowercase ``view`` is an alias for ``unpythonic.collections.SequenceView``, which more explicitly says what this is: a writable view into a sequence, with slicing, so you can take a slice of a slice (of a slice ...), and it reflects the original both ways:
+A writable view into a sequence, with slicing, so you can take a slice of a slice (of a slice ...), and it reflects the original both ways:
 
 ```python
 from unpythonic import view
@@ -1368,7 +1368,7 @@ v[:] = 42  # scalar broadcast
 assert lst == [0, 1, 42, 42, 4]
 ```
 
-While ``fupdate`` lets you be more functional than Python otherwise allows, ``SequenceView`` lets you be more imperative than Python otherwise allows.
+While ``fupdate`` lets you be more functional than Python otherwise allows, ``view`` lets you be more imperative than Python otherwise allows.
 
 We store slice specs, not actual indices, so this works also if the underlying sequence undergoes length changes.
 
@@ -1377,6 +1377,8 @@ Slicing a view returns a new view. Slicing anything else will usually copy, beca
 The view can be efficiently iterated over. As usual, iteration assumes that no inserts/deletes in the underlying sequence occur during the iteration.
 
 Getting/setting an item (subscripting) checks whether the index cache needs updating during each access, so it can be a bit slow. Setting a slice checks just once, and then updates the underlying iterable directly. Setting a slice to a scalar value broadcasts the scalar à la NumPy.
+
+The ``unpythonic.collections`` module also provides the ``SequenceView`` and ``MutableSequenceView`` abstract base classes; ``view`` is a ``MutableSequenceView``.
 
 
 ### ``mogrify``: update a mutable container in-place
@@ -2678,7 +2680,7 @@ Dynamic assignment based on [StackOverflow answer by Jason Orendorff (2010)](htt
 
 Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
 
-Core idea of `SequenceView` based on [StackOverflow answer by Mathieu Caroff (2018)](https://stackoverflow.com/a/53253136), used under the MIT license. Our additions include support for sequences with changing length, write support, iteration based on `__iter__`, and in-place reverse.
+Core idea of `view` based on [StackOverflow answer by Mathieu Caroff (2018)](https://stackoverflow.com/a/53253136), used under the MIT license. Our additions include support for sequences with changing length, write support, iteration based on `__iter__`, in-place reverse, and the abstract base classes.
 
 
 ### Acknowledgements

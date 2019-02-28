@@ -3,7 +3,7 @@
 from collections.abc import Mapping, MutableMapping, Hashable, Container, Iterable, Sized
 from pickle import dumps, loads
 
-from ..collections import box, frozendict, SequenceView, ShadowedSequence, mogrify
+from ..collections import box, frozendict, view, ShadowedSequence, mogrify
 
 def test():
     # box: mutable single-item container à la Racket
@@ -91,9 +91,10 @@ def test():
     d2 = loads(dumps(d1))  # pickling
     assert d2 == d1
 
-    # writable view into a sequence
+    # writable view for sequences
+    # (when you want to be more imperative than Python allows)
     lst = list(range(5))
-    v = SequenceView(lst)
+    v = view(lst)
     lst[2] = 10
     assert v == [0, 1, 10, 3, 4]
     assert v[2:] == [10, 3, 4]
@@ -111,7 +112,7 @@ def test():
     # views may be created also of slices, but note the syntax
     # (see also unpythonic.syntax.view, which lets use the regular slice syntax)
     lst = list(range(10))
-    v = SequenceView(lst, slice(2, None))
+    v = view(lst)[2:]
     assert v == [2, 3, 4, 5, 6, 7, 8, 9]
     v2 = v[:-2]  # slicing a view returns a new view
     assert v2 == [2, 3, 4, 5, 6, 7]
@@ -120,7 +121,7 @@ def test():
     assert lst == [0, 1, 2, 3, 10, 20, 6, 7, 8, 9]
 
     lst = list(range(10))
-    v = SequenceView(lst, slice(None, None, 2))
+    v = view(lst)[::2]
     assert v == [0, 2, 4, 6, 8]
     v2 = v[1:-1]
     assert v2 == [2, 4, 6]
@@ -133,36 +134,36 @@ def test():
 
     # supports in-place reverse
     lst = list(range(5))
-    v = SequenceView(lst)
+    v = view(lst)
     v.reverse()
     assert lst == [4, 3, 2, 1, 0]
 
     lst = list(range(5))
-    v = SequenceView(lst)
+    v = view(lst)
     v[2] = 10
     assert lst == [0, 1, 10, 3, 4]
 
     lst = list(range(5))
-    v = SequenceView(lst)
+    v = view(lst)
     v[2:4] = (10, 20)
     assert lst == [0, 1, 10, 20, 4]
 
     lst = list(range(5))
-    v = SequenceView(lst, slice(2, 4))
+    v = view(lst)[2:4]
     v[:] = (10, 20)
     assert lst == [0, 1, 10, 20, 4]
     assert v[-1] == 20
 
     # writing a scalar value into a slice broadcasts it, à la NumPy
     lst = list(range(5))
-    v = SequenceView(lst, slice(2, 4))
+    v = view(lst)[2:4]
     v[:] = 42
     assert lst == [0, 1, 42, 42, 4]
 
     # we store slice specs, not actual indices, so it doesn't matter if the
     # underlying sequence undergoes length changes
     lst = list(range(5))
-    v = SequenceView(lst, slice(2, None))
+    v = view(lst)[2:]
     assert v == [2, 3, 4]
     lst.append(5)
     assert v == [2, 3, 4, 5]
