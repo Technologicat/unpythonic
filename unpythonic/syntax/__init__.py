@@ -24,7 +24,6 @@ from .letdo import do as _do, do0 as _do0, local, \
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
 from .nb import nb as _nb
 from .prefix import prefix as _prefix
-from .slicing import fup as _fup, view as _view, islice as _islice
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, call_cc
 
@@ -787,94 +786,6 @@ def quicklambda(tree, **kw):
     The point is, this combo is now possible.)
     """
     return (yield from _quicklambda(block_body=tree))
-
-# -----------------------------------------------------------------------------
-
-@macros.expr
-def fup(tree, **kw):
-    """[syntax, expr] Functionally update a sequence.
-
-    For when you want to be more functional than Python allows.
-
-    Example::
-
-        from itertools import repeat
-
-        lst = (1, 2, 3, 4, 5)
-        assert fup[lst[3] << 42] == (1, 2, 3, 42, 5)
-        assert fup[lst[0::2] << tuple(repeat(10, 3))] == (10, 2, 10, 4, 10)
-
-    The transformation is::
-
-        fup[seq[idx] << value] --> fupdate(seq, idx, value)
-        fup[seq[slicestx] << iterable] --> fupdate(seq, slice(...), iterable)
-
-    Limitations:
-
-      - Currently only one update specification is supported in a single ``fup[]``.
-
-    Named after the sound a sequence makes when it is hit by a functional update.
-    """
-    return _fup(tree)
-
-@macros.expr
-def view(tree, **kw):
-    """[syntax, expr] Writable view into a sequence.
-
-    For when you want to be more imperative than Python allows.
-
-    Examples::
-
-        lst = [1, 2, 3, 4, 5]
-        v = view[lst[2:4]]
-        v[:] = [10, 20]
-        assert lst == [1, 2, 10, 20, 5]
-
-        lst = [1, 2, 3, 4, 5]
-        v = view[lst]
-        v[2:4] = [10, 20]
-        assert lst == [1, 2, 10, 20, 5]
-
-    The transformation is::
-
-        view[seq] --> SequenceView(seq)
-        view[seq[slicestx]] --> SequenceView(seq, slice(...))
-    """
-    return _view(tree)
-
-@macros.expr
-def islice(tree, **kw):
-    """[syntax, expr] Use itertools.islice with slice syntax.
-
-    An ``islice[]`` slicing expression transforms into a call to
-    ``itertools.islice`` with the corresponding slicing parameters.
-
-    As a convenience feature: inside an ``islice[]`` expression, a single index
-    is interpreted as a length-1 islice starting at that index. The slice is then
-    immediately evaluated and the item is returned.
-
-    Examples::
-
-        from unpythonic.syntax import macros, islice
-        from unpythonic import primes, s
-
-        p = primes()
-        assert tuple(islice[p[10:15]]) == (31, 37, 41, 43, 47)
-
-        assert tuple(islice[primes()[10:15]]) == (31, 37, 41, 43, 47)
-
-        p = primes()
-        assert islice[p[10]] == 31
-
-        odds = islice[s(1, 2, ...)[::2]]
-        assert tuple(islice[odds[:5]]) == (1, 3, 5, 7, 9)
-        assert tuple(islice[odds[:5]]) == (11, 13, 15, 17, 19)  # five more
-
-    **CAUTION**: Keep in mind ``itertools.islice`` does not support negative
-    indexing for any of ``start``, ``stop`` or ``step``, and that the slicing
-    process consumes elements from the iterable.
-    """
-    return _islice(tree)
 
 # -----------------------------------------------------------------------------
 

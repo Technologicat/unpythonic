@@ -32,6 +32,7 @@ from .llist import *
 from .mathseq import *
 from .misc import *
 from .seq import *
+from .slicing import *
 from .tco import *
 
 # HACK: break dependency loop
