@@ -1450,6 +1450,8 @@ Obviously not intended for production use, although is very likely to work anywh
 
 ## Meta
 
+Is this just a set of macros, a language extension, or a compiler for a new language that just happens to be implemented in MacroPy, à la *On Lisp*? All of the above, really.
+
 ### Comboability
 
 The macros in ``unpythonic.syntax`` are designed to work together, but some care needs to be taken regarding the order in which they expand.
