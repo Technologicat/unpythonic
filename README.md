@@ -2,66 +2,62 @@
 
 In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some haskellisms mixed in. We place a special emphasis on **clear, pythonic syntax**.
 
-We also provide extensions to the Python language as a set of [syntactic macros](macro_extras/), built on [MacroPy](https://github.com/azazel75/macropy), that are designed to work together: e.g. automatic currying, automatic tail-call optimization, call-by-need (lazy functions), continuations (``call/cc``), lexically scoped ``let`` and ``do``, implicit return statements, and easy-to-use multi-expression lambdas with local variables. Each macro adds an orthogonal piece of functionality that can (mostly) be mixed and matched with the others.
+We also provide extensions to the Python language as a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros) that are designed to work together. The macros provide features such as *automatic* currying, *automatic* tail-call optimization, call-by-need (lazy functions), continuations (``call/cc``), lexically scoped ``let`` and ``do`` with lean syntax, implicit return statements, and easy-to-use multi-expression lambdas with local variables. Each macro adds an orthogonal piece of functionality that can (mostly) be mixed and matched with the others.
 
-Design considerations are simplicity, robustness, and minimal dependencies. Currently none required; MacroPy optional, to enable the syntactic macros.
+Design considerations are simplicity, robustness, and minimal dependencies. Currently none required; [MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macros.
+
+This README documents the pure-Python part of ``unpythonic``. See also [documentation for the macros](macro_extras/).
 
 **Contents**:
 
-This README documents the pure-Python part of ``unpythonic``, i.e. everything that does not use macros. For documentation on the macros, see [here](macro_extras/).
-
-For many examples, see the unit tests located in [unpythonic/test/](unpythonic/test/), the docstrings of the individual features, and this README.
-
-*This README doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out of date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this README) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
-
  - [**Bindings**](#bindings)
-   - [Local bindings in an expression: ``let``, ``letrec``](#local-bindings-in-an-expression-let-letrec)
+   - [``let``, ``letrec``: local bindings in an expression](#let-letrec-local-bindings-in-an-expression)
      - [Lispylet: alternative syntax](#lispylet-alternative-syntax)
-   - [The environment: ``env``](#the-environment-env)
-   - [Assign-once](#assign-once), a relative of ``env``
-   - [Dynamic assignment](#dynamic-assignment) (a.k.a. parameterize, special variables, "dynamic scoping")
+   - [``env``: the environment](#env-the-environment)
+   - [``assignonce``](#assignonce), a relative of ``env``.
+   - [``dyn``: dynamic assignment](#dyn-dynamic-assignment) a.k.a. parameterize, special variables, "dynamic scoping".
 
  - [**Containers**](#containers)
-   - [``frozendict``, an immutable dictionary](#frozendict-an-immutable-dictionary)
-   - [`cons` and friends, pythonic lispy linked lists](#cons-and-friends-pythonic-lispy-linked-lists)
-   - [``box``, a mutable single-item container](#box-a-mutable-single-item-container)
-   - [Container utilities](#container-utilities)
+   - [``frozendict``: an immutable dictionary](#frozendict-an-immutable-dictionary)
+   - [`cons` and friends: pythonic lispy linked lists](#cons-and-friends-pythonic-lispy-linked-lists)
+   - [``box``: a mutable single-item container](#box-a-mutable-single-item-container)
+   - [Container utilities](#container-utilities): ``get_abcs``, ``in_slice``, ``index_in_slice``
 
- - [**Sequencing**](#sequencing), run multiple expressions in any expression position (incl. inside a ``lambda``)
-   - [Sequence side effects: ``begin``](#sequence-side-effects-begin)
-   - [Stuff imperative code into an expression: ``do``](#stuff-imperative-code-into-an-expression-do)
-   - [Sequence functions: ``pipe``, ``piped``, ``lazy_piped``](#sequence-functions-pipe-piped-lazy_piped)
+ - [**Sequencing**](#sequencing), run multiple expressions in any expression position (incl. inside a ``lambda``).
+   - [``begin``: sequence side effects](#begin-sequence-side-effects)
+   - [``do``: stuff imperative code into an expression](#do-stuff-imperative-code-into-an-expression)
+   - [``pipe``, ``piped``, ``lazy_piped``: sequence functions](#pipe-piped-lazy_piped-sequence-functions)
 
- - [**Batteries**](#batteries) missing from the standard library
-   - [Batteries for functools](#batteries-for-functools): `memoize`, `curry`, `compose`
+ - [**Batteries**](#batteries) missing from the standard library.
+   - [**Batteries for functools**](#batteries-for-functools): `memoize`, `curry`, `compose`, `withself` and more.
      - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
-     - [Memoization for generators](#memoization-for-generators), iterables and iterator factories: `gmemoize`, `imemoize`, `fimemoize`.
-   - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables
-     - [Lazy mathematical sequences with infix arithmetic](#lazy-mathematical-sequences-with-infix-arithmetic)
-   - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
-   - [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment
-   - [``islice``: slice syntax for ``itertools.islice``](#islice-slice-syntax-for-itertoolsislice)
-   - [``mogrify``: update mutable containers in-place](#mogrify-update-mutable-containers-in-place)
+   - [**Batteries for itertools**](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables, etc.
+   - [``islice``: slice syntax support for ``itertools.islice``](#islice-slice-syntax-support-for-itertoolsislice)
+   - [`gmemoize`, `imemoize`, `fimemoize`: memoize generators](#gmemoize-imemoize-fimemoize-memoize-generators), iterables and iterator factories.
+   - [``fup``: functional update; ``ShadowedSequence``](#fup-functional-update-shadowedsequence): like ``collections.ChainMap``, but for sequences.
+   - [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
+   - [``mogrify``: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
+   - [``s``, ``m``: lazy mathematical sequences with infix arithmetic](#s-m-lazy-mathematical-sequences-with-infix-arithmetic)
 
  - [**Control flow tools**](#control-flow-tools)
-   - [Tail call optimization (TCO) / explicit continuations](#tail-call-optimization-tco--explicit-continuations)
-     - [Loops in FP style (with TCO)](#loops-in-fp-style-with-tco): FP looping constructs.
-     - [Generators with TCO](#generators-with-tco): tail-chaining; like ``itertools.chain``, but from inside a generator.
-   - [Escape continuations (ec)](#escape-continuations-ec)
-     - [First-class escape continuations: ``call/ec``](#first-class-escape-continuations-callec)
-   - [Nondeterministic evaluation](#nondeterministic-evaluation): `forall`, a tuple comprehension with multiple body expressions
+   - [``trampolined``, ``jump``: tail call optimization (TCO) / explicit continuations](#trampolined-jump-tail-call-optimization-tco--explicit-continuations)
+   - [``looped``, ``looped_over``: loops in FP style (with TCO)](#looped-looped_over-loops-in-fp-style-with-tco)
+   - [``gtrampolined``: generators with TCO](#gtrampolined-generators-with-tco): tail-chaining; like ``itertools.chain``, but from inside a generator.
+   - [``setescape``, ``escape``: escape continuations (ec)](#setescape-escape-escape-continuations-ec)
+     - [``call_ec``: first-class escape continuations](#call_ec-first-class-escape-continuations), like Racket's ``call/ec``.
+   - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation), a tuple comprehension with multiple body expressions.
 
  - [**Other**](#other)
-   - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope
+   - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope.
    - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
-   - [``raisef``: ``raise`` as a function](#raisef-raise-as-a-function)
+   - [``raisef``: ``raise`` as a function](#raisef-raise-as-a-function), useful inside a lambda.
    - [``pack``: multi-arg constructor for tuple](#pack-multi-arg-constructor-for-tuple)
    - [``namelambda``, rename a function](#namelambda-rename-a-function)
    - [``timer``: a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
    - [``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers](#getattrrec-setattrrec-access-underlying-data-in-an-onion-of-wrappers)
-   - [Function signature inspection utilities](#function-signature-inspection-utilities)
+   - [``arities``, ``kwargs``: Function signature inspection utilities](#arities-kwargs-function-signature-inspection-utilities)
 
- - [**Advanced: syntactic macros**](macro_extras/): the second half of ``unpythonic``, providing features such as ``call/cc``, autocurry and call-by-need.
+ - [**Advanced: syntactic macros**](macro_extras/): the second half of ``unpythonic``.
 
  - [**Meta**](#meta)
    - [Design notes](#design-notes)
@@ -70,12 +66,16 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
    - [Acknowledgements](#acknowledgements)
    - [Python-related FP resources](#python-related-fp-resources)
 
+For many examples, see the unit tests located in [unpythonic/test/](unpythonic/test/), the docstrings of the individual features, and this README.
+
+*This README doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out of date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this README) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
+
 
 ## Bindings
 
 Tools to bind identifiers in ways not ordinarily supported by Python.
 
-### Local bindings in an expression: ``let``, ``letrec``
+### ``let``, ``letrec``: local bindings in an expression
 
 Introduce bindings local to an expression, like Scheme's ``let`` and ``letrec``. For easy-to-use versions of these constructs that look almost like normal Python, see [macros](macro_extras/). This section documents the underlying pure-Python API, which can also be used directly if you don't want to depend on MacroPy.
 
@@ -207,7 +207,7 @@ The syntax is `let(bindings, body)` (respectively `letrec(bindings, body)`), whe
 The let macros internally use this *lispylet* implementation.
 
 
-### The environment: ``env``
+### ``env``: the environment
 
 The environment used by all the ``let`` constructs and ``assignonce`` (but **not** by `dyn`) is essentially a bunch with iteration, subscripting and context manager support. For details, see `unpythonic.env`.
 
@@ -246,7 +246,7 @@ print(e)  # empty!
 When the `with` block exits, the environment clears itself. The environment instance itself remains alive due to Python's scoping rules.
 
 
-### Assign-once
+### ``assignonce``
 
 In Scheme terms, make `define` and `set!` look different:
 
@@ -260,10 +260,10 @@ with assignonce() as e:
     e.foo = "quux"          # AttributeError, e.foo already defined.
 ```
 
-It's a subclass of ``env``, so it shares most of the same [features](#the-environment-env) and allows similar usage.
+It's a subclass of ``env``, so it shares most of the same [features](#env-the-environment) and allows similar usage.
 
 
-### Dynamic assignment
+### ``dyn``: dynamic assignment
 
 ([As termed by Felleisen.](https://groups.google.com/forum/#!topic/racket-users/2Baxa2DxDKQ))
 
@@ -326,7 +326,7 @@ We provide some additional containers.
 
 The class names are lowercase, because these are intended as low-level utility classes in principle on par with the builtins. The immutable containers are hashable. All containers are pickleable (if their contents are).
 
-### ``frozendict``, an immutable dictionary
+### ``frozendict``: an immutable dictionary
 
 *Added in v0.13.0.*
 
@@ -409,7 +409,7 @@ assert frozendict() is frozendict()
 ...but don't pickle the empty ``frozendict`` and expect this invariant to hold; it's freshly created in each session.
 
 
-### `cons` and friends, pythonic lispy linked lists
+### `cons` and friends: pythonic lispy linked lists
 
 *Laugh, it's funny.*
 
@@ -489,7 +489,7 @@ The linked list iteration strategy (which supports arbitrarily long lists) does 
 **Caution**: the ``nil`` singleton is freshly created in each session; newnil is not oldnil, so don't pickle a standalone ``nil``. The unpickler of ``cons`` automatically refreshes any ``nil`` instances inside a pickled cons structure, so that **cons structures** support the illusion that ``nil`` is a special value like ``None`` or ``...``. After unpickling, ``car(c) is nil`` and ``cdr(c) is nil`` still work as expected, even though ``id(nil)`` has changed.
 
 
-### ``box``, a mutable single-item container
+### ``box``: a mutable single-item container
 
 *Added in v0.12.0.*
 
@@ -583,7 +583,7 @@ Keep in mind the only reason to ever need multiple expressions: *side effects.* 
 See also ``multilambda`` in [macros](macro_extras/).
 
 
-### Sequence side effects: ``begin``
+### ``begin``: sequence side effects
 
 ```python
 from unpythonic import begin, begin0
@@ -600,7 +600,7 @@ f2(2)  # --> 84
 Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`unpythonic.seq`](unpythonic/seq.py) for details.
 
 
-### Stuff imperative code into an expression: ``do``
+### ``do``: stuff imperative code into an expression
 
 No monadic magic. Basically, ``do`` is:
 
@@ -684,7 +684,7 @@ call_ec(
 This way, any assignments made in the ``do`` (which occur only after ``do`` gets control), performed above the line with the ``ec`` call, will have been performed when the ``ec`` is called.
 
 
-### Sequence functions: ``pipe``, ``piped``, ``lazy_piped``
+### ``pipe``, ``piped``, ``lazy_piped``: sequence functions
 
 Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/). A pipe performs a sequence of operations, starting from an initial value, and then returns the final value. It's just function composition, but with an emphasis on data flow, which helps improve readability:
 
@@ -778,14 +778,14 @@ Things missing from the standard library.
      - An implicit top-level curry context is inserted around all the functions except the one that is applied last.
    - `composel1`, `composer1`: 1-in-1-out chains (faster; also useful for a single value that is a tuple).
    - suffix `i` to use with an iterable (`composeli`, `composeri`, `composelci`, `composerci`, `composel1i`, `composer1i`)
+ - `withself`: essentially, the Y combinator trick as a decorator. Allows a lambda to refer to itself.
+   - The ``self`` argument is declared explicitly, but passed implicitly (as the first positional argument), just like the ``self`` argument of a method.
  - `apply`: the lispy approach to starargs. Mainly useful with the ``prefix`` [macro](macro_extras/).
  - `andf`, `orf`, `notf`: compose predicates (like Racket's `conjoin`, `disjoin`, `negate`).
  - `flip`: reverse the order of positional arguments.
  - `rotate`: a cousin of `flip`. Permute the order of positional arguments in a cycle.
  - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting 1-in-1-out functions into m-in-n-out compose chains. (Currying can eliminate the need for these.)
  - `identity`, `const` which sometimes come in handy when programming with higher-order functions.
- - `withself`: essentially, the Y combinator trick as a decorator. Allows a lambda to refer to itself.
-   - The ``self`` argument is declared explicitly, but passed implicitly (as the first positional argument), just like the ``self`` argument of a method.
 
 Examples (see also the next section):
 
@@ -951,100 +951,6 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
 **Note**: to code in curried style, a [contract system](https://github.com/AndreaCensi/contracts) or a [static type checker](http://mypy-lang.org/) is useful; also, be careful with variadic functions.
 
 
-#### Memoization for generators
-
-Make generator functions (gfunc, i.e. a generator definition) which create memoized generators, similar to how streams behave in Racket.
-
-Memoize iterables; like `itertools.tee`, but no need to know in advance how many copies of the iterator will be made. Provided for both iterables and for factory functions that make iterables.
-
- - `gmemoize` is a decorator for a gfunc, which makes it memoize the instantiated generators.
-   - If the gfunc takes arguments, they must be hashable. A separate memoized sequence is created for each unique set of argument values seen.
-   - For simplicity, the generator itself may use ``yield`` for output only; ``send`` is not supported.
-   - Any exceptions raised by the generator (except StopIteration) are also memoized, like in ``memoize``.
-   - Thread-safe. Calls to ``next`` on the memoized generator from different threads are serialized via a lock. Each memoized sequence has its own lock. This uses ``threading.RLock``, so re-entering from the same thread (e.g. in recursively defined sequences) is fine.
-   - The whole history is kept indefinitely. For infinite iterables, use this only if you can guarantee that only a reasonable number of terms will ever be evaluated (w.r.t. available RAM).
-   - Typically, this should be the outermost decorator if several are used on the same gfunc.
- - `imemoize`: memoize an iterable. Like `itertools.tee`, but keeps the whole history, so more copies can be teed off later.
-   - Same limitation: **do not** use the original iterator after it is memoized. The danger is that if anything other than the memoization mechanism advances the original iterator, some values will be lost before they can reach the memo.
-   - Returns a gfunc with no parameters which, when called, returns a generator that yields items from the memoized iterable. The original iterable is used to retrieve more terms when needed.
-   - Calling the gfunc essentially tees off a new instance, which begins from the first memoized item.
- - `fimemoize`: convert a factory function, that returns an iterable, into the corresponding gfunc, and `gmemoize` that. Return the memoized gfunc.
-   - Especially convenient with short lambdas, where `(yield from ...)` instead of `...` is just too much text.
-
-```python
-from itertools import count, takewhile
-from unpythonic import gmemoize, imemoize, fimemoize, take, nth
-
-@gmemoize
-def primes():  # FP sieve of Eratosthenes
-    yield 2
-    for n in count(start=3, step=2):
-        if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
-            yield n
-assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
-assert nth(3378, primes()) == 31337  # with memo, linear process; no crash
-
-# but be careful:
-31337 in primes()  # --> True
-1337 in takewhile(lambda p: p <= 1337, primes())  # not prime, need takewhile() to stop
-
-# or use unpythonic.inn, which auto-terminates on monotonic iterables:
-from unpythonic import inn
-inn(31337, primes())  # --> True
-inn(1337, primes())  # --> False
-```
-
-Memoizing only a part of an iterable. This is where `imemoize` and `fimemoize` can be useful. The basic idea is to make a chain of generators, and only memoize the last one:
-
-```python
-from unpythonic import gmemoize, drop, last
-
-def evens():  # the input iterable
-    yield from (x for x in range(100) if x % 2 == 0)
-
-@gmemoize
-def some_evens(n):  # we want to memoize the result without the n first terms
-    yield from drop(n, evens())
-
-assert last(some_evens(25)) == last(some_evens(25))  # iterating twice!
-```
-
-Using a lambda, we can also write ``some_evens`` as:
-
-```python
-se = gmemoize(lambda n: (yield from drop(n, evens())))
-assert last(se(25)) == last(se(25))
-```
-
-Using `fimemoize`, we can omit the ``yield from``, shortening this to:
-
-```python
-se = fimemoize(lambda n: drop(n, evens()))
-assert last(se(25)) == last(se(25))
-```
-
-If we don't need to take an argument, we can memoize the iterable directly, using ``imemoize``:
-
-```python
-se = imemoize(drop(25, evens()))
-assert last(se()) == last(se())  # se is a gfunc, so call it to get a generator instance
-```
-
-Finally, compare the `fimemoize` example, rewritten using `def`, to the original `gmemoize` example:
-
-```python
-@fimemoize
-def some_evens(n):
-    return drop(n, evens())
-
-@gmemoize
-def some_evens(n):
-    yield from drop(n, evens())
-```
-
-The only differences are the name of the decorator and ``return`` vs. ``yield from``. The point of `fimemoize` is that in simple cases like this, it allows us to use a regular factory function that makes an iterable, instead of a gfunc. Of course, the gfunc could have several `yield` expressions before it finishes, whereas the factory function terminates at the `return`.
-
-
 ### Batteries for itertools
 
  - `foldl`, `foldr` with support for multiple input iterables, like in Racket.
@@ -1083,6 +989,7 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - `flatten_in`: recursive, with an optional predicate; but recurse also into items which don't match the predicate.
  - `take`, `drop`, `split_at`: based on `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
    - Especially useful for testing generators.
+   - `islice` is maybe more pythonic than `take` and `drop`; see below for a utility that supports the slice syntax.
  - `clip`: drop ``n1`` items, then take ``n2`` items. *Added in v0.13.1.*
  - `tail`: return the tail of an iterable. Same as `drop(1, iterable)`; common use case.
  - `butlast`, `butlastn`: return a generator that yields from iterable, dropping the last `n` items if the iterable is finite. Inspired by a similar utility in PG's [On Lisp](http://paulgraham.com/onlisp.html).
@@ -1092,9 +999,9 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
    - `iterate1` is for 1-to-1 functions; `iterate` for n-to-n, unpacking the return value to the argument list of the next call.
  - `partition` from `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
  - `rev` is a convenience function that tries `reversed`, and if the input was not a sequence, converts it to a tuple and reverses that. The return value is a `reversed` object.
- - `scons`: prepend one element to the start of an iterable, return new iterable. ``scons(x, iterable)`` is shorthand for ``itertools.chain((x,), iterable)``.
+ - `scons`: prepend one element to the start of an iterable, return new iterable. ``scons(x, iterable)`` is lispy shorthand for ``itertools.chain((x,), iterable)``, allowing to omit the one-item tuple wrapper.
  - `inn`: contains-check (``x in iterable``) with automatic termination for monotonic infinite iterables. *Added in v0.13.1.*
-   - Only applicable to monotonic inputs. Increasing/decreasing is auto-detected, but may fail to terminate if the input is not monotonic.
+   - Only applicable to monotonic inputs. Increasing/decreasing is auto-detected from the first non-zero diff, but the function may fail to terminate if the input is actually not monotonic.
  - `iindex`: like ``list.index``, but for a general iterable. Consumes the iterable, so only makes sense for memoized inputs. *Added in v0.13.1.*
  - `prod`: like the builtin `sum`, but compute the product. Oddly missing from the standard library. *Added in v0.13.1.*
 
@@ -1194,21 +1101,340 @@ assert tuple(curry(clip, 5, 10, range(20)) == tuple(range(5, 15))
 ```
 
 
-#### Lazy mathematical sequences with infix arithmetic
+### ``islice``: slice syntax support for ``itertools.islice``
+
+*Added in v0.13.1.*
+
+Slice an iterable, using the regular slicing syntax:
+
+```python
+from unpythonic import islice, primes, s
+
+p = primes()
+assert tuple(islice(p)[10:15]) == (31, 37, 41, 43, 47)
+
+assert tuple(islice(primes())[10:15]) == (31, 37, 41, 43, 47)
+
+p = primes()
+assert islice(p)[10] == 31
+
+odds = islice(s(1, 2, ...))[::2]
+assert tuple(islice(odds)[:5]) == (1, 3, 5, 7, 9)
+assert tuple(islice(odds)[:5]) == (11, 13, 15, 17, 19)  # five more
+```
+
+The slicing variant calls ``itertools.islice`` with the corresponding slicing parameters.
+
+As a convenience feature: a single index is interpreted as a length-1 islice starting at that index. The slice is then immediately evaluated and the item is returned.
+
+**CAUTION**: Keep in mind ``itertools.islice`` does not support negative indexing for any of ``start``, ``stop`` or ``step``, and that the slicing process consumes elements from the iterable.
+
+Like ``fup``, our ``islice`` is essentially a manually curried function with unusual syntax; the initial call to ``islice`` passes in the iterable to be sliced. The object returned by the call accepts a subscript to specify the slice or index. Once the slice or index is provided, the call to ``itertools.islice`` triggers.
+
+Inspired by Python itself.
+
+
+### `gmemoize`, `imemoize`, `fimemoize`: memoize generators
+
+Make generator functions (gfunc, i.e. a generator definition) which create memoized generators, similar to how streams behave in Racket.
+
+Memoize iterables; like `itertools.tee`, but no need to know in advance how many copies of the iterator will be made. Provided for both iterables and for factory functions that make iterables.
+
+ - `gmemoize` is a decorator for a gfunc, which makes it memoize the instantiated generators.
+   - If the gfunc takes arguments, they must be hashable. A separate memoized sequence is created for each unique set of argument values seen.
+   - For simplicity, the generator itself may use ``yield`` for output only; ``send`` is not supported.
+   - Any exceptions raised by the generator (except StopIteration) are also memoized, like in ``memoize``.
+   - Thread-safe. Calls to ``next`` on the memoized generator from different threads are serialized via a lock. Each memoized sequence has its own lock. This uses ``threading.RLock``, so re-entering from the same thread (e.g. in recursively defined sequences) is fine.
+   - The whole history is kept indefinitely. For infinite iterables, use this only if you can guarantee that only a reasonable number of terms will ever be evaluated (w.r.t. available RAM).
+   - Typically, this should be the outermost decorator if several are used on the same gfunc.
+ - `imemoize`: memoize an iterable. Like `itertools.tee`, but keeps the whole history, so more copies can be teed off later.
+   - Same limitation: **do not** use the original iterator after it is memoized. The danger is that if anything other than the memoization mechanism advances the original iterator, some values will be lost before they can reach the memo.
+   - Returns a gfunc with no parameters which, when called, returns a generator that yields items from the memoized iterable. The original iterable is used to retrieve more terms when needed.
+   - Calling the gfunc essentially tees off a new instance, which begins from the first memoized item.
+ - `fimemoize`: convert a factory function, that returns an iterable, into the corresponding gfunc, and `gmemoize` that. Return the memoized gfunc.
+   - Especially convenient with short lambdas, where `(yield from ...)` instead of `...` is just too much text.
+
+```python
+from itertools import count, takewhile
+from unpythonic import gmemoize, imemoize, fimemoize, take, nth
+
+@gmemoize
+def primes():  # FP sieve of Eratosthenes
+    yield 2
+    for n in count(start=3, step=2):
+        if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
+            yield n
+assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
+assert nth(3378, primes()) == 31337  # with memo, linear process; no crash
+
+# but be careful:
+31337 in primes()  # --> True
+1337 in takewhile(lambda p: p <= 1337, primes())  # not prime, need takewhile() to stop
+
+# or use unpythonic.inn, which auto-terminates on monotonic iterables:
+from unpythonic import inn
+inn(31337, primes())  # --> True
+inn(1337, primes())  # --> False
+```
+
+Memoizing only a part of an iterable. This is where `imemoize` and `fimemoize` can be useful. The basic idea is to make a chain of generators, and only memoize the last one:
+
+```python
+from unpythonic import gmemoize, drop, last
+
+def evens():  # the input iterable
+    yield from (x for x in range(100) if x % 2 == 0)
+
+@gmemoize
+def some_evens(n):  # we want to memoize the result without the n first terms
+    yield from drop(n, evens())
+
+assert last(some_evens(25)) == last(some_evens(25))  # iterating twice!
+```
+
+Using a lambda, we can also write ``some_evens`` as:
+
+```python
+se = gmemoize(lambda n: (yield from drop(n, evens())))
+assert last(se(25)) == last(se(25))
+```
+
+Using `fimemoize`, we can omit the ``yield from``, shortening this to:
+
+```python
+se = fimemoize(lambda n: drop(n, evens()))
+assert last(se(25)) == last(se(25))
+```
+
+If we don't need to take an argument, we can memoize the iterable directly, using ``imemoize``:
+
+```python
+se = imemoize(drop(25, evens()))
+assert last(se()) == last(se())  # se is a gfunc, so call it to get a generator instance
+```
+
+Finally, compare the `fimemoize` example, rewritten using `def`, to the original `gmemoize` example:
+
+```python
+@fimemoize
+def some_evens(n):
+    return drop(n, evens())
+
+@gmemoize
+def some_evens(n):
+    yield from drop(n, evens())
+```
+
+The only differences are the name of the decorator and ``return`` vs. ``yield from``. The point of `fimemoize` is that in simple cases like this, it allows us to use a regular factory function that makes an iterable, instead of a gfunc. Of course, the gfunc could have several `yield` expressions before it finishes, whereas the factory function terminates at the `return`.
+
+
+### ``fup``: Functional update; ``ShadowedSequence``
+
+We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). See its docstring for details.
+
+The function ``fupdate`` functionally updates sequences and mappings. Whereas ``ShadowedSequence`` reads directly from the original sequences at access time, ``fupdate`` makes a shallow copy (of the same type as the given input sequence) when it finalizes its output. The utility function ``fup`` is a specialization of ``fupdate`` to sequences, and adds support for the standard slicing syntax.
+
+First, let's look at ``fupdate``:
+
+```python
+from unpythonic import fupdate
+
+lst = [1, 2, 3]
+out = fupdate(lst, 1, 42)
+assert lst == [1, 2, 3]  # the original remains untouched
+assert out == [1, 42, 3]
+
+lst = [1, 2, 3]
+out = fupdate(lst, -1, 42)  # negative indices also supported
+assert lst == [1, 2, 3]
+assert out == [1, 2, 42]
+```
+
+Immutable input sequences are allowed. Replacing a slice of a tuple by a sequence:
+
+```python
+from itertools import repeat
+lst = (1, 2, 3, 4, 5)
+assert fupdate(lst, slice(0, None, 2), tuple(repeat(10, 3))) == (10, 2, 10, 4, 10)
+assert fupdate(lst, slice(1, None, 2), tuple(repeat(10, 2))) == (1, 10, 3, 10, 5)
+assert fupdate(lst, slice(None, None, 2), tuple(repeat(10, 3))) == (10, 2, 10, 4, 10)
+assert fupdate(lst, slice(None, None, -1), tuple(range(5))) == (4, 3, 2, 1, 0)
+```
+
+Slicing supports negative indices and steps, and default starts, stops and steps, as usual in Python. Just remember ``a[start:stop:step]`` actually means ``a[slice(start, stop, step)]`` (with ``None`` replacing omitted ``start``, ``stop`` and ``step``), and everything should follow. Multidimensional arrays are **not** supported.
+
+When ``fupdate`` constructs its output, the replacement occurs by walking *the input sequence* left-to-right, and pulling an item from the replacement sequence when the given replacement specification so requires. Hence the replacement sequence is not necessarily accessed left-to-right. (In the last example above, ``tuple(range(5))`` was read in the order ``(4, 3, 2, 1, 0)``.)
+
+The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored (so e.g. an infinite ``repeat`` is fine), but if the replacement is too short, ``IndexError`` is raised. (*Changed in v0.13.1.* This was previously ``ValueError``.)
+
+It is also possible to replace multiple individual items. These are treated as separate specifications, applied left to right (so later updates shadow earlier ones, if updating at the same index):
+
+```python
+lst = (1, 2, 3, 4, 5)
+out = fupdate(lst, (1, 2, 3), (17, 23, 42))
+assert lst == (1, 2, 3, 4, 5)
+assert out == (1, 17, 23, 42, 5)
+```
+
+Multiple specifications can be used with slices and sequences as well:
+
+```python
+lst = tuple(range(10))
+out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2)),
+                   (tuple(repeat(2, 5)), tuple(repeat(3, 5))))
+assert lst == tuple(range(10))
+assert out == (2, 3, 2, 3, 2, 3, 2, 3, 2, 3)
+```
+
+Strictly speaking, each specification can be either a slice/sequence pair or an index/item pair:
+
+```python
+lst = tuple(range(10))
+out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2), 6),
+                   (tuple(repeat(2, 5)), tuple(repeat(3, 5)), 42))
+assert lst == tuple(range(10))
+assert out == (2, 3, 2, 3, 2, 3, 42, 3, 2, 3)
+```
+
+Also mappings can be functionally updated:
+
+```python
+d1 = {'foo': 'bar', 'fruit': 'apple'}
+d2 = fupdate(d1, foo='tavern')
+assert sorted(d1.items()) == [('foo', 'bar'), ('fruit', 'apple')]
+assert sorted(d2.items()) == [('foo', 'tavern'), ('fruit', 'apple')]
+```
+
+For immutable mappings, ``fupdate`` supports ``frozendict`` (see below). Any other mapping is assumed mutable, and ``fupdate`` essentially just performs ``copy.copy()`` and then ``.update()``.
+
+We can also functionally update a namedtuple:
+
+```python
+from collections import namedtuple
+A = namedtuple("A", "p q")
+a = A(17, 23)
+out = fupdate(a, 0, 42)
+assert a == A(17, 23)
+assert out == A(42, 23)
+```
+
+Namedtuples export only a sequence interface, so they cannot be treated as mappings.
+
+Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
+
+The preferred way to use ``fupdate`` on sequences is through the ``fup`` utility function, which adds support for Python's standard slicing syntax:
+
+```python
+from unpythonic import fup
+from itertools import repeat
+
+lst = (1, 2, 3, 4, 5)
+assert fup(lst)[3] << 42 == (1, 2, 3, 42, 5)
+assert fup(lst)[0::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)
+```
+
+Currently only one update specification is supported in a single ``fup()``.
+
+The notation follows the ``unpythonic`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched.
+
+The ``fup`` call is essentially curried. It takes in the sequence to be functionally updated. The object returned by the call accepts a subscript to specify the index or indices. This then returns another object that accepts a left-shift to specify the values. Once the values are provided, the underlying call to ``fupdate`` triggers, and the result is returned.
+
+*Changed in v0.13.1.* Added support to ``ShadowedSequence`` for slicing (read-only), equality comparison, ``str`` and ``repr``. Out-of-range read access to a single item emits a meaningful error, like in ``list``. The utility ``fup`` was previously a macro; now it is a regular function, with slightly changed syntax to accommodate.
+
+
+### ``view``: writable, sliceable view into a sequence
+
+*Added in v0.13.1.*
+
+The short, all-lowercase ``view`` is an alias for ``unpythonic.collections.SequenceView``, which more explicitly says what this is: a writable view into a sequence, with slicing, so you can take a slice of a slice (of a slice ...), and it reflects the original both ways:
+
+```python
+from unpythonic import view
+
+lst = list(range(10))
+v = view(lst)[::2]
+assert v == [0, 2, 4, 6, 8]
+v2 = v[1:-1]
+assert v2 == [2, 4, 6]
+v2[1:] = (10, 20)
+assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
+
+lst[2] = 42
+assert v == [0, 42, 10, 20, 8]
+assert v2 == [42, 10, 20]
+
+lst = list(range(5))
+v = view(lst)[2:4]
+v[:] = 42  # scalar broadcast
+assert lst == [0, 1, 42, 42, 4]
+```
+
+While ``fupdate`` lets you be more functional than Python otherwise allows, ``SequenceView`` lets you be more imperative than Python otherwise allows.
+
+We store slice specs, not actual indices, so this works also if the underlying sequence undergoes length changes.
+
+Slicing a view returns a new view. Slicing anything else will usually copy, because the object being sliced does, before we get control. To slice lazily, first view the sequence itself and then slice that. The initial no-op view is optimized away, so it won't slow down accesses. Alternatively, pass a ``slice`` object into the ``view`` constructor.
+
+The view can be efficiently iterated over. As usual, iteration assumes that no inserts/deletes in the underlying sequence occur during the iteration.
+
+Getting/setting an item (subscripting) checks whether the index cache needs updating during each access, so it can be a bit slow. Setting a slice checks just once, and then updates the underlying iterable directly. Setting a slice to a scalar value broadcasts the scalar à la NumPy.
+
+
+### ``mogrify``: update a mutable container in-place
+
+*Added in v0.13.0.*
+
+Recurse on given container, apply a function to each atom. If the container is mutable, then update in-place; if not, then construct a new copy like ``map`` does.
+
+If the container is a mapping, the function is applied to the values; keys are left untouched.
+
+Unlike ``map`` and its cousins, only a single input container is supported. (Supporting multiple containers as input would require enforcing some compatibility constraints on their type and shape, since ``mogrify`` is not limited to sequences.)
+
+```python
+from unpythonic import mogrify
+
+lst1 = [1, 2, 3]
+lst2 = mogrify(lst1, lambda x: x**2)
+assert lst2 == [2, 4, 6]
+assert lst2 is lst1
+```
+
+Containers are detected by checking for instances of ``collections.abc`` superclasses (also virtuals are ok). Supported abcs are ``MutableMapping``, ``MutableSequence``, ``MutableSet``, ``Mapping``, ``Sequence`` and ``Set``. Any value that does not match any of these is treated as an atom. Containers can be nested, with an arbitrary combination of the types supported.
+
+For convenience, we introduce some special cases:
+
+  - Any classes created by ``collections.namedtuple``, because they do not conform to the standard constructor API for a ``Sequence``.
+
+    Thus, for (an immutable) ``Sequence``, we first check for the presence of a ``._make()`` method, and if found, use it as the constructor. Otherwise we use the regular constructor.
+
+  - ``str`` is treated as an atom, although technically a ``Sequence``.
+
+    It doesn't conform to the exact same API (its constructor does not take an iterable), and often we don't want to treat strings as containers anyway.
+
+    If you want to process strings, implement it in your function that is called by ``mogrify``.
+
+  - The ``box`` container from ``unpythonic.collections``; although mutable, its update is not conveniently expressible by the ``collections.abc`` APIs.
+
+  - The ``cons`` container from ``unpythonic.llist`` (including the ``ll``, ``llist`` linked lists). This is treated with the general tree strategy, so for long linked lists this will crash when the maximum call stack depth runs out.
+
+    Note that since ``cons`` is immutable, anyway, if you know you have a long linked list where you need to update the values, just iterate over it and produce a new copy - that will work as intended.
+
+
+### ``s``, ``m``: lazy mathematical sequences with infix arithmetic
 
 *Added in v0.13.0.*
 
 *Added in v0.13.1:* ``primes`` and ``fibonacci``.
 
-We provide a compact syntax to create lazy constant, arithmetic, geometric and power sequences. Numeric (``int``, ``float``, ``mpmath``) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
+We provide a compact syntax to create lazy constant, arithmetic, geometric and power sequences: ``s(...)``. Numeric (``int``, ``float``, ``mpmath``) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
 
 We also provide arithmetic operation support for iterables (termwise). To make any iterable infix math aware, use ``m(iterable)``. The arithmetic is lazy; it just plans computations, returning a new lazy mathematical sequence. To extract values, iterate over the result. (Note this implies that expressions consisting of thousands of operations will overflow Python's call stack. In practice this shouldn't be a problem.)
 
 The function versions of the arithmetic operations (also provided, à la the ``operator`` module) have an **s** prefix (short for mathematical **sequence**), because in Python the **i** prefix (which could stand for *iterable*) is already used to denote the in-place operators.
 
-We provide the [Cauchy product](https://en.wikipedia.org/wiki/Cauchy_product), and its generalization, the diagonal combination-reduction, for two (possibly infinite) iterables. Note ``cauchyprod`` does not sum the series; given the input sequences ``a`` and ``b``, the call ``cauchyprod(a, b)`` computes the elements of the output sequence ``c``.
+We provide the [Cauchy product](https://en.wikipedia.org/wiki/Cauchy_product), and its generalization, the diagonal combination-reduction, for two (possibly infinite) iterables. Note ``cauchyprod`` **does not sum the series**; given the input sequences ``a`` and ``b``, the call ``cauchyprod(a, b)`` computes the elements of the output sequence ``c``.
 
-Finally, we provide ready-made generators that yield some common sequences (currently, the Fibonacci numbers and the prime numbers). The prime generator is an FP-ized sieve of Eratosthenes, accelerated with a base-b representation to reduce candidate inputs.
+Finally, we provide ready-made generators that yield some common sequences (currently, the Fibonacci numbers and the prime numbers). The prime generator is an FP-ized sieve of Eratosthenes.
 
 ```python
 from unpythonic import s, m, cauchyprod, take, last, fibonacci, primes
@@ -1287,237 +1513,16 @@ s2 = px(s(2, 4, 6, ...))  # 2, 4*x, 6*x**2, ...
 assert tuple(take(3, cauchyprod(s1, s2))) == (2, 10*x, 28*x**2)
 ```
 
+**CAUTION**: Symbolic sequence detection is sensitive to the assumptions on the symbols, because very pythonically, ``SymPy`` only simplifies when the result is guaranteed to hold in the most general case under the given assumptions.
+
 Inspired by Haskell.
-
-
-### Functional update, sequence shadowing
-
-We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). See its docstring for details.
-
-``ShadowedSequence`` is used by the function ``fupdate``, which functionally updates sequences and mappings. Whereas ``ShadowedSequence`` reads directly from the original sequences at access time, ``fupdate`` makes a shallow copy (of the same type as the given input sequence) when it finalizes its output (this trades some memory for performance, useful if the same data is read often).
-
-```python
-from unpythonic import fupdate
-
-lst = [1, 2, 3]
-out = fupdate(lst, 1, 42)
-assert lst == [1, 2, 3]  # the original remains untouched
-assert out == [1, 42, 3]
-
-lst = [1, 2, 3]
-out = fupdate(lst, -1, 42)  # negative indices also supported
-assert lst == [1, 2, 3]
-assert out == [1, 2, 42]
-```
-
-Immutable input sequences are allowed. Replacing a slice of a tuple by a sequence:
-
-```python
-from itertools import repeat
-lst = (1, 2, 3, 4, 5)
-assert fupdate(lst, slice(0, None, 2), tuple(repeat(10, 3))) == (10, 2, 10, 4, 10)
-assert fupdate(lst, slice(1, None, 2), tuple(repeat(10, 2))) == (1, 10, 3, 10, 5)
-assert fupdate(lst, slice(None, None, 2), tuple(repeat(10, 3))) == (10, 2, 10, 4, 10)
-assert fupdate(lst, slice(None, None, -1), tuple(range(5))) == (4, 3, 2, 1, 0)
-```
-
-Slicing supports negative indices and steps, and default starts, stops and steps, as usual in Python. Just remember ``a[start:stop:step]`` actually means ``a[slice(start, stop, step)]`` (with ``None`` replacing omitted ``start``, ``stop`` and ``step``), and everything should follow. Multidimensional arrays are **not** supported.
-
-If you want to use Python's standard slicing syntax to functionally update a sequence, use the utility ``fup``:
-
-```python
-from unpythonic import fup
-from itertools import repeat
-
-lst = (1, 2, 3, 4, 5)
-assert fup(lst)[3] << 42 == (1, 2, 3, 42, 5)
-assert fup(lst)[0::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)
-```
-
-The ``fup`` call is essentially curried. It takes in the sequence to be functionally updated. The object returned by the call accepts a subscript to specify the index or indices. This then returns another object that accepts a left-shift to specify the values. Once the values are provided, the underlying call to ``fupdate`` triggers, and the result is returned.
-
-Currently only one update specification is supported in a single ``fup()``. The notation follows the ``unpythonic`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched. (*Changed in v0.13.1.* ``fup`` was previously a macro; now it is regular code, with slightly changed syntax to accommodate.)
-
-When ``fupdate`` constructs its output, the replacement occurs by walking *the input sequence* left-to-right, and pulling an item from the replacement sequence when the given replacement specification so requires. Hence the replacement sequence is not necessarily accessed left-to-right. (In the last example above, ``tuple(range(5))`` was read in the order ``(4, 3, 2, 1, 0)``.)
-
-The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored (so e.g. an infinite ``repeat`` is fine), but if the replacement is too short, ``IndexError`` is raised. (*Changed in v0.13.1.* This was previously ``ValueError``.)
-
-It is also possible to replace multiple individual items. These are treated as separate specifications, applied left to right (so later updates shadow earlier ones, if updating at the same index):
-
-
-```python
-lst = (1, 2, 3, 4, 5)
-out = fupdate(lst, (1, 2, 3), (17, 23, 42))
-assert lst == (1, 2, 3, 4, 5)
-assert out == (1, 17, 23, 42, 5)
-```
-
-Multiple specifications can be used with slices and sequences as well:
-
-```python
-lst = tuple(range(10))
-out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2)),
-                   (tuple(repeat(2, 5)), tuple(repeat(3, 5))))
-assert lst == tuple(range(10))
-assert out == (2, 3, 2, 3, 2, 3, 2, 3, 2, 3)
-```
-
-Strictly speaking, each specification can be either a slice/sequence pair or an index/item pair:
-
-```python
-lst = tuple(range(10))
-out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2), 6),
-                   (tuple(repeat(2, 5)), tuple(repeat(3, 5)), 42))
-assert lst == tuple(range(10))
-assert out == (2, 3, 2, 3, 2, 3, 42, 3, 2, 3)
-```
-
-Also mappings can be functionally updated:
-
-```python
-d1 = {'foo': 'bar', 'fruit': 'apple'}
-d2 = fupdate(d1, foo='tavern')
-assert sorted(d1.items()) == [('foo', 'bar'), ('fruit', 'apple')]
-assert sorted(d2.items()) == [('foo', 'tavern'), ('fruit', 'apple')]
-```
-
-For immutable mappings, ``fupdate`` supports ``frozendict`` (see below). Any other mapping is assumed mutable, and ``fupdate`` essentially just performs ``copy.copy()`` and then ``.update()``.
-
-We can also functionally update a namedtuple:
-
-```python
-from collections import namedtuple
-A = namedtuple("A", "p q")
-a = A(17, 23)
-out = fupdate(a, 0, 42)
-assert a == A(17, 23)
-assert out == A(42, 23)
-```
-
-Namedtuples export only a sequence interface, so they cannot be treated as mappings.
-
-Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
-
-*Changed in v0.13.1.* Added support to ``ShadowedSequence`` for slicing (read-only), equality comparison, ``str`` and ``repr``. Out-of-range read access to a single item emits a meaningful error, like in ``list``.
-
-
-### ``view``: writable, sliceable view into a sequence
-
-*Added in v0.13.1.*
-
-The short, all-lowercase ``view`` is an alias for ``unpythonic.collections.SequenceView``, which more explicitly says what this is: a writable view into a sequence, with slicing, so you can take a slice of a slice (of a slice ...), and it reflects the original both ways:
-
-```python
-from unpythonic import view
-
-lst = list(range(10))
-v = view(lst)[::2]
-assert v == [0, 2, 4, 6, 8]
-v2 = v[1:-1]
-assert v2 == [2, 4, 6]
-v2[1:] = (10, 20)
-assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
-
-lst[2] = 42
-assert v == [0, 42, 10, 20, 8]
-assert v2 == [42, 10, 20]
-
-lst = list(range(5))
-v = view(lst)[2:4]
-v[:] = 42  # scalar broadcast
-assert lst == [0, 1, 42, 42, 4]
-```
-
-While ``fupdate`` lets you be more functional than Python otherwise allows, ``SequenceView`` lets you be more imperative than Python otherwise allows.
-
-We store slice specs, not actual indices, so this works also if the underlying sequence undergoes length changes.
-
-Slicing a view returns a new view. Slicing anything else will usually copy, because the object being sliced does, before we get control. To slice lazily, first view the sequence itself and then slice that. The initial no-op view is optimized away, so it won't slow down accesses. Alternatively, pass a ``slice`` object into the ``view`` constructor.
-
-The view can be efficiently iterated over. As usual, iteration assumes that no inserts/deletes in the underlying sequence occur during the iteration.
-
-Getting/setting an item (subscripting) checks whether the index cache needs updating during each access, so it can be a bit slow. Setting a slice checks just once, and then updates the underlying iterable directly. Setting a slice to a scalar value broadcasts the scalar à la NumPy.
-
-
-### ``islice``: slice syntax for ``itertools.islice``
-
-*Added in v0.13.1.*
-
-Slice an iterable, using the regular slicing syntax:
-
-```python
-from unpythonic import islice, primes, s
-
-p = primes()
-assert tuple(islice(p)[10:15]) == (31, 37, 41, 43, 47)
-
-assert tuple(islice(primes())[10:15]) == (31, 37, 41, 43, 47)
-
-p = primes()
-assert islice(p)[10] == 31
-
-odds = islice(s(1, 2, ...))[::2]
-assert tuple(islice(odds)[:5]) == (1, 3, 5, 7, 9)
-assert tuple(islice(odds)[:5]) == (11, 13, 15, 17, 19)  # five more
-```
-
-The slicing variant calls ``itertools.islice`` with the corresponding slicing parameters.
-
-As a convenience feature: a single index is interpreted as a length-1 islice starting at that index. The slice is then immediately evaluated and the item is returned.
-
-**CAUTION**: Keep in mind ``itertools.islice`` does not support negative indexing for any of ``start``, ``stop`` or ``step``, and that the slicing process consumes elements from the iterable.
-
-Like ``fup``, our ``islice`` is essentially a manually curried function with unusual syntax; the initial call to ``islice`` passes in the iterable to be sliced. The object returned by the call accepts a subscript to specify the slice or index. Once the slice or index is provided, the call to ``itertools.islice`` triggers.
-
-Inspired by Python itself.
-
-
-### ``mogrify``: update mutable containers in-place
-
-*Added in v0.13.0.*
-
-Recurse on given container, apply a function to each atom. If the container is mutable, then update in-place; if not, then construct a new copy like ``map`` does.
-
-If the container is a mapping, the function is applied to the values; keys are left untouched.
-
-Unlike ``map`` and its cousins, only a single input container is supported. (Supporting multiple containers as input would require enforcing some compatibility constraints on their type and shape, since ``mogrify`` is not limited to sequences.)
-
-```python
-from unpythonic import mogrify
-
-lst1 = [1, 2, 3]
-lst2 = mogrify(lst1, lambda x: x**2)
-assert lst2 == [2, 4, 6]
-assert lst2 is lst1
-```
-
-Containers are detected by checking for instances of ``collections.abc`` superclasses (also virtuals are ok). Supported abcs are ``MutableMapping``, ``MutableSequence``, ``MutableSet``, ``Mapping``, ``Sequence`` and ``Set``. Any value that does not match any of these is treated as an atom. Containers can be nested, with an arbitrary combination of the types supported.
-
-For convenience, we introduce some special cases:
-
-  - Any classes created by ``collections.namedtuple``, because they do not conform to the standard constructor API for a ``Sequence``.
-
-    Thus, for (an immutable) ``Sequence``, we first check for the presence of a ``._make()`` method, and if found, use it as the constructor. Otherwise we use the regular constructor.
-
-  - ``str`` is treated as an atom, although technically a ``Sequence``.
-
-    It doesn't conform to the exact same API (its constructor does not take an iterable), and often we don't want to treat strings as containers anyway.
-
-    If you want to process strings, implement it in your function that is called by ``mogrify``.
-
-  - The ``box`` container from ``unpythonic.collections``; although mutable, its update is not conveniently expressible by the ``collections.abc`` APIs.
-
-  - The ``cons`` container from ``unpythonic.llist`` (including the ``ll``, ``llist`` linked lists). This is treated with the general tree strategy, so for long linked lists this will crash when the maximum call stack depth runs out.
-
-    Note that since ``cons`` is immutable, anyway, if you know you have a long linked list where you need to update the values, just iterate over it and produce a new copy - that will work as intended.
-
 
 
 ## Control flow tools
 
 Tools related to control flow.
 
-### Tail call optimization (TCO) / explicit continuations
+### ``trampolined``, ``jump``: tail call optimization (TCO) / explicit continuations
 
 **v0.10.0**: ``fasttco`` has been renamed ``tco``, and the exception-based old default implementation has been removed. See also [macros](macro_extras/) for an easy-to-use solution.
 
@@ -1637,7 +1642,7 @@ foo()  # start trampoline
 ```
 
 
-#### Loops in FP style (with TCO)
+### ``looped``, ``looped_over``: loops in FP style (with TCO)
 
 *Functional loop with automatic tail call optimization* (for calls re-invoking the loop body):
 
@@ -1921,7 +1926,7 @@ s = curry(looped_over, range(10), 0,
 assert s == 45
 ```
 
-#### Generators with TCO
+### ``gtrampolined``: generators with TCO
 
 In ``unpythonic``, a generator can tail-chain into another generator. This is like invoking ``itertools.chain``, but as a tail call from inside the generator - so the generator itself can choose the next iterable in the chain. If the next iterable is a generator, it can again tail-chain into something else. If it is not a generator, it becomes the last iterable in the TCO chain.
 
@@ -1981,7 +1986,7 @@ last(take(10000, fibos()))  # no crash
 ```
 
 
-### Escape continuations (ec)
+### ``setescape``, ``escape``: escape continuations (ec)
 
 Escape continuations can be used as a *multi-return*:
 
@@ -2041,7 +2046,7 @@ assert foo() == 15
 For details on tagging, especially how untagged and tagged escapes and points interact, and how to make one-to-one connections, see the docstring for ``@setescape``.
 
 
-#### First-class escape continuations: ``call/ec``
+#### ``call_ec``: first-class escape continuations
 
 We provide ``call/ec`` (a.k.a. ``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@call``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an escape point, and hands a **first-class escape continuation** to the callee.
 
@@ -2121,13 +2126,15 @@ assert result == 42
 ```
 
 
-### Nondeterministic evaluation
+### ``forall``: nondeterministic evaluation
 
-We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. An important feature of McCarthy's [`amb` operator](https://rosettacode.org/wiki/Amb) is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. This sounds a lot like ``call/cc``; which is how ``amb`` is usually implemented. See implementations [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html).
+We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. See also the easy-to-use [macro](macro_extras/) version with natural syntax and a clean implementation.
 
-Python can't do that, short of compiling the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. Arguably, the result would no longer be Python. (As Abelson and Sussman explain in SICP, ``call/cc`` can be implemented via this strategy. It's an instance of lambda as the ultimate GOTO.) If you want something like that, see ``continuations`` in [``macro_extras``](macro_extras/).
+An important feature of McCarthy's [`amb` operator](https://rosettacode.org/wiki/Amb) is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. If that sounds a lot like ``call/cc``, that's because that's how ``amb`` is usually implemented. See examples [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html).
 
-What we have here is essentially a tuple comprehension that:
+Python can't do that, short of transforming the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. **If that's what you want**, see ``continuations`` in [the macros](macro_extras/).
+
+This ``forall`` is essentially a tuple comprehension that:
 
  - Can have multiple body expressions (side effects also welcome!), by simply listing them in sequence.
  - Allows filters to be placed at any level of the nested looping.
@@ -2143,8 +2150,6 @@ The ``unpythonic.amb`` module defines four operators:
 Choice variables live in the environment, which is accessed via a ``lambda e: ...``, just like in ``letrec``. Lexical scoping is emulated. In the environment, each line only sees variables defined above it; trying to access a variable defined later raises ``AttributeError``.
 
 The last line in a ``forall`` describes one item of the output. The output items are collected into a tuple, which becomes the return value of the ``forall`` expression.
-
-There is also an easy-to-use [macro](macro_extras/) version of ``forall`` that comes with more natural syntax.
 
 ```python
 out = forall(choice(y=range(3)),
@@ -2492,7 +2497,7 @@ assert getattrrec(w, "x") == 23
 ```
 
 
-### Function signature inspection utilities
+### ``arities``, ``kwargs``: Function signature inspection utilities
 
 Convenience functions providing an easy-to-use API for inspecting a function's signature. The heavy lifting is done by ``inspect``.
 

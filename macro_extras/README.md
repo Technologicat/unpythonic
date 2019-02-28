@@ -49,6 +49,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
  - [**Convenience features**](#convenience-features)
    - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
    - [``aif``: anaphoric if](#aif-anaphoric-if), the test result is ``it``
+   - *Changed in v0.13.1.* The ``fup[]`` macro is gone, and has been replaced with the ``fup`` function, with slightly changed syntax to accommodate.
 
  - [**Other**](#other)
    - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
