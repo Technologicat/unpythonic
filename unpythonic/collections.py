@@ -5,13 +5,13 @@ __all__ = ["box", "frozendict", "SequenceView", "ShadowedSequence",
            "get_abcs", "in_slice", "index_in_slice"]
 
 from functools import wraps
+from itertools import repeat
 from collections import abc
 from collections.abc import Container, Iterable, Hashable, Sized, \
                             Sequence, Mapping, Set, \
                             MutableSequence, MutableMapping, MutableSet
 from inspect import isclass
 from operator import lt, le, ge, gt
-from math import ceil
 
 from .llist import cons
 from .misc import getattrrec
@@ -333,12 +333,12 @@ class SequenceView(_StrReprEqMixin, Sequence):
 
     **Not** hashable, since the whole point is a live view to input that may
     change at any time. (Perhaps, indeed, by writing into the view, just like
-    for NumPy arrays.)
+    for NumPy arrays. And yes, when writing a slice, a scalar value broadcasts.)
 
     Examples::
 
         lst = list(range(10))
-        v = SequenceView(lst, slice(None, None, 2))
+        v = SequenceView(lst, slice(None, None, 2))  # or SequenceView(lst)[::2]
         assert v == [0, 2, 4, 6, 8]
         v2 = v[1:-1]
         assert v2 == [2, 4, 6]
@@ -350,7 +350,12 @@ class SequenceView(_StrReprEqMixin, Sequence):
         assert v2 == [42, 10, 20]
 
         lst = list(range(5))
-        v = SequenceView(lst, slice(2, None))
+        v = SequenceView(lst, slice(2, 4))
+        v[:] = 42  # scalar broadcast
+        assert lst == [0, 1, 42, 42, 4]
+
+        lst = list(range(5))
+        v = SequenceView(lst, slice(2, None))  # or SequenceView(lst)[2:]
         assert v == [2, 3, 4]
         lst.append(5)
         assert v == [2, 3, 4, 5]
@@ -359,8 +364,11 @@ class SequenceView(_StrReprEqMixin, Sequence):
         assert lst == [42, 0, 1, 2, 3, 4, 5]
 
     Slicing a view returns a new view. Slicing anything else will usually copy,
-    because the object being sliced does, before we get control. To slice lazily,
-    pass a ``slice`` object into the ``SequenceView`` constructor.
+    because the object being sliced does, before we get control.
+
+    To slice lazily, first view the sequence itself and then slice that.
+    The initial no-op view is optimized away, so it won't slow down accesses.
+    Alternatively, pass a ``slice`` object into the ``SequenceView`` constructor.
 
     The view can be efficiently iterated over. As usual, iteration assumes that
     no inserts/deletes in the underlying sequence occur during the iteration.
@@ -425,7 +433,11 @@ class SequenceView(_StrReprEqMixin, Sequence):
         if isinstance(k, slice):
             # TODO: would be nicer if we could convert a range into a slice, then just data[rk] = v.
             # TODO: The problem is that we need transformations like range(4, -1, -1) --> slice(4, None, -1)
-            for j, item in zip(r[k], v):
+            try:
+                vs = iter(v)
+            except TypeError:  # scalar broadcast à la NumPy
+                vs = repeat(v)
+            for j, item in zip(r[k], vs):
                 data[j] = item
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))

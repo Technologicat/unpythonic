@@ -153,6 +153,12 @@ def test():
     assert lst == [0, 1, 10, 20, 4]
     assert v[-1] == 20
 
+    # writing a scalar value into a slice broadcasts it, à la NumPy
+    lst = list(range(5))
+    v = SequenceView(lst, slice(2, 4))
+    v[:] = 42
+    assert lst == [0, 1, 42, 42, 4]
+
     # we store slice specs, not actual indices, so it doesn't matter if the
     # underlying sequence undergoes length changes
     lst = list(range(5))
