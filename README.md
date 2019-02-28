@@ -990,7 +990,6 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
  - `take`, `drop`, `split_at`: based on `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
    - Especially useful for testing generators.
    - `islice` is maybe more pythonic than `take` and `drop`; see below for a utility that supports the slice syntax.
- - `clip`: drop ``n1`` items, then take ``n2`` items. *Added in v0.13.1.*
  - `tail`: return the tail of an iterable. Same as `drop(1, iterable)`; common use case.
  - `butlast`, `butlastn`: return a generator that yields from iterable, dropping the last `n` items if the iterable is finite. Inspired by a similar utility in PG's [On Lisp](http://paulgraham.com/onlisp.html).
    - Works by using intermediate storage. **Do not** use the original iterator after a call to `butlast` or `butlastn`.
