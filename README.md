@@ -1322,7 +1322,7 @@ Namedtuples export only a sequence interface, so they cannot be treated as mappi
 
 Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
 
-The preferred way to use ``fupdate`` on sequences is through the ``fup`` utility function, which adds support for Python's standard slicing syntax:
+**The preferred way** to use ``fupdate`` on sequences is through the ``fup`` utility function, which adds support for Python's standard slicing syntax:
 
 ```python
 from unpythonic import fup
