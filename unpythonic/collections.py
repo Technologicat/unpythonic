@@ -325,6 +325,9 @@ class _StrReprEqMixin:
 class SequenceView(_StrReprEqMixin, Sequence):
     """Writable view into a sequence.
 
+    ``unpythonic.slicing.view`` is an alias for
+    ``unpythonic.collections.SequenceView``.
+
     Supports slicing (also recursively, i.e. can be sliced again).
 
     Does **not** support ``append``, ``extend``, ``pop``, ``remove`` or
@@ -350,7 +353,7 @@ class SequenceView(_StrReprEqMixin, Sequence):
         assert v2 == [42, 10, 20]
 
         lst = list(range(5))
-        v = SequenceView(lst, slice(2, 4))
+        v = SequenceView(lst, slice(2, 4))  # or SequenceView(lst)[2:4]
         v[:] = 42  # scalar broadcast
         assert lst == [0, 1, 42, 42, 4]
 

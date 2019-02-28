@@ -1,16 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Operations on sequences, with native slice syntax. Syntactic sugar, pure Python."""
+"""Operations on sequences with native slice syntax. Syntactic sugar, pure Python."""
+
+__all__ = ["view", "islice", "fup"]
 
 from itertools import islice as islicef
 from unpythonic import SequenceView, fupdate
 
 view = SequenceView
-view.__doc__ = """Alias for ``unpythonic.collections.SequenceView``.
-
-Usage::
-
-    view(seq)[slicestx]
-"""
 
 def islice(iterable):
     """Use itertools.islice with slice syntax.
