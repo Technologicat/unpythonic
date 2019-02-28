@@ -118,7 +118,7 @@ slower than Python's ``for``.
         return jump(baz)
     @trampolined
     def baz():
-        raise RuntimeError("Look at the call stack, where did bar() go?")
+        raise RuntimeError("Look at the call stack, bar() was zapped by TCO!")
     try:
         foo()
     except RuntimeError:
