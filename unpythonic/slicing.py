@@ -4,7 +4,9 @@
 __all__ = ["view", "islice", "fup"]
 
 from itertools import islice as islicef
-from unpythonic import SequenceView, fupdate
+
+from .collections import SequenceView
+from .fup import fupdate
 
 view = SequenceView
 
