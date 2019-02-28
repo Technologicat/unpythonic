@@ -39,7 +39,8 @@ For many examples, see the unit tests located in [unpythonic/test/](unpythonic/t
    - [Batteries for itertools](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables
      - [Lazy mathematical sequences with infix arithmetic](#lazy-mathematical-sequences-with-infix-arithmetic)
    - [Functional update, sequence shadowing](#functional-update-sequence-shadowing): like ``collections.ChainMap``, but for sequences
-   - [``SequenceView``](#sequenceview): writable view for sequences, with slicing support
+   - [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment
+   - [``islice``: slice syntax for ``itertools.islice``](#islice-slice-syntax-for-itertoolsislice)
    - [``mogrify``: update mutable containers in-place](#mogrify-update-mutable-containers-in-place)
 
  - [**Control flow tools**](#control-flow-tools)
@@ -1322,11 +1323,24 @@ assert fupdate(lst, slice(None, None, -1), tuple(range(5))) == (4, 3, 2, 1, 0)
 
 Slicing supports negative indices and steps, and default starts, stops and steps, as usual in Python. Just remember ``a[start:stop:step]`` actually means ``a[slice(start, stop, step)]`` (with ``None`` replacing omitted ``start``, ``stop`` and ``step``), and everything should follow. Multidimensional arrays are **not** supported.
 
-If you want to use Python's standard slicing syntax to functionally update a sequence, see the ``fup`` [macro](macro_extras/).
+If you want to use Python's standard slicing syntax to functionally update a sequence, use the utility ``fup``:
+
+```python
+from unpythonic import fup
+from itertools import repeat
+
+lst = (1, 2, 3, 4, 5)
+assert fup(lst)[3] << 42 == (1, 2, 3, 42, 5)
+assert fup(lst)[0::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)
+```
+
+The ``fup`` call is essentially curried. It takes in the sequence to be functionally updated. The object returned by the call accepts a subscript to specify the index or indices. This then returns another object that accepts a left-shift to specify the values. Once the values are provided, the underlying call to ``fupdate`` triggers, and the result is returned.
+
+Currently only one update specification is supported in a single ``fup()``. The notation follows the ``unpythonic`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched. (*Changed in v0.13.1.* ``fup`` was previously a macro; now it is regular code, with slightly changed syntax to accommodate.)
 
 When ``fupdate`` constructs its output, the replacement occurs by walking *the input sequence* left-to-right, and pulling an item from the replacement sequence when the given replacement specification so requires. Hence the replacement sequence is not necessarily accessed left-to-right. (In the last example above, ``tuple(range(5))`` was read in the order ``(4, 3, 2, 1, 0)``.)
 
-The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored, but if the replacement is too short, ``IndexError`` is raised. (*Changed in v0.13.1.* This was previously ``ValueError``.)
+The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored (so e.g. an infinite ``repeat`` is fine), but if the replacement is too short, ``IndexError`` is raised. (*Changed in v0.13.1.* This was previously ``ValueError``.)
 
 It is also possible to replace multiple individual items. These are treated as separate specifications, applied left to right (so later updates shadow earlier ones, if updating at the same index):
 
@@ -1387,17 +1401,17 @@ Support for ``namedtuple`` requires an extra feature, which is available for cus
 *Changed in v0.13.1.* Added support to ``ShadowedSequence`` for slicing (read-only), equality comparison, ``str`` and ``repr``. Out-of-range read access to a single item emits a meaningful error, like in ``list``.
 
 
-### ``SequenceView``
+### ``view``: writable, sliceable view into a sequence
 
 *Added in v0.13.1.*
 
-Writable view into sequences, with slicing, so you can take a slice of a slice (of a slice ...), and it reflects the original both ways:
+The short, all-lowercase ``view`` is an alias for ``unpythonic.collections.SequenceView``, which more explicitly says what this is: a writable view into a sequence, with slicing, so you can take a slice of a slice (of a slice ...), and it reflects the original both ways:
 
 ```python
-from unpythonic import SequenceView
+from unpythonic import view
 
 lst = list(range(10))
-v = SequenceView(lst, slice(None, None, 2))
+v = view(lst)[::2]
 assert v == [0, 2, 4, 6, 8]
 v2 = v[1:-1]
 assert v2 == [2, 4, 6]
@@ -1407,13 +1421,55 @@ assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
 lst[2] = 42
 assert v == [0, 42, 10, 20, 8]
 assert v2 == [42, 10, 20]
+
+lst = list(range(5))
+v = view(lst)[2:4]
+v[:] = 42  # scalar broadcast
+assert lst == [0, 1, 42, 42, 4]
 ```
 
 While ``fupdate`` lets you be more functional than Python otherwise allows, ``SequenceView`` lets you be more imperative than Python otherwise allows.
 
-Slicing a view returns a new view. Slicing anything else will usually copy, because the object being sliced does, before we get control. To slice lazily, pass a ``slice`` object into the ``SequenceView`` constructor.
+We store slice specs, not actual indices, so this works also if the underlying sequence undergoes length changes.
 
-See also the ``view`` [macro](macro_extras/), which adds support for the regular slicing syntax.
+Slicing a view returns a new view. Slicing anything else will usually copy, because the object being sliced does, before we get control. To slice lazily, first view the sequence itself and then slice that. The initial no-op view is optimized away, so it won't slow down accesses. Alternatively, pass a ``slice`` object into the ``view`` constructor.
+
+The view can be efficiently iterated over. As usual, iteration assumes that no inserts/deletes in the underlying sequence occur during the iteration.
+
+Getting/setting an item (subscripting) checks whether the index cache needs updating during each access, so it can be a bit slow. Setting a slice checks just once, and then updates the underlying iterable directly. Setting a slice to a scalar value broadcasts the scalar à la NumPy.
+
+
+### ``islice``: slice syntax for ``itertools.islice``
+
+*Added in v0.13.1.*
+
+Slice an iterable, using the regular slicing syntax:
+
+```python
+from unpythonic import islice, primes, s
+
+p = primes()
+assert tuple(islice(p)[10:15]) == (31, 37, 41, 43, 47)
+
+assert tuple(islice(primes())[10:15]) == (31, 37, 41, 43, 47)
+
+p = primes()
+assert islice(p)[10] == 31
+
+odds = islice(s(1, 2, ...))[::2]
+assert tuple(islice(odds)[:5]) == (1, 3, 5, 7, 9)
+assert tuple(islice(odds)[:5]) == (11, 13, 15, 17, 19)  # five more
+```
+
+The slicing variant calls ``itertools.islice`` with the corresponding slicing parameters.
+
+As a convenience feature: a single index is interpreted as a length-1 islice starting at that index. The slice is then immediately evaluated and the item is returned.
+
+**CAUTION**: Keep in mind ``itertools.islice`` does not support negative indexing for any of ``start``, ``stop`` or ``step``, and that the slicing process consumes elements from the iterable.
+
+Like ``fup``, our ``islice`` is essentially a manually curried function with unusual syntax; the initial call to ``islice`` passes in the iterable to be sliced. The object returned by the call accepts a subscript to specify the slice or index. Once the slice or index are provided, the call to ``itertools.islice`` triggers.
+
+Inspired by Python itself.
 
 
 ### ``mogrify``: update mutable containers in-place
