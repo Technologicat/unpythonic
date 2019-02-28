@@ -1467,7 +1467,7 @@ As a convenience feature: a single index is interpreted as a length-1 islice sta
 
 **CAUTION**: Keep in mind ``itertools.islice`` does not support negative indexing for any of ``start``, ``stop`` or ``step``, and that the slicing process consumes elements from the iterable.
 
-Like ``fup``, our ``islice`` is essentially a manually curried function with unusual syntax; the initial call to ``islice`` passes in the iterable to be sliced. The object returned by the call accepts a subscript to specify the slice or index. Once the slice or index are provided, the call to ``itertools.islice`` triggers.
+Like ``fup``, our ``islice`` is essentially a manually curried function with unusual syntax; the initial call to ``islice`` passes in the iterable to be sliced. The object returned by the call accepts a subscript to specify the slice or index. Once the slice or index is provided, the call to ``itertools.islice`` triggers.
 
 Inspired by Python itself.
 
