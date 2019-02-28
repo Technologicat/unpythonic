@@ -59,7 +59,8 @@ def mogrify(func, container):
 
         - The ``cons`` container from ``unpythonic.llist`` (including the
           ``llist`` linked lists). This is treated with the general tree
-          strategy, so for long linked lists this will crash.
+          strategy, so nested linked lists will be flattened, and the
+          final ``nil`` is also processed.
 
     Any value that does not match any of these is treated as an atom.
 

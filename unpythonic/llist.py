@@ -10,7 +10,6 @@ from itertools import zip_longest
 from .fun import composer1i
 from .fold import foldr, foldl
 from .it import rev
-from .gtco import gtrampolined
 
 # explicit list better for tooling support
 _exports = ["cons", "nil",
@@ -142,18 +141,26 @@ class TailIterator(ConsIterator):  # for member()
 class BinaryTreeIterator(ConsIterator):
     """Iterator for binary trees built from cons cells."""
     def __init__(self, root):
-        def walker(cell):
-            for x in (cell.car, cell.cdr):
-                if isinstance(x, cons):
-                    yield from walker(x)
-                else:
-                    yield x
+#        def walker(cell):  # FP, call stack overflow for deep trees
+#            for x in (cell.car, cell.cdr):
+#                if isinstance(x, cons):
+#                    yield from walker(x)
+#                else:
+#                    yield x
+        def walker(cell):  # imperative, no call stack overflow (we keep our own data stack instead)
+            stack = [cell]
+            while stack:
+                cell = stack.pop()
+                a, d = cell.car, cell.cdr
+                ac, dc = isinstance(a, cons), isinstance(d, cons)
+                if not ac: yield a
+                if not dc: yield d
+                if dc: stack.append(d)
+                if ac: stack.append(a)  # LIFO
         super().__init__(root, walker)
 
 class JackOfAllTradesIterator(ConsIterator):
     """Iterator that supports both binary trees and linked lists.
-
-    An optimized tail call is used to descend into the cdr half.
 
     **CAUTION**: *jack of all trades*, because:
 
@@ -170,16 +177,26 @@ class JackOfAllTradesIterator(ConsIterator):
     the specific kind of cons structure you have.
     """
     def __init__(self, root):
-        @gtrampolined
+#        @gtrampolined
+#        def walker(cell):  # FP, tail-recursive in the cdr half only
+#            if isinstance(cell.car, cons):
+#                yield from walker(cell.car)
+#            else:
+#                yield cell.car
+#            if isinstance(cell.cdr, cons):
+#                return walker(cell.cdr)  # signal gtrampolined to tail-chain
+#            elif cell.cdr is not nil:
+#                yield cell.cdr
         def walker(cell):
-            if isinstance(cell.car, cons):
-                yield from walker(cell.car)
-            else:
-                yield cell.car
-            if isinstance(cell.cdr, cons):
-                return walker(cell.cdr)  # signal gtrampolined to tail-chain
-            elif cell.cdr is not nil:
-                yield cell.cdr
+            stack = [cell]
+            while stack:
+                cell = stack.pop()
+                a, d = cell.car, cell.cdr
+                ac, dc = isinstance(a, cons), isinstance(d, cons)
+                if not ac: yield a
+                if not dc and d is not nil: yield d
+                if dc: stack.append(d)
+                if ac: stack.append(a)  # LIFO
         super().__init__(root, walker)
 
 class cons:

@@ -480,13 +480,15 @@ There is no ``copy`` method or ``lcopy`` function, because cons cells are immuta
 
 In general, copying cons structures can be error-prone. Given just a starting cell it is impossible to tell if a given instance of a cons structure represents a linked list, or something more general (such as a binary tree) that just happens to locally look like one, along the path that would be traversed if it was indeed a linked list.
 
-The linked list iteration strategy (which supports arbitrarily long lists) does not recurse in the ``car`` half, which could lead to incomplete copying. The tree strategy that recurses on both halves, on the other hand, is not safe to use on linked lists, because if the list is long, it will cause a stack overflow (due to lack of TCO in Python).
+The linked list iteration strategy does not recurse in the ``car`` half, which could lead to incomplete copying. The tree strategy that recurses on both halves, on the other hand, will flatten nested linked lists and produce also the final ``nil``.
 
-*Added in v0.13.0.* We provide a ``JackOfAllTradesIterator`` that uses unpythonic's TCO and understands both trees and linked lists, but it has to make some compromises to be able to do this: nested lists will be flattened, and in a tree any ``nil`` in a ``cdr`` position will be omitted from the output.
+*Added in v0.13.0.* We provide a ``JackOfAllTradesIterator`` as a compromise that understands both trees and linked lists. Nested lists will be flattened, and in a tree any ``nil`` in a ``cdr`` position will be omitted from the output.
+
+*Changed in v0.13.1.* ``BinaryTreeIterator`` and ``JackOfAllTradesIterator`` now use an explicit data stack instead of implicitly using the call stack for keeping track of the recursion. Hence now all ``cons`` iterators work for arbitrarily deep cons structures without causing Python's call stack to overflow, and without the need for TCO.
 
 ``cons`` has no ``collections.abc`` virtual superclasses (except the implicit ``Hashable`` since ``cons`` provides ``__hash__`` and ``__eq__``), because general cons structures do not fit into the contracts represented by membership in those classes. For example, size cannot be known without iterating, and depends on which iteration scheme is used (e.g. ``nil`` dropping, flattening); which scheme is appropriate depends on the content.
 
-**Caution**: the ``nil`` singleton is freshly created in each session; newnil is not oldnil, so don't pickle a standalone ``nil``. The unpickler of ``cons`` automatically refreshes any ``nil`` instances inside a pickled cons structure, so that **cons structures** support the illusion that ``nil`` is a special value like ``None`` or ``...``. After unpickling, ``car(c) is nil`` and ``cdr(c) is nil`` still work as expected, even though ``id(nil)`` has changed.
+**Caution**: the ``nil`` singleton is freshly created in each session; newnil is not oldnil, so don't pickle a standalone ``nil``. The unpickler of ``cons`` automatically refreshes any ``nil`` instances inside a pickled cons structure, so that **cons structures** support the illusion that ``nil`` is a special value like ``None`` or ``...``. After unpickling, ``car(c) is nil`` and ``cdr(c) is nil`` still work as expected, even though ``id(nil)`` has changed between sessions.
 
 
 ### ``box``: a mutable single-item container
@@ -1416,7 +1418,7 @@ For convenience, we introduce some special cases:
 
   - The ``box`` container from ``unpythonic.collections``; although mutable, its update is not conveniently expressible by the ``collections.abc`` APIs.
 
-  - The ``cons`` container from ``unpythonic.llist`` (including the ``ll``, ``llist`` linked lists). This is treated with the general tree strategy, so for long linked lists this will crash when the maximum call stack depth runs out.
+  - The ``cons`` container from ``unpythonic.llist`` (including the ``ll``, ``llist`` linked lists). This is treated with the general tree strategy, so nested linked lists will be flattened, and the final ``nil`` is also processed.
 
     Note that since ``cons`` is immutable, anyway, if you know you have a long linked list where you need to update the values, just iterate over it and produce a new copy - that will work as intended.
 

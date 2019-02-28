@@ -79,6 +79,7 @@ def test():
     assert tuple(JackOfAllTradesIterator(t2)) == (nil, 1, nil, 2)  # but doesn't skip nil in the car slot
 
     assert tuple(JackOfAllTradesIterator(llist(range(10000)))) == tuple(range(10000))  # no crash
+    assert tuple(BinaryTreeIterator(llist(range(10000)))) == tuple(range(10000)) + (nil,)  # no crash
 
     # repr
     assert repr(cons(1, 2)) == "cons(1, 2)"
