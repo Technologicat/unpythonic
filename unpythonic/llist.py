@@ -5,6 +5,7 @@ Hashable, pickleable, hooks into the built-in reversed(), can print like in Lisp
 """
 
 from abc import ABCMeta, abstractmethod
+from collections.abc import Iterable, Iterator
 from itertools import zip_longest
 
 from .fun import composer1i
@@ -71,6 +72,8 @@ class ConsIterator(metaclass=ABCMeta):
         return self
     def __next__(self):
         return next(self.walker)
+Iterable.register(ConsIterator)
+Iterator.register(ConsIterator)
 
 class LinkedListIterator(ConsIterator):
     """Iterator for linked lists built from cons cells."""

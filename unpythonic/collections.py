@@ -17,6 +17,8 @@ from operator import lt, le, ge, gt
 
 from .llist import cons
 from .misc import getattrrec
+from .env import env
+from .dynassign import _Env
 
 def get_abcs(cls):
     """Return a set of the collections.abc superclasses of cls (virtuals too)."""
@@ -100,7 +102,9 @@ def mogrify(func, container):
         # immutable containers
         elif isinstance(x, cons):
             return cons(doit(x.car), doit(x.cdr))
-        elif isinstance(x, Mapping):
+        # env and dyn provide the Mapping API, but shouldn't get the general Mapping treatment here.
+        # (This is important for the curry and lazify macros.)
+        elif isinstance(x, Mapping) and not isinstance(x, (env, _Env)):
             ctor = type(x)
             return ctor({k: doit(v) for k, v in x.items()})
         elif isinstance(x, Sequence) and not isinstance(x, (str, bytes, range)):

@@ -5,6 +5,7 @@ __all__ = ["dyn", "make_dynvar"]
 
 import threading
 from collections import ChainMap
+from collections.abc import Container, Sized, Iterable, Mapping
 
 # Each new thread, when spawned, inherits the contents of the main thread's
 # dynamic scope stack.
@@ -148,13 +149,22 @@ class _Env(object):
         """
         return _DynLiveView()
 
-    def items(self):
-        """Abbreviation for asdict().items()."""
-        return self.asdict().items()
-
     def __iter__(self):
         return iter(self.asdict())
     # no __next__, iterating over dict.
+
+    # Mapping
+    def items(self):
+        """Abbreviation for asdict().items()."""
+        return self.asdict().items()
+    def keys(self):
+        return self.asdict().keys()
+    def values(self):
+        return self.asdict().values()
+    def get(self, k, default=None):
+        return self[k] if k in self else default
+    def __eq__(self, other):  # dyn is a singleton, but its contents can be compared to another mapping.
+        return other == self.asdict()
 
     def __len__(self):
         return len(self.asdict())
@@ -199,3 +209,8 @@ def make_dynvar(**bindings):
         _global_dynvars[name] = bindings[name]
 
 dyn = _Env()
+
+# register virtual base classes
+for abscls in (Container, Sized, Iterable, Mapping):
+    abscls.register(_Env)
+del abscls

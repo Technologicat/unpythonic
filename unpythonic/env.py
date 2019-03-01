@@ -3,6 +3,8 @@
 
 __all__ = ["env"]
 
+from collections.abc import Container, Sized, Iterable, Mapping
+
 class env:
     """Environment for let-like constructs.
 
@@ -90,9 +92,18 @@ class env:
         return self._env.__iter__()
     # no __next__, iterating over dict.
 
+    # Mapping
     def items(self):
         """Like dict.items()."""
         return self._env.items()
+    def keys(self):
+        return self._env.keys()
+    def values(self):
+        return self._env.values()
+    def get(self, k, default=None):
+        return self[k] if k in self else default
+    def __eq__(self, other):
+        return other == self._env
 
     def __len__(self):
         return len(self._env)
@@ -193,3 +204,8 @@ class env:
 #                    return cls(obj)  # copy-construct obj without wrapper
 #            assert False, "wrapped value missing in {} {}".format(type(obj), obj)
 #        return _assignonce_wrapper(obj)  # copy-construct obj with wrapper
+
+# register virtual base classes
+for abscls in (Container, Sized, Iterable, Mapping):
+    abscls.register(env)
+del abscls
