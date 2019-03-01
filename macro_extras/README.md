@@ -2,13 +2,15 @@
 
 These optional features, providing extensions to the Python language as syntactic macros, are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
 
-Because macro expansion occurs at import time, the unit tests that contain usage examples (located in [unpythonic/syntax/test/](../unpythonic/syntax/test/)) cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). Usage of the bootstrapper is `./macropy3 some.module` (like `python3 -m some.module`); see `-h` for options.
+Because macro expansion occurs at import time, the unit tests that contain usage examples (located in [unpythonic/syntax/test/](../unpythonic/syntax/test/)) cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). Usage of the bootstrapper is `./macropy3 -m some.module` (like `python3 -m some.module`); see `-h` for options.
 
-The tests use relative imports; invoke them from the top-level directory of ``unpythonic`` as e.g. ``macro_extras/macropy3 unpythonic.syntax.test.test_curry``. This is to make the tests run against the source tree without installing it first; in your own code, once you have installed ``unpythonic``, feel free to use absolute imports, like those shown in this README.
+The tests use relative imports; invoke them from the top-level directory of ``unpythonic`` as e.g. ``macro_extras/macropy3 -m unpythonic.syntax.test.test_curry``. This is to make the tests run against the source tree without installing it first; in your own code, once you have installed ``unpythonic``, feel free to use absolute imports, like those shown in this README.
 
 There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itself already provides ``lazy`` and ``interned``.
 
 !! **Currently** (12/2018) this requires the latest MacroPy from git HEAD. !!
+
+*Changed in v0.14.0.* The `macropy3` bootstrapper now takes the `-m` option, like `python3`. Specifying a module name positionally (without `-m`) will now import it in a special mode that pretends its `__name__ == '__main__'`.
 
 **Contents**:
 
