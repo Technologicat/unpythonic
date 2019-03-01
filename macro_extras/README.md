@@ -524,8 +524,6 @@ In the second example, returning ``x`` separately is redundant, because the assi
 
 ### ``namedlambda``: auto-name your lambdas
 
-*Changed in v0.13.0.* Env-assignments are now processed lexically, just like regular assignments. Added support for let-bindings.
-
 Who said lambdas have to be anonymous?
 
 ```python
@@ -544,11 +542,11 @@ with namedlambda:
     foo = let[(f7, lambda x: x) in f7]       # let-binding: name as "f7"
 ```
 
-Lexically inside a ``with namedlambda`` block, any literal ``lambda`` that is assigned to a name using one of the supported assignment forms is named to have the name of the LHS of the assignment. The name is captured at macro expansion time. Naming modifies the original function object.
+Lexically inside a ``with namedlambda`` block, any literal ``lambda`` that is assigned to a name using one of the supported assignment forms is named to have the name of the LHS of the assignment. The name is captured at macro expansion time.
 
 Decorated lambdas are also supported, as is a ``curry`` (manual or auto) where the last argument is a lambda. The latter is a convenience feature, mainly for applying parametric decorators to lambdas. See [the unit tests](../unpythonic/syntax/test/test_lambdatools.py) for detailed examples.
 
-The naming is performed using the function ``unpythonic.misc.namelambda``, which will update ``__name__``, ``__qualname__`` and ``__code__.co_name``.
+The naming is performed using the function ``unpythonic.misc.namelambda``, which will return a renamed copy with its ``__name__``, ``__qualname__`` and ``__code__.co_name`` changed.
 
 Supported assignment forms:
 
@@ -559,6 +557,10 @@ Supported assignment forms:
  - Let bindings, ``let[(f, (lambda ...: ...)) in ...]``, using any let syntax supported by unpythonic (here using the haskelly let-in just as an example).
 
 Support for other forms of assignment might or might not be added in a future version.
+
+*Changed in v0.13.0.* Env-assignments are now processed lexically, just like regular assignments. Added support for let-bindings.
+
+*Changed in v0.13.1.* Now the return value of ``namelambda``, which this uses internally, is a modified copy; the original function object is not mutated.
 
 
 ### ``quicklambda``: combo with ``macropy.quick_lambda``

@@ -2426,6 +2426,8 @@ assert tuple(myzip(lol)) == ((1, 3, 5), (2, 4, 6))
 
 *Changed in v0.13.0.* Now supports renaming any function object (``isinstance(f, (types.LambdaType, types.FunctionType))``), and will rename a lambda even if it has already been named.
 
+*Changed in v0.13.1.* Now the return value is a modified copy; the original function object is not mutated.
+
 For those situations where you return a lambda as a closure, call it much later, and it happens to crash - so you can tell from the stack trace *which* of the *N* lambdas in the codebase it is.
 
 For technical reasons, ``namelambda`` conforms to the parametric decorator API. Usage:
@@ -2440,7 +2442,7 @@ kaboom = namelambda("kaboom")(lambda: some_typoed_name)
 kaboom()  # --> stack trace, showing the function name "kaboom"
 ```
 
-The first call returns a *foo-renamer*, which takes a function object and renames it to have the name *foo*.
+The first call returns a *foo-renamer*, which takes a function object and returns a copy that has its name changed to *foo*.
 
 Technically, this updates ``__name__`` (the obvious place), ``__qualname__`` (used by ``repr()``), and ``__code__.co_name`` (used by stack traces).
 

@@ -5,6 +5,7 @@ __all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer", "getattr
 
 from types import LambdaType, FunctionType, CodeType
 from time import time
+from copy import copy
 
 from .regutil import register_decorator
 from .lazyutil import mark_lazy, lazycall, force
@@ -246,9 +247,6 @@ def pack(*args):
 def namelambda(name):
     """Rename a function. Decorator.
 
-    The original function object is modified in-place; for convenience,
-    the object is returned.
-
     This can be used to give a lambda a meaningful name, which is especially
     useful for debugging in cases where a lambda is returned as a closure,
     and the actual call into it occurs much later (so that if the call crashes,
@@ -260,7 +258,7 @@ def namelambda(name):
         foo = namelambda("foo")(lambda ...: ...)
 
     The first call returns a *foo-renamer*, and supplying the lambda to that
-    actually modifies the lambda to have the name *foo*.
+    actually returns a lambda that has the name *foo*.
 
     This is used internally by some macros (``namedlambda``, ``let``, ``do``),
     but also provided as part of unpythonic's public API in case it's useful
@@ -283,6 +281,7 @@ def namelambda(name):
     def rename(f):
         if not isinstance(f, (LambdaType, FunctionType)):
             return f
+        f = copy(f)
         # __name__ for tools like pydoc; __qualname__ for repr(); __code__.co_name for stack traces
         #     https://stackoverflow.com/questions/40661758/name-of-a-python-function-in-a-stack-trace
         #     https://stackoverflow.com/questions/16064409/how-to-create-a-code-object-in-python
