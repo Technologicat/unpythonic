@@ -4,13 +4,14 @@
 
 Eliminates the need for a per-project bootstrapper."""
 
-import imp  # TODO: once upgraded to Python 3.5+, replace the deprecated imp
 import importlib
+from importlib.util import find_spec
+from types import ModuleType
 import argparse
 import sys
 import macropy.activate
 
-__version__ = '1.2.0'
+__version__ = '1.2.1'
 
 def main():
     """Handle command-line arguments and run the specified main program."""
@@ -39,37 +40,28 @@ def main():
         import macropy.logging
 
     if opts.smodule:
-        # FIXME: this requires __init__.py to be present at each level of a dotted path (maybe imp does?)
-        #
         # Import the target module, but pretend its name is "__main__".
         #
         # We must import so that macros get expanded, so we can't use
         # runpy.run_module here (which just execs without importing).
         #
-        # This allows us to have the same semantics as "python3 -m some.module".
+        # The price is the module being loaded can't use relative imports
+        # (because its name is now "__main__" and it's not in a package).
         #
-        # The price is the target module can't use relative imports
-        # (precisely because its name is now "__main__").
-        #
-        # TODO: once upgraded to Python 3.5+, replace the deprecated imp
-        #   https://stackoverflow.com/questions/6114251/how-to-make-name-main-when-running-module/6114411#6114411
-        #   https://docs.python.org/3/library/imp.html#imp.find_module
-        #   https://docs.python.org/3/library/imp.html#imp.load_module
-        #   https://docs.python.org/3/library/importlib.html#importlib.util.find_spec         (Python 3.4+)
-        #   https://docs.python.org/3/library/importlib.html#importlib.util.module_from_spec  (Python 3.5+)
-        def finder(dotted_modname, acc=[], path=None):
-            print(path, dotted_modname)
-            head, sep, tail = dotted_modname.partition('.')
-            spec = imp.find_module(head, path)
-            modname = ".".join(acc + [head])
-            if tail:
-                mod = imp.load_module(modname, *spec)
-                return finder(tail, acc=(acc + [head]), path=mod.__path__)
-            return spec
-        spec = finder(opts.smodule)
-        mod = imp.load_module("__main__", *spec)
+        spec = find_spec(opts.smodule)
+        spec.name = "__main__"
+        # TODO: use importlib.util.module_from_spec instead once upgraded to Python 3.5+
+        loader = spec.loader
+        loader.name = "__main__"  # fool importlib._bootstrap.check_name_wrapper
+        mod = None
+        if hasattr(loader, "create_module"):
+            mod = loader.create_module(spec)
+        if not mod:
+            mod = ModuleType("__main__")
+            mod.__loader__ = loader
+        loader.exec_module(mod)
 
-    else:
+    else:  # import normally as a module
         entrypoints = (opts.entrypoint,) if opts.entrypoint else ("main", "test")
         mod = importlib.import_module(opts.module)  # macros are expanded at import time.
         defined_names = dir(mod)
