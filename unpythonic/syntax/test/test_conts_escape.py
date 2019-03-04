@@ -104,3 +104,6 @@ def test():
         assert main2() == "not odd"
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()

@@ -12,7 +12,7 @@ from ...fold import foldr
 from ...fun import composerc as compose, apply
 from ...llist import cons, nil, ll
 
-def main():
+def test():
     with prefix:
         (print, "hello world")
         x = 42  # can write any regular Python, too
@@ -99,3 +99,6 @@ def main():
         assert (mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()

@@ -138,3 +138,6 @@ def test():
         assert func2(10) == 60
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()

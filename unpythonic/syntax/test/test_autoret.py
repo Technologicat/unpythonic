@@ -60,3 +60,6 @@ def test():
         assert ctx() == "hi"
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()

@@ -24,3 +24,6 @@ def test():
             assert _ == 3 * x * y
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()

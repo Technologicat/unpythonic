@@ -182,3 +182,6 @@ def test():
     # make_generator macro needs to splice in is already here in the final example.)
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()

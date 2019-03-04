@@ -30,3 +30,6 @@ def test():
     assert answer(2) == "two"
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()

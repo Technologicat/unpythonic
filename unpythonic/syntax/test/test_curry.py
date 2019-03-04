@@ -71,3 +71,6 @@ def test():
         assert fact(5) == 120
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()

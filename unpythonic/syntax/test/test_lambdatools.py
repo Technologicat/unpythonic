@@ -129,3 +129,6 @@ def test():
         assert func(1, 2) == 3
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()

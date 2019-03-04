@@ -371,3 +371,6 @@ def test():
         assert k('thrice', 1/0) == ['the call returned', 'thrice']
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()

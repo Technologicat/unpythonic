@@ -22,3 +22,6 @@ def test():
                                  (8, 15, 17), (9, 12, 15), (12, 16, 20))
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()

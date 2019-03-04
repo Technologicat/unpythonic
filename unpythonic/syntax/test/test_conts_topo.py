@@ -213,3 +213,6 @@ def test():
         assert out == ['f1', 'y_cont', 's_cont', 'r_cont', 'x_cont', 'f2']
 
     print("All tests PASSED")
+
+if __name__ == '__main__':
+    test()
