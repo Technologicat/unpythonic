@@ -38,7 +38,7 @@ def module_from_spec(spec):
         module.__spec__ = spec
     return module
 
-# We perform only user-specified import ourselves; that we must, in order to
+# We perform only the user-specified import ourselves; that we must, in order to
 # fake the name as "__main__".
 #
 # We delegate all the rest to the stdlib import machinery. This allows us to
@@ -76,9 +76,11 @@ def import_module(name, fakename):
         try_mainpy = True
         module.__package__ = absolute_name
         module.__path__ = spec.submodule_search_locations
-        parent_module = stdlib_import_module(absolute_name)  # e.g. "import unpythonic" in the above case
 
-    if spec.loader:  # namespace packages have loader=None
+    if try_mainpy:
+        # e.g. "import unpythonic" in the above case; it's not the one running as main, so import it normally
+        parent_module = stdlib_import_module(absolute_name)
+    elif spec.loader:  # namespace packages have loader=None
         spec.loader.exec_module(module)
         sys.modules[absolute_name] = module
         if path is not None:
@@ -87,9 +89,12 @@ def import_module(name, fakename):
         try_mainpy = True
 
     if try_mainpy:  # __init__.py (if any) has run; now run __main__.py, like "python3 -m mypackage" does
+        err = False
         try:
             stdlib_import_module("{}.__main__".format(absolute_name))
         except ImportError:
+            err = True
+        if err:
             raise ImportError("No module named {}.__main__; '{}' is a package and cannot be directly executed".format(absolute_name, absolute_name))
 
     return module
