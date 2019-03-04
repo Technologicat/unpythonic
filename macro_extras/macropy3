@@ -16,7 +16,13 @@ except ImportError:
 
 import macropy.activate
 
-__version__ = '1.3.0'
+__version__ = '1.4.0'
+
+# Pydialect: Python as a language platform.
+# À la Racket; in Python, create dialects that run on Python.
+#
+# TODO: make a proper dialect registry; where should it live in the file system?
+_dialects = (("lispython", "activate"),)  # ((module, entrypoint), ...)
 
 def module_from_spec(spec):
     """Compatibility wrapper.
@@ -122,6 +128,15 @@ def main():
 
     if opts.debug:
         import macropy.logging
+
+    # For pydialect: register the dialect importers.
+    for module_name, registrar_name in _dialects:
+        try:
+            m = stdlib_import_module(module_name)
+        except ImportError:  # skip if module not found
+            continue
+        registrar = getattr(m, registrar_name)
+        registrar()
 
     # Import the module, pretending its name is "__main__".
     #
