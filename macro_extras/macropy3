@@ -5,7 +5,7 @@
 Eliminates the need for a per-project bootstrapper."""
 
 import importlib
-from importlib.util import find_spec
+from importlib.util import spec_from_file_location
 from types import ModuleType
 import argparse
 import sys
@@ -21,47 +21,45 @@ __version__ = '1.2.1'
 
 def main():
     """Handle command-line arguments and run the specified main program."""
-    parser = argparse.ArgumentParser(description="""Generic MacroPy3 bootstrapper: run a Python program with MacroPy3 enabled.""",
+    parser = argparse.ArgumentParser(description="""Run a Python program with MacroPy3 enabled.""",
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument( '-v', '--version', action='version', version=('%(prog)s-bootstrapper ' + __version__) )
-    parser.add_argument(dest='smodule', nargs='?', default=None, type=str, metavar='module',
-                        help='The module name of the main program to run, pretending its __name__ == "__main__". Alternative to "-m module."')
+    parser.add_argument(dest='filename', nargs='?', default=None, type=str, metavar='filename',
+                        help='File to run. It is imported with its __name__ == "__main__". Alternative to "-m module."')
     parser.add_argument('-m', '--module', dest='module', default=None, type=str, metavar='module',
-                        help='The module name of the main program to run, by importing it normally and calling the specified entrypoint. Alternative to the positional module name.')
+                        help='Module to run. It is imported normally, and the entrypoint is called (see -e). Alternative to filename.')
     parser.add_argument('-e', '--entrypoint', dest='entrypoint', default=None, type=str, metavar='func',
-                        help='With -m: specify the entrypoint in the module. If not given, main() and test() are tried, in that order.' )
+                        help='With -m: name of the entrypoint in the module. If not given, "main" and "test" are tried, in that order.' )
     parser.add_argument('-d', '--debug', dest='debug', action="store_true", default=False,
                         help='Enable MacroPy logging.')
     opts = parser.parse_args()
 
-    if not opts.smodule and not opts.module:
+    if not opts.filename and not opts.module:
         parser.print_help()
         sys.exit(0)
-        raise ValueError("Please specify a module (either positionally or with -m).")
-    if opts.module and opts.smodule:
-        raise ValueError("Please specify just one module (either positionally or with -m, not both).")
+        raise ValueError("Please specify a main program (either filename or -m module).")
+    if opts.filename and opts.module:
+        raise ValueError("Please specify just one main program (either filename or -m module, not both).")
 
     if opts.debug:
         import macropy.logging
 
-    if opts.smodule:  # script mode: import the module, pretending its name is "__main__"
+    if opts.filename:  # script mode: import the module, pretending its name is "__main__"
         # We must import so that macros get expanded, so we can't use
         # runpy.run_module here (which just execs without importing).
-        spec = find_spec(opts.smodule)
-        spec.name = "__main__"
+        spec = spec_from_file_location("__main__", opts.filename)
+        if not spec:
+            raise ValueError("No such file or not a Python module: '{}'".format(opts.filename))
         loader = spec.loader
-        loader.name = "__main__"  # fool importlib._bootstrap.check_name_wrapper
         if module_from_spec:  # Python 3.5+
             mod = module_from_spec(spec)
         else:  # Python 3.4; try to approximate what module_from_spec would do
             mod = None
             if hasattr(loader, "create_module"):
                 mod = loader.create_module(spec)
-                if mod:
-                    mod.__name__ = "__main__"  # TODO: not sure if needed
             if not mod:
-                mod = ModuleType("__main__")
+                mod = ModuleType(spec.name)
                 mod.__loader__ = loader
         loader.exec_module(mod)
 
