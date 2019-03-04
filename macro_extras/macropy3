@@ -1,23 +1,98 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Generic bootstrapper to run a Python program with MacroPy3 enabled.
+"""Generic bootstrapper to run a Python program with MacroPy3 enabled."""
 
-Eliminates the need for a per-project bootstrapper."""
-
-import importlib
-from importlib.util import spec_from_file_location
+from importlib import import_module as stdlib_import_module
+from importlib.util import spec_from_file_location, find_spec, resolve_name
 from types import ModuleType
-import argparse
+from os.path import isfile
 import sys
+import argparse
 
 try:  # Python 3.5+
-    from importlib.util import module_from_spec
+    from importlib.util import module_from_spec as stdlib_module_from_spec
 except ImportError:
-    module_from_spec = None
+    stdlib_module_from_spec = None
 
 import macropy.activate
 
-__version__ = '1.2.1'
+__version__ = '1.3.0'
+
+def module_from_spec(spec):
+    """Compatibility wrapper.
+
+    Call ``importlib.util.module_from_spec`` if available (Python 3.5+),
+    otherwise approximate it manually (Python 3.4).
+    """
+    if stdlib_module_from_spec:
+        return stdlib_module_from_spec(spec)
+    loader = spec.loader
+    module = None
+    if hasattr(loader, "create_module"):
+        module = loader.create_module(spec)
+        if module:
+            module.__name__ = spec.name  # TODO: not sure if needed
+    if not module:
+        module = ModuleType(spec.name)
+        module.__loader__ = loader
+        module.__spec__ = spec
+    return module
+
+# We perform only user-specified import ourselves; that we must, in order to
+# fake the name as "__main__".
+#
+# We delegate all the rest to the stdlib import machinery. This allows us to
+# avoid dealing with nasty details, such as setting __path__ for package modules.
+#
+# See:
+#     https://docs.python.org/3/library/importlib.html#approximating-importlib-import-module
+#     https://docs.python.org/3/reference/import.html#loading
+def import_module(name, fakename):
+    absolute_name = resolve_name(name, package=None)
+
+    path = None
+    if '.' in absolute_name:
+        parent_name, _, child_name = absolute_name.rpartition('.')
+        parent_module = stdlib_import_module(parent_name)
+        path = parent_module.__spec__.submodule_search_locations
+    for finder in sys.meta_path:
+        spec = finder.find_spec(absolute_name, path)
+        if spec is not None:
+            break
+    else:
+        msg = 'No module named {}'.format(absolute_name)
+        raise ImportError(msg, name=absolute_name)
+
+    spec.name = fakename
+    if spec.loader:
+        spec.loader.name = fakename  # fool importlib._bootstrap.check_name_wrapper
+
+    module = module_from_spec(spec)
+    try_mainpy = False
+    if path:
+        module.__package__ = parent_name
+        module.__path__ = parent_module.__spec__.submodule_search_locations  # TODO: is this correct?
+    elif spec.origin.endswith("__init__.py"):  # we end up here e.g. for "macropy3 -m unpythonic"
+        try_mainpy = True
+        module.__package__ = absolute_name
+        module.__path__ = spec.submodule_search_locations
+        parent_module = stdlib_import_module(absolute_name)  # e.g. "import unpythonic" in the above case
+
+    if spec.loader:  # namespace packages have loader=None
+        spec.loader.exec_module(module)
+        sys.modules[absolute_name] = module
+        if path is not None:
+            setattr(parent_module, child_name, module)
+    else:
+        try_mainpy = True
+
+    if try_mainpy:  # __init__.py (if any) has run; now run __main__.py, like "python3 -m mypackage" does
+        try:
+            stdlib_import_module("{}.__main__".format(absolute_name))
+        except ImportError:
+            raise ImportError("No module named {}.__main__; '{}' is a package and cannot be directly executed".format(absolute_name, absolute_name))
+
+    return module
 
 def main():
     """Handle command-line arguments and run the specified main program."""
@@ -25,54 +100,44 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument( '-v', '--version', action='version', version=('%(prog)s-bootstrapper ' + __version__) )
-    parser.add_argument(dest='filename', nargs='?', default=None, type=str, metavar='filename',
-                        help='File to run. It is imported with its __name__ == "__main__". Alternative to "-m module."')
-    parser.add_argument('-m', '--module', dest='module', default=None, type=str, metavar='module',
-                        help='Module to run. It is imported normally, and the entrypoint is called (see -e). Alternative to filename.')
-    parser.add_argument('-e', '--entrypoint', dest='entrypoint', default=None, type=str, metavar='func',
-                        help='With -m: name of the entrypoint in the module. If not given, "main" and "test" are tried, in that order.' )
+    parser.add_argument(dest='filename', nargs='?', default=None, type=str, metavar='file',
+                        help='script to run')
+    parser.add_argument('-m', '--module', dest='module', default=None, type=str, metavar='mod',
+                        help='run library module as a script (like python3 -m mod)')
     parser.add_argument('-d', '--debug', dest='debug', action="store_true", default=False,
-                        help='Enable MacroPy logging.')
+                        help='enable MacroPy logging')
     opts = parser.parse_args()
 
     if not opts.filename and not opts.module:
         parser.print_help()
         sys.exit(0)
-        raise ValueError("Please specify a main program (either filename or -m module).")
+        raise ValueError("Please specify the program to run (either filename or -m module).")
     if opts.filename and opts.module:
-        raise ValueError("Please specify just one main program (either filename or -m module, not both).")
+        raise ValueError("Please specify just one program to run (either filename or -m module, not both).")
 
     if opts.debug:
         import macropy.logging
 
-    if opts.filename:  # script mode: import the module, pretending its name is "__main__"
-        # We must import so that macros get expanded, so we can't use
-        # runpy.run_module here (which just execs without importing).
+    # Import the module, pretending its name is "__main__".
+    #
+    # We must import so that macros get expanded, so we can't use
+    # runpy.run_module here (which just execs without importing).
+    if opts.filename:
+        # like "python3 foo/bar.py", this doesn't initialize any parent packages.
+        if not isfile(opts.filename):
+            raise FileNotFoundError("Can't open file '{}'".format(opts.filename))
         spec = spec_from_file_location("__main__", opts.filename)
         if not spec:
-            raise ValueError("No such file or not a Python module: '{}'".format(opts.filename))
-        loader = spec.loader
-        if module_from_spec:  # Python 3.5+
-            mod = module_from_spec(spec)
-        else:  # Python 3.4; try to approximate what module_from_spec would do
-            mod = None
-            if hasattr(loader, "create_module"):
-                mod = loader.create_module(spec)
-            if not mod:
-                mod = ModuleType(spec.name)
-                mod.__loader__ = loader
-        loader.exec_module(mod)
-
-    else:  # import the module normally, call the entrypoint
-        entrypoints = (opts.entrypoint,) if opts.entrypoint else ("main", "test")
-        mod = importlib.import_module(opts.module)
-        defined_names = dir(mod)
-        for candidate in entrypoints:
-            if candidate in defined_names:
-                entrypoint = getattr(mod, candidate)
-                if callable(entrypoint):
-                    sys.exit(entrypoint())
-        raise ValueError("No entrypoint found in module '{}', tried {}. Does it have a main program?".format(opts.module, entrypoints))
+            raise ImportError("Not a Python module: '{}'".format(opts.filename))
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return
+    else: # opts.module
+        # like "python3 -m foo.bar", we must take care to initialize parent packages.
+        spec = find_spec(opts.module)
+        if not spec:
+            raise ImportError("No module named {}".format(opts.module))
+        import_module(opts.module, fakename="__main__")
 
 if __name__ == '__main__':
     main()
