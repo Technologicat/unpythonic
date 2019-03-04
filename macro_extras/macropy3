@@ -9,6 +9,12 @@ from importlib.util import find_spec
 from types import ModuleType
 import argparse
 import sys
+
+try:  # Python 3.5+
+    from importlib.util import module_from_spec
+except ImportError:
+    module_from_spec = None
+
 import macropy.activate
 
 __version__ = '1.2.1'
@@ -39,31 +45,29 @@ def main():
     if opts.debug:
         import macropy.logging
 
-    if opts.smodule:
-        # Import the target module, but pretend its name is "__main__".
-        #
+    if opts.smodule:  # script mode: import the module, pretending its name is "__main__"
         # We must import so that macros get expanded, so we can't use
         # runpy.run_module here (which just execs without importing).
-        #
-        # The price is the module being loaded can't use relative imports
-        # (because its name is now "__main__" and it's not in a package).
-        #
         spec = find_spec(opts.smodule)
         spec.name = "__main__"
-        # TODO: use importlib.util.module_from_spec instead once upgraded to Python 3.5+
         loader = spec.loader
         loader.name = "__main__"  # fool importlib._bootstrap.check_name_wrapper
-        mod = None
-        if hasattr(loader, "create_module"):
-            mod = loader.create_module(spec)
-        if not mod:
-            mod = ModuleType("__main__")
-            mod.__loader__ = loader
+        if module_from_spec:  # Python 3.5+
+            mod = module_from_spec(spec)
+        else:  # Python 3.4; try to approximate what module_from_spec would do
+            mod = None
+            if hasattr(loader, "create_module"):
+                mod = loader.create_module(spec)
+                if mod:
+                    mod.__name__ = "__main__"  # TODO: not sure if needed
+            if not mod:
+                mod = ModuleType("__main__")
+                mod.__loader__ = loader
         loader.exec_module(mod)
 
-    else:  # import normally as a module
+    else:  # import the module normally, call the entrypoint
         entrypoints = (opts.entrypoint,) if opts.entrypoint else ("main", "test")
-        mod = importlib.import_module(opts.module)  # macros are expanded at import time.
+        mod = importlib.import_module(opts.module)
         defined_names = dir(mod)
         for candidate in entrypoints:
             if candidate in defined_names:
