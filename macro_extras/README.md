@@ -10,7 +10,11 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
 
 !! **Currently** (12/2018) this requires the latest MacroPy from git HEAD. !!
 
-*Changed in v0.14.0.* The `macropy3` bootstrapper now takes the `-m` option, like `python3`. Specifying a module name positionally (without `-m`) will now import it in a special mode that pretends its `__name__ == '__main__'`.
+Of the `python3` command-line options, the `macropy3` bootstrapper supports only `-m`. If you need to give other `python3` command-line options when running a MacroPy-enabled source file, run the bootstrapper manually via `python3 ...` and place the options there.
+
+*Changed in v0.14.0.* The `macropy3` bootstrapper now takes the `-m` option, like `python3 -m mod`. The alternative is to specify a filename positionally, like ``python3 mod.py``. In either case, the bootstrapper will import the module in a special mode that pretends its `__name__ == '__main__'`, to allow using the pythonic conditional main idiom also in macro-enabled code.
+
+*Changed in v0.14.0.* Support for custom Python dialects upcoming. May be released as a separate project. Documentation will be updated closer to the release. For now, be aware that the `macropy3` bootstrapper is already dialect-enabled (this took 6 extra lines of code; the dependency is optional, so there's no separate `pydialect` bootstrapper). For a usage example, see `lispython.py` (lispy Python) and `test_lispython.py`. The dialect importer lives in `dialects.py`. See docstrings and comments for details.
 
 **Contents**:
 
