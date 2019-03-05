@@ -11,8 +11,8 @@ functions and even syntactic macros leave code repetitive or unreadable.
 
 (E.g., a custom dialect can alleviate the need to spam a combination of
 block macros in every module of a project. Usually explicit is better than
-implicit, but there's a tipping point with regard to complexity after which
-implicit becomes better.)
+implicit, but there's a tipping point with regard to complexity (and/or simply
+length) after which implicit becomes better.)
 
 Pydialect places language-creation power in the hands of the users, without the
 need to go to extreme lengths to hack CPython itself or implement from scratch
