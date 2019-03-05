@@ -50,5 +50,6 @@ def ast_transformer(tree):
             return tree
         return If(test=Num(n=1),
                   body=module_body,
-                  orelse=[])
+                  orelse=[],
+                  lineno=locref.lineno, col_offset=locref.col_offset)
     return splice.recurse(newbody)
