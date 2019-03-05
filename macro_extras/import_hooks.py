@@ -333,7 +333,15 @@ class DialectFinder:
         if lang_import not in source:
             return  # this module does not use a dialect
 
-        # Detect the dialect... ugh! (but the input is text at this point)
+        # Detect the dialect... ugh!
+        #   - At this point, the input is text.
+        #   - It's not parseable by ast.parse, because a dialect may introduce
+        #     new surface syntax.
+        #   - Similarly, it's not tokenizable by stdlib's tokenizer, because
+        #     a dialect may customize what constitutes a token.
+        #   - So we can only rely on the literal text "from __lang__ import xxx".
+        #   - This is rather similar to how Racket heavily constrains what may
+        #     appear on the #lang line.
         matches = re.findall(r"from __lang__ import\s+(.*)\s*$", source, re.MULTILINE)
         if len(matches) != 1:
             msg = "Expected exactly one lang-import with one dialect name"
