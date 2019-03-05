@@ -33,7 +33,7 @@ def main():
         def f(k, acc):
             if k == 1:
                 acc
-            else:  # "else" required to make also the "else" branch into a tail position
+            else:  # "else" required to make both branches into tail positions
                 f(k - 1, k*acc)
         f(n, acc=1)
     assert fact(4) == 24
