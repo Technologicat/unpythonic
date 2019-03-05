@@ -207,7 +207,8 @@ def singleton(cls):
 #
 # - Macro expansion is performed already at the finder step, because in order to
 #   detect whether to use the macro loader, the input must be parsed and scanned
-#   for macros.
+#   for macros. We could dispatch to a custom loader immediately after detecting
+#   that the module uses a dialect, but have chosen to just inherit this design.
 
 @singleton
 class DialectFinder:
