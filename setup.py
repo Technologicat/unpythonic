@@ -368,7 +368,7 @@ setup(
     #
     packages = ["unpythonic", "unpythonic.syntax"],
 
-    zip_safe = True,  # no Cython extensions
+    zip_safe = False,  # macros are not zip safe, because the zip importer fails to find sources, and MacroPy needs them.
 
     # Custom data files not inside a Python package
     data_files = datafiles
