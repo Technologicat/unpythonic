@@ -22,11 +22,11 @@ def ast_transformer(tree):
     with q as newbody:
         from unpythonic.syntax import macros, tco, autoreturn, \
                                       multilambda, quicklambda, namedlambda, \
-                                      let, letseq, letrec, \
+                                      let, letseq, letrec, do, do0, \
                                       dlet, dletseq, dletrec, \
                                       blet, bletseq, bletrec, \
                                       let_syntax, abbrev
-        from unpythonic import cons, car, cdr, prod
+        from unpythonic import cons, car, cdr, ll, llist, prod
         with autoreturn, quicklambda, multilambda, tco, namedlambda:
             name["__paste_here__"]
 
