@@ -26,7 +26,7 @@ def main():
     assert car(c) == 1
     assert cdr(c) == 2
 
-    assert prod((2, 3, 4)) == 24  # missing battery
+    assert prod((2, 3, 4)) == 24  # bye missing battery, hello new dialect builtin
 
     # auto-TCO, implicit return in tail position
     def fact(n):
