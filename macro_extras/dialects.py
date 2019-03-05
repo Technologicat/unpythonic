@@ -428,7 +428,7 @@ class DialectFinder:
 
         # Unlike macropy.core.import_hooks.MacroLoader, which exits at this point if there
         # were no macros, we always process the module (because it was explicitly tagged
-        # as this dialect, and pure source-transform dialects are also allowed).
+        # as a dialect, and pure source-transform dialects are also allowed).
 
         loader = DialectLoader(spec, code, tree)
         return spec_from_loader(fullname, loader)
