@@ -56,6 +56,7 @@ def main():
     assert t is True
 
 #    # TODO: investigate what goes wrong here, looks like a trampoline is missing somewhere?
+#    # TODO: also, seems evenp and oddp don't get __name__ here, although they should (as let-bindings)
 #    t = letrec[((evenp, lambda x: (x == 0) or oddp(x - 1)),
 #                (oddp, lambda x:(x != 0) and evenp(x - 1))) in
 #               [evenp(10000),
