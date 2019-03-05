@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Lispython - lispy Python, powered by Pydialect and unpythonic.
 
-This module is the dialect definition, invoked by ``dialect_hooks.DialectFinder``
+This module is the dialect definition, invoked by ``dialects.DialectFinder``
 when it detects a lang-import that matches the module name of this module.
 
 This dialect is implemented in MacroPy.
