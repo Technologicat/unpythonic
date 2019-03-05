@@ -277,8 +277,8 @@ def trampolined(function):
         def trampoline(*args, **kwargs):
             f = function
             while True:
-                if callable(f):
-                    v = lazycall(f, *args, **kwargs)  # <-- this causes the performance hit
+                if callable(f):  # the lazycall here causes the performance hit
+                    v = lazycall(f, *args, **kwargs)
                 else:
                     v = f
                 if isinstance(v, _jump):
