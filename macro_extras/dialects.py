@@ -37,9 +37,9 @@ written in standard Python.)
 In Pydialect, a dialect is any module that exports one or both of the following
 callables:
 
-    source_transformer: callable: source text -> source text
+    ``source_transformer``: source text -> source text
 
-        The full source code of the module being imported (*including*
+        The **full source code** of the module being imported (*including*
         the lang-import) is sent to the the source transformer.
 
         Source transformers are useful e.g. for defining custom infix
@@ -54,52 +54,57 @@ callables:
         surface syntax for **standard Python**, i.e. valid input for
         ``ast.parse``.
 
-    ast_transformer: callable: Python AST -> Python AST
+    ``ast_transformer``: list of Python AST nodes -> list of Python AST nodes
 
         After the source transformer, but before macro expansion, the full AST
-        of the module being imported (*minus* the lang-import, which is converted
-        at this stage to set the ``__lang__`` magic variable instead) is sent
-        to this whole-module AST transformer.
+        of the module being imported (*minus* the module docstring and the
+        lang-import, which is converted at this stage to set the ``__lang__``
+        magic variable instead) is sent to this whole-module AST transformer.
 
         This allows injecting implicit imports to create builtins for the
-        dialect, as well as e.g. placing the whole module inside a ``with``
-        block to apply some MacroPy block macro(s) to the whole module.
+        dialect, as well as e.g. placing the whole module (except the docstring
+        and the code to set ``__lang__``) inside a ``with`` block to apply
+        some MacroPy block macro(s) to the whole module.
 
         **After the AST transformer**, the module is sent to MacroPy for
         macro expansion (if MacroPy is installed, and the module has macros
-        at that point), and after that, the result is imported normally.
+        at that point), and after that, the result is finally imported normally.
 
 **The name** of a dialect is simply the *fully qualified name* of the module
 or package implementing the dialect. In other words, it's the name that needs
 to be imported to find the transformer functions. For example ``piethon``, or
 ``mylibrary.mylanguage``.
 
-A dialect can be implemented in another dialect, as long as there are no
+Note that a dotted name in place of the ``xxx`` in ``from __lang__ import xxx``
+is not valid Python syntax, so IDEs are generally happier if the dialect is
+defined by a top-level module (no dots in the name).
+
+A dialect can be implemented using another dialect, as long as there are no
 dependency loops. *Whenever* a lang-import is detected, the dialect importer
-is applied (especially, also during the import of a module that defines a
-new dialect).
+is invoked (especially, also during the import of a module that defines a
+new dialect). This allows creating a tower of languages.
 
 **Implementing a dialect**
 
-A dialect can do anything from simply adding a monadic bind operator syntax,
-to completely changing Python's semantics, e.g. by adding automatic tail-call
-optimization, continuations, and/or lazy functions. The only limitation is that
-the desired functionality must be macro-expressible in Python.
+A dialect can do anything from simply adding some surface syntax (such as a
+monadic bind operator), to completely changing Python's semantics, e.g. by adding
+automatic tail-call optimization, continuations, and/or lazy functions. The only
+limitation is that the desired functionality must be (macro-)expressible in Python.
 
 The core of a dialect is defined as a set of functions and macros, which typically
-live inside a library. The role of a dialect is to package that core functionality
-into a whole that can be concisely loaded with a single import.
+live inside a library. The role of the dialect module is to package that core
+functionality into a whole that can be concisely loaded with a single lang-import.
 
 Typically a dialect implicitly imports its core functions and macros, to make
-them appear as builtins (in the sense of *implicitly defined by default*)
-to modules that are written in the dialect.
+them appear as builtins (in the sense of *defined by default*) to modules that
+use the dialect.
 
 A dialect may also define non-core functions and macros that live in the same
 library; those essentially comprise *the standard library* of the dialect.
 
-(For example, the ``lispython`` dialect itself is defined by a subset of
+For example, the ``lispython`` dialect itself is defined by a subset of
 ``unpythonic`` and ``unpythonic.syntax``; the rest of the library is available
-to be imported manually; it makes up the standard library of ``lispython``.)
+to be imported manually; it makes up the standard library of ``lispython``.
 
 For macros, Pydialect supports MacroPy. Technically, macros are optional,
 so Pydialect's dependency on MacroPy is strictly speaking optional.
@@ -212,7 +217,7 @@ def singleton(cls):
 
 @singleton
 class DialectFinder:
-    """Importer that matches 'from __lang__ import xxx'."""
+    """Importer that matches any module that has a 'from __lang__ import xxx'."""
 
     def _find_spec_nomacro(self, fullname, path, target=None):
         """Try to find the original, non macro-expanded module using all the
@@ -225,7 +230,7 @@ class DialectFinder:
             # some yet unknown reasons makes macros expansion
             # fail. For now it will just avoid using it and pass to
             # the next one
-            if finder is self or (macropy and finder is macropy.core.MacroFinder) or \
+            if finder is self or (macropy and finder is macropy.core.import_hooks.MacroFinder) or \
                'pytest' in finder.__module__:
                 continue
             if hasattr(finder, 'find_spec'):
@@ -250,7 +255,7 @@ class DialectFinder:
 
         if not (isinstance(tree, ast.Module) and tree.body):
             msg = "Expected a Module node with at least one statement or expression in file {} (module {})".format(filename, fullname)
-            logger.exception(msg)
+            logger.error(msg)
             raise SyntaxError(msg)
 
         # The 'from __lang__ import xxx' has done its job, replace it with
@@ -261,7 +266,7 @@ class DialectFinder:
         # We need to be careful to insert a location to each AST node
         # in case we're not invoking MacroPy (which fixes missing locations).
         def make_langname_setter(tree):
-            s = ast.Str(s=tree.names[0])
+            s = ast.Str(s=tree.names[0].name)
             s = ast.copy_location(s, tree)
             n = ast.Name(id="__lang__", ctx=ast.Store())
             n = ast.copy_location(n, tree)
@@ -270,19 +275,22 @@ class DialectFinder:
             return a
 
         if isimportdialect(tree.body[0]):
-            tree.body = [make_langname_setter(tree.body[0])] + tree.body[1:]
+            preamble = [make_langname_setter(tree.body[0])]
+            thebody = tree.body[1:]
         # variant with module docstring
         elif len(tree.body) > 1 and isinstance(tree.body[0], ast.Expr) and \
              isimportdialect(tree.body[1]):
-            tree.body = [tree.body[0], make_langname_setter(tree.body[1])] + tree.body[2:]
+            preamble = [tree.body[0], make_langname_setter(tree.body[1])]
+            thebody = tree.body[2:]
         else:  # we know the lang-import is there; it's in some other position
             msg = "Misplaced lang-import in file {} (module {})".format(filename, fullname)
-            logger.exception(msg)
+            logger.error(msg)
             raise SyntaxError(msg)
 
         if hasattr(lang_module, "ast_transformer"):
             logger.info('Dialect AST transform in file {} (module {})'.format(filename, fullname))
-            tree = lang_module.ast_transformer(tree)
+            thebody = lang_module.ast_transformer(thebody)
+        tree.body = preamble + thebody
 
         # detect macros **after** any dialect-level whole-module transform
         new_tree = tree
@@ -305,7 +313,7 @@ class DialectFinder:
             logger.info('Compile file {} (module {})'.format(filename, fullname))
             return compile(new_tree, filename, "exec"), new_tree
         except Exception:
-            logger.exception("Error while compiling file {} (module {})".format(filename, fullname))
+            logger.error("Error while compiling file {} (module {})".format(filename, fullname))
             raise
 
     def find_spec(self, fullname, path, target=None):
@@ -316,7 +324,7 @@ class DialectFinder:
                 # stdlib pickle.py at line 94 contains a ``from
                 # org.python.core for Jython which is always failing,
                 # of course
-                logging.debug('Failed finding spec for {}'.format(fullname))
+                logger.debug('Failed finding spec for {}'.format(fullname))
             return
         origin = spec.origin
         if origin == 'builtin':
@@ -324,10 +332,12 @@ class DialectFinder:
         try:
             source = spec.loader.get_source(fullname)
         except ImportError:
-            logging.debug('Loader for {} was unable to find the sources'.format(fullname))
+            logger.debug('Loader for {} was unable to find the sources'.format(fullname))
             return
         except Exception:
-            logging.exception('Loader for {} raised an error'.format(fullname))
+            logger.error('Loader for {} raised an error'.format(fullname))
+            return
+        if not source:  # some loaders may return None for the sources, without raising an exception
             return
 
         lang_import = "from __lang__ import"
@@ -343,35 +353,36 @@ class DialectFinder:
         #   - So we can only rely on the literal text "from __lang__ import xxx".
         #   - This is rather similar to how Racket heavily constrains what may
         #     appear on the #lang line.
-        matches = re.findall(r"from __lang__ import\s+(.*)\s*$", source, re.MULTILINE)
+        matches = re.findall(r"from __lang__ import\s+([0-9a-zA-Z_]+)\s*$", source, re.MULTILINE)
         if len(matches) != 1:
             msg = "Expected exactly one lang-import with one dialect name"
-            logging.exception(msg)
+            logger.error(msg)
             raise SyntaxError(msg)
         dialect_name = matches[0]
 
         try:
+            logger.info("Detected dialect '{}' in module '{}', loading dialect".format(dialect_name, fullname))
             lang_module = importlib.import_module(dialect_name)
         except ImportError as err:
             msg = "Could not import dialect module '{}'".format(dialect_name)
-            logging.exception(msg)
+            logger.error(msg)
             raise ImportError(msg) from err
         if not any(hasattr(lang_module, x) for x in ("source_transformer", "ast_transformer")):
             msg = "Module '{}' has no dialect transformers".format(dialect_name)
-            logging.exception(msg)
+            logger.error(msg)
             raise ImportError(msg)
 
         if hasattr(lang_module, "source_transformer"):
             logger.info('Dialect source transform in {}'.format(fullname))
             source = lang_module.source_transformer(source)
             if lang_import not in source:  # preserve invariant
-                msg = 'Dialect source transformer for {} should not delete the lang-import'.format(fullname)
-                logging.exception(msg)
+                msg = 'Dialect source transform for {} should not delete the lang-import'.format(fullname)
+                logger.error(msg)
                 raise RuntimeError(msg)
 
         if not source:
             msg = "Empty source text after dialect source transform in {}".format(fullname)
-            logger.exception(msg)
+            logger.error(msg)
             raise SyntaxError(msg)
 
         code, tree = self.expand_macros(source, origin, fullname, spec, lang_module)
