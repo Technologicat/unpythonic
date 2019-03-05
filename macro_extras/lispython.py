@@ -1,14 +1,25 @@
 # -*- coding: utf-8 -*-
-"""Lispython - lispy Python, powered by Pydialect and unpythonic.
+"""Lispython: the love child of Python and Scheme.
+
+Powered by Pydialect and unpythonic.
 
 This module is the dialect definition, invoked by ``dialects.DialectFinder``
 when it detects a lang-import that matches the module name of this module.
 
 This dialect is implemented in MacroPy.
+
+**Schemers rejoice!**::
+
+    Multiple musings mix in a lambda,
+    Lament no longer the lack of let.
+    Languish no longer labelless, lambda,
+    Linked lists cons and fold.
+    Tail-call into recursion divine,
+    The final value always provide.
 """
 
 # TODO: fix the unpythonic.syntax block macros to leave a placeholder for
-# other macros; TCO needs to detect and ignore "with continuations" blocks
+# other macros; TCO needs to detect and skip "with continuations" blocks
 # inside it in order for lispython to work properly when "with continuations"
 # is manually used in a lispython program.
 
@@ -25,10 +36,12 @@ def ast_transformer(tree):
                                       let, letseq, letrec, do, do0, \
                                       dlet, dletseq, dletrec, \
                                       blet, bletseq, bletrec, \
-                                      let_syntax, abbrev
+                                      let_syntax, abbrev, \
+                                      cond
         from unpythonic import cons, car, cdr, ll, llist, prod
-        with autoreturn, quicklambda, multilambda, tco, namedlambda:
-            name["__paste_here__"]
+        with namedlambda:  # MacroPy #21 (nontrivial two-pass macro; seems I didn't get the fix right)
+            with autoreturn, quicklambda, multilambda, tco:
+                name["__paste_here__"]
 
     # Boilerplate.
     # TODO: make a utility for the boilerplate tasks?
@@ -43,7 +56,7 @@ def ast_transformer(tree):
     @Walker
     def splice(tree, **kw):
         if not is_paste_here(tree):
-            # XXX: MacroPy's debug logger will crash if a node is missing a source location.
+            # XXX: MacroPy's debug logger will sometimes crash if a node is missing a source location.
             # The skeleton is fully macro-generated with no location info to start with.
             if not all(hasattr(tree, x) for x in ("lineno", "col_offset")):
                 return copy_location(tree, locref)
