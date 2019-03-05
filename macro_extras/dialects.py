@@ -218,8 +218,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# This is essentially a copy of ``macropy.core.MacroLoader``, copied to make sure
-# that the implementation won't go out of sync with our ``DialectFinder``.
+# This is essentially a copy of ``macropy.core.import_hooks.MacroLoader``, copied to
+# make sure that the implementation won't go out of sync with our ``DialectFinder``.
 # The export machinery has been removed as unnecessary for language experimentation;
 # but is trivial to add back if needed (see the sources of MacroPy 1.1.0b2).
 class DialectLoader:
@@ -426,8 +426,8 @@ class DialectFinder:
 
         code, tree = self.expand_macros(source, origin, fullname, spec, lang_module)
 
-        # Unlike macropy.core.MacroLoader, which exits at this point if there were
-        # no macros, we always process the module (because it was explicitly tagged
+        # Unlike macropy.core.import_hooks.MacroLoader, which exits at this point if there
+        # were no macros, we always process the module (because it was explicitly tagged
         # as this dialect, and pure source-transform dialects are also allowed).
 
         loader = DialectLoader(spec, code, tree)
