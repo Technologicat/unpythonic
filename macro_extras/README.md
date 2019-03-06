@@ -62,6 +62,7 @@ Of the `python3` command-line options, the `macropy3` bootstrapper supports only
 
  - [**Meta**](#meta)
    - [Comboability](#comboability): notes on the macros working together
+   - [This is semantics, not syntax!](#this-is-semantics-not-syntax)
 
 
 ## Bindings
@@ -1538,4 +1539,10 @@ Other things to note:
    - If something goes wrong in the expansion of one block macro in a ``with`` statement that specifies several block macros, surprises may occur.
    - When in doubt, use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks.
      - Test one step at a time with the ``macropy.tracing.show_expanded`` block macro to make sure the expansion looks like what you intended.
+
+### This is semantics, not syntax!
+
+[Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``: we just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less abstruse, and close enough to convey the intended meaning.
+
+If you want custom *syntax* proper, then you may be interested in the upcoming Pydialect.
 
