@@ -1,20 +1,24 @@
 # -*- coding: utf-8 -*-
 """Lambdas with multiple expressions, local variables, and a name."""
 
-from ast import Lambda, List, Name, Assign, Subscript, Call
+from ast import Lambda, List, Name, Assign, Subscript, Call, \
+                FunctionDef, Attribute, keyword, copy_location
+from .astcompat import AsyncFunctionDef
 
-from macropy.core.quotes import macros, u, ast_literal
+from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 from macropy.quick_lambda import f, _  # _ for re-export only
 
-#from ..dynassign import dyn
+from ..dynassign import dyn
 from ..misc import namelambda
 from ..fun import orf
+from ..env import env
 
 from .letdo import do
 from .letdoutil import islet, isenvassign, UnexpandedLetView, UnexpandedEnvAssignView
-from .util import is_decorated_lambda, isx, make_isxpred, has_deco, destructure_decorated_lambda
+from .util import is_decorated_lambda, isx, make_isxpred, has_deco, \
+                  destructure_decorated_lambda, detect_lambda
 
 def multilambda(block_body):
     @Walker
@@ -126,3 +130,64 @@ def quicklambda(block_body):
         return tree
     new_block_body = [transform.recurse(stmt) for stmt in block_body]
     yield new_block_body
+
+def envify(block_body):
+    # first pass, outside-in
+    userlambdas = detect_lambda.collect(block_body)
+    yield block_body
+
+    # second pass, inside-out
+    def getargs(tree):  # tree: FunctionDef, AsyncFunctionDef, Lambda
+        a = tree.args
+        argnames = [x.arg for x in a.args + a.kwonlyargs]
+        if a.vararg:
+            argnames.append(a.vararg.arg)
+        if a.kwarg:
+            argnames.append(a.kwarg.arg)
+        return argnames
+
+    # Create a renamed reference to the env() constructor to be sure the Call
+    # nodes added by us have a unique .func (not used by other macros or user code)
+    _ismakeenv = make_isxpred("_envify")
+    _envify = env
+
+    gen_sym = dyn.gen_sym
+    @Walker
+    def transform(tree, *, bindings, stop, set_ctx, **kw):
+        if type(tree) in (FunctionDef, AsyncFunctionDef) or \
+           (type(tree) is Lambda and id(tree) in userlambdas):
+            argnames = getargs(tree)
+            ename = gen_sym("e")
+            newbindings = bindings.copy()
+            newbindings.update({k: Attribute(value=q[name[ename]], attr=k) for k in argnames})  # str "x" --> e.x
+            set_ctx(bindings=newbindings)
+            theenv = hq[_envify()]
+            theenv.keywords = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # str "x" --> x
+        # prepend env init to function body
+        if type(tree) in (FunctionDef, AsyncFunctionDef):
+            assignment = Assign(targets=[q[name[ename]]],
+                                value=theenv)
+            assignment = copy_location(assignment, tree)
+            tree.body.insert(0, assignment)
+        elif type(tree) is Lambda and id(tree) in userlambdas:
+            tree.body = do(List(elts=[q[name["local"][name[ename] << ast_literal[theenv]]],
+                                      tree.body]))
+            # TODO: need to save a binding to the do's env, to transform references to our env correctly
+        else:
+            # leave alone the _envify() added by us
+            if type(tree) is Call and isx(tree.func, _ismakeenv):
+                stop()
+            # transform env-assignments into our envs
+            elif isenvassign(tree):
+                view = UnexpandedEnvAssignView(tree)
+                if view.name in bindings.keys():
+#                    from macropy.core import unparse
+#                    print(view.name, unparse(view.value), unparse(bindings[view.name].value))
+                    ename = bindings[view.name].value.id  # e12.x --> "e12"
+                    envset = Attribute(value=q[name[ename]], attr="set")
+                    return q[ast_literal[envset](u[view.name], ast_literal[view.value])]
+            # transform references to currently active bindings
+            elif type(tree) is Name and tree.id in bindings.keys():
+                return bindings[tree.id]
+        return tree
+    return transform.recurse(block_body, bindings={})

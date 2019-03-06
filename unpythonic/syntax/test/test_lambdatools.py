@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Multi-expression lambdas with implicit do; named lambdas."""
 
-from ...syntax import macros, multilambda, namedlambda, quicklambda, f, _, local, let, curry
+from ...syntax import macros, multilambda, namedlambda, quicklambda, f, _, envify, local, let, curry
 
 from functools import wraps
 
@@ -127,6 +127,14 @@ def test():
                   local[y << _],
                   x + y]]
         assert func(1, 2) == 3
+
+    # formal parameters as an unpythonic env
+    with envify:
+        def foo(n):
+            return lambda i: n << n + i
+        f = foo(10)
+        assert f(1) == 11
+        assert f(1) == 12
 
     print("All tests PASSED")
 

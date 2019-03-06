@@ -15,7 +15,8 @@ from .forall import forall as _forall, insist, deny
 from .ifexprs import aif as _aif, it, cond as _cond
 from .lambdatools import multilambda as _multilambda, \
                          namedlambda as _namedlambda, \
-                         quicklambda as _quicklambda, f, _
+                         quicklambda as _quicklambda, f, _, \
+                         envify as _envify
 from .lazify import lazify as _lazify, lazyrec as _lazyrec, force, force1
 from .letdo import do as _do, do0 as _do0, local, \
                    let as _let, letseq as _letseq, letrec as _letrec, \
@@ -786,6 +787,30 @@ def quicklambda(tree, **kw):
     The point is, this combo is now possible.)
     """
     return (yield from _quicklambda(block_body=tree))
+
+@macros.block
+def envify(tree, *, gen_sym, **kw):
+    """[syntax, block] Make formal parameters live in an unpythonic env.
+
+    The purpose is to allow overwriting formals using unpythonic's
+    expression-assignment ``name << value``. The price is that the references
+    to the arguments are copied into an env whenever an envified function is
+    entered.
+
+    Example - PG's accumulator puzzle (http://paulgraham.com/icad.html)::
+
+        with envify:
+            def foo(n):
+                return lambda i: n << n + i
+
+    Of course, now we can::
+
+        with autoreturn, envify:
+            def foo(n):
+                lambda i: n << n + i
+    """
+    with dyn.let(gen_sym=gen_sym):
+        return (yield from _envify(block_body=tree))
 
 # -----------------------------------------------------------------------------
 
