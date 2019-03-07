@@ -1,15 +1,6 @@
 # -*- coding: utf-8 -*-
 """Lispython: the love child of Python and Scheme.
 
-**Schemers rejoice!**::
-
-    Multiple musings mix in a lambda,
-    Lament no longer the lack of let.
-    Languish no longer labelless, lambda,
-    Linked lists cons and fold.
-    Tail-call into recursion divine,
-    The final value always provide.
-
 Powered by Pydialect and unpythonic.
 
 This module is the dialect definition, invoked by ``dialects.DialectFinder``
@@ -91,6 +82,7 @@ Python solution avoids that, but needs many lines::
 The problem is that assignment to a lexical variable (including formals) is a
 statement in Python. If we abbreviate ``accumulate`` as a lambda, it needs a
 ``let`` environment to write in (to use unpythonic's expression-assignment).
+(But see ``envify`` in ``unpythonic.syntax``.)
 
 **CAUTION**
 
@@ -149,3 +141,16 @@ def ast_transformer(tree):
                   orelse=[],
                   lineno=locref.lineno, col_offset=locref.col_offset)
     return splice.recurse(newbody)
+
+def rejoice():
+    s = \
+"""**Schemers rejoice!**::
+
+    Multiple musings mix in a lambda,
+    Lament no longer the lack of let.
+    Languish no longer labelless, lambda,
+    Linked lists cons and fold.
+    Tail-call into recursion divine,
+    The final value always provide."""
+    print(s)
+    return s
