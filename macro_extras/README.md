@@ -31,6 +31,7 @@ Of the `python3` command-line options, the `macropy3` bootstrapper supports only
    - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables
    - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
    - [``quicklambda``: combo with ``macropy.quick_lambda``](#quicklambda-combo-with-macropyquick_lambda)
+   - [``envify``: make formal parameters live in an unpythonic ``env``](#envify-make-formal-parameters-live-in-an-unpythonic-env)
 
  - [**Language features**](#language-features)
    - [``curry``: automatic currying for Python](#curry-automatic-currying-for-python)
@@ -49,7 +50,6 @@ Of the `python3` command-line options, the `macropy3` bootstrapper supports only
      - [This isn't ``call/cc``!](#this-isnt-callcc)
      - [Why this syntax?](#why-this-syntax)
    - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
-   - [``envify``: make formal parameters live in an unpythonic ``env``](#envify-make-formal-parameters-live-in-an-unpythonic-env)
    - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position) like in Lisps
    - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation) with monadic do-notation for Python
 
@@ -601,6 +601,57 @@ with quicklambda, tco:
     func2 = f[3*g(_)]  # no tail call
     assert func2(10) == 60
 ```
+
+
+### ``envify``: make formal parameters live in an unpythonic ``env``
+
+*Added in v0.14.0.*
+
+When a function whose definition (``def`` or ``lambda``) is lexically inside a ``with envify`` block is entered, it copies references to its arguments into an unpythonic ``env``. At macro expansion time, all references to the formal parameters are redirected to that environment. This allows overwriting formal parameter names from an expression position.
+
+Wherever could *that* be useful? For an illustrative caricature, consider [PG's accumulator puzzle](http://paulgraham.com/icad.html). The modern pythonic solution:
+
+```python
+def foo(n):
+    def accumulate(i):
+        nonlocal n
+        n += i
+        return n
+    return accumulate
+```
+
+This avoids allocating an extra place to store the accumulator ``n``. If you want optimal bytecode, this is the best solution in Python 3.
+
+But what if, instead, we consider the readability of the unexpanded source code? The definition of ``accumulate`` requires many lines for something that simple. What if we wanted to make it a lambda? Because all forms of assignment are statements in Python, the above solution is not admissible for a lambda, even with macros.
+
+So if we want to use a lambda, we have to create an ``env``, so that we can write into it. Let's use the let-over-lambda idiom:
+
+```python
+def foo(n0):
+    return let[(n, n0) in
+               (lambda i: n << n + i)]
+```
+
+Already better, but the ``let`` is used only for (in effect) altering the passed-in value of ``n0``; we don't place any other variables into the ``let`` environment. Considering the source text already introduces an ``n0`` which is just used to initialize ``n``, that's an extra element that could be eliminated.
+
+Enter the ``envify`` macro, which automates this:
+
+```python
+with envify:
+    def foo(n):
+        return lambda i: n << n + i
+```
+
+Combining with ``autoreturn`` yields the fewest-elements optimal solution to the accumulator puzzle:
+
+```python
+with autoreturn, envify:
+    def foo(n):
+        lambda i: n << n + i
+```
+
+The ``with`` block adds a few elements, but if desired, it can be refactored into the definition of a custom dialect in Pydialect.
+
 
 
 ## Language features
@@ -1282,56 +1333,6 @@ with prefix, curry:  # important: apply prefix first, then curry
 ```
 
 **CAUTION**: The ``prefix`` macro is experimental and not intended for use in production code.
-
-
-### ``envify``: make formal parameters live in an unpythonic ``env``
-
-*Added in v0.14.0.*
-
-When a function whose definition (``def`` or ``lambda``) is lexically inside a ``with envify`` block is entered, it copies references to its arguments into an unpythonic ``env``. At macro expansion time, all references to the formal parameters are redirected to that environment. This allows overwriting formal parameter names from an expression position.
-
-Wherever could *that* be useful? For an illustrative caricature, consider [PG's accumulator puzzle](http://paulgraham.com/icad.html). The modern pythonic solution:
-
-```python
-def foo(n):
-    def accumulate(i):
-        nonlocal n
-        n += i
-        return n
-    return accumulate
-```
-
-This avoids allocating an extra place to store the accumulator ``n``. If you want optimal bytecode, this is the best solution in Python 3.
-
-But what if, instead, we consider the readability of the unexpanded source code? The definition of ``accumulate`` requires many lines for something that simple. What if we wanted to make it a lambda? Because all forms of assignment are statements in Python, the above solution is not admissible for a lambda, even with macros.
-
-So if we want to use a lambda, we have to create an ``env``, so that we can write into it. Let's use the let-over-lambda idiom:
-
-```python
-def foo(n0):
-    return let[(n, n0) in
-               (lambda i: n << n + i)]
-```
-
-Already better, but the ``let`` is used only for (in effect) altering the passed-in value of ``n0``; we don't place any other variables into the ``let`` environment. Considering the source text already introduces an ``n0`` which is just used to initialize ``n``, that's an extra element that could be eliminated.
-
-Enter the ``envify`` macro, which automates this:
-
-```python
-with envify:
-    def foo(n):
-        return lambda i: n << n + i
-```
-
-Combining with ``autoreturn`` yields the fewest-elements optimal solution to the accumulator puzzle:
-
-```python
-with autoreturn, envify:
-    def foo(n):
-        lambda i: n << n + i
-```
-
-The ``with`` block adds a few elements, but if desired, it can be refactored into the definition of a custom dialect in Pydialect.
 
 
 ### ``autoreturn``: implicit ``return`` in tail position
