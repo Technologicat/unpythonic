@@ -16,7 +16,7 @@ from ..fun import orf
 from ..env import env
 
 from .letdo import do
-from .letdoutil import islet, isenvassign, UnexpandedLetView, UnexpandedEnvAssignView
+from .letdoutil import islet, isenvassign, UnexpandedLetView, UnexpandedEnvAssignView, ExpandedDoView
 from .util import is_decorated_lambda, isx, make_isxpred, has_deco, \
                   destructure_decorated_lambda, detect_lambda
 
@@ -159,20 +159,27 @@ def envify(block_body):
             argnames = getargs(tree)
             ename = gen_sym("e")
             newbindings = bindings.copy()
-            newbindings.update({k: Attribute(value=q[name[ename]], attr=k) for k in argnames})  # str "x" --> e.x
-            set_ctx(bindings=newbindings)
             theenv = hq[_envify()]
-            theenv.keywords = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # str "x" --> x
-        # prepend env init to function body
-        if type(tree) in (FunctionDef, AsyncFunctionDef):
-            assignment = Assign(targets=[q[name[ename]]],
-                                value=theenv)
-            assignment = copy_location(assignment, tree)
-            tree.body.insert(0, assignment)
-        elif type(tree) is Lambda and id(tree) in userlambdas:
-            tree.body = do(List(elts=[q[name["local"][name[ename] << ast_literal[theenv]]],
-                                      tree.body]))
-            # TODO: need to save a binding to the do's env, to transform references to our env correctly
+            theenv.keywords = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # "x" --> x
+
+            # prepend env init to function body, update bindings
+            if type(tree) in (FunctionDef, AsyncFunctionDef):
+                assignment = Assign(targets=[q[name[ename]]],
+                                    value=theenv)
+                assignment = copy_location(assignment, tree)
+                tree.body.insert(0, assignment)
+
+                newbindings.update({k: Attribute(value=q[name[ename]], attr=k) for k in argnames})  # "x" --> e.x
+            elif type(tree) is Lambda and id(tree) in userlambdas:
+                tree.body = do(List(elts=[q[name["local"][name[ename] << ast_literal[theenv]]],
+                                          tree.body]))
+
+                # the envify env lives in the do env
+                view = ExpandedDoView(tree.body)  # view.body: [(lambda e14: ...), ...]
+                doename = view.body[0].args.args[0].arg
+                envref = Attribute(value=q[name[doename]], attr=ename)  # e14.e13
+                newbindings.update({k: Attribute(value=envref, attr=k) for k in argnames})  # "x" --> e14.e13.x
+            set_ctx(bindings=newbindings)
         else:
             # leave alone the _envify() added by us
             if type(tree) is Call and isx(tree.func, _ismakeenv):
@@ -181,10 +188,7 @@ def envify(block_body):
             elif isenvassign(tree):
                 view = UnexpandedEnvAssignView(tree)
                 if view.name in bindings.keys():
-#                    from macropy.core import unparse
-#                    print(view.name, unparse(view.value), unparse(bindings[view.name].value))
-                    ename = bindings[view.name].value.id  # e12.x --> "e12"
-                    envset = Attribute(value=q[name[ename]], attr="set")
+                    envset = Attribute(value=bindings[view.name].value, attr="set")
                     return q[ast_literal[envset](u[view.name], ast_literal[view.value])]
             # transform references to currently active bindings
             elif type(tree) is Name and tree.id in bindings.keys():

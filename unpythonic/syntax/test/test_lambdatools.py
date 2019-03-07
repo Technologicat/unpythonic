@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Multi-expression lambdas with implicit do; named lambdas."""
 
-from ...syntax import macros, multilambda, namedlambda, quicklambda, f, _, envify, local, let, curry
+from ...syntax import macros, multilambda, namedlambda, quicklambda, f, _, \
+                      envify, local, let, curry, autoreturn
 
 from functools import wraps
 
@@ -135,6 +136,26 @@ def test():
         f = foo(10)
         assert f(1) == 11
         assert f(1) == 12
+
+    # solution to PG's accumulator puzzle with the fewest elements (in the original unexpanded code)
+    # http://paulgraham.com/icad.html
+    with autoreturn, envify:
+        def foo(n):
+            lambda i: n << n + i
+        f = foo(10)
+        assert f(1) == 11
+        assert f(1) == 12
+
+    # pythonic solution
+    def foo(n):
+        def accumulate(i):
+            nonlocal n
+            n += i
+            return n
+        return accumulate
+    f = foo(10)
+    assert f(1) == 11
+    assert f(1) == 12
 
     print("All tests PASSED")
 
