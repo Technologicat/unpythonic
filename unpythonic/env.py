@@ -83,6 +83,14 @@ class env:
             raise AttributeError("name '{:s}' is not defined".format(name))
         return e[name]
 
+    def __delattr__(self, name):
+        if not name.isidentifier():
+            raise ValueError("'{}' is not a valid identifier".format(name))
+        e = self._env   # __getattr__ not called if direct attr lookup succeeds, no need for hook.
+        if name not in e:
+            raise AttributeError("name '{:s}' is not defined".format(name))
+        del e[name]
+
     # membership test (in, not in)
     def __contains__(self, k):
         return self._env.__contains__(k)
@@ -114,6 +122,9 @@ class env:
 
     def __setitem__(self, k, v):
         setattr(self, k, v)
+
+    def __delitem__(self, k):
+        delattr(self, k)
 
     # context manager
     def __enter__(self):
