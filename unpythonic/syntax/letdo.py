@@ -296,7 +296,9 @@ def do(tree):
         lines.append(expr)
     # CAUTION: letdoutil.py depends on the literal name "dof" to detect expanded do forms.
     # Also, the views depend on the exact AST structure.
-    return hq[dof(ast_literal[lines])]
+    thecall = hq[dof()]
+    thecall.args = lines
+    return thecall
 
 @macro_stub
 def local(*args, **kwargs):
