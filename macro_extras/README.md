@@ -1290,7 +1290,7 @@ with prefix, curry:  # important: apply prefix first, then curry
 
 When a function whose definition (``def`` or ``lambda``) is lexically inside a ``with envify`` block is entered, it copies references to its arguments into an unpythonic ``env``. At macro expansion time, all references to the formal parameters are redirected to that environment. This allows overwriting formal parameter names from an expression position.
 
-Wherever could *that* be useful? For an illustrative caricature, consider [PG's accumulator puzzle](http://paulgraham.com/icad.html). The modern pythonic solution is:
+Wherever could *that* be useful? For an illustrative caricature, consider [PG's accumulator puzzle](http://paulgraham.com/icad.html). The modern pythonic solution:
 
 ```python
 def foo(n):
@@ -1313,7 +1313,7 @@ def foo(n0):
                (lambda i: n << n + i)]
 ```
 
-Already better, but the ``let`` is used only for (in effect) altering the passed-in value of ``n0``; we don't place any other variables into the ``let`` environment. Considering the source text already introduces an ``n0`` which is just used to initialize ``n``, the solution is still a bit verbose.
+Already better, but the ``let`` is used only for (in effect) altering the passed-in value of ``n0``; we don't place any other variables into the ``let`` environment. Considering the source text already introduces an ``n0`` which is just used to initialize ``n``, that's an extra element that could be eliminated.
 
 Enter the ``envify`` macro, which automates this:
 
