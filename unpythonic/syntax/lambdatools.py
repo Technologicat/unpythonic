@@ -4,6 +4,7 @@
 from ast import Lambda, List, Name, Assign, Subscript, Call, \
                 FunctionDef, Attribute, keyword, copy_location
 from .astcompat import AsyncFunctionDef
+from copy import deepcopy
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
@@ -192,6 +193,11 @@ def envify(block_body):
                     return q[ast_literal[envset](u[view.name], ast_literal[view.value])]
             # transform references to currently active bindings
             elif type(tree) is Name and tree.id in bindings.keys():
-                return bindings[tree.id]
+                # We must be careful to preserve the Load/Store/Del context of the name.
+                # The default lets MacroPy fix it later.
+                ctx = tree.ctx if hasattr(tree, "ctx") else None
+                out = deepcopy(bindings[tree.id])
+                out.ctx = ctx
+                return out
         return tree
     return transform.recurse(block_body, bindings={})

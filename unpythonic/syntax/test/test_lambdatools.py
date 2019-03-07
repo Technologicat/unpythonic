@@ -131,6 +131,24 @@ def test():
 
     # formal parameters as an unpythonic env
     with envify:
+        def foo(x):
+            x = 3  # should become a write into the env
+            assert x == 3
+        foo(10)
+
+        def foo(x):
+            x = 3
+            assert x == 3
+            del x
+            try:
+                x  # IDE complains about undefined name (correctly); that's the whole point of this test
+            except AttributeError:  # note it's AttributeError since it's in an env
+                pass
+            else:
+                assert False, "should have deleted x from the implicit env"
+        foo(10)
+
+    with envify:
         def foo(n):
             return lambda i: n << n + i
         f = foo(10)
