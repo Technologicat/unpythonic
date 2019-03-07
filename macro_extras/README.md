@@ -49,6 +49,7 @@ Of the `python3` command-line options, the `macropy3` bootstrapper supports only
      - [This isn't ``call/cc``!](#this-isnt-callcc)
      - [Why this syntax?](#why-this-syntax)
    - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
+   - [``envify``: make formal parameters live in an unpythonic ``env``](#envify-make-formal-parameters-live-in-an-unpythonic-env)
    - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position) like in Lisps
    - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation) with monadic do-notation for Python
 
@@ -1283,6 +1284,56 @@ with prefix, curry:  # important: apply prefix first, then curry
 **CAUTION**: The ``prefix`` macro is experimental and not intended for use in production code.
 
 
+### ``envify``: make formal parameters live in an unpythonic ``env``
+
+*Added in v0.14.0.*
+
+When a function whose definition (``def`` or ``lambda``) is lexically inside a ``with envify`` block is entered, it copies references to its arguments into an unpythonic ``env``. At macro expansion time, all references to the formal parameters are redirected to that environment. This allows overwriting formal parameter names from an expression position.
+
+Wherever could *that* be useful? For an illustrative caricature, consider [PG's accumulator puzzle](http://paulgraham.com/icad.html). The modern pythonic solution is:
+
+```python
+def foo(n):
+    def accumulate(i):
+        nonlocal n
+        n += i
+        return n
+    return accumulate
+```
+
+This avoids allocating an extra place to store the accumulator ``n``. If you want optimal bytecode, this is the best solution in Python 3.
+
+But what if, instead, we consider the readability of the unexpanded source code? The definition of ``accumulate`` requires many lines for something that simple. What if we wanted to make it a lambda? Because all forms of assignment are statements in Python, the above solution is not admissible for a lambda, even with macros.
+
+So if we want to use a lambda, we have to create an ``env``, so that we can write into it. Let's use the let-over-lambda idiom:
+
+```python
+def foo(n0):
+    return let[(n, n0) in
+               (lambda i: n << n + i)]
+```
+
+Already better, but the ``let`` is used only for (in effect) altering the passed-in value of ``n0``; we don't place any other variables into the ``let`` environment. Considering the source text already introduces an ``n0`` which is just used to initialize ``n``, the solution is still a bit verbose.
+
+Enter the ``envify`` macro, which automates this:
+
+```python
+with envify:
+    def foo(n):
+        return lambda i: n << n + i
+```
+
+Combining with ``autoreturn`` yields the fewest-elements optimal solution to the accumulator puzzle:
+
+```python
+with autoreturn, envify:
+    def foo(n):
+        lambda i: n << n + i
+```
+
+The ``with`` block adds a few elements, but if desired, it can be refactored into the definition of a custom dialect in Pydialect.
+
+
 ### ``autoreturn``: implicit ``return`` in tail position
 
 In Lisps, a function implicitly returns the value of the expression in tail position (along the code path being executed). Python's ``lambda`` also behaves like this (the whole body is just one return-value expression), but ``def`` doesn't.
@@ -1474,7 +1525,7 @@ Therefore, any particular combination of macros that has not been specifically t
 The block macros are designed to run in the following order (leftmost first):
 
 ```
-prefix > autoreturn, quicklambda > multilambda > continuations or tco > curry > namedlambda > lazify
+prefix > autoreturn, quicklambda > multilambda > continuations or tco > curry > namedlambda > lazify > envify
 ```
 
 The ``let_syntax`` block may be placed anywhere in the chain; just keep in mind what it does.
@@ -1533,6 +1584,8 @@ Other things to note:
  - ``namedlambda`` is a two-pass macro. In the first pass (outside-in), it names lambdas inside ``let[]`` expressions. It must be placed after ``curry`` to analyze, in the second pass (inside-out), the auto-curried code produced by ``with curry``.
 
  - ``lazify`` is a rather invasive rewrite that needs to see the output from the other macros, including ``curry``.
+
+ - ``envify`` needs to see the output of ``lazify`` in order to transform all function definitions to place their args into an unpythonic ``env`` without triggering the implicit forcing.
 
  - Some of the block macros can be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``curry``) require their own ``with`` statement.
    - This is a [known issue in MacroPy](https://github.com/azazel75/macropy/issues/21). I have made a [fix](https://github.com/azazel75/macropy/pull/22), but still need to make proper test cases to get it merged.
