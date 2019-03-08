@@ -247,6 +247,8 @@ When the `with` block exits, the environment clears itself. The environment inst
 
 *Changed in v0.13.1.* ``env`` now provides the ``collections.abc.Mapping`` API.
 
+*Changed in v0.14.0.* ``env`` now provides also the ``collections.abc.MutableMapping`` API.
+
 
 ### ``assignonce``
 

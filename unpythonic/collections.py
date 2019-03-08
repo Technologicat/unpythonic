@@ -91,7 +91,9 @@ def mogrify(func, container):
                 for elt in y:
                     x.add(elt)
             return x
-        elif isinstance(x, MutableMapping):
+        # env provides the MutableMapping API, but shouldn't get the general treatment here.
+        # (This is important for the lazify macro.)
+        elif isinstance(x, MutableMapping) and not isinstance(x, env):
             y = {k: doit(v) for k, v in x.items()}
             x.clear()
             x.update(y)

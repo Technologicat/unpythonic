@@ -3,7 +3,7 @@
 
 __all__ = ["env"]
 
-from collections.abc import Container, Sized, Iterable, Mapping
+from collections.abc import Container, Sized, Iterable, Mapping, MutableMapping
 
 class env:
     """Environment for let-like constructs.
@@ -116,6 +116,18 @@ class env:
     def __len__(self):
         return len(self._env)
 
+    # MutableMapping
+    def pop(self, k, *default):
+        return self._env.pop(k, *default)
+    def popitem(self):
+        return self._env.popitem()
+    def clear(self):
+        return self._env.clear()
+    def update(self, mapping, **bindings):
+        return self._env.update(mapping, **bindings)
+    def setdefault(self, k, *default):
+        return self._env.setdefault(k, *default)
+
     # subscripting
     def __getitem__(self, k):
         return getattr(self, k)
@@ -167,10 +179,6 @@ class env:
         self.set(name, value)
         return self
 
-    def clear(self):
-        """Clear the environment, i.e. forget all bindings."""
-        self._env = {}
-
     def finalize(self):
         """Finalize environment.
 
@@ -217,6 +225,6 @@ class env:
 #        return _assignonce_wrapper(obj)  # copy-construct obj with wrapper
 
 # register virtual base classes
-for abscls in (Container, Sized, Iterable, Mapping):
+for abscls in (Container, Sized, Iterable, Mapping, MutableMapping):
     abscls.register(env)
 del abscls
