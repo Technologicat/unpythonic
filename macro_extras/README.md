@@ -63,7 +63,8 @@ Of the `python3` command-line options, the `macropy3` bootstrapper supports only
    - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
 
  - [**Meta**](#meta)
-   - [Comboability](#comboability): notes on the macros working together
+   - [Comboability](#comboability)
+   - [The xmas tree combo](#the-xmas-tree-combo): notes on the macros working together.
    - [This is semantics, not syntax!](#this-is-semantics-not-syntax)
 
 
@@ -1470,12 +1471,12 @@ from unpythonic.syntax import macros, aif
 
 aif[2*21,
     print("it is {}".format(it)),
-    print("it is False")]
+    print("it is falsey")]
 ```
 
 Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to the test result while (lexically) inside the ``aif``, and does not exist outside the ``aif``.
 
-*Added in v0.10.0.* Any part of ``aif`` may have multiple expressions by surrounding it with brackets:
+*Added in v0.10.0.* Any part of ``aif`` may have multiple expressions by surrounding it with brackets (implicit ``do[]``):
 
 ```python
 aif[[pre, ..., test],
@@ -1550,9 +1551,8 @@ Obviously not intended for production use, although is very likely to work anywh
 
 Is this just a set of macros, a language extension, or a compiler for a new language that just happens to be implemented in MacroPy, à la *On Lisp*? All of the above, really.
 
-### Comboability
 
-The macros in ``unpythonic.syntax`` are designed to work together, but some care needs to be taken regarding the order in which they expand.
+### Comboability
 
 Making macros work together is nontrivial, essentially because *macros don't compose*. [As pointed out by John Shutt](https://fexpr.blogspot.com/2013/12/abstractive-power.html), in a multilayered language extension implemented with macros, the second layer of macros needs to understand all of the first layer. The issue is that the macro abstraction leaks the details of its expansion. Contrast with functions, which operate on values: the process that was used to arrive at a value doesn't matter. It's always possible for a function to take this value and transform it into another value, which can then be used as input for the next layer of functions. That's composability at its finest.
 
@@ -1560,15 +1560,21 @@ The need for interaction between macros may arise already in what *feels* like a
 
 Therefore, any particular combination of macros that has not been specifically tested might not work. That said, if some particular combo doesn't work and *is not at least documented as such*, that's an error; please raise an issue. The unit tests should cover the combos that on the surface seem the most useful, but there's no guarantee that they cover everything that actually is useful somewhere.
 
-The block macros are designed to run in the following order (leftmost first):
+
+### The xmas tree combo
+
+The macros in ``unpythonic.syntax`` are designed to work together, but some care needs to be taken regarding the order in which they expand.
+
+The block macros are designed to run **in the following order (leftmost first)**:
 
 ```
-prefix > autoreturn, quicklambda > multilambda > continuations or tco > curry > namedlambda, autoref > lazify > envify
+prefix > autoreturn, quicklambda > multilambda > continuations or tco > ...
+                                                    ... > curry > namedlambda, autoref > lazify > envify
 ```
 
-The ``let_syntax`` block may be placed anywhere in the chain; just keep in mind what it does.
+The ``let_syntax`` (and ``abbrev``) block may be placed anywhere in the chain; just keep in mind what it does.
 
-For simplicity, **the block macros make no attempt to prevent invalid combos**. Be careful; e.g. don't nest several ``with tco`` blocks (lexically), that won't work.
+For simplicity, **the block macros make no attempt to prevent invalid combos** (unless there is a specific technical reason to do that for some particular combination). Be careful; e.g. don't nest several ``with tco`` blocks (lexically), that won't work.
 
 Example combo in the single-line format:
 
@@ -1621,17 +1627,18 @@ Other things to note:
 
  - ``namedlambda`` is a two-pass macro. In the first pass (outside-in), it names lambdas inside ``let[]`` expressions before they are expanded away. The second pass (inside-out) of ``namedlambda`` must run after ``curry`` to analyze and transform the auto-curried code produced by ``with curry``. In most cases, placing ``namedlambda`` in a separate outer ``with`` block runs both operations in the correct order.
 
- - ``autoref`` does not need currying in its output, but needs to run before ``lazify``, so that both branches of each transformed reference get the implicit forcing. Its transformation is orthogonal to what ``namedlambda`` does, so it does not matter in which exact order these two run.
+ - ``autoref`` does not need in its output to be curried (hence after ``curry`` to gain some performance), but needs to run before ``lazify``, so that both branches of each transformed reference get the implicit forcing. Its transformation is orthogonal to what ``namedlambda`` does, so it does not matter in which exact order these two run.
 
  - ``lazify`` is a rather invasive rewrite that needs to see the output from most of the other macros.
 
  - ``envify`` needs to see the output of ``lazify`` in order to shunt function args into an unpythonic ``env`` without triggering the implicit forcing.
 
- - Some of the block macros can be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``curry``) require their own ``with`` statement.
+ - Some of the block macros can be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``curry`` and ``namedlambda``) require their own ``with`` statement.
    - This is a [known issue in MacroPy](https://github.com/azazel75/macropy/issues/21). I have made a [fix](https://github.com/azazel75/macropy/pull/22), but still need to make proper test cases to get it merged.
    - If something goes wrong in the expansion of one block macro in a ``with`` statement that specifies several block macros, surprises may occur.
    - When in doubt, use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks.
      - Test one step at a time with the ``macropy.tracing.show_expanded`` block macro to make sure the expansion looks like what you intended.
+
 
 ### This is semantics, not syntax!
 
