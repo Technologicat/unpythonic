@@ -74,8 +74,8 @@ def main():
 
     # lambdas can have multiple expressions and local variables
     #
-    # If you need to return a list from a lambda, use an extra set of brackets;
-    # the outermost brackets always enable multiple-expression mode.
+    # If you need to return a literal list from a lambda, use an extra set of
+    # brackets; the outermost brackets always enable multiple-expression mode.
     #
     test = lambda x: [local[y << 2*x],  # local[name << value] makes a local variable
                       y + 1]
