@@ -1614,9 +1614,9 @@ Other things to note:
        - The problem with a direct combo is that the required ordering is the trampoline (inside ``looped``) outermost, then ``call_ec``, and then the actual loop, but because an escape continuation is only valid for the dynamic extent of the ``call_ec``, the whole loop must be run inside the dynamic extent of the ``call_ec``.
        - ``unpythonic.fploop.breakably_looped`` internally inserts the ``call_ec`` at the right step, and gives you the ec as ``brk``.
 
- - ``namedlambda`` is a two-pass macro. In the first pass (outside-in), it names lambdas inside ``let[]`` expressions. The second pass (inside-out) must run after ``curry`` to analyze and transform the auto-curried code produced by ``with curry``.
+ - ``namedlambda`` is a two-pass macro. In the first pass (outside-in), it names lambdas inside ``let[]`` expressions before they are expanded away. The second pass (inside-out) of ``namedlambda`` must run after ``curry`` to analyze and transform the auto-curried code produced by ``with curry``. In most cases, placing ``namedlambda`` in a separate outer ``with`` block runs both operations in the correct order.
 
- - ``autoref`` does not need currying in its output, but needs to be placed before ``lazify``, so that both branches of each transformed reference get the implicit forcing. Its transformation is orthogonal to what ``namedlambda`` does, so it does not matter in which exact order these two are placed.
+ - ``autoref`` does not need currying in its output, but needs to run before ``lazify``, so that both branches of each transformed reference get the implicit forcing. Its transformation is orthogonal to what ``namedlambda`` does, so it does not matter in which exact order these two run.
 
  - ``lazify`` is a rather invasive rewrite that needs to see the output from most of the other macros.
 
