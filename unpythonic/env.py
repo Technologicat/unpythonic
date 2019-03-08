@@ -123,8 +123,8 @@ class env:
         return self._env.popitem()
     def clear(self):
         return self._env.clear()
-    def update(self, mapping, **bindings):
-        return self._env.update(mapping, **bindings)
+    def update(self, *mapping, **bindings):
+        return self._env.update(*mapping, **bindings)
     def setdefault(self, k, *default):
         return self._env.setdefault(k, *default)
 
