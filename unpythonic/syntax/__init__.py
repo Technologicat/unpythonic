@@ -10,6 +10,7 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 
 # insist, deny, it, f, _, force, force1, local, delete, block, expr, call_cc
 # are just for passing through to the client code that imports us.
+from .autoref import autoref as _autoref
 from .curry import curry as _curry
 from .forall import forall as _forall, insist, deny
 from .ifexprs import aif as _aif, it, cond as _cond
@@ -47,6 +48,33 @@ macros = Macros()
 def nogensym(*args, **kwargs):
     raise RuntimeError("No gen_sym function set")
 make_dynvar(gen_sym=nogensym)
+
+# -----------------------------------------------------------------------------
+
+@macros.block
+def autoref(tree, args, *, gen_sym, **kw):
+    """Implicitly reference attributes of an object.
+
+    Example::
+
+        e = env(a=1, b=2)
+        c = 3
+        with autoref(e):
+            a
+            b
+            c
+
+    The transformation is::
+
+      x --> o.x if hasattr(o, "x") else x
+
+    The transformation is applied in ``Load`` context only. ``Store`` and ``Del``
+    are not redirected.
+
+    Useful e.g. with the ``.mat`` file loader of SciPy.
+    """
+    with dyn.let(gen_sym=gen_sym):
+        return _autoref(block_body=tree, args=args)
 
 # -----------------------------------------------------------------------------
 

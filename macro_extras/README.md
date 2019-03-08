@@ -56,6 +56,7 @@ Of the `python3` command-line options, the `macropy3` bootstrapper supports only
  - [**Convenience features**](#convenience-features)
    - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
    - [``aif``: anaphoric if](#aif-anaphoric-if), the test result is ``it``
+   - [``autoref``: implicitly reference attributes of an object](#autoref-implicitly-reference-attributes-of-an-object)
    - *Changed in v0.13.1.* The ``fup[]`` macro is gone, and has been replaced with the ``fup`` function, with slightly changed syntax to accommodate.
 
  - [**Other**](#other)
@@ -1484,6 +1485,26 @@ aif[[pre, ..., test],
 To denote a single expression that is a literal list, use an extra set of brackets: ``[[1, 2, 3]]``.
 
 
+### ``autoref``: implicitly reference attributes of an object
+
+*Added in v0.14.0.*
+
+Ever wished you could ``with(obj)`` to write ``x`` instead of ``obj.x`` to read attributes of an object? Enter the ``autoref`` block macro:
+
+```python
+from unpythonic.syntax import macros, autoref
+from unpythonic import env
+
+e = env(a=1, b=2)
+c = 3
+with autoref(e):
+    assert a == 1  # a --> e.a
+    assert b == 2  # b --> e.b
+    assert c == 3  # no c in e, so just c
+```
+
+The transformation is ``x --> o.x if hasattr(o, "x") else x``, applied at each use site. It is applied for names in ``Load`` context only. ``Store`` and ``Del`` are not redirected. This can be convenient e.g. with the ``.mat`` file loader of SciPy.
+
 
 ## Other
 
@@ -1496,7 +1517,7 @@ Stuff that didn't fit elsewhere.
 Mix regular code with math-notebook-like code in a ``.py`` file. To enable notebook mode, ``with nb``:
 
 ```python
-from unpythonic.syntax import nb
+from unpythonic.syntax import macros, nb
 from sympy import symbols, pprint
 
 with nb:
