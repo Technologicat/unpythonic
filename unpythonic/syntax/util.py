@@ -431,3 +431,21 @@ def transform_statements(f, body):
             return [output_stmt for input_stmt in tree for output_stmt in rec(input_stmt)]
         return f(tree)  # a single statement
     return rec(body)
+
+def splice(tree, rep, tag):
+    """Splice in a tree into another tree.
+
+    Walk ``tree``, replacing the first occurrence of a ``Name(id=tag)`` with
+    the tree ``rep``.
+
+    This is convenient for first building a skeleton with a marker such as
+    ``q[name["_here_"]]``, and then splicing in ``rep`` later. See ``forall``
+    and ``envify`` for usage examples.
+    """
+    @Walker
+    def doit(tree, *, stop, **kw):
+        if type(tree) is Name and tree.id == tag:
+            stop()
+            return rep
+        return tree
+    return doit.recurse(tree)

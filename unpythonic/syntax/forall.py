@@ -7,6 +7,7 @@ from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 
+from .util import splice
 from .letdoutil import isenvassign, UnexpandedEnvAssignView
 from ..amb import monadify
 from ..amb import insist, deny  # for re-export only
@@ -48,13 +49,7 @@ def forall(exprs):
         else:
             body = Mv
         if tree:
-            @Walker
-            def splice(tree, *, stop, **kw):
-                if type(tree) is Name and tree.id == "_here_":
-                    stop()
-                    return body
-                return tree
-            newtree = splice.recurse(tree)
+            newtree = splice(tree, body, "_here_")
         else:
             newtree = body
         return build(rest, newtree)
