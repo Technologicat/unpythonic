@@ -19,17 +19,17 @@ Of the `python3` command-line options, the `macropy3` bootstrapper supports only
 **Contents**:
 
  - [**Bindings**](#bindings)
-   - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate
+   - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate.
    - [``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions](#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)
-   - [Barebones version](#barebones-version) (pure AST transformation of ``let`` into a ``lambda``)
-   - [``let_syntax``, ``abbrev``: syntactic local bindings](#let_syntax-abbrev-syntactic-local-bindings); splice code at macro expansion time
+   - [``let_syntax``, ``abbrev``: syntactic local bindings](#let_syntax-abbrev-syntactic-local-bindings); splice code at macro expansion time.
+   - [Bonus: barebones ``let``](#bonus-barebones-let): pure AST transformation of ``let`` into a ``lambda``.
 
  - [**Sequencing**](#sequencing)
    - [``do`` as a macro: stuff imperative code into an expression, *with style*](#do-as-a-macro-stuff-imperative-code-into-an-expression-with-style)
 
  - [**Tools for lambdas**](#tools-for-lambdas)
-   - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables
-   - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) (by assignment)
+   - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables.
+   - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) by assignment.
    - [``quicklambda``: combo with ``macropy.quick_lambda``](#quicklambda-combo-with-macropyquick_lambda)
    - [``envify``: make formal parameters live in an unpythonic ``env``](#envify-make-formal-parameters-live-in-an-unpythonic-env)
 
@@ -50,12 +50,12 @@ Of the `python3` command-line options, the `macropy3` bootstrapper supports only
      - [This isn't ``call/cc``!](#this-isnt-callcc)
      - [Why this syntax?](#why-this-syntax)
    - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
-   - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position) like in Lisps
-   - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation) with monadic do-notation for Python
+   - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position), like in Lisps.
+   - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation) with monadic do-notation for Python.
 
  - [**Convenience features**](#convenience-features)
    - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
-   - [``aif``: anaphoric if](#aif-anaphoric-if), the test result is ``it``
+   - [``aif``: anaphoric if](#aif-anaphoric-if), the test result is ``it``.
    - [``autoref``: implicitly reference attributes of an object](#autoref-implicitly-reference-attributes-of-an-object)
    - *Changed in v0.13.1.* The ``fup[]`` macro is gone, and has been replaced with the ``fup`` function, with slightly changed syntax to accommodate.
 
@@ -319,15 +319,6 @@ else:
 ```
 
 
-### Barebones version
-
-As a bonus, we provide classical simple ``let`` and ``letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, this version of ``letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``let`` expressions, which expand to lambdas.
-
-These are provided as a curiosity, and not designed to work together with the rest of the macros; for that, use the above ``let``, ``letseq`` and ``letrec`` from the module ``unpythonic.syntax``.
-
-*Changed in v0.11.0.* The barebones constructs now live in the separate module ``unpythonic.syntax.simplelet``, and are imported like ``from unpythonic.syntax.simplelet import macros, let, letseq``.
-
-
 ### ``let_syntax``, ``abbrev``: syntactic local bindings
 
 *Added in v0.11.0.* Locally splice code at macro expansion time (it's almost like inlining functions):
@@ -438,6 +429,16 @@ which can be useful when writing macros.
 The ``let_syntax`` macro is meant for simple local substitutions where the elimination of repetition can shorten the code and improve its readability. If you need to do something complex (or indeed save a definition and reuse it somewhere else, non-locally), write a real macro directly in MacroPy.
 
 This was inspired by Racket's [``let-syntax``](https://docs.racket-lang.org/reference/let.html) and [``with-syntax``](https://docs.racket-lang.org/reference/stx-patterns.html).
+
+
+### Bonus: barebones ``let``
+
+As a bonus, we provide classical simple ``let`` and ``letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, this version of ``letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``let`` expressions, which expand to lambdas.
+
+These are provided as a curiosity, and not designed to work together with the rest of the macros; for that, use the above ``let``, ``letseq`` and ``letrec`` from the module ``unpythonic.syntax``.
+
+*Changed in v0.11.0.* The barebones constructs now live in the separate module ``unpythonic.syntax.simplelet``, and are imported like ``from unpythonic.syntax.simplelet import macros, let, letseq``.
+
 
 
 ## Sequencing
@@ -1489,7 +1490,7 @@ To denote a single expression that is a literal list, use an extra set of bracke
 
 *Added in v0.14.0.*
 
-Ever wish you could ``with(obj)`` to write ``x`` instead of ``obj.x`` to read attributes of an object? Enter the ``autoref`` block macro:
+Ever wish you could ``with(obj)`` to say ``x`` instead of ``obj.x`` to read attributes of an object? Enter the ``autoref`` block macro:
 
 ```python
 from unpythonic.syntax import macros, autoref
@@ -1503,7 +1504,11 @@ with autoref(e):
     assert c == 3  # no c in e, so just c
 ```
 
-The transformation is ``x --> o.x if hasattr(o, "x") else x``, applied at each use site. It is applied for names in ``Load`` context only. ``Store`` and ``Del`` are not redirected. This can be convenient e.g. with the ``.mat`` file loader of SciPy.
+The transformation is ``x --> o.x if hasattr(o, "x") else x``, applied at each use site. It is applied for names in ``Load`` context only.
+
+Names in ``Store`` or ``Del`` context are not redirected. To write to or delete attributes of ``o``, explicitly refer to ``o.x``, as usual.
+
+Reading with ``autoref`` can be convenient e.g. for data returned by [SciPy's ``.mat`` file loader](https://docs.scipy.org/doc/scipy/reference/generated/scipy.io.loadmat.html).
 
 
 ## Other
