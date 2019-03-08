@@ -163,9 +163,9 @@ def envify(block_body):
         if type(tree) in (FunctionDef, AsyncFunctionDef) or \
            (type(tree) is Lambda and id(tree) in userlambdas):
             argnames = getargs(tree)
-            kws = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # "x" --> x
             if argnames:
                 # prepend env init to function body, update bindings
+                kws = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # "x" --> x
                 newbindings = bindings.copy()
                 if type(tree) in (FunctionDef, AsyncFunctionDef):
                     ename = gen_sym("e")
