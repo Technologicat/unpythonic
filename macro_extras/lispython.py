@@ -8,10 +8,33 @@ when it detects a lang-import that matches the module name of this module.
 
 This dialect is implemented in MacroPy.
 
+**Features**:
+
+    - Fully automatic TCO in both ``def`` and ``lambda``
+    - Implicit ``return`` in any tail position, like in Lisps
+    - ``lambda`` allows multiple expressions (use brackets)
+    - Lambdas are named automatically (whenever the machinery can figure out
+      an appropriate name)
+    - As builtins, all ``let[]`` constructs and ``do[]``, ``do0[]`` from
+      ``unpythonic.syntax``
+
+For detailed documentation, see the module ``unpythonic.syntax`` and the macros
+``tco``, ``autoreturn``, ``multilambda``, ``namedlambda`` and ``let`` therein.
+The multi-expression lambda syntax uses ``do[]``, see its documentation for
+details.
+
+Also, in Lispython the following functions are considered builtins:
+
+    - ``cons``, ``car``, ``cdr``, ``ll``, ``llist``
+    - ``prod`` (the obvious cousin of ``sum``)
+
+For more, import from  ``unpythonic``, the standard library of Lispython
+(on top of what Python itself already provides).
+
 **What Lispython is**
 
 The goal of the Lispython dialect is to fix some glaring issues that hamper
-Python when viewed from a Lisp/Scheme perspective. We take that approach of
+Python when viewed from a Lisp/Scheme perspective. We take the approach of
 a relatively thin layer of macros (and underlying functions that implement
 the actual functionality), minimizing magic as far as reasonably possible.
 
@@ -28,10 +51,11 @@ The dialect aims at production quality.
 **Why extend Python?**
 
 Racket is an excellent Lisp, especially with sweet, sweet expressions, not to
-mention extremely pythonic. The word is *rackety*; the philosophy comes with
-an air of Zen minimalism, but the focus on *batteries included* and
-understandability are remarkably similar to the pythonic ideal. Racket even
-has an IDE and an equivalent of PyPI, and the documentation is simply stellar.
+mention extremely pythonic. The word is *rackety*; the syntax of the language
+comes with an air of Zen minimalism (as perhaps expected of a descendant of
+Scheme), but the focus on *batteries included* and understandability are
+remarkably similar to the pythonic ideal. Racket even has an IDE (DrRacket)
+and an equivalent of PyPI, and the documentation is simply stellar.
 
     https://docs.racket-lang.org/sweet/
     https://sourceforge.net/projects/readable/
@@ -41,15 +65,16 @@ has an IDE and an equivalent of PyPI, and the documentation is simply stellar.
 
 Python, on the other hand, has a slight edge in usability to the end-user
 programmer, and importantly, a huge ecosystem of libraries, second to ``None``.
-Python is where science happens (unless you're in CS).
+Python is where science happens (unless you're in CS). Python is an almost-Lisp
+that has delivered on the productivity promise of Lisp.
 
-Python is an almost-Lisp that has delivered on the productivity promise of Lisp.
+    http://paulgraham.com/icad.html
+
 However, in certain other respects, Python the base language leaves something
 to be desired, if you have been exposed to Racket (or Haskell, but that's a
 different story). Writing macros is harder due to the irregular syntax, but
-thankfully a set of macros only needs to be created once.
-
-    http://paulgraham.com/icad.html
+thankfully MacroPy already exists, and any set of macros only needs to be
+created once.
 
 Practicality beats purity: hence, fix the minor annoyances that would otherwise
 quickly add up, and reap the benefits of both worlds. If Python is software
@@ -82,7 +107,25 @@ Python solution avoids that, but needs many lines::
 The problem is that assignment to a lexical variable (including formals) is a
 statement in Python. If we abbreviate ``accumulate`` as a lambda, it needs a
 ``let`` environment to write in (to use unpythonic's expression-assignment).
-(But see ``envify`` in ``unpythonic.syntax``.)
+
+But see ``envify`` in ``unpythonic.syntax``, which allows this::
+
+    from unpythonic.syntax import macros, envify
+
+    with envify:
+        def foo(n):
+            return lambda i: n << n + i
+        f = foo(10)
+        f(1) # 11
+        f(1) # 12
+
+(This is also valid Lispython, and in Lispython you can omit the ``return``.
+The ``envify`` macro is designed to run after the macros implicitly invoked by
+the Lispython dialect.)
+
+``envify`` may be made part of the Lispython dialect definition later, but
+first it needs testing to decide whether this particular, perhaps rarely used,
+feature is worth the performance hit.
 
 **CAUTION**
 
