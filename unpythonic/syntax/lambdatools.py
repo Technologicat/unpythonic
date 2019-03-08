@@ -154,41 +154,45 @@ def envify(block_body):
 
     gen_sym = dyn.gen_sym
     @Walker
-    def transform(tree, *, bindings, doenames, stop, set_ctx, **kw):
+    def transform(tree, *, bindings, enames, stop, set_ctx, **kw):
         def isourupdate(thecall):
             if type(thecall.func) is not Attribute:
                 return False
-            return thecall.func.attr == "update" and any(isx(thecall.func.value, x) for x in doenames)
+            return thecall.func.attr == "update" and any(isx(thecall.func.value, x) for x in enames)
 
         if type(tree) in (FunctionDef, AsyncFunctionDef) or \
            (type(tree) is Lambda and id(tree) in userlambdas):
             argnames = getargs(tree)
-            newbindings = bindings.copy()
-
-            # prepend env init to function body, update bindings
-            if type(tree) in (FunctionDef, AsyncFunctionDef):
-                ename = gen_sym("e")
-                theenv = hq[_envify()]
-                theenv.keywords = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # "x" --> x
-                assignment = Assign(targets=[q[name[ename]]],
-                                    value=theenv)
-                assignment = copy_location(assignment, tree)
-                tree.body.insert(0, assignment)
-
+            kws = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # "x" --> x
+            if argnames:
+                # prepend env init to function body, update bindings
+                newbindings = bindings.copy()
+                if type(tree) in (FunctionDef, AsyncFunctionDef):
+                    ename = gen_sym("e")
+                    theenv = hq[_envify()]
+                    theenv.keywords = kws
+                    assignment = Assign(targets=[q[name[ename]]],
+                                        value=theenv)
+                    assignment = copy_location(assignment, tree)
+                    tree.body.insert(0, assignment)
+                elif type(tree) is Lambda and id(tree) in userlambdas:
+                    # We must in general inject a new do[] even if one is already there,
+                    # due to scoping rules. If the user code writes to the same names in
+                    # its do[] env, this shadows the formals; if it then pops one of its names,
+                    # the name should revert to mean the formal parameter.
+                    #
+                    # inject a do[] and reuse its env
+                    tree.body = do(List(elts=[q[name["_here_"]],
+                                              tree.body]))
+                    view = ExpandedDoView(tree.body)  # view.body: [(lambda e14: ...), ...]
+                    ename = view.body[0].args.args[0].arg  # do[] environment name
+                    theupdate = Attribute(value=q[name[ename]], attr="update")
+                    thecall = q[ast_literal[theupdate]()]
+                    thecall.keywords = kws
+                    tree.body = splice(tree.body, thecall, "_here_")
                 newbindings.update({k: Attribute(value=q[name[ename]], attr=k) for k in argnames})  # "x" --> e.x
-            elif type(tree) is Lambda and id(tree) in userlambdas:
-                # inject a do[] and reuse its env
-                tree.body = do(List(elts=[q[name["_here_"]],
-                                          tree.body]))
-                view = ExpandedDoView(tree.body)  # view.body: [(lambda e14: ...), ...]
-                doename = view.body[0].args.args[0].arg  # do[] environment name
-                set_ctx(doenames=doenames + [doename])
-                theupdate = Attribute(value=q[name[doename]], attr="update")
-                thecall = q[ast_literal[theupdate]()]
-                thecall.keywords = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # "x" --> x
-                tree.body = splice(tree.body, thecall, "_here_")
-                newbindings.update({k: Attribute(value=q[name[doename]], attr=k) for k in argnames})  # "x" --> e14.e13.x
-            set_ctx(bindings=newbindings)
+                set_ctx(enames=enames + [ename])
+                set_ctx(bindings=newbindings)
         else:
             # leave alone the _envify() added by us
             if type(tree) is Call and (isx(tree.func, _ismakeenv) or isourupdate(tree)):
@@ -208,4 +212,4 @@ def envify(block_body):
                 out.ctx = ctx
                 return out
         return tree
-    return transform.recurse(block_body, bindings={}, doenames=[])
+    return transform.recurse(block_body, bindings={}, enames=[])
