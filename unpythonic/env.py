@@ -47,13 +47,13 @@ class env:
     instance itself will remain alive due to Python's scoping rules.
     """
     # do not allow bindings that would break functionality.
-    _reserved_names = ("set", "clear", "finalize", "_env", "_allow_more_bindings",
+    _reserved_names = ("set", "clear", "finalize", "_env", "_finalized",
                        "_direct_write", "_reserved_names")
-    _direct_write = ("_env", "_allow_more_bindings")
+    _direct_write = ("_env", "_finalized")
 
     def __init__(self, **bindings):
         self._env = {}
-        self._allow_more_bindings = True  # "let" disables this once env setup done
+        self._finalized = False  # "let" sets this once env setup done
         for name, value in bindings.items():
             setattr(self, name, value)
 
@@ -66,7 +66,7 @@ class env:
             return super().__setattr__(name, value)
         if name in self._reserved_names:
             raise AttributeError("cannot overwrite reserved name '{:s}'; complete list: {}".format(name, self._reserved_names))
-        if not self._allow_more_bindings and name not in self:
+        if self._finalized and name not in self:
             raise AttributeError("name '{:s}' is not defined; adding new bindings to a finalized environment is not allowed".format(name))
         # Block invalid names in subscripting (which redirects here).
         if not name.isidentifier():
@@ -86,6 +86,8 @@ class env:
     def __delattr__(self, name):
         if not name.isidentifier():
             raise ValueError("'{}' is not a valid identifier".format(name))
+        if self._finalized:
+            raise TypeError("deleting bindings from a finalized environment not allowed; attempted to delete '{:s}'".format(name))
         e = self._env   # __getattr__ not called if direct attr lookup succeeds, no need for hook.
         if name not in e:
             raise AttributeError("name '{:s}' is not defined".format(name))
@@ -118,14 +120,28 @@ class env:
 
     # MutableMapping
     def pop(self, k, *default):
+        if self._finalized:
+            raise TypeError("deleting bindings from a finalized environment not allowed; attempted to delete '{:s}'".format(k))
         return self._env.pop(k, *default)
     def popitem(self):
+        if self._finalized:
+            raise TypeError("deleting bindings from a finalized environment not allowed")
         return self._env.popitem()
     def clear(self):
+        if self._finalized:
+            raise TypeError("clearing a finalized environment not allowed")
         return self._env.clear()
     def update(self, *mapping, **bindings):
+        if mapping:
+            m = mapping[0]
+            if self._finalized and any(k not in self for k in m):
+                raise AttributeError("adding new bindings to a finalized environment is not allowed")
+        if self._finalized and any(k not in self for k in bindings):
+            raise AttributeError("adding new bindings to a finalized environment is not allowed")
         return self._env.update(*mapping, **bindings)
     def setdefault(self, k, *default):
+        if self._finalized and k not in self:
+            raise AttributeError("name '{:s}' is not defined; adding new bindings to a finalized environment is not allowed".format(k))
         return self._env.setdefault(k, *default)
 
     # subscripting
@@ -143,7 +159,7 @@ class env:
         return self
 
     def __exit__(self, exctype, excvalue, traceback):
-        self.clear()
+        self._env.clear()  # on context exit, clear even if we are a finalized env
 
     # pretty-printing
     def __repr__(self):
@@ -182,12 +198,13 @@ class env:
     def finalize(self):
         """Finalize environment.
 
-        This stops the instance from accepting any more new bindings.
+        This stops the instance from accepting any more new bindings,
+        or any deletions of existing bindings.
 
-        Existing bindings can still be overwritten even in a finalized
+        Existing bindings can still be given new values even in a finalized
         environment.
         """
-        self._allow_more_bindings = False
+        self._finalized = True
 
     # For rebind syntax: "e.foo << newval" --> "e.foo.__lshift__(newval)",
     # so foo.__lshift__() must be set up to rebind e.foo.
