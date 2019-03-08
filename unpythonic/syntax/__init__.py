@@ -8,7 +8,7 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # contain the actual syntax transformers (regular functions that process ASTs)
 # that implement the macros.
 
-# insist, deny, it, f, _, force, force1, local, block, expr, call_cc
+# insist, deny, it, f, _, force, force1, local, delete, block, expr, call_cc
 # are just for passing through to the client code that imports us.
 from .curry import curry as _curry
 from .forall import forall as _forall, insist, deny
@@ -18,7 +18,7 @@ from .lambdatools import multilambda as _multilambda, \
                          quicklambda as _quicklambda, f, _, \
                          envify as _envify
 from .lazify import lazify as _lazify, lazyrec as _lazyrec, force, force1
-from .letdo import do as _do, do0 as _do0, local, \
+from .letdo import do as _do, do0 as _do0, local, delete, \
                    let as _let, letseq as _letseq, letrec as _letrec, \
                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec

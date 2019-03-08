@@ -7,6 +7,11 @@
 # placeholder bindings, then update them with the real values)...
 # but in Python, assignment is a statement. As a bonus, we get
 # assignment support for let and letseq, too.
+#
+# Note do[] supports local variable deletion, but the ``let[]`` constructs
+# don't, by design. The existence of env.pop() poses no problem since the
+# user code has no explicit reference to the let env (with which the code
+# could bypass the syntax machinery and directly access the env's methods).
 
 from functools import partial
 
@@ -263,9 +268,12 @@ def do(tree):
     gen_sym = dyn.gen_sym
     e = gen_sym("e")
     envset = Attribute(value=q[name[e]], attr="_set", ctx=Load())  # use internal _set to allow new definitions
+    envdel = Attribute(value=q[name[e]], attr="pop", ctx=Load())
 
     def islocaldef(tree):
         return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "local"
+    def isdelete(tree):
+        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "delete"
     @Walker
     def find_localdefs(tree, collect, **kw):
         if islocaldef(tree):
@@ -278,21 +286,34 @@ def do(tree):
             collect(view.name)
             return expr  # local[...] -> ..., the "local" tag has done its job
         return tree
+    @Walker
+    def find_deletes(tree, collect, **kw):
+        if isdelete(tree):
+            if type(tree.slice) is not Index:  # no slice syntax allowed
+                assert False, "delete[...] takes exactly one name"
+            expr = tree.slice.value
+            if type(expr) is not Name:
+                assert False, "delete[...] takes exactly one name"
+            collect(expr.id)
+            return q[ast_literal[envdel](u[expr.id])]  # delete[...] -> e.pop(...)
+        return tree
 
-    # a localdef starts taking effect on the line where it appears
     names = []
     lines = []
     for j, expr in enumerate(tree.elts, start=1):
         expr, newnames = find_localdefs.recurse_collect(expr)
+        expr, deletednames = find_deletes.recurse_collect(expr)
+        assert not (newnames and deletednames), "a do-item may have only local[] or delete[], not both"
         if newnames:
             if any(x in names for x in newnames):
                 assert False, "local names must be unique in the same do"
-        # The envassignment transform (LHS) needs also "newnames", whereas
-        # the name transform (RHS) should use the previous bindings, so that
-        # the new binding takes effect starting from the **next** doitem.
-        expr = letlike_transform(expr, e, lhsnames=names + newnames, rhsnames=names, setter=envset)
+        # The envassignment transform (LHS) needs the updated bindings, whereas
+        # the name transform (RHS) should use the previous bindings, so that any
+        # changes to bindings take effect starting from the **next** do-item.
+        updated_names = [x for x in names + newnames if x not in deletednames]
+        expr = letlike_transform(expr, e, lhsnames=updated_names, rhsnames=names, setter=envset)
         expr = hq[namelambda(u["do_line{}".format(j)])(ast_literal[expr])]
-        names = names + newnames
+        names = updated_names
         lines.append(expr)
     # CAUTION: letdoutil.py depends on the literal name "dof" to detect expanded do forms.
     # Also, the views depend on the exact AST structure.
@@ -306,6 +327,18 @@ def local(*args, **kwargs):
 
     Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
     (extra bracket syntax)."""
+    pass
+
+@macro_stub
+def delete(*args, **kwargs):
+    """[syntax] Delete a previously declared local name in a "do".
+
+    Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
+    (extra bracket syntax).
+
+    Note ``do[]`` supports local variable deletion, but the ``let[]``
+    constructs don't, by design.
+    """
     pass
 
 def do0(tree):

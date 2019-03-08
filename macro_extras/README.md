@@ -450,14 +450,23 @@ We provide an ``expr`` macro wrapper for ``unpythonic.seq.do``, with some extra 
 This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, see `cond`; for loops, see the functions in `unpythonic.fploop` (esp. `looped`).
 
 ```python
-from unpythonic.syntax import macros, do
+from unpythonic.syntax import macros, do, local, delete
 
 y = do[local[x << 17],
        print(x),
        x << 23,
        x]
 print(y)  # --> 23
+
+a = 5
+y = do[local[a << 17],
+       print(a),  # --> 17
+       delete[a],
+       print(a),  # --> 5
+       True]
 ```
+
+*Changed in v0.14.0.* Added ``delete[...]`` to allow deleting a ``local[...]`` binding. This uses ``env.pop()`` internally, so a ``delete[...]`` returns the value the deleted local variable had at the time of deletion. (So if you manually use the ``do()`` function in some code without macros, feel free to ``env.pop()`` in a do-item if needed.)
 
 *Changed in v0.12.0* ``local(...)`` is now ``local[...]`` (note brackets), to emphasize it's related to macros.
 
@@ -484,6 +493,8 @@ The necessary boilerplate (notably the ``lambda e: ...`` wrappers) is inserted a
 When running, ``do`` behaves like ``letseq``; assignments **above** the current line are in effect (and have been performed in the order presented). Re-assigning to the same name later overwrites (this is afterall an imperative tool).
 
 We also provide a ``do0`` macro, which returns the value of the first expression, instead of the last.
+
+**CAUTION**: ``do[]`` supports local variable deletion, but the ``let[]`` constructs don't, by design. When ``do[]`` is used implicitly with the extra bracket syntax, any ``delete[]`` refers to the scope of the implicit ``do[]``, not any surrounding ``let[]`` scope.
 
 
 ## Tools for lambdas

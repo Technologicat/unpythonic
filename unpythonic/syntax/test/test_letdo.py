@@ -9,7 +9,7 @@
 from ...syntax import macros, let, letseq, letrec, where, \
                               dlet, dletseq, dletrec, \
                               blet, bletseq, bletrec, \
-                              do, do0, local
+                              do, do0, local, delete
 
 from ...seq import begin
 
@@ -29,6 +29,23 @@ def test():
             x << 23,
             x]  # do[] returns the value of the last expression
     assert d1 == 23
+
+    # v0.14.0: do[] now supports deleting previously defined local names with delete[]
+    def assertf(v):
+        assert v
+    a = 5
+    d = do[local[a << 17],
+           assertf(a == 17),
+           delete[a],
+           assertf(a == 5),  # lexical scoping
+           True]
+
+    try:
+        d = do[delete[a],]
+    except KeyError:
+        pass
+    else:
+        assert False, "should have complained about deleting nonexistent local 'a'"
 
     # do0[]: like do[], but return the value of the **first** expression
     d2 = do0[local[y << 5],
