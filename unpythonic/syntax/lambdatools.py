@@ -19,7 +19,7 @@ from ..env import env
 from .letdo import do
 from .letdoutil import islet, isenvassign, UnexpandedLetView, UnexpandedEnvAssignView, ExpandedDoView
 from .util import is_decorated_lambda, isx, make_isxpred, has_deco, \
-                  destructure_decorated_lambda, detect_lambda
+                  destructure_decorated_lambda, detect_lambda, splice
 
 def multilambda(block_body):
     @Walker
@@ -154,17 +154,22 @@ def envify(block_body):
 
     gen_sym = dyn.gen_sym
     @Walker
-    def transform(tree, *, bindings, stop, set_ctx, **kw):
+    def transform(tree, *, bindings, doenames, stop, set_ctx, **kw):
+        def isourupdate(thecall):
+            if type(thecall.func) is not Attribute:
+                return False
+            return thecall.func.attr == "update" and any(isx(thecall.func.value, x) for x in doenames)
+
         if type(tree) in (FunctionDef, AsyncFunctionDef) or \
            (type(tree) is Lambda and id(tree) in userlambdas):
             argnames = getargs(tree)
-            ename = gen_sym("e")
             newbindings = bindings.copy()
-            theenv = hq[_envify()]
-            theenv.keywords = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # "x" --> x
 
             # prepend env init to function body, update bindings
             if type(tree) in (FunctionDef, AsyncFunctionDef):
+                ename = gen_sym("e")
+                theenv = hq[_envify()]
+                theenv.keywords = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # "x" --> x
                 assignment = Assign(targets=[q[name[ename]]],
                                     value=theenv)
                 assignment = copy_location(assignment, tree)
@@ -172,18 +177,21 @@ def envify(block_body):
 
                 newbindings.update({k: Attribute(value=q[name[ename]], attr=k) for k in argnames})  # "x" --> e.x
             elif type(tree) is Lambda and id(tree) in userlambdas:
-                tree.body = do(List(elts=[q[name["local"][name[ename] << ast_literal[theenv]]],
+                # inject a do[] and reuse its env
+                tree.body = do(List(elts=[q[name["_here_"]],
                                           tree.body]))
-
-                # the envify env lives in the do env
                 view = ExpandedDoView(tree.body)  # view.body: [(lambda e14: ...), ...]
-                doename = view.body[0].args.args[0].arg
-                envref = Attribute(value=q[name[doename]], attr=ename)  # e14.e13
-                newbindings.update({k: Attribute(value=envref, attr=k) for k in argnames})  # "x" --> e14.e13.x
+                doename = view.body[0].args.args[0].arg  # do[] environment name
+                set_ctx(doenames=doenames + [doename])
+                theupdate = Attribute(value=q[name[doename]], attr="update")
+                thecall = q[ast_literal[theupdate]()]
+                thecall.keywords = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # "x" --> x
+                tree.body = splice(tree.body, thecall, "_here_")
+                newbindings.update({k: Attribute(value=q[name[doename]], attr=k) for k in argnames})  # "x" --> e14.e13.x
             set_ctx(bindings=newbindings)
         else:
             # leave alone the _envify() added by us
-            if type(tree) is Call and isx(tree.func, _ismakeenv):
+            if type(tree) is Call and (isx(tree.func, _ismakeenv) or isourupdate(tree)):
                 stop()
             # transform env-assignments into our envs
             elif isenvassign(tree):
@@ -200,4 +208,4 @@ def envify(block_body):
                 out.ctx = ctx
                 return out
         return tree
-    return transform.recurse(block_body, bindings={})
+    return transform.recurse(block_body, bindings={}, doenames=[])
