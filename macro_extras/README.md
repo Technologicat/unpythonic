@@ -1558,7 +1558,7 @@ Therefore, any particular combination of macros that has not been specifically t
 The block macros are designed to run in the following order (leftmost first):
 
 ```
-prefix > autoreturn, quicklambda > multilambda > continuations or tco > curry > namedlambda > lazify > envify
+prefix > autoreturn, quicklambda > multilambda > continuations or tco > curry > namedlambda, autoref > lazify > envify
 ```
 
 The ``let_syntax`` block may be placed anywhere in the chain; just keep in mind what it does.
@@ -1616,9 +1616,11 @@ Other things to note:
 
  - ``namedlambda`` is a two-pass macro. In the first pass (outside-in), it names lambdas inside ``let[]`` expressions. It must be placed after ``curry`` to analyze, in the second pass (inside-out), the auto-curried code produced by ``with curry``.
 
- - ``lazify`` is a rather invasive rewrite that needs to see the output from the other macros, including ``curry``.
+ - ``autoref`` does not need currying in its output, but needs to be placed before ``lazify``, so that both branches of each transformed reference get the implicit forcing. Its transformation is orthogonal to what ``namedlambda`` does, so it does not matter in which exact order these two are placed.
 
- - ``envify`` needs to see the output of ``lazify`` in order to transform all function definitions to place their args into an unpythonic ``env`` without triggering the implicit forcing.
+ - ``lazify`` is a rather invasive rewrite that needs to see the output from most of the other macros.
+
+ - ``envify`` needs to see the output of ``lazify`` in order to shunt function args into an unpythonic ``env`` without triggering the implicit forcing.
 
  - Some of the block macros can be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``curry``) require their own ``with`` statement.
    - This is a [known issue in MacroPy](https://github.com/azazel75/macropy/issues/21). I have made a [fix](https://github.com/azazel75/macropy/pull/22), but still need to make proper test cases to get it merged.
