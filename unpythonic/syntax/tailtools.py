@@ -23,7 +23,7 @@ from macropy.core.walkers import Walker
 from .util import isx, make_isxpred, isec, \
                   detect_callec, detect_lambda, \
                   has_tco, sort_lambda_decorators, \
-                  suggest_decorator_index
+                  suggest_decorator_index, ContinuationsMarker, wrapwith, ismarker
 from .letdoutil import isdo, islet, ExpandedLetView, ExpandedDoView
 from .ifexprs import aif
 
@@ -79,6 +79,12 @@ def tco(block_body):
     transform_retexpr = partial(_transform_retexpr)
     new_block_body = []
     for stmt in block_body:
+        # skip nested, already expanded "with continuations" blocks
+        # (needed to support continuations in the Lispython dialect, which applies tco globally)
+        if ismarker("ContinuationsMarker", stmt):
+            new_block_body.append(stmt)
+            continue
+
         stmt = _tco_transform_return.recurse(stmt, known_ecs=known_ecs,
                                              transform_retexpr=transform_retexpr)
         stmt = _tco_transform_def.recurse(stmt, preproc_cb=None)
@@ -485,7 +491,12 @@ def continuations(block_body):
                                              transform_retexpr=transform_retexpr)
         stmt = sort_lambda_decorators(stmt)
         new_block_body.append(stmt)
-    return new_block_body
+
+    # Leave a marker so "with tco", if applied, can ignore the expanded "with continuations" block
+    # (needed to support continuations in the Lispython dialect, since it applies tco globally.)
+    return wrapwith(item=hq[ContinuationsMarker],
+                    body=new_block_body,
+                    locref=block_body[0])
 
 # -----------------------------------------------------------------------------
 

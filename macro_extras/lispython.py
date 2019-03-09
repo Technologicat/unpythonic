@@ -134,11 +134,6 @@ have to use regular Python tooling to profile, debug, and such. The layer
 should be thin enough for this not to be a major problem in practice.
 """
 
-# TODO: fix the unpythonic.syntax block macros to leave a placeholder for
-# other macros; TCO needs to detect and skip "with continuations" blocks
-# inside it in order for lispython to work properly when "with continuations"
-# is manually used in a lispython program.
-
 from ast import Expr, Name, If, Num, copy_location
 
 from macropy.core.quotes import macros, q, name

@@ -2,7 +2,7 @@
 """Automatic tail-call optimization (TCO)."""
 
 from ...syntax import macros, tco, autoreturn, curry, do, let, letseq, dletrec, \
-                      quicklambda, f, _
+                      quicklambda, f, _, continuations, call_cc
 
 from ...ec import call_ec
 from ...fploop import looped_over
@@ -136,6 +136,27 @@ def test():
 
         func2 = f[3*g(_)]  # no tail call
         assert func2(10) == 60
+
+    with tco:
+        evenp = lambda x: (x == 0) or oddp(x - 1)
+        oddp  = lambda x: (x != 0) and evenp(x - 1)
+        assert evenp(10000) is True
+
+        with continuations:  # should be ignored by tco
+            k = None  # kontinuation
+            def setk(*args, cc):
+                nonlocal k
+                k = cc  # current continuation, i.e. where to go after setk() finishes
+                return args  # tuple means multiple-return-values
+            def doit():
+                lst = ['the call returned']
+                *more, = call_cc[setk('A')]
+                return lst + list(more)
+            assert doit() == ['the call returned', 'A']
+            # We can now send stuff into k, as long as it conforms to the
+            # signature of the assignment targets of the "call_cc".
+            assert k('again') == ['the call returned', 'again']
+            assert k('thrice', '!') == ['the call returned', 'thrice', '!']
 
     print("All tests PASSED")
 

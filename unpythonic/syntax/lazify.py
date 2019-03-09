@@ -3,7 +3,7 @@
 
 from ast import Lambda, FunctionDef, Call, Name, Attribute, \
                 Starred, keyword, List, Tuple, Dict, Set, \
-                Subscript, Load, With, withitem
+                Subscript, Load
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, ast_literal
@@ -13,7 +13,7 @@ from macropy.core.walkers import Walker
 from macropy.quick_lambda import macros, lazy
 
 from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, \
-                  isx, make_isxpred, getname, is_decorator
+                  isx, make_isxpred, getname, is_decorator, wrapwith
 from .letdoutil import islet, isdo, ExpandedLetView
 from ..lazyutil import mark_lazy, force, force1, lazycall
 from ..dynassign import dyn
@@ -395,10 +395,8 @@ def lazify(body):
     # The second strict callee may get promises instead of values, because the
     # strict trampoline does not have the lazycall (that usually forces the args
     # when lazy code calls into strict code).
-    item = hq[dyn.let(_build_lazy_trampoline=True)]
-    wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
-                   body=newbody,
-                   lineno=body[0].lineno, col_offset=body[0].col_offset)
-    return [wrapped]
+    return wrapwith(item=hq[dyn.let(_build_lazy_trampoline=True)],
+                    body=newbody,
+                    locref=body[0])
 
 # -----------------------------------------------------------------------------

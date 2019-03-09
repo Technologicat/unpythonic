@@ -5,7 +5,8 @@ from functools import partial
 import re
 
 from ast import Call, Name, Attribute, Lambda, FunctionDef, \
-                If, Num, NameConstant, For, While, With, Try, ClassDef
+                If, Num, NameConstant, For, While, With, Try, ClassDef, \
+                withitem
 from .astcompat import AsyncFunctionDef, AsyncFor, AsyncWith
 
 from macropy.core import Captured
@@ -449,3 +450,71 @@ def splice(tree, rep, tag):
             return rep
         return tree
     return doit.recurse(tree)
+
+def wrapwith(item, body, locref=None):
+    """Wrap ``body`` with a single-item ``with`` block, using ``item``.
+
+    ``item`` must be an ``ast.withitem``.
+
+    ``locref`` is an optional AST node to copy source location info from.
+    If not supplied, ``body[0]`` is used.
+
+    Syntax transformer. Returns the wrapped body.
+    """
+    locref = locref or body[0]
+    wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
+                   body=body,
+                   lineno=locref.lineno, col_offset=locref.col_offset)
+    return [wrapped]
+
+def ismarker(typename, tree):
+    """Return whether tree is a specific AST marker. Used by block macros.
+
+    That is, whether ``tree`` is a ``with`` block with a single context manager,
+    which is represented by a ``Name`` whose ``id`` matches the given ``typename``.
+
+    Example. If ``tree`` is the AST for the following code::
+
+        with ContinuationsMarker:
+            ...
+
+    then ``ismarker("ContinuationsMarker", tree)`` returns ``True``.
+    """
+    if type(tree) is not With or len(tree.items) != 1:
+        return False
+    ctxmanager = tree.items[0].context_expr
+    return type(ctxmanager) is Name and ctxmanager.id == typename
+
+# We use a custom metaclass to make __enter__ and __exit__ callable on the class
+# instead of requiring an instance.
+#
+# Note ``thing.dostuff(...)`` means ``Thing.dostuff(thing, ...)``; the method
+# is looked up *on the class* of the instance ``thing``, not on the instance
+# itself. Hence, to make method lookup succeed when we have no instance, the
+# method should be defined on the class of the class, i.e. *on the metaclass*.
+# https://stackoverflow.com/questions/20247841/using-delitem-with-a-class-object-rather-than-an-instance-in-python
+class ASTMarker(type):
+    """Metaclass for AST markers used by block macros.
+
+    This can be used by block macros to tell other block macros that a section
+    of the AST is an already-expanded block of a given kind (so that others can
+    tune their processing or skip it, as appropriate). At run time a marker
+    does nothing.
+
+    Usage::
+
+        with SomeMarker:
+            ... # expanded code goes here
+
+    We provide a custom metaclass so that there is no need to instantiate
+    ``SomeMarker``; suitable no-op ``__enter__`` and ``__exit__`` methods
+    are defined on the metaclass, so e.g. ``SomeMarker.__enter__`` is valid.
+    """
+    def __enter__(cls):
+        pass
+    def __exit__(cls, exctype, excvalue, traceback):
+        pass
+
+class ContinuationsMarker(metaclass=ASTMarker):
+    """AST marker for an expanded "with continuations" block."""
+    pass
