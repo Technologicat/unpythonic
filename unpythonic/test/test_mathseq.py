@@ -2,9 +2,12 @@
 
 from sys import float_info
 from math import floor, log2
+from operator import mul
 
 from ..mathseq import s, m, sadd, smul, spow, cauchyprod, primes, fibonacci
 from ..it import take, last
+from ..fold import scanl
+from ..gmemo import imemoize
 from ..misc import timer
 
 def test():
@@ -226,6 +229,9 @@ def test():
     print("First {:d} primes: {:g}s".format(n, tictoc.dt))
 
     assert last(take(3379, primes())) == 31337  # test the base-b representation switcher across some seams
+
+    factorials = imemoize(scanl(mul, 1, s(2, 3, ...)))
+    assert last(take(5, factorials())) == 120
 
     print("All tests PASSED")
 
