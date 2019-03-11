@@ -423,6 +423,7 @@ class DialectFinder:
             logger.error('Loader for {} raised an error'.format(fullname))
             return
         if not source:  # some loaders may return None for the sources, without raising an exception
+            logger.debug('Loader returned empty sources for {}'.format(fullname))
             return
 
         lang_import = "from __lang__ import"
