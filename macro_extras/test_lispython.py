@@ -5,6 +5,9 @@
 # It sets the dialect this module is parsed in.
 from __lang__ import lispython
 
+# can use macros, too
+from unpythonic.syntax import macros, continuations, call_cc
+
 # unpythonic is lispython's stdlib; not everything gets imported by default
 from unpythonic import foldl
 
@@ -107,6 +110,22 @@ def main():
                [local[x << evenp(100)],  # multi-expression let body is a do[] environment
                 (x, evenp.__name__, oddp.__name__)]]
     assert t == (True, "evenp", "oddp")
+
+    with continuations:  # should be ignored by the tco inserted by the dialect
+        k = None  # kontinuation
+        def setk(*args, cc):
+            nonlocal k
+            k = cc  # current continuation, i.e. where to go after setk() finishes
+            return args  # tuple means multiple-return-values
+        def doit():
+            lst = ['the call returned']
+            *more, = call_cc[setk('A')]
+            return lst + list(more)
+        assert doit() == ['the call returned', 'A']
+        # We can now send stuff into k, as long as it conforms to the
+        # signature of the assignment targets of the "call_cc".
+        assert k('again') == ['the call returned', 'again']
+        assert k('thrice', '!') == ['the call returned', 'thrice', '!']
 
 if __name__ == '__main__':
     main()

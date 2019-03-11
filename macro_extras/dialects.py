@@ -248,7 +248,7 @@ Ground-up extension efforts that replace Python's syntax:
 """
 
 import ast
-from ast import Expr, Name, If, Num, copy_location
+from ast import Expr, Name, If, Num, ImportFrom, Pass, copy_location
 
 import importlib
 from importlib.util import spec_from_loader
@@ -482,9 +482,15 @@ class DialectFinder:
 def splice_ast(body, template, tag):
     """Utility: in an AST transformer, splice module body into template.
 
+    Imports for MacroPy macros are handled specially, gathering them all at the
+    front, so that MacroPy sees them. Any macro imports in the template are
+    placed first (in the order they appear in the template), followed by any
+    macro imports in the user code (in the order they appear in the user code).
+
     This utility is provided as a convenience for modules that define dialects.
     We use MacroPy to perform the splicing, so this function is only available
-    when MacroPy is installed (``ImportError`` is raised if not).
+    when MacroPy is installed (``ImportError`` is raised if not). Installation
+    status is checked only once per session, when ``dialects`` is first imported.
 
     Parameters:
 
@@ -520,18 +526,38 @@ def splice_ast(body, template, tag):
 
     def is_paste_here(tree):
         return type(tree) is Expr and type(tree.value) is Name and tree.value.id == tag
+    def is_macro_import(tree):
+        return type(tree) is ImportFrom and tree.names[0].name == "macros"
 
+    # XXX: MacroPy's debug logger will sometimes crash if a node is missing a source location.
+    # In general, dialect templates are fully macro-generated with no source location info to start with.
+    # Pretend it's all at the start of the user module.
     locref = body[0]
     @Walker
-    def splice(tree, **kw):
+    def fix_template_srcloc(tree, **kw):
+        if not all(hasattr(tree, x) for x in ("lineno", "col_offset")):
+            tree = copy_location(tree, locref)
+        return tree
+
+    @Walker
+    def extract_macro_imports(tree, *, collect, **kw):
+        if is_macro_import(tree):
+            collect(tree)
+            tree = copy_location(Pass(), tree)  # must output a node so replace by a pass stmt
+        return tree
+
+    template = fix_template_srcloc.recurse(template)
+    template, template_macro_imports = extract_macro_imports.recurse_collect(template)
+    body, user_macro_imports = extract_macro_imports.recurse_collect(body)
+
+    @Walker
+    def splice_body_into_template(tree, *, stop, **kw):
         if not is_paste_here(tree):
-            # XXX: MacroPy's debug logger will sometimes crash if a node is missing a source location.
-            # Dialect templates are fully macro-generated with no location info to start with.
-            if not all(hasattr(tree, x) for x in ("lineno", "col_offset")):
-                return copy_location(tree, locref)
             return tree
+        stop()  # prevent infinite recursion in case the user code contains a Name that looks like the marker
         return If(test=Num(n=1),
                   body=body,
                   orelse=[],
-                  lineno=locref.lineno, col_offset=locref.col_offset)
-    return splice.recurse(template)
+                  lineno=tree.lineno, col_offset=tree.col_offset)
+    finalbody = splice_body_into_template.recurse(template)
+    return template_macro_imports + user_macro_imports + finalbody
