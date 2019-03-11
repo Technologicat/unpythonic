@@ -901,7 +901,9 @@ TCO is based on a strategy similar to MacroPy's ``tco`` macro, but using unpytho
 
 #### TCO and continuations
 
-**CAUTION**: Do not combo ``tco`` and ``continuations`` blocks; the latter already implies TCO. (They actually share a lot of the code that implements TCO; ``continuations`` just hooks into some callbacks to perform additional processing.)
+The ``tco`` macro detects and skips any ``with continuations`` blocks inside the ``with tco`` block, because ``continuations`` already implies TCO. This is done **for the specific reason** of allowing the Lispython dialect to use ``with continuations``, because the dialect itself implies a ``with tco`` for the whole module (so the user code has no way to exit the TCO context).
+
+The ``tco`` and ``continuations`` macros actually share a lot of the code that implements TCO; ``continuations`` just hooks into some callbacks to perform additional processing.
 
 #### TCO and ``call_ec``
 
@@ -1114,7 +1116,7 @@ Unlike ``call/cc`` in Scheme/Racket, our ``call_cc`` takes **a function call** a
 
 #### Combo notes
 
-**CAUTION**: Do not combo with ``tco``; the ``continuations`` block already implies TCO.
+**CAUTION**: Do not use ``with tco`` inside a ``with continuations`` block; ``continuations`` already implies TCO. The ``continuations`` macro **makes no attempt** to skip ``with tco`` blocks inside it.
 
 If you need both ``continuations`` and ``multilambda`` simultaneously, the incantation is:
 
@@ -1226,13 +1228,13 @@ Such subtleties arise essentially from the difference between a language that na
 
 #### What can be used as a continuation?
 
-In ``unpythonic``, a continuation is just a function. ([As John Shutt has pointed out](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html), in general this is not true. The calculus underlying the language becomes much cleaner if continuations are defined as a separate control flow mechanism orthogonal to function application. Continuations are not intrinsically a whole-computation device, either.)
+In ``unpythonic`` specifically, a continuation is just a function. ([As John Shutt has pointed out](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html), in general this is not true. The calculus underlying the language becomes much cleaner if continuations are defined as a separate control flow mechanism orthogonal to function application. Continuations are not intrinsically a whole-computation device, either.)
 
 The continuation function must be able to take as many positional arguments as the previous function in the TCO chain is trying to pass into it. Keep in mind that:
 
  - In ``unpythonic``, a tuple represents multiple return values. So a ``return a, b``, which is being fed into the continuation, implies that the continuation must be able to take two positional arguments.
 
- - At the end of any function in Python, at least an implicit bare ``return`` always exists. It will try to pass in the value ``None`` to the continuation, so the continuation must be able to accept one positional argument.
+ - At the end of any function in Python, at least an implicit bare ``return`` always exists. It will try to pass in the value ``None`` to the continuation, so the continuation must be able to accept one positional argument. (This is handled automatically for continuations created by ``call_cc[]``. If no assignment targets are given, ``call_cc[]`` automatically creates one ignored positional argument that defaults to ``None``.)
 
 If there is an arity mismatch, Python will raise ``TypeError`` as usual. (The actual error message may be unhelpful due to the macro transformations; look for a mismatch in the number of values between a ``return`` and the call signature of a function used as a continuation (most often, the ``f`` in a ``cc=f``).)
 
@@ -1556,7 +1558,7 @@ Is this just a set of macros, a language extension, or a compiler for a new lang
 
 Making macros work together is nontrivial, essentially because *macros don't compose*. [As pointed out by John Shutt](https://fexpr.blogspot.com/2013/12/abstractive-power.html), in a multilayered language extension implemented with macros, the second layer of macros needs to understand all of the first layer. The issue is that the macro abstraction leaks the details of its expansion. Contrast with functions, which operate on values: the process that was used to arrive at a value doesn't matter. It's always possible for a function to take this value and transform it into another value, which can then be used as input for the next layer of functions. That's composability at its finest.
 
-The need for interaction between macros may arise already in what *feels* like a single layer of abstraction; for example, it's not only that the block macros must understand ``let[]``, but some of them must understand other block macros. The intuition is simply mistaken; what feels like one layer of abstraction is actually implemented as a number of separate macros, which run in a specific order. Thus, from the viewpoint of actually applying the macros, if the resulting software is to work correctly, the mere act of allowing combos between the block macros already makes them into a multilayer system. The compartmentalization of conceptually separate features into separate macros facilitates understanding and maintainability, but fails to reach the ideal of modularity (independent pieces).
+The need for interaction between macros may arise already in what *feels* like a single layer of abstraction; for example, it's not only that the block macros must understand ``let[]``, but some of them must understand other block macros. This is because what feels like one layer of abstraction is actually implemented as a number of separate macros, which run in a specific order. Thus, from the viewpoint of actually applying the macros, if the resulting software is to work correctly, the mere act of allowing combos between the block macros already makes them into a multilayer system. The compartmentalization of conceptually separate features into separate macros facilitates understanding and maintainability, but fails to reach the ideal of modularity.
 
 Therefore, any particular combination of macros that has not been specifically tested might not work. That said, if some particular combo doesn't work and *is not at least documented as such*, that's an error; please raise an issue. The unit tests should cover the combos that on the surface seem the most useful, but there's no guarantee that they cover everything that actually is useful somewhere.
 
@@ -1595,6 +1597,7 @@ with lazify:
 Other things to note:
 
  - ``continuations`` and ``tco`` are mutually exclusive, since ``continuations`` already implies TCO.
+   - However, the ``tco`` macro skips any ``with continuations`` blocks inside it, **for the specific reason** of allowing modules written in the Lispython dialect (which implies TCO for the whole module) to use ``with continuations``.
 
  - ``prefix``, ``autoreturn``, ``quicklambda`` and ``multilambda`` are first-pass macros (expand from outside in), because they change the semantics:
    - ``prefix`` transforms things-that-look-like-tuples into function calls,
@@ -1617,6 +1620,7 @@ Other things to note:
    - Perform a first pass to take note of all lambdas that appear in the code *before the expansion of any inner macros*. Then in the second pass, *after the expansion of all inner macros*, only the recorded lambdas are transformed.
      - This mechanism distinguishes between explicit lambdas in the client code, and internal implicit lambdas automatically inserted by a macro. The latter are a technical detail that should not undergo the same transformations as user-written explicit lambdas.
      - The identification is based on the ``id`` of the AST node instance. Hence, if you plan to write your own macros that work together with those in ``unpythonic.syntax``, avoid going overboard with FP. Modifying the tree in-place, preserving the original AST node instances as far as sensible, is just fine.
+     - For the interested reader, grep the source code for ``userlambdas``.
    - Support a limited form of *decorated lambdas*, i.e. trees of the form ``f(g(h(lambda ...: ...)))``.
      - The macros will reorder a chain of lambda decorators (i.e. nested calls) to use the correct ordering, when only known decorators are used on a literal lambda.
        - This allows some combos such as ``tco``, ``unpythonic.fploop.looped``, ``curry``.
@@ -1624,6 +1628,7 @@ Other things to note:
      - If you need to combo ``unpythonic.fploop.looped`` and ``unpythonic.ec.call_ec``, use ``unpythonic.fploop.breakably_looped``, which does exactly that.
        - The problem with a direct combo is that the required ordering is the trampoline (inside ``looped``) outermost, then ``call_ec``, and then the actual loop, but because an escape continuation is only valid for the dynamic extent of the ``call_ec``, the whole loop must be run inside the dynamic extent of the ``call_ec``.
        - ``unpythonic.fploop.breakably_looped`` internally inserts the ``call_ec`` at the right step, and gives you the ec as ``brk``.
+     - For the interested reader, look at ``unpythonic.syntax.util``.
 
  - ``namedlambda`` is a two-pass macro. In the first pass (outside-in), it names lambdas inside ``let[]`` expressions before they are expanded away. The second pass (inside-out) of ``namedlambda`` must run after ``curry`` to analyze and transform the auto-curried code produced by ``with curry``. In most cases, placing ``namedlambda`` in a separate outer ``with`` block runs both operations in the correct order.
 
