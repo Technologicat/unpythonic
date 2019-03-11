@@ -142,7 +142,7 @@ def test():
         oddp  = lambda x: (x != 0) and evenp(x - 1)
         assert evenp(10000) is True
 
-        with continuations:  # should be ignored by tco
+        with continuations:  # should be skipped by tco, since this already has TCO
             k = None  # kontinuation
             def setk(*args, cc):
                 nonlocal k

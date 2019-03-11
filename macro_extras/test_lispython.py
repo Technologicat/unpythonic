@@ -111,7 +111,7 @@ def main():
                 (x, evenp.__name__, oddp.__name__)]]
     assert t == (True, "evenp", "oddp")
 
-    with continuations:  # should be ignored by the tco inserted by the dialect
+    with continuations:  # should be skipped by the implicit tco inserted by the dialect
         k = None  # kontinuation
         def setk(*args, cc):
             nonlocal k
