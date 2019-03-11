@@ -134,14 +134,13 @@ have to use regular Python tooling to profile, debug, and such. The layer
 should be thin enough for this not to be a major problem in practice.
 """
 
-from ast import Expr, Name, If, Num, copy_location
-
 from macropy.core.quotes import macros, q, name
-from macropy.core.walkers import Walker
 
-def ast_transformer(tree):
-    # Skeleton for AST-transformed user module.
-    with q as newbody:
+# TODO: The dialect finder imports us, so do not from-import to avoid dependency loop.
+import dialects  # TODO: a proper pydialect package
+
+def ast_transformer(module_body):
+    with q as template:
         from unpythonic.syntax import macros, tco, autoreturn, \
                                       multilambda, quicklambda, namedlambda, \
                                       let, letseq, letrec, do, do0, \
@@ -155,30 +154,7 @@ def ast_transformer(tree):
         with namedlambda:  # MacroPy #21 (nontrivial two-pass macro; seems I didn't get the fix right)
             with autoreturn, quicklambda, multilambda, tco:
                 name["__paste_here__"]
-
-    # Boilerplate.
-    # TODO: make a utility for the boilerplate tasks?
-    def is_paste_here(tree):
-        return type(tree) is Expr and type(tree.value) is Name and tree.value.id == "__paste_here__"
-
-    module_body = tree
-    if not module_body:
-        assert False, "{}: expected at least one statement or expression in module body".format(__name__)
-
-    locref = module_body[0]
-    @Walker
-    def splice(tree, **kw):
-        if not is_paste_here(tree):
-            # XXX: MacroPy's debug logger will sometimes crash if a node is missing a source location.
-            # The skeleton is fully macro-generated with no location info to start with.
-            if not all(hasattr(tree, x) for x in ("lineno", "col_offset")):
-                return copy_location(tree, locref)
-            return tree
-        return If(test=Num(n=1),
-                  body=module_body,
-                  orelse=[],
-                  lineno=locref.lineno, col_offset=locref.col_offset)
-    return splice.recurse(newbody)
+    return dialects.splice_ast(module_body, template, "__paste_here__")
 
 def rejoice():
     s = \

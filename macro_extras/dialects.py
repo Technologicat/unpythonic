@@ -248,6 +248,8 @@ Ground-up extension efforts that replace Python's syntax:
 """
 
 import ast
+from ast import Expr, Name, If, Num, copy_location
+
 import importlib
 from importlib.util import spec_from_loader
 import logging
@@ -256,8 +258,9 @@ import re
 
 try:
     import macropy.core
+    from macropy.core.walkers import Walker
 except ImportError:
-    macropy = None
+    macropy = Walker = None
 
 logger = logging.getLogger(__name__)
 
@@ -475,3 +478,60 @@ class DialectFinder:
 
         loader = DialectLoader(spec, code, tree)
         return spec_from_loader(fullname, loader)
+
+def splice_ast(body, template, tag):
+    """Utility: in an AST transformer, splice module body into template.
+
+    This utility is provided as a convenience for modules that define dialects.
+    We use MacroPy to perform the splicing, so this function is only available
+    when MacroPy is installed (``ImportError`` is raised if not).
+
+    Parameters:
+
+        ``body``: ``list`` of statements
+            Module body of the original user code (input).
+
+        ``template``: ``list`` of statements
+            Template for the module body of the new module (output).
+
+            Must contain a marker that indicates where ``body`` is to be
+            spliced in. The marker is an ``ast.Name`` node whose ``id``
+            attribute matches the value of the ``tag`` string.
+
+        ``tag``: ``str``
+            The value of the ``id`` attribute of the marker in ``template``.
+
+    Returns the new module body, i.e. ``template`` with ``body`` spliced in.
+
+    Example::
+
+        marker = q[name["__paste_here__"]]      # MacroPy, or...
+        marker = ast.Name(id="__paste_here__")  # ...manually
+
+        ...  # create template, place the marker in it
+
+        dialects.splice_ast(body, template, "__paste_here__")
+
+    """
+    if not Walker:  # optional dependency
+        raise ImportError("macropy.core.walkers.Walker not found; MacroPy likely not installed")
+    if not body:  # ImportError because this occurs during the loading of a module written in a dialect.
+        raise ImportError("expected at least one statement or expression in module body")
+
+    def is_paste_here(tree):
+        return type(tree) is Expr and type(tree.value) is Name and tree.value.id == tag
+
+    locref = body[0]
+    @Walker
+    def splice(tree, **kw):
+        if not is_paste_here(tree):
+            # XXX: MacroPy's debug logger will sometimes crash if a node is missing a source location.
+            # Dialect templates are fully macro-generated with no location info to start with.
+            if not all(hasattr(tree, x) for x in ("lineno", "col_offset")):
+                return copy_location(tree, locref)
+            return tree
+        return If(test=Num(n=1),
+                  body=body,
+                  orelse=[],
+                  lineno=locref.lineno, col_offset=locref.col_offset)
+    return splice.recurse(template)
