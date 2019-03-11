@@ -460,15 +460,14 @@ class DialectFinder:
         if hasattr(lang_module, "source_transformer"):
             logger.info('Dialect source transform in {}'.format(fullname))
             source = lang_module.source_transformer(source)
+            if not source:
+                msg = "Empty source text after dialect source transform in {}".format(fullname)
+                logger.error(msg)
+                raise SyntaxError(msg)
             if lang_import not in source:  # preserve invariant
                 msg = 'Dialect source transform for {} should not delete the lang-import'.format(fullname)
                 logger.error(msg)
                 raise RuntimeError(msg)
-
-        if not source:
-            msg = "Empty source text after dialect source transform in {}".format(fullname)
-            logger.error(msg)
-            raise SyntaxError(msg)
 
         code, tree = self.expand_macros(source, origin, fullname, spec, lang_module)
 
