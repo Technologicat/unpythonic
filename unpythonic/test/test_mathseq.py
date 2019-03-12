@@ -230,8 +230,8 @@ def test():
 
     assert last(take(3379, primes())) == 31337
 
-    factorials = imemoize(scanl(mul, 1, s(2, 3, ...)))
-    assert last(take(5, factorials())) == 120
+    factorials = imemoize(scanl(mul, 1, s(1, 2, ...)))  # 0!, 1!, 2!, ...
+    assert last(take(6, factorials())) == 120
 
     print("All tests PASSED")
 
