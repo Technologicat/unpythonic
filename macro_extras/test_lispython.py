@@ -116,11 +116,11 @@ def main():
         def setk(*args, cc):
             nonlocal k
             k = cc  # current continuation, i.e. where to go after setk() finishes
-            return args  # tuple means multiple-return-values
+            args  # tuple means multiple-return-values
         def doit():
             lst = ['the call returned']
             *more, = call_cc[setk('A')]
-            return lst + list(more)
+            lst + list(more)
         assert doit() == ['the call returned', 'A']
         # We can now send stuff into k, as long as it conforms to the
         # signature of the assignment targets of the "call_cc".
