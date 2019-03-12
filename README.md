@@ -1007,8 +1007,8 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
  - `partition` from `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
  - `rev` is a convenience function that tries `reversed`, and if the input was not a sequence, converts it to a tuple and reverses that. The return value is a `reversed` object.
  - `scons`: prepend one element to the start of an iterable, return new iterable. ``scons(x, iterable)`` is lispy shorthand for ``itertools.chain((x,), iterable)``, allowing to omit the one-item tuple wrapper.
- - `inn`: contains-check (``x in iterable``) with automatic termination for monotonic infinite iterables. *Added in v0.13.1.*
-   - Only applicable to monotonic inputs. Increasing/decreasing is auto-detected from the first non-zero diff, but the function may fail to terminate if the input is actually not monotonic.
+ - `inn`: contains-check (``x in iterable``) with automatic termination for monotonic divergent infinite iterables. *Added in v0.13.1.*
+   - Only applicable to monotonic divergent inputs (such as ``primes``). Increasing/decreasing is auto-detected from the first non-zero diff, but the function may fail to terminate if the input is actually not monotonic, or has an upper/lower bound.
  - `iindex`: like ``list.index``, but for a general iterable. Consumes the iterable, so only makes sense for memoized inputs. *Added in v0.13.1.*
  - `prod`: like the builtin `sum`, but compute the product. Oddly missing from the standard library. *Added in v0.13.1.*
 

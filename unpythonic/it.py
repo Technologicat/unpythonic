@@ -539,9 +539,10 @@ def inn(x, iterable):
 
     ``iterable`` may be infinite.
 
-    We assume ``iterable`` is **monotonic**. In other words, we require
-    ``it[k+1] >= it[k]`` or ``it[k+1] <= it[k]``. If ``iterable`` is
-    not monotonic, this function may fail to terminate.
+    We assume ``iterable`` is **monotonic** and **divergent**. In other words,
+    we require ``it[k+1] >= it[k]`` (or ``it[k+1] <= it[k]``), and that the
+    sequence has no upper (or respectively lower) bound. If ``iterable``
+    does not fulfill these conditions, this function may fail to terminate.
 
     This is fully duck-typed; we only require that ``x`` and the elements of
     ``iterable`` are comparable by ``==``, ``<=`` and ``>=``.
