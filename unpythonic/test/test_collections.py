@@ -3,7 +3,7 @@
 from collections.abc import Mapping, MutableMapping, Hashable, Container, Iterable, Sized
 from pickle import dumps, loads
 
-from ..collections import box, frozendict, view, ShadowedSequence, mogrify
+from ..collections import box, frozendict, view, roview, ShadowedSequence, mogrify
 
 def test():
     # box: mutable single-item container à la Racket
@@ -91,7 +91,7 @@ def test():
     d2 = loads(dumps(d1))  # pickling
     assert d2 == d1
 
-    # writable view for sequences
+    # writable live view for sequences
     # (when you want to be more imperative than Python allows)
     lst = list(range(5))
     v = view(lst)
@@ -109,8 +109,7 @@ def test():
     assert v.count(10) == 1
     assert v[:] is v
 
-    # views may be created also of slices, but note the syntax
-    # (see also unpythonic.syntax.view, which lets use the regular slice syntax)
+    # views may be created also of slices (note the syntax: the subscripting is curried)
     lst = list(range(10))
     v = view(lst)[2:]
     assert v == [2, 3, 4, 5, 6, 7, 8, 9]
@@ -170,6 +169,34 @@ def test():
     lst.insert(0, 42)
     assert v == [1, 2, 3, 4, 5]
     assert lst == [42, 0, 1, 2, 3, 4, 5]
+
+    # read-only live view for sequences
+    # useful to give read access to an internal sequence
+    lst = list(range(5))
+    v = roview(lst)[2:]
+    assert v == [2, 3, 4]
+    lst.append(5)
+    assert v == [2, 3, 4, 5]  # it's live
+    assert type(v[1:]) is roview  # slicing a read-only view gives another read-only view
+    assert v[1:] == [3, 4, 5]
+    try:
+        view(v[1:])
+    except TypeError:
+        pass
+    else:
+        assert False, "should not be able to create a writable view into a read-only view"
+    try:
+        v[2] = 3
+    except TypeError:
+        pass
+    else:
+        assert False, "read-only view should not support item assignment"
+    try:
+        v.reverse()
+    except AttributeError:  # no such method
+        pass
+    else:
+        assert False, "read-only view should not support in-place reverse"
 
     # sequence shadowing
     tpl = (1, 2, 3, 4, 5)

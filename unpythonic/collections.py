@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Additional containers and container utilities."""
 
-__all__ = ["box", "frozendict", "view", "ShadowedSequence",
+__all__ = ["box", "frozendict", "roview", "view", "ShadowedSequence",
            "get_abcs", "in_slice", "index_in_slice",
            "SequenceView", "MutableSequenceView"]  # ABCs
 
@@ -309,6 +309,7 @@ class SequenceView(Sequence):
 
     Provides the same API as ``collections.abc.Sequence``."""
 
+# can't be a MutableSequence since we can't provide ``__delitem__`` and ``insert``
 class MutableSequenceView(SequenceView):
     """ABC: mutable view of a sequence.
 
@@ -350,23 +351,107 @@ class _StrReprEqMixin:
                 return False
         return True
 
-# TODO: is there a way to inherit from an ABC without causing the metaclass to change to ABCMeta?
-# TODO: (we want the default implementations of e.g. count, index in the MRO; but this is a concrete class.)
-class view(MutableSequenceView, _StrReprEqMixin):
-    """Writable view into a sequence.
+class roview(SequenceView, _StrReprEqMixin):
+    """Read-only live view into a sequence.
 
     Supports slicing (also recursively, i.e. can be sliced again).
 
     We store slice specs, not actual indices, so this works also if the
     underlying sequence undergoes length changes.
 
-    **Not** hashable, since the whole point is a live view to input that may
-    change at any time. (Perhaps, indeed, by writing into the view, just like
-    for NumPy arrays. And yes, when writing a slice, a scalar value broadcasts.)
+    **Not** hashable, since the whole point is a live view to input that
+    may change at any time. However, as usual, iteration assumes that
+    no inserts/deletes in the underlying sequence occur during iteration.
+    (So be careful with threads.)
+
+    The read-only cousin of ``view``. For usage examples, see ``view``; this
+    behaves the same except no ``__setitem__`` or ``reverse``.
+
+    **Notes**
+
+    In terms of ABCs, this is an ``unpythonic.collections.SequenceView``.
+
+    Slicing an ``roview`` or a ``view`` returns a new ``roview``. Slicing
+    anything else will usually copy, because the object being sliced does,
+    before we get control.
+
+    To slice lazily, first view the sequence itself and then slice that.
+    The initial no-op view is optimized away, so it won't slow down accesses.
+    Alternatively, pass a ``slice`` object into the view constructor.
+
+    The view can be efficiently iterated over.
+
+    Getting/setting an item (subscripting) checks whether the index cache needs
+    updating during each access, so it can be a bit slow. Setting a slice checks
+    just once, and then updates the underlying iterable directly.
+
+    Core idea based on StackOverflow answer by Mathieu Caroff (2018):
+
+        http://stackoverflow.com/q/3485475/can-i-create-a-view-on-a-python-list
+    """
+    def __init__(self, sequence, s=None):
+        """If s is None, view the whole input. If s is a slice, view that slice.
+
+        The slice can also be specified later by subscripting with a slice
+        (doing that creates a new view instance, which bypasses the original
+        no-op view).
+        """
+        if s is None:
+            s = slice(None, None, None)
+        self.seq = sequence
+        self.slice = s
+        self._seql = None
+
+    def __iter__(self):
+        data, r = self._update_cache()
+        def view_iterator():
+            for j in r:
+                yield data[j]
+        return view_iterator()
+    def __len__(self):
+        _, r = self._update_cache()
+        return len(r)
+
+    def _update_cache(self):
+        seql = len(self.seq)
+        if seql != self._seql:
+            self._seql = seql
+            self._cache = self._range()
+        return self._cache
+    def _range(self):  # return underlying sequence, current range of all elements of self in it
+        def buildr(seq):
+            if not isinstance(seq, (roview, view)):
+                return seq, range(len(seq))
+            data, r = buildr(seq.seq)
+            return data, r[seq.slice]
+        return buildr(self)
+
+    def __getitem__(self, k):
+        if isinstance(k, slice):
+            if k == slice(None, None, None):  # v[:]
+                return self
+            ctor = type(self)
+            if self.slice == slice(None, None, None):  # bypass us if we're a no-op (good for subscript curry)
+                return ctor(self.seq, k)
+            return ctor(self, k)
+        elif isinstance(k, tuple):
+            raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
+        else:
+            data, r = self._update_cache()
+            l = len(r)
+            if k >= l or k < -l:
+                raise IndexError("view index out of range")
+            return data[r[k]]
+
+class view(roview, MutableSequenceView):
+    """Writable live view into a sequence.
+
+    The writable cousin of ``roview``. Provides the same API plus ``__setitem__``
+    and ``reverse``.
+
+    Writing a scalar value into a slice broadcasts it, à la NumPy.
 
     In terms of ABCs, this is an ``unpythonic.collections.MutableSequenceView``.
-    Viewing immutable sequences with ``view`` is fine; just don't call the
-    ``.reverse`` method on them.
 
     Examples::
 
@@ -395,77 +480,15 @@ class view(MutableSequenceView, _StrReprEqMixin):
         lst.insert(0, 42)
         assert v == [1, 2, 3, 4, 5]
         assert lst == [42, 0, 1, 2, 3, 4, 5]
-
-    Slicing a view returns a new view. Slicing anything else will usually copy,
-    because the object being sliced does, before we get control.
-
-    To slice lazily, first view the sequence itself and then slice that.
-    The initial no-op view is optimized away, so it won't slow down accesses.
-    Alternatively, pass a ``slice`` object into the ``SequenceView`` constructor.
-
-    The view can be efficiently iterated over. As usual, iteration assumes that
-    no inserts/deletes in the underlying sequence occur during the iteration.
-
-    Getting/setting an item (subscripting) checks whether the index cache needs
-    updating during each access, so it can be a bit slow. Setting a slice checks
-    just once, and then updates the underlying iterable directly.
-
-    Core idea based on StackOverflow answer by Mathieu Caroff (2018):
-
-        http://stackoverflow.com/q/3485475/can-i-create-a-view-on-a-python-list
     """
     def __init__(self, sequence, s=None):
-        """If s is None, view the whole input. If s is a slice, view that slice.
-
-        The slice can also be specified later by subscripting with a slice
-        (doing that creates a new ``view`` instance, which bypasses the
-        original no-op view).
-        """
-        if s is None:
-            s = slice(None, None, None)
-        self.seq = sequence
-        self.slice = s
-        self._seql = None
-
-    def __iter__(self):
-        data, r = self._update_cache()
-        def view_iterator():
-            for j in r:
-                yield data[j]
-        return view_iterator()
-    def __len__(self):
-        _, r = self._update_cache()
-        return len(r)
-
-    def _update_cache(self):
-        seql = len(self.seq)
-        if seql != self._seql:
-            self._seql = seql
-            self._cache = self._range()
-        return self._cache
-    def _range(self):  # return underlying sequence, current range of all elements of self in it
-        def buildr(seq):
-            if not isinstance(seq, view):
-                return seq, range(len(seq))
-            data, r = buildr(seq.seq)
-            return data, r[seq.slice]
-        return buildr(self)
-
-    def __getitem__(self, k):
-        if isinstance(k, slice):
-            if k == slice(None, None, None):  # v[:]
-                return self
-            if self.slice == slice(None, None, None):  # bypass us if we're a no-op (good for subscript curry)
-                return view(self.seq, k)
-            return view(self, k)
-        elif isinstance(k, tuple):
-            raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
-        else:
-            data, r = self._update_cache()
-            l = len(r)
-            if k >= l or k < -l:
-                raise IndexError("view index out of range")
-            return data[r[k]]
+        # some fandango because MutableSequenceView is not a MutableSequence for technical reasons.
+        if isinstance(sequence, SequenceView):
+            if not isinstance(sequence, MutableSequenceView):
+                raise TypeError("cannot create writable view into a read-only view")
+        elif isinstance(sequence, Sequence) and not isinstance(sequence, MutableSequence):
+            raise TypeError("cannot create writable view into a read-only sequence")
+        super().__init__(sequence, s)
     def __setitem__(self, k, v):
         data, r = self._update_cache()
         if isinstance(k, slice):

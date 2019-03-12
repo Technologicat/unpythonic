@@ -1351,6 +1351,8 @@ The ``fup`` call is essentially curried. It takes in the sequence to be function
 
 ### ``view``: writable, sliceable view into a sequence
 
+*Added in v0.14.0.* Added the read-only cousin ``roview``, which behaves the same except it has no ``__setitem__`` or ``reverse``. This can be useful for giving read-only access to an internal sequence. The constructor of the writable ``view`` now checks that the input is not read-only (``roview``, or a ``Sequence`` that is not also a ``MutableSequence``) before allowing creation of the writable view.
+
 *Added in v0.13.1.*
 
 A writable view into a sequence, with slicing, so you can take a slice of a slice (of a slice ...), and it reflects the original both ways:
