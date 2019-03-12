@@ -173,6 +173,13 @@ def test():
         assert f(1) == 11
         assert f(1) == 12
 
+    # or as a one-liner
+    with autoreturn, envify:
+        foo = lambda n: lambda i: n << n + i
+        f = foo(10)
+        assert f(1) == 11
+        assert f(1) == 12
+
     # pythonic solution with optimal bytecode (doesn't need an extra location to store the accumulator)
     def foo(n):
         def accumulate(i):
