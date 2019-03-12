@@ -148,6 +148,15 @@ def test():
                 assert False, "should have deleted x from the implicit env"
         foo(10)
 
+    # Star-assignment also works, since Python performs the actual unpacking/packing.
+    # We just use a different target for the store.
+    with envify:
+        def foo(n):
+            a, *n, b = (1, 2, 3, 4, 5)
+            assert n == [2, 3, 4]
+        foo(10)
+
+    # The main use case is with lambdas, to do things like this:
     with envify:
         def foo(n):
             return lambda i: n << n + i
@@ -155,7 +164,7 @@ def test():
         assert f(1) == 11
         assert f(1) == 12
 
-    # solution to PG's accumulator puzzle with the fewest elements (in the original unexpanded code)
+    # solution to PG's accumulator puzzle with the fewest elements in the original unexpanded code
     # http://paulgraham.com/icad.html
     with autoreturn, envify:
         def foo(n):
@@ -164,7 +173,7 @@ def test():
         assert f(1) == 11
         assert f(1) == 12
 
-    # pythonic solution
+    # pythonic solution with optimal bytecode (doesn't need an extra location to store the accumulator)
     def foo(n):
         def accumulate(i):
             nonlocal n
