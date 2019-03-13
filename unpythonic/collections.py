@@ -117,6 +117,8 @@ def mogrify(func, container):
             return ctor(doit(elt) for elt in x)
         elif isinstance(x, Set):
             # dict_items cannot be instantiated, so return a regular set if we're asked to mogrify one
+            # TODO: is it possible to get the owner dict and mogrify it instead?
+            # (this case usually turns up in "with curry" with somedict.items())
             ctor = type(x) if not isinstance(x, _dictitems_type) else set
             return ctor({doit(elt) for elt in x})
         return func(x)  # atom
