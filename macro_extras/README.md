@@ -1,7 +1,6 @@
 # ``unpythonic.syntax``: Language extensions
 
 These optional features, providing extensions to the Python language as syntactic macros, are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
-
 If you want to take language extension a step further, see the sister project [Pydialect](https://github.com/Technologicat/pydialect).
 
 Because macro expansion occurs at import time, the unit tests that contain usage examples (located in [unpythonic/syntax/test/](../unpythonic/syntax/test/)) cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). Usage of the bootstrapper is `./macropy3 -m some.module` (like `python3 -m some.module`); see `-h` for options.
