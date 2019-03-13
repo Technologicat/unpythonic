@@ -14,8 +14,6 @@ Of the `python3` command-line options, the `macropy3` bootstrapper supports only
 
 *Changed in v0.14.0.* The `macropy3` bootstrapper now takes the `-m` option, like `python3 -m mod`. The alternative is to specify a filename positionally, like ``python3 mod.py``. In either case, the bootstrapper will import the module in a special mode that pretends its `__name__ == '__main__'`, to allow using the pythonic conditional main idiom also in macro-enabled code.
 
-*Changed in v0.14.0.* **Support for custom Python dialects upcoming**. May be released as a separate project. Documentation will be updated closer to the release. For now, be aware that the `macropy3` bootstrapper is already dialect-enabled (this took 6 extra lines of code; the dependency is optional, so there's no separate `pydialect` bootstrapper). For a usage example, see `lispython.py` (lispy Python) and `test_lispython.py`. The dialect importer lives in `dialects.py`. See docstrings and comments for details.
-
 **Contents**:
 
  - [**Bindings**](#bindings)
@@ -664,7 +662,7 @@ with autoreturn, envify:
         lambda i: n << n + i
 ```
 
-The ``with`` block adds a few elements, but if desired, it can be refactored into the definition of a custom dialect in Pydialect.
+The ``with`` block adds a few elements, but if desired, it can be refactored into the definition of a custom dialect in [Pydialect](https://github.com/Technologicat/pydialect).
 
 
 
@@ -901,7 +899,7 @@ TCO is based on a strategy similar to MacroPy's ``tco`` macro, but using unpytho
 
 #### TCO and continuations
 
-The ``tco`` macro detects and skips any ``with continuations`` blocks inside the ``with tco`` block, because ``continuations`` already implies TCO. This is done **for the specific reason** of allowing the Lispython dialect to use ``with continuations``, because the dialect itself implies a ``with tco`` for the whole module (so the user code has no way to exit the TCO context).
+The ``tco`` macro detects and skips any ``with continuations`` blocks inside the ``with tco`` block, because ``continuations`` already implies TCO. This is done **for the specific reason** of allowing the [Lispython dialect](https://github.com/Technologicat/pydialect) to use ``with continuations``, because the dialect itself implies a ``with tco`` for the whole module (so the user code has no way to exit the TCO context).
 
 The ``tco`` and ``continuations`` macros actually share a lot of the code that implements TCO; ``continuations`` just hooks into some callbacks to perform additional processing.
 
@@ -1597,7 +1595,7 @@ with lazify:
 Other things to note:
 
  - ``continuations`` and ``tco`` are mutually exclusive, since ``continuations`` already implies TCO.
-   - However, the ``tco`` macro skips any ``with continuations`` blocks inside it, **for the specific reason** of allowing modules written in the Lispython dialect (which implies TCO for the whole module) to use ``with continuations``.
+   - However, the ``tco`` macro skips any ``with continuations`` blocks inside it, **for the specific reason** of allowing modules written in the [Lispython dialect](https://github.com/Technologicat/pydialect) (which implies TCO for the whole module) to use ``with continuations``.
 
  - ``prefix``, ``autoreturn``, ``quicklambda`` and ``multilambda`` are first-pass macros (expand from outside in), because they change the semantics:
    - ``prefix`` transforms things-that-look-like-tuples into function calls,
@@ -1649,5 +1647,5 @@ Other things to note:
 
 [Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``: we just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less abstruse, and close enough to convey the intended meaning.
 
-If you want custom *syntax* proper, then you may be interested in the upcoming Pydialect.
+If you want custom *syntax* proper, then you may be interested in [Pydialect](https://github.com/Technologicat/pydialect).
 
