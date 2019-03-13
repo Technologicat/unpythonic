@@ -2,6 +2,8 @@
 
 These optional features, providing extensions to the Python language as syntactic macros, are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
 
+If you want to take language extension a step further, see the sister project [Pydialect](https://github.com/Technologicat/pydialect).
+
 Because macro expansion occurs at import time, the unit tests that contain usage examples (located in [unpythonic/syntax/test/](../unpythonic/syntax/test/)) cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). Usage of the bootstrapper is `./macropy3 -m some.module` (like `python3 -m some.module`); see `-h` for options.
 
 The tests use relative imports; invoke them from the top-level directory of ``unpythonic`` as e.g. ``macro_extras/macropy3 -m unpythonic.syntax.test.test_curry``. This is to make the tests run against the source tree without installing it first; in your own code, once you have installed ``unpythonic``, feel free to use absolute imports, like those shown in this README.
@@ -12,7 +14,7 @@ There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itsel
 
 Of the `python3` command-line options, the `macropy3` bootstrapper supports only `-m`. If you need to give other `python3` command-line options when running a MacroPy-enabled source file, run the bootstrapper manually via `python3 ...` and place the options there.
 
-*Changed in v0.14.0.* The `macropy3` bootstrapper now takes the `-m` option, like `python3 -m mod`. The alternative is to specify a filename positionally, like ``python3 mod.py``. In either case, the bootstrapper will import the module in a special mode that pretends its `__name__ == '__main__'`, to allow using the pythonic conditional main idiom also in macro-enabled code.
+*Changed in v0.14.0.* The `macropy3` bootstrapper now takes the `-m` option, like `python3 -m mod`. The alternative is to specify a filename positionally, like ``python3 mod.py``. In either case, the bootstrapper will import the module in a special mode that pretends its `__name__ == '__main__'`, to allow using the pythonic conditional main idiom also in macro-enabled code. For convenience, ``setup.py`` now installs the `macropy3` bootstrapper.
 
 **Contents**:
 
