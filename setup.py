@@ -319,7 +319,7 @@ setup(
     name = "unpythonic",
     version = version,
     author = "Juha Jeronen",
-    author_email = "juha.jeronen@tut.fi",
+    author_email = "juha.m.jeronen@gmail.com",
     url = "https://github.com/Technologicat/unpythonic",
 
     description = SHORTDESC,
