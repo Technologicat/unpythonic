@@ -171,6 +171,10 @@ def test():
         f(lst)
         assert lst == [10, 2, 3]
 
+    # should handle also lambdas
+    with lazify:
+        assert tuple(map((lambda x: 2*x), (1, 2, 3))) == (2, 4, 6)
+
     # manually lazified mutable container
     # note we **do not** auto-lazify assignment RHSs, because that creates an
     # infinite loop trap for the unwary (since assignment allows imperative update,

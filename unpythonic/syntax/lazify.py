@@ -205,14 +205,16 @@ def lazify(body):
                 pass  # ignore macro-introduced lambdas
             else:
                 stop()
-                tree.decorator_list = rec(tree.decorator_list)
 
                 # mark this definition as lazy, and insert the interface wrapper
                 # to allow also strict code to call this function
                 if type(tree) is Lambda:
+                    lam = tree
                     tree = hq[mark_lazy(ast_literal[tree])]
                     tree = sort_lambda_decorators(tree)
+                    lam.body = rec(lam.body)
                 else:
+                    tree.decorator_list = rec(tree.decorator_list)
                     k = suggest_decorator_index("mark_lazy", tree.decorator_list)
                     if k is not None:
                         tree.decorator_list.insert(k, hq[mark_lazy])
@@ -220,8 +222,7 @@ def lazify(body):
                         # mark_lazy should generally be as innermost as possible
                         # (so that e.g. the curry decorator will see the function as lazy)
                         tree.decorator_list.append(hq[mark_lazy])
-
-                tree.body = rec(tree.body)
+                    tree.body = rec(tree.body)
 
         elif type(tree) is Call:
             def transform_arg(tree):
