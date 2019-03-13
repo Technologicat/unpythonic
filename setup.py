@@ -367,6 +367,7 @@ setup(
     # This **does not** automatically recurse into subpackages, so they must also be declared.
     #
     packages = ["unpythonic", "unpythonic.syntax"],
+    scripts = ["macro_extras/macropy3"],
 
     zip_safe = False,  # macros are not zip safe, because the zip importer fails to find sources, and MacroPy needs them.
 
