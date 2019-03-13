@@ -6,6 +6,7 @@ from ...syntax import macros, curry
 from ...fold import foldr
 from ...fun import composerc as compose
 from ...llist import cons, nil, ll
+from ...collections import frozendict
 
 def test():
     with curry:
@@ -69,6 +70,13 @@ def test():
         fact = trampolined(withself(curry(lambda self, n, acc=1:
                                     acc if n == 0 else jump(self, n - 1, n * acc))))
         assert fact(5) == 120
+
+    # dict_items handling in mogrify
+    with curry:
+        d1 = frozendict(foo='bar', bar='tavern')
+        d2 = frozendict(d1, bar='pub')
+        assert tuple(sorted(d1.items())) == (('bar', 'tavern'), ('foo', 'bar'))
+        assert tuple(sorted(d2.items())) == (('bar', 'pub'), ('foo', 'bar'))
 
     print("All tests PASSED")
 

@@ -27,6 +27,7 @@ def get_abcs(cls):
 # TODO: allow multiple input container args in mogrify, like map does (also support longest, fillvalue)
 #   OTOH, that's assuming an ordered iterable... so maybe not for general containers?
 # TODO: move to unpythonic.it? This is a spork...
+_dictitems_type = type({}.items())
 def mogrify(func, container):
     """In-place recursive map for mutable containers.
 
@@ -115,7 +116,8 @@ def mogrify(func, container):
             ctor = cls._make if hasattr(cls, "_make") else cls
             return ctor(doit(elt) for elt in x)
         elif isinstance(x, Set):
-            ctor = type(x)
+            # dict_items cannot be instantiated, so return a regular set if we're asked to mogrify one
+            ctor = type(x) if not isinstance(x, _dictitems_type) else set
             return ctor({doit(elt) for elt in x})
         return func(x)  # atom
     return doit(container)
