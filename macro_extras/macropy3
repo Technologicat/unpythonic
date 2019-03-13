@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Generic bootstrapper for Python programs powered by MacroPy3 and/or Pydialect."""
+"""Bootstrapper for Python programs powered by MacroPy3."""
 
 from importlib import import_module
-from importlib.util import spec_from_file_location, find_spec, resolve_name
+from importlib.util import resolve_name
 from types import ModuleType
 import os
 import sys
@@ -18,12 +18,6 @@ try: # Python 3.6+
     MyModuleNotFoundError = ModuleNotFoundError
 except NameError:
     MyModuleNotFoundError = ImportError
-
-# TODO: make a Pydialect package
-try:
-    import dialects
-except ImportError:
-    dialects = None
 
 import macropy.activate
 
@@ -173,10 +167,6 @@ def main():
 
     if opts.debug:
         import macropy.logging
-
-    # Register the Pydialect importer if installed (after MacroPy has been activated).
-    if dialects:
-        sys.meta_path.insert(0, dialects.DialectFinder)
 
     # Import the module, pretending its name is "__main__".
     #
