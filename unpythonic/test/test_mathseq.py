@@ -4,7 +4,7 @@ from sys import float_info
 from math import floor, log2
 from operator import mul
 
-from ..mathseq import s, m, sadd, smul, spow, cauchyprod, primes, fibonacci
+from ..mathseq import s, m, mg, sadd, smul, spow, cauchyprod, primes, fibonacci
 from ..it import take, last
 from ..fold import scanl
 from ..gmemo import imemoize
@@ -232,6 +232,11 @@ def test():
 
     factorials = imemoize(scanl(mul, 1, s(1, 2, ...)))  # 0!, 1!, 2!, ...
     assert last(take(6, factorials())) == 120
+
+    a = mg(imemoize(s(1, 2, ...)))
+    assert last(take(5, a())) == 5
+    assert last(take(5, a())) == 5
+    assert last(take(5, a() + a())) == 10
 
     print("All tests PASSED")
 

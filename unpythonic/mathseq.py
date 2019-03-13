@@ -18,7 +18,7 @@ Finally, we provide ready-made generators that yield some common sequences
 (currently, the Fibonacci numbers and the prime numbers).
 """
 
-__all__ = ["s", "m", "almosteq",
+__all__ = ["s", "m", "mg", "almosteq",
            "sadd", "ssub", "sabs", "spos", "sneg", "sinvert", "smul", "spow",
            "struediv", "sfloordiv", "smod", "sdivmod",
            "sround", "strunc", "sfloor", "sceil",
@@ -27,6 +27,7 @@ __all__ = ["s", "m", "almosteq",
            "fibonacci", "primes"]
 
 from itertools import repeat, takewhile, count
+from functools import wraps
 from operator import add as primitive_add, mul as primitive_mul, \
                      pow as primitive_pow, mod as primitive_mod, \
                      floordiv as primitive_floordiv, truediv as primitive_truediv, \
@@ -506,6 +507,23 @@ class m:
     def __ror__(self, other):
         return sor(other, self)
     # TODO: conversion (bool, complex, int, float) and comparison operators? Do we want those?
+
+def mg(gfunc):
+    """Decorator: make gfunc m() the returned generator instances.
+
+    Return a new gfunc, which passes all its arguments to the original ``gfunc``.
+
+    Example::
+
+        a = mg(imemoize(s(1, 2, ...)))
+        assert last(take(5, a())) == 5
+        assert last(take(5, a())) == 5
+        assert last(take(5, a() + a())) == 10
+    """
+    @wraps(gfunc)
+    def mathify(*args, **kwargs):
+        return m(gfunc(*args, **kwargs))
+    return mathify
 
 # The *settings mechanism is used by round and pow.
 # These are recursive to support iterables containing iterables (e.g. an iterable of math sequences).

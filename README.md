@@ -1437,6 +1437,8 @@ For convenience, we introduce some special cases:
 
 *Added in v0.13.1:* ``primes`` and ``fibonacci``.
 
+*Added in v0.14.0:* ``mg``, a decorator to mathify a gfunc, so that it will ``m()`` the generator instances it makes. Combo with ``imemoize`` for great justice, e.g. ``a = mg(imemoize(s(1, 2, ...)))``.
+
 We provide a compact syntax to create lazy constant, arithmetic, geometric and power sequences: ``s(...)``. Numeric (``int``, ``float``, ``mpmath``) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
 
 We also provide arithmetic operation support for iterables (termwise). To make any iterable infix math aware, use ``m(iterable)``. The arithmetic is lazy; it just plans computations, returning a new lazy mathematical sequence. To extract values, iterate over the result. (Note this implies that expressions consisting of thousands of operations will overflow Python's call stack. In practice this shouldn't be a problem.)
