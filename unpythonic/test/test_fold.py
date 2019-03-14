@@ -123,12 +123,12 @@ def test():
 
     # Lazy map, like Python's builtin.
     def makeop(f):
-        @rotate(-1)  # --> *elts, acc
+        @rotate(-1)  # --> op(*elts, acc)
         def op(acc, *elts):
             return f(*elts)
         return op
-    mymap_ = curry(lambda f: curry(scanl, makeop(f), None))  # (None, *map(...))
-    mymap2 = lambda *iterables: tail(mymap_(*iterables))
+    mymap_ = curry(lambda f: curry(scanl, makeop(f), None))  # --> (None, *map(...))
+    mymap2 = lambda *args: tail(mymap_(*args))
     assert tuple(curry(mymap2, myadd, (1, 2, 3), (2, 4, 6))) == (3, 6, 9)
 
     reverse_one = curry(foldl, cons, nil)
