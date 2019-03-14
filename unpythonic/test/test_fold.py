@@ -99,7 +99,7 @@ def test():
 
     # Finally, we can drop the inner curry by using a currying compose.
     # This is as close to "(define (map f) (foldr (compose cons f) empty)"
-    # (#lang spicy) as we're gonna get in Python.
+    # (#lang spicy) as we're gonna get in pure Python.
     mymap = lambda f: curry(foldr, composerc(cons, f), nil)
     assert curry(mymap, double, ll(1, 2, 3)) == ll(2, 4, 6)
 
@@ -120,6 +120,16 @@ def test():
         if all(x is not None for x in (a, b)):
             return a + b
     assert curry(mymap_longest, noneadd, ll(1, 2, 3), ll(2, 4)) == ll(3, 6, None)
+
+    # Lazy map, like Python's builtin.
+    def makeop(f):
+        @rotate(-1)  # --> *elts, acc
+        def op(acc, *elts):
+            return f(*elts)
+        return op
+    mymap_ = curry(lambda f: curry(scanl, makeop(f), None))  # (None, *map(...))
+    mymap2 = lambda *iterables: tail(mymap_(*iterables))
+    assert tuple(curry(mymap2, myadd, (1, 2, 3), (2, 4, 6))) == (3, 6, 9)
 
     reverse_one = curry(foldl, cons, nil)
     assert reverse_one(ll(1, 2, 3)) == ll(3, 2, 1)
