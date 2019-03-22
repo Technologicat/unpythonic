@@ -8,6 +8,22 @@ from macropy.core.walkers import Walker
 
 from ..dynassign import dyn
 
+# TODO: suppport Attribute, Subscript in autoref
+# TODO: support nested autorefs
+# Consider:
+#   with autoref(o):
+#       x        # --> (o.x if hasattr(o, "x") else x)
+#       x.a      # --> (o.x.a if hasattr(o, "x") else x.a)
+#       x[s]     # --> (o.x[s] if hasattr(o, "x") else x[s])
+#       o        # --> o
+#       with autoref(p):
+#          x     # --> (p.x if hasattr(p, "x") else (o.x if hasattr(o, "x") else x))
+#          x.a   # --> (p.x.a if hasattr(p, "x") else (o.x.a if hasattr(o, "x") else x.a))
+#          x[s]  # --> (p.x[s] if hasattr(p, "x") else (o.x[s] if hasattr(o, "x") else x[s]))
+#          o     # --> (p.o if hasattr(p, "o") else o)
+#          o.x   # --> (p.o.x if hasattr(p, "o") else o.x)
+#          o[s]  # --> (p.o[s] if hasattr(p, "o") else o[s])
+
 def autoref(block_body, args):
     assert len(args) == 1, "expected exactly one argument, the object to implicitly reference"
     assert block_body, "expected at least one statement in the 'with autoref' block"
