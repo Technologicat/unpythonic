@@ -569,7 +569,7 @@ Decorated lambdas are also supported, as is a ``curry`` (manual or auto) where t
 
 The naming is performed using the function ``unpythonic.misc.namelambda``, which will return a renamed copy with its ``__name__``, ``__qualname__`` and ``__code__.co_name`` changed.
 
-Supported assignment forms:
+**Supported assignment forms**:
 
  - Single-item assignment to a local name, ``f = lambda ...: ...``
 
