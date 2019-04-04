@@ -2,6 +2,7 @@
 """Additional containers and container utilities."""
 
 __all__ = ["box", "frozendict", "roview", "view", "ShadowedSequence",
+           "mogrify",
            "get_abcs", "in_slice", "index_in_slice",
            "SequenceView", "MutableSequenceView"]  # ABCs
 
