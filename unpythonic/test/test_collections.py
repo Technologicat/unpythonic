@@ -231,10 +231,22 @@ def test():
     assert s2 == {2, 4, 6}
     assert s2 is s
 
-    d = {1: 2, 3: 4}
+    # mogrifying a dict mutates its values in-place, leaving keys untouched
+    d = {1: 2, 3: 4, 5: 6}
     d2 = mogrify(double, d)
-    assert set(d2.items()) == {(1, 4), (3, 8)}
+    assert set(d2.items()) == {(1, 4), (3, 8), (5, 12)}
     assert d2 is d
+
+    # dict keys/items/values types cannot be instantiated, and support only
+    # iteration (not in-place modification), so in those cases mogrify()
+    # returns a new set without mutating the dict's bindings.
+    # (But any side effects of func will be applied to each item, as usual,
+    #  so the items themselves may change if they are mutable.)
+    d = {1: 2, 3: 4, 5: 6}
+    assert mogrify(double, d.items()) == {(2, 4), (6, 8), (10, 12)}  # both keys and values get mogrified!
+    assert mogrify(double, d.keys()) == {2, 6, 10}
+    assert mogrify(double, d.values()) == {4, 8, 12}
+    assert d == {1: 2, 3: 4, 5: 6}
 
     b = box(17)
     b2 = mogrify(double, b)
@@ -260,6 +272,20 @@ def test():
     atom2 = mogrify(double, atom)
     assert atom2 == 34
     assert atom2 is not atom
+
+    # mogrify a sequence through a mutable view
+    lst = [1, 2, 3]
+    v = view(lst)[1:]
+    v2 = mogrify(double, v)
+    assert v2 == [4, 6]
+    assert lst == [1, 4, 6]
+
+    # mogrify a copy of a sequence through a read-only view
+    lst = [1, 2, 3]
+    v = roview(lst)[1:]
+    v2 = mogrify(double, v)
+    assert v2 == [4, 6]
+    assert lst == [1, 2, 3]
 
     print("All tests PASSED")
 

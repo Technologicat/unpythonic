@@ -12,7 +12,8 @@ from abc import abstractmethod
 from collections import abc
 from collections.abc import Container, Iterable, Hashable, Sized, \
                             Sequence, Mapping, Set, \
-                            MutableSequence, MutableMapping, MutableSet
+                            MutableSequence, MutableMapping, MutableSet, \
+                            MappingView
 from inspect import isclass
 from operator import lt, le, ge, gt
 
@@ -28,7 +29,6 @@ def get_abcs(cls):
 # TODO: allow multiple input container args in mogrify, like map does (also support longest, fillvalue)
 #   OTOH, that's assuming an ordered iterable... so maybe not for general containers?
 # TODO: move to unpythonic.it? This is a spork...
-_dictitems_type = type({}.items())
 def mogrify(func, container):
     """In-place recursive map for mutable containers.
 
@@ -84,6 +84,10 @@ def mogrify(func, container):
                     x.pop()
             x.extend(y)
             return x
+        elif isinstance(x, MutableSequenceView):  # our own cat food
+            y = [doit(elt) for elt in x]
+            x[:] = y
+            return x
         elif isinstance(x, MutableSet):
             y = {doit(elt) for elt in x}
             x.clear()
@@ -106,6 +110,15 @@ def mogrify(func, container):
         # immutable containers
         elif isinstance(x, cons):
             return cons(doit(x.car), doit(x.cdr))
+        elif isinstance(x, SequenceView):  # our own cat food
+            ctor = type(getattrrec(x, "seq"))  # de-onionize
+            return ctor(doit(elt) for elt in x)
+        # dict_items and similar cannot be instantiated, and they support only iteration,
+        # not in-place modification, so return a regular set
+        # (this turns up in "with curry" blocks using somedict.items() as a function argument,
+        #  due to the lazycall() in curry)
+        elif isinstance(x, MappingView):
+            return {doit(elt) for elt in x}
         # env and dyn provide the Mapping API, but shouldn't get the general Mapping treatment here.
         # (This is important for the curry and lazify macros.)
         elif isinstance(x, Mapping) and not isinstance(x, (env, _Env)):
@@ -117,10 +130,7 @@ def mogrify(func, container):
             ctor = cls._make if hasattr(cls, "_make") else cls
             return ctor(doit(elt) for elt in x)
         elif isinstance(x, Set):
-            # dict_items cannot be instantiated, so return a regular set if we're asked to mogrify one
-            # TODO: is it possible to get the owner dict and mogrify it instead?
-            # (this case usually turns up in "with curry" with somedict.items())
-            ctor = type(x) if not isinstance(x, _dictitems_type) else set
+            ctor = type(x)
             return ctor({doit(elt) for elt in x})
         return func(x)  # atom
     return doit(container)
