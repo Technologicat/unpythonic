@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ...syntax import macros, nb
+from ...syntax import macros, nb, dbg
 
 def test():
     with nb:
@@ -22,6 +22,15 @@ def test():
             assert _ == x * y
             3 * _
             assert _ == 3 * x * y
+
+    with dbg:
+        x = 3
+        print(x)
+
+    prt = lambda *args: print(*args)
+    with dbg(prt):
+        x = 5
+        prt(x)
 
     print("All tests PASSED")
 

@@ -24,7 +24,7 @@ from .letdo import do as _do, do0 as _do0, local, delete, \
                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
-from .nb import nb as _nb
+from .nb import nb as _nb, dbg as _dbg
 from .prefix import prefix as _prefix
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, call_cc
@@ -1423,6 +1423,11 @@ def nb(tree, args, **kw):
             3 * _
     """
     return _nb(body=tree, args=args)
+
+@macros.block
+def dbg(tree, args, **kw):
+    """[syntax, block] TODO: document"""  # TODO: document
+    return _dbg(body=tree, args=args)
 
 # -----------------------------------------------------------------------------
 
