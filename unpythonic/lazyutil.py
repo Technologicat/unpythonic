@@ -44,7 +44,7 @@ def lazycall(f, *thunks, **kwthunks):
     """Internal. Helps calling strict functions from inside a ``with lazify`` block."""
     if f is jump:  # special case to avoid drastic performance hit in strict code
         target, *argthunks = thunks
-        return jump(force(target), *argthunks, **kwthunks)
+        return jump(force1(target), *argthunks, **kwthunks)
     if islazy(f):
         return f(*thunks, **kwthunks)
     return f(*force(thunks), **force(kwthunks))
