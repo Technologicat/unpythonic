@@ -616,7 +616,7 @@ def in_slice(i, s, l=None):
     if isinstance(s, int):
         s = wrap(s)
         return i == s
-    start, stop, step = _canonize_slice(s, l, wrap)
+    start, stop, step = s.indices(l)
     cmp_start, cmp_end = (ge, lt) if step > 0 else (le, gt)
     at_or_after_start = cmp_start(i, start)
     before_stop = cmp_end(i, stop)
@@ -637,7 +637,7 @@ def index_in_slice(i, s, l=None):
 def _index_in_slice(i, s, l=None, _validate=True):
     if (not _validate) or in_slice(i, s, l):
         wrap = _make_negidx_converter(l)
-        start, _, step = _canonize_slice(s, l, wrap)
+        start, _, step = s.indices(l)
         return (wrap(i) - start) // step
 
 def _make_negidx_converter(l):  # l: length of sequence being indexed
@@ -647,7 +647,7 @@ def _make_negidx_converter(l):  # l: length of sequence being indexed
         if l <= 0:
             raise ValueError("l must be an int >= 1, got {}".format(l))
         def apply_conversion(k):
-            return k % l
+            return slice(k, None, None).indices(l)[0]
     else:
         def apply_conversion(k):
             raise ValueError("Need l to interpret negative indices")
@@ -657,33 +657,3 @@ def _make_negidx_converter(l):  # l: length of sequence being indexed
                 raise TypeError("k must be int, got {} with value {}".format(type(k), k))
             return apply_conversion(k) if k < 0 else k
     return convert
-
-def _canonize_slice(s, l=None, w=None):  # convert negatives, inject defaults.
-    if not isinstance(s, slice):
-        raise TypeError("s must be slice, got {} with value {}".format(type(s), s))
-
-    step = s.step if s.step is not None else +1  # no "s.step or +1"; someone may try step=0
-    if step == 0:
-        raise ValueError("slice step cannot be zero")  # message copied from range(5)[0:4:0]
-
-    wrap = w or _make_negidx_converter(l)
-
-    start = wrap(s.start)
-    if start is None:
-        if step > 0:
-            start = 0
-        else:
-            if l is None:
-                raise ValueError("Need l to determine default start for step < 0")
-            start = wrap(-1)
-
-    stop = wrap(s.stop)
-    if stop is None:
-        if step > 0:
-            if l is None:
-                raise ValueError("Need l to determine default stop for step > 0")
-            stop = l
-        else:
-            stop = -1  # yes, really -1 to have index 0 inside the slice
-
-    return start, stop, step
