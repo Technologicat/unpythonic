@@ -36,7 +36,11 @@ def mark_lazy(f):
     return f
 
 def islazy(f):
-    """Internal. Return whether the function f is marked as lazy."""
+    """Internal. Return whether the function f is marked as lazy.
+
+    When a function is marked as lazy, its arguments won't be forced by
+    ``lazycall``. This is the only effect the mark has.
+    """
     # special-case "_let" for lazify/curry combo when let[] expressions are present
     return hasattr(f, "_lazy") or (hasattr(f, "__name__") and f.__name__ == "_let")
 
