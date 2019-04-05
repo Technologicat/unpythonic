@@ -1454,9 +1454,9 @@ def dbg(tree, args, **kw):
             print(x)   # --> 2
 
         with dbg(prt):
-            x = 3
+            x = 2
             y = 17
-            prt(x, y, 1 + 2)  # --> prt(("x", "y", "(1 + 2)"), (x, y, 3))
+            prt(x, y, 1 + 2)  # --> ('x', 'y', '(1 + 2)'), (2, 17, 3))
 
     The source code is back-converted from the AST representation; hence its
     surface syntax may look slightly different to the original (e.g. extra

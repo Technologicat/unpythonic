@@ -60,6 +60,7 @@ Of the `python3` command-line options, the `macropy3` bootstrapper supports only
 
  - [**Other**](#other)
    - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
+   - [``dbg``: debug-print expressions with source code](#dbg-debug-print-expressions-with-source-code)
 
  - [**Meta**](#meta)
    - [Comboability](#comboability)
@@ -1546,6 +1547,53 @@ Expressions at the top level auto-assign the result to ``_``, and auto-print it 
 A custom print function can be supplied as the first positional argument to ``nb``. This is useful with SymPy (and [latex-input](https://github.com/clarkgrubb/latex-input) to use α, β, γ, ... as actual variable names).
 
 Obviously not intended for production use, although is very likely to work anywhere.
+
+
+### ``dbg``: debug-print expressions with source code
+
+*Added in v0.14.1.*
+
+[DRY](https://en.wikipedia.org/wiki/Don't_repeat_yourself) out your [qnd](https://en.wiktionary.org/wiki/quick-and-dirty) debug printing code:
+
+```python
+from unpythonic.syntax import macros, dbg
+
+with dbg:
+    x = 2
+    print(x)   # --> x: 2
+
+with dbg:
+    x = 2
+    y = 3
+    print(x, y)   # --> x: 2, y: 3
+    print(x, y, sep="\n")   # --> x: 2 <newline> y: 3
+```
+
+Like in ``nb``, a custom print function can be supplied as the first positional argument to ``dbg``. This avoids transforming any uses of built-in ``print``:
+
+```python
+prt = lambda *args: print(*args)
+
+with dbg(prt):
+    x = 2
+    prt(x)     # --> ('x',) (2,)
+    print(x)   # --> 2
+
+with dbg(prt):
+    x = 2
+    y = 17
+    prt(x, y, 1 + 2)  # --> ('x', 'y', '(1 + 2)'), (2, 17, 3)
+
+```
+
+The reference to the custom print function (i.e. the argument to ``dbg``) **must be a bare name**. Support for methods may or may not be added in a future version.
+
+To implement a custom debug print function, see the docstring of ``dbgprint``, the default implementation.
+
+The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``macropy.core.unparse``.
+
+Inspired by the [dbg macro in Rust](https://doc.rust-lang.org/std/macro.dbg.html).
+
 
 
 ## Meta
