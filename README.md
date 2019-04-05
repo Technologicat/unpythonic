@@ -37,7 +37,7 @@ This README documents the pure-Python part of ``unpythonic``. See also [document
    - [``fup``: functional update; ``ShadowedSequence``](#fup-functional-update-shadowedsequence): like ``collections.ChainMap``, but for sequences.
    - [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
    - [``mogrify``: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
-   - [``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic](#s-m-lazy-mathematical-sequences-with-infix-arithmetic)
+   - [``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic](#s-m-mg-lazy-mathematical-sequences-with-infix-arithmetic)
 
  - [**Control flow tools**](#control-flow-tools)
    - [``trampolined``, ``jump``: tail call optimization (TCO) / explicit continuations](#trampolined-jump-tail-call-optimization-tco--explicit-continuations)
