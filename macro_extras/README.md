@@ -1623,6 +1623,8 @@ prefix > autoreturn, quicklambda > multilambda > continuations or tco > ...
 
 The ``let_syntax`` (and ``abbrev``) block may be placed anywhere in the chain; just keep in mind what it does.
 
+The ``dbg`` block can be run at any position after ``prefix`` and before ``tco`` (or ``continuations``). (It must be able to see regular function calls.)
+
 For simplicity, **the block macros make no attempt to prevent invalid combos** (unless there is a specific technical reason to do that for some particular combination). Be careful; e.g. don't nest several ``with tco`` blocks (lexically), that won't work.
 
 Example combo in the single-line format:
