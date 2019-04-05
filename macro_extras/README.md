@@ -1565,8 +1565,8 @@ with dbg:
 with dbg:
     x = 2
     y = 3
-    print(x, y)   # --> x: 2, y: 3
-    print(x, y, sep="\n")   # --> x: 2 <newline> y: 3
+    print(x, y, 17 + 23)   # --> x: 2, y: 3, (17 + 23): 40
+    print(x, y, 17 + 23, sep="\n")   # --> x: 2 <newline> y: 3 <newline> (17 + 23): 40
 ```
 
 Like in ``nb``, a custom print function can be supplied as the first positional argument to ``dbg``. This avoids transforming any uses of built-in ``print``:
