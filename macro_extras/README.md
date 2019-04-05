@@ -603,7 +603,7 @@ with quicklambda, multilambda:
     assert func(1, 2) == 3
 ```
 
-This is of course rather silly, as an unnamed argument can only be mentioned once. If we're giving names to them, a regular ``lambda`` is shorter to write. A more realistic combo is:
+This is of course rather silly, as an unnamed formal parameter can only be mentioned once. If we're giving names to them, a regular ``lambda`` is shorter to write. A more realistic combo is:
 
 ```python
 with quicklambda, tco:
@@ -621,7 +621,7 @@ with quicklambda, tco:
 
 *Added in v0.14.0.*
 
-When a function whose definition (``def`` or ``lambda``) is lexically inside a ``with envify`` block is entered, it copies references to its arguments into an unpythonic ``env``. At macro expansion time, all references to the formal parameters are redirected to that environment. This allows overwriting formal parameter names from an expression position.
+When a function whose definition (``def`` or ``lambda``) is lexically inside a ``with envify`` block is entered, it copies references to its arguments into an unpythonic ``env``. At macro expansion time, all references to the formal parameters are redirected to that environment. This allows rebinding, from an expression position, names that were originally the formal parameters.
 
 Wherever could *that* be useful? For an illustrative caricature, consider [PG's accumulator puzzle](http://paulgraham.com/icad.html). The modern pythonic solution:
 
