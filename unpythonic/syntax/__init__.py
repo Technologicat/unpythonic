@@ -8,7 +8,7 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # contain the actual syntax transformers (regular functions that process ASTs)
 # that implement the macros.
 
-# insist, deny, it, f, _, force, force1, local, delete, block, expr, call_cc
+# insist, deny, it, f, _, force, force1, local, delete, block, expr, dbgprint, call_cc
 # are just for passing through to the client code that imports us.
 from .autoref import autoref as _autoref
 from .curry import curry as _curry
@@ -24,7 +24,7 @@ from .letdo import do as _do, do0 as _do0, local, delete, \
                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
-from .nb import nb as _nb, dbg as _dbg
+from .nb import nb as _nb, dbg as _dbg, dbgprint
 from .prefix import prefix as _prefix
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, call_cc
@@ -1426,7 +1426,42 @@ def nb(tree, args, **kw):
 
 @macros.block
 def dbg(tree, args, **kw):
-    """[syntax, block] TODO: document"""  # TODO: document
+    """[syntax, block] Debug-print expressions including their source code.
+
+    Lexically within the block, any call to ``print`` (or if specified, the
+    optional custom print function), prints both the expression source code
+    and the corresponding value.
+
+    A custom print function can be supplied as the first positional argument.
+    To implement a custom print function, see ``dbgprint`` for the signature.
+
+    Examples::
+
+        with dbg:
+            x = 2
+            print(x)   # --> x: 2
+
+        with dbg:
+            x = 2
+            y = 3
+            print(x, y)   # --> x: 2, y: 3
+            print(x, y, sep="\n")   # --> x: 2 <newline> y: 3
+
+        prt = lambda *args: print(*args)
+        with dbg(prt):
+            x = 2
+            prt(x)     # --> ('x',) (2,)
+            print(x)   # --> 2
+
+        with dbg(prt):
+            x = 3
+            y = 17
+            prt(x, y, 1 + 2)  # --> prt(("x", "y", "(1 + 2)"), (x, y, 3))
+
+    The source code is back-converted from the AST representation; hence its
+    surface syntax may look slightly different to the original (e.g. extra
+    parentheses). See ``macropy.core.unparse``.
+    """
     return _dbg(body=tree, args=args)
 
 # -----------------------------------------------------------------------------

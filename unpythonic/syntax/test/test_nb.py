@@ -24,13 +24,30 @@ def test():
             assert _ == 3 * x * y
 
     with dbg:
-        x = 3
-        print(x)
+        x = 2
+        y = 3
+        print(x, y, 17 + 23)
 
     prt = lambda *args: print(*args)
+    with dbg(prt):  # can specify a custom print function
+        x = 2
+        prt(x)    # transformed
+        print(x)  # not transformed, because custom print function specified
+
     with dbg(prt):
-        x = 5
-        prt(x)
+        x = 2
+        y = 3
+        prt(x, y, 17 + 23)
+
+    # now for some proper unit testing
+    prt = lambda *args: args
+    with dbg(prt):
+        x = 2
+        assert prt(x) == (("x",), (2,))
+
+        x = 2
+        y = 3
+        assert prt(x, y, 17 + 23) == (("x", "y", "(17 + 23)"), (2, 3, 40))
 
     print("All tests PASSED")
 
