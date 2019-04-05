@@ -527,8 +527,7 @@ class view(roview, MutableSequenceView):
 
 # -----------------------------------------------------------------------------
 
-# TODO: is there a way to inherit from an ABC without causing the metaclass to change to ABCMeta?
-# TODO: (we want the default implementations of e.g. count, index in the MRO; but this is a concrete class.)
+# Inherit from Sequence, because we want the default implementations of e.g. count, index to be found in the MRO.
 class ShadowedSequence(Sequence, _StrReprEqMixin):
     """Sequence with some elements shadowed by those from another sequence.
 
