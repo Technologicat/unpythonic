@@ -1588,7 +1588,7 @@ with dbg(prt):
 
 The reference to the custom print function (i.e. the argument to ``dbg``) **must be a bare name**. Support for methods may or may not be added in a future version.
 
-To implement a custom debug print function, see the docstring of ``dbgprint``, the default implementation.
+To implement a custom debug print function, see the docstring of ``unpythonic.syntax.dbgprint``, the default implementation.
 
 The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``macropy.core.unparse``.
 
