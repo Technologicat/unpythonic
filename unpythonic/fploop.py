@@ -182,7 +182,13 @@ def looped_over(iterable, acc=None):  # decorator factory
     Like ``@looped``, but the client now gets three positionally passed magic parameters:
 
         `loop`: function
-            Like in ``@looped``.
+            Like in ``@looped``, except if called with no args, retains the
+            current value of ``acc`` and proceeds to the next iteration
+            (effectively skipping the current ``x``).
+
+            If you need to skip an element and still pass custom args to ``loop``,
+            see ``breakably_looped_over``, which provides a ``cnt`` parameter
+            which does exactly that.
 
         `x`: anything
             The current element.
