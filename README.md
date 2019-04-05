@@ -37,7 +37,7 @@ This README documents the pure-Python part of ``unpythonic``. See also [document
    - [``fup``: functional update; ``ShadowedSequence``](#fup-functional-update-shadowedsequence): like ``collections.ChainMap``, but for sequences.
    - [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
    - [``mogrify``: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
-   - [``s``, ``m``: lazy mathematical sequences with infix arithmetic](#s-m-lazy-mathematical-sequences-with-infix-arithmetic)
+   - [``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic](#s-m-lazy-mathematical-sequences-with-infix-arithmetic)
 
  - [**Control flow tools**](#control-flow-tools)
    - [``trampolined``, ``jump``: tail call optimization (TCO) / explicit continuations](#trampolined-jump-tail-call-optimization-tco--explicit-continuations)
@@ -1431,7 +1431,7 @@ For convenience, we introduce some special cases:
     Note that since ``cons`` is immutable, anyway, if you know you have a long linked list where you need to update the values, just iterate over it and produce a new copy - that will work as intended.
 
 
-### ``s``, ``m``: lazy mathematical sequences with infix arithmetic
+### ``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic
 
 *Added in v0.13.0.*
 
