@@ -1542,7 +1542,7 @@ with nb(pprint):
     assert _ == 3 * x * y
 ```
 
-Expressions at the top level auto-assign the result to ``_``, and auto-print it the value is not ``None``. Only expressions do that; for any statement that is not an expression, ``_`` retains its previous value.
+Expressions at the top level auto-assign the result to ``_``, and auto-print it if the value is not ``None``. Only expressions do that; for any statement that is not an expression, ``_`` retains its previous value.
 
 A custom print function can be supplied as the first positional argument to ``nb``. This is useful with SymPy (and [latex-input](https://github.com/clarkgrubb/latex-input) to use α, β, γ, ... as actual variable names).
 
