@@ -1553,26 +1553,31 @@ Obviously not intended for production use, although is very likely to work anywh
 
 *Added in v0.14.1.*
 
-[DRY](https://en.wikipedia.org/wiki/Don't_repeat_yourself) out your [qnd](https://en.wiktionary.org/wiki/quick-and-dirty) debug printing code:
+[DRY](https://en.wikipedia.org/wiki/Don't_repeat_yourself) out your [qnd](https://en.wiktionary.org/wiki/quick-and-dirty) debug printing code. Both block and expression variants are provided:
 
 ```python
 from unpythonic.syntax import macros, dbg
 
 with dbg:
     x = 2
-    print(x)   # --> x: 2
+    print(x)   # --> [file.py:5] x: 2
 
 with dbg:
     x = 2
     y = 3
-    print(x, y, 17 + 23)   # --> x: 2, y: 3, (17 + 23): 40
-    print(x, y, 17 + 23, sep="\n")   # --> x: 2 <newline> y: 3 <newline> (17 + 23): 40
+    print(x, y, 17 + 23)   # --> [file.py:10] x: 2, y: 3, (17 + 23): 40
+    print(x, y, 17 + 23, sep="\n")   # --> [file.py:11] x: 2
+                                     #     [file.py:11] y: 3
+                                     #     [file.py:11] (17 + 23): 40
+
+z = dbg[25 + 17]  # --> [file.py:15] (25 + 17): 42
+assert z == 42    # surrounding an expression with dbg[...] doesn't alter its value
 ```
 
-Like in ``nb``, a custom print function can be supplied as the first positional argument to ``dbg``. This avoids transforming any uses of built-in ``print``:
+**In the block variant**, just like in ``nb``, a custom print function can be supplied as the first positional argument. This avoids transforming any uses of built-in ``print``:
 
 ```python
-prt = lambda *args: print(*args)
+prt = lambda *args, **kwargs: print(*args)
 
 with dbg(prt):
     x = 2
@@ -1586,11 +1591,13 @@ with dbg(prt):
 
 ```
 
-The reference to the custom print function (i.e. the argument to ``dbg``) **must be a bare name**. Support for methods may or may not be added in a future version.
+The reference to the custom print function (i.e. the argument to the ``dbg`` block) **must be a bare name**. Support for methods may or may not be added in a future version.
 
-To implement a custom debug print function, see the docstring of ``unpythonic.syntax.dbgprint``, the default implementation.
+**In the expr variant**, to customize printing, just assign another function to the name ``dbgprint_expr`` (locally or globally, as desired). A default implementation is provided and automatically injected to the namespace of the module that imports anything from ``unpythonic.syntax`` (see ``expose_unhygienic`` in MacroPy).
 
-The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``macropy.core.unparse``.
+For details on implementing custom debug print functions, see the docstrings of ``unpythonic.syntax.dbgprint_block`` and ``unpythonic.syntax.dbgprint_expr``, which provide the default implementations.
+
+**CAUTION**: The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``macropy.core.unparse``.
 
 Inspired by the [dbg macro in Rust](https://doc.rust-lang.org/std/macro.dbg.html).
 

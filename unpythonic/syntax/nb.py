@@ -9,7 +9,7 @@ and its value.
 
 # This is the kind of thing thinking with macros does to your program. ;)
 
-from ast import Expr, Call, Name, Tuple
+from ast import Expr, Call, Name, Tuple, keyword
 
 from macropy.core.quotes import macros, q, u, ast_literal
 from macropy.core.hquotes import macros, hq
@@ -36,12 +36,12 @@ def nb(body, args):
 
 # -----------------------------------------------------------------------------
 
-def dbgprint(ks, vs, *, sep=", ", **kwargs):
-    """Default debug printer for the ``dbg`` macro.
+def dbgprint_block(ks, vs, *, filename=None, lineno=None, sep=", ", **kwargs):
+    """Default debug printer for the ``dbg`` macro, block variant.
 
     The default print format looks like::
 
-        x: 2, y: 3, (17 + 23): 40
+        [/home/developer/codes/foo.py:42] x: 2, y: 3, (17 + 23): 40
 
     Parameters:
 
@@ -50,6 +50,12 @@ def dbgprint(ks, vs, *, sep=", ", **kwargs):
 
         ``vs``: ``tuple``
             the corresponding values
+
+        ``filename``: ``str``
+            filename where the debug print call occurred
+
+        ``lineno``: number or ``None``
+            line number where the debug print call occurred
 
         ``sep``: ``str``
             separator as in built-in ``print``,
@@ -61,7 +67,8 @@ def dbgprint(ks, vs, *, sep=", ", **kwargs):
     **Implementing a custom debug printer**:
 
     When implementing a custom print function, it **must** accept two
-    positional arguments, ``ks`` and ``vs``.
+    positional arguments, ``ks`` and ``vs``, and two by-name arguments,
+    ``filename`` and ``lineno``.
 
     It may also accept other arguments (see built-in ``print``), or just
     ``**kwargs`` them through to the built-in ``print``, if you like.
@@ -69,10 +76,18 @@ def dbgprint(ks, vs, *, sep=", ", **kwargs):
     Other arguments are only needed if the print calls in the ``dbg`` sections
     of your client code use them. (To be flexible, this default debug printer
     supports ``sep`` and passes everything else through.)
-    """
-    print(sep.join("{}: {}".format(k, v) for k, v in zip(ks, vs)), **kwargs)
 
-def dbg(body, args):
+    The ``lineno`` argument may be ``None`` if the input resulted from macro
+    expansion and the macro that generated it didn't bother to fill in the
+    ``lineno`` attribute of the AST node.
+    """
+    header = "[{}:{}] ".format(filename, lineno)
+    if "\n" in sep:
+        print(sep.join("{} {}: {}".format(header, k, v) for k, v in zip(ks, vs)), **kwargs)
+    else:
+        print(header + sep.join("{}: {}".format(k, v) for k, v in zip(ks, vs)), **kwargs)
+
+def dbg_block(body, args):
     if args:  # custom print function hook
         # TODO: add support for Attribute to support using a method as a custom print function
         if type(args[0]) is not Name:
@@ -80,7 +95,7 @@ def dbg(body, args):
         p = args[0]
         pname = p.id  # name of the print function as it appears in the user code
     else:
-        p = hq[dbgprint]
+        p = hq[dbgprint_block]
         pname = "print"
 
     @Walker
@@ -90,7 +105,51 @@ def dbg(body, args):
             names = Tuple(elts=names, lineno=tree.lineno, col_offset=tree.col_offset)
             values = Tuple(elts=tree.args, lineno=tree.lineno, col_offset=tree.col_offset)
             tree.args = [names, values]
+            # can't use inspect.stack in the printer itself because we want the line number *before macro expansion*.
+            tree.keywords += [keyword(arg="filename", value=q[__file__]),
+                              keyword(arg="lineno", value=(q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]))]
             tree.func = q[ast_literal[p]]
         return tree
 
     return [transform.recurse(stmt) for stmt in body]
+
+def dbgprint_expr(k, v, *, filename, lineno):
+    """Default debug printer for the ``dbg`` macro, expression variant.
+
+    The default print format looks like::
+
+        [/home/developer/codes/foo.py:42] (17 + 23): 40
+
+    Parameters:
+
+        ``k``: ``str``
+            the expression source code
+
+        ``v``: anything
+            the corresponding value
+
+        ``filename``: ``str``
+            filename of the expression being debug-printed
+
+        ``lineno``: number or ``None``
+            line number of the expression being debug-printed
+
+    **Implementing a custom debug printer**:
+
+    When implementing a custom print function, it **must** accept two
+    positional arguments, ``k`` and ``v``, and two by-name arguments,
+    ``filename`` and ``lineno``.
+
+    It **must** return ``v``, because the ``dbg[]`` macro replaces the
+    original expression with the print call.
+
+    The ``lineno`` argument may be ``None`` if the input expression resulted
+    from macro expansion and the macro that generated it didn't bother to
+    fill in the ``lineno`` attribute of the AST node.
+    """
+    print("[{}:{}] {}: {}".format(filename, lineno, k, v))
+    return v  # IMPORTANT!
+
+def dbg_expr(tree):
+    ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
+    return q[dbgprint_expr(u[unparse(tree)], ast_literal[tree], filename=__file__, lineno=ast_literal[ln])]

@@ -8,7 +8,7 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # contain the actual syntax transformers (regular functions that process ASTs)
 # that implement the macros.
 
-# insist, deny, it, f, _, force, force1, local, delete, block, expr, dbgprint, call_cc
+# insist, deny, it, f, _, force, force1, local, delete, block, expr, dbgprint_block, dbgprint_expr, call_cc
 # are just for passing through to the client code that imports us.
 from .autoref import autoref as _autoref
 from .curry import curry as _curry
@@ -24,7 +24,8 @@ from .letdo import do as _do, do0 as _do0, local, delete, \
                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
-from .nb import nb as _nb, dbg as _dbg, dbgprint
+from .nb import nb as _nb, dbg_block as _dbg_block, dbg_expr as _dbg_expr, \
+                           dbgprint_block, dbgprint_expr
 from .prefix import prefix as _prefix
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, call_cc
@@ -37,6 +38,12 @@ from macropy.core.macros import Macros
 
 macros = Macros()
 
+# Inject default debug printer for expressions.
+#
+# All the macro interface stuff must happen in this module, so we can't
+# decorate the original directly in the implementation module.
+dbgprint_expr = macros.expose_unhygienic(dbgprint_expr)
+
 # We pass gen_sym as a dynvar so it doesn't need to appear in the
 # formal parameter lists of the underlying syntax transformers.
 #
@@ -44,7 +51,6 @@ macros = Macros()
 # syntax transformer (or any syntax transformers it calls) needs gen_sym.
 # This default is here to yell if it's needed and missing; the traceback
 # will tell exactly which syntax transformer needed it.
-#
 def nogensym(*args, **kwargs):
     raise RuntimeError("No gen_sym function set")
 make_dynvar(gen_sym=nogensym)
@@ -552,9 +558,9 @@ def let_syntax(tree, args, *, gen_sym, **kw):
 # so the docstring goes here.
 @macros.block
 def let_syntax(tree, **kw):
-    """Introduce local **syntactic** bindings.
+    """[syntax] Introduce local **syntactic** bindings.
 
-    Usage - expression variant::
+    **Expression variant**::
 
         let_syntax((lhs, rhs), ...)[body]
         let_syntax((lhs, rhs), ...)[[body0, ...]]
@@ -567,7 +573,7 @@ def let_syntax(tree, **kw):
         let_syntax[body, where((lhs, rhs), ...)]
         let_syntax[[body0, ...], where((lhs, rhs), ...)]
 
-    Usage - block variant::
+    **Block variant**::
 
         with let_syntax:
             with block as xs:          # capture a block of statements - bare name
@@ -662,7 +668,7 @@ def abbrev(tree, args, *, gen_sym, **kw):
 
 @macros.block
 def abbrev(tree, **kw):
-    """Exactly like ``let_syntax``, but expands in the first pass, outside in.
+    """[syntax] Exactly like ``let_syntax``, but expands in the first pass, outside in.
 
     Because this variant expands before any macros in the body, it can locally
     rename other macros, e.g.::
@@ -1424,30 +1430,74 @@ def nb(tree, args, **kw):
     """
     return _nb(body=tree, args=args)
 
+# -----------------------------------------------------------------------------
+
+@macros.expr
+def dbg(tree, **kw):
+    return _dbg_expr(tree)
+
 @macros.block
 def dbg(tree, args, **kw):
-    """[syntax, block] Debug-print expressions including their source code.
+    """[syntax] Debug-print expressions including their source code.
 
-    Lexically within the block, any call to ``print`` (or if specified, the
-    optional custom print function), prints both the expression source code
+    **Expression variant**:
+
+    Example::
+
+        dbg[25 + 17]  # --> [file.py:100] (25 + 17): 42
+
+    The transformation is::
+
+        dbg[expr] --> dbgprint_expr(k, v, filename=__file__, lineno=xxx)
+
+    where ``k`` is the source code of the expression and ``v`` is its value.
+    ``xxx`` is the original line number before macro expansion, if available
+    in the AST node of the expression, otherwise ``None``. (Some macros might
+    not care about inserting line numbers, because MacroPy fixes any missing
+    line numbers at the end; this is why it might be missing at some locations
+    in any specific macro-enabled program.)
+
+    A default implementation is provided and automatically injected to the
+    namespace of the module that imports anything from ``unpythonic.syntax``
+    (see ``expose_unhygienic`` in MacroPy).
+
+    To customize the debug printing, just assign another function to the name
+    ``dbgprint_expr`` (locally or globally, as desired). The function (beside
+    performing any printing/logging as a side effect) **must** return the value
+    ``v``, so that surrounding an expression with ``dbg[...]`` does not alter
+    its value.
+
+    **CAUTION**: The default and a locally customized debug printer cannot be
+    used in the same scope due to Python's scoping rules. If ``dbgprint_expr`` is
+    assigned to as a local variable, then all references to this name in the local
+    scope point to the local variable. The global is shadowed for the entire
+    scope, regardless of whether the local has yet been initialized or not.
+    (If you get an ``UnboundLocalError``, check this.)
+
+    **Block variant**:
+
+    Lexically within the block, any call to ``print`` (alternatively, if specified,
+    the optional custom print function), prints both the expression source code
     and the corresponding value.
 
     A custom print function can be supplied as the first positional argument.
-    To implement a custom print function, see ``dbgprint`` for the signature.
+    To implement a custom print function, see the default implementation
+    ``dbgprint_block`` for the signature.
 
     Examples::
 
         with dbg:
             x = 2
-            print(x)   # --> x: 2
+            print(x)   # --> [file.py:100] x: 2
 
         with dbg:
             x = 2
             y = 3
-            print(x, y)   # --> x: 2, y: 3
-            print(x, y, sep="\n")   # --> x: 2 <newline> y: 3
+            print(x, y)   # --> [file.py:100] x: 2, y: 3
+            print(x, y, sep="\n")   # --> [file.py:100] x: 2
+                                    #     [file.py:100] y: 3
 
-        prt = lambda *args: print(*args)
+        prt = lambda *args, **kwargs: print(*args)
         with dbg(prt):
             x = 2
             prt(x)     # --> ('x',) (2,)
@@ -1458,11 +1508,11 @@ def dbg(tree, args, **kw):
             y = 17
             prt(x, y, 1 + 2)  # --> ('x', 'y', '(1 + 2)'), (2, 17, 3))
 
-    The source code is back-converted from the AST representation; hence its
-    surface syntax may look slightly different to the original (e.g. extra
-    parentheses). See ``macropy.core.unparse``.
+    **CAUTION**: The source code is back-converted from the AST representation;
+    hence its surface syntax may look slightly different to the original (e.g.
+    extra parentheses). See ``macropy.core.unparse``.
     """
-    return _dbg(body=tree, args=args)
+    return _dbg_block(body=tree, args=args)
 
 # -----------------------------------------------------------------------------
 
