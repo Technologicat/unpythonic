@@ -77,12 +77,49 @@ def test():
 
     lst1 = list(range(5))
     lst2 = []
-    with pop_while(mylist, lst1):  # pop_while(name_as, expr)
+    with pop_while(lst1):
+        lst2.append(it)
+        if it == 4:
+            lst1.append(5)
+    assert lst1 == []
+    assert lst2 == list(range(6))
+
+    lst2 = []
+    with pop_while(list(range(5))) as mylist:
         lst2.append(it)
         if it == 4:
             mylist.append(5)
+    assert mylist == []
+    assert lst2 == list(range(6))
+
+    # hmm? Maybe no macro needed?
+    class popping_iterator:
+        def __init__(self, seq):
+            self.seq = seq
+        def __iter__(self):
+            return self
+        def __next__(self):
+            if not self.seq:
+                raise StopIteration
+            return self.seq.pop(0)
+
+    lst1 = list(range(5))
+    lst2 = []
+    for x in popping_iterator(lst1):
+        lst2.append(x)
+    assert lst1 == []
+    assert lst2 == list(range(5))
+
+    lst1 = list(range(5))
+    lst2 = []
+    for x in popping_iterator(lst1):
+        lst2.append(x)
+        if x == 4:
+            lst1.append(5)
     assert lst1 == []
     assert lst2 == list(range(6))
+
+    # in this solution we can't as-name an expr on the fly, but maybe that feature is not needed.
 
     print("All tests PASSED")
 

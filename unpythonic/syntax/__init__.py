@@ -1517,10 +1517,10 @@ def dbg(tree, args, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.block
-def pop_while(tree, args, *, gen_sym, **kw):
+def pop_while(tree, args, *, target, gen_sym, **kw):
     """TODO: document""" # TODO: document
     with dyn.let(gen_sym=gen_sym):
-        return _pop_while(body=tree, args=args)
+        return _pop_while(body=tree, args=args, nameas=target)
 
 # -----------------------------------------------------------------------------
 
