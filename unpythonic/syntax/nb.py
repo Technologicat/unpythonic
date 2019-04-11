@@ -90,6 +90,7 @@ def dbgprint_block(ks, vs, *, filename=None, lineno=None, sep=", ", **kwargs):
 def dbg_block(body, args):
     if args:  # custom print function hook
         # TODO: add support for Attribute to support using a method as a custom print function
+        # (the problem is we must syntactically find matches in the AST, and AST nodes don't support comparison)
         if type(args[0]) is not Name:
             assert False, "Custom debug print function must be specified by a bare name"
         p = args[0]
