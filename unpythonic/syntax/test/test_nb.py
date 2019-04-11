@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ...syntax import macros, nb, dbg
+from ...syntax import macros, nb, dbg, pop_while
 from ...misc import call
 
 def test():
@@ -64,6 +64,25 @@ def test():
         dbgprint_expr = lambda *args, **kwargs: args
         x = dbg[2 + 3]
         assert x == ("(2 + 3)", 5)
+
+    # silly imperative pop-while construct for handling lists in cases
+    # where the body needs to append to or extend the input (so that a
+    # for-loop is not appropriate)
+    lst1 = list(range(5))
+    lst2 = []
+    with pop_while(lst1):
+        lst2.append(it)
+    assert lst1 == []
+    assert lst2 == list(range(5))
+
+    lst1 = list(range(5))
+    lst2 = []
+    with pop_while(mylist, lst1):  # pop_while(name_as, expr)
+        lst2.append(it)
+        if it == 4:
+            mylist.append(5)
+    assert lst1 == []
+    assert lst2 == list(range(6))
 
     print("All tests PASSED")
 

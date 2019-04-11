@@ -16,6 +16,8 @@ from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 from macropy.core import unparse
 
+from ..dynassign import dyn
+
 def nb(body, args):
     p = args[0] if args else q[print]  # custom print function hook
     newbody = []
@@ -35,6 +37,8 @@ def nb(body, args):
     return newbody
 
 # -----------------------------------------------------------------------------
+
+# TODO: refactor dbg into its own module
 
 def dbgprint_block(ks, vs, *, filename=None, lineno=None, sep=", ", **kwargs):
     """Default debug printer for the ``dbg`` macro, block variant.
@@ -154,3 +158,53 @@ def dbgprint_expr(k, v, *, filename, lineno):
 def dbg_expr(tree):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     return q[dbgprint_expr(u[unparse(tree)], ast_literal[tree], filename=__file__, lineno=ast_literal[ln])]
+
+# -----------------------------------------------------------------------------
+
+# TODO: refactor pop_while into its own module
+
+# Imperative list handling tool::
+#
+#     with pop_while(name, expr):
+#         ...
+#
+#     with pop_while(expr):
+#         ...
+#
+# transforms into::
+#
+#     name = expr   # or (gensym) = expr in the 1-arg form
+#     while name:
+#         it = name.pop(0)  # "it" is literal, visible in user code
+#         ...
+#
+# The point is the user code may append to or extend the list ``name``;
+# this simplifies writing some algorithms.
+#
+def pop_while(body, args):
+    gen_sym = dyn.gen_sym
+    if len(args) == 1:
+        theinput = args[0]
+        thename = gen_sym("_tmp")
+    elif len(args) == 2:
+        theinput = args[1]
+        thename = args[0]
+        if type(thename) is not Name:
+            assert False, "in the two-argument form, the first argument must be a bare name"
+        thename = thename.id
+    else:
+        assert False, "pop_while takes exactly one or two arguments"
+
+    with q as newbody:
+        __the_tmp = ast_literal[theinput]
+        while __the_tmp:
+            it = __the_tmp.pop(0)
+    thewhile = newbody[-1]
+    thewhile.body.extend(body)
+
+    @Walker
+    def renametmp(tree, **kw):
+        if type(tree) is Name and tree.id == "__the_tmp":
+            tree.id = thename
+        return tree
+    return renametmp.recurse(newbody)
