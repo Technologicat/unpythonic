@@ -1599,6 +1599,8 @@ For details on implementing custom debug print functions, see the docstrings of 
 
 **CAUTION**: The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``macropy.core.unparse``.
 
+**CAUTION**: ``dbg`` only works in ``.py`` files, not in [the IPython+MacroPy console](https://github.com/azazel75/macropy/pull/20), because the expanded code refers to ``__file__``, which is not defined in the REPL. This limitation may or may not be lifted in a future version.
+
 Inspired by the [dbg macro in Rust](https://doc.rust-lang.org/std/macro.dbg.html).
 
 
