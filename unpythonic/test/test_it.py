@@ -3,6 +3,7 @@
 from functools import partial
 from itertools import tee, count, takewhile
 from operator import add, itemgetter
+from collections import deque
 
 from ..it import mapr, rmap, zipr, rzip, \
                  map_longest, mapr_longest, rmap_longest, \
@@ -15,11 +16,13 @@ from ..it import mapr, rmap, zipr, rzip, \
                  uniqify, uniq, \
                  flatten, flatten1, flatten_in, \
                  unpack, \
-                 inn, iindex
+                 inn, iindex, \
+                 window
 
 from ..fun import composel, identity
 from ..gmemo import imemoize, gmemoize
 from ..mathseq import s
+from ..misc import Popper
 
 def test():
     def noneadd(a, b):
@@ -186,6 +189,44 @@ def test():
         pass  # 4 is not in iterable
     else:
         assert False
+
+    # window: length-n sliding window iterator for general iterables
+    lst = list(range(5))
+    out = []
+    for a, b, c in window(lst, n=3):
+        out.append((a, b, c))
+    assert lst == list(range(5))
+    assert out == [(0, 1, 2), (1, 2, 3), (2, 3, 4)]
+
+    lst = range(5)
+    out = []
+    for a, b, c in window(lst, n=3):
+        out.append((a, b, c))
+    assert lst == range(5)
+    assert out == [(0, 1, 2), (1, 2, 3), (2, 3, 4)]
+
+    lst = (x for x in range(5))
+    out = []
+    for a, b, c in window(lst, n=3):
+        out.append((a, b, c))
+    assert out == [(0, 1, 2), (1, 2, 3), (2, 3, 4)]
+
+    # sneaky integration test: let's window a Popper...
+    #
+    # This works because window() iter()s the Popper, but the Popper never
+    # iter()s the underlying container, so any mutations to the input container
+    # performed by the loop body will be seen by the window.
+    #
+    # (The first n elements, though, are read before the loop body gets control,
+    #  because the window needs them to initialize itself.)
+    inp = deque(range(3))
+    out = []
+    for a, b in window(Popper(inp)):
+        out.append((a, b))
+        if a < 10:
+            inp.append(a + 10)
+    assert inp == deque([])
+    assert out == [(0, 1), (1, 2), (2, 10), (10, 11), (11, 12)]
 
     print("All tests PASSED")
 

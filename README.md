@@ -1012,6 +1012,7 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
    - Only applicable to monotonic divergent inputs (such as ``primes``). Increasing/decreasing is auto-detected from the first non-zero diff, but the function may fail to terminate if the input is actually not monotonic, or has an upper/lower bound.
  - `iindex`: like ``list.index``, but for a general iterable. Consumes the iterable, so only makes sense for memoized inputs. *Added in v0.13.1.*
  - `prod`: like the builtin `sum`, but compute the product. Oddly missing from the standard library. *Added in v0.13.1.*
+ - `window`: sliding length-n window iterator for general iterables. Acts like the well-known [n-gram zip trick](http://www.locallyoptimal.com/blog/2013/01/20/elegant-n-gram-generation-in-python/), but the input can be any iterable. *Added in v0.14.1.*
 
 Examples:
 
@@ -1019,7 +1020,7 @@ Examples:
 from functools import partial
 from unpythonic import scanl, scanr, foldl, foldr, flatmap, mapr, zipr, \
                        uniqify, uniq, flatten1, flatten, flatten_in, take, drop, \
-                       unfold, unfold1, cons, nil, ll, curry, s, inn, iindex
+                       unfold, unfold1, cons, nil, ll, curry, s, inn, iindex, window
 
 assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
 assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
@@ -1063,6 +1064,13 @@ assert not inn(1337, primes())
 # iindex: find index of item in iterable (mostly only makes sense for memoized input)
 assert iindex(2, (1, 2, 3)) == 1
 assert iindex(31337, primes()) == 3378
+
+# window: length-n sliding window iterator for general iterables
+lst = (x for x in range(5))
+out = []
+for a, b, c in window(lst, n=3):
+    out.append((a, b, c))
+assert out == [(0, 1, 2), (1, 2, 3), (2, 3, 4)]
 
 # flatmap
 def msqrt(x):  # multivalued sqrt
@@ -2613,7 +2621,25 @@ assert inp == deque([])
 assert out == [0, 10, 1, 11, 2, 12]
 ```
 
-A real use case for this is to split sequences of items, stored as lists in a deque, into shorter sequences where some condition is contiguously ``True`` or ``False``. When the condition changes state, just commit the current subsequence, and push the rest of that input sequence (still requiring analysis) back to the input deque, to be dealt with later.
+``Popper`` comboes with other iterable utilities, such as ``window``:
+
+```python
+from collections import deque
+from unpythonic import Popper, window
+
+inp = deque(range(3))
+out = []
+for a, b in window(Popper(inp)):
+    out.append((a, b))
+    if a < 10:
+        inp.append(a + 10)
+assert inp == deque([])
+assert out == [(0, 1), (1, 2), (2, 10), (10, 11), (11, 12)]
+```
+
+(Although ``window`` invokes ``iter()`` on the ``Popper``, this works because the ``Popper`` never invokes ``iter()`` on the underlying container. Any mutations to the input container performed by the loop body will be understood by ``Popper`` and thus also seen by the ``window``. The first ``n`` elements, though, are read before the loop body gets control, because the window needs them to initialize itself.)
+
+One possible real use case for ``Popper`` is to split sequences of items, stored as lists in a deque, into shorter sequences where some condition is contiguously ``True`` or ``False``. When the condition changes state, just commit the current subsequence, and push the rest of that input sequence (still requiring analysis) back to the input deque, to be dealt with later.
 
 The argument to ``Popper`` (here ``lst``) contains the **remaining** items. Each iteration pops an element **from the left**. The loop terminates when ``lst`` is empty.
 

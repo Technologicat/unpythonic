@@ -23,7 +23,8 @@ __all__ = ["rev", "map_longest",
            "flatten", "flatten1", "flatten_in",
            "iterate", "iterate1",
            "partition",
-           "inn", "iindex"]
+           "inn", "iindex",
+           "window"]
 
 from operator import itemgetter
 from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby, takewhile
@@ -613,3 +614,34 @@ def iindex(x, iterable):
         if elt == x:
             return j
     raise ValueError("{} is not in iterable".format(x))
+
+def window(iterable, n=2):
+    """Sliding length-n window iterator for a general iterable.
+
+    Acts like ``zip(s, s[1:], ..., s[n-1:])`` for a sequence ``s``, but the input
+    can be any iterable.
+
+    If there are fewer than ``n`` items in the input iterable, an empty iterator
+    is returned.
+
+    Inspired by ``with_next`` discussed in:
+
+        https://opensource.com/article/18/3/loop-better-deeper-look-iteration-python
+    """
+    if n < 2:
+        raise ValueError("expected n >= 2, got {}".format(n))
+    it = iter(iterable)
+    xs = deque()
+    for _ in range(n):
+        try:
+            xs.append(next(it))
+        except StopIteration:
+            def empty_iterable():
+                yield from ()
+            return empty_iterable()
+    def windowed():
+        while True:
+            yield xs
+            xs.popleft()
+            xs.append(next(it))  # let StopIteration propagate
+    return windowed()
