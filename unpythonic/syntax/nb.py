@@ -16,8 +16,6 @@ from macropy.core.hquotes import macros, hq
 from macropy.core.walkers import Walker
 from macropy.core import unparse
 
-from ..dynassign import dyn
-
 def nb(body, args):
     p = args[0] if args else q[print]  # custom print function hook
     newbody = []
@@ -158,53 +156,3 @@ def dbgprint_expr(k, v, *, filename, lineno):
 def dbg_expr(tree):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     return q[dbgprint_expr(u[unparse(tree)], ast_literal[tree], filename=__file__, lineno=ast_literal[ln])]
-
-# -----------------------------------------------------------------------------
-
-# TODO: refactor pop_while into its own module
-
-# Imperative list handling tool::
-#
-#     with pop_while(expr) as name:
-#         ...
-#
-#     with pop_while(expr):
-#         ...
-#
-# transforms into::
-#
-#     name = expr   # or (gensym) = expr if no as-target given
-#     while name:
-#         it = name.pop(0)  # "it" is literal, visible in user code
-#         ...
-#
-# The point is the user code may append to or extend the list ``name``;
-# this simplifies writing some algorithms.
-#
-# Note ``pop_while`` should not be nested because ``it`` is literal,
-# and in Python a while-loop doesn't have its own lexical scope.
-#
-def pop_while(body, args, nameas):
-    gen_sym = dyn.gen_sym
-    if len(args) != 1:
-        assert False, "pop_while takes exactly one argument, the input list"
-    if nameas:
-        if type(nameas) is not Name:
-            assert False, "the as-target must be a bare name"
-        thename = nameas.id
-    else:
-        thename = gen_sym("_tmp")
-
-    with q as newbody:
-        __the_tmp = ast_literal[args[0]]
-        while __the_tmp:
-            it = __the_tmp.pop(0)
-    thewhile = newbody[-1]
-    thewhile.body.extend(body)
-
-    @Walker
-    def renametmp(tree, **kw):
-        if type(tree) is Name and tree.id == "__the_tmp":
-            tree.id = thename
-        return tree
-    return renametmp.recurse(newbody)

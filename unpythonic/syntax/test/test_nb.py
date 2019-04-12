@@ -65,62 +65,6 @@ def test():
         x = dbg[2 + 3]
         assert x == ("(2 + 3)", 5)
 
-    # silly imperative pop-while construct for handling lists in cases
-    # where the body needs to append to or extend the input (so that a
-    # for-loop is not appropriate)
-    lst1 = list(range(5))
-    lst2 = []
-    with pop_while(lst1):
-        lst2.append(it)
-    assert lst1 == []
-    assert lst2 == list(range(5))
-
-    lst1 = list(range(5))
-    lst2 = []
-    with pop_while(lst1):
-        lst2.append(it)
-        if it == 4:
-            lst1.append(5)
-    assert lst1 == []
-    assert lst2 == list(range(6))
-
-    lst2 = []
-    with pop_while(list(range(5))) as mylist:
-        lst2.append(it)
-        if it == 4:
-            mylist.append(5)
-    assert mylist == []
-    assert lst2 == list(range(6))
-
-    # hmm? Maybe no macro needed?
-    class popping_iterator:
-        def __init__(self, seq):
-            self.seq = seq
-        def __iter__(self):
-            return self
-        def __next__(self):
-            if not self.seq:
-                raise StopIteration
-            return self.seq.pop(0)
-
-    lst1 = list(range(5))
-    lst2 = []
-    for x in popping_iterator(lst1):
-        lst2.append(x)
-    assert lst1 == []
-    assert lst2 == list(range(5))
-
-    lst1 = list(range(5))
-    lst2 = []
-    for x in popping_iterator(lst1):
-        lst2.append(x)
-        if x == 4:
-            lst1.append(5)
-    assert lst1 == []
-    assert lst2 == list(range(6))
-
-    # in this solution we can't as-name an expr on the fly, but maybe that feature is not needed.
-
     print("All tests PASSED")
 
 if __name__ == '__main__':

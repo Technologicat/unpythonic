@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Miscellaneous lispy constructs."""
+"""Miscellaneous constructs."""
 
-__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer", "getattrrec", "setattrrec"]
+__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer", "getattrrec", "setattrrec", "Popper"]
 
 from types import LambdaType, FunctionType, CodeType
 from time import time
 from copy import copy
+from functools import partial
 
 from .regutil import register_decorator
 from .lazyutil import mark_lazy, lazycall, force
@@ -356,3 +357,71 @@ def setattrrec(object, name, value):
     while hasattr(o, name) and hasattr(getattr(o, name), name):
         o = getattr(o, name)
     setattr(o, name, value)
+
+class Popper:
+    """Pop-while iterator.
+
+    Consider this code::
+
+        from collections import deque
+        inp = deque(range(5))
+        out = []
+        while inp:
+            x = inp.pop(0)
+            out.append(x)
+        assert inp == []
+        assert out == list(range(5))
+
+    ``Popper`` condenses the ``while`` and ``pop`` into a ``for``, while allowing
+    the loop body to mutate the input iterable in arbitrary ways (since we never
+    actually ``iter()`` it)::
+
+        inp = deque(range(5))
+        out = []
+        for x in Popper(inp):
+            out.append(x)
+        assert inp == deque([])
+        assert out == list(range(5))
+
+        inp = deque(range(3))
+        out = []
+        for x in Popper(inp):
+            out.append(x)
+            if x < 10:
+                inp.appendleft(x + 10)
+        assert inp == deque([])
+        assert out == [0, 10, 1, 11, 2, 12]
+
+    (A real use case: split sequences of items, stored as lists in a deque, into
+    shorter sequences where some condition is contiguously ``True`` or ``False``.
+    When the condition changes state, just commit the current subsequence, and
+    push the rest of that input sequence (still requiring analysis) back to the
+    input deque, to be dealt with later.)
+
+    **Notes**:
+
+        - The argument to ``Popper`` (here ``lst``) contains the **remaining**
+          items.
+        - Each iteration pops an element **from the left**.
+        - The loop terminates when ``lst`` is empty.
+        - Per-iteration efficiency, if the input container is:
+
+            - ``collections.deque``: ``O(1)``
+            - ``list``: ``O(n)``
+
+    Named after Karl Popper.
+    """
+    def __init__(self, seq):
+        """seq: input container. Must support either ``popleft()`` or ``pop(0)``.
+
+        Fully duck-typed. At least ``collections.deque`` and any
+        ``collections.abc.MutableSequence`` (including ``list``) are fine.
+        """
+        self.seq = seq
+        self._pop = seq.popleft if hasattr(seq, "popleft") else partial(seq.pop, 0)
+    def __iter__(self):
+        return self
+    def __next__(self):
+        if self.seq:
+            return self._pop()
+        raise StopIteration

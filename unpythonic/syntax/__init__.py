@@ -25,7 +25,7 @@ from .letdo import do as _do, do0 as _do0, local, delete, \
                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
 from .nb import nb as _nb, dbg_block as _dbg_block, dbg_expr as _dbg_expr, \
-                           dbgprint_block, dbgprint_expr, pop_while as _pop_while
+                           dbgprint_block, dbgprint_expr
 from .prefix import prefix as _prefix
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, call_cc
@@ -1513,14 +1513,6 @@ def dbg(tree, args, **kw):
     extra parentheses). See ``macropy.core.unparse``.
     """
     return _dbg_block(body=tree, args=args)
-
-# -----------------------------------------------------------------------------
-
-@macros.block
-def pop_while(tree, args, *, target, gen_sym, **kw):
-    """TODO: document""" # TODO: document
-    with dyn.let(gen_sym=gen_sym):
-        return _pop_while(body=tree, args=args, nameas=target)
 
 # -----------------------------------------------------------------------------
 

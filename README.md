@@ -56,6 +56,7 @@ This README documents the pure-Python part of ``unpythonic``. See also [document
    - [``timer``: a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
    - [``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers](#getattrrec-setattrrec-access-underlying-data-in-an-onion-of-wrappers)
    - [``arities``, ``kwargs``: Function signature inspection utilities](#arities-kwargs-function-signature-inspection-utilities)
+   - [``Popper``: a pop-while iterator](#popper-a-pop-while-iterator)
 
  - [**Advanced: syntactic macros**](macro_extras/): the second half of ``unpythonic``.
 
@@ -2569,6 +2570,58 @@ If the arity cannot be inspected, and the function is not one of the special-cas
 These functions are internally used in various places in unpythonic, particularly ``curry``. The ``let`` and FP looping constructs also use these to emit a meaningful error message if the signature of user-provided function does not match what is expected.
 
 Inspired by various Racket functions such as ``(arity-includes?)`` and ``(procedure-keywords)``.
+
+
+### ``Popper``: a pop-while iterator
+
+*Added in v0.14.1.*
+
+Consider this highly artificial example:
+
+```python
+from collections import deque
+
+inp = deque(range(5))
+out = []
+while inp:
+    x = inp.pop(0)
+    out.append(x)
+assert inp == []
+assert out == list(range(5))
+```
+
+``Popper`` condenses the ``while`` and ``pop`` into a ``for``, while allowing the loop body to mutate the input iterable in arbitrary ways (we never actually ``iter()`` it):
+
+```python
+from collections import deque
+from unpythonic import Popper
+
+inp = deque(range(5))
+out = []
+for x in Popper(inp):
+    out.append(x)
+assert inp == deque([])
+assert out == list(range(5))
+
+inp = deque(range(3))
+out = []
+for x in Popper(inp):
+    out.append(x)
+    if x < 10:
+        inp.appendleft(x + 10)
+assert inp == deque([])
+assert out == [0, 10, 1, 11, 2, 12]
+```
+
+A real use case for this is to split sequences of items, stored as lists in a deque, into shorter sequences where some condition is contiguously ``True`` or ``False``. When the condition changes state, just commit the current subsequence, and push the rest of that input sequence (still requiring analysis) back to the input deque, to be dealt with later.
+
+The argument to ``Popper`` (here ``lst``) contains the **remaining** items. Each iteration pops an element **from the left**. The loop terminates when ``lst`` is empty.
+
+The input container must support either ``popleft()`` or ``pop(0)``. This is fully duck-typed. At least ``collections.deque`` and any ``collections.abc.MutableSequence`` (including ``list``) are fine.
+
+Per-iteration efficiency is O(1) for ``collections.deque``, and O(n) for a ``list``.
+
+Named after [Karl Popper](https://en.wikipedia.org/wiki/Karl_Popper).
 
 
 

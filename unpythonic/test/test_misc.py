@@ -2,8 +2,9 @@
 
 from operator import add
 from functools import partial
+from collections import deque
 
-from ..misc import call, callwith, raisef, pack, namelambda, timer, getattrrec, setattrrec
+from ..misc import call, callwith, raisef, pack, namelambda, timer, getattrrec, setattrrec, Popper
 from ..fun import withself
 
 def test():
@@ -112,12 +113,13 @@ def test():
     assert nested.__qualname__ == "test.<locals>.outer"
     assert nested().__qualname__ == "test.<locals>.<lambda>.<locals>.inner"
 
+    # simple performance timer as a context manager
     with timer() as tictoc:
         for _ in range(int(1e6)):
             pass
     assert tictoc.dt > 0  # elapsed time in seconds (float)
 
-    with timer(p=True):
+    with timer(p=True):  # auto-print mode for convenience
         for _ in range(int(1e6)):
             pass
 
@@ -135,6 +137,31 @@ def test():
     assert type(getattr(w, "x")) == Wrapper
     assert type(getattrrec(w, "x")) == int
     assert getattrrec(w, "x") == 23
+
+    # pop-while iterator
+    inp = deque(range(5))  # efficiency: deque can popleft() in O(1) time
+    out = []
+    for x in Popper(inp):
+        out.append(x)
+    assert inp == deque([])
+    assert out == list(range(5))
+
+    inp = deque(range(3))
+    out = []
+    for x in Popper(inp):
+        out.append(x)
+        if x < 10:
+            inp.appendleft(x + 10)
+    assert inp == deque([])
+    assert out == [0, 10, 1, 11, 2, 12]
+
+    # works for a list, too, although not efficient (pop(0) takes O(n) time)
+    inp = list(range(5))
+    out = []
+    for x in Popper(inp):
+        out.append(x)
+    assert inp == []
+    assert out == list(range(5))
 
     print("All tests PASSED")
 
