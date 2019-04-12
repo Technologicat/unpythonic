@@ -2781,6 +2781,8 @@ Python clearly wants to be an impure-FP language. A decorator with arguments *is
 
   - [more-itertools: More routines for operating on iterables, beyond itertools.](https://github.com/erikrose/more-itertools)
 
+  - [boltons: Like builtins, but boltons.](https://github.com/mahmoud/boltons) Includes yet more itertools, and much more.
+
   - [toolz: A functional standard library for Python](https://github.com/pytoolz/toolz)
 
   - [funcy: A fancy and practical functional tools](https://github.com/suor/funcy/)
