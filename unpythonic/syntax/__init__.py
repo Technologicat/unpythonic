@@ -24,8 +24,9 @@ from .letdo import do as _do, do0 as _do0, local, delete, \
                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec
 from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
-from .nb import nb as _nb, dbg_block as _dbg_block, dbg_expr as _dbg_expr, \
-                           dbgprint_block, dbgprint_expr
+from .nb import nb as _nb
+from .dbg import dbg_block as _dbg_block, dbg_expr as _dbg_expr, \
+                 dbgprint_block, dbgprint_expr
 from .prefix import prefix as _prefix
 from .tailtools import autoreturn as _autoreturn, tco as _tco, \
                        continuations as _continuations, call_cc
