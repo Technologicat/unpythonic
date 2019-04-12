@@ -6,7 +6,7 @@ Both block and expression variants are provided.
 The printing can be customized; see ``dbgprint_block`` and ``dbgprint_expr``.
 """
 
-from ast import Expr, Call, Name, Tuple, keyword
+from ast import Call, Name, Tuple, keyword
 
 from macropy.core.quotes import macros, q, u, ast_literal
 from macropy.core.hquotes import macros, hq
