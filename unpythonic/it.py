@@ -641,7 +641,7 @@ def window(iterable, n=2):
             return empty_iterable()
     def windowed():
         while True:
-            yield xs
+            yield tuple(xs)
             xs.popleft()
             xs.append(next(it))  # let StopIteration propagate
     return windowed()
