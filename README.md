@@ -2594,7 +2594,7 @@ out = []
 while inp:
     x = inp.pop(0)
     out.append(x)
-assert inp == []
+assert inp == deque([])
 assert out == list(range(5))
 ```
 
