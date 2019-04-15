@@ -454,7 +454,7 @@ def splice(tree, rep, tag):
 def wrapwith(item, body, locref=None):
     """Wrap ``body`` with a single-item ``with`` block, using ``item``.
 
-    ``item`` must be an ``ast.withitem``.
+    ``item`` must be an expr, used as ``context_expr`` of the ``withitem`` node.
 
     ``locref`` is an optional AST node to copy source location info from.
     If not supplied, ``body[0]`` is used.
@@ -519,7 +519,12 @@ class ContinuationsMarker(metaclass=ASTMarker):
     """AST marker for an expanded "with continuations" block."""
     pass
 
+# must be "instantiated" because we need to pass information at macro expansion time using the ctor call syntax.
 class AutorefMarker(metaclass=ASTMarker):
     """AST marker for an expanded "with autoref(o)" block."""
     def __init__(self, varname):
+        pass
+    def __enter__(cls):
+        pass
+    def __exit__(cls, exctype, excvalue, traceback):
         pass

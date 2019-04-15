@@ -59,7 +59,7 @@ make_dynvar(gen_sym=nogensym)
 # -----------------------------------------------------------------------------
 
 @macros.block
-def autoref(tree, args, *, gen_sym, **kw):
+def autoref(tree, args, *, target, gen_sym, **kw):
     """Implicitly reference attributes of an object.
 
     Example::
@@ -81,7 +81,7 @@ def autoref(tree, args, *, gen_sym, **kw):
     Useful e.g. with the ``.mat`` file loader of SciPy.
     """
     with dyn.let(gen_sym=gen_sym):
-        return _autoref(block_body=tree, args=args)
+        return _autoref(block_body=tree, args=args, asname=target)
 
 # -----------------------------------------------------------------------------
 
