@@ -1493,7 +1493,7 @@ To denote a single expression that is a literal list, use an extra set of bracke
 
 *Added in v0.14.0.*
 
-*Changed in v0.14.1.* Added support for nested autoref blocks.
+*Changed in v0.14.1.* Added support for nested autoref blocks (lookups are lexically scoped).
 
 Ever wish you could ``with(obj)`` to say ``x`` instead of ``obj.x`` to read attributes of an object? Enter the ``autoref`` block macro:
 
