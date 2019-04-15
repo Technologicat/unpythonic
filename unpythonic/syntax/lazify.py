@@ -260,8 +260,10 @@ def lazify(body):
                     thelambda.body = rec(thelambda.body)
             # namelambda() is used by let[] and do[]
             # Lazy() is a strict function, takes a lambda, constructs a Lazy object
+            # _autoref_resolve doesn't need any special handling
             elif isdo(tree) or is_decorator(tree.func, "namelambda") or \
-               any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, isLazy):
+               any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, isLazy) or \
+               isx(tree.func, "_autoref_resolve"):
                 # here we know the operator (.func) to be one of specific names;
                 # don't transform it to avoid confusing lazyrec[] (important if this
                 # is an inner call in the arglist of an outer, lazy call, since it
