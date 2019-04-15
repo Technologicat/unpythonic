@@ -35,17 +35,18 @@ from ..lazyutil import force1
 #       o        # --> o
 #       with autoref(p):
 #          # the outer autoref just needs to insert its obj to the arglist
-#          x     # --> (lambda _ar314: _ar314[1] if _ar314[0] else x)(*_autoref_resolve((p, o, "x")))
-#          x.a   # --> ((lambda _ar314: _ar314[1] if _ar314[0] else x)(*_autoref_resolve((p, o, "x"))).a
-#          x[s]  # --> ((lambda _ar314: _ar314[1] if _ar314[0] else x)(*_autoref_resolve((p, o, "x")))[s]
+#          x     # --> (lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))
+#          x.a   # --> ((lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x"))).a
+#          x[s]  # --> ((lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))[s]
 #          # these are transformed when the **outer** autoref transforms
-#          o     # --> (lambda _ar314: _ar314[1] if _ar314[0] else o)(*_autoref_resolve((p, "o")))
-#          o.x   # --> ((lambda _ar314: _ar314[1] if _ar314[0] else o)(*_autoref_resolve((p, "o")))).x
-#          o[s]  # --> ((lambda _ar314: _ar314[1] if _ar314[0] else o)(*_autoref_resolve((p, "o"))))[s]
+#          o     # --> (lambda _ar314: _ar314[1] if _ar314[0] else o)(_autoref_resolve((p, "o")))
+#          o.x   # --> ((lambda _ar314: _ar314[1] if _ar314[0] else o)(_autoref_resolve((p, "o")))).x
+#          o[s]  # --> ((lambda _ar314: _ar314[1] if _ar314[0] else o)(_autoref_resolve((p, "o"))))[s]
 #
-# The lambda is needed, because the lexical-variable lookup for ``x`` must occur at the use site.
-# We could modify ``_autoref_resolve`` to look in ``locals()``, too (and pass it in), but that
-# leads to an unnecessary performance hit.
+# The lambda is needed, because the lexical-variable lookup for ``x`` must occur at the use site,
+# and it can only be performed by Python itself. We could modify ``_autoref_resolve`` to take
+# ``locals()`` and ``globals()`` as arguments and look also in the ``builtins`` module,
+# but that way we get no access to the enclosing scopes (the "E" in LEGB).
 #
 # Recall the blocks expand from inside out. Here ``_ar*`` are gensyms. A single unique name
 # for the parameter of the lambdas would be sufficient, but this is easier to arrange.
