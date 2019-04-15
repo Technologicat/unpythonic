@@ -518,3 +518,8 @@ class ASTMarker(type):
 class ContinuationsMarker(metaclass=ASTMarker):
     """AST marker for an expanded "with continuations" block."""
     pass
+
+class AutorefMarker(metaclass=ASTMarker):
+    """AST marker for an expanded "with autoref(o)" block."""
+    def __init__(self, varname):
+        pass
