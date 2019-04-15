@@ -71,10 +71,6 @@ def autoref(tree, args, *, target, gen_sym, **kw):
             b
             c
 
-    The transformation is::
-
-      x --> o.x if hasattr(o, "x") else x
-
     The transformation is applied in ``Load`` context only. ``Store`` and ``Del``
     are not redirected.
 

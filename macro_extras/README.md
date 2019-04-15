@@ -1493,6 +1493,8 @@ To denote a single expression that is a literal list, use an extra set of bracke
 
 *Added in v0.14.0.*
 
+*Changed in v0.14.1.* Added support for nested autoref blocks.
+
 Ever wish you could ``with(obj)`` to say ``x`` instead of ``obj.x`` to read attributes of an object? Enter the ``autoref`` block macro:
 
 ```python
@@ -1507,11 +1509,13 @@ with autoref(e):
     assert c == 3  # no c in e, so just c
 ```
 
-The transformation is ``x --> o.x if hasattr(o, "x") else x``, applied at each use site. It is applied for names in ``Load`` context only.
+The transformation is applied for names in ``Load`` context only, including names found in ``Attribute`` or ``Subscript`` nodes.
 
 Names in ``Store`` or ``Del`` context are not redirected. To write to or delete attributes of ``o``, explicitly refer to ``o.x``, as usual.
 
 Reading with ``autoref`` can be convenient e.g. for data returned by [SciPy's ``.mat`` file loader](https://docs.scipy.org/doc/scipy/reference/generated/scipy.io.loadmat.html).
+
+See the [unit tests](../unpythonic/syntax/test/test_autoref.py) for more usage examples.
 
 
 ## Other
