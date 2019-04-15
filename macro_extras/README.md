@@ -56,11 +56,11 @@ Of the `python3` command-line options, the `macropy3` bootstrapper supports only
    - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
    - [``aif``: anaphoric if](#aif-anaphoric-if), the test result is ``it``.
    - [``autoref``: implicitly reference attributes of an object](#autoref-implicitly-reference-attributes-of-an-object)
+   - [``dbg``: debug-print expressions with source code](#dbg-debug-print-expressions-with-source-code)
    - *Changed in v0.13.1.* The ``fup[]`` macro is gone, and has been replaced with the ``fup`` function, with slightly changed syntax to accommodate.
 
  - [**Other**](#other)
    - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
-   - [``dbg``: debug-print expressions with source code](#dbg-debug-print-expressions-with-source-code)
 
  - [**Meta**](#meta)
    - [Comboability](#comboability)
@@ -1518,41 +1518,6 @@ Reading with ``autoref`` can be convenient e.g. for data returned by [SciPy's ``
 See the [unit tests](../unpythonic/syntax/test/test_autoref.py) for more usage examples.
 
 
-## Other
-
-Stuff that didn't fit elsewhere.
-
-### ``nb``: silly ultralight math notebook
-
-*Added in v0.13.0.*
-
-Mix regular code with math-notebook-like code in a ``.py`` file. To enable notebook mode, ``with nb``:
-
-```python
-from unpythonic.syntax import macros, nb
-from sympy import symbols, pprint
-
-with nb:
-    2 + 3
-    assert _ == 5
-    _ * 42
-    assert _ == 210
-
-with nb(pprint):
-    x, y = symbols("x, y")
-    x * y
-    assert _ == x * y
-    3 * _
-    assert _ == 3 * x * y
-```
-
-Expressions at the top level auto-assign the result to ``_``, and auto-print it if the value is not ``None``. Only expressions do that; for any statement that is not an expression, ``_`` retains its previous value.
-
-A custom print function can be supplied as the first positional argument to ``nb``. This is useful with SymPy (and [latex-input](https://github.com/clarkgrubb/latex-input) to use α, β, γ, ... as actual variable names).
-
-Obviously not intended for production use, although is very likely to work anywhere.
-
-
 ### ``dbg``: debug-print expressions with source code
 
 *Added in v0.14.1.*
@@ -1606,6 +1571,42 @@ For details on implementing custom debug print functions, see the docstrings of 
 **CAUTION**: ``dbg`` only works in ``.py`` files, not in [the IPython+MacroPy console](https://github.com/azazel75/macropy/pull/20), because the expanded code refers to ``__file__``, which is not defined in the REPL. This limitation may or may not be lifted in a future version.
 
 Inspired by the [dbg macro in Rust](https://doc.rust-lang.org/std/macro.dbg.html).
+
+
+
+## Other
+
+Stuff that didn't fit elsewhere.
+
+### ``nb``: silly ultralight math notebook
+
+*Added in v0.13.0.*
+
+Mix regular code with math-notebook-like code in a ``.py`` file. To enable notebook mode, ``with nb``:
+
+```python
+from unpythonic.syntax import macros, nb
+from sympy import symbols, pprint
+
+with nb:
+    2 + 3
+    assert _ == 5
+    _ * 42
+    assert _ == 210
+
+with nb(pprint):
+    x, y = symbols("x, y")
+    x * y
+    assert _ == x * y
+    3 * _
+    assert _ == 3 * x * y
+```
+
+Expressions at the top level auto-assign the result to ``_``, and auto-print it if the value is not ``None``. Only expressions do that; for any statement that is not an expression, ``_`` retains its previous value.
+
+A custom print function can be supplied as the first positional argument to ``nb``. This is useful with SymPy (and [latex-input](https://github.com/clarkgrubb/latex-input) to use α, β, γ, ... as actual variable names).
+
+Obviously not intended for production use, although is very likely to work anywhere.
 
 
 
