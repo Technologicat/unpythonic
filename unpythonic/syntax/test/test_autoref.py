@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Implicitly reference attributes of an object."""
 
-from ...syntax import macros, autoref
-#from macropy.tracing import macros, show_expanded
+from ...syntax import macros, autoref, let, do, local
+from macropy.tracing import macros, show_expanded
 
 from ...env import env
 
@@ -81,6 +81,16 @@ def test():
             pass
         else:
             assert False, "t should not have an attribute 'c' here"
+
+    # let and do envs skip the autoref lookup
+    e = env(a=1)
+    with autoref(e):
+        x = do[local[a << 2], 2*a]
+        assert x == 4
+        y = let[(x, 21) in 2*x]
+        assert y == 42
+        z = let[(x, 21) in 2*a]  # e.a
+        assert z == 2
 
     print("All tests PASSED")
 
