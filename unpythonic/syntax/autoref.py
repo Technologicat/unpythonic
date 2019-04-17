@@ -12,7 +12,7 @@ from .util import wrapwith, AutorefMarker
 from .letdoutil import isdo, islet, ExpandedDoView, ExpandedLetView
 
 from ..dynassign import dyn
-from ..lazyutil import force1
+from ..lazyutil import force1, mark_lazy
 
 # with autoref(o):
 # with autoref(scipy.loadmat("mydata.mat")):       # evaluate once, assign to a gensym
@@ -69,8 +69,9 @@ from ..lazyutil import force1
 # to ``o`` and ``p`` directly), so that arbitrary expressions can be autoref'd without giving them
 # a name in user code.
 
+@mark_lazy
 def _autoref_resolve(args):
-    *objs, s = args
+    *objs, s = [force1(x) for x in args]
     for o in objs:
         if hasattr(o, s):
             return True, force1(getattr(o, s))

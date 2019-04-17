@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Automatic currying. Transforms both function definitions and calls."""
 
-from ast import Call, Lambda, FunctionDef
+from ast import Call, Lambda, FunctionDef, Name
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, ast_literal
@@ -20,7 +20,7 @@ _iscurry = make_isxpred("curry")
 def curry(block_body):
     @Walker
     def transform(tree, *, hascurry, set_ctx, stop, **kw):
-        if type(tree) is Call:
+        if type(tree) is Call and not (type(tree.func) is Name and tree.func.id == "AutorefMarker"):
             if has_curry(tree):  # detect decorated lambda with manual curry
                 set_ctx(hascurry=True)  # the lambda inside the curry(...) is the next Lambda node we will descend into.
             if not isx(tree.func, _iscurry):

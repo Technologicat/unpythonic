@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Implicitly reference attributes of an object."""
 
-from ...syntax import macros, autoref, let, do, local
+from ...syntax import macros, autoref, let, do, local, lazify, curry
 from macropy.tracing import macros, show_expanded
 
 from ...env import env
@@ -91,6 +91,16 @@ def test():
         assert y == 42
         z = let[(x, 21) in 2*a]  # e.a
         assert z == 2
+
+    with lazify:
+        e = env(a=1, b=1/0)
+        with autoref(e):
+            assert a == 1
+
+    with curry:
+        e = env(a=1)
+        with autoref(e):
+            assert a == 1
 
     print("All tests PASSED")
 
