@@ -7,6 +7,7 @@ from types import LambdaType, FunctionType, CodeType
 from time import time
 from copy import copy
 from functools import partial
+from sys import version_info
 
 from .regutil import register_decorator
 from .lazyutil import mark_lazy, lazycall, force
@@ -293,13 +294,24 @@ def namelambda(name):
         # that we can use to re-create the code object with the new name.
         # (This is no worse than what the stdlib's Lib/modulefinder.py already does.)
         co = f.__code__
-        f.__code__ = CodeType(co.co_argcount, co.co_kwonlyargcount,
-                              co.co_nlocals, co.co_stacksize, co.co_flags,
-                              co.co_code, co.co_consts, co.co_names,
-                              co.co_varnames, co.co_filename,
-                              name,
-                              co.co_firstlineno, co.co_lnotab, co.co_freevars,
-                              co.co_cellvars)
+        # https://github.com/ipython/ipython/blob/master/IPython/core/interactiveshell.py
+        # https://www.python.org/dev/peps/pep-0570/
+        if version_info > (3, 8, 0, 'alpha', 3):
+            f.__code__ = CodeType(co.co_argcount, co.co_posonlyargcount, co.co_kwonlyargcount,
+                                  co.co_nlocals, co.co_stacksize, co.co_flags,
+                                  co.co_code, co.co_consts, co.co_names,
+                                  co.co_varnames, co.co_filename,
+                                  name,
+                                  co.co_firstlineno, co.co_lnotab, co.co_freevars,
+                                  co.co_cellvars)
+        else:
+            f.__code__ = CodeType(co.co_argcount, co.co_kwonlyargcount,
+                                  co.co_nlocals, co.co_stacksize, co.co_flags,
+                                  co.co_code, co.co_consts, co.co_names,
+                                  co.co_varnames, co.co_filename,
+                                  name,
+                                  co.co_firstlineno, co.co_lnotab, co.co_freevars,
+                                  co.co_cellvars)
         return f
     return rename
 
