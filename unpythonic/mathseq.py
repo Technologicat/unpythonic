@@ -40,6 +40,9 @@ from operator import add as primitive_add, mul as primitive_mul, \
 from .it import take, rev
 from .gmemo import imemoize, gmemoize
 
+class _NoSuchType:
+    pass
+
 # stuff to support float, mpf and SymPy expressions transparently
 #
 from sys import float_info
@@ -47,7 +50,7 @@ from math import log as math_log, copysign, trunc, floor, ceil
 try:
     from mpmath import mpf, almosteq as mpf_almosteq
 except ImportError:
-    mpf = type(None)
+    mpf = type(_NoSuchType())
     mpf_almosteq = None
 
 def _numsign(x):
@@ -69,7 +72,7 @@ try:
 except ImportError:
     log = math_log
     sign = _numsign
-    _symExpr = type(None)
+    _symExpr = type(_NoSuchType())
 
 def almosteq(a, b, tol=1e-8):
     """Almost-equality that supports several formats.
