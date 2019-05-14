@@ -85,7 +85,13 @@ def import_module_as_main(name, script_mode):
             path_components = parent_name.split('.')
             path = [os.path.join(*([cwd] + path_components))]
             absolute_name = child_name
+
+    if "" not in sys.path:  # Python 3.6 seems to have removed the special entry "" (the cwd) from sys.path
+        sys.path.append("")
+
     for finder in sys.meta_path:
+        if not hasattr(finder, "find_spec"): # Python 3.6: pkg_resources.extern.VendorImporter has no find_spec
+            continue
         spec = finder.find_spec(absolute_name, path)
         if spec is not None:
             break
