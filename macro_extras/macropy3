@@ -75,7 +75,9 @@ def import_module_as_main(name, script_mode):
 #        pass
 
     if "" not in sys.path:  # Python 3.6 seems to have removed the special entry "" (the cwd) from sys.path
-        sys.path.append("")
+        # Placing it first overrides installed unpythonic with the local one when running tests
+        # (the installed one won't have the "test" submodules).
+        sys.path.insert(0, "")
 
     # path should be folder containing something.py if we are being run as "pydialect something.py" (script_mode=True), and cwd if run as "pydialect -m something"
     path = None
