@@ -47,7 +47,8 @@ from math import log as math_log, copysign, trunc, floor, ceil
 try:
     from mpmath import mpf, almosteq as mpf_almosteq
 except ImportError:
-    mpf = mpf_almosteq = None
+    mpf = type(None)
+    mpf_almosteq = None
 
 def _numsign(x):
     if x == 0:
@@ -68,6 +69,7 @@ try:
 except ImportError:
     log = math_log
     sign = _numsign
+    _symExpr = type(None)
 
 def almosteq(a, b, tol=1e-8):
     """Almost-equality that supports several formats.
