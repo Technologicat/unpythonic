@@ -74,6 +74,10 @@ def import_module_as_main(name, script_mode):
 #    except KeyError:
 #        pass
 
+    if "" not in sys.path:  # Python 3.6 seems to have removed the special entry "" (the cwd) from sys.path
+        sys.path.append("")
+
+    # path should be folder containing something.py if we are being run as "pydialect something.py" (script_mode=True), and cwd if run as "pydialect -m something"
     path = None
     if '.' in absolute_name:
         parent_name, _, child_name = absolute_name.rpartition('.')
@@ -85,9 +89,6 @@ def import_module_as_main(name, script_mode):
             path_components = parent_name.split('.')
             path = [os.path.join(*([cwd] + path_components))]
             absolute_name = child_name
-
-    if "" not in sys.path:  # Python 3.6 seems to have removed the special entry "" (the cwd) from sys.path
-        sys.path.append("")
 
     for finder in sys.meta_path:
         if not hasattr(finder, "find_spec"): # Python 3.6: pkg_resources.extern.VendorImporter has no find_spec
