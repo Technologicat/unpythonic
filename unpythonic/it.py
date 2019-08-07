@@ -24,7 +24,7 @@ __all__ = ["rev", "map_longest",
            "iterate", "iterate1",
            "partition",
            "inn", "iindex",
-           "window"]
+           "window", "within"]
 
 from operator import itemgetter
 from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby, takewhile
@@ -645,3 +645,23 @@ def window(iterable, n=2):
             xs.popleft()
             xs.append(next(it))  # let StopIteration propagate
     return windowed()
+
+def within(iterable, tol=0):
+    """Yield items from iterable until successive items are close enough.
+
+    Items are yielded until `abs(a - b) <= tol` for successive items
+    `a` and `b`.
+
+    If `tol == 0`, one final duplicate value will be yielded. This makes the
+    last two yielded values always satisfy the condition, even when `tol == 0`.
+
+    **CAUTION**: Intended for converging mathematical sequences, preferably
+    Cauchy sequences. Use on arbitrary input will lead to nasty surprises
+    (infinite output, or terminating the output early if a part of it looks
+    like a converging sequence; think a local maximum of `cos(x)`).
+    """
+    for a, b in window(iterable, n=2):
+        yield a
+        if abs(a - b) <= tol:
+            yield b
+            return
