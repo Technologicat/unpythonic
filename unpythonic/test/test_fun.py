@@ -177,6 +177,8 @@ def test():
     assert processor(1, 2, 3) == (3, 8, 4)
 
     assert identity(1, 2, 3) == (1, 2, 3)
+    assert identity(42) == 42
+    assert identity() is None
     assert (rotate(-1)(identity))(1, 2, 3) == (3, 1, 2)
     assert (rotate(1)(identity))(1, 2, 3) == (2, 3, 1)
 
@@ -191,6 +193,9 @@ def test():
     assert apply(hello, 1, 2, [3, 4, 5]) == (1, 2, 3, 4, 5)
 
     assert const(1, 2, 3)(42, "foo") == (1, 2, 3)
+    assert const(42)("anything") == 42
+    assert const()("anything") is None
+
     assert notf(lambda x: 2*x)(3) is False
     assert notf(lambda x: 2*x)(0) is True
     isint  = lambda x: isinstance(x, int)

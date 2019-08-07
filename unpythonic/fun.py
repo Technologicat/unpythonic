@@ -318,7 +318,10 @@ def identity(*args):
 
         assert identity(1, 2, 3) == (1, 2, 3)
         assert identity(42) == 42
+        assert identity() is None
     """
+    if not args:
+        return None
     return args if len(args) > 1 else args[0]
 
 # In lazify, return values are always just values, so we have to force args
@@ -334,8 +337,18 @@ def const(*args):
         c = const(1, 2, 3)
         assert c(42, "foo") == (1, 2, 3)
         assert c("anything") == (1, 2, 3)
+        assert c() == (1, 2, 3)
+
+        c = const(42)
+        assert c("anything") == 42
+
+        c = const()
+        assert c("anything") is None
     """
-    ret = args if len(args) > 1 else args[0]
+    if not args:
+        ret = None
+    else:
+        ret = args if len(args) > 1 else args[0]
     def constant(*a, **kw):
         return ret
     return constant
