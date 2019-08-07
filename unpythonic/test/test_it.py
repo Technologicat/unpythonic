@@ -17,7 +17,7 @@ from ..it import mapr, rmap, zipr, rzip, \
                  flatten, flatten1, flatten_in, \
                  unpack, \
                  inn, iindex, \
-                 window
+                 window, within
 
 from ..fun import composel, identity
 from ..gmemo import imemoize, gmemoize
@@ -227,6 +227,23 @@ def test():
             inp.append(a + 10)
     assert inp == deque([])
     assert out == [(0, 1), (1, 2), (2, 10), (10, 11), (11, 12)]
+
+    # within() - terminate a Cauchy sequence after a tolerance is reached.
+    # The condition is `abs(a - b) <= tol` **for the last two yielded items**.
+    def g1():
+        x = 1.0
+        while True:
+            yield x
+            x /= 2
+    assert tuple(within(g1(), 1/4)) == (1.0, 1/2, 1/4)
+
+    def g2():
+        yield 1
+        yield 2
+        yield 3
+        while True:
+            yield 4
+    assert tuple(within(g2(), 0)) == (1, 2, 3, 4, 4)
 
     print("All tests PASSED")
 
