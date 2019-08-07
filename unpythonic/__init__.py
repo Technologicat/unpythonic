@@ -14,6 +14,7 @@ from .assignonce import *
 from .collections import *
 from .dynassign import *
 from .ec import *
+from .fix import *
 from .fold import *
 from .fploop import *
 from .fun import *
