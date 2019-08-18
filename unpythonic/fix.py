@@ -48,13 +48,20 @@ __all__ = ["fix"]
 
 # Just to use typing.NoReturn as a special value at runtime. It has the right semantics.
 import typing
+import threading
 from functools import wraps
 
-from unpythonic.fun import identity, const
+from .fun import identity, const
+from .env import env
+
+# Thread-local visited and cache.
+_L = threading.local()
+def _get_threadlocals():
+    if not hasattr(_L, "_data"):
+        _L._data = env(visited=set(), cache={})
+    return _L._data
 
 # - TODO: Add support for kwargs in f.
-#
-# - TODO: Make this thread-safe. Thread-local "visited" and "cache" should be sufficient.
 #
 # - TODO: Can we make this call bottom at most once?
 #
@@ -147,26 +154,25 @@ def fix(bottom=typing.NoReturn, n=infinity, unwrap=identity):
     def decorator(f):
         @wraps(f)
         def f_fix(*args):
+            e = _get_threadlocals()
             me = (f_fix, args)
-            if not fix.visited:
-                value, fix.cache[me] = None, bottom(f_fix.__name__, *args)
+            if not e.visited:
+                value, e.cache[me] = None, bottom(f_fix.__name__, *args)
                 count = 0
-                while count < n and value != fix.cache[me]:
-                    fix.visited.add(me)
-                    value, fix.cache[me] = fix.cache[me], unwrap(f(*args))
-                    fix.visited.clear()
+                while count < n and value != e.cache[me]:
+                    e.visited.add(me)
+                    value, e.cache[me] = e.cache[me], unwrap(f(*args))
+                    e.visited.clear()
                     count += 1
                 return value
-            if me in fix.visited:
-                # return fix.cache.get(me, bottom(f_fix.__name__, *args)
+            if me in e.visited:
+                # return e.cache.get(me, bottom(f_fix.__name__, *args)
                 # same effect, except don't compute bottom again if we don't need to.
-                return fix.cache[me] if me in fix.cache else bottom(f_fix.__name__, *args)
-            fix.visited.add(me)
-            value = fix.cache[me] = unwrap(f(*args))
-            fix.visited.remove(me)
+                return e.cache[me] if me in e.cache else bottom(f_fix.__name__, *args)
+            e.visited.add(me)
+            value = e.cache[me] = unwrap(f(*args))
+            e.visited.remove(me)
             return value
         f_fix.entrypoint = f  # just for information
         return f_fix
     return decorator
-fix.visited = set()
-fix.cache = {}
