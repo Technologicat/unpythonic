@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous constructs."""
 
-__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer", "getattrrec", "setattrrec", "Popper"]
+__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer",
+           "getattrrec", "setattrrec", "Popper", "ulp"]
 
 from types import LambdaType, FunctionType, CodeType
 from time import time
 from copy import copy
 from functools import partial
-from sys import version_info
+from sys import version_info, float_info
+from math import floor, log2
 
 from .regutil import register_decorator
 from .lazyutil import mark_lazy, lazycall, force
@@ -437,3 +439,9 @@ class Popper:
         if self.seq:
             return self._pop()
         raise StopIteration
+
+def ulp(x):  # Unit in the Last Place
+    eps = float_info.epsilon
+    # m_min = abs. value represented by a mantissa of 1.0, with the same exponent as x has
+    m_min = 2**floor(log2(abs(x)))
+    return m_min * eps

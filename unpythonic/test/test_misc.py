@@ -3,8 +3,9 @@
 from operator import add
 from functools import partial
 from collections import deque
+from sys import float_info
 
-from ..misc import call, callwith, raisef, pack, namelambda, timer, getattrrec, setattrrec, Popper
+from ..misc import call, callwith, raisef, pack, namelambda, timer, getattrrec, setattrrec, Popper, ulp
 from ..fun import withself
 
 def test():
@@ -162,6 +163,14 @@ def test():
         out.append(x)
     assert inp == []
     assert out == list(range(5))
+
+    # Unit in the Last Place, float utility
+    # https://en.wikipedia.org/wiki/Unit_in_the_last_place
+    eps = float_info.epsilon
+    assert ulp(1.0) == eps
+    # test also at some base-2 exponent switch points
+    assert ulp(2.0) == 2 * eps
+    assert ulp(0.5) == 0.5 * eps
 
     print("All tests PASSED")
 

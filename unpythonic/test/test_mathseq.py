@@ -8,7 +8,7 @@ from ..mathseq import s, m, mg, sadd, smul, spow, cauchyprod, primes, fibonacci
 from ..it import take, last
 from ..fold import scanl
 from ..gmemo import imemoize
-from ..misc import timer
+from ..misc import timer, ulp
 
 def test():
     # convenience: explicitly listed elements, same as a genexpr using tuple input
@@ -133,11 +133,6 @@ def test():
 
     # a long arithmetic sequence where the start value and the diff are not exactly representable
     # in IEEE-754 double precision; the final value should be within an ULP of the true value
-    def ulp(x):  # Unit in the Last Place
-        eps = float_info.epsilon
-        # m_min = abs. value represented by a mantissa of 1.0, with the same exponent as x has
-        m_min = 2**floor(log2(abs(x)))
-        return m_min * eps
     assert abs(last(s(0.01, 0.02, ..., 100)) - 100.0) <= ulp(100.0)
     assert abs(last(s(0.01, 0.02, ..., 1000)) - 1000.0) <= ulp(1000.0)
     assert abs(last(s(0.01, 0.02, ..., 10000)) - 10000.0) <= ulp(10000.0)
