@@ -179,7 +179,7 @@ class _Env(object):
 
     # pretty-printing
     def __repr__(self):
-        bindings = ["{:s}={}".format(k,repr(self[k])) for k in self]
+        bindings = ["{:s}={}".format(k, repr(self[k])) for k in self]
         return "<dyn object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
 
 def make_dynvar(**bindings):
