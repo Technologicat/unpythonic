@@ -18,7 +18,7 @@ __all__ = ["rev", "map_longest",
            "take", "drop", "split_at",
            "unpack",
            "tail", "butlast", "butlastn",
-           "first", "second", "nth", "last",
+           "first", "second", "nth", "last", "lastn",
            "scons",
            "flatten", "flatten1", "flatten_in",
            "iterate", "iterate1",
@@ -419,6 +419,20 @@ def last(iterable, *, default=None):
     """
     d = deque(iterable, maxlen=1)  # C speed
     return d.pop() if d else default
+
+def lastn(n, iterable):
+    """Yield the last n items from an iterable.
+
+    We consume the iterable until it runs out of items, then return a generator
+    that yields up to ``n`` last items seen, in the original order.
+
+    If there are fewer than ``n`` items in the iterable, the generator yields
+    them all.
+
+    **Caution**: Will not terminate for infinite inputs.
+    """
+    d = deque(iterable, maxlen=n)  # C speed
+    yield from d
 
 def scons(x, iterable):
     """Prepend one element to the start of an iterable, return new iterable.

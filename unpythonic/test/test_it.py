@@ -9,7 +9,7 @@ from math import cos, sqrt
 from ..it import mapr, rmap, zipr, rzip, \
                  map_longest, mapr_longest, rmap_longest, \
                  zip_longest, zipr_longest, rzip_longest, \
-                 first, second, nth, last, \
+                 first, second, nth, last, lastn, \
                  scons, tail, butlast, butlastn, \
                  flatmap, \
                  take, drop, split_at, \
@@ -56,6 +56,10 @@ def test():
     assert second(range(5)) == 1
     assert nth(2, range(5)) == 2
     assert last(range(5)) == 4
+
+    assert tuple(lastn(3, range(5))) == (2, 3, 4)
+    assert tuple(lastn(3, range(2))) == (0, 1)
+    assert tuple(lastn(3, ())) == ()
 
     assert tuple(scons(0, range(1, 5))) == tuple(range(5))
     assert tuple(tail(scons("foo", range(5)))) == tuple(range(5))
