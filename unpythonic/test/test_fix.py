@@ -82,5 +82,11 @@ def test():
     f, c = cosser2(1)  # f ends up in the return value because it's in the args of iterate1_rec.
     assert c == cos(c)
 
+    # fix with no args - default no-return return value
+    @fix()
+    def f(k):
+        return f((k + 1) % 3)
+    assert f(0) is NoReturn
+
 if __name__ == '__main__':
     test()

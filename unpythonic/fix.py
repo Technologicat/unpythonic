@@ -139,7 +139,10 @@ def fix(bottom=typing.NoReturn, n=infinity, unwrap=identity):
 
     **CAUTION**: Currently not thread-safe.
     """
-    if not callable(bottom):
+    # Being a class, typing.NoReturn is technically callable (to construct an
+    # instance), but because it's an abstract class, the call raises TypeError.
+    # We want to use the class itself as a data value, so we special-case it.
+    if bottom is typing.NoReturn or not callable(bottom):
         bottom = const(bottom)
     def decorator(f):
         @wraps(f)
