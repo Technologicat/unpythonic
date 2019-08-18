@@ -17,7 +17,8 @@ from ..it import mapr, rmap, zipr, rzip, \
                  flatten, flatten1, flatten_in, \
                  unpack, \
                  inn, iindex, \
-                 window, within
+                 window, chunked, \
+                 within
 
 from ..fun import composel, identity
 from ..gmemo import imemoize, gmemoize
@@ -227,6 +228,12 @@ def test():
             inp.append(a + 10)
     assert inp == deque([])
     assert out == [(0, 1), (1, 2), (2, 10), (10, 11), (11, 12)]
+
+    # chunked() - split an iterable into constant-length chunks.
+    chunks = chunked(3, range(9))
+    assert [tuple(chunk) for chunk in chunks] == [(0, 1, 2), (3, 4, 5), (6, 7, 8)]
+    chunks = chunked(3, range(7))
+    assert [tuple(chunk) for chunk in chunks] == [(0, 1, 2), (3, 4, 5), (6,)]
 
     # within() - terminate a Cauchy sequence after a tolerance is reached.
     # The condition is `abs(a - b) <= tol` **for the last two yielded items**.

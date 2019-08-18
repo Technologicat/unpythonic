@@ -24,7 +24,8 @@ __all__ = ["rev", "map_longest",
            "iterate", "iterate1",
            "partition",
            "inn", "iindex",
-           "window", "within"]
+           "window", "chunked",
+           "within"]
 
 from operator import itemgetter
 from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby, takewhile
@@ -645,6 +646,42 @@ def window(iterable, n=2):
             xs.popleft()
             xs.append(next(it))  # let StopIteration propagate
     return windowed()
+
+def chunked(n, iterable):
+    """Split an iterable into constant-length chunks.
+
+    Conceptually, whereas ``window`` slides its stencil through which the
+    original iterable is viewed, ``chunked`` partitions the iterable with
+    no overlap between consecutive stencil positions.
+
+    This returns a generator that yields the chunks. Unlike ``window``, to
+    remain storage-agnostic, each chunk itself is represented as an iterator
+    (so if you want tuples, convert each chunk yourself - see example below).
+
+    No temporary storage is allocated, this is essentially a stream filter
+    built on itertools.
+
+    Example::
+        chunks = chunked(3, range(9))
+        assert [tuple(chunk) for chunk in chunks] == [(0, 1, 2), (3, 4, 5), (6, 7, 8)]
+        chunks = chunked(3, range(7))
+        assert [tuple(chunk) for chunk in chunks] == [(0, 1, 2), (3, 4, 5), (6,)]
+
+    Based on StackOverflow answers by Sven Marnach and reclosedev:
+        https://stackoverflow.com/questions/8991506/iterate-an-iterator-by-chunks-of-n-in-python
+    """
+    if n < 2:
+        raise ValueError("expected n >= 2, got {}".format(n))
+    it = iter(iterable)
+    def chunker():
+        while True:
+            chunk_it = islice(it, n)
+            try:
+                first_el = next(chunk_it)
+            except StopIteration:
+                return
+            yield scons(first_el, chunk_it)
+    return chunker()
 
 def within(tol, iterable):
     """Yield items from iterable until successive items are close enough.
