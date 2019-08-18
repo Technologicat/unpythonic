@@ -646,7 +646,7 @@ def window(iterable, n=2):
             xs.append(next(it))  # let StopIteration propagate
     return windowed()
 
-def within(iterable, tol=0):
+def within(tol, iterable):
     """Yield items from iterable until successive items are close enough.
 
     Items are yielded until `abs(a - b) <= tol` for successive items

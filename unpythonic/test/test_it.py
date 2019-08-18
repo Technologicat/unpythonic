@@ -235,7 +235,7 @@ def test():
         while True:
             yield x
             x /= 2
-    assert tuple(within(g1(), 1/4)) == (1.0, 1/2, 1/4)
+    assert tuple(within(1/4, g1())) == (1.0, 1/2, 1/4)
 
     def g2():
         yield 1
@@ -243,7 +243,7 @@ def test():
         yield 3
         while True:
             yield 4
-    assert tuple(within(g2(), 0)) == (1, 2, 3, 4, 4)
+    assert tuple(within(0, g2())) == (1, 2, 3, 4, 4)
 
     print("All tests PASSED")
 
