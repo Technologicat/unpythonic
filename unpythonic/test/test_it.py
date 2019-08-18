@@ -4,6 +4,7 @@ from functools import partial
 from itertools import tee, count, takewhile
 from operator import add, itemgetter
 from collections import deque
+from math import cos, sqrt
 
 from ..it import mapr, rmap, zipr, rzip, \
                  map_longest, mapr_longest, rmap_longest, \
@@ -18,12 +19,12 @@ from ..it import mapr, rmap, zipr, rzip, \
                  unpack, \
                  inn, iindex, \
                  window, chunked, \
-                 within
+                 within, fixpoint
 
 from ..fun import composel, identity
 from ..gmemo import imemoize, gmemoize
 from ..mathseq import s
-from ..misc import Popper
+from ..misc import Popper, ulp
 
 def test():
     def noneadd(a, b):
@@ -251,6 +252,21 @@ def test():
         while True:
             yield 4
     assert tuple(within(0, g2())) == (1, 2, 3, 4, 4)
+
+    # Arithmetic fixed points.
+    c = fixpoint(cos, x0=1)
+    assert c == cos(c)  # 0.7390851332151607
+
+    # Actually "Newton's" algorithm for the square root was already known to the
+    # ancient Babylonians, ca. 2000 BCE. (Carl Boyer: History of mathematics)
+    def sqrt_newton(n):
+        def sqrt_iter(x):  # has an attractive fixed point at sqrt(n)
+            return (x + n / x) / 2
+        return fixpoint(sqrt_iter, x0=n / 2)
+    # different algorithm, so not necessarily equal down to the last bit
+    # (caused by the fixpoint update becoming smaller than the ulp, so it
+    #  stops there, even if the limit is still one ulp away).
+    assert abs(sqrt_newton(2) - sqrt(2)) <= ulp(1.414)
 
     print("All tests PASSED")
 

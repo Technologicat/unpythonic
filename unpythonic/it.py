@@ -25,7 +25,7 @@ __all__ = ["rev", "map_longest",
            "partition",
            "inn", "iindex",
            "window", "chunked",
-           "within"]
+           "within", "fixpoint"]
 
 from operator import itemgetter
 from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby, takewhile
@@ -702,3 +702,39 @@ def within(tol, iterable):
         if abs(a - b) <= tol:
             yield b
             return
+
+def fixpoint(f, x0, tol=0):
+    """Compute the (arithmetic) fixed point of f, starting from the initial guess x0.
+
+    (Not to be confused with the logical fixed point with respect to the
+    definedness ordering.)
+
+    The fixed point must be attractive for this to work. See the Banach
+    fixed point theorem.
+    https://en.wikipedia.org/wiki/Banach_fixed-point_theorem
+
+    If the fixed point is attractive, and the values are represented in
+    floating point (hence finite precision), the computation should
+    eventually converge down to the last bit (barring roundoff or
+    catastrophic cancellation in the final few steps). Hence the default tol
+    of zero.
+
+    CAUTION: an arbitrary function from ℝ to ℝ **does not** necessarily
+    have a fixed point. Limit cycles and chaotic behavior of `f` will cause
+    non-termination. Keep in mind the classic example:
+    https://en.wikipedia.org/wiki/Logistic_map
+
+    Examples::
+        from math import cos, sqrt
+        from unpythonic import fixpoint, ulp
+        c = fixpoint(cos, x0=1)
+
+        # Actually "Newton's" algorithm for the square root was already known to the
+        # ancient Babylonians, ca. 2000 BCE. (Carl Boyer: History of mathematics)
+        def sqrt_newton(n):
+            def sqrt_iter(x):  # has an attractive fixed point at sqrt(n)
+                return (x + n / x) / 2
+            return fixpoint(sqrt_iter, x0=n / 2)
+        assert abs(sqrt_newton(2) - sqrt(2)) <= ulp(1.414)
+    """
+    return last(within(tol, iterate1(f, x0)))
