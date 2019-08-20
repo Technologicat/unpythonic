@@ -688,13 +688,13 @@ def chunked(n, iterable):
         raise ValueError("expected n >= 2, got {}".format(n))
     it = iter(iterable)
     def chunker():
-        while True:
-            chunk_it = islice(it, n)
-            try:
-                first_el = next(chunk_it)
-            except StopIteration:
-                return
-            yield scons(first_el, chunk_it)
+        try:
+            while True:
+                cit = islice(it, n)
+                # we need the next() to see the StopIteration when the first empty slice occurs
+                yield scons(next(cit), cit)
+        except StopIteration:
+            return
     return chunker()
 
 def within(tol, iterable):
