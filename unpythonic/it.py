@@ -378,7 +378,7 @@ def butlastn(n, iterable):
     # we let StopIteration propagate from anything that could raise it here.
     it = iter(iterable)
     q = deque()
-    for _ in range(n+1):
+    for _ in range(n + 1):
         q.append(next(it))
     while True:
         yield q.popleft()
