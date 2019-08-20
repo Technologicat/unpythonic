@@ -10,7 +10,7 @@ For more batteries for itertools, see also the ``unpythonic.fold`` module.
 ``itertools`` recipes.
 """
 
-__all__ = ["rev", "map_longest",
+__all__ = ["rev", "map", "map_longest",
            "rmap", "rzip", "rmap_longest", "rzip_longest",
            "mapr", "zipr", "mapr_longest", "zipr_longest",
            "flatmap",
@@ -27,6 +27,7 @@ __all__ = ["rev", "map_longest",
            "window", "chunked",
            "within", "fixpoint"]
 
+from builtins import map as stdlib_map
 from operator import itemgetter
 from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby, takewhile
 from collections import deque
@@ -50,6 +51,22 @@ def rev(iterable):
         return reversed(iterable)
     except TypeError:
         return reversed(tuple(iterable))
+
+def map(function, iterable0, *iterables):
+    """Curry-friendly map.
+
+    Thin wrapper around Python's builtin ``map``, making it mandatory to
+    provide at least one iterable, so we may say things such as::
+
+        from unpythonic import map, curry
+        oneplus = lambda x: 1 + x  # noqa: E731
+
+        add_one = curry(map, oneplus)
+
+        assert tuple(add_one(range(5))) == tuple(range(1, 6))
+
+    """
+    return stdlib_map(function, iterable0, *iterables)
 
 # When completing an existing set of functions (map, zip, zip_longest),
 # consistency wins over curry-friendliness.

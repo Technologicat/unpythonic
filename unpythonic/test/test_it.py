@@ -6,7 +6,7 @@ from operator import add, itemgetter
 from collections import deque
 from math import cos, sqrt
 
-from ..it import mapr, rmap, zipr, rzip, \
+from ..it import map, mapr, rmap, zipr, rzip, \
                  map_longest, mapr_longest, rmap_longest, \
                  zip_longest, zipr_longest, rzip_longest, \
                  first, second, nth, last, lastn, \
@@ -21,7 +21,7 @@ from ..it import mapr, rmap, zipr, rzip, \
                  window, chunked, \
                  within, fixpoint
 
-from ..fun import composel, identity
+from ..fun import composel, identity, curry
 from ..gmemo import imemoize, gmemoize
 from ..mathseq import s
 from ..misc import Popper, ulp
@@ -31,9 +31,15 @@ def test():
         if all(x is not None for x in (a, b)):
             return a + b
 
+    # Our map is a thin wrapper that makes it mandatory to provide at least one iterable,
+    # so we can easily curry it with just the function to be applied.
+    oneplus = lambda x: 1 + x  # noqa: E731
+    add_one = curry(map, oneplus)
+    assert tuple(add_one(range(5))) == tuple(range(1, 6))
+
     # Adding the missing batteries to the algebra of map and zip.
     # Note Python's (and Racket's) map is like Haskell's zipWith, but for n inputs.
-    assert tuple(map(add, (1, 2), (3, 4))) == (4, 6)  # builtin
+    assert tuple(map(add, (1, 2), (3, 4))) == (4, 6)  # builtin (or ours, doesn't matter)
     assert tuple(mapr(add, (1, 2), (3, 4))) == (6, 4)
     assert tuple(rmap(add, (1, 2), (3, 4))) == (6, 4)
     assert tuple(zip((1, 2, 3), (4, 5, 6), (7, 8))) == ((1, 4, 7), (2, 5, 8))  # builtin
