@@ -12,16 +12,16 @@ from ..it import chunked
 # def _logentryexit(f):  # TODO: complete this (kwargs support), move to unpythonic.misc, and make public.
 #     """Decorator. Print a message when f is entered/exited."""
 #     @wraps(f)
-#     def log_f(*args):
-#         print("-entry-> {}, args = {}".format(f, args))
-#         ret = f(*args)
-#         print("<-exit-- {}, args = {}, ret = '{}'".format(f, args, ret))
+#     def log_f(*args, **kwargs):
+#         print("-entry-> {}, args = {}, kwargs = {}".format(f, args, kwargs))
+#         ret = f(*args, **kwargs)
+#         print("<-exit-- {}, args = {}, kwargs = {}, ret = '{}'".format(f, args, kwargs, ret))
 #         return ret
 #     return log_f
 _logentryexit = lambda f: f  # disabled  # noqa: E731
 
 def test():
-    def debug(funcname, *args):
+    def debug(funcname, *args, **kwargs):
         # print("bottom called, funcname = {}, args = {}".format(funcname, args))
         # If we return something that depends on args, then fix may have to run
         # the whole chain twice, because at the point where the cycle occurs,
@@ -37,6 +37,31 @@ def test():
     def f(k):
         return f((k + 1) % 3)
     assert f(0) is NoReturn
+
+    # kwargs test
+    @fix(debug)
+    @_logentryexit
+    def f(k):
+        # In this version we pass k by name, to test kwargs handling in @fix.
+        #
+        # TODO: #26: if we instead pass k positionally in the call here, the
+        # recursion has to run for one extra time before the cycle is detected.
+        # This is because initially (when called from the assert statement
+        # below) we have args=(), kwargs={k: 0}, whereas a positional call
+        # supplies arguments in the form args=(0,), kwargs={}. So the first set
+        # of arguments that is part of a cycle then occurs when args=(1,),
+        # kwargs={}. But now that we pass by name everywhere, we find the cycle
+        # already when we arrive at args=(), kwargs={k: 0} for the second time.
+        #
+        # At some point, we need a better way to uniquely identify a set of arguments.
+        # This also affects at least @memoize and @gmemoize (grep unpythonic for "kwargs.items").
+        #
+        # This gotcha is mentioned in the documentation of @wrapt:
+        # https://wrapt.readthedocs.io/en/latest/decorators.html#processing-function-arguments
+        # (See the paragraphs beginning "If needing to modify certain arguments..." and
+        # "You should not simply attempt to extract positional arguments...")
+        return f(k=(k + 1) % 3)
+    assert f(k=0) is NoReturn
 
     # This example enters the infinite loop at a value of k different from the
     # initial one. Note that debug() gets called twice.
@@ -68,7 +93,7 @@ def test():
     # Another use for this: find the fixed point of cosine.
     # Floats have finite precision. The iteration will converge down to the last bit.
     from math import cos
-    def justargs(funcname, *args):
+    def justargs(funcname, *args):  # bottom doesn't need to accept kwargs if we don't send it any.
         return identity(*args)  # identity unpacks if just one
     @fix(justargs)
     def cosser(x):

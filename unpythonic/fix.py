@@ -50,6 +50,7 @@ __all__ = ["fix"]
 import typing
 import threading
 from functools import wraps
+from operator import itemgetter
 
 from .fun import identity, const
 from .env import env
@@ -61,8 +62,6 @@ def _get_threadlocals():
         _L._data = env(visited=set(), cache={})
     return _L._data
 
-# - TODO: Add support for kwargs in f.
-#
 # - TODO: Can we make this call bottom at most once?
 #
 # - TODO: Figure out how to make this play together with unpythonic's TCO, to
@@ -153,24 +152,24 @@ def fix(bottom=typing.NoReturn, n=infinity, unwrap=identity):
         bottom = const(bottom)
     def decorator(f):
         @wraps(f)
-        def f_fix(*args):
+        def f_fix(*args, **kwargs):
             e = _get_threadlocals()
-            me = (f_fix, args)
+            me = (f_fix, args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
             if not e.visited:
-                value, e.cache[me] = None, bottom(f_fix.__name__, *args)
+                value, e.cache[me] = None, bottom(f_fix.__name__, *args, **kwargs)
                 count = 0
                 while count < n and value != e.cache[me]:
                     e.visited.add(me)
-                    value, e.cache[me] = e.cache[me], unwrap(f(*args))
+                    value, e.cache[me] = e.cache[me], unwrap(f(*args, **kwargs))
                     e.visited.clear()
                     count += 1
                 return value
             if me in e.visited:
                 # return e.cache.get(me, bottom(f_fix.__name__, *args)
                 # same effect, except don't compute bottom again if we don't need to.
-                return e.cache[me] if me in e.cache else bottom(f_fix.__name__, *args)
+                return e.cache[me] if me in e.cache else bottom(f_fix.__name__, *args, **kwargs)
             e.visited.add(me)
-            value = e.cache[me] = unwrap(f(*args))
+            value = e.cache[me] = unwrap(f(*args, **kwargs))
             e.visited.remove(me)
             return value
         f_fix.entrypoint = f  # just for information
