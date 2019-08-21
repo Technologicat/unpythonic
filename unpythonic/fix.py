@@ -157,18 +157,22 @@ def fix(bottom=typing.NoReturn, n=infinity, unwrap=identity):
                 value, e.cache[me] = None, bottom(f_fix.__name__, *args, **kwargs)
                 count = 0
                 while count < n and value != e.cache[me]:
-                    e.visited.add(me)
-                    value, e.cache[me] = e.cache[me], unwrap(f(*args, **kwargs))
-                    e.visited.clear()
+                    try:
+                        e.visited.add(me)
+                        value, e.cache[me] = e.cache[me], unwrap(f(*args, **kwargs))
+                    finally:
+                        e.visited.clear()
                     count += 1
                 return value
             if me in e.visited:
                 # return e.cache.get(me, bottom(f_fix.__name__, *args)
                 # same effect, except don't compute bottom again if we don't need to.
                 return e.cache[me] if me in e.cache else bottom(f_fix.__name__, *args, **kwargs)
-            e.visited.add(me)
-            value = e.cache[me] = unwrap(f(*args, **kwargs))
-            e.visited.remove(me)
+            try:
+                e.visited.add(me)
+                value = e.cache[me] = unwrap(f(*args, **kwargs))
+            finally:
+                e.visited.remove(me)
             return value
         f_fix.entrypoint = f  # just for information
         return f_fix
