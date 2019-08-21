@@ -142,8 +142,6 @@ def fix(bottom=typing.NoReturn, n=infinity, unwrap=identity):
     **CAUTION**: Currently not compatible with TCO. It'll work, but the TCO
     won't take effect, and the call stack will actually blow up faster due to
     bad interaction between `@fix` and `@trampolined`.
-
-    **CAUTION**: Currently not thread-safe.
     """
     # Being a class, typing.NoReturn is technically callable (to construct an
     # instance), but because it's an abstract class, the call raises TypeError.
