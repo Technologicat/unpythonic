@@ -273,6 +273,8 @@ def rotate(k):
             n = len(args)
             if not n:
                 raise TypeError("Expected at least one argument")
+            if not -n < k < n:  # standard semantics for negative indices
+                raise IndexError("Should have -n < k < n, but n = len(args) = {}, and k = {}".format(n, k))
             j = -k % n
             rargs = args[-j:] + args[:-j]
             return lazycall(f, *rargs, **kwargs)
@@ -577,7 +579,9 @@ def tokth(k, f):
         n = len(args)
         if not n:
             raise TypeError("Expected at least one argument")
-        j = k % n  # handle also negative values
+        if not -n < k < n:  # standard semantics for negative indices
+            raise IndexError("Should have -n < k < n, but n = len(args) = {}, and k = {}".format(n, k))
+        j = k % n
         m = j + 1
         if n < m:
             raise TypeError("Expected at least {:d} arguments, got {:d}".format(m, n))

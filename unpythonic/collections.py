@@ -654,6 +654,11 @@ def _make_negidx_converter(l):  # l: length of sequence being indexed
         if k is not None:
             if not isinstance(k, int):
                 raise TypeError("k must be int, got {} with value {}".format(type(k), k))
+            # Almost standard semantics for negative indices. Usually -l < k < l,
+            # but here we must allow for conversion of the end position, for
+            # which the last valid value is one past the end.
+            if not -l <= k <= l:
+                raise IndexError("Should have -n <= k <= n, but n = len(args) = {}, and k = {}".format(l, k))
             return apply_conversion(k) if k < 0 else k
     return convert
 
