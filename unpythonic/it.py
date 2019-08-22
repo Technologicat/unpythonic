@@ -19,7 +19,7 @@ __all__ = ["rev", "map", "map_longest",
            "unpack",
            "tail", "butlast", "butlastn",
            "first", "second", "nth", "last", "lastn",
-           "scons",
+           "scons", "pad",
            "flatten", "flatten1", "flatten_in",
            "iterate", "iterate1",
            "partition",
@@ -461,6 +461,21 @@ def scons(x, iterable):
     If you need to prepend several values, just use ``itertools.chain``.
     """
     return chain((x,), iterable)
+
+def pad(n, fillvalue, iterable):
+    """Pad iterable with copies of fillvalue so its length is at least ``n``.
+
+    Examples::
+
+        assert tuple(pad(5, None, range(3))) == (0, 1, 2, None, None)
+        assert tuple(pad(5, None, ())) == (None, None, None, None, None)
+        assert tuple(pad(5, None, range(6))) == tuple(range(6))
+    """
+    k = 0  # used if iterable is empty
+    for k, x in enumerate(iterable, start=1):
+        yield x
+    for _ in range(k, n):
+        yield fillvalue
 
 def flatten(iterable, pred=None):
     """Recursively remove nested structure from iterable.

@@ -10,7 +10,7 @@ from ..it import map, mapr, rmap, zipr, rzip, \
                  map_longest, mapr_longest, rmap_longest, \
                  zip_longest, zipr_longest, rzip_longest, \
                  first, second, nth, last, lastn, \
-                 scons, tail, butlast, butlastn, \
+                 scons, pad, tail, butlast, butlastn, \
                  flatmap, \
                  take, drop, split_at, \
                  rev, \
@@ -69,6 +69,10 @@ def test():
 
     assert tuple(scons(0, range(1, 5))) == tuple(range(5))
     assert tuple(tail(scons("foo", range(5)))) == tuple(range(5))
+
+    assert tuple(pad(5, None, range(3))) == (0, 1, 2, None, None)
+    assert tuple(pad(5, None, ())) == (None, None, None, None, None)
+    assert tuple(pad(5, None, range(6))) == tuple(range(6))
 
     assert tuple(butlast(range(5))) == (0, 1, 2, 3)
     assert tuple(butlastn(3, range(5))) == (0, 1)
