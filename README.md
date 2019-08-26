@@ -15,48 +15,48 @@ Currently none required; [MacroPy](https://github.com/azazel75/macropy) optional
 - [Basic: pure-Python](doc/features.md)
 - [Advanced: syntactic macros](macro_extras/): the second half of ``unpythonic``.
 
-### Installation
+## Installation
 
 #### PyPI
 
-`pip3 install unpythonic --user`
+``pip3 install unpythonic --user``
 
 or
 
-`sudo pip3 install unpythonic`
+``sudo pip3 install unpythonic``
 
 #### GitHub
 
 Clone (or pull) from GitHub. Then,
 
-`python3 setup.py install --user`
+``python3 setup.py install --user``
 
 or
 
-`sudo python3 setup.py install`
+``sudo python3 setup.py install``
 
 #### Uninstall
 
-Uninstallation must be invoked in a folder which has no subfolder called `unpythonic`, so that `pip` recognizes it as a package name (instead of a filename). Then,
+Uninstallation must be invoked in a folder which has no subfolder called ``unpythonic``, so that ``pip`` recognizes it as a package name (instead of a filename). Then,
 
-`pip3 uninstall unpythonic`
+``pip3 uninstall unpythonic``
 
 or
 
-`sudo pip3 uninstall unpythonic`
+``sudo pip3 uninstall unpythonic``
 
-### License
+## License
 
 2-clause [BSD](LICENSE.md).
 
 Dynamic assignment based on [StackOverflow answer by Jason Orendorff (2010)](https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python), used under CC-BY-SA. The threading support is original to our version.
 
-Core idea of `lispylet` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
+Core idea of ``lispylet`` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
 
-Core idea of `view` based on [StackOverflow answer by Mathieu Caroff (2018)](https://stackoverflow.com/a/53253136), used under the MIT license. Our additions include support for sequences with changing length, write support, iteration based on `__iter__`, in-place reverse, and the abstract base classes.
+Core idea of ``view`` based on [StackOverflow answer by Mathieu Caroff (2018)](https://stackoverflow.com/a/53253136), used under the MIT license. Our additions include support for sequences with changing length, write support, iteration based on ``__iter__``, in-place reverse, and the abstract base classes.
 
 
-### Acknowledgements
+## Acknowledgements
 
 Thanks to [TUT](http://www.tut.fi/en/home) for letting me teach [RAK-19006 in spring term 2018](https://github.com/Technologicat/python-3-scicomp-intro); early versions of parts of this library were originally developed as teaching examples for that course. Thanks to @AgenttiX for feedback.
 
@@ -65,7 +65,7 @@ The trampoline implementation of ``unpythonic.tco`` takes its remarkably clean a
 Another important source of inspiration was [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
 
 
-### Python-related FP resources
+## Python-related FP resources
 
 Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
 

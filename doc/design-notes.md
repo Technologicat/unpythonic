@@ -1,7 +1,5 @@
 # Design Notes
 
-## Contents
-
 - [On ``let`` and Python](#on-let-and-python)
 - [Python is Not a Lisp](#python-is-not-a-lisp)
 - [Assignment Syntax](#assignment-syntax)
@@ -9,7 +7,7 @@
 - [No Monads?](#wait-no-monads)
 - [Further Explanation](#your-hovercraft-is-full-of-eels)
 
-## On ``let`` and Python
+### On ``let`` and Python
 
 Why no `let*`, as a function? In Python, name lookup always occurs at runtime. Python gives us no compile-time guarantees that no binding refers to a later one - in [Racket](http://racket-lang.org/), this guarantee is the main difference between `let*` and `letrec`.
 
@@ -25,7 +23,7 @@ The [macro versions](macro_extras/) of the `let` constructs **are** lexically sc
 
 Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
 
-## Python is not a Lisp
+### Python is not a Lisp
 
 The point behind providing `let` and `begin` (and the ``let[]`` and ``do[]`` [macros](macro_extras/)) is to make Python lambdas slightly more useful - which was really the starting point for this whole experiment.
 
@@ -38,7 +36,7 @@ The oft-quoted single-expression limitation of the Python ``lambda`` is ultimate
 
 Still, ultimately one must keep in mind that Python is not a Lisp. Not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful, even though it does have a side effect.
 
-## Assignment syntax
+### Assignment syntax
 
 Why the clunky `e.set("foo", newval)` or `e << ("foo", newval)`, which do not directly mention `e.foo`? This is mainly because in Python, the language itself is not customizable. If we could define a new operator `e.foo <op> newval` to transform to `e.set("foo", newval)`, this would be easily solved.
 
@@ -55,7 +53,7 @@ If we later choose go this route nevertheless, `<<` is a better choice for the s
 
 The current solution for the assignment syntax issue is to use macros, to have both clean syntax at the use site and a relatively hackfree implementation.
 
-## TCO syntax and speed
+### TCO syntax and speed
 
 Benefits and costs of ``return jump(...)``:
 
@@ -79,7 +77,7 @@ For other libraries bringing TCO to Python, see:
  - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the original source of the approach used here.
  - [MacroPy](https://github.com/azazel75/macropy) uses an approach similar to ``fn.py``.
 
-## Wait, no monads?
+### Wait, no monads?
 
 (Beside List inside ``forall``.)
 
@@ -87,7 +85,7 @@ Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done else
 
 If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
 
-## Your hovercraft is full of eels!
+### Your hovercraft is full of eels!
 
 [Naturally](http://stupidpythonideas.blogspot.com/2015/05/spam-spam-spam-gouda-spam-and-tulips.html), they come with the territory.
 
