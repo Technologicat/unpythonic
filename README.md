@@ -6,6 +6,12 @@ We also provide extensions to the Python language as a set of [syntactic macros]
 
 Design considerations are based in simplicity, robustness, and with minimal dependencies. See our [design notes](doc/design-notes.md) for more information.
 
+#### This is semantics, not syntax!
+
+[Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``: we just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less abstruse, and close enough to convey the intended meaning.
+
+If you want custom *syntax* proper, then you may be interested in [Pydialect](https://github.com/Technologicat/pydialect).
+
 ### Dependencies
 
 Currently none required; [MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macros.
@@ -63,12 +69,6 @@ Thanks to [TUT](http://www.tut.fi/en/home) for letting me teach [RAK-19006 in sp
 The trampoline implementation of ``unpythonic.tco`` takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of the FP looping constructs.
 
 Another important source of inspiration was [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
-
-### This is semantics, not syntax!
-
-[Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``: we just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less abstruse, and close enough to convey the intended meaning.
-
-If you want custom *syntax* proper, then you may be interested in [Pydialect](https://github.com/Technologicat/pydialect).
 
 ## Python-related FP resources
 
