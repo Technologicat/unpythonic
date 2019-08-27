@@ -28,6 +28,9 @@ The `macropy3` bootstrapper takes the `-m` option, like `python3 -m mod`. The al
   - [``let_syntax``, ``abbrev``: syntactic local bindings](#let_syntax-abbrev-syntactic-local-bindings); splice code at macro expansion time.
   - [Bonus: barebones ``let``](#bonus-barebones-let): pure AST transformation of ``let`` into a ``lambda``.
 
+[**Sequencing**](#sequencing)
+  - [``do`` as a macro: stuff imperative code into an expression, *with style*](#do-as-a-macro-stuff-imperative-code-into-an-expression-with-style)
+
 [**Tools for lambdas**](#tools-for-lambdas)
   - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables.
   - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) by assignment.
