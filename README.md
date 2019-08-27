@@ -18,12 +18,12 @@ Currently none required; [MacroPy](https://github.com/azazel75/macropy) optional
 
 ### Documentation
 
-- [pure-Python](doc/features.md)
-- [syntactic macros](macro_extras/README.md): the second half of ``unpythonic``.
+- [pure-Python (basic implementation)](doc/features.md)
+- [syntactic macros (advanced implementation)](macro_extras/README.md): the second half of ``unpythonic``.
 
 ## Installation
 
-#### PyPI
+**PyPI**
 
 ``pip3 install unpythonic --user``
 
@@ -31,7 +31,7 @@ or
 
 ``sudo pip3 install unpythonic``
 
-#### GitHub
+**GitHub**
 
 Clone (or pull) from GitHub. Then,
 
@@ -41,7 +41,7 @@ or
 
 ``sudo python3 setup.py install``
 
-#### Uninstall
+**Uninstall**
 
 Uninstallation must be invoked in a folder which has no subfolder called ``unpythonic``, so that ``pip`` recognizes it as a package name (instead of a filename). Then,
 
