@@ -1,72 +1,73 @@
-# ``unpythonic.syntax``: Language extensions
+# Language extensions using ``unpythonic.syntax``
 
-These optional features, providing extensions to the Python language as syntactic macros, are built on [MacroPy](https://github.com/azazel75/macropy), from PyPI package ``macropy3``.
-If you want to take language extension a step further, see the sister project [Pydialect](https://github.com/Technologicat/pydialect).
+These optional features -- providing extensions to the Python language as syntactic macros -- are built on [MacroPy](https://github.com/azazel75/macropy), from the PyPI package ``macropy3``. If you want to take language extension a step further, see our sister project [Pydialect](https://github.com/Technologicat/pydialect).
 
-Because macro expansion occurs at import time, the unit tests that contain usage examples (located in [unpythonic/syntax/test/](../unpythonic/syntax/test/)) cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). Usage of the bootstrapper is `./macropy3 -m some.module` (like `python3 -m some.module`); see `-h` for options.
+Macro expansion occurs at import time, so the unit tests that contain usage examples (located in [unpythonic/syntax/test/](../unpythonic/syntax/test/)) cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). For convenience, ``setup.py`` installs the `macropy3` bootstrapper.
 
-The tests use relative imports; invoke them from the top-level directory of ``unpythonic`` as e.g. ``macro_extras/macropy3 -m unpythonic.syntax.test.test_curry``. This is to make the tests run against the source tree without installing it first; in your own code, once you have installed ``unpythonic``, feel free to use absolute imports, like those shown in this README.
+To use the bootstrapper, run:
+
+ `./macropy3 -m some.module` (like `python3 -m some.module`); see `-h` for options.
+
+The tests use relative imports; invoke them from the top-level directory of ``unpythonic`` as e.g.:
+
+ ``macro_extras/macropy3 -m unpythonic.syntax.test.test_curry``
+
+ This is to make the tests run against the source tree without installing it first; in your own code, once you have installed ``unpythonic``, feel free to use absolute imports, like those shown in this README.
 
 There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itself already provides ``lazy`` and ``interned``.
 
 !! **Currently** (12/2018) this requires the latest MacroPy from git HEAD. !!
 
-Of the `python3` command-line options, the `macropy3` bootstrapper supports only `-m`. If you need to give other `python3` command-line options when running a MacroPy-enabled source file, run the bootstrapper manually via `python3 ...` and place the options there.
+The `macropy3` bootstrapper takes the `-m` option, like `python3 -m mod`. The alternative is to specify a filename positionally, like ``python3 mod.py``. In either case, the bootstrapper will import the module in a special mode that pretends its `__name__ == '__main__'`, to allow using the pythonic conditional main idiom also in macro-enabled code.
 
-*Changed in v0.14.0.* The `macropy3` bootstrapper now takes the `-m` option, like `python3 -m mod`. The alternative is to specify a filename positionally, like ``python3 mod.py``. In either case, the bootstrapper will import the module in a special mode that pretends its `__name__ == '__main__'`, to allow using the pythonic conditional main idiom also in macro-enabled code. For convenience, ``setup.py`` now installs the `macropy3` bootstrapper.
+**Note: This document is up-to-date for version 0.14.1.**
 
-**Contents**:
+[**Bindings**](#bindings)
+  - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate.
+  - [``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions](#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)
+  - [``let_syntax``, ``abbrev``: syntactic local bindings](#let_syntax-abbrev-syntactic-local-bindings); splice code at macro expansion time.
+  - [Bonus: barebones ``let``](#bonus-barebones-let): pure AST transformation of ``let`` into a ``lambda``.
 
- - [**Bindings**](#bindings)
-   - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate.
-   - [``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions](#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)
-   - [``let_syntax``, ``abbrev``: syntactic local bindings](#let_syntax-abbrev-syntactic-local-bindings); splice code at macro expansion time.
-   - [Bonus: barebones ``let``](#bonus-barebones-let): pure AST transformation of ``let`` into a ``lambda``.
+[**Tools for lambdas**](#tools-for-lambdas)
+  - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables.
+  - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) by assignment.
+  - [``quicklambda``: combo with ``macropy.quick_lambda``](#quicklambda-combo-with-macropyquick_lambda)
+  - [``envify``: make formal parameters live in an unpythonic ``env``](#envify-make-formal-parameters-live-in-an-unpythonic-env)
 
- - [**Sequencing**](#sequencing)
-   - [``do`` as a macro: stuff imperative code into an expression, *with style*](#do-as-a-macro-stuff-imperative-code-into-an-expression-with-style)
-
- - [**Tools for lambdas**](#tools-for-lambdas)
-   - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables.
-   - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) by assignment.
-   - [``quicklambda``: combo with ``macropy.quick_lambda``](#quicklambda-combo-with-macropyquick_lambda)
-   - [``envify``: make formal parameters live in an unpythonic ``env``](#envify-make-formal-parameters-live-in-an-unpythonic-env)
-
- - [**Language features**](#language-features)
-   - [``curry``: automatic currying for Python](#curry-automatic-currying-for-python)
-   - [``lazify``: call-by-need for Python](#lazify-call-by-need-for-python)
-     - [Forcing promises manually](#forcing-promises-manually)
-     - [Binding constructs and auto-lazification](#binding-constructs-and-auto-lazification)
-     - [Note about TCO](#note-about-tco)
-   - [``tco``: automatic tail call optimization for Python](#tco-automatic-tail-call-optimization-for-python)
-     - [TCO and continuations](#tco-and-continuations)
-   - [``continuations``: call/cc for Python](#continuations-callcc-for-python)
-     - [Differences between ``call/cc`` and certain other language features](#differences-between-callcc-and-certain-other-language-features) (generators, exceptions)
-     - [``call_cc`` API reference](#call_cc-api-reference)
-     - [Combo notes](#combo-notes)
-     - [Continuations as an escape mechanism](#continuations-as-an-escape-mechanism)
-     - [What can be used as a continuation?](#what-can-be-used-as-a-continuation)
-     - [This isn't ``call/cc``!](#this-isnt-callcc)
-     - [Why this syntax?](#why-this-syntax)
-   - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
-   - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position), like in Lisps.
-   - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation) with monadic do-notation for Python.
-
- - [**Convenience features**](#convenience-features)
-   - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
-   - [``aif``: anaphoric if](#aif-anaphoric-if), the test result is ``it``.
-   - [``autoref``: implicitly reference attributes of an object](#autoref-implicitly-reference-attributes-of-an-object)
-   - [``dbg``: debug-print expressions with source code](#dbg-debug-print-expressions-with-source-code)
-   - *Changed in v0.13.1.* The ``fup[]`` macro is gone, and has been replaced with the ``fup`` function, with slightly changed syntax to accommodate.
-
- - [**Other**](#other)
-   - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
-
- - [**Meta**](#meta)
-   - [Comboability](#comboability)
-   - [The xmas tree combo](#the-xmas-tree-combo): notes on the macros working together.
-   - [This is semantics, not syntax!](#this-is-semantics-not-syntax)
-
+[**Language features**](#language-features)
+  - [``curry``: automatic currying for Python](#curry-automatic-currying-for-python)
+  - [``lazify``: call-by-need for Python](#lazify-call-by-need-for-python)
+    - [Forcing promises manually](#forcing-promises-manually)
+    - [Binding constructs and auto-lazification](#binding-constructs-and-auto-lazification)
+    - [Note about TCO](#note-about-tco)
+  - [``tco``: automatic tail call optimization for Python](#tco-automatic-tail-call-optimization-for-python)
+    - [TCO and continuations](#tco-and-continuations)
+  - [``continuations``: call/cc for Python](#continuations-callcc-for-python)
+    - [Differences between ``call/cc`` and certain other language features](#differences-between-callcc-and-certain-other-language-features) (generators, exceptions)
+    - [``call_cc`` API reference](#call_cc-api-reference)
+    - [Combo notes](#combo-notes)
+    - [Continuations as an escape mechanism](#continuations-as-an-escape-mechanism)
+    - [What can be used as a continuation?](#what-can-be-used-as-a-continuation)
+    - [This isn't ``call/cc``!](#this-isnt-callcc)
+    - [Why this syntax?](#why-this-syntax)
+  - [``prefix``: prefix function call syntax for Python](#prefix-prefix-function-call-syntax-for-python)
+  - [``autoreturn``: implicit ``return`` in tail position](#autoreturn-implicit-return-in-tail-position), like in Lisps.
+  - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation) with monadic do-notation for Python.
+  
+ [**Convenience features**](#convenience-features)
+  - [``cond``: the missing ``elif`` for ``a if p else b``](#cond-the-missing-elif-for-a-if-p-else-b)
+  - [``aif``: anaphoric if](#aif-anaphoric-if), the test result is ``it``.
+  - [``autoref``: implicitly reference attributes of an object](#autoref-implicitly-reference-attributes-of-an-object)
+  - [``dbg``: debug-print expressions with source code](#dbg-debug-print-expressions-with-source-code)
+  - *Changed in v0.13.1.* The ``fup[]`` macro is gone, and has been replaced with the ``fup`` function, with slightly changed syntax to accommodate.
+  
+[**Other**](#other)
+  - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
+  
+ [**Meta**](#meta)
+  - [Comboability](#comboability)
+  - [The xmas tree combo](#the-xmas-tree-combo): notes on the macros working together.
+  - [This is semantics, not syntax!](#this-is-semantics-not-syntax)
 
 ## Bindings
 
@@ -94,13 +95,13 @@ letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding
 ```
 </details>
 
-As seen in the examples, the syntax is similar to ``unpythonic.lispylet``. Assignment to variables in the environment is supported via the left-shift syntax ``x << 42``.
+As seen in the examples, the syntax is similar to [``unpythonic.lispylet``](../doc/features.md#lispylet-alternative-syntax). Assignment to variables in the environment is supported via the left-shift syntax ``x << 42``.
 
 The bindings are given as macro arguments as ``((name, value), ...)``, the body goes into the ``[...]``.
 
 #### Alternate syntaxes
 
-*Added in v0.12.0.* The following Haskell-inspired, perhaps more pythonic alternate syntaxes are now available:
+The following Haskell-inspired, perhaps more pythonic alternate syntaxes are now available:
 
 ```python
 let[((x, 21),
@@ -116,6 +117,9 @@ let[x + y + z,
 
 These syntaxes take no macro arguments; both the let-body and the bindings are placed inside the same ``[...]``.
 
+<details>
+ <summary>Further explanation for these alternatives:</summary>
+ 
 Semantically, these do the exact same thing as the original lispy syntax: the bindings are evaluated first, and then the body is evaluated with the bindings in place. The purpose of the second variant (the *let-where*) is just readability; sometimes it looks clearer to place the body expression first, and only then explain what the symbols in it mean.
 
 These syntaxes are valid for all **expression forms** of ``let``, namely: ``let[]``, ``letseq[]``, ``letrec[]``, ``let_syntax[]`` and ``abbrev[]``. The decorator variants (``dlet`` et al., ``blet`` et al.) and the block variants (``with let_syntax``, ``with abbrev``) support only the original lispy syntax, because there the body is in any case placed differently.
@@ -123,6 +127,7 @@ These syntaxes are valid for all **expression forms** of ``let``, namely: ``let[
 In the first variant above (the *let-in*), note the bindings block still needs the outer parentheses. This is due to Python's precedence rules; ``in`` binds more strongly than the comma (which makes sense almost everywhere else), so to make it refer to all of the bindings, the bindings block must be parenthesized. If the ``let`` expander complains your code does not look like a ``let`` form and you have used *let-in*, check your parentheses.
 
 In the second variant (the *let-where*), note the comma between the body and ``where``; it is compulsory to make the expression into syntactically valid Python. (It's however semi-easyish to remember, since also English requires the comma for a where-expression.)
+</details>
 
 #### Special syntax for one binding
 
