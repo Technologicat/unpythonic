@@ -65,9 +65,7 @@ The `macropy3` bootstrapper takes the `-m` option, like `python3 -m mod`. The al
   - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
   
  [**Meta**](#meta)
-  - [Comboability](#comboability)
   - [The xmas tree combo](#the-xmas-tree-combo): notes on the macros working together.
-  - [This is semantics, not syntax!](#this-is-semantics-not-syntax)
 
 ## Bindings
 
@@ -1621,7 +1619,7 @@ Obviously not intended for production use, although is very likely to work anywh
 
 Is this just a set of macros, a language extension, or a compiler for a new language that just happens to be implemented in MacroPy, à la *On Lisp*? All of the above, really.
 
-See our [notes on comboability](#../doc/design-notes.md#comboability).
+See our [notes on comboability](../doc/design-notes.md#comboability).
 
 ### The xmas tree combo
 
@@ -1656,4 +1654,4 @@ with lazify:
       ...
 ```
 
-See our [notes on macros](#../doc/design-notes.md#notes-on-macros) for more information.
+See our [notes on macros](../doc/design-notes.md#notes-on-macros) for more information.
