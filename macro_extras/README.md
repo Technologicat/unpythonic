@@ -450,7 +450,7 @@ Macros that run multiple expressions, in sequence, in place of one expression.
 
 We provide an ``expr`` macro wrapper for ``unpythonic.seq.do``, with some extra features.
 
-This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, see `cond`; for loops, see the functions in `unpythonic.fploop` (esp. `looped`).
+This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, see `cond`; for loops, see the functions in [`unpythonic.fploop`](../unpythonic/fploop.py) (esp. `looped`).
 
 ```python
 from unpythonic.syntax import macros, do, local, delete
