@@ -4,8 +4,11 @@
 - [Python is Not a Lisp](#python-is-not-a-lisp)
 - [Assignment Syntax](#assignment-syntax)
 - [TCO Syntax and Speed](#tco-syntax-and-speed)
-- [No Monads?](#wait-no-monads)
-- [Further Explanation](#your-hovercraft-is-full-of-eels)
+- [Comboability](#comboability)
+- [No Monads?](#no-monads)
+- [Further Explanation](#further-explanation)
+- [Notes on Macros](#notes-on-macros)
+- [This is Just Semantics, Not Syntax!](#this-is-just-semantics-not-syntax)
 
 ### On ``let`` and Python
 
@@ -76,8 +79,16 @@ For other libraries bringing TCO to Python, see:
  - [ActiveState recipe 474088](https://github.com/ActiveState/code/tree/master/recipes/Python/474088_Tail_Call_Optimization_Decorator), based on ``inspect``.
  - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the original source of the approach used here.
  - [MacroPy](https://github.com/azazel75/macropy) uses an approach similar to ``fn.py``.
+ 
+### Comboability
 
-### Wait, no monads?
+Making macros work together is nontrivial, essentially because *macros don't compose*. [As pointed out by John Shutt](https://fexpr.blogspot.com/2013/12/abstractive-power.html), in a multilayered language extension implemented with macros, the second layer of macros needs to understand all of the first layer. The issue is that the macro abstraction leaks the details of its expansion. Contrast with functions, which operate on values: the process that was used to arrive at a value doesn't matter. It's always possible for a function to take this value and transform it into another value, which can then be used as input for the next layer of functions. That's composability at its finest.
+
+The need for interaction between macros may arise already in what *feels* like a single layer of abstraction; for example, it's not only that the block macros must understand ``let[]``, but some of them must understand other block macros. This is because what feels like one layer of abstraction is actually implemented as a number of separate macros, which run in a specific order. Thus, from the viewpoint of actually applying the macros, if the resulting software is to work correctly, the mere act of allowing combos between the block macros already makes them into a multilayer system. The compartmentalization of conceptually separate features into separate macros facilitates understanding and maintainability, but fails to reach the ideal of modularity.
+
+Therefore, any particular combination of macros that has not been specifically tested might not work. That said, if some particular combo doesn't work and *is not at least documented as such*, that's an error; please raise an issue. The unit tests should cover the combos that on the surface seem the most useful, but there's no guarantee that they cover everything that actually is useful somewhere.
+
+### No Monads
 
 (Beside List inside ``forall``.)
 
@@ -85,7 +96,9 @@ Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done else
 
 If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
 
-### Your hovercraft is full of eels!
+### Further Explanation
+
+Your hovercraft is full of eels!
 
 [Naturally](http://stupidpythonideas.blogspot.com/2015/05/spam-spam-spam-gouda-spam-and-tulips.html), they come with the territory.
 
@@ -96,3 +109,60 @@ Of course, if I agreed, I wouldn't be doing this (or [this](https://github.com/T
 On a point raised [here](https://www.artima.com/weblogs/viewpost.jsp?thread=147358) with respect to indentation-sensitive vs. indentation-insensitive parser modes, having seen [sweet expressions](https://srfi.schemers.org/srfi-110/srfi-110.html) I think Python is confusing matters by linking the mode to statements vs. expressions. A workable solution is to make *everything* support both modes (or even preprocess the source code text to use only one of the modes), which *uniformly* makes parentheses an alternative syntax for grouping.
 
 It would be nice to be able to use indentation to structure expressions to improve their readability, like one can do in Racket with [sweet](https://docs.racket-lang.org/sweet/), but I suppose ``lambda x: [expr0, expr1, ...]`` will have to do for a multiple-expression lambda in MacroPy. Unless I decide at some point to make a source filter for [Pydialect](https://github.com/Technologicat/pydialect) to auto-convert between indentation and parentheses; but for Python this is somewhat difficult to do, because statements **must** use indentation whereas expressions **must** use parentheses, and this must be done before we can invoke the standard parser to produce an AST.
+
+### Notes on Macros
+
+ - ``continuations`` and ``tco`` are mutually exclusive, since ``continuations`` already implies TCO.
+   - However, the ``tco`` macro skips any ``with continuations`` blocks inside it, **for the specific reason** of allowing modules written in the [Lispython dialect](https://github.com/Technologicat/pydialect) (which implies TCO for the whole module) to use ``with continuations``.
+
+ - ``prefix``, ``autoreturn``, ``quicklambda`` and ``multilambda`` are first-pass macros (expand from outside in), because they change the semantics:
+   - ``prefix`` transforms things-that-look-like-tuples into function calls,
+   - ``autoreturn`` adds ``return`` statements where there weren't any,
+   - ``quicklambda`` transforms things-that-look-like-list-lookups into ``lambda`` function definitions,
+   - ``multilambda`` transforms things-that-look-like-lists (in the body of a ``lambda``) into sequences of multiple expressions, using ``do[]``.
+   - Hence, a lexically outer block of one of these types *will expand first*, before any macros inside it are expanded, in contrast to the default *from inside out* expansion order.
+   - This yields clean, standard-ish Python for the rest of the macros, which then don't need to worry about their input meaning something completely different from what it looks like.
+
+ - An already expanded ``do[]`` (including that inserted by `multilambda`) is accounted for by all ``unpythonic.syntax`` macros when handling expressions.
+   - For simplicity, this is **the only** type of sequencing understood by the macros.
+   - E.g. the more rudimentary ``unpythonic.seq.begin`` is not treated as a sequencing operation. This matters especially in ``tco``, where it is critically important to correctly detect a tail position in a return-value expression or (multi-)lambda body.
+   - *Sequencing* is here meant in the Racket/Haskell sense of *running sub-operations in a specified order*, unrelated to Python's *sequences*.
+
+ - The TCO transformation knows about TCO-enabling decorators provided by ``unpythonic``, and adds the ``@trampolined`` decorator to a function definition only when it is not already TCO'd.
+   - This applies also to lambdas; they are decorated by directly wrapping them with a call: ``trampolined(lambda ...: ...)``.
+   - This allows ``with tco`` to work together with the functions in ``unpythonic.fploop``, which imply TCO.
+
+ - Macros that transform lambdas (notably ``continuations`` and ``tco``):
+   - Perform a first pass to take note of all lambdas that appear in the code *before the expansion of any inner macros*. Then in the second pass, *after the expansion of all inner macros*, only the recorded lambdas are transformed.
+     - This mechanism distinguishes between explicit lambdas in the client code, and internal implicit lambdas automatically inserted by a macro. The latter are a technical detail that should not undergo the same transformations as user-written explicit lambdas.
+     - The identification is based on the ``id`` of the AST node instance. Hence, if you plan to write your own macros that work together with those in ``unpythonic.syntax``, avoid going overboard with FP. Modifying the tree in-place, preserving the original AST node instances as far as sensible, is just fine.
+     - For the interested reader, grep the source code for ``userlambdas``.
+   - Support a limited form of *decorated lambdas*, i.e. trees of the form ``f(g(h(lambda ...: ...)))``.
+     - The macros will reorder a chain of lambda decorators (i.e. nested calls) to use the correct ordering, when only known decorators are used on a literal lambda.
+       - This allows some combos such as ``tco``, ``unpythonic.fploop.looped``, ``curry``.
+     - Only decorators provided by ``unpythonic`` are recognized, and only some of them are supported. For details, see ``unpythonic.regutil``.
+     - If you need to combo ``unpythonic.fploop.looped`` and ``unpythonic.ec.call_ec``, use ``unpythonic.fploop.breakably_looped``, which does exactly that.
+       - The problem with a direct combo is that the required ordering is the trampoline (inside ``looped``) outermost, then ``call_ec``, and then the actual loop, but because an escape continuation is only valid for the dynamic extent of the ``call_ec``, the whole loop must be run inside the dynamic extent of the ``call_ec``.
+       - ``unpythonic.fploop.breakably_looped`` internally inserts the ``call_ec`` at the right step, and gives you the ec as ``brk``.
+     - For the interested reader, look at ``unpythonic.syntax.util``.
+
+ - ``namedlambda`` is a two-pass macro. In the first pass (outside-in), it names lambdas inside ``let[]`` expressions before they are expanded away. The second pass (inside-out) of ``namedlambda`` must run after ``curry`` to analyze and transform the auto-curried code produced by ``with curry``. In most cases, placing ``namedlambda`` in a separate outer ``with`` block runs both operations in the correct order.
+
+ - ``autoref`` does not need in its output to be curried (hence after ``curry`` to gain some performance), but needs to run before ``lazify``, so that both branches of each transformed reference get the implicit forcing. Its transformation is orthogonal to what ``namedlambda`` does, so it does not matter in which exact order these two run.
+
+ - ``lazify`` is a rather invasive rewrite that needs to see the output from most of the other macros.
+
+ - ``envify`` needs to see the output of ``lazify`` in order to shunt function args into an unpythonic ``env`` without triggering the implicit forcing.
+
+ - Some of the block macros can be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``curry`` and ``namedlambda``) require their own ``with`` statement.
+   - This is a [known issue in MacroPy](https://github.com/azazel75/macropy/issues/21). I have made a [fix](https://github.com/azazel75/macropy/pull/22), but still need to make proper test cases to get it merged.
+   - If something goes wrong in the expansion of one block macro in a ``with`` statement that specifies several block macros, surprises may occur.
+   - When in doubt, use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks.
+     - Test one step at a time with the ``macropy.tracing.show_expanded`` block macro to make sure the expansion looks like what you intended.
+
+
+### This is semantics, not syntax!
+
+[Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``: we just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less abstruse, and close enough to convey the intended meaning.
+
+If you want custom *syntax* proper, then you may be interested in [Pydialect](https://github.com/Technologicat/pydialect).
