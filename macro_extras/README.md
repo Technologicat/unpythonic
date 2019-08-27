@@ -987,9 +987,9 @@ with continuations:
     print(fail())
     print(fail())
 ```
-
+Code within a ``with continuations`` block is treated specially. 
 <details>
- <summary>Code within a ``with continuations`` block is treated specially. Roughly:</summary>
+ <summary>Roughly:</summary>
 
 > - Each function definition (``def`` or ``lambda``) in a ``with continuations`` block has an implicit formal parameter ``cc``, **even if not explicitly declared** in the formal parameter list.
 >   - The continuation machinery will set the default value of ``cc`` to the default continuation (``identity``), which just returns its arguments.
