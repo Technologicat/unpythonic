@@ -6,7 +6,7 @@ We also provide extensions to the Python language as a set of [syntactic macros]
 
 Design considerations are based in simplicity, robustness, and with minimal dependencies. See our [design notes](doc/design-notes.md) for more information.
 
-#### This is semantics, not syntax!
+**This is semantics, not syntax!**
 
 [Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``: we just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less abstruse, and close enough to convey the intended meaning.
 
