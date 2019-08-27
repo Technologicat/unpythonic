@@ -1,5 +1,16 @@
 # Design Notes
 
+# A collapsible section with markdown
+<details>
+  <summary>Click to expand!</summary>
+  
+  ## Heading
+  1. A numbered
+  2. list
+     * With some
+     * Sub bullets
+</details>
+
 - [On ``let`` and Python](#on-let-and-python)
 - [Python is Not a Lisp](#python-is-not-a-lisp)
 - [Assignment Syntax](#assignment-syntax)
