@@ -73,8 +73,7 @@ Macros that introduce new ways to bind identifiers.
 
 ### ``let``, ``letseq``, ``letrec`` as macros
 
-<details>
- <summary>Properly lexically scoped ``let`` constructs, no boilerplate:</summary>
+Properly lexically scoped ``let`` constructs, no boilerplate:
 
 ```python
 from unpythonic.syntax import macros, let, letseq, letrec
@@ -91,7 +90,6 @@ letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding
        (oddp,  lambda x: (x != 0) and evenp(x - 1)))[
          print(evenp(42))]
 ```
-</details>
 
 As seen in the examples, the syntax is similar to [``unpythonic.lispylet``](../doc/features.md#lispylet-alternative-syntax). Assignment to variables in the environment is supported via the left-shift syntax ``x << 42``.
 
@@ -116,7 +114,7 @@ let[x + y + z,
 These syntaxes take no macro arguments; both the let-body and the bindings are placed inside the same ``[...]``.
 
 <details>
- <summary>Further explanation for these alternatives:</summary>
+ <summary>Expand for further explanation:</summary>
  
 Semantically, these do the exact same thing as the original lispy syntax: the bindings are evaluated first, and then the body is evaluated with the bindings in place. The purpose of the second variant (the *let-where*) is just readability; sometimes it looks clearer to place the body expression first, and only then explain what the symbols in it mean.
 
@@ -129,9 +127,11 @@ In the second variant (the *let-where*), note the comma between the body and ``w
 
 #### Special syntax for one binding
 
-*Added in v0.12.0.* If there is only one binding, to make the syntax more pythonic, the outer parentheses may be omitted in the bindings block of the **expr forms** of ``let``, ``letseq``, ``letrec``, ``let_syntax`` and ``abbrev``.
+If there is only one binding, to make the syntax more pythonic, the outer parentheses may be omitted in the bindings block of the **expr forms** of:
 
-*Changed in v0.13.0.* Now supported also by the bindings block of ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq`` and ``bletrec``.
+- ``let``, ``letseq``, ``letrec``
+- ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``
+- ``let_syntax``, ``abbrev``
 
 ```python
 let(x, 21)[2*x]
@@ -141,11 +141,11 @@ let[2*x, where(x, 21)]
 
 This is valid also in the *let-in* variant, because there is still one set of parentheses enclosing the bindings block.
 
-This is essentially special-cased in the ``let`` expander. (If interested in the technical details, look at ``unpythonic.syntax.letdoutil.UnexpandedLetView``, which performs the destructuring. See also ``unpythonic.syntax.__init__.let``; MacroPy itself already destructures the original lispy syntax when the macro is invoked.)
+This is essentially special-cased in the ``let`` expander. (If interested in the technical details, look at [``unpythonic.syntax.letdoutil.UnexpandedLetView``](../unpythonic/syntax/letdoutil.py), which performs the destructuring. See also [``unpythonic.syntax.__init__.let``](../unpythonic/syntax/__init__.py); MacroPy itself already destructures the original lispy syntax when the macro is invoked.)
 
 #### Multiple expressions in body
 
-*Added in v0.9.2.* The `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body (like in `multilambda`; see below):
+The `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body (like in `multilambda`; see below):
 
 ```python
 let((x, 1),
