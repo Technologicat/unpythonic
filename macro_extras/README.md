@@ -223,7 +223,7 @@ Hence the ``z`` in the inner scope expands to the inner environment's ``z``, whi
 
 ### ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions
 
-*Added in v0.10.4.* Similarly to ``let``, ``letseq``, ``letrec``, these sugar the corresponding ``unpythonic.lispylet`` constructs, with the ``dletseq`` and ``bletseq`` constructs existing only as macros (expanding to nested ``dlet`` or ``blet``, respectively).
+Similar to ``let``, ``letseq``, ``letrec``, these sugar the corresponding ``unpythonic.lispylet`` constructs, with the ``dletseq`` and ``bletseq`` constructs existing only as macros (expanding to nested ``dlet`` or ``blet``, respectively).
 
 Lexical scoping is respected; each environment is internally named using a gensym. Nesting is allowed.
 
@@ -332,7 +332,7 @@ else:
 
 ### ``let_syntax``, ``abbrev``: syntactic local bindings
 
-*Added in v0.11.0.* Locally splice code at macro expansion time (it's almost like inlining functions):
+Locally splice code at macro expansion time (it's almost like inlining functions):
 
 ```python
 from unpythonic.syntax import macros, let_syntax, block, expr
@@ -388,35 +388,41 @@ with let_syntax:
 
 After macro expansion completes, ``let_syntax`` has zero runtime overhead; it completely disappears in macro expansion.
 
-There are two kinds of substitutions: *bare name* and *template*. A bare name substitution has no parameters. A template substitution has positional parameters. (Named parameters, ``*args``, ``**kwargs`` and default values are currently **not** supported.)
-
-When used as an expr macro, the formal parameter declaration is placed where it belongs; on the name side (LHS) of the binding. In the above example, ``f(a)`` is a template with a formal parameter ``a``. But when used as a block macro, the formal parameters are declared on the ``block`` or ``expr`` "context manager" due to syntactic limitations of Python. To define a bare name substitution, just use ``with block as ...:`` or ``with expr as ...:`` with no arguments.
-
-In the body of ``let_syntax``, a bare name substitution is invoked by name (just like a variable). A template substitution is invoked like a function call. Just like in an actual function call, when the template is substituted, any instances of its formal parameters in the definition get replaced by the argument values from the "call" site; but ``let_syntax`` performs this at macro-expansion time, and the "value" is a snippet of code.
-
-Note each instance of the same formal parameter (in the definition) gets a fresh copy of the corresponding argument value. In other words, in the example above, each ``a`` in the body of ``twice`` separately expands to a copy of whatever code was given as the positional argument ``a``.
-
-When used as a block macro, there are furthermore two capture modes: *block of statements*, and *single expression*. (The single expression can be an explicit ``do[]`` if multiple expressions are needed.) When invoking substitutions, keep in mind Python's usual rules regarding where statements or expressions may appear.
-
-(If you know about Python ASTs, don't worry about the ``ast.Expr`` wrapper needed to place an expression in a statement position; this is handled automatically.)
+<details>
+<summary> Expand for further explanation </summary>
+ 
+>There are two kinds of substitutions: *bare name* and *template*. A bare name substitution has no parameters. A template substitution has positional parameters. (Named parameters, ``*args``, ``**kwargs`` and default values are currently **not** supported.)
+>
+>When used as an expr macro, the formal parameter declaration is placed where it belongs; on the name side (LHS) of the binding. In the above example, ``f(a)`` is a template with a formal parameter ``a``. But when used as a block macro, the formal parameters are declared on the ``block`` or ``expr`` "context manager" due to syntactic limitations of Python. To define a bare name substitution, just use ``with block as ...:`` or ``with expr as ...:`` with no arguments.
+>
+>In the body of ``let_syntax``, a bare name substitution is invoked by name (just like a variable). A template substitution is invoked like a function call. Just like in an actual function call, when the template is substituted, any instances of its formal parameters in the definition get replaced by the argument values from the "call" site; but ``let_syntax`` performs this at macro-expansion time, and the "value" is a snippet of code.
+>
+>Note each instance of the same formal parameter (in the definition) gets a fresh copy of the corresponding argument value. In other words, in the example above, each ``a`` in the body of ``twice`` separately expands to a copy of whatever code was given as the positional argument ``a``.
+>
+>When used as a block macro, there are furthermore two capture modes: *block of statements*, and *single expression*. (The single expression can be an explicit ``do[]`` if multiple expressions are needed.) When invoking substitutions, keep in mind Python's usual rules regarding where statements or expressions may appear.
+>
+>(If you know about Python ASTs, don't worry about the ``ast.Expr`` wrapper needed to place an expression in a statement position; this is handled automatically.)
+</details>
 
 **HINT**: If you get a compiler error that some sort of statement was encountered where an expression was expected, check your uses of ``let_syntax``. The most likely reason is that a substitution is trying to splice a block of statements into an expression position.
 
-Expansion of ``let_syntax`` is a two-step process:
+<details>
+ <summary> Expansion of ``let_syntax`` is a two-step process: </summary>
 
-  - First, template substitutions.
-  - Then, bare name substitutions, applied to the result of the first step.
+>  - First, template substitutions.
+>  - Then, bare name substitutions, applied to the result of the first step.
+>
+>This design is to avoid accidental substitutions into formal parameters of templates (that would usually break the template, resulting at best in a mysterious error, and at worst silently doing something unexpected), if the name of a formal parameter happens to match one of the currently active bare name substitutions.
+>
+>Within each step, the substitutions are applied **in definition order**:
+>
+>  - If the bindings are ``((x, y), (y, z))``, then an ``x`` at the use site transforms to ``z``. So does a ``y`` at the use site.
+>  - But if the bindings are ``((y, z), (x, y))``, then an ``x`` at the use site transforms to ``y``, and only an explicit ``y`` at the use site transforms to ``z``.
+>
+>Even in block templates, arguments are always expressions, because invoking a template uses the function-call syntax. But names and calls are expressions, so a previously defined substitution (whether bare name or an invocation of a template) can be passed as an argument just fine. Definition order is then important; consult the rules above.
+</details>
 
-This design is to avoid accidental substitutions into formal parameters of templates (that would usually break the template, resulting at best in a mysterious error, and at worst silently doing something unexpected), if the name of a formal parameter happens to match one of the currently active bare name substitutions.
-
-Within each step, the substitutions are applied **in definition order**:
-
-  - If the bindings are ``((x, y), (y, z))``, then an ``x`` at the use site transforms to ``z``. So does a ``y`` at the use site.
-  - But if the bindings are ``((y, z), (x, y))``, then an ``x`` at the use site transforms to ``y``, and only an explicit ``y`` at the use site transforms to ``z``.
-
-Even in block templates, arguments are always expressions, because invoking a template uses the function-call syntax. But names and calls are expressions, so a previously defined substitution (whether bare name or an invocation of a template) can be passed as an argument just fine. Definition order is then important; consult the rules above.
-
-It is allowed to nest ``let_syntax``. Lexical scoping is supported (inner definitions of substitutions shadow outer ones).
+Nesting ``let_syntax`` is allowed. Lexical scoping is supported (inner definitions of substitutions shadow outer ones).
 
 When used as an expr macro, all bindings are registered first, and then the body is evaluated. When used as a block macro, a new binding (substitution declaration) takes effect from the next statement onward, and remains active for the lexically remaining part of the ``with let_syntax:`` block.
 
@@ -446,11 +452,9 @@ This was inspired by Racket's [``let-syntax``](https://docs.racket-lang.org/refe
 
 As a bonus, we provide classical simple ``let`` and ``letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, this version of ``letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``let`` expressions, which expand to lambdas.
 
-These are provided as a curiosity, and not designed to work together with the rest of the macros; for that, use the above ``let``, ``letseq`` and ``letrec`` from the module ``unpythonic.syntax``.
+These are provided in the separate module ``unpythonic.syntax.simplelet``, and are imported:
 
-*Changed in v0.11.0.* The barebones constructs now live in the separate module ``unpythonic.syntax.simplelet``, and are imported like ``from unpythonic.syntax.simplelet import macros, let, letseq``.
-
-
+``from unpythonic.syntax.simplelet import macros, let, letseq``.
 
 ## Sequencing
 
