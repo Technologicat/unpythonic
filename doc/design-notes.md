@@ -8,7 +8,7 @@
 - [No Monads?](#no-monads)
 - [Further Explanation](#further-explanation)
 - [Notes on Macros](#notes-on-macros)
-- [This is Just Semantics, Not Syntax!](#this-is-just-semantics-not-syntax)
+- [This is Semantics, Not Syntax!](#this-is-semantics-not-syntax)
 
 ### On ``let`` and Python
 
