@@ -117,11 +117,11 @@ These syntaxes take no macro arguments; both the let-body and the bindings are p
 <summary>Expand for further explanation </summary>
  
 >Semantically, these do the exact same thing as the original lispy syntax: the bindings are evaluated first, and then the body is evaluated with the bindings in place. The purpose of the second variant (the *let-where*) is just readability; sometimes it looks clearer to place the body expression first, and only then explain what the symbols in it mean.
-
+>
 >These syntaxes are valid for all **expression forms** of ``let``, namely: ``let[]``, ``letseq[]``, ``letrec[]``, ``let_syntax[]`` and ``abbrev[]``. The decorator variants (``dlet`` et al., ``blet`` et al.) and the block variants (``with let_syntax``, ``with abbrev``) support only the original lispy syntax, because there the body is in any case placed differently.
-
+>
 >In the first variant above (the *let-in*), note the bindings block still needs the outer parentheses. This is due to Python's precedence rules; ``in`` binds more strongly than the comma (which makes sense almost everywhere else), so to make it refer to all of the bindings, the bindings block must be parenthesized. If the ``let`` expander complains your code does not look like a ``let`` form and you have used *let-in*, check your parentheses.
-
+>
 >In the second variant (the *let-where*), note the comma between the body and ``where``; it is compulsory to make the expression into syntactically valid Python. (It's however semi-easyish to remember, since also English requires the comma for a where-expression.)
 </details>
 
@@ -141,11 +141,11 @@ let[2*x, where(x, 21)]
 
 This is valid also in the *let-in* variant, because there is still one set of parentheses enclosing the bindings block.
 
-This is essentially special-cased in the ``let`` expander. (If interested in the technical details, look at [``unpythonic.syntax.letdoutil.UnexpandedLetView``](../unpythonic/syntax/letdoutil.py), which performs the destructuring. See also [``unpythonic.syntax.__init__.let``](../unpythonic/syntax/__init__.py); MacroPy itself already destructures the original lispy syntax when the macro is invoked.)
+This is essentially special-cased in the ``let`` expander. (If interested in the technical details, look at ``unpythonic.syntax.letdoutil.UnexpandedLetView``, which performs the destructuring. See also ``unpythonic.syntax.__init__.let``; MacroPy itself already destructures the original lispy syntax when the macro is invoked.)
 
 #### Multiple expressions in body
 
-The `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body (like in `multilambda`; see below):
+The `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body (like in [`multilambda`](#multilambda-supercharge-your-lambdas)):
 
 ```python
 let((x, 1),
