@@ -12,8 +12,8 @@ Currently none required; [MacroPy](https://github.com/azazel75/macropy) optional
 
 ### Documentation
 
-- [Basic: pure-Python](doc/features.md)
-- [Advanced: syntactic macros](macro_extras/): the second half of ``unpythonic``.
+- [pure-Python](doc/features.md)
+- [syntactic macros](macro_extras/README.md): the second half of ``unpythonic``.
 
 ## Installation
 
@@ -64,6 +64,11 @@ The trampoline implementation of ``unpythonic.tco`` takes its remarkably clean a
 
 Another important source of inspiration was [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
 
+### This is semantics, not syntax!
+
+[Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``: we just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less abstruse, and close enough to convey the intended meaning.
+
+If you want custom *syntax* proper, then you may be interested in [Pydialect](https://github.com/Technologicat/pydialect).
 
 ## Python-related FP resources
 
