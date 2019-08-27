@@ -74,7 +74,8 @@ Macros that introduce new ways to bind identifiers.
 
 ### ``let``, ``letseq``, ``letrec`` as macros
 
-Properly lexically scoped ``let`` constructs, no boilerplate:
+<details>
+ <summary>Properly lexically scoped ``let`` constructs, no boilerplate:</summary>
 
 ```python
 from unpythonic.syntax import macros, let, letseq, letrec
@@ -91,6 +92,7 @@ letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding
        (oddp,  lambda x: (x != 0) and evenp(x - 1)))[
          print(evenp(42))]
 ```
+</details>
 
 As seen in the examples, the syntax is similar to ``unpythonic.lispylet``. Assignment to variables in the environment is supported via the left-shift syntax ``x << 42``.
 
