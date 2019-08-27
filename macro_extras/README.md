@@ -22,6 +22,8 @@ The `macropy3` bootstrapper takes the `-m` option, like `python3 -m mod`. The al
 
 **Note: This document is up-to-date for version 0.14.1.**
 
+-----
+
 [**Bindings**](#bindings)
   - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate.
   - [``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions](#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)
