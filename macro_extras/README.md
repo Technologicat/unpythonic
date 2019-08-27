@@ -114,7 +114,7 @@ let[x + y + z,
 These syntaxes take no macro arguments; both the let-body and the bindings are placed inside the same ``[...]``.
 
 <details>
- <summary>Expand for further explanation:</summary>
+ <summary>**Expand for further explanation:**</summary>
  
 Semantically, these do the exact same thing as the original lispy syntax: the bindings are evaluated first, and then the body is evaluated with the bindings in place. The purpose of the second variant (the *let-where*) is just readability; sometimes it looks clearer to place the body expression first, and only then explain what the symbols in it mean.
 
