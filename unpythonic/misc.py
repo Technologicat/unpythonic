@@ -2,7 +2,7 @@
 """Miscellaneous constructs."""
 
 __all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer",
-           "getattrrec", "setattrrec", "Popper", "ulp"]
+           "getattrrec", "setattrrec", "Popper", "CountingIterator", "ulp"]
 
 from types import LambdaType, FunctionType, CodeType
 from time import time
@@ -439,6 +439,21 @@ class Popper:
         if self.seq:
             return self._pop()
         raise StopIteration
+
+class CountingIterator:
+    """Iterator that counts how many elements it has yielded.
+
+    The count stops updating when the original iterable raises StopIteration.
+    """
+    def __init__(self, iterable):
+        self._it = iter(iterable)
+        self.count = 0
+    def __iter__(self):
+        return self
+    def __next__(self):
+        x = next(self._it)  # let StopIteration propagate
+        self.count += 1
+        return x
 
 def ulp(x):  # Unit in the Last Place
     eps = float_info.epsilon

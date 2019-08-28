@@ -5,7 +5,8 @@ from functools import partial
 from collections import deque
 from sys import float_info
 
-from ..misc import call, callwith, raisef, pack, namelambda, timer, getattrrec, setattrrec, Popper, ulp
+from ..misc import call, callwith, raisef, pack, namelambda, timer, \
+                   getattrrec, setattrrec, Popper, CountingIterator, ulp
 from ..fun import withself
 
 def test():
@@ -163,6 +164,20 @@ def test():
         out.append(x)
     assert inp == []
     assert out == list(range(5))
+
+    # iterator that counts how many items have been yielded (as a side effect)
+    inp = range(5)
+    it = CountingIterator(inp)
+    assert it.count == 0
+    _ = list(it)
+    assert it.count == 5
+
+    inp = range(5)
+    it = CountingIterator(inp)
+    assert it.count == 0
+    for k, _ in enumerate(it, start=1):
+        assert it.count == k
+    assert it.count == 5
 
     # Unit in the Last Place, float utility
     # https://en.wikipedia.org/wiki/Unit_in_the_last_place
