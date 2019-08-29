@@ -7,31 +7,22 @@ import threading
 from collections import ChainMap
 from collections.abc import Container, Sized, Iterable, Mapping
 
-# Each new thread, when spawned, inherits the contents of the main thread's
-# dynamic scope stack.
-#
-# TODO: could be a useful pattern. Extract as MainThreadInheritingThreadingLocal?
-#
-# TODO: preferable to use the parent thread's current stack, but difficult to get.
-# Could monkey-patch threading.Thread.__init__ to record this information in self...
-class MyLocal(threading.local):  # see help(_threading_local)
-    initialized = False
-    def __init__(self, **kw):
-        if self.initialized:
-            raise SystemError('__init__ called too many times')
-        self.initialized = True
-        self.__dict__.update(kw)
-
 # LEG rule for dynvars: allow a global definition with make_dynvar(a=...)
 _global_dynvars = {}
 
+_L = threading.local()
+
 _mainthread_stack = []
-_L = MyLocal(default_stack=_mainthread_stack)
 def _getstack():
     if threading.current_thread() is threading.main_thread():
         return _mainthread_stack
     if not hasattr(_L, "_stack"):
-        _L._stack = _L.default_stack.copy()  # copy main thread's current stack
+        # Each new thread, when spawned, inherits the contents of the main thread's
+        # dynamic scope stack.
+        #
+        # TODO: preferable to use the parent thread's current stack, but difficult to get.
+        # Could monkey-patch threading.Thread.__init__ to record this information in self...
+        _L._stack = _mainthread_stack.copy()
     return _L._stack
 
 def _getobservers():
