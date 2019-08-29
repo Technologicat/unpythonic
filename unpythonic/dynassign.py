@@ -13,6 +13,7 @@ _global_dynvars = {}
 _L = threading.local()
 
 _mainthread_stack = []
+_mainthread_lock = threading.RLock()
 def _getstack():
     if threading.current_thread() is threading.main_thread():
         return _mainthread_stack
@@ -22,7 +23,8 @@ def _getstack():
         #
         # TODO: preferable to use the parent thread's current stack, but difficult to get.
         # Could monkey-patch threading.Thread.__init__ to record this information in self...
-        _L._stack = _mainthread_stack.copy()
+        with _mainthread_lock:
+            _L._stack = _mainthread_stack.copy()
     return _L._stack
 
 def _getobservers():
@@ -168,10 +170,18 @@ class _Env(object):
         caution applies. Use carefully, if at all.
         """
         # validate, and resolve scopes (let AttributeError propagate)
-        scopes = {k: self._resolve(k) for k in bindings}
-        for k, v in bindings.items():
-            scope = scopes[k]
-            scope[k] = v
+        def doit():
+            scopes = {k: self._resolve(k) for k in bindings}
+            for k, v in bindings.items():
+                scope = scopes[k]
+                scope[k] = v
+        # If we're the main thread, any new threads spawned will copy our scope stack
+        # in whatever state it happens to be in. Make the update atomic.
+        if threading.current_thread() is threading.main_thread():
+            with _mainthread_lock:
+                doit()
+        else:
+            doit()
 
     # membership test (in, not in)
     def __contains__(self, name):
