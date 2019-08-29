@@ -70,6 +70,46 @@ def test():
         assert noimplicits(dyn.items()) == (("a", 1), ("b", 2))
     assert noimplicits(dyn.items()) == ()
 
+    # update existing dynamic bindings (by mutation)
+    D2 = {"c": 3, "d": 4}
+    with dyn.let(**D):
+        with dyn.let(**D2):
+            assert noimplicits(dyn.items()) == (("a", 1), ("b", 2), ("c", 3), ("d", 4))
+            dyn.c = 23
+            assert noimplicits(dyn.items()) == (("a", 1), ("b", 2), ("c", 23), ("d", 4))
+            dyn.a = 42  # update occurs in the nearest enclosing dynamic scope that has the name bound
+            assert noimplicits(dyn.items()) == (("a", 42), ("b", 2), ("c", 23), ("d", 4))
+            try:
+                dyn.e = 5
+            except AttributeError:
+                pass
+            else:
+                assert False, "trying to update an unbound dynamic variable should be an error"
+        assert noimplicits(dyn.items()) == (("a", 42), ("b", 2))
+    assert noimplicits(dyn.items()) == ()
+
+    # update in the presence of shadowing
+    with dyn.let(**D):
+        with dyn.let(**D):
+            assert noimplicits(dyn.items()) == (("a", 1), ("b", 2))
+            dyn.a = 42
+            assert noimplicits(dyn.items()) == (("a", 42), ("b", 2))
+        # the inner "a" was updated, the outer one remains untouched
+        assert noimplicits(dyn.items()) == (("a", 1), ("b", 2))
+    assert noimplicits(dyn.items()) == ()
+
+    # mass update
+    with dyn.let(**D):
+        with dyn.let(**D2):
+            assert noimplicits(dyn.items()) == (("a", 1), ("b", 2), ("c", 3), ("d", 4))
+            dyn.update(a=-1, b=-2, c=-3, d=-4)
+            assert noimplicits(dyn.items()) == (("a", -1), ("b", -2), ("c", -3), ("d", -4))
+        assert noimplicits(dyn.items()) == (("a", -1), ("b", -2))
+        dyn.update(a=10, b=20)
+        assert noimplicits(dyn.items()) == (("a", 10), ("b", 20))
+    assert noimplicits(dyn.items()) == ()
+
+    # default values
     make_dynvar(im_always_there=True)
     with dyn.let(a=1, b=2):
         assert noimplicits(dyn.items()) == (("a", 1), ("b", 2),

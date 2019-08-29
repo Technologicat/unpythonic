@@ -7,7 +7,7 @@ import threading
 from collections import ChainMap
 from collections.abc import Container, Sized, Iterable, Mapping
 
-# LEG rule for dynvars: allow a global definition with make_dynvar(a=...)
+# LEG rule for dynvars: allow a global definition (shared between threads) with make_dynvar(a=...)
 _global_dynvars = {}
 
 _L = threading.local()
@@ -55,15 +55,14 @@ class _DynLiveView(ChainMap):
         self.maps = list(reversed(_getstack())) + [_global_dynvars]
 
 class _Env(object):
-    """This module exports a single object instance, ``dyn``, which provides
-    dynamic assignment (like Racket's ``parameterize``; akin to Common Lisp's
-    special variables).
+    """This module exports a singleton, ``dyn``, which provides dynamic assignment
+    (like Racket's ``parameterize``; akin to Common Lisp's special variables.).
 
     For implicitly passing stuff through several layers of function calls,
     in cases where a lexical closure is not the right tool for the job
     (i.e. when some of the functions are defined elsewhere in the code).
 
-      - Dynamic variables are set by ``with dyn.let()``.
+      - Dynamic variables are introduced by ``with dyn.let()``.
 
       - The created dynamic variables exist while the with block is executing,
         and fall out of scope when the with block exits. (I.e. dynamic variables
@@ -76,6 +75,12 @@ class _Env(object):
       - Additionally, there is one global dynamic scope, shared between all
         threads, that can be used to set default values for dynamic variables.
         See ``make_dynvar``.
+
+      - An existing dynamic variable ``x`` can be mutated by assigning to ``dyn.x``,
+        or by calling ``dyn.update(x=...)`` (syntax similar to ``let``, for mass updates).
+        The variable is mutated in the nearest enclosing dynamic scope that has that
+        name bound. If the name is not bound in any dynamic scope, ``AttributeError``
+        is raised.
 
     Similar to (parameterize) in Racket.
 
@@ -104,26 +109,69 @@ class _Env(object):
 
     https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python
     """
-    def __getattr__(self, name):
-        # Essentially asdict() and look up, but without creating the ChainMap every time.
+    def _resolve(self, name):
+        # Essentially asdict() and look up, but without creating the ChainMap
+        # every time _resolve() is called.
         for scope in reversed(_getstack()):
             if name in scope:
-                return scope[name]
+                return scope
         if name in _global_dynvars:  # default value from make_dynvar
-            return _global_dynvars[name]
+            return _global_dynvars
         raise AttributeError("dynamic variable '{:s}' is not defined".format(name))
+
+    def __getattr__(self, name):
+        """Read the value of a dynamic binding."""
+        scope = self._resolve(name)
+        return scope[name]
+
+    def __setattr__(self, name, value):
+        """Update an existing dynamic binding.
+
+        The update occurs in the closest enclosing dynamic scope that has
+        ``name`` bound.
+
+        If the name cannot be found in any dynamic scope, ``AttributeError`` is
+        raised.
+
+        **CAUTION**: Use carefully, if at all. Stealth updates of dynamic
+        variables defined in enclosing dynamic scopes can destroy readability.
+        """
+        scope = self._resolve(name)
+        scope[name] = value
 
     def let(self, **bindings):
         """Introduce dynamic bindings.
 
         Context manager; usage is ``with dyn.let(name=value, ...):``
 
+        When binding a name that already exists in an enclosing dynamic scope,
+        the inner binding shadows the enclosing one for the dynamic extent of
+        the ``with dyn.let``.
+
+        This dynamic binding is the main advantage of dynamic assignment,
+        as opposed to simple global variables.
+
         See ``dyn``.
         """
         return _EnvBlock(bindings)
 
-    def __setattr__(self, name, value):
-        raise AttributeError("dynamic variables can only be set using 'with dyn.let()'")
+    def update(self, **bindings):
+        """Mass-update existing dynamic bindings.
+
+        For each binding, the update occurs in the closest enclosing dynamic
+        scope that has a binding with that name.
+
+        If at least one of the names cannot be found in any dynamic scope, the
+        update is canceled (without changes) and ``AttributeError`` is raised.
+
+        **CAUTION**: Like ``__setattr__``, but for mass updates, so the same
+        caution applies. Use carefully, if at all.
+        """
+        # validate, and resolve scopes (let AttributeError propagate)
+        scopes = {k: self._resolve(k) for k in bindings}
+        for k, v in bindings.items():
+            scope = scopes[k]
+            scope[k] = v
 
     # membership test (in, not in)
     def __contains__(self, name):
@@ -165,9 +213,7 @@ class _Env(object):
     # subscripting
     def __getitem__(self, k):
         return getattr(self, k)
-
     def __setitem__(self, k, v):
-        # writing not supported, but should behave consistently with setattr.
         setattr(self, k, v)
 
     # pretty-printing
@@ -176,14 +222,14 @@ class _Env(object):
         return "<dyn object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
 
 def make_dynvar(**bindings):
-    """Create and set default value for dynamic variables.
+    """Create a dynamic variable and set its default value.
 
     The default value is used when ``dyn`` is queried for the value outside the
     dynamic extent of any ``with dyn.let()`` blocks.
 
     This is convenient for eliminating the need for ``if "x" in dyn``
     checks, since the variable will always be there (after the global
-    definition has been executed).
+    ``make_dynvar`` call has been executed).
 
     The kwargs should be ``name=value`` pairs. Note ``value`` is mandatory,
     since the whole point of this function is to assign a value. If you need
