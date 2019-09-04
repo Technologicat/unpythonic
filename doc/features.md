@@ -1,68 +1,64 @@
-This README documents the pure-Python part of ``unpythonic``. See also [documentation for the macros](macro_extras/).
+# Unpythonic: Python meets Lisp and Haskell
 
-**Contents**:
+Documentation for the underlying pure-Python API, which can be used directly if you don't want to depend on MacroPy. See also [documentation for syntactic macros](macro_extras/).
 
- - [**Bindings**](#bindings)
-   - [``let``, ``letrec``: local bindings in an expression](#let-letrec-local-bindings-in-an-expression)
-     - [Lispylet: alternative syntax](#lispylet-alternative-syntax)
-   - [``env``: the environment](#env-the-environment)
-   - [``assignonce``](#assignonce), a relative of ``env``.
-   - [``dyn``: dynamic assignment](#dyn-dynamic-assignment) a.k.a. parameterize, special variables, "dynamic scoping".
+### Features
 
- - [**Containers**](#containers)
-   - [``frozendict``: an immutable dictionary](#frozendict-an-immutable-dictionary)
-   - [`cons` and friends: pythonic lispy linked lists](#cons-and-friends-pythonic-lispy-linked-lists)
-   - [``box``: a mutable single-item container](#box-a-mutable-single-item-container)
-   - [Container utilities](#container-utilities): ``get_abcs``, ``in_slice``, ``index_in_slice``
+[**Bindings**](#bindings)
+- [``let``, ``letrec``: local bindings in an expression](#let-letrec-local-bindings-in-an-expression)
+  - [Lispylet: alternative syntax](#lispylet-alternative-syntax)
+- [``env``: the environment](#env-the-environment)
+- [``assignonce``](#assignonce), a relative of ``env``.
+- [``dyn``: dynamic assignment](#dyn-dynamic-assignment) a.k.a. parameterize, special variables, "dynamic scoping".
 
- - [**Sequencing**](#sequencing), run multiple expressions in any expression position (incl. inside a ``lambda``).
-   - [``begin``: sequence side effects](#begin-sequence-side-effects)
-   - [``do``: stuff imperative code into an expression](#do-stuff-imperative-code-into-an-expression)
-   - [``pipe``, ``piped``, ``lazy_piped``: sequence functions](#pipe-piped-lazy_piped-sequence-functions)
+[**Containers**](#containers)
+- [``frozendict``: an immutable dictionary](#frozendict-an-immutable-dictionary)
+- [`cons` and friends: pythonic lispy linked lists](#cons-and-friends-pythonic-lispy-linked-lists)
+- [``box``: a mutable single-item container](#box-a-mutable-single-item-container)
+- [Container utilities](#container-utilities): ``get_abcs``, ``in_slice``, ``index_in_slice``
 
- - [**Batteries**](#batteries) missing from the standard library.
-   - [**Batteries for functools**](#batteries-for-functools): `memoize`, `curry`, `compose`, `withself` and more.
-     - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus haskellness.
-   - [**Batteries for itertools**](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables, etc.
-   - [``islice``: slice syntax support for ``itertools.islice``](#islice-slice-syntax-support-for-itertoolsislice)
-   - [`gmemoize`, `imemoize`, `fimemoize`: memoize generators](#gmemoize-imemoize-fimemoize-memoize-generators), iterables and iterator factories.
-   - [``fup``: functional update; ``ShadowedSequence``](#fup-functional-update-shadowedsequence): like ``collections.ChainMap``, but for sequences.
-   - [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
-   - [``mogrify``: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
-   - [``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic](#s-m-mg-lazy-mathematical-sequences-with-infix-arithmetic)
+[**Sequencing**](#sequencing), run multiple expressions in any expression position (incl. inside a ``lambda``).
+- [``begin``: sequence side effects](#begin-sequence-side-effects)
+- [``do``: stuff imperative code into an expression](#do-stuff-imperative-code-into-an-expression)
+- [``pipe``, ``piped``, ``lazy_piped``: sequence functions](#pipe-piped-lazy_piped-sequence-functions)
 
- - [**Control flow tools**](#control-flow-tools)
-   - [``trampolined``, ``jump``: tail call optimization (TCO) / explicit continuations](#trampolined-jump-tail-call-optimization-tco--explicit-continuations)
-   - [``looped``, ``looped_over``: loops in FP style (with TCO)](#looped-looped_over-loops-in-fp-style-with-tco)
-   - [``gtrampolined``: generators with TCO](#gtrampolined-generators-with-tco): tail-chaining; like ``itertools.chain``, but from inside a generator.
-   - [``setescape``, ``escape``: escape continuations (ec)](#setescape-escape-escape-continuations-ec)
-     - [``call_ec``: first-class escape continuations](#call_ec-first-class-escape-continuations), like Racket's ``call/ec``.
-   - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation), a tuple comprehension with multiple body expressions.
+[**Batteries**](#batteries) missing from the standard library.
+- [**Batteries for functools**](#batteries-for-functools): `memoize`, `curry`, `compose`, `withself` and more.
+  - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus Haskellness.
+- [**Batteries for itertools**](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables, etc.
+- [``islice``: slice syntax support for ``itertools.islice``](#islice-slice-syntax-support-for-itertoolsislice)
+- [`gmemoize`, `imemoize`, `fimemoize`: memoize generators](#gmemoize-imemoize-fimemoize-memoize-generators), iterables and iterator factories.
+- [``fup``: functional update; ``ShadowedSequence``](#fup-functional-update-shadowedsequence): like ``collections.ChainMap``, but for sequences.
+- [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
+- [``mogrify``: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
+- [``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic](#s-m-mg-lazy-mathematical-sequences-with-infix-arithmetic)
 
- - [**Other**](#other)
-   - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope.
-   - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
-   - [``raisef``: ``raise`` as a function](#raisef-raise-as-a-function), useful inside a lambda.
-   - [``pack``: multi-arg constructor for tuple](#pack-multi-arg-constructor-for-tuple)
-   - [``namelambda``, rename a function](#namelambda-rename-a-function)
-   - [``timer``: a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
-   - [``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers](#getattrrec-setattrrec-access-underlying-data-in-an-onion-of-wrappers)
-   - [``arities``, ``kwargs``: Function signature inspection utilities](#arities-kwargs-function-signature-inspection-utilities)
-   - [``Popper``: a pop-while iterator](#popper-a-pop-while-iterator)
+[**Control flow tools**](#control-flow-tools)
+- [``trampolined``, ``jump``: tail call optimization (TCO) / explicit continuations](#trampolined-jump-tail-call-optimization-tco--explicit-continuations)
+- [``looped``, ``looped_over``: loops in FP style (with TCO)](#looped-looped_over-loops-in-fp-style-with-tco)
+- [``gtrampolined``: generators with TCO](#gtrampolined-generators-with-tco): tail-chaining; like ``itertools.chain``, but from inside a generator.
+- [``setescape``, ``escape``: escape continuations (ec)](#setescape-escape-escape-continuations-ec)
+  - [``call_ec``: first-class escape continuations](#call_ec-first-class-escape-continuations), like Racket's ``call/ec``.
+- [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation), a tuple comprehension with multiple body expressions.
 
- - [**Advanced: syntactic macros**](macro_extras/): the second half of ``unpythonic``.
+[**Other**](#other)
+- [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope.
+- [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
+- [``raisef``: ``raise`` as a function](#raisef-raise-as-a-function), useful inside a lambda.
+- [``pack``: multi-arg constructor for tuple](#pack-multi-arg-constructor-for-tuple)
+- [``namelambda``, rename a function](#namelambda-rename-a-function)
+- [``timer``: a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
+- [``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers](#getattrrec-setattrrec-access-underlying-data-in-an-onion-of-wrappers)
+- [``arities``, ``kwargs``: Function signature inspection utilities](#arities-kwargs-function-signature-inspection-utilities)
+- [``Popper``: a pop-while iterator](#popper-a-pop-while-iterator)
 
- - [**Meta**](#meta)
-   - [Design notes](#design-notes)
-   - [Installation](#installation)
-   - [License](#license)
-   - [Acknowledgements](#acknowledgements)
-   - [Python-related FP resources](#python-related-fp-resources)
+[**Advanced: syntactic macros**](macro_extras/): the second half of ``unpythonic``.
 
-For many examples, see the unit tests located in [unpythonic/test/](unpythonic/test/), the docstrings of the individual features, and this README.
+For many examples, see [the unit tests](unpythonic/test/), the docstrings of the individual features, and this guide.
 
-*This README doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out of date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this README) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
+*This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out of date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
 
+**This document is up-to-date for v0.14.1.**
 
 ## Bindings
 
@@ -70,7 +66,7 @@ Tools to bind identifiers in ways not ordinarily supported by Python.
 
 ### ``let``, ``letrec``: local bindings in an expression
 
-Introduce bindings local to an expression, like Scheme's ``let`` and ``letrec``. For easy-to-use versions of these constructs that look almost like normal Python, see [macros](macro_extras/). This section documents the underlying pure-Python API, which can also be used directly if you don't want to depend on MacroPy.
+Introduces bindings local to an expression, like Scheme's ``let`` and ``letrec``. For easy-to-use versions of these constructs that look almost like normal Python, see [our macros](macro_extras/).
 
 In ``let``, the bindings are independent (do not see each other). A binding is of the form ``name=value``, where ``name`` is a Python identifier, and ``value`` is any expression.
 
@@ -238,9 +234,7 @@ print(e)  # empty!
 
 When the `with` block exits, the environment clears itself. The environment instance itself remains alive due to Python's scoping rules.
 
-*Changed in v0.13.1.* ``env`` now provides the ``collections.abc.Mapping`` API.
-
-*Changed in v0.14.0.* ``env`` now provides also the ``collections.abc.MutableMapping`` API.
+``env`` provides the ``collections.abc.Mapping`` and  ``collections.abc.MutableMapping`` APIs.
 
 
 ### ``assignonce``
@@ -294,15 +288,18 @@ Dynamic variables are set using `with dyn.let(...)`. There is no `set`, `<<`, un
 
 The values of dynamic variables remain bound for the dynamic extent of the `with` block. Exiting the `with` block then pops the stack. Inner dynamic scopes shadow outer ones. Dynamic variables are seen also by code that is outside the lexical scope where the `with dyn.let` resides.
 
-Each thread has its own dynamic scope stack. A newly spawned thread automatically copies the then-current state of the dynamic scope stack **from the main thread** (not the parent thread!). Any copied bindings will remain on the stack for the full dynamic extent of the new thread. Because these bindings are not associated with any `with` block running in that thread, and because aside from the initial copying, the dynamic scope stacks are thread-local, any copied bindings will never be popped, even if the main thread pops its own instances of them.
+<details>
+<summary>Each thread has its own dynamic scope stack. </summary>
+A newly spawned thread automatically copies the then-current state of the dynamic scope stack **from the main thread** (not the parent thread!). Any copied bindings will remain on the stack for the full dynamic extent of the new thread. Because these bindings are not associated with any `with` block running in that thread, and because aside from the initial copying, the dynamic scope stacks are thread-local, any copied bindings will never be popped, even if the main thread pops its own instances of them.
 
 The source of the copy is always the main thread mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, PRs welcome!)
 
 Finally, there is one global dynamic scope shared between all threads, where the default values of dynvars live. The default value is used when ``dyn`` is queried for the value outside the dynamic extent of any ``with dyn.let()`` blocks. Having a default value is convenient for eliminating the need for ``if "x" in dyn`` checks, since the variable will always exist (after the global definition has been executed).
+</details>
 
 To create a dynvar and set its default value, use ``make_dynvar``. Each dynamic variable, of the same name, should only have one default set; the (dynamically) latest definition always overwrites. However, we do not prevent overwrites, because in some codebases the same module may run its top-level initialization code multiple times (e.g. if a module has a ``main()`` for tests, and the file gets loaded both as a module and as the main program).
 
-See also the methods of ``dyn``; particularly noteworthy are ``asdict`` and ``items``, which give access to a live view to dyn's contents in a dictionary format (intended for reading only!). The ``asdict`` method essentially creates a ``collections.ChainMap`` instance, while ``items`` is an abbreviation for ``asdict().items()``. The ``dyn`` object itself can also be iterated over; this creates a ``ChainMap`` instance and redirects to iterate over it.
+See also the methods of ``dyn``; particularly noteworthy are ``asdict`` and ``items``, which give access to a live view to dyn's contents in a dictionary format (intended for reading only!). The ``asdict`` method essentially creates a ``collections.ChainMap`` instance, while ``items`` is an abbreviation for ``asdict().items()``. The ``dyn`` object itself can also be iterated over; this creates a ``ChainMap`` instance and redirects to iterate over it. ``dyn`` also provides the ``collections.abc.Mapping`` API.
 
 To support dictionary-like idioms in iteration, dynvars can alternatively be accessed by subscripting; ``dyn["x"]`` has the same meaning as ``dyn.x``, so you can do things like:
 
@@ -314,11 +311,6 @@ Finally, ``dyn`` supports membership testing as ``"x" in dyn``, ``"y" not in dyn
 
 For some more details, see [the unit tests](unpythonic/test/test_dynassign.py).
 
-*Changed in v0.13.0.* The ``asdict`` and ``items`` methods previously returned a snapshot; now they return a live view.
-
-*Changed in v0.13.1.* ``dyn`` now provides the ``collections.abc.Mapping`` API.
-
-
 ## Containers
 
 We provide some additional containers.
@@ -326,8 +318,6 @@ We provide some additional containers.
 The class names are lowercase, because these are intended as low-level utility classes in principle on par with the builtins. The immutable containers are hashable. All containers are pickleable (if their contents are).
 
 ### ``frozendict``: an immutable dictionary
-
-*Added in v0.13.0.*
 
 Given the existence of ``dict`` and ``frozenset``, this one is oddly missing from the standard library.
 
@@ -451,6 +441,14 @@ Iterators are supported to walk over linked lists (this also gives sequence unpa
 
 Python's builtin ``reversed`` can be applied to linked lists; it will internally ``lreverse`` the list (which is O(n)), then return an iterator to that. The ``llist`` constructor is special-cased so that if the input is ``reversed(some_ll)``, it just returns the internal already reversed list. (This is safe because cons cells are immutable.)
 
+Cons structures, by default, print in a pythonic format suitable for ``eval`` (if all elements are):
+
+```python
+print(cons(1, 2))                   # --> cons(1, 2)
+print(ll(1, 2, 3))                  # --> ll(1, 2, 3)
+print(cons(cons(1, 2), cons(3, 4))  # --> cons(cons(1, 2), cons(3, 4))
+```
+
 Cons structures can optionally print like in Lisps:
 
 ```python
@@ -459,31 +457,19 @@ print(ll(1, 2, 3).lispyrepr())                   # --> (1 2 3)
 print(cons(cons(1, 2), cons(3, 4)).lispyrepr())  # --> ((1 . 2) . (3 . 4))
 ```
 
-However, by default, they print in a pythonic format suitable for ``eval`` (if all elements are):
-
-```python
-print(cons(1, 2))                   # --> cons(1, 2)
-print(ll(1, 2, 3))                  # --> ll(1, 2, 3)
-print(cons(cons(1, 2), cons(3, 4))  # --> cons(cons(1, 2), cons(3, 4))
-```
-
-*Changed in v0.11.0.* In previous versions, the Lisp format was always used for printing.
-
 For more, see the ``llist`` submodule.
 
 #### Notes
 
 There is no ``copy`` method or ``lcopy`` function, because cons cells are immutable; which makes cons structures immutable.
 
-(However, for example, it is possible to `cons` a new item onto an existing linked list; that's fine because it produces a new cons structure - which shares data with the original, just like in Racket.)
+(However, for example, it is possible to ``cons`` a new item onto an existing linked list; that's fine because it produces a new cons structure - which shares data with the original, just like in Racket.)
 
 In general, copying cons structures can be error-prone. Given just a starting cell it is impossible to tell if a given instance of a cons structure represents a linked list, or something more general (such as a binary tree) that just happens to locally look like one, along the path that would be traversed if it was indeed a linked list.
 
 The linked list iteration strategy does not recurse in the ``car`` half, which could lead to incomplete copying. The tree strategy that recurses on both halves, on the other hand, will flatten nested linked lists and produce also the final ``nil``.
 
-*Added in v0.13.0.* We provide a ``JackOfAllTradesIterator`` as a compromise that understands both trees and linked lists. Nested lists will be flattened, and in a tree any ``nil`` in a ``cdr`` position will be omitted from the output.
-
-*Changed in v0.13.1.* ``BinaryTreeIterator`` and ``JackOfAllTradesIterator`` now use an explicit data stack instead of implicitly using the call stack for keeping track of the recursion. Hence now all ``cons`` iterators work for arbitrarily deep cons structures without causing Python's call stack to overflow, and without the need for TCO.
+We provide a ``JackOfAllTradesIterator`` as a compromise that understands both trees and linked lists. Nested lists will be flattened, and in a tree any ``nil`` in a ``cdr`` position will be omitted from the output. ``BinaryTreeIterator`` and ``JackOfAllTradesIterator`` use an explicit data stack instead of implicitly using the call stack for keeping track of the recursion. All ``cons`` iterators work for arbitrarily deep cons structures without causing Python's call stack to overflow, and without the need for TCO.
 
 ``cons`` has no ``collections.abc`` virtual superclasses (except the implicit ``Hashable`` since ``cons`` provides ``__hash__`` and ``__eq__``), because general cons structures do not fit into the contracts represented by membership in those classes. For example, size cannot be known without iterating, and depends on which iteration scheme is used (e.g. ``nil`` dropping, flattening); which scheme is appropriate depends on the content.
 
@@ -491,10 +477,6 @@ The linked list iteration strategy does not recurse in the ``car`` half, which c
 
 
 ### ``box``: a mutable single-item container
-
-*Added in v0.12.0.*
-
-*Changed in v0.13.0.* The class and the data attribute have been renamed to ``box`` and ``x``, respectively.
 
 No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
 
@@ -965,7 +947,7 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
    - `scanl` is suitable for infinite inputs.
    - Iteration stops after the final result.
      - For `scanl`, this is what `foldl` would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
-     - *Changed in v0.11.0.* For `scanr`, **ordering of output is different from Haskell**: we yield the results in the order they are computed (via a linear process).
+     - For `scanr`, **ordering of output is different from Haskell**: we yield the results in the order they are computed (via a linear process).
    - Multiple input iterables and shortest/longest termination supported; same semantics as in `foldl`, `foldr`.
    - One-input versions with optional init are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
    - `rscanl`, `rscanl1` reverse each input and then left-scan. This syncs the **right** ends.
@@ -1000,11 +982,11 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
  - `partition` from `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
  - `rev` is a convenience function that tries `reversed`, and if the input was not a sequence, converts it to a tuple and reverses that. The return value is a `reversed` object.
  - `scons`: prepend one element to the start of an iterable, return new iterable. ``scons(x, iterable)`` is lispy shorthand for ``itertools.chain((x,), iterable)``, allowing to omit the one-item tuple wrapper.
- - `inn`: contains-check (``x in iterable``) with automatic termination for monotonic divergent infinite iterables. *Added in v0.13.1.*
+ - `inn`: contains-check (``x in iterable``) with automatic termination for monotonic divergent infinite iterables.
    - Only applicable to monotonic divergent inputs (such as ``primes``). Increasing/decreasing is auto-detected from the first non-zero diff, but the function may fail to terminate if the input is actually not monotonic, or has an upper/lower bound.
- - `iindex`: like ``list.index``, but for a general iterable. Consumes the iterable, so only makes sense for memoized inputs. *Added in v0.13.1.*
- - `prod`: like the builtin `sum`, but compute the product. Oddly missing from the standard library. *Added in v0.13.1.*
- - `window`: sliding length-n window iterator for general iterables. Acts like the well-known [n-gram zip trick](http://www.locallyoptimal.com/blog/2013/01/20/elegant-n-gram-generation-in-python/), but the input can be any iterable. *Added in v0.14.1.*
+ - `iindex`: like ``list.index``, but for a general iterable. Consumes the iterable, so only makes sense for memoized inputs.
+ - `prod`: like the builtin `sum`, but compute the product. Oddly missing from the standard library.
+ - `window`: sliding length-n window iterator for general iterables. Acts like the well-known [n-gram zip trick](http://www.locallyoptimal.com/blog/2013/01/20/elegant-n-gram-generation-in-python/), but the input can be any iterable.
 
 Examples:
 
@@ -1109,9 +1091,7 @@ assert tuple(curry(clip, 5, 10, range(20)) == tuple(range(5, 15))
 ```
 
 
-### ``islice``: slice syntax support for ``itertools.islice``
-
-*Added in v0.13.1.*
+### ``islice``: slice syntax support for ``itertools.islice`
 
 Slice an iterable, using the regular slicing syntax:
 
@@ -1238,7 +1218,7 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
 
 ### ``fup``: Functional update; ``ShadowedSequence``
 
-We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). See its docstring for details.
+We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). Use ``ShadowedSequence`` for slicing (read-only), equality comparison, ``str`` and ``repr``. Out-of-range read access to a single item emits a meaningful error, like in ``list``. See its docstring for details.
 
 The function ``fupdate`` functionally updates sequences and mappings. Whereas ``ShadowedSequence`` reads directly from the original sequences at access time, ``fupdate`` makes a shallow copy (of the same type as the given input sequence) when it finalizes its output. The utility function ``fup`` is a specialization of ``fupdate`` to sequences, and adds support for the standard slicing syntax.
 
@@ -1273,7 +1253,7 @@ Slicing supports negative indices and steps, and default starts, stops and steps
 
 When ``fupdate`` constructs its output, the replacement occurs by walking *the input sequence* left-to-right, and pulling an item from the replacement sequence when the given replacement specification so requires. Hence the replacement sequence is not necessarily accessed left-to-right. (In the last example above, ``tuple(range(5))`` was read in the order ``(4, 3, 2, 1, 0)``.)
 
-The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored (so e.g. an infinite ``repeat`` is fine), but if the replacement is too short, ``IndexError`` is raised. (*Changed in v0.13.1.* This was previously ``ValueError``.)
+The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored (so e.g. an infinite ``repeat`` is fine), but if the replacement is too short, ``IndexError`` is raised.
 
 It is also possible to replace multiple individual items. These are treated as separate specifications, applied left to right (so later updates shadow earlier ones, if updating at the same index):
 
@@ -1347,14 +1327,7 @@ The notation follows the ``unpythonic`` convention that ``<<`` denotes an assign
 
 The ``fup`` call is essentially curried. It takes in the sequence to be functionally updated. The object returned by the call accepts a subscript to specify the index or indices. This then returns another object that accepts a left-shift to specify the values. Once the values are provided, the underlying call to ``fupdate`` triggers, and the result is returned.
 
-*Changed in v0.13.1.* Added support to ``ShadowedSequence`` for slicing (read-only), equality comparison, ``str`` and ``repr``. Out-of-range read access to a single item emits a meaningful error, like in ``list``. The utility ``fup`` was previously a macro; now it is a regular function, with slightly changed syntax to accommodate.
-
-
 ### ``view``: writable, sliceable view into a sequence
-
-*Added in v0.14.0.* Added the read-only cousin ``roview``, which behaves the same except it has no ``__setitem__`` or ``reverse``. This can be useful for giving read-only access to an internal sequence. The constructor of the writable ``view`` now checks that the input is not read-only (``roview``, or a ``Sequence`` that is not also a ``MutableSequence``) before allowing creation of the writable view.
-
-*Added in v0.13.1.*
 
 A writable view into a sequence, with slicing, so you can take a slice of a slice (of a slice ...), and it reflects the original both ways:
 
@@ -1391,10 +1364,10 @@ Getting/setting an item (subscripting) checks whether the index cache needs upda
 
 The ``unpythonic.collections`` module also provides the ``SequenceView`` and ``MutableSequenceView`` abstract base classes; ``view`` is a ``MutableSequenceView``.
 
+There is the read-only cousin ``roview``, which behaves the same except it has no ``__setitem__`` or ``reverse``. This can be useful for giving read-only access to an internal sequence. The constructor of the writable ``view`` checks that the input is not read-only (``roview``, or a ``Sequence`` that is not also a ``MutableSequence``) before allowing creation of the writable view.
+
 
 ### ``mogrify``: update a mutable container in-place
-
-*Added in v0.13.0.*
 
 Recurse on given container, apply a function to each atom. If the container is mutable, then update in-place; if not, then construct a new copy like ``map`` does.
 
@@ -1434,12 +1407,6 @@ For convenience, we introduce some special cases:
 
 ### ``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic
 
-*Added in v0.13.0.*
-
-*Added in v0.13.1:* ``primes`` and ``fibonacci``.
-
-*Added in v0.14.0:* ``mg``, a decorator to mathify a gfunc, so that it will ``m()`` the generator instances it makes. Combo with ``imemoize`` for great justice, e.g. ``a = mg(imemoize(s(1, 2, ...)))``.
-
 We provide a compact syntax to create lazy constant, arithmetic, geometric and power sequences: ``s(...)``. Numeric (``int``, ``float``, ``mpmath``) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
 
 We also provide arithmetic operation support for iterables (termwise). To make any iterable infix math aware, use ``m(iterable)``. The arithmetic is lazy; it just plans computations, returning a new lazy mathematical sequence. To extract values, iterate over the result. (Note this implies that expressions consisting of thousands of operations will overflow Python's call stack. In practice this shouldn't be a problem.)
@@ -1447,6 +1414,8 @@ We also provide arithmetic operation support for iterables (termwise). To make a
 The function versions of the arithmetic operations (also provided, à la the ``operator`` module) have an **s** prefix (short for mathematical **sequence**), because in Python the **i** prefix (which could stand for *iterable*) is already used to denote the in-place operators.
 
 We provide the [Cauchy product](https://en.wikipedia.org/wiki/Cauchy_product), and its generalization, the diagonal combination-reduction, for two (possibly infinite) iterables. Note ``cauchyprod`` **does not sum the series**; given the input sequences ``a`` and ``b``, the call ``cauchyprod(a, b)`` computes the elements of the output sequence ``c``.
+
+We also provide ``mg``, a decorator to mathify a gfunc, so that it will ``m()`` the generator instances it makes. Combo with ``imemoize`` for great justice, e.g. ``a = mg(imemoize(s(1, 2, ...)))``.
 
 Finally, we provide ready-made generators that yield some common sequences (currently, the Fibonacci numbers and the prime numbers). The prime generator is an FP-ized sieve of Eratosthenes.
 
@@ -2316,7 +2285,7 @@ Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a 
 
 ### ``@callwith``: freeze arguments, choose function later
 
-*Added in v0.11.0.* If you need to pass arguments when using ``@call`` as a decorator, use its cousin ``@callwith``:
+If you need to pass arguments when using ``@call`` as a decorator, use its cousin ``@callwith``:
 
 ```python
 from unpythonic import callwith
@@ -2435,11 +2404,7 @@ assert tuple(myzip(lol)) == ((1, 3, 5), (2, 4, 6))
 
 ### ``namelambda``, rename a function
 
-*Changed in v0.13.0.* Now supports renaming any function object (``isinstance(f, (types.LambdaType, types.FunctionType))``), and will rename a lambda even if it has already been named.
-
-*Changed in v0.13.1.* Now the return value is a modified copy; the original function object is not mutated.
-
-For those situations where you return a lambda as a closure, call it much later, and it happens to crash - so you can tell from the stack trace *which* of the *N* lambdas in the codebase it is.
+For those situations where you return a lambda as a closure, call it much later, and it happens to crash - so you can tell from the stack trace *which* of the *N* lambdas in the codebase it is. The return value is a modified copy; the original function object is not mutated. You can rename any function object (``isinstance(f, (types.LambdaType, types.FunctionType))``), and it will rename a lambda even if it has already been named.
 
 For technical reasons, ``namelambda`` conforms to the parametric decorator API. Usage:
 
@@ -2472,8 +2437,6 @@ The inner lambda does not see the outer's new name; the parent scope names are b
 
 ### ``timer``: a context manager for performance testing
 
-*Added in v0.13.0.*
-
 ```python
 from unpythonic import timer
 
@@ -2491,8 +2454,6 @@ The auto-print mode is a convenience feature to minimize bureaucracy if you just
 
 
 ### ``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers
-
-*Added in v0.13.1.*
 
 ```python
 from unpythonic import getattrrec, setattrrec
@@ -2573,8 +2534,6 @@ Inspired by various Racket functions such as ``(arity-includes?)`` and ``(proced
 
 
 ### ``Popper``: a pop-while iterator
-
-*Added in v0.14.1.*
 
 Consider this highly artificial example:
 

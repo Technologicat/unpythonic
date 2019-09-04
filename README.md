@@ -8,18 +8,21 @@ Design considerations are based in simplicity, robustness, and with minimal depe
 
 **This is semantics, not syntax!**
 
-[Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``: we just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less abstruse, and close enough to convey the intended meaning.
+[Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``. We just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less obscure, and close enough to convey the intended meaning.
 
 If you want custom *syntax* proper, then you may be interested in [Pydialect](https://github.com/Technologicat/pydialect).
 
 ### Dependencies
 
-Currently none required; [MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macros.
+Currently none required.  
+[MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macros.
 
 ### Documentation
 
-- [pure-Python (basic implementation)](doc/features.md)
-- [syntactic macros (advanced implementation)](macro_extras/README.md): the second half of ``unpythonic``.
+[pure-Python (basic implementation) documentation](doc/features.md)  
+[syntactic macros (advanced implementation) documentation](macro_extras/README.md): the second half of ``unpythonic``.
+
+[Design Notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``
 
 ## Installation
 
