@@ -14,7 +14,7 @@ Currently none required.
 ### Documentation
 
 [Pure-Python feature set](doc/features.md)  
-[Syntactic macro feature set](macro_extras/README.md): the second half of ``unpythonic``.
+[Syntactic macro feature set](macro_extras/README.md): the second half of ``unpythonic``.  
 [Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``
 
 ## Installation
