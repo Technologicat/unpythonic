@@ -1,28 +1,21 @@
 # Unpythonic: Python meets Lisp and Haskell
 
-In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some Haskellisms mixed in. We place a special emphasis on **clear, pythonic syntax**.
+In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some Haskellisms mixed in. We place a special emphasis on **clear, pythonic syntax**. These features make up the pure-Python core of `unpythonic`, and are meant to be used directly. We also provide extensions to the Python language as a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros) that are designed to work together. Each macro adds an orthogonal piece of functionality that can (mostly) be mixed and matched with the others.
 
-We also provide extensions to the Python language as a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros) that are designed to work together. The macros provide features such as *automatic* currying, *automatic* tail-call optimization, call-by-need (lazy functions), continuations (``call/cc``), lexically scoped ``let`` and ``do`` with lean syntax, implicit return statements, and easy-to-use multi-expression lambdas with local variables. Each macro adds an orthogonal piece of functionality that can (mostly) be mixed and matched with the others.
+The macros provide an extension to the pure-Python layer, and offers features such as *automatic* currying, *automatic* tail-call optimization, lexically scoped ``let`` and ``do`` with lean syntax, and implicit return statements. Some of these macro features, like call-by-need (lazy functions), continuations (``call/cc``), and easy-to-use multi-expression lambdas with local variables, are not available in the pure-Python layer. Additionally, some pure-Python features like batteries for itertools do not have a macro layer equivalent. Check the [documentation](#documentation) for the full sets of features.
 
-Design considerations are based in simplicity, robustness, and with minimal dependencies. See our [design notes](doc/design-notes.md) for more information.
-
-**This is semantics, not syntax!**
-
-[Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``. We just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less obscure, and close enough to convey the intended meaning.
-
-If you want custom *syntax* proper, then you may be interested in [Pydialect](https://github.com/Technologicat/pydialect).
+The design considerations of `unpythonic` are based in simplicity, robustness, and with minimal dependencies. See our [design notes](doc/design-notes.md) for more information.
 
 ### Dependencies
 
 Currently none required.  
-[MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macros.
+[MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macro layer.
 
 ### Documentation
 
-[pure-Python (basic implementation) documentation](doc/features.md)  
-[syntactic macros (advanced implementation) documentation](macro_extras/README.md): the second half of ``unpythonic``.
-
-[Design Notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``
+[Pure-Python feature set](doc/features.md)  
+[Syntactic macro feature set](macro_extras/README.md): the second half of ``unpythonic``.
+[Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``
 
 ## Installation
 

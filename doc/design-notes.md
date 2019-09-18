@@ -4,7 +4,7 @@
 - [Python is Not a Lisp](#python-is-not-a-lisp)
 - [Assignment Syntax](#assignment-syntax)
 - [TCO Syntax and Speed](#tco-syntax-and-speed)
-- [Comboability](#comboability)
+- [Comboability of Syntactic Macros](#comboability-of-syntactic-macros)
 - [No Monads?](#no-monads)
 - [Further Explanation](#further-explanation)
 - [Notes on Macros](#notes-on-macros)
@@ -78,8 +78,8 @@ For other libraries bringing TCO to Python, see:
  - [ActiveState recipe 474088](https://github.com/ActiveState/code/tree/master/recipes/Python/474088_Tail_Call_Optimization_Decorator), based on ``inspect``.
  - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the original source of the approach used here.
  - [MacroPy](https://github.com/azazel75/macropy) uses an approach similar to ``fn.py``.
- 
-### Comboability
+
+### Comboability of Syntactic Macros
 
 Making macros work together is nontrivial, essentially because *macros don't compose*. [As pointed out by John Shutt](https://fexpr.blogspot.com/2013/12/abstractive-power.html), in a multilayered language extension implemented with macros, the second layer of macros needs to understand all of the first layer. The issue is that the macro abstraction leaks the details of its expansion. Contrast with functions, which operate on values: the process that was used to arrive at a value doesn't matter. It's always possible for a function to take this value and transform it into another value, which can then be used as input for the next layer of functions. That's composability at its finest.
 

@@ -1,6 +1,8 @@
 # Unpythonic: Python meets Lisp and Haskell
 
-Documentation for the underlying pure-Python API, which can be used directly if you don't want to depend on MacroPy. See also [documentation for syntactic macros](macro_extras/).
+Documentation for the underlying pure-Python API, which provides the non-macro features that can be used directly. This API acts as the core for the macro layer, see the [documentation for syntactic macros](macro_extras/) for more about those features.
+
+Please note that there are features that appear in both the pure-Python layer and the macro layer, as well as features that only exist in the pure-Python layer. If you don't want to depend on MacroPy, feel free to use the features as defined below (though, this may be less convenient).
 
 ### Features
 
@@ -56,7 +58,7 @@ Documentation for the underlying pure-Python API, which can be used directly if 
 
 For many examples, see [the unit tests](unpythonic/test/), the docstrings of the individual features, and this guide.
 
-*This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out of date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
+*This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out-of-date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
 
 **This document is up-to-date for v0.14.1.**
 
@@ -289,7 +291,7 @@ Dynamic variables are set using `with dyn.let(...)`. There is no `set`, `<<`, un
 The values of dynamic variables remain bound for the dynamic extent of the `with` block. Exiting the `with` block then pops the stack. Inner dynamic scopes shadow outer ones. Dynamic variables are seen also by code that is outside the lexical scope where the `with dyn.let` resides.
 
 <details>
-<summary>Each thread has its own dynamic scope stack. </summary>
+<summary>Each thread has its own dynamic scope stack. There is also a global dynamic scope for default values, shared between threads. </summary>
 A newly spawned thread automatically copies the then-current state of the dynamic scope stack **from the main thread** (not the parent thread!). Any copied bindings will remain on the stack for the full dynamic extent of the new thread. Because these bindings are not associated with any `with` block running in that thread, and because aside from the initial copying, the dynamic scope stacks are thread-local, any copied bindings will never be popped, even if the main thread pops its own instances of them.
 
 The source of the copy is always the main thread mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, PRs welcome!)

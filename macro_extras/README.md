@@ -2,7 +2,15 @@
 
 Our Python language extensions, as syntactic macros, are built on [MacroPy](https://github.com/azazel75/macropy), from the PyPI package ``macropy3``. If you want to take language extension a step further, see our sister project [Pydialect](https://github.com/Technologicat/pydialect).
 
-The [unit tests that contain usage examples](../unpythonic/syntax/test/) cannot be run directly because macro expansion occurs at import time. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). For convenience, ``setup.py`` installs this bootstrapper.
+The [unit tests that contain usage examples](../unpythonic/syntax/test/) cannot be run directly because macro expansion occurs at import time. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). For convenience, ``setup.py`` installs this bootstrapper.\
+
+Please note that there are features that appear in both the pure-Python layer and the macro layer, as well as features that only exist in the macro layer.
+
+**This is semantics, not syntax!**
+
+[Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``. We just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less obscure, and close enough to convey the intended meaning.
+
+If you want custom *syntax* proper, then you may be interested in [Pydialect](https://github.com/Technologicat/pydialect).
 
 ### Set Up
 
@@ -598,7 +606,7 @@ The naming is performed using the function ``unpythonic.misc.namelambda``, which
  - Expression-assignment to an unpythonic environment, ``f << (lambda ...: ...)``
 
  - Let bindings, ``let[(f, (lambda ...: ...)) in ...]``, using any let syntax supported by unpythonic (here using the haskelly let-in just as an example).
- - Env-assignments are now processed lexically, just like regular assignments. Added support for let-bindings.
+ - Env-assignments are processed lexically, just like regular assignments.
 
 Support for other forms of assignment may or may not be added in a future version.
 
@@ -717,7 +725,7 @@ assert add3(1)(2)(3) == 6
 
 **CAUTION**: Some built-ins are uninspectable or may report their arities incorrectly; in those cases, ``curry`` may fail, occasionally in mysterious ways. The function ``unpythonic.arity.arities``, which ``unpythonic.fun.curry`` internally uses, has a workaround for the inspectability problems of all built-ins in the top-level namespace (as of Python 3.7), but e.g. methods of built-in types are not handled.
 
-The special mode for uninspectables used to be enabled for the dynamic extent of the ``with curry`` block; the new lexical behavior is easier to reason about. Also, manual uses of the ``curry`` decorator (on both ``def`` and ``lambda``) are now detected, and in such cases the macro now skips adding the decorator.
+Manual uses of the `curry` decorator (on both `def` and `lambda`) are detected, and in such cases the macro skips adding the decorator.
 
 ### ``lazify``: call-by-need for Python
 
@@ -1296,7 +1304,7 @@ The ``call_cc[]`` explicitly suggests that these are (almost) the only places wh
 
 Write Python almost like Lisp!
 
-Lexically inside a ``with prefix`` block, any literal tuple denotes a function call, unless quoted. The first element is the operator, the rest are arguments. Bindings of the ``let`` macros and the top-level tuple in a ``do[]`` are now left alone, but ``prefix`` recurses inside them (in the case of bindings, on each RHS).
+Lexically inside a ``with prefix`` block, any literal tuple denotes a function call, unless quoted. The first element is the operator, the rest are arguments. Bindings of the ``let`` macros and the top-level tuple in a ``do[]`` are left alone, but ``prefix`` recurses inside them (in the case of bindings, on each RHS).
 
 The rest is best explained by example:
 
