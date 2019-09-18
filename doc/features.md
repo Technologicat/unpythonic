@@ -1509,10 +1509,6 @@ Tools related to control flow.
 
 ### ``trampolined``, ``jump``: tail call optimization (TCO) / explicit continuations
 
-**v0.10.0**: ``fasttco`` has been renamed ``tco``, and the exception-based old default implementation has been removed. See also [macros](macro_extras/) for an easy-to-use solution.
-
-**v0.11.1**: The special jump target ``SELF`` (keep current target) has been removed. If you need tail recursion in a lambda, use ``unpythonic.fun.withself`` to get a reference to the lambda itself. See example below.
-
 Express algorithms elegantly without blowing the call stack - with explicit, clear syntax.
 
 *Tail recursion*:
