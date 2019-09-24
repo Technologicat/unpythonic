@@ -1,7 +1,7 @@
 **Direct contributors**:
 
-Juha Jeronen (@Technologicat) - original author
-@aisha-w - documentation improvements
+- Juha Jeronen (@Technologicat) - original author
+- @aisha-w - documentation improvements
 
 **Design inspiration from the internet**:
 
