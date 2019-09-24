@@ -51,7 +51,7 @@ or
 
 All original code is released under the 2-clause [BSD license](LICENSE.md).
 
-For sources and licenses of fragments originally seen on the internet, see [AUTHORS](authors.md).
+For sources and licenses of fragments originally seen on the internet, see [AUTHORS](AUTHORS.md).
 
 
 ## Acknowledgements
