@@ -49,13 +49,9 @@ or
 
 ## License
 
-2-clause [BSD](LICENSE.md).
+All original code is released under the 2-clause [BSD license](LICENSE.md).
 
-Dynamic assignment based on [StackOverflow answer by Jason Orendorff (2010)](https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python), used under CC-BY-SA. The threading support is original to our version.
-
-Core idea of ``lispylet`` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
-
-Core idea of ``view`` based on [StackOverflow answer by Mathieu Caroff (2018)](https://stackoverflow.com/a/53253136), used under the MIT license. Our additions include support for sequences with changing length, write support, iteration based on ``__iter__``, in-place reverse, and the abstract base classes.
+For sources and licenses of fragments originally seen on the internet, see [AUTHORS](authors.md).
 
 
 ## Acknowledgements
