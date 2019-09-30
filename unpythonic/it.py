@@ -25,7 +25,8 @@ __all__ = ["rev", "map", "map_longest",
            "partition",
            "inn", "iindex",
            "window", "chunked",
-           "within", "fixpoint"]
+           "within", "fixpoint",
+           "interleave"]
 
 from builtins import map as stdlib_map
 from operator import itemgetter
@@ -784,3 +785,28 @@ def fixpoint(f, x0, tol=0):
         assert abs(sqrt_newton(2) - sqrt(2)) <= ulp(1.414)
     """
     return last(within(tol, iterate1(f, x0)))
+
+def interleave(*iterables):
+    """Interleave items from several iterables. Generator.
+
+    Example::
+
+        interleave(a, b, c) -> (a0, b0, c0, a1, b1, c1, ...)
+
+    until the shortest input runs out.
+    """
+    class ShortestInputEnded(Exception):
+        pass
+    iters = [iter(it) for it in iterables]
+    def roundrobin():
+        for it in iters:
+            try:
+                x = next(it)
+                yield x
+            except StopIteration:
+                raise ShortestInputEnded()
+    try:
+        while True:
+            yield from roundrobin()
+    except ShortestInputEnded:
+        return
