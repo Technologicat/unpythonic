@@ -12,6 +12,7 @@ from .amb import *
 from .arity import *
 from .assignonce import *
 from .collections import *
+from .conditions import *
 from .dynassign import *
 from .ec import *
 from .fix import *
