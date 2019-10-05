@@ -2,6 +2,7 @@
 
 from ..conditions import signal, invoke_restart, restarts, handlers
 from ..misc import raisef
+from ..collections import box, unbox
 
 def test():
     # basic usage
@@ -49,26 +50,29 @@ def test():
     def lowlevel3():
         with restarts(use_value=(lambda x: x)):
             return signal("help_me", 42)
-    inner_handler_ran = []
-    outer_handler_ran = []
-    with handlers(help_me=(lambda x: [outer_handler_ran.append("yes!"),
+
+    # if the inner handler returns normally, the outer handler takes over
+    # (note any side effects of the inner handler remain in effect)
+    inner_handler_ran = box(False)  # use a box so we can rebind the value from inside a lambda
+    outer_handler_ran = box(False)
+    with handlers(help_me=(lambda x: [outer_handler_ran.set(True),
                                       invoke_restart("use_value", x)])):
-        with handlers(help_me=(lambda x: [inner_handler_ran.append("yes!"),
+        with handlers(help_me=(lambda x: [inner_handler_ran.set(True),
                                           None])):  # return normally from handler to cancel-and-delegate
             assert lowlevel3() == 42
-            assert len(inner_handler_ran) == 1
-            assert len(outer_handler_ran) == 1
+            assert unbox(inner_handler_ran) is True
+            assert unbox(outer_handler_ran) is True
 
     # if the inner handler invokes a restart, the outer handler doesn't run
-    inner_handler_ran = []
-    outer_handler_ran = []
-    with handlers(help_me=(lambda x: [outer_handler_ran.append("yes!"),
+    inner_handler_ran = box(False)
+    outer_handler_ran = box(False)
+    with handlers(help_me=(lambda x: [outer_handler_ran.set(True),
                                       invoke_restart("use_value", x)])):
-        with handlers(help_me=(lambda x: [inner_handler_ran.append("yes!"),
+        with handlers(help_me=(lambda x: [inner_handler_ran.set(True),
                                           invoke_restart("use_value", x)])):
             assert lowlevel3() == 42
-            assert len(inner_handler_ran) == 1
-            assert len(outer_handler_ran) == 0
+            assert unbox(inner_handler_ran) is True
+            assert unbox(outer_handler_ran) is False
 
     # TODO: test multithreading (threads should behave independently)
 
