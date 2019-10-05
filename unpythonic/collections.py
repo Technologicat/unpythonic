@@ -156,8 +156,16 @@ class box:
         f(b)
         print(b.x)  # 23
 
-    (It's called ``x`` and not ``value`` to minimize the number of additional
-    keystrokes needed.)
+    (The data attribute is called ``x`` and not ``value`` to minimize the
+    number of additional keystrokes needed.)
+
+    Or use the API, `set` and `unbox`:
+
+        b = box(17)
+        def f(b):
+            b.set(23)
+        f(b)
+        print(unbox(b))  # 23
 
     In terms of ``collections.abc``, a ``box`` is a ``Container``, ``Iterable``
     and ``Sized``. A box is **not** hashable, because it is a mutable container.
@@ -190,6 +198,25 @@ class box:
         return 1
     def __eq__(self, other):
         return other == self.x
+    def set(self, x):
+        """Store a new value in the box, replacing the old one.
+
+        Syntactic sugar for assigning to the attribute `.x`,
+        but returns the new value.
+        """
+        self.x = x
+        return x
+
+def unbox(b):
+    """Return the value from inside the box b.
+
+    Syntactic sugar for reading the attribute `b.x`.
+
+    If `b` is not a `box`, raises `TypeError`.
+    """
+    if not isinstance(b, box):
+        raise TypeError("Expected box, got {} with value '{}'".format(type(b), b))
+    return b.x
 
 _the_empty_frozendict = None
 class frozendict:

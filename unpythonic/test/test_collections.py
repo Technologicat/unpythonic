@@ -3,7 +3,7 @@
 from collections.abc import Mapping, MutableMapping, Hashable, Container, Iterable, Sized
 from pickle import dumps, loads
 
-from ..collections import box, frozendict, view, roview, ShadowedSequence, mogrify
+from ..collections import box, unbox, frozendict, view, roview, ShadowedSequence, mogrify
 
 def test():
     # box: mutable single-item container à la Racket
@@ -24,6 +24,17 @@ def test():
 
     b3 = box(17)
     assert b3 == b2  # boxes are considered equal if their contents are
+
+    # pretty API: unbox(b) is the same as reading b.x
+    cat = object()
+    b4 = box(cat)
+    assert b4 is not cat  # the box is not the cat
+    assert unbox(b4) is cat  # but when you look inside the box, you find the cat
+
+    # b.set(newvalue) is the same as assigning b.x = newvalue
+    dog = object()
+    b4.set(dog)
+    assert unbox(b4) is dog
 
     try:
         d = {}
