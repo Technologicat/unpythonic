@@ -159,7 +159,7 @@ class box:
     (The data attribute is called ``x`` and not ``value`` to minimize the
     number of additional keystrokes needed.)
 
-    Or use the API, `set` and `unbox`:
+    Or use the API, `set` (rebind contents) and `unbox` (extract contents):
 
         b = box(17)
         def f(b):
@@ -201,8 +201,11 @@ class box:
     def set(self, x):
         """Store a new value in the box, replacing the old one.
 
-        Syntactic sugar for assigning to the attribute `.x`,
-        but returns the new value.
+        Syntactic sugar for assigning to the attribute `.x`.
+        As a convenience, returns the new value.
+
+        Since a function call is an expression, you can use this form
+        also in a lambda, or indeed in any expression position.
         """
         self.x = x
         return x
@@ -210,7 +213,8 @@ class box:
 def unbox(b):
     """Return the value from inside the box b.
 
-    Syntactic sugar for reading the attribute `b.x`.
+    Syntactic sugar for reading the attribute `b.x`. The point of using `unbox`
+    is to document programmer intent more explicitly.
 
     If `b` is not a `box`, raises `TypeError`.
     """

@@ -32,6 +32,7 @@ def test():
     assert unbox(b4) is cat  # but when you look inside the box, you find the cat
 
     # b.set(newvalue) is the same as assigning b.x = newvalue
+    # (but like env.set, it's an expression, so you can use it anywhere)
     dog = object()
     b4.set(dog)
     assert unbox(b4) is dog
