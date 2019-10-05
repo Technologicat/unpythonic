@@ -4,6 +4,7 @@ from ..conditions import signal, invoke_restart, restarts, handlers
 from ..misc import raisef
 
 def test():
+    # basic usage
     def lowlevel():
         # low-level logic - define here what actions are available when stuff goes wrong
         with restarts(use_value=(lambda x: x),
@@ -32,8 +33,43 @@ def test():
     except ValueError as err:
         assert str(err) == "1"
 
-    # TODO: test name shadowing (dynamically the most recent binding of the same restart name wins)
-    # TODO: test cancel-and-delegate
+    # name shadowing: dynamically the most recent binding of the same restart name wins
+    def lowlevel2():
+        out = []
+        with restarts(r=(lambda x: x)):
+            out.append(signal("help_me", 21))
+            # here this is lexically nested, too, but could be in a separate function.
+            with restarts(r=(lambda x: 2 * x)):
+                out.append(signal("help_me", 21))
+        return out
+    with handlers(help_me=(lambda x: invoke_restart("r", x))):
+        assert lowlevel2() == [21, 42]
+
+    # cancel-and-delegate
+    def lowlevel3():
+        with restarts(use_value=(lambda x: x)):
+            return signal("help_me", 42)
+    inner_handler_ran = []
+    outer_handler_ran = []
+    with handlers(help_me=(lambda x: [outer_handler_ran.append("yes!"),
+                                      invoke_restart("use_value", x)])):
+        with handlers(help_me=(lambda x: [inner_handler_ran.append("yes!"),
+                                          None])):  # return normally from handler to cancel-and-delegate
+            assert lowlevel3() == 42
+            assert len(inner_handler_ran) == 1
+            assert len(outer_handler_ran) == 1
+
+    # if the inner handler invokes a restart, the outer handler doesn't run
+    inner_handler_ran = []
+    outer_handler_ran = []
+    with handlers(help_me=(lambda x: [outer_handler_ran.append("yes!"),
+                                      invoke_restart("use_value", x)])):
+        with handlers(help_me=(lambda x: [inner_handler_ran.append("yes!"),
+                                          invoke_restart("use_value", x)])):
+            assert lowlevel3() == 42
+            assert len(inner_handler_ran) == 1
+            assert len(outer_handler_ran) == 0
+
     # TODO: test multithreading (threads should behave independently)
 
     print("All tests PASSED")
