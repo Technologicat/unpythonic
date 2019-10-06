@@ -393,7 +393,6 @@ def butlastn(n, iterable):
     Uses intermediate storage - do not use the original iterator after calling
     ``butlastn``.
     """
-    # we let StopIteration propagate from anything that could raise it here.
     it = iter(iterable)
     q = deque()
     for _ in range(n + 1):
