@@ -456,6 +456,11 @@ class CountingIterator:
         return x
 
 def ulp(x):  # Unit in the Last Place
+    """Given a float x, return the unit in the last place (ULP).
+
+    This is the numerical value of the least-significant bit, as a float.
+    For x = 1.0, the ULP is the machine epsilon (by definition of machine epsilon).
+    """
     eps = float_info.epsilon
     # m_min = abs. value represented by a mantissa of 1.0, with the same exponent as x has
     m_min = 2**floor(log2(abs(x)))
