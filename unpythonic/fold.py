@@ -107,7 +107,10 @@ def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     z = zip if not longest else partial(zip_longest, fillvalue=fillvalue)
     xss = rev(z(iterable0, *iterables))
     if init_from_lastx:
-        init = next(xss)[0]  # let StopIteration propagate
+        try:
+            init = next(xss)[0]
+        except StopIteration:
+            return
 
 #    # left-append into a deque to get same output order as in Haskell
 #    acc = init
