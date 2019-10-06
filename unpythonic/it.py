@@ -397,10 +397,16 @@ def butlastn(n, iterable):
     it = iter(iterable)
     q = deque()
     for _ in range(n + 1):
-        q.append(next(it))
+        try:
+            q.append(next(it))
+        except StopIteration:
+            return
     while True:
         yield q.popleft()
-        q.append(next(it))
+        try:
+            q.append(next(it))
+        except StopIteration:
+            return
 
 def first(iterable, *, default=None):
     """Like nth, but return the first item."""
@@ -691,7 +697,10 @@ def window(iterable, n=2):
         while True:
             yield tuple(xs)
             xs.popleft()
-            xs.append(next(it))  # let StopIteration propagate
+            try:
+                xs.append(next(it))
+            except StopIteration:
+                return
     return windowed()
 
 def chunked(n, iterable):
