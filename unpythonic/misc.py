@@ -473,6 +473,11 @@ def slurp(queue):
 
     This retrieves items from the queue until it is empty, populates a list with them
     (preserving the original order), and returns that list.
+
+    **CAUTION**: This does **not** prevent new items being added to the queue
+    afterwards, or indeed by another thread while the slurping is in progress.
+
+    This is purely a convenience function to abstract away a common operation.
     """
     out = []
     try:
