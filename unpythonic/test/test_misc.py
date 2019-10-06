@@ -4,9 +4,10 @@ from operator import add
 from functools import partial
 from collections import deque
 from sys import float_info
+from queue import Queue
 
 from ..misc import call, callwith, raisef, pack, namelambda, timer, \
-                   getattrrec, setattrrec, Popper, CountingIterator, ulp
+                   getattrrec, setattrrec, Popper, CountingIterator, ulp, slurp
 from ..fun import withself
 
 def test():
@@ -186,6 +187,11 @@ def test():
     # test also at some base-2 exponent switch points
     assert ulp(2.0) == 2 * eps
     assert ulp(0.5) == 0.5 * eps
+
+    q = Queue()
+    for k in range(10):
+        q.put(k)
+    assert slurp(q) == list(range(10))
 
     print("All tests PASSED")
 
