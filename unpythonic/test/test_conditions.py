@@ -4,6 +4,9 @@ from ..conditions import signal, invoke_restart, restarts, handlers
 from ..misc import raisef
 from ..collections import box, unbox
 
+import threading
+from queue import Queue, Empty
+
 def test():
     # basic usage
     def lowlevel():
@@ -74,7 +77,31 @@ def test():
             assert unbox(inner_handler_ran) is True
             assert unbox(outer_handler_ran) is False
 
-    # TODO: test multithreading (threads should behave independently)
+    # multithreading (threads should behave independently)
+    comm = Queue()
+    def lowlevel4(tag):
+        with restarts(use_value=(lambda x: x)):
+            return signal("help_me", (tag, 42))
+    def worker(comm, tid):
+        with handlers(help_me=(lambda x: invoke_restart("use_value", x))):
+            comm.put(lowlevel4(tid))
+    n = 1000
+    threads = [threading.Thread(target=worker, args=(comm, tid), kwargs={}) for tid in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    # Test that all threads finished, and each thread got the correct result.
+    # Slurp the queue into a list.
+    results = []
+    try:
+        while True:
+            results.append(comm.get(block=False))
+    except Empty:
+        pass
+    assert len(results) == n
+    assert all(x == 42 for tag, x in results)
+    assert tuple(sorted(tag for tag, x in results)) == tuple(range(n))
 
     print("All tests PASSED")
 
