@@ -462,6 +462,9 @@ def ulp(x):  # Unit in the Last Place
 
     This is the numerical value of the least-significant bit, as a float.
     For x = 1.0, the ULP is the machine epsilon (by definition of machine epsilon).
+
+    See:
+        https://en.wikipedia.org/wiki/Unit_in_the_last_place
     """
     eps = float_info.epsilon
     # m_min = abs. value represented by a mantissa of 1.0, with the same exponent as x has
