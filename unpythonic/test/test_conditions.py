@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from ..conditions import signal, invoke_restart, restarts, handlers
-from ..misc import raisef
+from ..misc import raisef, slurp
 from ..collections import box, unbox
 
 import threading
-from queue import Queue, Empty
+from queue import Queue
 
 def test():
     # basic usage
@@ -97,14 +97,7 @@ def test():
         t.start()
     for t in threads:
         t.join()
-    # Test that all threads finished, and each thread got the correct result.
-    # Slurp the queue into a list.
-    results = []
-    try:
-        while True:
-            results.append(comm.get(block=False))
-    except Empty:
-        pass
+    results = slurp(comm)
     assert len(results) == n
     assert all(x == 42 for tag, x in results)
     assert tuple(sorted(tag for tag, x in results)) == tuple(range(n))

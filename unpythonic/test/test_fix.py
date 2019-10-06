@@ -1,13 +1,13 @@
 # -*- coding: utf-8; -*-
 
 from typing import NoReturn
-from functools import wraps
 import threading
-from queue import Queue, Empty
+from queue import Queue
 
 from ..fix import fix
 from ..fun import identity
 from ..it import chunked
+from ..misc import slurp
 
 # def _logentryexit(f):  # TODO: complete this (kwargs support), move to unpythonic.misc, and make public.
 #     """Decorator. Print a message when f is entered/exited."""
@@ -142,13 +142,7 @@ def test():
             t.join()
 
         # Test that all threads finished, and each thread got the return value NoReturn.
-        # Slurp the queue into a list.
-        results = []
-        try:
-            while True:
-                results.append(comm.get(block=False))
-        except Empty:
-            pass
+        results = slurp(comm)
         assert len(results) == n
         assert sum(results) == n
 

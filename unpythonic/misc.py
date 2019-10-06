@@ -2,7 +2,8 @@
 """Miscellaneous constructs."""
 
 __all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer",
-           "getattrrec", "setattrrec", "Popper", "CountingIterator", "ulp"]
+           "getattrrec", "setattrrec", "Popper", "CountingIterator", "ulp",
+           "slurp"]
 
 from types import LambdaType, FunctionType, CodeType
 from time import time
@@ -10,6 +11,7 @@ from copy import copy
 from functools import partial
 from sys import version_info, float_info
 from math import floor, log2
+from queue import Empty
 
 from .regutil import register_decorator
 from .lazyutil import mark_lazy, lazycall, force
@@ -465,3 +467,17 @@ def ulp(x):  # Unit in the Last Place
     # m_min = abs. value represented by a mantissa of 1.0, with the same exponent as x has
     m_min = 2**floor(log2(abs(x)))
     return m_min * eps
+
+def slurp(queue):
+    """Slurp all items currently on a queue.Queue into a list.
+
+    This retrieves items from the queue until it is empty, populates a list with them
+    (preserving the original order), and returns that list.
+    """
+    out = []
+    try:
+        while True:
+            out.append(queue.get(block=False))
+    except Empty:
+        pass
+    return out
