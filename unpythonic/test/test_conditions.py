@@ -11,8 +11,10 @@ def test():
     # basic usage
     def lowlevel():
         # low-level logic - define here what actions are available when stuff goes wrong
+        _drop = object()  # gensym/nonce
         with restarts(use_value=(lambda x: x),
                       double=(lambda x: 2 * x),
+                      drop=(lambda x: _drop),
                       bail=(lambda x: raisef(ValueError, x))):
             out = []
             for k in range(10):
@@ -20,7 +22,8 @@ def test():
                 # numbers. We consider odd numbers so exceptional we should let
                 # the caller decide which action to take when we see one.
                 result = k if k % 2 == 0 else signal("odd_number", k)
-                out.append(result)
+                if result is not _drop:
+                    out.append(result)
             return out
 
     # high-level logic - choose here which action the low-level logic should take
@@ -30,6 +33,9 @@ def test():
 
     with handlers(odd_number=(lambda x: invoke_restart("double", x))):
         assert lowlevel() == [0, 2 * 1, 2, 2 * 3, 4, 2 * 5, 6, 2 * 7, 8, 2 * 9]
+
+    with handlers(odd_number=(lambda x: invoke_restart("drop", x))):
+        assert lowlevel() == [0, 2, 4, 6, 8]
 
     try:
         with handlers(odd_number=(lambda x: invoke_restart("bail", x))):
