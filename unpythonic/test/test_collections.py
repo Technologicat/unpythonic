@@ -31,6 +31,13 @@ def test():
     assert b4 is not cat  # the box is not the cat
     assert unbox(b4) is cat  # but when you look inside the box, you find the cat
 
+    try:
+        unbox(42)
+    except TypeError:
+        pass
+    else:
+        assert False, "unbox should accept only boxes"
+
     # b.set(newvalue) is the same as assigning b.x = newvalue
     # (but like env.set, it's an expression, so you can use it anywhere)
     dog = object()
