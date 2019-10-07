@@ -44,6 +44,10 @@ def test():
     b4.set(dog)
     assert unbox(b4) is dog
 
+    # syntactic sugar for assignment
+    b4 << cat  # same as b4.set(cat)
+    assert unbox(b4) is cat
+
     try:
         d = {}
         d[b] = "foo"

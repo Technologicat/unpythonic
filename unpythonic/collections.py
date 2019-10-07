@@ -163,7 +163,7 @@ class box:
 
         b = box(17)
         def f(b):
-            b.set(23)
+            b.set(23)  # or equivalently, b << 23
         f(b)
         print(unbox(b))  # 23
 
@@ -209,6 +209,16 @@ class box:
         """
         self.x = x
         return x
+    def __lshift__(self, x):
+        """Syntactic sugar for storing a new value.
+
+        `b << 42` is the same as `b.set(42)`.
+
+        (Note that for `env`, the `<<` operator returns the *environment* so it
+        can be chained to make several assignments, but that doesn't make sense
+        for a `box`, so we just return the new value.)
+        """
+        return self.set(x)
 
 def unbox(b):
     """Return the value from inside the box b.
