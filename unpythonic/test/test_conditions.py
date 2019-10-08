@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..conditions import signal, find_restart, invoke_restart, restarts, handlers, error, cerror, warn
+from ..conditions import signal, find_restart, invoke_restart, restarts, handlers, error, cerror, warn, Condition, ControlError
 from ..misc import raisef, slurp
 from ..collections import box, unbox
 
@@ -9,6 +9,9 @@ from queue import Queue
 
 def test():
     # basic usage
+    class OddNumberError(Condition):
+        def __init__(self, x):
+            self.x = x
     def lowlevel():
         _drop = object()  # gensym/nonce
         out = []
@@ -24,7 +27,7 @@ def test():
                 # Let's pretend we only want to deal with even numbers.
                 # Realistic errors would be something like nonexistent file, disk full, network down, ...
                 if k % 2 == 1:
-                    cerror("odd_number", k)
+                    cerror(OddNumberError(k))
                 # This is reached when no condition is signaled.
                 # `result` is a box, send k into it.
                 result << k
@@ -39,17 +42,17 @@ def test():
 
     # High-level logic. Choose here which action the low-level logic should take
     # for each named signal. Here we only have one signal, named "odd_number".
-    with handlers(odd_number=(lambda x: invoke_restart("use_value", x))):
+    with handlers((OddNumberError, lambda c: invoke_restart("use_value", c.x))):
         assert lowlevel() == list(range(10))
 
-    with handlers(odd_number=(lambda x: invoke_restart("double", x))):
+    with handlers((OddNumberError, lambda c: invoke_restart("double", c.x))):
         assert lowlevel() == [0, 2 * 1, 2, 2 * 3, 4, 2 * 5, 6, 2 * 7, 8, 2 * 9]
 
-    with handlers(odd_number=(lambda x: invoke_restart("drop", x))):
+    with handlers((OddNumberError, lambda c: invoke_restart("drop", c.x))):
         assert lowlevel() == [0, 2, 4, 6, 8]
 
     try:
-        with handlers(odd_number=(lambda x: invoke_restart("bail", x))):
+        with handlers((OddNumberError, lambda c: invoke_restart("bail", c.x))):
             lowlevel()
     except ValueError as err:
         assert str(err) == "1"
@@ -58,7 +61,7 @@ def test():
     # is a fatal error (like an uncaught exception).
     try:
         lowlevel()
-    except RuntimeError:
+    except ControlError:
         pass
     else:
         assert False, "error() should raise on unhandled condition"
@@ -70,24 +73,25 @@ def test():
     # When the "proceed" restart is invoked, it causes the `cerror()` call in
     # the low-level code to return normally. So execution resumes from where it
     # left off, never mind that a condition occurred.
-    with handlers(odd_number=lambda x: invoke_restart("proceed")):
+    with handlers((OddNumberError, lambda c: invoke_restart("proceed"))):
         assert lowlevel() == list(range(10))
 
     # TODO: three-level example (both low-level and mid-level restarts available, decision made at high level)
     # TODO: find_restart example: use a specific restart only if it is currently defined
     # TODO: test the protocols error, warn
+    # TODO: test a common handler for several condition types (using a tuple of types, like in `except`)
 
     # The signal() low-level function does not require the condition to be handled.
     # If unhandled, signal() just returns normally.
     try:
-        signal("woo")
+        signal(RuntimeError("woo"))  # actually any exception is ok, it doesn't have to be a Condition...
     except Exception as err:
         assert False, str(err)
 
     # error: invoke_restart outside the dynamic extent of any `with restarts`
     try:
         invoke_restart("woo")
-    except RuntimeError:
+    except ControlError:
         pass
     else:
         assert False, "should not be able to invoke_restart when no restarts in scope"
@@ -96,29 +100,32 @@ def test():
     try:
         with restarts(foo=(lambda x: x)):
             invoke_restart("bar")
-    except RuntimeError:
+    except ControlError:
         pass
     else:
         assert False, "should not be able to invoke_restart a nonexistent restart"
 
     # name shadowing: dynamically the most recent binding of the same restart name wins
+    class HelpMe(Condition):
+        def __init__(self, value):
+            self.value = value
     def lowlevel2():
         with restarts(r=(lambda x: x)) as a:
-            signal("help_me", 21)
+            signal(HelpMe(21))
             a << False
         with restarts(r=(lambda x: x)):
             # here this is lexically nested, but could be in another function as well.
             with restarts(r=(lambda x: 2 * x)) as b:
-                signal("help_me", 21)
+                signal(HelpMe(21))
                 b << False
         return a, b
-    with handlers(help_me=(lambda x: invoke_restart("r", x))):
+    with handlers((HelpMe, lambda c: invoke_restart("r", c.value))):
         assert lowlevel2() == (21, 42)
 
     # cancel-and-delegate
     def lowlevel3():
         with restarts(use_value=(lambda x: x)) as a:
-            signal("help_me", 42)
+            signal(HelpMe(42))
             a << False
         return unbox(a)
 
@@ -127,9 +134,9 @@ def test():
     # remain in effect.
     inner_handler_ran = box(False)  # use a box so we can rebind the value from inside a lambda
     outer_handler_ran = box(False)
-    with handlers(help_me=(lambda x: [outer_handler_ran << True,
-                                      invoke_restart("use_value", x)])):
-        with handlers(help_me=(lambda x: [inner_handler_ran << True,
+    with handlers((HelpMe, lambda c: [outer_handler_ran << True,
+                                      invoke_restart("use_value", c.value)])):
+        with handlers((HelpMe, lambda c: [inner_handler_ran << True,
                                           None])):  # return normally from handler to cancel-and-delegate
             assert lowlevel3() == 42
             assert unbox(inner_handler_ran) is True
@@ -138,10 +145,10 @@ def test():
     # If the inner handler invokes a restart, the outer handler doesn't run.
     inner_handler_ran = box(False)
     outer_handler_ran = box(False)
-    with handlers(help_me=(lambda x: [outer_handler_ran << True,
-                                      invoke_restart("use_value", x)])):
-        with handlers(help_me=(lambda x: [inner_handler_ran << True,
-                                          invoke_restart("use_value", x)])):
+    with handlers((HelpMe, lambda c: [outer_handler_ran << True,
+                                      invoke_restart("use_value", c.value)])):
+        with handlers((HelpMe, lambda c: [inner_handler_ran << True,
+                                          invoke_restart("use_value", c.value)])):
             assert lowlevel3() == 42
             assert unbox(inner_handler_ran) is True
             assert unbox(outer_handler_ran) is False
@@ -150,11 +157,11 @@ def test():
     comm = Queue()
     def lowlevel4(tag):
         with restarts(use_value=(lambda x: x)) as result:
-            signal("help_me", (tag, 42))
+            signal(HelpMe((tag, 42)))
             result << (tag, 21)  # if the signal is not handled, the box will hold (tag, 21)
         return unbox(result)
     def worker(comm, tid):
-        with handlers(help_me=(lambda x: invoke_restart("use_value", x))):
+        with handlers((HelpMe, lambda c: invoke_restart("use_value", c.value))):
             comm.put(lowlevel4(tid))
     n = 1000
     threads = [threading.Thread(target=worker, args=(comm, tid), kwargs={}) for tid in range(n)]

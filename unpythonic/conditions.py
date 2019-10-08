@@ -4,29 +4,14 @@ To keep this simple, no debugger support. And no implicit "no such function,
 what would you like to do?" hook on function calls. To use conditions, you have
 to explicitly ask for them.
 
-This module exports four forms: `signal`, `invoke_restart`, `with restarts`,
-and `with handlers`, which interlock in a very particular way. Usage::
+This module exports the core forms `signal`, `invoke_restart`, `with restarts`,
+and `with handlers`, which interlock in a very particular way (see examples).
 
-    def lowlevel():
-        # define here what actions are available when stuff goes wrong
-        # in this low-level code
-        with restarts(use_value=...,
-                      do_something_else=...):
-            ...
-            # When stuff goes wrong, ask the caller what we should do
-            x = ... if our_usual_case else signal("help_me")
-            ...
+The form `find_restart` can be used for querying for the presence of a given
+restart name before committing to actually invoking it.
 
-    # high-level code - choose here which action to take for each named signal
-    with handlers(help_me=(lambda: invoke_restart("use_value"))):
-        lowlevel()
-
-This arrangement improves modularity. The high-level code may reside in a
-completely different part of the application, and/or be written only much
-later. The implementer of low-level code can provide a set of canned
-error-recovery strategies *appropriate for that low-level code, for any future
-user*, but leave to each call site the ultimate decision of which strategy to
-pick in any particular use case.
+Each of the forms `error`, `cerror` (continuable error) and `warn` implements
+its own error-handling protocol on top of the core `signal` form.
 
 
 **Acknowledgements**:
@@ -40,15 +25,13 @@ To understand conditions, see *Chapter 19: Beyond Exception Handling:
 Conditions and Restarts* in *Practical Common Lisp* by Peter Seibel (2005):
 
     http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html
+
 """
 
 __all__ = ["signal", "error", "cerror", "warn",
            "find_restart", "invoke_restart",
-           "restarts", "handlers"]
-
-# TODO: have `class Condition(Exception)`, since it's the pythonic way to represent errors.
-
-# TODO: have `class ControlError(Condition)` to signal incorrect use of the condition system. Check the semantics in Seibel.
+           "restarts", "handlers",
+           "Condition", "ControlError"]
 
 import threading
 from collections import deque, namedtuple
@@ -63,32 +46,45 @@ def _ensure_stacks():  # per-thread init
         if not hasattr(_stacks, x):
             setattr(_stacks, x, deque())
 
-def signal(condition_name, *args, **kwargs):
+class Condition(Exception):
+    """Base class for conditions.
+
+    To signal a condition, pass a `Condition` or subclass instance to `signal`,
+    do not `raise` it.
+    """
+
+class ControlError(Condition):
+    """Condition indicating incorrect use of the conditions system.
+
+    Known in Common Lisp as `CONTROL-ERROR`. This is signaled internally by the
+    conditions system e.g. when trying to invoke a nonexistent restart.
+    """
+
+def signal(condition):
     """Signal a condition.
 
-    Signaling a condition is like raising an exception, but the act of signaling
-    itself does not yet unwind the call stack.
+    Signaling a condition works like raising an exception (pass a `Condition`
+    or subclass instance to `signal`), but the act of signaling itself does
+    **not** yet unwind the call stack.
 
     The `signal` control construct gives a chance for a condition handler (see
     `with handlers`) to wrest control if it wants to, by giving it a chance to
     invoke a restart (see `with restarts`).
 
-    Any args and kwargs are passed through to the condition handler. Handlers
-    bound to the given condition name run from dynamically innermost to
-    dynamically outermost (with the same arguments), until one of them (if any)
-    invokes a restart.
+    Handlers bound to the type of the given condition instance run from
+    dynamically innermost to dynamically outermost (with the same condition
+    instance as argument), until one of them (if any) invokes a restart.
 
     When a restart is invoked, the caller of `signal` exits nonlocally, as if
     an exception occurred. Execution resumes from after the `with restarts`
     block containing the invoked restart.
 
-    If this sounds a lot like handling an exception, that's because conditions
-    are a sister of exceptions. However, the decision of which restart to
-    invoke, may be made further out on the call stack than where the applicable
-    restarts are defined. In other words, a condition is somewhat like an
-    exception that consults handlers on any outer levels - but then it undoes
-    the stack unwind, allowing the inner level to perform the restart and
-    continue.
+    The critical difference between exceptions and conditions is that the
+    decision of which restart to invoke may be made further out on the call
+    stack than where the applicable restarts are defined. In other words, a
+    condition is somewhat like an exception that consults handlers on any outer
+    levels - but without unwinding the call stack - allowing the inner level to
+    perform the restart and continue.
 
     If none of the matching handlers invokes a restart, `signal` returns
     normally. There is no meaningful return value, it is always `None`.
@@ -112,9 +108,9 @@ def signal(condition_name, *args, **kwargs):
     # remaining inside the `signal()` call in the low-level code.
     #
     # The unwinding, when it occurs, is performed when `invoke_restart` is
-    # called from inside the condition handler.
-    for handler in _find_handlers(condition_name):
-        handler(*args, **kwargs)
+    # called from inside the condition handler in the user code.
+    for handler in _find_handlers(type(condition)):
+        handler(condition)
 
 def invoke_restart(name_or_restart, *args, **kwargs):
     """Invoke a restart currently in scope.
@@ -123,25 +119,24 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     by `find_restart`.
 
     If it is a name, that name will be looked up with `find_restart`. If there
-    is no restart in scope matching the given name, `RuntimeError` is raised.
+    is no restart in scope matching the given name, `ControlError` is raised.
 
     Any args and kwargs are passed through to the restart.
 
     To handle the condition, call `invoke_restart` from inside your condition
-    handler in your high-level logic. The call immediately terminates the
-    handler, transferring control to the restart.
+    handler. The call immediately terminates the handler, transferring control
+    to the restart.
 
     To instead cancel, and delegate to the next (outer) handler for the same
     condition type, a handler may return normally without calling
     `invoke_restart()`.
-
     """
     r = find_restart(name_or_restart) if isinstance(name_or_restart, str) else name_or_restart
     if not r:
         # TODO: If we want to support the debugger at some point in the future,
         # TODO: this is the appropriate point to ask the user what to do,
         # TODO: before the call stack unwinds.
-        raise RuntimeError("No such restart: '{}'".format(name_or_restart))
+        raise ControlError("No such restart: '{}'".format(name_or_restart))
     # Now we are guaranteed to unwind only up to the matching "with restarts".
     raise InvokeRestart(r, *args, **kwargs)
 
@@ -170,11 +165,15 @@ class handlers(_Stacked):
 
     Usage::
 
-        with handlers(condition_name=callable, ...):
+        with handlers((cls, callable), ...):
             ...
 
-    The code in the block may use `signal` to signal a condition, and
-    `with restarts` to provide recovery strategies.
+    where `cls` is a condition type (class), or a `tuple` of such types
+    (just like in `except`).
+
+    The `callable` must accept one positional argument, the condition instance
+    (like an `except ... as ...` clause). If you don't need it, accept but
+    ignore the argument.
 
     To handle the condition, a handler must call `invoke_restart()` for one of
     the restarts currently in scope. This immediately terminates the handler,
@@ -190,11 +189,13 @@ class handlers(_Stacked):
     system reduces into an exceptions system. The `error` function plays the
     role of `raise`, and `with handlers` plays the role of `try/except`.
     """
-    # Here we can copy willy-nilly, since the `id` of the handler dictionary
-    # doesn't matter. Actually this thin wrapper around `_Stacked` is all we
-    # need to provide `with handlers`.
-    def __init__(self, **bindings):
-        """binding: name (str) -> callable"""
+    # This thin wrapper around `_Stacked` is all we need to provide
+    # the `with handlers` form.
+    def __init__(self, *bindings):
+        """binding: (cls, callable)"""
+        for t, _ in bindings:
+            if not (isinstance(t, tuple) or issubclass(t, Exception)):
+                raise ControlError("Each binding must be of the form (type, callable) or ((t0, ..., tn), callable)")
         super().__init__(bindings)
         self.dq = _stacks.handlers
 
@@ -206,10 +207,15 @@ class InvokeRestart(Exception):
     def __call__(self):
         return self.restart.function(*self.a, **self.kw)
 
-def _find_handlers(name):  # 0..n (though 0 is an error, handled at the calling end)
+def _find_handlers(cls):  # 0..n (though 0 is an error, handled at the calling end)
     for e in _stacks.handlers:
-        if name in e:
-            yield e[name]
+        for t, handler in e:  # t: tuple or type
+            if isinstance(t, tuple):
+                if cls in t:
+                    yield handler
+            else:
+                if cls is t:
+                    yield handler
 
 BoundRestart = namedtuple("BoundRestart", ["name", "function", "context"])
 def find_restart(name):  # exactly 1 (most recently bound wins)
@@ -280,12 +286,12 @@ def restarts(**bindings):
 
 # Common Lisp standard error handling protocols, building on the `signal` function.
 
-def error(condition_name, *args, **kwargs):
-    """Like `signal`, but raise `RuntimeError` if the condition is not handled."""
-    signal(condition_name, *args, **kwargs)
-    raise RuntimeError("error: Unhandled condition '{}', args={}, kwargs={}".format(condition_name, args, kwargs))
+def error(condition):
+    """Like `signal`, but raise `ControlError` if the condition is not handled."""
+    signal(condition)
+    raise ControlError("error: Unhandled condition {}".format(condition))
 
-def cerror(condition_name, *args, **kwargs):
+def cerror(condition):
     """Like `error`, but allow a handler to instruct the caller to ignore the error.
 
     `cerror` internally establishes a restart named `proceed`, which can be
@@ -296,35 +302,47 @@ def cerror(condition_name, *args, **kwargs):
 
     Example::
 
-        with handlers=(odd_number=(lambda: invoke_restart("proceed"))):
+        # If your condition needs data, it can be passed to __init__.
+        # Here this is just to illustrate - the data is unused.
+        class OddNumberError(Condition):
+            def __init__(self, value):
+                self.value = value
+
+        with handlers=((OddNumberError, lambda c: invoke_restart("proceed"))):
             out = []
             for x in range(10):
                 if x % 2 == 1:
-                    cerror("odd_number")  # if unhandled, raises RuntimeError
+                    cerror(OddNumberError(x))  # if unhandled, raises ControlError
                 out.append(x)
         assert out == [0, 2, 4, 6, 8]
     """
     with restarts(proceed=(lambda: None)):  # just for control, no return value
-        error(condition_name, *args, **kwargs)
+        error(condition)
 
-def warn(condition_name, *args, **kwargs):
+def warn(condition):
     """Like `signal`, but emit a warning to stderr if the condition is not handled.
 
     Example::
 
-        with handlers(help_me=(lambda x: invoke_restart("use_value", x))):
+        class HelpMe(Condition):
+            def __init__(self, value):
+                self.value = value
+        with handlers((HelpMe, lambda c: invoke_restart("use_value", c.value))):
             with restarts(use_value=(lambda x: x)) as result:
-                warn("hello")       # not handled; prints a warning
-                warn("help_me", x)  # handled; no warning
-                result << 42
+                warn(RuntimeError("hello"))  # not handled; prints a warning
+                ... # execution continues normally
+                warn(HelpMe(21))             # handled; no warning
+                result << 42                 # not reached, because...
+            assert unbox(result) == 21       # ...HelpMe was handled with use_value
 
     `warn` internally establishes a restart `muffle_warning`, which can be
     invoked to override the printing of the warning message. This restart
     takes no arguments::
 
-        with handlers(hello=(lambda: invoke_restart("muffle_warning"))):
-            warn("hello")  # not handled; no warning
+        with handlers((HelpMe, lambda c: invoke_restart("muffle_warning"))):
+            warn(HelpMe(42))  # not handled; no warning
+            ... # execution continues normally
     """
     with restarts(muffle_warning=(lambda: None)):  # just for control, no return value
-        signal(condition_name, *args, **kwargs)
-        print("warn: Unhandled condition '{}', args={}, kwargs={}".format(condition_name, args, kwargs), file=stderr)
+        signal(condition)
+        print("warn: {}".format(condition), file=stderr)
