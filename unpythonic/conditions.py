@@ -183,6 +183,12 @@ class handlers(_Stacked):
     To instead cancel, and delegate to the next (outer) handler for the same
     condition type, a handler may return normally without calling
     `invoke_restart()`. The return value of the handler is ignored.
+
+    **Notes**
+
+    If you use only `with handlers` and `error` (no restarts), the conditions
+    system reduces into an exceptions system. The `error` function plays the
+    role of `raise`, and `with handlers` plays the role of `try/except`.
     """
     # Here we can copy willy-nilly, since the `id` of the handler dictionary
     # doesn't matter. Actually this thin wrapper around `_Stacked` is all we
