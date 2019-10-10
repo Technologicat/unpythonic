@@ -176,8 +176,8 @@ class handlers(_Stacked):
         with handlers((cls, callable), ...):
             ...
 
-    where `cls` is a condition type (class), or a `tuple` of such types
-    (just like in `except`).
+    where `cls` is a condition type (class), or a `tuple` of such types,
+    just like in `except`.
 
     The `callable` may optionally accept one positional argument, the condition
     instance (like an `except ... as ...` clause). If you don't need data from
@@ -197,6 +197,18 @@ class handlers(_Stacked):
     If you use only `with handlers` and `error` (no restarts), the conditions
     system reduces into an exceptions system. The `error` function plays the
     role of `raise`, and `with handlers` plays the role of `try/except`.
+
+    If that's all you need, just use exceptions - the purpose of the conditions
+    system is to allow customizing the semantics.
+
+    Also, the condition system does not have a `finally` form. For that, use
+    the usual `try/finally`, it will work fine also with conditions. Just keep
+    in mind that the call stack unwinding actually occurs later than usual.
+    (The `finally` block will fire at unwind time, as usual.)
+
+    (Exception systems often perform double duty, providing both a throw/catch
+    mechanism and an `unwind-protect` mechanism. This conditions system provides
+    only a resumable throw/catch/restart mechanism.)
     """
     # This thin wrapper around `_Stacked` is all we need to provide
     # the `with handlers` form.
