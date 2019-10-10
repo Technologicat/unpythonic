@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from ..conditions import signal, find_restart, invoke_restart, restarts, handlers, error, cerror, warn, Condition, ControlError
+from ..conditions import signal, find_restart, invoke_restart, invoker, \
+    restarts, handlers, error, cerror, warn, Condition, ControlError
 from ..misc import raisef, slurp
 from ..collections import box, unbox
 
@@ -73,11 +74,41 @@ def test():
     # When the "proceed" restart is invoked, it causes the `cerror()` call in
     # the low-level code to return normally. So execution resumes from where it
     # left off, never mind that a condition occurred.
-    with handlers((OddNumberError, lambda c: invoke_restart("proceed"))):
+    #
+    # We use the convenience function `invoker` to create a simple handler that
+    # just invokes the restart named "proceed". Note the returned function will
+    # also be named "proceed".
+    with handlers((OddNumberError, invoker("proceed"))):
         assert lowlevel() == list(range(10))
 
+    # find_restart can be used to look for a restart before committing to
+    # actually invoking it.
+    class JustACondition(Condition):
+        pass
+    class NoItDidntExist(Exception):
+        pass
+    def invoke_if_exists(restart_name):
+        r = find_restart(restart_name)
+        if r:
+            invoke_restart(r)
+        # just a convenient way to tell the test code that it wasn't found.
+        raise NoItDidntExist()
+    with handlers((JustACondition, lambda c: invoke_if_exists("myrestart"))):
+        # Let's set up "myrestart".
+        with restarts(myrestart=(lambda: 42)) as result:
+            signal(JustACondition())
+            result << 21
+        assert unbox(result) == 42  # should be the return value of the restart.
+
+        # Now there is no "myrestart" in scope.
+        try:
+            signal(JustACondition())
+        except NoItDidntExist:
+            pass
+        else:
+            assert False, "find_restart should have not found a nonexistent restart"
+
     # TODO: three-level example (both low-level and mid-level restarts available, decision made at high level)
-    # TODO: find_restart example: use a specific restart only if it is currently defined
     # TODO: test the protocols error, warn
     # TODO: test a common handler for several condition types (using a tuple of types, like in `except`)
 
