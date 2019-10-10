@@ -60,9 +60,9 @@ class Condition(Exception):
     """
 
 class ControlError(Condition):
-    """Condition indicating incorrect use of the conditions system.
+    """A condition for errors detected by the conditions system.
 
-    Known in Common Lisp as `CONTROL-ERROR`. This is signaled internally by the
+    Known in Common Lisp as `CONTROL-ERROR`. This is signaled by the
     conditions system e.g. when trying to invoke a nonexistent restart.
     """
 
@@ -136,7 +136,12 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     by `find_restart`.
 
     If it is a name, that name will be looked up with `find_restart`. If there
-    is no restart in scope matching the given name, `ControlError` is raised.
+    is no restart in scope matching the given name, `ControlError` is signaled
+    using the `error` function.
+
+    (If you want, you can catch the `ControlError` with another handler, and
+    from there invoke some other restart. But if you really need your handler
+    to shop around, maybe consider `find_restart` and a `for` loop.)
 
     Any args and kwargs are passed through to the restart.
 
@@ -145,15 +150,17 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     to the restart.
 
     To instead cancel, and delegate to the next (outer) handler for the same
-    condition type, a handler may return normally without calling
+    condition type, return normally from the handler without calling
     `invoke_restart()`.
+
+    This function never returns normally.
     """
     r = find_restart(name_or_restart) if isinstance(name_or_restart, str) else name_or_restart
     if not r:
         # TODO: If we want to support the debugger at some point in the future,
         # TODO: this is the appropriate point to ask the user what to do,
         # TODO: before the call stack unwinds.
-        raise ControlError("No such restart: '{}'".format(name_or_restart))
+        error(ControlError("No such restart: '{}'".format(name_or_restart)))
     # Now we are guaranteed to unwind only up to the matching "with restarts".
     raise InvokeRestart(r, *args, **kwargs)
 
@@ -176,7 +183,7 @@ def invoker(restart_name):
     The returned function has the same name as the restart it invokes,
     to ease debugging.
 
-    If the restart cannot be found when the invoker fires, it raises
+    If the restart cannot be found when the invoker fires, it signals
     `ControlError`.
 
     **Notes**
@@ -356,7 +363,17 @@ def restarts(**bindings):
 # Common Lisp standard error handling protocols, building on the `signal` function.
 
 def error(condition):
-    """Like `signal`, but raise `ControlError` if the condition is not handled."""
+    """Like `signal`, but raise `ControlError` if the condition is not handled.
+
+    Note **raise**, not **signal**. Keep in mind the original Common Lisp
+    `ERROR` function is wired to drop you into the debugger if the condition
+    is not handled.
+
+    This function never returns normally.
+
+    Note *handled* means that a handler must actually invoke a restart; a
+    condition does not count as handled simply because a handler was triggered.
+    """
     signal(condition)
     raise ControlError("Unhandled {}: {}".format(type(condition), condition))
 

@@ -59,7 +59,9 @@ def test():
         assert str(err) == "1"
 
     # When using error() or cerror() to signal, not handling the condition
-    # is a fatal error (like an uncaught exception).
+    # is a fatal error (like an uncaught exception). The `error` function
+    # actually **raises** `ControlError` (note raise, not signal) on an
+    # unhandled condition.
     try:
         lowlevel()
     except ControlError:
