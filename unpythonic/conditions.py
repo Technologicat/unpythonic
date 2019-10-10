@@ -268,7 +268,7 @@ class InvokeRestart(Exception):
     def __init__(self, restart, *args, **kwargs):  # e is the context
         self.restart, self.a, self.kw = restart, args, kwargs
         # message when uncaught
-        self.args = ("invoke_restart() is only meaningful inside the dynamic extent of a 'with restarts'.",)
+        self.args = ("unpythonic.conditions: internal error: uncaught InvokeRestart",)
     def __call__(self):
         return self.restart.function(*self.a, **self.kw)
 
