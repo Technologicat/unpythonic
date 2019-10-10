@@ -358,7 +358,7 @@ def restarts(**bindings):
 def error(condition):
     """Like `signal`, but raise `ControlError` if the condition is not handled."""
     signal(condition)
-    raise ControlError("error: Unhandled condition {}".format(condition))
+    raise ControlError("Unhandled {}: {}".format(type(condition), condition))
 
 def cerror(condition):
     """Like `error`, but allow a handler to instruct the caller to ignore the error.
@@ -419,4 +419,4 @@ def warn(condition):
     """
     with restarts(muffle_warning=(lambda: None)):  # just for control, no return value
         signal(condition)
-        print("warn: {}".format(condition), file=stderr)
+        print("warn: Unhandled {}: {}".format(type(condition), condition), file=stderr)
