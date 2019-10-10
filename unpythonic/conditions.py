@@ -39,6 +39,7 @@ import contextlib
 from sys import stderr
 
 from .collections import box
+from .arity import arity_includes, UnknownArity
 
 _stacks = threading.local()
 def _ensure_stacks():  # per-thread init
@@ -110,7 +111,14 @@ def signal(condition):
     # The unwinding, when it occurs, is performed when `invoke_restart` is
     # called from inside the condition handler in the user code.
     for handler in _find_handlers(type(condition)):
-        handler(condition)
+        try:
+            accepts_arg = arity_includes(handler, 1)
+        except UnknownArity:
+            accepts_arg = True  # just assume it
+        if accepts_arg:
+            handler(condition)
+        else:
+            handler()
 
 def invoke_restart(name_or_restart, *args, **kwargs):
     """Invoke a restart currently in scope.
@@ -171,9 +179,10 @@ class handlers(_Stacked):
     where `cls` is a condition type (class), or a `tuple` of such types
     (just like in `except`).
 
-    The `callable` must accept one positional argument, the condition instance
-    (like an `except ... as ...` clause). If you don't need it, accept but
-    ignore the argument.
+    The `callable` may optionally accept one positional argument, the condition
+    instance (like an `except ... as ...` clause). If you don't need data from
+    the condition object (just using its type for control purposes, like an
+    `except ...` clause), the handler doesn't need to accept any arguments.
 
     To handle the condition, a handler must call `invoke_restart()` for one of
     the restarts currently in scope. This immediately terminates the handler,
