@@ -209,7 +209,7 @@ class handlers(_Stacked):
     Also, the condition system does not have a `finally` form. For that, use
     the usual `try/finally`, it will work fine also with conditions. Just keep
     in mind that the call stack unwinding actually occurs later than usual.
-    (The `finally` block will fire at unwind time, as usual.)
+    The `finally` block will fire at unwind time, as usual.
 
     (Exception systems often perform double duty, providing both a throw/catch
     mechanism and an `unwind-protect` mechanism. This conditions system provides
