@@ -7,8 +7,11 @@ to explicitly ask for them.
 This module exports the core forms `signal`, `invoke_restart`, `with restarts`,
 and `with handlers`, which interlock in a very particular way (see examples).
 
-The form `find_restart` can be used for querying for the presence of a given
-restart name before committing to actually invoking it.
+The function `find_restart` can be used for querying for the presence of a
+given restart name before committing to actually invoking it.
+
+The `invoker` function creates a simple handler that just invokes the specified
+restart.
 
 Each of the forms `error`, `cerror` (continuable error) and `warn` implements
 its own error-handling protocol on top of the core `signal` form. Although
@@ -30,7 +33,7 @@ Conditions and Restarts* in *Practical Common Lisp* by Peter Seibel (2005):
 """
 
 __all__ = ["signal", "error", "cerror", "warn",
-           "find_restart", "invoke_restart",
+           "find_restart", "invoke_restart", "invoker",
            "restarts", "handlers",
            "Condition", "ControlError"]
 
@@ -41,6 +44,7 @@ from sys import stderr
 
 from .collections import box
 from .arity import arity_includes, UnknownArity
+from .misc import namelambda
 
 _stacks = threading.local()
 def _ensure_stacks():  # per-thread init
@@ -152,6 +156,38 @@ def invoke_restart(name_or_restart, *args, **kwargs):
         raise ControlError("No such restart: '{}'".format(name_or_restart))
     # Now we are guaranteed to unwind only up to the matching "with restarts".
     raise InvokeRestart(r, *args, **kwargs)
+
+def invoker(restart_name):
+    """Create a handler that just invokes the named restart without arguments.
+
+    This is a convenience function. This::
+
+        with handlers((OhNoes, invoker("proceed"))):
+            ...  # calling some code that may cerror(OhNoes("ouch"))
+
+    is shorter to type and more readable than::
+
+        with handlers(((OhNoes, lambda c: invoke_restart("proceed")))):
+            ...
+
+    The name `invoker` is both short for *invoke restart* (but do it later)
+    and describes the return value, which is an invoker.
+
+    The returned function has the same name as the restart it invokes,
+    to ease debugging.
+
+    If the restart cannot be found when the invoker fires, it raises
+    `ControlError`.
+
+    **Notes**
+
+    Unlike Common Lisp, we export only this one factory function to create any
+    custom simple invoker. We provide no ready-made invokers such as Common
+    Lisp's `CONTINUE` or `MUFFLE-WARNING`. If you need those, just use
+    `invoker("proceed")` or `invoker("muffle_warning")`.
+    """
+    rename = namelambda(restart_name)
+    return rename(lambda c: invoke_restart(restart_name))
 
 class _Stacked:  # boilerplate
     def __init__(self, bindings):
