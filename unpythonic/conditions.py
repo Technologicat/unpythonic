@@ -208,7 +208,7 @@ class Restarts(_Stacked):
         """bindings: dictionary of name (str) -> callable"""
         for n, c in bindings.items():
             if not (isinstance(n, str) and callable(c)):
-                raise ControlError("Each binding must be of the form name=callable")
+                raise TypeError("Each binding must be of the form name=callable")
         super().__init__(bindings)
         self.dq = _stacks.restarts
 
@@ -260,7 +260,7 @@ class handlers(_Stacked):
         """binding: (cls, callable)"""
         for t, c in bindings:
             if not ((isinstance(t, tuple) or issubclass(t, Exception)) and callable(c)):
-                raise ControlError("Each binding must be of the form (type, callable) or ((t0, ..., tn), callable)")
+                raise TypeError("Each binding must be of the form (type, callable) or ((t0, ..., tn), callable)")
         super().__init__(bindings)
         self.dq = _stacks.handlers
 
