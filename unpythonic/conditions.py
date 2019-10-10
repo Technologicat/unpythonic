@@ -373,13 +373,14 @@ def cerror(condition):
             def __init__(self, value):
                 self.value = value
 
-        with handlers=((OddNumberError, lambda c: invoke_restart("proceed"))):
+        with handlers=((OddNumberError, invoker("proceed"))):
             out = []
             for x in range(10):
                 if x % 2 == 1:
                     cerror(OddNumberError(x))  # if unhandled, raises ControlError
                 out.append(x)
         assert out == [0, 2, 4, 6, 8]
+
     """
     with restarts(proceed=(lambda: None)):  # just for control, no return value
         error(condition)
@@ -404,7 +405,7 @@ def warn(condition):
     invoked to override the printing of the warning message. This restart
     takes no arguments::
 
-        with handlers((HelpMe, lambda c: invoke_restart("muffle_warning"))):
+        with handlers((HelpMe, invoker("muffle_warning"))):
             warn(HelpMe(42))  # not handled; no warning
             ... # execution continues normally
     """
