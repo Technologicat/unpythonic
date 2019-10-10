@@ -2,7 +2,7 @@
 
 Our Python language extensions, as syntactic macros, are built on [MacroPy](https://github.com/azazel75/macropy), from the PyPI package ``macropy3``. If you want to take language extension a step further, see our sister project [Pydialect](https://github.com/Technologicat/pydialect).
 
-The [unit tests that contain usage examples](../unpythonic/syntax/test/) cannot be run directly because macro expansion occurs at import time. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). For convenience, ``setup.py`` installs this bootstrapper.\
+The [unit tests that contain usage examples](../unpythonic/syntax/test/) cannot be run directly because macro expansion occurs at import time. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). For convenience, ``setup.py`` installs this bootstrapper.
 
 Please note that there are features that appear in both the pure-Python layer and the macro layer, as well as features that only exist in the macro layer.
 
