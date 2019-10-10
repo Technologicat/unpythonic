@@ -11,8 +11,10 @@ The form `find_restart` can be used for querying for the presence of a given
 restart name before committing to actually invoking it.
 
 Each of the forms `error`, `cerror` (continuable error) and `warn` implements
-its own error-handling protocol on top of the core `signal` form.
-
+its own error-handling protocol on top of the core `signal` form. Although
+these three cover the most common use cases, they might not cover all
+conceivable use cases. In such a situation just create a custom protocol;
+see the existing protocols as examples.
 
 **Acknowledgements**:
 
@@ -25,7 +27,6 @@ To understand conditions, see *Chapter 19: Beyond Exception Handling:
 Conditions and Restarts* in *Practical Common Lisp* by Peter Seibel (2005):
 
     http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html
-
 """
 
 __all__ = ["signal", "error", "cerror", "warn",
@@ -104,6 +105,10 @@ def signal(condition):
     safe to unwind (using a plain old exception), because then it's guaranteed
     that the stack frames between the `with restarts` block that will be
     handling the restart and the `signal` call will not be needed any more.
+
+    You can actually signal any exception, not only subclasses of `Condition`.
+    This is useful when one of Python's existing exception types already covers
+    the use case.
     """
     # Since the handler is called normally, we don't unwind the call stack,
     # remaining inside the `signal()` call in the low-level code.
