@@ -337,7 +337,11 @@ def restarts(**bindings):
     statement and thus cannot return a value directly. Also, it is idiomatic
     enough to convey the meaning that `with restarts` introduces a binding.
 
-    If your restarts don't need to return a value, you can omit the as-binding.
+    If none of your restarts need to return a value, you can omit the as-binding.
+
+    If you just need a jump label for skipping the rest of the block at the
+    higher-level code's behest, you can use `lambda: None` as the restart
+    function (`cerror` and `warn` do this internally).
     """
     b = box(None)
     with Restarts(bindings):
@@ -360,10 +364,14 @@ def cerror(condition):
     """Like `error`, but allow a handler to instruct the caller to ignore the error.
 
     `cerror` internally establishes a restart named `proceed`, which can be
-    invoked to make `cerror` return normally.
+    invoked to make `cerror` return normally to its caller. We do not export
+    an eponymous function; use `invoker("proceed")` to create a simple handler
+    that just invokes the restart named "proceed" (and raises `ControlError`
+    if not found).
 
     We use the name "proceed" instead of Common Lisp's "continue", because in
-    Python `continue` is a reserved word.
+    Python `continue` is a reserved word, and `with restarts` (which `cerror`
+    uses internally) uses the kwarg names to name the restarts.
 
     Example::
 
