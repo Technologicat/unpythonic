@@ -93,7 +93,9 @@ def test():
             invoke_restart(r)
         # just a convenient way to tell the test code that it wasn't found.
         raise NoItDidntExist()
-    with handlers((JustACondition, lambda c: invoke_if_exists("myrestart"))):
+    # The condition instance parameter for a hanlder is optional - not needed
+    # if you don't need data from the instance.
+    with handlers((JustACondition, lambda: invoke_if_exists("myrestart"))):
         # Let's set up "myrestart".
         with restarts(myrestart=(lambda: 42)) as result:
             signal(JustACondition())
@@ -167,8 +169,8 @@ def test():
     outer_handler_ran = box(False)
     with handlers((HelpMe, lambda c: [outer_handler_ran << True,
                                       invoke_restart("use_value", c.value)])):
-        with handlers((HelpMe, lambda c: [inner_handler_ran << True,
-                                          None])):  # return normally from handler to cancel-and-delegate
+        with handlers((HelpMe, lambda: [inner_handler_ran << True,
+                                        None])):  # return normally from handler to cancel-and-delegate
             assert lowlevel3() == 42
             assert unbox(inner_handler_ran) is True
             assert unbox(outer_handler_ran) is True
