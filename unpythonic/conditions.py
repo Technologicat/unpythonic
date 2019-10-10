@@ -13,7 +13,7 @@ restart name before committing to actually invoking it.
 Each of the forms `error`, `cerror` (continuable error) and `warn` implements
 its own error-handling protocol on top of the core `signal` form. Although
 these three cover the most common use cases, they might not cover all
-conceivable use cases. In such a situation just create a custom protocol;
+conceivable uses. In such a situation just create a custom protocol;
 see the existing protocols as examples.
 
 **Acknowledgements**:
