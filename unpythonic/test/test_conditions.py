@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from ..conditions import signal, find_restart, invoke_restart, invoker, \
-    restarts, handlers, error, cerror, warn, Condition, ControlError
+    restarts, with_restarts, handlers, \
+    error, cerror, proceed, \
+    warn, muffle_warning, \
+    Condition, ControlError
 from ..misc import raisef, slurp
 from ..collections import box, unbox
 
@@ -9,6 +12,10 @@ import threading
 from queue import Queue
 
 def test():
+    # TODO: three-level example (both low-level and mid-level restarts available, decision made at high level)
+    # TODO: test a common handler for several condition types (using a tuple of types, like in `except`)
+    # TODO: test coverage (see unused imports at top)
+
     # basic usage
     class OddNumberError(Condition):
         def __init__(self, x):
@@ -76,11 +83,7 @@ def test():
     # When the "proceed" restart is invoked, it causes the `cerror()` call in
     # the low-level code to return normally. So execution resumes from where it
     # left off, never mind that a condition occurred.
-    #
-    # We use the convenience function `invoker` to create a simple handler that
-    # just invokes the restart named "proceed". Note the returned function will
-    # also be named "proceed".
-    with handlers((OddNumberError, invoker("proceed"))):
+    with handlers((OddNumberError, proceed)):
         assert lowlevel() == list(range(10))
 
     # find_restart can be used to look for a restart before committing to
@@ -111,10 +114,6 @@ def test():
             pass
         else:
             assert False, "find_restart should have not found a nonexistent restart"
-
-    # TODO: three-level example (both low-level and mid-level restarts available, decision made at high level)
-    # TODO: test the protocols error, warn
-    # TODO: test a common handler for several condition types (using a tuple of types, like in `except`)
 
     # The signal() low-level function does not require the condition to be handled.
     # If unhandled, signal() just returns normally.

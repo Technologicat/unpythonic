@@ -32,17 +32,21 @@ Conditions and Restarts* in *Practical Common Lisp* by Peter Seibel (2005):
     http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html
 """
 
-__all__ = ["signal", "error", "cerror", "warn",
+__all__ = ["signal", "error",
+           "cerror", "proceed",
+           "warn", "muffle_warning",
            "find_restart", "invoke_restart", "invoker",
-           "restarts", "handlers",
+           "restarts", "with_restarts",
+           "handlers",
            "Condition", "ControlError"]
 
 import threading
 from collections import deque, namedtuple
+from functools import wraps
 import contextlib
 from sys import stderr
 
-from .collections import box
+from .collections import box, unbox
 from .arity import arity_includes, UnknownArity
 from .misc import namelambda
 
@@ -181,20 +185,21 @@ def invoker(restart_name):
     and describes the return value, which is an invoker.
 
     The returned function has the same name as the restart it invokes,
-    to ease debugging.
+    to ease debugging, and a docstring.
 
     If the restart cannot be found when the invoker fires, it signals
     `ControlError`.
 
     **Notes**
 
-    Unlike Common Lisp, we export only this one factory function to create any
-    custom simple invoker. We provide no ready-made invokers such as Common
-    Lisp's `CONTINUE` or `MUFFLE-WARNING`. If you need those, just use
-    `invoker("proceed")` or `invoker("muffle_warning")`.
+    This function is meant for building custom simple invokers. The standard
+    protocols `cerror` and `warn` come with the predefined invokers `proceed`
+    and `muffle_warning`, respectively.
     """
     rename = namelambda(restart_name)
-    return rename(lambda c: invoke_restart(restart_name))
+    the_invoker = rename(lambda c: invoke_restart(restart_name))
+    the_invoker.__doc__ = "Invoke the restart '{}'.".format(restart_name)
+    return the_invoker
 
 class _Stacked:  # boilerplate
     def __init__(self, bindings):
@@ -360,6 +365,31 @@ def restarts(**bindings):
             else:
                 raise  # unwind this level of call stack, propagate outwards
 
+def with_restarts(**bindings):
+    """Alternate syntax. Use restarts with a `def` code block instead of a `with`.
+
+    The def'd name is replaced by the unboxed result, so you can return a value
+    from the block normally (using `return`), and don't need to unbox anything.
+
+    Parametric decorator. The return value is a function that decorates a given
+    function with the restarts specified here.
+
+    Usage::
+        @with_restarts(use_value=(lambda x: x))
+        def result():  # must take no parameters, essentially just a variable
+            ...
+            return 42
+        # now `result` is either 42 or the return value of a restart
+    """
+    def make_restartable(f):
+        @wraps(f)
+        def restartable():
+            with restarts(**bindings) as result:
+                result << f()
+            return unbox(result)
+        return restartable
+    return make_restartable
+
 # Common Lisp standard error handling protocols, building on the `signal` function.
 
 def error(condition):
@@ -381,14 +411,12 @@ def cerror(condition):
     """Like `error`, but allow a handler to instruct the caller to ignore the error.
 
     `cerror` internally establishes a restart named `proceed`, which can be
-    invoked to make `cerror` return normally to its caller. We do not export
-    an eponymous function; use `invoker("proceed")` to create a simple handler
-    that just invokes the restart named "proceed" (and raises `ControlError`
-    if not found).
+    invoked to make `cerror` return normally to its caller. Like Common Lisp,
+    as a convenience we export a handler callable `proceed` that just invokes
+    the eponymous restart (and raises `ControlError` if not found).
 
     We use the name "proceed" instead of Common Lisp's "continue", because in
-    Python `continue` is a reserved word, and `with restarts` (which `cerror`
-    uses internally) uses the kwarg names to name the restarts.
+    Python `continue` is a reserved word.
 
     Example::
 
@@ -398,7 +426,7 @@ def cerror(condition):
             def __init__(self, value):
                 self.value = value
 
-        with handlers=((OddNumberError, invoker("proceed"))):
+        with handlers=((OddNumberError, proceed)):
             out = []
             for x in range(10):
                 if x % 2 == 1:
@@ -427,13 +455,28 @@ def warn(condition):
             assert unbox(result) == 21       # ...HelpMe was handled with use_value
 
     `warn` internally establishes a restart `muffle_warning`, which can be
-    invoked to override the printing of the warning message. This restart
-    takes no arguments::
+    invoked to override the printing of the warning message.
 
-        with handlers((HelpMe, invoker("muffle_warning"))):
+    Like Common Lisp, as a convenience we export a handler callable
+    `muffle_warning` that just invokes the eponymous restart (and raises
+    `ControlError` if not found)::
+
+        with handlers((HelpMe, muffle_warning))):
             warn(HelpMe(42))  # not handled; no warning
             ... # execution continues normally
+
+    The combination of `warn` and `muffle_warning` behaves somewhat like
+    `contextlib.suppress`, except that execution continues normally in the
+    caller of `warn` instead of unwinding to the handler.
     """
     with restarts(muffle_warning=(lambda: None)):  # just for control, no return value
         signal(condition)
         print("warn: Unhandled {}: {}".format(type(condition), condition), file=stderr)
+
+# Standard handler functions for the predefined protocols
+
+proceed = invoker("proceed")
+proceed.__doc__ = "Invoke the 'proceed' restart. Handler function for use with `cerror`."
+
+muffle_warning = invoker("muffle_warning")
+muffle_warning.__doc__ = "Invoke the 'muffle_warning' restart. Handler function for use with `warn`."
