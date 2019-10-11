@@ -3,7 +3,7 @@
 from ..conditions import signal, find_restart, invoke_restart, invoker, \
     restarts, with_restarts, handlers, \
     error, cerror, proceed, \
-    warn, muffle_warning, \
+    warn, muffle, \
     Condition, ControlError
 from ..misc import raisef, slurp
 from ..collections import box, unbox

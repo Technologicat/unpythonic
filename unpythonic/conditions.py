@@ -34,7 +34,7 @@ Conditions and Restarts* in *Practical Common Lisp* by Peter Seibel (2005):
 
 __all__ = ["signal", "error",
            "cerror", "proceed",
-           "warn", "muffle_warning",
+           "warn", "muffle",
            "find_restart", "invoke_restart", "invoker",
            "restarts", "with_restarts",
            "handlers",
@@ -194,7 +194,7 @@ def invoker(restart_name):
 
     This function is meant for building custom simple invokers. The standard
     protocols `cerror` and `warn` come with the predefined invokers `proceed`
-    and `muffle_warning`, respectively.
+    and `muffle`, respectively.
     """
     rename = namelambda(restart_name)
     the_invoker = rename(lambda c: invoke_restart(restart_name))
@@ -454,22 +454,22 @@ def warn(condition):
                 result << 42                 # not reached, because...
             assert unbox(result) == 21       # ...HelpMe was handled with use_value
 
-    `warn` internally establishes a restart `muffle_warning`, which can be
-    invoked to override the printing of the warning message.
+    `warn` internally establishes a restart `muffle`, which can be invoked to
+    override the printing of the warning message.
 
-    Like Common Lisp, as a convenience we export a handler callable
-    `muffle_warning` that just invokes the eponymous restart (and raises
-    `ControlError` if not found)::
+    Like Common Lisp, as a convenience we export a handler callable `muffle`
+    that just invokes the eponymous restart (and raises `ControlError` if not
+    found)::
 
-        with handlers((HelpMe, muffle_warning))):
+        with handlers((HelpMe, muffle))):
             warn(HelpMe(42))  # not handled; no warning
             ... # execution continues normally
 
-    The combination of `warn` and `muffle_warning` behaves somewhat like
-    `contextlib.suppress`, except that execution continues normally in the
-    caller of `warn` instead of unwinding to the handler.
+    The combination of `warn` and `muffle` behaves somewhat like
+    `contextlib.suppress`, except that execution continues normally
+    in the caller of `warn` instead of unwinding to the handler.
     """
-    with restarts(muffle_warning=(lambda: None)):  # just for control, no return value
+    with restarts(muffle=(lambda: None)):  # just for control, no return value
         signal(condition)
         print("warn: Unhandled {}: {}".format(type(condition), condition), file=stderr)
 
@@ -478,5 +478,5 @@ def warn(condition):
 proceed = invoker("proceed")
 proceed.__doc__ = "Invoke the 'proceed' restart. Handler function for use with `cerror`."
 
-muffle_warning = invoker("muffle_warning")
-muffle_warning.__doc__ = "Invoke the 'muffle_warning' restart. Handler function for use with `warn`."
+muffle = invoker("muffle")
+muffle.__doc__ = "Invoke the 'muffle' restart. Handler function for use with `warn`."
