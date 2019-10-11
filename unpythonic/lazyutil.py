@@ -23,7 +23,7 @@ def _init_module():  # called by unpythonic.__init__ when otherwise done
 try:  # MacroPy is optional for unpythonic
     from macropy.quick_lambda import Lazy
 except ImportError:
-    Lazy = type()
+    class Lazy: pass
 
 make_dynvar(_build_lazy_trampoline=False)  # interaction with TCO
 
