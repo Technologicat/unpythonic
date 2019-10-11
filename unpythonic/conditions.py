@@ -10,8 +10,8 @@ and `with handlers`, which interlock in a very particular way (see examples).
 The function `find_restart` can be used for querying for the presence of a
 given restart name before committing to actually invoking it.
 
-The `invoker` function creates a simple handler that just invokes the specified
-restart.
+The `invoker` function creates a simple handler callable that just invokes the
+specified restart.
 
 Each of the forms `error`, `cerror` (continuable error) and `warn` implements
 its own error-handling protocol on top of the core `signal` form. Although
@@ -473,10 +473,10 @@ def warn(condition):
         signal(condition)
         print("warn: Unhandled {}: {}".format(type(condition), condition), file=stderr)
 
-# Standard handler functions for the predefined protocols
+# Standard handler callables for the predefined protocols
 
 proceed = invoker("proceed")
-proceed.__doc__ = "Invoke the 'proceed' restart. Handler function for use with `cerror`."
+proceed.__doc__ = "Invoke the 'proceed' restart. Handler callable for use with `cerror`."
 
 muffle = invoker("muffle")
-muffle.__doc__ = "Invoke the 'muffle' restart. Handler function for use with `warn`."
+muffle.__doc__ = "Invoke the 'muffle' restart. Handler callable for use with `warn`."
