@@ -92,6 +92,79 @@ def test():
         highlevel()
     basic_usage()
 
+    class JustTesting(Condition):
+        pass
+
+    def test_invoker():
+        # invoker(restart_name) creates a handler callable that just invokes
+        # the given restart with no arguments.
+        with handlers((JustTesting, invoker("hello"))):
+            with restarts(hello=(lambda: "hello")) as result:
+                warn(JustTesting())
+                result << 21
+            assert unbox(result) == "hello"
+    test_invoker()
+
+    def inspection():
+        with handlers((JustTesting, invoker("hello")),
+                      (RuntimeError, (lambda c: invoke_restart("use_value", 42)))):
+            with restarts(hello=(lambda: "hello"),
+                          use_value=(lambda x: x)):
+                assert [name for name, _callable in available_restarts()] == ["hello", "use_value"]
+                assert [t for t, _callable in available_handlers()] == [JustTesting, RuntimeError]
+    inspection()
+
+    def alternate_syntax():
+        # normal usage
+        with handlers((JustTesting, (lambda c: invoke_restart("use_value", 42)))):
+            # The decorator "with_restarts" and "def result()" pair can be used
+            # instead of "with restarts(...) as result":
+            @with_restarts(use_value=(lambda x: x))
+            def result():
+                error(JustTesting())
+                return 21
+            assert result == 42
+
+            # hifi usage
+            with_usevalue = with_restarts(use_value=(lambda x: x))
+            # Now we can, at any time later, call any thunk in the context of the
+            # restarts that were given as arguments to `with_restarts`:
+            def dostuff():
+                error(JustTesting())
+                return 21
+            result = with_usevalue(dostuff)
+            assert result == 42
+    alternate_syntax()
+
+    def error_protocol():
+        with handlers((RuntimeError, (lambda c: invoke_restart("use_value", 42)))):
+            with restarts(use_value=(lambda x: x)) as result:
+                error(RuntimeError("foo"))
+                result << 21
+            assert unbox(result) == 42
+    error_protocol()
+
+    def warn_protocol():
+        with handlers():
+            with restarts() as result:
+                print("Testing warn() - this should print a warning:")
+                warn(JustTesting("unhandled warn() prints a warning, but allows execution to continue"))
+                result << 21
+            assert unbox(result) == 21
+
+        with handlers((JustTesting, muffle)):  # canonical way to muffle a warning
+            with restarts() as result:
+                warn(JustTesting("unhandled warn() does not print a warning when it is muffled"))
+                result << 21
+            assert unbox(result) == 21
+
+        with handlers((JustTesting, (lambda c: invoke_restart("use_value", 42)))):
+            with restarts(use_value=(lambda x: x)) as result:
+                warn(JustTesting("handled warn() does not print a warning"))
+                result << 21  # not reached, because the restart takes over
+            assert unbox(result) == 42
+    warn_protocol()
+
     # find_restart can be used to look for a restart before committing to
     # actually invoking it.
     def finding():
