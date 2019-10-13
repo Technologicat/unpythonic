@@ -421,24 +421,42 @@ def with_restarts(**bindings):
     The def'd name is replaced by the unboxed result, so you can return a value
     from the block normally (using `return`), and don't need to unbox anything.
 
-    Parametric decorator. The return value is a function that decorates a given
-    function with the restarts specified here.
+    Parametric decorator. Returns a `call_with_restarts` function that calls
+    its argument with the restarts specified here.
 
-    Usage::
+    Normal usage - as a decorator::
+
         @with_restarts(use_value=(lambda x: x))
         def result():  # must take no parameters, essentially just a variable
             ...
             return 42
         # now `result` is either 42 or the return value of a restart
+
+    Hifi usage - as a regular function::
+
+        with_usevalue = with_restarts(use_value=(lambda x: x))
+
+        # Now we can, at any time later, call any thunk in the context of the
+        # restarts that were given as arguments to `with_restarts`.
+        #
+        # Invoking such a restart will terminate the thunk, and instead of its
+        # normal return value, return whatever the restart returns.
+
+        def dostuff():
+            ...
+            return 42
+        result = with_usevalue(dostuff)
     """
-    def make_restartable(f):
-        @wraps(f)
-        def restartable():
-            with restarts(**bindings) as result:
-                result << f()
-            return unbox(result)
-        return restartable
-    return make_restartable
+    def call_with_restarts(f):
+        """Call `f`, while providing the restarts stored in this closure.
+
+        Invoking such a restart terminates `f`, and instead of its normal
+        return value, returns whatever the restart returns.
+        """
+        with restarts(**bindings) as result:
+            result << f()
+        return unbox(result)
+    return call_with_restarts
 
 # Common Lisp standard error handling protocols, building on the `signal` function.
 
