@@ -2,6 +2,7 @@
 
 from ..conditions import signal, find_restart, invoke_restart, invoker, \
     restarts, with_restarts, handlers, \
+    available_restarts, available_handlers, \
     error, cerror, proceed, \
     warn, muffle, \
     Condition, ControlError

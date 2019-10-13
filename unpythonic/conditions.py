@@ -10,7 +10,8 @@ and `with handlers`, which interlock in a very particular way (see examples).
 The form `with_restarts` is an alternate syntax.
 
 The function `find_restart` can be used for querying for the presence of a
-given restart name before committing to actually invoking it.
+given restart name before committing to actually invoking it. Other introspection
+utilities are `available_restarts` and `available_handlers`.
 
 The `invoker` function creates a simple handler callable that just invokes the
 specified restart.
@@ -41,6 +42,7 @@ __all__ = ["signal", "error",
            "cerror", "proceed",
            "warn", "muffle",
            "find_restart", "invoke_restart", "invoker",
+           "available_restarts", "available_handlers",
            "restarts", "with_restarts",
            "handlers",
            "Condition", "ControlError"]
@@ -48,6 +50,7 @@ __all__ = ["signal", "error",
 import threading
 from collections import deque, namedtuple
 from functools import wraps
+from operator import itemgetter
 import contextlib
 from sys import stderr
 
@@ -313,6 +316,46 @@ def find_restart(name):  # exactly 1 (most recently bound wins)
     for e in _stacks.restarts:
         if name in e:
             return BoundRestart(name, e[name], e)
+
+def available_restarts():
+    """Return a sorted list of restarts currently in scope.
+
+    Name shadowing is respected; for each unique name, the return value
+    contains only the most recently bound (dynamically innermost) restart.
+
+    The return value format is `[(name, callable), ...]`. The callables are
+    returned mainly to ease debugging; by printing such a callable object,
+    the repr shows where to find its definition.
+    """
+    out = []
+    seen = set()
+    for e in _stacks.restarts:
+        for name, restart in e.items():
+            if name not in seen:
+                seen.add(name)
+                out.append((name, restart))
+    return list(sorted(out, key=itemgetter(0)))
+
+def available_handlers():
+    """Like available_restarts, but for handlers.
+
+    As in `available_restarts`, shadowing is respected. In this case the most
+    recently bound handler for a given signal type wins. When a handler bound
+    to multiple signal types is encountered, it is as if that handler was bound
+    separately to each of those signal types.
+
+    The return value format is `[(type, callable), ...]`.
+    """
+    out = []
+    seen = set()
+    for e in _stacks.handlers:
+        for spec, handler in e:
+            ts = spec if isinstance(spec, tuple) else (spec,)
+            for t in ts:
+                if t not in seen:
+                    seen.add(t)
+                    out.append((t, handler))
+    return list(sorted(out, key=lambda x: x[0].__name__))
 
 @contextlib.contextmanager
 def restarts(**bindings):
