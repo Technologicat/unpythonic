@@ -167,11 +167,16 @@ def invoke_restart(name_or_restart, *args, **kwargs):
 
     This function never returns normally.
     """
-    r = find_restart(name_or_restart) if isinstance(name_or_restart, str) else name_or_restart
-    if not r:
-        error(ControlError("No such restart: '{}'".format(name_or_restart)))
+    if isinstance(name_or_restart, str):
+        restart = find_restart(name_or_restart)
+        if not restart:
+            error(ControlError("No such restart: '{}'".format(name_or_restart)))
+    elif isinstance(name_or_restart, BoundRestart):
+        restart = name_or_restart
+    else:
+        error(TypeError("Expected str or result of find_restart, got {} with value '{}'".format(type(name_or_restart), name_or_restart)))
     # Now we are guaranteed to unwind only up to the matching "with restarts".
-    raise InvokeRestart(r, *args, **kwargs)
+    raise InvokeRestart(restart, *args, **kwargs)
 
 def invoker(restart_name):
     """Create a handler that just invokes the named restart without arguments.
