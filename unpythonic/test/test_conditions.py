@@ -21,14 +21,15 @@ def test():
     class OddNumberError(Condition):
         def __init__(self, x):
             self.x = x
+
+    # Low-level logic - define here what actions are available when
+    # stuff goes wrong. When the block aborts due to a signaled
+    # condition, the return value of the restart chosen (by a handler
+    # defined in higher-level code) becomes the result of the block.
     def lowlevel():
         _drop = object()  # gensym/nonce
         out = []
         for k in range(10):
-            # Low-level logic - define here what actions are available when
-            # stuff goes wrong. When the block aborts due to a signaled
-            # condition, the return value of the restart chosen (by a handler
-            # defined in higher-level code) becomes the result of the block.
             with restarts(use_value=(lambda x: x),
                           double=(lambda x: 2 * x),
                           drop=(lambda x: _drop),
@@ -51,41 +52,43 @@ def test():
 
     # High-level logic. Choose here which action the low-level logic should take
     # for each named signal. Here we only have one signal, named "odd_number".
-    with handlers((OddNumberError, lambda c: invoke_restart("use_value", c.x))):
-        assert lowlevel() == list(range(10))
+    def highlevel():
+        with handlers((OddNumberError, lambda c: invoke_restart("use_value", c.x))):
+            assert lowlevel() == list(range(10))
 
-    with handlers((OddNumberError, lambda c: invoke_restart("double", c.x))):
-        assert lowlevel() == [0, 2 * 1, 2, 2 * 3, 4, 2 * 5, 6, 2 * 7, 8, 2 * 9]
+        with handlers((OddNumberError, lambda c: invoke_restart("double", c.x))):
+            assert lowlevel() == [0, 2 * 1, 2, 2 * 3, 4, 2 * 5, 6, 2 * 7, 8, 2 * 9]
 
-    with handlers((OddNumberError, lambda c: invoke_restart("drop", c.x))):
-        assert lowlevel() == [0, 2, 4, 6, 8]
+        with handlers((OddNumberError, lambda c: invoke_restart("drop", c.x))):
+            assert lowlevel() == [0, 2, 4, 6, 8]
 
-    try:
-        with handlers((OddNumberError, lambda c: invoke_restart("bail", c.x))):
+        try:
+            with handlers((OddNumberError, lambda c: invoke_restart("bail", c.x))):
+                lowlevel()
+        except ValueError as err:
+            assert str(err) == "1"
+
+        # When using error() or cerror() to signal, not handling the condition
+        # is a fatal error (like an uncaught exception). The `error` function
+        # actually **raises** `ControlError` (note raise, not signal) on an
+        # unhandled condition.
+        try:
             lowlevel()
-    except ValueError as err:
-        assert str(err) == "1"
+        except ControlError:
+            pass
+        else:
+            assert False, "error() should raise on unhandled condition"
 
-    # When using error() or cerror() to signal, not handling the condition
-    # is a fatal error (like an uncaught exception). The `error` function
-    # actually **raises** `ControlError` (note raise, not signal) on an
-    # unhandled condition.
-    try:
-        lowlevel()
-    except ControlError:
-        pass
-    else:
-        assert False, "error() should raise on unhandled condition"
-
-    # When using cerror() - short for "continuable error" - it automatically
-    # makes available a restart named "proceed" that takes no arguments, which
-    # vetoes the error.
-    #
-    # When the "proceed" restart is invoked, it causes the `cerror()` call in
-    # the low-level code to return normally. So execution resumes from where it
-    # left off, never mind that a condition occurred.
-    with handlers((OddNumberError, proceed)):
-        assert lowlevel() == list(range(10))
+        # When using cerror() - short for "continuable error" - it automatically
+        # makes available a restart named "proceed" that takes no arguments, which
+        # vetoes the error.
+        #
+        # When the "proceed" restart is invoked, it causes the `cerror()` call in
+        # the low-level code to return normally. So execution resumes from where it
+        # left off, never mind that a condition occurred.
+        with handlers((OddNumberError, proceed)):
+            assert lowlevel() == list(range(10))
+    highlevel()
 
     # find_restart can be used to look for a restart before committing to
     # actually invoking it.
