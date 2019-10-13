@@ -7,19 +7,22 @@ conditions, you have to explicitly ask for them.
 This module exports the core forms `signal`, `invoke_restart`, `with restarts`,
 and `with handlers`, which interlock in a very particular way (see examples).
 
-The form `with_restarts` is an alternate syntax.
+The form `with_restarts` is an alternate syntax using a parametric decorator
+and a `def` instead of a `with`. It returns a `call_with_restarts` function,
+so it can also be useful if you want to set up a common restart context and
+re-use instances of it for several body thunks later.
 
 The function `find_restart` can be used for querying for the presence of a
 given restart name before committing to actually invoking it. Other introspection
 utilities are `available_restarts` and `available_handlers`.
 
 The `invoker` function creates a simple handler callable that just invokes the
-specified restart.
+specified restart without arguments.
 
 Each of the forms `error`, `cerror` (continuable error) and `warn` implements
 its own error-handling protocol on top of the core `signal` form. For the forms
-`cerror` and `warn`, we also provide the invokers `proceed` and `muffle`,
-respectively.
+`cerror` and `warn`, we also provide the ready-made invokers `proceed` and
+`muffle`, respectively.
 
 Although these three protocols cover the most common use cases, they might not
 cover all conceivable uses. In such a situation just create a custom protocol;
@@ -403,6 +406,9 @@ def restarts(**bindings):
     If you just need a jump label for skipping the rest of the block at the
     higher-level code's behest, you can use `lambda: None` as the restart
     function (`cerror` and `warn` do this internally).
+
+    If you'd like to use a parametric decorator and a `def` instead of a `with`,
+    see the alternate syntax `with_restarts`.
     """
     b = box(None)
     with Restarts(bindings):
@@ -445,6 +451,9 @@ def with_restarts(**bindings):
             ...
             return 42
         result = with_usevalue(dostuff)
+
+    If you'd like to use a `with` statement instead of a parametric decorator
+    and a `def`, see the `restarts` form.
     """
     def call_with_restarts(f):
         """Call `f`, while providing the restarts stored in this closure.
