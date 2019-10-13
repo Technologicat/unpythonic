@@ -15,7 +15,6 @@ from queue import Queue
 def test():
     # TODO: three-level example (both low-level and mid-level restarts available, decision made at high level)
     # TODO: test a common handler for several condition types (using a tuple of types, like in `except`)
-    # TODO: test coverage (see unused imports at top)
 
     # basic usage
     def basic_usage():
