@@ -458,6 +458,9 @@ def error(condition):
     # TODO: If we want to support the debugger at some point in the future,
     # TODO: this is the appropriate point to ask the user what to do,
     # TODO: before the call stack unwinds.
+    #
+    # TODO: Do we want to give one last chance to handle the ControlError?
+    # TODO: And do we want to raise ControlError, or the original condition?
     raise ControlError("Unhandled {}: {}".format(type(condition), condition))
 
 def cerror(condition):
