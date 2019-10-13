@@ -1,11 +1,13 @@
 """A minimal implementation of the Common Lisp conditions system for Python.
 
 To keep this simple, no debugger support. And no implicit "no such function,
-what would you like to do?" hook on function calls. To use conditions, you have
-to explicitly ask for them.
+what would you like to do?" hook on every function call in the language. To use
+conditions, you have to explicitly ask for them.
 
 This module exports the core forms `signal`, `invoke_restart`, `with restarts`,
 and `with handlers`, which interlock in a very particular way (see examples).
+
+The form `with_restarts` is an alternate syntax.
 
 The function `find_restart` can be used for querying for the presence of a
 given restart name before committing to actually invoking it.
@@ -14,9 +16,12 @@ The `invoker` function creates a simple handler callable that just invokes the
 specified restart.
 
 Each of the forms `error`, `cerror` (continuable error) and `warn` implements
-its own error-handling protocol on top of the core `signal` form. Although
-these three cover the most common use cases, they might not cover all
-conceivable uses. In such a situation just create a custom protocol;
+its own error-handling protocol on top of the core `signal` form. For the forms
+`cerror` and `warn`, we also provide the invokers `proceed` and `muffle`,
+respectively.
+
+Although these three protocols cover the most common use cases, they might not
+cover all conceivable uses. In such a situation just create a custom protocol;
 see the existing protocols as examples.
 
 **Acknowledgements**:
@@ -161,9 +166,6 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     """
     r = find_restart(name_or_restart) if isinstance(name_or_restart, str) else name_or_restart
     if not r:
-        # TODO: If we want to support the debugger at some point in the future,
-        # TODO: this is the appropriate point to ask the user what to do,
-        # TODO: before the call stack unwinds.
         error(ControlError("No such restart: '{}'".format(name_or_restart)))
     # Now we are guaranteed to unwind only up to the matching "with restarts".
     raise InvokeRestart(r, *args, **kwargs)
@@ -405,6 +407,9 @@ def error(condition):
     condition does not count as handled simply because a handler was triggered.
     """
     signal(condition)
+    # TODO: If we want to support the debugger at some point in the future,
+    # TODO: this is the appropriate point to ask the user what to do,
+    # TODO: before the call stack unwinds.
     raise ControlError("Unhandled {}: {}".format(type(condition), condition))
 
 def cerror(condition):
