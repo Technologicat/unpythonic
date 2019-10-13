@@ -49,7 +49,6 @@ __all__ = ["signal", "error",
 
 import threading
 from collections import deque, namedtuple
-from functools import wraps
 from operator import itemgetter
 import contextlib
 from sys import stderr
