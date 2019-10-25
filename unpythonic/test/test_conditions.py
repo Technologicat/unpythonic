@@ -50,7 +50,9 @@ def test():
         # High-level logic. Choose here which action the low-level logic should take
         # for each named signal. Here we only have one signal, named "odd_number".
         def highlevel():
-            with handlers((OddNumberError, lambda c: invoke_restart("use_value", c.x))):
+            # The name use_value is commonly used for the use case "resume with this value",
+            # so the library has a eponymous function to invoke it.
+            with handlers((OddNumberError, lambda c: use_value(c.x))):
                 assert lowlevel() == list(range(10))
 
             with handlers((OddNumberError, lambda c: invoke_restart("double", c.x))):
@@ -109,7 +111,7 @@ def test():
                     out.append(k)
             return out
         def highlevel():
-            with handlers((OddNumberError, lambda c: invoke_restart("use_value", 42))):
+            with handlers((OddNumberError, lambda c: use_value(42))):
                 assert lowlevel() == [0, 42, 2, 42, 4, 42, 6, 42, 8, 42]
         highlevel()
     basic_usage2()
@@ -173,9 +175,9 @@ def test():
 
     # Handler clauses can also take a tuple of types (instead of a single type).
     def test_multiple_signal_types():
-        # For testing, create a handler that just sends the condition instance to `use_value`,
+        # For testing, just send the condition instance to the `use_value` restart,
         # so we can see the handler actually catches both intended signal types.
-        with handlers(((JustTesting, RuntimeError), lambda c: invoke_restart("use_value", c))):
+        with handlers(((JustTesting, RuntimeError), lambda c: use_value(c))):
             # no "result << some_normal_exit_value", so here result is None if the signal is not handled.
             with restarts(use_value=(lambda x: x)) as result:
                 signal(JustTesting())
@@ -197,24 +199,27 @@ def test():
     test_invoker()
 
     def test_usevalue():
-        # The creation of a `use_value` handler:
+        # A handler that just invokes the `use_value` restart:
         with handlers((JustTesting, (lambda c: invoke_restart("use_value", 42)))):
             with restarts(use_value=(lambda x: x)) as result:
                 signal(JustTesting())
                 result << 21
             assert unbox(result) == 42
 
-        # can be shortened using `invoker` (if it doesn't need data from the
-        # condition instance, `c` in the above example):
-        with handlers((JustTesting, invoker("use_value", 42))):
+        # can be shortened using the predefined `use_value` function, which immediately
+        # invokes the eponymous restart with the args and kwargs given.
+        # (Here we need the "lambda c:"; but this is useful if we
+        # need to get some data from the condition instance.)
+        with handlers((JustTesting, lambda c: use_value(42))):
             with restarts(use_value=(lambda x: x)) as result:
                 signal(JustTesting())
                 result << 21
             assert unbox(result) == 42
 
-        # and further, using the predefined `use_value` handler factory that
-        # specifically creates a handler to invoke `use_value`:
-        with handlers((JustTesting, use_value(42))):
+        # The `invoker` factory is also an option here, if you're sending a constant.
+        # This is applicable for invoking any restart in a use case that doesn't
+        # need data from the condition instance (`c` in the above example):
+        with handlers((JustTesting, invoker("use_value", 42))):
             with restarts(use_value=(lambda x: x)) as result:
                 signal(JustTesting())
                 result << 21
@@ -223,7 +228,7 @@ def test():
 
     def inspection():
         with handlers((JustTesting, invoker("hello")),
-                      (RuntimeError, (lambda c: invoke_restart("use_value", 42)))):
+                      (RuntimeError, lambda c: use_value(42))):
             with restarts(hello=(lambda: "hello"),
                           use_value=(lambda x: x)):
                 assert [name for name, _callable in available_restarts()] == ["hello", "use_value"]
@@ -232,7 +237,7 @@ def test():
 
     def alternate_syntax():
         # normal usage
-        with handlers((JustTesting, (lambda c: invoke_restart("use_value", 42)))):
+        with handlers((JustTesting, lambda c: use_value(42))):
             # The decorator "with_restarts" and "def result()" pair can be used
             # instead of "with restarts(...) as result":
             @with_restarts(use_value=(lambda x: x))
@@ -253,7 +258,7 @@ def test():
     alternate_syntax()
 
     def error_protocol():
-        with handlers((RuntimeError, (lambda c: invoke_restart("use_value", 42)))):
+        with handlers((RuntimeError, lambda c: use_value(42))):
             with restarts(use_value=(lambda x: x)) as result:
                 error(RuntimeError("foo"))
                 result << 21
@@ -274,7 +279,7 @@ def test():
                 result << 21
             assert unbox(result) == 21
 
-        with handlers((JustTesting, (lambda c: invoke_restart("use_value", 42)))):
+        with handlers((JustTesting, lambda c: use_value(42))):
             with restarts(use_value=(lambda x: x)) as result:
                 warn(JustTesting("handled warn() does not print a warning"))
                 result << 21  # not reached, because the restart takes over
@@ -371,7 +376,7 @@ def test():
         inner_handler_ran = box(False)  # use a box so we can rebind the value from inside a lambda
         outer_handler_ran = box(False)
         with handlers((HelpMe, lambda c: [outer_handler_ran << True,
-                                          invoke_restart("use_value", c.value)])):
+                                          use_value(c.value)])):
             with handlers((HelpMe, lambda: [inner_handler_ran << True,
                                             None])):  # return normally from handler to cancel-and-delegate
                 assert lowlevel3() == 42
@@ -382,9 +387,9 @@ def test():
         inner_handler_ran = box(False)
         outer_handler_ran = box(False)
         with handlers((HelpMe, lambda c: [outer_handler_ran << True,
-                                          invoke_restart("use_value", c.value)])):
+                                          use_value(c.value)])):
             with handlers((HelpMe, lambda c: [inner_handler_ran << True,
-                                              invoke_restart("use_value", c.value)])):
+                                              use_value(c.value)])):
                 assert lowlevel3() == 42
                 assert unbox(inner_handler_ran) is True
                 assert unbox(outer_handler_ran) is False
@@ -399,7 +404,7 @@ def test():
                 result << (tag, 21)  # if the signal is not handled, the box will hold (tag, 21)
             return unbox(result)
         def worker(comm, tid):
-            with handlers((HelpMe, lambda c: invoke_restart("use_value", c.value))):
+            with handlers((HelpMe, lambda c: use_value(c.value))):
                 comm.put(lowlevel4(tid))
         n = 1000
         threads = [threading.Thread(target=worker, args=(comm, tid), kwargs={}) for tid in range(n)]

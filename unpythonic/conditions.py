@@ -20,9 +20,6 @@ The `invoker` function creates a simple handler callable (*restart function*
 in Common Lisp terminology) that just invokes the specified restart, passing
 through args and kwargs if any are given.
 
-The `use_value` handler factory creates a handler specifically for the
-`use_value` restart.
-
 Each of the forms `error`, `cerror` (continuable error) and `warn` implements
 its own error-handling protocol on top of the core `signal` form. For the forms
 `cerror` and `warn`, we also provide the ready-made invokers `proceed` and
@@ -48,7 +45,7 @@ Conditions and Restarts* in *Practical Common Lisp* by Peter Seibel (2005):
 __all__ = ["signal", "error",
            "cerror", "proceed",
            "warn", "muffle",
-           "find_restart", "invoke_restart", "invoker", "use_value",
+           "find_restart", "invoke_restart", "use_value", "invoker",
            "available_restarts", "available_handlers",
            "restarts", "with_restarts",
            "handlers",
@@ -185,35 +182,65 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     # Now we are guaranteed to unwind only up to the matching "with restarts".
     raise InvokeRestart(restart, *args, **kwargs)
 
+use_value = partial(invoke_restart, "use_value")
+use_value.__doc__ = """Invoke the 'use_value' restart immediately with given args and kwargs.
+
+Known as the `USE-VALUE` restart function in Common Lisp.
+
+A handler that just invokes the `use_value` restart is such a common use case
+that it is useful to have an abbreviation for it. This::
+
+    with handlers((OhNoes, lambda c: invoke_restart("use_value", 42))):
+        ...
+
+can be abbreviated to::
+
+    with handlers((OhNoes, lambda c: use_value(42))):
+        ...
+
+The `lambda c:` is still required, for consistency with Common Lisp, as well as
+to allow the user code to access the condition instance if needed.
+
+(A common use case is to embed, in the condition instance, the data needed
+for constructing the actual value to be sent to the `use_value` restart. In
+Seibel's log file parser example, when the parser sees a corrupt log entry,
+it embeds that data into the condition instance, and sends it to the handler,
+which then can in principle repair the log entry, and then invoke `use_value`
+with the repaired log entry.)
+
+**Notes**:
+
+The `use_value` function is essentially just shorthand::
+
+    use_value = partial(invoke_restart, "use_value")
+
+This pattern can be useful for defining similar shorthands for your own
+restarts.
+
+(Note that restarts are looked up by name, so a single module-level definition
+of a shorthand for each uniquely named restart is enough. You can re-use the
+same shorthand for any restart that has the same name - just like there is
+just one `use_value` function, even though the `use_value` restart itself is
+typically defined separately at each `with restarts` site that provides it
+(since only each site itself knows how to "use a value").)
+
+If you want a version for use cases where the condition instance argument is
+not needed, so you could in those cases omit the `lambda c:`, you can write
+that as::
+
+    use_constant = partial(invoker, "use_value")
+    with handlers((OhNoes, use_constant(42))):
+        ...
+
+Note `invoker`, not `invoke_restart`, and that we are still left with a factory
+(since `invoker` itself is a factory and `partial` defers the call until it
+gets more arguments). You then have to call the factory function with your
+desired constant args/kwargs, to instantiate a handler that sends that specific
+set of args/kwargs.
+"""
+
 def invoker(restart_name, *args, **kwargs):
     """Create a handler that just invokes the named restart.
-
-    This is a convenience function. This::
-
-        with handlers((OhNoes, invoker("proceed"))):
-            ...  # calling some code that may cerror(OhNoes("ouch"))
-
-    is shorter to type and more readable than::
-
-        with handlers((OhNoes, lambda c: invoke_restart("proceed"))):
-            ...
-
-    The `args` and `kwargs` are passed through to the restart. So if you want
-    to do this::
-
-        with handlers((OhNoes, lambda c: invoke_restart("use_value", 42))):
-            ...
-
-    you can instead write::
-
-        with handlers((OhNoes, invoker("use_value", 42))):
-            ...  # calling some code that may cerror(OhNoes("ouch"))
-
-    which, using the predefined `use_value` handler factory, is further
-    equivalent to::
-
-        with handlers((OhNoes, use_value(42))):
-            ...  # calling some code that may cerror(OhNoes("ouch"))
 
     The name `invoker` is both short for *invoke restart* (but do it later)
     and describes the return value, which is an invoker.
@@ -221,13 +248,49 @@ def invoker(restart_name, *args, **kwargs):
     The returned function has the same name as the restart it invokes,
     to ease debugging, and a docstring.
 
+    The returned function takes in a condition instance argument (so it is
+    applicable as a handler), but ignores it. If you need to use that argument,
+    then instead of `invoker`, see the pattern suggested in the docstring of
+    `use_value`.
+
     If the restart cannot be found when the invoker fires, it signals
     `ControlError`.
 
+    This is a convenience function. Using `invoker`, this::
+
+        with handlers((OhNoes, lambda c: invoke_restart("proceed"))):
+            ...
+
+    can be shortened to::
+
+        with handlers((OhNoes, invoker("proceed"))):
+            ...  # calling some code that may cerror(OhNoes("ouch"))
+
+    The `args` and `kwargs`, if any are given, are passed through to the
+    restart. So, for example, if you want to send a constant to `use_value`::
+
+        with handlers((OhNoes, lambda c: invoke_restart("use_value", 42))):
+            ...
+
+    you can shorten this to::
+
+        with handlers((OhNoes, invoker("use_value", 42))):
+            ...  # calling some code that may cerror(OhNoes("ouch"))
+
+    For the specific case of the `use_value` restart, you can also use the
+    ready-made function `use_value`, which immediately invokes the eponymous
+    restart with the args and kwargs given to it::
+
+        with handlers((OhNoes, lambda c: use_value(42))):
+            ...  # calling some code that may cerror(OhNoes("ouch"))
+
+    (The `use_value` function is convenient especially when the value being sent
+    is not a constant, but depends on data in the condition instance `c`.)
+
     **Notes**
 
-    Invokers are called *restart functions* in Common Lisp (though it is really
-    a handler).
+    Invokers and functions like `use_value` are termed *restart functions* in
+    Common Lisp.
 
     This function is meant for building custom simple invokers. The standard
     protocols `cerror` and `warn` come with the predefined invokers `proceed`
@@ -237,17 +300,6 @@ def invoker(restart_name, *args, **kwargs):
     the_invoker = rename(lambda c: invoke_restart(restart_name, *args, **kwargs))
     the_invoker.__doc__ = "Invoke the restart '{}'.".format(restart_name)
     return the_invoker
-
-use_value = partial(invoker, "use_value")
-use_value.__doc__ = """Create a handler that invokes the 'use_value' restart with given value `v`.
-
-This is effectively a handler factory.
-
-Example::
-
-    with handlers((OhNoes, use_value(42))):
-        ...
-"""
 
 class _Stacked:  # boilerplate
     def __init__(self, bindings):
