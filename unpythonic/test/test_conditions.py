@@ -174,7 +174,7 @@ def test():
     # Handler clauses can also take a tuple of types (instead of a single type).
     def test_multiple_signal_types():
         # For testing, create a handler that just sends the condition instance to `use_value`,
-        # so we can test if the handler actually catches both intended signal types.
+        # so we can see the handler actually catches both intended signal types.
         with handlers(((JustTesting, RuntimeError), lambda c: invoke_restart("use_value", c))):
             # no "result << some_normal_exit_value", so here result is None if the signal is not handled.
             with restarts(use_value=(lambda x: x)) as result:
