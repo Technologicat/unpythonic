@@ -13,8 +13,6 @@ import threading
 from queue import Queue
 
 def test():
-    # TODO: three-level example (both low-level and mid-level restarts available, decision made at high level)
-
     # basic usage
     def basic_usage():
         class OddNumberError(Condition):
@@ -115,6 +113,60 @@ def test():
                 assert lowlevel() == [0, 42, 2, 42, 4, 42, 6, 42, 8, 42]
         highlevel()
     basic_usage2()
+
+    # More elaborate error handling scenarios can be constructed by defining
+    # restarts at multiple levels, as appropriate.
+    #
+    # The details of *how to recover* from an error - i.e. the restart
+    # definitions - live at the level that is semantically appropriate for each
+    # specific recovery strategy. The high-level code gets to *choose which
+    # strategy to use* when a particular condition type is signaled.
+    #
+    # In the next examples, the code resumes execution either after the
+    # lowlevel `with restarts` block, or after the midlevel `with restarts`
+    # block, depending on the handler assigned for the `JustTesting` signal.
+    #
+    # Here we show only how to organize code to make this happen. For a
+    # possible practical use, see Seibel's book for a detailed example
+    # concerning a log file parser.
+    #
+    # For teaching purposes, as the return value, we construct a string
+    # describing the execution path that was taken.
+    def threelevel():
+        # The low and mid-level parts are shared between the use cases.
+        class TellMeHowToRecover(Condition):
+            pass
+
+        def lowlevel():
+            with restarts(resume_low=(lambda x: x)) as result:
+                signal(TellMeHowToRecover())
+                result << "low level ran to completion"  # value for normal exit from the `with restarts` block
+            return unbox(result) + " > normal exit from low level"
+
+        def midlevel():
+            with restarts(resume_mid=(lambda x: x)) as result:
+                result << lowlevel()
+            return unbox(result) + " > normal exit from mid level"
+
+        # Trivial use case where we want to just ignore the condition.
+        # (An uncaught signal() is just a no-op; see warn(), error(), cerror() for other standard options.)
+        def highlevel1():
+            assert midlevel() == "low level ran to completion > normal exit from low level > normal exit from mid level"
+        highlevel1()
+
+        # Use case where we want to resume at the low level (in a real-world application, repairing the error).
+        # Note we need new code only at the high level; the mid and low levels remain as-is.
+        def highlevel2():
+            with handlers((TellMeHowToRecover, lambda c: invoke_restart("resume_low", "resumed at low level"))):
+                assert midlevel() == "resumed at low level > normal exit from low level > normal exit from mid level"
+        highlevel2()
+
+        # Use case where we want to resume at the mid level (in a real-world application, skipping the failed part).
+        def highlevel3():
+            with handlers((TellMeHowToRecover, lambda c: invoke_restart("resume_mid", "resumed at mid level"))):
+                assert midlevel() == "resumed at mid level > normal exit from mid level"
+        highlevel3()
+    threelevel()
 
     class JustTesting(Condition):
         pass
