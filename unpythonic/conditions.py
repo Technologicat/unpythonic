@@ -180,8 +180,8 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     # Now we are guaranteed to unwind only up to the matching "with restarts".
     raise InvokeRestart(restart, *args, **kwargs)
 
-def invoker(restart_name):
-    """Create a handler that just invokes the named restart without arguments.
+def invoker(restart_name, *args, **kwargs):
+    """Create a handler that just invokes the named restart.
 
     This is a convenience function. This::
 
@@ -190,9 +190,19 @@ def invoker(restart_name):
 
     is shorter to type and more readable than::
 
-        with handlers(((OhNoes, lambda c: invoke_restart("proceed")))):
+        with handlers((OhNoes, lambda c: invoke_restart("proceed"))):
             ...
 
+    The `args` and `kwargs` are passed through to the restart. So if you want
+    to do this::
+
+        with handlers((OhNoes, lambda c: invoke_restart("use_value", 42))):
+            ...
+
+    you can instead write::
+
+        with handlers((OhNoes, invoker("use_value", 42))):
+            ...  # calling some code that may cerror(OhNoes("ouch"))
     The name `invoker` is both short for *invoke restart* (but do it later)
     and describes the return value, which is an invoker.
 
@@ -212,7 +222,7 @@ def invoker(restart_name):
     and `muffle`, respectively.
     """
     rename = namelambda(restart_name)
-    the_invoker = rename(lambda c: invoke_restart(restart_name))
+    the_invoker = rename(lambda c: invoke_restart(restart_name, *args, **kwargs))
     the_invoker.__doc__ = "Invoke the restart '{}'.".format(restart_name)
     return the_invoker
 
