@@ -91,6 +91,32 @@ def test():
         highlevel()
     basic_usage()
 
+    # It is also valid to place the `with restarts` in the error branch only.
+    # In fact, it can go at any level where you want a restartable block.
+    #
+    # ("Restartable", in the context of the condition system, means that
+    #  instead of the usual result of the block, it may have as its result the
+    #  return value of a restart, if a signal/handler/restart combination ran.)
+    def basic_usage2():
+        class OddNumberError(Condition):
+            def __init__(self, x):
+                self.x = x
+        def lowlevel():
+            out = []
+            for k in range(10):
+                if k % 2 == 1:
+                    with restarts(use_value=(lambda x: x)) as result:
+                        signal(OddNumberError(k))
+                    out.append(unbox(result))
+                else:
+                    out.append(k)
+            return out
+        def highlevel():
+            with handlers((OddNumberError, lambda c: invoke_restart("use_value", 42))):
+                assert lowlevel() == [0, 42, 2, 42, 4, 42, 6, 42, 8, 42]
+        highlevel()
+    basic_usage2()
+
     class JustTesting(Condition):
         pass
 
