@@ -644,6 +644,7 @@ def warn(condition):
     """
     with restarts(muffle=(lambda: None)):  # just for control, no return value
         signal(condition)
+        # TODO: use Python's warnings module to properly issue warnings
         print("warn: Unhandled {}: {}".format(type(condition), condition), file=stderr)
 
 # Standard handler callables for the predefined protocols
