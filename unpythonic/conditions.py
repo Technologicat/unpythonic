@@ -319,7 +319,7 @@ class handlers(_Stacked):
     def __init__(self, *bindings):
         """binding: (cls, callable)"""
         for t, c in bindings:
-            if not ((issubclass(t, Exception) or (isinstance(t, tuple) and all(issubclass(x, Exception) for x in t))) and callable(c)):
+            if not (((isinstance(t, tuple) and all(issubclass(x, Exception) for x in t)) or issubclass(t, Exception)) and callable(c)):
                 error(TypeError("Each binding must be of the form (type, callable) or ((t0, ..., tn), callable)"))
         super().__init__(bindings)
         self.dq = _stacks.handlers

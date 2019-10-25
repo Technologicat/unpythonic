@@ -14,7 +14,6 @@ from queue import Queue
 
 def test():
     # TODO: three-level example (both low-level and mid-level restarts available, decision made at high level)
-    # TODO: test a common handler for several condition types (using a tuple of types, like in `except`)
 
     # basic usage
     def basic_usage():
@@ -119,6 +118,17 @@ def test():
 
     class JustTesting(Condition):
         pass
+
+    # Handler clauses can also take a tuple of types (instead of a single type).
+    def test_multiple_signal_types():
+        with handlers(((JustTesting, RuntimeError), lambda c: invoke_restart("use_value", c))):
+            with restarts(use_value=(lambda x: x)) as result:
+                signal(JustTesting())
+            assert isinstance(unbox(result), JustTesting)
+            with restarts(use_value=(lambda x: x)) as result:
+                signal(RuntimeError())
+            assert isinstance(unbox(result), RuntimeError)
+    test_multiple_signal_types()
 
     def test_invoker():
         # invoker(restart_name) creates a handler callable that just invokes
