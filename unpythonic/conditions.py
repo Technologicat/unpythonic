@@ -144,7 +144,7 @@ def signal(condition):
             handler()
 
 def invoke_restart(name_or_restart, *args, **kwargs):
-    """Invoke a restart currently in scope.
+    """Invoke a restart currently in scope. Known as `INVOKE-RESTART` in Common Lisp.
 
     `name_or_restart` can be the name of a restart, or a restart object returned
     by `find_restart`.
@@ -203,6 +203,9 @@ def invoker(restart_name):
     `ControlError`.
 
     **Notes**
+
+    Invokers are called *restart functions* in Common Lisp (though it is really
+    a handler).
 
     This function is meant for building custom simple invokers. The standard
     protocols `cerror` and `warn` come with the predefined invokers `proceed`
@@ -308,7 +311,7 @@ def _find_handlers(cls):  # 0..n (though 0 is an error, handled at the calling e
 
 BoundRestart = namedtuple("BoundRestart", ["name", "function", "context"])
 def find_restart(name):  # exactly 1 (most recently bound wins)
-    """Look up a restart.
+    """Look up a restart. Known as `FIND-RESTART` in Common Lisp.
 
     If the named restart is currently in (dynamic) scope, return an opaque
     object (accepted by `invoke_restart`) that represents that restart. The
