@@ -208,8 +208,6 @@ def test():
 
         # can be shortened using the predefined `use_value` function, which immediately
         # invokes the eponymous restart with the args and kwargs given.
-        # (Here we need the "lambda c:"; but this is useful if we
-        # need to get some data from the condition instance.)
         with handlers((JustTesting, lambda c: use_value(42))):
             with restarts(use_value=(lambda x: x)) as result:
                 signal(JustTesting())
