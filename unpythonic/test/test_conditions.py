@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..conditions import signal, find_restart, invoke_restart, invoker, \
+from ..conditions import signal, find_restart, invoke_restart, invoker, use_value, \
     restarts, with_restarts, handlers, \
     available_restarts, available_handlers, \
     error, cerror, proceed, \
@@ -122,13 +122,38 @@ def test():
 
     def test_invoker():
         # invoker(restart_name) creates a handler callable that just invokes
-        # the given restart with no arguments.
+        # the given restart (passing through args and kwargs to it, if any are given).
         with handlers((JustTesting, invoker("hello"))):
             with restarts(hello=(lambda: "hello")) as result:
                 warn(JustTesting())
                 result << 21
             assert unbox(result) == "hello"
     test_invoker()
+
+    def test_usevalue():
+        # The creation of a `use_value` handler:
+        with handlers((JustTesting, (lambda c: invoke_restart("use_value", 42)))):
+            with restarts(use_value=(lambda x: x)) as result:
+                signal(JustTesting())
+                result << 21
+            assert unbox(result) == 42
+
+        # can be shortened using `invoker` (if it doesn't need data from the
+        # condition instance, `c` in the above example):
+        with handlers((JustTesting, invoker("use_value", 42))):
+            with restarts(use_value=(lambda x: x)) as result:
+                signal(JustTesting())
+                result << 21
+            assert unbox(result) == 42
+
+        # and further, using the predefined `use_value` handler factory that
+        # specifically creates a handler to invoke `use_value`:
+        with handlers((JustTesting, use_value(42))):
+            with restarts(use_value=(lambda x: x)) as result:
+                signal(JustTesting())
+                result << 21
+            assert unbox(result) == 42
+    test_usevalue()
 
     def inspection():
         with handlers((JustTesting, invoker("hello")),

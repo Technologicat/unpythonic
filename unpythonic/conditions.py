@@ -16,8 +16,12 @@ The function `find_restart` can be used for querying for the presence of a
 given restart name before committing to actually invoking it. Other introspection
 utilities are `available_restarts` and `available_handlers`.
 
-The `invoker` function creates a simple handler callable that just invokes the
-specified restart without arguments.
+The `invoker` function creates a simple handler callable (*restart function*
+in Common Lisp terminology) that just invokes the specified restart, passing
+through args and kwargs if any are given.
+
+The `use_value` handler factory creates a handler specifically for the
+`use_value` restart.
 
 Each of the forms `error`, `cerror` (continuable error) and `warn` implements
 its own error-handling protocol on top of the core `signal` form. For the forms
@@ -44,7 +48,7 @@ Conditions and Restarts* in *Practical Common Lisp* by Peter Seibel (2005):
 __all__ = ["signal", "error",
            "cerror", "proceed",
            "warn", "muffle",
-           "find_restart", "invoke_restart", "invoker",
+           "find_restart", "invoke_restart", "invoker", "use_value",
            "available_restarts", "available_handlers",
            "restarts", "with_restarts",
            "handlers",
@@ -52,6 +56,7 @@ __all__ = ["signal", "error",
 
 import threading
 from collections import deque, namedtuple
+from functools import partial
 from operator import itemgetter
 import contextlib
 from sys import stderr
@@ -203,6 +208,13 @@ def invoker(restart_name, *args, **kwargs):
 
         with handlers((OhNoes, invoker("use_value", 42))):
             ...  # calling some code that may cerror(OhNoes("ouch"))
+
+    which, using the predefined `use_value` handler factory, is further
+    equivalent to::
+
+        with handlers((OhNoes, use_value(42))):
+            ...  # calling some code that may cerror(OhNoes("ouch"))
+
     The name `invoker` is both short for *invoke restart* (but do it later)
     and describes the return value, which is an invoker.
 
@@ -225,6 +237,17 @@ def invoker(restart_name, *args, **kwargs):
     the_invoker = rename(lambda c: invoke_restart(restart_name, *args, **kwargs))
     the_invoker.__doc__ = "Invoke the restart '{}'.".format(restart_name)
     return the_invoker
+
+use_value = partial(invoker, "use_value")
+use_value.__doc__ = """Create a handler that invokes the 'use_value' restart with given value `v`.
+
+This is effectively a handler factory.
+
+Example::
+
+    with handlers((OhNoes, use_value(42))):
+        ...
+"""
 
 class _Stacked:  # boilerplate
     def __init__(self, bindings):
