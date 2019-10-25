@@ -103,7 +103,7 @@ def test():
             for k in range(10):
                 if k % 2 == 1:
                     with restarts(use_value=(lambda x: x)) as result:
-                        signal(OddNumberError(k))
+                        error(OddNumberError(k))
                     out.append(unbox(result))
                 else:
                     out.append(k)
