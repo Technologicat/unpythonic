@@ -49,7 +49,7 @@ or
 
 ## Emacs syntax highlighting for language extensions
 
-This `init.el` snippet can be used to add syntax-highlighting for keywords specific to `MacroPy` and `unpythonic` to your Emacs setup:
+This Elisp snippet can be used to add syntax-highlighting for keywords specific to `MacroPy` and `unpythonic` to your Emacs setup:
 
 ```elisp
   (defun my/unpythonic-syntax-highlight-setup ()
@@ -81,6 +81,12 @@ This `init.el` snippet can be used to add syntax-highlighting for keywords speci
 *Known issue*: For some reason, during a given session, this takes effect only starting with the second Python file opened. The first Python file opened during a session shows with the default syntax highlighting. Probably something to do with the initialization order of font-lock and whichever `python-mode` is being used.
 
 Tested with `anaconda-mode`.
+
+### How to use (for Emacs beginners)
+
+If you use the [Spacemacs](http://spacemacs.org/) kit, the right place to insert the snippet is into the function `dotspacemacs/user-config`. Here's [my spacemacs.d](https://github.com/Technologicat/spacemacs.d/) for reference; the snippet is in `prettify-symbols-config.el`, and it's invoked from `dotspacemacs/user-config` in `init.el`.
+
+In a basic Emacs setup, the snippet goes into the `~/.emacs` startup file, or if you have an `.emacs.d/` directory, then into `~/.emacs.d/init.el`.
 
 ## License
 
