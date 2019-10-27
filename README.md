@@ -1,10 +1,8 @@
 # Unpythonic: Python meets Lisp and Haskell
 
-In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some Haskellisms mixed in. We place a special emphasis on **clear, pythonic syntax**. These features make up the pure-Python core of `unpythonic`, and are meant to be used directly. We also provide extensions to the Python language as a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros) that are designed to work together. Each macro adds an orthogonal piece of functionality that can (mostly) be mixed and matched with the others.
+In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some Haskellisms mixed in. We place a special emphasis on **clear, pythonic syntax**.
 
-The macros provide an extension to the pure-Python layer, offering features such as *automatic* currying, *automatic* tail-call optimization, lexically scoped ``let`` and ``do`` with lean syntax, and implicit return statements. Some of these macro features, like call-by-need (lazy functions), continuations (``call/cc``), and easy-to-use multi-expression lambdas with local variables, are not available in the pure-Python layer. Additionally, some pure-Python features like batteries for itertools do not have a macro layer equivalent. Check the [documentation](#documentation) for the full sets of features.
-
-The design considerations of `unpythonic` are based in simplicity, robustness, and with minimal dependencies. See our [design notes](doc/design-notes.md) for more information.
+We also provide extensions to the Python language as a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros) that are designed to work together. Each macro adds an orthogonal piece of functionality that can (mostly) be mixed and matched with the others.
 
 ### Dependencies
 
@@ -46,6 +44,26 @@ Uninstallation must be invoked in a folder which has no subfolder called ``unpyt
 or
 
 ``sudo pip3 uninstall unpythonic``
+
+### Design philosophy
+
+The main design considerations of `unpythonic` are simplicity, robustness, and minimal dependencies. Some complexity is tolerated, if it is essential to make features interact better, or to provide a better user experience.
+
+The library is split into **two layers**, pure Python and syntactic macros, to provide three kinds of features:
+
+ - Pure-Python features (e.g. batteries for `itertools`),
+ - Features with a pure-Python core and a usability-enhancing macro layer (e.g. `do`, `let`), and
+ - Features that exist only as macros (e.g. `continuations`, `lazify`, `dbg`).
+
+We believe syntactic macros are [*the nuclear option of software engineering*](https://www.factual.com/blog/thinking-in-clojure-for-java-programmers-part-2/). Accordingly, we aim to [minimize macro magic](https://macropy3.readthedocs.io/en/latest/discussion.html#minimize-macro-magic). Hence, if a feature can be implemented - *with a level of usability on par with pythonic standards* - without resorting to macros, chances are you'll find it in the pure-Python layer.
+
+When that is not possible, there will often be a pure-Python core that implements the actual feature, with a macro layer on top that attempts to eliminate the [accidental complexity](https://en.wikipedia.org/wiki/No_Silver_Bullet) from its user interface. In these cases macros bring *automatic* currying, *automatic* tail-call optimization, and (beside a much leaner syntax) lexical scoping for the ``let`` and ``do`` constructs. We believe a well-designed macro layer can bring a difference in user experience similar to that between programming in [Brainfuck](https://en.wikipedia.org/wiki/Brainfuck) (or to be fair, in Fortran) versus in Python.
+
+Finally, when the whole purpose of the feature is to automatically transform a program into a particular style (`continuations`, `lazify`, `autoreturn`), or when run-time access to the original [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) is essential to the purpose (`dbg`), then the feature exists squarely in the macro layer, with no pure-Python core underneath.
+
+See our [design notes](doc/design-notes.md) for more information.
+
+And on when to implement your own feature as a syntactic macro, see the discussion in Chapter 8 of [Paul Graham: On Lisp](http://paulgraham.com/onlisp.html). MacroPy's documentation also provides [some advice on this](https://macropy3.readthedocs.io/en/latest/discussion.html).
 
 ## Emacs syntax highlighting for language extensions
 
