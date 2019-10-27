@@ -1064,6 +1064,12 @@ Code within a ``with continuations`` block is treated specially.
  - Unlike **exceptions**, which only perform escapes, ``call_cc[]`` allows to jump back at an arbitrary time later, also after the dynamic extent of the original function where the ``call_cc[]`` appears. Escape continuations are a special case of continuations, so exceptions can be built on top of ``call/cc``.
    - [As explained in detail by Matthew Might](http://matt.might.net/articles/implementing-exceptions/), exceptions are fundamentally based on (escape) continuations; the *"unwinding the call stack"* mental image is ["not even wrong"](https://en.wikiquote.org/wiki/Wolfgang_Pauli).
 
+So if all you want is generators or exceptions (or even resumable exceptions a.k.a. [conditions](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html)), then a general ``call/cc`` mechanism is not needed. The point of ``call/cc`` is to provide the ability to *resume more than once* from *the same*, already executed point in the program. In other words, ``call/cc`` is a general mechanism for bookmarking the control state.
+
+However, its usability leaves much to be desired. This has been noted e.g. in [Oleg Kiselyov: An argument against call/cc](http://okmij.org/ftp/continuations/against-callcc.html) and [John Shutt: Guarded continuations](http://fexpr.blogspot.com/2012/01/guarded-continuations.html). For example, Shutt writes:
+
+*The traditional Scheme device for acquiring a first-class continuation object is **call/cc**, which calls a procedure and passes to that procedure the continuation to which that call would normally return.  Frankly, this was always a very clumsy way to work with continuations; one might almost suspect it was devised as an "esoteric programming language" feature, akin to INTERCAL's COME FROM statement.*
+
 #### ``call_cc`` API reference
 
 To keep things relatively straightforward, our ``call_cc[]`` is only allowed to appear **at the top level** of:
@@ -1278,9 +1284,9 @@ Continuations only need to come into play when we explicitly request for one ([Z
 
 The name is nevertheless ``call_cc``, because the resulting behavior is close enough to ``call/cc``.
 
-Is it as general? I'm not an expert on this. If you have a theoretical result that proves that continuations delimited in the (very crude) way they are in ``unpythonic`` are equally powerful to classic ``call/cc``, or a counterexample that shows they aren't, I'm interested - this information should be in the README. (Note that beside the delimited capture, we provide a kludge that allows manually overriding ``cc``, useful for implementing things like ``amb``.)
+Note our implementation provides a rudimentary form of *delimited* continuations. See [Oleg Kiselyov: Undelimited continuations are co-values rather than functions](http://okmij.org/ftp/continuations/undelimited.html). Delimited continuations return a value and can be composed, so they at least resemble functions (even though are not, strictly speaking, actually functions), whereas undelimited continuations do not even return. (For two different debunkings of the continuations-are-functions myth, approaching the problem from completely different angles, see the above post by Oleg Kiselyov, and [John Shutt: Continuations and term-rewriting calculi](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html).)
 
-Racket provides properly delimited continuations and [prompts](https://docs.racket-lang.org/guide/prompt.html) to control them; no doubt much more thought has gone into designing and implementing *that*.
+Racket provides a thought-out implementation of delimited continuations and [prompts](https://docs.racket-lang.org/guide/prompt.html) to control them.
 
 #### Why this syntax?
 
