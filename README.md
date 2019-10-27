@@ -45,7 +45,7 @@ or
 
 ``sudo pip3 uninstall unpythonic``
 
-### Design philosophy
+## Design philosophy
 
 The main design considerations of `unpythonic` are simplicity, robustness, and minimal dependencies. Some complexity is tolerated, if it is essential to make features interact better, or to provide a better user experience.
 
