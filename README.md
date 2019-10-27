@@ -47,6 +47,41 @@ or
 
 ``sudo pip3 uninstall unpythonic``
 
+## Emacs syntax highlighting for language extensions
+
+This `init.el` snippet can be used to add syntax-highlighting for keywords specific to `MacroPy` and `unpythonic` to your Emacs setup:
+
+```elisp
+  (defun my/unpythonic-syntax-highlight-setup ()
+    "Set up additional syntax highlighting for `unpythonic.syntax' in python mode."
+    ;; adapted from code in dash.el
+    (let ((new-keywords '("let" "dlet" "blet"
+                          "letseq" "dletseq" "bletseq"
+                          "letrec" "dletrec" "bletrec"
+                          "let_syntax" "abbrev"
+                          "where"
+                          "do" "local" "delete"
+                          "continuations" "call_cc"
+                          "curry" "lazify" "envify" "tco" "prefix" "autoreturn" "forall"
+                          "multilambda" "namedlambda" "quicklambda"
+                          "cond" "aif" "autoref" "dbg" "nb"
+                          "macros" "q" "u" "hq" "ast_literal")) ; macropy
+          (special-variables '("it"
+                               "dyn"
+                               "dbgprint_expr")))
+      (font-lock-add-keywords 'python-mode `((,(concat "\\_<" (regexp-opt special-variables 'paren) "\\_>")
+                                              1 font-lock-variable-name-face)) 'append)
+      ;; "(\\s-*" maybe somewhere?
+      (font-lock-add-keywords 'python-mode `((,(concat "\\_<" (regexp-opt new-keywords 'paren) "\\_>")
+                                              1 font-lock-keyword-face)) 'append)
+  ))
+  (add-hook 'python-mode-hook 'my/unpythonic-syntax-highlight-setup)
+```
+
+*Known issue*: For some reason, during a given session, this takes effect only starting with the second Python file opened. The first Python file opened during a session shows with the default syntax highlighting. Probably something to do with the initialization order of font-lock and whichever `python-mode` is being used.
+
+Tested with `anaconda-mode`.
+
 ## License
 
 All original code is released under the 2-clause [BSD license](LICENSE.md).
