@@ -1,13 +1,80 @@
 # Design Notes
 
+- [Design Philosophy](#design-philosophy)
+- [Macros do not Compose](#macros-do-not-compose)
+- [Language Discontinuities](#language-discontinuities)
+- [What Belongs in Python?](#what-belongs-in-python)
+- [Python is not a Lisp](#python-is-not-a-lisp)
 - [On ``let`` and Python](#on-let-and-python)
-- [Python is Not a Lisp](#python-is-not-a-lisp)
 - [Assignment Syntax](#assignment-syntax)
 - [TCO Syntax and Speed](#tco-syntax-and-speed)
-- [Comboability of Syntactic Macros](#comboability-of-syntactic-macros)
 - [No Monads?](#no-monads)
-- [Further Explanation](#further-explanation)
-- [Notes on Macros](#notes-on-macros)
+- [Detailed Notes on Macros](#detailed-notes-on-macros)
+
+## Design Philosophy
+
+The main design considerations of `unpythonic` are simplicity, robustness, and minimal dependencies. Some complexity is tolerated, if it is essential to make features interact better, or to provide a better user experience.
+
+The library is split into **two layers**, providing **three kinds of features**:
+
+ - Pure Python (e.g. batteries for `itertools`),
+ - Macros driving a pure Python core (e.g. `do`, `let`),
+ - Pure macros (e.g. `continuations`, `lazify`, `dbg`).
+
+We believe syntactic macros are [*the nuclear option of software engineering*](https://www.factual.com/blog/thinking-in-clojure-for-java-programmers-part-2/). Accordingly, we aim to [minimize macro magic](https://macropy3.readthedocs.io/en/latest/discussion.html#minimize-macro-magic). If a feature can be implemented - *with a level of usability on par with pythonic standards* - without resorting to macros, then it belongs in the pure-Python layer. (Provided that building the feature as a macro is not the *simpler* solution. Consider `unpythonic.amb.forall` (overly complicated, to avoid macros) vs. `unpythonic.syntax.forall` (a clean macro-based design of the same feature) as an example. Keep in mind [ZoP](https://www.python.org/dev/peps/pep-0020/) §17 and §18.)
+
+When that is not possible, we implement the actual feature as a pure-Python core, not meant to be used directly, and provide a macro layer on top. The purpose of the macro layer is then to improve usability, by eliminating the [accidental complexity](https://en.wikipedia.org/wiki/No_Silver_Bullet) from the user interface of the pure-Python core. Examples are *automatic* currying, *automatic* tail-call optimization, and (beside a much leaner syntax) lexical scoping for the ``let`` and ``do`` constructs. We believe a well-designed macro layer can bring a difference in user experience similar to that between programming in [Brainfuck](https://en.wikipedia.org/wiki/Brainfuck) (or to be fair, in Fortran or in Java) versus in Python.
+
+Finally, when the whole purpose of the feature is to automatically transform a piece of code into a particular style (`continuations`, `lazify`, `autoreturn`), or when run-time access to the original [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) is essential to the purpose (`dbg`), then the feature belongs squarely in the macro layer, with no pure-Python core underneath.
+
+When to implement your own feature as a syntactic macro, see the discussion in Chapter 8 of [Paul Graham: On Lisp](http://paulgraham.com/onlisp.html). MacroPy's documentation also provides [some advice on the topic](https://macropy3.readthedocs.io/en/latest/discussion.html).
+
+### Macros do not Compose
+
+Making macros work together is nontrivial, essentially because *macros don't compose*. [As pointed out by John Shutt](https://fexpr.blogspot.com/2013/12/abstractive-power.html), in a multilayered language extension implemented with macros, the second layer of macros needs to understand all of the first layer. The issue is that the macro abstraction leaks the details of its expansion. Contrast with functions, which operate on values: the process that was used to arrive at a value doesn't matter. It's always possible for a function to take this value and transform it into another value, which can then be used as input for the next layer of functions. That's composability at its finest.
+
+The need for interaction between macros may arise already in what *feels* like a single layer of abstraction; for example, it's not only that the block macros must understand ``let[]``, but some of them must understand other block macros. This is because what feels like one layer of abstraction is actually implemented as a number of separate macros, which run in a specific order. Thus, from the viewpoint of actually applying the macros, if the resulting software is to work correctly, the mere act of allowing combos between the block macros already makes them into a multilayer system. The compartmentalization of conceptually separate features into separate macros facilitates understanding and maintainability, but fails to reach the ideal of modularity.
+
+Therefore, any particular combination of macros that has not been specifically tested might not work. That said, if some particular combo doesn't work and *is not at least documented as such*, that's an error; please raise an issue. The unit tests should cover the combos that on the surface seem the most useful, but there's no guarantee that they cover everything that actually is useful somewhere.
+
+Some aspects in the design of `unpythonic` could be simplified by expanding macros in an outside-in order (first pass in MacroPy; then e.g. no need to identify and parse an expanded `let` form), but that complicates other things (e.g. lexical scoping in `let` constructs), as well as cannot remove the fundamental requirement that the macros must still know about each other (e.g. parse an *unexpanded* `let` form instead).
+
+The lack of composability is a problem mainly when using macros to create a language extension, because the features of the extended language often interact. Macros can also be used in a much more everyday way, where composability is mostly a non-issue - to abstract and name common patterns that just happen to be of a nature that cannot be extracted as a regular function. See [Peter Seibel: Practical Common Lisp, chapter 3](http://www.gigamonkeys.com/book/practical-a-simple-database.html) for an example.
+
+### Language Discontinuities
+
+The very act of extending a language creates points of discontinuity between the extended language and the original. This can become a particularly bad source of extra complexity, if the extension can be enabled locally for a piece of code - as is the case with block macros. Then the design of the extended language must consider how to treat interactions between pieces of code that use the extension and those that don't. Then exponentiate those design considerations by the number of extensions that can be enabled independently. This issue is simply absent when designing a new language from scratch.
+
+For an example, look at what the rest of `unpythonic` has to do to make `lazify` behave as the user expects! Grep the codebase for `lazyutil`, and especially the `mark_lazy` decorator. The latter is essentially just an annotation for the `lazify` transformer, that marks a function as *not necessarily needing* evaluation of its arguments. Such functions represent language-level constructs, such as `let` or `curry`, that essentially just *pass through* user data to other user-provided code, without *accessing* that data. The annotation is honored by the compiler when programming in the lazy (call-by-need) extended language, and otherwise it does nothing. Another pain point is the need of a second trampoline implementation (that only differs in one minor detail) just to make `lazify` interact correctly with TCO (while not losing an order of magnitude of performance in the trampoline used with standard Python).
+
+For another example, it's likely that e.g. `continuations` still doesn't integrate completely seamlessly - and I'm not sure if that is possible even in principle. Calling a traditional function from a [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style) function is no problem; the traditional function uses no continuations, and (barring exceptions) will always return normally. The other way around can be a problem. Also, having TCO implemented as a trampoline system on top of the base language (instead of being already provided under the hood, like in Scheme) makes the `continuations` transformer more complex than absolutely necessary.
+
+For a third example, consider *decorated lambdas*. This is an `unpythonic` extension - essentially, a compiler feature implemented (by calling some common utility code) by each of the transformers of the pure-macro features - that understands a lambda enclosed in a nested sequence of single-argument function calls *as a decorated function definition*. This is painful, because the Python AST has no place to store the decorator list for a lambda; Python sees it just as a nested sequence of function calls, terminating in a lambda. This has to be papered over by the transformers. We also introduce a related complication, the decorator registry (see `regutil`), so that we can automatically sort decorator invocations - so that pure-macro features know at which index to inject a particular decorator (so it works properly) when they need to do that. Needing such a registry is already a complication, but the *decorated lambda* machinery feels the pain more acutely.
+
+### What Belongs in Python?
+
+If you feel [my hovercraft is full of eels](http://stupidpythonideas.blogspot.com/2015/05/spam-spam-spam-gouda-spam-and-tulips.html), it is because they come with the territory.
+
+Some have expressed the opinion [the statement-vs-expression dichotomy is a feature](http://stupidpythonideas.blogspot.com/2015/01/statements-and-expressions.html). The BDFL himself has famously stated that TCO has no place in Python [[1]](http://neopythonic.blogspot.com/2009/04/tail-recursion-elimination.html) [[2]](http://neopythonic.blogspot.fi/2009/04/final-words-on-tail-calls.html), and less famously that multi-expression lambdas or continuations have no place in Python [[3]](https://www.artima.com/weblogs/viewpost.jsp?thread=147358). Several potentially interesting PEPs have been deferred [[1]](https://www.python.org/dev/peps/pep-3150/) [[2]](https://www.python.org/dev/peps/pep-0403/) or rejected [[3]](https://www.python.org/dev/peps/pep-0511/) [[4]](https://www.python.org/dev/peps/pep-0463/) [[5]](https://www.python.org/dev/peps/pep-0472/).
+
+Of course, if I agreed, I wouldn't be doing this (or [this](https://github.com/Technologicat/pydialect)).
+
+On a point raised [here](https://www.artima.com/weblogs/viewpost.jsp?thread=147358) with respect to indentation-sensitive vs. indentation-insensitive parser modes, having seen [SRFI-110: Sweet-expressions (t-expressions)](https://srfi.schemers.org/srfi-110/srfi-110.html), I think Python is confusing matters by linking the mode to statements vs. expressions. A workable solution is to make *everything* support both modes (or even preprocess the source code text to use only one of the modes), which *uniformly* makes parentheses an alternative syntax for grouping.
+
+It would be nice to be able to use indentation to structure expressions to improve their readability, like one can do in Racket with [sweet](https://docs.racket-lang.org/sweet/), but I suppose ``lambda x: [expr0, expr1, ...]`` will have to do for a multiple-expression lambda in MacroPy. Unless I decide at some point to make a source filter for [Pydialect](https://github.com/Technologicat/pydialect) to auto-convert between indentation and parentheses; but for Python this is somewhat difficult to do, because statements **must** use indentation whereas expressions **must** use parentheses, and this must be done before we can invoke the standard parser to produce an AST. (And I don't want to maintain a [Pyparsing](https://github.com/pyparsing/pyparsing) grammar to parse a modified version of Python.)
+
+### Python is not a Lisp
+
+The point behind providing `let` and `begin` (and the ``let[]`` and ``do[]`` [macros](../macro_extras/)) is to make Python lambdas slightly more useful - which was really the starting point for the whole `unpythonic` experiment.
+
+The oft-quoted single-expression limitation of the Python ``lambda`` is ultimately a herring, as this library demonstrates. The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. We can work around some of this:
+
+ - The expression form of `if` can be used, but readability suffers if nested. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers there too. Another possibility is to use MacroPy to define a ``cond`` expression, but it's essentially duplicating a feature the language already almost has. Our [macros](../macro_extras/) do exactly that, providing a ``cond`` expression as a macro.
+ - Functional looping (with TCO, to boot) is possible.
+ - ``unpythonic.ec.call_ec`` gives us ``return`` (the ec), and ``unpythonic.misc.raisef`` gives us ``raise``.
+ - Exception handling (``try``/``except``/``else``/``finally``) and context management (``with``) are currently **not** available for lambdas, even in ``unpythonic``.
+
+Still, ultimately one must keep in mind that Python is not a Lisp. Not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful, even though it does have a side effect.
 
 ### On ``let`` and Python
 
@@ -25,24 +92,11 @@ The [macro versions](../macro_extras/) of the `let` constructs **are** lexically
 
 Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
 
-### Python is not a Lisp
-
-The point behind providing `let` and `begin` (and the ``let[]`` and ``do[]`` [macros](macro_extras/)) is to make Python lambdas slightly more useful - which was really the starting point for this whole experiment.
-
-The oft-quoted single-expression limitation of the Python ``lambda`` is ultimately a herring, as this library demonstrates. The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. We can work around some of this:
-
- - The expression form of `if` can be used, but readability suffers if nested. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers there too. Another possibility is to use MacroPy to define a ``cond`` expression, but it's essentially duplicating a feature the language already almost has. (Our [macros](macro_extras/) do exactly that, providing a ``cond`` expression as a macro.)
- - Functional looping (with TCO, to boot) is possible.
- - ``unpythonic.ec.call_ec`` gives us ``return`` (the ec), and ``unpythonic.misc.raisef`` gives us ``raise``.
- - Exception handling (``try``/``except``/``else``/``finally``) and context management (``with``) are currently **not** available for lambdas, even in ``unpythonic``.
-
-Still, ultimately one must keep in mind that Python is not a Lisp. Not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful, even though it does have a side effect.
-
 ### Assignment syntax
 
 Why the clunky `e.set("foo", newval)` or `e << ("foo", newval)`, which do not directly mention `e.foo`? This is mainly because in Python, the language itself is not customizable. If we could define a new operator `e.foo <op> newval` to transform to `e.set("foo", newval)`, this would be easily solved.
 
-Our [macros](macro_extras/) essentially do exactly this, but by borrowing the ``<<`` operator to provide the syntax ``foo << newval``, because even with MacroPy, it is not possible to define new [BinOp](https://greentreesnakes.readthedocs.io/en/latest/nodes.html#BinOp)s in Python. That would be possible essentially as a *reader macro* (as it's known in the Lisp world), to transform custom BinOps into some syntactically valid Python code before proceeding with the rest of the import machinery, but it seems as of this writing, no one has done this.
+Our [macros](../macro_extras/) essentially do exactly this, but by borrowing the ``<<`` operator to provide the syntax ``foo << newval``, because even with MacroPy, it is not possible to define new [BinOp](https://greentreesnakes.readthedocs.io/en/latest/nodes.html#BinOp)s in Python. That would be possible essentially as a *reader macro* (as it's known in the Lisp world), to transform custom BinOps into some syntactically valid Python code before proceeding with the rest of the import machinery, but it seems as of this writing, no one has done this.
 
 Without macros, in raw Python, we could abuse `e.foo << newval`, which transforms to `e.foo.__lshift__(newval)`, to essentially perform `e.set("foo", newval)`, but this requires some magic, because we then need to monkey-patch each incoming value (including the first one when the name "foo" is defined) to set up the redirect and keep it working.
 
@@ -70,7 +124,7 @@ Benefits and costs of ``return jump(...)``:
 
 The other simple-ish solution is to use exceptions, making the jump wrest control from the caller. Then ``jump(...)`` becomes a verb, but this approach is 2-5x slower, when measured with a do-nothing loop. (See the old default TCO implementation in v0.9.2.)
 
-Our [macros](macro_extras/) provide an easy-to use solution. Just wrap the relevant section of code in a ``with tco:``, to automatically apply TCO to code that looks exactly like standard Python. With the macro, function definitions (also lambdas) and returns are automatically converted. It also knows enough not to add a ``@trampolined`` if you have already declared a ``def`` as ``@looped`` (or any of the other TCO-enabling decorators in ``unpythonic.fploop``).
+Our [macros](../macro_extras/) provide an easy-to use solution. Just wrap the relevant section of code in a ``with tco:``, to automatically apply TCO to code that looks exactly like standard Python. With the macro, function definitions (also lambdas) and returns are automatically converted. It also knows enough not to add a ``@trampolined`` if you have already declared a ``def`` as ``@looped`` (or any of the other TCO-enabling decorators in ``unpythonic.fploop``).
 
 For other libraries bringing TCO to Python, see:
 
@@ -78,14 +132,6 @@ For other libraries bringing TCO to Python, see:
  - [ActiveState recipe 474088](https://github.com/ActiveState/code/tree/master/recipes/Python/474088_Tail_Call_Optimization_Decorator), based on ``inspect``.
  - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the original source of the approach used here.
  - [MacroPy](https://github.com/azazel75/macropy) uses an approach similar to ``fn.py``.
-
-### Comboability of Syntactic Macros
-
-Making macros work together is nontrivial, essentially because *macros don't compose*. [As pointed out by John Shutt](https://fexpr.blogspot.com/2013/12/abstractive-power.html), in a multilayered language extension implemented with macros, the second layer of macros needs to understand all of the first layer. The issue is that the macro abstraction leaks the details of its expansion. Contrast with functions, which operate on values: the process that was used to arrive at a value doesn't matter. It's always possible for a function to take this value and transform it into another value, which can then be used as input for the next layer of functions. That's composability at its finest.
-
-The need for interaction between macros may arise already in what *feels* like a single layer of abstraction; for example, it's not only that the block macros must understand ``let[]``, but some of them must understand other block macros. This is because what feels like one layer of abstraction is actually implemented as a number of separate macros, which run in a specific order. Thus, from the viewpoint of actually applying the macros, if the resulting software is to work correctly, the mere act of allowing combos between the block macros already makes them into a multilayer system. The compartmentalization of conceptually separate features into separate macros facilitates understanding and maintainability, but fails to reach the ideal of modularity.
-
-Therefore, any particular combination of macros that has not been specifically tested might not work. That said, if some particular combo doesn't work and *is not at least documented as such*, that's an error; please raise an issue. The unit tests should cover the combos that on the surface seem the most useful, but there's no guarantee that they cover everything that actually is useful somewhere.
 
 ### No Monads
 
@@ -95,21 +141,7 @@ Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done else
 
 If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
 
-### Further Explanation
-
-Your hovercraft is full of eels!
-
-[Naturally](http://stupidpythonideas.blogspot.com/2015/05/spam-spam-spam-gouda-spam-and-tulips.html), they come with the territory.
-
-Some have expressed the opinion [the statement-vs-expression dichotomy is a feature](http://stupidpythonideas.blogspot.com/2015/01/statements-and-expressions.html). The BDFL himself has famously stated that TCO has no place in Python [[1]](http://neopythonic.blogspot.com/2009/04/tail-recursion-elimination.html) [[2]](http://neopythonic.blogspot.fi/2009/04/final-words-on-tail-calls.html), and less famously that multi-expression lambdas or continuations have no place in Python [[3]](https://www.artima.com/weblogs/viewpost.jsp?thread=147358). Several potentially interesting PEPs have been deferred [[1]](https://www.python.org/dev/peps/pep-3150/) [[2]](https://www.python.org/dev/peps/pep-0403/) or rejected [[3]](https://www.python.org/dev/peps/pep-0511/) [[4]](https://www.python.org/dev/peps/pep-0463/) [[5]](https://www.python.org/dev/peps/pep-0472/).
-
-Of course, if I agreed, I wouldn't be doing this (or [this](https://github.com/Technologicat/pydialect)).
-
-On a point raised [here](https://www.artima.com/weblogs/viewpost.jsp?thread=147358) with respect to indentation-sensitive vs. indentation-insensitive parser modes, having seen [sweet expressions](https://srfi.schemers.org/srfi-110/srfi-110.html) I think Python is confusing matters by linking the mode to statements vs. expressions. A workable solution is to make *everything* support both modes (or even preprocess the source code text to use only one of the modes), which *uniformly* makes parentheses an alternative syntax for grouping.
-
-It would be nice to be able to use indentation to structure expressions to improve their readability, like one can do in Racket with [sweet](https://docs.racket-lang.org/sweet/), but I suppose ``lambda x: [expr0, expr1, ...]`` will have to do for a multiple-expression lambda in MacroPy. Unless I decide at some point to make a source filter for [Pydialect](https://github.com/Technologicat/pydialect) to auto-convert between indentation and parentheses; but for Python this is somewhat difficult to do, because statements **must** use indentation whereas expressions **must** use parentheses, and this must be done before we can invoke the standard parser to produce an AST.
-
-### Notes on Macros
+### Detailed Notes on Macros
 
  - ``continuations`` and ``tco`` are mutually exclusive, since ``continuations`` already implies TCO.
    - However, the ``tco`` macro skips any ``with continuations`` blocks inside it, **for the specific reason** of allowing modules written in the [Lispython dialect](https://github.com/Technologicat/pydialect) (which implies TCO for the whole module) to use ``with continuations``.
