@@ -1,27 +1,25 @@
 # Unpythonic: Python meets Lisp and Haskell
 
-In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some Haskellisms mixed in. We place a special emphasis on **clear, pythonic syntax**, and **making features work together**.
+In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some Haskellisms mixed in. We extend the language with a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros). We emphasize **clear, pythonic syntax**, and **making features work together**.
 
-We also provide extensions to the Python language as a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros). Each macro adds an orthogonal piece of functionality that can (mostly) be mixed and matched with the others.
-
-We have three kinds of features, in increasing order of [magic](https://macropy3.readthedocs.io/en/latest/discussion.html#levels-of-magic):
+The features are built out of, in increasing order of [magic](https://macropy3.readthedocs.io/en/latest/discussion.html#levels-of-magic):
 
  - Pure Python (e.g. batteries for `itertools`),
- - Macros driving a pure Python core (e.g. `do`, `let`),
+ - Macros driving a pure-Python core (e.g. `do`, `let`),
  - Pure macros (e.g. `continuations`, `lazify`, `dbg`).
 
-Which category a particular feature appears in depends on its purpose, as well as ease-of-use considerations. See our [design notes](doc/design-notes.md) for more information.
+This depends on the purpose of each feature, as well as ease-of-use considerations. See our [design notes](doc/design-notes.md) for more information.
 
 ### Dependencies
 
-Currently none required.  
+None required.  
 [MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macro layer.
 
 ### Documentation
 
 [Pure-Python feature set](doc/features.md)  
-[Syntactic macro feature set](macro_extras/README.md): the second half of ``unpythonic``.  
-[Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``
+[Syntactic macro feature set](macro_extras/README.md)  
+[Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.
 
 ## Installation
 
