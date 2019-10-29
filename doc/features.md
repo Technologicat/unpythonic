@@ -1,17 +1,17 @@
 # Unpythonic: Python meets Lisp and Haskell
 
-Documentation for the underlying pure-Python API, which provides the non-macro features that can be used directly. This API acts as the core for the macro layer, see the [documentation for syntactic macros](macro_extras/) for more about those features.
+This is the pure-Python API of `unpythonic`. Most features listed here are intended to be used directly.
 
-Please note that there are features that appear in both the pure-Python layer and the macro layer, as well as features that only exist in the pure-Python layer. If you don't want to depend on MacroPy, feel free to use the features as defined below (though, this may be less convenient).
+The exception are features marked **[M]**, which are primarily intended as a code generation target for macros. See the [documentation for syntactic macros](macro_extras/) for details. Usually the relevant macro has the same name as the underlying implementation; for example, `unpythonic.let` is the implementation, while `unpythonic.syntax.let` is the corresponding macro. The purpose of the macro layer is to improve ease of use by removing accidental complexity from the user interface. If you don't want to depend on MacroPy, feel free to use also those features as defined below (though, this may be less convenient).
 
 ### Features
 
 [**Bindings**](#bindings)
-- [``let``, ``letrec``: local bindings in an expression](#let-letrec-local-bindings-in-an-expression)
-  - [Lispylet: alternative syntax](#lispylet-alternative-syntax)
+- [``let``, ``letrec``: local bindings in an expression](#let-letrec-local-bindings-in-an-expression) **[M]**
+  - [Lispylet: alternative syntax](#lispylet-alternative-syntax) **[M]**
 - [``env``: the environment](#env-the-environment)
 - [``assignonce``](#assignonce), a relative of ``env``.
-- [``dyn``: dynamic assignment](#dyn-dynamic-assignment) a.k.a. parameterize, special variables, "dynamic scoping".
+- [``dyn``: dynamic assignment](#dyn-dynamic-assignment) a.k.a. parameterize, special variables, fluid variables, "dynamic scoping".
 
 [**Containers**](#containers)
 - [``frozendict``: an immutable dictionary](#frozendict-an-immutable-dictionary)
@@ -21,7 +21,7 @@ Please note that there are features that appear in both the pure-Python layer an
 
 [**Sequencing**](#sequencing), run multiple expressions in any expression position (incl. inside a ``lambda``).
 - [``begin``: sequence side effects](#begin-sequence-side-effects)
-- [``do``: stuff imperative code into an expression](#do-stuff-imperative-code-into-an-expression)
+- [``do``: stuff imperative code into an expression](#do-stuff-imperative-code-into-an-expression) **[M]**
 - [``pipe``, ``piped``, ``lazy_piped``: sequence functions](#pipe-piped-lazy_piped-sequence-functions)
 
 [**Batteries**](#batteries) missing from the standard library.
@@ -53,8 +53,6 @@ Please note that there are features that appear in both the pure-Python layer an
 - [``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers](#getattrrec-setattrrec-access-underlying-data-in-an-onion-of-wrappers)
 - [``arities``, ``kwargs``: Function signature inspection utilities](#arities-kwargs-function-signature-inspection-utilities)
 - [``Popper``: a pop-while iterator](#popper-a-pop-while-iterator)
-
-[**Advanced: syntactic macros**](macro_extras/): the second half of ``unpythonic``.
 
 For many examples, see [the unit tests](unpythonic/test/), the docstrings of the individual features, and this guide.
 
@@ -260,7 +258,9 @@ It's a subclass of ``env``, so it shares most of the same [features](#env-the-en
 
 ([As termed by Felleisen.](https://groups.google.com/forum/#!topic/racket-users/2Baxa2DxDKQ))
 
-Like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Like [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html). The *special variables* in Common Lisp work somewhat similarly (but with indefinite scope).
+Like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Like [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html). The *special variables* in Common Lisp work somewhat similarly.
+
+This is essentially [SRFI-39](https://srfi.schemers.org/srfi-39/), using the MzScheme approach in the presence of multiple threads.
 
 There's a singleton, `dyn`:
 
@@ -1220,11 +1220,28 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
 
 ### ``fup``: Functional update; ``ShadowedSequence``
 
-We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). Use ``ShadowedSequence`` for slicing (read-only), equality comparison, ``str`` and ``repr``. Out-of-range read access to a single item emits a meaningful error, like in ``list``. See its docstring for details.
+We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). It supports slicing (read-only), equality comparison, ``str`` and ``repr``. Out-of-range read access to a single item emits a meaningful error, like in ``list``. See the docstring of ``ShadowedSequence`` for details.
 
-The function ``fupdate`` functionally updates sequences and mappings. Whereas ``ShadowedSequence`` reads directly from the original sequences at access time, ``fupdate`` makes a shallow copy (of the same type as the given input sequence) when it finalizes its output. The utility function ``fup`` is a specialization of ``fupdate`` to sequences, and adds support for the standard slicing syntax.
+The function ``fupdate`` functionally updates sequences and mappings. Whereas ``ShadowedSequence`` reads directly from the original sequences at access time, ``fupdate`` makes a shallow copy, of the same type as the given input sequence, when it finalizes its output.
 
-First, let's look at ``fupdate``:
+**The preferred way** to use ``fupdate`` on sequences is through the ``fup`` utility function, which specializes ``fupdate`` to sequences, and adds support for Python's standard slicing syntax:
+
+```python
+from unpythonic import fup
+from itertools import repeat
+
+lst = (1, 2, 3, 4, 5)
+assert fup(lst)[3] << 42 == (1, 2, 3, 42, 5)
+assert fup(lst)[0::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)
+```
+
+Currently only one update specification is supported in a single ``fup()``. (The ``fupdate`` function supports more; see below.)
+
+The notation follows the ``unpythonic`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched.
+
+The ``fup`` call is essentially curried. It takes in the sequence to be functionally updated. The object returned by the call accepts a subscript to specify the index or indices. This then returns another object that accepts a left-shift to specify the values. Once the values are provided, the underlying call to ``fupdate`` triggers, and the result is returned.
+
+The ``fupdate`` function itself works as follows:
 
 ```python
 from unpythonic import fupdate
@@ -1311,23 +1328,6 @@ assert out == A(42, 23)
 Namedtuples export only a sequence interface, so they cannot be treated as mappings.
 
 Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
-
-**The preferred way** to use ``fupdate`` on sequences is through the ``fup`` utility function, which adds support for Python's standard slicing syntax:
-
-```python
-from unpythonic import fup
-from itertools import repeat
-
-lst = (1, 2, 3, 4, 5)
-assert fup(lst)[3] << 42 == (1, 2, 3, 42, 5)
-assert fup(lst)[0::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)
-```
-
-Currently only one update specification is supported in a single ``fup()``.
-
-The notation follows the ``unpythonic`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched.
-
-The ``fup`` call is essentially curried. It takes in the sequence to be functionally updated. The object returned by the call accepts a subscript to specify the index or indices. This then returns another object that accepts a left-shift to specify the values. Once the values are provided, the underlying call to ``fupdate`` triggers, and the result is returned.
 
 ### ``view``: writable, sliceable view into a sequence
 
@@ -1968,6 +1968,8 @@ last(take(10000, fibos()))  # no crash
 
 
 ### ``setescape``, ``escape``: escape continuations (ec)
+
+This feature is known as `catch`/`throw` in several Lisps, e.g. in Emacs Lisp and in Common Lisp (as well as some of its ancestors). This terminology is independent of the use of `throw`/`catch` in C++/Java for the exception handling mechanism. Common Lisp also provides a lexically scoped variant (`BLOCK`/`RETURN-FROM`) that is more idiomatic [according to Seibel](http://www.gigamonkeys.com/book/the-special-operators.html).
 
 Escape continuations can be used as a *multi-return*:
 
