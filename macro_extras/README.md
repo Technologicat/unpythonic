@@ -10,6 +10,8 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 
 **This document is up-to-date for v0.14.1.**
 
+**Currently (11/2019) we require [the latest MacroPy from git](https://github.com/azazel75/macropy).**
+
 ### Features
 
 [**Bindings**](#bindings)
