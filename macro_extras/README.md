@@ -14,6 +14,8 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 
 ### Features
 
+*There is no macro abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itself already provides [``lazy``](https://macropy3.readthedocs.io/en/latest/lazy.html) and [``interned``](https://macropy3.readthedocs.io/en/latest/interned.html).*
+
 [**Bindings**](#bindings)
 - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate.
 - [``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions](#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)
