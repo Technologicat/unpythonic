@@ -9,6 +9,7 @@
 - [Assignment Syntax](#assignment-syntax)
 - [TCO Syntax and Speed](#tco-syntax-and-speed)
 - [No Monads?](#no-monads)
+- [No Types?](#no-types)
 - [Detailed Notes on Macros](#detailed-notes-on-macros)
 
 ## Design Philosophy
@@ -140,6 +141,34 @@ For other libraries bringing TCO to Python, see:
 Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done elsewhere, see [OSlash](https://github.com/dbrattli/OSlash) if you need them.
 
 If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
+
+### No Types?
+
+The `unpythonic` project will likely remain untyped indefinitely, since I don't want to enter that particular marshland with things like `curry` and `with continuations`. It may be possible to gradually type some carefully selected parts - but that's currently not on [the roadmap](https://github.com/Technologicat/unpythonic/milestones). I'm not against it, if someone wants to contribute.
+
+In general, on type systems, [this three-part discussion on LtU](http://lambda-the-ultimate.org/node/220) was interesting:
+
+- "Dynamic types" held by values are technically **tags**.
+- Type checking can be seen as another stage of execution that runs at compilation time. In a dynamically typed language, this can be implemented by manually delaying execution until type tags have been checked - *[lambda, the ultimate staging annotation](http://lambda-the-ultimate.org/node/175#comment-1198)*. Witness [statically typed Scheme](http://lambda-the-ultimate.org/node/100#comment-1197) using manually checked tags, and then automating that with macros. (Kevin Millikin)
+- Dynamically typed code **always contains informal/latent, static type information** - that's how we reason about it as programmers. *There are rules to determine which operations are legal on a value, even if these rules are informal and enforced only manually.* (Anton van Straaten, paraphrased)
+- The view of untyped languages as [*unityped*](https://news.ycombinator.com/item?id=8206562), argued by Robert Harper, using a single `Univ` type that contains all values, is simply an *embedding* of untyped code into a typed environment. It does not (even attempt to) encode the latent type information.
+  - [Sam Tobin-Hochstadt, one of the Racket developers, argues](https://medium.com/@samth/on-typed-untyped-and-uni-typed-languages-8a3b4bedf68c) taking that view is missing the point, if our goal is to understand how programmers reason when they write in dynamically typed languages. It is useful as a type-theoretical justification for dynamically typed languages, nothing more.
+
+Taking this into a Python context, if *explicit is better than implicit* (ZoP §2), why not make at least some of this latent information, **that must be there anyway**, machine-checkable? Hence type annotations (PEP [3107](https://www.python.org/dev/peps/pep-3107/), [484](https://www.python.org/dev/peps/pep-0484/), [526](https://www.python.org/dev/peps/pep-0526/)) and [mypy](http://mypy-lang.org/).
+
+More on type systems:
+
+- Haskell's [typeclasses](http://learnyouahaskell.com/types-and-typeclasses).
+- Some postings on the pros and cons of statically vs. dynamically typed languages:
+  - [Paul Chiusano: The advantages of static typing, simply stated](https://pchiusano.github.io/2016-09-15/static-vs-dynamic.html)
+  - [Jonathan Gros-Dubois: Statically typed vs dynamically typed languages](https://hackernoon.com/statically-typed-vs-dynamically-typed-languages-e4778e1ca55)
+- [Laurence Tratt: Another non-argument in type systems](https://tratt.net/laurie/blog/entries/another_non_argument_in_type_systems.html) (a rebuttal to Robert Harper)
+  - See also [Dynamically typed languages, Laurence Tratt, Advances in Computers, vol. 77, pages 149-184, July 2009](https://tratt.net/laurie/research/pubs/html/tratt__dynamically_typed_languages/).
+- Serious about types? [Bartosz Milewski: Category Theory for Programmers](https://bartoszmilewski.com/2014/10/28/category-theory-for-programmers-the-preface/) (online book)
+- [Chris Smith: What To Know Before Debating Type Systems](http://blogs.perl.org/users/ovid/2010/08/what-to-know-before-debating-type-systems.html)
+- [Martin Fowler on dynamic typing](https://www.martinfowler.com/bliki/DynamicTyping.html)
+- Do we need types? At least John Shutt (the author of the [Kernel](https://web.cs.wpi.edu/~jshutt/kernel.html) programming language) seems to think we don't: [Where do types come from?](http://fexpr.blogspot.com/2011/11/where-do-types-come-from.html)
+- In physics, units as used for dimension analysis are essentially a form of static typing.
 
 ### Detailed Notes on Macros
 
