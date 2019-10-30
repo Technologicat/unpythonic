@@ -262,11 +262,9 @@ It's a subclass of ``env``, so it shares most of the same [features](#env-the-en
 
 ### ``dyn``: dynamic assignment
 
-([As termed by Felleisen.](https://groups.google.com/forum/#!topic/racket-users/2Baxa2DxDKQ))
+([As termed by Felleisen.](https://groups.google.com/forum/#!topic/racket-users/2Baxa2DxDKQ) Other names seen in the wild for variants of this feature include *parameters* (not to be confused with function parameters), *special variables*, *fluid variables*, *fluid let*, and even the misnomer *"dynamic scoping"*.)
 
-Like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly. Like [Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html). The *special variables* in Common Lisp work somewhat similarly.
-
-This is essentially [SRFI-39](https://srfi.schemers.org/srfi-39/), using the MzScheme approach in the presence of multiple threads.
+Like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly.
 
 There's a singleton, `dyn`:
 
@@ -294,6 +292,10 @@ g()
 
 Dynamic variables are set using `with dyn.let(...)`. There is no `set`, `<<`, unlike in the other `unpythonic` environments.
 
+**Changed in v0.14.2.** *To bring this in line with [SRFI-39](https://srfi.schemers.org/srfi-39/srfi-39.html), `dyn` now supports rebinding, using assignment syntax such as `dyn.x = 42`. For an atomic mass update, see `dyn.update`. Rebinding occurs in the closest enclosing dynamic environment that has the target name bound. If the name is not bound in any dynamic environment, ``AttributeError`` is raised.*
+
+**CAUTION**: Use rebinding of dynamic variables carefully, if at all. Stealth updates of dynamic variables defined in an enclosing dynamic extent can destroy any chance of statically reasoning about the code.
+
 The values of dynamic variables remain bound for the dynamic extent of the `with` block. Exiting the `with` block then pops the stack. Inner dynamic scopes shadow outer ones. Dynamic variables are seen also by code that is outside the lexical scope where the `with dyn.let` resides.
 
 <details>
@@ -318,6 +320,16 @@ print(tuple((k, dyn[k]) for k in dyn))
 Finally, ``dyn`` supports membership testing as ``"x" in dyn``, ``"y" not in dyn``, where the string is the name of the dynvar whose presence is being tested.
 
 For some more details, see [the unit tests](../unpythonic/test/test_dynassign.py).
+
+### Relation to similar features in Lisps
+
+This is essentially [SRFI-39: Parameter objects](https://srfi.schemers.org/srfi-39/), using the MzScheme approach in the presence of multiple threads.
+
+[Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html) behaves similarly. However, Racket seems to be the state of the art in many lispy language design related things, so its take on the feature may have some finer points I haven't thought of.
+
+On Common Lisp's special variables, see [Practical Common Lisp by Peter Seibel](http://www.gigamonkeys.com/book/variables.html), especially footnote 10 in the linked chapter, for a definition of terms. Similarly, dynamic variables in our `dyn` have *indefinite scope* (because `dyn` is implemented as a module-level global, accessible from anywhere), but *dynamic extent*.
+
+So what we have in `dyn` is almost exactly like Common Lisp's special variables, except we are missing convenience features such as `setf` and a smart `let` that auto-detects whether a variable is lexical or dynamic (if the name being bound is already in scope).
 
 ## Containers
 
