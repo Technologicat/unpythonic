@@ -1631,7 +1631,6 @@ Obviously not intended for production use, although is very likely to work anywh
 
 Is this just a set of macros, a language extension, or a compiler for a new language that just happens to be implemented in MacroPy, à la *On Lisp*? All of the above, really.
 
-See our [notes on comboability](../doc/design-notes.md#comboability).
 
 ### The xmas tree combo
 
