@@ -1,8 +1,8 @@
 # Unpythonic: Python meets Lisp and Haskell
 
-This is the pure-Python API of `unpythonic`. Most features listed here are intended to be used directly.
+This is the pure-Python API of `unpythonic`. Most features listed here need no macros, and are intended to be used directly.
 
-The exception are features marked **[M]**, which are primarily intended as a code generation target for macros. See the [documentation for syntactic macros](macro_extras/) for details. Usually the relevant macro has the same name as the underlying implementation; for example, `unpythonic.let` is the implementation, while `unpythonic.syntax.let` is the corresponding macro. The purpose of the macro layer is to improve ease of use by removing accidental complexity from the user interface. If you don't want to depend on MacroPy, feel free to use also those features as defined below (though, this may be less convenient).
+The exception are the features marked **[M]**, which are primarily intended as a code generation target API for macros. See the [documentation for syntactic macros](../macro_extras/) for details. Usually the relevant macro has the same name as the underlying implementation; for example, `unpythonic.do` is the implementation, while `unpythonic.syntax.do` is the macro. The purpose of the macro layer is to improve ease of use by removing accidental complexity, thus providing a more human-readable source code representation that compiles to calls to the underlying API. If you don't want to depend on MacroPy, feel free to use also these APIs as defined below (though, this may be less convenient).
 
 ### Features
 
@@ -66,7 +66,9 @@ Tools to bind identifiers in ways not ordinarily supported by Python.
 
 ### ``let``, ``letrec``: local bindings in an expression
 
-Introduces bindings local to an expression, like Scheme's ``let`` and ``letrec``. For easy-to-use versions of these constructs that look almost like normal Python, see [our macros](macro_extras/).
+**NOTE**: This is primarily a code generation target API for the ``let[]`` family of [macros](../macro_extras/), which make the constructs easier to use. Below is the documentation for the raw API.
+
+Introduces bindings local to an expression, like Scheme's ``let`` and ``letrec``. For easy-to-use versions of these constructs that look almost like normal Python, see [our macros](../macro_extras/).
 
 In ``let``, the bindings are independent (do not see each other). A binding is of the form ``name=value``, where ``name`` is a Python identifier, and ``value`` is any expression.
 
@@ -165,6 +167,8 @@ Trying to access `e.foo` from `e.bar` arbitrarily produces either the intended v
 This has been fixed in Python 3.6, see [PEP 468](https://www.python.org/dev/peps/pep-0468/).
 
 #### Lispylet: alternative syntax
+
+**NOTE**: This is primarily a code generation target API for the ``let[]`` family of [macros](../macro_extras/), which make the constructs easier to use. Below is the documentation for the raw API.
 
 If you need **guaranteed left-to-right initialization** of `letrec` bindings in Pythons older than 3.6, there is also an alternative implementation for all the `let` constructs, with positional syntax and more parentheses. The only difference is the syntax; the behavior is identical with the default implementation.
 
@@ -587,6 +591,8 @@ Actually a tuple in disguise. If worried about memory consumption, use `lazy_beg
 
 ### ``do``: stuff imperative code into an expression
 
+**NOTE**: This is primarily a code generation target API for the ``do[]`` [macro](../macro_extras/), which makes the construct easier to use. Below is the documentation for the raw API.
+
 No monadic magic. Basically, ``do`` is:
 
   - An improved ``begin`` that can bind names to intermediate results and then use them in later items.
@@ -594,8 +600,6 @@ No monadic magic. Basically, ``do`` is:
   - A ``let*`` (technically, ``letrec``) where making a binding is optional, so that some items can have only side effects if so desired. No semantically distinct ``body``; all items play the same role.
 
 Like in ``letrec`` (see below), use ``lambda e: ...`` to access the environment, and to wrap callable values (to prevent misunderstandings).
-
-We also provide a ``do[]`` [macro](macro_extras/) that makes the construct easier to use.
 
 ```python
 from unpythonic import do, assign
