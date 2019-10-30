@@ -760,6 +760,7 @@ Things missing from the standard library.
      - For simplicity, all remaining keyword args are fed in at the first step that has too many positional args.
      - If more positional args are still remaining when the top-level curry context exits, by default ``TypeError`` is raised.
      - To override, set the dynvar ``curry_context``. It is a list representing the stack of currently active curry contexts. A context is any object, a human-readable label is fine. See below for an example.
+       - To set the dynvar, `from unpythonic import dyn`, and then `with dyn.let(curry_context=...):`.
    - Can be used both as a decorator and as a regular function.
      - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
    - **Caution**: If the positional arities of ``f`` cannot be inspected, currying fails, raising ``UnknownArity``. This may happen with builtins such as ``list.append``.
@@ -768,7 +769,7 @@ Things missing from the standard library.
    - `composelc`, `composerc`: curry each function before composing them. Useful with passthrough.
      - An implicit top-level curry context is inserted around all the functions except the one that is applied last.
    - `composel1`, `composer1`: 1-in-1-out chains (faster; also useful for a single value that is a tuple).
-   - suffix `i` to use with an iterable (`composeli`, `composeri`, `composelci`, `composerci`, `composel1i`, `composer1i`)
+   - suffix `i` to use with an iterable that contains the functions (`composeli`, `composeri`, `composelci`, `composerci`, `composel1i`, `composer1i`)
  - `withself`: essentially, the Y combinator trick as a decorator. Allows a lambda to refer to itself.
    - The ``self`` argument is declared explicitly, but passed implicitly (as the first positional argument), just like the ``self`` argument of a method.
  - `apply`: the lispy approach to starargs. Mainly useful with the ``prefix`` [macro](../macro_extras/).
