@@ -1131,6 +1131,8 @@ assert tuple(curry(clip, 5, 10, range(20)) == tuple(range(5, 15))
 
 ### ``islice``: slice syntax support for ``itertools.islice`
 
+**Changed in v0.14.2.** *Added support for negative `start` and `stop`.*
+
 Slice an iterable, using the regular slicing syntax:
 
 ```python
@@ -1149,11 +1151,13 @@ assert tuple(islice(odds)[:5]) == (1, 3, 5, 7, 9)
 assert tuple(islice(odds)[:5]) == (11, 13, 15, 17, 19)  # five more
 ```
 
-The slicing variant calls ``itertools.islice`` with the corresponding slicing parameters.
-
 As a convenience feature: a single index is interpreted as a length-1 islice starting at that index. The slice is then immediately evaluated and the item is returned.
 
-**CAUTION**: Keep in mind ``itertools.islice`` does not support negative indexing for any of ``start``, ``stop`` or ``step``, and that the slicing process consumes elements from the iterable.
+The slicing variant calls ``itertools.islice`` with the corresponding slicing parameters, after possibly converting negative `start` and `stop` to the appropriate positive values.
+
+**CAUTION**: When using negative `start` and/or `stop`, we must consume the whole iterable to determine where it ends, if at all. Obviously, this will not terminate for infinite iterables.
+
+**CAUTION**: Keep in mind that negative `step` is not supported, and that the slicing process consumes elements from the iterable.
 
 Like ``fup``, our ``islice`` is essentially a manually curried function with unusual syntax; the initial call to ``islice`` passes in the iterable to be sliced. The object returned by the call accepts a subscript to specify the slice or index. Once the slice or index is provided, the call to ``itertools.islice`` triggers.
 
