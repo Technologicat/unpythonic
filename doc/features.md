@@ -238,6 +238,8 @@ print(e)  # empty!
 
 When the `with` block exits, the environment clears itself. The environment instance itself remains alive due to Python's scoping rules.
 
+(This allows using `with env(...) as e:` as a poor man's `let`, if you have a block of statements you want to locally scope some names to, but don't want to introduce a `def`.)
+
 ``env`` provides the ``collections.abc.Mapping`` and  ``collections.abc.MutableMapping`` APIs.
 
 
