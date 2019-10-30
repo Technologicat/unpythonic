@@ -576,6 +576,8 @@ See also ``multilambda`` in [macros](../macro_extras/).
 
 ### ``begin``: sequence side effects
 
+**CAUTION**: the `begin` family of forms are provided **for use in pure-Python projects only** (and are a permanent part of the `unpythonic` API for that purpose). If your project uses macros, prefer the `do[]` and `do0[]` macros; these are the only sequencing constructs understood by other macros in `unpythonic.syntax` that need to perform tail-position analysis (e.g. `tco`, `autoreturn`, `continuations`). The `do[]` and `do0[]` macros also provide some convenience features, such as expression-local variables.
+
 ```python
 from unpythonic import begin, begin0
 
