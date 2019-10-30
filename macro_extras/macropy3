@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Bootstrapper for Python programs powered by MacroPy3."""
+"""Bootstrapper for Python programs powered by MacroPy3.
+
+**This bootstrapper is moving!**
+
+Starting in `unpythonic` v0.14.1, it is distributed in `imacropy`:
+
+https://github.com/Technologicat/imacropy
+https://pypi.org/project/imacropy/
+
+which is its new, permanent home. The bootstrapper will be removed from
+`unpythonic` starting in v0.15.0. The reason is this is a general add-on
+for MacroPy, not specific to `unpythonic`.
+"""
 
 from importlib import import_module
 from importlib.util import resolve_name
@@ -8,6 +20,7 @@ from types import ModuleType
 import os
 import sys
 import argparse
+import warnings
 
 try:  # Python 3.5+
     from importlib.util import module_from_spec as stdlib_module_from_spec
@@ -203,4 +216,5 @@ def main():
         import_module_as_main(opts.module, script_mode=False)
 
 if __name__ == '__main__':
+    warnings.warn("The macropy3 bootstrapper has moved to PyPI package 'imacropy', and will be removed from 'unpythonic' in 0.15.0.", FutureWarning)
     main()

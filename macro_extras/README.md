@@ -4,24 +4,7 @@ Our extensions to the Python language are built on [MacroPy](https://github.com/
 
 Because in Python macro expansion occurs *at import time*, Python programs whose main module uses macros, such as [our unit tests that contain usage examples](../unpythonic/syntax/test/), cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). For convenience, ``setup.py`` installs this bootstrapper.
 
-
-### Set Up
-
-To use the bootstrapper, run:
-
- `./macropy3 -m some.module` (like `python3 -m some.module`); see `-h` for options.
-
-The tests use relative imports. Invoke them from the top-level directory of ``unpythonic`` as e.g.:
-
- ``macro_extras/macropy3 -m unpythonic.syntax.test.test_curry``
-
- This is to make the tests run against the source tree without installing it first. Once you have installed ``unpythonic``, feel free to use absolute imports in your own code, like those shown in this README.
-
-There is no abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itself already provides ``lazy`` and ``interned``.
-
-**Currently (12/2018) this requires the latest MacroPy from git HEAD.**
-
-The `macropy3` bootstrapper takes the `-m` option, like `python3 -m mod`. The alternative is to specify a filename positionally, like ``python3 mod.py``. In either case, the bootstrapper will import the module in a special mode that pretends its `__name__ == '__main__'`, to allow using the pythonic conditional main idiom also in macro-enabled code.
+**The bootstrapper is moving!** *Starting with `unpythonic` v0.14.1, it is already distributed in [imacropy](https://github.com/Technologicat/imacropy) [[PyPI](https://pypi.org/project/imacropy/)], which is its new, permanent home. It will be removed from `unpythonic` starting in v0.15.0. The reason is the bootstrapper is a general add-on for MacroPy, not specific to `unpythonic`.*
 
 *This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out of date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
 
@@ -74,6 +57,7 @@ The `macropy3` bootstrapper takes the `-m` option, like `python3 -m mod`. The al
 - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
 
 [**Meta**](#meta)
+- [Using the `macropy3` bootstrapper](#using-the-macropy3-bootstrapper)
 - [The xmas tree combo](#the-xmas-tree-combo): notes on the macros working together.
 - [Emacs syntax highlighting](#emacs-syntax-highlighting) for `unpythonic.syntax` and MacroPy.
 - [This is semantics, not syntax!](#this-is-semantics-not-syntax)
@@ -1631,6 +1615,33 @@ Obviously not intended for production use, although is very likely to work anywh
 
 Is this just a set of macros, a language extension, or a compiler for a new language that just happens to be implemented in MacroPy, à la *On Lisp*? All of the above, really.
 
+### Using the `macropy3` bootstrapper
+
+*Starting in v0.15.0, these instructions will be maintained [at the imacropy repository](https://github.com/Technologicat/imacropy#bootstrapper).*
+
+Basic usage is:
+
+```bash
+macropy3 -m some.module
+macropy3 some_script.py
+```
+
+In either case, the bootstrapper will import the module in a special mode that pretends its `__name__ == '__main__'`, to allow using the pythonic conditional main idiom also in macro-enabled code.
+
+See `macropy3 -h` for options.
+
+If you need to pass other options to `python3`, while using `macropy3` to run your program, the incantation is:
+
+```bash
+python3 <your options here> $(which macropy3) -m some.module
+python3 <your options here> $(which macropy3) some_script.py
+```
+
+Our unit tests use relative imports. If you want to run them as usage examples, invoke them from the top-level directory of ``unpythonic`` as e.g.:
+
+ `macropy3 -m unpythonic.syntax.test.test_curry`
+
+This design is to allow the tests to run against the source tree without installing it. Once you have installed ``unpythonic``, feel free to use absolute imports in your own code, like those shown in this README.
 
 ### The xmas tree combo
 
