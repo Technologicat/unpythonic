@@ -6,12 +6,6 @@ The [unit tests that contain usage examples](../unpythonic/syntax/test/) cannot 
 
 Please note that there are features that appear in both the pure-Python layer and the macro layer, as well as features that only exist in the macro layer.
 
-**This is semantics, not syntax!**
-
-[Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``. We just repurpose Python's existing syntax to give it new meanings. However, in the Racket reference, **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less obscure, and close enough to convey the intended meaning.
-
-If you want custom *syntax* proper, then you may be interested in [Pydialect](https://github.com/Technologicat/pydialect).
-
 ### Set Up
 
 To use the bootstrapper, run:
@@ -83,6 +77,7 @@ The `macropy3` bootstrapper takes the `-m` option, like `python3 -m mod`. The al
 [**Meta**](#meta)
 - [The xmas tree combo](#the-xmas-tree-combo): notes on the macros working together.
 - [Emacs syntax highlighting](#emacs-syntax-highlighting) for `unpythonic.syntax` and MacroPy.
+- [This is semantics, not syntax!](#this-is-semantics-not-syntax)
 
 ## Bindings
 
@@ -1715,3 +1710,8 @@ If you use the [Spacemacs](http://spacemacs.org/) kit, the right place to insert
 
 In a basic Emacs setup, the snippet goes into the `~/.emacs` startup file, or if you have an `.emacs.d/` directory, then into `~/.emacs.d/init.el`.
 
+### This is semantics, not syntax!
+
+[Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``. We just repurpose Python's existing syntax to give it new meanings. However, in [the Racket reference](https://docs.racket-lang.org/reference/), **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less obscure, and close enough to convey the intended meaning.
+
+If you want custom *syntax* proper, or want to package a set of block macros as a custom language that extends Python, then you may be interested in our sister project [Pydialect](https://github.com/Technologicat/pydialect) [[PyPI](https://pypi.org/project/pydialect/)].
