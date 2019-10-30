@@ -317,7 +317,7 @@ print(tuple((k, dyn[k]) for k in dyn))
 
 Finally, ``dyn`` supports membership testing as ``"x" in dyn``, ``"y" not in dyn``, where the string is the name of the dynvar whose presence is being tested.
 
-For some more details, see [the unit tests](unpythonic/test/test_dynassign.py).
+For some more details, see [the unit tests](../unpythonic/test/test_dynassign.py).
 
 ## Containers
 
@@ -571,7 +571,7 @@ Sequencing refers to running multiple expressions, in sequence, in place of one 
 
 Keep in mind the only reason to ever need multiple expressions: *side effects.* (Assignment is a side effect, too; it modifies the environment. In functional style, intermediate named definitions to increase readability are perhaps the most useful kind of side effect.)
 
-See also ``multilambda`` in [macros](macro_extras/).
+See also ``multilambda`` in [macros](../macro_extras/).
 
 
 ### ``begin``: sequence side effects
@@ -588,7 +588,7 @@ f2 = lambda x: begin0(42*x,
 f2(2)  # --> 84
 ```
 
-Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`unpythonic.seq`](unpythonic/seq.py) for details.
+Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`unpythonic.seq`](../unpythonic/seq.py) for details.
 
 
 ### ``do``: stuff imperative code into an expression
@@ -771,7 +771,7 @@ Things missing from the standard library.
    - suffix `i` to use with an iterable (`composeli`, `composeri`, `composelci`, `composerci`, `composel1i`, `composer1i`)
  - `withself`: essentially, the Y combinator trick as a decorator. Allows a lambda to refer to itself.
    - The ``self`` argument is declared explicitly, but passed implicitly (as the first positional argument), just like the ``self`` argument of a method.
- - `apply`: the lispy approach to starargs. Mainly useful with the ``prefix`` [macro](macro_extras/).
+ - `apply`: the lispy approach to starargs. Mainly useful with the ``prefix`` [macro](../macro_extras/).
  - `andf`, `orf`, `notf`: compose predicates (like Racket's `conjoin`, `disjoin`, `negate`).
  - `flip`: reverse the order of positional arguments.
  - `rotate`: a cousin of `flip`. Permute the order of positional arguments in a cycle.
@@ -2117,11 +2117,11 @@ assert result == 42
 
 ### ``forall``: nondeterministic evaluation
 
-We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. See also the easy-to-use [macro](macro_extras/) version with natural syntax and a clean implementation.
+We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. See also the easy-to-use [macro](../macro_extras/) version with natural syntax and a clean implementation.
 
 An important feature of McCarthy's [`amb` operator](https://rosettacode.org/wiki/Amb) is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. If that sounds a lot like ``call/cc``, that's because that's how ``amb`` is usually implemented. See examples [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html).
 
-Python can't do that, short of transforming the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. **If that's what you want**, see ``continuations`` in [the macros](macro_extras/).
+Python can't do that, short of transforming the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. **If that's what you want**, see ``continuations`` in [the macros](../macro_extras/).
 
 This ``forall`` is essentially a tuple comprehension that:
 
