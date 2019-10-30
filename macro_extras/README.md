@@ -1542,6 +1542,12 @@ Reading with ``autoref`` can be convenient e.g. for data returned by [SciPy's ``
 
 See the [unit tests](../unpythonic/syntax/test/test_autoref.py) for more usage examples.
 
+This is similar to the JavaScript [`with` construct](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/with), which is nowadays [deprecated](https://2ality.com/2011/06/with-statement.html). See also [the ES6 reference on `with`](https://www.ecma-international.org/ecma-262/6.0/#sec-with-statement).
+
+**CAUTION**: This construct was deprecated in JavaScript **for security reasons**. Since the autoref'd object **will hijack all name lookups**, use `with autoref` only with an object you trust!
+
+**CAUTION**: `with autoref` also complicates static code analysis or makes it outright infeasible, for the same reason. It is impossible to statically know whether something that looks like a bare name in the source code is actually a true bare name, or a reference to an attribute of the autoref'd object. That status can also change at any time, since the lookup is dynamic, and attributes can be added and removed dynamically.
+
 
 ### ``dbg``: debug-print expressions with source code
 
