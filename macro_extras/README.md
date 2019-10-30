@@ -966,7 +966,7 @@ with continuations:
             return fail()
         first, *rest = tuple(lst)
         if rest:
-            ourcc = cc
+            ourcc = cc  # important: use any name other than "cc"
             stack.append(lambda: amb(rest, cc=ourcc))
         return first
     def fail():
