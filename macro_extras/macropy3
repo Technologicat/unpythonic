@@ -27,7 +27,7 @@ try:  # Python 3.5+
 except ImportError:
     stdlib_module_from_spec = None
 
-try: # Python 3.6+
+try:  # Python 3.6+
     MyModuleNotFoundError = ModuleNotFoundError
 except NameError:
     MyModuleNotFoundError = ImportError
@@ -106,7 +106,7 @@ def import_module_as_main(name, script_mode):
             absolute_name = child_name
 
     for finder in sys.meta_path:
-        if not hasattr(finder, "find_spec"): # Python 3.6: pkg_resources.extern.VendorImporter has no find_spec
+        if not hasattr(finder, "find_spec"):  # Python 3.6: pkg_resources.extern.VendorImporter has no find_spec
             continue
         spec = finder.find_spec(absolute_name, path)
         if spec is not None:
@@ -171,7 +171,7 @@ def main():
     parser = argparse.ArgumentParser(description="""Run a Python program with MacroPy3 enabled.""",
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument( '-v', '--version', action='version', version=('%(prog)s-bootstrapper ' + __version__) )
+    parser.add_argument('-v', '--version', action='version', version=('%(prog)s-bootstrapper ' + __version__))
     parser.add_argument(dest='filename', nargs='?', default=None, type=str, metavar='file',
                         help='script to run')
     parser.add_argument('-m', '--module', dest='module', default=None, type=str, metavar='mod',
@@ -211,7 +211,7 @@ def main():
         elif module_name.endswith(".py"):
             module_name = module_name[:-3]
         import_module_as_main(module_name, script_mode=True)
-    else: # opts.module
+    else:  # opts.module
         # like "python3 -m foo.bar", we initialize parent packages.
         import_module_as_main(opts.module, script_mode=False)
 
