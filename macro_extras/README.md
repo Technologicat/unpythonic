@@ -1672,7 +1672,7 @@ with lazify:
       ...
 ```
 
-See our [notes on macros](../doc/design-notes.md#notes-on-macros) for more information.
+See our [notes on macros](../doc/design-notes.md#detailed-notes-on-macros) for more information.
 
 ### Emacs syntax highlighting
 
