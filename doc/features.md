@@ -498,6 +498,8 @@ We provide a ``JackOfAllTradesIterator`` as a compromise that understands both t
 
 ### ``box``: a mutable single-item container
 
+**Changed in v0.14.2.** *The `box` container now supports `.set(newvalue)` to rebind, returning the new value as a convenience. Syntactic sugar for rebinding is `b << newvalue`, where `b` is a `box`. The item inside the box can be extracted with `unbox(b)`.*
+
 No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
 
 ```python
@@ -534,6 +536,7 @@ b2 = box(23)
 b3 = box(17)
 
 assert b1.x == 23    # data lives in the attribute .x
+assert unbox(b1) == 23  # but is usually accessed by unboxing
 assert 23 in b1      # content is "in" the box, also syntactically
 assert 17 not in b1
 
@@ -541,14 +544,26 @@ assert [x for x in b1] == [23]  # box is iterable
 assert len(b1) == 1             # and always has length 1
 
 assert b1 == 23      # for equality testing, a box is considered equal to its content
+assert unbox(b1) == 23  # of course, can also unbox the content before testing
 
-assert b2 == b1      # contents are equal, but
+assert b2 == b1  # contents are equal, but
 assert b2 is not b1  # different boxes
 
 assert b3 != b1      # different contents
+
+b2 << 42         # replacing the item in the box (rebinding the contents)
+assert 42 in b2
+assert 23 not in b2
+
+b2.set(42)       # same without syntactic sugar
+assert 42 in b2
 ```
 
 The expression ``item in b`` has the same meaning as ``b.x == item``. Note ``box`` is a mutable container, so it is **not hashable**.
+
+The expression `unbox(b)` has the same meaning as getting the attribute `b.x`, but additionally sanity checks that `b` is a `box`, and if not, raises `TypeError`.
+
+The expressions `b.set(newitem)` and `b << newitem` have the same meaning as setting the attribute `b.x`, except that they also return the new value as a convenience.
 
 
 ### Container utilities
