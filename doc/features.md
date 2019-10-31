@@ -808,7 +808,7 @@ Things missing from the standard library.
  - `rotate`: a cousin of `flip`. Permute the order of positional arguments in a cycle.
  - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting 1-in-1-out functions into m-in-n-out compose chains. (Currying can eliminate the need for these.)
  - `identity`, `const` which sometimes come in handy when programming with higher-order functions.
- - `fix`: detect and break infinite recursion cycles.
+ - `fix`: detect and break infinite recursion cycles. **Added in v0.14.2.**
 
 Examples (see also the next section):
 
