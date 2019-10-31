@@ -974,57 +974,74 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
 
 ### Batteries for itertools
 
- - `foldl`, `foldr` with support for multiple input iterables, like in Racket.
-   - Like in Racket, `op(elt, acc)`; general case `op(e1, e2, ..., en, acc)`. Note Python's own `functools.reduce` uses the ordering `op(acc, elt)` instead.
-   - No sane default for multi-input case, so the initial value for `acc` must be given.
-   - One-input versions with optional init are provided as `reducel`, `reducer`, with semantics similar to Python's `functools.reduce`, but with the rackety ordering `op(elt, acc)`.
-   - By default, multi-input folds terminate on the shortest input. To instead terminate on the longest input, use the ``longest`` and ``fillvalue`` kwargs.
-   - For multiple inputs with different lengths, `foldr` syncs the **left** ends.
-   - `rfoldl`, `rreducel` reverse each input and then left-fold. This syncs the **right** ends.
- - `scanl`, `scanr`: scan (a.k.a. accumulate, partial fold); a lazy fold that returns a generator yielding intermediate results.
-   - `scanl` is suitable for infinite inputs.
-   - Iteration stops after the final result.
-     - For `scanl`, this is what `foldl` would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
-     - For `scanr`, **ordering of output is different from Haskell**: we yield the results in the order they are computed (via a linear process).
-   - Multiple input iterables and shortest/longest termination supported; same semantics as in `foldl`, `foldr`.
-   - One-input versions with optional init are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
-   - `rscanl`, `rscanl1` reverse each input and then left-scan. This syncs the **right** ends.
- - `unfold1`, `unfold`: generate a sequence [corecursively](https://en.wikipedia.org/wiki/Corecursion). The counterpart of `foldl`.
-   - `unfold1` is for 1-in-2-out functions. The input is `state`, the return value must be `(value, newstate)` or `None`.
-   - `unfold` is for n-in-(1+n)-out functions. The input is `*states`, the return value must be `(value, *newstates)` or `None`.
-   - Unfold returns a generator yielding the collected values. The output can be finite or infinite; to signify that a finite sequence ends, the user function must return `None`.
  - `unpack`: lazily unpack an iterable. Suitable for infinite inputs.
    - Return the first ``n`` items and the ``k``th tail, in a tuple. Default is ``k = n``.
    - Use ``k > n`` to fast-forward, consuming the skipped items. Works by `drop`.
    - Use ``k < n`` to peek without permanently extracting an item. Works by [tee](https://docs.python.org/3/library/itertools.html#itertools.tee)ing; plan accordingly.
- - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple.
-   - Essentially, ``composel(map(...), flatten1)``; the same thing the bind operator of the List monad does.
- - `map_longest`: the final missing battery for `map`.
-   - Essentially `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``.
- - `rmap`, `rzip`, `rmap_longest`, `rzip_longest`: reverse each input, then map/zip. For multiple inputs, syncs the **right** ends.
- - `mapr`, `zipr`, `mapr_longest`, `zipr_longest`: map/zip, then reverse the result. For multiple inputs, syncs the **left** ends.
- - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively), preserving the original ordering of the items.
- - `flatten1`, `flatten`, `flatten_in`: remove nested list structure.
-   - `flatten1`: outermost level only.
-   - `flatten`: recursive, with an optional predicate that controls whether to flatten a given sublist.
-   - `flatten_in`: recursive, with an optional predicate; but recurse also into items which don't match the predicate.
- - `take`, `drop`, `split_at`: based on `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
-   - Especially useful for testing generators.
-   - `islice` is maybe more pythonic than `take` and `drop`; see below for a utility that supports the slice syntax.
- - `tail`: return the tail of an iterable. Same as `drop(1, iterable)`; common use case.
- - `butlast`, `butlastn`: return a generator that yields from iterable, dropping the last `n` items if the iterable is finite. Inspired by a similar utility in PG's [On Lisp](http://paulgraham.com/onlisp.html).
-   - Works by using intermediate storage. **Do not** use the original iterator after a call to `butlast` or `butlastn`.
- - `first`, `second`, `nth`, `last`: return the specified item from an iterable. Any preceding items are consumed at C speed.
- - `iterate1`, `iterate`: return an infinite generator that yields `x`, `f(x)`, `f(f(x))`, ...
-   - `iterate1` is for 1-to-1 functions; `iterate` for n-to-n, unpacking the return value to the argument list of the next call.
- - `partition` from `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
- - `rev` is a convenience function that tries `reversed`, and if the input was not a sequence, converts it to a tuple and reverses that. The return value is a `reversed` object.
- - `scons`: prepend one element to the start of an iterable, return new iterable. ``scons(x, iterable)`` is lispy shorthand for ``itertools.chain((x,), iterable)``, allowing to omit the one-item tuple wrapper.
- - `inn`: contains-check (``x in iterable``) with automatic termination for monotonic divergent infinite iterables.
-   - Only applicable to monotonic divergent inputs (such as ``primes``). Increasing/decreasing is auto-detected from the first non-zero diff, but the function may fail to terminate if the input is actually not monotonic, or has an upper/lower bound.
- - `iindex`: like ``list.index``, but for a general iterable. Consumes the iterable, so only makes sense for memoized inputs.
- - `prod`: like the builtin `sum`, but compute the product. Oddly missing from the standard library.
- - `window`: sliding length-n window iterator for general iterables. Acts like the well-known [n-gram zip trick](http://www.locallyoptimal.com/blog/2013/01/20/elegant-n-gram-generation-in-python/), but the input can be any iterable.
+ - *folds, scans, unfold*:
+   - `foldl`, `foldr` with support for multiple input iterables, like in Racket.
+     - Like in Racket, `op(elt, acc)`; general case `op(e1, e2, ..., en, acc)`. Note Python's own `functools.reduce` uses the ordering `op(acc, elt)` instead.
+     - No sane default for multi-input case, so the initial value for `acc` must be given.
+     - One-input versions with optional init are provided as `reducel`, `reducer`, with semantics similar to Python's `functools.reduce`, but with the rackety ordering `op(elt, acc)`.
+     - By default, multi-input folds terminate on the shortest input. To instead terminate on the longest input, use the ``longest`` and ``fillvalue`` kwargs.
+     - For multiple inputs with different lengths, `foldr` syncs the **left** ends.
+     - `rfoldl`, `rreducel` reverse each input and then left-fold. This syncs the **right** ends.
+   - `scanl`, `scanr`: scan (a.k.a. accumulate, partial fold); a lazy fold that returns a generator yielding intermediate results.
+     - `scanl` is suitable for infinite inputs.
+     - Iteration stops after the final result.
+       - For `scanl`, this is what `foldl` would have returned (if the fold terminates at all, i.e. if the shortest input is finite).
+       - For `scanr`, **ordering of output is different from Haskell**: we yield the results in the order they are computed (via a linear process).
+     - Multiple input iterables and shortest/longest termination supported; same semantics as in `foldl`, `foldr`.
+     - One-input versions with optional init are provided as `scanl1`, `scanr1`. Note ordering of arguments to match `functools.reduce`, but op is still the rackety `op(elt, acc)`.
+     - `rscanl`, `rscanl1` reverse each input and then left-scan. This syncs the **right** ends.
+   - `unfold1`, `unfold`: generate a sequence [corecursively](https://en.wikipedia.org/wiki/Corecursion). The counterpart of `foldl`.
+     - `unfold1` is for 1-in-2-out functions. The input is `state`, the return value must be `(value, newstate)` or `None`.
+     - `unfold` is for n-in-(1+n)-out functions. The input is `*states`, the return value must be `(value, *newstates)` or `None`.
+     - Unfold returns a generator yielding the collected values. The output can be finite or infinite; to signify that a finite sequence ends, the user function must return `None`.
+ - *mapping and zipping*:
+   - `map_longest`: the final missing battery for `map`.
+     - Essentially `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``.
+   - `rmap`, `rzip`, `rmap_longest`, `rzip_longest`: reverse each input, then map/zip. For multiple inputs, syncs the **right** ends.
+   - `mapr`, `zipr`, `mapr_longest`, `zipr_longest`: map/zip, then reverse the result. For multiple inputs, syncs the **left** ends.
+   - `map`: curry-friendly wrapper for the builtin, making it mandatory to specify at least one iterable. **Added in v0.14.2.**
+ - *windowing, chunking, and similar*:
+   - `window`: sliding length-n window iterator for general iterables. Acts like the well-known [n-gram zip trick](http://www.locallyoptimal.com/blog/2013/01/20/elegant-n-gram-generation-in-python/), but the input can be any iterable.
+   - `chunked`: split an iterable into constant-length chunks. **Added in v0.14.2.**
+   - `pad`: extend an iterable to length at least `n` with a `fillvalue`. **Added in v0.14.2.**
+   - `interleave`: interleave items from several iterables: `interleave(a, b, c)` → `a0, b0, c0, a1, b1, c1, ...` until the next item does not exist. **Added in v0.14.2.**
+     - This differs from `zip` in that the output is flattened, and the termination condition is checked after each item. So e.g. `interleave(['a', 'b', 'c'], ['+', '*'])` → `['a', '+', 'b', '*', 'c']` (the actual return value is a generator, not a list).
+ - *flattening*:
+   - `flatmap`: map a function, that returns a list or tuple, over an iterable and then flatten by one level, concatenating the results into a single tuple.
+     - Essentially, ``composel(map(...), flatten1)``; the same thing the bind operator of the List monad does.
+   - `flatten1`, `flatten`, `flatten_in`: remove nested list structure.
+     - `flatten1`: outermost level only.
+     - `flatten`: recursive, with an optional predicate that controls whether to flatten a given sublist.
+     - `flatten_in`: recursive, with an optional predicate; but recurse also into items which don't match the predicate.
+ - *extracting items, subsequences*:
+   - `take`, `drop`, `split_at`: based on `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
+     - Especially useful for testing generators.
+     - `islice` is maybe more pythonic than `take` and `drop`. We provide a utility that supports the slice syntax.
+   - `tail`: return the tail of an iterable. Same as `drop(1, iterable)`; common use case.
+   - `butlast`, `butlastn`: return a generator that yields from iterable, dropping the last `n` items if the iterable is finite. Inspired by a similar utility in PG's [On Lisp](http://paulgraham.com/onlisp.html).
+     - Works by using intermediate storage. **Do not** use the original iterator after a call to `butlast` or `butlastn`.
+   - `lastn`: yield the last `n` items from an iterable. Works by intermediate storage. Will not terminate for infinite iterables. **Added in v0.14.2.**
+   - `first`, `second`, `nth`, `last`: return the specified item from an iterable. Any preceding items are consumed at C speed.
+   - `partition` from `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
+ - *math-related*:
+   - `fixpoint`: arithmetic fixed-point finder (not to be confused with `fix`). **Added in v0.14.2.**
+   - `within`: yield items from iterable until successive iterates are close enough. Useful with [Cauchy sequences](https://en.wikipedia.org/wiki/Cauchy_sequence). **Added in v0.14.2.**
+   - `prod`: like the builtin `sum`, but compute the product. Oddly missing from the standard library.
+   - `iterate1`, `iterate`: return an infinite generator that yields `x`, `f(x)`, `f(f(x))`, ...
+     - `iterate1` is for 1-to-1 functions; `iterate` for n-to-n, unpacking the return value to the argument list of the next call.
+ - *miscellaneous*:
+   - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively), preserving the original ordering of the items.
+   - `rev` is a convenience function that tries `reversed`, and if the input was not a sequence, converts it to a tuple and reverses that. The return value is a `reversed` object.
+   - `scons`: prepend one element to the start of an iterable, return new iterable. ``scons(x, iterable)`` is lispy shorthand for ``itertools.chain((x,), iterable)``, allowing to omit the one-item tuple wrapper.
+   - `inn`: contains-check (``x in iterable``) with automatic termination for monotonic divergent infinite iterables.
+     - Only applicable to monotonic divergent inputs (such as ``primes``). Increasing/decreasing is auto-detected from the first non-zero diff, but the function may fail to terminate if the input is actually not monotonic, or has an upper/lower bound.
+   - `iindex`: like ``list.index``, but for a general iterable. Consumes the iterable, so only makes sense for memoized inputs.
+   - `CountingIterator`: count how many items have been yielded, as a side effect. The count is stored in the `.count` attribute. **Added in v0.14.2.**
+   - `slurp`: extract all items from a `queue.Queue` (until it is empty) to a list, returning that list. **Added in v0.14.2.**
 
 Examples:
 
