@@ -808,13 +808,26 @@ Things missing from the standard library.
  - `rotate`: a cousin of `flip`. Permute the order of positional arguments in a cycle.
  - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting 1-in-1-out functions into m-in-n-out compose chains. (Currying can eliminate the need for these.)
  - `identity`, `const` which sometimes come in handy when programming with higher-order functions.
+ - `fix`: detect and break infinite recursion cycles.
 
 Examples (see also the next section):
 
 ```python
 from operator import add, mul
+from typing import NoReturn
 from unpythonic import andf, orf, flatmap, rotate, curry, dyn, zipr, rzip, \
-                       foldl, foldr, composer, to1st, cons, nil, ll, withself
+                       foldl, foldr, composer, to1st, cons, nil, ll, withself, \
+                       fix
+
+# detect and break infinite recursion cycles:
+# a(0) -> b(1) -> a(2) -> b(0) -> a(1) -> b(2) -> a(0) -> ...
+@fix()
+def a(k):
+    return b((k + 1) % 3)
+@fix()
+def b(k):
+    return a((k + 1) % 3)
+assert a(0) is NoReturn  # the call does return, saying the original function wouldn't.
 
 isint  = lambda x: isinstance(x, int)
 iseven = lambda x: x % 2 == 0
