@@ -53,6 +53,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers](#getattrrec-setattrrec-access-underlying-data-in-an-onion-of-wrappers)
 - [``arities``, ``kwargs``: Function signature inspection utilities](#arities-kwargs-function-signature-inspection-utilities)
 - [``Popper``: a pop-while iterator](#popper-a-pop-while-iterator)
+- [``ulp``: unit in last place](#ulp-unit-in-last-place)
 
 For many examples, see [the unit tests](unpythonic/test/), the docstrings of the individual features, and this guide.
 
@@ -2656,3 +2657,36 @@ The input container must support either ``popleft()`` or ``pop(0)``. This is ful
 Per-iteration efficiency is O(1) for ``collections.deque``, and O(n) for a ``list``.
 
 Named after [Karl Popper](https://en.wikipedia.org/wiki/Karl_Popper).
+
+
+### ``ulp``: unit in last place
+
+**Added in v0.14.2.**
+
+Given a floating point number `x`, return the value of the *unit in the last place* (the "least significant bit"). This is the local size of a "tick", i.e. the difference between `x` and the next larger float. At `x = 1.0`, this is the [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon), by definition of the machine epsilon.
+
+The float format is [IEEE-754](https://en.wikipedia.org/wiki/IEEE_754), i.e. standard Python `float`.
+
+This is just a small convenience function that is for some reason missing from the `math` standard library.
+
+```python
+from unpythonic import ulp
+
+# in IEEE-754, exponent changes at integer powers of two
+print([ulp(x) for x in (0.25, 0.5, 1.0, 2.0, 4.0)])
+# --> [5.551115123125783e-17,
+#      1.1102230246251565e-16,
+#      2.220446049250313e-16,   # x = 1.0, so this is sys.float_info.epsilon
+#      4.440892098500626e-16,
+#      8.881784197001252e-16]
+print(ulp(1e10))
+# --> 1.9073486328125e-06
+print(ulp(1e100))
+# --> 1.942668892225729e+84
+print(ulp(2**52))
+# --> 1.0  # yes, exactly 1
+```
+
+When `x` is a round number in base-10, the ULP is not, because the usual kind of floats use base-2.
+
+For more reading, see [David Goldberg (1991): What every computer scientist should know about floating-point arithmetic](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html), or for a [tl;dr](http://catplanet.org/tldr-cat-meme/) version, [the floating point guide](https://floating-point-gui.de/).
