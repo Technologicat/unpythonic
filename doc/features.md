@@ -27,6 +27,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 [**Batteries**](#batteries) missing from the standard library.
 - [**Batteries for functools**](#batteries-for-functools): `memoize`, `curry`, `compose`, `withself`, `fix` and more.
   - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus Haskellness.
+  - [``fix``: break infinite recursion cycles](#fix-break-infinite-recursion-cycles)
 - [**Batteries for itertools**](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables, etc.
 - [``islice``: slice syntax support for ``itertools.islice``](#islice-slice-syntax-support-for-itertoolsislice)
 - [`gmemoize`, `imemoize`, `fimemoize`: memoize generators](#gmemoize-imemoize-fimemoize-memoize-generators), iterables and iterator factories.
@@ -984,6 +985,137 @@ curry(f, a, (g, x, y), b, c)
 because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by design; as with all things Python, *explicit is better than implicit*.
 
 **Note**: to code in curried style, a [contract system](https://github.com/AndreaCensi/contracts) or a [static type checker](http://mypy-lang.org/) is useful; also, be careful with variadic functions.
+
+#### ``fix``: break infinite recursion cycles
+
+The name `fix` comes from the *least fixed point* with respect to the definedness relation, which is related to Haskell's `fix` function. However, this `fix` is not that function. Our `fix` breaks recursion cycles in strict functions - thus causing some non-terminating strict functions to return. (Here *strict* means that the arguments are evaluated eagerly.)
+
+**CAUTION**: Worded differently, this function solves a small subset of the halting problem. This should be hint enough that it will only work for the advertised class of special cases - i.e., a specific kind of recursion cycles.
+
+Usage:
+
+```python
+from unpythonic import fix, identity
+
+@fix()
+def f(...):
+    ...
+result = f(23, 42)  # start a computation with some args
+
+@fix(bottom=identity)
+def f(...):
+    ...
+result = f(23, 42)
+```
+
+If no recursion cycle occurs, `f` returns normally. If a cycle occurs, the call to `f` is aborted (dynamically, when the cycle is detected), and:
+
+ - In the first example, the default special value `typing.NoReturn` is returned.
+
+ - In the latter example, the name `"f"` and the offending args are returned.
+
+**A cycle is detected when** `f` is called again with a set of args that have already been previously seen in the current call chain. Infinite mutual recursion is detected too, at the point where any `@fix`-instrumented function is entered again with a set of args already seen during the current call chain.
+
+**CAUTION**: The infinitely recursive call sequence `f(0) → f(1) → ... → f(k+1) → ...` contains no cycles in the sense detected by `fix`. The `fix` function will not catch all cases of infinite recursion, but only those cases where a previously seen set of arguments is seen again. (If `f` is pure, the same arguments appearing again implies the call will not return, so we can terminate it.)
+
+**CAUTION**: If we have a function `g(a, b)`, the argument lists of the invocations `g(1, 2)` and `g(a=1, b=2)` count as different. This is because the decorator must internally accept `(*args, **kwargs)` to pass everything through, and in the first case the arguments end up in `args`, whereas in the second they end up in `kwargs` - even though as far as `g` itself sees it, both calls result in the same bindings being established. See [issue #26](https://github.com/Technologicat/unpythonic/issues/26) (and please post an idea if you have one). This is a Python gotcha that was originally noticed by the author of the `wrapt` library, and mentioned in [its documentation](https://wrapt.readthedocs.io/en/latest/decorators.html#processing-function-arguments).
+
+We can use `fix` to find the (arithmetic) fixed point of `cos`:
+
+```python
+from math import cos
+from unpythonic import fix, identity
+
+# let's use this as the `bottom` callable:
+def justargs(funcname, *args):  # bottom doesn't need to accept kwargs if f doesn't.
+    return identity(*args)      # identity unpacks if just one
+
+@fix(justargs)
+def cosser(x):
+    return cosser(cos(x))
+
+c = cosser(1)  # provide starting value
+assert c == cos(c)  # 0.7390851332151607
+```
+
+This works because the fixed point of `cos` is attractive (see the [Banach fixed point theorem](https://en.wikipedia.org/wiki/Banach_fixed-point_theorem)). The general pattern to find an attractive fixed point with this strategy is:
+
+```python
+from functools import partial
+from unpythonic import fix, identity
+
+def justargs(funcname, *args):
+    return identity(*args)
+
+# setting `bottom=justargs` discards the name "iterate1_rec" from the bottom return value
+@fix(justargs)
+def iterate1_rec(f, x):
+    return iterate1_rec(f, f(x))
+
+def fixpoint(f, x0):
+    effer = partial(iterate1_rec, f)
+    # f ends up in the return value because it's in the args of iterate1_rec.
+    _, c = effer(x0)
+    return c
+
+from math import cos
+c = fixpoint(cos, x0=1)
+assert c == cos(c)
+```
+
+**NOTE**: But see `unpythonic.fixpoint`, which is meant specifically for finding *arithmetic* fixed points, and `unpythonic.iterate1`, which produces a generator that iterates `f` without needing recursion.
+
+**Notes**:
+
+  - Our `fix` is a parametric decorator with the signature `def fix(bottom=typing.NoReturn, n=infinity, unwrap=identity):`.
+
+  - `f` must be pure for this to make sense.
+
+  - All args of `f` must be hashable, for technical reasons.
+
+  - The return value of `f` must support comparison with `!=`.
+
+  - The `bottom` parameter (named after the empty type ⊥) specifies the final return value to be returned when a recursion cycle is detected in a call to `f`.
+
+    The default is the special value `typing.NoReturn`, which represents ⊥ in Python. If you just want to detect that a cycle occurred, this is usually fine.
+
+    When bottom is returned, it means the collected evidence shows that *if we were to let `f` continue forever, the call would not return*.
+
+  - `bottom` can be any non-callable value, in which case it is simply returned upon detection of a cycle.
+
+  - `bottom` can be a callable, in which case the function name and args at the point where the cycle was detected are passed to it, and its return value becomes the final return value.
+
+    Note `bottom` may be called *twice*; first, to initialize the cache with the initial args of `f`, and (if the args at that point are different) for a second time when a recursion cycle is detected.
+
+  - `n` is the maximum number of times a call chain is allowed to pass through the `@fix` instrumentation (recursively) before the algorithm aborts. Default is no limit.
+
+  - `unwrap` can be used e.g. for internally forcing promises, if the return type of `f` is a promise (by setting `unwrap=unpythonic.force`). (A promise cannot be meaningfully inspected, so it must be forced in order for `fix` to be able to make decisions.)
+
+**CAUTION**: Currently not compatible with TCO. It'll run, but the TCO won't take effect, and the call stack will actually blow up faster due to bad interaction between `@fix` and `@trampolined`. Fixing this issue probably needs a monolithic decorator that handles both tasks, since each of them requires setting up a runner harness. See [issue #41](https://github.com/Technologicat/unpythonic/issues/41).
+
+##### Real-world use and historical note
+
+This kind of `fix` is sometimes helpful in recursive pattern-matching definitions for parsers. When the pattern matcher gets stuck in an infinite left-recursion, it can return a customizable special value instead of not terminating. Being able to not care about non-termination may simplify definitions.
+
+This `fix` can also be used to find fixed points of functions, as in the above examples.
+
+The idea comes from Matthew Might's article on [parsing with (Brzozowski's) derivatives](http://matt.might.net/articles/parsing-with-derivatives/), where it was a utility implemented in Racket as the `define/fix` form. The Python version is originally [due to Per Vognsen](https://gist.github.com/pervognsen/8dafe21038f3b513693e) (linked from the article). The additions in `unpythonic` include kwargs support and thread safety; we have also unified some names with Might's original version to facilitate a direct comparison.
+
+##### Haskell's `fix`?
+
+In Haskell, the function named `fix` computes the *least fixed point* with respect to the definedness ordering. For any strict `f`, we have `fix f = ⊥`. Why? If `f` is strict, `f(⊥) = ⊥` (does not terminate), so `⊥` is a fixed point. On the other hand, `⊥` means also `undefined`, describing a value about which nothing is known. So it is the least fixed point in this sense.
+
+Haskell's `fix` is related to the Y combinator; it is essentially the idea of recursion packaged into a higher-order function. The name in `unpythonic` for the Y combinator idea is `withself`, allowing a lambda to refer to itself by passing in the self-reference from the outside.
+
+A simple way to explain Haskell's `fix` is:
+
+```haskell
+fix f = let x = f x in x
+```
+
+so anywhere the argument is referred to in the definition of `f`, it is replaced by another application of `f`, recursively. This obviously yields a notation useful for corecursively defining infinite lazy lists.
+
+For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[2]](https://www.vex.net/~trebla/haskell/fix.xhtml) [[3]](https://stackoverflow.com/questions/4787421/how-do-i-use-fix-and-how-does-it-work) [[4]](https://medium.com/@cdsmithus/fixpoints-in-haskell-294096a9fc10) [[5]](https://en.wikibooks.org/wiki/Haskell/Fix_and_recursion).
 
 
 ### Batteries for itertools
