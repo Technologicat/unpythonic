@@ -1825,6 +1825,14 @@ def baz(result):
 foo()  # start trampoline
 ```
 
+#### Similar features in Lisps - `trampoline` in Clojure
+
+Clojure has [`(trampoline ...)`](https://clojuredocs.org/clojure.core/trampoline), which works almost exactly like our `trampolined`.
+
+The `return jump(...)` solution is essentially the same there (the syntax is `#(...)`), but in Clojure, the trampoline must be explicitly enabled at the call site, instead of baking it into the function definition, as our decorator does.
+
+Clojure's trampoline system is thus more explicit and simple than ours (the trampoline doesn't need to detect and strip the tail-call target's trampoline, if it has one - because with Clojure's solution, it never does), at some cost to convenience at each use site. We have chosen to emphasize use-site convenience.
+
 
 ### ``looped``, ``looped_over``: loops in FP style (with TCO)
 
