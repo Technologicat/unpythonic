@@ -1073,8 +1073,6 @@ assert c == cos(c)
 
   - All args of `f` must be hashable, for technical reasons.
 
-  - The return value of `f` must support comparison with `!=`.
-
   - The `bottom` parameter (named after the empty type ⊥) specifies the final return value to be returned when a recursion cycle is detected in a call to `f`.
 
     The default is the special value `typing.NoReturn`, which represents ⊥ in Python. If you just want to detect that a cycle occurred, this is usually fine.
@@ -1084,12 +1082,6 @@ assert c == cos(c)
   - `bottom` can be any non-callable value, in which case it is simply returned upon detection of a cycle.
 
   - `bottom` can be a callable, in which case the function name and args at the point where the cycle was detected are passed to it, and its return value becomes the final return value.
-
-    Note `bottom` may be called *twice*; first, to initialize the cache with the initial args of `f`, and (if the args at that point are different) for a second time when a recursion cycle is detected.
-
-  - `n` is the maximum number of times a call chain is allowed to pass through the `@fix` instrumentation (recursively) before the algorithm aborts. Default is no limit.
-
-  - `unwrap` can be used e.g. for internally forcing promises, if the return type of `f` is a promise (by setting `unwrap=unpythonic.force`). (A promise cannot be meaningfully inspected, so it must be forced in order for `fix` to be able to make decisions.)
 
 **CAUTION**: Currently not compatible with TCO. It'll run, but the TCO won't take effect, and the call stack will actually blow up faster due to bad interaction between `@fix` and `@trampolined`. Fixing this issue probably needs a monolithic decorator that handles both tasks, since each of them requires setting up a runner harness. See [issue #41](https://github.com/Technologicat/unpythonic/issues/41).
 

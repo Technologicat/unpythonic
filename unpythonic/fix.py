@@ -105,8 +105,6 @@ def fix(bottom=typing.NoReturn, memo=True):
 
       - All args of `f` must be hashable, for technical reasons.
 
-      - The return value of `f` must support comparison with `!=`.
-
       - The `bottom` parameter (named after the empty type ⊥) specifies the
         final return value to be returned when a recursion cycle is detected
         in a call to `f`.
@@ -121,10 +119,6 @@ def fix(bottom=typing.NoReturn, memo=True):
       - `bottom` can be a callable, in which case the function name and args
         at the point where the cycle was detected are passed to it, and its
         return value becomes the final return value.
-
-        Note it may be called twice; first, to initialize the cache with the
-        initial args of `f`, and (if the args at that point are different)
-        for a second time when a recursion cycle is detected.
 
     **CAUTION**: Worded differently, this function solves a small subset of the
     halting problem. This should be hint enough that it will only work for the
