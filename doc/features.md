@@ -1099,7 +1099,7 @@ This kind of `fix` is sometimes helpful in recursive pattern-matching definition
 
 This `fix` can also be used to find fixed points of functions, as in the above examples.
 
-The idea comes from Matthew Might's article on [parsing with (Brzozowski's) derivatives](http://matt.might.net/articles/parsing-with-derivatives/), where it was a utility implemented in Racket as the `define/fix` form. The Python version is originally [due to Per Vognsen](https://gist.github.com/pervognsen/8dafe21038f3b513693e) (linked from the article). The additions in `unpythonic` include kwargs support and thread safety; we have also unified some names with Might's original version to facilitate a direct comparison.
+The idea comes from Matthew Might's article on [parsing with (Brzozowski's) derivatives](http://matt.might.net/articles/parsing-with-derivatives/), where it was a utility implemented in Racket as the `define/fix` form. It was originally ported to Python [by Per Vognsen](https://gist.github.com/pervognsen/8dafe21038f3b513693e) (linked from the article). The `fix` in `unpythonic` is a rewrite with kwargs support and thread safety.
 
 ##### Haskell's `fix`?
 

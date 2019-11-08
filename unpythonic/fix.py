@@ -52,18 +52,16 @@ import threading
 from functools import wraps
 from operator import itemgetter
 
-from .fun import identity, const
+from .fun import const, memoize
 from .env import env
 
 # Thread-local visited and cache.
 _L = threading.local()
 def _get_threadlocals():
     if not hasattr(_L, "_data"):
-        _L._data = env(visited=set(), cache={})
+        _L._data = env(visited=set())
     return _L._data
 
-# - TODO: Can we make this call bottom at most once?
-#
 # - TODO: Figure out how to make this play together with unpythonic's TCO, to
 #   bypass Python's call stack depth limit. We probably need a monolithic @fixtco
 #   decorator that does both, since these features interact.
@@ -72,7 +70,7 @@ def _get_threadlocals():
 #   actual entrypoint in user code may require some trickery due to the decorator wrappers.
 #
 infinity = float("+inf")
-def fix(bottom=typing.NoReturn, n=infinity, unwrap=identity):
+def fix(bottom=typing.NoReturn, memo=True):
     """Break recursion cycles. Parametric decorator.
 
     This is sometimes useful for recursive pattern-matching definitions. For an
@@ -128,13 +126,6 @@ def fix(bottom=typing.NoReturn, n=infinity, unwrap=identity):
         initial args of `f`, and (if the args at that point are different)
         for a second time when a recursion cycle is detected.
 
-      - `unwrap` can be used e.g. for internally forcing promises, if the
-        return type of `f` is a promise. This is needed, because a promise
-        cannot be meaningfully inspected.
-
-      - `n` is the maximum number of times recursion is allowed to occur,
-        before the algorithm aborts. Default is no limit.
-
     **CAUTION**: Worded differently, this function solves a small subset of the
     halting problem. This should be hint enough that it will only work for the
     advertised class of special cases - i.e., recursion cycles.
@@ -149,31 +140,20 @@ def fix(bottom=typing.NoReturn, n=infinity, unwrap=identity):
     if bottom is typing.NoReturn or not callable(bottom):
         bottom = const(bottom)
     def decorator(f):
+        f_memo = memoize(f) if memo else f
         @wraps(f)
         def f_fix(*args, **kwargs):
             e = _get_threadlocals()
             me = (f_fix, args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
-            if not e.visited:
-                value, e.cache[me] = None, bottom(f_fix.__name__, *args, **kwargs)
-                count = 0
-                while count < n and value != e.cache[me]:
-                    try:
-                        e.visited.add(me)
-                        value, e.cache[me] = e.cache[me], unwrap(f(*args, **kwargs))
-                    finally:
-                        e.visited.clear()
-                    count += 1
-                return value
-            if me in e.visited:
-                # return e.cache.get(me, bottom(f_fix.__name__, *args)
-                # same effect, except don't compute bottom again if we don't need to.
-                return e.cache[me] if me in e.cache else bottom(f_fix.__name__, *args, **kwargs)
-            try:
-                e.visited.add(me)
-                value = e.cache[me] = unwrap(f(*args, **kwargs))
-            finally:
-                e.visited.remove(me)
-            return value
+            mrproper = not e.visited  # on outermost call, scrub visited clean at exit
+            if not e.visited or me not in e.visited:
+                try:
+                    e.visited.add(me)
+                    return f_memo(*args, **kwargs)
+                finally:
+                    e.visited.clear() if mrproper else e.visited.remove(me)
+            else:  # cycle detected
+                return bottom(f_fix.__name__, *args, **kwargs)
         f_fix.entrypoint = f  # just for information
         return f_fix
     return decorator
