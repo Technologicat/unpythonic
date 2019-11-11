@@ -69,7 +69,6 @@ def _get_threadlocals():
 # - TODO: Pass the function object to bottom instead of the function name. Locating the
 #   actual entrypoint in user code may require some trickery due to the decorator wrappers.
 #
-infinity = float("+inf")
 def fix(bottom=typing.NoReturn, memo=True):
     """Break recursion cycles. Parametric decorator.
 
