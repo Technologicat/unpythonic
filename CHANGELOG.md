@@ -1,3 +1,46 @@
+**0.14.2** (in progress; updated 13 Nov 2019) - *"Greenspun" [edition](https://en.wikipedia.org/wiki/Greenspun%27s_tenth_rule)*:
+
+I think that with the arrival of [conditions and restarts](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html), it is now fair to say `unpythonic` contains an ad-hoc, informally-specified, slow implementation of half of Common Lisp. To avoid *bug-ridden*, we have tests - but it's not entirely impossible for some to have slipped through.
+
+This release welcomes the first external contribution. Thanks to @aisha-w for the much improved organization and presentation of the documentation!
+
+**Language version**:
+
+Rumors of the demise of Python 3.4 support are exaggerated. While the testing of `unpythonic` has moved to 3.6, there neither is nor will there be any active effort to intentionally drop 3.4 support until `unpythonic` reaches 0.15.0.
+
+That is, support for 3.4 will likely be dropped with the arrival of the next batch of breaking changes. The current plan is visible in the roadmap [as the 0.15.0 milestone](https://github.com/Technologicat/unpythonic/milestone/1).
+
+If you still use 3.4 and find something in `unpythonic` doesn't work there, please file an issue.
+
+**New**:
+
+- Improve organization and presentation of documentation (#28).
+- Macro README: Emacs syntax highlighting for `unpythonic.syntax` and MacroPy.
+- `fix`: Break infinite recursion cycles (for pure functions). Based on idea and original implementation by [Matthew Might](http://matt.might.net/articles/parsing-with-derivatives/) and [Per Vognsen](https://gist.github.com/pervognsen/8dafe21038f3b513693e).
+- *Resumable exceptions*, a.k.a. conditions and restarts. One of the famous killer features of Common Lisp. Drawing inspiration from [python-cl-conditions](https://github.com/svetlyak40wt/python-cl-conditions/) by Alexander Artemenko. See `with restarts` (`RESTART-CASE`), `with handlers` (`HANDLER-BIND`), `signal`, `invoke_restart`. Many convenience forms are also exported; see `unpythonic.conditions` for a full list. For an introduction to conditions, see [Chapter 19 in Practical Common Lisp by Peter Seibel](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html).
+- More batteries for itertools:
+  - `fixpoint`: Arithmetic fixed-point finder (not to be confused with `fix`).
+  - `within`: Yield items from iterable until successive iterates are close enough (useful with [Cauchy sequences](https://en.wikipedia.org/wiki/Cauchy_sequence)).
+  - `chunked`: Split an iterable into constant-length chunks.
+  - `lastn`: Yield the last `n` items from an iterable.
+  - `pad`: Extend iterable to length `n` with a `fillvalue`.
+  - `interleave`: For example, `interleave(['a', 'b', 'c'], ['+', '*']) --> ['a', '+', 'b', '*', 'c']`. Interleave items from several iterables, slightly differently from `zip`.
+  - `CountingIterator`: Count how many items have been yielded, as a side effect.
+  - `slurp`: Extract all items from a `queue.Queue` (until it is empty) into a list, returning that list.
+  - `map`: Curry-friendly thin wrapper for the builtin `map`, making it mandatory to specify at least one iterable.
+- `ulp`: Given a float `x`, return the value of the unit in the last place (the "least significant bit"). At `x = 1.0`, this is the [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon), by definition of the machine epsilon.
+- `dyn` now supports rebinding, using the assignment syntax `dyn.x = 42`. For an atomic mass update, see `dyn.update`.
+- `box` now supports `.set(newvalue)` to rebind (returns the new value as a convenience), and `unbox(b)` to extract contents. Syntactic sugar for rebinding is `b << newvalue` (where `b` is a box).
+- `islice` now supports negative start and stop. (**Caution**: no negative step; and it must consume the whole iterable to determine where it ends, if at all.)
+
+**Fixed**:
+
+- Fix initialization crash in `lazyutil` if MacroPy is not installed.
+- Fix bug in `identity` and `const` with zero args (#7).
+- Use standard Python semantics for negative indices (#6).
+
+---
+
 **0.14.1** 9 June 2019 - *Retrofuturistic edition*:
 
 **Language version**:
