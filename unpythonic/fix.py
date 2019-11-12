@@ -159,13 +159,6 @@ def fix(bottom=typing.NoReturn, memo=True):
         # trampoline takes control, and the next time we see `f` is when the
         # TCO chain has ended (if it ever does).
         #
-        # We handle TCO chains by injecting a spy that, upon receiving a jump
-        # order, records where we're going to jump next, and re-instates itself
-        # to catch the next jump.
-        #
-        # TODO: Nested TCO chains won't work like this, the place to hold the target must live in the closure of f_fix,
-        # TODO: or we need some other way to make it per-call-chain (could pick a unique ID and store the data in a dict).
-        #
         # TODO: Call stack depth problems when the client doesn't actually use TCO; we're inserting too many helper layers
         # TODO: per call. We need options to control that (beside memoization, make TCO support switchable, and provide
         # TODO: two public decorators, @fix and @tcofix).
