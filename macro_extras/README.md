@@ -892,7 +892,7 @@ All function definitions (``def`` and ``lambda``) lexically inside the block und
 
  - In a ``lambda``, the whole body, as well as the argument expression of a call to a known escape continuation.
 
-What is a *known escape continuation* is explained below, in the section [TCO and ``call_ec``](#tco-and-call-ec).
+What is a *known escape continuation* is explained below, in the section [TCO and ``call_ec``](#tco-and-call_ec).
 
 To find the tail position inside a compound return value, this recursively handles any combination of ``a if p else b``, ``and``, ``or``; and from ``unpythonic.syntax``, ``do[]``, ``let[]``, ``letseq[]``, ``letrec[]``. Support for ``do[]`` includes also any ``multilambda`` blocks that have already expanded when ``tco`` is processed. The macros ``aif[]`` and ``cond[]`` are also supported, because they expand into a combination of ``let[]``, ``do[]``, and ``a if p else b``.
 
