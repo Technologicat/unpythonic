@@ -16,7 +16,7 @@ If you still use 3.4 and find something in `unpythonic` doesn't work there, plea
 
 - Improve organization and presentation of documentation (#28).
 - Macro README: Emacs syntax highlighting for `unpythonic.syntax` and MacroPy.
-- `fix`: Break infinite recursion cycles (for pure functions). Based on idea and original implementation by [Matthew Might](http://matt.might.net/articles/parsing-with-derivatives/) and [Per Vognsen](https://gist.github.com/pervognsen/8dafe21038f3b513693e).
+- `fix`: Break infinite recursion cycles (for pure functions). Drawing inspiration from original implementations by [Matthew Might](http://matt.might.net/articles/parsing-with-derivatives/) and [Per Vognsen](https://gist.github.com/pervognsen/8dafe21038f3b513693e).
 - *Resumable exceptions*, a.k.a. conditions and restarts. One of the famous killer features of Common Lisp. Drawing inspiration from [python-cl-conditions](https://github.com/svetlyak40wt/python-cl-conditions/) by Alexander Artemenko. See `with restarts` (`RESTART-CASE`), `with handlers` (`HANDLER-BIND`), `signal`, `invoke_restart`. Many convenience forms are also exported; see `unpythonic.conditions` for a full list. For an introduction to conditions, see [Chapter 19 in Practical Common Lisp by Peter Seibel](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html).
 - More batteries for itertools:
   - `fixpoint`: Arithmetic fixed-point finder (not to be confused with `fix`).
