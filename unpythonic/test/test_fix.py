@@ -8,6 +8,7 @@ from ..fix import fix
 from ..fun import identity
 from ..it import chunked
 from ..misc import slurp
+from ..tco import jump
 
 # def _logentryexit(f):  # TODO: complete this (kwargs support), move to unpythonic.misc, and make public.
 #     """Decorator. Print a message when f is entered/exited."""
@@ -21,6 +22,12 @@ from ..misc import slurp
 _logentryexit = lambda f: f  # disabled  # noqa: E731
 
 def test():
+    # co-operation with TCO
+    @fix()
+    def f(k):
+        return jump(f, (k + 1) % 5000)
+    assert f(0) is NoReturn
+
     def debug(funcname, *args, **kwargs):
         # print("bottom called, funcname = {}, args = {}".format(funcname, args))
         # If we return something that depends on args, then fix may have to run

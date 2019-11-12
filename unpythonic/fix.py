@@ -53,7 +53,9 @@ from functools import wraps
 from operator import itemgetter
 
 from .fun import const, memoize
+from .tco import trampolined, _jump
 from .env import env
+from .regutil import register_decorator
 
 # Thread-local visited and cache.
 _L = threading.local()
@@ -69,6 +71,7 @@ def _get_threadlocals():
 # - TODO: Pass the function object to bottom instead of the function name. Locating the
 #   actual entrypoint in user code may require some trickery due to the decorator wrappers.
 #
+@register_decorator(priority=40, istco=True)
 def fix(bottom=typing.NoReturn, memo=True):
     """Break recursion cycles. Parametric decorator.
 
@@ -133,20 +136,86 @@ def fix(bottom=typing.NoReturn, memo=True):
     if bottom is typing.NoReturn or not callable(bottom):
         bottom = const(bottom)
     def decorator(f):
-        f_memo = memoize(f) if memo else f
         @wraps(f)
         def f_fix(*args, **kwargs):
             e = _get_threadlocals()
             me = (f_fix, args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
             mrproper = not e.visited  # on outermost call, scrub visited clean at exit
-            if not e.visited or me not in e.visited:
+            if me not in e.visited:
                 try:
                     e.visited.add(me)
+                    e.target = f  # TCO jump target
+                    e.toclean = set()
                     return f_memo(*args, **kwargs)
                 finally:
                     e.visited.clear() if mrproper else e.visited.remove(me)
             else:  # cycle detected
                 return bottom(f_fix.__name__, *args, **kwargs)
-        f_fix.entrypoint = f  # just for information
+        f_fix._entrypoint = f  # for information and for co-operation with TCO
+
+        # TCO trampoline interception.
+        #
+        # This must be handled separately from normal nested calls, since the
+        # trampoline takes control, and the next time we see `f` is when the
+        # TCO chain has ended (if it ever does).
+        #
+        # We handle TCO chains by injecting a spy that, upon receiving a jump
+        # order, records where we're going to jump next, and re-instates itself
+        # to catch the next jump.
+        #
+        # TODO: Nested TCO chains won't work like this, the place to hold the target must live in the closure of f_fix,
+        # TODO: or we need some other way to make it per-call-chain (could pick a unique ID and store the data in a dict).
+        #
+        # TODO: Call stack depth problems when the client doesn't actually use TCO; we're inserting too many helper layers
+        # TODO: per call. We need options to control that (beside memoization, make TCO support switchable, and provide
+        # TODO: two public decorators, @fix and @tcofix).
+        def spy(*args, **kwargs):
+            e = _get_threadlocals()
+            v = e.target(*args, **kwargs)
+            # We must intercept when coming out of `f`, because when going in,
+            # `me` is already in visited. So instead of `me`, we inspect `you`,
+            # i.e. the target we're going to jump to next.
+            if isinstance(v, _jump):
+                you = (v.target, v.args, tuple(sorted(v.kwargs.items(), key=itemgetter(0))))
+                if you in e.visited:  # cycle detected
+                    v._claimed = True  # mark the jump as handled, as we stop it from reaching the trampoline.
+                    return bottom(v.target.__name__, *args, **kwargs)
+                # Just like the f_fix loop adds f to visited before calling it,
+                # add the target before we jump into it.
+                e.visited.add(you)
+                e.toclean.add(you)
+                e.target, v.target = v.target, spy  # make spy intercept the next TCO jump target
+            else:  # TCO chain ended
+                for target in e.toclean:  # clean up any targets added during the TCO chain
+                    e.visited.remove(target)
+                e.toclean.clear()
+            return v
+        f_tramp = trampolined(spy)  # spies always get the coolest gadgets.
+        f_memo = memoize(f_tramp) if memo else f_tramp
+
         return f_fix
     return decorator
+
+
+# Without TCO this is as simple as:
+# def fix(bottom=typing.NoReturn, memo=True):
+#     if bottom is typing.NoReturn or not callable(bottom):
+#         bottom = const(bottom)
+#     def decorator(f):
+#         f_memo = memoize(f) if memo else f
+#         @wraps(f)
+#         def f_fix(*args, **kwargs):
+#             e = _get_threadlocals()
+#             me = (f_fix, args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
+#             mrproper = not e.visited  # on outermost call, scrub visited clean at exit
+#             if not e.visited or me not in e.visited:
+#                 try:
+#                     e.visited.add(me)
+#                     return f_memo(*args, **kwargs)
+#                 finally:
+#                     e.visited.clear() if mrproper else e.visited.remove(me)
+#             else:  # cycle detected
+#                 return bottom(f_fix.__name__, *args, **kwargs)
+#         f_fix.entrypoint = f  # just for information
+#         return f_fix
+#     return decorator
