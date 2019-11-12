@@ -142,8 +142,8 @@ def test():
     assert tuple(flatten((((1, 2), (3, 4)), (5, 6)), is_nested)) == ((1, 2), (3, 4), (5, 6))
 
     data = (((1, 2), ((3, 4), (5, 6)), 7), ((8, 9), (10, 11)))
-    assert tuple(flatten(data, is_nested))    == (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
-    assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8, 9), (10, 11))
+    assert tuple(flatten(data, is_nested)) == (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
+    assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7), (8, 9), (10, 11))
 
     # lazy unpack from an iterable
     a, b, c, tl = unpack(3, range(5))
@@ -191,7 +191,7 @@ def test():
     def primes():
         yield 2
         for n in count(start=3, step=2):
-            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
+            if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, primes())):
                 yield n
     assert inn(31337, primes())
     assert not inn(1337, primes())
@@ -257,7 +257,7 @@ def test():
         while True:
             yield x
             x /= 2
-    assert tuple(within(1/4, g1())) == (1.0, 1/2, 1/4)
+    assert tuple(within(1 / 4, g1())) == (1.0, 1 / 2, 1 / 4)
 
     def g2():
         yield 1
