@@ -986,6 +986,7 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
 
 **Note**: to code in curried style, a [contract system](https://github.com/AndreaCensi/contracts) or a [static type checker](http://mypy-lang.org/) is useful; also, be careful with variadic functions.
 
+
 #### ``fix``: break infinite recursion cycles
 
 The name `fix` comes from the *least fixed point* with respect to the definedness relation, which is related to Haskell's `fix` function. However, this `fix` is not that function. Our `fix` breaks recursion cycles in strict functions - thus causing some non-terminating strict functions to return. (Here *strict* means that the arguments are evaluated eagerly.)
@@ -1016,9 +1017,9 @@ If no recursion cycle occurs, `f` returns normally. If a cycle occurs, the call 
 
 **A cycle is detected when** `f` is called again with a set of args that have already been previously seen in the current call chain. Infinite mutual recursion is detected too, at the point where any `@fix`-instrumented function is entered again with a set of args already seen during the current call chain.
 
-**CAUTION**: The infinitely recursive call sequence `f(0) → f(1) → ... → f(k+1) → ...` contains no cycles in the sense detected by `fix`. The `fix` function will not catch all cases of infinite recursion, but only those cases where a previously seen set of arguments is seen again. (If `f` is pure, the same arguments appearing again implies the call will not return, so we can terminate it.)
+**CAUTION**: The infinitely recursive call sequence `f(0) → f(1) → ... → f(k+1) → ...` contains no cycles in the sense detected by `fix`. The `fix` function will not catch all cases of infinite recursion, but only those where a previously seen set of arguments is seen again. (If `f` is pure, the same arguments appearing again implies the call will not return, so we can terminate it.)
 
-**CAUTION**: If we have a function `g(a, b)`, the argument lists of the invocations `g(1, 2)` and `g(a=1, b=2)` count as different. This is because the decorator must internally accept `(*args, **kwargs)` to pass everything through, and in the first case the arguments end up in `args`, whereas in the second they end up in `kwargs` - even though as far as `g` itself sees it, both calls result in the same bindings being established. See [issue #26](https://github.com/Technologicat/unpythonic/issues/26) (and please post an idea if you have one). This is a Python gotcha that was originally noticed by the author of the `wrapt` library, and mentioned in [its documentation](https://wrapt.readthedocs.io/en/latest/decorators.html#processing-function-arguments).
+**CAUTION**: If we have a function `g(a, b)`, the argument lists of the invocations `g(1, 2)` and `g(a=1, b=2)` are seen as different. This is because the decorator must internally accept `(*args, **kwargs)` to pass everything through, and in the first case the arguments end up in `args`, whereas in the second they end up in `kwargs` - even though as far as `g` itself sees it, both calls result in the same bindings being established. See [issue #26](https://github.com/Technologicat/unpythonic/issues/26) (and please post an idea if you have one). This is a Python gotcha that was originally noticed by the author of the `wrapt` library, and mentioned in [its documentation](https://wrapt.readthedocs.io/en/latest/decorators.html#processing-function-arguments).
 
 We can use `fix` to find the (arithmetic) fixed point of `cos`:
 
@@ -1067,7 +1068,7 @@ assert c == cos(c)
 
 **Notes**:
 
-  - Our `fix` is a parametric decorator with the signature `def fix(bottom=typing.NoReturn, n=infinity, unwrap=identity):`.
+  - Our `fix` is a parametric decorator with the signature `def fix(bottom=typing.NoReturn, memo=True):`.
 
   - `f` must be pure for this to make sense.
 
@@ -1083,7 +1084,9 @@ assert c == cos(c)
 
   - `bottom` can be a callable, in which case the function name and args at the point where the cycle was detected are passed to it, and its return value becomes the final return value.
 
-**CAUTION**: Currently not compatible with TCO. It'll run, but the TCO won't take effect, and the call stack will actually blow up faster due to bad interaction between `@fix` and `@trampolined`. Fixing this issue probably needs a monolithic decorator that handles both tasks, since each of them requires setting up a runner harness. See [issue #41](https://github.com/Technologicat/unpythonic/issues/41).
+  - The `memo` flag controls whether to memoize also intermediate results. It adds some additional function call layers between function entries from recursive calls; if that is a problem (due to causing Python's call stack to blow up faster), use `memo=False`. You can still memoize the final result if you want; just put `@memoize` on the outside.
+
+**NOTE**: If you need `fix` for code that uses TCO, use `fixtco` instead. The implementations of recursion cycle breaking and TCO must interact in a very particular way to work properly; this is done by `fixtco`.
 
 ##### Real-world use and historical note
 
@@ -1091,7 +1094,7 @@ This kind of `fix` is sometimes helpful in recursive pattern-matching definition
 
 This `fix` can also be used to find fixed points of functions, as in the above examples.
 
-The idea comes from Matthew Might's article on [parsing with (Brzozowski's) derivatives](http://matt.might.net/articles/parsing-with-derivatives/), where it was a utility implemented in Racket as the `define/fix` form. It was originally ported to Python [by Per Vognsen](https://gist.github.com/pervognsen/8dafe21038f3b513693e) (linked from the article). The `fix` in `unpythonic` is a rewrite with kwargs support and thread safety.
+The idea comes from Matthew Might's article on [parsing with (Brzozowski's) derivatives](http://matt.might.net/articles/parsing-with-derivatives/), where it was a utility implemented in Racket as the `define/fix` form. It was originally ported to Python [by Per Vognsen](https://gist.github.com/pervognsen/8dafe21038f3b513693e) (linked from the article). The `fix` in `unpythonic` is a redesign with kwargs support, thread safety, and TCO support.
 
 ##### Haskell's `fix`?
 

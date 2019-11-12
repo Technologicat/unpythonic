@@ -1,29 +1,27 @@
 # -*- coding: utf-8; -*-
-"""Break recursion cycles.
-
-Implemented as a parametric decorator.
-
-Original implementation by Per Vognsen 2012, from:
-
-    https://gist.github.com/pervognsen/8dafe21038f3b513693e
-
-In this version, some variable names have been changed to better correspond to
-Matthew Might's original Racket version (calling -> visited, values -> cache).
+"""Break infinite recursion cycles in pure functions.
 
 The name `fix` comes from the *least fixed point* with respect to the
 definedness relation, which is related to Haskell's `fix` function.
-However, these are not the same function.
 
-Our `fix` breaks recursion cycles in strict functions, whereas in Haskell,
-`fix f = ⊥` for any strict `f`, quite simply because that's the least-defined
-fixed point for any strict function. Obviously, if `f` is strict, `f(⊥) = ⊥`,
-so it's a fixed point. On the other hand, ⊥ is `undefined`, describing a value
-about which nothing is known. So it's the least fixed point in this sense.
+However, this `fix` is not that function.
 
-Haskell's `fix` is also related to the Y combinator; it's essentially recursion
-packaged into a function. The `unpythonic` name for the Y combinator idea is
-`withself`, allowing a lambda to refer to itself by passing in the self-reference
-from the outside.
+Our `fix` breaks recursion cycles in strict functions - thus causing some
+non-terminating strict functions to return. (Here *strict* means that the
+arguments are evaluated eagerly.)
+
+**Haskell's fix?**
+
+In Haskell, the function named `fix` computes the *least fixed point* with
+respect to the definedness ordering. For any strict `f`, we have `fix f = ⊥`.
+Why? If `f` is strict, `f(⊥) = ⊥` (does not terminate), so `⊥` is a fixed
+point. On the other hand, `⊥` means also `undefined`, describing a value about
+which nothing is known. So it is the least fixed point in this sense.
+
+Haskell's `fix` is related to the Y combinator; it is essentially the idea of
+recursion packaged into a higher-order function. The name in `unpythonic` for
+the Y combinator idea is `withself`, allowing a lambda to refer to itself by
+passing in the self-reference from the outside.
 
 A simple way to explain Haskell's `fix` is::
 
@@ -33,8 +31,6 @@ so anywhere the argument is referred to in f's definition, it's replaced by
 another application of `f`, recursively. This obviously yields a notation
 useful for corecursively defining infinite lazy lists.
 
-For what **our** `fix` does, see the docstring.
-
 Related reading:
 
     https://www.parsonsmatt.org/2016/10/26/grokking_fix.html
@@ -42,12 +38,21 @@ Related reading:
     https://stackoverflow.com/questions/4787421/how-do-i-use-fix-and-how-does-it-work
     https://medium.com/@cdsmithus/fixpoints-in-haskell-294096a9fc10
     https://en.wikibooks.org/wiki/Haskell/Fix_and_recursion
+
+**Historical note**
+
+The idea comes from Matthew Might's article on parsing with (Brzozowski's)
+derivatives, where it was a utility implemented in Racket as the `define/fix`
+form. It was originally ported to Python by Per Vognsen (linked from the article).
+Our version is a redesign with kwargs support, thread safety, and TCO support.
+
+    http://matt.might.net/articles/parsing-with-derivatives/
+    https://gist.github.com/pervognsen/8dafe21038f3b513693e
 """
 
-__all__ = ["fix"]
+__all__ = ["fix", "fixtco"]
 
-# Just to use typing.NoReturn as a special value at runtime. It has the right semantics.
-import typing
+import typing  # we use typing.NoReturn as a special value at runtime
 import threading
 from functools import wraps
 from operator import itemgetter
@@ -57,21 +62,15 @@ from .tco import trampolined, _jump
 from .env import env
 from .regutil import register_decorator
 
-# Thread-local visited and cache.
 _L = threading.local()
 def _get_threadlocals():
     if not hasattr(_L, "_data"):
+        # TCO info forms a stack to support nested TCO chains (during a
+        # TCO chain, regular call, which then calls another TCO chain).
         _L._data = env(visited=set(), tco_stack=[])
     return _L._data
 
-# - TODO: Figure out how to make this play together with unpythonic's TCO, to
-#   bypass Python's call stack depth limit. We probably need a monolithic @fixtco
-#   decorator that does both, since these features interact.
-#
-# - TODO: Pass the function object to bottom instead of the function name. Locating the
-#   actual entrypoint in user code may require some trickery due to the decorator wrappers.
-#
-@register_decorator(priority=40, istco=True)
+@register_decorator(priority=40, istco=False)  # same priority as @fixtco
 def fix(bottom=typing.NoReturn, memo=True):
     """Break recursion cycles. Parametric decorator.
 
@@ -84,7 +83,7 @@ def fix(bottom=typing.NoReturn, memo=True):
 
         from unpythonic import fix, identity
 
-        @fix()
+        @fix()  # <-- parentheses important!
         def f(...):
             ...
         result = f(23, 42)  # start a computation with some args
@@ -118,84 +117,68 @@ def fix(bottom=typing.NoReturn, memo=True):
         When bottom is returned, it means the collected evidence shows that if
         we were to let `f` continue forever, the call would not return.
 
+      - `bottom` can be any non-callable value, in which case it is simply
+        returned upon detection of a cycle.
+
       - `bottom` can be a callable, in which case the function name and args
         at the point where the cycle was detected are passed to it, and its
         return value becomes the final return value.
 
+      - The `memo` flag controls whether to memoize also intermediate results.
+        It adds some additional function call layers between function entries
+        from recursive calls; if that is a problem (due to causing Python's
+        call stack to blow up faster), use `memo=False`. You can still memoize
+        the final result if you want; just put `@memoize` on the outside.
+
+        (This is also currently less than perfect; the internal memo lives in
+        the closure of the decorator instance, so in the case of mutually
+        recursive fix-instrumented functions, each entrypoint memoizes its
+        results separately.)
+
+    **NOTE**: If you need `fix` for code that uses TCO, use `fixtco` instead.
+
+    The implementations of recursion cycle breaking and TCO must interact in a
+    very particular way to work properly; this is done by `fixtco`.
+
     **CAUTION**: Worded differently, this function solves a small subset of the
     halting problem. This should be hint enough that it will only work for the
-    advertised class of special cases - i.e., recursion cycles.
-
-    **CAUTION**: Currently not compatible with TCO. It'll work, but the TCO
-    won't take effect, and the call stack will actually blow up faster due to
-    bad interaction between `@fix` and `@trampolined`.
+    advertised class of special cases - i.e., a specific kind of recursion cycles.
     """
-    # Being a class, typing.NoReturn is technically callable (to construct an
-    # instance), but because it's an abstract class, the call raises TypeError.
-    # We want to use the class itself as a data value, so we special-case it.
-    if bottom is typing.NoReturn or not callable(bottom):
-        bottom = const(bottom)
-    def decorator(f):
-        @wraps(f)
-        def f_fix(*args, **kwargs):
-            e = _get_threadlocals()
-            me = (f_fix, args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
-            mrproper = not e.visited  # on outermost call, scrub visited clean at exit
-            if me not in e.visited:
-                try:
-                    e.visited.add(me)
-                    # TCO info forms a stack to support nested TCO chains
-                    # (during a TCO chain, regular call, which then calls
-                    # another TCO chain).
-                    e.tco_stack.append(env(target=f, cleanup=set()))
-                    return f_memo(*args, **kwargs)
-                finally:
-                    e.tco_stack.pop()
-                    e.visited.clear() if mrproper else e.visited.remove(me)
-            else:  # cycle detected
-                return bottom(f_fix.__name__, *args, **kwargs)
-        f_fix._entrypoint = f  # for information and for co-operation with TCO
+    return _fix(bottom, memo, tco=False)
 
-        # TCO trampoline interception.
-        #
-        # This must be handled separately from normal nested calls, since the
-        # trampoline takes control, and the next time we see `f` is when the
-        # TCO chain has ended (if it ever does).
-        #
-        # TODO: Call stack depth problems when the client doesn't actually use TCO; we're inserting too many helper layers
-        # TODO: per call. We need options to control that (beside memoization, make TCO support switchable, and provide
-        # TODO: two public decorators, @fix and @tcofix).
-        def spy(*args, **kwargs):
-            e = _get_threadlocals()
-            t = e.tco_stack[-1]
-            v = t.target(*args, **kwargs)
-            # We must intercept when coming out of `f`, because when going in,
-            # `me` is already in visited. So instead of `me`, we inspect `you`,
-            # i.e. the target we're going to jump to next.
-            if isinstance(v, _jump):
-                you = (v.target, v.args, tuple(sorted(v.kwargs.items(), key=itemgetter(0))))
-                if you in e.visited:  # cycle detected
-                    for target in t.cleanup:
-                        e.visited.remove(target)
-                    v._claimed = True  # mark the jump as handled, as we stop it from reaching the trampoline.
-                    return bottom(v.target.__name__, *args, **kwargs)
-                # Just like the f_fix loop adds f to visited before calling it,
-                # add the target to visited before we jump into it.
-                e.visited.add(you)
-                t.cleanup.add(you)
-                t.target, v.target = v.target, spy  # re-instate the spy
-            else:  # TCO chain ended
-                for target in t.cleanup:
-                    e.visited.remove(target)
-            return v
-        f_tramp = trampolined(spy)  # spies always get the coolest gadgets.
-        f_memo = memoize(f_tramp) if memo else f_tramp
+@register_decorator(priority=40, istco=True)  # same priority as @trampolined
+def fixtco(bottom=typing.NoReturn, memo=True):
+    """TCO-enabled version of @fix.
 
-        return f_fix
-    return decorator
+    On top of performing the duties of `fix`, this parametric decorator applies
+    TCO, so you can `return jump(f, ...)` in the client code, and infinitely
+    recursive tail call chains will be broken too (under the same assumptions
+    and semantics as in `fix`).
 
+    Example::
 
-# Without TCO this is as simple as:
+        @fixtco()
+        def f(k):
+            return jump(f, (k + 1) % 5000)
+        assert f(0) is NoReturn
+
+    **NOTE**: `fix` and `fixtco` are separate API functions due to the
+    decorator registry (used by macros in `unpythonic.syntax`) requiring to
+    declare a decorator as either enabling TCO or not - there is no "sometimes"
+    option.
+
+    The TCO switch itself exists because TCO support adds additional function
+    call layers between regular function entries from normal recursive calls.
+    For functions that do not use TCO, having those additional layers is bad,
+    because that causes Python's call stack to blow up faster.
+
+    Also, having a switch makes the TCO support pay-as-you-go; there's no need
+    for that additional machinery to slow things down when TCO support is not
+    required.
+    """
+    return _fix(bottom, memo, tco=True)
+
+# Without TCO support the idea is as simple as:
 # def fix(bottom=typing.NoReturn, memo=True):
 #     if bottom is typing.NoReturn or not callable(bottom):
 #         bottom = const(bottom)
@@ -217,3 +200,86 @@ def fix(bottom=typing.NoReturn, memo=True):
 #         f_fix.entrypoint = f  # just for information
 #         return f_fix
 #     return decorator
+
+# - TODO: Pass the function object to bottom instead of the function name. Locating the
+#   actual entrypoint in user code may require some trickery due to the decorator wrappers.
+#   OTOH, maybe that's not needed, since by definition, a decorator overwrites the name.
+#   So returning the decorated version would be just fine.
+#
+def _fix(bottom=typing.NoReturn, memo=True, *, tco):
+    # Being a class, typing.NoReturn is technically callable (to construct an
+    # instance), but because it's an abstract class, the call raises TypeError.
+    # We want to use the class itself as a data value, so we special-case it.
+    if bottom is typing.NoReturn or not callable(bottom):
+        bottom = const(bottom)
+    def decorator(f):
+        @wraps(f)
+        def f_fix(*args, **kwargs):
+            e = _get_threadlocals()
+            me = (f_fix, args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
+            mrproper = not e.visited  # on outermost call, scrub visited clean at exit
+            if me not in e.visited:
+                try:
+                    e.visited.add(me)
+                    e.tco_stack.append(env(target=f, cleanup=set()))  # harmless if no TCO
+                    return f_memo(*args, **kwargs)
+                finally:
+                    e.tco_stack.pop()
+                    e.visited.clear() if mrproper else e.visited.remove(me)
+            else:  # cycle detected
+                return bottom(f_fix.__name__, *args, **kwargs)
+        f_fix._entrypoint = f  # for information and for co-operation with TCO
+
+        # TCO trampoline interception.
+        #
+        # The first call occurs normally, by setting up the TCO target on
+        # tco_stack and calling `spy`. For TCO-chained calls, `spy` then
+        # re-instates itself each time to stay in the loop (both figuratively
+        # and literally).
+        #
+        # TCO call chains must be handled separately from normal recursive
+        # calls, because when we call a trampolined `f`, the trampoline takes
+        # control. The next time we get control back is when the TCO chain has
+        # ended, if it ever does.
+        #
+        # To be able to inspect the jump targets during the TCO chain, we
+        # intercept each call when execution returns from `f`, before it hits
+        # the surrounding trampoline.
+        #
+        # We intercept when *coming out* of `f`, because when *going in*, `me`
+        # is already in `visited` - so it being there at that point doesn't yet
+        # indicate an infinite loop. Instead of `me`, we inspect `you`, i.e.
+        # the target we're going to jump to next. (There's a Soviet Russia joke
+        # there somewhere.)
+        #
+        def spy(*args, **kwargs):
+            e = _get_threadlocals()
+            t = e.tco_stack[-1]
+            v = t.target(*args, **kwargs)
+            if isinstance(v, _jump):
+                you = (v.target, v.args, tuple(sorted(v.kwargs.items(), key=itemgetter(0))))
+                if you in e.visited:  # cycle detected
+                    for target in t.cleanup:
+                        e.visited.remove(target)
+                    v._claimed = True  # we have handled the jump, by terminating the infinite cycle.
+                    return bottom(v.target.__name__, *args, **kwargs)
+                # Just like the f_fix loop adds `f` to `visited` before calling it,
+                # we add the target to `visited` before we let the trampoline jump
+                # into it.
+                e.visited.add(you)
+                t.cleanup.add(you)
+                t.target, v.target = v.target, spy  # re-instate the spy
+            else:  # TCO chain ended
+                for target in t.cleanup:
+                    e.visited.remove(target)
+            return v
+
+        # Putting the memoizer on the outside, TCO call chains do not get
+        # memoization of intermediate results, but maybe we don't need that.
+        #
+        # `spy` has side effects (on `t` and `e`), so I don't want to think about
+        # how to memoize it correctly.
+        f_tramp = trampolined(spy) if tco else f  # spies always get the coolest gadgets (if TCO enabled).
+        f_memo = memoize(f_tramp) if memo else f_tramp
+        return f_fix
+    return decorator
