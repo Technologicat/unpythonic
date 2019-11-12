@@ -28,6 +28,15 @@ def test():
         return jump(f, (k + 1) % 5000)
     assert f(0) is NoReturn
 
+    # edge case: TCO chain in progress, regular call from it invokes another
+    # TCO chain (so we need a stack to handle them correctly)
+    @fix()
+    def g(k):
+        if k < 1000:
+            return jump(g, k + 1)
+        return f(k)
+    assert g(0) is NoReturn
+
     def debug(funcname, *args, **kwargs):
         # print("bottom called, funcname = {}, args = {}".format(funcname, args))
         # If we return something that depends on args, then fix may have to run

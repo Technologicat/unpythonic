@@ -61,7 +61,7 @@ from .regutil import register_decorator
 _L = threading.local()
 def _get_threadlocals():
     if not hasattr(_L, "_data"):
-        _L._data = env(visited=set())
+        _L._data = env(visited=set(), tco_stack=[])
     return _L._data
 
 # - TODO: Figure out how to make this play together with unpythonic's TCO, to
@@ -144,10 +144,13 @@ def fix(bottom=typing.NoReturn, memo=True):
             if me not in e.visited:
                 try:
                     e.visited.add(me)
-                    e.target = f  # TCO jump target
-                    e.toclean = set()
+                    # TCO info forms a stack to support nested TCO chains
+                    # (during a TCO chain, regular call, which then calls
+                    # another TCO chain).
+                    e.tco_stack.append(env(target=f, cleanup=set()))
                     return f_memo(*args, **kwargs)
                 finally:
+                    e.tco_stack.pop()
                     e.visited.clear() if mrproper else e.visited.remove(me)
             else:  # cycle detected
                 return bottom(f_fix.__name__, *args, **kwargs)
@@ -164,24 +167,26 @@ def fix(bottom=typing.NoReturn, memo=True):
         # TODO: two public decorators, @fix and @tcofix).
         def spy(*args, **kwargs):
             e = _get_threadlocals()
-            v = e.target(*args, **kwargs)
+            t = e.tco_stack[-1]
+            v = t.target(*args, **kwargs)
             # We must intercept when coming out of `f`, because when going in,
             # `me` is already in visited. So instead of `me`, we inspect `you`,
             # i.e. the target we're going to jump to next.
             if isinstance(v, _jump):
                 you = (v.target, v.args, tuple(sorted(v.kwargs.items(), key=itemgetter(0))))
                 if you in e.visited:  # cycle detected
+                    for target in t.cleanup:
+                        e.visited.remove(target)
                     v._claimed = True  # mark the jump as handled, as we stop it from reaching the trampoline.
                     return bottom(v.target.__name__, *args, **kwargs)
                 # Just like the f_fix loop adds f to visited before calling it,
-                # add the target before we jump into it.
+                # add the target to visited before we jump into it.
                 e.visited.add(you)
-                e.toclean.add(you)
-                e.target, v.target = v.target, spy  # make spy intercept the next TCO jump target
+                t.cleanup.add(you)
+                t.target, v.target = v.target, spy  # re-instate the spy
             else:  # TCO chain ended
-                for target in e.toclean:  # clean up any targets added during the TCO chain
+                for target in t.cleanup:
                     e.visited.remove(target)
-                e.toclean.clear()
             return v
         f_tramp = trampolined(spy)  # spies always get the coolest gadgets.
         f_memo = memoize(f_tramp) if memo else f_tramp
