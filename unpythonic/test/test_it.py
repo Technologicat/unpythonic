@@ -19,7 +19,8 @@ from ..it import map, mapr, rmap, zipr, rzip, \
                  unpack, \
                  inn, iindex, \
                  window, chunked, \
-                 within, fixpoint
+                 within, fixpoint, \
+                 interleave
 
 from ..fun import composel, identity, curry
 from ..gmemo import imemoize, gmemoize
@@ -281,6 +282,14 @@ def test():
     # (caused by the fixpoint update becoming smaller than the ulp, so it
     #  stops there, even if the limit is still one ulp away).
     assert abs(sqrt_newton(2) - sqrt(2)) <= ulp(1.414)
+
+    # Interleave iterables.
+    assert tuple(interleave((1, 2, 3), (4, 5, 6))) == (1, 4, 2, 5, 3, 6)
+
+    # It round-robins until the shortest input runs out.
+    a = ('a', 'b', 'c')
+    b = ('+', '*')
+    assert tuple(interleave(a, b)) == ('a', '+', 'b', '*', 'c')
 
     print("All tests PASSED")
 
