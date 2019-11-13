@@ -225,6 +225,12 @@ class _jump:
         """
         if not self._claimed:
             print("WARNING: unclaimed {}".format(repr(self)), file=stderr)
+            # We can't raise exceptions in __del__, but at least on Linux we can terminate the process. ;)
+            # Not sure if that's a good idea, though...
+            # https://stackoverflow.com/questions/905189/why-does-sys-exit-not-exit-when-called-inside-a-thread-in-python
+            # import os
+            # import signal
+            # os.kill(os.getpid(), signal.SIGTERM)
 
 # We want @wraps to preserve docstrings, so the decorator must be a function, not a class.
 # https://stackoverflow.com/questions/6394511/python-functools-wraps-equivalent-for-classes
