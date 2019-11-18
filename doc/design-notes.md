@@ -99,7 +99,7 @@ Why the clunky `e.set("foo", newval)` or `e << ("foo", newval)`, which do not di
 
 Our [macros](../macro_extras/) essentially do exactly this, but by borrowing the ``<<`` operator to provide the syntax ``foo << newval``, because even with MacroPy, it is not possible to define new [BinOp](https://greentreesnakes.readthedocs.io/en/latest/nodes.html#BinOp)s in Python. That would be possible essentially as a *reader macro* (as it's known in the Lisp world), to transform custom BinOps into some syntactically valid Python code before proceeding with the rest of the import machinery, but it seems as of this writing, no one has done this.
 
-If you want a framework to play around with reader macros in Python, see [Pydialect](https://github.com/Technologicat/pydialect); but you'll still have to write a parser. There [Pyparsing](https://github.com/pyparsing/pyparsing) may help, but supporting something as complex as a modified version of Python is still a lot of work and may quickly go out of date.
+If you want a framework to play around with reader macros in Python, see [Pydialect](https://github.com/Technologicat/pydialect). You'll still have to write a parser, where [Pyparsing](https://github.com/pyparsing/pyparsing) may help; but supporting something as complex as a customized version of the surface syntax Python is still a lot of work, and may quickly go out of date.
 
 Without macros, in raw Python, we could abuse `e.foo << newval`, which transforms to `e.foo.__lshift__(newval)`, to essentially perform `e.set("foo", newval)`, but this requires some magic, because we then need to monkey-patch each incoming value (including the first one when the name "foo" is defined) to set up the redirect and keep it working.
 
