@@ -2180,7 +2180,7 @@ last(take(10000, fibos()))  # no crash
 
 ### ``catch``, ``throw``: escape continuations (ec)
 
-*Changed in v0.14.2.* These constructs were previously named `setescape`, `escape`. The names have been changed to match the standard naming for this feature in several Lisps. Starting in 0.14.2, using the old names emits a `FutureWarning`, and the old names will be removed in 0.15.0.
+**Changed in v0.14.2.** *These constructs were previously named `setescape`, `escape`. The names have been changed to match the standard naming for this feature in several Lisps. Starting in 0.14.2, using the old names emits a `FutureWarning`, and the old names will be removed in 0.15.0.*
 
 Escape continuations can be used as a *multi-return*:
 
