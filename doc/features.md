@@ -516,7 +516,7 @@ assert a == 23
 
 Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to remember it is supposed to hold only a single item), or using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
 
-As an alternative to the rampant abuse of lists, we provide a rackety ``box``, which is a minimalistic mutable container that holds exactly one item. The data in the box is accessed via an attribute, so any code that has a reference to the box can update the data in it:
+As an alternative to the rampant abuse of lists, we provide a rackety ``box``, which is a minimalistic mutable container that holds exactly one item. Any code that has a reference to the box can update the data in it:
 
 ```python
 from unpythonic import box
