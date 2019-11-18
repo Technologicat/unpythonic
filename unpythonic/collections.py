@@ -116,7 +116,7 @@ def mogrify(func, container):
         # dict_items and similar cannot be instantiated, and they support only iteration,
         # not in-place modification, so return a regular set
         # (this turns up in "with curry" blocks using somedict.items() as a function argument,
-        #  due to the lazycall() in curry)
+        #  due to the maybe_force_args() in curry)
         elif isinstance(x, MappingView):
             return {doit(elt) for elt in x}
         # env and dyn provide the Mapping API, but shouldn't get the general Mapping treatment here.

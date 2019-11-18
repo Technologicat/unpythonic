@@ -154,7 +154,7 @@ def autoref(block_body, args, asname):
         return tree
 
     # skip (by name) some common references inserted by other macros
-    always_skip = ['letter', 'dof', 'namelambda', 'curry', 'currycall', 'lazy', 'lazyrec', 'lazycall']
+    always_skip = ['letter', 'dof', 'namelambda', 'curry', 'currycall', 'lazy', 'lazyrec', 'maybe_force_args']
     newbody = [Assign(targets=[q[name[o]]], value=args[0])]
     for stmt in block_body:
         newbody.append(transform.recurse(stmt, referents=always_skip + [o]))

@@ -859,7 +859,7 @@ TCO chains with an arbitrary mix of lazy and strict functions should work as lon
 
 Tail-calling from a strict function into a lazy function should work, because all arguments are evaluated at the strict side before the call is made.
 
-But tail-calling ``strict -> lazy -> strict`` will fail in some cases. The second strict callee may get promises instead of values, because the strict trampoline does not have the ``lazycall`` (the mechanism ``with lazify`` uses to force the args when lazy code calls into strict code).
+But tail-calling ``strict -> lazy -> strict`` will fail in some cases. The second strict callee may get promises instead of values, because the strict trampoline does not have the ``maybe_force_args`` (the mechanism ``with lazify`` uses to force the args when lazy code calls into strict code).
 
 The reason we have this hack is that it allows the performance of strict code using unpythonic's TCO machinery, not even caring that a ``lazify`` exists, to be unaffected by the additional machinery used to support automatic lazy-strict interaction.
 

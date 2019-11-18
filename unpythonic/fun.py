@@ -26,7 +26,7 @@ from .dynassign import dyn, make_dynvar
 from .regutil import register_decorator
 
 # we use @mark_lazy (and handle possible lazy args) to support unpythonic.syntax.lazify.
-from .lazyutil import mark_lazy, islazy, force, force1, lazycall
+from .lazyutil import mark_lazy, islazy, force, force1, maybe_force_args
 
 @register_decorator(priority=10)
 def memoize(f):
@@ -48,7 +48,7 @@ def memoize(f):
         k = (args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
         if k not in memo:
             try:
-                result = (success, lazycall(f, *args, **kwargs))
+                result = (success, maybe_force_args(f, *args, **kwargs))
             except BaseException as err:
                 result = (fail, err)
             memo[k] = result  # should yell separately if k is not a valid key
@@ -180,7 +180,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
     # trivial case first: prevent stacking curried wrappers
     if iscurried(f):
         if args or kwargs or _curry_force_call:
-            return lazycall(f, *args, **kwargs)
+            return maybe_force_args(f, *args, **kwargs)
         return f
     # TODO: improve: all required name-only args should be present before calling f.
     # Difficult, partial() doesn't remove an already-set kwarg from the signature.
@@ -191,7 +191,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             raise
         # co-operate with unpythonic.syntax.curry; don't crash on builtins
         if args or kwargs or _curry_force_call:
-            return lazycall(f, *args, **kwargs)
+            return maybe_force_args(f, *args, **kwargs)
         return f
     @wraps(f)
     def curried(*args, **kwargs):
@@ -205,7 +205,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             # passthrough on right, like https://github.com/Technologicat/spicy
             if len(args) > max_arity:
                 now_args, later_args = args[:max_arity], args[max_arity:]
-                now_result = lazycall(f, *now_args, **kwargs)  # use up all kwargs now
+                now_result = maybe_force_args(f, *now_args, **kwargs)  # use up all kwargs now
                 now_result = force(now_result) if not isinstance(now_result, tuple) else force1(now_result)
                 if callable(now_result):
                     # curry it now, to sustain the chain in case we have
@@ -221,13 +221,13 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                 if isinstance(now_result, tuple):
                     return now_result + later_args
                 return (now_result,) + later_args
-            return lazycall(f, *args, **kwargs)
+            return maybe_force_args(f, *args, **kwargs)
     if islazy(f):
         curried = mark_lazy(curried)
     curried._is_curried_function = True  # stash for detection
     # curry itself is curried: if we get args, they're the first step
     if args or kwargs or _curry_force_call:
-        return lazycall(curried, *args, **kwargs)
+        return maybe_force_args(curried, *args, **kwargs)
     return curried
 
 def iscurried(f):
@@ -247,7 +247,7 @@ def flip(f):
     """Decorator: flip (reverse) the positional arguments of f."""
     @wraps(f)
     def flipped(*args, **kwargs):
-        return lazycall(f, *reversed(args), **kwargs)
+        return maybe_force_args(f, *reversed(args), **kwargs)
     if islazy(f):
         flipped = mark_lazy(flipped)
     return flipped
@@ -277,7 +277,7 @@ def rotate(k):
                 raise IndexError("Should have -n < k < n, but n = len(args) = {}, and k = {}".format(n, k))
             j = -k % n
             rargs = args[-j:] + args[:-j]
-            return lazycall(f, *rargs, **kwargs)
+            return maybe_force_args(f, *rargs, **kwargs)
         if islazy(f):
             rotated = mark_lazy(rotated)
         return rotated
@@ -305,7 +305,7 @@ def apply(f, arg0, *more, **kwargs):
     else:
         args = (arg0,) + more[:-1]
         lst = tuple(more[-1])
-    return lazycall(f, *(args + lst), **kwargs)
+    return maybe_force_args(f, *(args + lst), **kwargs)
 
 # Not marking this as lazy-aware works better with continuations (since this
 # is the default cont, and return values should be values, not lazy[])
@@ -364,7 +364,7 @@ def notf(f):  # Racket: negate
         assert notf(lambda x: 2*x)(0) is True
     """
     def negated(*args, **kwargs):
-        return not lazycall(f, *args, **kwargs)
+        return not maybe_force_args(f, *args, **kwargs)
     if islazy(f):
         negated = mark_lazy(negated)
     return negated
@@ -387,7 +387,7 @@ def andf(*fs):  # Racket: conjoin
     def conjoined(*args, **kwargs):
         b = True
         for f in fs:
-            b = b and lazycall(f, *args, **kwargs)
+            b = b and maybe_force_args(f, *args, **kwargs)
             if not b:
                 return False
         return b
@@ -415,7 +415,7 @@ def orf(*fs):  # Racket: disjoin
     def disjoined(*args, **kwargs):
         b = False
         for f in fs:
-            b = b or lazycall(f, *args, **kwargs)
+            b = b or maybe_force_args(f, *args, **kwargs)
             if b:
                 return b
         return False
@@ -425,8 +425,8 @@ def orf(*fs):  # Racket: disjoin
 
 def _make_compose1(direction):  # "left", "right"
     def compose1_two(f, g):
-        return lambda x: lazycall(f, lazycall(g, x))
         # return lambda x: f(g(x))
+        return lambda x: maybe_force_args(f, maybe_force_args(g, x))
     if direction == "right":
         compose1_two = flip(compose1_two)
     def compose1(fs):
@@ -492,13 +492,13 @@ def _make_compose(direction):  # "left", "right"
                 # to the function that is applied second.
                 bindings = {"curry_context": dyn.curry_context + [composed]}
             with dyn.let(**bindings):
-                a = lazycall(g, *args)
+                a = maybe_force_args(g, *args)
             # we could duck-test, but this is more predictable for the user
             # (consider chaining functions that manipulate a generator), and
             # tuple specifically is the pythonic multiple-return-values thing.
             if isinstance(a, tuple):
-                return lazycall(f, *a)
-            return lazycall(f, a)
+                return maybe_force_args(f, *a)
+            return maybe_force_args(f, a)
         return composed
     if direction == "right":
         compose_two = flip(compose_two)
@@ -586,7 +586,7 @@ def tokth(k, f):
         if n < m:
             raise TypeError("Expected at least {:d} arguments, got {:d}".format(m, n))
         out = list(args[:j])
-        out.append(lazycall(f, args[j]))  # mth argument
+        out.append(maybe_force_args(f, args[j]))  # mth argument
         if n > m:
             out.extend(args[m:])
         return tuple(out)
@@ -661,7 +661,7 @@ def withself(f):
     @wraps(f)
     def fwithself(*args, **kwargs):
         #return f(fwithself, *args, **kwargs)
-        return lazycall(f, fwithself, *args, **kwargs)  # support unpythonic.syntax.lazify
+        return maybe_force_args(f, fwithself, *args, **kwargs)  # support unpythonic.syntax.lazify
     if islazy(f):
         fwithself = mark_lazy(fwithself)
     return fwithself

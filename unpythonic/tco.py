@@ -131,12 +131,12 @@ from functools import wraps
 from sys import stderr
 
 from .regutil import register_decorator
-from .lazyutil import islazy, mark_lazy, lazycall
+from .lazyutil import islazy, mark_lazy, maybe_force_args
 from .dynassign import dyn
 
 # In principle, jump should have @mark_lazy, but for performance reasons
 # it doesn't. "force(target)" is slow, so strict code shouldn't have to do that.
-# This is handled by a special case in lazycall.
+# This is handled by a special case in maybe_force_args.
 def jump(target, *args, **kwargs):
     """A jump (noun, not verb).
 
@@ -283,8 +283,8 @@ def trampolined(function):
         def trampoline(*args, **kwargs):
             f = function
             while True:
-                if callable(f):  # the lazycall here causes the performance hit
-                    v = lazycall(f, *args, **kwargs)
+                if callable(f):  # the maybe_force_args here causes the performance hit
+                    v = maybe_force_args(f, *args, **kwargs)
                 else:
                     v = f
                 if isinstance(v, _jump):

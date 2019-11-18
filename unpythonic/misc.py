@@ -14,7 +14,7 @@ from math import floor, log2
 from queue import Empty
 
 from .regutil import register_decorator
-from .lazyutil import mark_lazy, lazycall, force
+from .lazyutil import mark_lazy, maybe_force_args, force
 
 # Only the single-argument form (just f) is supported by unpythonic.syntax.util.sort_lambda_decorators.
 #
@@ -90,7 +90,7 @@ def call(f, *args, **kwargs):
     outside the block, since the block is a function.
     """
 #    return f(*args, **kwargs)
-    return lazycall(force(f), *args, **kwargs)  # support unpythonic.syntax.lazify
+    return maybe_force_args(force(f), *args, **kwargs)  # support unpythonic.syntax.lazify
 
 @register_decorator(priority=80)
 @mark_lazy
@@ -190,7 +190,7 @@ def callwith(*args, **kwargs):
         http://learnyouahaskell.com/higher-order-functions
     """
     def applyfrozenargsto(f):
-        return lazycall(force(f), *args, **kwargs)
+        return maybe_force_args(force(f), *args, **kwargs)
     return applyfrozenargsto
 
 def raisef(exctype, *args, **kwargs):

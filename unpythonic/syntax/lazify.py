@@ -15,7 +15,7 @@ from macropy.quick_lambda import macros, lazy
 from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, \
                   isx, make_isxpred, getname, is_decorator, wrapwith
 from .letdoutil import islet, isdo, ExpandedLetView
-from ..lazyutil import mark_lazy, force, force1, lazycall
+from ..lazyutil import mark_lazy, force, force1, maybe_force_args
 from ..dynassign import dyn
 
 # -----------------------------------------------------------------------------
@@ -274,7 +274,7 @@ def lazify(body):
                 # must see any container constructor calls that appear in the args)
                 stop()
                 # TODO: correct forcing mode? We shouldn't need to forcibly use "full",
-                # since lazycall() already fully forces any remaining promises
+                # since maybe_force_args() already fully forces any remaining promises
                 # in the args when calling a strict function.
                 tree.args = rec(tree.args)
                 tree.keywords = rec(tree.keywords)
@@ -308,7 +308,7 @@ def lazify(body):
                     kwdata.append((x.arg, v))
 
                 # Construct the call
-                mycall = Call(func=hq[lazycall],
+                mycall = Call(func=hq[maybe_force_args],
                               args=[q[ast_literal[thefunc]]] + [q[ast_literal[x]] for x in adata],
                               keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, x in kwdata],
                               lineno=ln, col_offset=co)
@@ -402,7 +402,7 @@ def lazify(body):
     #
     # But tail-calling strict -> lazy -> strict will fail in some cases.
     # The second strict callee may get promises instead of values, because the
-    # strict trampoline does not have the lazycall (that usually forces the args
+    # strict trampoline does not have the maybe_force_args (that usually forces the args
     # when lazy code calls into strict code).
     return wrapwith(item=hq[dyn.let(_build_lazy_trampoline=True)],
                     body=newbody,

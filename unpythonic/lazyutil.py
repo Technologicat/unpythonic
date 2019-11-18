@@ -5,7 +5,7 @@ This is a separate module for dependency reasons; this is regular code,
 upon which other regular code is allowed to depend.
 """
 
-__all__ = ["mark_lazy", "lazycall", "force1", "force"]
+__all__ = ["mark_lazy", "maybe_force_args", "force1", "force"]
 
 from .regutil import register_decorator
 from .dynassign import make_dynvar
@@ -40,12 +40,12 @@ def islazy(f):
     """Internal. Return whether the function f is marked as lazy.
 
     When a function is marked as lazy, its arguments won't be forced by
-    ``lazycall``. This is the only effect the mark has.
+    ``maybe_force_args``. This is the only effect the mark has.
     """
     # special-case "_let" for lazify/curry combo when let[] expressions are present
     return hasattr(f, "_lazy") or (hasattr(f, "__name__") and f.__name__ == "_let")
 
-def lazycall(f, *thunks, **kwthunks):
+def maybe_force_args(f, *thunks, **kwthunks):
     """Internal. Helps calling strict functions from inside a ``with lazify`` block."""
     if f is jump:  # special case to avoid drastic performance hit in strict code
         target, *argthunks = thunks
