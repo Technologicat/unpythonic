@@ -49,17 +49,44 @@ def nextfibo(a, b):       # *oldstates
 assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 ```
 </details>  
-<details><summary>Allow a lambda to call itself.</summary>
+<details><summary>Loop functionally.</summary>
 
-[[docs](doc/features.md#batteries-for-functools)]
+[[docs](doc/features.md#looped-looped_over-loops-in-fp-style-with-tco)]
 
 ```python
-from unpythonic import withself
+from unpythonic import looped, looped_over
 
-fact = withself(lambda self, n: n * self(n - 1) if n > 1 else 1)
-assert fact(5) == 120
+@looped
+def result(loop, acc=0, i=0):
+    if i == 10:
+        return acc
+    else:
+        return loop(acc + i, i + 1)
+assert result == 45
+
+@looped_over(range(3), acc=[])
+def result(loop, i, acc):
+    acc.append(lambda x: i * x)  # fresh "i" each time, no mutation of loop counter.
+    return loop()
+assert [f(10) for f in result] == [0, 10, 20]
 ```
 </details>  
+<details><summary>Allow a lambda to call itself. Name a lambda.</summary>
+
+[[docs for `withself`](doc/features.md#batteries-for-functools)] [[docs for `namelambda`](doc/features.md#namelambda-rename-a-function)]
+
+```python
+from unpythonic import withself, namelambda
+
+fact = withself(lambda self, n: n * self(n - 1) if n > 1 else 1)  # see also @trampolined to do this with TCO
+assert fact(5) == 120
+
+square = namelambda("square")(lambda x: x**2)
+assert square.__name__ == "square"
+assert square.__qualname__ == "square"  # or e.g. "somefunc.<locals>.square" if inside a function
+assert square.__code__.co_name == "square"  # used by stack traces
+```
+</details>
 <details><summary>Break infinite recursion cycles.</summary>
 
 [[docs](doc/features.md#fix-break-infinite-recursion-cycles)]
