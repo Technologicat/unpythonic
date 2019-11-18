@@ -251,7 +251,7 @@ with lazify:
 [[docs](macro_extras/README.md#continuations-callcc-for-python)]
 
 ```python
-from unpythonic import macros, continuations, call_cc
+from unpythonic.syntax import macros, continuations, call_cc
 
 with continuations:  # automatically enables also TCO
     # McCarthy's amb() operator
