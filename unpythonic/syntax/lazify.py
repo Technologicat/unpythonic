@@ -58,7 +58,7 @@ _ctorcalls_seq = ("list", "tuple", "set", "frozenset", "box", "cons", "llist", "
 # when to lazify individual (positional, keyword) args.
 _ctor_handling_modes = {  # constructors that take iterable(s) as positional args.
                         "dict": ("literal_only", "all"),
-                        "frozendict": ("literal_only", "all"), # same ctor API as dict
+                        "frozendict": ("literal_only", "all"),  # same ctor API as dict
                         "list": ("literal_only", "all"),  # doesn't take kws, "all" is ok
                         "tuple": ("literal_only", "all"),
                         "set": ("literal_only", "all"),
@@ -131,10 +131,14 @@ def lazyrec(tree):
 def is_literal_container(tree, maps_only=False):
     """Test whether tree is a container literal understood by lazyrec[]."""
     if not maps_only:
-        if type(tree) in (List, Tuple, Set): return True
-        if type(tree) is Call and any(isx(tree.func, s) for s in _ctorcalls_seq): return True
-    if type(tree) is Dict: return True
-    if type(tree) is Call and any(isx(tree.func, s) for s in _ctorcalls_map): return True
+        if type(tree) in (List, Tuple, Set):
+            return True
+        if type(tree) is Call and any(isx(tree.func, s) for s in _ctorcalls_seq):
+            return True
+    if type(tree) is Dict:
+        return True
+    if type(tree) is Call and any(isx(tree.func, s) for s in _ctorcalls_map):
+        return True
     return False
 
 # -----------------------------------------------------------------------------
@@ -251,7 +255,7 @@ def lazify(body):
                 if view.mode == "let":
                     for b in view.bindings.elts:  # b = (name, value)
                         b.elts[1] = transform_arg(b.elts[1])
-                else: # view.mode == "letrec":
+                else:  # view.mode == "letrec":
                     for b in view.bindings.elts:  # b = (name, (lambda e: ...))
                         thelambda = b.elts[1]
                         thelambda.body = transform_arg(thelambda.body)
@@ -275,8 +279,10 @@ def lazify(body):
                 tree.args = rec(tree.args)
                 tree.keywords = rec(tree.keywords)
                 # Python 3.4
-                if hasattr(tree, "starargs"): tree.starargs = rec(tree.starargs)
-                if hasattr(tree, "kwargs"): tree.kwargs = rec(tree.kwargs)
+                if hasattr(tree, "starargs"):
+                    tree.starargs = rec(tree.starargs)
+                if hasattr(tree, "kwargs"):
+                    tree.kwargs = rec(tree.kwargs)
             else:
                 stop()
                 ln, co = tree.lineno, tree.col_offset

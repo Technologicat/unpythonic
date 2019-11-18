@@ -12,7 +12,7 @@ __all__ = ["memoize", "curry", "iscurried",
            "apply", "identity", "const",
            "notf", "andf", "orf",
            "composer1", "composel1", "composer1i", "composel1i",  # single arg
-           "composer",  "composel",  "composeri",  "composeli",   # multi-arg
+           "composer", "composel", "composeri", "composeli",   # multi-arg
            "composerc", "composelc", "composerci", "composelci",  # multi-arg w/ curry
            "to1st", "to2nd", "tokth", "tolast", "to",
            "withself"]
@@ -425,8 +425,8 @@ def orf(*fs):  # Racket: disjoin
 
 def _make_compose1(direction):  # "left", "right"
     def compose1_two(f, g):
-#        return lambda x: f(g(x))
         return lambda x: lazycall(f, lazycall(g, x))
+        # return lambda x: f(g(x))
     if direction == "right":
         compose1_two = flip(compose1_two)
     def compose1(fs):
