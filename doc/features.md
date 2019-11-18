@@ -261,6 +261,10 @@ with assignonce() as e:
 
 It's a subclass of ``env``, so it shares most of the same [features](#env-the-environment) and allows similar usage.
 
+#### Historical note
+
+The fact that in Python creating bindings and updating (rebinding) them look the same was already noted in 2000, in [PEP 227](https://www.python.org/dev/peps/pep-0227/#discussion), which introduced true closures to Python 2.1. For related history concerning the `nonlocal` keyword, see [PEP 3104](https://www.python.org/dev/peps/pep-3104/).
+
 
 ### ``dyn``: dynamic assignment
 
