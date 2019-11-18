@@ -530,7 +530,7 @@ f(a)
 assert a == 17
 ```
 
-The attribute name is just ``x`` to reduce the number of additional keystrokes required. The ``box`` API is summarized by:
+The ``box`` API is summarized by:
 
 ```python
 b1 = box(23)
