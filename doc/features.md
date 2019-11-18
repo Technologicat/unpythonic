@@ -204,9 +204,9 @@ The let macros internally use this *lispylet* implementation.
 
 ### ``env``: the environment
 
-The environment used by all the ``let`` constructs and ``assignonce`` (but **not** by `dyn`) is essentially a bunch with iteration, subscripting and context manager support. For details, see `unpythonic.env`.
+The environment used by all the ``let`` constructs and ``assignonce`` (but **not** by `dyn`) is essentially a bunch with iteration, subscripting and context manager support. It is somewhat similar to [`types.SimpleNamespace`](https://docs.python.org/3/library/types.html#types.SimpleNamespace), but with many extra features. For details, see `unpythonic.env`.
 
-This allows things like:
+Our ``env`` allows things like:
 
 ```python
 let(x=1, y=2, z=3,
