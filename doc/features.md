@@ -2246,7 +2246,7 @@ This feature is known as `catch`/`throw` in several Lisps, e.g. in Emacs Lisp an
 
 #### ``call_ec``: first-class escape continuations
 
-We provide ``call/ec`` (a.k.a. ``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@call``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an catch point, and hands a **first-class escape continuation** to the callee.
+We provide ``call/ec`` (a.k.a. ``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@call``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up a catch point, and hands a **first-class escape continuation** to the callee.
 
 The function to be decorated **must** take one positional argument, the ec instance.
 
