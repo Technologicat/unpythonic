@@ -168,7 +168,7 @@ from unpythonic.syntax import macros, let
 x = let[((a, 1), (b, 2)) in a + b]
 ```
 </details>  
-<details><summary>Introduce definition-local variables.</summary>
+<details><summary>Introduce stateful functions.</summary>
 
 [[docs](macro_extras/README.md#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)]
 
