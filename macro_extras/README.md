@@ -914,9 +914,9 @@ The ``tco`` and ``continuations`` macros actually share a lot of the code that i
 
 It is important to recognize a call to an escape continuation as such, because the argument given to an escape continuation is essentially a return value. If this argument is itself a call, it needs the TCO transformation to be applied to it.
 
-For escape continuations in ``tco`` and ``continuations`` blocks, only basic uses of ``call_ec`` are supported, for automatically harvesting names referring to an escape continuation. In addition, the literal function names ``ec`` and ``brk`` are always *understood as referring to* an escape continuation.
+For escape continuations in ``tco`` and ``continuations`` blocks, only basic uses of ``call_ec`` are supported, for automatically harvesting names referring to an escape continuation. In addition, the literal function names ``ec``, ``brk`` and ``throw`` are always *understood as referring to* an escape continuation.
 
-The name ``ec`` or ``brk`` alone is not sufficient to make a function into an escape continuation, even though ``tco`` (and ``continuations``) will think of it as such. The function also needs to actually implement some kind of an escape mechanism. An easy way to get an escape continuation, where this has already been done for you, is to use ``call_ec``.
+The name ``ec``, ``brk`` or ``throw`` alone is not sufficient to make a function into an escape continuation, even though ``tco`` (and ``continuations``) will think of it as such. The function also needs to actually implement some kind of an escape mechanism. An easy way to get an escape continuation, where this has already been done for you, is to use ``call_ec``. Another such mechanism is the ``catch``/``throw`` pair.
 
 See the docstring of ``unpythonic.syntax.tco`` for details.
 

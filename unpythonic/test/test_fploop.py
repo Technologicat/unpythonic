@@ -6,7 +6,7 @@ from ..tco import trampolined, jump
 from ..let import let
 from ..seq import begin
 from ..misc import call, timer
-from ..ec import setescape, escape
+from ..ec import catch, throw
 
 def test():
     # basic usage
@@ -302,29 +302,29 @@ def test():
     assert result == 90
 
     # How to terminate surrounding function from inside FP loop:
-    @setescape()
+    @catch()
     def f():
         @looped
         def s(loop, acc=0, i=0):
             if i > 5:
-                escape(acc)
+                throw(acc)
             return loop(acc + i, i + 1)
         print("not reached")
         return False
     assert f() == 15
 
-    # tagged escapes to control where the escape is sent:
+    # tagged throws to control where the escape is sent:
     #
-    # setescape point tags can be single value or tuple (tuples OR'd, like isinstance())
-    @setescape(tags="foo")
+    # catch point tags can be single value or tuple (tuples OR'd, like isinstance())
+    @catch(tags="foo")
     def foo():
         @call
-        @setescape(tags="bar")
+        @catch(tags="bar")
         def bar():
             @looped
             def s(loop, acc=0, i=0):
                 if i > 5:
-                    escape(acc, tag="foo")  # escape instance tag must be a single value
+                    throw(acc, tag="foo")  # throw instance tag must be a single value
                 return loop(acc + i, i + 1)
             print("never reached")
             return False

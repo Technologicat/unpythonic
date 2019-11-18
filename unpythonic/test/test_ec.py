@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 
-from ..ec import setescape, escape, call_ec
+from ..ec import catch, throw, call_ec
 
 def test():
     # "multi-return" using escape continuation
     #
-    @setescape()
+    @catch()
     def f():
         def g():
-            escape("hello from g")  # the argument becomes the return value of f()
+            throw("hello from g")  # the argument becomes the return value of f()
             print("not reached")
         g()
         print("not reached either")
@@ -68,15 +68,15 @@ def test():
 #            return 0  # don't catch, pass on
 #        _ = None
 #        # in this table, we're essentially projecting bool**4 into two dimensions.
-#        ps = ((None, False), (None, True),  # @setescape points
+#        ps = ((None, False), (None, True),  # @catch points
 #              (set(("tag",)), False), (set(("tag",)), True))
-#        es = (Escape(_, None, False),  Escape(_, None, True),  # escape instances
+#        es = (Escape(_, None, False),  Escape(_, None, True),  # `throw` instances
 #              Escape(_, "tag", False), Escape(_, "tag", True))
 ##        # the other reasonable projection:
 ##        ps = ((None, False), (set(("tag",)), False),
 ##              (None, True), (set(("tag",)), True))
-##        es = (escape(_, None, False), escape(_, "tag", False),
-##              escape(_, None, True), escape(_, "tag", True))
+##        es = (Escape(_, None, False), Escape(_, "tag", False),
+##              Escape(_, None, True), Escape(_, "tag", True))
 #        table = [[check(t, c, e) for e in es] for (t, c) in ps]  # col = e, row = p
 #        for row in table:
 #            print(row)

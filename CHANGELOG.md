@@ -33,11 +33,16 @@ If you still use 3.4 and find something in `unpythonic` doesn't work there, plea
 - `box` now supports `.set(newvalue)` to rebind (returns the new value as a convenience), and `unbox(b)` to extract contents. Syntactic sugar for rebinding is `b << newvalue` (where `b` is a box).
 - `islice` now supports negative start and stop. (**Caution**: no negative step; and it must consume the whole iterable to determine where it ends, if at all.)
 
+**Non-breaking changes**:
+
+- `setscape`/`escape` have been renamed `catch`/`throw`, to match the standard terminology in the Lisp family. **The old nonstandard names are now deprecated, and will be removed in 0.15.0.**
+
 **Fixed**:
 
 - Fix initialization crash in `lazyutil` if MacroPy is not installed.
 - Fix bug in `identity` and `const` with zero args (#7).
 - Use standard Python semantics for negative indices (#6).
+- Escape continuation analysis in `unpythonic.syntax.util` now interprets also the literal name `throw` as invoking an escape continuation.
 
 ---
 

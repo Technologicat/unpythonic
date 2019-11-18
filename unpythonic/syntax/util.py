@@ -97,10 +97,16 @@ def detect_callec(tree):
             ...
         ...
         result = call_ec(g)  # <-- but this is here; g could be in another module
+
+    Additionally, the literal names `ec`, `brk`, `throw` are always interpreted
+    as invoking an escape continuation (whether they actually do or not).
+    So if you need the third pattern above, use **exactly** the name `ec`
+    for the escape continuation parameter, and it will work.
+
+    (The name `brk` covers the use of `unpythonic.fploop.breakably_looped`,
+    and `throw` covers the use of `unpythonic.ec.throw`.)
     """
-    # literal function names that are always interpreted as an ec.
-    # "brk" is needed to combo with unpythonic.fploop.breakably_looped.
-    fallbacks = ["ec", "brk"]
+    fallbacks = ["ec", "brk", "throw"]
     iscallec = partial(isx, make_isxpred("call_ec"))
     @Walker
     def detect(tree, *, collect, **kw):

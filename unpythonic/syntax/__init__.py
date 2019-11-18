@@ -1000,7 +1000,8 @@ def tco(tree, *, gen_sym, **kw):
     continuations created **anywhere lexically within** the ``with tco`` block
     are captured. Lexically within the block, any call to a function having
     any of the captured names, or as a fallback, one of the literal names
-    ``ec``, ``brk``, is interpreted as invoking an escape continuation.
+    ``ec``, ``brk``, ``throw`` is interpreted as invoking an escape
+    continuation.
     """
     with dyn.let(gen_sym=gen_sym):
         return (yield from _tco(block_body=tree))
@@ -1122,7 +1123,7 @@ def continuations(tree, *, gen_sym, **kw):
 
         If you absolutely need to terminate the function surrounding the
         ``with continuations:`` block from inside the block, use an exception
-        to escape; see ``call_ec``, ``setescape``, ``escape``.
+        to escape; see ``call_ec``, ``catch``, ``throw``.
 
     **Capturing the continuation**:
 

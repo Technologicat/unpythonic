@@ -40,7 +40,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``trampolined``, ``jump``: tail call optimization (TCO) / explicit continuations](#trampolined-jump-tail-call-optimization-tco--explicit-continuations)
 - [``looped``, ``looped_over``: loops in FP style (with TCO)](#looped-looped_over-loops-in-fp-style-with-tco)
 - [``gtrampolined``: generators with TCO](#gtrampolined-generators-with-tco): tail-chaining; like ``itertools.chain``, but from inside a generator.
-- [``setescape``, ``escape``: escape continuations (ec)](#setescape-escape-escape-continuations-ec)
+- [``catch``, ``throw``: escape continuations (ec)](#catch-throw-escape-continuations-ec)
   - [``call_ec``: first-class escape continuations](#call_ec-first-class-escape-continuations), like Racket's ``call/ec``.
 - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation), a tuple comprehension with multiple body expressions.
 
@@ -2173,57 +2173,55 @@ last(take(10000, fibos()))  # no crash
 ```
 
 
-### ``setescape``, ``escape``: escape continuations (ec)
-
-This feature is known as `catch`/`throw` in several Lisps, e.g. in Emacs Lisp and in Common Lisp (as well as some of its ancestors). This terminology is independent of the use of `throw`/`catch` in C++/Java for the exception handling mechanism. Common Lisp also provides a lexically scoped variant (`BLOCK`/`RETURN-FROM`) that is more idiomatic [according to Seibel](http://www.gigamonkeys.com/book/the-special-operators.html).
+### ``catch``, ``throw``: escape continuations (ec)
 
 Escape continuations can be used as a *multi-return*:
 
 ```python
-from unpythonic import setescape, escape
+from unpythonic import catch, throw
 
-@setescape()  # note the parentheses
+@catch()  # note the parentheses
 def f():
     def g():
-        escape("hello from g")  # the argument becomes the return value of f()
+        throw("hello from g")  # the argument becomes the return value of f()
         print("not reached")
     g()
     print("not reached either")
 assert f() == "hello from g"
 ```
 
-**CAUTION**: The implementation is based on exceptions, so catch-all ``except:`` statements will intercept also escapes, breaking the escape mechanism. As you already know, be specific in what you catch!
+**CAUTION**: The implementation is based on exceptions, so catch-all ``except:`` statements will intercept also throws, breaking the escape mechanism. As you already know, be specific in which exception types you catch in an `except` clause!
 
-In Lisp terms, `@setescape` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `escape(value)`. The function decorated with `@setescape` immediately terminates, returning ``value``.
+In Lisp terms, `@catch` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `throw(value)`. When the `throw` is performed, the function decorated with `@catch` immediately terminates, returning ``value``.
 
 In Python terms, an escape means just raising a specific type of exception; the usual rules concerning ``try/except/else/finally`` and ``with`` blocks apply. It is a function call, so it works also in lambdas.
 
 Escaping the function surrounding an FP loop, from inside the loop:
 
 ```python
-@setescape()
+@catch()
 def f():
     @looped
     def s(loop, acc=0, i=0):
         if i > 5:
-            escape(acc)
+            throw(acc)
         return loop(acc + i, i + 1)
     print("never reached")
 f()  # --> 15
 ```
 
-For more control, both ``@setescape`` points and escape instances can be tagged:
+For more control, both ``@catch`` points and ``throw`` instances can be tagged:
 
 ```python
-@setescape(tags="foo")  # setescape point tags can be single value or tuple (tuples OR'd, like isinstance())
+@catch(tags="foo")  # catch point tags can be single value or tuple (tuples OR'd, like isinstance())
 def foo():
     @call
-    @setescape(tags="bar")
+    @catch(tags="bar")
     def bar():
         @looped
         def s(loop, acc=0, i=0):
             if i > 5:
-                escape(acc, tag="foo")  # escape instance tag must be a single value
+                throw(acc, tag="foo")  # throw instance tag must be a single value
             return loop(acc + i, i + 1)
         print("never reached")
         return False
@@ -2232,20 +2230,24 @@ def foo():
 assert foo() == 15
 ```
 
-For details on tagging, especially how untagged and tagged escapes and points interact, and how to make one-to-one connections, see the docstring for ``@setescape``.
+For details on tagging, especially how untagged and tagged throw and catch points interact, and how to make one-to-one connections, see the docstring for ``@catch``.
+
+**Etymology**
+
+This feature is known as `catch`/`throw` in several Lisps, e.g. in Emacs Lisp and in Common Lisp (as well as some of its ancestors). This terminology is independent of the use of `throw`/`catch` in C++/Java for the exception handling mechanism. Common Lisp also provides a lexically scoped variant (`BLOCK`/`RETURN-FROM`) that is more idiomatic [according to Seibel](http://www.gigamonkeys.com/book/the-special-operators.html).
 
 
 #### ``call_ec``: first-class escape continuations
 
-We provide ``call/ec`` (a.k.a. ``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@call``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an escape point, and hands a **first-class escape continuation** to the callee.
+We provide ``call/ec`` (a.k.a. ``call-with-escape-continuation``), in Python spelled as ``call_ec``. It's a decorator that, like ``@call``, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up an catch point, and hands a **first-class escape continuation** to the callee.
 
 The function to be decorated **must** take one positional argument, the ec instance.
 
-The ec instance itself is another function, which takes one positional argument: the value to send to the escape point. The ec instance and the escape point are connected one-to-one. No other ``@setescape`` point will catch the ec instance, and the escape point catches only this particular ec instance and nothing else.
+The ec instance itself is another function, which takes one positional argument: the value to send to the catch point. The ec instance and the catch point are connected one-to-one. No other ``@catch`` point will catch the ec instance, and the catch point catches only this particular ec instance and nothing else.
 
 Any particular ec instance is only valid inside the dynamic extent of the ``call_ec`` invocation that created it. Attempting to call the ec later raises ``RuntimeError``.
 
-This builds on ``@setescape`` and ``escape``, so the caution about catch-all ``except:`` statements applies here, too.
+This builds on ``@catch`` and ``throw``, so the caution about catch-all ``except:`` statements applies here, too.
 
 ```python
 from unpythonic import call_ec
@@ -2427,7 +2429,7 @@ def result():
 print(result)  # (6, 7)
 ```
 
-(But see ``@setescape``, ``escape``, and ``call_ec``.)
+(But see ``@catch``, ``throw``, and ``call_ec``.)
 
 Compare the sweet-exp Racket:
 
