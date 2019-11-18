@@ -78,7 +78,7 @@ assert [f(10) for f in result] == [0, 10, 20]
 ```python
 from unpythonic import withself, namelambda
 
-fact = withself(lambda self, n: n * self(n - 1) if n > 1 else 1)  # see also @trampolined to do this with TCO
+fact = withself(lambda self, n: n * self(n - 1) if n > 1 else 1)  # see @trampolined to do this with TCO
 assert fact(5) == 120
 
 square = namelambda("square")(lambda x: x**2)
