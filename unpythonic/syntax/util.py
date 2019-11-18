@@ -194,7 +194,7 @@ def is_decorated_lambda(tree, mode):
     assert mode in ("known", "any")
     if mode == "known":
         detectors = [partial(is_lambda_decorator, fname=x) for x in all_decorators]
-    else: # mode == "any":
+    else:  # mode == "any":
         detectors = [is_lambda_decorator]
 
     def detect(tree):
