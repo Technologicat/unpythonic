@@ -24,6 +24,7 @@ def test():
     assert tuple(collatz(10)) == (10, 5, 16, 8, 4, 2, 1)
     assert tuple(collatz(30)) == (30, 15, 46, 23, 70, 35, 106, 53, 160, 80, 40, 20, 10, 5, 16, 8, 4, 2, 1)
     def len_gt(k, s):
+        # see also unpythonic.slicing.islice; could implement as  return islice(s)[k + 1]
         a, _ = unpack(1, drop(k, s))
         return a  # None if no item
     islong = curry(len_gt, 15)
@@ -120,7 +121,7 @@ def test():
         return x / 2
     def differentiate(h0, f, x):
         return map(curry(easydiff, f, x), iterate1(halve, h0))
-    def within(eps, s):
+    def within(eps, s):  # in real code, prefer unpythonic.it.within
         while True:
             # unpack with peek (but be careful, the rewinded tail is a tee'd copy)
             a, b, s = unpack(2, s, k=1)
