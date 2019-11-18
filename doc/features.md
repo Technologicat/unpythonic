@@ -2201,7 +2201,7 @@ assert f() == "hello from g"
 
 In Lisp terms, `@catch` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `throw(value)`. When the `throw` is performed, the function decorated with `@catch` immediately terminates, returning ``value``.
 
-In Python terms, an escape means just raising a specific type of exception; the usual rules concerning ``try/except/else/finally`` and ``with`` blocks apply. It is a function call, so it works also in lambdas.
+In Python terms, a throw means just raising a specific type of exception; the usual rules concerning ``try/except/else/finally`` and ``with`` blocks apply. It is a function call, so it works also in lambdas.
 
 Escaping the function surrounding an FP loop, from inside the loop:
 
