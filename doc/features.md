@@ -524,7 +524,7 @@ from unpythonic import box
 a = box(23)
 
 def f(b):
-    b.x = 17
+    b << 17
 
 f(a)
 assert a == 17
