@@ -122,7 +122,7 @@ def test():
     def outer_result(outer_loop, y, outer_acc):
         @looped_over(range(1, 3), acc=[])
         def inner_result(inner_loop, x, inner_acc):
-            return inner_loop(inner_acc + [y*x])
+            return inner_loop(inner_acc + [y * x])
         return outer_loop(outer_acc + [inner_result])
     assert outer_result == [[1, 2], [2, 4], [3, 6]]
 
@@ -137,7 +137,7 @@ def test():
             except StopIteration:
                 return acc
         return out
-    assert map_fp_raw(lambda x: 2*x, range(5)) == (0, 2, 4, 6, 8)
+    assert map_fp_raw(lambda x: 2 * x, range(5)) == (0, 2, 4, 6, 8)
 
     # But it looks much clearer with @looped_over:
     @looped_over(range(10), acc=0)
@@ -151,7 +151,7 @@ def test():
         def out(loop, x, acc):  # body always takes at least these three parameters, in this order
             return loop(acc + (function(x),))  # first argument is the new value of acc
         return out
-    assert map_fp(lambda x: 2*x, range(5)) == (0, 2, 4, 6, 8)
+    assert map_fp(lambda x: 2 * x, range(5)) == (0, 2, 4, 6, 8)
 
     # similarly
     def filter_fp(predicate, iterable):
@@ -227,13 +227,13 @@ def test():
     # This old chestnut:
     funcs = []
     for i in range(3):
-        funcs.append(lambda x: i*x)  # always the same "i", which "for" just mutates
+        funcs.append(lambda x: i * x)  # always the same "i", which "for" just mutates
     assert [f(10) for f in funcs] == [20, 20, 20]  # not what we wanted!
 
     # with FP loop:
     @looped_over(range(3), acc=())
     def funcs(loop, i, acc):
-        return loop(acc + ((lambda x: i*x),))  # new "i" each time, no mutation!
+        return loop(acc + ((lambda x: i * x),))  # new "i" each time, no mutation!
     assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
     # using the more primitive @looped:
@@ -241,26 +241,26 @@ def test():
     @looped
     def _ignored2(loop, i=0):
         if i < 3:
-            funcs.append(lambda x: i*x)  # new "i" each time, no mutation!
+            funcs.append(lambda x: i * x)  # new "i" each time, no mutation!
             return loop(i + 1)
     assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
     # comprehension versions:
-    funcs = [lambda x: i*x for i in range(3)]
+    funcs = [lambda x: i * x for i in range(3)]
     assert [f(10) for f in funcs] == [20, 20, 20]  # not what we wanted!
 
     @collect_over(range(3))
     def funcs(i):
-        return lambda x: i*x
+        return lambda x: i * x
     assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
     # though to be fair, the standard solution:
-    funcs = [(lambda j: (lambda x: j*x))(i) for i in range(3)]
+    funcs = [(lambda j: (lambda x: j * x))(i) for i in range(3)]
     assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
     # can be written as:
     def body(i):
-        return lambda x: i*x
+        return lambda x: i * x
     funcs = [body(i) for i in range(3)]  # the call grabs the current value of "i".
     assert [f(10) for f in funcs] == [0, 10, 20]  # yes!
 
@@ -380,11 +380,11 @@ def test():
             return loop()
 
     print("do-nothing loop, {:d} iterations:".format(n))
-    print("  builtin for {:g}s ({:g}s/iter)".format(ip.dt, ip.dt/n))
-    print("  @looped {:g}s ({:g}s/iter)".format(fp2.dt, fp2.dt/n))
-    print("  @looped_over {:g}s ({:g}s/iter)".format(fp3.dt, fp3.dt/n))
-    print("@looped slowdown {:g}x".format(fp2.dt/ip.dt))
-    print("@looped_over slowdown {:g}x".format(fp3.dt/ip.dt))
+    print("  builtin for {:g}s ({:g}s/iter)".format(ip.dt, ip.dt / n))
+    print("  @looped {:g}s ({:g}s/iter)".format(fp2.dt, fp2.dt / n))
+    print("  @looped_over {:g}s ({:g}s/iter)".format(fp3.dt, fp3.dt / n))
+    print("@looped slowdown {:g}x".format(fp2.dt / ip.dt))
+    print("@looped_over slowdown {:g}x".format(fp3.dt / ip.dt))
 
 if __name__ == '__main__':
     test()
