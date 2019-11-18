@@ -87,7 +87,7 @@ In contrast, in a `let*` form, attempting such a definition is *a compile-time e
 
 Our `letrec` behaves like `let*` in that if `valexpr` is not a function, it may only refer to bindings above it. But this is only enforced at run time, and we allow mutually recursive function definitions, hence `letrec`.
 
-Note the function versions of our `let` constructs, presented here, are **not** properly lexically scoped; in case of nested ``let`` expressions, one must be explicit about which environment the names come from.
+Note the function versions of our `let` constructs, in the pure-Python API, are **not** properly lexically scoped; in case of nested ``let`` expressions, one must be explicit about which environment the names come from.
 
 The [macro versions](../macro_extras/) of the `let` constructs **are** lexically scoped. The macros also provide a ``letseq[]`` that, similarly to Racket's ``let*``, gives a compile-time guarantee that no binding refers to a later one.
 
