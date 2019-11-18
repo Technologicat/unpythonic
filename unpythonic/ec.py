@@ -244,6 +244,7 @@ def call_ec(f):
         def wrapper():
             return f(ec)
         return wrapper()
-    finally:  # Our dynamic extent ends; this ec instance is no longer valid.
-              # Clear the flag (it will live on in the closure of the ec instance).
+    finally:
+        # Our dynamic extent ends; this ec instance is no longer valid.
+        # Clear the flag (it will live on in the closure of the ec instance).
         ec_valid = False
