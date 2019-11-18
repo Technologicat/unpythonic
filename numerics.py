@@ -128,7 +128,7 @@ def test():
                 return b
     def differentiate_with_tol(h0, f, x, eps):
         return within(eps, differentiate(h0, f, x))
-    assert abs(differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-7
+    assert abs(differentiate_with_tol(0.1, sin, pi / 2, 1e-8)) < 1e-7
 
     def order(s):
         """Estimate asymptotic order of s, consuming the first three terms."""
@@ -141,7 +141,7 @@ def test():
         for the formula used here to work."""
         while True:
             a, b, s = unpack(2, s, k=1)
-            yield (b*2**n - a) / (2**(n - 1))
+            yield (b * 2**n - a) / (2**(n - 1))
     def improve(s):
         """Eliminate asymptotically dominant error term from s.
 
@@ -150,13 +150,13 @@ def test():
         return eliminate_error(order(s), s)
     def better_differentiate_with_tol(h0, f, x, eps):
         return within(eps, improve(differentiate(h0, f, x)))
-    assert abs(better_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-9
+    assert abs(better_differentiate_with_tol(0.1, sin, pi / 2, 1e-8)) < 1e-9
 
     def super_improve(s):
         return map(second, iterate1(improve, s))
     def best_differentiate_with_tol(h0, f, x, eps):
         return within(eps, super_improve(differentiate(h0, f, x)))
-    assert abs(best_differentiate_with_tol(0.1, sin, pi/2, 1e-8)) < 1e-11
+    assert abs(best_differentiate_with_tol(0.1, sin, pi / 2, 1e-8)) < 1e-11
 
     # pi approximation with Euler series acceleration
     #
@@ -179,7 +179,7 @@ def test():
     def euler_transform(s):
         while True:
             a, b, c, s = unpack(3, s, k=1)
-            yield c - ((c - b)**2 / (a - 2*b + c))
+            yield c - ((c - b)**2 / (a - 2 * b + c))
     faster_pi_stream = euler_transform(pi_stream)
 
     def super_accelerate(transform, s):
