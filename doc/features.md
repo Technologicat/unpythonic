@@ -2619,7 +2619,9 @@ assert tuple(myzip(lol)) == ((1, 3, 5), (2, 4, 6))
 
 ### ``namelambda``, rename a function
 
-For those situations where you return a lambda as a closure, call it much later, and it happens to crash - so you can tell from the stack trace *which* of the *N* lambdas in the codebase it is. The return value is a modified copy; the original function object is not mutated. You can rename any function object (``isinstance(f, (types.LambdaType, types.FunctionType))``), and it will rename a lambda even if it has already been named.
+Rename any function object (including lambdas). The return value of ``namelambda`` is a modified copy; the original function object is not mutated. The input can be any function object (``isinstance(f, (types.LambdaType, types.FunctionType))``). It will be renamed even if it already has a name.
+
+This is mainly useful in those situations where you return a lambda as a closure, call it much later, and it happens to crash - so you can tell from the stack trace *which* of the *N* lambdas in your codebase it is.
 
 For technical reasons, ``namelambda`` conforms to the parametric decorator API. Usage:
 
