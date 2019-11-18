@@ -1942,6 +1942,8 @@ assert s == 45
 
 In ``@looped_over``, the loop body takes three magic positional parameters. The first parameter ``loop`` works like in ``@looped``. The second parameter ``x`` is the current element. The third parameter ``acc`` is initialized to the ``acc`` value given to ``@looped_over``, and then (functionally) updated at each iteration, taking as the new value the first positional argument given to ``loop(...)``, if any positional arguments were given. Otherwise ``acc`` retains its last value.
 
+If ``acc`` is a mutable object, mutating it is allowed. For example, if ``acc`` is a list, it is perfectly fine to ``acc.append(...)`` and then just ``loop()`` with no arguments, allowing ``acc`` to retain its last value. To be exact, keeping the last value means *the binding of the name ``acc`` does not change*, so when the next iteration starts, the name ``acc`` still points to the same object that was mutated. This strategy can be used to pythonically construct a list in an FP loop.
+
 Additional arguments can be given to ``loop(...)``. The same notes as above apply. For example, here we have the additional parameters ``fruit`` and ``number``. The first one is passed positionally, and the second one by name:
 
 ```python
@@ -2001,8 +2003,9 @@ Mutable sequence (Python ``list``):
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=[])
 def p(loop, item, acc):
     numb, lett = item
-    acc.append("{:d}{:s}".format(numb, lett))
-    return loop(acc)
+    newelt = "{:d}{:s}".format(numb, lett)
+    acc.append(newelt)
+    return loop()
 assert p == ['1a', '2b', '3c']
 ```
 
@@ -2015,7 +2018,8 @@ from unpythonic import cons, nil, ll
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
 def p(loop, item, acc):
     numb, lett = item
-    return loop(cons("{:d}{:s}".format(numb, lett), acc))
+    newelt = "{:d}{:s}".format(numb, lett)
+    return loop(cons(newelt, acc))
 assert p == ll('1a', '2b', '3c')
 ```
 
@@ -2029,7 +2033,8 @@ To get the output as a tuple, we can add ``tuple`` to the decorator chain:
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
 def p(loop, item, acc):
     numb, lett = item
-    return loop(cons("{:d}{:s}".format(numb, lett), acc))
+    newelt = "{:d}{:s}".format(numb, lett)
+    return loop(cons(newelt, acc))
 assert p == ('1a', '2b', '3c')
 ```
 
