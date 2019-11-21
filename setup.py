@@ -52,19 +52,18 @@ def read(*relpath, **kwargs):  # https://blog.ionelmc.ro/2014/05/25/python-packa
 # http://stackoverflow.com/questions/2058802/how-can-i-get-the-version-defined-in-setup-py-setuptools-in-my-package
 #
 import ast
-import sys
 init_py_path = os.path.join(libname, '__init__.py')
-version = '0.0.unknown'
+version = None
 try:
     with open(init_py_path) as f:
         for line in f:
             if line.startswith('__version__'):
                 version = ast.parse(line).body[0].value.s
                 break
-        else:
-            print("WARNING: Version information not found in '%s', using placeholder '%s'" % (init_py_path, version), file=sys.stderr)
 except FileNotFoundError:
-    print("WARNING: Could not find file '%s', using placeholder version information '%s'" % (init_py_path, version), file=sys.stderr)
+    pass
+if not version:
+    raise RuntimeError("Version information not found in '{}'".format(init_py_path))
 
 #########################################################
 # Call setup()
