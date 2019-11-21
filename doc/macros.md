@@ -2,7 +2,7 @@
 
 Our extensions to the Python language are built on [MacroPy](https://github.com/azazel75/macropy), from the PyPI package ``macropy3``.
 
-Because in Python macro expansion occurs *at import time*, Python programs whose main module uses macros, such as [our unit tests that contain usage examples](../unpythonic/syntax/test/), cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](macropy3). For convenience, ``setup.py`` installs this bootstrapper.
+Because in Python macro expansion occurs *at import time*, Python programs whose main module uses macros, such as [our unit tests that contain usage examples](../unpythonic/syntax/test/), cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](../macropy3). For convenience, ``setup.py`` installs this bootstrapper.
 
 **The bootstrapper is moving!** *Starting with `unpythonic` v0.14.1, it is already distributed in [imacropy](https://github.com/Technologicat/imacropy) [[PyPI](https://pypi.org/project/imacropy/)], which is its new, permanent home. It will be removed from `unpythonic` starting in v0.15.0. The reason is the bootstrapper is a general add-on for MacroPy, not specific to `unpythonic`.*
 
@@ -1084,7 +1084,7 @@ x0, ..., *xs = call_cc[f(...) if p else g(...)]
 call_cc[f(...) if p else g(...)]
 ```
 
-*NOTE*: ``*xs`` may need to be written as ``*xs,`` in order to explicitly make the LHS into a tuple. The variant without the comma seems to work when run with [the bootstrapper](macropy3) from a ``.py``, but fails in code run interactively in [the IPython+MacroPy console](https://github.com/azazel75/macropy/pull/20).
+*NOTE*: ``*xs`` may need to be written as ``*xs,`` in order to explicitly make the LHS into a tuple. The variant without the comma seems to work when run with [the bootstrapper](../macropy3) from a ``.py``, but fails in code run interactively in [the IPython+MacroPy console](https://github.com/azazel75/macropy/pull/20).
 
 *NOTE*: ``f()`` and ``g()`` must be **literal function calls**. Sneaky trickery (such as calling indirectly via ``unpythonic.misc.call`` or ``unpythonic.fun.curry``) is not supported. (The ``prefix`` and ``curry`` macros, however, **are** supported; just order the block macros as shown in the final section of this README.) This limitation is for simplicity; the ``call_cc[]`` needs to patch the ``cc=...`` kwarg of the call being made.
 

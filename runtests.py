@@ -56,7 +56,7 @@ def main():
     else:
         totalfails += runtests("macros",
                                listtestmodules(os.path.join("unpythonic", "syntax", "test")),
-                               [os.path.join("macro_extras", "macropy3"), "-m"])
+                               ["macropy3", "-m"])
 
     if not totalfails:
         print(CPASS + "*** ALL OK ***" + CEND)

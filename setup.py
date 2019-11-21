@@ -26,15 +26,15 @@ or
 #
 # This is also the top level of its source tree, relative to the top-level project directory setup.py resides in.
 #
-libname="unpythonic"
+libname = "unpythonic"
 
 # Short description for package list on PyPI
 #
-SHORTDESC="Supercharge your Python with parts of Lisp and Haskell."
+SHORTDESC = "Supercharge your Python with parts of Lisp and Haskell."
 
 # Long description for package homepage on PyPI
 #
-DESC="""We provide missing features for Python, mainly from the list processing
+DESC = """We provide missing features for Python, mainly from the list processing
 tradition, but with some haskellisms mixed in. We place a special emphasis on
 **clear, pythonic syntax**.
 
@@ -255,14 +255,14 @@ see the unit tests included in the source distribution.
 # Set up data files for packaging.
 #
 # Directories (relative to the top-level directory where setup.py resides) in which to look for data files.
-datadirs  = ()
+datadirs = ()
 
 # File extensions to be considered as data files. (Literal, no wildcards.)
-dataexts  = (".py", ".ipynb",  ".sh",  ".lyx", ".tex", ".txt", ".pdf")
+dataexts = (".py", ".ipynb", ".sh", ".lyx", ".tex", ".txt", ".pdf")
 
 # Standard documentation to detect (and package if it exists).
 #
-standard_docs     = ["README", "LICENSE", "TODO", "CHANGELOG", "AUTHORS"]  # just the basename without file extension
+standard_docs = ["README", "LICENSE", "TODO", "CHANGELOG", "AUTHORS"]  # just the basename without file extension
 standard_doc_exts = [".md", ".rst", ".txt", ""]  # commonly .md for GitHub projects, but other projects may use .rst or .txt (or even blank).
 
 #########################################################
@@ -287,10 +287,10 @@ datafiles = []
 detected_docs = []
 for docname in standard_docs:
     for ext in standard_doc_exts:
-        filename = "".join( (docname, ext) )  # relative to the directory in which setup.py resides
+        filename = "".join((docname, ext))  # relative to the directory in which setup.py resides
         if os.path.isfile(filename):
             detected_docs.append(filename)
-datafiles.append( ('.', detected_docs) )
+datafiles.append(('.', detected_docs))
 
 # Extract __version__ from the package __init__.py
 # (since it's not a good idea to actually run __init__.py during the build process).
@@ -307,23 +307,23 @@ try:
                 version = ast.parse(line).body[0].value.s
                 break
         else:
-            print( "WARNING: Version information not found in '%s', using placeholder '%s'" % (init_py_path, version), file=sys.stderr )
+            print("WARNING: Version information not found in '%s', using placeholder '%s'" % (init_py_path, version), file=sys.stderr)
 except FileNotFoundError:
-    print( "WARNING: Could not find file '%s', using placeholder version information '%s'" % (init_py_path, version), file=sys.stderr )
+    print("WARNING: Could not find file '%s', using placeholder version information '%s'" % (init_py_path, version), file=sys.stderr)
 
 #########################################################
 # Call setup()
 #########################################################
 
 setup(
-    name = "unpythonic",
-    version = version,
-    author = "Juha Jeronen",
-    author_email = "juha.m.jeronen@gmail.com",
-    url = "https://github.com/Technologicat/unpythonic",
+    name="unpythonic",
+    version=version,
+    author="Juha Jeronen",
+    author_email="juha.m.jeronen@gmail.com",
+    url="https://github.com/Technologicat/unpythonic",
 
-    description = SHORTDESC,
-    long_description = DESC,
+    description=SHORTDESC,
+    long_description=DESC,
 
     license = "BSD",
 
@@ -367,7 +367,7 @@ setup(
     # This **does not** automatically recurse into subpackages, so they must also be declared.
     #
     packages = ["unpythonic", "unpythonic.syntax"],
-    scripts = ["macro_extras/macropy3"],
+    scripts = ["macropy3"],
 
     zip_safe = False,  # macros are not zip safe, because the zip importer fails to find sources, and MacroPy needs them.
 
