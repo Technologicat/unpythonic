@@ -44,6 +44,7 @@ def read(*relpath, **kwargs):  # https://blog.ionelmc.ro/2014/05/25/python-packa
               encoding=kwargs.get('encoding', 'utf8')) as fh:
         return fh.read()
 
+# TODO: update version detector for Python 3.8 (accept also ast.Constant beside ast.Str)
 #
 # Extract __version__ from the package __init__.py
 # (since it's not a good idea to actually run __init__.py during the build process).
