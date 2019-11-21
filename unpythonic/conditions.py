@@ -59,7 +59,7 @@ from collections import deque, namedtuple
 from functools import partial
 from operator import itemgetter
 import contextlib
-from sys import stderr
+import warnings
 
 from .collections import box, unbox
 from .arity import arity_includes, UnknownArity
@@ -612,30 +612,41 @@ def cerror(condition):
         error(condition)
 
 def warn(condition):
-    """Like `signal`, but emit a warning to stderr if the condition is not handled.
+    """Like `signal`, but emit a warning if the condition is not handled.
 
-    Example::
+    For emitting the warning, we use Python's standard `warnings.warn` mechanism.
+    Note that Python expects warning types to inherit from `Warning`.
 
-        class HelpMe(Condition):
+    If the condition being signaled inherits from `Warning`, it is used as the
+    `message` parameter of `warnings.warn`. This will automatically set up the
+    object type as the warning category.
+
+    If not (i.e. some other exception was given), the generic category `Warning`
+    is used, with the message set to `str(condition)`.
+
+    You likely want to inherit custom warning conditions from both `Condition`
+    and `Warning`. Example::
+
+        class HelpMe(Condition, Warning):
             def __init__(self, value):
                 self.value = value
         with handlers((HelpMe, lambda c: invoke_restart("use_value", c.value))):
             with restarts(use_value=(lambda x: x)) as result:
-                warn(RuntimeError("hello"))  # not handled; prints a warning
+                warn(RuntimeError("hello"))  # not handled; emits a warning
                 ... # execution continues normally
-                warn(HelpMe(21))             # handled; no warning
+                warn(HelpMe(21))             # handled; no warning emitted
                 result << 42                 # not reached, because...
             assert unbox(result) == 21       # ...HelpMe was handled with use_value
 
-    `warn` internally establishes a restart `muffle`, which can be invoked to
-    override the printing of the warning message.
+    `warn` internally establishes a restart `muffle`, which can be invoked
+    in a handler to suppress the emission of a particular warning.
 
     Like Common Lisp, as a convenience we export a handler callable `muffle`
     that just invokes the eponymous restart (and raises `ControlError` if not
     found)::
 
         with handlers((HelpMe, muffle))):
-            warn(HelpMe(42))  # not handled; no warning
+            warn(HelpMe(42))  # not handled; no warning emitted
             ... # execution continues normally
 
     The combination of `warn` and `muffle` behaves somewhat like
@@ -644,8 +655,10 @@ def warn(condition):
     """
     with restarts(muffle=(lambda: None)):  # just for control, no return value
         signal(condition)
-        # TODO: use Python's warnings module to properly issue warnings
-        print("warn: Unhandled {}: {}".format(type(condition), condition), file=stderr)
+        if isinstance(condition, Warning):
+            warnings.warn(condition)
+        else:
+            warnings.warn(str(condition), category=Warning)
 
 # Standard handler callables for the predefined protocols
 
