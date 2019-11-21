@@ -298,6 +298,7 @@ datafiles.append(('.', detected_docs))
 # http://stackoverflow.com/questions/2058802/how-can-i-get-the-version-defined-in-setup-py-setuptools-in-my-package
 #
 import ast
+import sys
 init_py_path = os.path.join(libname, '__init__.py')
 version = '0.0.unknown'
 try:
