@@ -370,8 +370,11 @@ setup(
     packages=["unpythonic", "unpythonic.syntax"],
     scripts=["macropy3"],
 
-    zip_safe=False,  # macros are not zip safe, because the zip importer fails to find sources, and MacroPy needs them.
+    zip_safe=False  # macros are not zip safe, because the zip importer fails to find sources, and MacroPy needs them.
 
     # Custom data files not inside a Python package
-    data_files=datafiles
+    # TODO: bad idea, let's not do that. See notes in
+    # https://github.com/Technologicat/setup-template-cython
+    # for a proper solution.
+    #data_files=datafiles
 )
