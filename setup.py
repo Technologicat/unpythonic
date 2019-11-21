@@ -326,17 +326,17 @@ setup(
     description=SHORTDESC,
     long_description=DESC,
 
-    license = "BSD",
+    license="BSD",
 
     # free-form text field; http://stackoverflow.com/questions/34994130/what-platforms-argument-to-setup-in-setup-py-does
-    platforms = ["Linux"],
+    platforms=["Linux"],
 
     # See
     #    https://pypi.python.org/pypi?%3Aaction=list_classifiers
     #
     # for the standard classifiers.
     #
-    classifiers = [ "Development Status :: 4 - Beta",
+    classifiers=["Development Status :: 4 - Beta",
                     "Environment :: Console",
                     "Intended Audience :: Developers",
                     "License :: OSI Approved :: BSD License",
@@ -346,20 +346,20 @@ setup(
                     "Programming Language :: Python :: 3.4",
                     "Topic :: Software Development :: Libraries",
                     "Topic :: Software Development :: Libraries :: Python Modules"
-                  ],
+                 ],
 
     # See
     #    http://setuptools.readthedocs.io/en/latest/setuptools.html
     #
-    setup_requires = [],
-    install_requires = [],
-    provides = ["unpythonic"],
+    setup_requires=[],
+    install_requires=[],
+    provides=["unpythonic"],
 
     # keywords for PyPI (in case you upload your project)
     #
     # e.g. the keywords your project uses as topics on GitHub, minus "python" (if there)
     #
-    keywords = ["functional-programming", "language-extension", "syntactic-macros",
+    keywords=["functional-programming", "language-extension", "syntactic-macros",
                 "tail-call-optimization", "tco", "continuations", "currying", "lazy-evaluation",
                 "dynamic-variable", "macros", "lisp", "scheme", "racket", "haskell"],
 
@@ -367,12 +367,11 @@ setup(
     #
     # This **does not** automatically recurse into subpackages, so they must also be declared.
     #
-    packages = ["unpythonic", "unpythonic.syntax"],
-    scripts = ["macropy3"],
+    packages=["unpythonic", "unpythonic.syntax"],
+    scripts=["macropy3"],
 
-    zip_safe = False,  # macros are not zip safe, because the zip importer fails to find sources, and MacroPy needs them.
+    zip_safe=False,  # macros are not zip safe, because the zip importer fails to find sources, and MacroPy needs them.
 
     # Custom data files not inside a Python package
-    data_files = datafiles
+    data_files=datafiles
 )
-
