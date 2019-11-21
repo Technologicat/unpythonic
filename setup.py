@@ -2,7 +2,7 @@
 #
 """setuptools-based setup.py for unpythonic.
 
-Tested on Python 3.4.
+Tested on Python 3.6.
 
 Usage as usual with setuptools:
     python3 setup.py build
