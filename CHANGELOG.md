@@ -36,6 +36,7 @@ If you still use 3.4 and find something in `unpythonic` doesn't work there, plea
 **Non-breaking changes**:
 
 - `setscape`/`escape` have been renamed `catch`/`throw`, to match the standard terminology in the Lisp family. **The old nonstandard names are now deprecated, and will be removed in 0.15.0.**
+- Move macro documentation to `doc/macros.md`. (Was `macro_extras/README.md`.)
 
 **Fixed**:
 

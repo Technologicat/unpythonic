@@ -18,7 +18,7 @@ None required.
 ### Documentation
 
 [Pure-Python feature set](doc/features.md)  
-[Syntactic macro feature set](macro_extras/README.md)  
+[Syntactic macro feature set](doc/macros.md)  
 [Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.
 
 
@@ -187,7 +187,7 @@ assert x == 85
 
 <details><summary>Introduce expression-local variables.</summary>
 
-[[docs](macro_extras/README.md#let-letseq-letrec-as-macros)]
+[[docs](doc/macros.md#let-letseq-letrec-as-macros)]
 
 ```python
 from unpythonic.syntax import macros, let, letseq, letrec
@@ -204,7 +204,7 @@ z = letrec[((evenp, lambda x: (x == 0) or oddp(x - 1)),  # LET mutually RECursiv
 </details>  
 <details><summary>Introduce stateful functions.</summary>
 
-[[docs](macro_extras/README.md#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)]
+[[docs](doc/macros.md#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)]
 
 ```python
 from unpythonic.syntax import macros, dlet
@@ -218,7 +218,7 @@ assert count() == 2
 </details>  
 <details><summary>Code imperatively in an expression.</summary>
 
-[[docs](macro_extras/README.md#do-as-a-macro-stuff-imperative-code-into-an-expression-with-style)]
+[[docs](doc/macros.md#do-as-a-macro-stuff-imperative-code-into-an-expression-with-style)]
 
 ```python
 from unpythonic.syntax import macros, do, local, delete
@@ -233,7 +233,7 @@ assert x == 84
 </details>  
 <details><summary>Apply tail call optimization (TCO) automatically.</summary>
 
-[[docs](macro_extras/README.md#tco-automatic-tail-call-optimization-for-python)]
+[[docs](doc/macros.md#tco-automatic-tail-call-optimization-for-python)]
 
 ```python
 from unpythonic.syntax import macros, tco
@@ -247,7 +247,7 @@ with tco:
 </details>  
 <details><summary>Curry automatically, à la Haskell.</summary>
 
-[[docs](macro_extras/README.md#curry-automatic-currying-for-python)]
+[[docs](doc/macros.md#curry-automatic-currying-for-python)]
 
 ```python
 from unpythonic.syntax import macros, curry
@@ -265,7 +265,7 @@ with curry:
 </details>  
 <details><summary>Make lazy functions, a.k.a. call-by-need.</summary>
 
-[[docs](macro_extras/README.md#lazify-call-by-need-for-python)]
+[[docs](doc/macros.md#lazify-call-by-need-for-python)]
 
 ```python
 from unpythonic.syntax import macros, lazify
@@ -282,7 +282,7 @@ with lazify:
 </details>  
 <details><summary>Capture and use continuations (call/cc).</summary>
 
-[[docs](macro_extras/README.md#continuations-callcc-for-python)]
+[[docs](doc/macros.md#continuations-callcc-for-python)]
 
 ```python
 from unpythonic.syntax import macros, continuations, call_cc

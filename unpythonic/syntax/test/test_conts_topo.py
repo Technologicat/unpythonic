@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Test exotic program topologies.
 
-For pictures, see ``macro_extras/callcc_topology.pdf`` in the source distribution.
+For pictures, see ``doc/callcc_topology.pdf`` in the source distribution.
 """
 
 from inspect import stack

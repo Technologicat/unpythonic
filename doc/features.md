@@ -2,7 +2,7 @@
 
 This is the pure-Python API of `unpythonic`. Most features listed here need no macros, and are intended to be used directly.
 
-The exception are the features marked **[M]**, which are primarily intended as a code generation target API for macros. See the [documentation for syntactic macros](../macro_extras/) for details. Usually the relevant macro has the same name as the underlying implementation; for example, `unpythonic.do` is the implementation, while `unpythonic.syntax.do` is the macro. The purpose of the macro layer is to improve ease of use by removing accidental complexity, thus providing a more human-readable source code representation that compiles to calls to the underlying API. If you don't want to depend on MacroPy, feel free to use also these APIs as defined below (though, this may be less convenient).
+The exception are the features marked **[M]**, which are primarily intended as a code generation target API for macros. See the [documentation for syntactic macros](macros.md) for details. Usually the relevant macro has the same name as the underlying implementation; for example, `unpythonic.do` is the implementation, while `unpythonic.syntax.do` is the macro. The purpose of the macro layer is to improve ease of use by removing accidental complexity, thus providing a more human-readable source code representation that compiles to calls to the underlying API. If you don't want to depend on MacroPy, feel free to use also these APIs as defined below (though, this may be less convenient).
 
 ### Features
 
@@ -68,9 +68,9 @@ Tools to bind identifiers in ways not ordinarily supported by Python.
 
 ### ``let``, ``letrec``: local bindings in an expression
 
-**NOTE**: This is primarily a code generation target API for the ``let[]`` family of [macros](../macro_extras/), which make the constructs easier to use. Below is the documentation for the raw API.
+**NOTE**: This is primarily a code generation target API for the ``let[]`` family of [macros](macros.md), which make the constructs easier to use. Below is the documentation for the raw API.
 
-Introduces bindings local to an expression, like Scheme's ``let`` and ``letrec``. For easy-to-use versions of these constructs that look almost like normal Python, see [our macros](../macro_extras/).
+Introduces bindings local to an expression, like Scheme's ``let`` and ``letrec``. For easy-to-use versions of these constructs that look almost like normal Python, see [our macros](macros.md).
 
 In ``let``, the bindings are independent (do not see each other). A binding is of the form ``name=value``, where ``name`` is a Python identifier, and ``value`` is any expression.
 
@@ -170,7 +170,7 @@ This has been fixed in Python 3.6, see [PEP 468](https://www.python.org/dev/peps
 
 #### Lispylet: alternative syntax
 
-**NOTE**: This is primarily a code generation target API for the ``let[]`` family of [macros](../macro_extras/), which make the constructs easier to use. Below is the documentation for the raw API.
+**NOTE**: This is primarily a code generation target API for the ``let[]`` family of [macros](macros.md), which make the constructs easier to use. Below is the documentation for the raw API.
 
 If you need **guaranteed left-to-right initialization** of `letrec` bindings in Pythons older than 3.6, there is also an alternative implementation for all the `let` constructs, with positional syntax and more parentheses. The only difference is the syntax; the behavior is identical with the default implementation.
 
@@ -604,7 +604,7 @@ Sequencing refers to running multiple expressions, in sequence, in place of one 
 
 Keep in mind the only reason to ever need multiple expressions: *side effects.* (Assignment is a side effect, too; it modifies the environment. In functional style, intermediate named definitions to increase readability are perhaps the most useful kind of side effect.)
 
-See also ``multilambda`` in [macros](../macro_extras/).
+See also ``multilambda`` in [macros](macros.md).
 
 
 ### ``begin``: sequence side effects
@@ -628,7 +628,7 @@ Actually a tuple in disguise. If worried about memory consumption, use `lazy_beg
 
 ### ``do``: stuff imperative code into an expression
 
-**NOTE**: This is primarily a code generation target API for the ``do[]`` [macro](../macro_extras/), which makes the construct easier to use. Below is the documentation for the raw API.
+**NOTE**: This is primarily a code generation target API for the ``do[]`` [macro](macros.md), which makes the construct easier to use. Below is the documentation for the raw API.
 
 No monadic magic. Basically, ``do`` is:
 
@@ -807,7 +807,7 @@ Things missing from the standard library.
    - suffix `i` to use with an iterable that contains the functions (`composeli`, `composeri`, `composelci`, `composerci`, `composel1i`, `composer1i`)
  - `withself`: essentially, the Y combinator trick as a decorator. Allows a lambda to refer to itself.
    - The ``self`` argument is declared explicitly, but passed implicitly (as the first positional argument), just like the ``self`` argument of a method.
- - `apply`: the lispy approach to starargs. Mainly useful with the ``prefix`` [macro](../macro_extras/).
+ - `apply`: the lispy approach to starargs. Mainly useful with the ``prefix`` [macro](macros.md).
  - `andf`, `orf`, `notf`: compose predicates (like Racket's `conjoin`, `disjoin`, `negate`).
  - `flip`: reverse the order of positional arguments.
  - `rotate`: a cousin of `flip`. Permute the order of positional arguments in a cycle.
@@ -2330,11 +2330,11 @@ assert result == 42
 
 ### ``forall``: nondeterministic evaluation
 
-We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. See also the easy-to-use [macro](../macro_extras/) version with natural syntax and a clean implementation.
+We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. See also the easy-to-use [macro](macros.md) version with natural syntax and a clean implementation.
 
 An important feature of McCarthy's [`amb` operator](https://rosettacode.org/wiki/Amb) is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. If that sounds a lot like ``call/cc``, that's because that's how ``amb`` is usually implemented. See examples [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html).
 
-Python can't do that, short of transforming the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. **If that's what you want**, see ``continuations`` in [the macros](../macro_extras/).
+Python can't do that, short of transforming the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. **If that's what you want**, see ``continuations`` in [the macros](macros.md).
 
 This ``forall`` is essentially a tuple comprehension that:
 

@@ -66,11 +66,11 @@ It would be nice to be able to use indentation to structure expressions to impro
 
 ### Python is not a Lisp
 
-The point behind providing `let` and `begin` (and the ``let[]`` and ``do[]`` [macros](../macro_extras/)) is to make Python lambdas slightly more useful - which was really the starting point for the whole `unpythonic` experiment.
+The point behind providing `let` and `begin` (and the ``let[]`` and ``do[]`` [macros](macros.md)) is to make Python lambdas slightly more useful - which was really the starting point for the whole `unpythonic` experiment.
 
 The oft-quoted single-expression limitation of the Python ``lambda`` is ultimately a herring, as this library demonstrates. The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. We can work around some of this:
 
- - The expression form of `if` can be used, but readability suffers if nested. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers there too. Another possibility is to use MacroPy to define a ``cond`` expression, but it's essentially duplicating a feature the language already almost has. Our [macros](../macro_extras/) do exactly that, providing a ``cond`` expression as a macro.
+ - The expression form of `if` can be used, but readability suffers if nested. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers there too. Another possibility is to use MacroPy to define a ``cond`` expression, but it's essentially duplicating a feature the language already almost has. Our [macros](macros.md) do exactly that, providing a ``cond`` expression as a macro.
  - Functional looping (with TCO, to boot) is possible.
  - ``unpythonic.ec.call_ec`` gives us ``return`` (the ec), and ``unpythonic.misc.raisef`` gives us ``raise``.
  - Exception handling (``try``/``except``/``else``/``finally``) and context management (``with``) are currently **not** available for lambdas, even in ``unpythonic``.
@@ -89,7 +89,7 @@ Our `letrec` behaves like `let*` in that if `valexpr` is not a function, it may 
 
 Note the function versions of our `let` constructs, in the pure-Python API, are **not** properly lexically scoped; in case of nested ``let`` expressions, one must be explicit about which environment the names come from.
 
-The [macro versions](../macro_extras/) of the `let` constructs **are** lexically scoped. The macros also provide a ``letseq[]`` that, similarly to Racket's ``let*``, gives a compile-time guarantee that no binding refers to a later one.
+The [macro versions](macros.md) of the `let` constructs **are** lexically scoped. The macros also provide a ``letseq[]`` that, similarly to Racket's ``let*``, gives a compile-time guarantee that no binding refers to a later one.
 
 Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
 
@@ -97,7 +97,7 @@ Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [
 
 Why the clunky `e.set("foo", newval)` or `e << ("foo", newval)`, which do not directly mention `e.foo`? This is mainly because in Python, the language itself is not customizable. If we could define a new operator `e.foo <op> newval` to transform to `e.set("foo", newval)`, this would be easily solved.
 
-Our [macros](../macro_extras/) essentially do exactly this, but by borrowing the ``<<`` operator to provide the syntax ``foo << newval``, because even with MacroPy, it is not possible to define new [BinOp](https://greentreesnakes.readthedocs.io/en/latest/nodes.html#BinOp)s in Python. That would be possible essentially as a *reader macro* (as it's known in the Lisp world), to transform custom BinOps into some syntactically valid Python code before proceeding with the rest of the import machinery, but it seems as of this writing, no one has done this.
+Our [macros](macros.md) essentially do exactly this, but by borrowing the ``<<`` operator to provide the syntax ``foo << newval``, because even with MacroPy, it is not possible to define new [BinOp](https://greentreesnakes.readthedocs.io/en/latest/nodes.html#BinOp)s in Python. That would be possible essentially as a *reader macro* (as it's known in the Lisp world), to transform custom BinOps into some syntactically valid Python code before proceeding with the rest of the import machinery, but it seems as of this writing, no one has done this.
 
 If you want a framework to play around with reader macros in Python, see [Pydialect](https://github.com/Technologicat/pydialect). You'll still have to write a parser, where [Pyparsing](https://github.com/pyparsing/pyparsing) may help; but supporting something as complex as a customized version of the surface syntax of Python is still a lot of work, and may quickly go out of date.
 
@@ -127,7 +127,7 @@ Benefits and costs of ``return jump(...)``:
 
 The other simple-ish solution is to use exceptions, making the jump wrest control from the caller. Then ``jump(...)`` becomes a verb, but this approach is 2-5x slower, when measured with a do-nothing loop. (See the old default TCO implementation in v0.9.2.)
 
-Our [macros](../macro_extras/) provide an easy-to use solution. Just wrap the relevant section of code in a ``with tco:``, to automatically apply TCO to code that looks exactly like standard Python. With the macro, function definitions (also lambdas) and returns are automatically converted. It also knows enough not to add a ``@trampolined`` if you have already declared a ``def`` as ``@looped`` (or any of the other TCO-enabling decorators in ``unpythonic.fploop``, or ``unpythonic.fix.fixtco``).
+Our [macros](macros.md) provide an easy-to use solution. Just wrap the relevant section of code in a ``with tco:``, to automatically apply TCO to code that looks exactly like standard Python. With the macro, function definitions (also lambdas) and returns are automatically converted. It also knows enough not to add a ``@trampolined`` if you have already declared a ``def`` as ``@looped`` (or any of the other TCO-enabling decorators in ``unpythonic.fploop``, or ``unpythonic.fix.fixtco``).
 
 For other libraries bringing TCO to Python, see:
 

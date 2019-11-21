@@ -1131,7 +1131,7 @@ def continuations(tree, *, gen_sym, **kw):
     captures a continuation. (It is actually a macro, for technical reasons.)
 
     For various possible program topologies that continuations may introduce, see
-    the clarifying pictures under ``macro_extras/`` in the source distribution.
+    the clarifying pictures under ``doc/`` in the source distribution.
 
     Syntax::
 
