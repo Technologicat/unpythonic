@@ -337,15 +337,15 @@ setup(
     # for the standard classifiers.
     #
     classifiers=["Development Status :: 4 - Beta",
-                    "Environment :: Console",
-                    "Intended Audience :: Developers",
-                    "License :: OSI Approved :: BSD License",
-                    "Operating System :: POSIX :: Linux",
-                    "Programming Language :: Python",
-                    "Programming Language :: Python :: 3",
-                    "Programming Language :: Python :: 3.4",
-                    "Topic :: Software Development :: Libraries",
-                    "Topic :: Software Development :: Libraries :: Python Modules"
+                 "Environment :: Console",
+                 "Intended Audience :: Developers",
+                 "License :: OSI Approved :: BSD License",
+                 "Operating System :: POSIX :: Linux",
+                 "Programming Language :: Python",
+                 "Programming Language :: Python :: 3",
+                 "Programming Language :: Python :: 3.4",
+                 "Topic :: Software Development :: Libraries",
+                 "Topic :: Software Development :: Libraries :: Python Modules"
                  ],
 
     # See
@@ -360,8 +360,8 @@ setup(
     # e.g. the keywords your project uses as topics on GitHub, minus "python" (if there)
     #
     keywords=["functional-programming", "language-extension", "syntactic-macros",
-                "tail-call-optimization", "tco", "continuations", "currying", "lazy-evaluation",
-                "dynamic-variable", "macros", "lisp", "scheme", "racket", "haskell"],
+              "tail-call-optimization", "tco", "continuations", "currying", "lazy-evaluation",
+              "dynamic-variable", "macros", "lisp", "scheme", "racket", "haskell"],
 
     # Declare packages so that  python -m setup build  will copy .py files (especially __init__.py).
     #
