@@ -177,7 +177,7 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     if isinstance(name_or_restart, str):
         restart = find_restart(name_or_restart)
         if not restart:
-            error(ControlError("No such restart: '{}'".format(name_or_restart)))
+            error(ControlError("No such restart: '{}'; available restarts: {}".format(name_or_restart, available_restarts())))
     elif isinstance(name_or_restart, BoundRestart):
         restart = name_or_restart
     else:
