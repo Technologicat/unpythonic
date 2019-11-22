@@ -841,15 +841,23 @@ def powerset(iterable):
         # --> ((0,), (1,), (0, 1), (2,), (0, 2), (1, 2), (0, 1, 2))
 
         # all divisors of 36 = 2 * 2 * 3 * 3
-        tuple(sorted(prod(x) for x in uniqify(powerset([2, 2, 3, 3]))))
+        tuple(sorted(prod(xs) for xs in uniqify(powerset([2, 2, 3, 3]))))
         # --> (2, 3, 4, 6, 9, 12, 18, 36)
 
     If you want to try that for other positive integers, SymPy can perform
     the factorization::
 
         import sympy as sy
-        [k for k, v in sy.factorint(36).items() for _ in range(v)]
+        [factor for factor, multiplicity in sy.factorint(36).items()
+                for _ in range(multiplicity)]
         # --> [2, 2, 3, 3]
+
+    **NOTE**: The itertools recipe implementation is shorter than ours, and
+    likely has better performance, but it assumes finite input; **we do not**.
+    The `more-itertools` library packages that recipe, so the same limitation
+    applies there, too. See:
+        https://docs.python.org/3/library/itertools.html
+        https://pypi.org/project/more-itertools/
 
     **CAUTION**:
 
@@ -858,11 +866,11 @@ def powerset(iterable):
         [len(list(powerset(range(k)))) for k in range(10)]
         # --> [0, 1, 3, 7, 15, 31, 63, 127, 255, 511]
 
-    (proof by induction) and furthermore the total item count in the subsets
+    (proof by induction) and furthermore, the total item count in the subsets
     also grows quickly::
 
         from collections import Counter
-        def length_distribution(k):
+        def length_distribution(k):  # count of subsets of each length
             return Counter(sorted(len(x) for x in powerset(range(k))))
         def total_num_items(ld):
             return sum(length * count for length, count in ld.items())
@@ -883,8 +891,8 @@ def powerset(iterable):
         total_num_items(d)
         # --> 5120
 
-    this becomes intractable quite quickly as the length of the input iterable
-    grows.
+    Hence, building all of the power set becomes intractable quite quickly as
+    the length of the input iterable increases.
     """
     it = iter(iterable)
     bag = []
