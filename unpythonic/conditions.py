@@ -660,9 +660,9 @@ def warn(condition):
     with restarts(muffle=(lambda: None)):  # just for control, no return value
         signal(condition)
         if isinstance(condition, Warning):
-            warnings.warn(condition)
+            warnings.warn(condition, stacklevel=2)  # 2 to ignore our lispy `warn` wrapper.
         else:
-            warnings.warn(str(condition), category=Warning)
+            warnings.warn(str(condition), category=Warning, stacklevel=2)
 
 # Standard handler callables for the predefined protocols
 
