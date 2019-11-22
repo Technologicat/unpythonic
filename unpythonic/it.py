@@ -26,7 +26,8 @@ __all__ = ["rev", "map", "map_longest",
            "inn", "iindex",
            "window", "chunked",
            "within", "fixpoint",
-           "interleave"]
+           "interleave",
+           "powerset"]
 
 from builtins import map as stdlib_map
 from operator import itemgetter
@@ -820,3 +821,80 @@ def interleave(*iterables):
             yield from roundrobin()
     except ShortestInputEnded:
         return
+
+def powerset(iterable):
+    """Yield the powerset of a general iterable.
+
+    The powerset is the set of all subsets of items taken from the iterable.
+    Each subset (also single-item subsets) is packed as a tuple, to support
+    duplicate items in the input, as well as to make the output hashable
+    (provided that each item is). (This makes the output eligible for e.g.
+    `uniqify`.)
+
+    Works for general iterables, also potentially infinite ones, as long as
+    only a finite prefix is ever requested. But be aware that all the subsets
+    yielded so far are stored internally in order to form new subsets.
+
+    Examples::
+
+        tuple(powerset(range(3)))
+        # --> ((0,), (1,), (0, 1), (2,), (0, 2), (1, 2), (0, 1, 2))
+
+        # all divisors of 36 = 2 * 2 * 3 * 3
+        tuple(sorted(prod(x) for x in uniqify(powerset([2, 2, 3, 3]))))
+        # --> (2, 3, 4, 6, 9, 12, 18, 36)
+
+    If you want to try that for other positive integers, SymPy can perform
+    the factorization::
+
+        import sympy as sy
+        [k for k, v in sy.factorint(36).items() for _ in range(v)]
+        # --> [2, 2, 3, 3]
+
+    **CAUTION**:
+
+    The size of the powerset of an iterable of length `n` is `2**n - 1`::
+
+        [len(list(powerset(range(k)))) for k in range(10)]
+        # --> [0, 1, 3, 7, 15, 31, 63, 127, 255, 511]
+
+    (proof by induction) and furthermore the total item count in the subsets
+    also grows quickly::
+
+        from collections import Counter
+        def length_distribution(k):
+            return Counter(sorted(len(x) for x in powerset(range(k))))
+        def total_num_items(ld):
+            return sum(length * count for length, count in ld.items())
+        sizes = [total_num_items(length_distribution(k)) for k in range(10)]
+        # --> [0, 1, 4, 12, 32, 80, 192, 448, 1024, 2304]
+
+        d = length_distribution(10)
+        # --> Counter({1: 10,
+        #              2: 45,
+        #              3: 120,
+        #              4: 210,
+        #              5: 252,
+        #              6: 210,
+        #              7: 120,
+        #              8: 45,
+        #              9: 10,
+        #              10: 1})
+        total_num_items(d)
+        # --> 5120
+
+    this becomes intractable quite quickly as the length of the input iterable
+    grows.
+    """
+    it = iter(iterable)
+    bag = []
+    while True:
+        try:
+            x = (next(it),)
+        except StopIteration:
+            return
+        yield x
+        t = [c + x for c in bag]
+        bag.append(x)
+        yield from t
+        bag.extend(t)
