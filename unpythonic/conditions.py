@@ -76,8 +76,11 @@ def _ensure_stacks():  # per-thread init
 class ControlError(Exception):
     """A condition for errors detected by the conditions system.
 
-    Known in Common Lisp as `CONTROL-ERROR`. This is signaled by the
-    conditions system e.g. when trying to invoke a nonexistent restart.
+    Known in Common Lisp as `CONTROL-ERROR`. This is signaled by the condition
+    system e.g. when trying to invoke a nonexistent restart.
+
+    The `error` protocol **raises** `ControlError` to the user as a last resort
+    when no handler handles the signal.
     """
 
 def signal(condition):
@@ -120,9 +123,10 @@ def signal(condition):
     until the last possible moment.
 
     Once it has been determined which restart will be invoked, *then* it is
-    safe to unwind (using a plain old exception), because then it's guaranteed
-    that the stack frames between the `with restarts` block that will be
-    handling the restart and the `signal` call will not be needed any more.
+    safe to unwind (by raising a plain old exception), because then it's
+    guaranteed that the stack frames between the `with restarts` block that
+    will be handling the restart and the `signal` call will not be needed any
+    more.
 
     You can signal any exception or warning object, both builtins and any
     custom ones.
@@ -159,13 +163,15 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     Any args and kwargs are passed through to the restart. Refer to the particular
     restart's documentation (or source code) for what arguments it expects.
 
-    To handle the condition, call `invoke_restart` from inside your condition
+    To *handle* a condition, call `invoke_restart` from inside your condition
     handler. The call immediately terminates the handler, transferring control
     to the restart.
 
-    To instead cancel, and delegate to the next (outer) handler for the same
-    condition type, return normally from the handler without calling
-    `invoke_restart()`.
+    To cancel, and delegate to the next (outer) handler for the same condition
+    type, return normally from the handler without calling `invoke_restart()`.
+    The return value of the handler does not matter. Any side effects the
+    canceled handler performed (such as logging), up to the point where it
+    returned, still occur.
 
     This function never returns normally.
     """
@@ -240,6 +246,11 @@ set of args/kwargs.
 def invoker(restart_name, *args, **kwargs):
     """Create a handler that just invokes the named restart.
 
+    The args and kwargs are "frozen" into the created handler by closure, and
+    passed through to the restart whenever the created handler triggers. This
+    is useful for passing constants (i.e. any call site specific data that
+    does not depend on the value of the condition instance).
+
     The name `invoker` is both short for *invoke restart* (but do it later)
     and describes the return value, which is an invoker.
 
@@ -296,7 +307,7 @@ def invoker(restart_name, *args, **kwargs):
     """
     rename = namelambda(restart_name)
     the_invoker = rename(lambda c: invoke_restart(restart_name, *args, **kwargs))
-    the_invoker.__doc__ = "Invoke the restart '{}'.".format(restart_name)
+    the_invoker.__doc__ = "Invoke the '{}' restart.".format(restart_name)
     return the_invoker
 
 class _Stacked:  # boilerplate
@@ -338,13 +349,15 @@ class handlers(_Stacked):
     the condition object (just using its type for control purposes, like an
     `except ...` clause), the handler doesn't need to accept any arguments.
 
-    To handle the condition, a handler must call `invoke_restart()` for one of
-    the restarts currently in scope. This immediately terminates the handler,
+    To *handle* the condition, a handler must call `invoke_restart()` for one
+    of the restarts currently in scope. This immediately terminates the handler,
     transferring control to the restart.
 
-    To instead cancel, and delegate to the next (outer) handler for the same
-    condition type, a handler may return normally without calling
-    `invoke_restart()`. The return value of the handler is ignored.
+    To cancel, and delegate to the next (outer) handler for the same condition
+    type, a handler may return normally without calling `invoke_restart()`. The
+    return value of the handler is ignored. Any side effects the canceled
+    handler performed (such as logging), up to the point where it returned,
+    still occur.
 
     **Notes**
 
