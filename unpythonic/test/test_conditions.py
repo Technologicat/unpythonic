@@ -297,7 +297,7 @@ def test():
                 invoke_restart(r)
             # just a convenient way to tell the test code that it wasn't found.
             raise NoItDidntExist()
-        # The condition instance parameter for a hanlder is optional - not needed
+        # The condition instance parameter for a handler is optional - not needed
         # if you don't need data from the instance.
         with handlers((JustACondition, lambda: invoke_if_exists("myrestart"))):
             # Let's set up "myrestart".
