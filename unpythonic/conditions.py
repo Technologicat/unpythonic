@@ -182,8 +182,8 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     elif isinstance(name_or_restart, BoundRestart):
         restart = name_or_restart
     else:
-        error(TypeError("Expected str or result of find_restart, got {} with value '{}'".format(type(name_or_restart), name_or_restart)))
-    # Now we are guaranteed to unwind only up to the matching "with restarts".
+        error(TypeError("Expected str or a return value of find_restart, got {} with value '{}'".format(type(name_or_restart), name_or_restart)))
+    # Found it - now we are guaranteed to unwind only up to the matching "with restarts".
     raise InvokeRestart(restart, *args, **kwargs)
 
 use_value = partial(invoke_restart, "use_value")
