@@ -5,7 +5,7 @@ from ..conditions import signal, find_restart, invoke_restart, invoker, use_valu
     available_restarts, available_handlers, \
     error, cerror, proceed, \
     warn, muffle, \
-    Condition, ControlError
+    ControlError
 from ..misc import raisef, slurp
 from ..collections import box, unbox
 
@@ -15,7 +15,7 @@ from queue import Queue
 def test():
     # basic usage
     def basic_usage():
-        class OddNumberError(Condition):
+        class OddNumberError(Exception):
             def __init__(self, x):
                 self.x = x
 
@@ -97,7 +97,7 @@ def test():
     #  instead of the usual result of the block, it may have as its result the
     #  return value of a restart, if a signal/handler/restart combination ran.)
     def basic_usage2():
-        class OddNumberError(Condition):
+        class OddNumberError(Exception):
             def __init__(self, x):
                 self.x = x
         def lowlevel():
@@ -136,7 +136,7 @@ def test():
     # describing the execution path that was taken.
     def threelevel():
         # The low and mid-level parts are shared between the use cases.
-        class TellMeHowToRecover(Condition):
+        class TellMeHowToRecover(Exception):
             pass
 
         def lowlevel():
@@ -170,7 +170,7 @@ def test():
         highlevel3()
     threelevel()
 
-    class JustTesting(Condition):
+    class JustTesting(Exception):
         pass
 
     # Handler clauses can also take a tuple of types (instead of a single type).
@@ -287,7 +287,7 @@ def test():
     # find_restart can be used to look for a restart before committing to
     # actually invoking it.
     def finding():
-        class JustACondition(Condition):
+        class JustACondition(Exception):
             pass
         class NoItDidntExist(Exception):
             pass
@@ -319,7 +319,7 @@ def test():
         # The signal() low-level function does not require the condition to be handled.
         # If unhandled, signal() just returns normally.
         try:
-            signal(RuntimeError("woo"))  # actually any exception is ok, it doesn't have to be a Condition...
+            signal(RuntimeError("woo"))  # actually any exception type is ok
         except Exception as err:
             assert False, str(err)
 
@@ -342,7 +342,7 @@ def test():
     errorcases()
 
     # name shadowing: dynamically the most recent binding of the same restart name wins
-    class HelpMe(Condition):
+    class HelpMe(Exception):
         def __init__(self, value):
             self.value = value
     def name_shadowing():

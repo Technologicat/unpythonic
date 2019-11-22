@@ -4,6 +4,8 @@ To keep this simple, no debugger support. And no implicit "no such function,
 what would you like to do?" hook on every function call in the language. To use
 conditions, you have to explicitly ask for them.
 
+No separate base class for conditions; you can signal any exception or warning.
+
 This module exports the core forms `signal`, `invoke_restart`, `with restarts`,
 and `with handlers`, which interlock in a very particular way (see examples).
 
@@ -52,7 +54,7 @@ __all__ = ["signal", "error",
            "available_restarts", "available_handlers",
            "restarts", "with_restarts",
            "handlers",
-           "Condition", "ControlError"]
+           "ControlError"]
 
 import threading
 from collections import deque, namedtuple
@@ -71,14 +73,7 @@ def _ensure_stacks():  # per-thread init
         if not hasattr(_stacks, x):
             setattr(_stacks, x, deque())
 
-class Condition(Exception):
-    """Base class for conditions.
-
-    To signal a condition, pass a `Condition` or subclass instance to `signal`,
-    do not `raise` it.
-    """
-
-class ControlError(Condition):
+class ControlError(Exception):
     """A condition for errors detected by the conditions system.
 
     Known in Common Lisp as `CONTROL-ERROR`. This is signaled by the
@@ -88,9 +83,9 @@ class ControlError(Condition):
 def signal(condition):
     """Signal a condition.
 
-    Signaling a condition works like raising an exception (pass a `Condition`
-    or subclass instance to `signal`), but the act of signaling itself does
-    **not** yet unwind the call stack.
+    Signaling a condition works similarly to raising an exception (pass an
+    `Exception` or subclass instance to `signal`), but the act of signaling
+    itself does **not** yet unwind the call stack.
 
     The `signal` control construct gives a chance for a condition handler (see
     `with handlers`) to wrest control if it wants to, by giving it a chance to
@@ -129,9 +124,8 @@ def signal(condition):
     that the stack frames between the `with restarts` block that will be
     handling the restart and the `signal` call will not be needed any more.
 
-    You can actually signal any exception, not only subclasses of `Condition`.
-    This is useful when one of Python's existing exception types already covers
-    the use case.
+    You can signal any exception or warning object, both builtins and any
+    custom ones.
     """
     # Since the handler is called normally, we don't unwind the call stack,
     # remaining inside the `signal()` call in the low-level code.
@@ -603,7 +597,7 @@ def cerror(condition):
 
         # If your condition needs data, it can be passed to __init__.
         # Here this is just to illustrate - the data is unused.
-        class OddNumberError(Condition):
+        class OddNumberError(Exception):
             def __init__(self, value):
                 self.value = value
 
@@ -629,13 +623,12 @@ def warn(condition):
     `message` parameter of `warnings.warn`. This will automatically set up the
     object type as the warning category.
 
-    If not (i.e. some other exception was given), the generic category `Warning`
-    is used, with the message set to `str(condition)`.
+    If not (i.e. some other subclass of `Exception` is being signaled), the
+    generic category `Warning` is used, with the message set to `str(condition)`.
 
-    You likely want to inherit custom warning conditions from both `Condition`
-    and `Warning`. Example::
+    Example::
 
-        class HelpMe(Condition, Warning):
+        class HelpMe(Warning):
             def __init__(self, value):
                 self.value = value
         with handlers((HelpMe, lambda c: invoke_restart("use_value", c.value))):
