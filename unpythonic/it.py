@@ -640,14 +640,16 @@ def inn(x, iterable):
         y0 = next(it)
     except StopIteration:
         return False
-    if y0 == x: return True
+    if y0 == x:
+        return True
     yj = y0
     while yj == y0:
         try:
             yj = next(it)
         except StopIteration:
             return False
-    if yj == x: return True
+    if yj == x:
+        return True
     d = yj - y0
     assert d != 0
     pred = (lambda elt: elt <= x) if d > 0 else (lambda elt: elt >= x)
