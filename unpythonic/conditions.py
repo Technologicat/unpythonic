@@ -388,6 +388,7 @@ class InvokeRestart(Exception):
         return self.restart.function(*self.a, **self.kw)
 
 def _find_handlers(cls):  # 0..n (though 0 is an error, handled at the calling end)
+    _ensure_stacks()
     for e in _stacks.handlers:
         for t, handler in e:  # t: tuple or type
             if isinstance(t, tuple):
@@ -411,6 +412,7 @@ def find_restart(name):  # exactly 1 (most recently bound wins)
     a specific restart with `find_restart` before you commit to invoking it via
     `invoke_restart`.
     """
+    _ensure_stacks()
     for e in _stacks.restarts:
         if name in e:
             return BoundRestart(name, e[name], e)
@@ -427,6 +429,7 @@ def available_restarts():
     """
     out = []
     seen = set()
+    _ensure_stacks()
     for e in _stacks.restarts:
         for name, restart in e.items():
             if name not in seen:
@@ -446,6 +449,7 @@ def available_handlers():
     """
     out = []
     seen = set()
+    _ensure_stacks()
     for e in _stacks.handlers:
         for spec, handler in e:
             ts = spec if isinstance(spec, tuple) else (spec,)
