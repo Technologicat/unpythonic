@@ -20,7 +20,8 @@ from ..it import map, mapr, rmap, zipr, rzip, \
                  inn, iindex, \
                  window, chunked, \
                  within, fixpoint, \
-                 interleave
+                 interleave, \
+                 powerset
 
 from ..fun import composel, identity, curry
 from ..gmemo import imemoize, gmemoize
@@ -290,6 +291,9 @@ def test():
     a = ('a', 'b', 'c')
     b = ('+', '*')
     assert tuple(interleave(a, b)) == ('a', '+', 'b', '*', 'c')
+
+    # Power set (set of all subsets) of an iterable.
+    assert tuple(powerset(range(3))) == ((0,), (1,), (0, 1), (2,), (0, 2), (1, 2), (0, 1, 2))
 
     print("All tests PASSED")
 
