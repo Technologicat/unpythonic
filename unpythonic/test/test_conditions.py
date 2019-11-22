@@ -78,7 +78,7 @@ def test():
             else:
                 assert False, "error() should raise on unhandled condition"
 
-            # When using cerror() - short for "continuable error" - it automatically
+            # When using cerror() - short for "correctable error" - it automatically
             # makes available a restart named "proceed" that takes no arguments, which
             # vetoes the error.
             #

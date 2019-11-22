@@ -23,7 +23,7 @@ through args and kwargs if any are given.
 See also the `use_value` function, which invokes the eponymous restart.
 The docstring gives the pattern to define similar shorthand for custom restarts.
 
-Each of the forms `error`, `cerror` (continuable error) and `warn` implements
+Each of the forms `error`, `cerror` (correctable error) and `warn` implements
 its own error-handling protocol on top of the core `signal` form. For the forms
 `cerror` and `warn`, we also provide the ready-made invokers `proceed` and
 `muffle`, respectively.
