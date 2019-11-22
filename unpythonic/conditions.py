@@ -162,7 +162,8 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     from there invoke some other restart. But if you really need your handler
     to shop around, maybe consider `find_restart` and a `for` loop.)
 
-    Any args and kwargs are passed through to the restart.
+    Any args and kwargs are passed through to the restart. Refer to the particular
+    restart's documentation (or source code) for what arguments it expects.
 
     To handle the condition, call `invoke_restart` from inside your condition
     handler. The call immediately terminates the handler, transferring control
@@ -472,6 +473,9 @@ def restarts(**bindings):
 
     Note that restarts may be defined at any level of the call stack,
     so they don't all have to be at the same level.
+
+    A restart can take any number of args and kwargs; its call signature
+    depends only on how it's intended to be invoked.
 
     Example::
 
