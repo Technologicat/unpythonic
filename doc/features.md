@@ -2532,7 +2532,7 @@ If this `ControlError` signal is not handled, a `ControlError` will then be **ra
 
 #### Historical note
 
-Conditions are one of the killer features of Common Lisp, so [Peter Seibel: Practical Common Lisp, chapter 19](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) is a good place to start. There's also a relevant [discussion on Lambda the Ultimate](http://lambda-the-ultimate.org/node/1544).
+Conditions are one of the killer features of Common Lisp, so if you're new to conditions, [Peter Seibel: Practical Common Lisp, chapter 19](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) is a good place to start learning about them. There's also a relevant [discussion on Lambda the Ultimate](http://lambda-the-ultimate.org/node/1544).
 
 For Python, conditions were first implemented in [python-cl-conditions](https://github.com/svetlyak40wt/python-cl-conditions/) by Alexander Artemenko (2016).
 
