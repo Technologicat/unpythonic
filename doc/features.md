@@ -43,6 +43,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``catch``, ``throw``: escape continuations (ec)](#catch-throw-escape-continuations-ec)
   - [``call_ec``: first-class escape continuations](#call_ec-first-class-escape-continuations), like Racket's ``call/ec``.
 - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation), a tuple comprehension with multiple body expressions.
+- [``handlers``, ``restarts``: conditions and restarts](#handlers-restarts-conditions-and-restarts), a.k.a. resumable exceptions.
 
 [**Other**](#other)
 - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope.
@@ -2407,6 +2408,137 @@ The implementation is based on the List monad, and a bastardized variant of do-n
  - ``insist x`` = ``guard x``
  - ``deny x`` = ``guard (not x)``
  - Last line = implicit ``return ...``
+
+
+### ``handlers``, ``restarts``: conditions and restarts
+
+**Added in v0.14.2**.
+
+One of the killer features of Common Lisp are *conditions*, which are essentially **resumable exceptions**.
+
+Following Peter Seibel ([Practical Common Lisp, chapter 19](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html)), we define *errors* as the consequences of [Murphy's Law](https://en.wikipedia.org/wiki/Murphy%27s_law), i.e. situations where circumstances cause interaction between the program and the outside world to fail. An error is no bug, but failing to handle an error certainly is.
+
+An exception system splits error-recovery responsibilities into two parts. In Python terms, we speak of *raising* and then *handling* an exception. In comparison, a condition system splits error-recovery responsibilities into **three parts**: *signaling*, *handling* and *restarting*.
+
+The result is improved modularity. Consider [separation of mechanism and policy](https://en.wikipedia.org/wiki/Separation_of_mechanism_and_policy). We place the actual error-recovery code (the mechanism) in *restarts*, at the inner level (of the call stack) - which has access to all the low-level technical details that are needed to actually perform the recovery. We can provide *several different* canned recovery strategies, which implement any appropriate ways to recover, in the context of each low- or middle-level function. We defer the decision of which one to use (the policy), *to an outer level*. The outer level knows about the big picture - *why* the inner levels are running in this particular case, i.e. what we are trying to accomplish and how. Hence, it is in the ideal position to choose which error-recovery strategy should be used *in its high-level context*.
+
+Practical Common Lisp explains conditions in the context of a log file parser. In contrast, let us explain them with some Theoretical Python:
+
+```python
+from unpythonic import restarts, handlers, signal, invoke_restart, unbox
+
+class TellMeHowToRecover(Exception):
+    pass
+
+def low():
+    with restarts(resume_low=(lambda x: x)) as result:  # result is a box
+        signal(TellMeHowToRecover())
+        result << "low level ran to completion"  # value for normal exit from the `with restarts` block
+    return unbox(result) + " > normal exit from low level"
+
+def mid():
+    with restarts(resume_mid=(lambda x: x)) as result:
+        result << low()
+    return unbox(result) + " > normal exit from mid level"
+
+# Trivial use case where we want to just ignore the condition.
+# An uncaught signal() is just a no-op; see warn(), error(), cerror() for other standard options.
+def high1():
+    assert mid() == "low level ran to completion > normal exit from low level > normal exit from mid level"
+high1()
+
+# Use case where we want to resume at the low level. In a real-world application, repairing the error
+# and letting the mid-level code continue processing with the repaired result.
+# Note we need new code only at the high level; the mid and low levels remain as-is.
+def high2():
+    with handlers((TellMeHowToRecover, lambda c: invoke_restart("resume_low", "resumed at low level"))):
+        assert mid() == "resumed at low level > normal exit from low level > normal exit from mid level"
+high2()
+
+# Use case where we want to resume at the mid level. In a real-world application, skipping a failed part.
+def high3():
+    with handlers((TellMeHowToRecover, lambda c: invoke_restart("resume_mid", "resumed at mid level"))):
+        assert mid() == "resumed at mid level > normal exit from mid level"
+high3()
+```
+
+#### Fundamental signaling protocol
+
+Generally a condition system operates as follows. A *signal* is sent (outward on the call stack) from the actual location where the error was detected. A *handler* at any outer level may then respond to it, and execution resumes from the *restart* that is *invoked* by the handler.
+
+The sequence of catching a signal and invoking a restart is termed *handling* the signal. Handlers are searched in order from innermost to outermost on the call stack. (Strictly speaking, the handlers live on a separate stack; we consider those handlers whose dynamic extent the point of execution is in, at the point of time when the signal is sent.)
+
+In general, it is allowed for a handler to fall through (return normally); then the next outer handler for the same signal type gets control. This allows chaining handlers to obtain their side effects, such as logging. This is referred to as *canceling*, since as a result, the signal remains unhandled.
+
+Viewed with respect to the call stack, the restarts live between the (outer) level of the handler, and the (inner) level where the signal was sent from. The main difference to the exception model is that unlike raising an exception, **sending a signal does not unwind the call stack**. Although the handlers live further out on the call stack, the stack does not unwind that far. The handlers are just consulted for what to do. The call stack unwinds only when a restart is being invoked. Then, only the part of the call stack between the location that sent the signal, and the invoked restart, is unwound.
+
+Restarts, despite the name, are a mildly behaved, structured control construct. The block of code that encountered the error is actually not arbitrarily resumed; instead, the restart code runs instead of the rest of the block, and the return value of the restart replaces the normal return value. (But see `cerror`.)
+
+#### API summary
+
+Restarts are set up using the `with restarts` context manager (Common Lisp: `RESTART-CASE`). Restarts are defined by giving named arguments to the `restarts` form; the argument name sets the restart name. The restart name is distinct from the name (if any) of the function that is used as the restart. A restart can only be invoked from within the dynamic extent of its `with restarts` (the same rule is effect also in Common Lisp). A restart may take any args and kwargs; any that it expects must be provided when it is invoked.
+
+*Note difference to the API of [python-cl-conditions](https://github.com/svetlyak40wt/python-cl-conditions/), which requires functions used as restarts to be named, and uses the function name as the restart name.*
+
+A common use case is a `use_value=(lambda x: x)` restart, which is just passed the value that should be returned when the restart is invoked. There is a predefined function of the same name, `use_value` (Common Lisp: `USE-VALUE`), which expects one argument, and immediately invokes the `use_value` restart currently in scope, sending it that argument. This allows using the shorthand `lambda c: use_value(...)` as a handler instead of the spelled-out `lambda c: invoke_restart("use_value", ...)`.
+
+Signals are sent using `signal` (Common Lisp: `SIGNAL`). Any exception or warning instance (both builtin or custom) can be signaled. If you need to send data to your handler, place it in attributes of the exception object (just like you would do when programming with the exception model).
+
+Handlers are established using the `with handlers` context manager (Common Lisp: `HANDLER-BIND`). Handlers are bound to exception types, or tuples of types, just like regular exception handlers in Python. The `handlers` form takes as its arguments any number of `(exc_spec, handler)` pairs. Here `exc_spec` specifies the exception types to catch (when sent via `signal`), and `handler` is a callable. When catching a signal, in case of multiple matches in the same `with handlers` form, the handler that appears earlier in the argument list wins.
+
+A handler catches signals of the types it is bound to. The code in the handler may invoke a restart by calling `invoke_restart` (Common Lisp: `INVOKE-RESTART`), with the desired restart name as a string. In case of duplicate names, the most recently established restart (that is still in scope) with the given name wins. Any extra args and kwargs are passed through to the restart. The `invoke_restart` function always transfers control, never returns normally.
+
+A handler **may** take one optional positional argument, the exception instance being signaled. Roughly, API-wise signal handlers are similar to exception handlers (`except` clauses). A handler that accepts an argument is like an `except ... as ...`, whereas one that does not is like `except ...`. **The main difference** to an exception handler is that a **signal handler should not try to recover from the error itself**; instead, **it should just choose** which strategy the lower-level code should use to recover from the error. Usually, the only thing a signal handler needs to do, is to invoke a particular restart.
+
+To create a simple handler that does not take an argument, and just invokes a pre-specified restart, see `invoker`. If you instead want to create a function that you can call from a handler, in order to invoke a particular restart immediately (so to define a shorthand notation similar to `use_value`), use `functools.partial(invoke_restart, "my_restart_name")`.
+
+Following Common Lisp terminology, *a named function that invokes a specific restart* - whether it is intended to act as a handler or to be called from one - is termed a *restart function*. (This is somewhat confusing, as a *restart function* is not a function that implements a restart, but a function that *invokes* a specific one.) The `use_value` function mentioned above is an example.
+
+For a detailed API reference, see the module ``unpythonic.conditions``.
+
+#### High-level signaling protocols
+
+We actually provide four signaling protocols: `signal` (i.e. the fundamental protocol), and three that build additional behavior on top of it: `error`, `cerror` and `warn`. Each of the three is modeled after its Common Lisp equivalent.
+
+If no handler *handles* the signal, the `signal(...)` protocol just returns normally. In effect, with respect to control flow, unhandled signals are ignored by this protocol. (But any side effects of handlers that caught the signal but did not invoke a restart, still take place.)
+
+The `error(...)` protocol first delegates to `signal`, and if the signal was not handled by any handler, then **raises** `ControlError` as a regular exception. (Note the Common Lisp `ERROR` function would at this point drop you into the debugger.) The implementation of `error` itself is the only place in the condition system that *raises* an exception for the end user; everything else (including any error situations) uses the signaling mechanism.
+
+The `cerror(...)` protocol likewise makes handling the signal mandatory, but allows the handler to optionally ignore the error (sort of like `ON ERROR RESUME NEXT` in some 1980s BASIC variants). To do this, invoke the `proceed` restart in your handler; this makes the `cerror(...)` call return normally. If no handler handles the `cerror`, it then behaves like `error`.
+
+Finally, there is the `warn(...)` protocol, which is just a lispy interface to Python's `warnings.warn`. It comes with a `muffle` restart that can be invoked by a handler to skip emitting a particular warning. Muffling a warning prevents its emission altogether, before it even hits Python's warnings filter.
+
+If the standard protocols don't cover what you need, you can also build your own high-level protocols on top of `signal`. See the source code of `error`, `cerror` and `warn` for examples (it's just a few lines in each case).
+
+##### Notes
+
+The name `cerror` stands for *correctable error*, see e.g. [CERROR in the CL HyperSpec](http://clhs.lisp.se/Body/f_cerror.htm). What we call `proceed`, Common Lisp calls `CONTINUE`; the name is different because in Python the function naming convention is lowercase, and `continue` is a reserved word.
+
+If you really want to emulate `ON ERROR RESUME NEXT`, just use `Exception` (or `Condition`) as the condition type for your handler, and all `cerror` calls within the block will return normally, provided that no other handler handles those conditions first.
+
+#### Conditions vs. exceptions
+
+Using the condition system essentially requires eschewing exceptions, using only restarts and handlers instead. A regular exception will fly past a `with handlers` form uncaught. The form just maintains a stack of functions; it does not establish an *exception* handler. Similarly, a `try`/`except` cannot catch a signal, because no exception is raised yet at handler lookup time. Delaying the stack unwind, to achieve the three-way split of responsibilities, is the whole point of the condition system. Which of the two systems to use is a design decision that must be made consistently on a per-project basis.
+
+Be aware that error-recovery code in a Lisp-style signal handler is of a very different nature compared to error-recovery code in an exception handler. A signal handler usually only chooses a restart and invokes it; as was explained above, the code that actually performs the error recovery (i.e. the *restart*) lives further in on the call stack. An exception handler, on the other hand, must respond by directly performing error recovery right where it is, without any help from inner levels - because the stack has already unwound when the exception handler gets control.
+
+Hence, the two systems are intentionally kept separate. The language discontinuity is unfortunate, but inevitable when conditions are added to a language where an error recovery culture based on the exception model (of the regular non-resumable kind) already exists.
+
+**CAUTION**: Make sure to never catch the internal `InvokeRestart` exception (with an exception handler), as the condition system uses it to perform restarts. Again, do not use catch-all `except` clauses!
+
+If a handler attempts to invoke a nonexistent restart (or one that is not in the current dynamic extent), `ControlError` is *signaled* using `error(...)`. The error message in the exception instance will have the details.
+
+If this `ControlError` signal is not handled, a `ControlError` will then be **raised** (as a last-resort measure) as a regular exception; see `error`. It **is** allowed to catch `ControlError` with an exception handler.
+
+#### Historical note
+
+Conditions are one of the killer features of Common Lisp, so ([Peter Seibel: Practical Common Lisp, chapter 19](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html)) is a good place to start. There's also a relevant [discussion on Lambda the Ultimate](http://lambda-the-ultimate.org/node/1544).
+
+For Python, conditions were first implemented in [python-cl-conditions](https://github.com/svetlyak40wt/python-cl-conditions/) by Alexander Artemenko (2016).
+
+What we provide here is essentially a rewrite, based on studying that implementation. The main reasons for the rewrite are to give the condition system an API consistent with the style of `unpythonic`, to drop any and all historical baggage without needing to consider backward compatibility, and to allow interaction with (and customization taking into account) the other parts of `unpythonic`. If you specifically need a condition system, not a kitchen-sink language extension, then by all means go for `python-cl-conditions`!
+
+The core idea can be expressed in fewer than 100 lines of Python; ours is (as of v0.14.2) 151 lines, not counting docstrings, comments, or blank lines. The main reason our module is almost 700 lines are the docstrings.
 
 
 ## Other
