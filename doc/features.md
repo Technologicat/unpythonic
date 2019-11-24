@@ -2433,7 +2433,7 @@ class TellMeHowToRecover(Exception):
 def low():
     with restarts(resume_low=(lambda x: x)) as result:  # result is a box
         signal(TellMeHowToRecover())
-        result << "low level ran to completion"  # value for normal exit from the `with restarts` block
+        result << "low level completed"  # value for normal exit from the `with restarts` block
     return unbox(result) + " > normal exit from low level"
 
 def mid():
@@ -2444,7 +2444,7 @@ def mid():
 # Trivial use case where we want to just ignore the condition.
 # An uncaught signal() is just a no-op; see warn(), error(), cerror() for other standard options.
 def high1():
-    assert mid() == "low level ran to completion > normal exit from low level > normal exit from mid level"
+    assert mid() == "low level completed > normal exit from low level > normal exit from mid level"
 high1()
 
 # Use case where we want to resume at the low level. In a real-world application, repairing the error
