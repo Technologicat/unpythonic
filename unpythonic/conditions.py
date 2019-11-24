@@ -18,9 +18,12 @@ The function `find_restart` can be used for querying for the presence of a
 given restart name before committing to actually invoking it. Other introspection
 utilities are `available_restarts` and `available_handlers`.
 
-The `invoker` function creates a simple handler callable (*restart function*
-in Common Lisp terminology) that just invokes the specified restart, passing
-through args and kwargs if any are given.
+The `invoker` function creates a simple *restart function* (Common Lisp term)
+that just invokes the specified restart. When the restart function is created,
+any extra args and kwargs given to `invoker` are frozen (by closure) to the
+created function. When the created function is called, it will then pass on
+its frozen args and kwargs to the restart. This can be used for creating
+restart functions that send constants.
 
 See also the `use_value` function, which invokes the eponymous restart.
 The docstring gives the pattern to define similar shorthand for custom restarts.
@@ -600,7 +603,7 @@ def cerror(condition):
 
     `cerror` internally establishes a restart named `proceed`, which can be
     invoked to make `cerror` return normally to its caller. Like Common Lisp,
-    as a convenience we export a handler callable `proceed` that just invokes
+    as a convenience we export a restart function `proceed` that just invokes
     the eponymous restart (and raises `ControlError` if not found).
 
     We use the name "proceed" instead of Common Lisp's "continue", because in
@@ -655,7 +658,7 @@ def warn(condition):
     `warn` internally establishes a restart `muffle`, which can be invoked
     in a handler to suppress the emission of a particular warning.
 
-    Like Common Lisp, as a convenience we export a handler callable `muffle`
+    Like Common Lisp, as a convenience we export a restart function `muffle`
     that just invokes the eponymous restart (and raises `ControlError` if not
     found)::
 
@@ -674,10 +677,10 @@ def warn(condition):
         else:
             warnings.warn(str(condition), category=Warning, stacklevel=2)
 
-# Standard handler callables for the predefined protocols
+# Standard restart functions for the predefined protocols
 
 proceed = invoker("proceed")
-proceed.__doc__ = "Invoke the 'proceed' restart. Handler callable for use with `cerror`."
+proceed.__doc__ = "Invoke the 'proceed' restart. Restart function for use with `cerror`."
 
 muffle = invoker("muffle")
-muffle.__doc__ = "Invoke the 'muffle' restart. Handler callable for use with `warn`."
+muffle.__doc__ = "Invoke the 'muffle' restart. Restart function for use with `warn`."
