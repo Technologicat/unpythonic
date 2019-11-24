@@ -2447,8 +2447,9 @@ def high1():
     assert mid() == "low level completed > normal exit from low level > normal exit from mid level"
 high1()
 
-# Use case where we want to resume at the low level. In a real-world application, repairing the error
-# and letting the mid-level code continue processing with the repaired result.
+# Use case where we want to resume at the low level. In a real-world application, repairing the error,
+# and letting the rest of the low-level code (after the `with restarts` block) continue processing
+# with the repaired data.
 # Note we need new code only at the high level; the mid and low levels remain as-is.
 def high2():
     with handlers((TellMeHowToRecover, lambda c: invoke_restart("resume_low", "resumed at low level"))):
