@@ -25,6 +25,7 @@ If you still use 3.4 and find something in `unpythonic` doesn't work there, plea
   - `lastn`: Yield the last `n` items from an iterable.
   - `pad`: Extend iterable to length `n` with a `fillvalue`.
   - `interleave`: For example, `interleave(['a', 'b', 'c'], ['+', '*']) --> ['a', '+', 'b', '*', 'c']`. Interleave items from several iterables, slightly differently from `zip`.
+  - `powerset`: Compute the power set (set of all subsets) of an iterable. Works also for infinite iterables.
   - `CountingIterator`: Count how many items have been yielded, as a side effect.
   - `slurp`: Extract all items from a `queue.Queue` (until it is empty) into a list, returning that list.
   - `map`: Curry-friendly thin wrapper for the builtin `map`, making it mandatory to specify at least one iterable.
