@@ -17,7 +17,7 @@ from ..it import map, mapr, rmap, zipr, rzip, \
                  uniqify, uniq, \
                  flatten, flatten1, flatten_in, \
                  unpack, \
-                 inn, iindex, \
+                 inn, iindex, find, \
                  window, chunked, \
                  within, fixpoint, \
                  interleave, \
@@ -207,6 +207,13 @@ def test():
         pass  # 4 is not in iterable
     else:
         assert False
+
+    # find: return first matching element from an iterable
+    lst = list(range(5))
+    assert find(lambda x: x >= 3, lst) == 3
+    assert find(lambda x: x >= 3 and x % 2 == 0, lst) == 4
+    assert find(lambda x: x == 10, lst) is None
+    assert find(lambda x: x == 10, lst, default=42) == 42
 
     # window: length-n sliding window iterator for general iterables
     lst = list(range(5))

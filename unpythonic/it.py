@@ -23,7 +23,7 @@ __all__ = ["rev", "map", "map_longest",
            "flatten", "flatten1", "flatten_in",
            "iterate", "iterate1",
            "partition",
-           "inn", "iindex",
+           "inn", "iindex", "find",
            "window", "chunked",
            "within", "fixpoint",
            "interleave",
@@ -670,6 +670,14 @@ def iindex(x, iterable):
         if elt == x:
             return j
     raise ValueError("{} is not in iterable".format(x))
+
+def find(predicate, iterable, default=None):
+    """Return the first item matching `predicate` in `iterable`, or `default` if no match.
+
+    If you need all matching items, just use the builtin `filter` or a comprehension;
+    this is a convenience utility to get the first match only.
+    """
+    return next(filter(predicate, iterable), default)
 
 def window(iterable, n=2):
     """Sliding length-n window iterator for a general iterable.
