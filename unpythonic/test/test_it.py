@@ -209,11 +209,18 @@ def test():
         assert False
 
     # find: return first matching element from an iterable
+    # Convenience function; if you need them all, just filter or use a comprehension.
     lst = list(range(5))
     assert find(lambda x: x >= 3, lst) == 3
     assert find(lambda x: x >= 3 and x % 2 == 0, lst) == 4
     assert find(lambda x: x == 10, lst) is None
     assert find(lambda x: x == 10, lst, default=42) == 42
+
+    # a consumable iterable is consumed, as usual
+    gen = (x for x in range(5))
+    assert find(lambda x: x >= 3, gen) == 3
+    assert find(lambda x: x >= 3, gen) == 4
+    assert find(lambda x: x >= 3, gen) is None
 
     # window: length-n sliding window iterator for general iterables
     lst = list(range(5))
