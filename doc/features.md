@@ -1173,6 +1173,8 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
    - `lastn`: yield the last `n` items from an iterable. Works by intermediate storage. Will not terminate for infinite iterables. **Added in v0.14.2.**
    - `first`, `second`, `nth`, `last`: return the specified item from an iterable. Any preceding items are consumed at C speed.
    - `partition` from `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
+   - `find`: return the first item that matches a predicate. Convenience function; if you need them all, just use `filter` or a comprehension.
+     - Can be useful for the occasional abuse of `collections.deque` as an *alist* [[1]](https://en.wikipedia.org/wiki/Association_list) [[2]](http://www.gigamonkeys.com/book/beyond-lists-other-uses-for-cons-cells.html). Use `.appendleft(...)` to add new items, and then this `find` to get the currently active association.
  - *math-related*:
    - `fixpoint`: arithmetic fixed-point finder (not to be confused with `fix`). **Added in v0.14.2.**
    - `within`: yield items from iterable until successive iterates are close enough. Useful with [Cauchy sequences](https://en.wikipedia.org/wiki/Cauchy_sequence). **Added in v0.14.2.**
@@ -1241,6 +1243,11 @@ assert not inn(1337, primes())
 # iindex: find index of item in iterable (mostly only makes sense for memoized input)
 assert iindex(2, (1, 2, 3)) == 1
 assert iindex(31337, primes()) == 3378
+
+# find: return first item matching predicate (convenience function)
+gen = (x for x in range(5))
+assert find(lambda x: x >= 3, gen) == 3
+assert find(lambda x: x >= 3, gen) == 4  # if consumable, consumed as usual
 
 # window: length-n sliding window iterator for general iterables
 lst = (x for x in range(5))
