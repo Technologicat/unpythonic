@@ -152,6 +152,32 @@ assert s == (10, 2, 10, 4, 10)
 assert t == (1, 2, 3, 4, 5)
 ```
 </details>  
+<details><summary>Experience lispy data structures.</summary>
+
+[[docs for `box`](doc/features.md#box-a-mutable-single-item-container)] [[docs for `cons`](doc/features.md#cons-and-friends-pythonic-lispy-linked-lists)] [[docs for `frozendict`](doc/features.md#frozendict-an-immutable-dictionary)]
+
+```python
+from unpythonic import box, unbox  # mutable single-item container
+cat = object()
+b = box(cat)
+assert b is not cat  # the box is not the cat
+assert unbox(b) is cat  # but when you look inside the box, you find the cat
+dog = object()
+b << dog  # let's replace the contents of the box
+assert unbox(b) is dog
+
+from unpythonic import cons, nil, ll, llist  # lispy linked lists
+lst = cons(1, cons(2, cons(3, nil)))
+assert ll(1, 2, 3) == lst  # make linked list out of elements
+assert llist([1, 2, 3]) == lst  # convert iterable to linked list
+
+from unpythonic import frozendict  # immutable dictionary
+d1 = frozendict({'a': 1, 'b': 2})
+d2 = frozendict(d1, c=3, a=4)
+assert d1 == frozendict({'a': 1, 'b': 2})
+assert d2 == frozendict({'a': 4, 'b': 2, 'c': 3})
+```
+</details>  
 <details><summary>View list slices writably, re-slicably.</summary>
 
 [[docs](doc/features.md#view-writable-sliceable-view-into-a-sequence)]
