@@ -519,6 +519,49 @@ def restarts(**bindings):
     If you'd like to use a parametric decorator and a `def` instead of a `with`,
     see the alternate syntax `with_restarts`.
     """
+    # Implementation notes:
+    #
+    # - Normally, an `__exit__` method of a context manager **must not**
+    #   reraise if it gets an exception; this is the caller's responsibility.
+    #   Instead, if the `__exit__` method wishes to indicate to the context
+    #   manager framework (the `with` statement) that the exception should be
+    #   propagated outwards, the method must return `False`.
+    #     https://docs.python.org/3/library/stdtypes.html#typecontextmanager
+    #     https://docs.python.org/3/reference/datamodel.html#context-managers
+    #
+    # - However, when a context manager is implemented using the
+    #   `@contextmanager` decorator from `contextlib`, then the generator
+    #   **must** reraise the exception (in the part after the `yield`,
+    #   corresponding to `__exit__`) if it wishes to propagate it outwards.
+    #   This is what we do here.
+    #
+    # - How does the `InvokeRestart` exception reach our generator in the first
+    #   place, given that this generator is in the paused state at the time the
+    #   exception is raised? The magic is in `contextlib`. When an exception is
+    #   raised in the `with` body (whose context manager we are), the
+    #   `@contextmanager` decorator throws the exception into the generator,
+    #   into the position where it yielded. So if that `yield` is inside a
+    #   `try`, the corresponding `except` clauses will get control.
+    #     https://docs.python.org/3/library/contextlib.html#contextlib.contextmanager
+    #
+    # Regarding exceptions in generators in general, there's a pitfall to be
+    # aware of: if the `finally` clause of a `try`/`finally` contains a
+    # `yield`, the generator must jump through a hoop to work as expected:
+    #     https://amir.rachum.com/blog/2017/03/03/generator-cleanup/
+    #
+    # In the `try` part it's always safe to `yield`, so in this particular
+    # instance this doesn't concern us. In the `finally` part it's *possible*
+    # to `yield`, but then `GeneratorExit` requires special consideration.
+    #
+    # Instead of using `@contextmanager`, we could have implemented `restarts`
+    # using `__enter__` and `__exit__` methods. We would examine the exception
+    # arguments in `__exit__`. If it was an `InvokeRestart`, and ours, we would
+    # process the restart and return `True` to indicate to the `with` machinery
+    # that the exception was handled and should not be propagated further. If
+    # it wasn't, we would just return `False` to let the `with` machinery
+    # propagate the exception. But using `@contextmanager`, we don't need a
+    # class. This way the code is shorter, and our exception processing can use
+    # the standard `try`/`except` construct.
     b = box(None)
     with Restarts(bindings):
         try:
