@@ -6,7 +6,7 @@ conditions, you have to explicitly ask for them.
 
 No separate base class for conditions; you can signal any exception or warning.
 
-This module exports the core forms `signal`, `invoke_restart`, `with restarts`,
+This module exports the core forms `signal`, `invoke`, `with restarts`,
 and `with handlers`, which interlock in a very particular way (see examples).
 
 The form `with_restarts` is an alternate syntax using a parametric decorator
@@ -53,7 +53,7 @@ Conditions and Restarts* in *Practical Common Lisp* by Peter Seibel (2005):
 __all__ = ["signal", "error",
            "cerror", "proceed",
            "warn", "muffle",
-           "find_restart", "invoke_restart", "use_value", "invoker",
+           "find_restart", "invoke", "use_value", "invoker",
            "available_restarts", "available_handlers",
            "restarts", "with_restarts",
            "handlers",
@@ -137,7 +137,7 @@ def signal(condition):
     # Since the handler is called normally, we don't unwind the call stack,
     # remaining inside the `signal()` call in the low-level code.
     #
-    # The unwinding, when it occurs, is performed when `invoke_restart` is
+    # The unwinding, when it occurs, is performed when `invoke` is
     # called from inside the condition handler in the user code.
     for handler in _find_handlers(type(condition)):
         try:
@@ -149,7 +149,7 @@ def signal(condition):
         else:
             handler()
 
-def invoke_restart(name_or_restart, *args, **kwargs):
+def invoke(name_or_restart, *args, **kwargs):
     """Invoke a restart currently in scope. Known as `INVOKE-RESTART` in Common Lisp.
 
     `name_or_restart` can be the name of a restart, or a restart object returned
@@ -166,12 +166,12 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     Any args and kwargs are passed through to the restart. Refer to the particular
     restart's documentation (or source code) for what arguments it expects.
 
-    To *handle* a condition, call `invoke_restart` from inside your condition
+    To *handle* a condition, call `invoke` from inside your condition
     handler. The call immediately terminates the handler, transferring control
     to the restart.
 
     To cancel, and delegate to the next (outer) handler for the same condition
-    type, return normally from the handler without calling `invoke_restart()`.
+    type, return normally from the handler without calling `invoke()`.
     The return value of the handler does not matter. Any side effects the
     canceled handler performed (such as logging), up to the point where it
     returned, still occur.
@@ -189,7 +189,7 @@ def invoke_restart(name_or_restart, *args, **kwargs):
     # Found it - now we are guaranteed to unwind only up to the matching "with restarts".
     raise InvokeRestart(restart, *args, **kwargs)
 
-use_value = partial(invoke_restart, "use_value")
+use_value = partial(invoke, "use_value")
 use_value.__doc__ = """Invoke the 'use_value' restart immediately with given args and kwargs.
 
 Known as the `USE-VALUE` restart function in Common Lisp.
@@ -197,7 +197,7 @@ Known as the `USE-VALUE` restart function in Common Lisp.
 A handler that just invokes the `use_value` restart is such a common use case
 that it is useful to have an abbreviation for it. This::
 
-    with handlers((OhNoes, lambda c: invoke_restart("use_value", 42))):
+    with handlers((OhNoes, lambda c: invoke("use_value", 42))):
         ...
 
 can be abbreviated to::
@@ -219,7 +219,9 @@ with the repaired log entry.)
 
 The `use_value` function is essentially just shorthand::
 
-    use_value = partial(invoke_restart, "use_value")
+    use_value = partial(invoke, "use_value")
+    with handlers((OhNoes, lambda c: use_value(3.14 * c.args[0]))):
+        ...
 
 This pattern can be useful for defining similar shorthands for your own
 restarts.
@@ -228,8 +230,8 @@ restarts.
 of a shorthand for each uniquely named restart is enough. You can re-use the
 same shorthand for any restart that has the same name - just like there is
 just one `use_value` function, even though the `use_value` restart itself is
-typically defined separately at each `with restarts` site that provides it
-(since only each site itself knows how to "use a value").)
+defined separately at each `with restarts` site that provides it (since only
+each site itself knows how to "use a value").)
 
 If you want a version for use cases where the condition instance argument is
 not needed, so you could in those cases omit the `lambda c:`, you can write
@@ -239,10 +241,10 @@ that as::
     with handlers((OhNoes, use_constant(42))):
         ...
 
-Note `invoker`, not `invoke_restart`, and that we are still left with a factory
-(since `invoker` itself is a factory and `partial` defers the call until it
-gets more arguments). You then have to call the factory function with your
-desired constant args/kwargs, to instantiate a handler that sends that specific
+Note `invoker`, not `invoke`, and we are still left with a factory (since
+`invoker` itself is a factory and `partial` defers the call until it gets
+more arguments). You then call the factory function with your desired
+constant args/kwargs, to instantiate a handler that sends that specific
 set of args/kwargs.
 """
 
@@ -270,18 +272,25 @@ def invoker(restart_name, *args, **kwargs):
 
     This is a convenience function. Using `invoker`, this::
 
-        with handlers((OhNoes, lambda c: invoke_restart("proceed"))):
-            ...
+        with handlers((OhNoes, lambda c: invoke("proceed"))):
+            ...  # calling some code that may cerror(OhNoes("ouch"))
 
     can be shortened to::
 
         with handlers((OhNoes, invoker("proceed"))):
-            ...  # calling some code that may cerror(OhNoes("ouch"))
+            ...
+
+    In the specific case of the `proceed` restart, you can also use the
+    ready-made function `proceed`, which is a handler that just invokes
+    the eponymous restart::
+
+        with handlers((OhNoes, proceed)):
+            ...
 
     The `args` and `kwargs`, if any are given, are passed through to the
     restart. So, for example, if you want to send a constant to `use_value`::
 
-        with handlers((OhNoes, lambda c: invoke_restart("use_value", 42))):
+        with handlers((OhNoes, lambda c: invoke("use_value", 42))):
             ...
 
     you can shorten this to::
@@ -309,7 +318,7 @@ def invoker(restart_name, *args, **kwargs):
     and `muffle`, respectively.
     """
     rename = namelambda(restart_name)
-    the_invoker = rename(lambda c: invoke_restart(restart_name, *args, **kwargs))
+    the_invoker = rename(lambda c: invoke(restart_name, *args, **kwargs))
     the_invoker.__doc__ = "Invoke the '{}' restart.".format(restart_name)
     return the_invoker
 
@@ -352,12 +361,12 @@ class handlers(_Stacked):
     the condition object (just using its type for control purposes, like an
     `except ...` clause), the handler doesn't need to accept any arguments.
 
-    To *handle* the condition, a handler must call `invoke_restart()` for one
+    To *handle* the condition, a handler must call `invoke()` for one
     of the restarts currently in scope. This immediately terminates the handler,
     transferring control to the restart.
 
     To cancel, and delegate to the next (outer) handler for the same condition
-    type, a handler may return normally without calling `invoke_restart()`. The
+    type, a handler may return normally without calling `invoke()`. The
     return value of the handler is ignored. Any side effects the canceled
     handler performed (such as logging), up to the point where it returned,
     still occur.
@@ -414,14 +423,14 @@ def find_restart(name):  # exactly 1 (most recently bound wins)
     """Look up a restart. Known as `FIND-RESTART` in Common Lisp.
 
     If the named restart is currently in (dynamic) scope, return an opaque
-    object (accepted by `invoke_restart`) that represents that restart. The
+    object (accepted by `invoke`) that represents that restart. The
     most recently bound restart matching the name wins.
 
     If no match, return `None`.
 
     This allows optional condition handling. You can check for the presence of
     a specific restart with `find_restart` before you commit to invoking it via
-    `invoke_restart`.
+    `invoke`.
     """
     _ensure_stacks()
     for e in _stacks.restarts:
@@ -566,9 +575,9 @@ def restarts(**bindings):
     with Restarts(bindings):
         try:
             yield b
-        except InvokeRestart as invoke:
-            if invoke.restart.context is bindings:  # if it's ours
-                b << invoke()
+        except InvokeRestart as exc:
+            if exc.restart.context is bindings:  # if it's ours
+                b << exc()
             else:
                 raise  # unwind this level of call stack, propagate outwards
 
@@ -690,7 +699,7 @@ def warn(condition):
         class HelpMe(Warning):
             def __init__(self, value):
                 self.value = value
-        with handlers((HelpMe, lambda c: invoke_restart("use_value", c.value))):
+        with handlers((HelpMe, lambda c: invoke("use_value", c.value))):
             with restarts(use_value=(lambda x: x)) as result:
                 warn(RuntimeError("hello"))  # not handled; emits a warning
                 ... # execution continues normally

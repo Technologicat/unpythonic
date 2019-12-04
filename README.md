@@ -54,7 +54,7 @@ assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34,
 [[docs](doc/features.md#handlers-restarts-conditions-and-restarts)]
 
 ```python
-from unpythonic import error, restarts, handlers, invoke_restart, use_value, unbox
+from unpythonic import error, restarts, handlers, invoke, use_value, unbox
 
 class MyError(ValueError):
     def __init__(self, value):  # We want to act on the value, so save it.
@@ -86,11 +86,11 @@ def highlevel():
         assert lowlevel([17, 10000, 23, 42]) == [17, 10000, 23, 42]
 
     # ...on a per-use-site basis...
-    with handlers((MyError, lambda c: invoke_restart("halve", c.value))):
+    with handlers((MyError, lambda c: invoke("halve", c.value))):
         assert lowlevel([17, 10000, 23, 42]) == [17, 5000, 23, 42]
 
     # ...without changing the low-level code.
-    with handlers((MyError, lambda: invoke_restart("drop"))):
+    with handlers((MyError, lambda: invoke("drop"))):
         assert lowlevel([17, 10000, 23, 42]) == [17, 23, 42]
 
 highlevel()

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..conditions import signal, find_restart, invoke_restart, invoker, use_value, \
+from ..conditions import signal, find_restart, invoke, invoker, use_value, \
     restarts, with_restarts, handlers, \
     available_restarts, available_handlers, \
     error, cerror, proceed, \
@@ -55,14 +55,14 @@ def test():
             with handlers((OddNumberError, lambda c: use_value(c.x))):
                 assert lowlevel() == list(range(10))
 
-            with handlers((OddNumberError, lambda c: invoke_restart("double", c.x))):
+            with handlers((OddNumberError, lambda c: invoke("double", c.x))):
                 assert lowlevel() == [0, 2 * 1, 2, 2 * 3, 4, 2 * 5, 6, 2 * 7, 8, 2 * 9]
 
-            with handlers((OddNumberError, lambda c: invoke_restart("drop", c.x))):
+            with handlers((OddNumberError, lambda c: invoke("drop", c.x))):
                 assert lowlevel() == [0, 2, 4, 6, 8]
 
             try:
-                with handlers((OddNumberError, lambda c: invoke_restart("bail", c.x))):
+                with handlers((OddNumberError, lambda c: invoke("bail", c.x))):
                     lowlevel()
             except ValueError as err:
                 assert str(err) == "1"
@@ -159,13 +159,13 @@ def test():
         # Use case where we want to resume at the low level (in a real-world application, repairing the error).
         # Note we need new code only at the high level; the mid and low levels remain as-is.
         def highlevel2():
-            with handlers((TellMeHowToRecover, lambda c: invoke_restart("resume_low", "resumed at low level"))):
+            with handlers((TellMeHowToRecover, lambda c: invoke("resume_low", "resumed at low level"))):
                 assert midlevel() == "resumed at low level > normal exit from low level > normal exit from mid level"
         highlevel2()
 
         # Use case where we want to resume at the mid level (in a real-world application, skipping the failed part).
         def highlevel3():
-            with handlers((TellMeHowToRecover, lambda c: invoke_restart("resume_mid", "resumed at mid level"))):
+            with handlers((TellMeHowToRecover, lambda c: invoke("resume_mid", "resumed at mid level"))):
                 assert midlevel() == "resumed at mid level > normal exit from mid level"
         highlevel3()
     threelevel()
@@ -200,7 +200,7 @@ def test():
 
     def test_usevalue():
         # A handler that just invokes the `use_value` restart:
-        with handlers((JustTesting, (lambda c: invoke_restart("use_value", 42)))):
+        with handlers((JustTesting, (lambda c: invoke("use_value", 42)))):
             with restarts(use_value=(lambda x: x)) as result:
                 signal(JustTesting())
                 result << 21
@@ -294,7 +294,7 @@ def test():
         def invoke_if_exists(restart_name):
             r = find_restart(restart_name)
             if r:
-                invoke_restart(r)
+                invoke(r)
             # just a convenient way to tell the test code that it wasn't found.
             raise NoItDidntExist()
         # The condition instance parameter for a handler is optional - not needed
@@ -323,22 +323,22 @@ def test():
         except Exception as err:
             assert False, str(err)
 
-        # error: invoke_restart outside the dynamic extent of any `with restarts`
+        # error: invoke outside the dynamic extent of any `with restarts`
         try:
-            invoke_restart("woo")
+            invoke("woo")
         except ControlError:
             pass
         else:
-            assert False, "should not be able to invoke_restart when no restarts in scope"
+            assert False, "should not be able to invoke when no restarts in scope"
 
-        # error: invoke_restart of undefined restart
+        # error: invoke of undefined restart
         try:
             with restarts(foo=(lambda x: x)):
-                invoke_restart("bar")
+                invoke("bar")
         except ControlError:
             pass
         else:
-            assert False, "should not be able to invoke_restart a nonexistent restart"
+            assert False, "should not be able to invoke a nonexistent restart"
     errorcases()
 
     # name shadowing: dynamically the most recent binding of the same restart name wins
@@ -356,7 +356,7 @@ def test():
                     signal(HelpMe(21))
                     b << False
             return a, b
-        with handlers((HelpMe, lambda c: invoke_restart("r", c.value))):
+        with handlers((HelpMe, lambda c: invoke("r", c.value))):
             assert lowlevel2() == (21, 42)
     name_shadowing()
 

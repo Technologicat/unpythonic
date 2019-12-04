@@ -2432,7 +2432,7 @@ The result is improved modularity. Consider [separation of mechanism and policy]
 Practical Common Lisp explains conditions in the context of a log file parser. In contrast, let us explain them with some Theoretical Python:
 
 ```python
-from unpythonic import restarts, handlers, signal, invoke_restart, unbox
+from unpythonic import restarts, handlers, signal, invoke, unbox
 
 class TellMeHowToRecover(Exception):
     pass
@@ -2459,13 +2459,13 @@ high1()
 # with the repaired data.
 # Note we need new code only at the high level; the mid and low levels remain as-is.
 def high2():
-    with handlers((TellMeHowToRecover, lambda c: invoke_restart("resume_low", "resumed at low level"))):
+    with handlers((TellMeHowToRecover, lambda c: invoke("resume_low", "resumed at low level"))):
         assert mid() == "resumed at low level > normal exit from low level > normal exit from mid level"
 high2()
 
 # Use case where we want to resume at the mid level. In a real-world application, skipping a failed part.
 def high3():
-    with handlers((TellMeHowToRecover, lambda c: invoke_restart("resume_mid", "resumed at mid level"))):
+    with handlers((TellMeHowToRecover, lambda c: invoke("resume_mid", "resumed at mid level"))):
         assert mid() == "resumed at mid level > normal exit from mid level"
 high3()
 ```
@@ -2488,17 +2488,17 @@ Restarts are set up using the `with restarts` context manager (Common Lisp: `RES
 
 *Note difference to the API of [python-cl-conditions](https://github.com/svetlyak40wt/python-cl-conditions/), which requires functions used as restarts to be named, and uses the function name as the restart name.*
 
-A common use case is a `use_value=(lambda x: x)` restart, which is just passed the value that should be returned when the restart is invoked. There is a predefined function of the same name, `use_value` (Common Lisp: `USE-VALUE`), which expects one argument, and immediately invokes the `use_value` restart currently in scope, sending it that argument. This allows using the shorthand `lambda c: use_value(...)` as a handler instead of the spelled-out `lambda c: invoke_restart("use_value", ...)`.
+A common use case is a `use_value=(lambda x: x)` restart, which is just passed the value that should be returned when the restart is invoked. There is a predefined function of the same name, `use_value` (Common Lisp: `USE-VALUE`), which expects one argument, and immediately invokes the `use_value` restart currently in scope, sending it that argument. This allows using the shorthand `lambda c: use_value(...)` as a handler instead of the spelled-out `lambda c: invoke("use_value", ...)`.
 
 Signals are sent using `signal` (Common Lisp: `SIGNAL`). Any exception or warning instance (both builtin or custom) can be signaled. If you need to send data to your handler, place it in attributes of the exception object (just like you would do when programming with the exception model).
 
 Handlers are established using the `with handlers` context manager (Common Lisp: `HANDLER-BIND`). Handlers are bound to exception types, or tuples of types, just like regular exception handlers in Python. The `handlers` form takes as its arguments any number of `(exc_spec, handler)` pairs. Here `exc_spec` specifies the exception types to catch (when sent via `signal`), and `handler` is a callable. When catching a signal, in case of multiple matches in the same `with handlers` form, the handler that appears earlier in the argument list wins.
 
-A handler catches signals of the types it is bound to. The code in the handler may invoke a restart by calling `invoke_restart` (Common Lisp: `INVOKE-RESTART`), with the desired restart name as a string. In case of duplicate names, the most recently established restart (that is still in scope) with the given name wins. Any extra args and kwargs are passed through to the restart. The `invoke_restart` function always transfers control, never returns normally.
+A handler catches signals of the types it is bound to. The code in the handler may invoke a restart by calling `invoke` (Common Lisp: `INVOKE-RESTART`), with the desired restart name as a string. In case of duplicate names, the most recently established restart (that is still in scope) with the given name wins. Any extra args and kwargs are passed through to the restart. The `invoke` function always transfers control, never returns normally.
 
 A handler **may** take one optional positional argument, the exception instance being signaled. Roughly, API-wise signal handlers are similar to exception handlers (`except` clauses). A handler that accepts an argument is like an `except ... as ...`, whereas one that does not is like `except ...`. **The main difference** to an exception handler is that a **signal handler should not try to recover from the error itself**; instead, **it should just choose** which strategy the lower-level code should use to recover from the error. Usually, the only thing a signal handler needs to do, is to invoke a particular restart.
 
-To create a simple handler that does not take an argument, and just invokes a pre-specified restart, see `invoker`. If you instead want to create a function that you can call from a handler, in order to invoke a particular restart immediately (so to define a shorthand notation similar to `use_value`), use `functools.partial(invoke_restart, "my_restart_name")`.
+To create a simple handler that does not take an argument, and just invokes a pre-specified restart, see `invoker`. If you instead want to create a function that you can call from a handler, in order to invoke a particular restart immediately (so to define a shorthand notation similar to `use_value`), use `functools.partial(invoke, "my_restart_name")`.
 
 Following Common Lisp terminology, *a named function that invokes a specific restart* - whether it is intended to act as a handler or to be called from one - is termed a *restart function*. (This is somewhat confusing, as a *restart function* is not a function that implements a restart, but a function that *invokes* a specific one.) The `use_value` function mentioned above is an example.
 
