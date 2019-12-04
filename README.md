@@ -49,6 +49,54 @@ def nextfibo(a, b):       # *oldstates
 assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 ```
 </details>  
+<details><summary>Resume from errors.</summary>
+
+[[docs](doc/features.md#handlers-restarts-conditions-and-restarts)]
+
+```python
+from unpythonic import error, restarts, handlers, invoke_restart, use_value, unbox
+
+class MyError(ValueError):
+    def __init__(self, value):  # we want to act on the value so save it.
+        self.value = value
+
+def lowlevel(lst):
+    _drop = object()  # gensym/nonce
+    out = []
+    for k in lst:
+        with restarts(use_value=(lambda x: x),
+                      halve=(lambda x: x // 2),
+                      drop=(lambda: _drop)) as result:
+            if k > 9000:
+                error(MyError(k))
+            # This is reached when no error occurs.
+            # `result` is a box, send k into it.
+            result << k
+        r = unbox(result)  # get the value from the box
+        if r is not _drop:
+            out.append(r)
+    return out
+
+def highlevel():
+    with handlers((MyError, lambda c: use_value(c.value))):
+        assert lowlevel(data) == data
+
+    with handlers((MyError, lambda c: invoke_restart("halve", c.value))):
+        assert lowlevel(data) == [17, 5000, 23, 42]
+
+    with handlers((MyError, lambda: invoke_restart("drop"))):
+        assert lowlevel(data) == [17, 23, 42]
+
+data = [17, 10000, 23, 42]
+highlevel()
+```
+
+For an introduction to Common Lisp *conditions*, see [Peter Seibel: Practical Common Lisp, chapter 19](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html). Briefly, the the low-level code can provide several error-recovery strategies (*restarts*), and the high-level code gets to choose (in a *handler*) which one to use on a per-use-site basis. *Signaling* a condition does not yet unwind the call stack. The outer levels are just consulted; `error` is a regular function call. Only when a restart is *invoked*, the call stack unwinds, between the signaling location and the chosen restart.
+
+The return value of the restart replaces the normal result of the `with restarts` context.
+
+Here we have just two levels, but restarts can be established at any level of the call stack. See the docs for another example with three levels.
+</details>
 <details><summary>Loop functionally.</summary>
 
 [[docs](doc/features.md#looped-looped_over-loops-in-fp-style-with-tco)]
