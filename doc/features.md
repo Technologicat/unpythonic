@@ -2522,7 +2522,7 @@ If the standard protocols don't cover what you need, you can also build your own
 
 The name `cerror` stands for *correctable error*, see e.g. [CERROR in the CL HyperSpec](http://clhs.lisp.se/Body/f_cerror.htm). What we call `proceed`, Common Lisp calls `CONTINUE`; the name is different because in Python the function naming convention is lowercase, and `continue` is a reserved word.
 
-If you really want to emulate `ON ERROR RESUME NEXT`, just use `Exception` (or `Condition`) as the condition type for your handler, and all `cerror` calls within the block will return normally, provided that no other handler handles those conditions first.
+If you really want to emulate `ON ERROR RESUME NEXT`, just use `Exception` as the condition type for your handler, and all `cerror` calls within the block will return normally, provided that no other handler handles those conditions first.
 
 #### Conditions vs. exceptions
 
