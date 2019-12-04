@@ -91,7 +91,7 @@ data = [17, 10000, 23, 42]
 highlevel()
 ```
 
-For an introduction to Common Lisp *conditions*, see [Peter Seibel: Practical Common Lisp, chapter 19](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html). Briefly, the the low-level code can provide several error-recovery strategies (*restarts*), and the high-level code gets to choose (in a *handler*) which one to use on a per-use-site basis. *Signaling* a condition does not yet unwind the call stack. The outer levels are just consulted; `error` is a regular function call. Only when a restart is *invoked*, the call stack unwinds, between the signaling location and the chosen restart.
+With Common Lisp style conditions, the low-level code can provide several canned error-recovery strategies (*restarts*), and the high-level code gets to choose (in a *handler*) which one to use on a per-use-site basis. *Signaling* a condition does not yet unwind the call stack. The outer levels are just consulted; `error` is a regular function call. Only when a restart is *invoked*, the call stack unwinds, between the signaling location and the chosen restart.
 
 The return value of the restart replaces the normal result of the `with restarts` context.
 
