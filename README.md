@@ -49,7 +49,7 @@ def nextfibo(a, b):       # *oldstates
 assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 ```
 </details>  
-<details><summary>Resume from errors.</summary>
+<details><summary>Experience resumable, modular error handling, a.k.a. Common Lisp style conditions.</summary>
 
 [[docs](doc/features.md#handlers-restarts-conditions-and-restarts)]
 
@@ -57,13 +57,14 @@ assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34,
 from unpythonic import error, restarts, handlers, invoke_restart, use_value, unbox
 
 class MyError(ValueError):
-    def __init__(self, value):  # we want to act on the value so save it.
+    def __init__(self, value):  # We want to act on the value, so save it.
         self.value = value
 
 def lowlevel(lst):
     _drop = object()  # gensym/nonce
     out = []
     for k in lst:
+        # Provide several different error recovery strategies.
         with restarts(use_value=(lambda x: x),
                       halve=(lambda x: x // 2),
                       drop=(lambda: _drop)) as result:
@@ -72,31 +73,29 @@ def lowlevel(lst):
             # This is reached when no error occurs.
             # `result` is a box, send k into it.
             result << k
+        # Now the result box contains either k,
+        # or the return value of one of the restarts. 
         r = unbox(result)  # get the value from the box
         if r is not _drop:
             out.append(r)
     return out
 
 def highlevel():
+    # Choose which error recovery strategy to use...
     with handlers((MyError, lambda c: use_value(c.value))):
-        assert lowlevel(data) == data
+        assert lowlevel([17, 10000, 23, 42]) == [17, 10000, 23, 42]
 
+    # ...on a per-use-site basis...
     with handlers((MyError, lambda c: invoke_restart("halve", c.value))):
-        assert lowlevel(data) == [17, 5000, 23, 42]
+        assert lowlevel([17, 10000, 23, 42]) == [17, 5000, 23, 42]
 
+    # ...without changing the low-level code.
     with handlers((MyError, lambda: invoke_restart("drop"))):
-        assert lowlevel(data) == [17, 23, 42]
+        assert lowlevel([17, 10000, 23, 42]) == [17, 23, 42]
 
-data = [17, 10000, 23, 42]
 highlevel()
 ```
-
-With Common Lisp style conditions, the low-level code can provide several canned error-recovery strategies (*restarts*), and the high-level code gets to choose (in a *handler*) which one to use on a per-use-site basis. *Signaling* a condition does not yet unwind the call stack. The outer levels are just consulted; `error` is a regular function call. Only when a restart is *invoked*, the call stack unwinds, between the signaling location and the chosen restart.
-
-The return value of the restart replaces the normal result of the `with restarts` context.
-
-Here we have just two levels, but restarts can be established at any level of the call stack. See the docs for another example with three levels.
-</details>
+</details>  
 <details><summary>Loop functionally.</summary>
 
 [[docs](doc/features.md#looped-looped_over-loops-in-fp-style-with-tco)]
@@ -109,7 +108,7 @@ def result(loop, acc=0, i=0):
     if i == 10:
         return acc
     else:
-        return loop(acc + i, i + 1)
+        return loop(acc + i, i + 1)  # tail call optimized, no call stack blowup.
 assert result == 45
 
 @looped_over(range(3), acc=[])
@@ -134,7 +133,7 @@ assert square.__name__ == "square"
 assert square.__qualname__ == "square"  # or e.g. "somefunc.<locals>.square" if inside a function
 assert square.__code__.co_name == "square"  # used by stack traces
 ```
-</details>
+</details>  
 <details><summary>Break infinite recursion cycles.</summary>
 
 [[docs](doc/features.md#fix-break-infinite-recursion-cycles)]
@@ -171,9 +170,22 @@ assert tuple(islice(seq)[:10]) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
 from itertools import count, takewhile
 from unpythonic import memoize, gmemoize, islice
 
+ncalls = 0
+@memoize  # <-- important part
+def square(x):
+    global ncalls
+    ncalls += 1
+    return x**2
+assert square(2) == 4
+assert ncalls == 1
+assert square(3) == 9
+assert ncalls == 2
+assert square(3) == 9
+assert ncalls == 2  # called only once for each unique set of arguments
+
 # "memoize lambda": classic evaluate-at-most-once thunk
 thunk = memoize(lambda: print("hi from thunk"))
-thunk()
+thunk()  # the message is printed only the first time
 thunk()
 
 @gmemoize  # <-- important part
@@ -200,7 +212,7 @@ assert s == (10, 2, 10, 4, 10)
 assert t == (1, 2, 3, 4, 5)
 ```
 </details>  
-<details><summary>Experience lispy data structures.</summary>
+<details><summary>Use lispy data structures.</summary>
 
 [[docs for `box`](doc/features.md#box-a-mutable-single-item-container)] [[docs for `cons`](doc/features.md#cons-and-friends-pythonic-lispy-linked-lists)] [[docs for `frozendict`](doc/features.md#frozendict-an-immutable-dictionary)]
 
