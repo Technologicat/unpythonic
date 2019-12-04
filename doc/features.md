@@ -2526,9 +2526,9 @@ If you really want to emulate `ON ERROR RESUME NEXT`, just use `Exception` as th
 
 #### Conditions vs. exceptions
 
-Using the condition system essentially requires eschewing exceptions, using only restarts and handlers instead. A regular exception will fly past a `with handlers` form uncaught. The form just maintains a stack of functions; it does not establish an *exception* handler. Similarly, a `try`/`except` cannot catch a signal, because no exception is raised yet at handler lookup time. Delaying the stack unwind, to achieve the three-way split of responsibilities, is the whole point of the condition system. Which of the two systems to use is a design decision that must be made consistently on a per-project basis.
+Using the condition system essentially requires eschewing exceptions, using only restarts and handlers instead. A regular `raise` will fly past a `with handlers` form uncaught. The form just maintains a stack of functions; it does not establish an *exception* handler. Similarly, a `try`/`except` cannot catch a signal, because no exception is raised yet at handler lookup time. Delaying the stack unwind, to achieve the three-way split of responsibilities, is the whole point of the condition system. Which of the two systems to use is a design decision that must be made consistently on a per-project basis.
 
-Be aware that error-recovery code in a Lisp-style signal handler is of a very different nature compared to error-recovery code in an exception handler. A signal handler usually only chooses a restart and invokes it; as was explained above, the code that actually performs the error recovery (i.e. the *restart*) lives further in on the call stack. An exception handler, on the other hand, must respond by directly performing error recovery right where it is, without any help from inner levels - because the stack has already unwound when the exception handler gets control.
+Be aware that error-recovery code in a Lisp-style signal handler is of a very different nature compared to error-recovery code in an exception handler. A signal handler usually only chooses a restart and invokes it; as was explained above, the code that actually performs the error recovery (i.e. the *restart*) lives further in on the call stack, and still has available (in its local variables) the state that is needed to perform the recovery. An exception handler, on the other hand, must respond by directly performing error recovery right where it is, without any help from inner levels - because the stack has already unwound when the exception handler gets control.
 
 Hence, the two systems are intentionally kept separate. The language discontinuity is unfortunate, but inevitable when conditions are added to a language where an error recovery culture based on the exception model (of the regular non-resumable kind) already exists.
 
@@ -2536,17 +2536,17 @@ Hence, the two systems are intentionally kept separate. The language discontinui
 
 If a handler attempts to invoke a nonexistent restart (or one that is not in the current dynamic extent), `ControlError` is *signaled* using `error(...)`. The error message in the exception instance will have the details.
 
-If this `ControlError` signal is not handled, a `ControlError` will then be **raised** (as a last-resort measure) as a regular exception; see `error`. It **is** allowed to catch `ControlError` with an exception handler.
+If this `ControlError` signal is not handled, a `ControlError` will then be **raised** (as a last-resort measure) as a regular exception, as per the `error` protocol. It **is** allowed to catch `ControlError` with an exception handler.
 
 #### Historical note
 
-Conditions are one of the killer features of Common Lisp, so if you're new to conditions, [Peter Seibel: Practical Common Lisp, chapter 19](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) is a good place to start learning about them. There's also a relevant [discussion on Lambda the Ultimate](http://lambda-the-ultimate.org/node/1544).
+Conditions are one of the killer features of Common Lisp, so if you're new to conditions, [Peter Seibel: Practical Common Lisp, chapter 19](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) is a good place to learn about them. There's also a relevant [discussion on Lambda the Ultimate](http://lambda-the-ultimate.org/node/1544).
 
 For Python, conditions were first implemented in [python-cl-conditions](https://github.com/svetlyak40wt/python-cl-conditions/) by Alexander Artemenko (2016).
 
 What we provide here is essentially a rewrite, based on studying that implementation. The main reasons for the rewrite are to give the condition system an API consistent with the style of `unpythonic`, to drop any and all historical baggage without needing to consider backward compatibility, and to allow interaction with (and customization taking into account) the other parts of `unpythonic`. If you specifically need a condition system, not a kitchen-sink language extension, then by all means go for `python-cl-conditions`!
 
-The core idea can be expressed in fewer than 100 lines of Python; ours is (as of v0.14.2) 151 lines, not counting docstrings, comments, or blank lines. The main reason our module is almost 700 lines are the docstrings.
+The core idea can be expressed in fewer than 100 lines of Python; ours is (as of v0.14.2) 151 lines, not counting docstrings, comments, or blank lines. The main reason our module is over 700 lines are the docstrings.
 
 
 ## Other
