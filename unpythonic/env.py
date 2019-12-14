@@ -4,11 +4,11 @@
 __all__ = ["env"]
 
 from collections.abc import Container, Sized, Iterable, Mapping, MutableMapping
-from .lazyutil import mark_lazy
+from .lazyutil import passthrough_lazy_args
 
 # co-operate with unpythonic.syntax.lazify; this is essentially a binding construct,
 # so it shouldn't force any promises that are stuffed into the env.
-@mark_lazy
+@passthrough_lazy_args
 class env:
     """Environment for let-like constructs.
 

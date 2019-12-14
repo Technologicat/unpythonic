@@ -15,7 +15,7 @@ from macropy.quick_lambda import macros, lazy
 from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, \
                   isx, make_isxpred, getname, is_decorator, wrapwith
 from .letdoutil import islet, isdo, ExpandedLetView
-from ..lazyutil import mark_lazy, force, force1, maybe_force_args
+from ..lazyutil import passthrough_lazy_args, force, force1, maybe_force_args
 from ..dynassign import dyn
 
 # -----------------------------------------------------------------------------
@@ -214,18 +214,18 @@ def lazify(body):
                 # to allow also strict code to call this function
                 if type(tree) is Lambda:
                     lam = tree
-                    tree = hq[mark_lazy(ast_literal[tree])]
+                    tree = hq[passthrough_lazy_args(ast_literal[tree])]
                     tree = sort_lambda_decorators(tree)
                     lam.body = rec(lam.body)
                 else:
                     tree.decorator_list = rec(tree.decorator_list)
-                    k = suggest_decorator_index("mark_lazy", tree.decorator_list)
+                    k = suggest_decorator_index("passthrough_lazy_args", tree.decorator_list)
                     if k is not None:
-                        tree.decorator_list.insert(k, hq[mark_lazy])
+                        tree.decorator_list.insert(k, hq[passthrough_lazy_args])
                     else:
-                        # mark_lazy should generally be as innermost as possible
+                        # passthrough_lazy_args should generally be as innermost as possible
                         # (so that e.g. the curry decorator will see the function as lazy)
-                        tree.decorator_list.append(hq[mark_lazy])
+                        tree.decorator_list.append(hq[passthrough_lazy_args])
                     tree.body = rec(tree.body)
 
         elif type(tree) is Call:

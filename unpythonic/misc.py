@@ -14,7 +14,7 @@ from math import floor, log2
 from queue import Empty
 
 from .regutil import register_decorator
-from .lazyutil import mark_lazy, maybe_force_args, force
+from .lazyutil import passthrough_lazy_args, maybe_force_args, force
 
 # Only the single-argument form (just f) is supported by unpythonic.syntax.util.sort_lambda_decorators.
 #
@@ -22,7 +22,7 @@ from .lazyutil import mark_lazy, maybe_force_args, force
 # to the decorator API, but is a normal function call. See "callwith" if you need to
 # pass arguments and then call f from a decorator position.
 @register_decorator(priority=80)
-@mark_lazy
+@passthrough_lazy_args
 def call(f, *args, **kwargs):
     """Call the function f.
 
@@ -93,7 +93,7 @@ def call(f, *args, **kwargs):
     return maybe_force_args(force(f), *args, **kwargs)  # support unpythonic.syntax.lazify
 
 @register_decorator(priority=80)
-@mark_lazy
+@passthrough_lazy_args
 def callwith(*args, **kwargs):
     """Freeze arguments, choose function later.
 

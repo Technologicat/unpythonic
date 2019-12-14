@@ -25,8 +25,8 @@ from .fold import reducel
 from .dynassign import dyn, make_dynvar
 from .regutil import register_decorator
 
-# we use @mark_lazy (and handle possible lazy args) to support unpythonic.syntax.lazify.
-from .lazyutil import mark_lazy, islazy, force, force1, maybe_force_args
+# we use @passthrough_lazy_args (and handle possible lazy args) to support unpythonic.syntax.lazify.
+from .lazyutil import passthrough_lazy_args, islazy, force, force1, maybe_force_args
 
 @register_decorator(priority=10)
 def memoize(f):
@@ -57,7 +57,7 @@ def memoize(f):
             raise value
         return value
     if islazy(f):
-        memoized = mark_lazy(memoized)
+        memoized = passthrough_lazy_args(memoized)
     return memoized
 
 #def memoize_simple(f):  # essential idea, without exception handling
@@ -71,7 +71,7 @@ def memoize(f):
 #    return memoized
 
 make_dynvar(curry_context=[])
-@mark_lazy
+@passthrough_lazy_args
 def _currycall(f, *args, **kwargs):
     """Co-operate with unpythonic.syntax.curry.
 
@@ -86,7 +86,7 @@ def _currycall(f, *args, **kwargs):
     return curry(f, *args, _curry_force_call=True, _curry_allow_uninspectable=True, **kwargs)
 
 @register_decorator(priority=90)
-@mark_lazy
+@passthrough_lazy_args
 def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, **kwargs):
     """Decorator: curry the function f.
 
@@ -200,7 +200,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             if len(args) < min_arity:
                 p = partial(f, *args, **kwargs)
                 if islazy(f):
-                    p = mark_lazy(p)
+                    p = passthrough_lazy_args(p)
                 return curry(p)
             # passthrough on right, like https://github.com/Technologicat/spicy
             if len(args) > max_arity:
@@ -223,7 +223,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                 return (now_result,) + later_args
             return maybe_force_args(f, *args, **kwargs)
     if islazy(f):
-        curried = mark_lazy(curried)
+        curried = passthrough_lazy_args(curried)
     curried._is_curried_function = True  # stash for detection
     # curry itself is curried: if we get args, they're the first step
     if args or kwargs or _curry_force_call:
@@ -249,7 +249,7 @@ def flip(f):
     def flipped(*args, **kwargs):
         return maybe_force_args(f, *reversed(args), **kwargs)
     if islazy(f):
-        flipped = mark_lazy(flipped)
+        flipped = passthrough_lazy_args(flipped)
     return flipped
 
 def rotate(k):
@@ -279,11 +279,11 @@ def rotate(k):
             rargs = args[-j:] + args[:-j]
             return maybe_force_args(f, *rargs, **kwargs)
         if islazy(f):
-            rotated = mark_lazy(rotated)
+            rotated = passthrough_lazy_args(rotated)
         return rotated
     return rotate_k
 
-@mark_lazy
+@passthrough_lazy_args
 def apply(f, arg0, *more, **kwargs):
     """Scheme/Racket-like apply.
 
@@ -366,7 +366,7 @@ def notf(f):  # Racket: negate
     def negated(*args, **kwargs):
         return not maybe_force_args(f, *args, **kwargs)
     if islazy(f):
-        negated = mark_lazy(negated)
+        negated = passthrough_lazy_args(negated)
     return negated
 
 def andf(*fs):  # Racket: conjoin
@@ -392,7 +392,7 @@ def andf(*fs):  # Racket: conjoin
                 return False
         return b
     if all(islazy(f) for f in fs):
-        conjoined = mark_lazy(conjoined)
+        conjoined = passthrough_lazy_args(conjoined)
     return conjoined
 
 def orf(*fs):  # Racket: disjoin
@@ -420,7 +420,7 @@ def orf(*fs):  # Racket: disjoin
                 return b
         return False
     if all(islazy(f) for f in fs):
-        disjoined = mark_lazy(disjoined)
+        disjoined = passthrough_lazy_args(disjoined)
     return disjoined
 
 def _make_compose1(direction):  # "left", "right"
@@ -443,7 +443,7 @@ def _make_compose1(direction):  # "left", "right"
         #  - if fs contains only one item, we output it as-is
         composed = reducel(compose1_two, fs)  # op(elt, acc)
         if all(islazy(f) for f in fs):
-            composed = mark_lazy(composed)
+            composed = passthrough_lazy_args(composed)
         return composed
     return compose1
 
@@ -505,7 +505,7 @@ def _make_compose(direction):  # "left", "right"
     def compose(fs):
         composed = reducel(compose_two, fs)  # op(elt, acc)
         if all(islazy(f) for f in fs):
-            composed = mark_lazy(composed)
+            composed = passthrough_lazy_args(composed)
         return composed
     return compose
 
@@ -591,7 +591,7 @@ def tokth(k, f):
             out.extend(args[m:])
         return tuple(out)
     if islazy(f):
-        apply_f_to_kth_arg = mark_lazy(apply_f_to_kth_arg)
+        apply_f_to_kth_arg = passthrough_lazy_args(apply_f_to_kth_arg)
     return apply_f_to_kth_arg
 
 def to1st(f):
@@ -663,5 +663,5 @@ def withself(f):
         #return f(fwithself, *args, **kwargs)
         return maybe_force_args(f, fwithself, *args, **kwargs)  # support unpythonic.syntax.lazify
     if islazy(f):
-        fwithself = mark_lazy(fwithself)
+        fwithself = passthrough_lazy_args(fwithself)
     return fwithself

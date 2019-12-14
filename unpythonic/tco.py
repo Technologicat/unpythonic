@@ -131,10 +131,10 @@ from functools import wraps
 from sys import stderr
 
 from .regutil import register_decorator
-from .lazyutil import islazy, mark_lazy, maybe_force_args
+from .lazyutil import islazy, passthrough_lazy_args, maybe_force_args
 from .dynassign import dyn
 
-# In principle, jump should have @mark_lazy, but for performance reasons
+# In principle, jump should have @passthrough_lazy_args, but for performance reasons
 # it doesn't. "force(target)" is slow, so strict code shouldn't have to do that.
 # This is handled by a special case in maybe_force_args.
 def jump(target, *args, **kwargs):
@@ -284,7 +284,7 @@ def trampolined(function):
             f = function
             while True:
                 if callable(f):  # the maybe_force_args here causes the performance hit
-                    v = maybe_force_args(f, *args, **kwargs)
+                    v = maybe_force_args(f, *args, **kwargs)    # <--
                 else:
                     v = f
                 if isinstance(v, _jump):
@@ -298,8 +298,11 @@ def trampolined(function):
                     return v
         if callable(function):
             trampoline._entrypoint = function
-            if islazy(function):                    # <--
-                trampoline = mark_lazy(trampoline)  # <--
+            # Mark the trampolined function for passthrough of lazy args if the
+            # original function has the mark. This is needed because the mark is
+            # implemented as an attribute on the function object.
+            if islazy(function):                                # <--
+                trampoline = passthrough_lazy_args(trampoline)  # <--
             return trampoline
         else:
             return trampoline()
