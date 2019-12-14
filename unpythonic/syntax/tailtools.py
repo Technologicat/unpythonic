@@ -196,7 +196,7 @@ def continuations(block_body):
             nd = len(tree.args.defaults)  # defaults apply to n last args
             if j == na - nd - 1:  # last one that has no default
                 tree.args.defaults.insert(0, hq[identity])
-        else: # "cc" in kwonlynames:
+        else:  # "cc" in kwonlynames:
             j = kwonlynames.index("cc")
             if tree.args.kw_defaults[j] is None:  # not already set
                 tree.args.kw_defaults[j] = hq[identity]
@@ -363,7 +363,7 @@ def continuations(block_body):
             if tree:
                 tree.keywords = [keyword(arg="cc", value=q[name[contname]])] + tree.keywords
             else:  # no call means proceed to cont directly, with args set to None
-                tree = q[name[contname](*([None]*u[len(targets)]), cc=name["cc"])]
+                tree = q[name[contname](*([None] * u[len(targets)]), cc=name["cc"])]
             return tree
         thecall = prepare_call(thecall)
         if condition:
