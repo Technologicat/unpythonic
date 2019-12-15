@@ -387,9 +387,9 @@ class ConsoleSession(socketserver.BaseRequestHandler):
 
                     # TODO: Capture the reference to the calling module's globals dictionary, not ours.
                     # TODO: We could just stash it in a global here, since there's only one REPL server per process.
-                    self.console = StreamInteractiveConsole(rfile, wfile,
-                                                            locals=globals())
-                    # self.console = code.InteractiveConsole(locals=globals())  # works except no exit on Ctrl+D
+                    # self.console = StreamInteractiveConsole(rfile, wfile,
+                    #                                         locals=globals())
+                    self.console = code.InteractiveConsole(locals=globals())  # works except no exit on Ctrl+D
 
                     # All errors except SystemExit are caught inside interact(), only
                     # sys.exit() is escalated, in this situation we want to close the
