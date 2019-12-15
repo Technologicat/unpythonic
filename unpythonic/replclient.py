@@ -54,6 +54,14 @@ def connect(addrspec):
 
     `addrspec` is passed to `socket.connect`. For IPv4, it is the tuple
     `(ip_or_hostname, port)`.
+
+    To disconnect politely, send `exit()`, or as a shortcut, press Ctrl+D.
+    This asks the server to terminate the REPL session, and is the official
+    way to exit cleanly.
+
+    To disconnect forcibly, press Ctrl+C. This just drops the connection
+    immediately. (The server should be smart enough to notice the client
+    is gone, and clean up any relevant resources.)
     """
     class SessionExit(Exception):
         pass
