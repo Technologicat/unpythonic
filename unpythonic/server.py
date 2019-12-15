@@ -279,12 +279,23 @@ class PTYSocketProxy:
         https://terminallabs.com/blog/a-better-cli-passthrough-in-python/
         http://man7.org/linux/man-pages/man7/pty.7.html
     """
-    def __init__(self, sock, client_name):
+    def __init__(self, sock, client_name, on_disconnect=None):
         """Open the PTY. The slave FD becomes available as `self.slave`.
 
         `client_name` is a human-readable description identifying the client
         behind the network socket. It is used only for messages. It can be
         e.g. ip:port, i.e. something like "127.0.0.1:43674".
+
+        `on_disconnect`, if set, is a one-argument callable that is called
+        when an EOF is detected on the socket. It receives the `PTYSocketProxy`
+        instance and can e.g. `os.write(proxy.master, some_disconnect_command)`
+        to tell the software connected on the slave side to exit.
+
+        What the command is, is up to the protocol your specific software
+        speaks, so we just provide a general mechanism to send a command to it.
+        In other words, you get a disconnect event for free, but you need to
+        know how to tell your specific software to end the session when that
+        event fires.
 
         Note `slave` is a raw file descriptor (just a small integer), not a
         Python stream. If you need a stream, `open()` the file descriptor
@@ -294,10 +305,11 @@ class PTYSocketProxy:
         # master is the "pty side", slave is the "tty side".
         master, slave = os.openpty()
         tty.setraw(master, termios.TCSANOW)  # http://man7.org/linux/man-pages/man3/termios.3.html
-        server_print('PTY on {} for client {} opened'.format(os.ttyname(slave), client_name))
+        server_print('PTY on {} for client {} opened.'.format(os.ttyname(slave), client_name))
         self.sock = sock
         self.master, self.slave = master, slave
         self.client_name = client_name
+        self.on_disconnect = on_disconnect
         self._terminated = True
         self._thread = None
 
@@ -319,13 +331,14 @@ class PTYSocketProxy:
                     if fd == self.master:
                         request = os.read(fd, 4096)
                         if len(request) == 0:
-                            server_print("PTY on {} for client {} exiting, EOF on PTY master.".format(os.ttyname(self.slave), self.client_name))
+                            server_print("PTY on {} for client {} exiting, disconnect by PTY slave.".format(os.ttyname(self.slave), self.client_name))
                             return
                         self.sock.send(request)
                     else:
                         request = self.sock.recv(4096)
                         if len(request) == 0:
-                            server_print("PTY on {} for client {} exiting, EOF on socket.".format(os.ttyname(self.slave), self.client_name))
+                            server_print("PTY on {} for client {} exiting, disconnect by client.".format(os.ttyname(self.slave), self.client_name))
+                            self.on_disconnect(self)
                             return
                         os.write(self.master, request)
 
@@ -361,10 +374,9 @@ class ConsoleSession(socketserver.BaseRequestHandler):
             # since we in any case only forward raw bytes between the PTY master FD and the socket.
             # https://docs.python.org/3/library/socketserver.html#socketserver.StreamRequestHandler
 
-            # TODO: Currently the session will be left hanging if PTYSocketProxy disconnects.
-            # TODO: But we can't catch exceptions raised in that thread from here - besides,
-            # TODO: we're stuck inside interact() when that happens. Find a way to fix this.
-            adaptor = PTYSocketProxy(self.request, client_address_str)
+            def on_disconnect(proxy):
+                os.write(proxy.master, "exit()\n".encode("utf-8"))
+            adaptor = PTYSocketProxy(self.request, client_address_str, on_disconnect)
             adaptor.start()
 
             # fdopen the slave side of the PTY to get file objects to work with.
