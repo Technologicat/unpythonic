@@ -199,9 +199,6 @@ class StreamInteractiveConsole(code.InteractiveConsole):
 
         self.write(prompt)
 
-        # TODO: readline module and/or rlcompleter support?
-        # The problem is the readline library doesn't see our input,
-        # because we're stuck waiting for rfile.readline() to return.
         raw_value = self.rfile.readline().rstrip()
         str_value = raw_value.decode('utf-8')
 
