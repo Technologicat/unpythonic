@@ -112,11 +112,12 @@ def connect(addrspec):
                 # thread).
                 try:
                     while True:
-                        inp = input()
-                        sock.send((inp + "\n").encode("utf-8"))
-                except KeyboardInterrupt:
-                    print("replclient: Ctrl+C pressed, forcing disconnect.")
-                    raise SessionExit
+                        try:
+                            inp = input()
+                            sock.send((inp + "\n").encode("utf-8"))
+                        except KeyboardInterrupt:
+                            # TODO: refactor control channel logic; send command on control channel
+                            sock.send("\x03\n".encode("utf-8"))
                 except EOFError:
                     print("replclient: Ctrl+D pressed, asking server to disconnect.")
                     print("replclient: if the server does not respond, press Ctrl+C to force.")
