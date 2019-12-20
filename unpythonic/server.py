@@ -327,14 +327,14 @@ class PTYSocketProxy:
         https://terminallabs.com/blog/a-better-cli-passthrough-in-python/
         http://man7.org/linux/man-pages/man7/pty.7.html
     """
-    def __init__(self, sock, client_name, on_disconnect=None):
+    def __init__(self, sock, client_name, on_socket_disconnect=None):
         """Open the PTY. The slave FD becomes available as `self.slave`.
 
         `client_name` is a human-readable description identifying the client
         behind the network socket. It is used only for messages. It can be
         e.g. ip:port, i.e. something like "127.0.0.1:43674".
 
-        `on_disconnect`, if set, is a one-argument callable that is called
+        `on_socket_disconnect`, if set, is a one-argument callable that is called
         when an EOF is detected on the socket. It receives the `PTYSocketProxy`
         instance and can e.g. `os.write(proxy.master, some_disconnect_command)`
         to tell the software connected on the slave side to exit.
@@ -357,7 +357,7 @@ class PTYSocketProxy:
         self.sock = sock
         self.master, self.slave = master, slave
         self.client_name = client_name
-        self.on_disconnect = on_disconnect
+        self.on_socket_disconnect = on_socket_disconnect
         self._terminated = True
         self._thread = None
 
@@ -386,7 +386,7 @@ class PTYSocketProxy:
                         request = self.sock.recv(4096)
                         if len(request) == 0:
                             server_print("PTY on {} for client {} exiting, disconnect by client.".format(os.ttyname(self.slave), self.client_name))
-                            self.on_disconnect(self)
+                            self.on_socket_disconnect(self)
                             return
                         os.write(self.master, request)
 
@@ -422,9 +422,9 @@ class ConsoleSession(socketserver.BaseRequestHandler):
             # since we in any case only forward raw bytes between the PTY master FD and the socket.
             # https://docs.python.org/3/library/socketserver.html#socketserver.StreamRequestHandler
 
-            def on_disconnect(proxy):
+            def on_socket_disconnect(proxy):
                 os.write(proxy.master, "exit()\n".encode("utf-8"))
-            adaptor = PTYSocketProxy(self.request, client_address_str, on_disconnect)
+            adaptor = PTYSocketProxy(self.request, client_address_str, on_socket_disconnect)
             adaptor.start()
 
             # fdopen the slave side of the PTY to get file objects to work with.
