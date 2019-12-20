@@ -415,6 +415,7 @@ for abscls in get_abcs(dict) - {MutableMapping} | {Hashable}:
     abscls.register(frozendict)
 for abscls in (Container, Iterable, Sized):
     abscls.register(box)
+    abscls.register(ThreadLocalBox)
 del abscls  # namespace cleanup
 
 # -----------------------------------------------------------------------------
