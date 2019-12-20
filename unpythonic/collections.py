@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Additional containers and container utilities."""
 
-__all__ = ["box", "unbox", "frozendict", "roview", "view", "ShadowedSequence",
+__all__ = ["box", "ThreadLocalBox", "unbox", "Shim",
+           "frozendict", "roview", "view", "ShadowedSequence",
            "mogrify",
            "get_abcs", "in_slice", "index_in_slice",
            "SequenceView", "MutableSequenceView"]  # ABCs
@@ -16,6 +17,7 @@ from collections.abc import Container, Iterable, Hashable, Sized, \
                             MappingView
 from inspect import isclass
 from operator import lt, le, ge, gt
+import threading
 
 from .llist import cons
 from .misc import getattrrec
@@ -201,7 +203,6 @@ class box:
     def set(self, x):
         """Store a new value in the box, replacing the old one.
 
-        Syntactic sugar for assigning to the attribute `.x`.
         As a convenience, returns the new value.
 
         Since a function call is an expression, you can use this form
@@ -219,6 +220,39 @@ class box:
         for a `box`, so we just return the new value.)
         """
         return self.set(x)
+    def get(self):
+        """Return the value currently in the box.
+
+        The syntactic sugar for `b.get()` is `unbox(b)`.
+        """
+        return self.x
+
+# We re-implement instead of making `box` use an `env` as a place
+# so that the thread-locality feature is pay-as-you-go (no loss in
+# performance for the regular, non-thread-local `box`.)
+class ThreadLocalBox(box):
+    """Like box, but the store is thread-local."""
+    def __init__(self, x=None):
+        self.storage = threading.local()
+        self.storage.x = x
+    def __repr__(self):
+        """**WARNING**: the repr shows only the content seen by the current thread."""
+        return "ThreadLocalBox({})".format(repr(self.storage.x))
+    def __contains__(self, x):
+        return self.storage.x == x
+    def __iter__(self):
+        return (x for x in (self.storage.x,))
+    def __len(self):
+        return 1
+    def __eq__(self, other):
+        return other == self.storage.x
+    def set(self, x):
+        self.storage.x = x
+        return x
+    def __lshift__(self, x):
+        return self.set(x)
+    def get(self):
+        return self.storage.x
 
 def unbox(b):
     """Return the value from inside the box b.
@@ -230,7 +264,32 @@ def unbox(b):
     """
     if not isinstance(b, box):
         raise TypeError("Expected box, got {} with value '{}'".format(type(b), b))
-    return b.x
+    return b.get()
+
+class Shim:
+    """Attribute access redirector.
+
+    Hold a target object inside a box. When an attribute of this object
+    is accessed (whether to get or set it), redirect that attribute
+    access to the target currently inside the box.
+
+    The point is that the target may be switched at any time, simply by sending
+    a new value into the box instance you gave to the `Shim` constructor.
+
+    Another use case is to combo with `ThreadLocalBox`, e.g. to redirect
+    stdin/stdout only when used from some specific threads.
+    """
+    def __init__(self, thebox):
+        """thebox: a `box` instance that will hold the target."""
+        self._box = thebox
+    def __getattr__(self, k):
+        thing = unbox(self._box)
+        return getattr(thing, k)
+    def __setattr__(self, k, v):
+        if k == "_box":
+            return super().__setattr__(k, v)
+        thing = unbox(self._box)
+        return setattr(thing, k, v)
 
 _the_empty_frozendict = None
 class frozendict:

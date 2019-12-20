@@ -2,8 +2,9 @@
 
 from collections.abc import Mapping, MutableMapping, Hashable, Container, Iterable, Sized
 from pickle import dumps, loads
+import threading
 
-from ..collections import box, unbox, frozendict, view, roview, ShadowedSequence, mogrify
+from ..collections import box, ThreadLocalBox, Shim, unbox, frozendict, view, roview, ShadowedSequence, mogrify
 
 def test():
     # box: mutable single-item container à la Racket
@@ -64,6 +65,41 @@ def test():
     b1 = box("abcdefghijklmnopqrstuvwxyzåäö")
     b2 = loads(dumps(b1))  # pickling
     assert b2 == b1
+
+    # ThreadLocalBox: like box, but with thread-local contents
+    tlb = ThreadLocalBox(42)
+    assert unbox(tlb) == 42
+    def test_threadlocalbox_worker():
+        tlb << 17
+        assert unbox(tlb) == 17
+    t = threading.Thread(target=test_threadlocalbox_worker)
+    t.start()
+    t.join()
+    assert unbox(tlb) == 42  # In the main thread, this box still has the original value.
+
+    # Shim: redirect attribute accesses.
+    #
+    # The shim holds a box. Attribute accesses on the shim are redirected
+    # to whatever object currently happens to be inside the box.
+    class TestTarget:
+        def __init__(self, x):
+            self.x = x
+        def getme(self):
+            return self.x
+    b5 = box(TestTarget(21))
+    s = Shim(b5)  # This is modular so we could use a ThreadLocalBox just as well.
+    assert hasattr(s, "x")
+    assert hasattr(s, "getme")
+    assert s.x == 21
+    assert s.getme() == 21
+    s.y = "hi from injected attribute"  # We can also add or rebind attributes through the shim.
+    assert unbox(b5).y == "hi from injected attribute"
+    s.y = "hi again"
+    assert unbox(b5).y == "hi again"
+    b5 << TestTarget(42)  # After we send a different object into the box held by the shim...
+    assert s.x == 42      # ...the shim accesses the new object.
+    assert s.getme() == 42
+    assert not hasattr(s, "y")  # The new TestTarget instance doesn't have "y".
 
     # frozendict: like frozenset, but for dictionaries
     d3 = frozendict({'a': 1, 'b': 2})
