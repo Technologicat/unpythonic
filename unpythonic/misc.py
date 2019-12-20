@@ -3,7 +3,7 @@
 
 __all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer",
            "getattrrec", "setattrrec", "Popper", "CountingIterator", "ulp",
-           "slurp"]
+           "slurp", "async_raise"]
 
 from types import LambdaType, FunctionType, CodeType
 from time import time
@@ -12,6 +12,13 @@ from functools import partial
 from sys import version_info, float_info
 from math import floor, log2
 from queue import Empty
+import threading
+
+# for async_raise only
+try:
+    import ctypes
+except ImportError:  # not running on CPython
+    ctypes = None
 
 from .regutil import register_decorator
 from .lazyutil import passthrough_lazy_args, maybe_force_args, force
@@ -489,3 +496,50 @@ def slurp(queue):
     except Empty:
         pass
     return out
+
+
+def async_raise(thread_obj, exception):
+    """Raise an exception inside an arbitrary active `threading.Thread`.
+
+    thread_obj: `threading.Thread`
+        The target thread.
+    exception: ``Exception``
+        The exception to be raised.
+
+    If the specified `threading.Thread` is not active, raises `ValueError`.
+    If the raise operation failed, raises `SystemError`.
+    If not running on CPython (`ctypes` module missing), raises `RuntimeError`.
+
+    **CAUTION**: Most likely, you don't need this. Proceed only if you know
+    you really need to. (For example, `unpythonic` uses this to generate a
+    `KeyboardInterrupt` inside a remote REPL session.)
+
+    **CAUTION**: This is potentially dangerous. If the raise fails, the
+    interpreter is left in an inconsistent state.
+
+    **NOTE**: Requires `ctypes`. Works only in CPython.
+
+    **NOTE**: The term `async` here has nothing to do with `async`/`await`;
+    instead, it refers to an asynchronous exception.
+        https://en.wikipedia.org/wiki/Exception_handling#Exception_synchronicity
+    See also:
+        https://vorpus.org/blog/control-c-handling-in-python-and-trio/
+
+    Originally by Federico Ficarelli and LIU Wei:
+        https://gist.github.com/nazavode/84d1371e023bccd2301e
+        https://gist.github.com/liuw/2407154
+    """
+    if not ctypes:
+        raise RuntimeError("No ctypes module, async_raise not supported.")
+
+    target_tid = thread_obj.ident
+    if target_tid not in {thread.ident for thread in threading.enumerate()}:
+        raise ValueError("Invalid thread object, cannot find thread identity among currently active threads.")
+
+    affected_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.py_object(exception))
+
+    if affected_count == 0:
+        raise ValueError("Invalid thread identity, no thread has been affected.")
+    elif affected_count > 1:
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.c_long(0))
+        raise SystemError("PyThreadState_SetAsyncExc failed, broke the interpreter state.")

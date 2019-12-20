@@ -5,9 +5,12 @@ from functools import partial
 from collections import deque
 from sys import float_info
 from queue import Queue
+from time import sleep
+import threading
 
 from ..misc import call, callwith, raisef, pack, namelambda, timer, \
-                   getattrrec, setattrrec, Popper, CountingIterator, ulp, slurp
+                   getattrrec, setattrrec, Popper, CountingIterator, ulp, slurp, \
+                   async_raise
 from ..fun import withself
 
 def test():
@@ -192,6 +195,26 @@ def test():
     for k in range(10):
         q.put(k)
     assert slurp(q) == list(range(10))
+
+    # async_raise - evil CPython hack to inject an exception into another running thread
+    try:
+        import ctypes  # just to test we're running on CPython  # noqa: F401
+        out = []
+        def test_async_raise_worker():
+            try:
+                for j in range(10):
+                    sleep(0.1)
+            except KeyboardInterrupt:  # normally, KeyboardInterrupt is only raised in the main thread
+                pass
+            out.append(j)
+        t = threading.Thread(target=test_async_raise_worker)
+        t.start()
+        sleep(0.1)  # make sure we're in the while loop
+        async_raise(t, KeyboardInterrupt)
+        t.join()
+        assert out[0] < 9  # terminated early due to the injected KeyboardInterrupt
+    except ImportError:
+        print("Not running on CPython, skipping async_raise test.")
 
     print("All tests PASSED")
 
