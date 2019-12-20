@@ -120,16 +120,16 @@ def test():
 
     assert frozendict() is frozendict()  # empty-frozendict singleton property
 
-    d7 = frozendict({1:2, 3:4})
+    d7 = frozendict({1: 2, 3: 4})
     assert 3 in d7
     assert len(d7) == 2
     assert set(d7.keys()) == {1, 3}
     assert set(d7.values()) == {2, 4}
     assert set(d7.items()) == {(1, 2), (3, 4)}
-    assert d7 == frozendict({1:2, 3:4})
-    assert d7 != frozendict({1:2})
-    assert d7 == {1:2, 3:4}  # like frozenset, __eq__ doesn't care whether mutable or not
-    assert d7 != {1:2}
+    assert d7 == frozendict({1: 2, 3: 4})
+    assert d7 != frozendict({1: 2})
+    assert d7 == {1: 2, 3: 4}  # like frozenset, __eq__ doesn't care whether mutable or not
+    assert d7 != {1: 2}
     assert {k for k in d7} == {1, 3}
     assert d7.get(3) == 4
     assert d7.get(5, 0) == 0
@@ -139,8 +139,8 @@ def test():
     assert not issubclass(frozendict, MutableMapping)
 
     assert issubclass(frozendict, Hashable)
-    assert hash(d7) == hash(frozendict({1:2, 3:4}))
-    assert hash(d7) != hash(frozendict({1:2}))
+    assert hash(d7) == hash(frozendict({1: 2, 3: 4}))
+    assert hash(d7) != hash(frozendict({1: 2}))
 
     assert issubclass(frozendict, Container)
     assert issubclass(frozendict, Iterable)
@@ -278,8 +278,8 @@ def test():
     assert s2 == (1, 2, 23, 42, 5)
     assert tpl == (1, 2, 3, 4, 5)
 
-     # in-place map
-    double = lambda x: 2*x
+    # in-place map
+    double = lambda x: 2 * x
     lst = [1, 2, 3]
     lst2 = mogrify(double, lst)
     assert lst2 == [2, 4, 6]
