@@ -6,9 +6,9 @@ import termios
 import select
 import threading
 
-# What this does for us in unpythonic.net.server is that:
+# What this does for us in a remote REPL session in unpythonic.net.server is that:
 #   >>> import os
-#   >>> os.isatty(_thread_scope.rfile.fileno())
+#   >>> os.isatty(sys.stdin.fileno())
 #   True
 # whereas without the PTY, the same code returns False.
 #
