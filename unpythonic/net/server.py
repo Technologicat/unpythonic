@@ -89,14 +89,18 @@ import json
 import atexit
 
 from .ptyproxy import PTYSocketProxy
+from ..collections import ThreadLocalBox, Shim
+#from ..misc import async_raise
 
 _server_instance = None
 _active_connections = set()
 _halt_pending = False
-_thread_scope = threading.local()
 _original_stdin = sys.stdin
 _original_stdout = sys.stdout
 _original_stderr = sys.stderr
+_stdin_streams = ThreadLocalBox(sys.stdin)
+_stdout_streams = ThreadLocalBox(sys.stdout)
+_stderr_streams = ThreadLocalBox(sys.stderr)
 _banner = None
 
 # TODO: inject this to globals of the target module
@@ -124,95 +128,6 @@ def server_print(*values, **kwargs):
     This function is available in the REPL.
     """
     print(*values, **kwargs, file=_original_stdout)
-
-
-# TODO: Move async_raise to unpythonic.misc, general utility. Credit original authors, with links, in AUTHORS.md:
-# TODO: Federico Ficarelli, Python 3.4 version (this): https://gist.github.com/nazavode/84d1371e023bccd2301e
-# TODO: LIU Wei, original Python 2.x version: https://gist.github.com/liuw/2407154
-def async_raise(thread_obj, exception):
-    """Raise an exception inside an arbitrary active `threading.Thread`.
-
-    thread_obj: `threading.Thread`
-        The target thread.
-    exception: ``Exception``
-        The exception to be raised.
-
-    If the specified `threading.Thread` is not active, raises `ValueError`.
-    If the raise operation failed, raises `SystemError`.
-    If not running on CPython (`ctypes` module missing), raises `RuntimeError`.
-
-    **CAUTION**: Most likely, you don't need this. Proceed only if you know
-    you really need to. (For example, `unpythonic` uses this to generate a
-    `KeyboardInterrupt` inside a remote REPL session.)
-
-    **CAUTION**: This is potentially dangerous. If the raise fails, the
-    interpreter is left in an inconsistent state.
-
-    **NOTE**: Requires `ctypes`. Works only in CPython.
-
-    **NOTE**: The term `async` here has nothing to do with `async`/`await`;
-    instead, it refers to an asynchronous exception.
-        https://en.wikipedia.org/wiki/Exception_handling#Exception_synchronicity
-    See also:
-        https://vorpus.org/blog/control-c-handling-in-python-and-trio/
-    """
-    if not ctypes:
-        raise RuntimeError("No ctypes module, async_raise not supported.")
-
-    target_tid = thread_obj.ident
-    if target_tid not in {thread.ident for thread in threading.enumerate()}:
-        raise ValueError("Invalid thread object, cannot find thread identity among currently active threads.")
-
-    affected_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.py_object(exception))
-
-    if affected_count == 0:
-        raise ValueError("Invalid thread identity, no thread has been affected.")
-    elif affected_count > 1:
-        ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.c_long(0))
-        raise SystemError("PyThreadState_SetAsyncExc failed, broke the interpreter state.")
-
-
-# TODO: improve stream proxying; could we have a general shim object?
-#   - pass orig_obj, proxy_ns, proxy_attrname to __init__
-#   - at method call time, if `proxy_ns.proxy_attrname` exists, call the method on it
-#   - otherwise call the same method on `orig_obj`
-class InputStreamShim:
-    """Redirector for stdin."""
-    @staticmethod
-    def _stream():
-        return _thread_scope.rfile if hasattr(_thread_scope, "rfile") else _original_stdin
-
-    def peek(self, *size):
-        return self._stream().peek(*size)
-    def read(self, *size):
-        return self._stream().read(*size).decode('utf-8')
-    def read1(self, *size):
-        return self._stream().read1(*size).decode('utf-8')
-    def readline(self, *args):
-        return self._stream().readline(*args).decode('utf-8')
-
-
-# TODO: original stderr is currently redirected to original stdout, does that matter?
-class OutputStreamShim:
-    """Redirector for stdout and stderr.
-
-    The REPL server uses this to wrap stdout and stderr of each connection.
-
-    If used from a thread that is serving to a REPL client, we redirect writes
-    and flushes to its `wfile` stream. If called from a thread that does not
-    have a `wfile` stream, we use the original stdout stream (i.e. the stdout
-    of the server process).
-
-    This way any user code can use `print` as usual, and it will Just Work.
-    """
-    @staticmethod
-    def _stream():
-        return _thread_scope.wfile if hasattr(_thread_scope, "wfile") else _original_stdout
-    def write(self, request):
-        return self._stream().write(request.encode('utf-8'))
-    def flush(self):
-        return self._stream().flush()
-
 
 # TODO: do we really need this class? Could we tune things just a bit and use the original InteractiveConsole?
 # TODO: The main thing is, we want to exit on empty input and the default one doesn't do that.
@@ -328,12 +243,17 @@ class ConsoleSession(socketserver.BaseRequestHandler):
 
             # fdopen the slave side of the PTY to get file objects to work with.
             # Be sure not to close the fd when exiting, it is managed by PTYSocketProxy.
-            with open(adaptor.slave, "wb", closefd=False) as wfile:
-                with open(adaptor.slave, "rb", closefd=False) as rfile:
+            #
+            # Note we can open the slave side in text mode, so these streams can behave
+            # exactly like standard input and output. The proxying between the master side
+            # and the network socket runs in binary mode inside PTYSocketProxy.
+            with open(adaptor.slave, "wt", encoding="utf-8", closefd=False) as wfile:
+                with open(adaptor.slave, "rt", encoding="utf-8", closefd=False) as rfile:
                     # Set up the input and output streams for the thread we are running in.
                     # We use ThreadingTCPServer, so each connection gets its own thread.
-                    _thread_scope.rfile = rfile
-                    _thread_scope.wfile = wfile
+                    _stdin_streams << rfile
+                    _stdout_streams << wfile
+                    _stderr_streams << wfile
 
                     # TODO: Capture the reference to the calling module's globals dictionary, not ours.
                     # TODO: We could just stash it in a global here, since there's only one REPL server per process.
@@ -430,9 +350,14 @@ def start(addr=None, port=1337, banner=None):
     else:
         _banner = banner
 
-    sys.stdin = InputStreamShim()
-    sys.stdout = OutputStreamShim()
-    sys.stderr = OutputStreamShim()
+    # We use a combo of Shim and ThreadLocalBox to redirect attribute lookups
+    # to the thread-specific read/write streams.
+    #
+    # sys.stdin et al. are replaced by shims, which hold their targets in
+    # thread-local boxes.
+    sys.stdin = Shim(_stdin_streams)
+    sys.stdout = Shim(_stdout_streams)
+    sys.stderr = Shim(_stderr_streams)
 
     # https://docs.python.org/3/library/socketserver.html#socketserver.BaseServer.server_address
     # https://docs.python.org/3/library/socketserver.html#socketserver.BaseServer.RequestHandlerClass
