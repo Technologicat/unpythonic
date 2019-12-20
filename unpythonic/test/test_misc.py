@@ -24,7 +24,7 @@ def test():
     # use case 1: make temporaries fall out of scope
     @call
     def x():
-        a = 2  #    many temporaries that help readability...
+        a = 2  # many temporaries that help readability...
         b = 3  # ...of this calculation, but would just pollute locals...
         c = 5  # ...after the block exits
         return a * b * c
@@ -37,7 +37,7 @@ def test():
             for y in range(10):
                 if x * y == 42:
                     return (x, y)
-                ... # more code here
+                ...  # more code here
     assert result == (6, 7)
 
     # can also be used normally
@@ -86,12 +86,12 @@ def test():
     assert mul3(*a) == 24
 
     # callwith in map, if we want to vary the function instead of the data
-    m = map(callwith(3), [lambda x: 2*x, lambda x: x**2, lambda x: x**(1/2)])
-    assert tuple(m) == (6, 9, 3**(1/2))
+    m = map(callwith(3), [lambda x: 2 * x, lambda x: x**2, lambda x: x**(1 / 2)])
+    assert tuple(m) == (6, 9, 3**(1 / 2))
 
     # pythonic solution - use comprehension notation:
-    m = (f(3) for f in [lambda x: 2*x, lambda x: x**2, lambda x: x**(1/2)])
-    assert tuple(m) == (6, 9, 3**(1/2))
+    m = (f(3) for f in [lambda x: 2 * x, lambda x: x**2, lambda x: x**(1 / 2)])
+    assert tuple(m) == (6, 9, 3**(1 / 2))
 
     l = lambda: raisef(ValueError, "all ok")
     try:
