@@ -281,6 +281,8 @@ class Shim:
     """
     def __init__(self, thebox):
         """thebox: a `box` instance that will hold the target."""
+        if not isinstance(thebox, box):
+            raise TypeError("Expected box, got {} with value '{}'".format(type(thebox), thebox))
         self._box = thebox
     def __getattr__(self, k):
         thing = unbox(self._box)
