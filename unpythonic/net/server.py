@@ -129,55 +129,6 @@ def server_print(*values, **kwargs):
     """
     print(*values, **kwargs, file=_original_stdout)
 
-# TODO: do we really need this class? Could we tune things just a bit and use the original InteractiveConsole?
-# TODO: The main thing is, we want to exit on empty input and the default one doesn't do that.
-# TODO: Otherwise with our current stream proxy setup the stdlib class works just fine.
-class StreamInteractiveConsole(code.InteractiveConsole):
-    def __init__(self, rfile, wfile, locals=None):
-        """Interactive REPL console, communicating over a pair of streams.
-
-        `rfile` and `wfile` are the input and output streams to use, respectively.
-        """
-        code.InteractiveConsole.__init__(self, locals)
-        self.rfile = rfile
-        self.wfile = wfile
-        if _banner != "":
-            print(_banner)
-
-    # https://docs.python.org/3/library/code.html#code.InteractiveInterpreter.write
-    def write(self, request):
-        """Write request to stderr of this REPL session.
-
-        See `InteractiveInterpreter.write`.
-        """
-        if not self.wfile.closed:
-            self.wfile.write(request.encode('utf-8'))
-            self.wfile.flush()
-
-    # https://docs.python.org/3/library/code.html#code.InteractiveConsole.raw_input
-    def raw_input(self, prompt=""):
-        """Write a prompt and read a line.
-
-        See `InteractiveConsole.raw_input`.
-        """
-        if self.wfile.closed:
-            raise EOFError("Socket closed.")
-
-        self.write(prompt)
-
-        raw_value = self.rfile.readline().rstrip()
-        str_value = raw_value.decode('utf-8')
-
-        # The default repl quits on Ctrl-D; pressing Ctrl-D sends the line
-        # typed so far. Having the sys.ps2 prompt means we are on a
-        # continuation line. An empty continuation line should just end the
-        # current command, but an empty first line should close the session.
-        if len(str_value) == 0 and prompt != sys.ps2:
-            raise EOFError("Empty input, disconnect requested by client.")
-
-        return str_value
-
-
 class RemoteTabCompletionSession(socketserver.BaseRequestHandler):
     """Entry point for connections to the remote tab completion server.
 
@@ -255,11 +206,12 @@ class ConsoleSession(socketserver.BaseRequestHandler):
                     _stdout_streams << wfile
                     _stderr_streams << wfile
 
+                    if _banner != "":
+                        print(_banner)  # ...at the client side
+
                     # TODO: Capture the reference to the calling module's globals dictionary, not ours.
                     # TODO: We could just stash it in a global here, since there's only one REPL server per process.
-                    # self.console = StreamInteractiveConsole(rfile, wfile,
-                    #                                         locals=globals())
-                    self.console = code.InteractiveConsole(locals=globals())  # works except no exit on Ctrl+D
+                    self.console = code.InteractiveConsole(locals=globals())
 
                     # All errors except SystemExit are caught inside interact(), only
                     # sys.exit() is escalated, in this situation we want to close the
