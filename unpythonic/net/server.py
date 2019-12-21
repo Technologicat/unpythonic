@@ -71,6 +71,8 @@ remote tab completion).
 #   TODO: helper magic function macros() to list currently enabled macros
 # TODO: history fixes (see repl_tool in socketserverREPL), syntax highlight?
 
+__all__ = ["start", "stop", "server_print", "halt"]
+
 try:
     import ctypes
 except ImportError:  # not on CPython
