@@ -6,6 +6,8 @@ import termios
 import select
 import threading
 
+__all__ = ["PTYSocketProxy"]
+
 # What this does for us in a remote REPL session in unpythonic.net.server is that:
 #   >>> import os
 #   >>> os.isatty(sys.stdin.fileno())
