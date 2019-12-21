@@ -185,7 +185,7 @@ class ConsoleSession(socketserver.BaseRequestHandler):
 
             def on_socket_disconnect(adaptor):
                 server_print('PTY on {} for client {} disconnected by client.'.format(os.ttyname(adaptor.slave), client_address_str))
-                os.write(adaptor.master, "exit()\n".encode("utf-8"))
+                os.write(adaptor.master, "exit()\n".encode("utf-8"))  # as if this text arrived from the socket
             def on_slave_disconnect(adaptor):
                 server_print('PTY on {} for client {} disconnected by PTY slave.'.format(os.ttyname(adaptor.slave), client_address_str))
             adaptor = PTYSocketProxy(self.request, on_socket_disconnect, on_slave_disconnect)
