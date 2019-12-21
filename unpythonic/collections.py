@@ -257,10 +257,9 @@ class ThreadLocalBox(box):
 def unbox(b):
     """Return the value from inside the box b.
 
-    Syntactic sugar for reading the attribute `b.x`. The point of using `unbox`
-    is to document programmer intent more explicitly.
+    Syntactic sugar for `b.get()`.
 
-    If `b` is not a `box`, raises `TypeError`.
+    If `b` is not a `box` (or `ThreadLocalBox`), raises `TypeError`.
     """
     if not isinstance(b, box):
         raise TypeError("Expected box, got {} with value '{}'".format(type(b), b))
@@ -269,9 +268,9 @@ def unbox(b):
 class Shim:
     """Attribute access redirector.
 
-    Hold a target object inside a box. When an attribute of this object
-    is accessed (whether to get or set it), redirect that attribute
-    access to the target currently inside the box.
+    Hold a target object inside a box. When an attribute of the shim
+    is accessed (whether to get or set it), redirect that access to
+    the object that is currently inside the box.
 
     The point is that the target may be switched at any time, simply by sending
     a new value into the box instance you gave to the `Shim` constructor.
