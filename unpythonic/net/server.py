@@ -98,9 +98,9 @@ _halt_pending = False
 _original_stdin = sys.stdin
 _original_stdout = sys.stdout
 _original_stderr = sys.stderr
-_stdin_streams = ThreadLocalBox(sys.stdin)
-_stdout_streams = ThreadLocalBox(sys.stdout)
-_stderr_streams = ThreadLocalBox(sys.stderr)
+_threadlocal_stdin = ThreadLocalBox(_original_stdin)
+_threadlocal_stdout = ThreadLocalBox(_original_stdout)
+_threadlocal_stderr = ThreadLocalBox(_original_stderr)
 _banner = None
 
 # TODO: inject this to globals of the target module
@@ -183,11 +183,11 @@ class ConsoleSession(socketserver.BaseRequestHandler):
             # since we in any case only forward raw bytes between the PTY master FD and the socket.
             # https://docs.python.org/3/library/socketserver.html#socketserver.StreamRequestHandler
 
-            def on_slave_disconnect(adaptor):
-                server_print('PTY on {} for client {} disconnected by PTY slave.'.format(os.ttyname(adaptor.slave), client_address_str))
             def on_socket_disconnect(adaptor):
                 server_print('PTY on {} for client {} disconnected by client.'.format(os.ttyname(adaptor.slave), client_address_str))
                 os.write(adaptor.master, "exit()\n".encode("utf-8"))
+            def on_slave_disconnect(adaptor):
+                server_print('PTY on {} for client {} disconnected by PTY slave.'.format(os.ttyname(adaptor.slave), client_address_str))
             adaptor = PTYSocketProxy(self.request, on_socket_disconnect, on_slave_disconnect)
             adaptor.start()
             server_print('PTY on {} for client {} opened.'.format(os.ttyname(adaptor.slave), client_address_str))
@@ -202,9 +202,10 @@ class ConsoleSession(socketserver.BaseRequestHandler):
                 with open(adaptor.slave, "rt", encoding="utf-8", closefd=False) as rfile:
                     # Set up the input and output streams for the thread we are running in.
                     # We use ThreadingTCPServer, so each connection gets its own thread.
-                    _stdin_streams << rfile
-                    _stdout_streams << wfile
-                    _stderr_streams << wfile
+                    # Here we just send the relevant object into each thread-local box.
+                    _threadlocal_stdin << rfile
+                    _threadlocal_stdout << wfile
+                    _threadlocal_stderr << wfile
 
                     if _banner != "":
                         print(_banner)  # ...at the client side
@@ -306,10 +307,12 @@ def start(addr=None, port=1337, banner=None):
     # to the thread-specific read/write streams.
     #
     # sys.stdin et al. are replaced by shims, which hold their targets in
-    # thread-local boxes.
-    sys.stdin = Shim(_stdin_streams)
-    sys.stdout = Shim(_stdout_streams)
-    sys.stderr = Shim(_stderr_streams)
+    # thread-local boxes. In the main thread, the boxes contain the original
+    # sys.stdin et al., whereas in session threads, the boxes are filled with
+    # streams established for the session.
+    sys.stdin = Shim(_threadlocal_stdin)
+    sys.stdout = Shim(_threadlocal_stdout)
+    sys.stderr = Shim(_threadlocal_stderr)
 
     # https://docs.python.org/3/library/socketserver.html#socketserver.BaseServer.server_address
     # https://docs.python.org/3/library/socketserver.html#socketserver.BaseServer.RequestHandlerClass
