@@ -160,7 +160,7 @@ class RemoteTabCompletionSession(socketserver.BaseRequestHandler):
                     reply = backend.complete(request["text"], request["state"])
                     # server_print(request, reply)
                     data_out = json.dumps(reply).encode("utf-8")
-                    sock.send(data_out)
+                    sock.sendall(data_out)
         except ClientExit:
             server_print("Remote tab completion session for {} closed.".format(client_address_str))
         except BaseException as err:

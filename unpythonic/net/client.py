@@ -33,9 +33,9 @@ def _make_remote_completion_client(sock):
         try:
             request = {"text": text, "state": state}
             data_out = json.dumps(request).encode("utf-8")
-            sock.send(data_out)
             # TODO: race condition. We should ensure we don't read partial messages.
             # See https://docs.python.org/3/howto/sockets.html for how to handle socket data transfers properly. It's a bit complicated.
+            sock.sendall(data_out)
             data_in = sock.recv(4096).decode("utf-8")
             # print("text '{}' state '{}' reply '{}'".format(text, state, data_in))
             if not data_in:
@@ -114,16 +114,16 @@ def connect(addrspec):
                     while True:
                         try:
                             inp = input()
-                            sock.send((inp + "\n").encode("utf-8"))
+                            sock.sendall((inp + "\n").encode("utf-8"))
                         except KeyboardInterrupt:
                             # TODO: refactor control channel logic; send command on control channel
-                            sock.send("\x03\n".encode("utf-8"))
+                            sock.sendall("\x03\n".encode("utf-8"))
                 except EOFError:
                     print("replclient: Ctrl+D pressed, asking server to disconnect.")
                     print("replclient: if the server does not respond, press Ctrl+C to force.")
                     try:
                         print("exit()")  # local echo
-                        sock.send("exit()\n".encode("utf-8"))
+                        sock.sendall("exit()\n".encode("utf-8"))
                         t.join()  # wait for the EOF response
                     except KeyboardInterrupt:
                         print("replclient: Ctrl+C pressed, forcing disconnect.")
