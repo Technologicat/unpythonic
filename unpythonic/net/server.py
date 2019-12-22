@@ -103,6 +103,7 @@ _original_stderr = sys.stderr
 _threadlocal_stdin = ThreadLocalBox(_original_stdin)
 _threadlocal_stdout = ThreadLocalBox(_original_stdout)
 _threadlocal_stderr = ThreadLocalBox(_original_stderr)
+_console_locals_namespace = None
 _banner = None
 
 # TODO: inject this to globals of the target module
@@ -151,8 +152,7 @@ class RemoteTabCompletionSession(socketserver.BaseRequestHandler):
         try:
             server_print("Remote tab completion session for {} opened.".format(client_address_str))
             # TODO: fancier backend? See examples in https://pymotw.com/3/readline/
-            # TODO: grab correct globals namespace, must be the same the REPL session uses.
-            backend = rlcompleter.Completer(globals())
+            backend = rlcompleter.Completer(_console_locals_namespace)
             sock = self.request
             while True:
                 rs, ws, es = select.select([sock], [], [])
@@ -212,9 +212,7 @@ class ConsoleSession(socketserver.BaseRequestHandler):
                     if _banner != "":
                         print(_banner)  # ...at the client side
 
-                    # TODO: Capture the reference to the calling module's globals dictionary, not ours.
-                    # TODO: We could just stash it in a global here, since there's only one REPL server per process.
-                    self.console = code.InteractiveConsole(locals=globals())
+                    self.console = code.InteractiveConsole(locals=_console_locals_namespace)
 
                     # All errors except SystemExit are caught inside interact(), only
                     # sys.exit() is escalated, in this situation we want to close the
@@ -264,13 +262,19 @@ class ReuseAddrThreadingTCPServer(socketserver.ThreadingTCPServer):
 
 # TODO: extract the correct globals namespace
 # TODO: allow multiple REPL servers in the same process? (Use a dictionary.)
-def start(addr=None, port=1337, banner=None):
+def start(addr=None, port=1337, banner=None, locals=None):
     """Start the REPL server.
 
-    addr: Server TCP address (default None, meaning localhost)
-    port: TCP port to listen on (default 1337)
-    banner: startup message. Default is to show help for usage.
+    addr:   Server TCP address (default None, meaning localhost)
+    port:   TCP port to listen on (default 1337)
+    banner: Startup message. Default is to show help for usage.
             To suppress, use banner="".
+    locals: Namespace (dict-like) to use as the locals namespace
+            of REPL sessions that connect to this server.
+
+            A useful value is `globals()`, the top-level namespace
+            of the calling module. This is not set automatically,
+            because explicit is better than implicit.)
 
     To connect to the REPL server (assuming default settings)::
 
@@ -285,9 +289,13 @@ def start(addr=None, port=1337, banner=None):
     users you trust.
     """
     # TODO: support multiple instances in the same process
-    global _server_instance
+    global _server_instance, _console_locals_namespace
     if _server_instance is not None:
         raise RuntimeError("The current process already has a running REPL server.")
+
+    if not locals:
+        raise ValueError("The locals namespace of the REPL server must be set. Use the value globals() if unsure; this will connect the REPL sessions to the top level of the calling module.")
+    _console_locals_namespace = locals
 
     addr = addr or "127.0.0.1"  # TODO: support ipv6, too
 
@@ -343,7 +351,7 @@ def stop():
     process exits. It can be called earlier manually to shut down the server if
     desired.
     """
-    global _server_instance
+    global _server_instance, _console_locals_namespace
     if _server_instance is not None:
         server, server_thread, cserver, cserver_thread = _server_instance
         server.shutdown()
@@ -356,13 +364,14 @@ def stop():
         sys.stdin = _original_stdin
         sys.stdout = _original_stdout
         sys.stderr = _original_stderr
+        _console_locals_namespace = None
         atexit.unregister(stop)
 
 
 # demo app
 def main():
     server_print("REPL server starting...")
-    addr, port = start()
+    addr, port = start(locals=globals())
     server_print("Started REPL server on {}:{}.".format(addr, port))
     try:
         while True:
