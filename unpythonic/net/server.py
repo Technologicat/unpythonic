@@ -9,8 +9,8 @@ in your running process.
 
 To enable it in your app::
 
-    from unpythonic import server
-    server.start()
+    from unpythonic.net import server
+    server.start(locals=globals())
 
 To connect to a running REPL server::
 
@@ -18,8 +18,8 @@ To connect to a running REPL server::
 
 If you're already running in a local Python REPL, this should also work::
 
-    from unpythonic import replclient
-    replclient.connect(("127.0.0.1", 1337))
+    from unpythonic.net import client
+    client.connect(("127.0.0.1", 1337))
 
 For basic use (history, but no tab completion), you can use::
 
@@ -28,10 +28,6 @@ For basic use (history, but no tab completion), you can use::
 or even just (no history, no tab completion)::
 
     netcat localhost 1337
-
-The REPL is scoped to the top-level scope of the module from which you call
-`server.start()`. The REPL sessions have write access to that module's globals;
-that's the whole point of this tool.
 
 The REPL server runs in a daemon thread. Terminating the main thread of your
 process will terminate the server, also forcibly terminating all open REPL
