@@ -288,11 +288,9 @@ def start(locals, addr=None, port=1337, banner=None):
     if _server_instance is not None:
         raise RuntimeError("The current process already has a running REPL server.")
 
-    if not locals:
-        raise ValueError("The locals namespace of the REPL server must be set. Use the value globals() if unsure; this will connect the REPL sessions to the top level of the calling module.")
-    _console_locals_namespace = locals
-
     addr = addr or "127.0.0.1"  # TODO: support ipv6, too
+
+    _console_locals_namespace = locals
 
     global _banner
     if banner is None:
