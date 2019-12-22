@@ -186,7 +186,7 @@ class ConsoleSession(socketserver.BaseRequestHandler):
 
             def on_socket_disconnect(adaptor):
                 server_print('PTY on {} for client {} disconnected by client.'.format(os.ttyname(adaptor.slave), client_address_str))
-                os.write(adaptor.master, "exit()\n".encode("utf-8"))  # as if this text arrived from the socket
+                os.write(adaptor.master, "quit()\n".encode("utf-8"))  # as if this text arrived from the socket
             def on_slave_disconnect(adaptor):
                 server_print('PTY on {} for client {} disconnected by PTY slave.'.format(os.ttyname(adaptor.slave), client_address_str))
             adaptor = PTYSocketProxy(self.request, on_socket_disconnect, on_slave_disconnect)
@@ -301,7 +301,7 @@ def start(locals, addr=None, port=1337, banner=None):
         default_msg = ("Unpythonic REPL server at {addr}:{port}, on behalf of:\n"
                        "  {argv}\n"
                        "  Top-level assignments and definitions update the module's globals.\n"
-                       "    exit() or a blank command disconnects this session.\n"
+                       "    quit() or EOF (Ctrl+D) at the prompt disconnects this session.\n"
                        "    halt() tells the server to close after the last session has disconnected.\n"
                        "    print() prints in the REPL session.\n"
                        "    server_print(...) prints on the stdout of the server.")

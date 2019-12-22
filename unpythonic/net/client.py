@@ -123,8 +123,8 @@ def connect(addrspec):
                     print("replclient: Ctrl+D pressed, asking server to disconnect.")
                     print("replclient: if the server does not respond, press Ctrl+C to force.")
                     try:
-                        print("exit()")  # local echo
-                        sock.sendall("exit()\n".encode("utf-8"))
+                        print("quit()")  # local echo
+                        sock.sendall("quit()\n".encode("utf-8"))
                         t.join()  # wait for the EOF response
                     except KeyboardInterrupt:
                         print("replclient: Ctrl+C pressed, forcing disconnect.")
