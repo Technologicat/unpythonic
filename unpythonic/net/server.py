@@ -257,7 +257,7 @@ class ReuseAddrThreadingTCPServer(socketserver.ThreadingTCPServer):
 
 
 # TODO: allow multiple REPL servers in the same process? (Use a dictionary.)
-def start(addr=None, port=1337, banner=None, locals=None):
+def start(locals, addr=None, port=1337, banner=None):
     """Start the REPL server.
 
     addr:   Server TCP address (default None, meaning localhost)
@@ -329,6 +329,8 @@ def start(addr=None, port=1337, banner=None, locals=None):
 
     # remote tab completion server
     # TODO: configurable tab completion port
+    # Default is 8128 because it's for *completing* things, and https://en.wikipedia.org/wiki/Perfect_number
+    # (This is the first one above 1024, and was already known to Nicomachus around 100 CE.)
     cserver = ReuseAddrThreadingTCPServer((addr, 8128), RemoteTabCompletionSession)
     cserver.daemon_threads = True
     cserver_thread = threading.Thread(target=cserver.serve_forever, name="Unpythonic REPL remote tab completion server", daemon=True)
