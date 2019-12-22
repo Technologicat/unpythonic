@@ -153,6 +153,9 @@ class RemoteTabCompletionSession(socketserver.BaseRequestHandler):
             while True:
                 rs, ws, es = select.select([sock], [], [])
                 for r in rs:
+                    # TODO: must know how to receive until end of message, since TCP doesn't do datagrams
+                    # TODO: build a control channel protocol
+                    # https://docs.python.org/3/howto/sockets.html
                     data_in = sock.recv(4096).decode("utf-8")
                     if len(data_in) == 0:  # EOF on network socket
                         raise ClientExit

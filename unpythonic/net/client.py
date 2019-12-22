@@ -33,9 +33,10 @@ def _make_remote_completion_client(sock):
         try:
             request = {"text": text, "state": state}
             data_out = json.dumps(request).encode("utf-8")
-            # TODO: race condition. We should ensure we don't read partial messages.
-            # See https://docs.python.org/3/howto/sockets.html for how to handle socket data transfers properly. It's a bit complicated.
             sock.sendall(data_out)
+            # TODO: must know how to receive until end of message, since TCP doesn't do datagrams
+            # TODO: build a control channel protocol
+            # https://docs.python.org/3/howto/sockets.html
             data_in = sock.recv(4096).decode("utf-8")
             # print("text '{}' state '{}' reply '{}'".format(text, state, data_in))
             if not data_in:
