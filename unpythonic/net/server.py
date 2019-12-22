@@ -256,7 +256,6 @@ class ReuseAddrThreadingTCPServer(socketserver.ThreadingTCPServer):
         self.socket.bind(self.server_address)
 
 
-# TODO: extract the correct globals namespace
 # TODO: allow multiple REPL servers in the same process? (Use a dictionary.)
 def start(addr=None, port=1337, banner=None, locals=None):
     """Start the REPL server.
