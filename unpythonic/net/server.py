@@ -59,7 +59,7 @@ remote tab completion).
 """
 
 # TODO: use logging module instead of server-side print
-# TODO: support several server instances (makes sense if each is connected to a different module)
+# TODO: support several server instances? (makes sense if each is connected to a different module)
 # TODO: support syntactic macros
 #   TODO: macro expander
 #   TODO: per-session macro definitions like in imacropy
