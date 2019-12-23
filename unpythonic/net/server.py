@@ -153,6 +153,23 @@ class RemoteTabCompletionSession(socketserver.BaseRequestHandler):
             while True:
                 rs, ws, es = select.select([sock], [], [])
                 for r in rs:
+                    # Control channel protocol:
+                    #  - message-based
+                    #  - text encoding: utf-8
+                    #  - message structure: header body, where
+                    #    header:
+                    #      0xFF message start, sync byte (never appears in utf-8 encoded text)
+                    #      "v": start of protocol version field
+                    #      one byte containing the version, currently the character "1" as utf-8.
+                    #        Doesn't need to be a number character, any Unicode codepoint below 127 will do.
+                    #        It's unlikely more than 127 - 32 = 95 versions of the protocol are ever needed.
+                    #      "l": start of message length field
+                    #      netstring containing the length of the message body, as bytes
+                    #        Netstring format is e.g. "12:hello world!,"
+                    #        so for example, for a 42-byte message body, this is "2:42,".
+                    #        The comma is the field terminator.
+                    #    body:
+                    #      arbitrary payload, depending on the request.
                     # TODO: must know how to receive until end of message, since TCP doesn't do datagrams
                     # TODO: build a control channel protocol
                     # https://docs.python.org/3/howto/sockets.html
