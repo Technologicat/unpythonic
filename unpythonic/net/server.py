@@ -263,10 +263,6 @@ class ReuseAddrThreadingTCPServer(socketserver.ThreadingTCPServer):
 def start(locals, addr=None, port=1337, banner=None):
     """Start the REPL server.
 
-    addr:   Server TCP address (default None, meaning localhost)
-    port:   TCP port to listen on (default 1337)
-    banner: Startup message. Default is to show help for usage.
-            To suppress, use banner="".
     locals: Namespace (dict-like) to use as the locals namespace
             of REPL sessions that connect to this server.
 
@@ -274,13 +270,18 @@ def start(locals, addr=None, port=1337, banner=None):
             of the calling module. This is not set automatically,
             because explicit is better than implicit.)
 
+    addr:   Server TCP address (default None, meaning localhost)
+    port:   TCP port to listen on (default 1337)
+    banner: Startup message. Default is to show help for usage.
+            To suppress, use banner="".
+
     To connect to the REPL server (assuming default settings)::
 
-        telnet localhost 1337
+        python3 -m unpythonic.net.client localhost:1337
 
-    **NOTE**: Currently, only one REPL server is supported per process.
-    Only one is needed; it accepts multiple simultaneous connections.
-    A new thread is spawned to serve each new connection.
+    **NOTE**: Currently, only one REPL server is supported per process,
+    but it accepts multiple simultaneous connections. A new thread is
+    spawned to serve each new connection.
 
     **CAUTION**: There is absolutely no authentication support, so it is
     recommended to only serve to localhost, and only on a machine whose
