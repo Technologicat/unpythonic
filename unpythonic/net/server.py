@@ -259,21 +259,23 @@ class ReuseAddrThreadingTCPServer(socketserver.ThreadingTCPServer):
         self.socket.bind(self.server_address)
 
 
-# TODO: allow multiple REPL servers in the same process? (Use a dictionary.)
-def start(locals, addr=None, port=1337, banner=None):
+def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
     """Start the REPL server.
 
-    locals: Namespace (dict-like) to use as the locals namespace
-            of REPL sessions that connect to this server.
+    locals:   Namespace (dict-like) to use as the locals namespace
+              of REPL sessions that connect to this server.
 
-            A useful value is `globals()`, the top-level namespace
-            of the calling module. This is not set automatically,
-            because explicit is better than implicit.)
+              A useful value is `globals()`, the top-level namespace
+              of the calling module. This is not set automatically,
+              because explicit is better than implicit.)
 
-    addr:   Server TCP address (default None, meaning localhost)
-    port:   TCP port to listen on (default 1337)
-    banner: Startup message. Default is to show help for usage.
-            To suppress, use banner="".
+    addrspec: Server TCP address and port. This is given as a single
+              parameter for future compatibility with IPv6.
+
+              For the format, see the `socket` stdlib module.
+
+    banner:   Startup message. Default is to show help for usage.
+              To suppress, use banner="".
 
     To connect to the REPL server (assuming default settings)::
 
@@ -287,12 +289,13 @@ def start(locals, addr=None, port=1337, banner=None):
     recommended to only serve to localhost, and only on a machine whose
     users you trust.
     """
-    # TODO: support multiple instances in the same process
+    # TODO: support IPv6
+    addr, port = addrspec
+
+    # TODO: support multiple instances in the same process (use a dictionary to store instance data)
     global _server_instance, _console_locals_namespace
     if _server_instance is not None:
         raise RuntimeError("The current process already has a running REPL server.")
-
-    addr = addr or "127.0.0.1"  # TODO: support ipv6, too
 
     _console_locals_namespace = locals
 
@@ -316,7 +319,7 @@ def start(locals, addr=None, port=1337, banner=None):
     # sys.stdin et al. are replaced by shims, which hold their targets in
     # thread-local boxes. In the main thread, the boxes contain the original
     # sys.stdin et al., whereas in session threads, the boxes are filled with
-    # streams established for the session.
+    # streams established for that particular session.
     sys.stdin = Shim(_threadlocal_stdin)
     sys.stdout = Shim(_threadlocal_stdout)
     sys.stderr = Shim(_threadlocal_stderr)
