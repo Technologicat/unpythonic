@@ -231,20 +231,32 @@ class box:
 # so that the thread-locality feature is pay-as-you-go (no loss in
 # performance for the regular, non-thread-local `box`.)
 class ThreadLocalBox(box):
-    """Like box, but the store is thread-local."""
+    """Like box, but the store is thread-local.
+
+    The initially provided `x` object is used to initialize the box in all
+    threads. (Note what this implies if that `x` happens to be mutable.)
+    """
     def __init__(self, x=None):
         self.storage = threading.local()
         self.storage.x = x
+        self._default = x
+    def _ensure_x(self):
+        if not hasattr(self.storage, "x"):
+            self.storage.x = self._default
     def __repr__(self):
         """**WARNING**: the repr shows only the content seen by the current thread."""
+        self._ensure_x()
         return "ThreadLocalBox({})".format(repr(self.storage.x))
     def __contains__(self, x):
+        self._ensure_x()
         return self.storage.x == x
     def __iter__(self):
+        self._ensure_x()
         return (x for x in (self.storage.x,))
     def __len(self):
         return 1
     def __eq__(self, other):
+        self._ensure_x()
         return other == self.storage.x
     def set(self, x):
         self.storage.x = x
@@ -252,6 +264,7 @@ class ThreadLocalBox(box):
     def __lshift__(self, x):
         return self.set(x)
     def get(self):
+        self._ensure_x()
         return self.storage.x
 
 def unbox(b):
