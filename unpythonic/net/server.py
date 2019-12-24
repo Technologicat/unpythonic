@@ -79,16 +79,16 @@ import rlcompleter  # yes, just rlcompleter without readline; backend for remote
 import threading
 import sys
 import os
-import select
 import time
-import socket
 import socketserver
 import json
 import atexit
 
-from .ptyproxy import PTYSocketProxy
 from ..collections import ThreadLocalBox, Shim
 #from ..misc import async_raise
+
+from .util import mkrecvbuf, recvmsg, sendmsg, ReuseAddrThreadingTCPServer
+from .ptyproxy import PTYSocketProxy
 
 _server_instance = None
 _active_connections = set()
@@ -128,13 +128,17 @@ def server_print(*values, **kwargs):
     """
     print(*values, **kwargs, file=_original_stdout)
 
-class RemoteTabCompletionSession(socketserver.BaseRequestHandler):
-    """Entry point for connections to the remote tab completion server.
 
-    In a session, a `RemoteTabCompletionClient` sends us requests. We invoke
-    `rlcompleter` on the server side, and return its response to the client.
+class ControlSession(socketserver.BaseRequestHandler):
+    """Entry point for connections to the control server.
 
-    For communication, we use JSON encoded dictionaries. This format was chosen
+    We use a separate connection for control to avoid head-of-line blocking.
+
+    In a session, the client sends us requests for remote tab completion. We
+    invoke `rlcompleter` on the server side, and return its response to the
+    client.
+
+    We encode the payload as JSON encoded dictionaries. This format was chosen
     instead of pickle to ensure the client and server can talk to each other
     regardless of the Python versions on each end of the connection.
     """
@@ -146,43 +150,24 @@ class RemoteTabCompletionSession(socketserver.BaseRequestHandler):
         class ClientExit(Exception):
             pass
         try:
-            server_print("Remote tab completion session for {} opened.".format(client_address_str))
+            server_print("Control channel for {} opened.".format(client_address_str))
             # TODO: fancier backend? See examples in https://pymotw.com/3/readline/
             backend = rlcompleter.Completer(_console_locals_namespace)
+            buf = mkrecvbuf()
             sock = self.request
             while True:
-                rs, ws, es = select.select([sock], [], [])
-                for r in rs:
-                    # Control channel protocol:
-                    #  - message-based
-                    #  - text encoding: utf-8
-                    #  - message structure: header body, where
-                    #    header:
-                    #      0xFF message start, sync byte (never appears in utf-8 encoded text)
-                    #      "v": start of protocol version field
-                    #      one byte containing the version, currently the character "1" as utf-8.
-                    #        Doesn't need to be a number character, any Unicode codepoint below 127 will do.
-                    #        It's unlikely more than 127 - 32 = 95 versions of the protocol are ever needed.
-                    #      "l": start of message length field
-                    #      netstring containing the length of the message body, as bytes
-                    #        Netstring format is e.g. "12:hello world!,"
-                    #        so for example, for a 42-byte message body, this is "2:42,".
-                    #        The comma is the field terminator.
-                    #    body:
-                    #      arbitrary payload, depending on the request.
-                    # TODO: must know how to receive until end of message, since TCP doesn't do datagrams
-                    # TODO: build a control channel protocol
-                    # https://docs.python.org/3/howto/sockets.html
-                    data_in = sock.recv(4096).decode("utf-8")
-                    if len(data_in) == 0:  # EOF on network socket
-                        raise ClientExit
-                    request = json.loads(data_in)
-                    reply = backend.complete(request["text"], request["state"])
-                    # server_print(request, reply)
-                    data_out = json.dumps(reply).encode("utf-8")
-                    sock.sendall(data_out)
+                # TODO: Add support for requests to inject Ctrl+C. Needs a command protocol layer.
+                # TODO: Can use JSON dictionaries; we're guaranteed to get whole messages only.
+                data_in = recvmsg(buf, sock)
+                if not data_in:
+                    raise ClientExit
+                request = json.loads(data_in.decode("utf-8"))
+                reply = backend.complete(request["text"], request["state"])
+                # server_print(request, reply)
+                data_out = json.dumps(reply).encode("utf-8")
+                sendmsg(data_out, sock)
         except ClientExit:
-            server_print("Remote tab completion session for {} closed.".format(client_address_str))
+            server_print("Control channel for {} closed.".format(client_address_str))
         except BaseException as err:
             server_print(err)
 
@@ -265,17 +250,6 @@ class ConsoleSession(socketserver.BaseRequestHandler):
             _active_connections.remove(id(self))
 
 
-# https://docs.python.org/3/library/socketserver.html#socketserver.ThreadingTCPServer
-# https://docs.python.org/3/library/socketserver.html#socketserver.ThreadingMixIn
-# https://docs.python.org/3/library/socketserver.html#socketserver.TCPServer
-class ReuseAddrThreadingTCPServer(socketserver.ThreadingTCPServer):
-    def server_bind(self):
-        """Custom server_bind ensuring the socket is available for rebind immediately."""
-        # from https://stackoverflow.com/a/18858817
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind(self.server_address)
-
-
 def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
     """Start the REPL server.
 
@@ -349,11 +323,11 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
     server_thread = threading.Thread(target=server.serve_forever, name="Unpythonic REPL server", daemon=True)
     server_thread.start()
 
-    # remote tab completion server
-    # TODO: configurable tab completion port
+    # control channel for remote tab completion and remote Ctrl+C requests
+    # TODO: configurable port
     # Default is 8128 because it's for *completing* things, and https://en.wikipedia.org/wiki/Perfect_number
     # (This is the first one above 1024, and was already known to Nicomachus around 100 CE.)
-    cserver = ReuseAddrThreadingTCPServer((addr, 8128), RemoteTabCompletionSession)
+    cserver = ReuseAddrThreadingTCPServer((addr, 8128), ControlSession)
     cserver.daemon_threads = True
     cserver_thread = threading.Thread(target=cserver.serve_forever, name="Unpythonic REPL remote tab completion server", daemon=True)
     cserver_thread.start()

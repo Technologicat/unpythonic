@@ -9,6 +9,8 @@ import sys
 import signal
 import threading
 
+from .util import mkrecvbuf, recvmsg, sendmsg
+
 __all__ = ["connect"]
 
 
@@ -21,10 +23,13 @@ def _handle_alarm(signum, frame):
 signal.signal(signal.SIGALRM, _handle_alarm)
 
 
-def _make_remote_completion_client(sock):
+def _make_remote_completion_client(buf, sock):
     """Make a tab completion function for a remote REPL session.
 
-    `sock` must be a socket already connected to a `RemoteTabCompletionServer`.
+    `buf` is a receive buffer for the message protocol (see
+    `unpythonic.net.util.mkrecvbuf`).
+
+    `sock` must be a socket already connected to a `ControlSession`.
     The caller is responsible for managing the socket.
 
     The return value can be used as a completer in `readline.set_completer`.
@@ -33,14 +38,11 @@ def _make_remote_completion_client(sock):
         try:
             request = {"text": text, "state": state}
             data_out = json.dumps(request).encode("utf-8")
-            sock.sendall(data_out)
-            # TODO: must know how to receive until end of message, since TCP doesn't do datagrams
-            # TODO: build a control channel protocol
-            # https://docs.python.org/3/howto/sockets.html
-            data_in = sock.recv(4096).decode("utf-8")
+            sendmsg(data_out, sock)
+            data_in = recvmsg(buf, sock).decode("utf-8")
             # print("text '{}' state '{}' reply '{}'".format(text, state, data_in))
             if not data_in:
-                print("Tab completion server exited, socket closed!")
+                print("Control server exited, socket closed!")
                 return None
             reply = json.loads(data_in)
             return reply
@@ -70,13 +72,14 @@ def connect(addrspec):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:  # remote REPL session
             sock.connect(addrspec)
 
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as csock:  # remote tab completion
-                # TODO: configurable tab completion port
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as csock:  # control channel (remote tab completion, remote Ctrl+C)
+                # TODO: configurable control port
                 csock.connect((addrspec[0], 8128))  # TODO: IPv6 support
 
                 # Set a custom tab completer for readline.
                 # https://stackoverflow.com/questions/35115208/is-there-any-way-to-combine-readline-rlcompleter-and-interactiveconsole-in-pytho
-                completer = _make_remote_completion_client(csock)
+                cbuf = mkrecvbuf()
+                completer = _make_remote_completion_client(cbuf, csock)
                 readline.set_completer(completer)
                 readline.parse_and_bind("tab: complete")
 
@@ -96,13 +99,15 @@ def connect(addrspec):
                 t = threading.Thread(target=sock_to_stdout, daemon=True)
                 t.start()
 
-                # TODO: fix multiline editing (see repl_tool.py in socketserverREPL for reference,
+                # TODO: fix multiline editing (see repl_tool.py in socketserverREPL for reference)
                 #
                 # This needs prompt detection so we'll know how to set up
                 # `input`. The first time on a new line, the prompt is sent
                 # by the server, but then during line editing, it needs to be
                 # re-printed by `readline`, so `input` needs to know what the
-                # prompt text should be).
+                # prompt text should be.
+                #
+                # For this, we need to read the socket until we see a new prompt.
 
                 # Run readline at the client side. Only the tab completion
                 # results come from the server.
