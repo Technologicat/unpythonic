@@ -87,7 +87,8 @@ import atexit
 from ..collections import ThreadLocalBox, Shim
 #from ..misc import async_raise
 
-from .util import mkrecvbuf, recvmsg, sendmsg, ReuseAddrThreadingTCPServer
+from .util import ReuseAddrThreadingTCPServer
+from .msg import mkrecvbuf, recvmsg, sendmsg
 from .ptyproxy import PTYSocketProxy
 
 _server_instance = None

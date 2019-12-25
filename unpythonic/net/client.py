@@ -9,7 +9,7 @@ import sys
 import signal
 import threading
 
-from .util import mkrecvbuf, recvmsg, sendmsg
+from .msg import mkrecvbuf, recvmsg, sendmsg
 
 __all__ = ["connect"]
 

@@ -46,11 +46,12 @@ def runtests(testsetname, modules, command_prefix):
 def main():
     totalfails = 0
     totalfails += runtests("regular code",
-                           listtestmodules(os.path.join("unpythonic", "test")),
+                           (listtestmodules(os.path.join("unpythonic", "test")) +
+                            listtestmodules(os.path.join("unpythonic", "net", "test"))),
                            ["python3", "-m"])
 
     try:
-        import macropy.activate
+        import macropy.activate  # noqa: F401
     except ImportError:
         print(CHEAD + "*** Could not initialize MacroPy, skipping macro tests. ***" + CEND)
     else:
