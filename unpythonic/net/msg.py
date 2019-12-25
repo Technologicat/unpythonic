@@ -40,7 +40,6 @@ A message consists of a header and a body, concatenated without any separator, w
 
 On sans-IO, see:
     https://sans-io.readthedocs.io/
-
 """
 
 # TODO: Consider whether an OOP API to decode/receive would be better; then we could
@@ -48,7 +47,7 @@ On sans-IO, see:
 # TODO: caller to manage it.
 
 __all__ = ["encodemsg",
-           "mkrecvbuf", "decodemsg",
+           "mkrecvbuf", "decodemsg", "socketsource", "BytesIOsource", "bytessource",
            "sendmsg", "recvmsg"]
 
 import select
@@ -90,7 +89,9 @@ def mkrecvbuf(initial_contents=b""):
     # `BytesIO` cannot be cleared. So when a complete message has been read,
     # any remaining data already read from the socket must be written into a
     # new BytesIO, which we then send into the box to replace the original one.
-    return box(BytesIO(initial_contents))
+    bio = BytesIO()
+    bio.write(initial_contents)
+    return box(bio)
 
 _CHUNKSIZE = 4096
 def bytessource(data):
@@ -105,6 +106,7 @@ def bytessource(data):
                 return
             chunk = data[(j * _CHUNKSIZE):((j + 1) * _CHUNKSIZE)]
             yield chunk
+            j += 1
     return bytesiterator()
 
 def BytesIOsource(stream):
@@ -211,18 +213,21 @@ def decodemsg(buf, source):
         `read_header` until a header is successfully parsed.
 
         """
+        val = unbox(buf).getvalue()
         while True:
-            val = lowlevel_read()
             if b"\xff" in val:
                 j = val.find(b"\xff")
                 junk, start_of_msg = val[:j], val[j:]  # noqa: F841
                 # Discard previous BytesIO, start the new one with the sync byte (0xFF).
-                buf << BytesIO(start_of_msg)
+                bio = BytesIO()
+                bio.write(start_of_msg)
+                buf << bio
                 return
             # Clear the receive buffer after each chunk that didn't have a sync
             # byte in it. This prevents a malicious sender from crashing the
             # receiver by flooding it with nothing but junk.
             buf << BytesIO()
+            val = lowlevel_read()
 
     def read_header():
         """Parse message header.
@@ -253,7 +258,9 @@ def decodemsg(buf, source):
             raise MessageParseError
         j = val.find(b";")
         body_len = int(val[5:j].decode("utf-8"))
-        buf << BytesIO(val[(j + 1):])
+        bio = BytesIO()
+        bio.write(val[(j + 1):])
+        buf << bio
         return body_len
 
     def read_body(body_len):
@@ -269,7 +276,9 @@ def decodemsg(buf, source):
             val = lowlevel_read()
         # Any bytes left over belong to the next message.
         body, leftovers = val[:body_len], val[body_len:]
-        buf << BytesIO(leftovers)
+        bio = BytesIO()
+        bio.write(leftovers)
+        buf << bio
         return body
 
     # With these, receiving a message is as simple as:
@@ -279,7 +288,14 @@ def decodemsg(buf, source):
             body_len = read_header()
             return read_body(body_len)
         except MessageParseError:  # Re-synchronize on false positives.
-            pass
+            # Advance receive buffer by one byte before trying again.
+            # TODO: Unfortunately we must copy data for now, because synchronize()
+            # TODO: operates on the value, not the BytesIO object.
+            val = unbox(buf).getvalue()
+            bio = BytesIO()
+            bio.write(val[1:])
+            buf << bio
+            # unbox(buf).seek(+1, SEEK_CUR)  # this would be much better
         except EOFError:  # EOF on data source before a complete message was received.
             return None
 

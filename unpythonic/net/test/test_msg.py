@@ -1,11 +1,75 @@
 # -*- coding: utf-8; -*-
 
+from io import BytesIO, SEEK_SET
+
 from .fixtures import nettest
 
-from ..msg import mkrecvbuf, recvmsg, sendmsg
+from ..msg import mkrecvbuf, encodemsg, decodemsg, bytessource, BytesIOsource, \
+                  recvmsg, sendmsg
 
 def test():
-    # basic use of message protocol
+    # sans-IO
+
+    # Basic use.
+    rawdata = b"hello world"
+    message = encodemsg(rawdata)
+    source = bytessource(message)  # NOTE: sources are stateful...
+    buf = mkrecvbuf()              # ...as are receive buffers.
+    assert decodemsg(buf, source) == b"hello world"
+    assert decodemsg(buf, source) is None  # The message should have been consumed by the first decode.
+
+    # Decoding a message gets a whole message and only that message.
+    bytestream = BytesIO()
+    bytestream.write(message)
+    bytestream.write(b"junk junk junk")
+    bytestream.seek(0, SEEK_SET)
+    source = BytesIOsource(bytestream)
+    buf = mkrecvbuf()
+    assert decodemsg(buf, source) == b"hello world"
+    assert decodemsg(buf, source) is None
+
+    # - Messages are received in order.
+    # - Any leftover bytes already read into the receive buffer by the previous decodemsg()
+    #   are consumed *from the buffer* by the next decodemsg(). This guarantees it doesn't
+    #   matter if the transport does not honor message boundaries (which is the whole point
+    #   of having this protocol).
+    bytestream = BytesIO()
+    bytestream.write(encodemsg(b"hello world"))
+    bytestream.write(encodemsg(b"hello again"))
+    bytestream.seek(0, SEEK_SET)
+    source = BytesIOsource(bytestream)
+    buf = mkrecvbuf()
+    assert decodemsg(buf, source) == b"hello world"
+    assert decodemsg(buf, source) == b"hello again"
+    assert decodemsg(buf, source) is None
+
+    # Synchronization to message start is performed upon decode.
+    # It doesn't matter if there is junk between messages (the junk is discarded).
+    bytestream = BytesIO()
+    bytestream.write(encodemsg(b"hello world"))
+    bytestream.write(b"junk junk junk")
+    bytestream.write(encodemsg(b"hello again"))
+    bytestream.seek(0, SEEK_SET)
+    source = BytesIOsource(bytestream)
+    buf = mkrecvbuf()
+    assert decodemsg(buf, source) == b"hello world"
+    assert decodemsg(buf, source) == b"hello again"
+    assert decodemsg(buf, source) is None
+
+    # Junk containing sync bytes (0xFF) does not confuse or hang the decoder.
+    bytestream = BytesIO()
+    bytestream.write(encodemsg(b"hello world"))
+    bytestream.write(b"\xff" * 10)
+    bytestream.write(encodemsg(b"hello again"))
+    bytestream.seek(0, SEEK_SET)
+    source = BytesIOsource(bytestream)
+    buf = mkrecvbuf()
+    assert decodemsg(buf, source) == b"hello world"
+    assert decodemsg(buf, source) == b"hello again"
+    assert decodemsg(buf, source) is None
+
+    # with TCP sockets
+
     def server1(sock):
         buf = mkrecvbuf()
         data = recvmsg(buf, sock)
@@ -14,7 +78,6 @@ def test():
         sendmsg(b"hello world", sock)
     assert nettest(server1, client1) == b"hello world"
 
-    # receiving a message gets a whole message and only that message
     def server2(sock):
         buf = mkrecvbuf()
         data = recvmsg(buf, sock)
@@ -24,7 +87,6 @@ def test():
         sendmsg(b"hello again", sock)
     assert nettest(server2, client2) == b"hello world"
 
-    # messages are received in order
     def server3(sock):
         buf = mkrecvbuf()
         data = []
