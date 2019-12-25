@@ -1,8 +1,10 @@
 # -*- coding: utf-8; -*-
 """A simplistic message protocol.
 
-This can be used over a TCP socket, to provide rudimentary message framing and
-stream re-synchronization.
+This adds rudimentary message framing and stream re-synchronization on top of a
+stream-based transport layer such as TCP.
+
+**Technical details**
 
 A message consists of a header and a body, where:
 
@@ -15,11 +17,11 @@ A message consists of a header and a body, where:
       These don't need to be number characters, any Unicode codepoints below 127 will do.
       It's unlikely more than (127 - 32)**2 = 95**2 = 9025 backwards incompatible versions
       of this protocol will be ever needed, even in the extremely unlikely case this code
-      ends up powering someone's starship in the 31st century.
+      ends up powering someone's 31st century starship.
     literal "l": start of message length field
     utf-8 string, containing the number of bytes in the message body
       In other words, `str(len(body)).encode("utf-8")`.
-    literal ";": end of message length field (in v1, also the end of the header)
+    literal ";": end of message length field (in v01, also the end of the header)
   body:
     arbitrary payload, exactly as many bytes as the header said.
 """
@@ -43,7 +45,7 @@ def sendmsg(body, sock):
     """
     buf = BytesIO()
     buf.write(b"\xff")  # sync byte
-    buf.write(b"v1")  # message protocol version
+    buf.write(b"v01")  # message protocol version
     # message body length
     buf.write(b"l")
     buf.write(str(len(body)).encode("utf-8"))
@@ -138,19 +140,19 @@ def recvmsg(buf, sock):
         If successful, drop the header from the receive buffer.
         """
         val = unbox(buf).getvalue()
-        while len(val) < 4:
+        while len(val) < 5:
             val = lowlevel_read()
         # BEWARE: val[0] == 255, but val[0:1] == b"\xff".
         if val[0:1] != b"\xff":  # sync byte
             raise MessageParseError
-        if val[1:3] != b"v1":  # protocol version 1
+        if val[1:4] != b"v01":  # protocol version 01
             raise MessageParseError
-        if val[3:4] != b"l":  # length of body field
+        if val[4:5] != b"l":  # length of body field
             raise MessageParseError
         while b";" not in val:  # end of length of body field
             val = lowlevel_read()
         j = val.find(b";")
-        body_len = int(val[4:j].decode("utf-8"))
+        body_len = int(val[5:j].decode("utf-8"))
         buf << BytesIO(val[(j + 1):])
         return body_len
 
