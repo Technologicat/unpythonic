@@ -159,7 +159,7 @@ def socketsource(sock):
     return socketiterator()
 
 def decodemsg(buf, source):
-    """Receive next message from source, and update buffer.
+    """Receive next message from source, and update receive buffer.
 
     Returns the message body as a `bytes` object, or `None` if EOF occurred on
     `source` before a complete message was received.
@@ -344,7 +344,7 @@ def sendmsg(data, sock):
     sock.sendall(encodemsg(data))
 
 def recvmsg(buf, sock):
-    """Receive next message from socket, and update buffer.
+    """Receive next message from socket, and update receive buffer.
 
     Returns the message body as a `bytes` object, or `None` if the socket was
     closed by the other end before a complete message was received.
