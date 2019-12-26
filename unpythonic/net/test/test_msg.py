@@ -5,7 +5,7 @@ from io import BytesIO, SEEK_SET
 from .fixtures import nettest
 
 from ..msg import mkrecvbuf, encodemsg, decodemsg, \
-                  bytessource, BytesIOsource, socketsource, \
+                  bytessource, streamsource, socketsource, \
                   recvmsg, sendmsg
 
 def test():
@@ -26,7 +26,7 @@ def test():
     bio.write(message)
     bio.write(b"junk junk junk")
     bio.seek(0, SEEK_SET)
-    source = BytesIOsource(bio)
+    source = streamsource(bio)
     buf = mkrecvbuf()
     assert decodemsg(buf, source) == b"hello world"
     assert decodemsg(buf, source) is None
@@ -47,7 +47,7 @@ def test():
     bio.write(encodemsg(b"hello world"))
     bio.write(encodemsg(b"hello again"))
     bio.seek(0, SEEK_SET)
-    source = BytesIOsource(bio)
+    source = streamsource(bio)
     buf = mkrecvbuf()
     assert decodemsg(buf, source) == b"hello world"
     assert decodemsg(buf, source) == b"hello again"
@@ -60,7 +60,7 @@ def test():
     bio.write(b"junk junk junk")
     bio.write(encodemsg(b"hello again"))
     bio.seek(0, SEEK_SET)
-    source = BytesIOsource(bio)
+    source = streamsource(bio)
     buf = mkrecvbuf()
     assert decodemsg(buf, source) == b"hello world"
     assert decodemsg(buf, source) == b"hello again"
@@ -72,7 +72,7 @@ def test():
     bio.write(b"\xff" * 10)
     bio.write(encodemsg(b"hello again"))
     bio.seek(0, SEEK_SET)
-    source = BytesIOsource(bio)
+    source = streamsource(bio)
     buf = mkrecvbuf()
     assert decodemsg(buf, source) == b"hello world"
     assert decodemsg(buf, source) == b"hello again"

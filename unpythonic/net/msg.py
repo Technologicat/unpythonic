@@ -8,12 +8,12 @@ We provide sans-IO `encodemsg` and `decodemsg` which just manipulate data,
 and helpers `sendmsg` and `recvmsg` that add communication over sockets.
 
 You'll also need `mkrecvbuf` to decode or receive messages. Such a receive
-buffer is used as a staging area for incoming data, since the decoder must
-hold on to data already received from the source, but not yet consumed by
-inclusion into a complete message. This occurs because stream-based
-transports have no concept of a message boundary. Thus it may (and will)
-occur that a chunk read from the source includes not only the end of one
-message, but also the beginning of the next one.
+buffer is used as a staging area for incoming data, since the decoder must hold
+on to data already received from the source, but not yet consumed by inclusion
+into a complete message. This is needed because stream-based transports have no
+concept of a message boundary. Thus it may (and will) occur, near the seam of
+two messages, that a chunk read from the source includes not only the end of
+one message, but also the beginning of the next one.
 
 **Technical details**
 
@@ -26,8 +26,8 @@ A message consists of a header and a body, concatenated without any separator, w
     literal "v": start of protocol version field
     two bytes containing the protocol version, currently the characters "01" as utf-8.
       These don't need to be number characters, any Unicode codepoints below 127 will do.
-      It's unlikely more than (127 - 32)**2 = 95**2 = 9025 backwards incompatible versions
-      of this protocol will be ever needed, even in the extremely unlikely case this code
+      It's unlikely more than (127 - 32)**2 = 95**2 = 9025 backward incompatible versions
+      of this protocol will ever be needed, even in the extremely unlikely case this code
       ends up powering someone's 31st century starship.
     literal "l": start of message length field
     utf-8 string, containing the number of bytes in the message body
@@ -49,13 +49,13 @@ On sans-IO, see:
 
 __all__ = ["encodemsg",
            "mkrecvbuf", "recvbufvalue",
-           "socketsource", "BytesIOsource", "bytessource",
+           "socketsource", "streamsource", "bytessource",
            "decodemsg",
            "sendmsg", "recvmsg"]
 
 import select
 import socket
-from io import BytesIO
+from io import BytesIO, IOBase
 
 from ..collections import box, unbox
 
@@ -99,7 +99,17 @@ def mkrecvbuf(initial_contents=b""):
     return box(bio)
 
 def recvbufvalue(buf):
-    """Return the contents of a receive buffer."""
+    """Return the current contents of a receive buffer created with `mkrecvbuf`.
+
+    **Note**:
+
+    This is mostly for internal use; but you may need this if you intend to
+    switch over from messages back to raw data on an existing data stream.
+
+    When you're done receiving messages, if you need to read the remaining data
+    after the last message, the data in `buf` should be processed first, before
+    you read and process any more data from your original stream.
+    """
     return unbox(buf).getvalue()
 
 _CHUNKSIZE = 4096
@@ -118,17 +128,21 @@ def bytessource(data):
             j += 1
     return bytesiterator()
 
-def BytesIOsource(stream):
-    """Message source for `decodemsg`, for receiving data from a `BytesIO` stream."""
-    if not isinstance(stream, BytesIO):
-        raise TypeError("Expected a `BytesIO` object, got {}".format(type(stream)))
-    def BytesIOiterator():
+def streamsource(stream):
+    """Message source for `decodemsg`, for receiving data from a binary IO stream.
+
+    This can be used with files opened with `open()`, in-memory `BytesIO` streams,
+    and such.
+    """
+    if not isinstance(stream, IOBase):
+        raise TypeError("Expected a derivative of `IOBase`, got {}".format(type(stream)))
+    def IOiterator():
         while True:
             data = stream.read(4096)
             if len(data) == 0:
                 return
             yield data
-    return BytesIOiterator()
+    return IOiterator()
 
 def socketsource(sock):
     """Message source for `decodemsg`, for receiving data over a socket."""
@@ -150,29 +164,35 @@ def decodemsg(buf, source):
     Returns the message body as a `bytes` object, or `None` if EOF occurred on
     `source` before a complete message was received.
 
-    buf: A receive buffer created by `mkrecvbuf`. This is used as a staging
-         area for incoming data, since we must hold on to data already received
-         from the source, but not yet consumed by inclusion into a complete
-         message.
+    buf:    A receive buffer created by `mkrecvbuf`. This is used as a staging
+            area for incoming data, since we must hold on to data already
+            received from the source, but not yet consumed by inclusion into
+            a complete message.
 
-         Note it is the caller's responsibility to hold on to the receive buffer
-         during a session; often, it will contain the start of the next message,
-         which is needed for the next run of `decodemsg`.
+            Note it is the caller's responsibility to hold on to the receive
+            buffer during a message-communication session; often, at the seam
+            of two messages, it will contain the start of the next message,
+            which is needed for the next run of `decodemsg`.
 
-    source: An iterator that yields chunks of data, and raises `StopIteration`
-            when it reaches EOF.
+    source: *Message source*: an iterator that yields chunks of data from some
+            data stream, and raises `StopIteration` when it reaches EOF.
 
-            See the helper functions `socketsource`, `bytessource`, and
-            `BytesIOsource`, which give you such an iterator for (respectively)
-            `bytes` objects, `BytesIO` streams, and sockets. If you need to
-            implement a custom one, see their source code; it's less than 15
-            lines each.
+            See the helper functions `bytessource`, `streamsource` and
+            `socketsource`, which give you a message source for (respectively)
+            `bytes` objects, IO streams (such as files opened with `open` and
+            in-memory `BytesIO` streams), and sockets. If you need to implement
+            a new source, see their source code; each is less than 15 lines.
 
             The chunks don't have to be of any particular size; the iterator
             should just yield "some more" data wherever it gets its data from.
             When working with sockets, 4096 is a typical chunk size. The read
             is allowed to return less data, if less data (but indeed some data)
             is currently waiting to be read.
+
+            This just abstracts away the details of how to read a particular
+            kind of data stream, and does no buffering itself. The underlying
+            data stream representation is allowed to perform such buffering,
+            if it wants to.
 
     **CAUTION**: The decoding operation is **synchronous**. That is, the read
     on the source *is allowed to block* if no data is currently available,
@@ -336,22 +356,26 @@ def recvmsg(buf, sock):
     **Note**:
 
     This is just shorthand for `decodemsg(buf, socketsource(sock))`.
+
     Hence the socket will be wrapped in a new `socketsource` each time
     `recvmsg` is called. This is otherwise harmless, but generates
-    unnecessary garbage (especially if there are many small messages).
+    unnecessary garbage in memory (especially if there are many
+    small messages).
 
-    If you want to avoid this, you can `source = socketsource(sock)`
+    If you want to avoid that, you can `source = socketsource(sock)`
     to wrap the socket once, and then `decodemsg(buf, source)` to
     receive a message on that socket (as many times as needed),
-    to re-use the same `socketsource` instance each time.
+    so you re-use the same `socketsource` instance each time.
 
     The message protocol requires no special teardown procedure;
     when you're done, just close the socket as usual.
 
-    Note there may be data in `buf`, beside any data still waiting
-    to be read from the socket, when you're done receiving messages.
-    If you need to read the remaining data after the last message,
-    the data in `buf` should be processed first, before you read
-    and process any more data from the socket.
+    But if you intend to switch over from messages back to raw data on a socket
+    on which you have received messages, consider the following. When you're
+    done receiving messages, there may be data in `buf`, beside any data still
+    waiting to be read from the socket. If you need to read the remaining data
+    after the last message, the data in `buf` should be processed first, before
+    you read and process any more data from the socket. Use `recvbufvalue(buf)`
+    to get that data.
     """
     return decodemsg(buf, socketsource(sock))
