@@ -44,10 +44,13 @@ On sans-IO, see:
 
 # TODO: Consider whether an OOP API to decode/receive would be better; then we could
 # TODO: include the receive buffer as an instance attribute instead of requiring our
-# TODO: caller to manage it.
+# TODO: caller to manage it. This is silly lispy at the moment for no good reason.
+# TODO: Could benefit from a MessageSource base class, too.
 
 __all__ = ["encodemsg",
-           "mkrecvbuf", "decodemsg", "socketsource", "BytesIOsource", "bytessource",
+           "mkrecvbuf", "recvbufvalue",
+           "socketsource", "BytesIOsource", "bytessource",
+           "decodemsg",
            "sendmsg", "recvmsg"]
 
 import select
@@ -90,12 +93,18 @@ def mkrecvbuf(initial_contents=b""):
     # any remaining data already read from the socket must be written into a
     # new BytesIO, which we then send into the box to replace the original one.
     bio = BytesIO()
+    # Write instead of ctor arg, so the stream position will be at the end,
+    # so any new writes continue from wherever the initial contents leave off.
     bio.write(initial_contents)
     return box(bio)
 
+def recvbufvalue(buf):
+    """Return the contents of a receive buffer."""
+    return unbox(buf).getvalue()
+
 _CHUNKSIZE = 4096
 def bytessource(data):
-    """Source for `decodemsg` for receiving data from a `bytes` object."""
+    """Message source for `decodemsg`, for receiving data from a `bytes` object."""
     # Package the generator in an inner function to fail-fast.
     if not isinstance(data, bytes):
         raise TypeError("Expected a `bytes` object, got {}".format(type(data)))
@@ -110,7 +119,7 @@ def bytessource(data):
     return bytesiterator()
 
 def BytesIOsource(stream):
-    """Source for `decodemsg` for receiving data from a `BytesIO` stream."""
+    """Message source for `decodemsg`, for receiving data from a `BytesIO` stream."""
     if not isinstance(stream, BytesIO):
         raise TypeError("Expected a `BytesIO` object, got {}".format(type(stream)))
     def BytesIOiterator():
@@ -122,7 +131,7 @@ def BytesIOsource(stream):
     return BytesIOiterator()
 
 def socketsource(sock):
-    """Source for `decodemsg` for receiving data over a socket."""
+    """Message source for `decodemsg`, for receiving data over a socket."""
     if not isinstance(sock, socket.SocketType):
         raise TypeError("Expected a socket object, got {}".format(type(sock)))
     def socketiterator():
@@ -185,13 +194,13 @@ def decodemsg(buf, source):
         Invariant: the identity of the `BytesIO` in the `buf` box
         does not change.
         """
-        bio = unbox(buf)
         try:
             data = next(source)
-            bio.write(data)
-            return bio.getvalue()
         except StopIteration:
             raise EOFError
+        bio = unbox(buf)
+        bio.write(data)
+        return bio.getvalue()
 
     def synchronize():
         """Synchronize the stream to the start of a new message.
@@ -209,11 +218,9 @@ def decodemsg(buf, source):
 
         To make sure, call `read_header` after synchronizing; it will raise a
         `MessageParseError` if the current receive buffer contents cannot be
-        interpreted as a header. Repeat the sequence of `synchronize` and
-        `read_header` until a header is successfully parsed.
-
+        interpreted as a header.
         """
-        val = unbox(buf).getvalue()
+        val = recvbufvalue(buf)
         while True:
             if b"\xff" in val:
                 j = val.find(b"\xff")
@@ -236,7 +243,7 @@ def decodemsg(buf, source):
 
         If successful, advance the receive buffer, discarding the header.
         """
-        val = unbox(buf).getvalue()
+        val = recvbufvalue(buf)
         while len(val) < 5:
             val = lowlevel_read()
         # CAUTION: val[0] == 255, but val[0:1] == b"\xff".
@@ -271,7 +278,7 @@ def decodemsg(buf, source):
         # TODO: We need to hold the data in memory twice: once in the receive buffer,
         # TODO: once in the output buffer. This doubles memory use, which is bad for
         # TODO: very large messages.
-        val = unbox(buf).getvalue()
+        val = recvbufvalue(buf)
         while len(val) < body_len:
             val = lowlevel_read()
         # Any bytes left over belong to the next message.
@@ -291,7 +298,7 @@ def decodemsg(buf, source):
             # Advance receive buffer by one byte before trying again.
             # TODO: Unfortunately we must copy data for now, because synchronize()
             # TODO: operates on the value, not the BytesIO object.
-            val = unbox(buf).getvalue()
+            val = recvbufvalue(buf)
             bio = BytesIO()
             bio.write(val[1:])
             buf << bio
@@ -331,7 +338,7 @@ def recvmsg(buf, sock):
     This is just shorthand for `decodemsg(buf, socketsource(sock))`.
     Hence the socket will be wrapped in a new `socketsource` each time
     `recvmsg` is called. This is otherwise harmless, but generates
-    unnecessary garbage.
+    unnecessary garbage (especially if there are many small messages).
 
     If you want to avoid this, you can `source = socketsource(sock)`
     to wrap the socket once, and then `decodemsg(buf, source)` to
@@ -340,5 +347,11 @@ def recvmsg(buf, sock):
 
     The message protocol requires no special teardown procedure;
     when you're done, just close the socket as usual.
+
+    Note there may be data in `buf`, beside any data still waiting
+    to be read from the socket, when you're done receiving messages.
+    If you need to read the remaining data after the last message,
+    the data in `buf` should be processed first, before you read
+    and process any more data from the socket.
     """
     return decodemsg(buf, socketsource(sock))

@@ -4,26 +4,29 @@ from io import BytesIO, SEEK_SET
 
 from .fixtures import nettest
 
-from ..msg import mkrecvbuf, encodemsg, decodemsg, bytessource, BytesIOsource, \
+from ..msg import mkrecvbuf, encodemsg, decodemsg, \
+                  bytessource, BytesIOsource, socketsource, \
                   recvmsg, sendmsg
 
 def test():
     # sans-IO
 
     # Basic use.
+    # Encode a message:
     rawdata = b"hello world"
     message = encodemsg(rawdata)
+    # Decode a message:
     source = bytessource(message)  # NOTE: sources are stateful...
     buf = mkrecvbuf()              # ...as are receive buffers.
     assert decodemsg(buf, source) == b"hello world"
     assert decodemsg(buf, source) is None  # The message should have been consumed by the first decode.
 
     # Decoding a message gets a whole message and only that message.
-    bytestream = BytesIO()
-    bytestream.write(message)
-    bytestream.write(b"junk junk junk")
-    bytestream.seek(0, SEEK_SET)
-    source = BytesIOsource(bytestream)
+    bio = BytesIO()
+    bio.write(message)
+    bio.write(b"junk junk junk")
+    bio.seek(0, SEEK_SET)
+    source = BytesIOsource(bio)
     buf = mkrecvbuf()
     assert decodemsg(buf, source) == b"hello world"
     assert decodemsg(buf, source) is None
@@ -33,11 +36,18 @@ def test():
     #   are consumed *from the buffer* by the next decodemsg(). This guarantees it doesn't
     #   matter if the transport does not honor message boundaries (which is the whole point
     #   of having this protocol).
-    bytestream = BytesIO()
-    bytestream.write(encodemsg(b"hello world"))
-    bytestream.write(encodemsg(b"hello again"))
-    bytestream.seek(0, SEEK_SET)
-    source = BytesIOsource(bytestream)
+    #     - Note this means that should you wish to stop receiving messages on a particular
+    #       source, and resume reading a raw stream from it instead, you must manually prepend
+    #       the final contents of the receive buffer (see `recvbufvalue`) to whatever data
+    #       you later receive from that source (since that data has already been placed
+    #       into the receive buffer, so it is no longer available at the source).
+    #     - So it's recommended to have a dedicated channel to communicate using messages,
+    #       e.g. a dedicated TCP connection on which all communication is done with messages.
+    bio = BytesIO()
+    bio.write(encodemsg(b"hello world"))
+    bio.write(encodemsg(b"hello again"))
+    bio.seek(0, SEEK_SET)
+    source = BytesIOsource(bio)
     buf = mkrecvbuf()
     assert decodemsg(buf, source) == b"hello world"
     assert decodemsg(buf, source) == b"hello again"
@@ -45,24 +55,24 @@ def test():
 
     # Synchronization to message start is performed upon decode.
     # It doesn't matter if there is junk between messages (the junk is discarded).
-    bytestream = BytesIO()
-    bytestream.write(encodemsg(b"hello world"))
-    bytestream.write(b"junk junk junk")
-    bytestream.write(encodemsg(b"hello again"))
-    bytestream.seek(0, SEEK_SET)
-    source = BytesIOsource(bytestream)
+    bio = BytesIO()
+    bio.write(encodemsg(b"hello world"))
+    bio.write(b"junk junk junk")
+    bio.write(encodemsg(b"hello again"))
+    bio.seek(0, SEEK_SET)
+    source = BytesIOsource(bio)
     buf = mkrecvbuf()
     assert decodemsg(buf, source) == b"hello world"
     assert decodemsg(buf, source) == b"hello again"
     assert decodemsg(buf, source) is None
 
     # Junk containing sync bytes (0xFF) does not confuse or hang the decoder.
-    bytestream = BytesIO()
-    bytestream.write(encodemsg(b"hello world"))
-    bytestream.write(b"\xff" * 10)
-    bytestream.write(encodemsg(b"hello again"))
-    bytestream.seek(0, SEEK_SET)
-    source = BytesIOsource(bytestream)
+    bio = BytesIO()
+    bio.write(encodemsg(b"hello world"))
+    bio.write(b"\xff" * 10)
+    bio.write(encodemsg(b"hello again"))
+    bio.seek(0, SEEK_SET)
+    source = BytesIOsource(bio)
     buf = mkrecvbuf()
     assert decodemsg(buf, source) == b"hello world"
     assert decodemsg(buf, source) == b"hello again"
@@ -88,10 +98,16 @@ def test():
     assert nettest(server2, client2) == b"hello world"
 
     def server3(sock):
+        # If you need to receive many small messages on the same socket, use a
+        # `socketsource` with `decodemsg`. This combination produces exactly
+        # the same result as multiple calls of `recvmsg`, but avoids generating
+        # garbage, because it wraps the socket in a message source only once,
+        # instead of doing that separately for each message.
         buf = mkrecvbuf()
+        source = socketsource(sock)
         data = []
-        data.append(recvmsg(buf, sock))
-        data.append(recvmsg(buf, sock))
+        data.append(decodemsg(buf, source))
+        data.append(decodemsg(buf, source))
         return data
     def client3(sock):
         sendmsg(b"hello world", sock)
