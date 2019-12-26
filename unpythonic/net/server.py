@@ -88,7 +88,7 @@ from ..collections import ThreadLocalBox, Shim
 #from ..misc import async_raise
 
 from .util import ReuseAddrThreadingTCPServer
-from .msg import mkrecvbuf, recvmsg, sendmsg
+from .msg import mkrecvbuf, socketsource, decodemsg, sendmsg
 from .ptyproxy import PTYSocketProxy
 
 _server_instance = None
@@ -156,10 +156,11 @@ class ControlSession(socketserver.BaseRequestHandler):
             backend = rlcompleter.Completer(_console_locals_namespace)
             buf = mkrecvbuf()
             sock = self.request
+            source = socketsource(sock)
             while True:
                 # TODO: Add support for requests to inject Ctrl+C. Needs a command protocol layer.
                 # TODO: Can use JSON dictionaries; we're guaranteed to get whole messages only.
-                data_in = recvmsg(buf, sock)
+                data_in = decodemsg(buf, source)
                 if not data_in:
                     raise ClientExit
                 request = json.loads(data_in.decode("utf-8"))

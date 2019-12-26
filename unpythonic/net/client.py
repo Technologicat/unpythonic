@@ -9,7 +9,7 @@ import sys
 import signal
 import threading
 
-from .msg import mkrecvbuf, recvmsg, sendmsg
+from .msg import mkrecvbuf, socketsource, decodemsg, sendmsg
 
 __all__ = ["connect"]
 
@@ -23,6 +23,8 @@ def _handle_alarm(signum, frame):
 signal.signal(signal.SIGALRM, _handle_alarm)
 
 
+# Note we must use one recvbuf per control connection, even if several
+# functionalities receive messages on that connection.
 def _make_remote_completion_client(buf, sock):
     """Make a tab completion function for a remote REPL session.
 
@@ -34,12 +36,18 @@ def _make_remote_completion_client(buf, sock):
 
     The return value can be used as a completer in `readline.set_completer`.
     """
+    # Wrap the socket into a message source just once, and then use `decodemsg`
+    # instead of `recvmsg` (which wraps the socket in a new message source
+    # instance each time). The source is just an abstraction over the details
+    # of how to actually read data from a specific type of data source;
+    # buffering occurs in the receive buffer `buf`.
+    source = socketsource(sock)
     def complete(text, state):
         try:
             request = {"text": text, "state": state}
             data_out = json.dumps(request).encode("utf-8")
             sendmsg(data_out, sock)
-            data_in = recvmsg(buf, sock).decode("utf-8")
+            data_in = decodemsg(buf, source).decode("utf-8")
             # print("text '{}' state '{}' reply '{}'".format(text, state, data_in))
             if not data_in:
                 print("Control server exited, socket closed!")
