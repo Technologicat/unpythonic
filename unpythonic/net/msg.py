@@ -150,13 +150,13 @@ def streamsource(stream):
     """
     if not isinstance(stream, IOBase):
         raise TypeError("Expected a derivative of `IOBase`, got {}".format(type(stream)))
-    def IOiterator():
+    def streamiterator():
         while True:
             data = stream.read(4096)
             if len(data) == 0:
                 return
             yield data
-    return IOiterator()
+    return streamiterator()
 
 def socketsource(sock):
     """Message source for `decodemsg`, for receiving data over a socket."""
