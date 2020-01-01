@@ -2,12 +2,9 @@
 """A simplistic message protocol.
 
 This adds rudimentary message framing and stream re-synchronization on top of a
-stream-based transport layer, such as TCP.
+stream-based transport layer, such as TCP. This is a sans-IO implementation.
 
-We provide sans-IO `encodemsg` and `decodemsg` which just manipulate data,
-and helpers `sendmsg` and `recvmsg` that add communication over sockets.
-
-You'll also need a `ReceiveBuffer` to decode or receive messages. This is used
+The decoder uses a receive buffer to decode or receive messages. This is used
 as a staging area for incoming data, since the decoder must hold on to data
 already received from the source, but not yet consumed by inclusion into a
 complete message. This is needed because stream-based transports have no
@@ -42,23 +39,15 @@ On sans-IO, see:
     https://sans-io.readthedocs.io/
 """
 
-# TODO: Consider whether an OOP API to decode/receive would be better; then we could
-# TODO: include the receive buffer as an instance attribute instead of requiring our
-# TODO: caller to manage it. This is silly lispy at the moment for no good reason.
-# TODO: Could benefit from a MessageSource base class, too.
-
 __all__ = ["encodemsg",
            "ReceiveBuffer",
            "socketsource", "streamsource", "bytessource",
-           "decodemsg",
-           "sendmsg", "recvmsg"]
+           "decodemsg"]
 
 import select
 import socket
 from io import BytesIO, IOBase
 
-# --------------------------------------------------------------------------------
-# Sans-IO protocol implementation
 
 # Send
 
@@ -68,6 +57,11 @@ def encodemsg(data):
     data: Arbitrary data as a `bytes` object.
 
     Returns the message as a `bytes` object.
+
+    **NOTE**: This is a sans-IO implementation. To actually send the message
+    over a TCP socket, use something like::
+
+        sock.sendall(encodemsg(data))
     """
     buf = BytesIO()
     # header
@@ -79,6 +73,7 @@ def encodemsg(data):
     # body
     buf.write(data)
     return buf.getvalue()
+
 
 # Receive
 
@@ -126,6 +121,7 @@ class ReceiveBuffer:
         """
         return self._buffer.getvalue()
 
+
 _CHUNKSIZE = 4096
 def bytessource(data):
     """Message source for `decodemsg`, for receiving data from a `bytes` object."""
@@ -172,8 +168,9 @@ def socketsource(sock):
             yield data
     return socketiterator()
 
+
 def decodemsg(buf, source):
-    """Receive next message from source, and update receive buffer.
+    """Decode next message from source, and update receive buffer.
 
     Returns the message body as a `bytes` object, or `None` if EOF occurred on
     `source` before a complete message was received.
@@ -199,11 +196,11 @@ def decodemsg(buf, source):
 
             The chunks don't have to be of any particular size; the iterator
             should just yield "some more" data wherever it gets its data from.
-            When working with sockets, 4096 is a typical chunk size. The read
-            is allowed to return less data, if less data (but indeed some data)
-            is currently waiting to be read.
+            For example, when working with TCP sockets, 4096 is a typical chunk
+            size. The read is allowed to return less data, if less data (but
+            still indeed some data) is currently waiting to be read.
 
-            This just abstracts away the details of how to read a particular
+            `source` just abstracts away the details of how to read a particular
             kind of data stream, and does no buffering itself. The underlying
             data stream representation is allowed to perform such buffering,
             if it wants to.
@@ -211,8 +208,23 @@ def decodemsg(buf, source):
     **CAUTION**: The decoding operation is **synchronous**. That is, the read
     on the source *is allowed to block* if no data is currently available,
     but the underlying data source has not indicated EOF. This typically occurs
-    with inputs that represent a connection, such as sockets or stdin. Use a
+    with inputs that represent a connection, such as a socket or stdin. Use a
     thread if needed.
+
+    **NOTE**: This is a sans-IO implementation. To actually receive a message
+    over a TCP socket, use something like::
+
+        from unpythonic.net.msg import ReceiveBuffer, socketsource, decodemsg
+
+        # ...open a TCP socket `sock`...
+
+        buf = ReceiveBuffer()
+        source = socketsource(sock)
+        while not terminated:
+            data = decodemsg(buf, source)  # get the next message
+            ...
+
+    See also `MessageDecoder` for an OOP API.
     """
     source = iter(source)
 
@@ -326,60 +338,33 @@ def decodemsg(buf, source):
             # TODO: operates on the value, not the BytesIO object.
             val = buf.getvalue()
             buf.set(val[1:])
-            # unbox(buf).seek(+1, SEEK_CUR)  # this would be much better
+            # buf._buffer.seek(+1, SEEK_CUR)  # having this effect would be much better
         except EOFError:  # EOF on data source before a complete message was received.
             return None
 
-# --------------------------------------------------------------------------------
-# IO helpers.
+class MessageDecoder:
+    """Object-oriented sugar on top of `decodemsg`.
 
-def sendmsg(data, sock):
-    """Send a message on a socket.
+    Usage::
 
-    data: Arbitrary data as a `bytes` object.
-          It will be automatically encapsulated into a message.
+        from unpythonic.net.msg import socketsource, MessageDecoder
 
-    sock: An open socket to send the data on.
+        # ...open a TCP socket `sock`...
 
-    **Note**:
+        decoder = MessageDecoder(socketsource(sock))
+        while not terminated:
+            data = decoder.decode()  # get the next message
+            ...
 
-    This is just shorthand for `sock.sendall(encodemsg(data))`.
+    A `ReceiveBuffer` is created internally. If you need to access it (e.g.
+    when you're done receiving messages and would like to switch to a raw
+    stream), it's the `buffer` attribute.
     """
-    sock.sendall(encodemsg(data))
+    def __init__(self, source):
+        """The `source` is a message source in the sense of `decodemsg`."""
+        self.buffer = ReceiveBuffer()
+        self.source = source
 
-def recvmsg(buf, sock):
-    """Receive next message from socket, and update receive buffer.
-
-    Returns the message body as a `bytes` object, or `None` if the socket was
-    closed by the other end before a complete message was received.
-
-    buf: Same as in `decodemsg`.
-
-    sock: An open socket to receive the data on.
-
-    **Note**:
-
-    This is just shorthand for `decodemsg(buf, socketsource(sock))`.
-
-    Hence the socket will be wrapped in a new `socketsource` each time
-    `recvmsg` is called. This is otherwise harmless, but generates
-    unnecessary garbage in memory (especially if there are many
-    small messages).
-
-    If you want to avoid that, you can `source = socketsource(sock)`
-    to wrap the socket once, and then `decodemsg(buf, source)` to
-    receive a message on that socket (as many times as needed),
-    so you re-use the same `socketsource` instance each time.
-
-    The message protocol requires no special teardown procedure;
-    when you're done, just close the socket as usual.
-
-    But if you intend to switch over from messages back to raw data on a socket
-    on which you have received messages, consider the following. When you're
-    done receiving messages, there may be data in `buf`, beside any data still
-    waiting to be read from the socket. If you need to read the remaining data
-    after the last message, the data in `buf` should be processed first, before
-    you read and process any more data from the socket. Use `buf.getvalue()`
-    to get that data.
-    """
-    return decodemsg(buf, socketsource(sock))
+    def decode(self):
+        """Decode next message from source, and update receive buffer."""
+        return decodemsg(self.buffer, self.source)

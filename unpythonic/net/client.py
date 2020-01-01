@@ -9,7 +9,7 @@ import sys
 import signal
 import threading
 
-from .msg import ReceiveBuffer, socketsource, decodemsg, sendmsg
+from .msg import encodemsg, socketsource, MessageDecoder
 
 __all__ = ["connect"]
 
@@ -23,9 +23,7 @@ def _handle_alarm(signum, frame):
 signal.signal(signal.SIGALRM, _handle_alarm)
 
 
-# Note we must use one ReceiveBuffer per control connection, even if several
-# functionalities receive messages on that connection.
-def _make_remote_completion_client(buf, sock):
+def _make_remote_completion_client(sock):
     """Make a tab completion function for a remote REPL session.
 
     `buf` is a receive buffer for the message protocol (see
@@ -36,23 +34,30 @@ def _make_remote_completion_client(buf, sock):
 
     The return value can be used as a completer in `readline.set_completer`.
     """
-    # Wrap the socket into a message source just once, and then use `decodemsg`
-    # instead of `recvmsg` (which wraps the socket in a new message source
-    # instance each time). The source is just an abstraction over the details
-    # of how to actually read data from a specific type of data source;
-    # buffering occurs in the receive buffer `buf`.
-    source = socketsource(sock)
+    # Messages must be processed by just one central decoder, to prevent data
+    # races, but also to handle buffering of incoming data correctly, because
+    # the underlying transport (TCP) has no notion of message boundaries. Thus
+    # typically, at the seam between two messages, some of the data belonging
+    # to the beginning of the second message has already arrived and been read
+    # from the socket, when trying to read the last batch of data belonging to
+    # the end of the first message.
+    #
+    # The source is just an abstraction over the details of how to actually
+    # read data from a specific type of data source; buffering occurs in
+    # ReceiveBuffer inside MessageDecoder.
+    decoder = MessageDecoder(socketsource(sock))
     def complete(text, state):
         try:
             request = {"text": text, "state": state}
             data_out = json.dumps(request).encode("utf-8")
-            sendmsg(data_out, sock)
-            data_in = decodemsg(buf, source).decode("utf-8")
-            # print("text '{}' state '{}' reply '{}'".format(text, state, data_in))
-            if not data_in:
+            sock.sendall(encodemsg(data_out))
+            data_in = decoder.decode()
+            response = data_in.decode("utf-8")
+            # print("text '{}' state '{}' reply '{}'".format(text, state, response))
+            if not response:
                 print("Control server exited, socket closed!")
                 return None
-            reply = json.loads(data_in)
+            reply = json.loads(response)
             return reply
         except BaseException as err:
             print(type(err), err)
@@ -70,9 +75,9 @@ def connect(addrspec):
     This asks the server to terminate the REPL session, and is the official
     way to exit cleanly.
 
-    To disconnect forcibly, press Ctrl+C. This just drops the connection
-    immediately. (The server should be smart enough to notice the client
-    is gone, and clean up any relevant resources.)
+    To disconnect forcibly, follow it with a Ctrl+C. This just drops the
+    connection immediately. (The server should be smart enough to notice
+    the client is gone, and clean up any relevant resources.)
     """
     class SessionExit(Exception):
         pass
@@ -86,8 +91,7 @@ def connect(addrspec):
 
                 # Set a custom tab completer for readline.
                 # https://stackoverflow.com/questions/35115208/is-there-any-way-to-combine-readline-rlcompleter-and-interactiveconsole-in-pytho
-                cbuf = ReceiveBuffer()
-                completer = _make_remote_completion_client(cbuf, csock)
+                completer = _make_remote_completion_client(csock)
                 readline.set_completer(completer)
                 readline.parse_and_bind("tab: complete")
 

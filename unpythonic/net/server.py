@@ -88,7 +88,7 @@ from ..collections import ThreadLocalBox, Shim
 #from ..misc import async_raise
 
 from .util import ReuseAddrThreadingTCPServer
-from .msg import ReceiveBuffer, socketsource, decodemsg, sendmsg
+from .msg import encodemsg, MessageDecoder, socketsource
 from .ptyproxy import PTYSocketProxy
 
 _server_instance = None
@@ -154,20 +154,19 @@ class ControlSession(socketserver.BaseRequestHandler):
             server_print("Control channel for {} opened.".format(client_address_str))
             # TODO: fancier backend? See examples in https://pymotw.com/3/readline/
             backend = rlcompleter.Completer(_console_locals_namespace)
-            buf = ReceiveBuffer()
             sock = self.request
-            source = socketsource(sock)
+            decoder = MessageDecoder(socketsource(sock))
             while True:
                 # TODO: Add support for requests to inject Ctrl+C. Needs a command protocol layer.
                 # TODO: Can use JSON dictionaries; we're guaranteed to get whole messages only.
-                data_in = decodemsg(buf, source)
+                data_in = decoder.decode()
                 if not data_in:
                     raise ClientExit
                 request = json.loads(data_in.decode("utf-8"))
                 reply = backend.complete(request["text"], request["state"])
                 # server_print(request, reply)
                 data_out = json.dumps(reply).encode("utf-8")
-                sendmsg(data_out, sock)
+                sock.sendall(encodemsg(data_out))
         except ClientExit:
             server_print("Control channel for {} closed.".format(client_address_str))
         except BaseException as err:
