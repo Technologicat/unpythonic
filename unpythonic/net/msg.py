@@ -7,10 +7,10 @@ stream-based transport layer, such as TCP.
 We provide sans-IO `encodemsg` and `decodemsg` which just manipulate data,
 and helpers `sendmsg` and `recvmsg` that add communication over sockets.
 
-You'll also need `mkrecvbuf` to decode or receive messages. Such a receive
-buffer is used as a staging area for incoming data, since the decoder must hold
-on to data already received from the source, but not yet consumed by inclusion
-into a complete message. This is needed because stream-based transports have no
+You'll also need a `ReceiveBuffer` to decode or receive messages. This is used
+as a staging area for incoming data, since the decoder must hold on to data
+already received from the source, but not yet consumed by inclusion into a
+complete message. This is needed because stream-based transports have no
 concept of a message boundary. Thus it may (and will) occur, near the seam of
 two messages, that a chunk read from the source includes not only the end of
 one message, but also the beginning of the next one.
@@ -48,7 +48,7 @@ On sans-IO, see:
 # TODO: Could benefit from a MessageSource base class, too.
 
 __all__ = ["encodemsg",
-           "mkrecvbuf", "recvbufvalue",
+           "ReceiveBuffer",
            "socketsource", "streamsource", "bytessource",
            "decodemsg",
            "sendmsg", "recvmsg"]
@@ -56,8 +56,6 @@ __all__ = ["encodemsg",
 import select
 import socket
 from io import BytesIO, IOBase
-
-from ..collections import box, unbox
 
 # --------------------------------------------------------------------------------
 # Sans-IO protocol implementation
@@ -84,33 +82,49 @@ def encodemsg(data):
 
 # Receive
 
-# SICP, data abstraction... no need for our caller to know the implementation
-# details of our receive buffer.
-def mkrecvbuf(initial_contents=b""):
-    """Make a receive buffer object for use with `decodemsg`."""
-    # We hold the buffer inside an `unpythonic.collections.box`, because
-    # `BytesIO` cannot be cleared. So when a complete message has been read,
-    # any remaining data already read from the socket must be written into a
-    # new BytesIO, which we then send into the box to replace the original one.
-    bio = BytesIO()
-    # Write instead of ctor arg, so the stream position will be at the end,
-    # so any new writes continue from wherever the initial contents leave off.
-    bio.write(initial_contents)
-    return box(bio)
+# We need a buffer object that holds the underlying `BytesIO` buffer in an
+# attribute, because a `BytesIO` cannot be cleared. So when a complete message
+# has been read, any remaining data must be written into a new `BytesIO` instance.
+#
+# We could achieve the same result using a `unpythonic.collections.box` to hold
+# a `BytesIO`, but a class allows us to encapsulate also the set and append
+# operations. So here OOP is really the right solution.
+class ReceiveBuffer:
+    def __init__(self, initial_contents=b""):
+        """A receive buffer object for use with `decodemsg`."""
+        self._buffer = BytesIO()
+        self.set(initial_contents)
 
-def recvbufvalue(buf):
-    """Return the current contents of a receive buffer created with `mkrecvbuf`.
+    # The contents are potentially large, so we don't dump them into the TypeError messages.
+    def append(self, more_contents=b""):
+        """Append `more_contents` to the buffer."""
+        if not isinstance(more_contents, bytes):
+            raise TypeError("Expected a bytes object, got {}".format(type(more_contents)))
+        self._buffer.write(more_contents)
+        return self  # convenience
 
-    **Note**:
+    def set(self, new_contents=b""):
+        """Replace buffer contents with `new_contents`."""
+        if not isinstance(new_contents, bytes):
+            raise TypeError("Expected a bytes object, got {}".format(type(new_contents)))
+        # Use write() to supply the new contents instead of ctor arg, so the
+        # stream position will be at the end, so any new writes continue from
+        # wherever the initial contents leave off.
+        self._buffer = BytesIO()
+        self._buffer.write(new_contents)
+        return self
 
-    This is mostly for internal use; but you may need this if you intend to
-    switch over from messages back to raw data on an existing data stream.
+    def getvalue(self):
+        """Return the data currently in the buffer, as a `bytes` object.
 
-    When you're done receiving messages, if you need to read the remaining data
-    after the last message, the data in `buf` should be processed first, before
-    you read and process any more data from your original stream.
-    """
-    return unbox(buf).getvalue()
+        Mostly for internal use; but you may need this if you intend to
+        switch over from messages back to raw data on an existing data stream.
+
+        When you're done receiving messages, if you need to read the remaining data
+        after the last message, the data in `buf` should be processed first, before
+        you read and process any more data from your original stream.
+        """
+        return self._buffer.getvalue()
 
 _CHUNKSIZE = 4096
 def bytessource(data):
@@ -164,10 +178,10 @@ def decodemsg(buf, source):
     Returns the message body as a `bytes` object, or `None` if EOF occurred on
     `source` before a complete message was received.
 
-    buf:    A receive buffer created by `mkrecvbuf`. This is used as a staging
-            area for incoming data, since we must hold on to data already
-            received from the source, but not yet consumed by inclusion into
-            a complete message.
+    buf:    A `ReceiveBuffer` instance. This is used as a staging area for
+            incoming data, since we must hold on to data already received
+            from the source, but not yet consumed by inclusion into a
+            complete message.
 
             Note it is the caller's responsibility to hold on to the receive
             buffer during a message-communication session; often, at the seam
@@ -211,16 +225,14 @@ def decodemsg(buf, source):
         Return the current contents of the receive buffer. (All of it,
         not just the newly added data.)
 
-        Invariant: the identity of the `BytesIO` in the `buf` box
-        does not change.
+        Invariant: the identity of the `BytesIO` in `buf` does not change.
         """
         try:
             data = next(source)
         except StopIteration:
             raise EOFError
-        bio = unbox(buf)
-        bio.write(data)
-        return bio.getvalue()
+        buf.append(data)
+        return buf.getvalue()
 
     def synchronize():
         """Synchronize the stream to the start of a new message.
@@ -240,20 +252,18 @@ def decodemsg(buf, source):
         `MessageParseError` if the current receive buffer contents cannot be
         interpreted as a header.
         """
-        val = recvbufvalue(buf)
+        val = buf.getvalue()
         while True:
             if b"\xff" in val:
                 j = val.find(b"\xff")
                 junk, start_of_msg = val[:j], val[j:]  # noqa: F841
                 # Discard previous BytesIO, start the new one with the sync byte (0xFF).
-                bio = BytesIO()
-                bio.write(start_of_msg)
-                buf << bio
+                buf.set(start_of_msg)
                 return
             # Clear the receive buffer after each chunk that didn't have a sync
             # byte in it. This prevents a malicious sender from crashing the
             # receiver by flooding it with nothing but junk.
-            buf << BytesIO()
+            buf.set(b"")
             val = lowlevel_read()
 
     def read_header():
@@ -263,7 +273,7 @@ def decodemsg(buf, source):
 
         If successful, advance the receive buffer, discarding the header.
         """
-        val = recvbufvalue(buf)
+        val = buf.getvalue()
         while len(val) < 5:
             val = lowlevel_read()
         # CAUTION: val[0] == 255, but val[0:1] == b"\xff".
@@ -285,9 +295,7 @@ def decodemsg(buf, source):
             raise MessageParseError
         j = val.find(b";")
         body_len = int(val[5:j].decode("utf-8"))
-        bio = BytesIO()
-        bio.write(val[(j + 1):])
-        buf << bio
+        buf.set(val[(j + 1):])
         return body_len
 
     def read_body(body_len):
@@ -298,14 +306,12 @@ def decodemsg(buf, source):
         # TODO: We need to hold the data in memory twice: once in the receive buffer,
         # TODO: once in the output buffer. This doubles memory use, which is bad for
         # TODO: very large messages.
-        val = recvbufvalue(buf)
+        val = buf.getvalue()
         while len(val) < body_len:
             val = lowlevel_read()
         # Any bytes left over belong to the next message.
         body, leftovers = val[:body_len], val[body_len:]
-        bio = BytesIO()
-        bio.write(leftovers)
-        buf << bio
+        buf.set(leftovers)
         return body
 
     # With these, receiving a message is as simple as:
@@ -318,10 +324,8 @@ def decodemsg(buf, source):
             # Advance receive buffer by one byte before trying again.
             # TODO: Unfortunately we must copy data for now, because synchronize()
             # TODO: operates on the value, not the BytesIO object.
-            val = recvbufvalue(buf)
-            bio = BytesIO()
-            bio.write(val[1:])
-            buf << bio
+            val = buf.getvalue()
+            buf.set(val[1:])
             # unbox(buf).seek(+1, SEEK_CUR)  # this would be much better
         except EOFError:  # EOF on data source before a complete message was received.
             return None
@@ -375,7 +379,7 @@ def recvmsg(buf, sock):
     done receiving messages, there may be data in `buf`, beside any data still
     waiting to be read from the socket. If you need to read the remaining data
     after the last message, the data in `buf` should be processed first, before
-    you read and process any more data from the socket. Use `recvbufvalue(buf)`
+    you read and process any more data from the socket. Use `buf.getvalue()`
     to get that data.
     """
     return decodemsg(buf, socketsource(sock))

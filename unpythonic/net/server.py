@@ -88,7 +88,7 @@ from ..collections import ThreadLocalBox, Shim
 #from ..misc import async_raise
 
 from .util import ReuseAddrThreadingTCPServer
-from .msg import mkrecvbuf, socketsource, decodemsg, sendmsg
+from .msg import ReceiveBuffer, socketsource, decodemsg, sendmsg
 from .ptyproxy import PTYSocketProxy
 
 _server_instance = None
@@ -154,7 +154,7 @@ class ControlSession(socketserver.BaseRequestHandler):
             server_print("Control channel for {} opened.".format(client_address_str))
             # TODO: fancier backend? See examples in https://pymotw.com/3/readline/
             backend = rlcompleter.Completer(_console_locals_namespace)
-            buf = mkrecvbuf()
+            buf = ReceiveBuffer()
             sock = self.request
             source = socketsource(sock)
             while True:

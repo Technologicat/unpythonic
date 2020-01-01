@@ -9,7 +9,7 @@ import sys
 import signal
 import threading
 
-from .msg import mkrecvbuf, socketsource, decodemsg, sendmsg
+from .msg import ReceiveBuffer, socketsource, decodemsg, sendmsg
 
 __all__ = ["connect"]
 
@@ -23,13 +23,13 @@ def _handle_alarm(signum, frame):
 signal.signal(signal.SIGALRM, _handle_alarm)
 
 
-# Note we must use one recvbuf per control connection, even if several
+# Note we must use one ReceiveBuffer per control connection, even if several
 # functionalities receive messages on that connection.
 def _make_remote_completion_client(buf, sock):
     """Make a tab completion function for a remote REPL session.
 
     `buf` is a receive buffer for the message protocol (see
-    `unpythonic.net.util.mkrecvbuf`).
+    `unpythonic.net.msg.ReceiveBuffer`).
 
     `sock` must be a socket already connected to a `ControlSession`.
     The caller is responsible for managing the socket.
@@ -86,7 +86,7 @@ def connect(addrspec):
 
                 # Set a custom tab completer for readline.
                 # https://stackoverflow.com/questions/35115208/is-there-any-way-to-combine-readline-rlcompleter-and-interactiveconsole-in-pytho
-                cbuf = mkrecvbuf()
+                cbuf = ReceiveBuffer()
                 completer = _make_remote_completion_client(cbuf, csock)
                 readline.set_completer(completer)
                 readline.parse_and_bind("tab: complete")
