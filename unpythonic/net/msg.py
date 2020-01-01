@@ -2,7 +2,7 @@
 """A simplistic message protocol.
 
 This adds rudimentary message framing and stream re-synchronization on top of a
-stream-based transport layer, such as TCP. This is a sans-IO implementation.
+stream-based transport layer, such as TCP. This is a pure sans-IO implementation.
 
 The decoder uses a receive buffer to decode or receive messages. This is used
 as a staging area for incoming data, since the decoder must hold on to data
@@ -39,10 +39,14 @@ On sans-IO, see:
     https://sans-io.readthedocs.io/
 """
 
-__all__ = ["encodemsg",
-           "ReceiveBuffer",
+__all__ = [  # To send, you'll need:
+           "encodemsg",
+             # To receive, you'll need at least one of:
            "socketsource", "streamsource", "bytessource",
-           "decodemsg"]
+             # and either:
+           "MessageDecoder",
+             # or:
+           "ReceiveBuffer", "decodemsg"]
 
 import select
 import socket
