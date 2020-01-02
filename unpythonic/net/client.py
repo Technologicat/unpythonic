@@ -23,46 +23,73 @@ def _handle_alarm(signum, frame):
 signal.signal(signal.SIGALRM, _handle_alarm)
 
 
-def _make_remote_completion_client(sock):
-    """Make a tab completion function for a remote REPL session.
+# Messages must be processed by just one central decoder, to prevent data
+# races, but also to handle buffering of incoming data correctly, because
+# the underlying transport (TCP) has no notion of message boundaries. Thus
+# typically, at the seam between two messages, some of the data belonging
+# to the beginning of the second message has already arrived and been read
+# from the socket, when trying to read the last batch of data belonging to
+# the end of the first message.
+class ControlClient:
+    # TODO: manage the socket internally. We need to make this into a context manager,
+    # so that __enter__ can set up the socket and __exit__ can tear it down.
+    def __init__(self, sock):
+        """Initialize session for control channel (client side).
 
-    `buf` is a receive buffer for the message protocol (see
-    `unpythonic.net.msg.ReceiveBuffer`).
+        `sock` must be a socket already connected to a `ControlSession` (on the
+        server side). The caller is responsible for managing the socket.
+        """
+        self.sock = sock
+        # The source is just an abstraction over the details of how to actually
+        # read data from a specific type of data source; buffering occurs in
+        # ReceiveBuffer inside MessageDecoder.
+        self.decoder = MessageDecoder(socketsource(sock))
 
-    `sock` must be a socket already connected to a `ControlSession`.
-    The caller is responsible for managing the socket.
+    # TODO: Refactor low-level _send, _recv functions.
+    # TODO: Always JSON encode. Don't send just strings.
 
-    The return value can be used as a completer in `readline.set_completer`.
-    """
-    # Messages must be processed by just one central decoder, to prevent data
-    # races, but also to handle buffering of incoming data correctly, because
-    # the underlying transport (TCP) has no notion of message boundaries. Thus
-    # typically, at the seam between two messages, some of the data belonging
-    # to the beginning of the second message has already arrived and been read
-    # from the socket, when trying to read the last batch of data belonging to
-    # the end of the first message.
-    #
-    # The source is just an abstraction over the details of how to actually
-    # read data from a specific type of data source; buffering occurs in
-    # ReceiveBuffer inside MessageDecoder.
-    decoder = MessageDecoder(socketsource(sock))
-    def complete(text, state):
+    def complete(self, text, state):
+        """Tab-complete in a remote REPL session.
+
+        This is a completer for `readline.set_completer`.
+        """
         try:
-            request = {"text": text, "state": state}
+            request = {"command": "TabComplete", "text": text, "state": state}
             data_out = json.dumps(request).encode("utf-8")
-            sock.sendall(encodemsg(data_out))
-            data_in = decoder.decode()
+            self.sock.sendall(encodemsg(data_out))
+            data_in = self.decoder.decode()
             response = data_in.decode("utf-8")
             # print("text '{}' state '{}' reply '{}'".format(text, state, response))
             if not response:
-                print("Control server exited, socket closed!")
+                print("Socket closed by other end.")
                 return None
             reply = json.loads(response)
             return reply
         except BaseException as err:
             print(type(err), err)
         return None
-    return complete
+
+    def send_kbinterrupt(self):
+        """Request the server to perform a `KeyboardInterrupt` (Ctrl+C).
+
+        The `KeyboardInterrupt` occurs in the REPL session associated with
+        this control channel.
+
+        Returns `True` on success, `False` on failure.
+        """
+        try:
+            request = {"command": "KeyboardInterrupt"}
+            data_out = json.dumps(request).encode("utf-8")
+            self.sock.sendall(encodemsg(data_out))
+            data_in = self.decoder.decode()
+            response = data_in.decode("utf-8")
+            if not response:
+                print("Socket closed by other end.")
+                return False
+            return response == "ok"
+        except BaseException as err:
+            print(type(err), err)
+        return False
 
 
 def connect(addrspec):
@@ -91,8 +118,8 @@ def connect(addrspec):
 
                 # Set a custom tab completer for readline.
                 # https://stackoverflow.com/questions/35115208/is-there-any-way-to-combine-readline-rlcompleter-and-interactiveconsole-in-pytho
-                completer = _make_remote_completion_client(csock)
-                readline.set_completer(completer)
+                controller = ControlClient(csock)
+                readline.set_completer(controller.complete)
                 readline.parse_and_bind("tab: complete")
 
                 def sock_to_stdout():
@@ -134,8 +161,7 @@ def connect(addrspec):
                             inp = input()
                             sock.sendall((inp + "\n").encode("utf-8"))
                         except KeyboardInterrupt:
-                            # TODO: refactor control channel logic; send command on control channel
-                            sock.sendall("\x03\n".encode("utf-8"))
+                            controller.send_kbinterrupt()
                 except EOFError:
                     print("replclient: Ctrl+D pressed, asking server to disconnect.")
                     print("replclient: if the server does not respond, press Ctrl+C to force.")

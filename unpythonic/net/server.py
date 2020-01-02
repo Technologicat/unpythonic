@@ -153,20 +153,45 @@ class ControlSession(socketserver.BaseRequestHandler):
         try:
             server_print("Control channel for {} opened.".format(client_address_str))
             # TODO: fancier backend? See examples in https://pymotw.com/3/readline/
-            backend = rlcompleter.Completer(_console_locals_namespace)
+            completer_backend = rlcompleter.Completer(_console_locals_namespace)
             sock = self.request
             decoder = MessageDecoder(socketsource(sock))
             while True:
-                # TODO: Add support for requests to inject Ctrl+C. Needs a command protocol layer.
-                # TODO: Can use JSON dictionaries; we're guaranteed to get whole messages only.
+                # A message sent by the client contains exactly one request.
+                # A request is a UTF-8 encoded JSON dictionary with one
+                # compulsory field: "command". It must contain one of the
+                # recognized command names as `str`.
+                #
+                # Existence and type of any other fields depends on each
+                # individual command. This server source code is the official
+                # documentation of this small app-level protocol.
                 data_in = decoder.decode()
                 if not data_in:
                     raise ClientExit
                 request = json.loads(data_in.decode("utf-8"))
-                reply = backend.complete(request["text"], request["state"])
-                # server_print(request, reply)
-                data_out = json.dumps(reply).encode("utf-8")
-                sock.sendall(encodemsg(data_out))
+
+                if request["command"] == "TabComplete":
+                    reply = completer_backend.complete(request["text"], request["state"])
+                    # server_print(request, reply)
+                    data_out = json.dumps(reply).encode("utf-8")
+                    sock.sendall(encodemsg(data_out))
+
+                elif request["command"] == "KeyboardInterrupt":
+                    errmsg = "TODO: remote Ctrl+C request received; implement the server side!"
+                    server_print(errmsg)
+
+                    # TODO: Once we pair the REPL and control sessions, this will be as easy as:
+                    # async_raise(t, KeyboardInterrupt)
+                    # Here t is the threading.Thread instance in which *our* REPL session is running.
+
+                    # Acknowledge the request, the client wants to know whether it worked.
+                    # When this is implemented, upon success, we should send "ok".
+                    data_out = "not_implemented".encode("utf-8")
+                    sock.sendall(encodemsg(data_out))
+
+                # TODO: always send a JSON encoded reply, so that even if the
+                # command was not understood, we can inform the client about that.
+
         except ClientExit:
             server_print("Control channel for {} closed.".format(client_address_str))
         except BaseException as err:
