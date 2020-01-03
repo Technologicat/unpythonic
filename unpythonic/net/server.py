@@ -144,6 +144,30 @@ class ControlSession(socketserver.BaseRequestHandler):
     regardless of the Python versions on each end of the connection.
     """
 
+    # TODO: Refactor low-level _send, _recv functions into a base class common for server and client.
+    def _send(self, data):
+        """Send a message on the control channel.
+
+        data: dict-like.
+        """
+        json_data = json.dumps(data)
+        bytes_out = json_data.encode("utf-8")
+        self.sock.sendall(encodemsg(bytes_out))
+    def _recv(self):
+        """Receive a message on the control channel.
+
+        Returns a dict-like.
+
+        Blocks if no data is currently available on the channel,
+        but EOF has not been signaled.
+        """
+        bytes_in = self.decoder.decode()
+        if not bytes_in:
+            print("Socket closed by other end.")
+            return None
+        json_data = bytes_in.decode("utf-8")
+        return json.loads(json_data)
+
     def handle(self):
         # TODO: ipv6 support
         caddr, cport = self.client_address
@@ -154,9 +178,18 @@ class ControlSession(socketserver.BaseRequestHandler):
             server_print("Control channel for {} opened.".format(client_address_str))
             # TODO: fancier backend? See examples in https://pymotw.com/3/readline/
             completer_backend = rlcompleter.Completer(_console_locals_namespace)
-            sock = self.request
-            decoder = MessageDecoder(socketsource(sock))
+            # From the docstring of `socketserver.BaseRequestHandler`:
+            #     This class is instantiated for each request to be handled.
+            #     ...
+            #     Since a separate instance is created for each request, the
+            #     handle() method can define other arbitrary instance variables.
+            self.sock = self.request
+            self.decoder = MessageDecoder(socketsource(self.sock))
             while True:
+                # The control server follows a request-reply application-level protocol,
+                # layered on top of the `unpythonic.net.msg` protocol, layered on top
+                # of a TCP socket.
+                #
                 # A message sent by the client contains exactly one request.
                 # A request is a UTF-8 encoded JSON dictionary with one
                 # compulsory field: "command". It must contain one of the
@@ -165,16 +198,25 @@ class ControlSession(socketserver.BaseRequestHandler):
                 # Existence and type of any other fields depends on each
                 # individual command. This server source code is the official
                 # documentation of this small app-level protocol.
-                data_in = decoder.decode()
-                if not data_in:
+                #
+                # For each request received, the server sends a reply.
+                # A reply is a UTF-8 encoded JSON dictionary with one
+                # compulsory field: "status". Upon success, it must contain
+                # the string "ok". The actual return value(s) (if any) may
+                # be provided in arbitrary other fields, defined by each
+                # individual command.
+                #
+                # Upon failure, the "status" field must contain a short label
+                # describing the category of the failure. More information
+                # about the failure may be included in arbitrary other fields.
+                request = self._recv()
+                if not request:
                     raise ClientExit
-                request = json.loads(data_in.decode("utf-8"))
 
                 if request["command"] == "TabComplete":
-                    reply = completer_backend.complete(request["text"], request["state"])
+                    completion = completer_backend.complete(request["text"], request["state"])
                     # server_print(request, reply)
-                    data_out = json.dumps(reply).encode("utf-8")
-                    sock.sendall(encodemsg(data_out))
+                    reply = {"status": "ok", "result": completion}
 
                 elif request["command"] == "KeyboardInterrupt":
                     errmsg = "TODO: remote Ctrl+C request received; implement the server side!"
@@ -186,11 +228,12 @@ class ControlSession(socketserver.BaseRequestHandler):
 
                     # Acknowledge the request, the client wants to know whether it worked.
                     # When this is implemented, upon success, we should send "ok".
-                    data_out = "not_implemented".encode("utf-8")
-                    sock.sendall(encodemsg(data_out))
+                    reply = {"status": "not_implemented"}
 
-                # TODO: always send a JSON encoded reply, so that even if the
-                # command was not understood, we can inform the client about that.
+                else:
+                    reply = {"status": "not_understood"}
+
+                self._send(reply)
 
         except ClientExit:
             server_print("Control channel for {} closed.".format(client_address_str))

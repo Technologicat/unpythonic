@@ -23,6 +23,26 @@ def _handle_alarm(signum, frame):
 signal.signal(signal.SIGALRM, _handle_alarm)
 
 
+# TODO: associating control and REPL sessions
+#
+# Protocol for establishing connection:
+#  - 1: Handshake: open the control channel, ask for metadata (prompts: sys.ps1, sys.ps2)
+#       to configure the client's prompt detector before opening the primary channel.
+#       - To keep us netcat compatible, handshake is optional. It is legal
+#         to just immediately connect on the primary channel, in which case
+#         there will be no control channel associated with the REPL session.
+#  - 2: Open the primary channel, parse the session number from the first line of text.
+#       - To keep us netcat compatible, we must transmit the session number as
+#         part of the primary data stream; it cannot be packaged into a message
+#         since only `unpythonic` knows about the message protocol.
+#       - So, print "Session XX connected\n" as the first line on the server side
+#         when a client connects. In the client, parse the first line (beside
+#         printing it as usual, to have the same appearance for both unpythonic
+#         and netcat connections).
+#  - 3: Send command on the control channel to associate that control channel
+#       to session number XX. Maybe print a message on the client side saying
+#       that tab completion and Ctrl+C are available.
+
 # Messages must be processed by just one central decoder, to prevent data
 # races, but also to handle buffering of incoming data correctly, because
 # the underlying transport (TCP) has no notion of message boundaries. Thus
@@ -45,8 +65,29 @@ class ControlClient:
         # ReceiveBuffer inside MessageDecoder.
         self.decoder = MessageDecoder(socketsource(sock))
 
-    # TODO: Refactor low-level _send, _recv functions.
-    # TODO: Always JSON encode. Don't send just strings.
+    # TODO: Refactor low-level _send, _recv functions into a base class common for server and client.
+    def _send(self, data):
+        """Send a message on the control channel.
+
+        data: dict-like.
+        """
+        json_data = json.dumps(data)
+        bytes_out = json_data.encode("utf-8")
+        self.sock.sendall(encodemsg(bytes_out))
+    def _recv(self):
+        """Receive a message on the control channel.
+
+        Returns a dict-like.
+
+        Blocks if no data is currently available on the channel,
+        but EOF has not been signaled.
+        """
+        bytes_in = self.decoder.decode()
+        if not bytes_in:
+            print("Socket closed by other end.")
+            return None
+        json_data = bytes_in.decode("utf-8")
+        return json.loads(json_data)
 
     def complete(self, text, state):
         """Tab-complete in a remote REPL session.
@@ -55,16 +96,11 @@ class ControlClient:
         """
         try:
             request = {"command": "TabComplete", "text": text, "state": state}
-            data_out = json.dumps(request).encode("utf-8")
-            self.sock.sendall(encodemsg(data_out))
-            data_in = self.decoder.decode()
-            response = data_in.decode("utf-8")
-            # print("text '{}' state '{}' reply '{}'".format(text, state, response))
-            if not response:
-                print("Socket closed by other end.")
-                return None
-            reply = json.loads(response)
-            return reply
+            self._send(request)
+            reply = self._recv()
+            # print("text '{}' state '{}' reply '{}'".format(text, state, reply))
+            if reply and reply["status"] == "ok":
+                return reply["result"]
         except BaseException as err:
             print(type(err), err)
         return None
@@ -75,18 +111,13 @@ class ControlClient:
         The `KeyboardInterrupt` occurs in the REPL session associated with
         this control channel.
 
-        Returns `True` on success, `False` on failure.
+        Returns truthy on success, falsey on failure.
         """
         try:
             request = {"command": "KeyboardInterrupt"}
-            data_out = json.dumps(request).encode("utf-8")
-            self.sock.sendall(encodemsg(data_out))
-            data_in = self.decoder.decode()
-            response = data_in.decode("utf-8")
-            if not response:
-                print("Socket closed by other end.")
-                return False
-            return response == "ok"
+            self._send(request)
+            reply = self._recv()
+            return reply and reply["status"] == "ok"
         except BaseException as err:
             print(type(err), err)
         return False
