@@ -52,7 +52,20 @@ class _DynLiveView(ChainMap):
         self._refresh()
         _getobservers()[id(self)] = self
     def __del__(self):
-        del _getobservers()[id(self)]
+        # No idea how, but our REPL server can trigger a KeyError here
+        # if the user views `help()`, which causes the client to get stuck.
+        # Then pressing `q` in the server console to quit the help, and then
+        # asking the REPL client (which is now responsive again) to disconnect
+        # (Ctrl+D), triggers the `KeyError` when the server cleans up the
+        # disconnected session.
+        #
+        # Anyway, if `id(self)` is not in the current thread's observers,
+        # we don't need to do anything here, so the Right Thing to do is
+        # to absorb `KeyError` if it occurs.
+        try:
+            del _getobservers()[id(self)]
+        except KeyError:
+            pass
     def _refresh(self):
         self.maps = list(reversed(_getstack())) + [_global_dynvars]
 
