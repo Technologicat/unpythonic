@@ -46,6 +46,8 @@ def main():
     items = (("top level", ["."]),
              ("regular code", ["unpythonic"]),
              ("regular code tests", ["unpythonic", "test"]),
+             ("REPL/networking code", ["unpythonic", "net"]),
+             ("REPL/networking tests", ["unpythonic", "net", "test"]),
              ("macros", ["unpythonic", "syntax"]),
              ("macro tests", ["unpythonic", "syntax", "test"]))
     print("Raw (with blanks, docstrings and comments)")
