@@ -5,7 +5,7 @@ over TCP, somewhat like the Swank server in Common Lisp.
 
 In a REPL session, you can inspect and mutate the global state of your running
 program. You can e.g. replace top-level function definitions with new versions
-in your running process.
+in your running process, or reload modules from disk (with `importlib.reload`).
 
 To enable it in your app::
 
@@ -14,7 +14,7 @@ To enable it in your app::
 
 To connect to a running REPL server::
 
-    python3 -m unpythonic.replclient localhost 1337
+    python3 -m unpythonic.net.client localhost 1337
 
 If you're already running in a local Python REPL, this should also work::
 
@@ -33,12 +33,24 @@ The REPL server runs in a daemon thread. Terminating the main thread of your
 process will terminate the server, also forcibly terminating all open REPL
 sessions in that process.
 
+**CAUTION**: `help(foo)` currently does not work in this REPL server. Its
+stdin/stdout are not redirected to the socket; instead, it will run locally on
+the server, causing the client to hang. The top-level `help()`, which uses a
+command-based interface, appears to work, until you ask for a help page, at
+which point it runs into the same problem.
+
 **CAUTION**: as Python was not designed for arbitrary hot-patching, if you
-change a **class** definition, only new instances will use the new definition,
-unless you specifically monkey-patch existing instances to change their type.
+change a **class** definition (whether by re-assigning the reference or by
+reloading the module containing the definition), only new instances will use
+the new definition, unless you specifically monkey-patch existing instances to
+change their type.
+
 The language docs hint it is somehow possible to retroactively change an
 object's type, if you're careful with it:
     https://docs.python.org/3/reference/requestmodel.html#id8
+In fact, ActiveState recipe 160164 explicitly tells how to do it,
+and even automate that with a custom metaclass:
+    https://github.com/ActiveState/code/tree/master/recipes/Python/160164_automatically_upgrade_class_instances
 
 Based on socketserverREPL by Ivor Wanders, 2017. Used under the MIT license.
     https://github.com/iwanders/socketserverREPL
@@ -56,6 +68,7 @@ considered somewhat that. Refer to https://megatokyo.com/strip/9.
 The `socketserverREPL` package uses the same default, and actually its
 `repl_tool.py` can talk to this server (but doesn't currently feature
 remote tab completion).
+
 """
 
 # TODO: use logging module instead of server-side print
@@ -81,14 +94,14 @@ import sys
 import os
 import time
 import socketserver
-import json
 import atexit
 
 from ..collections import ThreadLocalBox, Shim
 #from ..misc import async_raise
 
 from .util import ReuseAddrThreadingTCPServer
-from .msg import encodemsg, MessageDecoder, socketsource
+from .msg import MessageDecoder, socketsource
+from .common import ApplevelProtocol
 from .ptyproxy import PTYSocketProxy
 
 _server_instance = None
@@ -104,6 +117,8 @@ _console_locals_namespace = None
 _banner = None
 
 # TODO: inject this to globals of the target module
+#   - Maybe better to inject just a single "repl" container which has this and
+#     the other stuff, and print out at connection time where to find this stuff.
 def halt(doit=True):
     """Tell the REPL server to shut down after the last client has disconnected.
 
@@ -130,7 +145,7 @@ def server_print(*values, **kwargs):
     print(*values, **kwargs, file=_original_stdout)
 
 
-class ControlSession(socketserver.BaseRequestHandler):
+class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocol):
     """Entry point for connections to the control server.
 
     We use a separate connection for control to avoid head-of-line blocking.
@@ -138,36 +153,7 @@ class ControlSession(socketserver.BaseRequestHandler):
     In a session, the client sends us requests for remote tab completion. We
     invoke `rlcompleter` on the server side, and return its response to the
     client.
-
-    We encode the payload as JSON encoded dictionaries. This format was chosen
-    instead of pickle to ensure the client and server can talk to each other
-    regardless of the Python versions on each end of the connection.
     """
-
-    # TODO: Refactor low-level _send, _recv functions into a base class common for server and client.
-    def _send(self, data):
-        """Send a message on the control channel.
-
-        data: dict-like.
-        """
-        json_data = json.dumps(data)
-        bytes_out = json_data.encode("utf-8")
-        self.sock.sendall(encodemsg(bytes_out))
-    def _recv(self):
-        """Receive a message on the control channel.
-
-        Returns a dict-like.
-
-        Blocks if no data is currently available on the channel,
-        but EOF has not been signaled.
-        """
-        bytes_in = self.decoder.decode()
-        if not bytes_in:
-            print("Socket closed by other end.")
-            return None
-        json_data = bytes_in.decode("utf-8")
-        return json.loads(json_data)
-
     def handle(self):
         # TODO: ipv6 support
         caddr, cport = self.client_address
@@ -211,6 +197,7 @@ class ControlSession(socketserver.BaseRequestHandler):
                 # about the failure may be included in arbitrary other fields.
                 request = self._recv()
                 if not request:
+                    print("Socket closed by other end.")
                     raise ClientExit
 
                 if request["command"] == "TabComplete":
@@ -242,7 +229,10 @@ class ControlSession(socketserver.BaseRequestHandler):
 
 
 class ConsoleSession(socketserver.BaseRequestHandler):
-    """Entry point for connections from the TCP server."""
+    """Entry point for connections from the TCP server.
+
+    Primary channel. This serves the actual REPL session.
+    """
     def handle(self):
         # TODO: ipv6 support
         caddr, cport = self.client_address

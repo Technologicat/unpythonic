@@ -3,13 +3,13 @@
 
 import readline  # noqa: F401, input() uses the readline module if it has been loaded.
 import socket
-import json
 import select
 import sys
 import signal
 import threading
 
-from .msg import encodemsg, socketsource, MessageDecoder
+from .msg import socketsource, MessageDecoder
+from .common import ApplevelProtocol
 
 __all__ = ["connect"]
 
@@ -50,7 +50,7 @@ signal.signal(signal.SIGALRM, _handle_alarm)
 # to the beginning of the second message has already arrived and been read
 # from the socket, when trying to read the last batch of data belonging to
 # the end of the first message.
-class ControlClient:
+class ControlClient(ApplevelProtocol):
     # TODO: manage the socket internally. We need to make this into a context manager,
     # so that __enter__ can set up the socket and __exit__ can tear it down.
     def __init__(self, sock):
@@ -61,33 +61,9 @@ class ControlClient:
         """
         self.sock = sock
         # The source is just an abstraction over the details of how to actually
-        # read data from a specific type of data source; buffering occurs in
+        # read data from a specific type of message source; buffering occurs in
         # ReceiveBuffer inside MessageDecoder.
         self.decoder = MessageDecoder(socketsource(sock))
-
-    # TODO: Refactor low-level _send, _recv functions into a base class common for server and client.
-    def _send(self, data):
-        """Send a message on the control channel.
-
-        data: dict-like.
-        """
-        json_data = json.dumps(data)
-        bytes_out = json_data.encode("utf-8")
-        self.sock.sendall(encodemsg(bytes_out))
-    def _recv(self):
-        """Receive a message on the control channel.
-
-        Returns a dict-like.
-
-        Blocks if no data is currently available on the channel,
-        but EOF has not been signaled.
-        """
-        bytes_in = self.decoder.decode()
-        if not bytes_in:
-            print("Socket closed by other end.")
-            return None
-        json_data = bytes_in.decode("utf-8")
-        return json.loads(json_data)
 
     def complete(self, text, state):
         """Tab-complete in a remote REPL session.
@@ -99,7 +75,10 @@ class ControlClient:
             self._send(request)
             reply = self._recv()
             # print("text '{}' state '{}' reply '{}'".format(text, state, reply))
-            if reply and reply["status"] == "ok":
+            if not reply:
+                print("Socket closed by other end.")
+                return None
+            if reply["status"] == "ok":
                 return reply["result"]
         except BaseException as err:
             print(type(err), err)
@@ -117,7 +96,10 @@ class ControlClient:
             request = {"command": "KeyboardInterrupt"}
             self._send(request)
             reply = self._recv()
-            return reply and reply["status"] == "ok"
+            if not reply:
+                print("Socket closed by other end.")
+                return None
+            return reply["status"] == "ok"
         except BaseException as err:
             print(type(err), err)
         return False
