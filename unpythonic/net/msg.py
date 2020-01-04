@@ -128,7 +128,10 @@ class ReceiveBuffer:
 
 _CHUNKSIZE = 4096
 def bytessource(data):
-    """Message source for `decodemsg`, for receiving data from a `bytes` object."""
+    """Message source for `decodemsg`, for receiving data from a `bytes` object.
+
+    See also `streamsource`, `socketsource`.
+    """
     # Package the generator in an inner function to fail-fast.
     if not isinstance(data, bytes):
         raise TypeError("Expected a `bytes` object, got {}".format(type(data)))
@@ -147,6 +150,8 @@ def streamsource(stream):
 
     This can be used with files opened with `open()`, in-memory `BytesIO` streams,
     and such.
+
+    See also `bytessource`, `socketsource`.
     """
     if not isinstance(stream, IOBase):
         raise TypeError("Expected a derivative of `IOBase`, got {}".format(type(stream)))
@@ -159,7 +164,10 @@ def streamsource(stream):
     return streamiterator()
 
 def socketsource(sock):
-    """Message source for `decodemsg`, for receiving data over a socket."""
+    """Message source for `decodemsg`, for receiving data over a socket.
+
+    See also `bytessource`, `streamsource`.
+    """
     if not isinstance(sock, socket.SocketType):
         raise TypeError("Expected a socket object, got {}".format(type(sock)))
     def socketiterator():
@@ -211,9 +219,9 @@ def decodemsg(buf, source):
 
     **CAUTION**: The decoding operation is **synchronous**. That is, the read
     on the source *is allowed to block* if no data is currently available,
-    but the underlying data source has not indicated EOF. This typically occurs
-    with inputs that represent a connection, such as a socket or stdin. Use a
-    thread if needed.
+    but the underlying message source has not indicated EOF. This typically
+    occurs with inputs that represent a connection, such as a socket or stdin.
+    Use a thread if needed.
 
     **NOTE**: This is a sans-IO implementation. To actually receive a message
     over a TCP socket, use something like::
@@ -232,7 +240,7 @@ def decodemsg(buf, source):
     """
     source = iter(source)
 
-    class MessageParseError(Exception):
+    class MessageHeaderParseError(Exception):
         pass
 
     def lowlevel_read():
@@ -254,7 +262,7 @@ def decodemsg(buf, source):
         """Synchronize the stream to the start of a new message.
 
         This is done by reading and discarding data until the next sync byte
-        (0xFF) is found in the data source.
+        (0xFF) is found in the message source.
 
         After `synchronize()`, the sync byte `0xFF` is guaranteed to be
         the first byte held in the receive buffer.
@@ -264,9 +272,9 @@ def decodemsg(buf, source):
         Utf-8 encoded text bodies are safe, but if the message body is binary,
         false positives may occur.
 
-        To make sure, call `read_header` after synchronizing; it will raise a
-        `MessageParseError` if the current receive buffer contents cannot be
-        interpreted as a header.
+        To make sure, call `read_header` after synchronizing; it will raise
+        a `MessageHeaderParseError` if the current receive buffer contents
+        cannot be interpreted as a header.
         """
         val = buf.getvalue()
         while True:
@@ -294,11 +302,11 @@ def decodemsg(buf, source):
             val = lowlevel_read()
         # CAUTION: val[0] == 255, but val[0:1] == b"\xff".
         if val[0:1] != b"\xff":  # sync byte
-            raise MessageParseError
+            raise MessageHeaderParseError
         if val[1:4] != b"v01":  # protocol version 01
-            raise MessageParseError
+            raise MessageHeaderParseError
         if val[4:5] != b"l":  # length-of-body field
-            raise MessageParseError
+            raise MessageHeaderParseError
         # The len(val) check prevents a junk flood attack.
         # The maximum value of the length has 4090 base-10 digits, all nines.
         # The 4096 is arbitrarily chosen, but matches the typical socket read size.
@@ -308,7 +316,7 @@ def decodemsg(buf, source):
                 break
             val = lowlevel_read()
         if j == -1:  # maximum length of length-of-body field exceeded, terminator not found.
-            raise MessageParseError
+            raise MessageHeaderParseError
         j = val.find(b";")
         body_len = int(val[5:j].decode("utf-8"))
         buf.set(val[(j + 1):])
@@ -336,14 +344,14 @@ def decodemsg(buf, source):
             synchronize()
             body_len = read_header()
             return read_body(body_len)
-        except MessageParseError:  # Re-synchronize on false positives.
+        except MessageHeaderParseError:  # Re-synchronize on false positives.
             # Advance receive buffer by one byte before trying again.
             # TODO: Unfortunately we must copy data for now, because synchronize()
             # TODO: operates on the value, not the BytesIO object.
             val = buf.getvalue()
             buf.set(val[1:])
             # buf._buffer.seek(+1, SEEK_CUR)  # having this effect would be much better
-        except EOFError:  # EOF on data source before a complete message was received.
+        except EOFError:  # EOF on message source before a complete message was received.
             return None
 
 class MessageDecoder:
