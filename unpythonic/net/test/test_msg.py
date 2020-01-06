@@ -31,8 +31,8 @@ def test():
     # - Messages are received in order.
     # - Any leftover bytes already read into the receive buffer by the previous decode
     #   are consumed *from the buffer* by the next decode. This guarantees it doesn't
-    #   matter if the transport does not honor message boundaries (which is the whole point
-    #   of having this protocol).
+    #   matter if the transport does not honor message boundaries (which is indeed the
+    #   whole point of having this protocol).
     #     - Note this means that should you wish to stop receiving messages on a particular
     #       source, and resume reading a raw stream from it instead, you must manually prepend
     #       the final contents of the receive buffer (`decoder.buffer.getvalue()`) to whatever
@@ -40,6 +40,7 @@ def test():
     #       into the receive buffer, so it is no longer available at the source).
     #     - So it's recommended to have a dedicated channel to communicate using messages,
     #       e.g. a dedicated TCP connection on which all communication is done with messages.
+    #       This way you don't need to care about the receive buffer.
     bio = BytesIO()
     bio.write(encodemsg(b"hello world"))
     bio.write(encodemsg(b"hello again"))
