@@ -59,6 +59,8 @@ def encodemsg(data):
 
         sock.sendall(encodemsg(data))
     """
+    if not isinstance(data, bytes):
+        raise TypeError("Expected a `bytes` object, got {}".format(type(data)))
     buf = BytesIO()
     # header
     buf.write(b"\xff")  # sync byte
