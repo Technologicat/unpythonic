@@ -32,7 +32,7 @@ class ApplevelProtocol:
 
       - `decoder`: `unpythonic.net.msg.MessageDecoder` instance for receiving
         messages. Typically this is connected to `sock` using an
-        `unpythonic.net.msg.socketsource`, like
+        `unpythonic.net.util.socketsource`, like
         `MessageDecoder(socketsource(sock))`.
 
     These are left to the user code to define, because typically the client and

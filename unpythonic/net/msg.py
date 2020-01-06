@@ -39,19 +39,11 @@ On sans-IO, see:
     https://sans-io.readthedocs.io/
 """
 
-__all__ = [  # To send, you'll need:
-           "encodemsg",
-             # To receive, you'll need at least one of:
-           "socketsource", "streamsource", "bytessource",
-             # and either:
-           "MessageDecoder",
-             # or:
-           "ReceiveBuffer", "decodemsg"]
+from io import BytesIO
 
-import select
-import socket
-from io import BytesIO, IOBase
+from .util import ReceiveBuffer
 
+__all__ = ["encodemsg", "decodemsg", "MessageDecoder"]
 
 # Send
 
@@ -81,106 +73,6 @@ def encodemsg(data):
 
 # Receive
 
-# We need a buffer object that holds the underlying `BytesIO` buffer in an
-# attribute, because a `BytesIO` cannot be cleared. So when a complete message
-# has been read, any remaining data must be written into a new `BytesIO` instance.
-#
-# We could achieve the same result using a `unpythonic.collections.box` to hold
-# a `BytesIO`, but a class allows us to encapsulate also the set and append
-# operations. So here OOP is really the right solution.
-class ReceiveBuffer:
-    def __init__(self, initial_contents=b""):
-        """A receive buffer object for use with `decodemsg`."""
-        self._buffer = BytesIO()
-        self.set(initial_contents)
-
-    # The contents are potentially large, so we don't dump them into the TypeError messages.
-    def append(self, more_contents=b""):
-        """Append `more_contents` to the buffer."""
-        if not isinstance(more_contents, bytes):
-            raise TypeError("Expected a bytes object, got {}".format(type(more_contents)))
-        self._buffer.write(more_contents)
-        return self  # convenience
-
-    def set(self, new_contents=b""):
-        """Replace buffer contents with `new_contents`."""
-        if not isinstance(new_contents, bytes):
-            raise TypeError("Expected a bytes object, got {}".format(type(new_contents)))
-        # Use write() to supply the new contents instead of ctor arg, so the
-        # stream position will be at the end, so any new writes continue from
-        # wherever the initial contents leave off.
-        self._buffer = BytesIO()
-        self._buffer.write(new_contents)
-        return self
-
-    def getvalue(self):
-        """Return the data currently in the buffer, as a `bytes` object.
-
-        Mostly for internal use; but you may need this if you intend to
-        switch over from messages back to raw data on an existing data stream.
-
-        When you're done receiving messages, if you need to read the remaining data
-        after the last message, the data in `buf` should be processed first, before
-        you read and process any more data from your original stream.
-        """
-        return self._buffer.getvalue()
-
-
-_CHUNKSIZE = 4096
-def bytessource(data):
-    """Message source for `decodemsg`, for receiving data from a `bytes` object.
-
-    See also `streamsource`, `socketsource`.
-    """
-    # Package the generator in an inner function to fail-fast.
-    if not isinstance(data, bytes):
-        raise TypeError("Expected a `bytes` object, got {}".format(type(data)))
-    def bytesiterator():
-        j = 0
-        while True:
-            if j * _CHUNKSIZE >= len(data):
-                return
-            chunk = data[(j * _CHUNKSIZE):((j + 1) * _CHUNKSIZE)]
-            yield chunk
-            j += 1
-    return bytesiterator()
-
-def streamsource(stream):
-    """Message source for `decodemsg`, for receiving data from a binary IO stream.
-
-    This can be used with files opened with `open()`, in-memory `BytesIO` streams,
-    and such.
-
-    See also `bytessource`, `socketsource`.
-    """
-    if not isinstance(stream, IOBase):
-        raise TypeError("Expected a derivative of `IOBase`, got {}".format(type(stream)))
-    def streamiterator():
-        while True:
-            data = stream.read(4096)
-            if len(data) == 0:
-                return
-            yield data
-    return streamiterator()
-
-def socketsource(sock):
-    """Message source for `decodemsg`, for receiving data over a socket.
-
-    See also `bytessource`, `streamsource`.
-    """
-    if not isinstance(sock, socket.SocketType):
-        raise TypeError("Expected a socket object, got {}".format(type(sock)))
-    def socketiterator():
-        while True:
-            rs, ws, es = select.select([sock], [], [])
-            for r in rs:
-                data = sock.recv(_CHUNKSIZE)
-                if len(data) == 0:
-                    return
-            yield data
-    return socketiterator()
-
-
 def decodemsg(buf, source):
     """Decode next message from source, and update receive buffer.
 
@@ -201,10 +93,11 @@ def decodemsg(buf, source):
             data stream, and raises `StopIteration` when it reaches EOF.
 
             See the helper functions `bytessource`, `streamsource` and
-            `socketsource`, which give you a message source for (respectively)
-            `bytes` objects, IO streams (such as files opened with `open` and
-            in-memory `BytesIO` streams), and sockets. If you need to implement
-            a new source, see their source code; each is less than 15 lines.
+            `socketsource` in `unpythonic.net.util`; these give you an iterator
+            for (respectively) `bytes` objects, IO streams (such as files
+            opened with `open` and in-memory `BytesIO` streams), and sockets.
+            If you need to implement a new source, see their source code; each
+            is less than 15 lines.
 
             The chunks don't have to be of any particular size; the iterator
             should just yield "some more" data wherever it gets its data from.
@@ -230,7 +123,8 @@ def decodemsg(buf, source):
     **NOTE**: This is a sans-IO implementation. To actually receive a message
     over a TCP socket, use something like::
 
-        from unpythonic.net.msg import ReceiveBuffer, socketsource, decodemsg
+        from unpythonic.net.msg import decodemsg
+        from unpythonic.net.util import ReceiveBuffer, socketsource
 
         # ...open a TCP socket `sock`...
 
@@ -364,7 +258,8 @@ class MessageDecoder:
 
     Usage::
 
-        from unpythonic.net.msg import socketsource, MessageDecoder
+        from unpythonic.net.msg import MessageDecoder
+        from unpythonic.net.util import socketsource
 
         # ...open a TCP socket `sock`...
 

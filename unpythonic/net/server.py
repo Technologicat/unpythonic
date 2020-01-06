@@ -99,8 +99,8 @@ import atexit
 from ..collections import ThreadLocalBox, Shim
 from ..misc import async_raise
 
-from .util import ReuseAddrThreadingTCPServer
-from .msg import MessageDecoder, socketsource
+from .util import ReuseAddrThreadingTCPServer, socketsource
+from .msg import MessageDecoder
 from .common import ApplevelProtocol
 from .ptyproxy import PTYSocketProxy
 

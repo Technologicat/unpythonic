@@ -4,8 +4,8 @@ from io import BytesIO, SEEK_SET
 
 from .fixtures import nettest
 
-from ..msg import encodemsg, \
-                  bytessource, streamsource, socketsource, MessageDecoder
+from ..msg import encodemsg, MessageDecoder
+from ..util import bytessource, streamsource, socketsource
 
 def test():
     # sans-IO

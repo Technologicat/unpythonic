@@ -12,7 +12,8 @@ import sys
 import signal
 import threading
 
-from .msg import socketsource, MessageDecoder
+from .msg import MessageDecoder
+from .util import socketsource
 from .common import ApplevelProtocol
 
 __all__ = ["connect"]
