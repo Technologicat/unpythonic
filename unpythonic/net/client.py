@@ -1,8 +1,29 @@
 # -*- coding: utf-8; -*-
 """Simple client for the REPL server, with remote tab completion and Ctrl+C.
 
-The remote tab completion and Ctrl+C features use a second TCP connection
-as a control channel.
+A second TCP connection (on port 8128) is used as a control channel for the
+remote tab completion and Ctrl+C requests.
+
+**CAUTION**: The current client implementation is silly and over-complicated.
+
+What we really want is a dumb connection that forwards keypresses one by one,
+and as far as the server is concerned, looks and acts exactly like a TTY.
+
+What we instead have is an overengineered and brittle client that has a
+separate client-side `input()` loop, with a client-side GNU readline (with a
+custom tab completer that requests completions from the server side), and a
+setup to translate Ctrl+C to a remote procedure call. (With one of the dirtiest
+hacks ever, on the server side, to raise KeyboardInterrupt in the session thread.)
+
+But no combination of `netcat`, `stty` and `rlwrap` seems to give what we want.
+It doesn't seem to matter that the server actually does connect a PTY to the
+stdin/stdout streams of the `code.InteractiveConsole` that provides the REPL
+session. So to hell with it, let's build a ***ing client.
+
+(Things tried include `stty raw`, `stty -icanon -echo`, and `stty -icanon`.
+For example, `stty -icanon && rlwrap nc localhost 1337`. If you play around
+with `stty`, the incantation `stty sane` may be useful to restore your terminal
+back to a working state.)
 """
 
 import readline  # noqa: F401, input() uses the readline module if it has been loaded.
