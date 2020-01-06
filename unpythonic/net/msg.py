@@ -89,6 +89,9 @@ def decodemsg(buf, source):
             of two messages, it will contain the start of the next message,
             which is needed for the next run of `decodemsg`.
 
+            For an OOP API to `decodemsg` that manages the `ReceiveBuffer`
+            internally, see `MessageDecoder`.
+
     source: *Message source*: an iterator that yields chunks of data from some
             data stream, and raises `StopIteration` when it reaches EOF.
 
@@ -130,12 +133,14 @@ def decodemsg(buf, source):
 
         buf = ReceiveBuffer()
         source = socketsource(sock)
-        while not terminated:
+        while True:
             data = decodemsg(buf, source)  # get the next message
+            if not data:
+                break
             ...
 
-    See also `MessageDecoder` for an OOP API, abstracting away the
-    `ReceiveBuffer`.
+    See also `MessageDecoder` for an OOP API in which you don't need to care
+    about the `ReceiveBuffer`.
     """
     source = iter(source)
 
@@ -264,8 +269,10 @@ class MessageDecoder:
         # ...open a TCP socket `sock`...
 
         decoder = MessageDecoder(socketsource(sock))
-        while not terminated:
+        while True:
             data = decoder.decode()  # get the next message
+            if not data:
+                break
             ...
 
     A `ReceiveBuffer` is created internally. If you need to access it (e.g.
