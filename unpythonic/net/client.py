@@ -27,23 +27,25 @@ def _handle_alarm(signum, frame):
 signal.signal(signal.SIGALRM, _handle_alarm)
 
 
-# Protocol for establishing connection:
+# Protocol for establishing a paired control/REPL connection:
 #  - 1: Handshake: open the control channel, ask for metadata (prompts: sys.ps1, sys.ps2)
 #       to configure the client's prompt detector before opening the primary channel.
-#       - To keep us netcat compatible, handshake is optional. It is legal
+#       - To keep us netcat compatible, the handshake is optional. It is legal
 #         to just immediately connect on the primary channel, in which case
 #         there will be no control channel paired with the REPL session.
-#  - 2: Open the primary channel, parse the session id from the first line of text.
+#  - 2: Open the primary channel. Parse the session id from the first line of text.
 #       - To keep us netcat compatible, we must transmit the session id as
 #         part of the primary data stream; it cannot be packaged into a message
-#         since only `unpythonic` knows about the message protocol.
-#       - So, print "Session XX connected\n" as the first line on the server side
-#         when a client connects. In the client, parse the first line (beside
+#         since only `unpythonic` knows about the message protocol, and the
+#         REPL and control session server objects operate independently
+#         (they must, since each accepts a separate incoming TCP connection,
+#         which have nothing to do with each other).
+#       - So, the server prints "session XX connected\n" on the first line
+#         when a client connects. The client parses the first line (beside
 #         printing it as usual, to have the same appearance for both unpythonic
-#         and netcat connections).
-#  - 3: Send command on the control channel to pair that control channel
-#       to session id XX. Maybe print a message on the client side saying
-#       that tab completion and Ctrl+C are available.
+#         client and netcat connections).
+#  - 3: Send a command on the control channel to pair that control channel
+#       to session id XX.
 
 # Messages must be processed by just one central decoder, to prevent data
 # races, but also to handle buffering of incoming data correctly, because
@@ -71,7 +73,7 @@ class ControlClient(ApplevelProtocol):
         """Send a command to the server, get the reply.
 
         request: a dict-like, containing the "command" field and any required
-                 parameters (command-dependent).
+                 parameters (specific to each particular command).
 
         On success, return the `reply` dict. On failure, return `None`.
         """
@@ -79,7 +81,7 @@ class ControlClient(ApplevelProtocol):
             self._send(request)
             reply = self._recv()
             if not reply:
-                print("Socket closed by other end.")
+                print("Socket closed by server.")
                 return None
             if reply["status"] == "ok":
                 return reply
@@ -161,7 +163,7 @@ def connect(addrspec):
                 for r in rs:
                     data = sock.recv(4096)
                     if len(data) == 0:
-                        print("replclient: disconnected by server.")
+                        print("unpythonic.net.client: disconnected by server.")
                         raise SessionExit
                     text = data.decode("utf-8")
                     sys.stdout.write(text)
@@ -184,7 +186,7 @@ def connect(addrspec):
                             for r in rs:
                                 data = sock.recv(4096)
                                 if len(data) == 0:
-                                    print("replclient: disconnected by server.")
+                                    print("unpythonic.net.client: disconnected by server.")
                                     raise SessionExit
                                 text = data.decode("utf-8")
                                 sys.stdout.write(text)
@@ -219,20 +221,20 @@ def connect(addrspec):
                         except KeyboardInterrupt:
                             controller.send_kbinterrupt()
                 except EOFError:
-                    print("replclient: Ctrl+D pressed, asking server to disconnect.")
-                    print("replclient: if the server does not respond, press Ctrl+C to force.")
+                    print("unpythonic.net.client: Ctrl+D pressed, asking server to disconnect.")
+                    print("unpythonic.net.client: if the server does not respond, press Ctrl+C to force.")
                     try:
                         print("quit()")  # local echo
                         sock.sendall("quit()\n".encode("utf-8"))
                         t.join()  # wait for the EOF response
                     except KeyboardInterrupt:
-                        print("replclient: Ctrl+C pressed, forcing disconnect.")
+                        print("unpythonic.net.client: Ctrl+C pressed, forcing disconnect.")
                     finally:
                         raise SessionExit
                 except SystemExit:  # catch the alarm signaled by the socket-listening thread.
                     raise SessionExit
                 except BrokenPipeError:
-                    print("replclient: socket closed unexpectedly, exiting.")
+                    print("unpythonic.net.client: socket closed unexpectedly, exiting.")
                     raise SessionExit
 
     except SessionExit:

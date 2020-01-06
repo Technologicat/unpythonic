@@ -12,7 +12,7 @@ To enable it in your app::
     from unpythonic.net import server
     server.start(locals=globals())
 
-To connect to a running REPL server::
+To connect to a running REPL server (with tab completion and Ctrl+C support)::
 
     python3 -m unpythonic.net.client localhost 1337
 
@@ -68,7 +68,6 @@ considered somewhat that. Refer to https://megatokyo.com/strip/9.
 The `socketserverREPL` package uses the same default, and actually its
 `repl_tool.py` can talk to this server (but doesn't currently feature
 remote tab completion).
-
 """
 
 # TODO: use logging module instead of server-side print
@@ -209,7 +208,7 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocol):
                 # may be included in arbitrary other fields.
                 request = self._recv()
                 if not request:
-                    server_print("Socket for {} closed by other end.".format(client_address_str))
+                    server_print("Socket for {} closed by client.".format(client_address_str))
                     raise ClientExit
 
                 if "command" not in request:
@@ -340,14 +339,14 @@ class ConsoleSession(socketserver.BaseRequestHandler):
                     # connection, not kill the server ungracefully. We have halt()
                     # to do that gracefully.
                     try:
-                        server_print("Opening session for {}.".format(client_address_str))
+                        server_print("Opening REPL session {} for {}.".format(self.session_id, client_address_str))
                         self.console.interact(banner=None, exitmsg="Bye.")
                     except SystemExit:
                         pass
                     finally:
-                        server_print('Closing PTY on {} for client {}.'.format(os.ttyname(adaptor.slave), client_address_str))
+                        server_print('Closing PTY on {} for {}.'.format(os.ttyname(adaptor.slave), client_address_str))
                         adaptor.stop()
-                        server_print("Closing session for {}.".format(client_address_str))
+                        server_print("Closing REPL session {} for {}.".format(self.session_id, client_address_str))
         except BaseException as err:
             server_print(err)
         finally:
@@ -399,7 +398,8 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
         # TODO: get name of module whose globals the session can update
         default_msg = ("Unpythonic REPL server at {addr}:{port}, on behalf of:\n"
                        "  {argv}\n"
-                       "  Top-level assignments and definitions update the module's globals.\n"
+                       "  Top-level assignments and definitions update the session locals;\n"
+                       "  typically, these correspond to the globals of a module in the running app.\n"
                        "    quit() or EOF (Ctrl+D) at the prompt disconnects this session.\n"
                        "    halt() tells the server to close after the last session has disconnected.\n"
                        "    print() prints in the REPL session.\n"
