@@ -240,7 +240,8 @@ def decodemsg(buf, source):
             data = decodemsg(buf, source)  # get the next message
             ...
 
-    See also `MessageDecoder` for an OOP API.
+    See also `MessageDecoder` for an OOP API, abstracting away the
+    `ReceiveBuffer`.
     """
     source = iter(source)
 
