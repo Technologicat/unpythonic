@@ -506,6 +506,7 @@ def async_raise(thread_obj, exception):
     exception: ``Exception``
         The exception to be raised.
 
+    No return value. Normal return indicates success.
     If the specified `threading.Thread` is not active, raises `ValueError`.
     If the raise operation failed, raises `SystemError`.
     If not running on CPython (`ctypes` module missing), raises `RuntimeError`.
