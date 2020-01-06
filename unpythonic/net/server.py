@@ -79,6 +79,7 @@ remote tab completion).
 #   TODO: import macro stubs for inspection like in imacropy
 #   TODO: helper magic function macros() to list currently enabled macros
 # TODO: history fixes (see repl_tool in socketserverREPL), syntax highlight?
+# TODO: figure out how to make help() work, if possible?
 
 __all__ = ["start", "stop", "server_print", "halt"]
 
@@ -97,15 +98,24 @@ import socketserver
 import atexit
 
 from ..collections import ThreadLocalBox, Shim
-#from ..misc import async_raise
+from ..misc import async_raise
 
 from .util import ReuseAddrThreadingTCPServer
 from .msg import MessageDecoder, socketsource
 from .common import ApplevelProtocol
 from .ptyproxy import PTYSocketProxy
 
+# Because "These are only defined if the interpreter is in interactive mode.",
+# we have to do something like this.
+# https://docs.python.org/3/library/sys.html#sys.ps1
+try:
+    _original_ps1, _original_ps2 = sys.ps1, sys.ps2
+except AttributeError:
+    _original_ps1, _original_ps2 = None, None
+
 _server_instance = None
-_active_connections = set()
+_active_sessions = {}
+_session_counter = 0  # for generating session ids, needed for pairing control and REPL sessions.
 _halt_pending = False
 _original_stdin = sys.stdin
 _original_stdout = sys.stdout
@@ -150,9 +160,9 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocol):
 
     We use a separate connection for control to avoid head-of-line blocking.
 
-    In a session, the client sends us requests for remote tab completion. We
-    invoke `rlcompleter` on the server side, and return its response to the
-    client.
+    For example, how the remote tab completion works: the client sends us
+    a request. We invoke `rlcompleter` on the server side, and return its
+    response to the client.
     """
     def handle(self):
         # TODO: ipv6 support
@@ -171,6 +181,7 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocol):
             #     handle() method can define other arbitrary instance variables.
             self.sock = self.request
             self.decoder = MessageDecoder(socketsource(self.sock))
+            self.paired_repl_session_id = None
             while True:
                 # The control server follows a request-reply application-level protocol,
                 # layered on top of the `unpythonic.net.msg` protocol, layered on top
@@ -192,33 +203,73 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocol):
                 # be provided in arbitrary other fields, defined by each
                 # individual command.
                 #
-                # Upon failure, the "status" field must contain a short label
-                # describing the category of the failure. More information
-                # about the failure may be included in arbitrary other fields.
+                # Upon failure, the "status" must contain the string "failed".
+                # An optional (and recommended!) "reason" field may contain
+                # a short description about the failure. More information
+                # may be included in arbitrary other fields.
                 request = self._recv()
                 if not request:
-                    print("Socket closed by other end.")
+                    server_print("Socket for {} closed by other end.".format(client_address_str))
                     raise ClientExit
 
-                if request["command"] == "TabComplete":
-                    completion = completer_backend.complete(request["text"], request["state"])
-                    # server_print(request, reply)
-                    reply = {"status": "ok", "result": completion}
+                if "command" not in request:
+                    reply = {"status": "failed", "reason": "Request is missing the 'command' field."}
+
+                elif request["command"] == "DescribeServer":
+                    reply = {"status": "ok",
+                             # needed by client's prompt detector
+                             "prompts": {"ps1": sys.ps1, "ps2": sys.ps2},
+                             # for future-proofing only
+                             "control_protocol_version": "1.0",
+                             "supported_commands": ["DescribeServer", "PairWithSession", "TabComplete", "KeyboardInterrupt"]}
+
+                elif request["command"] == "PairWithSession":
+                    if "id" not in request:
+                        reply = {"status": "failed", "reason": "Request is missing the PairWithSession parameter 'id'."}
+                    else:
+                        server_print("Pairing control session for {} to REPL session {} for remote Ctrl+C requests.".format(client_address_str, request["id"]))
+                        self.paired_repl_session_id = request["id"]
+                        reply = {"status": "ok"}
+
+                elif request["command"] == "TabComplete":
+                    if "text" not in request or "state" not in request:
+                        reply = {"status": "failed", "reason": "Request is missing at least one of the TabComplete parameters 'text' and 'state'."}
+                    else:
+                        completion = completer_backend.complete(request["text"], request["state"])
+                        # server_print(request, reply)
+                        reply = {"status": "ok", "result": completion}
 
                 elif request["command"] == "KeyboardInterrupt":
-                    errmsg = "TODO: remote Ctrl+C request received; implement the server side!"
-                    server_print(errmsg)
-
-                    # TODO: Once we pair the REPL and control sessions, this will be as easy as:
-                    # async_raise(t, KeyboardInterrupt)
-                    # Here t is the threading.Thread instance in which *our* REPL session is running.
-
-                    # Acknowledge the request, the client wants to know whether it worked.
-                    # When this is implemented, upon success, we should send "ok".
-                    reply = {"status": "not_implemented"}
+                    server_print("Client {} sent request for remote Ctrl+C.".format(client_address_str))
+                    if not self.paired_repl_session_id:
+                        reply = {"status": "failed", "reason": "This control channel is not currently paired with a REPL session."}
+                    else:
+                        server_print("Remote Ctrl+C in session {}.".format(self.paired_repl_session_id))
+                        try:
+                            target_session = _active_sessions[self.paired_repl_session_id]
+                            target_thread = target_session.thread
+                        except KeyError:
+                            errmsg = "REPL session {} no longer active.".format(self.paired_repl_session_id)
+                            reply = {"status": "failed", "reason": errmsg}
+                            server_print(errmsg)
+                        except AttributeError:
+                            errmsg = "REPL session {} has no 'thread' attribute.".format(self.paired_repl_session_id)
+                            reply = {"status": "failed", "reason": errmsg}
+                            server_print(errmsg)
+                        else:
+                            try:
+                                # The implementation of async_raise is one of the dirtiest hacks ever,
+                                # and only works on CPython, since Python has no officially exposed
+                                # mechanism to trigger an asynchronous exception in an arbitrary thread.
+                                async_raise(target_thread, KeyboardInterrupt)
+                            except (ValueError, SystemError, RuntimeError) as err:
+                                server_print(err)
+                                reply = {"status": "failed", "reason": err.args, "failure_type": type(err)}
+                            else:
+                                reply = {"status": "ok"}
 
                 else:
-                    reply = {"status": "not_understood"}
+                    reply = {"status": "failed", "reason": "Command '{}' not understood by this server.".format(request["command"])}
 
                 self._send(reply)
 
@@ -239,7 +290,11 @@ class ConsoleSession(socketserver.BaseRequestHandler):
         client_address_str = "{}:{}".format(caddr, cport)
 
         try:
-            _active_connections.add(id(self))  # for exit monitoring
+            # for control/REPL pairing
+            global _session_counter
+            _session_counter += 1
+            self.session_id = _session_counter
+            _active_sessions[self.session_id] = self  # also for exit monitoring
 
             # self.request is the socket. We don't need a StreamRequestHandler with self.rfile and self.wfile,
             # since we in any case only forward raw bytes between the PTY master FD and the socket.
@@ -269,8 +324,14 @@ class ConsoleSession(socketserver.BaseRequestHandler):
                     _threadlocal_stdout << wfile
                     _threadlocal_stderr << wfile
 
+                    self.thread = threading.current_thread()  # needed by remote Ctrl+C
+
+                    # This must be the first thing printed by the server, so that the client
+                    # can get the session id from it. This hack is needed for netcat compatibility.
+                    print("REPL session {} connected.".format(self.session_id))  # ...at the client side
+
                     if _banner != "":
-                        print(_banner)  # ...at the client side
+                        print(_banner)
 
                     self.console = code.InteractiveConsole(locals=_console_locals_namespace)
 
@@ -280,22 +341,6 @@ class ConsoleSession(socketserver.BaseRequestHandler):
                     # to do that gracefully.
                     try:
                         server_print("Opening session for {}.".format(client_address_str))
-
-                        # # TEST: Try injecting Ctrl+C with one of the dirtiest hacks ever...
-                        # # (Yes, it works. The console gets a KeyboardInterrupt.
-                        # # TODO: We should be able to use this to inject a Ctrl+C over the network,
-                        # # but we need yet another connection (or maybe a general "control" channel
-                        # # like IPython has, to support both tab completion and Ctrl+C) to listen
-                        # # for requests to perform a Ctrl+C and then fire it when requested.
-                        # # For that, we need to keep track of the thread object corresponding
-                        # # to each session.)
-                        # def stupid_test(target_thread):
-                        #     time.sleep(3)
-                        #     server_print("killzorz! {} is in for a Ctrl+C.".format(target_thread))
-                        #     async_raise(target_thread, KeyboardInterrupt)
-                        # testthread = threading.Thread(target=stupid_test, args=(threading.current_thread(),))
-                        # testthread.start()
-
                         self.console.interact(banner=None, exitmsg="Bye.")
                     except SystemExit:
                         pass
@@ -306,7 +351,7 @@ class ConsoleSession(socketserver.BaseRequestHandler):
         except BaseException as err:
             server_print(err)
         finally:
-            _active_connections.remove(id(self))
+            del _active_sessions[self.session_id]
 
 
 def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
@@ -363,6 +408,12 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
     else:
         _banner = banner
 
+    # Set the prompts.
+    if not hasattr(sys, "ps1"):
+        sys.ps1 = ">>> "
+    if not hasattr(sys, "ps2"):
+        sys.ps2 = "... "
+
     # We use a combo of Shim and ThreadLocalBox to redirect attribute lookups
     # to the thread-specific read/write streams.
     #
@@ -418,6 +469,14 @@ def stop():
         sys.stderr = _original_stderr
         _console_locals_namespace = None
         atexit.unregister(stop)
+        if _original_ps1:
+            sys.ps1 = _original_ps1
+        else:
+            delattr(sys, "ps1")
+        if _original_ps2:
+            sys.ps2 = _original_ps2
+        else:
+            delattr(sys, "ps2")
 
 
 # demo app
@@ -428,7 +487,7 @@ def main():
     try:
         while True:
             time.sleep(1)
-            if _halt_pending and not _active_connections:
+            if _halt_pending and not _active_sessions:
                 break
         server_print("REPL server closed.")
     except KeyboardInterrupt:

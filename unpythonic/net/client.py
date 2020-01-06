@@ -30,17 +30,17 @@ signal.signal(signal.SIGALRM, _handle_alarm)
 #       to configure the client's prompt detector before opening the primary channel.
 #       - To keep us netcat compatible, handshake is optional. It is legal
 #         to just immediately connect on the primary channel, in which case
-#         there will be no control channel associated with the REPL session.
-#  - 2: Open the primary channel, parse the session number from the first line of text.
-#       - To keep us netcat compatible, we must transmit the session number as
+#         there will be no control channel paired with the REPL session.
+#  - 2: Open the primary channel, parse the session id from the first line of text.
+#       - To keep us netcat compatible, we must transmit the session id as
 #         part of the primary data stream; it cannot be packaged into a message
 #         since only `unpythonic` knows about the message protocol.
 #       - So, print "Session XX connected\n" as the first line on the server side
 #         when a client connects. In the client, parse the first line (beside
 #         printing it as usual, to have the same appearance for both unpythonic
 #         and netcat connections).
-#  - 3: Send command on the control channel to associate that control channel
-#       to session number XX. Maybe print a message on the client side saying
+#  - 3: Send command on the control channel to pair that control channel
+#       to session id XX. Maybe print a message on the client side saying
 #       that tab completion and Ctrl+C are available.
 
 # Messages must be processed by just one central decoder, to prevent data
@@ -65,44 +65,56 @@ class ControlClient(ApplevelProtocol):
         # ReceiveBuffer inside MessageDecoder.
         self.decoder = MessageDecoder(socketsource(sock))
 
+    def _send_command(self, request):
+        """Send a command to the server, get the reply.
+
+        request: a dict-like, containing the "command" field and any required
+                 parameters (command-dependent).
+
+        On success, return the `reply` dict. On failure, return `None`.
+        """
+        try:
+            self._send(request)
+            reply = self._recv()
+            if not reply:
+                print("Socket closed by other end.")
+                return None
+            if reply["status"] == "ok":
+                return reply
+            elif reply["status"] == "failed":
+                if "reason" in reply:
+                    print("Server command failed, reason: {}".format(reply["reason"]))
+        except BaseException as err:
+            print(type(err), err)
+        return None
+
+    def describe_server(self):
+        """Return server metadata such as prompt settings and version."""
+        return self._send_command({"command": "DescribeServer"})
+
+    def pair_with_session(self, session_id):
+        """Pair this control channel with a REPL session."""
+        return self._send_command({"command": "PairWithSession", "id": session_id})
+
     def complete(self, text, state):
         """Tab-complete in a remote REPL session.
 
         This is a completer for `readline.set_completer`.
         """
-        try:
-            request = {"command": "TabComplete", "text": text, "state": state}
-            self._send(request)
-            reply = self._recv()
-            # print("text '{}' state '{}' reply '{}'".format(text, state, reply))
-            if not reply:
-                print("Socket closed by other end.")
-                return None
-            if reply["status"] == "ok":
-                return reply["result"]
-        except BaseException as err:
-            print(type(err), err)
+        reply = self._send_command({"command": "TabComplete", "text": text, "state": state})
+        if reply:
+            return reply["result"]
         return None
 
     def send_kbinterrupt(self):
         """Request the server to perform a `KeyboardInterrupt` (Ctrl+C).
 
-        The `KeyboardInterrupt` occurs in the REPL session associated with
+        The `KeyboardInterrupt` occurs in the REPL session paired with
         this control channel.
 
         Returns truthy on success, falsey on failure.
         """
-        try:
-            request = {"command": "KeyboardInterrupt"}
-            self._send(request)
-            reply = self._recv()
-            if not reply:
-                print("Socket closed by other end.")
-                return None
-            return reply["status"] == "ok"
-        except BaseException as err:
-            print(type(err), err)
-        return False
+        return self._send_command({"command": "KeyboardInterrupt"})
 
 
 def connect(addrspec):
@@ -122,19 +134,47 @@ def connect(addrspec):
     class SessionExit(Exception):
         pass
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:  # remote REPL session
-            sock.connect(addrspec)
+        # First handshake on control channel to get prompt information.
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as csock:  # control channel (remote tab completion, remote Ctrl+C)
+            # TODO: configurable control port
+            csock.connect((addrspec[0], 8128))  # TODO: IPv6 support
+            controller = ControlClient(csock)
 
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as csock:  # control channel (remote tab completion, remote Ctrl+C)
-                # TODO: configurable control port
-                csock.connect((addrspec[0], 8128))  # TODO: IPv6 support
+            # TODO: use the prompts information in calls to input()
+            metadata = controller.describe_server()
+            # print(metadata["prompts"])
 
-                # Set a custom tab completer for readline.
-                # https://stackoverflow.com/questions/35115208/is-there-any-way-to-combine-readline-rlcompleter-and-interactiveconsole-in-pytho
-                controller = ControlClient(csock)
-                readline.set_completer(controller.complete)
-                readline.parse_and_bind("tab: complete")
+            # Set up remote tab completion, using a custom completer for readline.
+            # https://stackoverflow.com/questions/35115208/is-there-any-way-to-combine-readline-rlcompleter-and-interactiveconsole-in-pytho
+            readline.set_completer(controller.complete)
+            readline.parse_and_bind("tab: complete")
 
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:  # remote REPL session
+                sock.connect(addrspec)
+
+                # TODO: refactor
+                # The first line of text contains the session id.
+                # We can't use the message protocol; this information must arrive on the primary channel.
+                rs, ws, es = select.select([sock], [], [])
+                for r in rs:
+                    data = sock.recv(4096)
+                    if len(data) == 0:
+                        print("replclient: disconnected by server.")
+                        raise SessionExit
+                    text = data.decode("utf-8")
+                    sys.stdout.write(text)
+                    if "\n" in text:
+                        first_line, *rest = text.split("\n")
+                        import re
+                        matches = re.findall(r"session (\d+) connected", first_line)
+                        assert len(matches) == 1, "Expected server to print session id on the first line"
+                        repl_session_id = int(matches[0])
+                    else:
+                        # TODO: make sure we always receive a whole line
+                        assert False
+                controller.pair_with_session(repl_session_id)
+
+                # TODO: This can't be a separate thread, we must listen for input only when a prompt has appeared.
                 def sock_to_stdout():
                     try:
                         while True:
@@ -144,7 +184,8 @@ def connect(addrspec):
                                 if len(data) == 0:
                                     print("replclient: disconnected by server.")
                                     raise SessionExit
-                                sys.stdout.write(data.decode("utf-8"))
+                                text = data.decode("utf-8")
+                                sys.stdout.write(text)
                     except SessionExit:
                         # Exit also in main thread, which is waiting on input() when this happens.
                         signal.alarm(1)
