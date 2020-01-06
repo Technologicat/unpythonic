@@ -1,5 +1,9 @@
 # -*- coding: utf-8; -*-
-"""Simple client for the REPL server, with remote tab completion."""
+"""Simple client for the REPL server, with remote tab completion and Ctrl+C.
+
+The remote tab completion and Ctrl+C features use a second TCP connection
+as a control channel.
+"""
 
 import readline  # noqa: F401, input() uses the readline module if it has been loaded.
 import socket
@@ -23,8 +27,6 @@ def _handle_alarm(signum, frame):
 signal.signal(signal.SIGALRM, _handle_alarm)
 
 
-# TODO: associating control and REPL sessions
-#
 # Protocol for establishing connection:
 #  - 1: Handshake: open the control channel, ask for metadata (prompts: sys.ps1, sys.ps2)
 #       to configure the client's prompt detector before opening the primary channel.
