@@ -209,19 +209,23 @@ def decodemsg(buf, source):
             The chunks don't have to be of any particular size; the iterator
             should just yield "some more" data wherever it gets its data from.
             For example, when working with TCP sockets, 4096 is a typical chunk
-            size. The read is allowed to return less data, if less data (but
-            still indeed some data) is currently waiting to be read.
+            size.
+
+            A read of the iterator is allowed to return less data, if less data
+            (but still indeed some data) is currently waiting to be read.
+
+            If no data is currently available, but EOF has not been signaled,
+            the read is allowed to block.
 
             `source` just abstracts away the details of how to read a particular
             kind of data stream, and does no buffering itself. The underlying
             data stream representation is allowed to perform such buffering,
             if it wants to.
 
-    **CAUTION**: The decoding operation is **synchronous**. That is, the read
-    on the source *is allowed to block* if no data is currently available,
-    but the underlying message source has not indicated EOF. This typically
-    occurs with inputs that represent a connection, such as a socket or stdin.
-    Use a thread if needed.
+    **CAUTION**: The read on the source *is allowed to block* if no data is
+    currently available, but the underlying message source has not indicated
+    EOF. This typically occurs with inputs that represent a connection, such as
+    a socket or stdin. Use a thread if needed.
 
     **NOTE**: This is a sans-IO implementation. To actually receive a message
     over a TCP socket, use something like::
