@@ -386,7 +386,6 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
     # TODO: support IPv6
     addr, port = addrspec
 
-    # TODO: support multiple instances in the same process (use a dictionary to store instance data)
     global _server_instance, _console_locals_namespace
     if _server_instance is not None:
         raise RuntimeError("The current process already has a running REPL server.")
@@ -395,7 +394,6 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
 
     global _banner
     if banner is None:
-        # TODO: get name of module whose globals the session can update
         default_msg = ("Unpythonic REPL server at {addr}:{port}, on behalf of:\n"
                        "  {argv}\n"
                        "  Top-level assignments and definitions update the session locals;\n"
