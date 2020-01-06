@@ -35,7 +35,7 @@ import threading
 
 from .msg import MessageDecoder
 from .util import socketsource
-from .common import ApplevelProtocol
+from .common import ApplevelProtocolMixin
 
 __all__ = ["connect"]
 
@@ -76,7 +76,7 @@ signal.signal(signal.SIGALRM, _handle_alarm)
 # to the beginning of the second message has already arrived and been read
 # from the socket, when trying to read the last batch of data belonging to
 # the end of the first message.
-class ControlClient(ApplevelProtocol):
+class ControlClient(ApplevelProtocolMixin):
     # TODO: manage the socket internally. We need to make this into a context manager,
     # so that __enter__ can set up the socket and __exit__ can tear it down.
     def __init__(self, sock):
@@ -92,7 +92,7 @@ class ControlClient(ApplevelProtocol):
         self.decoder = MessageDecoder(socketsource(sock))
 
     # This belongs only to the client side of the application-level protocol,
-    # so it lives here, not in ApplevelProtocol.
+    # so it lives here, not in ApplevelProtocolMixin.
     def _remote_execute(self, request):
         """Send a command to the server, get the reply.
 

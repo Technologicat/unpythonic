@@ -5,9 +5,9 @@ import json
 
 from .msg import encodemsg
 
-__all__ = ["ApplevelProtocol"]
+__all__ = ["ApplevelProtocolMixin"]
 
-class ApplevelProtocol:
+class ApplevelProtocolMixin:
     """Application-level communication protocol.
 
     We encode the payload dictionary as JSON, then encode the text as utf-8.
@@ -21,11 +21,9 @@ class ApplevelProtocol:
     Transmission is synchronous; when one end is sending, the other one must be
     receiving. Receiving will block until success, or until the socket is closed.
 
-    This can be used as a common base class for server/client object pairs.
-    It can also be used as a mixin.
+    This is a mixin class for communication between server/client object pairs.
 
-    **NOTE**: The derived class (or class mixing this in) must define two
-      attributes:
+    **NOTE**: The class class mixing this in must define two attributes:
 
       - `sock`: a TCP socket. When `_send` or `_recv` is called, the socket
         must be open and connected to the peer to communicate with.

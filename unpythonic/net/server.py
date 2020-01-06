@@ -101,7 +101,7 @@ from ..misc import async_raise
 
 from .util import ReuseAddrThreadingTCPServer, socketsource
 from .msg import MessageDecoder
-from .common import ApplevelProtocol
+from .common import ApplevelProtocolMixin
 from .ptyproxy import PTYSocketProxy
 
 # Because "These are only defined if the interpreter is in interactive mode.",
@@ -154,7 +154,7 @@ def server_print(*values, **kwargs):
     print(*values, **kwargs, file=_original_stdout)
 
 
-class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocol):
+class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
     """Entry point for connections to the control server.
 
     We use a separate connection for control to avoid head-of-line blocking.
