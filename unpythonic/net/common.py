@@ -1,4 +1,5 @@
 # -*- coding: utf-8; -*-
+"""Pieces common to the REPL server and client."""
 
 import json
 
@@ -9,8 +10,8 @@ __all__ = ["ApplevelProtocol"]
 class ApplevelProtocol:
     """Application-level communication protocol.
 
-    We encode the payload as JSON encoded dictionaries, then encoded as utf-8
-    text. The bytes are stuffed into a message using the `unpythonic.net.msg`
+    We encode the payload dictionary as JSON, then encode the text as utf-8.
+    The resulting bytes are stuffed into a message using the `unpythonic.net.msg`
     low-level message protocol.
 
     This format was chosen instead of pickle to ensure the client and server
@@ -18,14 +19,16 @@ class ApplevelProtocol:
     connection.
 
     Transmission is synchronous; when one end is sending, the other one must be
-    receiving. Both sending and receiving will block until success, or until
-    the socket is closed.
+    receiving. Receiving will block until success, or until the socket is closed.
 
     This can be used as a common base class for server/client object pairs.
+    It can also be used as a mixin.
 
-    **NOTE**: The derived class must define two attributes:
+    **NOTE**: The derived class (or class mixing this in) must define two
+      attributes:
 
-      - `sock`: an open TCP socket connected to the peer to communicate with.
+      - `sock`: a TCP socket. When `_send` or `_recv` is called, the socket
+        must be open and connected to the peer to communicate with.
 
       - `decoder`: `unpythonic.net.msg.MessageDecoder` instance for receiving
         messages. Typically this is connected to `sock` using an
@@ -33,7 +36,7 @@ class ApplevelProtocol:
         `MessageDecoder(socketsource(sock))`.
 
     These are left to the user code to define, because typically the client and
-    server sides must handle this differently. The client can create `sock` and
+    server sides must handle them differently. The client can create `sock` and
     `decoder` in its constructor, whereas a TCP server typically inherits from
     `socketserver.BaseRequestHandler`, and receives an incoming connection in
     its `handle` method (which is then the official place to create any
