@@ -69,7 +69,9 @@ class ControlClient(ApplevelProtocol):
         # ReceiveBuffer inside MessageDecoder.
         self.decoder = MessageDecoder(socketsource(sock))
 
-    def _send_command(self, request):
+    # This belongs only to the client side of the application-level protocol,
+    # so it lives here, not in ApplevelProtocol.
+    def _remote_execute(self, request):
         """Send a command to the server, get the reply.
 
         request: a dict-like, containing the "command" field and any required
@@ -94,18 +96,18 @@ class ControlClient(ApplevelProtocol):
 
     def describe_server(self):
         """Return server metadata such as prompt settings and version."""
-        return self._send_command({"command": "DescribeServer"})
+        return self._remote_execute({"command": "DescribeServer"})
 
     def pair_with_session(self, session_id):
         """Pair this control channel with a REPL session."""
-        return self._send_command({"command": "PairWithSession", "id": session_id})
+        return self._remote_execute({"command": "PairWithSession", "id": session_id})
 
     def complete(self, text, state):
         """Tab-complete in a remote REPL session.
 
         This is a completer for `readline.set_completer`.
         """
-        reply = self._send_command({"command": "TabComplete", "text": text, "state": state})
+        reply = self._remote_execute({"command": "TabComplete", "text": text, "state": state})
         if reply:
             return reply["result"]
         return None
@@ -118,7 +120,7 @@ class ControlClient(ApplevelProtocol):
 
         Returns truthy on success, falsey on failure.
         """
-        return self._send_command({"command": "KeyboardInterrupt"})
+        return self._remote_execute({"command": "KeyboardInterrupt"})
 
 
 def connect(addrspec):
