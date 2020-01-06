@@ -275,9 +275,9 @@ class MessageDecoder:
                 break
             ...
 
-    A `ReceiveBuffer` is created internally. If you need to access it (e.g.
-    when you're done receiving messages and would like to switch to a raw
-    stream), it's the `buffer` attribute.
+    If you need to access data remaining in the internal buffer (e.g. when
+    you're done receiving messages and would like to switch to a raw stream),
+    call `get_buffered_data`.
     """
     def __init__(self, source):
         """The `source` is a message source in the sense of `decodemsg`."""
@@ -287,3 +287,16 @@ class MessageDecoder:
     def decode(self):
         """Decode next message from source, and update receive buffer."""
         return decodemsg(self.buffer, self.source)
+
+    def get_buffered_data(self):
+        """Return data currently in the receive buffer.
+
+        Usually this is not needed; an application may need this if you intend
+        to switch over from messages back to raw data on an existing stream
+        transport.
+
+        When you're done receiving messages, any remaining data already in the
+        receive buffer should be processed first, before you resume reading and
+        processing any more data from your original stream.
+        """
+        return self.buffer.getvalue()

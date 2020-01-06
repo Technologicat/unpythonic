@@ -35,7 +35,7 @@ def test():
     #   whole point of having this protocol).
     #     - Note this means that should you wish to stop receiving messages on a particular
     #       source, and resume reading a raw stream from it instead, you must manually prepend
-    #       the final contents of the receive buffer (`decoder.buffer.getvalue()`) to whatever
+    #       the final contents of the receive buffer (`decoder.get_buffered_data()`) to whatever
     #       data you later receive from that source (since that data has already been placed
     #       into the receive buffer, so it is no longer available at the source).
     #     - So it's recommended to have a dedicated channel to communicate using messages,
