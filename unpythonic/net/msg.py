@@ -137,9 +137,13 @@ def decodemsg(buf, source):
         source = socketsource(sock)
         while True:
             data = decodemsg(buf, source)  # get the next message
-            if not data:
+            if data is None:  # EOF on message source, no complete message
                 break
             ...
+
+    Note that an EOF on the message source causes `data is None`, whereas
+    an empty message body (if your other end sends an empty message) causes
+    `data == b""`.
 
     See also `MessageDecoder` for an OOP API in which you don't need to care
     about the `ReceiveBuffer`.
@@ -273,9 +277,13 @@ class MessageDecoder:
         decoder = MessageDecoder(socketsource(sock))
         while True:
             data = decoder.decode()  # get the next message
-            if not data:
+            if data is None:  # EOF on message source, no complete message
                 break
             ...
+
+    Note that an EOF on the message source causes `data is None`, whereas
+    an empty message body (if your other end sends an empty message) causes
+    `data == b""`.
 
     If you need to access data remaining in the internal buffer (e.g. when
     you're done receiving messages and would like to switch to a raw stream),
