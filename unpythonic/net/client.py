@@ -23,7 +23,13 @@ session. So to hell with it, let's build a ***ing client.
 (Things tried include `stty raw`, `stty -icanon -echo`, and `stty -icanon`.
 For example, `stty -icanon && rlwrap nc localhost 1337`. If you play around
 with `stty`, the incantation `stty sane` may be useful to restore your terminal
-back to a working state.)
+back to a working state.
+
+Another issue here is that Python's `readline` module seems to be hardwired to
+use the original stdin/stdout; it doesn't care if we mutate `sys.stdin` or
+`sys.stdout`. So we couldn't use the server side's `readline` even if we
+had a dumb connection; the client must supply its own. Which implies the need
+for a remote tab completer, and a separate client-side `input()` loop.)
 """
 
 import readline  # noqa: F401, input() uses the readline module if it has been loaded.
