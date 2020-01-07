@@ -23,7 +23,7 @@ except ImportError:  # not running on CPython
 from .regutil import register_decorator
 from .lazyutil import passthrough_lazy_args, maybe_force_args, force
 
-# Only the single-argument form (just f) is supported by unpythonic.syntax.util.sort_lambda_decorators.
+# Only the single-argument form (just f) of the "call" decorator is supported by unpythonic.syntax.util.sort_lambda_decorators.
 #
 # This is as it should be; if given any arguments beside f, the call doesn't conform
 # to the decorator API, but is a normal function call. See "callwith" if you need to
