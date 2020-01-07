@@ -264,7 +264,7 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
                                 async_raise(target_thread, KeyboardInterrupt)
                             except (ValueError, SystemError, RuntimeError) as err:
                                 server_print(err)
-                                reply = {"status": "failed", "reason": err.args, "failure_type": type(err)}
+                                reply = {"status": "failed", "reason": err.args, "failure_type": str(type(err))}
                             else:
                                 reply = {"status": "ok"}
 
