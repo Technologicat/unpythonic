@@ -17,7 +17,7 @@ import threading
 # for async_raise only
 try:
     import ctypes
-except ImportError:  # not running on CPython
+except ImportError:
     ctypes = None
 
 from .regutil import register_decorator
@@ -501,27 +501,38 @@ def slurp(queue):
 def async_raise(thread_obj, exception):
     """Raise an exception inside an arbitrary active `threading.Thread`.
 
-    thread_obj: `threading.Thread`
-        The target thread.
+    thread_obj: `threading.Thread` object
+        The target thread to inject the exception into.
     exception: ``Exception``
-        The exception to be raised.
+        The exception to be raised. As with regular `raise`, this may be
+        an exception instance or an exception class object.
 
     No return value. Normal return indicates success.
     If the specified `threading.Thread` is not active, raises `ValueError`.
     If the raise operation failed, raises `SystemError`.
-    If not running on CPython (`ctypes` module missing), raises `RuntimeError`.
+    If not supported for the Python implementation we're currently running on,
+    raises `RuntimeError`.
 
-    **CAUTION**: Most likely, you don't need this. Proceed only if you know
-    you really need to. (For example, `unpythonic` uses this to generate a
-    `KeyboardInterrupt` inside a remote REPL session.)
+    **NOTE**: Currently depends on `ctypes`, because there is no official
+    Python-level API to achieve what this function needs to do.
 
-    **CAUTION**: This is potentially dangerous. If the raise fails, the
-    interpreter is left in an inconsistent state.
+    This works in CPython, and might work in PyPy3. (It has a `ctypes` module,
+    but it's not documented whether it implements `PyThreadState_SetAsyncExc`.)
 
-    **NOTE**: Requires `ctypes`. Works only in CPython.
+    If you know how to do this in another 3.6-compliant Python 3 implementation
+    (along with how to detect we're running on that particular implementation),
+    please contribute!
+
+    **CAUTION**: This is **potentially dangerous**. If the async raise
+    operation fails, the interpreter is left in an inconsistent state.
+
+    **CAUTION**: Proceed only if you know you really need this function. For
+    example, `unpythonic` uses this to remotely inject a `KeyboardInterrupt`
+    into a REPL session running in another thread. So this may be interesting
+    mainly if you're developing your own REPL server/client pair.
 
     **NOTE**: The term `async` here has nothing to do with `async`/`await`;
-    instead, it refers to an asynchronous exception.
+    instead, it refers to an asynchronous exception such as `KeyboardInterrupt`.
         https://en.wikipedia.org/wiki/Exception_handling#Exception_synchronicity
     See also:
         https://vorpus.org/blog/control-c-handling-in-python-and-trio/
