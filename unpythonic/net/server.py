@@ -226,9 +226,14 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
                     if "id" not in request:
                         reply = {"status": "failed", "reason": "Request is missing the PairWithSession parameter 'id'."}
                     else:
-                        server_print("Pairing control session for {} to REPL session {} for remote Ctrl+C requests.".format(client_address_str, request["id"]))
-                        self.paired_repl_session_id = request["id"]
-                        reply = {"status": "ok"}
+                        if request["id"] not in _active_sessions:
+                            errmsg = "Pairing control session failed; there is no active REPL session with id={}.".format(request["id"])
+                            reply = {"status": "failed", "reason": errmsg}
+                            server_print(errmsg)
+                        else:
+                            server_print("Pairing control session for {} to REPL session {} for remote Ctrl+C requests.".format(client_address_str, request["id"]))
+                            self.paired_repl_session_id = request["id"]
+                            reply = {"status": "ok"}
 
                 elif request["command"] == "TabComplete":
                     if "text" not in request or "state" not in request:
