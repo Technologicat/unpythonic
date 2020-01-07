@@ -226,7 +226,7 @@ def connect(addrspec):
                 t = threading.Thread(target=sock_to_stdout, daemon=True)
                 t.start()
 
-                # TODO: fix multiline editing (see repl_tool.py in socketserverREPL for reference)
+                # TODO: fix prompts in multiline inputs (see repl_tool.py in socketserverREPL for reference)
                 #
                 # This needs prompt detection so we'll know how to set up
                 # `input`. The first time on a new line, the prompt is sent
