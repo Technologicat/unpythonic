@@ -131,7 +131,7 @@ def decodemsg(buf, source):
         from unpythonic.net.msg import decodemsg
         from unpythonic.net.util import ReceiveBuffer, socketsource
 
-        # ...open a TCP socket `sock`...
+        # ...create a TCP socket `sock`, connect it to remote...
 
         buf = ReceiveBuffer()
         source = socketsource(sock)
@@ -272,7 +272,7 @@ class MessageDecoder:
         from unpythonic.net.msg import MessageDecoder
         from unpythonic.net.util import socketsource
 
-        # ...open a TCP socket `sock`...
+        # ...create a TCP socket `sock`, connect it to remote...
 
         decoder = MessageDecoder(socketsource(sock))
         while True:

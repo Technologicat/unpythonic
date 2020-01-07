@@ -88,8 +88,8 @@ class ControlClient(ApplevelProtocolMixin):
     def __init__(self, sock):
         """Initialize session for control channel (client side).
 
-        `sock` must be a socket already connected to a `ControlSession` (on the
-        server side). The caller is responsible for managing the socket.
+        `sock` must be a socket connected to a `ControlSession` at the remote.
+        The caller is responsible for managing the socket.
         """
         self.sock = sock
         # The source is just an abstraction over the details of how to actually

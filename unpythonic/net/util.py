@@ -143,8 +143,8 @@ def socketsource(sock, chunksize=4096):
     smaller than `chunksize`, if fewer than `chunksize` bytes are available on
     the socket at the time when `next()` is called.
 
-    Blocks when no data is available, but the socket is still open.
-    Stops iteration when the socket is closed.
+    Blocks when no data is available, but the socket is still connected to the
+    remote. Stops iteration when the socket is closed.
 
     Acts as a message source for `decodemsg`, for receiving data over a socket.
 
