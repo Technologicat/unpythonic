@@ -196,10 +196,12 @@ def test():
         q.put(k)
     assert slurp(q) == list(range(10))
 
-    # async_raise - evil CPython hack to inject an exception into another running thread
+    # async_raise - evil ctypes hack to inject an asynchronous exception into another running thread
     try:
-        import ctypes  # just to test we're running on CPython  # noqa: F401
-        out = []
+        # Test whether the Python we're running on provides ctypes. At least CPython and PyPy3 do.
+        # For PyPy3, the general rule is "if it imports, it should work", so let's go along with that.
+        import ctypes  # noqa: F401
+        out = []  # box, really, but let's not depend on unpythonic.collections in this unrelated unit test module
         def test_async_raise_worker():
             try:
                 for j in range(10):
@@ -214,7 +216,7 @@ def test():
         t.join()
         assert out[0] < 9  # terminated early due to the injected KeyboardInterrupt
     except ImportError:
-        print("Not running on CPython, skipping async_raise test.")
+        print("Could not import ctypes module, async_raise not supported. Skipping test.")
 
     print("All tests PASSED")
 

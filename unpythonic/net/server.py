@@ -84,7 +84,7 @@ __all__ = ["start", "stop", "server_print", "halt"]
 
 try:
     import ctypes
-except ImportError:  # not on CPython
+except ImportError:
     ctypes = None
 
 import code
@@ -258,8 +258,9 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
                         else:
                             try:
                                 # The implementation of async_raise is one of the dirtiest hacks ever,
-                                # and only works on CPython, since Python has no officially exposed
-                                # mechanism to trigger an asynchronous exception in an arbitrary thread.
+                                # and only works on Python implementations providing the `ctypes` module,
+                                # since Python has no officially exposed mechanism to trigger an asynchronous
+                                # exception (such as KeyboardInterrupt) in an arbitrary thread.
                                 async_raise(target_thread, KeyboardInterrupt)
                             except (ValueError, SystemError, RuntimeError) as err:
                                 server_print(err)
