@@ -182,30 +182,30 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
             self.decoder = MessageDecoder(socketsource(self.sock))
             self.paired_repl_session_id = None
             while True:
-                # The control server follows a request-reply application-level protocol,
-                # layered on top of the `unpythonic.net.msg` protocol, layered on top
-                # of a TCP socket.
+                # The control server follows a request-reply application-level
+                # protocol, which is essentially a remote procedure call
+                # interface. We use ApplevelProtocolMixin, which allows us to
+                # transmit the function name, arguments and return values in
+                # a dictionary format.
                 #
-                # A message sent by the client contains exactly one request.
-                # A request is a UTF-8 encoded JSON dictionary with one
-                # compulsory field: "command". It must contain one of the
-                # recognized command names as `str`.
+                # A request from the client is a dictionary, with str keys. It
+                # must contain the field "command", with its value set to one
+                # of the recognized command names as an `str`.
                 #
                 # Existence and type of any other fields depends on each
                 # individual command. This server source code is the official
                 # documentation of this small app-level protocol.
                 #
-                # For each request received, the server sends a reply.
-                # A reply is a UTF-8 encoded JSON dictionary with one
-                # compulsory field: "status". Upon success, it must contain
-                # the string "ok". The actual return value(s) (if any) may
-                # be provided in arbitrary other fields, defined by each
-                # individual command.
+                # For each request received, the server sends a reply, which is
+                # also a dictionary with str keys. It has one compulsory field:
+                # "status". Upon success, it must contain the string "ok". The
+                # actual return value(s) (if any) may be provided in arbitrary
+                # other fields, defined by each individual command.
                 #
-                # Upon failure, the "status" must contain the string "failed".
-                # An optional (and recommended!) "reason" field may contain
-                # a short description about the failure. More information
-                # may be included in arbitrary other fields.
+                # Upon failure, the "status" field must contain the string
+                # "failed". An optional (but strongly recommended!) "reason"
+                # field may contain a short description about the failure.
+                # More information may be included in arbitrary other fields.
                 request = self._recv()
                 if not request:
                     server_print("Socket for {} closed by client.".format(client_address_str))
