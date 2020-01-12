@@ -153,7 +153,7 @@ def decodemsg(buf, source):
     class MessageHeaderParseError(Exception):
         pass
 
-    def lowlevel_read():
+    def read_more_input():
         """Read some more data from source into the receive buffer.
 
         Return the current contents of the receive buffer. (All of it,
@@ -198,7 +198,7 @@ def decodemsg(buf, source):
             # byte in it. This prevents a malicious sender from crashing the
             # receiver by flooding it with nothing but junk.
             buf.set(b"")
-            val = lowlevel_read()
+            val = read_more_input()
 
     def read_header():
         """Parse message header.
@@ -209,7 +209,7 @@ def decodemsg(buf, source):
         """
         val = buf.getvalue()
         while len(val) < 5:
-            val = lowlevel_read()
+            val = read_more_input()
         # CAUTION: val[0] == 255, but val[0:1] == b"\xff".
         if val[0:1] != b"\xff":  # sync byte
             raise MessageHeaderParseError
@@ -224,7 +224,7 @@ def decodemsg(buf, source):
             j = val.find(b";")  # end of length-of-body field
             if j != -1:  # found
                 break
-            val = lowlevel_read()
+            val = read_more_input()
         if j == -1:  # maximum length of length-of-body field exceeded, terminator not found.
             raise MessageHeaderParseError
         j = val.find(b";")
@@ -242,7 +242,7 @@ def decodemsg(buf, source):
         # TODO: very large messages.
         val = buf.getvalue()
         while len(val) < body_len:
-            val = lowlevel_read()
+            val = read_more_input()
         # Any bytes left over belong to the next message.
         body, leftovers = val[:body_len], val[body_len:]
         buf.set(leftovers)
