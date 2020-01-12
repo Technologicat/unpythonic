@@ -77,20 +77,24 @@ class PTYSocketProxy:
             mypoll.register(self.sock, select.POLLIN)
             mypoll.register(self.master, select.POLLIN)
             while not self._terminated:
-                fdlist = mypoll.poll(1000)
-                for fd, event in fdlist:
-                    if fd == self.master:
-                        request = os.read(fd, 4096)
-                        if len(request) == 0:  # disconnect by PTY slave
-                            self.on_slave_disconnect(self)
-                            return
-                        self.sock.send(request)
-                    else:
-                        request = self.sock.recv(4096)
-                        if len(request) == 0:  # disconnect by client behind socket
-                            self.on_socket_disconnect(self)
-                            return
-                        os.write(self.master, request)
+                try:
+                    fdlist = mypoll.poll(1000)
+                    for fd, event in fdlist:
+                        if fd == self.master:
+                            request = os.read(fd, 4096)
+                            if len(request) == 0:  # disconnect by PTY slave
+                                self.on_slave_disconnect(self)
+                                return
+                            self.sock.send(request)
+                        else:
+                            request = self.sock.recv(4096)
+                            if len(request) == 0:  # disconnect by client behind socket
+                                self.on_socket_disconnect(self)
+                                return
+                            os.write(self.master, request)
+                except ConnectionResetError:
+                    self.on_socket_disconnect(self)
+                    return
 
         self._terminated = False
         self._thread = threading.Thread(target=forward_traffic, name="PTY on {}".format(os.ttyname(self.slave)), daemon=True)
