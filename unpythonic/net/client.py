@@ -38,6 +38,7 @@ import select
 import sys
 import signal
 import threading
+import re
 
 from .msg import MessageDecoder
 from .util import socketsource, ReceiveBuffer
@@ -205,7 +206,6 @@ def connect(addrspec):
                         if b"\n" in val:
                             text = val.decode("utf-8")
                             first_line, *rest = text.split("\n")
-                            import re
                             matches = re.findall(r"session (\d+) connected", first_line)
                             assert len(matches) == 1, "Expected server to print session id on the first line"
                             repl_session_id = int(matches[0])
