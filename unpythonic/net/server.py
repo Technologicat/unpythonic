@@ -39,6 +39,9 @@ the server, causing the client to hang. The top-level `help()`, which uses a
 command-based interface, appears to work, until you ask for a help page, at
 which point it runs into the same problem.
 
+We provide the workaround `doc(foo)`, which just prints the docstring (if any),
+and performs no paging.
+
 **CAUTION**: as Python was not designed for arbitrary hot-patching, if you
 change a **class** definition (whether by re-assigning the reference or by
 reloading the module containing the definition), only new instances will use
@@ -80,7 +83,7 @@ remote tab completion).
 # TODO: history fixes (see repl_tool in socketserverREPL), syntax highlight?
 # TODO: figure out how to make help() work, if possible?
 
-__all__ = ["start", "stop", "server_print", "halt"]
+__all__ = ["start", "stop", "doc", "server_print", "halt"]
 
 try:
     import ctypes
@@ -95,6 +98,7 @@ import os
 import time
 import socketserver
 import atexit
+from textwrap import dedent
 
 from ..collections import ThreadLocalBox, Shim
 from ..misc import async_raise
@@ -128,6 +132,33 @@ _banner = None
 # TODO: inject this to globals of the target module
 #   - Maybe better to inject just a single "repl" container which has this and
 #     the other stuff, and print out at connection time where to find this stuff.
+def doc(obj):
+    """Print an object's docstring, non-interactively.
+
+    This works around the lack of a working interactive `help()`
+    in the REPL session.
+    """
+    if not hasattr(obj, "__doc__") or not obj.__doc__:
+        print("<no docstring>")
+        return
+    # Emulate help()'s dedenting. Typically, the first line in a docstring
+    # has no leading whitespace, while the rest follow the indentation of
+    # the function body.
+    firstline, *rest = obj.__doc__.split("\n")
+    rest = dedent("\n".join(rest))
+    doc = [firstline, *rest.split("\n")]
+    for line in doc:
+        print(line)
+
+# TODO: detect stdout, stderr and redirect to the appropriate stream.
+def server_print(*values, **kwargs):
+    """Print to the original stdout of the server process.
+
+    This function is available in the REPL.
+    """
+    print(*values, **kwargs, file=_original_stdout)
+
+# TODO: inject this to globals of the target module
 def halt(doit=True):
     """Tell the REPL server to shut down after the last client has disconnected.
 
@@ -143,15 +174,6 @@ def halt(doit=True):
     _halt_pending = doit
     print(msg)
     server_print(msg)
-
-# TODO: inject this to globals of the target module
-# TODO: detect stdout, stderr and redirect to the appropriate stream.
-def server_print(*values, **kwargs):
-    """Print to the original stdout of the server process.
-
-    This function is available in the REPL.
-    """
-    print(*values, **kwargs, file=_original_stdout)
 
 
 class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
@@ -407,6 +429,8 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
                        "    quit() or EOF (Ctrl+D) at the prompt disconnects this session.\n"
                        "    halt() tells the server to close after the last session has disconnected.\n"
                        "    print() prints in the REPL session.\n"
+                       "       NOTE: print() is only properly redirected in the session's main thread.\n"
+                       "    doc(obj) shows obj's docstring. Use this instead of help(obj).\n"
                        "    server_print(...) prints on the stdout of the server.")
         _banner = default_msg.format(addr=addr, port=port, argv=" ".join(sys.argv))
     else:
