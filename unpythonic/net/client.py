@@ -40,7 +40,7 @@ import signal
 import threading
 
 from .msg import MessageDecoder
-from .util import socketsource
+from .util import socketsource, ReceiveBuffer
 from .common import ApplevelProtocolMixin
 
 __all__ = ["connect"]
@@ -181,32 +181,41 @@ def connect(addrspec):
             # Set up remote tab completion, using a custom completer for readline.
             # https://stackoverflow.com/questions/35115208/is-there-any-way-to-combine-readline-rlcompleter-and-interactiveconsole-in-pytho
             readline.set_completer(controller.complete)
-            readline.parse_and_bind("tab: complete")
+            readline.parse_and_bind("tab: complete")  # TODO: do we need this, PyPy doesn't support it?
 
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:  # remote REPL session
                 sock.connect(addrspec)
 
-                # TODO: refactor
+                # TODO: refactor. This is partial copypasta from unpythonic.net.msg.decodemsg.
+                src = socketsource(sock)
+                buf = ReceiveBuffer()
+                def read_more_input():
+                    try:
+                        data = next(src)
+                    except StopIteration:
+                        raise EOFError
+                    buf.append(data)
+                    return buf.getvalue()
+
                 # The first line of text contains the session id.
                 # We can't use the message protocol; this information must arrive on the primary channel.
-                rs, ws, es = select.select([sock], [], [])
-                for r in rs:
-                    data = sock.recv(4096)
-                    if len(data) == 0:
-                        print("unpythonic.net.client: disconnected by server.")
-                        raise SessionExit
-                    text = data.decode("utf-8")
-                    sys.stdout.write(text)
-                    if "\n" in text:
-                        first_line, *rest = text.split("\n")
-                        import re
-                        matches = re.findall(r"session (\d+) connected", first_line)
-                        assert len(matches) == 1, "Expected server to print session id on the first line"
-                        repl_session_id = int(matches[0])
-                    else:
-                        # TODO: make sure we always receive a whole line
-                        assert False
+                try:
+                    val = buf.getvalue()
+                    while True:
+                        if b"\n" in val:
+                            text = val.decode("utf-8")
+                            first_line, *rest = text.split("\n")
+                            import re
+                            matches = re.findall(r"session (\d+) connected", first_line)
+                            assert len(matches) == 1, "Expected server to print session id on the first line"
+                            repl_session_id = int(matches[0])
+                            break
+                        val = read_more_input()
+                except EOFError:
+                    print("unpythonic.net.client: disconnected by server.")
+                    raise SessionExit
                 controller.pair_with_session(repl_session_id)
+                sys.stdout.write(text)
 
                 # TODO: This can't be a separate thread, we must listen for input only when a prompt has appeared.
                 def sock_to_stdout():
