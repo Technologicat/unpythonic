@@ -34,10 +34,7 @@ for a remote tab completer, and a separate client-side `input()` loop.)
 
 import readline  # noqa: F401, input() uses the readline module if it has been loaded.
 import socket
-import select
 import sys
-import signal
-import threading
 import re
 
 from .msg import MessageDecoder
@@ -45,15 +42,6 @@ from .util import socketsource, ReceiveBuffer
 from .common import ApplevelProtocolMixin
 
 __all__ = ["connect"]
-
-
-# Install system signal handler for forcibly terminating the stdin input() when
-# an EOF is received on the socket in the other thread.
-# https://en.wikiversity.org/wiki/Python_Concepts/Console_Input#Detecting_timeout_on_stdin
-# https://docs.python.org/3/library/signal.html
-def _handle_alarm(signum, frame):
-    sys.exit(255)  # we will actually catch this.
-signal.signal(signal.SIGALRM, _handle_alarm)
 
 
 # Protocol for establishing a paired control/REPL connection:
@@ -175,14 +163,17 @@ def connect(addrspec):
             csock.connect((addrspec[0], 8128))  # TODO: IPv6 support
             controller = ControlClient(csock)
 
-            # TODO: use the prompts information in calls to input()
+            # Get prompts for use with input()
             metadata = controller.describe_server()
-            # print(metadata["prompts"])
+            ps1 = metadata["prompts"]["ps1"]
+            ps2 = metadata["prompts"]["ps2"]
+            bps1 = ps1.encode("utf-8")
+            bps2 = ps2.encode("utf-8")
 
             # Set up remote tab completion, using a custom completer for readline.
             # https://stackoverflow.com/questions/35115208/is-there-any-way-to-combine-readline-rlcompleter-and-interactiveconsole-in-pytho
             readline.set_completer(controller.complete)
-            readline.parse_and_bind("tab: complete")  # TODO: do we need this, PyPy doesn't support it?
+            readline.parse_and_bind("tab: complete")  # TODO: do we need to call this, PyPy doesn't support it?
 
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:  # remote REPL session
                 sock.connect(addrspec)
@@ -200,6 +191,7 @@ def connect(addrspec):
 
                 # The first line of text contains the session id.
                 # We can't use the message protocol; this information must arrive on the primary channel.
+                # So we read input until the first newline, storing it all to be printed later.
                 try:
                     val = buf.getvalue()
                     while True:
@@ -215,66 +207,81 @@ def connect(addrspec):
                     print("unpythonic.net.client: disconnected by server.")
                     raise SessionExit
                 controller.pair_with_session(repl_session_id)
-                sys.stdout.write(text)
 
-                # TODO: This can't be a separate thread, we must listen for input only when a prompt has appeared.
-                def sock_to_stdout():
+                # We run readline at the client side. Only the tab completion
+                # results come from the server, via the custom remote completer.
+                #
+                # The first time for each "R" in "REPL", the input prompt is
+                # sent by the server, but then during line editing, it needs to
+                # be re-printed by `readline`, so `input` needs to know what
+                # the prompt text should be.
+                #
+                # So at our end, `input` should be the one to print the prompt.
+                #
+                # For this, we read the socket until we see a new prompt,
+                # and then switch from the "P" in "REPL" to the "R" and "E".
+                #
+                val = buf.getvalue()
+                while True:  # The "L" in the "REPL"
                     try:
-                        while True:
-                            rs, ws, es = select.select([sock], [], [])
-                            for r in rs:
-                                data = sock.recv(4096)
-                                if len(data) == 0:
-                                    print("unpythonic.net.client: disconnected by server.")
+                        # Wait for the prompt. It's the last thing the console
+                        # sends before listening for more input.
+                        if val.endswith(bps1) or val.endswith(bps2):
+                            # "P"
+                            text = val.decode("utf-8")
+                            prompt = ps1 if text.endswith(ps1) else ps2
+                            text = text[:-len(prompt)]
+                            sys.stdout.write(text)
+                            buf.set(b"")
+
+                            # "R", "E" (but evaluate remotely)
+                            try:
+                                inp = input(prompt)
+                                sock.sendall((inp + "\n").encode("utf-8"))
+                            except EOFError:
+                                print("unpythonic.net.client: Ctrl+D pressed, asking server to disconnect.")
+                                print("unpythonic.net.client: if the server does not respond, press Ctrl+C to force.")
+                                try:
+                                    print("quit()")  # local echo
+                                    sock.sendall("quit()\n".encode("utf-8"))
+                                except KeyboardInterrupt:
+                                    print("unpythonic.net.client: Ctrl+C pressed, forcing disconnect.")
+                                finally:
                                     raise SessionExit
-                                text = data.decode("utf-8")
-                                sys.stdout.write(text)
-                    except SessionExit:
-                        # Exit also in main thread, which is waiting on input() when this happens.
-                        signal.alarm(1)
-                t = threading.Thread(target=sock_to_stdout, daemon=True)
-                t.start()
+                            except BrokenPipeError:
+                                print("unpythonic.net.client: socket closed unexpectedly, exiting.")
+                                raise SessionExit
 
-                # TODO: fix prompts in multiline inputs (see repl_tool.py in socketserverREPL for reference)
-                #
-                # This needs prompt detection so we'll know how to set up
-                # `input`. The first time on a new line, the prompt is sent
-                # by the server, but then during line editing, it needs to be
-                # re-printed by `readline`, so `input` needs to know what the
-                # prompt text should be.
-                #
-                # For this, we need to read the socket until we see a new prompt.
+                        else:  # no prompt yet, just print whatever came in, and clear the buffer
+                            text = val.decode("utf-8")
+                            sys.stdout.write(text)
+                            buf.set(b"")
 
-                # Run readline at the client side. Only the tab completion
-                # results come from the server.
-                #
-                # Important: this must be outside the forwarder loop (since
-                # there will be multiple events on stdin for each line sent),
-                # so we use a different thread (here specifically, the main
-                # thread).
-                try:
-                    while True:
-                        try:
-                            inp = input()
-                            sock.sendall((inp + "\n").encode("utf-8"))
-                        except KeyboardInterrupt:
-                            controller.send_kbinterrupt()
-                except EOFError:
-                    print("unpythonic.net.client: Ctrl+D pressed, asking server to disconnect.")
-                    print("unpythonic.net.client: if the server does not respond, press Ctrl+C to force.")
-                    try:
-                        print("quit()")  # local echo
-                        sock.sendall("quit()\n".encode("utf-8"))
-                        t.join()  # wait for the EOF response
+                        val = read_more_input()
+
+                    # TODO: It's very difficult to get this 100% right, and right now we don't even try.
+                    # The problem is that KeyboardInterrupt may occur on any line of code here, so we may
+                    # lose some text, or print some twice, depending on the exact moment Ctrl+C is pressed.
                     except KeyboardInterrupt:
-                        print("unpythonic.net.client: Ctrl+C pressed, forcing disconnect.")
-                    finally:
-                        raise SessionExit
-                except SystemExit:  # catch the alarm signaled by the socket-listening thread.
-                    raise SessionExit
-                except BrokenPipeError:
-                    print("unpythonic.net.client: socket closed unexpectedly, exiting.")
-                    raise SessionExit
+                        controller.send_kbinterrupt()
+                        # When KeyboardInterrupt occurs, the server will send
+                        # the string "KeyboardInterrupt" and a new prompt when
+                        # we send a blank line to it (but sending the blank line
+                        # seems to be mandatory for that to happen).
+                        sock.sendall(("\n").encode("utf-8"))
+
+                        # If the interrupt happened inside read_more_input, it has closed the socketsource
+                        # by terminating the generator that was blocking on its internal select() call.
+                        # So let's re-instantiate the socketsource, just to be safe.
+                        #
+                        # (This cannot lose data, since the source object itself has no buffer. There is
+                        # an app-level buffer in ReceiveBuffer, and the underlying socket has a buffer,
+                        # but at the level of the "source" abstraction, there is no buffer.)
+                        src.close()  # PyPy recommends closing generators explicitly.
+                        src = socketsource(sock)
+
+                        # Process the server's response to the blank line.
+                        val = read_more_input()
 
     except SessionExit:
         print("Session closed.")
