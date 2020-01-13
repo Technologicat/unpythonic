@@ -224,8 +224,24 @@ def connect(addrspec):
                 val = buf.getvalue()
                 while True:  # The "L" in the "REPL"
                     try:
-                        # Wait for the prompt. It's the last thing the console
-                        # sends before listening for more input.
+                        # Wait for the prompt.
+                        #
+                        # We rely on the fact that it's always the last thing the console sends
+                        # before listening for more input.
+                        #
+                        # TODO: The current implementation leaves one race condition that can't be solved easily.
+                        # If the prompt string appears in the data stream, but is not actually a prompt,
+                        # we might interpret it as a prompt, and things will go south from there.
+                        #
+                        # This only happens when partial data recv'd on the socket ends exactly at the end of
+                        # the prompt string (e.g. ">>>"). So it's unlikely, but it may happen.
+                        #
+                        # The at-a-glance-almost-correct hack of prefixing bps1 and bps2 with b"\n" doesn't
+                        # work, because the newline won't be there when we handle the server's response to a
+                        # `KeyboardInterrupt` request. So doing that would cause the client to hang.
+                        #
+                        # As a semi-working hack, our server sets its prompts to ">>>>" and "...." (like PyPy).
+                        # Whereas "..." may appear in Python code or English, these strings usually don't.
                         if val.endswith(bps1) or val.endswith(bps2):
                             # "P"
                             text = val.decode("utf-8")

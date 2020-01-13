@@ -436,11 +436,12 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
     else:
         _banner = banner
 
-    # Set the prompts.
-    if not hasattr(sys, "ps1"):
-        sys.ps1 = ">>> "
-    if not hasattr(sys, "ps2"):
-        sys.ps2 = "... "
+    # Set the prompts. We use four "." to make semi-sure the prompt string only appears as a prompt.
+    # The client needs to identify the prompts from the data stream in order to know when to switch
+    # between listening and prompting, so "..." is not even semi-safe (it's valid Python, as well as
+    # valid English).
+    sys.ps1 = ">>>> "
+    sys.ps2 = ".... "
 
     # We use a combo of Shim and ThreadLocalBox to redirect attribute lookups
     # to the thread-specific read/write streams.
