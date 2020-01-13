@@ -446,9 +446,9 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
     # to the thread-specific read/write streams.
     #
     # sys.stdin et al. are replaced by shims, which hold their targets in
-    # thread-local boxes. In the main thread, the boxes contain the original
-    # sys.stdin et al., whereas in session threads, the boxes are filled with
-    # streams established for that particular session.
+    # thread-local boxes. In the main thread (and as a default), the boxes contain
+    # the original sys.stdin et al., whereas in session threads, the boxes are filled
+    # with streams established for that particular session.
     sys.stdin = Shim(_threadlocal_stdin)
     sys.stdout = Shim(_threadlocal_stdout)
     sys.stderr = Shim(_threadlocal_stderr)
