@@ -46,6 +46,8 @@ class _EnvBlock(object):
             for o in _getobservers().values():
                 o._refresh()
 
+# We need multiple observer instances, because dynamic scope stacks are thread-local.
+# If they weren't, this could be a singleton and the __del__ method wouldn't be needed.
 class _DynLiveView(ChainMap):
     def __init__(self):
         super().__init__(self)
