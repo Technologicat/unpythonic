@@ -277,7 +277,19 @@ def connect(addrspec):
                         # (This cannot lose data, since the source object itself has no buffer. There is
                         # an app-level buffer in ReceiveBuffer, and the underlying socket has a buffer,
                         # but at the level of the "source" abstraction, there is no buffer.)
-                        src.close()  # PyPy recommends closing generators explicitly.
+                        #
+                        # PyPy recommends closing generators explicitly when not needed anymore,
+                        # but not exhausted, instead of leaving the instance lying around to be
+                        # picked up by the GC some time later (if ever). CPython's refcounting GC
+                        # of course picks it up immediately when the last reference goes out of scope.
+                        #
+                        # I have no idea if that piece of advice applies also when a generator exits
+                        # due to an exception. Probably not (control has escaped the body of that
+                        # generator instance permanently, right?), but closing it shouldn't hurt,
+                        # because when a generator has already exited, close() is a no-op. See:
+                        #    https://amir.rachum.com/blog/2017/03/03/generator-cleanup/
+                        #    https://www.python.org/dev/peps/pep-0342/
+                        src.close()
                         src = socketsource(sock)
 
                         # Process the server's response to the blank line.
