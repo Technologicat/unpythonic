@@ -27,25 +27,47 @@ def _getstack():
             _L._stack = _mainthread_stack.copy()
     return _L._stack
 
+def _getobservers():
+    if not hasattr(_L, "_observers"):
+        _L._observers = {}
+    return _L._observers
+
 class _EnvBlock(object):
     def __init__(self, bindings):
         self.bindings = bindings
     def __enter__(self):
         if self.bindings:  # optimization, skip pushing an empty scope
             _getstack().append(self.bindings)
-            _DynLiveView._refresh()
+            for o in _getobservers().values():
+                o._refresh()
     def __exit__(self, t, v, tb):
         if self.bindings:
             _getstack().pop()
-            _DynLiveView._refresh()
+            for o in _getobservers().values():
+                o._refresh()
 
 class _DynLiveView(ChainMap):
     def __init__(self):
         super().__init__(self)
         self._refresh()
+        _getobservers()[id(self)] = self
+    def __del__(self):
+        # No idea how, but our REPL server can trigger a KeyError here
+        # if the user views `help()`, which causes the client to get stuck.
+        # Then pressing `q` in the server console to quit the help, and then
+        # asking the REPL client (which is now responsive again) to disconnect
+        # (Ctrl+D), triggers the `KeyError` when the server cleans up the
+        # disconnected session.
+        #
+        # Anyway, if `id(self)` is not in the current thread's observers,
+        # we don't need to do anything here, so the Right Thing to do is
+        # to absorb `KeyError` if it occurs.
+        try:
+            del _getobservers()[id(self)]
+        except KeyError:
+            pass
     def _refresh(self):
         self.maps = list(reversed(_getstack())) + [_global_dynvars]
-_DynLiveView = _DynLiveView()  # singleton
 
 class _Env(object):
     """This module exports a singleton, ``dyn``, which provides dynamic assignment
@@ -189,7 +211,7 @@ class _Env(object):
         When new dynamic scopes begin or old ones exit, its ``.maps`` attribute
         is automatically updated to reflect the changes.
         """
-        return _DynLiveView
+        return _DynLiveView()
 
     def __iter__(self):
         return iter(self.asdict())

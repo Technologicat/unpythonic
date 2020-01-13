@@ -130,13 +130,6 @@ def test():
         assert noimplicits(items) == (("a", 1), ("b", 2),
                                       ("im_always_there", True))
 
-    # the view is a singleton, so let's test it supports concurrent iteration correctly.
-    view = dyn.asdict()
-    i1 = iter(view.items())
-    i2 = iter(view.items())
-    for a, b in zip(i1, i2):
-        assert a == b
-
     print("All tests PASSED")
 
 if __name__ == '__main__':
