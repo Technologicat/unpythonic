@@ -215,8 +215,8 @@ def test():
         async_raise(t, KeyboardInterrupt)
         t.join()
         assert out[0] < 9  # terminated early due to the injected KeyboardInterrupt
-    except ImportError:
-        print("Could not import ctypes module, async_raise not supported. Skipping test.")
+    except NotImplementedError:
+        print("async_raise not supported on this interpreter, ignoring test.")
 
     print("All tests PASSED")
 
