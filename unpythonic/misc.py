@@ -14,11 +14,19 @@ from math import floor, log2
 from queue import Empty
 import threading
 
-# for async_raise only
-try:
+# For async_raise only. Note `ctypes.pythonapi` is not an actual module;
+# you'll get a `ModuleNotFoundError` if you try to import it.
+#
+# TODO: The "pycapi" PyPI package would allow us to regularly import the C API,
+# but right now we don't want introduce dependencies, especially for a minor feature.
+#     https://github.com/brandtbucher/pycapi
+import sys
+if sys.implementation.name == "cpython":
     import ctypes
-except ImportError:
+    PyThreadState_SetAsyncExc = ctypes.pythonapi.PyThreadState_SetAsyncExc
+else:
     ctypes = None
+    PyThreadState_SetAsyncExc = None
 
 from .regutil import register_decorator
 from .lazyutil import passthrough_lazy_args, maybe_force_args, force
@@ -498,6 +506,10 @@ def slurp(queue):
     return out
 
 
+# TODO: To reduce the risk of spaghetti user code, we could require a non-main thread's entrypoint to declare
+# via a decorator that it's willing to accept asynchronous exceptions, and check that mark here, making this
+# mechanism strictly opt-in. The decorator could inject an `asyncexc_ok` attribute to the Thread object;
+# that's enough to prevent accidental misuse.
 def async_raise(thread_obj, exception):
     """Raise an exception inside an arbitrary active `threading.Thread`.
 
@@ -508,50 +520,85 @@ def async_raise(thread_obj, exception):
         an exception instance or an exception class object.
 
     No return value. Normal return indicates success.
-    If the specified `threading.Thread` is not active, raises `ValueError`.
-    If the raise operation failed, raises `SystemError`.
+
+    If the specified `threading.Thread` is not active, or the thread's ident
+    was not accepted by the interpreter, raises `ValueError`.
+
+    If the raise operation failed internally, raises `SystemError`.
+
     If not supported for the Python implementation we're currently running on,
-    raises `RuntimeError`.
+    raises `NotImplementedError`.
 
-    **NOTE**: Currently depends on `ctypes`, because there is no official
-    Python-level API to achieve what this function needs to do.
-
-    This works in CPython, and might work in PyPy3. (It has a `ctypes` module,
-    but it's not documented whether it implements `PyThreadState_SetAsyncExc`.)
-
-    If you know how to do this in another 3.6-compliant Python 3 implementation
-    (along with how to detect we're running on that particular implementation),
-    please contribute!
+    **NOTE**: This currently works only in CPython, because there is no Python-level
+    API to achieve what this function needs to do, and PyPy3's C API emulation layer
+    `cpyext` doesn't currently (January 2020) implement the function required to do
+    this (and the C API functions in `cpyext` are not exposed to the Python level
+    anyway, unlike CPython's `ctypes.pythonapi`).
 
     **CAUTION**: This is **potentially dangerous**. If the async raise
     operation fails, the interpreter is left in an inconsistent state.
 
-    **CAUTION**: Proceed only if you know you really need this function. For
-    example, `unpythonic` uses this to remotely inject a `KeyboardInterrupt`
-    into a REPL session running in another thread. So this may be interesting
-    mainly if you're developing your own REPL server/client pair.
-
     **NOTE**: The term `async` here has nothing to do with `async`/`await`;
     instead, it refers to an asynchronous exception such as `KeyboardInterrupt`.
         https://en.wikipedia.org/wiki/Exception_handling#Exception_synchronicity
+
+    In a nutshell, a *synchronous* exception (i.e. the usual kind of exception)
+    has an explicit `raise` somewhere in the code that the thread that
+    encountered the exception is running. In contrast, an *asynchronous*
+    exception **doesn't**, it just suddenly magically materializes from the outside.
+    As such, it can in principle happen *anywhere*, with absolutely no hint about
+    it in any obvious place in the code.
+
+    **Hence, use this function very, very sparingly, if at all.**
+
+    For example, `unpythonic` only uses this to support remotely injecting a
+    `KeyboardInterrupt` into a REPL session running in another thread. So this
+    may be interesting mainly if you're developing your own REPL server/client
+    pair.
+
+    (Incidentally, that's **not** how `KeyboardInterrupt` usually works.
+    Rather, the OS sends a SIGINT, which is then trapped by an OS signal
+    handler that runs in the main thread. At that point the magic has already
+    happened: the control of the main thread is now inside the signal handler,
+    as if the signal handler was called from the otherwise currently innermost
+    point on the call stack. All the handler needs to do is to perform a regular
+    `raise`, and the exception will propagate correctly.
+
+    REPL sessions running in other threads can't use this mechanism, because
+    in CPython, OS signal handlers only run in the main thread, and even in
+    PyPy3, there is no guarantee *which* thread gets the signal even if you use
+    `with __pypy__.thread.signals_enabled` to enable OS signal trapping in some
+    of your other threads. Only one thread (including the main thread, plus any
+    currently dynamically within a `signals_enabled`) will see the signal;
+    which one, is essentially random and not even reproducible.)
+
     See also:
         https://vorpus.org/blog/control-c-handling-in-python-and-trio/
 
-    Originally by Federico Ficarelli and LIU Wei:
+    The function necessary to perform this magic is actually mentioned right
+    there in the official CPython C API docs, but it's not very well known:
+        https://docs.python.org/3/c-api/init.html#c.PyThreadState_SetAsyncExc
+
+    Original detective work by Federico Ficarelli and LIU Wei:
         https://gist.github.com/nazavode/84d1371e023bccd2301e
         https://gist.github.com/liuw/2407154
     """
-    if not ctypes:
-        raise RuntimeError("No ctypes module, async_raise not supported.")
+    if not ctypes or not PyThreadState_SetAsyncExc:
+        raise NotImplementedError("async_raise not supported on this Python interpreter.")
 
     target_tid = thread_obj.ident
     if target_tid not in {thread.ident for thread in threading.enumerate()}:
-        raise ValueError("Invalid thread object, cannot find thread identity among currently active threads.")
+        raise ValueError("Invalid thread object, cannot find its ident among currently active threads.")
 
-    affected_count = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.py_object(exception))
-
+    affected_count = PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.py_object(exception))
     if affected_count == 0:
-        raise ValueError("Invalid thread identity, no thread has been affected.")
+        raise ValueError("PyThreadState_SetAsyncExc did not accept the thread ident, even though it was among the currently active threads.")
+
+    # TODO: check CPython source code if this case can actually ever happen.
+    #
+    # The API docs seem to hint that 0 or 1 are the only possible return values.
+    # If so, we can remove this `SystemError` case and the "potentially dangerous" caution.
     elif affected_count > 1:
-        ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.c_long(0))
+        # Clear the async exception, targeting the same thread identity, and hope for the best.
+        PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.c_long(0))
         raise SystemError("PyThreadState_SetAsyncExc failed, broke the interpreter state.")
