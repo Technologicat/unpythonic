@@ -253,7 +253,7 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
                             reply = {"status": "failed", "reason": errmsg}
                             server_print(errmsg)
                         else:
-                            server_print("Pairing control session for {} to REPL session {} for remote Ctrl+C requests.".format(client_address_str, request["id"]))
+                            server_print("Pairing control session for {} to REPL session {}.".format(client_address_str, request["id"]))
                             self.paired_repl_session_id = request["id"]
                             reply = {"status": "ok"}
 
@@ -268,7 +268,9 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
                 elif request["command"] == "KeyboardInterrupt":
                     server_print("Client {} sent request for remote Ctrl+C.".format(client_address_str))
                     if not self.paired_repl_session_id:
-                        reply = {"status": "failed", "reason": "This control channel is not currently paired with a REPL session."}
+                        errmsg = "This control channel is not currently paired with a REPL session."
+                        reply = {"status": "failed", "reason": errmsg}
+                        server_print(errmsg)
                     else:
                         server_print("Remote Ctrl+C in session {}.".format(self.paired_repl_session_id))
                         try:
