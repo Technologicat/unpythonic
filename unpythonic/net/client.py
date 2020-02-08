@@ -34,8 +34,10 @@ for a remote tab completer, and a separate client-side `input()` loop.)
 
 import readline  # noqa: F401, input() uses the readline module if it has been loaded.
 import socket
+import select
 import sys
 import re
+import time
 
 from .msg import MessageDecoder
 from .util import socketsource, ReceiveBuffer
@@ -309,7 +311,34 @@ def connect(addrspec):
                         src = socketsource(sock)
 
                         # Process the server's response to the blank line.
+                        #
+                        # TODO: Fix this mess properly. Hacking it for now. This would really benefit
+                        # TODO: from trying harder to understand WTF is going on.
+                        #
+                        # It seems that:
+                        #   - If the Ctrl+C arrives when at the prompt, the server sends back one batch of data.
+                        #     The response is essentially the text "KeyboardInterrupt", and a new prompt.
+                        #   - If the Ctrl+C arrives when the server is actually running some code, it sends
+                        #     back two responses, with a small delay in between. We may get two new prompts.
+                        #
+                        # Currently, to work around this, we gather incoming data, until the server stops
+                        # hiccuping in response to the Ctrl+C. This won't likely work over a congested network,
+                        # where our arbitrary delay is just too short, but responsiveness for localhost use
+                        # is important.
+                        #
+                        # A good test snippet for the REPL is::
+                        #     for _ in range(int(1e9)):
+                        #       pass
+                        # This should give enough time to hit Ctrl+C with the loop still running.
+                        def hasdata(sck):
+                            rs, ws, es = select.select([sck], [], [], 0)
+                            return rs
                         val = read_more_input()
+                        while True:
+                            time.sleep(0.1)
+                            if not hasdata(sock):
+                                break
+                            val = read_more_input()
 
     except SessionExit:
         print("Session closed.")
