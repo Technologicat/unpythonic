@@ -7,10 +7,40 @@ In a REPL session, you can inspect and mutate the global state of your running
 program. You can e.g. replace top-level function definitions with new versions
 in your running process, or reload modules from disk (with `importlib.reload`).
 
-To enable it in your app::
+The REPL server runs in a daemon thread. Terminating the main thread of your
+process will terminate the server, also forcibly terminating all open REPL
+sessions in that process.
+
+
+**SECURITY WARNING**: A REPL SERVER IS ESSENTIALLY A BACK DOOR.
+
+Currently, we provide NO authentication or encryption. Anyone can connect, and
+once connected, do absolutely anything that the user account running your app
+can do. Connections are anonymous.
+
+Hence, only use this server in carefully controlled environments, such as:
+
+a) Your own local machine, with no untrusted human users on it,
+
+b) A dedicated virtual server running only your app, in which case
+   the OS level already provides access control and encrypted connections.
+
+Even then, serve this ONLY on the loopback interface, to force users to connect
+to the machine via SSH first (or have physical local console access).
+
+
+With that out of the way, to enable the server in your app::
 
     from unpythonic.net import server
     server.start(locals=globals())
+
+The `locals=...` argument sets the top-level namespace for variables for use by
+the REPL. It is shared between REPL sessions.
+
+Using `locals=globals()` makes the REPL directly use the calling module's
+top-level scope. If you want a clean environment, where you must access any
+modules through `sys.modules`, use `locals={}`.
+
 
 To connect to a running REPL server (with tab completion and Ctrl+C support)::
 
@@ -29,24 +59,26 @@ or even just (no history, no tab completion)::
 
     netcat localhost 1337
 
-The REPL server runs in a daemon thread. Terminating the main thread of your
-process will terminate the server, also forcibly terminating all open REPL
-sessions in that process.
 
-**CAUTION**: `help(foo)` currently does not work in this REPL server. Its
-stdin/stdout are not redirected to the socket; instead, it will run locally on
-the server, causing the client to hang. The top-level `help()`, which uses a
-command-based interface, appears to work, until you ask for a help page, at
-which point it runs into the same problem.
+**CAUTION**: Python's builtin `help(foo)` does not work in this REPL server.
+It cannot, because the client runs a complete second input prompt (that holds
+the local TTY), separate from the input prompt running on the server.
+So the stdin/stdout are not just redirected to the socket.
 
-We provide the workaround `doc(foo)`, which just prints the docstring (if any),
+Trying to open the built-in help will open the help locally on the server,
+causing the client to hang. The top-level `help()`, which uses a command-based
+interface, appears to work, until you ask for a help page, at which point it
+runs into the same problem.
+
+As a workaround, we provide `doc(foo)`, which just prints the docstring (if any),
 and performs no paging.
 
-**CAUTION**: as Python was not designed for arbitrary hot-patching, if you
-change a **class** definition (whether by re-assigning the reference or by
-reloading the module containing the definition), only new instances will use
-the new definition, unless you specifically monkey-patch existing instances to
-change their type.
+
+**CAUTION**: Python was not designed for arbitrary hot-patching. If you change
+a **class** definition (whether by re-assigning the reference or by reloading
+the module containing the definition), only new instances will use the new
+definition, unless you specifically monkey-patch existing instances to change
+their type.
 
 The language docs hint it is somehow possible to retroactively change an
 object's type, if you're careful with it:
@@ -62,6 +94,7 @@ Based on macropy.core.MacroConsole by Li Haoyi, Justin Holmgren, Alberto Berti a
     https://github.com/azazel75/macropy
 Based on imacropy.console by the same author as unpythonic. 2-clause BSD license.
     https://github.com/Technologicat/imacropy
+
 
 **Trivia**:
 
@@ -80,8 +113,6 @@ remote tab completion).
 #   TODO: per-session macro definitions like in imacropy
 #   TODO: import macro stubs for inspection like in imacropy
 #   TODO: helper magic function macros() to list currently enabled macros
-# TODO: history fixes (see repl_tool in socketserverREPL), syntax highlight?
-# TODO: figure out how to make help() work, if possible?
 
 __all__ = ["start", "stop", "doc", "server_print", "halt"]
 
@@ -262,7 +293,7 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
                         reply = {"status": "failed", "reason": "Request is missing at least one of the TabComplete parameters 'text' and 'state'."}
                     else:
                         completion = completer_backend.complete(request["text"], request["state"])
-                        # server_print(request, reply)
+                        # server_print(request, reply)  # DEBUG
                         reply = {"status": "ok", "result": completion}
 
                 elif request["command"] == "KeyboardInterrupt":
@@ -357,6 +388,11 @@ class ConsoleSession(socketserver.BaseRequestHandler):
 
                     # This must be the first thing printed by the server, so that the client
                     # can get the session id from it. This hack is needed for netcat compatibility.
+                    #
+                    # (In case of the custom client, it establishes two independent TCP connections.
+                    #  The REPL session must give an ID for attaching the control channel, but since
+                    #  we want it to remain netcat-compatible, it can't use the message protocol to
+                    #  send that information.)
                     print("REPL session {} connected.".format(self.session_id))  # ...at the client side
 
                     if _banner != "":
@@ -364,20 +400,17 @@ class ConsoleSession(socketserver.BaseRequestHandler):
 
                     self.console = code.InteractiveConsole(locals=_console_locals_namespace)
 
-                    # All errors except SystemExit are caught inside interact(), only
-                    # sys.exit() is escalated, in this situation we want to close the
-                    # connection, not kill the server ungracefully. We have halt()
-                    # to do that gracefully.
+                    # All errors except SystemExit are caught inside interact().
                     try:
                         server_print("Opening REPL session {} for {}.".format(self.session_id, client_address_str))
                         self.console.interact(banner=None, exitmsg="Bye.")
-                    except SystemExit:
+                    except SystemExit:  # Close the connection upon server process exit.
                         pass
                     finally:
                         server_print('Closing PTY on {} for {}.'.format(os.ttyname(adaptor.slave), client_address_str))
                         adaptor.stop()
                         server_print("Closing REPL session {} for {}.".format(self.session_id, client_address_str))
-        except BaseException as err:
+        except BaseException as err:  # yes, SystemExit and KeyboardInterrupt, too.
             server_print(err)
         finally:
             del _active_sessions[self.session_id]
@@ -387,11 +420,17 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
     """Start the REPL server.
 
     locals:   Namespace (dict-like) to use as the locals namespace
-              of REPL sessions that connect to this server.
+              of REPL sessions that connect to this server. It is
+              shared between sessions.
 
               A useful value is `globals()`, the top-level namespace
               of the calling module. This is not set automatically,
               because explicit is better than implicit.)
+
+              Another useful value is `{}`, to have a clean environment
+              which is not directly connected to any module. In that case,
+              get modules from `sys.modules` if you need access to their
+              top-level scopes.
 
     addrspec: Server TCP address and port. This is given as a single
               parameter for future compatibility with IPv6.
@@ -459,8 +498,7 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
     # https://docs.python.org/3/library/socketserver.html#socketserver.BaseServer.server_address
     # https://docs.python.org/3/library/socketserver.html#socketserver.BaseServer.RequestHandlerClass
     server = ReuseAddrThreadingTCPServer((addr, port), ConsoleSession)
-    # Set whether Python is allowed to exit even if there are connection threads alive.
-    server.daemon_threads = True
+    server.daemon_threads = True  # Allow Python to exit even if there are REPL sessions alive.
     server_thread = threading.Thread(target=server.serve_forever, name="Unpythonic REPL server", daemon=True)
     server_thread.start()
 
