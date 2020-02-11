@@ -19,6 +19,7 @@ None required.
 
 [Pure-Python feature set](doc/features.md)  
 [Syntactic macro feature set](doc/macros.md)  
+[REPL server](doc/repl.md)  
 [Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.
 
 
