@@ -6,7 +6,7 @@ __all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer",
            "slurp", "async_raise"]
 
 from types import LambdaType, FunctionType, CodeType
-from time import time
+from time import monotonic
 from copy import copy
 from functools import partial
 from sys import version_info, float_info
@@ -357,10 +357,10 @@ class timer:
         """
         self.p = p
     def __enter__(self):
-        self.t0 = time()
+        self.t0 = monotonic()
         return self
     def __exit__(self, exctype, excvalue, traceback):
-        self.dt = time() - self.t0
+        self.dt = monotonic() - self.t0
         if self.p:
             print(self.dt)
 
