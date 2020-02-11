@@ -1,8 +1,8 @@
 # -*- coding: utf-8; -*-
 """Simple client for the REPL server, with remote tab completion and Ctrl+C.
 
-A second TCP connection (on port 8128) is used as a control channel for the
-remote tab completion and Ctrl+C requests.
+A second TCP connection on a different port is used as a control channel for
+the remote tab completion and Ctrl+C requests.
 
 **CAUTION**: The current client implementation is silly and over-complicated.
 
@@ -142,11 +142,8 @@ class ControlClient(ApplevelProtocolMixin):
         return self._remote_execute({"command": "KeyboardInterrupt"})
 
 
-def connect(addrspec):
+def connect(host, repl_port, control_port):
     """Connect to a remote REPL server.
-
-    `addrspec` is passed to `socket.connect`. For IPv4, it is the tuple
-    `(ip_or_hostname, port)`.
 
     To disconnect politely, send `exit()`, or as a shortcut, press Ctrl+D.
     This asks the server to terminate the REPL session, and is the official
@@ -162,7 +159,7 @@ def connect(addrspec):
         # First handshake on control channel to get prompt information.
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as csock:  # control channel (remote tab completion, remote Ctrl+C)
             # TODO: configurable control port
-            csock.connect((addrspec[0], 8128))  # TODO: IPv6 support
+            csock.connect((host, control_port))  # TODO: IPv6 support
             controller = ControlClient(csock)
 
             # Get prompts for use with input()
@@ -178,7 +175,7 @@ def connect(addrspec):
             readline.parse_and_bind("tab: complete")  # TODO: do we need to call this, PyPy doesn't support it?
 
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:  # remote REPL session
-                sock.connect(addrspec)
+                sock.connect((host, repl_port))  # TODO: IPv6 support
 
                 # TODO: refactor. This is partial copypasta from unpythonic.net.msg.decodemsg.
                 src = socketsource(sock)
@@ -242,8 +239,8 @@ def connect(addrspec):
                         # work, because the newline won't be there when we handle the server's response to a
                         # `KeyboardInterrupt` request. So doing that would cause the client to hang.
                         #
-                        # As a semi-working hack, our server sets its prompts to ">>>>" and "...." (like PyPy).
-                        # Whereas "..." may appear in Python code or English, these strings usually don't.
+                        # As a semi-working hack, our server sets its prompts to ">>>>" and "...." (like PyPy
+                        # does). Whereas "..." may appear in Python code or English, these strings usually don't.
                         if val.endswith(bps1) or val.endswith(bps2):
                             # "P"
                             text = val.decode("utf-8")
@@ -343,16 +340,21 @@ def connect(addrspec):
     except SessionExit:
         print("Session closed.")
 
+    except EOFError:
+        print("unpythonic.net.client: disconnected by server.")
+
 
 # TODO: IPv6 support
 # https://docs.python.org/3/library/socket.html#example
 def main():
-    if len(sys.argv) != 2:
-        print("USAGE: {} host:port".format(sys.argv[0]))
+    if len(sys.argv) < 2:
+        print("USAGE: {} host [repl_port] [control_port]".format(sys.argv[0]))
+        print("By default, repl_port=1337, control_port=8128.")
         sys.exit(255)
-    host, port = sys.argv[1].split(":")
-    port = int(port)
-    connect((host, port))
+    host = sys.argv[1]
+    rport = int(sys.argv[2]) if len(sys.argv) >= 3 else 1337
+    cport = int(sys.argv[3]) if len(sys.argv) >= 4 else 8128
+    connect(host, rport, cport)
 
 if __name__ == '__main__':
     main()

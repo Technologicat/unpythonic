@@ -110,7 +110,7 @@ remote tab completion).
 # TODO: support several server instances? (makes sense if each is connected to a different module)
 # TODO: helper magic function macros() to list currently enabled macros (in imacropy?)
 
-__all__ = ["start", "stop", "doc", "server_print", "halt"]
+__all__ = ["start", "stop"]  # Exports for code that wants to embed the server.
 
 try:
     import ctypes
@@ -167,12 +167,11 @@ _threadlocal_stderr = ThreadLocalBox(_original_stderr)
 _console_locals_namespace = None
 _banner = None
 
-def doc(obj):
-    """Print an object's docstring, non-interactively.
+# --------------------------------------------------------------------------------
+# Exports for REPL sessions
 
-    This works around the lack of a working interactive `help()`
-    in the REPL session.
-    """
+def doc(obj):
+    """Print an object's docstring, non-interactively, but emulate help's dedenting."""
     if not hasattr(obj, "__doc__") or not obj.__doc__:
         print("<no docstring>")
         return
@@ -187,16 +186,11 @@ def doc(obj):
 
 # TODO: detect stdout, stderr and redirect to the appropriate stream.
 def server_print(*values, **kwargs):
-    """Print to the original stdout of the server process.
-
-    This function is available in the REPL.
-    """
+    """Print to the original stdout of the server process."""
     print(*values, **kwargs, file=_original_stdout)
 
 def halt(doit=True):
     """Tell the REPL server to shut down after the last client has disconnected.
-
-    This function is available in the REPL.
 
     To cancel a pending halt, use `halt(False)`.
     """
@@ -214,7 +208,7 @@ _bg_running, _bg_success, _bg_fail = [object() for _ in range(3)]
 def bg(thunk):
     """Spawn a thread to run `thunk` in the background. Return the thread object.
 
-    To get the return value, see `fg`.
+    To get the return value of `thunk`, see `fg`.
     """
     @namelambda(thunk.__name__)
     def worker():
@@ -229,13 +223,13 @@ def bg(thunk):
     thread.start()
     return thread
 
-# TODO: we could use a better API, but I don't want timeouts or a default value.
+# TODO: we could use a better API, but I don't want timeouts or a default return value.
 def fg(thread):
-    """Get the result of a `bg` computation.
+    """Get the return value of a `bg` thunk.
 
     `thread` is the thread object returned by `bg` when the computation was started.
 
-    If not yet completed, return `thread` itself.
+    If the thread is still running, return `thread` itself.
 
     If completed, **pop** the result. If the thread:
       - returned normally: return the value.
@@ -257,9 +251,13 @@ def fg(thread):
     assert False
 
 
-# These will be injected to the `locals` namespace of the REPL session.
+# Exports available in REPL sessions.
+# These will be injected to the `locals` namespace of the REPL session when the server starts.
 _repl_exports = {doc, server_print, halt, bg, fg}
 
+
+# --------------------------------------------------------------------------------
+# Server itself
 
 class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
     """Entry point for connections to the control server.
@@ -468,33 +466,41 @@ class ConsoleSession(socketserver.BaseRequestHandler):
             del _active_sessions[self.session_id]
 
 
-def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
+# TODO: IPv6 support
+def start(locals, bind="127.0.0.1", repl_port=1337, control_port=8128, banner=None):
     """Start the REPL server.
 
-    locals:   Namespace (dict-like) to use as the locals namespace
-              of REPL sessions that connect to this server. It is
-              shared between sessions.
+    bind:         Interface to bind to. The default value is recommended,
+                  to accept connections from the local machine only.
+    repl_port:    TCP port number for main channel (REPL session).
+    control_port: TCP port number for the control channel (tab completion
+                  and Ctrl+C requests).
 
-              A useful value is `globals()`, the top-level namespace
-              of the calling module. This is not set automatically,
-              because explicit is better than implicit.)
+    locals:       Namespace (dict-like) to use as the locals namespace
+                  of REPL sessions that connect to this server. It is
+                  shared between sessions.
 
-              Another useful value is `{}`, to have a clean environment
-              which is not directly connected to any module. In that case,
-              get modules from `sys.modules` if you need access to their
-              top-level scopes.
+                  Some useful values for `locals`:
 
-    addrspec: Server TCP address and port. This is given as a single
-              parameter for future compatibility with IPv6.
+                    - `{}`, to make a clean environment which is seen by
+                      the REPL sessions only. Maybe the most pythonic.
 
-              For the format, see the `socket` stdlib module.
+                    - `globals()`, the top-level namespace of the calling
+                      module. Can be convenient, especially if the server
+                      is started from your main module.
 
-    banner:   Startup message. Default is to show help for usage.
-              To suppress, use banner="".
+                  This is not set automatically, because explicit is
+                  better than implicit.
+
+                  In any case, note you can just grab modules from
+                  `sys.modules` if you need to access their top-level scopes.
+
+    banner:       Startup message. Default is to show help for usage.
+                  To suppress, use banner="".
 
     To connect to the REPL server (assuming default settings)::
 
-        python3 -m unpythonic.net.client localhost:1337
+        python3 -m unpythonic.net.client localhost
 
     **NOTE**: Currently, only one REPL server is supported per process,
     but it accepts multiple simultaneous connections. A new thread is
@@ -504,9 +510,6 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
     recommended to only serve to localhost, and only on a machine whose
     users you trust.
     """
-    # TODO: support IPv6
-    addr, port = addrspec
-
     global _server_instance, _console_locals_namespace
     if _server_instance is not None:
         raise RuntimeError("The current process already has a running REPL server.")
@@ -519,15 +522,18 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
     if banner is None:
         default_msg = ("Unpythonic REPL server at {addr}:{port}, on behalf of:\n"
                        "  {argv}\n"
-                       "  Top-level assignments and definitions update the session locals;\n"
-                       "  typically, these correspond to the globals of a module in the running app.\n"
-                       "    quit() or EOF (Ctrl+D) at the prompt disconnects this session.\n"
+                       "    quit(), exit() or EOF (Ctrl+D) at the prompt disconnects this session.\n"
                        "    halt() tells the server to close after the last session has disconnected.\n"
                        "    print() prints in the REPL session.\n"
                        "       NOTE: print() is only properly redirected in the session's main thread.\n"
-                       "    doc(obj) shows obj's docstring. Use this instead of help(obj).\n"
-                       "    server_print(...) prints on the stdout of the server.")
-        _banner = default_msg.format(addr=addr, port=port, argv=" ".join(sys.argv))
+                       "    doc(obj) shows obj's docstring. Use this instead of help(obj) in the REPL.\n"
+                       "    server_print(...) prints on the stdout of the server.\n"
+                       "  A very limited form of job control is available:\n"
+                       "    bg(thunk) spawns and returns a background thread that runs thunk.\n"
+                       "    fg(thread) pops the return value of a background thread.\n"
+                       "  If you stash the thread object in the REPL locals, you can disconnect the\n"
+                       "  session, and read the return value in another session later.")
+        _banner = default_msg.format(addr=bind, port=repl_port, argv=" ".join(sys.argv))
     else:
         _banner = banner
 
@@ -551,23 +557,22 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
 
     # https://docs.python.org/3/library/socketserver.html#socketserver.BaseServer.server_address
     # https://docs.python.org/3/library/socketserver.html#socketserver.BaseServer.RequestHandlerClass
-    server = ReuseAddrThreadingTCPServer((addr, port), ConsoleSession)
+    server = ReuseAddrThreadingTCPServer((bind, repl_port), ConsoleSession)
     server.daemon_threads = True  # Allow Python to exit even if there are REPL sessions alive.
     server_thread = threading.Thread(target=server.serve_forever, name="Unpythonic REPL server", daemon=True)
     server_thread.start()
 
-    # control channel for remote tab completion and remote Ctrl+C requests
-    # TODO: configurable port
-    # Default is 8128 because it's for *completing* things, and https://en.wikipedia.org/wiki/Perfect_number
-    # (This is the first one above 1024, and was already known to Nicomachus around 100 CE.)
-    cserver = ReuseAddrThreadingTCPServer((addr, 8128), ControlSession)
+    # Control channel for remote tab completion and remote Ctrl+C requests.
+    # Default port is 8128 because it's for *completing* things, and https://en.wikipedia.org/wiki/Perfect_number
+    # This is the first one above 1024, and was already known to Nicomachus around 100 CE.
+    cserver = ReuseAddrThreadingTCPServer((bind, control_port), ControlSession)
     cserver.daemon_threads = True
-    cserver_thread = threading.Thread(target=cserver.serve_forever, name="Unpythonic REPL remote tab completion server", daemon=True)
+    cserver_thread = threading.Thread(target=cserver.serve_forever, name="Unpythonic REPL control server", daemon=True)
     cserver_thread.start()
 
     _server_instance = (server, server_thread, cserver, cserver_thread)
     atexit.register(stop)
-    return addr, port
+    return bind, repl_port, control_port
 
 
 def stop():
@@ -605,8 +610,8 @@ def stop():
 # demo app
 def main():
     server_print("REPL server starting...")
-    addr, port = start(locals=globals())
-    server_print("Started REPL server on {}:{}.".format(addr, port))
+    bind, repl_port, control_port = start(locals={})
+    server_print("Started REPL server on {}:{}.".format(bind, repl_port))
     try:
         while True:
             time.sleep(1)
