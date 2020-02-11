@@ -158,7 +158,6 @@ def connect(host, repl_port, control_port):
     try:
         # First handshake on control channel to get prompt information.
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as csock:  # control channel (remote tab completion, remote Ctrl+C)
-            # TODO: configurable control port
             csock.connect((host, control_port))  # TODO: IPv6 support
             controller = ControlClient(csock)
 
