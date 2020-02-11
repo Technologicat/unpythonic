@@ -125,6 +125,7 @@ import time
 import socketserver
 import atexit
 from textwrap import dedent
+from itertools import count
 
 try:
     # macro-enabled console with imacropy semantics
@@ -155,7 +156,7 @@ except AttributeError:
 
 _server_instance = None
 _active_sessions = {}
-_session_counter = 0  # for generating session ids, needed for pairing control and REPL sessions.
+_session_counter = count(start=1)  # for generating session ids, needed for pairing control and REPL sessions.
 _halt_pending = False
 _original_stdin = sys.stdin
 _original_stdout = sys.stdout
@@ -357,9 +358,7 @@ class ConsoleSession(socketserver.BaseRequestHandler):
 
         try:
             # for control/REPL pairing
-            global _session_counter
-            _session_counter += 1
-            self.session_id = _session_counter
+            self.session_id = next(_session_counter)
             _active_sessions[self.session_id] = self  # also for exit monitoring
 
             # self.request is the socket. We don't need a StreamRequestHandler with self.rfile and self.wfile,
