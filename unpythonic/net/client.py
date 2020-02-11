@@ -348,7 +348,7 @@ def connect(addrspec):
 # https://docs.python.org/3/library/socket.html#example
 def main():
     if len(sys.argv) != 2:
-        print(f"USAGE: {sys.argv[0]} host:port")
+        print("USAGE: {} host:port".format(sys.argv[0]))
         sys.exit(255)
     host, port = sys.argv[1].split(":")
     port = int(port)

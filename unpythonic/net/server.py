@@ -139,7 +139,7 @@ except ModuleNotFoundError:
         from code import InteractiveConsole as Console
 
 from ..collections import ThreadLocalBox, Shim
-from ..misc import async_raise
+from ..misc import async_raise, namelambda
 
 from .util import ReuseAddrThreadingTCPServer, socketsource
 from .msg import MessageDecoder
@@ -167,9 +167,6 @@ _threadlocal_stderr = ThreadLocalBox(_original_stderr)
 _console_locals_namespace = None
 _banner = None
 
-# TODO: inject this to globals of the target module
-#   - Maybe better to inject just a single "repl" container which has this and
-#     the other stuff, and print out at connection time where to find this stuff.
 def doc(obj):
     """Print an object's docstring, non-interactively.
 
@@ -196,7 +193,6 @@ def server_print(*values, **kwargs):
     """
     print(*values, **kwargs, file=_original_stdout)
 
-# TODO: inject this to globals of the target module
 def halt(doit=True):
     """Tell the REPL server to shut down after the last client has disconnected.
 
@@ -212,6 +208,57 @@ def halt(doit=True):
     _halt_pending = doit
     print(msg)
     server_print(msg)
+
+_bg_results = {}
+_bg_running, _bg_success, _bg_fail = [object() for _ in range(3)]
+def bg(thunk):
+    """Spawn a thread to run `thunk` in the background. Return the thread object.
+
+    To get the return value, see `fg`.
+    """
+    @namelambda(thunk.__name__)
+    def worker():
+        _bg_results[thread.ident] = (_bg_running, None)
+        try:
+            result = thunk()
+        except Exception as err:
+            _bg_results[thread.ident] = (_bg_fail, err)
+        else:
+            _bg_results[thread.ident] = (_bg_success, result)
+    thread = threading.Thread(target=worker, name=thunk.__name__, daemon=True)
+    thread.start()
+    return thread
+
+# TODO: we could use a better API, but I don't want timeouts or a default value.
+def fg(thread):
+    """Get the result of a `bg` computation.
+
+    `thread` is the thread object returned by `bg` when the computation was started.
+
+    If not yet completed, return `thread` itself.
+
+    If completed, **pop** the result. If the thread:
+      - returned normally: return the value.
+      - raised an exception: raise that exception.
+    """
+    if "ident" not in thread:
+        raise TypeError("Expected a Thread object, got {} with value {}.".format(type(thread), thread))
+    if thread.ident not in _bg_results:
+        raise ValueError("No result for thread {}".format(thread))
+    # This pattern is very similar to that used by unpythonic.fun.memoize...
+    status, value = _bg_results[thread.ident]
+    if status is _bg_running:
+        return thread
+    _bg_results.pop(thread.ident)
+    if status is _bg_success:
+        return value
+    elif status is _bg_fail:
+        raise value
+    assert False
+
+
+# These will be injected to the `locals` namespace of the REPL session.
+_repl_exports = {doc, server_print, halt, bg, fg}
 
 
 class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
@@ -465,6 +512,8 @@ def start(locals, addrspec=("127.0.0.1", 1337), banner=None):
         raise RuntimeError("The current process already has a running REPL server.")
 
     _console_locals_namespace = locals
+    for function in _repl_exports:  # Inject REPL utilities
+        _console_locals_namespace[function.__name__] = function
 
     global _banner
     if banner is None:
