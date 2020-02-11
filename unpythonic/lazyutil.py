@@ -21,7 +21,23 @@ def _init_module():  # called by unpythonic.__init__ when otherwise done
     _init_done = True
 
 try:  # MacroPy is optional for unpythonic
-    from macropy.quick_lambda import Lazy
+    # This bug was REALLY hard to track down, so let's document:
+    #  - In MacroPy, there's a thing called `macropy.core.macros.injected_vars`, which holds
+    #    constructors for `self.file_vars` for an `ExpansionContext`.
+    #  - Constructors are registered to it using the decorator `macropy.util.register(injected_vars)`.
+    #  - Registrations occur in the order the constructor function definitions are encountered.
+    #  - Some constructors may depend on having others available via the **kw mechanism (at least
+    #    some of the **kws actually come from the `self.file_vars` of the expansion context).
+    #  - Specifically, `interned_name` (from quick_lambda) requires `gen_sym` to have been defined first.
+    #  - But if we import `quick_lambda` before other MacroPy modules, `interned_name` will get
+    #    registered before `gen_sym`, raising a mysterious error:
+    #        TypeError: interned_name() missing 1 required positional argument: 'gen_sym'
+    #  - This occurs when MacroPy tries to instantiate `interned_name` for a `ModuleExpansionContext`.
+    #  - That happens implicitly when we `import macropy.activate` (somewhere much later),
+    #    because `activate` itself imports `failure`, which uses `hquotes`, which happens to use macros.
+    #  - So to be safe, **always import macropy.activate first**, before other MacroPy modules.
+    import macropy.activate  # noqa: F401, we only import it first so MacroPy boots up correctly.
+    from macropy.quick_lambda import Lazy  # This is what we actually need here.
 except ImportError:
     class Lazy:
         pass

@@ -108,11 +108,7 @@ remote tab completion).
 
 # TODO: use logging module instead of server-side print
 # TODO: support several server instances? (makes sense if each is connected to a different module)
-# TODO: support syntactic macros
-#   TODO: macro expander
-#   TODO: per-session macro definitions like in imacropy
-#   TODO: import macro stubs for inspection like in imacropy
-#   TODO: helper magic function macros() to list currently enabled macros
+# TODO: helper magic function macros() to list currently enabled macros (in imacropy?)
 
 __all__ = ["start", "stop", "doc", "server_print", "halt"]
 
@@ -121,7 +117,6 @@ try:
 except ImportError:
     ctypes = None
 
-import code
 import rlcompleter  # yes, just rlcompleter without readline; backend for remote tab completion.
 import threading
 import sys
@@ -130,6 +125,17 @@ import time
 import socketserver
 import atexit
 from textwrap import dedent
+
+try:
+    # macro-enabled console with imacropy semantics
+    from imacropy.console import MacroConsole as Console
+except ModuleNotFoundError:
+    try:
+        # MacroPy's own macro-enabled console
+        import macropy.activate  # noqa: F401, just needed to boot up MacroPy.
+        from macropy.core.console import MacroConsole as Console
+    except ModuleNotFoundError:
+        from code import InteractiveConsole as Console
 
 from ..collections import ThreadLocalBox, Shim
 from ..misc import async_raise
@@ -398,7 +404,7 @@ class ConsoleSession(socketserver.BaseRequestHandler):
                     if _banner != "":
                         print(_banner)
 
-                    self.console = code.InteractiveConsole(locals=_console_locals_namespace)
+                    self.console = Console(locals=_console_locals_namespace)
 
                     # All errors except SystemExit are caught inside interact().
                     try:
