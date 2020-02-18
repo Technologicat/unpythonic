@@ -124,11 +124,16 @@ import os
 import time
 import socketserver
 import atexit
-from textwrap import dedent
+import inspect
 from itertools import count
 
 try:
-    # macro-enabled console with imacropy semantics
+    from macropy.core.macros import WrappedFunction
+except ModuleNotFoundError:  # probably no MacroPy installed
+    WrappedFunction = None
+
+try:
+    # macro-enabled console with imacropy semantics and ?, ?? docstring/source viewing syntax
     from imacropy.console import MacroConsole as Console
 except ModuleNotFoundError:
     try:
@@ -170,19 +175,38 @@ _banner = None
 # --------------------------------------------------------------------------------
 # Exports for REPL sessions
 
+# This is a copy of `imacropy.doc` (from v0.3.0) with a slightly modified docstring.
+# We strictly need a local copy of this only if `imacropy` is not installed,
+# to allow viewing docstrings in the MacroPy or stdlib consoles.
 def doc(obj):
-    """Print an object's docstring, non-interactively, but emulate help's dedenting."""
+    """Print an object's docstring, non-interactively.
+
+    Additionally, if the information is available, print the filename
+    and the starting line number of the definition of `obj` in that file.
+    This is printed before the actual docstring.
+
+    This works around the problem that in a REPL session, the stdin/stdout
+    of the builtin `help()` are not properly redirected.
+
+    And that looking directly at `some_macro.__doc__` prints the string
+    value as-is, without formatting it.
+
+    NOTE: if you have the `imacropy` package installed, you can use
+    the IPython-like `obj?` and `obj??` syntax instead (provided by
+    `imacropy.console.MacroConsole`).
+    """
     if not hasattr(obj, "__doc__") or not obj.__doc__:
         print("<no docstring>")
         return
-    # Emulate help()'s dedenting. Typically, the first line in a docstring
-    # has no leading whitespace, while the rest follow the indentation of
-    # the function body.
-    firstline, *rest = obj.__doc__.split("\n")
-    rest = dedent("\n".join(rest))
-    doc = [firstline, *rest.split("\n")]
-    for line in doc:
-        print(line)
+    try:
+        if isinstance(obj, WrappedFunction):
+            obj = obj.__wrapped__  # this is needed to make inspect.getsourcefile work with macros
+        filename = inspect.getsourcefile(obj)
+        source, firstlineno = inspect.getsourcelines(obj)
+        print(f"{filename}:{firstlineno}")
+    except (TypeError, OSError):
+        pass
+    print(inspect.cleandoc(obj.__doc__))
 
 # TODO: detect stdout, stderr and redirect to the appropriate stream.
 def server_print(*values, **kwargs):
