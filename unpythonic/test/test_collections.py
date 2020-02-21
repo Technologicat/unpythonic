@@ -146,10 +146,14 @@ def test():
     assert issubclass(frozendict, Iterable)
     assert issubclass(frozendict, Sized)
 
+    # Pickling tests
     d1 = frozendict({1: 2, 3: 4, "somekey": "somevalue"})
-    d2 = loads(dumps(d1))  # pickling
+    d2 = loads(dumps(d1))
     assert d2 == d1
 
+    # We need a test case which has *several* frozendict instances,
+    # and also an empty one, to be certain __new__ isn't just returning
+    # the global supposed-to-be-empty instance.
     fd1 = frozendict({'a': 1, 'b': 2})
     fd2 = frozendict({'c': 3, 'd': 4})
     fd3 = frozendict()
