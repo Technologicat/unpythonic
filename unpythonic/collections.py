@@ -334,7 +334,7 @@ class frozendict:
 
     Just like for ``tuple`` and ``frozenset``, the empty ``frozendict`` is a
     singleton; each no-argument call ``frozendict()`` will return the same object
-    instance. (But don't pickle it; it is freshly created in each session).
+    instance.
 
     In terms of ``collections.abc``, a ``frozendict`` is a ``Container``,
     ``Hashable``, ``Iterable``, ``Mapping`` and ``Sized``.

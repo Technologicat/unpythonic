@@ -422,7 +422,7 @@ Finally, ``frozendict`` obeys the empty-immutable-container singleton invariant:
 assert frozendict() is frozendict()
 ```
 
-...but don't pickle the empty ``frozendict`` and expect this invariant to hold; it's freshly created in each session.
+*Changed in 0.14.2.* [A bug in `frozendict` pickling](https://github.com/Technologicat/unpythonic/issues/55) has been fixed. Now also the empty `frozendict` pickles and unpickles correctly.
 
 
 ### `cons` and friends: pythonic lispy linked lists
