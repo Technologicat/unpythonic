@@ -351,6 +351,19 @@ class frozendict:
             return _the_empty_frozendict
         return super().__new__(cls)  # object() takes no args, but we need to see them
 
+    # Pickling support.
+    # https://github.com/Technologicat/unpythonic/issues/55
+    # https://docs.python.org/3/library/pickle.html#object.__getnewargs_ex__
+    # https://docs.python.org/3/library/pickle.html#object.__getnewargs__
+    def __getnewargs__(self):
+        if self is not _the_empty_frozendict:
+            # In our case it doesn't matter what the value is, as long as there is one,
+            # because `__new__` uses the *presence* of any args to know the instance is
+            # nonempty, and hence an instance should actually be created instead of
+            # just returning the empty singleton frozendict.
+            return ("nonempty",)
+        return ()
+
     def __init__(self, *ms, **bindings):
         """Arguments:
 
