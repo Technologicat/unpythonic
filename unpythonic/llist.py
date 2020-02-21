@@ -245,7 +245,7 @@ class cons:
         except TypeError:
             result = (repr(self.car), repr(self.cdr))
             return "cons({})".format(", ".join(result))
-    def lispyrepr(self):
+    def lispyrepr(self):  # TODO: maybe rename or alias this to `__str__`?
         """Representation in Lisp-like dot notation."""
         try:
             result = [repr(x) for x in LinkedListIterator(self, _fullerror=False)]
