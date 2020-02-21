@@ -150,6 +150,14 @@ def test():
     d2 = loads(dumps(d1))  # pickling
     assert d2 == d1
 
+    fd1 = frozendict({'a': 1, 'b': 2})
+    fd2 = frozendict({'c': 3, 'd': 4})
+    fd3 = frozendict()
+    data = [fd1, fd2, fd3]
+    s = dumps(data)
+    o = loads(s)
+    assert o == data
+
     # writable live view for sequences
     # (when you want to be more imperative than Python allows)
     lst = list(range(5))
