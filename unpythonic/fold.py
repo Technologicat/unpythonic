@@ -15,7 +15,8 @@ __all__ = ["scanl", "scanr", "scanl1", "scanr1",
            "foldl", "foldr", "reducel", "reducer",
            "rscanl", "rscanl1", "rfoldl", "rreducel",  # reverse each input, then left-scan/fold
            "unfold", "unfold1",
-           "prod"]
+           "prod",
+           "running_minmax", "minmax"]
 
 from functools import partial
 from itertools import zip_longest
@@ -350,5 +351,50 @@ def unfold(proc, *inits):
 #    return mapr(identity, *iterables)
 
 def prod(iterable, start=1):
-    """Like the builtin sum, but compute the product."""
+    """Like the builtin sum, but compute the product.
+
+    This is a fold operation.
+    """
     return reducel(mul, iterable, init=start)
+
+def running_minmax(iterable):
+    """Return a generator extracting a running `(min, max)` from `iterable`.
+
+    The iterable is iterated just once.
+
+    If `iterable` is empty, an empty iterator is returned.
+
+    We assume iterable contains no NaNs, and that all elements in `iterable`
+    are comparable using `<` and `>`. Suggest filtering accordingly before
+    calling this.
+
+    This is a scan operation.
+    """
+    it = iter(iterable)
+    try:
+        first = next(it)
+    except StopIteration:  # behave like `unpack` and `window` on empty input
+        def empty_iterable():
+            yield from ()
+        return empty_iterable()
+    def mm(elt, acc):
+        a, b = acc
+        if elt < a:
+            a = elt
+        if elt > b:
+            b = elt
+        return a, b
+    return scanl(mm, (first, first), it)
+
+def minmax(iterable):
+    """Extract `(min, max)` from `iterable`, iterating it just once.
+
+    If `iterable` is empty, return `(None, None)`.
+
+    We assume iterable contains no NaNs, and that all elements in `iterable`
+    are comparable using `<` and `>`. Suggest filtering accordingly before
+    calling this.
+
+    This is a fold operation.
+    """
+    return last(running_minmax(iterable), default=(None, None))

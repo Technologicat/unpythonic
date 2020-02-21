@@ -5,7 +5,7 @@ from functools import partial
 
 from ..fold import scanl, scanr, scanl1, scanr1, rscanl, \
                    foldl, foldr, reducel, reducer, rfoldl, \
-                   unfold, unfold1, prod
+                   unfold, unfold1, prod, running_minmax, minmax
 from ..fun import curry, composer, composerc, composel, to1st, rotate
 from ..llist import cons, nil, ll, lreverse
 from ..it import take, tail
@@ -184,7 +184,13 @@ def test():
     assert tuple(take(5, unfold(myiterate, lambda x: x**2, 2))) == (2, 4, 16, 256, 65536)
     assert tuple(unfold(zip_two, (1, 2, 3, 4), (5, 6, 7))) == ((1, 5), (2, 6), (3, 7))
 
+    # Product. Missing battery, considering stdlib has sum().
     assert prod((2, 3, 4)) == 24
+
+    # Extract both min and max in one pass over an iterable.
+    assert tuple(running_minmax((1, 2, 3))) == ((1, 1), (1, 2), (1, 3))
+    assert tuple(running_minmax((3, 2, 1))) == ((3, 3), (2, 3), (1, 3))
+    assert minmax((1, 2, 3)) == (1, 3)
 
     print("All tests PASSED")
 
