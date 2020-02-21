@@ -118,7 +118,15 @@ def test():
 
     l = ll(1, 2, 3)
     k = loads(dumps(l))
-    # should iterate without crashing, since the nil is refreshed.
+    # Should iterate without crashing, since upon unpickling, the pickled nil singleton
+    # translates to our nil singleton.
+    #
+    # (Remember `pickle` doesn't save class definitions; what it saves is that there
+    #  was a reference to `unpythonic.llist.nil`, which was an instance of a class named
+    #  `unpythonic.llist.Nil`. Unpickling will re-create the saved `nil` instance by
+    #  calling `Nil.__new__` and then loading the instance data into it. In this case,
+    #  `Nil.__new__` just returns the singleton instance already created for the current
+    #  session, and there's no instance data to load.)
     assert tuple(k) == (1, 2, 3)
 
     # cons structures are immutable (because cons cells are),

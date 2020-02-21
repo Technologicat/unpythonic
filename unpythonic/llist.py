@@ -32,13 +32,18 @@ _exports = ["cons", "nil",
 #_exports.extend(_c4r)
 __all__ = _exports
 
-# Singleton, but we need the class and instance name to be separate so that we
-# can correctly unpickle cons structures, which use a different nil instance
-# (from an earlier session).
+# For another example of this variant of the singleton pattern, with less
+# confusing names, see `unpythonic.collections.frozendict`.
+nil = None  # placeholder
 class Nil:
-    """The empty linked list.
-
-    Singleton; use the value ``nil``, don't instantiate a new one."""
+    """The empty linked list. Singleton."""
+    # Defining __new__ like this lets us Nil() to our heart's content.
+    # Only the first time actually creates an instance.
+    def __new__(cls):
+        global nil
+        if nil is None:  # not created yet
+            nil = super().__new__(cls)
+        return nil
     # support the iterator protocol so we can say tuple(nil) --> ()
     def __iter__(self):
         return self
@@ -46,7 +51,7 @@ class Nil:
         raise StopIteration()
     def __repr__(self):
         return "nil"
-nil = Nil()
+nil = Nil()  # actually initialized here
 
 class ConsIterator(metaclass=ABCMeta):
     """Abstract base class for iterators operating on cons cells.
@@ -223,14 +228,6 @@ class cons:
         if hasattr(self, "_immutable"):
             raise TypeError("'cons' object does not support item assignment")
         super().__setattr__(k, v)
-    def __setstate__(self, state):  # pickle support
-        # Upon unpickling, refresh any "nil" instances to point to the
-        # current nil singleton, so that "c.car is nil" and "c.cdr is nil"
-        # work as expected.
-        for k in ("car", "cdr"):
-            if isinstance(state[k], Nil):
-                state[k] = nil
-        self.__dict__ = state
     def __iter__(self):
         """Return iterator with default iteration scheme: single cell or list."""
         return LinkedListOrCellIterator(self)
