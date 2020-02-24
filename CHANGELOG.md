@@ -47,6 +47,7 @@ If you still use 3.4 and find something in `unpythonic` doesn't work there, plea
 - Fix bug in `identity` and `const` with zero args (#7).
 - Use standard Python semantics for negative indices (#6).
 - Escape continuation analysis in `unpythonic.syntax.util` now interprets also the literal name `throw` as invoking an escape continuation.
+- Fix pickling of `frozendict` (#55).
 
 ---
 
