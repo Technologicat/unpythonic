@@ -132,7 +132,8 @@ except ModuleNotFoundError:  # probably no MacroPy installed
     WrappedFunction = None
 
 try:
-    # macro-enabled console with imacropy semantics and ?, ?? docstring/source viewing syntax
+    # Improved macro-enabled console. Imacropy semantics; ?, ?? docstring/source viewing syntax;
+    # improved handling of macro import errors; can reload macros and re-establish macro bindings.
     from imacropy.console import MacroConsole as Console
 except ModuleNotFoundError:
     try:
