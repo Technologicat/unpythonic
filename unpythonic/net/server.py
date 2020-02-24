@@ -108,7 +108,6 @@ remote tab completion).
 
 # TODO: use logging module instead of server-side print
 # TODO: support several server instances? (makes sense if each is connected to a different module)
-# TODO: helper magic function macros() to list currently enabled macros (in imacropy?)
 
 __all__ = ["start", "stop"]  # Exports for code that wants to embed the server.
 
