@@ -1,6 +1,8 @@
 # Unpythonic: Python meets Lisp and Haskell
 
-In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some Haskellisms mixed in. We extend the language with a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros). We emphasize **clear, pythonic syntax**, and **making features work together**.
+In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some Haskellisms mixed in. We extend the language with a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros). We emphasize **clear, pythonic syntax**, **making features work together**, and **obsessive correctness**.
+
+We provide also an in-process, background [REPL](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) server, which allows you to inspect and hot-patch your running Python program. (Don't worry, it's strictly opt-in.)
 
 The features are built out of, in increasing order of [magic](https://macropy3.readthedocs.io/en/latest/discussion.html#levels-of-magic):
 
@@ -13,13 +15,13 @@ This depends on the purpose of each feature, as well as ease-of-use consideratio
 ### Dependencies
 
 None required.  
-[MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macro layer.
+[MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macro layer. [imacropy](https://github.com/Technologicat/imacropy) optional, to enable the improved interactive macro REPL.
 
 ### Documentation
 
 [Pure-Python feature set](doc/features.md)  
 [Syntactic macro feature set](doc/macros.md)  
-[REPL server](doc/repl.md)  
+[REPL server](doc/repl.md): interactively hot-patch your running Python program.
 [Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.
 
 
@@ -31,73 +33,7 @@ Click each example to expand.
 
 #### Unpythonic in 30 seconds: Pure Python
 
-<details><summary>Scan, fold and unfold like a boss.</summary>
-
-[[docs](doc/features.md#batteries-for-itertools)]
-
-```python
-from operator import add
-from unpythonic import scanl, foldl, unfold, take
-
-assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
-
-def op(e1, e2, acc):
-    return acc + e1 * e2
-assert foldl(op, 0, (1, 2), (3, 4)) == 11  # we accept multiple input sequences, like Racket
-
-def nextfibo(a, b):       # *oldstates
-    return (a, b, a + b)  # value, *newstates
-assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
-```
-</details>  
-<details><summary>Experience resumable, modular error handling, a.k.a. Common Lisp style conditions.</summary>
-
-[[docs](doc/features.md#handlers-restarts-conditions-and-restarts)]
-
-```python
-from unpythonic import error, restarts, handlers, invoke, use_value, unbox
-
-class MyError(ValueError):
-    def __init__(self, value):  # We want to act on the value, so save it.
-        self.value = value
-
-def lowlevel(lst):
-    _drop = object()  # gensym/nonce
-    out = []
-    for k in lst:
-        # Provide several different error recovery strategies.
-        with restarts(use_value=(lambda x: x),
-                      halve=(lambda x: x // 2),
-                      drop=(lambda: _drop)) as result:
-            if k > 9000:
-                error(MyError(k))
-            # This is reached when no error occurs.
-            # `result` is a box, send k into it.
-            result << k
-        # Now the result box contains either k,
-        # or the return value of one of the restarts. 
-        r = unbox(result)  # get the value from the box
-        if r is not _drop:
-            out.append(r)
-    return out
-
-def highlevel():
-    # Choose which error recovery strategy to use...
-    with handlers((MyError, lambda c: use_value(c.value))):
-        assert lowlevel([17, 10000, 23, 42]) == [17, 10000, 23, 42]
-
-    # ...on a per-use-site basis...
-    with handlers((MyError, lambda c: invoke("halve", c.value))):
-        assert lowlevel([17, 10000, 23, 42]) == [17, 5000, 23, 42]
-
-    # ...without changing the low-level code.
-    with handlers((MyError, lambda: invoke("drop"))):
-        assert lowlevel([17, 10000, 23, 42]) == [17, 23, 42]
-
-highlevel()
-```
-</details>  
-<details><summary>Loop functionally.</summary>
+<details><summary>Loop functionally, with tail call optimization.</summary>
 
 [[docs](doc/features.md#looped-looped_over-loops-in-fp-style-with-tco)]
 
@@ -117,6 +53,63 @@ def result(loop, i, acc):
     acc.append(lambda x: i * x)  # fresh "i" each time, no mutation of loop counter.
     return loop()
 assert [f(10) for f in result] == [0, 10, 20]
+```
+</details>  
+<details><summary>Interactively hot-patch your running Python program.</summary>
+
+[[docs](doc/repl.md)]
+
+To opt in, add just two lines of code to your main program:
+
+```python
+from unpythonic.net import server
+server.start()  # automatically daemonic
+
+import time
+
+def main():
+    while True:
+        time.sleep(1)
+
+if __name__ == '__main__':
+    main()
+```
+
+Or if you just want to take this for a test run, start the built-in demo app:
+
+```bash
+python3 -m unpythonic.net.server
+```
+
+Once a server is running, to connect:
+
+```bash
+python3 -m unpythonic.net.client 127.0.0.1
+```
+
+This gives you a REPL, inside your live process, with all the power of Python. You can `importlib.reload` any module, and through `sys.modules`, inspect or overwrite any name at the top level of any module. You can `pickle.dump` your data. Or do anything you want with/to the live state of your app.
+
+You can have multiple REPL sessions connected simultaneously. When your app exits (for any reason), the server automatically shuts down, closing all connections if any remain. But exiting the client leaves the server running, so you can connect again later - that's the whole point.
+
+Optionally, if you have MacroPy, the REPL sessions support importing and invoking macros. If you additionally have [imacropy](https://github.com/Technologicat/imacropy), the improved interactive macro REPL is used automatically.
+</details>  
+<details><summary>Scan, fold and unfold like a boss.</summary>
+
+[[docs](doc/features.md#batteries-for-itertools)]
+
+```python
+from operator import add
+from unpythonic import scanl, foldl, unfold, take
+
+assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
+
+def op(e1, e2, acc):
+    return acc + e1 * e2
+assert foldl(op, 0, (1, 2), (3, 4)) == 11  # we accept multiple input sequences, like Racket
+
+def nextfibo(a, b):       # *oldstates
+    return (a, b, a + b)  # value, *newstates
+assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 ```
 </details>  
 <details><summary>Allow a lambda to call itself. Name a lambda.</summary>
@@ -199,7 +192,7 @@ def primes():  # FP sieve of Eratosthenes
 assert tuple(islice(primes())[:10]) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
 ```
 </details>  
-<details><summary>Make functional updates.</summary>
+<details><summary>Functional updates.</summary>
 
 [[docs](doc/features.md#fup-functional-update-shadowedsequence)]
 
@@ -213,7 +206,7 @@ assert s == (10, 2, 10, 4, 10)
 assert t == (1, 2, 3, 4, 5)
 ```
 </details>  
-<details><summary>Use lispy data structures.</summary>
+<details><summary>Lispy data structures.</summary>
 
 [[docs for `box`](doc/features.md#box-a-mutable-single-item-container)] [[docs for `cons`](doc/features.md#cons-and-friends-pythonic-lispy-linked-lists)] [[docs for `frozendict`](doc/features.md#frozendict-an-immutable-dictionary)]
 
@@ -239,7 +232,7 @@ assert d1 == frozendict({'a': 1, 'b': 2})
 assert d2 == frozendict({'a': 4, 'b': 2, 'c': 3})
 ```
 </details>  
-<details><summary>View list slices writably, re-slicably.</summary>
+<details><summary>Live list slices.</summary>
 
 [[docs](doc/features.md#view-writable-sliceable-view-into-a-sequence)]
 
@@ -248,14 +241,14 @@ from unpythonic import view
 
 lst = list(range(10))
 v = view(lst)[::2]  # [0, 2, 4, 6, 8]
-v[2:4] = (10, 20)
+v[2:4] = (10, 20)  # re-slicable, still live.
 assert lst == [0, 1, 2, 3, 10, 5, 20, 7, 8, 9]
 
 lst[2] = 42
 assert v == [0, 42, 10, 20, 8]
 ```
 </details>  
-<details><summary>Focus on data flow in function composition.</summary>
+<details><summary>Pipes: focus on data flow in function composition.</summary>
 
 [[docs](doc/features.md#pipe-piped-lazy_piped-sequence-functions)]
 
@@ -267,12 +260,59 @@ inc    = lambda x: x + 1
 x = piped(42) | double | inc | getvalue
 assert x == 85
 ```
+</details>  
+<details><summary>Conditions: resumable, modular error handling, like in Common Lisp.</summary>
+
+[[docs](doc/features.md#handlers-restarts-conditions-and-restarts)]
+
+```python
+from unpythonic import error, restarts, handlers, invoke, use_value, unbox
+
+class MyError(ValueError):
+    def __init__(self, value):  # We want to act on the value, so save it.
+        self.value = value
+
+def lowlevel(lst):
+    _drop = object()  # gensym/nonce
+    out = []
+    for k in lst:
+        # Provide several different error recovery strategies.
+        with restarts(use_value=(lambda x: x),
+                      halve=(lambda x: x // 2),
+                      drop=(lambda: _drop)) as result:
+            if k > 9000:
+                error(MyError(k))
+            # This is reached when no error occurs.
+            # `result` is a box, send k into it.
+            result << k
+        # Now the result box contains either k,
+        # or the return value of one of the restarts. 
+        r = unbox(result)  # get the value from the box
+        if r is not _drop:
+            out.append(r)
+    return out
+
+def highlevel():
+    # Choose which error recovery strategy to use...
+    with handlers((MyError, lambda c: use_value(c.value))):
+        assert lowlevel([17, 10000, 23, 42]) == [17, 10000, 23, 42]
+
+    # ...on a per-use-site basis...
+    with handlers((MyError, lambda c: invoke("halve", c.value))):
+        assert lowlevel([17, 10000, 23, 42]) == [17, 5000, 23, 42]
+
+    # ...without changing the low-level code.
+    with handlers((MyError, lambda: invoke("drop"))):
+        assert lowlevel([17, 10000, 23, 42]) == [17, 23, 42]
+
+highlevel()
+```
 </details>
 
 
 #### Unpythonic in 30 seconds: Language extensions with macros
 
-<details><summary>Introduce expression-local variables.</summary>
+<details><summary>let: expression-local variables.</summary>
 
 [[docs](doc/macros.md#let-letseq-letrec-as-macros)]
 
@@ -289,7 +329,7 @@ z = letrec[((evenp, lambda x: (x == 0) or oddp(x - 1)),  # LET mutually RECursiv
            in evenp(42)]
 ```
 </details>  
-<details><summary>Introduce stateful functions.</summary>
+<details><summary>let-over-lambda: stateful functions.</summary>
 
 [[docs](doc/macros.md#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)]
 
@@ -303,7 +343,7 @@ assert count() == 1
 assert count() == 2
 ```
 </details>  
-<details><summary>Code imperatively in an expression.</summary>
+<details><summary>do: code imperatively in any expression position.</summary>
 
 [[docs](doc/macros.md#do-as-a-macro-stuff-imperative-code-into-an-expression-with-style)]
 
@@ -318,7 +358,7 @@ x = do[local[a << 21],
 assert x == 84
 ```
 </details>  
-<details><summary>Apply tail call optimization (TCO) automatically.</summary>
+<details><summary>Automatically apply tail call optimization (TCO), à la Scheme/Racket.</summary>
 
 [[docs](doc/macros.md#tco-automatic-tail-call-optimization-for-python)]
 
@@ -326,7 +366,7 @@ assert x == 84
 from unpythonic.syntax import macros, tco
 
 with tco:
-    # expressions are automatically analyzed to detect tail position, too.
+    # expressions are automatically analyzed to detect tail position.
     evenp = lambda x: (x == 0) or oddp(x - 1)
     oddp  = lambda x: (x != 0) and evenp(x - 1)
     assert evenp(10000) is True
@@ -350,7 +390,7 @@ with curry:
     assert mymap(double, (1, 2, 3)) == ll(2, 4, 6)
 ```
 </details>  
-<details><summary>Make lazy functions, a.k.a. call-by-need.</summary>
+<details><summary>Lazy functions, a.k.a. call-by-need.</summary>
 
 [[docs](doc/macros.md#lazify-call-by-need-for-python)]
 
@@ -367,14 +407,14 @@ with lazify:
     assert my_if(False, 1/0, 42) == 42
 ```
 </details>  
-<details><summary>Capture and use continuations (call/cc).</summary>
+<details><summary>Genuine multi-shot continuations (call/cc).</summary>
 
 [[docs](doc/macros.md#continuations-callcc-for-python)]
 
 ```python
 from unpythonic.syntax import macros, continuations, call_cc
 
-with continuations:  # automatically enables also TCO
+with continuations:  # enables also TCO automatically
     # McCarthy's amb() operator
     stack = []
     def amb(lst, cc):
@@ -393,7 +433,7 @@ with continuations:  # automatically enables also TCO
     # Pythagorean triples using amb()
     def pt():
         z = call_cc[amb(range(1, 21))]  # capture continuation, auto-populate cc arg
-        y = call_cc[amb(range(1, z+1)))]
+        y = call_cc[amb(range(1, z+1))]
         x = call_cc[amb(range(1, y+1))]
         if x*x + y*y != z*z:
             return fail()
