@@ -1,23 +1,30 @@
-**0.14.2** (in progress; updated 22 February 2020) - *"Greenspun" [edition](https://en.wikipedia.org/wiki/Greenspun%27s_tenth_rule)*:
+**0.14.2** (in progress; updated 24 February 2020) - *"Greenspun" [edition](https://en.wikipedia.org/wiki/Greenspun%27s_tenth_rule)*:
 
-I think that with the arrival of [conditions and restarts](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html), it is now fair to say `unpythonic` contains an ad-hoc, informally-specified, slow implementation of half of Common Lisp. To avoid *bug-ridden*, we have tests - but it's not entirely impossible for some to have slipped through.
+With the arrival of [conditions and restarts](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html), and a [REPL](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) server, I think it is now fair to say `unpythonic` contains an ad-hoc, informally-specified, slow implementation of half of Common Lisp. To avoid *bug-ridden*, we have tests - but it's not entirely impossible for some to have slipped through. If you find one, please file an issue [in the tracker](https://github.com/Technologicat/unpythonic/issues).
 
-This release welcomes the first external contribution. Thanks to @aisha-w for the much improved organization and presentation of the documentation!
+This release welcomes the first external contribution! Thanks to @aisha-w for the much improved organization and presentation of the documentation!
 
 **Language version**:
+
+We target **Python 3.6**. Now we test on both **CPython** and **PyPy3**.
 
 Rumors of the demise of Python 3.4 support are exaggerated. While the testing of `unpythonic` has moved to 3.6, there neither is nor will there be any active effort to intentionally drop 3.4 support until `unpythonic` reaches 0.15.0.
 
 That is, support for 3.4 will likely be dropped with the arrival of the next batch of breaking changes. The current plan is visible in the roadmap [as the 0.15.0 milestone](https://github.com/Technologicat/unpythonic/milestone/1).
 
-If you still use 3.4 and find something in `unpythonic` doesn't work there, please file an issue.
+If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.x doesn't work there, please file an issue. (Support for 0.14.x will end once 0.15 is released, but not before.)
 
 **New**:
 
 - Improve organization and presentation of documentation (#28).
 - Macro README: Emacs syntax highlighting for `unpythonic.syntax` and MacroPy.
+- **Resumable exceptions**, a.k.a. *conditions and restarts*. One of the famous killer features of Common Lisp. Drawing inspiration from [python-cl-conditions](https://github.com/svetlyak40wt/python-cl-conditions/) by Alexander Artemenko. See `with restarts` (`RESTART-CASE`), `with handlers` (`HANDLER-BIND`), `signal` (`SIGNAL`), `invoke` (`INVOKE-RESTART`). Many convenience forms are also exported; see `unpythonic.conditions` for a full list. For an introduction to conditions, see [Chapter 19 in Practical Common Lisp by Peter Seibel](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html).
+- **REPL server** and client. Interactively hot-patch your running Python program! Another of the famous killer features of Common Lisp. The server is daemonic, listening for connections in a background thread. (Don't worry, it's strictly opt-in.) See `unpythonic.net.server` and `unpythonic.net.client`.
+- *Batteries for network programming*:
+  - `unpythonic.net.msg`: A simplistic message protocol for sending message data over a stream-based transport (such as TCP).
+  - `unpythonic.net.ptyproxy`: Proxy between a Linux [PTY](https://en.wikipedia.org/wiki/Pseudoterminal) and a network socket. Useful for serving terminal utilities over the network. This doesn't use `pty.spawn`, so Python libraries that expect to run in a terminal are also welcome. See `unpythonic.net.server` for a usage example.
+  - `unpythonic.net.util`: Miscellaneous small utilities.
 - `fix`: Break infinite recursion cycles (for pure functions). Drawing inspiration from original implementations by [Matthew Might](http://matt.might.net/articles/parsing-with-derivatives/) and [Per Vognsen](https://gist.github.com/pervognsen/8dafe21038f3b513693e).
-- *Resumable exceptions*, a.k.a. conditions and restarts. One of the famous killer features of Common Lisp. Drawing inspiration from [python-cl-conditions](https://github.com/svetlyak40wt/python-cl-conditions/) by Alexander Artemenko. See `with restarts` (`RESTART-CASE`), `with handlers` (`HANDLER-BIND`), `signal` (`SIGNAL`), `invoke` (`INVOKE-RESTART`). Many convenience forms are also exported; see `unpythonic.conditions` for a full list. For an introduction to conditions, see [Chapter 19 in Practical Common Lisp by Peter Seibel](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html).
 - More batteries for itertools:
   - `fixpoint`: Arithmetic fixed-point finder (not to be confused with `fix`).
   - `within`: Yield items from iterable until successive iterates are close enough (useful with [Cauchy sequences](https://en.wikipedia.org/wiki/Cauchy_sequence)).
@@ -32,9 +39,12 @@ If you still use 3.4 and find something in `unpythonic` doesn't work there, plea
   - `map`: Curry-friendly thin wrapper for the builtin `map`, making it mandatory to specify at least one iterable.
   - `running_minmax`, `minmax`: Extract both min and max in one pass over an iterable. The `running_` variant is a scan and returns a generator; the just-give-me-the-final-result variant is a fold.
 - `ulp`: Given a float `x`, return the value of the unit in the last place (the "least significant bit"). At `x = 1.0`, this is the [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon), by definition of the machine epsilon.
-- `dyn` now supports rebinding, using the assignment syntax `dyn.x = 42`. For an atomic mass update, see `dyn.update`.
+- `dyn` now supports rebinding, using the assignment syntax `dyn.x = 42`. To mass-update atomically, see `dyn.update`.
 - `box` now supports `.set(newvalue)` to rebind (returns the new value as a convenience), and `unbox(b)` to extract contents. Syntactic sugar for rebinding is `b << newvalue` (where `b` is a box).
+- `ThreadLocalBox`: A box with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.
+- `Shim`: A shim holds a `box` or a `ThreadLocalBox`, and redirects attribute accesses to whatever object is currently in the box.
 - `islice` now supports negative start and stop. (**Caution**: no negative step; and it must consume the whole iterable to determine where it ends, if at all.)
+- `async_raise`: Inject KeyboardInterrupt into an arbitrary thread. (*CPython only*.)
 
 **Non-breaking changes**:
 
