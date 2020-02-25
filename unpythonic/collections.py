@@ -253,8 +253,6 @@ class ThreadLocalBox(box):
     def __iter__(self):
         self._ensure_x()
         return (x for x in (self.storage.x,))
-    def __len(self):
-        return 1
     def __eq__(self, other):
         self._ensure_x()
         return other == self.storage.x
