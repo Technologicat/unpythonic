@@ -1,4 +1,4 @@
-Copyright (c) 2018-2019, Juha Jeronen, Tampere University of Technology
+Copyright (c) 2018-2020, Juha Jeronen, Tampere University of Technology
 and University of Jyväskylä. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
