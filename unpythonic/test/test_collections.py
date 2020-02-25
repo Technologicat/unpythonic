@@ -358,6 +358,26 @@ def test():
     assert v2 == [4, 6]
     assert lst == [1, 2, 3]
 
+    # mogrify a thread-local box
+    def runtest():
+        b = ThreadLocalBox(17)
+        def threadtest1():
+            mogrify(double, b)
+            assert unbox(b) == 34  # thread-local value affected
+        t1 = threading.Thread(target=threadtest1, args=(), kwargs={})
+        t1.start()
+        t1.join()
+        assert unbox(b) == 17  # value in main thread not affected
+
+        b << 42  # set new contents in main thread only; default value (given at construction time) not changed
+        def threadtest2():
+            assert unbox(b) == 17
+        t2 = threading.Thread(target=threadtest2, args=(), kwargs={})
+        t2.start()
+        t2.join()
+        assert unbox(b) == 42
+    runtest()
+
     print("All tests PASSED")
 
 if __name__ == '__main__':
