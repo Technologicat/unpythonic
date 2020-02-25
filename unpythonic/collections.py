@@ -106,8 +106,8 @@ def mogrify(func, container):
             x.clear()
             x.update(y)
             return x
-        elif isinstance(x, box):
-            x.x = doit(x.x)  # unfortunate attr name :)
+        elif isinstance(x, (box, ThreadLocalBox)):
+            x.set(doit(x.get()))
             return x
         # immutable containers
         elif isinstance(x, cons):
