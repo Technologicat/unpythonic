@@ -49,8 +49,8 @@
     - Docstrings, comments and blanks don't count towards SLOC. The included `countlines.py` is what I've used for measurement.
 
 - **Test aggressively.**
- - Beside guarding against [regressions](https://en.wikipedia.org/wiki/Software_regression), automated tests also serve as documentation (possibly with useful comments).
- - Write tests for each module (unit), as well as any relevant interactions between features (integration).
+  - Beside guarding against [regressions](https://en.wikipedia.org/wiki/Software_regression), automated tests also serve as documentation (possibly with useful comments).
+  - Write tests for each module (unit), as well as any relevant interactions between features (integration).
 
 - **Document aggressively.**
   - *Useful* docstrings for public API functions are mandatory in release-worthy code.
