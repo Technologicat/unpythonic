@@ -65,6 +65,9 @@ def namedlambda(block_body):
             return False
         return type(tree.args[-1].args[-1]) is Lambda
 
+    def iscallwithnamedargs(tree):
+        return type(tree) is Call and tree.keywords
+
     def nameit(myname, tree):
         match, thelambda = False, None
         # for decorated lambdas, match any chain of one-argument calls.
@@ -115,6 +118,24 @@ def namedlambda(block_body):
                 thelambda.body = rec(thelambda.body)
             else:
                 tree.value = rec(tree.value)
+        elif iscallwithnamedargs(tree):  # foo(f=lambda: ...)
+            # TODO: support also dictionary unpacking in calls, take names from dictionary keys.
+            stop()
+            for kw in tree.keywords:
+                if kw.arg is None:  # **kwargs in Python 3.5+
+                    kw.value = rec(kw.value)
+                    continue
+                # a single named arg
+                kw.value, thelambda, match = nameit(kw.arg, kw.value)
+                if match:
+                    thelambda.body = rec(thelambda.body)
+                else:
+                    kw.value = rec(kw.value)
+            tree.args = rec(tree.args)
+            if hasattr(tree, "starargs"):  # Python 3.4
+                tree.starargs = rec(tree.starargs)
+            if hasattr(tree, "kwargs"):  # Python 3.4
+                tree.kwargs = rec(tree.kwargs)
         return tree
 
     rec = transform.recurse

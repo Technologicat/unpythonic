@@ -573,6 +573,12 @@ with namedlambda:
     assert gn == "g"
     assert hn == "f"
 
+    def foo(func1, func2):
+        assert func1.__name__ == "func1"
+        assert func2.__name__ == "func2"
+    foo(func1=lambda x: x**2,  # function call with named arg: name as "func1"
+        func2=lambda x: x**2)  # function call with named arg: name as "func2"
+
     foo = let[(f7, lambda x: x) in f7]       # let-binding: name as "f7"
 ```
 
@@ -590,6 +596,8 @@ The naming is performed using the function ``unpythonic.misc.namelambda``, which
 
  - Let bindings, ``let[(f, (lambda ...: ...)) in ...]``, using any let syntax supported by unpythonic (here using the haskelly let-in just as an example).
  - Env-assignments are processed lexically, just like regular assignments.
+
+ - **Added in v0.14.2**: Named argument in a function call. (No dictionary unpacking for now.)
 
 Support for other forms of assignment may or may not be added in a future version.
 
