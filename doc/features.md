@@ -2850,6 +2850,8 @@ assert getattrrec(w, "x") == 23
 
 ### ``arities``, ``kwargs``: Function signature inspection utilities
 
+*Added in v0.14.2*: `resolve_bindings`. Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.
+
 Convenience functions providing an easy-to-use API for inspecting a function's signature. The heavy lifting is done by ``inspect``.
 
 Methods on objects and classes are treated specially, so that the reported arity matches what the programmer actually needs to supply when calling the method (i.e., implicit ``self`` and ``cls`` are ignored).
