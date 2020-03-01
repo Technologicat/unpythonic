@@ -108,7 +108,7 @@ def namedlambda(block_body):
                 thelambda.body = rec(thelambda.body)
             else:
                 view.value = rec(view.value)
-        elif issingleassign(tree):
+        elif issingleassign(tree):  # f = lambda ...: ...
             stop()
             tree.value, thelambda, match = nameit(tree.targets[0].id, tree.value)
             if match:
