@@ -1,4 +1,4 @@
-**0.14.2** (in progress; updated 24 February 2020) - *"Greenspun" [edition](https://en.wikipedia.org/wiki/Greenspun%27s_tenth_rule)*:
+**0.14.2** (in progress; updated 1 March 2020) - *"Greenspun" [edition](https://en.wikipedia.org/wiki/Greenspun%27s_tenth_rule)*:
 
 With the arrival of [conditions and restarts](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html), and a [REPL](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) server, I think it is now fair to say `unpythonic` contains an ad-hoc, informally-specified, slow implementation of half of Common Lisp. To avoid *bug-ridden*, we have tests - but it's not entirely impossible for some to have slipped through. If you find one, please file an issue [in the tracker](https://github.com/Technologicat/unpythonic/issues).
 
@@ -49,8 +49,11 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
 **Non-breaking changes**:
 
 - `setescape`/`escape` have been renamed `catch`/`throw`, to match the standard terminology in the Lisp family. **The old nonstandard names are now deprecated, and will be removed in 0.15.0.**
-- The `dbg[]` macro now works in the REPL, too.
+- The parameters of `raisef` are now more pythonic, just the object `exc` and an optional keyword-only `cause`. **Old-style parameters are now deprecated, and will be removed in 0.15.0.** See [#30](https://github.com/Technologicat/unpythonic/issues/30).
+- The `dbg[]` macro now works in the REPL, too. See [#12](https://github.com/Technologicat/unpythonic/issues/12).
+- The `namedlambda` block macro now names lambdas passed as named arguments of function calls, too. See [#40](https://github.com/Technologicat/unpythonic/issues/40).
 - Move macro documentation to `doc/macros.md`. (Was `macro_extras/README.md`.)
+- Add contribution guidelines, `HACKING.md`.
 
 **Fixed**:
 
