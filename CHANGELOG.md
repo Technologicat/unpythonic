@@ -49,6 +49,7 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
 **Non-breaking changes**:
 
 - `setescape`/`escape` have been renamed `catch`/`throw`, to match the standard terminology in the Lisp family. **The old nonstandard names are now deprecated, and will be removed in 0.15.0.**
+- The `dbg[]` macro now works in the REPL, too.
 - Move macro documentation to `doc/macros.md`. (Was `macro_extras/README.md`.)
 
 **Fixed**:
