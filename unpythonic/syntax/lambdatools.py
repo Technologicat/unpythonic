@@ -60,7 +60,7 @@ def namedlambda(block_body):
     iscurrycall = make_isxpred("currycall")
     iscurryf = orf(make_isxpred("curryf"), make_isxpred("curry"))  # auto or manual curry in a "with curry"
     def isautocurrywithfinallambda(tree):
-        if not (type(tree) is Call and isx(tree.func, iscurrycall) and tree.args and \
+        if not (type(tree) is Call and isx(tree.func, iscurrycall) and tree.args and
                 type(tree.args[-1]) is Call and isx(tree.args[-1].func, iscurryf)):
             return False
         return type(tree.args[-1].args[-1]) is Lambda
