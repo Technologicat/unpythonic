@@ -21,7 +21,7 @@ None required.
 
 [Pure-Python feature set](doc/features.md)  
 [Syntactic macro feature set](doc/macros.md)  
-[REPL server](doc/repl.md): interactively hot-patch your running Python program.
+[REPL server](doc/repl.md): interactively hot-patch your running Python program.  
 [Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.
 
 
