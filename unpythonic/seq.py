@@ -136,11 +136,17 @@ def pipe1(value0, *bodys):
         x = update(x)
     return x
 
-class getvalue:  # sentinel with a nice repr
+getvalue = None
+class Getvalue:  # singleton sentinel with a nice repr
     """Sentinel; pipe into this to exit a shell-like pipe and return the current value."""
+    def __new__(cls):
+        global getvalue
+        if getvalue is None:
+            getvalue = super().__new__(cls)
+        return getvalue
     def __repr__(self):
         return "<sentinel for pipe exit>"
-getvalue = getvalue()  # singleton
+getvalue = Getvalue()
 runpipe = getvalue  # same thing as getvalue, but semantically better name for lazy pipes
 
 class piped1:
