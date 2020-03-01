@@ -5,16 +5,16 @@ from ..arity import arities, required_kwargs, optional_kwargs, kwargs
 def test():
     _ = None  # just some no-op value
     infty = float("+inf")
-    items = (((lambda a: _),                       (1, 1)),
-             ((lambda a, b: _),                    (2, 2)),
-             ((lambda a, b, c, *args: _),          (3, infty)),
-             ((lambda *args: _),                   (0, infty)),
-             ((lambda **kwargs: _),                (0, 0)),
-             ((lambda *args, **kwargs: _),         (0, infty)),
-             ((lambda a, b, *, c: _),              (2, 2)),
-             ((lambda *, a: _),                    (0, 0)),
+    items = (((lambda a: _), (1, 1)),
+             ((lambda a, b: _), (2, 2)),
+             ((lambda a, b, c, *args: _), (3, infty)),
+             ((lambda *args: _), (0, infty)),
+             ((lambda **kwargs: _), (0, 0)),
+             ((lambda *args, **kwargs: _), (0, infty)),
+             ((lambda a, b, *, c: _), (2, 2)),
+             ((lambda *, a: _), (0, 0)),
              ((lambda a, b, *arg, c, **kwargs: _), (2, infty)),
-             ((lambda a, b=42: _),                 (1, 2)))
+             ((lambda a, b=42: _), (1, 2)))
     for f, answer in items:
         assert arities(f) == answer
 
