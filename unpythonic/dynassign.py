@@ -133,6 +133,18 @@ class Dyn(object):
             dyn = super().__new__(cls)
         return dyn
 
+    # NOTE: Pickling `dyn` makes no sense. The whole point of `dyn` is that it
+    # tracks dynamic state; in a manner of speaking, it has one foot on the
+    # call stack.
+    #
+    # But we can't prevent pickling, because MacroPy's hygienic quasiquotes (`hq[]`)
+    # build on `pickle`. If `dyn` fails to pickle, some macros in `unpythonic.syntax`
+    # (notably `autoref` and `lazify`) crash, because they need both `dyn` and `hq[]`.
+    #
+    # Fortunately, no state is saved in the `dyn` singleton instance itself, so
+    # it doesn't matter that the default `__setstate__` clobbers the `__dict__`
+    # of the singleton instance at unpickle time.
+
     def _resolve(self, name):
         # Essentially asdict() and look up, but without creating the ChainMap
         # every time _resolve() is called.
