@@ -593,9 +593,9 @@ The naming is performed using the function ``unpythonic.misc.namelambda``, which
  - Single-item assignment to a local name, ``f = lambda ...: ...``
 
  - Expression-assignment to an unpythonic environment, ``f << (lambda ...: ...)``
+   - Env-assignments are processed lexically, just like regular assignments.
 
  - Let bindings, ``let[(f, (lambda ...: ...)) in ...]``, using any let syntax supported by unpythonic (here using the haskelly let-in just as an example).
- - Env-assignments are processed lexically, just like regular assignments.
 
  - **Added in v0.14.2**: Named argument in a function call. (No dictionary unpacking for now.)
 
