@@ -43,25 +43,7 @@ def test():
     @fix(debug)
     @_logentryexit
     def f(k):
-        # In this version we pass k by name, to test kwargs handling in @fix.
-        #
-        # TODO: #26: if we instead pass k positionally in the call here, the
-        # recursion has to run for one extra time before the cycle is detected.
-        # This is because initially (when called from the assert statement
-        # below) we have args=(), kwargs={k: 0}, whereas a positional call
-        # supplies arguments in the form args=(0,), kwargs={}. So the first set
-        # of arguments that is part of a cycle then occurs when args=(1,),
-        # kwargs={}. But now that we pass by name everywhere, we find the cycle
-        # already when we arrive at args=(), kwargs={k: 0} for the second time.
-        #
-        # At some point, we need a better way to uniquely identify a set of arguments.
-        # This also affects at least @memoize and @gmemoize (grep unpythonic for "kwargs.items").
-        #
-        # This gotcha is mentioned in the documentation of @wrapt:
-        # https://wrapt.readthedocs.io/en/latest/decorators.html#processing-function-arguments
-        # (See the paragraphs beginning "If needing to modify certain arguments..." and
-        # "You should not simply attempt to extract positional arguments...")
-        return f(k=(k + 1) % 3)
+        return f(k=(k + 1) % 3)  # In this version we pass k by name, to test kwargs handling in @fix.
     assert f(k=0) is NoReturn
 
     # This example enters the infinite loop at a value of k different from the

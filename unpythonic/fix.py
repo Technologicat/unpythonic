@@ -60,6 +60,8 @@ from operator import itemgetter
 from .fun import const, memoize
 from .tco import trampolined, _jump
 from .env import env
+from .arity import resolve_bindings
+from .dynassign import dyn
 from .regutil import register_decorator
 
 _L = threading.local()
@@ -187,7 +189,8 @@ def fixtco(bottom=typing.NoReturn, memo=True):
 #         @wraps(f)
 #         def f_fix(*args, **kwargs):
 #             e = _get_threadlocals()
-#             me = (f_fix, args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
+#             with dyn.let(resolve_bindings_tuplify=True):
+#                 me = (f_fix, resolve_bindings(f, *args, **kwargs))
 #             mrproper = not e.visited  # on outermost call, scrub visited clean at exit
 #             if not e.visited or me not in e.visited:
 #                 try:
@@ -216,7 +219,8 @@ def _fix(bottom=typing.NoReturn, memo=True, *, tco):
         @wraps(f)
         def f_fix(*args, **kwargs):
             e = _get_threadlocals()
-            me = (f_fix, args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
+            with dyn.let(resolve_bindings_tuplify=True):
+                me = (f_fix, resolve_bindings(f, *args, **kwargs))
             mrproper = not e.visited  # on outermost call, scrub visited clean at exit
             if me not in e.visited:
                 try:
@@ -257,7 +261,8 @@ def _fix(bottom=typing.NoReturn, memo=True, *, tco):
             t = e.tco_stack[-1]
             v = t.target(*args, **kwargs)
             if isinstance(v, _jump):
-                you = (v.target, v.args, tuple(sorted(v.kwargs.items(), key=itemgetter(0))))
+                with dyn.let(resolve_bindings_tuplify=True):
+                    you = (v.target, resolve_bindings(v.target, *v.args, **v.kwargs))
                 if you in e.visited:  # cycle detected
                     for target in t.cleanup:
                         e.visited.remove(target)

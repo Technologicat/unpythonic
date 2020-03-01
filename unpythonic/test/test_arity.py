@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from ..arity import arities, required_kwargs, optional_kwargs, kwargs
+from collections import OrderedDict
+
+from ..arity import arities, required_kwargs, optional_kwargs, kwargs, resolve_bindings
 
 def test():
     _ = None  # just some no-op value
@@ -48,6 +50,47 @@ def test():
     # class and static methods are always unbound
     assert arities(a.classmeth) == (1, 1)
     assert arities(a.staticmeth) == (1, 1)
+
+    # resolve_bindings: resolve parameter bindings established by a function
+    # when it is called with the given args and kwargs.
+    #
+    # This is useful for memoizers and the like, to prevent spurious cache misses
+    # due to Python's flexible argument passing syntax.
+    def f(a):
+        pass
+    byposition = tuple(resolve_bindings(f, 1).items())
+    byname = tuple(resolve_bindings(f, a=1).items())
+    assert byposition == byname
+
+    def f(a=42):
+        pass
+    assert tuple(resolve_bindings(f).items()) == (("a", 42),)
+    assert tuple(resolve_bindings(f, 17).items()) == (("a", 17),)
+    assert tuple(resolve_bindings(f, a=23).items()) == (("a", 23),)
+
+    def f(a, b, c):
+        pass
+    assert tuple(resolve_bindings(f, 1, 2, 3).items()) == (("a", 1), ("b", 2), ("c", 3))
+    assert tuple(resolve_bindings(f, a=1, b=2, c=3).items()) == (("a", 1), ("b", 2), ("c", 3))
+    assert tuple(resolve_bindings(f, 1, 2, c=3).items()) == (("a", 1), ("b", 2), ("c", 3))
+    assert tuple(resolve_bindings(f, 1, c=3, b=2).items()) == (("a", 1), ("b", 2), ("c", 3))
+    assert tuple(resolve_bindings(f, c=3, b=2, a=1).items()) == (("a", 1), ("b", 2), ("c", 3))
+
+    def f(a, b, c, *args):
+        pass
+    assert tuple(resolve_bindings(f, 1, 2, 3, 4, 5).items()) == (("a", 1), ("b", 2), ("c", 3),
+                                                                 ("args", (4, 5)))
+
+    def f(a, b, c, **kw):
+        pass
+    assert tuple(resolve_bindings(f, 1, 2, 3, d=4, e=5).items()) == (("a", 1), ("b", 2), ("c", 3),
+                                                                     ("kw", OrderedDict((("d", 4), ("e", 5)))))
+
+    def f(a, b, c, *args, **kw):
+        pass
+    assert tuple(resolve_bindings(f, 1, 2, 3, 4, 5, d=6, e=7).items()) == (("a", 1), ("b", 2), ("c", 3),
+                                                                           ("args", (4, 5)),
+                                                                           ("kw", OrderedDict((("d", 6), ("e", 7)))))
 
     print("All tests PASSED")
 

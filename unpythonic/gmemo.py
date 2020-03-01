@@ -10,6 +10,8 @@ from operator import itemgetter
 from functools import wraps
 from threading import RLock
 
+from .arity import resolve_bindings
+from .dynassign import dyn
 from .regutil import register_decorator
 
 def gmemoize(gfunc):
@@ -93,7 +95,8 @@ def gmemoize(gfunc):
     memos = {}
     @wraps(gfunc)
     def gmemoized(*args, **kwargs):
-        k = (args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
+        with dyn.let(resolve_bindings_tuplify=True):
+            k = resolve_bindings(gfunc, *args, **kwargs)
         if k not in memos:
             # underlying generator instance, memo instance, lock instance
             memos[k] = (gfunc(*args, **kwargs), [], RLock())

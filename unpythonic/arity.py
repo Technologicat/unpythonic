@@ -7,11 +7,17 @@ like Racket's (arity-includes?).
 
 __all__ = ["arities", "arity_includes",
            "required_kwargs", "optional_kwargs", "kwargs",
+           "resolve_bindings",
            "UnknownArity"]
 
 from inspect import signature, Parameter
+from collections import OrderedDict
 from types import ModuleType
 import operator
+
+from .dynassign import dyn, make_dynvar
+
+make_dynvar(resolve_bindings_tuplify=False)
 
 try:  # Python 3.5+
     from operator import matmul, imatmul
@@ -290,3 +296,160 @@ def arity_includes(f, n):
     """
     l, u = arities(f)
     return l <= n <= u
+
+def resolve_bindings(f, *args, **kwargs):
+    """Resolve parameter bindings established by `f` when called with the given args and kwargs.
+
+    This is an inspection tool, which does not actually call `f`. This is useful for memoizers
+    and other similar decorators that need a canonical representation of `f`'s parameter bindings.
+
+    If you want a hashable result, set the dynvar `resolve_bindings_tuplify` via `with dyn.let`.
+    We use dyn so our own call signature is not affected by passing this option.
+
+    For illustration, consider a simplistic memoizer::
+
+        from operator import itemgetter
+
+        def memoize(f):
+            memo = {}
+            def memoized(*args, **kwargs):
+                k = (args, tuple(sorted(kwargs.items(), key=itemgetter(0))))
+                if k in memo:
+                    return memo[k]
+                memo[k] = v = f(*args, **kwargs)
+                return v
+            return memoized
+
+        @memoize
+        def f(a):
+            return 2 * a
+
+        f(42)    # --> memoized sees args = (42,), kwargs = {}
+        f(a=42)  # --> memoized sees args = (), kwargs = {"a": 42}
+
+    Even though both calls bind {"a": 42} in the body of `f`, the memoizer sees the invocations
+    differently, so its cache will miss.
+
+    This is solved by `resolve_bindings`::
+
+        from operator import itemgetter
+
+        def memoize(f):
+            memo = {}
+            def memoized(*args, **kwargs):
+                bindings = resolve_bindings(f, *args, **kwargs)  # --> {"a": 42} in either case
+                k = tuple(bindings.items())
+                if k in memo:
+                    return memo[k]
+                memo[k] = v = f(*args, **kwargs)
+                return v
+            return memoized
+
+        @memoize
+        def f(a):
+            return 2 * a
+
+        f(42)
+        f(a=42)  # now the cache hits
+    """
+    f, _ = _getfunc(f)
+    params = signature(f).parameters
+
+    # https://docs.python.org/3/library/inspect.html#inspect.Signature
+    # https://docs.python.org/3/library/inspect.html#inspect.Parameter
+    poskinds = set((Parameter.POSITIONAL_ONLY,
+                    Parameter.POSITIONAL_OR_KEYWORD))
+    kwkinds = set((Parameter.POSITIONAL_OR_KEYWORD,
+                   Parameter.KEYWORD_ONLY))
+    varkinds = set((Parameter.VAR_POSITIONAL,
+                    Parameter.VAR_KEYWORD))
+
+    index = {}
+    nposparams = 0
+    varpos = varkw = None
+    for slot, param in enumerate(params.values()):
+        if param.kind in poskinds:
+            nposparams += 1
+        if param.kind in kwkinds:
+            index[param.name] = slot
+        if param.kind == Parameter.VAR_POSITIONAL:
+            varpos = slot
+        elif param.kind == Parameter.VAR_KEYWORD:
+            varkw = slot
+
+    # https://docs.python.org/3/reference/compound_stmts.html#function-definitions
+    # https://docs.python.org/3/reference/expressions.html#calls
+    unassigned = object()  # gensym
+    slots = [unassigned for _ in range(len(params))]  # yes, varparams too
+
+    # fill from positional arguments
+    for slot, (param, value) in enumerate(zip(params.values(), args)):
+        if param.kind in varkinds:  # these are always last in the function def
+            break
+        slots[slot] = value
+
+    if varpos is not None:
+        slots[varpos] = []
+    if varkw is not None:
+        slots[varkw] = OrderedDict()
+        vkdict = slots[varkw]
+
+    # gather excess positional arguments
+    if len(args) > nposparams:
+        if varpos is None:
+            raise TypeError("{}() takes {} positional arguments but {} were given".format(f.__name__,
+                                                                                          nposparams,
+                                                                                          len(args)))
+        slots[varpos] = args[nposparams:]
+
+    # fill from keyword arguments
+    for identifier, value in kwargs.items():
+        if identifier in index:
+            slot = index[identifier]
+            if slots[slot] is unassigned:
+                slots[slot] = value
+            else:
+                raise TypeError("{}() got multiple values for argument '{}'".format(f.__name__,
+                                                                                    identifier))
+        elif varkw is not None:  # gather excess keyword arguments
+            vkdict[identifier] = value
+        else:
+            raise TypeError("{}() got an unexpected keyword argument '{}'".format(f.__name__,
+                                                                                  identifier))
+
+    # fill missing with defaults from function definition
+    failures = []
+    for slot, param in enumerate(params.values()):
+        if slots[slot] is unassigned:
+            if param.default is Parameter.empty:
+                failures.append(param.name)
+            slots[slot] = param.default
+    # Python 3.6 goes so far to make this particular error message into proper
+    # English, that aping the standard error message takes the most effort here...
+    if failures:
+        if len(failures) == 1:
+            n1 = failures[0]
+            raise TypeError("{}() missing required positional argument: '{}'".format(f.__name__, n1))
+        if len(failures) == 2:
+            n1, n2 = failures
+            raise TypeError("{}() missing 2 required positional arguments: '{}' and '{}'".format(f.__name__, n1, n2))
+        wrapped = ["'{}'".format(x) for x in failures]
+        others = ", ".join(wrapped[:-1])
+        msg = "{}() missing {} required positional arguments: {}, and '{}'".format(f.__name__,
+                                                                                   len(failures),
+                                                                                   others,
+                                                                                   failures[-1])
+        raise TypeError(msg)
+
+    # build the result
+    if dyn.resolve_bindings_tuplify and varkw is not None:
+        slots[varkw] = tuple(slots[varkw].items())
+
+    bindings = OrderedDict()
+    for param, value in zip(params.values(), slots):
+        bindings[param.name] = value
+
+    if dyn.resolve_bindings_tuplify:
+        bindings = tuple(bindings.items())
+
+    return bindings

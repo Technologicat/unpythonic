@@ -60,10 +60,11 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
 **Fixed**:
 
 - Fix initialization crash in `lazyutil` if MacroPy is not installed.
-- Fix bug in `identity` and `const` with zero args (#7).
-- Use standard Python semantics for negative indices (#6).
+- Fix bug in `identity` and `const` with zero args ([#7](https://github.com/Technologicat/unpythonic/issues/7)).
+- Use standard Python semantics for negative indices ([#6](https://github.com/Technologicat/unpythonic/issues/6)).
 - Escape continuation analysis in `unpythonic.syntax.util` now interprets also the literal name `throw` as invoking an escape continuation.
-- Fix pickling of `frozendict` (#55).
+- Fix pickling of `frozendict` ([#55](https://github.com/Technologicat/unpythonic/issues/55)).
+- Fix spurious cache misses in memoizers ([#26](https://github.com/Technologicat/unpythonic/issues/26)).
 
 ---
 
