@@ -63,7 +63,7 @@ To opt in, add just two lines of code to your main program:
 
 ```python
 from unpythonic.net import server
-server.start()  # automatically daemonic
+server.start(locals={})  # automatically daemonic
 
 import time
 
