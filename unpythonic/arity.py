@@ -32,7 +32,7 @@ class UnknownArity(ValueError):
 # Note this doesn't cover methods such as list.append, or any other parts
 # of the standard library.
 _infty = float("+inf")
-_builtin_arities = {# inspectable, but reporting incorrectly
+_builtin_arities = {  # inspectable, but reporting incorrectly
                     bool: (1, 1),       # bool(x)
                     bytes: (0, 3),      # see help(bytes)
                     complex: (1, 2),    # complex(real, [imag])
@@ -42,7 +42,7 @@ _builtin_arities = {# inspectable, but reporting incorrectly
                     frozenset: (0, 1),  # frozenset(), frozenset(iterable)
                     int: (0, 2),        # int(x=0), int(x, base=10)
                     map: (1, _infty),   # map(func, *iterables)
-                    memoryview: (1, 1), # memoryview(object)
+                    memoryview: (1, 1),  # memoryview(object)
                     object: (0, 0),     # object()
                     range: (1, 3),      # range(stop), range(start, stop, [step])
                     reversed: (1, 1),   # reversed(sequence)
@@ -101,7 +101,7 @@ _builtin_arities = {# inspectable, but reporting incorrectly
                     super: (0, 2),
                     type: (1, 3),       # FIXME: exactly 1 or 3: type(object), type(name, bases, dict)
                     vars: (0, 1),
-                    __import__: (1, 5), # FIXME: is this correct? are the rest positional or by-name?
+                    __import__: (1, 5),  # FIXME: is this correct? are the rest positional or by-name?
                     # operator module
                     operator.lt: (2, 2),
                     operator.le: (2, 2),
