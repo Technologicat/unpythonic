@@ -71,7 +71,8 @@ class _DynLiveView(ChainMap):
     def _refresh(self):
         self.maps = list(reversed(_getstack())) + [_global_dynvars]
 
-class _Env(object):
+dyn = None
+class Dyn(object):
     """This module exports a singleton, ``dyn``, which provides dynamic assignment
     (like Racket's ``parameterize``; akin to Common Lisp's special variables.).
 
@@ -126,6 +127,12 @@ class _Env(object):
 
     https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python
     """
+    def __new__(cls):
+        global dyn
+        if dyn is None:  # not created yet
+            dyn = super().__new__(cls)
+        return dyn
+
     def _resolve(self, name):
         # Essentially asdict() and look up, but without creating the ChainMap
         # every time _resolve() is called.
@@ -245,6 +252,7 @@ class _Env(object):
     def __repr__(self):
         bindings = ["{:s}={}".format(k, repr(self[k])) for k in self]
         return "<dyn object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
+dyn = Dyn()
 
 def make_dynvar(**bindings):
     """Create a dynamic variable and set its default value.
@@ -272,9 +280,7 @@ def make_dynvar(**bindings):
     for name in bindings:
         _global_dynvars[name] = bindings[name]
 
-dyn = _Env()
-
 # register virtual base classes
 for abscls in (Container, Sized, Iterable, Mapping):
-    abscls.register(_Env)
+    abscls.register(Dyn)
 del abscls
