@@ -2745,12 +2745,19 @@ Inspired by *Function application with $* in [LYAH: Higher Order Functions](http
 
 ### ``raisef``: ``raise`` as a function
 
+*Changed in v0.14.2.* The parameters of `raisef` now more closely match what would be passed to `raise`. See examples below. Old-style parameters are now deprecated, and support for them will be dropped in v0.15.0.
+
 Raise an exception from an expression position:
 
 ```python
 from unpythonic import raisef
 
-f = lambda x: raisef(RuntimeError, "I'm in ur lambda raising exceptions")
+# plain `raise ...`
+f = lambda x: raisef(RuntimeError("I'm in ur lambda raising exceptions"))
+
+# `raise ... from ...`
+exc = TypeError("oof")
+g = lambda x: raisef(RuntimeError("I'm in ur lambda raising exceptions"), cause=exc)
 ```
 
 

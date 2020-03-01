@@ -93,6 +93,26 @@ def test():
     m = (f(3) for f in [lambda x: 2 * x, lambda x: x**2, lambda x: x**(1 / 2)])
     assert tuple(m) == (6, 9, 3**(1 / 2))
 
+    # raisef: raise an exception from an expression position
+    l = lambda: raisef(ValueError("all ok"))  # the argument works the same as in `raise ...`
+    try:
+        l()
+    except ValueError as err:
+        assert err.__cause__ is None  # like plain `raise ...`, no cause set (default behavior)
+    else:
+        assert False
+
+    # using the `cause` parameter, raisef can also perform a `raise ... from ...`
+    exc = TypeError("oof")
+    l = lambda: raisef(ValueError("all ok"), cause=exc)
+    try:
+        l()
+    except ValueError as err:
+        assert err.__cause__ is exc  # cause specified, like `raise ... from ...`
+    else:
+        assert False
+
+    # raisef with old-style parameters (as of v0.14.2, deprecated, will be dropped in v0.15.0)
     l = lambda: raisef(ValueError, "all ok")
     try:
         l()
