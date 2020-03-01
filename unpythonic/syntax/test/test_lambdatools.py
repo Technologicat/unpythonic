@@ -56,7 +56,7 @@ def test():
 
     # naming a decorated lambda
     with namedlambda:
-        f2 = trampolined(withself(lambda self, n, acc=1: jump(self, n-1, acc*n) if n > 1 else acc))
+        f2 = trampolined(withself(lambda self, n, acc=1: jump(self, n - 1, acc * n) if n > 1 else acc))
         f2(5000)  # no crash since TCO
         assert f2.__name__ == "f2"
 
@@ -92,20 +92,20 @@ def test():
     # also autocurry with a lambda as the last argument is recognized
     # TODO: fix MacroPy #21 properly; https://github.com/azazel75/macropy/issues/21
     with namedlambda:
-      with curry:
-        f6 = mypardeco(2, 3, lambda x: x**2)
-        assert f6(10) == (2, 3, 100)
-        assert f6.__name__ == "f6"
+        with curry:
+            f6 = mypardeco(2, 3, lambda x: x**2)
+            assert f6(10) == (2, 3, 100)
+            assert f6.__name__ == "f6"
 
     # presence of autocurry should not confuse the first-pass output
     with namedlambda:
-      with curry:
-        foo = let[(f7, None) in f7 << (lambda x: x)]
-        assert foo.__name__ == "f7"
+        with curry:
+            foo = let[(f7, None) in f7 << (lambda x: x)]
+            assert foo.__name__ == "f7"
 
-        f6 = mypardeco(2, 3, lambda x: x**2)
-        assert f6(10) == (2, 3, 100)
-        assert f6.__name__ == "f6"
+            f6 = mypardeco(2, 3, lambda x: x**2)
+            assert f6(10) == (2, 3, 100)
+            assert f6.__name__ == "f6"
 
     # looped_over overwrites with the result, so nothing to name
     with namedlambda:
