@@ -51,6 +51,10 @@ def test():
         assert gn == "g"
         assert hn == "f1"
 
+        foo = let[(f7, lambda x: x) in f7]       # let-binding: name as "f7"
+        assert foo.__name__ == "f7"
+
+        # function call with named arg
         def foo(func1, func2):
             assert func1.__name__ == "func1"
             assert func2.__name__ == "func2"
@@ -67,8 +71,11 @@ def test():
             assert func2.__name__ == "func2"
         baz(lambda x: x**2, func2=lambda x: x**2)
 
-        foo = let[(f7, lambda x: x) in f7]       # let-binding: name as "f7"
-        assert foo.__name__ == "f7"
+        # dictionary literal
+        d = {"f": lambda x: x**2,  # literal string key in a dictionary literal: name as "f"
+             "g": lambda x: x**2}  # literal string key in a dictionary literal: name as "g"
+        assert d["f"].__name__ == "f"
+        assert d["g"].__name__ == "g"
 
     # naming a decorated lambda
     with namedlambda:

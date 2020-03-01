@@ -2,7 +2,7 @@
 """Lambdas with multiple expressions, local variables, and a name."""
 
 from ast import Lambda, List, Name, Assign, Subscript, Call, \
-                FunctionDef, Attribute, keyword, copy_location
+                FunctionDef, Attribute, keyword, Dict, Str, copy_location
 from .astcompat import AsyncFunctionDef
 from copy import deepcopy
 
@@ -68,6 +68,8 @@ def namedlambda(block_body):
     def iscallwithnamedargs(tree):
         return type(tree) is Call and tree.keywords
 
+    # If `tree` is a (bare or decorated) lambda, inject run-time code to name
+    # it as `myname` (str); else return `tree` as-is.
     def nameit(myname, tree):
         match, thelambda = False, None
         # for decorated lambdas, match any chain of one-argument calls.
@@ -119,7 +121,6 @@ def namedlambda(block_body):
             else:
                 tree.value = rec(tree.value)
         elif iscallwithnamedargs(tree):  # foo(f=lambda: ...)
-            # TODO: support also dictionary unpacking in calls, take names from dictionary keys.
             stop()
             for kw in tree.keywords:
                 if kw.arg is None:  # **kwargs in Python 3.5+
@@ -136,6 +137,23 @@ def namedlambda(block_body):
                 tree.starargs = rec(tree.starargs)
             if hasattr(tree, "kwargs"):  # Python 3.4
                 tree.kwargs = rec(tree.kwargs)
+        elif type(tree) is Dict:  # {"f": lambda: ..., "g": lambda: ...}
+            stop()
+            lst = list(zip(tree.keys, tree.values))
+            for j in range(len(lst)):
+                k, v = tree.keys[j], tree.values[j]
+                if k is None:  # {..., **d, ...}
+                    tree.values[j] = rec(v)
+                else:
+                    if type(k) is Str:  # TODO: Python 3.8 ast.Constant
+                        tree.values[j], thelambda, match = nameit(k.s, v)
+                        if match:
+                            thelambda.body = rec(thelambda.body)
+                        else:
+                            tree.values[j] = rec(v)
+                    else:
+                        tree.keys[j] = rec(k)
+                        tree.values[j] = rec(v)
         return tree
 
     rec = transform.recurse
