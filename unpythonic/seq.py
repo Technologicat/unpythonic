@@ -141,7 +141,7 @@ class Getvalue:  # singleton sentinel with a nice repr
     """Sentinel; pipe into this to exit a shell-like pipe and return the current value."""
     def __new__(cls):
         global getvalue
-        if getvalue is None:
+        if getvalue is None:  # not created yet
             getvalue = super().__new__(cls)
         return getvalue
     def __repr__(self):
