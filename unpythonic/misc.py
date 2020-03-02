@@ -3,7 +3,7 @@
 
 __all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer",
            "getattrrec", "setattrrec", "Popper", "CountingIterator", "ulp",
-           "slurp", "async_raise"]
+           "slurp", "async_raise", "Singleton"]
 
 from types import LambdaType, FunctionType, CodeType
 from time import monotonic
@@ -622,3 +622,33 @@ def async_raise(thread_obj, exception):
         # Clear the async exception, targeting the same thread identity, and hope for the best.
         PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.c_long(0))
         raise SystemError("PyThreadState_SetAsyncExc failed, broke the interpreter state.")
+
+
+class Singleton(type):
+    """Metaclass to make a class into a singleton.
+
+    Example::
+
+        class Foo(metaclass=Singleton):
+            pass
+        foo = Foo()
+
+        assert Foo() is foo
+
+    See:
+        https://stackoverflow.com/questions/6760685/creating-a-singleton-in-python
+
+    NOTE: Making a class a singleton has implications for pickling.
+
+    Particularly, at unpickle time, `pickle` will happily clobber the state
+    with  `__setstate__`, where the default implementation just overwrites
+    the instance `__dict__` with the pickled data.
+
+    This may or may not be fine, depending on what exactly you want, so this
+    decorator intentionally leaves that part up to you.
+    """
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]

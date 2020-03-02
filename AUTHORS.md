@@ -18,3 +18,5 @@ Conditions system (`restarts`, `handlers`) based on studying the implementation 
 `PTYSocketProxy` based on [StackOverflow answer by gowenfawr](https://stackoverflow.com/questions/48781155/how-to-connect-inet-socket-to-pty-device-in-python).
 
 Asynchronous exception injector (`async_raise`) is *"one of the dirtiest hacks ever seen"*, [by Federico Ficarelli for Python 3.4](https://gist.github.com/nazavode/84d1371e023bccd2301e)), and originally by [LIU Wei for Python 2.x](https://gist.github.com/liuw/2407154).
+
+`Singleton` based on [StackOverflow answer by agf and martineau](https://stackoverflow.com/questions/6760685/creating-a-singleton-in-python).
