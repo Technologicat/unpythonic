@@ -10,7 +10,7 @@ import threading
 
 from ..misc import call, callwith, raisef, pack, namelambda, timer, \
                    getattrrec, setattrrec, Popper, CountingIterator, ulp, slurp, \
-                   async_raise, Singleton
+                   async_raise
 from ..fun import withself
 
 def test():
@@ -237,17 +237,6 @@ def test():
         assert out[0] < 9  # terminated early due to the injected KeyboardInterrupt
     except NotImplementedError:
         print("async_raise not supported on this interpreter, ignoring test.")
-
-    # singleton object
-    class Foo(metaclass=Singleton):
-        pass
-    foo = Foo()
-    assert Foo() is foo
-
-    class Bar(Foo):
-        pass
-    bar = Bar()
-    assert Bar() is bar
 
     print("All tests PASSED")
 
