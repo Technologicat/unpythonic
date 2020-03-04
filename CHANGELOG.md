@@ -1,4 +1,4 @@
-**0.14.2** (in progress; updated 1 March 2020) - *"Greenspun" [edition](https://en.wikipedia.org/wiki/Greenspun%27s_tenth_rule)*:
+**0.14.2** (in progress; updated 5 March 2020) - *"Greenspun" [edition](https://en.wikipedia.org/wiki/Greenspun%27s_tenth_rule)*:
 
 With the arrival of [conditions and restarts](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html), and a [REPL](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) server, I think it is now fair to say `unpythonic` contains an ad-hoc, informally-specified, slow implementation of half of Common Lisp. To avoid *bug-ridden*, we have tests - but it's not entirely impossible for some to have slipped through. If you find one, please file an issue [in the tracker](https://github.com/Technologicat/unpythonic/issues).
 
@@ -46,8 +46,8 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
 - `islice` now supports negative start and stop. (**Caution**: no negative step; and it must consume the whole iterable to determine where it ends, if at all.)
 - `async_raise`: Inject KeyboardInterrupt into an arbitrary thread. (*CPython only*.)
 - `resolve_bindings`: Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.
-- `Singleton`: a base class for singletons that interacts properly with `pickle`.
-- `Symbol`: a lispy symbol type; or in plain English: a lightweight, human-readable, process-wide unique marker, that can be quickly compared to another such marker by object identity. The same name gives the same object instance. Supports `pickle`.
+- `Singleton`: a base class for singletons that interacts properly with `pickle`. The pattern is slightly pythonified; instead of silently returning the same instance, attempting to invoke the constructor while an instance already exists raises `TypeError`. This solution separates concerns better; see [#22](https://github.com/Technologicat/unpythonic/issues/22).
+- `Symbol`: a lispy symbol type; or in plain English: a lightweight, human-readable, process-wide unique marker, that can be quickly compared to another such marker by object identity (`is`). Supplying the same name to the constructor results in receiving the same object instance. Supports `pickle`. Sometimes this is a better solution than the idiom `nonce = object()` (and then passing the `nonce` value around).
 
 **Non-breaking changes**:
 
