@@ -341,7 +341,9 @@ class frozendict:
     detected by the built-ins ``issubclass`` and ``isinstance``, but they are
     not part of the MRO.
     """
-    def __new__(cls, *ms, **bindings):  # make the empty frozendict() a singleton
+    # Make the empty frozendict() a singleton, but allow invoking the constructor
+    # multiple times, always returning the same instance.
+    def __new__(cls, *ms, **bindings):
         if not ms and not bindings:
             global _the_empty_frozendict
             if _the_empty_frozendict is None:

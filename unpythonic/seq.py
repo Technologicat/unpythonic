@@ -12,6 +12,7 @@ from .env import env
 from .fun import curry, iscurried
 from .dynassign import dyn
 from .arity import arity_includes, UnknownArity
+from .singleton import Singleton
 
 # sequence side effects in a lambda
 def begin(*vals):
@@ -136,14 +137,8 @@ def pipe1(value0, *bodys):
         x = update(x)
     return x
 
-getvalue = None
-class Getvalue:  # singleton sentinel with a nice repr
+class Getvalue(Singleton):  # singleton sentinel with a nice repr
     """Sentinel; pipe into this to exit a shell-like pipe and return the current value."""
-    def __new__(cls):
-        global getvalue
-        if getvalue is None:  # not created yet
-            getvalue = super().__new__(cls)
-        return getvalue
     def __repr__(self):
         return "<sentinel for pipe exit>"
 getvalue = Getvalue()

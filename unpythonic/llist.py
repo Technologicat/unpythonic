@@ -11,6 +11,7 @@ from itertools import zip_longest
 from .fun import composer1i
 from .fold import foldr, foldl
 from .it import rev
+from .singleton import Singleton
 
 # explicit list better for tooling support
 _exports = ["cons", "nil",
@@ -32,18 +33,8 @@ _exports = ["cons", "nil",
 #_exports.extend(_c4r)
 __all__ = _exports
 
-# For another example of this variant of the singleton pattern, with less
-# confusing names, see `unpythonic.collections.frozendict`.
-nil = None  # placeholder
-class Nil:
+class Nil(Singleton):
     """The empty linked list. Singleton."""
-    # Defining __new__ like this lets us Nil() to our heart's content.
-    # Only the first time actually creates an instance.
-    def __new__(cls):
-        global nil
-        if nil is None:  # not created yet
-            nil = super().__new__(cls)
-        return nil
     # support the iterator protocol so we can say tuple(nil) --> ()
     def __iter__(self):
         return self
@@ -51,7 +42,7 @@ class Nil:
         raise StopIteration()
     def __repr__(self):
         return "nil"
-nil = Nil()  # actually initialized here
+nil = Nil()
 
 class ConsIterator(metaclass=ABCMeta):
     """Abstract base class for iterators operating on cons cells.

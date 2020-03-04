@@ -7,6 +7,8 @@ import threading
 from collections import ChainMap
 from collections.abc import Container, Sized, Iterable, Mapping
 
+from .singleton import Singleton
+
 # LEG rule for dynvars: allow a global definition (shared between threads) with make_dynvar(a=...)
 _global_dynvars = {}
 
@@ -71,8 +73,7 @@ class _DynLiveView(ChainMap):
     def _refresh(self):
         self.maps = list(reversed(_getstack())) + [_global_dynvars]
 
-dyn = None
-class Dyn(object):
+class Dyn(Singleton):
     """This module exports a singleton, ``dyn``, which provides dynamic assignment
     (like Racket's ``parameterize``; akin to Common Lisp's special variables.).
 
@@ -127,12 +128,6 @@ class Dyn(object):
 
     https://stackoverflow.com/questions/2001138/how-to-create-dynamical-scoped-variables-in-python
     """
-    def __new__(cls):
-        global dyn
-        if dyn is None:  # not created yet
-            dyn = super().__new__(cls)
-        return dyn
-
     # NOTE: Pickling `dyn` makes no sense. The whole point of `dyn` is that it
     # tracks dynamic state; in a manner of speaking, it has one foot on the
     # call stack.
