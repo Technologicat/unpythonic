@@ -36,6 +36,7 @@ from .misc import *
 from .seq import *
 from .singleton import *
 from .slicing import *
+from .symbol import *
 from .tco import *
 
 # HACK: break dependency loop
