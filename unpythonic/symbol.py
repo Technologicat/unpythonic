@@ -18,6 +18,10 @@ class Symbol:
     Supports `pickle`. Unpickling a `Symbol` gives the same `Symbol` instance
     as constructing another one with the same name.
 
+    CAUTION: If you're familiar with JavaScript's `Symbol`, that actually
+    performs the job of Lisp's `gensym`, which always returns a unique value,
+    even when called again with the same argument. This is not `gensym`.
+
     name: str
         The human-readable name of the symbol; maps to object identity.
     """
