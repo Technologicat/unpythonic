@@ -18,7 +18,6 @@ __all__ = ["memoize", "curry", "iscurried",
            "withself"]
 
 from functools import wraps, partial
-from operator import itemgetter
 
 from .arity import arities, resolve_bindings, UnknownArity
 from .fold import reducel
