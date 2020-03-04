@@ -47,6 +47,7 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
 - `async_raise`: Inject KeyboardInterrupt into an arbitrary thread. (*CPython only*.)
 - `resolve_bindings`: Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.
 - `Singleton`: a base class for singletons that interacts properly with `pickle`.
+- `Symbol`: a lispy symbol type; or in plain English: a lightweight, human-readable, process-wide unique marker, that can be quickly compared to another such marker by object identity. The same name gives the same object instance. Supports `pickle`.
 
 **Non-breaking changes**:
 

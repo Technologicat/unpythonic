@@ -10,10 +10,10 @@ def test():
     assert S("foo") is S("foo")
 
     # Works even if pickled.
-    sym = S("foo")
-    s = pickle.dumps(sym)
+    foo = S("foo")
+    s = pickle.dumps(foo)
     o = pickle.loads(s)
-    assert o is sym
+    assert o is foo
     assert o is S("foo")
 
     # str() returns the human-readable name as a string.
