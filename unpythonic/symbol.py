@@ -9,7 +9,11 @@ class Symbol:
     """A lispy symbol type for Python.
 
     In plain English: a lightweight, human-readable, process-wide unique marker,
-    that can be quickly compared to another such marker by object identity.
+    that can be quickly compared to another such marker by object identity::
+
+        cat = Symbol("cat")
+        assert cat is Symbol("cat")
+        assert cat is not Symbol("dog")
 
     Supports `pickle`. Unpickling a `Symbol` gives the same `Symbol` instance
     as constructing another one with the same name.
