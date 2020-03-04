@@ -2,7 +2,7 @@
 
 import pickle
 
-from ..symbol import Symbol as S
+from ..symbol import Symbol as S, gensym
 
 def test():
     # Basic idea: lightweight, human-readable, process-wide unique marker,
@@ -22,6 +22,12 @@ def test():
     # Has nothing to do with string interning.
     assert "λ" * 80 is not "λ" * 80
     assert S("λ" * 80) is S("λ" * 80)
+
+    tabby = gensym("cat")
+    scottishfold = gensym("cat")
+    assert tabby is not scottishfold
+    print(tabby)         # cat-gensym0
+    print(scottishfold)  # cat-gensym1
 
     print("All tests PASSED")
 
