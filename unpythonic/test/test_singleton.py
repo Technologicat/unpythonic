@@ -1,6 +1,7 @@
 # -*- coding: utf-8; -*-
 
 import pickle
+import gc
 
 from ..singleton import Singleton
 
@@ -32,6 +33,7 @@ def test():
         assert False  # should have errored out, a Foo already exists!
 
     del foo  # deleting the only strong reference kills the Foo instance from the singleton instances
+    gc.collect()  # Need to request garbage collection on PyPy, because otherwise no guarantee when it'll happen.
     Foo()    # so now it's ok to create a new Foo
 
     # another class that inherits from a singleton class
