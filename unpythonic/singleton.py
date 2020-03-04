@@ -111,6 +111,7 @@ Note this is a true singleton, not a Borg; there is really only one instance.
 
 __all__ = ["Singleton"]
 
+import threading
 from weakref import WeakValueDictionary
 
 _instances = WeakValueDictionary()
@@ -146,6 +147,7 @@ class ThereCanBeOnlyOne(type):
 #
 # So a base class is really the right place to insert a custom `__new__` to
 # achieve what we want.
+_instances_update_lock = threading.Lock()
 class Singleton(metaclass=ThereCanBeOnlyOne):
     """Base class for singletons. Can be used as a mixin.
 
@@ -156,11 +158,25 @@ class Singleton(metaclass=ThereCanBeOnlyOne):
     # We allow extra args so that __init__ can have them, but ignore them in the
     # super __new__ call, since our super is `object`, which takes no extra args.
     def __new__(cls, *args, **kwargs):
-        if cls not in _instances:
-            # Make a strong reference to keep the new instance alive until construction is done.
-            instance = super().__new__(cls)
-            _instances[cls] = instance
-        return _instances[cls]
+        # What we want to do:
+        #   if cls not in _instances:
+        #       _instances[cls] = super().__new__(cls)
+        #   return _instances[cls]
+        #
+        # But because weakref and thread-safety, we must:
+        try:  # EAFP to eliminate TOCTTOU.
+            return _instances[cls]
+        except KeyError:
+            # But we still need to be careful to avoid race conditions.
+            with _instances_update_lock:
+                if cls not in _instances:
+                    # We were the first thread to acquire the lock.
+                    # Make a strong reference to keep the new instance alive until construction is done.
+                    instance = _instances[cls] = super().__new__(cls)
+                else:
+                    # Some other thread acquired the lock before us, and created the instance.
+                    instance = _instances[cls]
+            return instance
 
 
 # TODO: This won't work with classes that need another custom metaclass,
