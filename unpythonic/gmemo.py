@@ -13,7 +13,7 @@ from threading import RLock
 from .arity import resolve_bindings
 from .dynassign import dyn
 from .regutil import register_decorator
-from .symbol import Symbol
+from .symbol import sym
 
 def gmemoize(gfunc):
     """Decorator: produce memoized generator instances.
@@ -104,8 +104,8 @@ def gmemoize(gfunc):
         return _MemoizedGenerator(*memos[k])
     return gmemoized
 
-_success = Symbol("_success")
-_fail = Symbol("_fail")
+_success = sym("_success")
+_fail = sym("_fail")
 class _MemoizedGenerator:
     """Wrapper that manages one memoized sequence. Co-operates with gmemoize."""
     def __init__(self, g, memo, lock):

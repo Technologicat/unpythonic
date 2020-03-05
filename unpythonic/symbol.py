@@ -1,23 +1,23 @@
 # -*- coding: utf-8; -*-
 """Lispy symbols for Python."""
 
-__all__ = ["Symbol", "gensym"]
+__all__ = ["sym", "gensym"]
 
 from itertools import count
 
 _symbols = {}  # registry
 
-class Symbol:
+class sym:
     """A lispy symbol type for Python.
 
     In plain English: a lightweight, human-readable, process-wide unique marker,
     that can be quickly compared to another such marker by object identity::
 
-        cat = Symbol("cat")
-        assert cat is Symbol("cat")
-        assert cat is not Symbol("dog")
+        cat = sym("cat")
+        assert cat is sym("cat")
+        assert cat is not sym("dog")
 
-    Supports `pickle`. Unpickling a `Symbol` gives the same `Symbol` instance
+    Supports `pickle`. Unpickling a `sym` gives the same `sym` instance
     as constructing another one with the same name.
 
     CAUTION: If you're familiar with JavaScript's `Symbol`, that actually
@@ -42,12 +42,13 @@ class Symbol:
     def __str__(self):
         return self.name
     def __repr__(self):
-        return 'Symbol("{}")'.format(self.name)
+        return 'sym("{}")'.format(self.name)
 
+# TODO: store gensyms in a separate registry so that they're not accessible by name.
 def gensym(name):
-    """Create a new unique `Symbol` whose name begins with `name`.
+    """Create a new unique symbol whose name begins with `name`.
 
-    The return value is the only time you'll see that `Symbol` object
+    The return value is the only time you'll see that `sym` object
     (without guessing the name, which goes against the purpose of this
     function); take good care of it!
 
@@ -57,7 +58,7 @@ def gensym(name):
 
     If you're familiar with MacroPy's `gen_sym`, that's different; its purpose
     is to create a lexical identifier that is not previously in use, whereas
-    this `gensym` creates an `unpythonic.Symbol` object for run-time use.
+    this `gensym` creates an `unpythonic.sym` object for run-time use.
 
     If you're familiar with JavaScript's `Symbol`, this performs the same job.
 
@@ -76,4 +77,4 @@ def gensym(name):
     for k in count():
         maybe_unique_name = "{}-gensym{}".format(name, k)
         if maybe_unique_name not in _symbols:
-            return Symbol(maybe_unique_name)  # this will auto-insert it to the symbol registry
+            return sym(maybe_unique_name)  # this will auto-insert it to the symbol registry

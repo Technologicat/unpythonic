@@ -2,26 +2,26 @@
 
 import pickle
 
-from ..symbol import Symbol as S, gensym
+from ..symbol import sym, gensym
 
 def test():
     # Basic idea: lightweight, human-readable, process-wide unique marker,
     # that can be quickly compared by object identity.
-    assert S("foo") is S("foo")
+    assert sym("foo") is sym("foo")
 
     # Works even if pickled.
-    foo = S("foo")
+    foo = sym("foo")
     s = pickle.dumps(foo)
     o = pickle.loads(s)
     assert o is foo
-    assert o is S("foo")
+    assert o is sym("foo")
 
     # str() returns the human-readable name as a string.
-    assert str(S("foo")) == "foo"
+    assert str(sym("foo")) == "foo"
 
     # Has nothing to do with string interning.
     assert "λ" * 80 is not "λ" * 80
-    assert S("λ" * 80) is S("λ" * 80)
+    assert sym("λ" * 80) is sym("λ" * 80)
 
     tabby = gensym("cat")
     scottishfold = gensym("cat")

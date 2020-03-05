@@ -23,13 +23,13 @@ from .arity import arities, resolve_bindings, UnknownArity
 from .fold import reducel
 from .dynassign import dyn, make_dynvar
 from .regutil import register_decorator
-from .symbol import Symbol
+from .symbol import sym
 
 # we use @passthrough_lazy_args (and handle possible lazy args) to support unpythonic.syntax.lazify.
 from .lazyutil import passthrough_lazy_args, islazy, force, force1, maybe_force_args
 
-_success = Symbol("_success")
-_fail = Symbol("_fail")
+_success = sym("_success")
+_fail = sym("_fail")
 @register_decorator(priority=10)
 def memoize(f):
     """Decorator: memoize the function f.
