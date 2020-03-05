@@ -4,8 +4,11 @@
 __all__ = ["sym", "gensym"]
 
 from itertools import count
+from weakref import WeakValueDictionary
+import threading
 
-_symbols = {}  # registry
+_symbols = WeakValueDictionary()  # registry
+_symbols_update_lock = threading.Lock()
 
 class sym:
     """A lispy symbol type for Python.
@@ -28,9 +31,26 @@ class sym:
         The human-readable name of the symbol; maps to object identity.
     """
     def __new__(cls, name):  # This covers unpickling, too.
-        if name not in _symbols:
-            _symbols[name] = super().__new__(cls)
-        return _symbols[name]
+        # What we want to do:
+        #   if name not in _symbols:
+        #       _symbols[name] = super().__new__(cls)
+        #   return _symbols[name]
+        #
+        # But because weakref and thread-safety, we must:
+        try:  # EAFP to eliminate TOCTTOU.
+            return _symbols[name]
+        except KeyError:
+            # But we still need to be careful to avoid race conditions.
+            with _symbols_update_lock:
+                if name not in _symbols:
+                    # We were the first thread to acquire the lock.
+                    # Make a strong reference to keep the new instance alive until construction is done.
+                    instance = _symbols[name] = super().__new__(cls)
+                else:
+                    # Some other thread acquired the lock before us, and created the instance.
+                    instance = _symbols[name]
+            return instance
+
     def __init__(self, name):
         self.name = name
 
