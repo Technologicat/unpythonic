@@ -1,9 +1,13 @@
 # -*- coding: utf-8; -*-
-"""Lispy symbols for Python."""
+"""Lispy symbols and gensym for Python. Pickle-aware.
+
+See:
+    https://stackoverflow.com/questions/8846628/what-exactly-is-a-symbol-in-lisp-scheme
+    https://www.cs.cmu.edu/Groups/AI/html/cltl/clm/node27.html
+"""
 
 __all__ = ["sym", "gensym"]
 
-from itertools import count
 from weakref import WeakValueDictionary
 import threading
 
@@ -20,17 +24,39 @@ class sym:
         assert cat is sym("cat")
         assert cat is not sym("dog")
 
-    Supports `pickle`. Unpickling a `sym` gives the same `sym` instance
-    as constructing another one with the same name.
-
-    CAUTION: If you're familiar with JavaScript's `Symbol`, that actually
-    performs the job of Lisp's `gensym`, which always returns a unique value,
-    even when called again with the same argument. See `gensym`.
-
     name: str
-        The human-readable name of the symbol; maps to object identity.
+        The human-readable name of the symbol.
+
+    intern: bool
+        By default, symbols are *interned*.
+
+        For **interned** symbols:
+            The name maps directly to object instance. If you pass in the same
+            `name` to the `sym` constructor, it gives you the same object
+            instance.
+
+            Even unpickling an interned `sym` produces the same `sym` instance
+            as constructing another `sym` with the same name.
+
+            This is like a Lisp symbol.
+
+            (Technically, it's like a Scheme/Racket symbol, since Common Lisp
+            stuffs all sorts of additional cruft in there. If you insist on
+            emulating that, a `sym` is just a Python object.)
+
+        For *uninterned* symbols:
+            The return value from the constructor call is the only time you'll
+            see that symbol object. Take good care of it!
+
+            Uninterned symbols are useful as unique nonce/sentinel values,
+            like the pythonic idiom `nonce = object()`, but they come with
+            a human-readable label.
+
+            This is like Lisp's `gensym` and JavaScript's `Symbol`.
     """
-    def __new__(cls, name):  # This covers unpickling, too.
+    def __new__(cls, name, intern=True):  # This covers unpickling, too.
+        if not intern:
+            return super().__new__(cls)
         # What we want to do:
         #   if name not in _symbols:
         #       _symbols[name] = super().__new__(cls)
@@ -51,50 +77,48 @@ class sym:
                     instance = _symbols[name]
             return instance
 
-    def __init__(self, name):
+    def __init__(self, name, intern=True):
         self.name = name
+        self.interned = intern
 
     # Pickle support. The default `__setstate__` is fine,
     # but we must pass args to `__new__`.
+    #
+    # Note we don't `sys.intern` the name *strings*; if we did,
+    # we'd need a custom `__setstate__` to redo that upon unpickling.
     def __getnewargs__(self):
-        return (self.name,)
+        return (self.name, self.interned)
 
     def __str__(self):
-        return self.name
+        if self.interned:
+            return self.name
+        return repr(self)
     def __repr__(self):
-        return 'sym("{}")'.format(self.name)
+        if self.interned:
+            return 'sym("{}")'.format(self.name)
+        return '<uninterned symbol "{}" at 0x{:x}>'.format(self.name, id(self))
 
-# TODO: store gensyms in a separate registry so that they're not accessible by name.
 def gensym(name):
-    """Create a new unique symbol whose name begins with `name`.
+    """Create an uninterned symbol.
 
-    The return value is the only time you'll see that `sym` object
-    (without guessing the name, which goes against the purpose of this
-    function); take good care of it!
+    This is just lispy shorthand for `sym(name, intern=False)`.
 
-    The point of `gensym` is to create a unique nonce/sentinel value;
-    nothing else `is` that value. The equivalent pythonic idiom, without
-    the human-readable description, is `nonce = object()`.
+    The return value is the only time you'll see that symbol object; take good
+    care of it!
+
+    Uninterned symbols are useful as unique nonce/sentinel values, like the
+    pythonic idiom `nonce = object()`, but they come with a human-readable label.
 
     If you're familiar with MacroPy's `gen_sym`, that's different; its purpose
-    is to create a lexical identifier that is not previously in use, whereas
-    this `gensym` creates an `unpythonic.sym` object for run-time use.
-
-    If you're familiar with JavaScript's `Symbol`, this performs the same job.
+    is to create a lexical identifier that is not in use, whereas this `gensym`
+    creates an `unpythonic.sym` object for run-time use.
 
     Example::
 
         tabby = gensym("cat")
         scottishfold = gensym("cat")
         assert tabby is not scottishfold
-        print(tabby)         # cat-gensym0
-        print(scottishfold)  # cat-gensym1
+        print(tabby)         # <uninterned symbol "cat" at 0x7fde8ec454e0>
+        print(scottishfold)  # <uninterned symbol "cat" at 0x7fde8ec33cf8>
     """
-    # TODO: Gensymming repeatedly with the same `name` is currently O(n**2).
-    # TODO: I'm tempted to keep this simple. If performance becomes a real issue,
-    # TODO: we can add a cache that maps `name` to the last used `k` for that name
-    # TODO: (and then still count until we actually get an unused name).
-    for k in count():
-        maybe_unique_name = "{}-gensym{}".format(name, k)
-        if maybe_unique_name not in _symbols:
-            return sym(maybe_unique_name)  # this will auto-insert it to the symbol registry
+    return sym(name, intern=False)
