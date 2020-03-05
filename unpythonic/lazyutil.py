@@ -9,11 +9,12 @@ __all__ = ["passthrough_lazy_args", "maybe_force_args", "force1", "force"]
 
 from .regutil import register_decorator
 from .dynassign import make_dynvar
+from .symbol import gensym
 
 # HACK: break dependency loop llist -> fun -> lazyutil -> collections -> llist
 #from .collections import mogrify
 _init_done = False
-jump = object()  # gensym, nothing else "is" this
+jump = gensym("jump")
 def _init_module():  # called by unpythonic.__init__ when otherwise done
     global mogrify, jump, _init_done
     from .collections import mogrify

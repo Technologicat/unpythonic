@@ -12,6 +12,7 @@ from .fun import composer1i
 from .fold import foldr, foldl
 from .it import rev
 from .singleton import Singleton
+# from .symbol import gensym
 
 # explicit list better for tooling support
 _exports = ["cons", "nil",
@@ -250,7 +251,7 @@ class cons:
         if isinstance(other, cons):
             try:  # duck test linked lists
                 ia, ib = (LinkedListIterator(x) for x in (self, other))
-                fill = object()  # essentially gensym
+                fill = object()  # gensym("fill"), but object() is much faster and we don't need the label.
                 for a, b in zip_longest(ia, ib, fillvalue=fill):
                     if a != b:
                         return False

@@ -145,6 +145,7 @@ except ModuleNotFoundError:
 
 from ..collections import ThreadLocalBox, Shim
 from ..misc import async_raise, namelambda
+from ..symbol import sym
 
 from .util import ReuseAddrThreadingTCPServer, socketsource
 from .msg import MessageDecoder
@@ -228,7 +229,9 @@ def halt(doit=True):
     server_print(msg)
 
 _bg_results = {}
-_bg_running, _bg_success, _bg_fail = [object() for _ in range(3)]
+_bg_running = sym("_bg_running")
+_bg_success = sym("_bg_success")
+_bg_fail = sym("bg_fail")
 def bg(thunk):
     """Spawn a thread to run `thunk` in the background. Return the thread object.
 

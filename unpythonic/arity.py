@@ -16,13 +16,14 @@ from types import ModuleType
 import operator
 
 from .dynassign import dyn, make_dynvar
+from .symbol import gensym
 
 make_dynvar(resolve_bindings_tuplify=False)
 
 try:  # Python 3.5+
     from operator import matmul, imatmul
 except ImportError:
-    NoSuchBuiltin = object()
+    NoSuchBuiltin = gensym("NoSuchBuiltin")
     matmul = imatmul = NoSuchBuiltin
 
 class UnknownArity(ValueError):
@@ -379,7 +380,7 @@ def resolve_bindings(f, *args, **kwargs):
 
     # https://docs.python.org/3/reference/compound_stmts.html#function-definitions
     # https://docs.python.org/3/reference/expressions.html#calls
-    unassigned = object()  # gensym
+    unassigned = object()  # gensym("unassigned"), but object() is much faster and we don't need the label.
     slots = [unassigned for _ in range(len(params))]  # yes, varparams too
 
     # fill from positional arguments

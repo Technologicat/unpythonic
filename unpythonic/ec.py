@@ -31,6 +31,7 @@ from warnings import warn
 from functools import wraps
 
 from .regutil import register_decorator
+# from .symbol import gensym
 
 def escape(value, tag=None, allow_catchall=True):
     """Alias for `throw`, for backward compatibility.
@@ -263,7 +264,7 @@ def call_ec(f):
     Similar usage is valid for named functions, too.
     """
     # Create a process-wide unique id to tag the ec:
-    anchor = object()
+    anchor = object()  # gensym("anchor"), but object() is much faster and we don't need the label.
     uid = id(anchor)
     # Closure property important here. "ec" itself lives as long as someone
     # retains a reference to it. It's a first-class value; the callee could
