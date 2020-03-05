@@ -73,7 +73,7 @@ class _DynLiveView(ChainMap):
     def _refresh(self):
         self.maps = list(reversed(_getstack())) + [_global_dynvars]
 
-class Dyn(Singleton):
+class _Dyn(Singleton):
     """This module exports a singleton, ``dyn``, which provides dynamic assignment
     (like Racket's ``parameterize``; akin to Common Lisp's special variables.).
 
@@ -259,7 +259,7 @@ class Dyn(Singleton):
     def __repr__(self):
         bindings = ["{:s}={}".format(k, repr(self[k])) for k in self]
         return "<dyn object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
-dyn = Dyn()
+dyn = _Dyn()
 
 def make_dynvar(**bindings):
     """Create a dynamic variable and set its default value.
@@ -289,5 +289,5 @@ def make_dynvar(**bindings):
 
 # register virtual base classes
 for abscls in (Container, Sized, Iterable, Mapping):
-    abscls.register(Dyn)
+    abscls.register(_Dyn)
 del abscls

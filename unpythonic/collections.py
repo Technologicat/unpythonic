@@ -22,7 +22,7 @@ import threading
 from .llist import cons
 from .misc import getattrrec
 from .env import env
-from .dynassign import Dyn
+from .dynassign import _Dyn
 
 def get_abcs(cls):
     """Return a set of the collections.abc superclasses of cls (virtuals too)."""
@@ -123,7 +123,7 @@ def mogrify(func, container):
             return {doit(elt) for elt in x}
         # env and dyn provide the Mapping API, but shouldn't get the general Mapping treatment here.
         # (This is important for the curry and lazify macros.)
-        elif isinstance(x, Mapping) and not isinstance(x, (env, Dyn)):
+        elif isinstance(x, Mapping) and not isinstance(x, (env, _Dyn)):
             ctor = type(x)
             return ctor({k: doit(v) for k, v in x.items()})
         elif isinstance(x, Sequence) and not isinstance(x, (str, bytes, range)):
