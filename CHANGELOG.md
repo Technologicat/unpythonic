@@ -47,8 +47,9 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
 - `async_raise`: Inject KeyboardInterrupt into an arbitrary thread. (*CPython only*.)
 - `resolve_bindings`: Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.
 - `Singleton`: a base class for singletons that interacts properly with `pickle`. The pattern is slightly pythonified; instead of silently returning the same instance, attempting to invoke the constructor while an instance already exists raises `TypeError`. This solution separates concerns better; see [#22](https://github.com/Technologicat/unpythonic/issues/22).
-- `sym`: a lispy symbol type; or in plain English: a lightweight, human-readable, process-wide unique marker, that can be quickly compared to another such marker by object identity (`is`). Supplying the same name to the constructor results in receiving the same object instance. Supports `pickle`. Sometimes a symbol is a better solution than the idiom `nonce = object()` (and then passing the `nonce` value around).
-- `gensym`: a utility to create a unique symbol whose name begins with the given string.
+- `sym`: a lispy symbol type; or in plain English: a lightweight, human-readable, process-wide unique marker, that can be quickly compared to another such marker by object identity (`is`). These named symbols are *interned*. Supplying the same name to the constructor results in receiving the same object instance. Symbols survive a `pickle` roundtrip.
+- `gensym`: a utility to create a new, unique *uninterned* symbol. Like the pythonic idiom `nonce = object()`, but with a human-readable label, and with `pickle` support. Object identity of gensyms is determined by an UUID, generated when the symbol is created. Gensyms also survive a `pickle` roundtrip.
+
 
 **Non-breaking changes**:
 
