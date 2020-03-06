@@ -231,7 +231,7 @@ def halt(doit=True):
 _bg_results = {}
 _bg_running = sym("_bg_running")
 _bg_success = sym("_bg_success")
-_bg_fail = sym("bg_fail")
+_bg_fail = sym("_bg_fail")
 def bg(thunk):
     """Spawn a thread to run `thunk` in the background. Return the thread object.
 
