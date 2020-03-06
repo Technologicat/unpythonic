@@ -2,8 +2,8 @@
 
 from ..seq import begin, begin0, lazy_begin, lazy_begin0, \
                   pipe1, pipe, pipec, \
-                  piped1, piped, getvalue, \
-                  lazy_piped1, lazy_piped, runpipe, \
+                  piped1, piped, exitpipe, \
+                  lazy_piped1, lazy_piped, \
                   do, do0, assign
 
 from ..ec import call_ec
@@ -69,11 +69,11 @@ def test():
         assert False  # error if the curry context exits with args remaining
 
     # optional shell-like syntax
-    assert piped1(42) | double | inc | getvalue == 85
+    assert piped1(42) | double | inc | exitpipe == 85
 
     y = piped1(42) | double
-    assert y | inc | getvalue == 85
-    assert y | getvalue == 84  # y is never modified by the pipe system
+    assert y | inc | exitpipe == 85
+    assert y | exitpipe == 84  # y is never modified by the pipe system
 
     # lazy pipe: compute later
     lst = [1]
@@ -82,7 +82,7 @@ def test():
         return l  # important, handed to the next function in the pipe
     p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
     assert lst == [1]        # nothing done yet
-    p | runpipe              # run the computation
+    p | exitpipe              # run the computation
     assert lst == [1, 2, 3]  # now the side effect has updated lst.
 
     # lazy pipe as an unfold
@@ -94,17 +94,17 @@ def test():
     p = lazy_piped1((1, 1))  # load initial state into a lazy pipe
     for _ in range(10):      # set up pipeline
         p = p | nextfibo
-    p | runpipe
+    p | exitpipe
     assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
     # multi-arg version
     f = lambda x, y: (2 * x, y + 1)
     g = lambda x, y: (x + 1, 2 * y)
-    x = piped(2, 3) | f | g | getvalue  # --> (5, 8)
+    x = piped(2, 3) | f | g | exitpipe  # --> (5, 8)
     assert x == (5, 8)
 
     # abuse multi-arg version for single-arg case
-    assert piped(42) | double | inc | getvalue == 85
+    assert piped(42) | double | inc | exitpipe == 85
 
     # multi-arg lazy pipe
     p1 = lazy_piped(2, 3)
@@ -112,10 +112,10 @@ def test():
     p3 = p2 | (lambda x, y, s: (x * 2, y + 1, "got {}".format(s)))
     p4 = p3 | (lambda x, y, s: (x + y, s))
     # nothing done yet, and all computations purely functional:
-    assert (p1 | runpipe) == (2, 3)
-    assert (p2 | runpipe) == (3, 6, "foo")      # runs the chain up to p2
-    assert (p3 | runpipe) == (6, 7, "got foo")  # runs the chain up to p3
-    assert (p4 | runpipe) == (13, "got foo")
+    assert (p1 | exitpipe) == (2, 3)
+    assert (p2 | exitpipe) == (3, 6, "foo")      # runs the chain up to p2
+    assert (p3 | exitpipe) == (6, 7, "got foo")  # runs the chain up to p3
+    assert (p4 | exitpipe) == (13, "got foo")
 
     # multi-arg lazy pipe as an unfold
     fibos = []
@@ -125,7 +125,7 @@ def test():
     p = lazy_piped(1, 1)
     for _ in range(10):
         p = p | nextfibo
-    p | runpipe
+    p | exitpipe
     assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
     # do: improved begin() that can name intermediate results

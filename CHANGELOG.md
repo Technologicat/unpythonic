@@ -55,6 +55,7 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
 
 - `setescape`/`escape` have been renamed `catch`/`throw`, to match the standard terminology in the Lisp family. **The old nonstandard names are now deprecated, and will be removed in 0.15.0.**
 - The parameters of `raisef` are now more pythonic, just the object `exc` and an optional keyword-only `cause`. **Old-style parameters are now deprecated, and will be removed in 0.15.0.** See [#30](https://github.com/Technologicat/unpythonic/issues/30).
+- `runpipe` and `getvalue` are now both replaced by a single unified name `exitpipe`. This is just a rename, with no functionality changes. **The old names are now deprecated, and will be removed in 0.15.0.**
 - The `dbg[]` macro now works in the REPL, too. See [#12](https://github.com/Technologicat/unpythonic/issues/12).
 - The `namedlambda` block macro now also names lambdas that are:
   - Passed as a named argument of a function call, as in ``foo(f=lambda ...: ...)``; or

@@ -3,7 +3,7 @@
 
 __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
            "pipe1", "piped1", "lazy_piped1",
-           "pipe", "piped", "getvalue", "lazy_piped", "runpipe",
+           "pipe", "piped", "getvalue", "lazy_piped", "runpipe", "exitpipe",
            "pipec",  # w/ curry
            "do", "do0", "assign"]
 
@@ -144,6 +144,10 @@ class Getvalue(Singleton):  # singleton sentinel with a nice repr
 getvalue = Getvalue()
 runpipe = getvalue  # same thing as getvalue, but semantically better name for lazy pipes
 
+# New unified name for v0.15.0; deprecating the separate "getvalue" and "runpipe" as of v0.14.2.
+# TODO: Now that we have symbols, in v0.15.0, change this to `sym("exitpipe")` and delete the `Getvalue` class.
+exitpipe = getvalue
+
 class piped1:
     """Shell-like piping syntax.
 
@@ -188,7 +192,7 @@ class lazy_piped1:
           the pipeline.
 
         - ``lazy_piped`` just sets up a computation, and performs it when eventually
-          piped into ``runpipe``. The computation always looks up the latest state
+          piped into ``exitpipe``. The computation always looks up the latest state
           of the initial value.
 
     Another way to say this is that ``lazy_piped`` looks up the initial value
@@ -204,7 +208,7 @@ class lazy_piped1:
     def __or__(self, f):
         """Pipe the value into f; but just plan to do so, don't perform it yet.
 
-        To run the stored computation, pipe into ``runpipe``.
+        To run the stored computation, pipe into ``exitpipe``.
 
         Examples::
 
@@ -214,7 +218,7 @@ class lazy_piped1:
                 return l  # important, handed to the next function in the pipe
             p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
             assert lst == [1]        # nothing done yet
-            p | runpipe              # run the computation
+            p | exitpipe              # run the computation
             assert lst == [1, 2, 3]  # now the side effect has updated lst.
 
             # lazy pipe as an unfold
@@ -226,10 +230,10 @@ class lazy_piped1:
             p = lazy_piped1((1, 1))  # load initial state into a lazy pipe
             for _ in range(10):      # set up pipeline
                 p = p | nextfibo
-            p | runpipe
+            p | exitpipe
             print(fibos)
         """
-        if f is runpipe:  # compute now
+        if f is exitpipe:  # compute now
             v = self._x
             for g in self._funcs:
                 v = g(v)
@@ -340,7 +344,7 @@ class lazy_piped:
         p3 = p2 | (lambda x, y, s: (x * 2, y + 1, "got {}".format(s)))
         p4 = p3 | (lambda x, y, s: (x + y, s))
         # nothing done yet!
-        assert (p4 | runpipe) == (13, "got foo")
+        assert (p4 | exitpipe) == (13, "got foo")
 
         # lazy pipe as an unfold
         fibos = []
@@ -350,7 +354,7 @@ class lazy_piped:
         p = lazy_piped(1, 1)
         for _ in range(10):
             p = p | nextfibo
-        p | runpipe
+        p | exitpipe
         print(fibos)
     """
     def __init__(self, *xs, _funcs=None):
@@ -362,7 +366,7 @@ class lazy_piped:
         self._funcs = _funcs or ()
     def __or__(self, f):
         """Pipe the values into f; but just plan to do so, don't perform it yet."""
-        if f is runpipe:  # compute now
+        if f is exitpipe:  # compute now
             vs = self._xs
             for g in self._funcs:
                 if isinstance(vs, tuple):

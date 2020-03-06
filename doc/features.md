@@ -727,25 +727,27 @@ assert x == 85
 
 We also provide ``pipec``, which curries the functions before applying them. Useful with passthrough (see below on ``curry``).
 
-Optional **shell-like syntax**, with purely functional updates:
+Optional **shell-like syntax**, with purely functional updates.
+
+*Changed in v0.14.2*. Both `getvalue` and `runpipe` are now known by the single unified name `exitpipe`. This is just a rename, with no functionality changes. The old names are now deprecated, and will be removed in 0.15.0.
 
 ```python
-from unpythonic import piped, getvalue
+from unpythonic import piped, exitpipe
 
-x = piped(42) | double | inc | getvalue
+x = piped(42) | double | inc | exitpipe
 assert x == 85
 
 p = piped(42) | double
 assert p | inc | getvalue == 85
-assert p | getvalue == 84  # p itself is never modified by the pipe system
+assert p | exitpipe == 84  # p itself is never modified by the pipe system
 ```
 
 Set up a pipe by calling ``piped`` for the initial value. Pipe into the sentinel ``getvalue`` to exit the pipe and return the current value.
 
-**Lazy pipes**, useful for mutable initial values. To perform the planned computation, pipe into the sentinel ``runpipe``:
+**Lazy pipes**, useful for mutable initial values. To perform the planned computation, pipe into the sentinel ``exitpipe``:
 
 ```python
-from unpythonic import lazy_piped1, runpipe
+from unpythonic import lazy_piped1, exitpipe
 
 lst = [1]
 def append_succ(l):
@@ -753,14 +755,14 @@ def append_succ(l):
     return l  # this return value is handed to the next function in the pipe
 p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
 assert lst == [1]        # nothing done yet
-p | runpipe              # run the computation
+p | exitpipe             # run the computation
 assert lst == [1, 2, 3]  # now the side effect has updated lst.
 ```
 
 Lazy pipe as an unfold:
 
 ```python
-from unpythonic import lazy_piped, runpipe
+from unpythonic import lazy_piped, exitpipe
 
 fibos = []
 def nextfibo(a, b):      # multiple arguments allowed
@@ -769,13 +771,13 @@ def nextfibo(a, b):      # multiple arguments allowed
 p = lazy_piped(1, 1)     # load initial state
 for _ in range(10):      # set up pipeline
     p = p | nextfibo
-p | runpipe
+p | exitpipe
 assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 ```
 
 Both one-in-one-out (*1-to-1*) and n-in-m-out (*n-to-m*) pipes are provided. The 1-to-1 versions have names suffixed with ``1``. The use case is one-argument functions that return one value (which may also be a tuple).
 
-In the n-to-m versions, when a function returns a tuple, it is unpacked to the argument list of the next function in the pipe. At ``getvalue`` or ``runpipe`` time, the tuple wrapper (if any) around the final result is discarded if it contains only one item. (This allows the n-to-m versions to work also with a single value, as long as it is not a tuple.) The main use case is computations that deal with multiple values, the number of which may also change during the computation (as long as there are as many "slots" on both sides of each individual connection).
+In the n-to-m versions, when a function returns a tuple, it is unpacked to the argument list of the next function in the pipe. At ``exitpipe`` time, the tuple wrapper (if any) around the final result is discarded if it contains only one item. (This allows the n-to-m versions to work also with a single value, as long as it is not a tuple.) The main use case is computations that deal with multiple values, the number of which may also change during the computation (as long as there are as many "slots" on both sides of each individual connection).
 
 
 ## Batteries
