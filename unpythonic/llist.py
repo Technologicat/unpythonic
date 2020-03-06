@@ -251,7 +251,7 @@ class cons:
         if isinstance(other, cons):
             try:  # duck test linked lists
                 ia, ib = (LinkedListIterator(x) for x in (self, other))
-                fill = object()  # gensym("fill"), but object() is much faster and we don't need the label.
+                fill = object()  # gensym("fill"), but object() is much faster, and we don't need a label, or pickle support.
                 for a, b in zip_longest(ia, ib, fillvalue=fill):
                     if a != b:
                         return False

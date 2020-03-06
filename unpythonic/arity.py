@@ -380,7 +380,7 @@ def resolve_bindings(f, *args, **kwargs):
 
     # https://docs.python.org/3/reference/compound_stmts.html#function-definitions
     # https://docs.python.org/3/reference/expressions.html#calls
-    unassigned = object()  # gensym("unassigned"), but object() is much faster and we don't need the label.
+    unassigned = object()  # gensym("unassigned"), but object() is much faster, and we don't need a label, or pickle support.
     slots = [unassigned for _ in range(len(params))]  # yes, varparams too
 
     # fill from positional arguments
