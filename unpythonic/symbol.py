@@ -1,62 +1,64 @@
 # -*- coding: utf-8; -*-
-"""Lispy symbols and gensym for Python. Pickle-aware.
+"""Lispy symbols and gensym for Python. Both are pickle-aware.
 
 See:
     https://stackoverflow.com/questions/8846628/what-exactly-is-a-symbol-in-lisp-scheme
     https://www.cs.cmu.edu/Groups/AI/html/cltl/clm/node27.html
 """
 
-__all__ = ["sym", "gensym"]
+__all__ = ["sym", "gensym", "Symbol"]
 
 from weakref import WeakValueDictionary
 import threading
+import uuid
 
-_symbols = WeakValueDictionary()  # registry
+# Symbol registry. Used for tracking symbol object identities within the same process.
+_symbols = WeakValueDictionary()
 _symbols_update_lock = threading.Lock()
 
-class sym:
-    """A lispy symbol type for Python.
+# Gensyms go into a separate registry, to make name conflicts with named symbols
+# impossible, even if someone grabs one of the UUIDs and uses it as a name.
+_gensyms = WeakValueDictionary()
+_gensyms_update_lock = threading.Lock()
+
+class Symbol:
+    """Base class for lispy symbols.
+
+    Meant only for `isinstance` checks that are intended to match both
+    named symbols and gensyms.
+    """
+    pass
+
+class sym(Symbol):
+    """Interned symbol.
 
     In plain English: a lightweight, human-readable, process-wide unique marker,
-    that can be quickly compared to another such marker by object identity::
+    that can be quickly compared to another such marker by object identity.
+
+    name: any hashable, typically str.
+        The human-readable name of the symbol. Maps to the object identity.
+
+    Example::
 
         cat = sym("cat")
         assert cat is sym("cat")
         assert cat is not sym("dog")
 
-    name: str
-        The human-readable name of the symbol.
+    If you pass in the same `name` to the `sym` constructor, it gives you the
+    same object instance each time (in the same process). Even unpickling an
+    interned symbol that has the same name produces the same `sym` instance as
+    any other `sym` with that name.
 
-    intern: bool
-        By default, symbols are *interned*.
+    This behaves like a Lisp symbol.
 
-        For **interned** symbols:
-            The name maps directly to object instance. If you pass in the same
-            `name` to the `sym` constructor, it gives you the same object
-            instance.
+    (Technically, it's like a zen-minimalistic Scheme/Racket symbol, since
+    Common Lisp stuffs all sorts of additional cruft in symbols. If you insist
+    on emulating that, note a `sym` is just a Python object.)
 
-            Even unpickling an interned `sym` produces the same `sym` instance
-            as constructing another `sym` with the same name.
-
-            This is like a Lisp symbol.
-
-            (Technically, it's like a Scheme/Racket symbol, since Common Lisp
-            stuffs all sorts of additional cruft in there. If you insist on
-            emulating that, a `sym` is just a Python object.)
-
-        For *uninterned* symbols:
-            The return value from the constructor call is the only time you'll
-            see that symbol object. Take good care of it!
-
-            Uninterned symbols are useful as unique nonce/sentinel values,
-            like the pythonic idiom `nonce = object()`, but they come with
-            a human-readable label.
-
-            This is like Lisp's `gensym` and JavaScript's `Symbol`.
+    CAUTION: If you're familiar with JavaScript's `Symbol` and looking
+    for that, see `gensym`.
     """
-    def __new__(cls, name, intern=True):  # This covers unpickling, too.
-        if not intern:
-            return super().__new__(cls)
+    def __new__(cls, name):  # This covers unpickling, too.
         # What we want to do:
         #   if name not in _symbols:
         #       _symbols[name] = super().__new__(cls)
@@ -77,48 +79,100 @@ class sym:
                     instance = _symbols[name]
             return instance
 
-    def __init__(self, name, intern=True):
+    def __init__(self, name):
         self.name = name
-        self.interned = intern
 
-    # Pickle support. The default `__setstate__` is fine,
-    # but we must pass args to `__new__`.
+    # Pickle support. The default `__setstate__` (writing to `self.__dict__`)
+    # is fine, but we must pass args to `__new__` so it can find/allocate the
+    # correct object instance.
     #
-    # Note we don't `sys.intern` the name *strings*; if we did,
-    # we'd need a custom `__setstate__` to redo that upon unpickling.
+    # Note we don't `sys.intern` the name *strings*; if we did, we'd need a
+    # custom `__setstate__` to redo that upon unpickling, since for `pickle`
+    # a string is a string, whether the original was interned or not.
     def __getnewargs__(self):
-        return (self.name, self.interned)
+        return (self.name,)
 
     def __str__(self):
-        if self.interned:
-            return self.name
-        return repr(self)
+        return self.name
     def __repr__(self):
-        if self.interned:
-            return 'sym("{}")'.format(self.name)
-        return '<uninterned symbol "{}" at 0x{:x}>'.format(self.name, id(self))
+        return 'sym("{}")'.format(self.name)
 
-def gensym(name):
+
+# TODO: maybe get rid of the code duplication. But maybe no point.
+class gsym(Symbol):
+    """Uninterned symbol. These are generated by `gensym`.
+
+    uid: UUID
+        Maps to the object identity, so it must be unique.
+        Use one of the functions from the `uuid` stdlib
+        module to generate the UUID.
+
+    label: str
+        The human-readable label, shown in `str` and `repr`.
+    """
+    def __new__(cls, uid, label):
+        try:
+            return _gensyms[uid]
+        except KeyError:
+            with _gensyms_update_lock:
+                if uid not in _gensyms:
+                    instance = _gensyms[uid] = super().__new__(cls)
+                else:
+                    instance = _gensyms[uid]
+            return instance
+
+    def __init__(self, uid, label):
+        self.uid = uid
+        self.label = label
+
+    def __getnewargs__(self):
+        return (self.uid, self.label)
+
+    def __str__(self):
+        return "gensym#{}:{}".format(self.label, self.uid)
+    def __repr__(self):
+        return 'gsym("{}", {})'.format(self.label, repr(self.uid))
+
+
+def gensym(label):
     """Create an uninterned symbol.
-
-    This is just lispy shorthand for `sym(name, intern=False)`.
 
     The return value is the only time you'll see that symbol object; take good
     care of it!
 
-    Uninterned symbols are useful as unique nonce/sentinel values, like the
-    pythonic idiom `nonce = object()`, but they come with a human-readable label.
-
-    If you're familiar with MacroPy's `gen_sym`, that's different; its purpose
-    is to create a lexical identifier that is not in use, whereas this `gensym`
-    creates an `unpythonic.sym` object for run-time use.
+    The label is a short human-readable description (like the `name` of a named
+    symbol), but it has no relation to object identity. Object identity is
+    tracked by an UUID, assigned when the gensym value is first created.
 
     Example::
 
         tabby = gensym("cat")
         scottishfold = gensym("cat")
         assert tabby is not scottishfold
-        print(tabby)         # <uninterned symbol "cat" at 0x7fde8ec454e0>
-        print(scottishfold)  # <uninterned symbol "cat" at 0x7fde8ec33cf8>
+        print(tabby)         # gensym:cat:81a44c53-fe2d-4e65-b2de-329076cc7755
+        print(scottishfold)  # gensym:cat:94287f75-02b5-4138-9174-1e422e618d59
+
+    Uninterned symbols are useful as unique nonce/sentinel values, like the
+    pythonic idiom `nonce = object()`, but they come with a human-readable label.
+
+    They also have a superpower: with the help of the UUID, they survive a
+    pickle roundtrip with object identity intact. Unpickling the *same*
+    gensym value multiple times in the same process will produce just one
+    object instance. (If the original return value from gensym is still alive,
+    it is the same object instance.)
+
+    The UUID is generated with the pseudo-random algorithm `uuid.uuid4`. Due to
+    rollover of the time field, it is possible for collisions with current
+    UUIDs to occur with those generated after (approximately) the year 3400.
+
+    See:
+        https://docs.python.org/3/library/uuid.html
+        https://tools.ietf.org/html/rfc4122
+
+    This is like Lisp's `gensym` and JavaScript's `Symbol`.
+
+    If you're familiar with MacroPy's `gen_sym`, that's different; its purpose
+    is to create a lexical identifier that is not in use, whereas this `gensym`
+    creates a symbol object for run-time use.
     """
-    return sym(name, intern=False)
+    return gsym(uuid.uuid4(), label)

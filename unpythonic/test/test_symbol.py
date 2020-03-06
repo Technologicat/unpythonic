@@ -15,9 +15,9 @@ def test():
     o = pickle.loads(s)
     assert o is foo
     assert o is sym("foo")
-    assert foo.interned
 
     # str() returns the human-readable name as a string.
+    print(foo)
     assert str(sym("foo")) == "foo"
 
     # repr() returns the source code that can be used to re-create the symbol.
@@ -31,15 +31,17 @@ def test():
     tabby = gensym("cat")
     scottishfold = gensym("cat")
     assert tabby is not scottishfold
-    assert not tabby.interned
-    assert not scottishfold.interned
+
+    # Gensyms also survive a pickle roundtrip (this is powered by an UUID).
+    s = pickle.dumps(tabby)
+    o = pickle.loads(s)
+    assert o is tabby
+    o2 = pickle.loads(s)
+    assert o2 is tabby
     print(tabby)
     print(scottishfold)
-
-    # # TODO: Gensyms also survive a pickle roundtrip.
-    # s = pickle.dumps(tabby)
-    # o = pickle.loads(s)
-    # assert o is tabby
+    print(repr(tabby))
+    print(repr(scottishfold))
 
     print("All tests PASSED")
 
