@@ -11,24 +11,24 @@ from ..ec import call_ec
 def test():
     # sequence side effects in a lambda
     #
-    f1 = lambda x: begin(print("cheeky side effect"), 42*x)
+    f1 = lambda x: begin(print("cheeky side effect"), 42 * x)
     assert f1(2) == 84
 
-    f2 = lambda x: begin0(42*x, print("cheeky side effect"))
+    f2 = lambda x: begin0(42 * x, print("cheeky side effect"))
     assert f2(2) == 84
 
     f3 = lambda x: lazy_begin(lambda: print("cheeky side effect"),
-                              lambda: 42*x)
+                              lambda: 42 * x)
     assert f3(2) == 84
 
-    f4 = lambda x: lazy_begin0(lambda: 42*x,
+    f4 = lambda x: lazy_begin0(lambda: 42 * x,
                                lambda: print("cheeky side effect"))
     assert f4(2) == 84
 
     # pipe: sequence functions
     #
     double = lambda x: 2 * x
-    inc    = lambda x: x + 1
+    inc = lambda x: x + 1
     assert pipe1(42, double, inc) == 85  # 1-in-1-out
     assert pipe1(42, inc, double) == 86
     assert pipe(42, double, inc) == 85   # n-in-m-out, supports also 1-in-1-out
@@ -98,8 +98,8 @@ def test():
     assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
     # multi-arg version
-    f = lambda x, y: (2*x, y+1)
-    g = lambda x, y: (x+1, 2*y)
+    f = lambda x, y: (2 * x, y + 1)
+    g = lambda x, y: (x + 1, 2 * y)
     x = piped(2, 3) | f | g | getvalue  # --> (5, 8)
     assert x == (5, 8)
 
@@ -137,7 +137,7 @@ def test():
     assert y == 42
 
     y = do(assign(x=17),
-           assign(z=lambda e: 2*e.x),
+           assign(z=lambda e: 2 * e.x),
            lambda e: e.z)
     assert y == 34
 
@@ -149,10 +149,11 @@ def test():
 
     # Beware of this pitfall:
     do(lambda e: print("hello 2 from 'do'"),  # delayed because lambda e: ...
-       print("hello 1 from 'do'"),  # Python prints immediately before do()
-       "foo")                       # gets control, because technically, it is
-                                    # **the return value** that is an argument
-                                    # for do().
+       print("hello 1 from 'do'"),
+       "foo")
+    # Python prints "hello 1 from 'do'" immediately, before do() gets control,
+    # because technically, it is **the return value** that is an argument for
+    # do().
 
     # If you need to return the first value instead, use this trick:
     y = do(assign(result=17),
