@@ -24,7 +24,7 @@
 
 - **Be obsessively correct.**
   - **Get the terminology right** to promote clear thinking. For example:
-    - A function definition has *parameters*, which are filled by *arguments* at call time.
+    - A function definition has [*parameters*, which are filled by *arguments*](https://docs.python.org/3/faq/programming.html#faq-argument-vs-parameter) at call time.
     - *Dynamic assignment* is descriptive, while *dynamic scoping* is nonsense, because *scope* is arguably a lexical concept (cf. dynamic *extent*).
   - **Lack of robustness is a bug.** The code should the right thing in edge cases, possibly in corner cases too.
     - For example, `memoize` catches and caches exceptions.
