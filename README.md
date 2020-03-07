@@ -1,21 +1,17 @@
 # Unpythonic: Python meets Lisp and Haskell
 
-In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some Haskellisms mixed in. We extend the language with a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros). We emphasize **clear, pythonic syntax**, **making features work together**, and **obsessive correctness**.
-
-We provide also an in-process, background [REPL](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) server, which allows you to inspect and hot-patch your running Python program. (Don't worry, it's strictly opt-in.)
-
-The features are built out of, in increasing order of [magic](https://macropy3.readthedocs.io/en/latest/discussion.html#levels-of-magic):
-
- - Pure Python (e.g. batteries for `itertools`),
- - Macros driving a pure-Python core (e.g. `do`, `let`),
- - Pure macros (e.g. `continuations`, `lazify`, `dbg`).
-
-This depends on the purpose of each feature, as well as ease-of-use considerations. See our [design notes](doc/design-notes.md) for more information.
+In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some Haskellisms mixed in. We extend the language with a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros). We also provide an in-process, background [REPL](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) server for live inspection and hot-patching. The emphasis is on **clear, pythonic syntax**, **making features work together**, and **obsessive correctness**.
 
 ### Dependencies
 
-None required.  
-[MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macro layer. [imacropy](https://github.com/Technologicat/imacropy) optional, to enable the improved interactive macro REPL.
+None required.
+
+ - [MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macro layer.
+ - [imacropy](https://github.com/Technologicat/imacropy) optional, to enable the improved interactive macro REPL.
+
+The officially supported language version is **Python 3.6**, on both CPython and PyPy3.
+
+The 0.14.x series should run on 3.4 through 3.7, but we do not actively test on pythons other than 3.6. Support for 3.8 is planned in one of the next few releases. Pure-Python features should already work; but macro code still needs changes to account for AST representation changes in 3.8, see issue [#16](https://github.com/Technologicat/unpythonic/issues/16).
 
 ### Documentation
 
@@ -24,10 +20,18 @@ None required.
 [REPL server](doc/repl.md): interactively hot-patch your running Python program.  
 [Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.
 
+The features of `unpythonic` are built out of, in increasing order of [magic](https://macropy3.readthedocs.io/en/latest/discussion.html#levels-of-magic):
+
+ - Pure Python (e.g. batteries for `itertools`),
+ - Macros driving a pure-Python core (`do`, `let`),
+ - Pure macros (e.g. `continuations`, `lazify`, `dbg`).
+
+This depends on the purpose of each feature, as well as ease-of-use considerations. See the design notes for more information.
+
 
 ### Examples
 
-Small, limited-space overview of the overall flavor. There's a lot more that doesn't fit here, especially in the pure-Python feature set. See the [full documentation](doc/features.md) and [unit tests](unpythonic/test/) for more.
+Small, limited-space overview of the overall flavor. There's a lot more that doesn't fit here, especially in the pure-Python feature set. See the [full documentation](doc/features.md) and [unit tests](unpythonic/test/) for more examples.
 
 Click each example to expand.
 
@@ -476,6 +480,14 @@ or
 
 ``sudo pip3 uninstall unpythonic``
 
+
+## Support
+
+Something not working as advertised? Missing a feature? Documentation needs improvement? **[Issue reports](https://github.com/Technologicat/unpythonic/issues) and [pull requests](https://github.com/Technologicat/unpythonic/pulls) are welcome.**
+
+While `unpythonic` is intended as a serious tool for improving productivity as well as for teaching, right now my work priorities mean that it's developed and maintained on whatever time I can spare for it. Thus getting a response may take a while, depending on which project I happen to be working on.
+
+
 ## License
 
 All original code is released under the 2-clause [BSD license](LICENSE.md).
@@ -490,6 +502,7 @@ Thanks to [TUT](http://www.tut.fi/en/home) for letting me teach [RAK-19006 in sp
 The trampoline implementation of ``unpythonic.tco`` takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of the FP looping constructs.
 
 Another important source of inspiration was [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
+
 
 ## Python-related FP resources
 
