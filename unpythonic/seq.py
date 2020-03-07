@@ -125,13 +125,19 @@ def pipe1(value0, *bodys):
 
     at the cost of namespace pollution.
     """
-    # Ideally we should use fploop, but we choose to cheat imperatively to avoid
-    # the added complexity of supporting the runtime-switchable TCO implementation.
-#    @looped_over(bodys, acc=value0)
-#    def x(loop, update, acc):
-#        return loop(update(acc))
-#    return x
-    # Since "x" is a local, the imperative damage won't spread to the call site.
+    # Ideally we should use fploop, but we choose to cheat imperatively.
+    # This used to be to avoid the added complexity of supporting the
+    # runtime-switchable TCO implementation, but ever since we got rid of that
+    # misfeature all the way back in v0.10, there's been really no reason to
+    # avoid @looped_over, except performance.
+    #
+    # Since "x" is a local, the imperative damage won't spread to the call
+    # site. So we can just as well use the builtin imperative for loop, and
+    # reap the performance benefit.
+    # @looped_over(bodys, acc=value0)
+    # def x(loop, update, acc):
+    #     return loop(update(acc))
+    # return x
     x = value0
     for update in bodys:
         x = update(x)
