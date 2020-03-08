@@ -154,20 +154,12 @@ class box:
 
         b = box(17)
         def f(b):
-            b.x = 23  # yes!
-        f(b)
-        print(b.x)  # 23
-
-    (The data attribute is called ``x`` and not ``value`` to minimize the
-    number of additional keystrokes needed.)
-
-    Or use the API, `set` (rebind contents) and `unbox` (extract contents):
-
-        b = box(17)
-        def f(b):
-            b.set(23)  # or equivalently, b << 23
+            b << 23  # yes!
         f(b)
         print(unbox(b))  # 23
+
+    This is the recommended unpythonic syntax. If you like OOP, you can
+    `b.set(23)` instead of `b << 23`, and `b.get()` instead of `unbox(b)`.
 
     In terms of ``collections.abc``, a ``box`` is a ``Container``, ``Iterable``
     and ``Sized``. A box is **not** hashable, because it is a mutable container.
@@ -233,8 +225,9 @@ class box:
 class ThreadLocalBox(box):
     """Like box, but the store is thread-local.
 
-    The initially provided `x` object is used to initialize the box in all
-    threads. (Note what this implies if that `x` happens to be mutable.)
+    The initially provided `x` is used as the default object, which serves as
+    the initial contents of the box in all threads. (Note what this implies if
+    that `x` happens to be mutable.)
     """
     def __init__(self, x=None):
         self.storage = threading.local()
