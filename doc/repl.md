@@ -155,4 +155,16 @@ Drop-in replacing `code.InteractiveConsole` in `unpythonic.net.server` with `mac
 
 However, to have the same semantics as in the [`imacropy.iconsole`](https://github.com/Technologicat/imacropy) IPython extension, a custom console was needed. This was added to `imacropy` as `imacropy.console.MacroConsole`.
 
+Why `imacropy.console.MacroConsole`:
+
+ - Catches and reports import errors when importing macros.
+ - Allows importing the same macros again in the same session, to refresh their definitions.
+   - When you `from somemod import macros, ...`, this console automatically first reloads `somemod`, so that a macro import always sees the latest definitions.
+ - Makes viewing macro docstrings easy.
+   - When you import macros, beside loading them into the macro expander, the console automatically imports the macro stubs as regular runtime objects. They're functions, so just look at their `__doc__`.
+   - This also improves UX. Without loading the stubs, `from unpythonic.syntax import macros, let`, would not define the name `let` at runtime. Now it does, with the name pointing to the macro stub.
+ - IPython-like `obj?` and `obj??` syntax to view the docstring and source code of `obj`.
+ - Can list macros imported to the session, using the command `macros?`.
+
+
 For historical interest, refer to and compare [imacropy/iconsole.py](https://github.com/Technologicat/imacropy/blob/master/imacropy/iconsole.py) and [macropy/core/console.py](https://github.com/azazel75/macropy/blob/master/macropy/core/console.py). The result is the new [imacropy/console.py](https://github.com/Technologicat/imacropy/blob/master/imacropy/console.py).
