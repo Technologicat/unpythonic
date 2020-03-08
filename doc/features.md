@@ -35,6 +35,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
 - [``mogrify``: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
 - [``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic](#s-m-mg-lazy-mathematical-sequences-with-infix-arithmetic)
+- [Symbols and singletons](#symbols-and-singletons)
 
 [**Control flow tools**](#control-flow-tools)
 - [``trampolined``, ``jump``: tail call optimization (TCO) / explicit continuations](#trampolined-jump-tail-call-optimization-tco--explicit-continuations)
@@ -1719,6 +1720,117 @@ assert tuple(take(3, cauchyprod(s1, s2))) == (2, 10*x, 28*x**2)
 **CAUTION**: Symbolic sequence detection is sensitive to the assumptions on the symbols, because very pythonically, ``SymPy`` only simplifies when the result is guaranteed to hold in the most general case under the given assumptions.
 
 Inspired by Haskell.
+
+
+### Symbols and singletons
+
+*Added in v0.14.2.*
+
+We provide **lispy symbols**, an **uninterned symbol generator**, and a **pythonic singleton abstraction**. These are all pickle-aware, and instantiation is thread-safe.
+
+#### Symbol
+
+In plain English, a *symbol* is a **lightweight, human-readable, process-wide unique marker**, that can be quickly compared to another such marker *by comparing object identity*. For example:
+
+```python
+from unpythonic import sym
+
+cat = sym("cat")
+assert cat is sym("cat")
+assert cat is not sym("dog")
+```
+
+The constructor `sym` produces an ***interned symbol***. Whenever (in the same process) **the same name** is passed to the `sym` constructor, it gives **the same object instance**. Even unpickling a symbol that has the same name produces the same `sym` object instance as any other `sym` with that name.
+
+Thus a `sym` behaves like a Lisp symbol. Technically speaking, it's like a zen-minimalistic [Scheme/Racket symbol](https://stackoverflow.com/questions/8846628/what-exactly-is-a-symbol-in-lisp-scheme), since Common Lisp [stuffs all sorts of additional cruft in symbols](https://www.cs.cmu.edu/Groups/AI/html/cltl/clm/node27.html). If you insist on emulating that, note a `sym` is just a Python object, even though its instantiation logic plays by somewhat unusual rules.
+
+#### Gensym
+
+The function `gensym` creates an ***uninterned symbol***, also known as *a gensym*. The label given in the call to `gensym` is a short human-readable description, like the name of a named symbol, but it has no relation to object identity. Object identity is tracked by an UUID, which is automatically assigned when `gensym` creates the value. Even if `gensym` is called with the same label, the return value is a new unique symbol each time.
+
+*The return value is the only time you'll see that symbol object; take good care of it!*
+
+For example:
+
+```python
+from unpythonic import gensym
+
+tabby = gensym("cat")
+scottishfold = gensym("cat")
+assert tabby is not scottishfold
+print(tabby)         # gensym:cat:81a44c53-fe2d-4e65-b2de-329076cc7755
+print(scottishfold)  # gensym:cat:94287f75-02b5-4138-9174-1e422e618d59
+```
+
+Uninterned symbols are useful as guaranteed-unique sentinel or [nonce (sense 2, adapted to programming)](https://en.wiktionary.org/wiki/nonce#Noun) values, like the pythonic idiom `nonce = object()`, but they come with a human-readable label.
+
+They also have a superpower: with the help of the UUID automatically assigned by `gensym`, they survive a pickle roundtrip with object identity intact. Unpickling the *same* gensym value multiple times in the same process will produce just one object instance. (If the original return value from gensym is still alive, it is that same object instance.)
+
+The UUID is generated with the pseudo-random algorithm [`uuid.uuid4`](https://docs.python.org/3/library/uuid.html). Due to rollover of the time field, it is possible for collisions with current UUIDs to occur with those generated after (approximately) the year 3400. See [RFC 4122](https://tools.ietf.org/html/rfc4122).
+
+#### Compared to other languages
+
+Our `sym` is like a Lisp/Scheme/Racket symbol, which is essentially an [interned string](https://en.wikipedia.org/wiki/String_interning), which in Lisps is a data type distinct from a regular string. In our implementation, we do **not** use [`sys.intern`](https://docs.python.org/3/library/sys.html#sys.intern); the interning mechanism of our symbol types is completely separate and independent of Python's string interning mechanism.
+
+Our `gensym` is like the [Lisp `gensym`](http://clhs.lisp.se/Body/f_gensym.htm), and the [JavaScript `Symbol`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol).
+
+If you're familiar with MacroPy's `gen_sym`, that's different; its purpose is to create, at import time, a lexical identifier that is not already in use in the source code being compiled, whereas our `gensym` creates an uninterned symbol object for run-time use. Lisp macros use symbols to represent identifiers, hence the potential for confusion in Python, where that is not the case. (The symbols of `unpythonic` are a purely run-time abstraction.)
+
+If your background is in C++ or Java, you may notice the symbol abstraction is a kind of a parametric [singleton](https://en.wikipedia.org/wiki/Singleton_pattern); each symbol with the same name is a singleton (as is any gensym with the same UUID).
+
+#### Singleton
+
+A *singleton* is an object of which only one instance can exist at any given time (in the same process). We provide a base class, `Singleton`, which can also be used as a mixin. A basic example:
+
+```python
+import pickle
+from unpythonic import Singleton
+
+class SingleXHolder(Singleton):
+    def __init__(self, x=42):
+        self.x = x
+
+h = SingleXHolder(17)
+s = pickle.dumps(h)
+h2 = pickle.loads(s)
+assert h2 is h  # it's the same instance
+```
+
+Often the [singleton pattern](https://en.wikipedia.org/wiki/Singleton_pattern) is discussed in the context of classic relatively low-level, static languages such as C++ or Java. [In Python](https://stackoverflow.com/questions/6760685/creating-a-singleton-in-python), some of the classical issues, such as singletons being forced to use a clunky, nonstandard object construction syntax, are moot, because the language itself offers customization hooks that can be used to smooth away such irregularities.
+
+Thus, rather than blindly copying the pattern from C++ or Java, the questions to ask first are, *what is a singleton? What is the service it provides? What responsibilities should it have? Does it even make sense to have a singleton abstraction for Python?*
+
+As the result of answering these questions, `unpythonic`'s idea of a singleton slightly differs from the textbook pattern. In C++ or Java, one uses an instance accessor method (which is a static method) to retrieve the singleton instance, instead of calling a constructor normally - which is actually made private, so nothing except the accessor method can call it. Calling the accessor method either instantiates the singleton (if not created yet), or silently returns the existing instance (if already created).
+
+However, Python can easily retrieve a singleton instance with syntax that looks like regular object construction, by customizing [`__new__`](https://docs.python.org/3/reference/datamodel.html#object.__new__). Hence no static accessor method is needed. This in turn raises the question, what should we do with constructor arguments, as we surely would like to (in general) to allow those, and they can obviously differ between call sites. Since there is only one object instance to load state into, we could either silently update the state, or silently ignore the new proposed arguments. Good luck tracking down bugs either way. But upon closer inspection, that question depends on an unfounded assumption. What we should be asking instead is, *what should happen* if the constructor of a singleton is called again, while an instance already exists?
+
+We believe in the principles of [separation of concerns](https://en.wikipedia.org/wiki/Separation_of_concerns) and [fail-fast](https://en.wikipedia.org/wiki/Fail-fast). The textbook singleton pattern conflates two concerns, possibly due to language limitations: the *management of object instances*, and the *enforcement of the at-most-one-instance-only guarantee*. If we wish to uncouple these responsibilities, then the obvious pythonic answer is that attempting to construct the singleton again while it already exists **should be considered a run-time error**. Since a singleton **type** does not support that operation, this situation should raise a `TypeError`. This makes the error explicit as early as possible, thus adhering to the fail-fast principle, hence making it difficult for bugs to hide (constructor arguments will either take effect, or the constructor call will explicitly fail).
+
+Another question arises due to Python having builtin support for object persistence, namely `pickle`. What *should* happen when a singleton is unpickled, while an instance of that singleton already exists? Arguably, by default, it should load the state from the pickle file into the existing instance, overwriting its current state.
+
+Our `Singleton` abstraction is the result of these pythonifications applied to the classic pattern. For more documentation and examples, see the unit tests in [`unpythonic/test/test_singleton.py`](../unpythonic/test/test_singleton.py).
+
+**NOTE**: A related pattern is the *[Borg](http://code.activestate.com/recipes/66531-singleton-we-dont-need-no-stinkin-singleton-the-bo/)*, a.k.a. *Monostate*. [After considering the matter](https://github.com/Technologicat/unpythonic/issues/22), it was felt that in the context of Python, it offers no advantages over the singleton abstraction, while eliminating a useful feature: the singleton abstraction allows using the object identity check (`is`) to identify the singleton instance. For this reason, `unpythonic` provides `Singleton`, but no `Borg`. If you feel this is unjust, please let me know - this decision can be revisited, if a situation in which a `Borg` is more appropriate than a `Singleton` comes up.
+
+**CAUTION**: `Singleton` introduces a custom metaclass to guard constructor calls. Hence it cannot be trivially combined with a class that uses another custom metaclass for some other purpose.
+
+#### When to use a singleton?
+
+Most often, don't. It's provided for the rare occasion where it's the appropriate abstraction. There exist **at least** three categories of use cases where singleton-like instantiation semantics are desirable:
+
+ 1. **A process-wide unique marker value**, which has no functionality other than being quickly and uniquely identifiable as that marker.
+    - `sym` and `gensym` are the specific tools that cover this use case, depending on whether the intent is to allow that value to be passed in from the outside (`sym`), or whether the implementation just happens to internally need a guaranteed-unique value (`gensym`). For the latter case, sometimes a simple (and much faster) `nonce = object()` will do just as well, if you don't need the human-readable label and `pickle` support.
+    - If you need the singleton object to have extra functionality (e.g. our `nil` supports the iterator protocol), it's possible to subclass `sym` or `gsym`, but subclassing `Singleton` is also a possible solution.
+ 2. **An empty immutable collection**.
+    - It can't have elements added to it after construction, so there's no point in creating more than one instance of an empty *immutable* collection of any particular type.
+    - Unfortunately, a class can't easily be partly `Singleton`. So this use case is better coded manually, like `frozendict` does. Also, for this use case silently returning the existing instance is the right thing to do.
+ 3. **A service that may have at most one instance** per process.
+    - *But only if it is certain* that there can't arise a situation where multiple simultaneous instances of the service are needed.
+    - The dynamic assignment controller `dyn` is an example, and it is indeed a `Singleton`.
+
+Cases 1 and 2 have no meaningful instance data. Case 3 may or may not, depending on the specifics. If your object does, and if you want it to support `pickle`, you may want to customize [`__getnewargs__`](https://docs.python.org/3/library/pickle.html#object.__getnewargs__) (called *at pickling time*), [`__setstate__`](https://docs.python.org/3/library/pickle.html#object.__setstate__), and sometimes maybe also [`__getstate__`](https://docs.python.org/3/library/pickle.html#object.__getstate__). Note that unpickling skips `__init__`, and calls just `__new__` (with the "newargs") and `__setstate__`.
+
+I'm not completely sure if it's meaningful to provide a generic `Singleton` abstraction for Python, except for teaching purposes. Practical use cases may differ so much, and some of the implementation details of the specific singleton object (esp. related to pickling) may depend so closely on the implementation details of the singleton abstraction, that it may be easier to just roll your own singleton code when needed. If you're new to customizing this part of Python, what we have here should at least be able to show a way to do this.
 
 
 ## Control flow tools
