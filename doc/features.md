@@ -17,6 +17,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``frozendict``: an immutable dictionary](#frozendict-an-immutable-dictionary)
 - [`cons` and friends: pythonic lispy linked lists](#cons-and-friends-pythonic-lispy-linked-lists)
 - [``box``: a mutable single-item container](#box-a-mutable-single-item-container)
+- [``Shim``: redirect attribute accesses](#shim-redirect-attribute-accesses)
 - [Container utilities](#container-utilities): ``get_abcs``, ``in_slice``, ``index_in_slice``
 
 [**Sequencing**](#sequencing), run multiple expressions in any expression position (incl. inside a ``lambda``).
@@ -506,9 +507,9 @@ We provide a ``JackOfAllTradesIterator`` as a compromise that understands both t
 
 ### ``box``: a mutable single-item container
 
-**Changed in v0.14.2.** *The `box` container now supports `.set(newvalue)` to rebind, returning the new value as a convenience. Syntactic sugar for rebinding is `b << newvalue`, where `b` is a `box`. The item inside the box can be extracted with `unbox(b)`.*
+*Changed in v0.14.2.* *The `box` container now supports `.set(newvalue)` to rebind, returning the new value as a convenience. Syntactic sugar for rebinding is `b << newvalue`, where `b` is a `box`. The item inside the box can be extracted with `unbox(b)`.*
 
-**Added in v0.14.2.** `ThreadLocalBox`: like `box`, but with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.
+*Added in v0.14.2.* `ThreadLocalBox`: like `box`, but with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.
 
 No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
 
@@ -575,7 +576,65 @@ The expression `unbox(b)` has the same meaning as getting the attribute `b.x`, b
 
 The expressions `b.set(newitem)` and `b << newitem` have the same meaning as setting the attribute `b.x`, except that they also return the new value as a convenience.
 
-`ThreadLocalBox`: like `box`, but with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.
+`ThreadLocalBox` is otherwise exactly like `box`, but its contents are thread-local. It also holds a default object, which is set once, when the `ThreadLocalBox` is instantiated. The default object is seen by threads that have not placed any object into the box.
+
+```python
+from unpythonic import ThreadLocalBox, unbox
+
+tlb = ThreadLocalBox(42)  # This `42` becomes the default object.
+assert unbox(tlb) == 42
+def test_threadlocalbox_worker():
+    # This thread hasn't sent anything into the box yet,
+    # so it sees the default object.
+    assert unbox(tlb) == 42
+
+    tlb << 17                # Sending another object into the box...
+    assert unbox(tlb) == 17  # ...in this thread, now the box holds the new object.
+t = threading.Thread(target=test_threadlocalbox_worker)
+t.start()
+t.join()
+
+# But in the main thread, the box still holds the original object.
+assert unbox(tlb) == 42
+```
+
+
+### ``Shim``: redirect attribute accesses
+
+*Added in v0.14.2.*
+
+A `Shim` is an attribute access proxy. The shim holds a `box` (or a `ThreadLocalBox`), and redirects attribute accesses on the shim to whatever object happens to currently be in the box. The point is that the object in the box can be replaced with a different one later (by sending another object into the box), and the code accessing the proxied object through the shim doesn't need to be aware that anything has changed.
+
+For example, this can combo with `ThreadLocalBox` to redirect standard output only in particular threads. Place the stream object in a `ThreadLocalBox`, shim that box, then replace `sys.stdout` with the shim. See the source code of `unpythonic.net.server` for an example that actually does (and cleanly undoes) this.
+
+```python
+from unpythonic import Shim, box, unbox
+
+class TestTarget:
+    def __init__(self, x):
+        self.x = x
+    def getme(self):  # not very pythonic; just for demonstration.
+        return self.x
+
+b = box(TestTarget(21))
+s = Shim(b)  # We could use a ThreadLocalBox just as well.
+
+assert hasattr(s, "x")
+assert hasattr(s, "getme")
+assert s.x == 21
+assert s.getme() == 21
+
+# We can also add or rebind attributes through the shim.
+s.y = "hi from injected attribute"
+assert unbox(b).y == "hi from injected attribute"
+s.y = "hi again"
+assert unbox(b).y == "hi again"
+
+b << TestTarget(42)  # After we send a different object into the box held by the shim...
+assert s.x == 42     # ...the shim accesses the new object.
+assert s.getme() == 42
+assert not hasattr(s, "y")  # The new TestTarget instance doesn't have "y".
+```
 
 
 ### Container utilities
