@@ -507,9 +507,11 @@ We provide a ``JackOfAllTradesIterator`` as a compromise that understands both t
 
 ### ``box``: a mutable single-item container
 
-*Changed in v0.14.2.* *The `box` container now supports `.set(newvalue)` to rebind, returning the new value as a convenience. Syntactic sugar for rebinding is `b << newvalue`, where `b` is a `box`. The item inside the box can be extracted with `unbox(b)`.*
+*Changed in v0.14.2.* *The `box` container API is now `b.set(newvalue)` to rebind, returning the new value as a convenience. The equivalent syntactic sugar is `b << newvalue`. The item inside the box can be extracted with `b.get()`. The equivalent syntactic sugar is `unbox(b)`.*
 
-*Added in v0.14.2.* `ThreadLocalBox`: like `box`, but with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.
+*Added in v0.14.2.* *`ThreadLocalBox`: like `box`, but with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.*
+
+*Changed in v0.14.2.* *Accessing the `.x` attribute of a `box` directly is now deprecated. It will continue to work with `box` at least until 0.15, but it does not and cannot work with `ThreadLocalBox`, which must handle things differently due to implementation reasons. Use the API mentioned above; it supports both kinds of boxes with the same syntax.*
 
 No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
 
@@ -523,31 +525,33 @@ f(a)
 assert a == 23
 ```
 
-Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to remember it is supposed to hold only a single item), or using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
+Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to remember it is supposed to hold only a single item), or (if the lexical structure of the particular piece of code allows it) using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
 
 As an alternative to the rampant abuse of lists, we provide a rackety ``box``, which is a minimalistic mutable container that holds exactly one item. Any code that has a reference to the box can update the data in it:
 
 ```python
-from unpythonic import box
+from unpythonic import box, unbox
 
 a = box(23)
 
 def f(b):
-    b << 17
+    b << 17  # send a different object into the box
 
 f(a)
-assert a == 17
+assert unbox(a) == 17
 ```
 
 The ``box`` API is summarized by:
 
 ```python
+from unpythonic import box, unbox
+
 b1 = box(23)
 b2 = box(23)
 b3 = box(17)
 
-assert b1.x == 23    # data lives in the attribute .x
-assert unbox(b1) == 23  # but is usually accessed by unboxing
+assert b1.get() == 23  # .get() retrieves the current value
+assert unbox(b1) == 23  # unbox() is syntactic sugar, does the same thing
 assert 23 in b1      # content is "in" the box, also syntactically
 assert 17 not in b1
 
@@ -555,7 +559,7 @@ assert [x for x in b1] == [23]  # box is iterable
 assert len(b1) == 1             # and always has length 1
 
 assert b1 == 23      # for equality testing, a box is considered equal to its content
-assert unbox(b1) == 23  # of course, can also unbox the content before testing
+assert unbox(b1) == 23  # can also unbox the content before testing (good practice)
 
 assert b2 == b1  # contents are equal, but
 assert b2 is not b1  # different boxes
@@ -570,11 +574,11 @@ b2.set(42)       # same without syntactic sugar
 assert 42 in b2
 ```
 
-The expression ``item in b`` has the same meaning as ``b.x == item``. Note ``box`` is a mutable container, so it is **not hashable**.
+The expression ``item in b`` has the same meaning as ``unbox(b) == item``. Note ``box`` is a mutable container, so it is **not hashable**.
 
-The expression `unbox(b)` has the same meaning as getting the attribute `b.x`, but additionally sanity checks that `b` is a `box`, and if not, raises `TypeError`.
+The expression `unbox(b)` has the same meaning as `b.get()`, but because it is a function (instead of a method), it additionally sanity checks that `b` is a `box`, and if not, raises `TypeError`.
 
-The expressions `b.set(newitem)` and `b << newitem` have the same meaning as setting the attribute `b.x`, except that they also return the new value as a convenience.
+The expression `b << newitem` has the same meaning as `b.set(newitem)`. In both cases, the new value is returned as a convenience.
 
 `ThreadLocalBox` is otherwise exactly like `box`, but its contents are thread-local. It also holds a default object, which is set once, when the `ThreadLocalBox` is instantiated. The default object is seen by threads that have not placed any object into the box.
 
