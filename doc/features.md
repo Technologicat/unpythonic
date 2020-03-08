@@ -508,6 +508,8 @@ We provide a ``JackOfAllTradesIterator`` as a compromise that understands both t
 
 **Changed in v0.14.2.** *The `box` container now supports `.set(newvalue)` to rebind, returning the new value as a convenience. Syntactic sugar for rebinding is `b << newvalue`, where `b` is a `box`. The item inside the box can be extracted with `unbox(b)`.*
 
+**Added in v0.14.2.** `ThreadLocalBox`: like `box`, but with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.
+
 No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
 
 ```python
@@ -572,6 +574,8 @@ The expression ``item in b`` has the same meaning as ``b.x == item``. Note ``box
 The expression `unbox(b)` has the same meaning as getting the attribute `b.x`, but additionally sanity checks that `b` is a `box`, and if not, raises `TypeError`.
 
 The expressions `b.set(newitem)` and `b << newitem` have the same meaning as setting the attribute `b.x`, except that they also return the new value as a convenience.
+
+`ThreadLocalBox`: like `box`, but with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.
 
 
 ### Container utilities
