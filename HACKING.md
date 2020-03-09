@@ -6,7 +6,7 @@
 ## Most importantly
 
 - **Scope**: language extensions and utilities.
-  - Lispy, haskelly, and/or functional features all fit. Lisp should be understood in the familial sense, including e.g. [Common Lisp](http://clhs.lisp.se/Front/index.htm), [Scheme](https://srfi.schemers.org/), [Racket](https://racket-lang.org/), and [SRFI extensions](https://srfi.schemers.org/).
+  - Lispy, haskelly, and/or functional features all fit. Lisp should be understood in the familial sense, including e.g. [Common Lisp](http://clhs.lisp.se/Front/index.htm), [Scheme](https://srfi.schemers.org/), [Racket](https://racket-lang.org/), and the [SRFI extensions](https://srfi.schemers.org/) to Scheme.
   - Some lispy features are actually imperative, not functional. This is fine. Just like Python, Lisp is a multi-paradigm language.
   - If a feature is large, and useful by itself, a separate project may be The Right Thing.
     - Consider [`pydialect`](https://github.com/Technologicat/pydialect) and [`imacropy`](https://github.com/Technologicat/imacropy), which are closely related, but separate.
