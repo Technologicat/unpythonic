@@ -640,6 +640,48 @@ assert s.getme() == 42
 assert not hasattr(s, "y")  # The new TestTarget instance doesn't have "y".
 ```
 
+A shim can have an optional fallback object, which does not need a box around it. **For attribute reads** (i.e. `__getattr__`), if the object in the box does not have the requested attribute, `Shim` will try to get it from the `fallback` object.
+
+Note any **attribute writes** (i.e. `__setattr__`, binding or rebinding an attribute) always take place on the object in the box.
+
+```python
+from unpythonic import Shim, box
+
+class Ex:
+    x = "hi from Ex"
+class Wai:
+    y = "hi from Wai"
+x, y = Ex(), Wai()
+b = box(x)
+s = Shim(b, fallback=y)
+assert s.x == "hi from Ex"
+assert s.y == "hi from Wai"  # no such attribute on Ex, fallback tried.
+s.z = "hi from Ex again"  # attribute writes (binding) always take place on object in box
+assert x.z == "hi from Ex again"
+```
+
+If you need to chain fallbacks, this can be done with `foldr`:
+
+```python
+from unpythonic import Shim, box, unbox
+
+class Ex:
+    x = "hi from Ex"
+class Wai:
+    y = "hi from Wai"
+class Zee:
+    z = "hi from Zee"
+
+boxes = [box(obj) for obj in (Ex(), Wai(), Zee())]
+*others, last = boxes
+final_fallback = unbox(last)
+s = foldr(Shim, final_fallback, others)  # Shim(box, fallback) <-> op(elt, acc)
+
+assert s.x == "hi from Ex"
+assert s.y == "hi from Wai"
+assert s.z == "hi from Zee"
+```
+
 
 ### Container utilities
 

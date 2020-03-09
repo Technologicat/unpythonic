@@ -5,6 +5,7 @@ from pickle import dumps, loads
 import threading
 
 from ..collections import box, ThreadLocalBox, Shim, unbox, frozendict, view, roview, ShadowedSequence, mogrify
+from ..fold import foldr
 
 def test():
     # box: mutable single-item container à la Racket
@@ -100,6 +101,45 @@ def test():
     assert s.x == 42      # ...the shim accesses the new object.
     assert s.getme() == 42
     assert not hasattr(s, "y")  # The new TestTarget instance doesn't have "y".
+
+    # Shim can optionally have a fallback object (which does not need to be boxed).
+    # It is used for **read accesses** (`__getattr__`) on attributes that don't exist
+    # on the object that is in the box.
+    def test_fallback():
+        class Ex:
+            x = "hi from Ex"
+        class Wai:
+            y = "hi from Wai"
+        x, y = Ex(), Wai()
+        b = box(x)
+        s = Shim(b, fallback=y)
+        assert s.x == "hi from Ex"
+        assert s.y == "hi from Wai"  # no such attribute on Ex, fallback tried.
+        try:
+            s.nonexistent_attribute
+        except AttributeError:
+            pass
+        else:
+            assert False  # should have errored out, this attribute exists neither on Ex nor Wai
+        s.z = "hi from Ex again"  # attribute writes (binding) always take place on object in box
+        assert x.z == "hi from Ex again"
+    test_fallback()
+
+    # Shims can be chained using foldr:
+    def test_chaining():
+        class Ex:
+            x = "hi from Ex"
+        class Wai:
+            y = "hi from Wai"
+        class Zee:
+            z = "hi from Zee"
+        boxes = [box(obj) for obj in (Ex(), Wai(), Zee())]
+        *others, last = boxes
+        s = foldr(Shim, unbox(last), others)  # Shim(box, fallback) <-> op(elt, acc)
+        assert s.x == "hi from Ex"
+        assert s.y == "hi from Wai"
+        assert s.z == "hi from Zee"
+    test_chaining()
 
     # frozendict: like frozenset, but for dictionaries
     d3 = frozendict({'a': 1, 'b': 2})

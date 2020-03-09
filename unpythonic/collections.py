@@ -270,30 +270,49 @@ def unbox(b):
     return b.get()
 
 class Shim:
-    """Attribute access redirector.
+    """Attribute access proxy.
 
     Hold a target object inside a box. When an attribute of the shim
     is accessed (whether to get or set it), redirect that access to
     the object that is currently inside the box.
 
-    The point is that the target may be switched at any time, simply by sending
-    a new value into the box instance you gave to the `Shim` constructor.
+    The target may be replaced at any time, simply by sending a new value
+    into the box instance you gave to the `Shim` constructor.
 
     Another use case is to combo with `ThreadLocalBox`, e.g. to redirect
     stdin/stdout only when used from some specific threads.
+
+    thebox:   a `box` instance that will hold the target. The box must be
+              created manually, so a `box` or `ThreadLocalBox` can be chosen
+              as appropriate for the particular use case.
+
+    fallback: any object, not boxed. Optional. **For attribute reads**
+              (i.e.  `__getattr__`), if the object in the box does not have
+              the requested attribute, `Shim` will try to get it from the
+              `fallback` object.
+
+              If you need to chain fallbacks, this can be done with `foldr`.
+              See the recipe in the unit tests.
+
+              Note any **attribute writes** (i.e. `__setattr__`, binding or
+              rebinding an attribute) always take place on the object in the box.
     """
-    def __init__(self, thebox):
-        """thebox: a `box` instance that will hold the target."""
+    def __init__(self, thebox, fallback=None):
         if not isinstance(thebox, box):
             raise TypeError("Expected box, got {} with value '{}'".format(type(thebox), thebox))
-        self._box = thebox
+        self._shim_box = thebox
+        self._shim_fallback = fallback
     def __getattr__(self, k):
-        thing = unbox(self._box)
-        return getattr(thing, k)
+        thing = unbox(self._shim_box)
+        fallback = self._shim_fallback
+        if not fallback or hasattr(thing, k):
+            return getattr(thing, k)
+        # fallback and not hasattr(thing, k)
+        return getattr(fallback, k)
     def __setattr__(self, k, v):
-        if k == "_box":
+        if k in ("_shim_box", "_shim_fallback"):
             return super().__setattr__(k, v)
-        thing = unbox(self._box)
+        thing = unbox(self._shim_box)
         return setattr(thing, k, v)
 
 _the_empty_frozendict = None
