@@ -580,7 +580,7 @@ The expression `unbox(b)` has the same meaning as `b.get()`, but because it is a
 
 The expression `b << newitem` has the same meaning as `b.set(newitem)`. In both cases, the new value is returned as a convenience.
 
-`ThreadLocalBox` is otherwise exactly like `box`, but its contents are thread-local. It also holds a default object, which is set once, when the `ThreadLocalBox` is instantiated. The default object is seen by threads that have not placed any object into the box.
+`ThreadLocalBox` is otherwise exactly like `box`, but its contents are thread-local. It also holds a default object, which is set initially when the `ThreadLocalBox` is instantiated. The default object is seen by threads that have not placed any object into the box.
 
 ```python
 from unpythonic import ThreadLocalBox, unbox
@@ -600,6 +600,39 @@ t.join()
 
 # But in the main thread, the box still holds the original object.
 assert unbox(tlb) == 42
+```
+
+The method `.setdefault(x)` changes the default object, and `.getdefault()` retrieves the current default object. The method `.clear()` clears the value *sent to the box by the current thread*, thus unshadowing the default for the current thread.
+
+```python
+tlb = ThreadLocalBox(42)
+
+# We haven't sent any object to the box, so we see the default object.
+assert unbox(tlb) == 42
+
+tlb.setdefault(23)  # change the default
+assert unbox(tlb) == 23
+
+tlb << 5                # Send an object to the box *for this thread*.
+assert unbox(tlb) == 5  # Now we see the object we sent. The default is shadowed.
+
+def test_threadlocalbox_worker():
+    # Since this thread hasn't sent anything into the box yet,
+    # we see the current default object.
+    assert unbox(tlb) == 23
+
+    tlb << 17                # But after we send an object into the box...
+    assert unbox(tlb) == 17  # ...that's the object this thread sees.
+t = threading.Thread(target=test_threadlocalbox_worker)
+t.start()
+t.join()
+
+# In the main thread, this box still has the value the main thread sent there.
+assert unbox(tlb) == 5
+# But we can still see the default, if we want, by explicitly requesting it.
+assert tlb.getdefault() == 23
+tlb.clear()              # When we clear the box in this thread...
+assert unbox(tlb) == 23  # ...this thread sees the current default object again.
 ```
 
 
@@ -663,7 +696,7 @@ assert x.z == "hi from Ex again"
 If you need to chain fallbacks, this can be done with `foldr`:
 
 ```python
-from unpythonic import Shim, box, unbox
+from unpythonic import Shim, box, unbox, foldr
 
 class Ex:
     x = "hi from Ex"
@@ -672,10 +705,9 @@ class Wai:
 class Zee:
     z = "hi from Zee"
 
-boxes = [box(obj) for obj in (Ex(), Wai(), Zee())]
-*others, last = boxes
-final_fallback = unbox(last)
-s = foldr(Shim, final_fallback, others)  # Shim(box, fallback) <-> op(elt, acc)
+boxes = [box(obj) for obj in (Ex(), Wai())]  # These will be tried from left to right.
+final_fallback = Zee()
+s = foldr(Shim, final_fallback, boxes)  # Shim(box, fallback) <-> op(elt, acc)
 
 assert s.x == "hi from Ex"
 assert s.y == "hi from Wai"

@@ -71,12 +71,36 @@ def test():
     tlb = ThreadLocalBox(42)
     assert unbox(tlb) == 42
     def test_threadlocalbox_worker():
-        tlb << 17
+        tlb << 17  # Send an object to the box *for this thread*.
         assert unbox(tlb) == 17
     t = threading.Thread(target=test_threadlocalbox_worker)
     t.start()
     t.join()
     assert unbox(tlb) == 42  # In the main thread, this box still has the original value.
+
+    # The default object can be changed.
+    tlb = ThreadLocalBox(42)
+    # We haven't sent any object to the box, so we see the default object.
+    assert unbox(tlb) == 42
+    tlb.setdefault(23)  # change the default
+    assert unbox(tlb) == 23
+    tlb << 5                # Send an object to the box *for this thread*.
+    assert unbox(tlb) == 5  # Now we see the object we sent. The default is shadowed.
+    def test_threadlocalbox_worker():
+        # Since this thread hasn't sent anything into the box yet,
+        # we get the current default object.
+        assert unbox(tlb) == 23
+        tlb << 17                # But after we send an object into the box...
+        assert unbox(tlb) == 17  # ...that's the object this thread sees.
+    t = threading.Thread(target=test_threadlocalbox_worker)
+    t.start()
+    t.join()
+    # In the main thread, this box still has the value the main thread sent there.
+    assert unbox(tlb) == 5
+    # But we can still see the default, if we want, by explicitly requesting it.
+    assert tlb.getdefault() == 23
+    tlb.clear()              # When we clear the box in this thread...
+    assert unbox(tlb) == 23  # ...this thread sees the current default object again.
 
     # Shim: redirect attribute accesses.
     #

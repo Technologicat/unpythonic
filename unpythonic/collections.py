@@ -231,32 +231,35 @@ class ThreadLocalBox(box):
     """
     def __init__(self, x=None):
         self.storage = threading.local()
-        self.storage.x = x
         self._default = x
-    def _ensure_x(self):
-        if not hasattr(self.storage, "x"):
-            self.storage.x = self._default
     def __repr__(self):
         """**WARNING**: the repr shows only the content seen by the current thread."""
-        self._ensure_x()
-        return "ThreadLocalBox({})".format(repr(self.storage.x))
+        return "ThreadLocalBox({})".format(repr(self.get()))
     def __contains__(self, x):
-        self._ensure_x()
-        return self.storage.x == x
+        return self.get() == x
     def __iter__(self):
-        self._ensure_x()
-        return (x for x in (self.storage.x,))
+        return (x for x in (self.get(),))
     def __eq__(self, other):
-        self._ensure_x()
-        return other == self.storage.x
+        return other == self.get()
     def set(self, x):
         self.storage.x = x
         return x
     def __lshift__(self, x):
         return self.set(x)
     def get(self):
-        self._ensure_x()
-        return self.storage.x
+        if hasattr(self.storage, "x"):  # default overridden in this thread?
+            return self.storage.x
+        return self._default
+    def setdefault(self, x):
+        """Change the default object."""
+        self._default = x
+    def getdefault(self):
+        """Get the default object."""
+        return self._default
+    def clear(self):
+        """Remove the value in the box in this thread, thus unshadowing the default."""
+        if hasattr(self.storage, "x"):
+            del self.storage.x
 
 def unbox(b):
     """Return the value from inside the box b.
