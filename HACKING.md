@@ -27,7 +27,7 @@
     - A function definition has [(formal) *parameters*, which are filled by *arguments* at call time](https://docs.python.org/3/faq/programming.html#faq-argument-vs-parameter).
     - *Dynamic assignment* is descriptive, while *dynamic scoping* is nonsense, because *scope* is arguably a lexical concept (cf. dynamic *extent*).
   - **Lack of robustness is a bug.** The code should the right thing in edge cases, possibly in corner cases too.
-    - For example, `memoize` catches and caches exceptions.
+    - For example, `memoize` catches and caches exceptions. The singleton-related abstractions (`Singleton`, `sym` and `gsym`) worry about the thread-safety of constructing the singleton instance. All custom data structure types worry about pickling.
     - When it doesn't make sense to cover all corner cases, think it through, and give examples (in documentation) of what isn't covered.
 
 - **Be obsessively complete** when going the extra mile adds value.
