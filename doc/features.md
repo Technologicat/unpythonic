@@ -2774,9 +2774,11 @@ If no handler *handles* the signal, the `signal(...)` protocol just returns norm
 
 The `error(...)` protocol first delegates to `signal`, and if the signal was not handled by any handler, then **raises** `ControlError` as a regular exception. (Note the Common Lisp `ERROR` function would at this point drop you into the debugger.) The implementation of `error` itself is the only place in the condition system that *raises* an exception for the end user; everything else (including any error situations) uses the signaling mechanism.
 
-The `cerror(...)` protocol likewise makes handling the signal mandatory, but allows the handler to optionally ignore the error (sort of like `ON ERROR RESUME NEXT` in some 1980s BASIC variants). To do this, invoke the `proceed` restart in your handler; this makes the `cerror(...)` call return normally. If no handler handles the `cerror`, it then behaves like `error`.
+The `cerror(...)` protocol likewise makes handling the signal mandatory, but allows the handler to optionally ignore the error (sort of like `ON ERROR RESUME NEXT` in some 1980s BASIC variants). To do this, invoke the `proceed` restart in your handler (or use the pre-defined `proceed` function *as* the handler); this makes the `cerror(...)` call return normally. If no handler handles the `cerror`, it then behaves like `error`.
 
 Finally, there is the `warn(...)` protocol, which is just a lispy interface to Python's `warnings.warn`. It comes with a `muffle` restart that can be invoked by a handler to skip emitting a particular warning. Muffling a warning prevents its emission altogether, before it even hits Python's warnings filter.
+
+The combination of `warn` and `muffle` (as well as `cerror` when a handler invokes its `proceed` restart) behaves somewhat like [`contextlib.suppress`](https://docs.python.org/3/library/contextlib.html#contextlib.suppress), except that execution continues normally from the next statement in the caller of `warn` (respectively `cerror`) instead of unwinding to the handler.
 
 If the standard protocols don't cover what you need, you can also build your own high-level protocols on top of `signal`. See the source code of `error`, `cerror` and `warn` for examples (it's just a few lines in each case).
 
