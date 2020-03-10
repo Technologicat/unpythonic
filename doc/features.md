@@ -3318,13 +3318,13 @@ def worker():
             sleep(0.1)
     except KeyboardInterrupt:  # normally, KeyboardInterrupt is only raised in the main thread
         pass
-    out.append(j)
+    out << j
 t = threading.Thread(target=worker)
 t.start()
 sleep(0.1)  # make sure the worker has entered the loop
 async_raise(t, KeyboardInterrupt)
 t.join()
-assert out[0] < 9  # thread terminated early due to the injected KeyboardInterrupt
+assert unbox(out) < 9  # thread terminated early due to the injected KeyboardInterrupt
 ```
 
 #### So this is how KeyboardInterrupt works under the hood?
