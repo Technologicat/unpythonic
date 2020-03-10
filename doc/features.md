@@ -644,6 +644,8 @@ A `Shim` is an attribute access proxy. The shim holds a `box` (or a `ThreadLocal
 
 For example, this can combo with `ThreadLocalBox` to redirect standard output only in particular threads. Place the stream object in a `ThreadLocalBox`, shim that box, then replace `sys.stdout` with the shim. See the source code of `unpythonic.net.server` for an example that actually does (and cleanly undoes) this.
 
+Since deep down, attribute access is the whole point of objects, `Shim` is essentially a transparent object proxy. (For example, a method call is an attribute read (via a descriptor), followed by a function call.)
+
 ```python
 from unpythonic import Shim, box, unbox
 
@@ -673,24 +675,25 @@ assert s.getme() == 42
 assert not hasattr(s, "y")  # The new TestTarget instance doesn't have "y".
 ```
 
-A shim can have an optional fallback object, which does not need a box around it. **For attribute reads** (i.e. `__getattr__`), if the object in the box does not have the requested attribute, `Shim` will try to get it from the `fallback` object.
+A shim can have an optional fallback object. It can be either any object, or a box if you want to replace the fallback later. **For attribute reads** (i.e. `__getattr__`), if the object in the primary box does not have the requested attribute, `Shim` will try to get it from the fallback. If `fallback` is boxed, the attribute read takes place on the object in the box. If it is not boxed, the attribute read takes place directly on `fallback`.
 
-Note any **attribute writes** (i.e. `__setattr__`, binding or rebinding an attribute) always take place on the object in the box.
+Any **attribute writes** (i.e. `__setattr__`, binding or rebinding an attribute) always take place on the object in the primary box.
 
 ```python
-from unpythonic import Shim, box
+from unpythonic import Shim, box, unbox
 
 class Ex:
     x = "hi from Ex"
 class Wai:
     y = "hi from Wai"
-x, y = Ex(), Wai()
-b = box(x)
-s = Shim(b, fallback=y)
+x, y = [box(obj) for obj in (Ex(), Wai())]
+s = Shim(x, fallback=y)
 assert s.x == "hi from Ex"
 assert s.y == "hi from Wai"  # no such attribute on Ex, fallback tried.
-s.z = "hi from Ex again"  # attribute writes (binding) always take place on object in box
-assert x.z == "hi from Ex again"
+# Attribute writes (binding) always take place on the object in the primary box.
+s.z = "hi from Ex again"
+assert unbox(x).z == "hi from Ex again"
+assert not hasattr(unbox(y), "z")
 ```
 
 If you need to chain fallbacks, this can be done with `foldr`:
@@ -701,14 +704,17 @@ from unpythonic import Shim, box, unbox, foldr
 class Ex:
     x = "hi from Ex"
 class Wai:
+    x = "hi from Wai"
     y = "hi from Wai"
 class Zee:
+    x = "hi from Zee"
+    y = "hi from Zee"
     z = "hi from Zee"
 
-boxes = [box(obj) for obj in (Ex(), Wai())]  # These will be tried from left to right.
-final_fallback = Zee()
-s = foldr(Shim, final_fallback, boxes)  # Shim(box, fallback) <-> op(elt, acc)
-
+ # There will be tried from left to right.
+boxes = [box(obj) for obj in (Ex(), Wai(), Zee())]
+*others, final_fallback = boxes
+s = foldr(Shim, final_fallback, others)  # Shim(box, fallback) <-> op(elt, acc)
 assert s.x == "hi from Ex"
 assert s.y == "hi from Wai"
 assert s.z == "hi from Zee"

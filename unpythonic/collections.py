@@ -285,20 +285,35 @@ class Shim:
     Another use case is to combo with `ThreadLocalBox`, e.g. to redirect
     stdin/stdout only when used from some specific threads.
 
-    thebox:   a `box` instance that will hold the target. The box must be
+    Since deep down, attribute access is the whole point of objects, `Shim` is
+    essentially a transparent object proxy. (For example, a method call is an
+    attribute read (via a descriptor), followed by a function call.)
+
+    thebox:   a `box` instance that holds the target object. The box must be
               created manually, so a `box` or `ThreadLocalBox` can be chosen
               as appropriate for the particular use case.
 
-    fallback: any object, not boxed. Optional. **For attribute reads**
-              (i.e.  `__getattr__`), if the object in the box does not have
-              the requested attribute, `Shim` will try to get it from the
-              `fallback` object.
+    fallback: optional; a fallback object. Either any object (not boxed),
+              or a `box` instance (in case you want to replace the fallback
+              later).
 
-              If you need to chain fallbacks, this can be done with `foldr`.
-              See the recipe in the unit tests.
+              **For attribute reads** (i.e. `__getattr__`), if the object in
+              the box does not have the requested attribute, `Shim` will try
+              to get it from the fallback. If `fallback` is boxed, the
+              attribute read takes place on the object in the box. If it is
+              not boxed, the attribute read takes place directly on `fallback`.
 
-              Note any **attribute writes** (i.e. `__setattr__`, binding or
-              rebinding an attribute) always take place on the object in the box.
+              Any **attribute writes** (i.e. `__setattr__`, binding or rebinding
+              an attribute) always take place on the primary target object
+              in `thebox`.
+
+    If you need to chain fallbacks, this can be done with `foldr`::
+
+        boxes = [box(obj) for obj in ...]
+        *others, final_fallback = boxes
+        s = foldr(Shim, final_fallback, others)
+
+    Here `Shim(box, fallback)` is foldr's `op(elt, acc)`.
     """
     def __init__(self, thebox, fallback=None):
         if not isinstance(thebox, box):
@@ -311,7 +326,8 @@ class Shim:
         if not fallback or hasattr(thing, k):
             return getattr(thing, k)
         # fallback and not hasattr(thing, k)
-        return getattr(fallback, k)
+        otherthing = unbox(fallback) if isinstance(fallback, box) else fallback
+        return getattr(otherthing, k)
     def __setattr__(self, k, v):
         if k in ("_shim_box", "_shim_fallback"):
             return super().__setattr__(k, v)

@@ -126,17 +126,17 @@ def test():
     assert s.getme() == 42
     assert not hasattr(s, "y")  # The new TestTarget instance doesn't have "y".
 
-    # Shim can optionally have a fallback object (which does not need to be boxed).
-    # It is used for **read accesses** (`__getattr__`) on attributes that don't exist
-    # on the object that is in the box.
+    # Shim can optionally have a fallback object (also boxed).
+    #
+    # It is used for **read accesses** (`__getattr__`) on attributes that
+    # don't exist on the object that is in the primary box.
     def test_fallback():
         class Ex:
             x = "hi from Ex"
         class Wai:
             y = "hi from Wai"
-        x, y = Ex(), Wai()
-        b = box(x)
-        s = Shim(b, fallback=y)
+        x, y = [box(obj) for obj in (Ex(), Wai())]
+        s = Shim(x, fallback=y)
         assert s.x == "hi from Ex"
         assert s.y == "hi from Wai"  # no such attribute on Ex, fallback tried.
         try:
@@ -145,8 +145,10 @@ def test():
             pass
         else:
             assert False  # should have errored out, this attribute exists neither on Ex nor Wai
-        s.z = "hi from Ex again"  # attribute writes (binding) always take place on object in box
-        assert x.z == "hi from Ex again"
+        # Attribute writes (binding) always take place on the object in the primary box.
+        s.z = "hi from Ex again"
+        assert unbox(x).z == "hi from Ex again"
+        assert not hasattr(unbox(y), "z")
     test_fallback()
 
     # Shims can be chained using foldr:
@@ -154,12 +156,16 @@ def test():
         class Ex:
             x = "hi from Ex"
         class Wai:
+            x = "hi from Wai"
             y = "hi from Wai"
         class Zee:
+            x = "hi from Zee"
+            y = "hi from Zee"
             z = "hi from Zee"
+        # There will be tried from left to right.
         boxes = [box(obj) for obj in (Ex(), Wai(), Zee())]
-        *others, last = boxes
-        s = foldr(Shim, unbox(last), others)  # Shim(box, fallback) <-> op(elt, acc)
+        *others, final_fallback = boxes
+        s = foldr(Shim, final_fallback, others)  # Shim(box, fallback) <-> op(elt, acc)
         assert s.x == "hi from Ex"
         assert s.y == "hi from Wai"
         assert s.z == "hi from Zee"
