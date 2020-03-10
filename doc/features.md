@@ -585,12 +585,12 @@ assert box2 is not box1  # different boxes
 
 assert box3 != box1  # different contents
 
-b3 << "fox"  # replacing the item in the box (rebinding the contents)
-assert "fox" in b3
-assert "dog" not in b3
+box3 << "fox"  # replacing the item in the box (rebinding the contents)
+assert "fox" in box3
+assert "dog" not in box3
 
-b3.set("fox")  # same without syntactic sugar
-assert "fox" in b3
+box3.set("fox")  # same without syntactic sugar
+assert "fox" in box3
 ```
 
 The expression ``item in b`` has the same meaning as ``unbox(b) == item``. Note ``box`` is a **mutable container**, so it is **not hashable**.
