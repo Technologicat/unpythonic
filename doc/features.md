@@ -1766,7 +1766,7 @@ For convenience, we introduce some special cases:
 
     If you want to process strings, implement it in your function that is called by ``mogrify``.
 
-  - The ``box`` container from ``unpythonic.collections``; although mutable, its update is not conveniently expressible by the ``collections.abc`` APIs.
+  - The ``box`` and `ThreadLocalBox` containers from ``unpythonic.collections``; although mutable, its update is not conveniently expressible by the ``collections.abc`` APIs.
 
   - The ``cons`` container from ``unpythonic.llist`` (including the ``ll``, ``llist`` linked lists). This is treated with the general tree strategy, so nested linked lists will be flattened, and the final ``nil`` is also processed.
 
