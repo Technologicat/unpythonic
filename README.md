@@ -483,7 +483,9 @@ or
 
 ## Support
 
-Something not working as advertised? Missing a feature? Documentation needs improvement? **[Issue reports](https://github.com/Technologicat/unpythonic/issues) and [pull requests](https://github.com/Technologicat/unpythonic/pulls) are welcome.**
+Not working as advertised? Missing a feature? Documentation needs improvement?
+
+**[Issue reports](https://github.com/Technologicat/unpythonic/issues) and [pull requests](https://github.com/Technologicat/unpythonic/pulls) are welcome.**
 
 While `unpythonic` is intended as a serious tool for improving productivity as well as for teaching, right now my work priorities mean that it's developed and maintained on whatever time I can spare for it. Thus getting a response may take a while, depending on which project I happen to be working on.
 
