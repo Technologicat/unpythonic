@@ -58,6 +58,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``arities``, ``kwargs``: Function signature inspection utilities](#arities-kwargs-function-signature-inspection-utilities)
 - [``Popper``: a pop-while iterator](#popper-a-pop-while-iterator)
 - [``ulp``: unit in last place](#ulp-unit-in-last-place)
+- [``async_raise``: inject an exception to another thread](#async_raise-inject-an-exception-to-another-thread) *(CPython only)*
 
 For many examples, see [the unit tests](unpythonic/test/), the docstrings of the individual features, and this guide.
 
@@ -3291,3 +3292,51 @@ print(ulp(2**52))
 When `x` is a round number in base-10, the ULP is not, because the usual kind of floats use base-2.
 
 For more reading, see [David Goldberg (1991): What every computer scientist should know about floating-point arithmetic](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html), or for a [tl;dr](http://catplanet.org/tldr-cat-meme/) version, [the floating point guide](https://floating-point-gui.de/).
+
+
+### ``async_raise``: inject an exception to another thread
+
+*Added in v0.14.2.*
+
+*Currently CPython only, because as of this writing (March 2020) PyPy3 does not expose the required functionality to the Python level, nor there seem to be any plans to do so.*
+
+Usually injecting an exception into an unsuspecting thread makes absolutely no sense. But there are special cases, such as a REPL server which needs to send a `KeyboardInterrupt` into a REPL session thread that's happily stuck waiting for input at [`InteractiveConsole.interact()`](https://docs.python.org/3/library/code.html#code.InteractiveConsole.interact) - while the client that receives the actual `Ctrl+C` is running in a separate process. This and similar awkward situations in network programming are pretty much the only legitimate use case for this feature.
+
+The name is `async_raise`, because it injects an *asynchronous exception*. This has nothing to do with `async`/`await`. Synchronous vs. asynchronous exceptions [mean something different](https://en.wikipedia.org/wiki/Exception_handling#Exception_synchronicity).
+
+In a nutshell, a *synchronous* exception (which is the usual kind of exception) has an explicit `raise` somewhere in the code that the thread that encountered the exception is running. In contrast, an *asynchronous* exception **doesn't**, it just suddenly magically materializes from the outside. As such, it can in principle happen *anywhere*, with absolutely no hint about it in any obvious place in the code.
+
+Needless to say this can be very confusing, so this feature should be used sparingly, if at all. **We only have it because the REPL server needs it.**
+
+```python
+from unpythonic import async_raise, box
+
+out = box()
+def worker():
+    try:
+        for j in range(10):
+            sleep(0.1)
+    except KeyboardInterrupt:  # normally, KeyboardInterrupt is only raised in the main thread
+        pass
+    out.append(j)
+t = threading.Thread(target=worker)
+t.start()
+sleep(0.1)  # make sure the worker has entered the loop
+async_raise(t, KeyboardInterrupt)
+t.join()
+assert out[0] < 9  # thread terminated early due to the injected KeyboardInterrupt
+```
+
+#### So this is how KeyboardInterrupt works under the hood?
+
+No, this is **not** how `KeyboardInterrupt` usually works. Rather, the OS sends a [SIGINT](https://en.wikipedia.org/wiki/Signal_(IPC)#SIGINT), which is then trapped by an [OS signal handler](https://docs.python.org/3/library/signal.html) that runs in the main thread.
+
+At that point the magic has already happened: the control of the main thread is now inside the signal handler, as if the signal handler was called from the otherwise currently innermost point on the call stack. All the handler needs to do is to perform a regular `raise`, and the exception will propagate correctly.
+
+#### History
+
+Original detective work by [Federico Ficarelli](https://gist.github.com/nazavode/84d1371e023bccd2301e) and [LIU Wei](https://gist.github.com/liuw/2407154).
+
+Raising async exceptions is a [documented feature of Python's public C API](https://docs.python.org/3/c-api/init.html#c.PyThreadState_SetAsyncExc), but it was never meant to be invoked from within pure Python code. But then the CPython devs gave us [ctypes.pythonapi](https://docs.python.org/3/library/ctypes.html#accessing-values-exported-from-dlls), which allows access to Python's C API from within Python. (If you think ctypes.pythonapi is too quirky, the [pycapi](https://pypi.org/project/pycapi/) PyPI package smooths over the rough edges.) Combining the two gives `async_raise` without the need to compile a C extension.
+
+Unfortunately PyPy doesn't currently (March 2020) implement this function in its CPython C API emulation layer, `cpyext`. See `unpythonic` issue [#58](https://github.com/Technologicat/unpythonic/issues/58).
