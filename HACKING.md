@@ -126,7 +126,7 @@ As of early 2020, the main target is Python 3.6, both **CPython** and **PyPy3**.
   - Only populate `__all__` explicitly, manually, to allow IDEs and static analysis tools to work properly. (No tricks. See commented-out code in `unpythonic.llist` for an example of a bad idea.)
 
 - **Be curry-friendly** whenever reasonably possible.
-  - Even though it can be more pythonic to pass arguments by name, passing them positionally should not be ruled out.
+  - Even though it is more pythonic to pass arguments by name, passing them positionally should not be ruled out.
   - **Parameters that change the least often**, and hence are meaningful to partially apply for, should **go on the left**.
     - For higher-order functions this usually means the user function on the left, data on the right.
   - To say `def f(other, args, *things)` in situations where passing in at least one `thing` is mandatory, the correct signature is `def f(other, args, thing0, *things)`.
@@ -182,7 +182,7 @@ As of early 2020, the main target is Python 3.6, both **CPython** and **PyPy3**.
     - Technically, Python's object model [is based on the prototype paradigm](https://eev.ee/blog/2017/11/28/object-models/), so strictly speaking the language doesn't even have static types. [This is perfectly fine](https://medium.com/@samth/on-typed-untyped-and-uni-typed-languages-8a3b4bedf68c).
       - Because in Python, it is possible to arbitrarily monkey-patch object instances, there's no guarantee that two object instances that advertise themselves as having the same type are actually alike in any meaningful way.
       - `isinstance` only checks if the object instance was minted by a particular constructor. Until someone [retroactively changes the type](https://github.com/ActiveState/code/tree/master/recipes/Python/160164_automatically_upgrade_class_instances). (Python's `isinstance` is a close relative of JavaScript's [`instanceof`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/instanceof).)
-      - But in practice, there is rarely a need to exploit all of this dynamism. Actual Python code is often much more static, which allows things like the static type checker [mypy](http://www.mypy-lang.org/) to work.
+      - In practice, there is rarely a need to exploit all of this dynamism. Actual Python code is often much more static, which allows things like the static type checker [mypy](http://www.mypy-lang.org/) to work.
     - So, static type declarations are not frowned upon, but I likely won't bother with any for the code I write for the library.
 
 - **Macros.**
