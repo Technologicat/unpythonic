@@ -516,123 +516,143 @@ We provide a ``JackOfAllTradesIterator`` as a compromise that understands both t
 No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
 
 ```python
-a = 23
+animal = "dog"
 
 def f(x):
-    x = 17  # but I want to update the existing a!
+    animal = "cat"  # but I want to update the existing animal!
 
-f(a)
-assert a == 23
+f(animal)
+assert animal == "dog"
 ```
 
-Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to remember it is supposed to hold only a single item), or (if the lexical structure of the particular piece of code allows it) using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
+Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to manually remember that it is supposed to hold only a single item), or (if the lexical structure of the particular piece of code allows it) using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
 
 As an alternative to the rampant abuse of lists, we provide a rackety ``box``, which is a minimalistic mutable container that holds exactly one item. Any code that has a reference to the box can update the data in it:
 
 ```python
 from unpythonic import box, unbox
 
-a = box(23)
+cardboardbox = box("dog")
 
-def f(b):
-    b << 17  # send a different object into the box
+def f(thebox):
+    thebox << "cat"  # send a cat into the box
 
-f(a)
-assert unbox(a) == 17
+f(cardboardbox)
+assert unbox(cardboardbox) == "cat"
 ```
+
+This simple example could have been handled by declaring `global animal` in the body of `f`, and then just assigning to `animal`. The similar case with nested functions can be handled similarly, by declaring [`nonlocal animal`](https://abstrusegoose.com/7). But consider this:
+
+```python
+from unpythonic import box, unbox
+
+def f(x):
+    b = box(x)
+    g(b)
+    assert unbox(b) == "bobcat"  # https://xkcd.com/325/
+
+def g(thebox):
+    thebox << "bobcat"
+
+f("dog")
+```
+
+Here `g` *effectively rebinds a local variable of `f`* - whether that is a good idea is a separate question, but technically speaking, this would not be possible without a container. As mentioned, abusing a `list` is the standard Python (but not very pythonic!) solution. Using specifically a `box` makes the intent explicit.
 
 The ``box`` API is summarized by:
 
 ```python
 from unpythonic import box, unbox
 
-b1 = box(23)
-b2 = box(23)
-b3 = box(17)
+box1 = box("cat")
+box2 = box("cat")
+box3 = box("dog")
 
-assert b1.get() == 23  # .get() retrieves the current value
-assert unbox(b1) == 23  # unbox() is syntactic sugar, does the same thing
-assert 23 in b1      # content is "in" the box, also syntactically
-assert 17 not in b1
+assert box1.get() == "cat"  # .get() retrieves the current value
+assert unbox(box1) == "cat"  # unbox() is syntactic sugar, does the same thing
+assert "cat" in box1  # content is "in" the box, also syntactically
+assert "dog" not in box1
 
-assert [x for x in b1] == [23]  # box is iterable
-assert len(b1) == 1             # and always has length 1
+assert [x for x in box1] == ["cat"]  # a box is iterable
+assert len(box1) == 1  # a box always has length 1
 
-assert b1 == 23      # for equality testing, a box is considered equal to its content
-assert unbox(b1) == 23  # can also unbox the content before testing (good practice)
+assert box1 == "cat"  # for equality testing, a box is considered equal to its content
+assert unbox(box1) == "cat"  # can also unbox the content before testing (good practice)
 
-assert b2 == b1  # contents are equal, but
-assert b2 is not b1  # different boxes
+assert box2 == box1  # contents are equal, but
+assert box2 is not box1  # different boxes
 
-assert b3 != b1      # different contents
+assert box3 != box1  # different contents
 
-b2 << 42         # replacing the item in the box (rebinding the contents)
-assert 42 in b2
-assert 23 not in b2
+b3 << "fox"  # replacing the item in the box (rebinding the contents)
+assert "fox" in b3
+assert "dog" not in b3
 
-b2.set(42)       # same without syntactic sugar
-assert 42 in b2
+b3.set("fox")  # same without syntactic sugar
+assert "fox" in b3
 ```
 
-The expression ``item in b`` has the same meaning as ``unbox(b) == item``. Note ``box`` is a mutable container, so it is **not hashable**.
+The expression ``item in b`` has the same meaning as ``unbox(b) == item``. Note ``box`` is a **mutable container**, so it is **not hashable**.
 
-The expression `unbox(b)` has the same meaning as `b.get()`, but because it is a function (instead of a method), it additionally sanity checks that `b` is a `box`, and if not, raises `TypeError`.
+The expression `unbox(b)` has the same meaning as `b.get()`, but because it is a function (instead of a method), it additionally sanity checks that `b` is a box, and if not, raises `TypeError`.
 
 The expression `b << newitem` has the same meaning as `b.set(newitem)`. In both cases, the new value is returned as a convenience.
 
-`ThreadLocalBox` is otherwise exactly like `box`, but its contents are thread-local. It also holds a default object, which is set initially when the `ThreadLocalBox` is instantiated. The default object is seen by threads that have not placed any object into the box.
+`ThreadLocalBox` is otherwise exactly like `box`, but it's magic: its contents are thread-local. It also holds a default object, which is set initially when the `ThreadLocalBox` is instantiated. The default object is seen by threads that have not placed any object into the box.
 
 ```python
 from unpythonic import ThreadLocalBox, unbox
 
-tlb = ThreadLocalBox(42)  # This `42` becomes the default object.
-assert unbox(tlb) == 42
+tlb = ThreadLocalBox("cat")  # This `"cat"` becomes the default object.
+assert unbox(tlb) == "cat"
 def test_threadlocalbox_worker():
     # This thread hasn't sent anything into the box yet,
     # so it sees the default object.
-    assert unbox(tlb) == 42
+    assert unbox(tlb) == "cat"
 
-    tlb << 17                # Sending another object into the box...
-    assert unbox(tlb) == 17  # ...in this thread, now the box holds the new object.
+    tlb << "hamster"                # Sending another object into the box...
+    assert unbox(tlb) == "hamster"  # ...in this thread, now the box holds the new object.
 t = threading.Thread(target=test_threadlocalbox_worker)
 t.start()
 t.join()
 
 # But in the main thread, the box still holds the original object.
-assert unbox(tlb) == 42
+assert unbox(tlb) == "cat"
 ```
 
 The method `.setdefault(x)` changes the default object, and `.getdefault()` retrieves the current default object. The method `.clear()` clears the value *sent to the box by the current thread*, thus unshadowing the default for the current thread.
 
 ```python
-tlb = ThreadLocalBox(42)
+from unpythonic import ThreadLocalBox, unbox
+
+tlb = ThreadLocalBox("gerbil")
 
 # We haven't sent any object to the box, so we see the default object.
-assert unbox(tlb) == 42
+assert unbox(tlb) == "gerbil"
 
-tlb.setdefault(23)  # change the default
-assert unbox(tlb) == 23
+tlb.setdefault("cat")  # change the default (cats always fill available boxes)
+assert unbox(tlb) == "cat"
 
-tlb << 5                # Send an object to the box *for this thread*.
-assert unbox(tlb) == 5  # Now we see the object we sent. The default is shadowed.
+tlb << "tortoise"                # Send an object to the box *for this thread*.
+assert unbox(tlb) == "tortoise"  # Now we see the object we sent. The default is shadowed.
 
 def test_threadlocalbox_worker():
     # Since this thread hasn't sent anything into the box yet,
     # we see the current default object.
-    assert unbox(tlb) == 23
+    assert unbox(tlb) == "cat"
 
-    tlb << 17                # But after we send an object into the box...
-    assert unbox(tlb) == 17  # ...that's the object this thread sees.
+    tlb << "dog"                # But after we send an object into the box...
+    assert unbox(tlb) == "dog"  # ...that's the object this thread sees.
 t = threading.Thread(target=test_threadlocalbox_worker)
 t.start()
 t.join()
 
 # In the main thread, this box still has the value the main thread sent there.
-assert unbox(tlb) == 5
+assert unbox(tlb) == "tortoise"
 # But we can still see the default, if we want, by explicitly requesting it.
-assert tlb.getdefault() == 23
-tlb.clear()              # When we clear the box in this thread...
-assert unbox(tlb) == 23  # ...this thread sees the current default object again.
+assert tlb.getdefault() == "cat"
+tlb.clear()                 # When we clear the box in this thread...
+assert unbox(tlb) == "cat"  # ...this thread sees the current default object again.
 ```
 
 

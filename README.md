@@ -217,12 +217,13 @@ assert t == (1, 2, 3, 4, 5)
 ```python
 from unpythonic import box, unbox  # mutable single-item container
 cat = object()
-b = box(cat)
-assert b is not cat  # the box is not the cat
-assert unbox(b) is cat  # but when you look inside the box, you find the cat
+cardboardbox = box(cat)
+assert cardboardbox is not cat  # the box is not the cat
+assert unbox(cardboardbox) is cat  # but the cat is inside the box
+assert cat in cardboardbox  # ...also syntactically
 dog = object()
-b << dog  # let's replace the contents of the box
-assert unbox(b) is dog
+cardboardbox << dog  # hey, it's my box! (replace contents)
+assert unbox(cardboardbox) is dog
 
 from unpythonic import cons, nil, ll, llist  # lispy linked lists
 lst = cons(1, cons(2, cons(3, nil)))
