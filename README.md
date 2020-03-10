@@ -257,11 +257,11 @@ assert v == [0, 42, 10, 20, 8]
 [[docs](doc/features.md#pipe-piped-lazy_piped-sequence-functions)]
 
 ```python
-from unpythonic import piped, getvalue
+from unpythonic import piped, exitpipe
 
 double = lambda x: 2 * x
 inc    = lambda x: x + 1
-x = piped(42) | double | inc | getvalue
+x = piped(42) | double | inc | exitpipe
 assert x == 85
 ```
 </details>  
