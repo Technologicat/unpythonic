@@ -27,9 +27,10 @@
 
 - **Be obsessively correct.**
   - **Get the terminology right**. This promotes clear thinking. For example:
-    - A function definition has [(formal) *parameters*, which are filled by *arguments* at call time](https://docs.python.org/3/faq/programming.html#faq-argument-vs-parameter).
-    - *Dynamic assignment* is descriptive, while *dynamic scoping* is nonsense, because *scope* is arguably a lexical concept (cf. dynamic *extent*).
-    - If I have made a terminology mistake, please challenge it! It's nice to get things fixed in a future release.
+      - A function definition has [(formal) *parameters*, which are filled by *arguments* at call time](https://docs.python.org/3/faq/programming.html#faq-argument-vs-parameter).
+      - *Dynamic assignment* is descriptive, while *dynamic scoping* is nonsense, because *scope* is arguably a lexical concept (cf. dynamic *extent*).
+    - Sometimes different subcultures have different names for the same ideas (e.g. Python's *unpacking* vs. Lisp's *destructuring*). When there is no universal standard, feel free to pick one option, but list the alternative banes if reasonably possible. Bringing [a touch of the Rosetta stone](http://rosettacode.org/wiki/Rosetta_Code) helps discoverability.
+    - If I have made a terminology mistake, please challenge it, to get it fixed in a future release.
   - **Lack of robustness is a bug.** The code should the right thing in edge cases, possibly in corner cases too.
     - For example, `memoize` catches and caches exceptions. The singleton-related abstractions (`Singleton`, `sym` and `gsym`) worry about the thread-safety of constructing the singleton instance. All custom data structure types worry about pickling.
     - When it doesn't make sense to cover all corner cases, think it through, and give examples (in documentation) of what isn't covered.
@@ -60,8 +61,11 @@
 - **Document aggressively.**
   - *Useful* docstrings for public API functions are mandatory in release-worthy code.
     - Explain important points, omit boilerplate.
-    - No placeholder docstrings, because that just hides problems from [static analysis](https://pypi.org/project/pyflakes/).
-  - To help discoverability, `doc/features.md` (or `doc/macros.md`, as appropriate) should contain at least a mention of each public feature. Examples are nice, too.
+    - Docstring format is [reStructuredText](https://docutils.sourceforge.io/docs/user/rst/quickref.html).
+      - We have used only basic features that do not ruin the aesthetics when viewed as plain text.
+  - *Having no docstring is better than having a placeholder docstring.*
+    - If a function is not documented, make that fact explicit, to help [static analyzers](https://pypi.org/project/pyflakes/) flag it as needing documentation.
+  - To help discoverability, the full documentation `doc/features.md` (or `doc/macros.md`, as appropriate) should contain at least a mention of each public feature. Examples are nice to have, too.
   - Features that have non-obvious uses (e.g. `@call`), as well as those that cannot be assumed to be familiar to Python developers (e.g. Common Lisp style *conditions and restarts*) should get a more detailed explanation.
 
 
@@ -85,20 +89,23 @@ As of early 2020, the main target is Python 3.6, both **CPython** and **PyPy3**.
 - **Use [semantic versioning](https://semver.org/).**
   - For now (early 2020), there's a leading zero, but the intent is to drop it sooner rather than later.
 
-- **Use from-imports**, `from ... import ...`. This is the `unpythonic` style.
-  - The from-import syntax is mandatory for macro imports in user code, anyway, since MacroPy (as of 1.1.0b2) supports only `from ... import macros, ...` for importing macros. We just use the from-import syntax for regular imports, too.
-  - For imports of certain features of `unpythonic` (e.g. `curry`), our macro code depends on those features being referred to by their original bare names at the use site. This won't work if the `import ...` syntax, or the `from ... import ... as ...` syntax is used.
+- **Use from-imports**.
+  - The `unpythonic` style is `from ... import ...`.
+  - The from-import syntax is mandatory for macro imports in user code, anyway, since MacroPy (as of 1.1.0b2) supports only `from ... import macros, ...` for importing macros. We just use the from-import syntax also for regular imports.
+  - For imports of certain features of `unpythonic` (e.g. `curry`), our macro code depends on those features being referred to by their original bare names at the use site. This won't work if the `import ...` syntax is used. For the same reason, locally renaming `unpythonic` features with `from ... import ... as ...` should be avoided.
   - For imports of stuff from outside `unpythonic`, it's a matter of convention. Sometimes `import ...` can be clearer.
-  - The star-import `from ... import *` is allowed in exactly one place: the top-level `__init__.py`. When used together with the magic `__all__` in modules, it's the pythonic idiom for *import public API for re-export*.
+  - No star-import `from ... import *`, except in the top-level `__init__.py`, where it is allowed for re-exporting the public APIs.
 
 - **Try to pick good names.**
   - *"There are only two hard things in Computer Science: cache invalidation and naming things."* --[Phil Karlton](https://martinfowler.com/bliki/TwoHardThings.html)
   - Try to pick a short, descriptive name that doesn't need to be changed soon.
   - Preferably one word, but if there is none that will fit, and no chance for a newly coined yet obvious word (e.g. SymPy's `lambdify`), then perhaps two or more words separated by underscores must do the job... for now.
+  - When coining a new term, try to quickly check that it's not in common use for something entirely different in some other programming subculture.
+    - Observe the two different meanings of `throw`/`catch` in Common Lisp vs. C++/Java.
 
 - **Try to keep backward compatibility.**
-  - Practicality beats purity.
-  - But sometimes elegance of implementation beats practicality. If a breaking change makes the code much simpler, it may be The Right Thing to schedule that for the next major version milestone.
+  - Practicality beats purity. Backward compatibility is important.
+  - But sometimes elegance beats practicality. If a breaking change makes the code much simpler, it may be The Right Thing... to schedule for the next major version milestone.
 
 - **Avoid external dependencies.**
   - Directly opposite to the sensible approach for most software projects, but `unpythonic` is meant as a standalone base to build on. Few dependencies makes it easy to install, and more unlikely to break.
@@ -113,40 +120,68 @@ As of early 2020, the main target is Python 3.6, both **CPython** and **PyPy3**.
 - **Export explicitly.**
   - In regular (non-macro) code, any names intended as exports **must** be present in [`__all__`](https://docs.python.org/3/tutorial/modules.html#importing-from-a-package). Although not everyone uses it, this is the official mechanism to declare a module's public API, [recommended by PEP8](https://www.python.org/dev/peps/pep-0008/#public-and-internal-interfaces).
   - It makes re-export trivial, so that `from .somemodule import *`, in the top-level `__init__.py`, automatically pulls in the public API, and *only* the public API of `somemodule`.
-  - This in turn helps properly support `from unpythonic import *`, which is convenient for interactive sessions.
+  - This in turn helps properly support `from unpythonic import *` for interactive sessions.
   - While *"anything without a leading underscore is public"* is often a reasonable guideline, that includes also any imports done by the module... which more often than not should not be blindly re-exported. So be explicit.
   - Only populate `__all__` explicitly, manually, to allow IDEs and static analysis tools to work properly. (No tricks. See commented-out code in `unpythonic.llist` for an example of a bad idea.)
 
 - **Be curry-friendly** whenever reasonably possible.
   - Even though it can be more pythonic to pass arguments by name, passing them positionally should not be ruled out.
-  - Parameters that change the least often, and hence are meaningful to partially apply for, should go on the left.
+  - **Parameters that change the least often**, and hence are meaningful to partially apply for, should **go on the left**.
     - For higher-order functions this usually means the user function on the left, data on the right.
+  - To say `def f(other, args, *things*)` in situations where at least one `thing` is always required, the correct signature is `def f(other, args, thing0, *things)`.
+    - This makes it explicit that at least a `thing0` must be supplied before `f` can be meaningfully called. **`curry` needs this information to work properly.**
+    - The syntactic issue is that Python has a Kleene-star `*args`, but no [Kleene-plus](https://en.wikipedia.org/wiki/Kleene_star#Kleene_plus) `+args` that would *require* at least one.
+    - The standard library doesn't bother with this distinction, so e.g. `map` may fire prematurely when curried. (Hence we provide a curry-friendly wrapper for `map`.)
 
 - **Be functional** ([FP](https://en.wikipedia.org/wiki/Functional_programming)) when it makes sense.
   - Don't mutate input unnecessarily. Construct and/or edit a copy instead, and return that.
-    - Macros are an exception to this; due to how MacroPy works, syntax transformers should edit the AST, not build a new one.
+    - Macros are an exception to this. Due to how MacroPy works, syntax transformers should edit the AST in-place, not build a copy.
   - If there is a useful value that could be returned, return it, even if the function performs a mutating operation. This allows chaining operations.
 
-- **Refactor aggressively**: extract reusable utilities.
+- **Refactor aggressively**. Extract reusable utilities.
   - When implementing something, if you run into an empty niche, add the missing utility, and implement your higher-level functionality in terms of it.
   - This keeps code at each level of abstraction short, and exposes parts that can later be combined in new ways.
 
-- **Type checking** and beyond.
-  - **Contracts**. State clearly in the docstrings what your code expects and what it provides. Not just the type, but the semantics.
-    - What is the service the function provides?
-    - What are the requirements on its input, for it to perform that service?
-    - Provided those requirements are satisfied, what is guaranteed about its output?
-    - Are there invariants the function preserves?
+- **Follow [PEP8](https://www.python.org/dev/peps/pep-0008/) style**, *including* the official recommendation to violate PEP8 when the guidelines do not apply.
+  - Specific to `unpythonic`:
+    - Conserve vertical space when reasonable. Even on modern laptops, a display can only fit ~50 lines at a time.
+    - `x = x or default` for initializing `x` inside the function body of `def f(x=None)` is concise and very readable.
+      - But avoid overusing if-expressions.
+    - Line width ~110 columns. This still allows two columns in a modern editor.
+      - Can locally go a character or three over, if that gives globally a more pleasing layout for the text. Examples include a long word at the end of a line, or if a full stop wouldn't fit.
+      - No line breaks in URLs, even if over 110 characters. URLs should be copy'n'pasteable, as well as allow `link-hint-open-link-at-point` to work in Emacs.
+    - **A blank line in code plays the role of a paragraph break in prose.**
+      - Insert a blank line when the topic changes, or when doing so significantly increases clarity.
+      - One blank line after most function definitions, **as well as class definitions**.
+      - Sometimes a group of related short methods looks better **without** blank lines separating them.
+      - Two blank lines only if the situation already requires a blank line, **and the topic changes**.
+        - Use your judgment. E.g. maybe there should be two blank lines between the class definitions of `ThreadLocalBox` and `Shim`, but on the other hand, maybe not. The deciding question is whether we consider them as belonging to the same conceptual set of abstractions.
+
+- [**Contracts**](https://en.wikipedia.org/wiki/Design_by_contract) and **type checking**.
+  - **Contracts**. State clearly in the docstrings what your code expects and what it provides. **Semantics are crucial.** Type is nice to know, but not terribly important.
+    - What is the service the function provides? (General explanation.)
+    - What are the requirements on its input, for it to perform that service? (Parameters.)
+      - What happens if those requirements are violated? (E.g. possible exception types, and why each of them may be raised. Obvious ones may be omitted.)
+    - Provided those requirements are satisfied, what is guaranteed about its output? (Return value(s).)
+    - Are there invariants the function preserves? (Notes.)
       - In case it's not obvious, is the function [pure](https://en.wikipedia.org/wiki/Pure_function)? This is important in a multi-paradigm language.
   - **Dynamic type checking** is ok, both `isinstance` and duck variants.
+    - A *thin* abstraction layer (in the sense of [On Lisp](http://www.paulgraham.com/onlisp.html)) might not even need a type check of its own, if, upon a type error, it's clear from the resulting stack trace that the function crashed because a specific argument didn't make sense. This keeps the codebase clutter-free.
+    - In cases where an error message more specific to your function is helpful, then a dynamic type check and a corresponding `raise` upon failure is The Right Thing.
+    - Report what was expected, what the actual value was instead - at least the type, but preferably also the value. This helps track down bugs in code using that function, based on the stack trace alone.
   - **Contract validation** at run time is also ok - it's a Turing-complete language, after all.
     - If the requirements on the input don't hold, then the caller is at fault. If the guarantees about output don't hold, then the function broke its own contract. This helps narrow down bugs.
-    - Obviously, some properties cannot be automatically checked, because some questions are not decidable. So the docstring is the most important.
+    - Obviously, some properties cannot be automatically checked (e.g., is the given iterable finite?). **The docstring is the most important.**
   - **To help avoid accidental transpositions of arguments in function calls**, take advantage of Python's named arguments.
     - Passing arguments positionally can be risky. Even static type declarations won't help detect accidental transpositions of arguments that have the same type.
     - Any arguments that don't have a standard ordering are good candidates to be made **keyword-only**.
       - E.g. a triple of coordinates is almost always ordered `(x, y, z)`, so individual coordinate arguments are a good candidate to be passed positionally. But the `src` and `dst` parameters in a file copy operation could be defined either way around. So to prevent bugs, The Right Thing is to *require* stating, at the call site, which is intended to be which.
-  - **Static type declarations** are not considered part of `unpythonic` style, but are not frowned upon.
+  - **Static type declarations** are not considered part of `unpythonic` style.
+    - Technically, Python's object model [is based on the prototype paradigm](https://eev.ee/blog/2017/11/28/object-models/), so strictly speaking the language doesn't even have static types. [This is perfectly fine](https://medium.com/@samth/on-typed-untyped-and-uni-typed-languages-8a3b4bedf68c).
+      - Because in Python, it is possible to arbitrarily monkey-patch object instances, there's no guarantee that two object instances that advertise themselves as having the same type are actually alike in any meaningful way.
+      - `isinstance` only checks if the object instance was minted by a particular constructor. Until someone [retroactively changes the type](https://github.com/ActiveState/code/tree/master/recipes/Python/160164_automatically_upgrade_class_instances). (Python's `isinstance` is a close relative of JavaScript's [`instanceof`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/instanceof).)
+      - But in practice, there is rarely a need to exploit all of this dynamism. Actual Python code is often much more static, which allows things like the static type checker [mypy](http://www.mypy-lang.org/) to work.
+    - So, static type declarations are not frowned upon, but it's likely I won't bother with any for the code I write for the library.
 
 - **Macros.**
   - *Macros are the nuclear option of software engineering.*
@@ -155,14 +190,16 @@ As of early 2020, the main target is Python 3.6, both **CPython** and **PyPy3**.
   - `unpythonic/syntax/__init__.py` is very long (> 2000 lines), because:
     - For technical reasons, as of MacroPy 1.1.0b2, it's not possible to re-export macros defined in another module.
     - Therefore, all macro entry points must reside in `unpythonic/syntax/__init__.py`, so that user code can `from unpythonic.syntax import macros, something`, without caring about how the `unpythonic.syntax` package is internally organized.
-    - The docstring must be placed on the macro entry point, so that the REPL will find it. This forces all macro docstrings into that one module. (That's less magic than injecting them when `unpythonic` boots up.)
+    - The docstring must be placed on the macro entry point, so that the REPL will find it. This forces all macro docstrings into that one module. (That's less magic than injecting them dynamically when `unpythonic` boots up.)
     - A macro entry point can be just a thin wrapper around the relevant [*syntax transformer*](http://www.greghendershott.com/fear-of-macros/): a regular function, which takes and returns an AST.
   - You can have an expr, block and decorator macro with the same name, in the same module, because MacroPy holds each kind in a separate registry.
     - If you do this, the docstring should be placed in whichever of those is defined last, because that one will be the definition left standing at run time (hence used for docstring lookup by the REPL).
   - Syntax transformers can and should be sensibly organized into modules, just like any other regular (non-macro) code.
     - But they don't need docstrings, since the macro entry point already has the docstring.
   - If your syntax transformer (or another one it internally uses) needs `gen_sym` or other MacroPy `**kw` arguments:
-    - Declare the relevant `**kw`s as parameters for the entry point, therefore requesting MacroPy to provide them. Stuff them into `dyn`, and call your syntax transformer, which can then get the `**kw`s from `dyn`. See the existing macros for examples.
+    - Declare the relevant `**kw`s as parameters for the macro entry point, therefore requesting MacroPy to provide them. Stuff them into `dyn` using `with dyn.let(...)`, and call your syntax transformer, which can then get the `**kw`s from `dyn`. See the existing macros for examples.
     - Using `dyn` keeps the syntax transformer call signatures clean, while limiting the dynamic extent of what is effectively a global assignment. If we used only function parameters, some of the high-level syntax transformers would have to declare `gen_sym` just to pass it through, possibly through several layers, until it reaches the low-level syntax transformer that actually needs it. Avoiding such a parameter definition cascade is exactly the use case `dyn` was designed for.
+  - If a set of macros shares common utilities, but those aren't needed elsewhere, that's a prime candidate for placing all that in one module.
+    - See e.g. `tailtools.py`, which implements `tco` and `continuations`. The common factor is tail-position analysis.
 
 - **Violate these guidelines when it makes sense to do so.**
