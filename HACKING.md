@@ -6,8 +6,9 @@
 ## Most importantly
 
 - **Scope**: language extensions and utilities.
-  - Lispy, haskelly, and/or functional features all fit. Lisp should be understood in the familial sense, including e.g. [Common Lisp](http://clhs.lisp.se/Front/index.htm), [Scheme](https://srfi.schemers.org/), [Racket](https://racket-lang.org/), and the [SRFI extensions](https://srfi.schemers.org/) to Scheme.
-  - Some lispy features are actually imperative, not functional. This is fine. Just like Python, Lisp is a multi-paradigm language.
+  - Lispy, haskelly, and/or functional features all fit. Anything from a small utility function to a complete (but optional) change of language semantics may fit.
+    - Lisp should be understood in the familial sense, including e.g. [Common Lisp](http://clhs.lisp.se/Front/index.htm), [Scheme](https://schemers.org/), [Racket](https://racket-lang.org/), and Scheme's [SRFI extensions](https://srfi.schemers.org/).
+    - Some lispy features are actually imperative, not functional. This is fine. Just like Python, Lisp is a multi-paradigm language.
   - If a feature is large, and useful by itself, a separate project may be The Right Thing.
     - Consider [`pydialect`](https://github.com/Technologicat/pydialect) and [`imacropy`](https://github.com/Technologicat/imacropy), which are closely related to `unpythonic`, but separate.
     - The hot-patching [REPL server](doc/repl.md) (`unpythonic.net`) is a borderline case. Hot-patching live processes is a legendary Common Lisp feature (actually powered by Swank [[0]](https://common-lisp.net/project/slime/doc/html/Connecting-to-a-remote-lisp.html) [[1]](https://stackoverflow.com/questions/31377098/interact-with-a-locally-long-running-common-lisp-image-possibly-daemonized-fro) [[2]](https://github.com/LispCookbook/cl-cookbook/issues/115) [[3]](https://stackoverflow.com/questions/8874615/how-to-replace-a-running-function-in-common-lisp)), so arguably it belongs; but the machinery is large and only loosely coupled to the rest of `unpythonic`, which favors splitting it off into a separate project.
@@ -15,17 +16,20 @@
 
 - **Motivation**: teaching, learning, bringing Python closer to perfection, increasing productivity.
   - `unpythonic` started as a collection of code analysis exercises, developed while teaching the special course [RAK-19006: Python 3 in Scientific Computing](https://github.com/Technologicat/python-3-scicomp-intro/) at Tampere University of Technology, spring term 2018.
-  - Aim at clarity. Aim what you write at M.Sc. and Ph.D. students (in engineering sciences, not in CS!) who could be reading the code, as well as at yourself.
-  - But it's also a productivity tool, to provide missing batteries and missing language features.
+  - Aim at clarity. Aim what you write at generally intelligent readers, who are not necessarily familiar with the specific construct you're writing about.
+    - For example, the special course was aimed at M.Sc. and Ph.D. students in the engineering sciences. It's common in fields of science involving computing to be proficient in mathematics, yet not have much programming experience.
+  - Aim at increasing your own future productivity, by implementing missing batteries and missing language features.
+    - Not all ideas have to be good; generally the only way to find out is to try.
 
 - **Be pythonic**: *find pythonic ways to do unpythonic things.*
   - Fitting user expectations of how Python behaves beats mathematical elegance.
   - For example, `scanr` returns its results in the same order as it scans them, even though this breaks Haskell tradition.
 
 - **Be obsessively correct.**
-  - **Get the terminology right** to promote clear thinking. For example:
+  - **Get the terminology right**. This promotes clear thinking. For example:
     - A function definition has [(formal) *parameters*, which are filled by *arguments* at call time](https://docs.python.org/3/faq/programming.html#faq-argument-vs-parameter).
     - *Dynamic assignment* is descriptive, while *dynamic scoping* is nonsense, because *scope* is arguably a lexical concept (cf. dynamic *extent*).
+    - If I have made a terminology mistake, please challenge it! It's nice to get things fixed in a future release.
   - **Lack of robustness is a bug.** The code should the right thing in edge cases, possibly in corner cases too.
     - For example, `memoize` catches and caches exceptions. The singleton-related abstractions (`Singleton`, `sym` and `gsym`) worry about the thread-safety of constructing the singleton instance. All custom data structure types worry about pickling.
     - When it doesn't make sense to cover all corner cases, think it through, and give examples (in documentation) of what isn't covered.
@@ -35,7 +39,7 @@
     - Not only a summarizing `minmax` utility, but `running_minmax` as well. The former is then just a one-liner expressed in terms of the latter.
     - `foldl` accepts multiple iterables, has a switch to terminate either on the shortest or on the longest input, and takes its arguments in a curry-friendly order. It also *requires* at least one iterable, so that `curry` knows to not trigger the call until at least one iterable has been provided.
     - `curry` changes Python's reduction semantics to be more similar to Haskell's, to pass extra arguments through on the right, and keep calling if an intermediate result is a function, and there are still such passed-through arguments remaining. This extends what can be expressed concisely, for example a classic lispy `map` is `curry(lambda f: curry(foldr, composerc(cons, f), nil))`. Feed that a function and an iterable, and get a linked list with the mapped results. Note the arity mismatch; `f` is 1-to-1, but `cons` is 2-to-1.
-  - **Make features work together** when it makes sense. Minimizing friction in interaction between features makes for a coherent, easily understandable language extension.
+  - **Make features work together** when it makes sense. Aim at composability. Try to make features orthogonal when reasonably possible, but when not, minimizing friction in interaction between features makes for a coherent, easily understandable language extension.
 
 - **Be concise but readable**, like in mathematics.
   - If an implementation could be made shorter, perhaps it should. But resist the temptation to [golf](https://en.wikipedia.org/wiki/Code_golf). If readability or features would suffer, that's when to stop.
@@ -51,12 +55,13 @@
 - **Test aggressively.**
   - Beside guarding against [regressions](https://en.wikipedia.org/wiki/Software_regression), automated tests also serve as documentation (possibly with useful comments).
   - Write tests for each module (unit), as well as any relevant interactions between features (integration).
+  - Keep in mind the [Practical Test Pyramid (Ham Vocke, 2018)](https://martinfowler.com/articles/practical-test-pyramid.html).
 
 - **Document aggressively.**
   - *Useful* docstrings for public API functions are mandatory in release-worthy code.
     - Explain important points, omit boilerplate.
-    - No content-free placeholder docstrings, because that hides problems from [static analysis](https://pypi.org/project/pyflakes/).
-  - To help discoverability, `doc/features.md` (or `doc/macros.md`, as appropriate) should contain at least a small mention of each public feature. Examples are nice, too.
+    - No placeholder docstrings, because that just hides problems from [static analysis](https://pypi.org/project/pyflakes/).
+  - To help discoverability, `doc/features.md` (or `doc/macros.md`, as appropriate) should contain at least a mention of each public feature. Examples are nice, too.
   - Features that have non-obvious uses (e.g. `@call`), as well as those that cannot be assumed to be familiar to Python developers (e.g. Common Lisp style *conditions and restarts*) should get a more detailed explanation.
 
 
@@ -64,11 +69,11 @@
 
 In short: regular code is in `unpythonic`, macros are in `unpythonic.syntax`, and REPL server related stuff is in `unpythonic.net`. Since `unpythonic` is a relatively loose collection of language extensions and utilities, that's about it.
 
-To study a particular feature, just start from the entry point, and follow the definitions recursively.
+To study a particular feature, just start from the entry point, and follow the definitions recursively. An IDE or Emacs's `anaconda-mode` can make this convenient.
 
 `curry` has some consequences, but nothing that a grep wouldn't find.
 
-The `lazify` and `continuations` macros are the most complex parts. As for the lazifier, grep also for `passthrough_lazy_args` and `maybe_force_args`. As for continuations, read the `tco` macro first, and keep in mind how that worked when reading `continuations`.
+The `lazify` and `continuations` macros are the most complex parts. As for the lazifier, grep also for `passthrough_lazy_args` and `maybe_force_args`. As for continuations, read the `tco` macro first, and keep in mind how that works when reading `continuations`.
 
 `unpythonic.syntax.scoping` is a unfortunate artifact that is needed to implement macros that interact with Python's scoping rules, notably `let`.
 
@@ -78,7 +83,13 @@ As of early 2020, the main target is Python 3.6, both **CPython** and **PyPy3**.
 ## Style guide
 
 - **Use [semantic versioning](https://semver.org/).**
-  - For now (early 2020), there's a leading zero, but the intention is to drop it sooner rather than later.
+  - For now (early 2020), there's a leading zero, but the intent is to drop it sooner rather than later.
+
+- **Use from-imports**, `from ... import ...`. This is the `unpythonic` style.
+  - The from-import syntax is mandatory for macro imports in user code, anyway, since MacroPy (as of 1.1.0b2) supports only `from ... import macros, ...` for importing macros. We just use the from-import syntax for regular imports, too.
+  - For imports of certain features of `unpythonic` (e.g. `curry`), our macro code depends on those features being referred to by their original bare names at the use site. This won't work if the `import ...` syntax, or the `from ... import ... as ...` syntax is used.
+  - For imports of stuff from outside `unpythonic`, it's a matter of convention. Sometimes `import ...` can be clearer.
+  - The star-import `from ... import *` is allowed in exactly one place: the top-level `__init__.py`. When used together with the magic `__all__` in modules, it's the pythonic idiom for *import public API for re-export*.
 
 - **Try to pick good names.**
   - *"There are only two hard things in Computer Science: cache invalidation and naming things."* --[Phil Karlton](https://martinfowler.com/bliki/TwoHardThings.html)
