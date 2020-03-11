@@ -58,6 +58,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``arities``, ``kwargs``: Function signature inspection utilities](#arities-kwargs-function-signature-inspection-utilities)
 - [``Popper``: a pop-while iterator](#popper-a-pop-while-iterator)
 - [``ulp``: unit in last place](#ulp-unit-in-last-place)
+- [``async_raise``: inject an exception to another thread](#async_raise-inject-an-exception-to-another-thread) *(CPython only)*
 
 For many examples, see [the unit tests](unpythonic/test/), the docstrings of the individual features, and this guide.
 
@@ -516,123 +517,143 @@ We provide a ``JackOfAllTradesIterator`` as a compromise that understands both t
 No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
 
 ```python
-a = 23
+animal = "dog"
 
 def f(x):
-    x = 17  # but I want to update the existing a!
+    animal = "cat"  # but I want to update the existing animal!
 
-f(a)
-assert a == 23
+f(animal)
+assert animal == "dog"
 ```
 
-Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to remember it is supposed to hold only a single item), or (if the lexical structure of the particular piece of code allows it) using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
+Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to manually remember that it is supposed to hold only a single item), or (if the lexical structure of the particular piece of code allows it) using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
 
 As an alternative to the rampant abuse of lists, we provide a rackety ``box``, which is a minimalistic mutable container that holds exactly one item. Any code that has a reference to the box can update the data in it:
 
 ```python
 from unpythonic import box, unbox
 
-a = box(23)
+cardboardbox = box("dog")
 
-def f(b):
-    b << 17  # send a different object into the box
+def f(thebox):
+    thebox << "cat"  # send a cat into the box
 
-f(a)
-assert unbox(a) == 17
+f(cardboardbox)
+assert unbox(cardboardbox) == "cat"
 ```
+
+This simple example could have been handled by declaring `global animal` in the body of `f`, and then just assigning to `animal`. The similar case with nested functions can be handled similarly, by declaring [`nonlocal animal`](https://abstrusegoose.com/7). But consider this:
+
+```python
+from unpythonic import box, unbox
+
+def f(x):
+    b = box(x)
+    g(b)
+    assert unbox(b) == "bobcat"  # https://xkcd.com/325/
+
+def g(thebox):
+    thebox << "bobcat"
+
+f("dog")
+```
+
+Here `g` *effectively rebinds a local variable of `f`* - whether that is a good idea is a separate question, but technically speaking, this would not be possible without a container. As mentioned, abusing a `list` is the standard Python (but not very pythonic!) solution. Using specifically a `box` makes the intent explicit.
 
 The ``box`` API is summarized by:
 
 ```python
 from unpythonic import box, unbox
 
-b1 = box(23)
-b2 = box(23)
-b3 = box(17)
+box1 = box("cat")
+box2 = box("cat")
+box3 = box("dog")
 
-assert b1.get() == 23  # .get() retrieves the current value
-assert unbox(b1) == 23  # unbox() is syntactic sugar, does the same thing
-assert 23 in b1      # content is "in" the box, also syntactically
-assert 17 not in b1
+assert box1.get() == "cat"  # .get() retrieves the current value
+assert unbox(box1) == "cat"  # unbox() is syntactic sugar, does the same thing
+assert "cat" in box1  # content is "in" the box, also syntactically
+assert "dog" not in box1
 
-assert [x for x in b1] == [23]  # box is iterable
-assert len(b1) == 1             # and always has length 1
+assert [x for x in box1] == ["cat"]  # a box is iterable
+assert len(box1) == 1  # a box always has length 1
 
-assert b1 == 23      # for equality testing, a box is considered equal to its content
-assert unbox(b1) == 23  # can also unbox the content before testing (good practice)
+assert box1 == "cat"  # for equality testing, a box is considered equal to its content
+assert unbox(box1) == "cat"  # can also unbox the content before testing (good practice)
 
-assert b2 == b1  # contents are equal, but
-assert b2 is not b1  # different boxes
+assert box2 == box1  # contents are equal, but
+assert box2 is not box1  # different boxes
 
-assert b3 != b1      # different contents
+assert box3 != box1  # different contents
 
-b2 << 42         # replacing the item in the box (rebinding the contents)
-assert 42 in b2
-assert 23 not in b2
+box3 << "fox"  # replacing the item in the box (rebinding the contents)
+assert "fox" in box3
+assert "dog" not in box3
 
-b2.set(42)       # same without syntactic sugar
-assert 42 in b2
+box3.set("fox")  # same without syntactic sugar
+assert "fox" in box3
 ```
 
-The expression ``item in b`` has the same meaning as ``unbox(b) == item``. Note ``box`` is a mutable container, so it is **not hashable**.
+The expression ``item in b`` has the same meaning as ``unbox(b) == item``. Note ``box`` is a **mutable container**, so it is **not hashable**.
 
-The expression `unbox(b)` has the same meaning as `b.get()`, but because it is a function (instead of a method), it additionally sanity checks that `b` is a `box`, and if not, raises `TypeError`.
+The expression `unbox(b)` has the same meaning as `b.get()`, but because it is a function (instead of a method), it additionally sanity checks that `b` is a box, and if not, raises `TypeError`.
 
 The expression `b << newitem` has the same meaning as `b.set(newitem)`. In both cases, the new value is returned as a convenience.
 
-`ThreadLocalBox` is otherwise exactly like `box`, but its contents are thread-local. It also holds a default object, which is set initially when the `ThreadLocalBox` is instantiated. The default object is seen by threads that have not placed any object into the box.
+`ThreadLocalBox` is otherwise exactly like `box`, but it's magic: its contents are thread-local. It also holds a default object, which is set initially when the `ThreadLocalBox` is instantiated. The default object is seen by threads that have not placed any object into the box.
 
 ```python
 from unpythonic import ThreadLocalBox, unbox
 
-tlb = ThreadLocalBox(42)  # This `42` becomes the default object.
-assert unbox(tlb) == 42
+tlb = ThreadLocalBox("cat")  # This `"cat"` becomes the default object.
+assert unbox(tlb) == "cat"
 def test_threadlocalbox_worker():
     # This thread hasn't sent anything into the box yet,
     # so it sees the default object.
-    assert unbox(tlb) == 42
+    assert unbox(tlb) == "cat"
 
-    tlb << 17                # Sending another object into the box...
-    assert unbox(tlb) == 17  # ...in this thread, now the box holds the new object.
+    tlb << "hamster"                # Sending another object into the box...
+    assert unbox(tlb) == "hamster"  # ...in this thread, now the box holds the new object.
 t = threading.Thread(target=test_threadlocalbox_worker)
 t.start()
 t.join()
 
 # But in the main thread, the box still holds the original object.
-assert unbox(tlb) == 42
+assert unbox(tlb) == "cat"
 ```
 
 The method `.setdefault(x)` changes the default object, and `.getdefault()` retrieves the current default object. The method `.clear()` clears the value *sent to the box by the current thread*, thus unshadowing the default for the current thread.
 
 ```python
-tlb = ThreadLocalBox(42)
+from unpythonic import ThreadLocalBox, unbox
+
+tlb = ThreadLocalBox("gerbil")
 
 # We haven't sent any object to the box, so we see the default object.
-assert unbox(tlb) == 42
+assert unbox(tlb) == "gerbil"
 
-tlb.setdefault(23)  # change the default
-assert unbox(tlb) == 23
+tlb.setdefault("cat")  # change the default (cats always fill available boxes)
+assert unbox(tlb) == "cat"
 
-tlb << 5                # Send an object to the box *for this thread*.
-assert unbox(tlb) == 5  # Now we see the object we sent. The default is shadowed.
+tlb << "tortoise"                # Send an object to the box *for this thread*.
+assert unbox(tlb) == "tortoise"  # Now we see the object we sent. The default is shadowed.
 
 def test_threadlocalbox_worker():
     # Since this thread hasn't sent anything into the box yet,
     # we see the current default object.
-    assert unbox(tlb) == 23
+    assert unbox(tlb) == "cat"
 
-    tlb << 17                # But after we send an object into the box...
-    assert unbox(tlb) == 17  # ...that's the object this thread sees.
+    tlb << "dog"                # But after we send an object into the box...
+    assert unbox(tlb) == "dog"  # ...that's the object this thread sees.
 t = threading.Thread(target=test_threadlocalbox_worker)
 t.start()
 t.join()
 
 # In the main thread, this box still has the value the main thread sent there.
-assert unbox(tlb) == 5
+assert unbox(tlb) == "tortoise"
 # But we can still see the default, if we want, by explicitly requesting it.
-assert tlb.getdefault() == 23
-tlb.clear()              # When we clear the box in this thread...
-assert unbox(tlb) == 23  # ...this thread sees the current default object again.
+assert tlb.getdefault() == "cat"
+tlb.clear()                 # When we clear the box in this thread...
+assert unbox(tlb) == "cat"  # ...this thread sees the current default object again.
 ```
 
 
@@ -1766,7 +1787,7 @@ For convenience, we introduce some special cases:
 
     If you want to process strings, implement it in your function that is called by ``mogrify``.
 
-  - The ``box`` container from ``unpythonic.collections``; although mutable, its update is not conveniently expressible by the ``collections.abc`` APIs.
+  - The ``box`` and `ThreadLocalBox` containers from ``unpythonic.collections``; although mutable, its update is not conveniently expressible by the ``collections.abc`` APIs.
 
   - The ``cons`` container from ``unpythonic.llist`` (including the ``ll``, ``llist`` linked lists). This is treated with the general tree strategy, so nested linked lists will be flattened, and the final ``nil`` is also processed.
 
@@ -2774,9 +2795,11 @@ If no handler *handles* the signal, the `signal(...)` protocol just returns norm
 
 The `error(...)` protocol first delegates to `signal`, and if the signal was not handled by any handler, then **raises** `ControlError` as a regular exception. (Note the Common Lisp `ERROR` function would at this point drop you into the debugger.) The implementation of `error` itself is the only place in the condition system that *raises* an exception for the end user; everything else (including any error situations) uses the signaling mechanism.
 
-The `cerror(...)` protocol likewise makes handling the signal mandatory, but allows the handler to optionally ignore the error (sort of like `ON ERROR RESUME NEXT` in some 1980s BASIC variants). To do this, invoke the `proceed` restart in your handler; this makes the `cerror(...)` call return normally. If no handler handles the `cerror`, it then behaves like `error`.
+The `cerror(...)` protocol likewise makes handling the signal mandatory, but allows the handler to optionally ignore the error (sort of like `ON ERROR RESUME NEXT` in some 1980s BASIC variants). To do this, invoke the `proceed` restart in your handler (or use the pre-defined `proceed` function *as* the handler); this makes the `cerror(...)` call return normally. If no handler handles the `cerror`, it then behaves like `error`.
 
 Finally, there is the `warn(...)` protocol, which is just a lispy interface to Python's `warnings.warn`. It comes with a `muffle` restart that can be invoked by a handler to skip emitting a particular warning. Muffling a warning prevents its emission altogether, before it even hits Python's warnings filter.
+
+The combination of `warn` and `muffle` (as well as `cerror` when a handler invokes its `proceed` restart) behaves somewhat like [`contextlib.suppress`](https://docs.python.org/3/library/contextlib.html#contextlib.suppress), except that execution continues normally from the next statement in the caller of `warn` (respectively `cerror`) instead of unwinding to the handler.
 
 If the standard protocols don't cover what you need, you can also build your own high-level protocols on top of `signal`. See the source code of `error`, `cerror` and `warn` for examples (it's just a few lines in each case).
 
@@ -3269,3 +3292,51 @@ print(ulp(2**52))
 When `x` is a round number in base-10, the ULP is not, because the usual kind of floats use base-2.
 
 For more reading, see [David Goldberg (1991): What every computer scientist should know about floating-point arithmetic](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html), or for a [tl;dr](http://catplanet.org/tldr-cat-meme/) version, [the floating point guide](https://floating-point-gui.de/).
+
+
+### ``async_raise``: inject an exception to another thread
+
+*Added in v0.14.2.*
+
+*Currently CPython only, because as of this writing (March 2020) PyPy3 does not expose the required functionality to the Python level, nor there seem to be any plans to do so.*
+
+Usually injecting an exception into an unsuspecting thread makes absolutely no sense. But there are special cases, such as a REPL server which needs to send a `KeyboardInterrupt` into a REPL session thread that's happily stuck waiting for input at [`InteractiveConsole.interact()`](https://docs.python.org/3/library/code.html#code.InteractiveConsole.interact) - while the client that receives the actual `Ctrl+C` is running in a separate process. This and similar awkward situations in network programming are pretty much the only legitimate use case for this feature.
+
+The name is `async_raise`, because it injects an *asynchronous exception*. This has nothing to do with `async`/`await`. Synchronous vs. asynchronous exceptions [mean something different](https://en.wikipedia.org/wiki/Exception_handling#Exception_synchronicity).
+
+In a nutshell, a *synchronous* exception (which is the usual kind of exception) has an explicit `raise` somewhere in the code that the thread that encountered the exception is running. In contrast, an *asynchronous* exception **doesn't**, it just suddenly magically materializes from the outside. As such, it can in principle happen *anywhere*, with absolutely no hint about it in any obvious place in the code.
+
+Needless to say this can be very confusing, so this feature should be used sparingly, if at all. **We only have it because the REPL server needs it.**
+
+```python
+from unpythonic import async_raise, box
+
+out = box()
+def worker():
+    try:
+        for j in range(10):
+            sleep(0.1)
+    except KeyboardInterrupt:  # normally, KeyboardInterrupt is only raised in the main thread
+        pass
+    out << j
+t = threading.Thread(target=worker)
+t.start()
+sleep(0.1)  # make sure the worker has entered the loop
+async_raise(t, KeyboardInterrupt)
+t.join()
+assert unbox(out) < 9  # thread terminated early due to the injected KeyboardInterrupt
+```
+
+#### So this is how KeyboardInterrupt works under the hood?
+
+No, this is **not** how `KeyboardInterrupt` usually works. Rather, the OS sends a [SIGINT](https://en.wikipedia.org/wiki/Signal_(IPC)#SIGINT), which is then trapped by an [OS signal handler](https://docs.python.org/3/library/signal.html) that runs in the main thread.
+
+At that point the magic has already happened: the control of the main thread is now inside the signal handler, as if the signal handler was called from the otherwise currently innermost point on the call stack. All the handler needs to do is to perform a regular `raise`, and the exception will propagate correctly.
+
+#### History
+
+Original detective work by [Federico Ficarelli](https://gist.github.com/nazavode/84d1371e023bccd2301e) and [LIU Wei](https://gist.github.com/liuw/2407154).
+
+Raising async exceptions is a [documented feature of Python's public C API](https://docs.python.org/3/c-api/init.html#c.PyThreadState_SetAsyncExc), but it was never meant to be invoked from within pure Python code. But then the CPython devs gave us [ctypes.pythonapi](https://docs.python.org/3/library/ctypes.html#accessing-values-exported-from-dlls), which allows access to Python's C API from within Python. (If you think ctypes.pythonapi is too quirky, the [pycapi](https://pypi.org/project/pycapi/) PyPI package smooths over the rough edges.) Combining the two gives `async_raise` without the need to compile a C extension.
+
+Unfortunately PyPy doesn't currently (March 2020) implement this function in its CPython C API emulation layer, `cpyext`. See `unpythonic` issue [#58](https://github.com/Technologicat/unpythonic/issues/58).
