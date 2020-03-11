@@ -175,11 +175,11 @@ class piped1:
 
         Examples::
 
-            x = piped1(42) | double | inc | getvalue
+            x = piped1(42) | double | inc | exitpipe
 
             y = piped1(42) | double
-            assert y | inc | getvalue == 85
-            assert y | getvalue == 84  # y is not modified
+            assert y | inc | exitpipe == 85
+            assert y | exitpipe == 84  # y is not modified
         """
         if f is exitpipe:
             return self._x
