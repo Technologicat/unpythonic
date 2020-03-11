@@ -181,7 +181,7 @@ class piped1:
             assert y | inc | getvalue == 85
             assert y | getvalue == 84  # y is not modified
         """
-        if f is getvalue:
+        if f is exitpipe:
             return self._x
         cls = self.__class__
         return cls(f(self._x))  # functional update
