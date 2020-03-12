@@ -55,7 +55,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``namelambda``, rename a function](#namelambda-rename-a-function)
 - [``timer``: a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
 - [``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers](#getattrrec-setattrrec-access-underlying-data-in-an-onion-of-wrappers)
-- [``arities``, ``kwargs``: Function signature inspection utilities](#arities-kwargs-function-signature-inspection-utilities)
+- [``arities``, ``kwargs``, ``resolve_bindings``: Function signature inspection utilities](#arities-kwargs-resolve_bindings-function-signature-inspection-utilities)
 - [``Popper``: a pop-while iterator](#popper-a-pop-while-iterator)
 - [``ulp``: unit in last place](#ulp-unit-in-last-place)
 - [``async_raise``: inject an exception to another thread](#async_raise-inject-an-exception-to-another-thread) *(CPython only)*
@@ -3132,7 +3132,7 @@ assert getattrrec(w, "x") == 23
 ```
 
 
-### ``arities``, ``kwargs``: Function signature inspection utilities
+### ``arities``, ``kwargs``, ``resolve_bindings``: Function signature inspection utilities
 
 *Added in v0.14.2*: `resolve_bindings`. Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.
 
@@ -3143,6 +3143,7 @@ Methods on objects and classes are treated specially, so that the reported arity
 ```python
 from unpythonic import arities, arity_includes, UnknownArity, \
                        kwargs, required_kwargs, optional_kwargs,
+                       resolve_bindings
 
 f = lambda a, b: None
 assert arities(f) == (2, 2)  # min, max positional arity
@@ -3182,6 +3183,14 @@ a = A()
 assert arities(a.meth) == (1, 1)       # self is implicit, so just one
 assert arities(a.classmeth) == (1, 1)  # cls is implicit
 assert arities(a.staticmeth) == (1, 1)
+
+def f(a, b, c):
+    pass
+assert tuple(resolve_bindings(f, 1, 2, 3).items()) == (("a", 1), ("b", 2), ("c", 3))
+assert tuple(resolve_bindings(f, a=1, b=2, c=3).items()) == (("a", 1), ("b", 2), ("c", 3))
+assert tuple(resolve_bindings(f, 1, 2, c=3).items()) == (("a", 1), ("b", 2), ("c", 3))
+assert tuple(resolve_bindings(f, 1, c=3, b=2).items()) == (("a", 1), ("b", 2), ("c", 3))
+assert tuple(resolve_bindings(f, c=3, b=2, a=1).items()) == (("a", 1), ("b", 2), ("c", 3))
 ```
 
 We special-case the builtin functions that either fail to return any arity (are uninspectable) or report incorrect arity information, so that also their arities are reported correctly. Note we **do not** special-case the *methods* of any builtin classes, so e.g. ``list.append`` remains uninspectable. This limitation might or might not be lifted in a future version.
