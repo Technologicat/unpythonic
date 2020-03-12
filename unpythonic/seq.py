@@ -167,7 +167,7 @@ class piped1:
 
         Return a ``piped`` object, for chainability.
 
-        As the only exception, if ``f`` is the sentinel ``getvalue``,
+        As the only exception, if ``f`` is the sentinel ``exitpipe``,
         return the current value (useful for exiting the pipe).
 
         A new ``piped`` object is created at each step of piping; the "update"
@@ -175,13 +175,13 @@ class piped1:
 
         Examples::
 
-            x = piped1(42) | double | inc | getvalue
+            x = piped1(42) | double | inc | exitpipe
 
             y = piped1(42) | double
-            assert y | inc | getvalue == 85
-            assert y | getvalue == 84  # y is not modified
+            assert y | inc | exitpipe == 85
+            assert y | exitpipe == 84  # y is not modified
         """
-        if f is getvalue:
+        if f is exitpipe:
             return self._x
         cls = self.__class__
         return cls(f(self._x))  # functional update
@@ -324,10 +324,10 @@ class piped:
 
             f = lambda x, y: (2*x, y+1)
             g = lambda x, y: (x+1, 2*y)
-            x = piped(2, 3) | f | g | getvalue  # --> (5, 8)
+            x = piped(2, 3) | f | g | exitpipe  # --> (5, 8)
         """
         xs = self._xs
-        if f is getvalue:
+        if f is exitpipe:
             return xs if len(xs) > 1 else xs[0]
         cls = self.__class__
         if isinstance(xs, tuple):
