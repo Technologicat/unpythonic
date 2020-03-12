@@ -125,6 +125,41 @@ Note this is exactly the same level of security (i.e. none whatsoever) as provid
 In both cases, access control, auditing and encrypted connections (SSH) can then provided by the OS itself.
 
 
+## Design for hot-patching
+
+**As usual, [the legends](http://www.flownet.com/gat/jpl-lisp.html) are exaggerated.**
+
+Making full use of hot-patching requires foresight, adhering to a particular programming style. Some elements of this style may be considered [antipatterns](https://en.wikipedia.org/wiki/Anti-pattern) in programs that are not designed for hot-patching. An example is to save important data in global variables, so that it can later be accessed from the REPL, instead of keeping as much as possible in the locals of a function. Hot-patching and [FP](https://en.wikipedia.org/wiki/Functional_programming)-ness are opposing goals.
+
+- **It is possible to reload arbitrary modules.**
+  - Just use `importlib.reload`.
+  - But if someone has from-imported anything from the module you're reloading, tough luck. The from-import will refer to the old version of the imported object, unless you reload the module that performed the from-import, too. Good luck catching all of them.
+
+- **You can access only things which you can refer to through the top-level namespace.**
+  - Keep in mind you can access the top-level namespace of **any** module via `sys.modules`.
+  - If the logic you need to hot-patch happens to be inside a closure, tough luck. The only way is then to replace the thing that produces the closures (if that happens to live at the top level), and re-instantiate the closure.
+  - So think ahead, and store the things you need to be able to access in a container accessible from the top-level namespace.
+
+- **You may need to `box` a lot more stuff than usual.**
+  - Especially things that you provide for other modules to from-import from yours.
+  - A module should export a `box` containing the useful thing, not directly the thing itself, since the thing may get replaced later. When a caller indirects via the box, they always get the latest version of the thing.
+
+- **It is impossible to patch a running loop.**
+  - Unless it's an FP loop defined at the top level. In this case it's possible to rebind the function name that refers to the loop body.
+
+- **Even if you replace a class definition, any existing instances will still use the old definition.**
+  - Though you could retroactively change its `__class__`. Automating that is exactly what [ActiveState recipe 160164](https://github.com/ActiveState/code/tree/master/recipes/Python/160164_automatically_upgrade_class_instances) is for.
+
+- **There is no way to save a "Python image".**
+  - Python wasn't really designed, as a language, for the style of development where an image is kept running for years and hot-patched as necessary.
+  - We don't have anything like [SBCL](http://www.sbcl.org/)'s [`save-lisp-and-die`](http://www.sbcl.org/manual/#Function-sb_002dext-save_002dlisp_002dand_002ddie), or indeed the difference between `defvar` (initialize only if it does not already exist in the running process) and `defparameter` (always initialize) (for details, see [Chapter 6](http://www.gigamonkeys.com/book/variables.html) in Peter Seibel's [Practical Common Lisp](http://www.gigamonkeys.com/book/)).
+  - So what we have is not "image based programming" as in Common Lisp. **If you need to restart the process, it needs to cold-boot in the usual manner.**
+    - Therefore, in Python, **never just hot-patch; always change your definitions on disk**, so your program will run with the new definitions also the next time it's cold-booted.
+    - Once you're done testing, *then reload those definitions in the live process*, if you need/want to.
+
+Happy live hacking!
+
+
 ## Why a custom REPL server/client
 
 Support for syntactic macros, **in a REPL connected to a live Python process**, is why this feature is included in `unpythonic`, instead of just recommending [Manhole](https://github.com/ionelmc/python-manhole/), [socketserverREPL](https://github.com/iwanders/socketserverREPL), or similar existing solutions.
