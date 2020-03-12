@@ -1478,6 +1478,10 @@ assert tuple(curry(clip, 5, 10, range(20)) == tuple(range(5, 15))
 
 ### Batteries for network programming
 
+*Added in v0.14.2.*
+
+While all other pure-Python features of `unpythonic` are placed in the main `unpythonic` package, the network-related features are in the subpackage `unpythonic.net`.
+
 - `unpythonic.net.msg`: A simplistic message protocol for sending message data over a stream-based transport, such as TCP.
 - `unpythonic.net.ptyproxy`: Proxy between a Linux [PTY](https://en.wikipedia.org/wiki/Pseudoterminal) and a network socket. Useful for serving terminal utilities over the network. The selling point is this doesn't use `pty.spawn`, so it can be used for proxying also Python libraries that expect to run in a terminal.
 - `unpythonic.net.util`: Miscellaneous small utilities.
@@ -1502,6 +1506,8 @@ bio = BytesIO()
 bio.write(encodemsg(b"hello world"))
 bio.write(encodemsg(b"hello again"))
 bio.seek(0, SEEK_SET)
+# A streamsource accepts any byte stream, such as BytesIO,
+# and files opened with open().
 decoder = MessageDecoder(streamsource(bio))
 assert decoder.decode() == b"hello world"
 assert decoder.decode() == b"hello again"
