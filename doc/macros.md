@@ -944,7 +944,7 @@ See the docstring of ``unpythonic.syntax.tco`` for details.
 
 We provide **genuine multi-shot continuations for Python**. Compare generators and coroutines, which are resumable functions, or in other words, single-shot continuations. In single-shot continuations, once execution passes a certain point, it cannot be rewound. Multi-shot continuations [can be emulated](https://gist.github.com/yelouafi/858095244b62c36ec7ebb84d5f3e5b02), but this makes the execution time `O(n**2)`, because when we want to restart again at an already passed point, the execution must start from the beginning, replaying the history. In contrast, **we implement continuations that can natively resume execution multiple times from the same point.**
 
-This feature has some limitations and is mainly intended for teaching continuations in a Python setting:
+This feature has some limitations and is mainly intended for teaching continuations in a Python setting.
 
 - Especially, there are seams between continuation-enabled code and regular Python code. (This happens with any feature that changes the semantics of only a part of a program.)
 
@@ -952,7 +952,7 @@ This feature has some limitations and is mainly intended for teaching continuati
 
 - Interaction of continuations with exceptions isn't fully thought out. Interaction with async functions **is currently not even implemented**. This is quite simply because this feature is primarily for teaching, and the implementation is already quite complex.
 
-- The implicit `cc` parameter might not be a good idea in the long run, and might or might not change in a future release. It suffers from the same lack of transparency as the implicit `this` in many languages (e.g. C++ and JavaScript).
+- The implicit `cc` parameter might not be a good idea in the long run, and it might or might not change in a future release. It suffers from the same lack of transparency as the implicit `this` in many languages (e.g. C++ and JavaScript).
   - Because it's implicit, it's easy to forget that each function definition implicitly introduces its own `cc`.
     - This introduces a bug when one introduces an inner function, and attempts to use the outer `cc` inside the inner function body, forgetting that inside the inner function the name `cc` points to **the inner function's** own `cc`.
     - Not introducing its own `this` [was precisely why](http://tc39wiki.calculist.org/es6/arrow-functions/) the arrow function syntax was introduced to JavaScript in ES6.
