@@ -948,6 +948,10 @@ This feature has some limitations and is mainly intended for teaching continuati
 
 - Especially, there are seams between continuation-enabled code and regular Python code. (This happens with any feature that changes the semantics of only a part of a program.)
 
+- There's no [`dynamic-wind`](https://docs.racket-lang.org/reference/cont.html#%28def._%28%28quote._~23~25kernel%29._dynamic-wind%29%29) (the generalization of `try/finally`, when control can jump back in to the block from outside it).
+
+- Interaction of continuations with exceptions isn't fully thought out. Interaction with async functions **is currently not even implemented**. This is quite simply because this feature is primarily for teaching, and the implementation is already quite complex.
+
 - The implicit `cc` parameter might not be a good idea in the long run, and might or might not change in a future release. It suffers from the same lack of transparency as the implicit `this` in many languages (e.g. C++ and JavaScript).
   - Because it's implicit, it's easy to forget that each function definition implicitly introduces its own `cc`.
     - This introduces a bug when one introduces an inner function, and attempts to use the outer `cc` inside the inner function body, forgetting that inside the inner function the name `cc` points to **the inner function's** own `cc`.
