@@ -1480,7 +1480,7 @@ assert tuple(curry(clip, 5, 10, range(20)) == tuple(range(5, 15))
 
 *Added in v0.14.2.*
 
-While all other pure-Python features of `unpythonic` are placed in the main `unpythonic` package, the network-related features are in the subpackage `unpythonic.net`.
+While all other pure-Python features of `unpythonic` live in the main `unpythonic` package, the network-related features are placed in the subpackage `unpythonic.net`. This subpackage also contains the [REPL server and client](repl.md) for hot-patching live processes.
 
 - `unpythonic.net.msg`: A simplistic message protocol for sending message data over a stream-based transport, such as TCP.
 - `unpythonic.net.ptyproxy`: Proxy between a Linux [PTY](https://en.wikipedia.org/wiki/Pseudoterminal) and a network socket. Useful for serving terminal utilities over the network. The selling point is this doesn't use `pty.spawn`, so it can be used for proxying also Python libraries that expect to run in a terminal.
