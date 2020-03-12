@@ -40,6 +40,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 - [``tco``: automatic tail call optimization for Python](#tco-automatic-tail-call-optimization-for-python)
   - [TCO and continuations](#tco-and-continuations)
 - [``continuations``: call/cc for Python](#continuations-callcc-for-python)
+  - [Introduction to continuations](#introduction-to-continuations)
   - [Differences between ``call/cc`` and certain other language features](#differences-between-callcc-and-certain-other-language-features) (generators, exceptions)
   - [``call_cc`` API reference](#call_cc-api-reference)
   - [Combo notes](#combo-notes)
@@ -941,13 +942,28 @@ See the docstring of ``unpythonic.syntax.tco`` for details.
 
 *Where control flow is your playground.*
 
+We provide **genuine multi-shot continuations for Python**. Compare generators and coroutines, which are resumable functions, or in other words, single-shot continuations. In single-shot continuations, once execution passes a certain point, it cannot be rewound. Multi-shot continuations [can be emulated](https://gist.github.com/yelouafi/858095244b62c36ec7ebb84d5f3e5b02), but this makes the execution time `O(n**2)`, because when we want to restart again at an already passed point, the execution must start from the beginning, replaying the history. In contrast, **we implement continuations that can natively resume execution multiple times from the same point.**
+
+This feature has some limitations and is mainly intended for teaching continuations in a Python setting:
+
+- Especially, there are seams between continuation-enabled code and regular Python code. (This happens with any feature that changes the semantics of only a part of a program.)
+
+- The implicit `cc` parameter might not be a good idea in the long run, and might or might not change in a future release. It suffers from the same lack of transparency as the implicit `this` in many languages (e.g. C++ and JavaScript).
+  - Because it's implicit, it's easy to forget that each function definition implicitly introduces its own `cc`.
+    - This introduces a bug when one introduces an inner function, and attempts to use the outer `cc` inside the inner function body, forgetting that inside the inner function the name `cc` points to **the inner function's** own `cc`.
+    - Not introducing its own `this` [was precisely why](http://tc39wiki.calculist.org/es6/arrow-functions/) the arrow function syntax was introduced to JavaScript in ES6.
+  - Python gets `self` right in that while it's conveniently *passed* implicitly, it must be *declared* explicitly, eliminating the transparency issue.
+  - On the other hand, a semi-explicit `cc`, like Python's `self`, was tried in a previous release, and it led to a lot of boilerplate. It's especially bad that it effectively needs to be a keyword parameter, necessitating the user to write `def f(x, *, cc)`.
+
+#### Introduction to continuations
+
 If you're new to continuations, see the [short and easy Python-based explanation](https://www.ps.uni-saarland.de/~duchier/python/continuations.html) of the basic idea.
 
 We provide a very loose pythonification of Paul Graham's continuation-passing macros, chapter 20 in [On Lisp](http://paulgraham.com/onlisp.html).
 
 The approach differs from native continuation support (such as in Scheme or Racket) in that the continuation is captured only where explicitly requested with ``call_cc[]``. This lets most of the code work as usual, while performing the continuation magic where explicitly desired.
 
-As a consequence of the approach, our continuations are *delimited* in the very crude sense that the captured continuation ends at the end of the body where the *currently dynamically outermost* ``call_cc[]`` was used. Hence, if porting some code that uses ``call/cc`` from Racket to Python, in the Python version the ``call_cc[]`` may be need to be placed further out to capture the relevant part of the computation. For example, see ``amb`` in the demonstration below; a Scheme or Racket equivalent usually has the ``call/cc`` placed inside the ``amb`` operator itself, whereas in Python we must place the ``call_cc[]`` at the call site of ``amb``.
+As a consequence of the approach, our continuations are [*delimited*](https://en.wikipedia.org/wiki/Delimited_continuation) in the very crude sense that the captured continuation ends at the end of the body where the *currently dynamically outermost* ``call_cc[]`` was used (and it returns a value). Hence, if porting some code that uses ``call/cc`` from Racket to Python, in the Python version the ``call_cc[]`` may be need to be placed further out to capture the relevant part of the computation. For example, see ``amb`` in the demonstration below; a Scheme or Racket equivalent usually has the ``call/cc`` placed inside the ``amb`` operator itself, whereas in Python we must place the ``call_cc[]`` at the call site of ``amb``.
 
 For various possible program topologies that continuations may introduce, see [these clarifying pictures](callcc_topology.pdf).
 
@@ -955,7 +971,9 @@ For full documentation, see the docstring of ``unpythonic.syntax.continuations``
 
 **Note on debugging**: If a function containing a ``call_cc[]`` crashes below the ``call_cc[]``, the stack trace will usually have the continuation function somewhere in it, containing the line number information, so you can pinpoint the source code line where the error occurred. (For a function ``f``, it is named ``f_cont``, ``f_cont1``, ...) But be aware that especially in complex macro combos (e.g. ``continuations, curry, lazify``), the other block macros may spit out many internal function calls *after* the relevant stack frame that points to the actual user program. So check the stack trace as usual, but check further up than usual.
 
-Demonstration:
+**Note on exceptions**: Raising an exception, or [signaling and restarting](features.md#handlers-restarts-conditions-and-restarts), will partly unwind the call stack, so the continuation *from the level that raised the exception* will be cancelled. This is arguably exactly the expected behavior.
+
+Demonstration of continuations:
 
 ```python
 from unpythonic.syntax import macros, continuations, call_cc
