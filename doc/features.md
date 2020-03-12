@@ -30,6 +30,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
   - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus Haskellness.
   - [``fix``: break infinite recursion cycles](#fix-break-infinite-recursion-cycles)
 - [**Batteries for itertools**](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables, etc.
+- [**Batteries for network programming**](#batteries-for-network-programming): message protocol, PTY/socket proxy, etc.
 - [``islice``: slice syntax support for ``itertools.islice``](#islice-slice-syntax-support-for-itertoolsislice)
 - [`gmemoize`, `imemoize`, `fimemoize`: memoize generators](#gmemoize-imemoize-fimemoize-memoize-generators), iterables and iterator factories.
 - [``fup``: functional update; ``ShadowedSequence``](#fup-functional-update-shadowedsequence): like ``collections.ChainMap``, but for sequences.
@@ -1474,6 +1475,52 @@ In the last example, essentially we just want to `clip 5 10 (range 20)`, the gro
 ```python
 assert tuple(curry(clip, 5, 10, range(20)) == tuple(range(5, 15))
 ```
+
+### Batteries for network programming
+
+- `unpythonic.net.msg`: A simplistic message protocol for sending message data over a stream-based transport, such as TCP.
+- `unpythonic.net.ptyproxy`: Proxy between a Linux [PTY](https://en.wikipedia.org/wiki/Pseudoterminal) and a network socket. Useful for serving terminal utilities over the network. The selling point is this doesn't use `pty.spawn`, so it can be used for proxying also Python libraries that expect to run in a terminal.
+- `unpythonic.net.util`: Miscellaneous small utilities.
+
+The thing about stream-based transports is that they have no concept of a message boundary [[1]](http://stupidpythonideas.blogspot.com/2013/05/sockets-are-byte-streams-not-message.html) [[2]](https://eli.thegreenplace.net/2011/08/02/length-prefix-framing-for-protocol-buffers) [[3]](https://docs.python.org/3/howto/sockets.html). This is where a message protocol comes in. We provide a [sans-io](https://sans-io.readthedocs.io/) implementation of a minimalistic custom protocol that adds rudimentary [message framing](https://blog.stephencleary.com/2009/04/message-framing.html) and [stream re-synchronization](https://en.wikipedia.org/wiki/Frame_synchronization). Example:
+
+```python
+from io import BytesIO, SEEK_SET
+
+from unpythonic.net.msg import encodemsg, MessageDecoder
+from unpythonic.net.util import bytessource, streamsource  # have also socketsource
+
+# Encode a message:
+rawdata = b"hello world"
+message = encodemsg(rawdata)
+# Decode a message:
+decoder = MessageDecoder(bytessource(message))
+assert decoder.decode() == b"the quick brown fox jumps over the lazy dog"
+assert decoder.decode() is None  # The message is consumed by the first decode.
+
+bio = BytesIO()
+bio.write(encodemsg(b"hello world"))
+bio.write(encodemsg(b"hello again"))
+bio.seek(0, SEEK_SET)
+decoder = MessageDecoder(streamsource(bio))
+assert decoder.decode() == b"hello world"
+assert decoder.decode() == b"hello again"
+assert decoder.decode() is None
+
+# If junk arrives between messages, the protocol automatically
+# re-synchronizes when retrieving the next message.
+bio = BytesIO()
+bio.write(encodemsg(b"cat"))
+bio.write(b"junk junk junk")  # not a message!
+bio.write(encodemsg(b"mew"))
+bio.seek(0, SEEK_SET)
+decoder = MessageDecoder(streamsource(bio))
+assert decoder.decode() == b"cat"
+assert decoder.decode() == b"mew"
+assert decoder.decode() is None
+```
+
+For a usage example of `unpythonic.net.PTYProxy`, see the source code of `unpythonic.net.server`.
 
 
 ### ``islice``: slice syntax support for ``itertools.islice`
