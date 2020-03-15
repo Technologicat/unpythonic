@@ -145,7 +145,8 @@ Making full use of hot-patching requires foresight, adhering to a particular pro
   - A module should export a `box` containing the useful thing, not directly the thing itself, since the thing may get replaced later. When a caller indirects via the box, they always get the latest version of the thing.
 
 - **It is impossible to patch a running loop.**
-  - Unless it's an FP loop defined at the top level. In this case it's possible to rebind the function name that refers to the loop body.
+  - Unless it's an FP loop with the body defined as a function at the top level. In this case it's possible to rebind the function name that refers to the loop body.
+  - In `unpythonic`, this setup is possible using `@trampolined` (but not `@looped`, because `@looped` overwrites the def'd name with the loop's return value). Define the loop body as a `@trampolined` top-level function, and start the loop by calling this function from wherever you want. Python's dynamic name lookup will then ensure that during each iteration, the latest definition is always used.
 
 - **Even if you replace a class definition, any existing instances will still use the old definition.**
   - Though you could retroactively change its `__class__`. Automating that is exactly what [ActiveState recipe 160164](https://github.com/ActiveState/code/tree/master/recipes/Python/160164_automatically_upgrade_class_instances) is for.
