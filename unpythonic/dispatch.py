@@ -7,7 +7,7 @@ Somewhat like `functools.singledispatch`, but multiple dispatch.
 
 For now this is just a simplistic test. If we want to get serious, we must
 add support for things like `*args`, `**kwargs`, `typing.Sequence[int]`,
-and in 3.8, `typing.Literal[a, b, c, d]`.
+and in 3.8, `typing.Literal['a', 'b', 'c', 'd']`.
 
 **WARNING: PROVISIONAL FEATURE**
 
@@ -18,6 +18,7 @@ feature may still be removed. Do not depend on it in production!
 
 from collections import defaultdict
 from functools import wraps
+import inspect
 import typing
 
 from .arity import resolve_bindings
@@ -34,12 +35,12 @@ def generic(f):
 
     The point of this feature is to eliminate `if`/`elif`/`elif`... blocks
     that switch by `isinstance` on arguments (and then raise `TypeError`
-    in the final `else`), by implementing that once in a central place.
+    in the final `else`), by implementing the machinery once centrally.
 
-    Unlike `typing.overload`, the implementation goes right there in the
+    Unlike `typing.overload`, the implementation belongs right there in the
     type-specialized methods. Unlike `functools.singledispatch`, there is
     no need to provide a fallback non-annotated implementation (and in fact
-    doing that is not supported).
+    that is not supported).
 
     Upon ambiguity, the method that was most recently registered wins. So
     specify the implementation with the most generic types first, and then
@@ -74,14 +75,35 @@ def generic(f):
                     return False
             return True
 
-        for method, signature in reversed(registry[fullname]):
+        methods = tuple(reversed(registry[fullname]))
+        for method, signature in methods:
             if match(signature):
                 return method(*args, **kwargs)
 
+        # No match, report error.
+        #
+        # TODO: It would be nice to show the type signature of the args actually given,
+        # TODO: but in the general case this is difficult. We can't just `type(x)`, since
+        # TODO: the signature may specify something like `Sequence[int]`. Knowing a `list`
+        # TODO: was passed doesn't help debug that it was `Sequence[str]` when a `Sequence[int]`
+        # TODO: was expected. The actual value at least contains the type information implicitly.
+        #
+        # TODO: Compute closest candidates, like Julia does? (see methods, MethodError)
         a = [str(a) for a in args]
         sep = ", " if kwargs else ""
         kw = ["{}={}".format(k, str(v)) for k, v in kwargs]
-        msg = "No method found for {}({}{}{})".format(fullname, ", ".join(a), sep, ", ".join(kw))
+        def format_method(method):  # Taking a page from Julia and some artistic liberty here.
+            obj, signature = method
+            filename = inspect.getsourcefile(obj)
+            source, firstlineno = inspect.getsourcelines(obj)
+            return "{} from {}:{}".format(signature, filename, firstlineno)
+        methods_str = ["  {}".format(format_method(x)) for x in methods]
+        candidates = "\n".join(methods_str)
+        msg = ("No method found matching {}({}{}{}).\n"
+               "Candidate signatures (in order of match attempts):\n{}").format(f.__qualname__,
+                                                                                ", ".join(a),
+                                                                                sep, ", ".join(kw),
+                                                                                candidates)
         raise TypeError(msg)
     return multidispatch
 
@@ -108,11 +130,11 @@ def test():
     assert zorblify(y=1.0, x="tac") == "cat 1.0"
 
     try:
-        zorblify(1.0)
+        zorblify(1.0, 2.0)
     except TypeError:
         pass
     else:
-        assert False  # should have noticed there's no method registered for zorblify(float)
+        assert False  # should have noticed there's no method registered for zorblify(float, float)
 
     print("All tests PASSED")
 
