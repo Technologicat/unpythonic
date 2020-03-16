@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Additional containers and container utilities."""
 
-__all__ = ["box", "ThreadLocalBox", "unbox", "Shim",
+__all__ = ["box", "ThreadLocalBox", "unbox", "Some", "Shim",
            "frozendict", "roview", "view", "ShadowedSequence",
            "mogrify",
            "get_abcs", "in_slice", "index_in_slice",
@@ -112,6 +112,8 @@ def mogrify(func, container):
         # immutable containers
         elif isinstance(x, cons):
             return cons(doit(x.car), doit(x.cdr))
+        elif isinstance(x, Some):
+            return Some(doit(x.get()))
         elif isinstance(x, SequenceView):  # our own cat food
             ctor = type(getattrrec(x, "seq"))  # de-onionize
             return ctor(doit(elt) for elt in x)
@@ -261,14 +263,46 @@ class ThreadLocalBox(box):
         if hasattr(self.storage, "x"):
             del self.storage.x
 
+class Some:
+    """Explicitly represent thing-ness as opposed to nothingness.
+
+    Useful for optional fields. Using a `Some` container makes it possible to
+    tell apart the presence of a `None` value from the absence of a value::
+
+        x = Some(42)    # we have a value, it's `42`
+        x = Some(None)  # we have a value, it's `None`
+        x = None        # we don't have a value
+
+    In a way, `Some` is a relative of `box`: it's an **immutable** single-item
+    container. It supports `.get` and `unbox`, but no `<<` or `.set`.
+    """
+    def __init__(self, x=None):
+        self.x = x
+    def __repr__(self):
+        return "Some({})".format(repr(self.x))
+    def __contains__(self, x):
+        return self.x == x
+    def __iter__(self):
+        return (x for x in (self.x,))
+    def __len__(self):
+        return 1
+    def __eq__(self, other):
+        return other == self.x
+    def get(self):
+        """Return the value currently in the `Some`.
+
+        The syntactic sugar for `b.get()` is `unbox(b)`.
+        """
+        return self.x
+
 def unbox(b):
     """Return the value from inside the box b.
 
     Syntactic sugar for `b.get()`.
 
-    If `b` is not a `box` (or `ThreadLocalBox`), raises `TypeError`.
+    If `b` is not a `box` (or `ThreadLocalBox` or `Some`), raises `TypeError`.
     """
-    if not isinstance(b, box):
+    if not isinstance(b, (box, Some)):
         raise TypeError("Expected box, got {} with value '{}'".format(type(b), b))
     return b.get()
 
@@ -474,6 +508,7 @@ for abscls in get_abcs(dict) - {MutableMapping} | {Hashable}:
 for abscls in (Container, Iterable, Sized):
     abscls.register(box)
     abscls.register(ThreadLocalBox)
+    abscls.register(Some)
 del abscls  # namespace cleanup
 
 # -----------------------------------------------------------------------------

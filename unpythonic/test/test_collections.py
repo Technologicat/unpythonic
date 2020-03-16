@@ -4,7 +4,8 @@ from collections.abc import Mapping, MutableMapping, Hashable, Container, Iterab
 from pickle import dumps, loads
 import threading
 
-from ..collections import box, ThreadLocalBox, Shim, unbox, frozendict, view, roview, ShadowedSequence, mogrify
+from ..collections import box, ThreadLocalBox, Some, Shim, unbox, \
+                          frozendict, view, roview, ShadowedSequence, mogrify
 from ..fold import foldr
 
 def test():
@@ -101,6 +102,17 @@ def test():
     assert tlb.getdefault() == 23
     tlb.clear()              # When we clear the box in this thread...
     assert unbox(tlb) == 23  # ...this thread sees the current default object again.
+
+    # Some: tell apart thing-ness from nothingness. This container is immutable.
+    #
+    # The point is being able to tell apart the presence of a `None` value from
+    # the absence of a value.
+    s = Some(42)
+    assert unbox(s) == 42
+    assert 42 in s
+    s = Some(None)
+    assert unbox(s) is None
+    assert None in s
 
     # Shim: redirect attribute accesses.
     #

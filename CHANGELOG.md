@@ -42,6 +42,7 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
 - `dyn` now supports rebinding, using the assignment syntax `dyn.x = 42`. To mass-update atomically, see `dyn.update`.
 - `box` now supports `.set(newvalue)` to rebind (returns the new value as a convenience), and `unbox(b)` to extract contents. Syntactic sugar for rebinding is `b << newvalue` (where `b` is a box).
 - `ThreadLocalBox`: A box with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.
+- `Some`: An immutable box. Useful for optional fields; tell apart the presence of a `None` value (`Some(None)`) from the absence of a value (`None`).
 - `Shim`: A shim holds a `box` or a `ThreadLocalBox`, and redirects attribute accesses to whatever object is currently in the box.
 - `islice` now supports negative start and stop. (**Caution**: no negative step; and it must consume the whole iterable to determine where it ends, if at all.)
 - `async_raise`: Inject KeyboardInterrupt into an arbitrary thread. (*CPython only*.)

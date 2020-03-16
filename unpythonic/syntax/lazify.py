@@ -54,7 +54,7 @@ from ..dynassign import dyn
 # In any case, *args and **kwargs are lazified only if literal containers;
 # whatever they are, the result must be unpackable to perform the function call.
 _ctorcalls_map = ("frozendict", "dict")
-_ctorcalls_seq = ("list", "tuple", "set", "frozenset", "box", "ThreadLocalBox", "cons", "llist", "ll")
+_ctorcalls_seq = ("list", "tuple", "set", "frozenset", "box", "ThreadLocalBox", "Some", "cons", "llist", "ll")
 # when to lazify individual (positional, keyword) args.
 _ctor_handling_modes = {  # constructors that take iterable(s) as positional args.
                         "dict": ("literal_only", "all"),
@@ -67,6 +67,7 @@ _ctor_handling_modes = {  # constructors that take iterable(s) as positional arg
                         # constructors that take individual items.
                         "box": ("all", "all"),
                         "ThreadLocalBox": ("all", "all"),
+                        "Some": ("all", "all"),
                         "cons": ("all", "all"),
                         "ll": ("all", "all")}
 _ctorcalls_all = _ctorcalls_map + _ctorcalls_seq
