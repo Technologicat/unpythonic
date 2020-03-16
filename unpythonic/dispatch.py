@@ -67,9 +67,8 @@ def generic(f):
         bindings = resolve_bindings(f, *args, **kwargs)
 
         def match(signature):
-            # TODO: handle *args and **kwargs (identifying them reliably
-            # needs changes to the return format of resolve_bindings)
-            for parameter, value in bindings.items():
+            # TODO: handle *args (bindings["vararg"]) and **kwargs (bindings["kwarg"])
+            for parameter, value in bindings["args"].items():
                 p = signature[parameter]  # TODO: what if parameter is not there? TypeError?
                 if p is not typing.Any and not isinstance(value, p):
                     return False
