@@ -59,6 +59,32 @@ def result(loop, i, acc):
 assert [f(10) for f in result] == [0, 10, 20]
 ```
 </details>  
+<details><summary>Introduce dynamic variables.</summary>
+
+[[docs](doc/features.md#dyn-dynamic-assignment)]
+
+```python
+from unpythonic import dyn, make_dynvar
+
+make_dynvar(x=42)  # set a default value
+
+def f():
+    assert dyn.x == 17
+    with dyn.let(x=23):
+        assert dyn.x == 23
+        g()
+    assert dyn.x == 17
+
+def g():
+    assert dyn.x == 23
+
+assert dyn.x == 42
+with dyn.let(x=17):
+    assert dyn.x == 17
+    f()
+assert dyn.x == 42
+```
+</details>  
 <details><summary>Interactively hot-patch your running Python program.</summary>
 
 [[docs](doc/repl.md)]
@@ -97,7 +123,7 @@ You can have multiple REPL sessions connected simultaneously. When your app exit
 
 Optionally, if you have MacroPy, the REPL sessions support importing and invoking macros. If you additionally have [imacropy](https://github.com/Technologicat/imacropy), the improved interactive macro REPL is used automatically.
 </details>  
-<details><summary>Scan, fold and unfold like a boss.</summary>
+<details><summary>Industrial-strength scan and fold.</summary>
 
 [[docs](doc/features.md#batteries-for-itertools)]
 
@@ -312,6 +338,14 @@ def highlevel():
 
 highlevel()
 ```
+
+This example is contrived. Conditions only shine in larger systems, with restarts set up at multiple levels of the call stack; this example is too small to demonstrate that. The single-level case here could be implemented as a error-handling mode parameter for the example's only low-level function.
+
+With multiple levels, it becomes apparent that this mode parameter must be threaded through the API at each level, unless it is stored as a dynamic variable (see [`unpythonic.dyn`](doc/features.md#dyn-dynamic-assignment)). But then, there can be several types of errors, and the error-handling mode parameters - one for each error type - have to be shepherded in an intricate manner. A stack is needed, so that an inner level may temporarily override the handler for a particular error type...
+
+The condition system is the clean, general solution to this problem. It automatically scopes handlers to their dynamic extent, and manages the handler stack automatically. In other words, it dynamically binds error-handling modes (for several types of errors, if desired) in a controlled, easily understood manner. The local programmability (i.e. the fact that a handler is not just a restart name, but an arbitrary function) is a bonus for additional flexibility.
+
+If this sounds a lot like an exception system, that's because conditions are the supercharged sister of exceptions. The condition model cleanly separates mechanism from policy, while otherwise remaining similar to the exception model.
 </details>
 
 
