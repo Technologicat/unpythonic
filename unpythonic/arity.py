@@ -338,8 +338,8 @@ def resolve_bindings(f, *args, **kwargs):
         def memoize(f):
             memo = {}
             def memoized(*args, **kwargs):
-                bindings = resolve_bindings(f, *args, **kwargs)  # --> {"a": 42} in either case
-                k = tuple(bindings.items())
+                with dyn.let(resolve_bindings_tuplify=True):
+                    k = resolve_bindings(f, *args, **kwargs)  # --> {"a": 42} in either case
                 if k in memo:
                     return memo[k]
                 memo[k] = v = f(*args, **kwargs)
@@ -352,6 +352,19 @@ def resolve_bindings(f, *args, **kwargs):
 
         f(42)
         f(a=42)  # now the cache hits
+
+    The return value of `resolve_bindings` is an `OrderedDict` with four keys:
+        args: `OrderedDict` of bindings made for regular parameters
+              (positional only, positional or keyword, keyword only).
+        vararg: `tuple` of arguments gathered by the vararg (`*args`) parameter
+                if the function definition has one; otherwise `None`.
+        vararg_name: `str`, the name of the vararg parameter; or `None`.
+        kwarg: `OrderedDict` of bindings gathered by `**kwargs` if the
+               function definition has one; otherwise `None`.
+
+    If `dyn.resolve_bindings_tuplify` is `True`, each `OrderedDict` object
+    in the return value are converted using `tuple(od.items())`. This
+    makes the return value hashable, if all the passed arguments are.
     """
     f, _ = _getfunc(f)
     params = signature(f).parameters
@@ -375,6 +388,7 @@ def resolve_bindings(f, *args, **kwargs):
             index[param.name] = slot
         if param.kind == Parameter.VAR_POSITIONAL:
             varpos = slot
+            varpos_name = param.name
         elif param.kind == Parameter.VAR_KEYWORD:
             varkw = slot
 
@@ -459,6 +473,7 @@ def resolve_bindings(f, *args, **kwargs):
     bindings = OrderedDict()
     bindings["args"] = regularargs
     bindings["vararg"] = slots[varpos] if varpos else None
+    bindings["vararg_name"] = varpos_name if varpos else None  # for introspection
     bindings["kwarg"] = slots[varkw] if varkw else None
 
     if dyn.resolve_bindings_tuplify:
