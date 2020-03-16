@@ -42,7 +42,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 - [``tco``: automatic tail call optimization for Python](#tco-automatic-tail-call-optimization-for-python)
   - [TCO and continuations](#tco-and-continuations)
 - [``continuations``: call/cc for Python](#continuations-callcc-for-python)
-  - [Introduction to continuations](#introduction-to-continuations)
+  - [General remarks on continuations](#general-remarks-on-continuations)
   - [Differences between ``call/cc`` and certain other language features](#differences-between-callcc-and-certain-other-language-features) (generators, exceptions)
   - [``call_cc`` API reference](#call_cc-api-reference)
   - [Combo notes](#combo-notes)
@@ -961,7 +961,7 @@ This feature has some limitations and is mainly intended for teaching continuati
   - Python gets `self` right in that while it's conveniently *passed* implicitly, it must be *declared* explicitly, eliminating the transparency issue.
   - On the other hand, a semi-explicit `cc`, like Python's `self`, was tried in a previous release, and it led to a lot of boilerplate. It's especially bad that it effectively needs to be a keyword parameter, necessitating the user to write `def f(x, *, cc)`.
 
-#### Introduction to continuations
+#### General remarks on continuations
 
 If you're new to continuations, see the [short and easy Python-based explanation](https://www.ps.uni-saarland.de/~duchier/python/continuations.html) of the basic idea.
 
