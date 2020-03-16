@@ -513,6 +513,8 @@ We provide a ``JackOfAllTradesIterator`` as a compromise that understands both t
 
 *Added in v0.14.2.* *`ThreadLocalBox`: like `box`, but with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.*
 
+*Added in v0.14.2.* *`Some`: like `box`, but immutable. Useful to mark an optional attribute. `Some(None)` indicates a value that is set to `None`, in contrast to a bare `None`, which can then be used indicate the absence of a value.*
+
 *Changed in v0.14.2.* *Accessing the `.x` attribute of a `box` directly is now deprecated. It will continue to work with `box` at least until 0.15, but it does not and cannot work with `ThreadLocalBox`, which must handle things differently due to implementation reasons. Use the API mentioned above; it supports both kinds of boxes with the same syntax.*
 
 No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
