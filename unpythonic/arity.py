@@ -443,12 +443,23 @@ def resolve_bindings(f, *args, **kwargs):
         raise TypeError(msg)
 
     # build the result
-    if dyn.resolve_bindings_tuplify and varkw is not None:
-        slots[varkw] = tuple(slots[varkw].items())
-
-    bindings = OrderedDict()
+    regularargs = OrderedDict()
     for param, value in zip(params.values(), slots):
-        bindings[param.name] = value
+        if param.kind in varkinds:  # skip varpos, varkw
+            continue
+        regularargs[param.name] = value
+
+    if dyn.resolve_bindings_tuplify:
+        regularargs = tuple(regularargs.items())
+        if varkw is not None:
+            slots[varkw] = tuple(slots[varkw].items())
+
+    # Naming of the fields matches `ast.arguments`
+    # https://greentreesnakes.readthedocs.io/en/latest/nodes.html#arguments
+    bindings = OrderedDict()
+    bindings["args"] = regularargs
+    bindings["vararg"] = slots[varpos] if varpos else None
+    bindings["kwarg"] = slots[varkw] if varkw else None
 
     if dyn.resolve_bindings_tuplify:
         bindings = tuple(bindings.items())
