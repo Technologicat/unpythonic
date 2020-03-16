@@ -2329,6 +2329,8 @@ def q(loop, item, acc):
 assert q == ('Item 0: 1a', 'Item 1: 2b', 'Item 2: 3c')
 ```
 
+This is because while *tuple parameter unpacking* was supported in Python 2.x, it was removed starting from Python 3.0, in [PEP 3113](https://www.python.org/dev/peps/pep-3113/). The original implementation of the feature caused certain technical issues (detailed in the PEP), and it was not widely used. It is somewhat curious that re-engineering the implementation to overcome those issues was not even suggested in the PEP. For what it's worth, JavaScript (technically, [ECMAScript](https://www.ecma-international.org/ecma-262/)) does support this feature, so the rationale for removal seems specific to the Python community.
+
 FP loops can be nested (also those over iterables):
 
 ```python

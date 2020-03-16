@@ -4,6 +4,7 @@
 - [Macros do not Compose](#macros-do-not-compose)
 - [Language Discontinuities](#language-discontinuities)
 - [What Belongs in Python?](#what-belongs-in-python)
+- [Common Lisp, Python, and productivity](#common-lisp-python-and-productivity)
 - [Python is not a Lisp](#python-is-not-a-lisp)
 - [On ``let`` and Python](#on-let-and-python)
 - [Assignment Syntax](#assignment-syntax)
@@ -67,6 +68,26 @@ Of course, if I agreed, I wouldn't be doing this (or [this](https://github.com/T
 On a point raised [here](https://www.artima.com/weblogs/viewpost.jsp?thread=147358) with respect to indentation-sensitive vs. indentation-insensitive parser modes, having seen [SRFI-110: Sweet-expressions (t-expressions)](https://srfi.schemers.org/srfi-110/srfi-110.html), I think Python is confusing matters by linking the mode to statements vs. expressions. A workable solution is to make *everything* support both modes (or even preprocess the source code text to use only one of the modes), which *uniformly* makes parentheses an alternative syntax for grouping.
 
 It would be nice to be able to use indentation to structure expressions to improve their readability, like one can do in Racket with [sweet](https://docs.racket-lang.org/sweet/), but I suppose ``lambda x: [expr0, expr1, ...]`` will have to do for a multiple-expression lambda in MacroPy. Unless I decide at some point to make a source filter for [Pydialect](https://github.com/Technologicat/pydialect) to auto-convert between indentation and parentheses; but for Python this is somewhat difficult to do, because statements **must** use indentation whereas expressions **must** use parentheses, and this must be done before we can invoke the standard parser to produce an AST. (And I don't want to maintain a [Pyparsing](https://github.com/pyparsing/pyparsing) grammar to parse a modified version of Python.)
+
+### Common Lisp, Python, and productivity
+
+The various essays by Paul Graham, especially [Revenge of the Nerds (2002)](http://paulgraham.com/icad.html), have given the initial impulse to many programmers for studying Lisp. They are well written and have provided a lot of exposure for Lisp. So how does the programming world look now, in that light, 20 years later?
+
+The base abstraction level of programming languages, even those in popular use, has increased since those essays were written. (The trend was visible already then, and was indeed noted in the essays.) The focus on low-level languages such as C++ has decreased. Java is still popular, but high-level FP languages that compile to JVM bytecode (Kotlin, Scala, Clojure) are rising.
+
+Python has become highly popular, and is now closer to Lisp than it was 20 years ago, especially after `MacroPy` introduced syntactic macros to Python (in 2013, according to [the git log](https://github.com/lihaoyi/macropy/commits/python2/macropy/__init__.py)). It wasn't bad as a Lisp replacement even back in 2000 - see Peter Norvig's essay [Python for Lisp Programmers](https://norvig.com/python-lisp.html). Some more historical background, specifically on lexically scoped closures (and the initial lack thereof), in [PEP 3104](https://www.python.org/dev/peps/pep-3104/), [PEP 227](https://www.python.org/dev/peps/pep-0227/), and [Historical problems with closures in JavaScript and Python](http://giocc.com/problems-with-closures-in-javascript-and-python.html).
+
+In 2020, does it still make sense to learn the legendary Common Lisp?
+
+To know exactly what it has to offer, yes. As baroque as some parts are, there are a lot of great ideas there. [Conditions](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) are one. [CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) is another. (Nowadays [Julia](https://docs.julialang.org/en/v1/manual/methods/) has CLOS-style [multiple-dispatch generic functions](https://docs.julialang.org/en/v1/manual/methods/).) More widely, in the ecosystem, Swank is one. Having more perspectives at one's disposal makes one a better programmer.
+
+But as a practical tool? Is it hands-down better than Python? Maybe no. Python has delivered on 90% of the productivity promise of Lisp. Both languages cut down significantly on [accidental complexity](https://en.wikipedia.org/wiki/No_Silver_Bullet). Python has a huge library ecosystem. `MacroPy`, `unpythonic` and `pydialect` are trying to push the language-level features a further 5%. (A full 100% is likely impossible when extending an existing language; if nothing else, there will be seams.)
+
+As for productivity, [it may be](https://medium.com/smalltalk-talk/lisp-smalltalk-and-the-power-of-symmetry-8bd96aaa0c0c) that a form of code-data equivalence (symmetry!), not macros specifically, is what makes Lisp powerful. If so, there may be other ways to reach that equivalence. For example Smalltalk, like Lisp, *runs in the same context it's written in*. All Smalltalk data are programs. Smalltalk [may be making a comeback](https://hackernoon.com/how-to-evangelize-a-programming-language-0p7p3y02), in the form of [Pharo](https://pharo.org/).
+
+Haskell aims at code-data equivalence from a third angle (lookup tables vs. memoized pure functions), but I haven't used it in practice, so I don't have the experience to say whether this is enough to make it feel powerful in the same way.
+
+Image-based programming (live programming) is a common factor between Pharo and Common Lisp + Swank. This is another productivity booster that much of the programming world isn't that familiar with. It eliminates not only the edit/compile/restart cycle, but the edit/restart cycle as well, making the workflow a concurrent *edit/run* instead (without restarting the whole app at each change).
 
 ### Python is not a Lisp
 

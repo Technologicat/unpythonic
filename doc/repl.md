@@ -145,7 +145,8 @@ Making full use of hot-patching requires foresight, adhering to a particular pro
   - A module should export a `box` containing the useful thing, not directly the thing itself, since the thing may get replaced later. When a caller indirects via the box, they always get the latest version of the thing.
 
 - **It is impossible to patch a running loop.**
-  - Unless it's an FP loop defined at the top level. In this case it's possible to rebind the function name that refers to the loop body.
+  - Unless it's an FP loop with the body defined as a function at the top level. In this case it's possible to rebind the function name that refers to the loop body.
+  - In `unpythonic`, this setup is possible using `@trampolined` (but not `@looped`, because `@looped` overwrites the def'd name with the loop's return value). Define the loop body as a `@trampolined` top-level function, and start the loop by calling this function from wherever you want. Python's dynamic name lookup will then ensure that during each iteration, the latest definition is always used.
 
 - **Even if you replace a class definition, any existing instances will still use the old definition.**
   - Though you could retroactively change its `__class__`. Automating that is exactly what [ActiveState recipe 160164](https://github.com/ActiveState/code/tree/master/recipes/Python/160164_automatically_upgrade_class_instances) is for.
@@ -156,8 +157,58 @@ Making full use of hot-patching requires foresight, adhering to a particular pro
   - So what we have is not "image based programming" as in Common Lisp. **If you need to restart the process, it needs to cold-boot in the usual manner.**
     - Therefore, in Python, **never just hot-patch; always change your definitions on disk**, so your program will run with the new definitions also the next time it's cold-booted.
     - Once you're done testing, *then reload those definitions in the live process*, if you need/want to.
+  - The next best thing: if you want semi-transparently persist objects between program runs, look into [ZODB](http://www.zodb.org/en/latest/).
 
 Happy live hacking!
+
+
+### ZODB in 5 minutes
+
+To make the objects in your hot-patchable program persistent, see ZODB [[1]](http://www.zodb.org/en/latest/articles/old-guide/prog-zodb.html) [[2]](http://www.zodb.org/en/latest/guide/writing-persistent-objects.html) [[3]](https://zodb.readthedocs.io/en/latest/api.html). It originally comes from Zope, which as of early 2020 is dead, but ZODB itself is very much alive.
+
+ZODB can semi-transparently store and retrieve any Python object that subclasses `persistent.Persistent`. (I haven't tried that class as a mixin, though. That could be useful for persisting `unpythonic` containers `box`, `cons`, and `frozendict`).
+
+Here *persistent* means the data lives on disk. This is not to be confused with the other sense of *persistent data structures*, as in immutable ones, as in [pyrsistent](https://github.com/tobgu/pyrsistent/).
+
+Persistence using ZODB is only *semi*-transparent. **You have to explicitly assign** your to-be-persisted object into the DB instance to track it, and `transaction.commit()` to apply pending changes. (*Explicit is better than implicit.*) Any data stored under the DB root dict (recursively) is saved.
+
+Notes:
+
+- Stuff that's related to ZODB, but not obvious from the name: the `persistent` and `transaction` packages (in the top-level namespace for packages), and `.fs` files (ZODB database store).
+
+- ZODB saves only data, not code. It uses `pickle` under the hood, so functions are always loaded from their definitions on disk.
+  - ZODB is essentially `pickle` on [ACID](https://en.wikipedia.org/wiki/ACID): *atomicity, consistency, isolation, durability*.
+
+- API style concerns:
+  - Transactions have also a context manager interface; modern style is to use that.
+  - The DB root exposes both a dict-like interface as well as an attribute-access interface. So `dbroot['x'] = x` and `dbroot.x = x` do the same thing; the second way is modern style. The old way is useful mainly when the key is not a valid Python identifier.
+
+- Think of the DB root as the top-level namespace for persistent storage.
+  - So it's a bit like our `dyn`, a special place into which you can store attributes, and which plays by its own rules.
+  - **Place all of your stuff into a container object**, and store only that at the top level, so that ZODB database files for separate applications can be easily merged later if the need arises. Also, the performance of the DB root isn't tuned to store a large number of objects directly at the top level. If you need a scalable container, look into the various `BTrees` in ZODB.
+
+- Naming conventions, with semantics:
+  - Any attributes beginning with `_v_` are volatile, i.e. not saved.
+    - Use this naming scheme to mark your caches and such (when stored in an attribute of a persistent object).
+    - **Volatile attributes may suddenly vanish** between any two method invocations, if the object instance is in the saved state, because ZODB may choose to unload saved instances at any time to conserve memory.
+  - Any attributes beginning with `_p_` are reserved for use by ZODB machinery.
+    - For example, set `x._p_changed = True` to force ZODB to consider an object instance `x` as modified.
+    - This can be useful e.g. when `x.foo` is a builtin `list` that was mutated by calling its methods. Otherwise ZODB won't know that `x` has changed when we `x.foo.append("bar")`. Another way to signal the change to ZODB is to rebind the attribute, `x.foo = x.foo`.
+
+- If your class subclasses `Persistent`, it's not allowed to later change your mind on this (i.e. make it non-persistent), if you want the storage file to remain compatible. See [ZODB issue #99](https://github.com/zopefoundation/ZODB/issues/99).
+
+- Be careful when changing which data attributes your classes have; **this is a database schema change** and needs to be treated accordingly.
+  - New data attributes can be added, but if you remove or rename old ones, the code in your class needs to account for that (checking for the presence of the old attribute, migrating it), or you'll need to write a script to migrate your stored objects as an offline batch job.
+  - The ZODB docs were unclear [on the point](http://www.zodb.org/en/latest/guide/writing-persistent-objects.html#properties), and there was nothing else on it on the internet, so by testing it myself: *ZODB handles properties correctly*.
+    - The property itself is recognized as a method. Only raw data attributes are stored into the DB.
+    - After an object instance is loaded from the DB, reading a property will unghost it, just like reading a data attribute.
+
+- Beware of persisting classes defined in `__main__`, because **the module name must remain the same** when the data is loaded back.
+
+- The ZODB [tutorial](http://www.zodb.org/en/latest/tutorial.html) says:
+  *Non-persistent objects are essentially owned by their containing persistent object and if multiple persistent objects refer to the same non-persistent subobject, they’ll (eventually) get their own copies.*
+  - So beware, anything that should be preserved up to object identity and relationships should be made a persistent object.
+  - ZODB has persistent list and dict types, if you need them.
 
 
 ## Why a custom REPL server/client
