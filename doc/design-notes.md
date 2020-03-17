@@ -12,6 +12,7 @@
 - [No Monads?](#no-monads)
 - [No Types?](#no-types)
 - [Detailed Notes on Macros](#detailed-notes-on-macros)
+- [Miscellaneous notes](#miscellaneous-notes)
 
 ## Design Philosophy
 
@@ -87,7 +88,7 @@ As for productivity, [it may be](https://medium.com/smalltalk-talk/lisp-smalltal
 
 Haskell aims at code-data equivalence from a third angle (lookup tables vs. memoized pure functions), but I haven't used it in practice, so I don't have the experience to say whether this is enough to make it feel powerful in the same way.
 
-Image-based programming (live programming) is a common factor between Pharo and Common Lisp + Swank. This is another productivity booster that much of the programming world isn't that familiar with. It eliminates not only the edit/compile/restart cycle, but the edit/restart cycle as well, making the workflow a concurrent *edit/run* instead (without restarting the whole app at each change).
+Image-based programming (live programming) is a common factor between Pharo and Common Lisp + Swank. This is another productivity booster that much of the programming world isn't that familiar with. It eliminates not only the edit/compile/restart cycle, but the edit/restart cycle as well, making the workflow a concurrent *edit/run* instead (without restarting the whole app at each change). Julia has [Revise.jl](https://github.com/timholy/Revise.jl) for something similar.
 
 ### Python is not a Lisp
 
@@ -246,3 +247,11 @@ More on type systems:
    - If something goes wrong in the expansion of one block macro in a ``with`` statement that specifies several block macros, surprises may occur.
    - When in doubt, use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks.
      - Test one step at a time with the ``macropy.tracing.show_expanded`` block macro to make sure the expansion looks like what you intended.
+
+### Miscellaneous notes
+
+- [Nick Coghlan (2011): Traps for the unwary in Python's import system](http://python-notes.curiousefficiency.org/en/latest/python_concepts/import_traps.html).
+
+- Beware of the *double-import shared-resource decorator trap*. From the [Pyramid web framework documentation](https://docs.pylonsproject.org/projects/pyramid/en/latest/designdefense.html):
+  - *Module-localized mutation is actually the best-case circumstance for double-imports. If a module only mutates itself and its contents at import time, if it is imported twice, that's OK, because each decorator invocation will always be mutating an independent copy of the object to which it's attached, not a shared resource like a registry in another module. This has the effect that double-registrations will never be performed.*
+  - In case of `unpythonic`, the `dynassign` module only mutates its own state, so it should be safe. But `regutil.register_decorator` is potentially dangerous, specifically in that if the same module is executed once as `__main__` (running as the main app) and once as itself (due to also getting imported from another module), a decorator may be registered twice. (It doesn't cause any ill effects, though, except for a minor slowdown, and the list of all registered decorators not looking as clean as it could.)
