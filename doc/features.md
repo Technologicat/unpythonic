@@ -1971,7 +1971,9 @@ Thus a `sym` behaves like a Lisp symbol. Technically speaking, it's like a zen-m
 
 #### Gensym
 
-The function `gensym` creates an ***uninterned symbol***, also known as *a gensym*. The label given in the call to `gensym` is a short human-readable description, like the name of a named symbol, but it has no relation to object identity. Object identity is tracked by an UUID, which is automatically assigned when `gensym` creates the value. Even if `gensym` is called with the same label, the return value is a new unique symbol each time.
+The function `gensym` creates an ***uninterned symbol***, also known as *a gensym*. The label given in the call to `gensym` is a short human-readable description, like the name of a named symbol, but it has no relation to object identity. Object identity is tracked by an [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier), which is automatically assigned when `gensym` creates the value. Even if `gensym` is called with the same label, the return value is a new unique symbol each time.
+
+A gensym never conflicts with any named symbol; not even if one takes the UUID from a gensym and creates a named symbol using that as the name.
 
 *The return value is the only time you'll see that symbol object; take good care of it!*
 
