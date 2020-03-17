@@ -296,6 +296,8 @@ assert x == 85
 
 [[docs](doc/features.md#handlers-restarts-conditions-and-restarts)]
 
+Contrived example:
+
 ```python
 from unpythonic import error, restarts, handlers, invoke, use_value, unbox
 
@@ -339,7 +341,7 @@ def highlevel():
 highlevel()
 ```
 
-This example is contrived. Conditions only shine in larger systems, with restarts set up at multiple levels of the call stack; this example is too small to demonstrate that. The single-level case here could be implemented as a error-handling mode parameter for the example's only low-level function.
+Conditions only shine in larger systems, with restarts set up at multiple levels of the call stack; this example is too small to demonstrate that. The single-level case here could be implemented as a error-handling mode parameter for the example's only low-level function.
 
 With multiple levels, it becomes apparent that this mode parameter must be threaded through the API at each level, unless it is stored as a dynamic variable (see [`unpythonic.dyn`](doc/features.md#dyn-dynamic-assignment)). But then, there can be several types of errors, and the error-handling mode parameters - one for each error type - have to be shepherded in an intricate manner. A stack is needed, so that an inner level may temporarily override the handler for a particular error type...
 
