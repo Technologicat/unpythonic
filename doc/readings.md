@@ -1,6 +1,6 @@
 # Links to relevant reading
 
-This document collects links to blog posts, online articles and papers relevant on topics relevant in the context of `unpythonic`.
+This document collects links to blog posts, online articles and papers on topics relevant in the context of `unpythonic`.
 
 - [Evelyn Woods, 2017: A comparison of object models of Python, Lua, JavaScript and Perl](https://eev.ee/blog/2017/11/28/object-models/).
   - Useful reading for anyone interested in how the object models differ.
@@ -71,3 +71,31 @@ This document collects links to blog posts, online articles and papers relevant 
     - Michael Hudson has done this (2002, 2004): [ActiveState Python recipe 160164: Automatically upgrade class instances](https://github.com/ActiveState/code/tree/master/recipes/Python/160164_automatically_upgrade_class_instances) when you redefine the class.
       - Triggered on module reloads, too. To decide what class to upgrade, it looks for a class of the same name in the scope that defined the new class. Then there's an instance tracker that keeps weakrefs to the existing instances of the old class.
     - A simpler solution might be to just [`gc.get_objects()`](https://docs.python.org/3/library/gc.html#gc.get_objects), and filter for what we want to find the instances to be updated. (Provided we still have a reference to the old class object, to use in the filter predicate. That part needs some thought.)
+
+## Python-related FP resources
+
+Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
+
+- [Awesome Functional Python](https://github.com/sfermigier/awesome-functional-python), especially a list of useful libraries. Some picks:
+
+  - [fn.py: Missing functional features of fp in Python](https://github.com/fnpy/fn.py) (actively maintained fork). Includes e.g. tail call elimination by trampolining, and a very compact way to recursively define infinite streams.
+
+  - [more-itertools: More routines for operating on iterables, beyond itertools.](https://github.com/erikrose/more-itertools)
+
+  - [boltons: Like builtins, but boltons.](https://github.com/mahmoud/boltons) Includes yet more itertools, and much more.
+
+  - [toolz: A functional standard library for Python](https://github.com/pytoolz/toolz)
+
+  - [funcy: A fancy and practical functional tools](https://github.com/suor/funcy/)
+
+  - [pyrsistent: Persistent/Immutable/Functional data structures for Python](https://github.com/tobgu/pyrsistent)
+
+  - [pampy: Pattern matching for Python](https://github.com/santinic/pampy) (pure Python, no AST transforms!)
+
+- [List of languages that compile to Python](https://github.com/vindarel/languages-that-compile-to-python) including Hy, a Lisp (in the [Lisp-2](https://en.wikipedia.org/wiki/Lisp-1_vs._Lisp-2) family) that can use Python libraries.
+
+Old, but interesting:
+
+- [Peter Norvig (2000): Python for Lisp Programmers](http://www.norvig.com/python-lisp.html)
+
+- [David Mertz (2001): Charming Python - Functional programming in Python, part 2](https://www.ibm.com/developerworks/library/l-prog2/index.html)

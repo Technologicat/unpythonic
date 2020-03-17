@@ -543,30 +543,6 @@ The trampoline implementation of ``unpythonic.tco`` takes its remarkably clean a
 Another important source of inspiration was [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
 
 
-## Python-related FP resources
+## Relevant reading
 
-Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
-
-- [Awesome Functional Python](https://github.com/sfermigier/awesome-functional-python), especially a list of useful libraries. Some picks:
-
-  - [fn.py: Missing functional features of fp in Python](https://github.com/fnpy/fn.py) (actively maintained fork). Includes e.g. tail call elimination by trampolining, and a very compact way to recursively define infinite streams.
-
-  - [more-itertools: More routines for operating on iterables, beyond itertools.](https://github.com/erikrose/more-itertools)
-
-  - [boltons: Like builtins, but boltons.](https://github.com/mahmoud/boltons) Includes yet more itertools, and much more.
-
-  - [toolz: A functional standard library for Python](https://github.com/pytoolz/toolz)
-
-  - [funcy: A fancy and practical functional tools](https://github.com/suor/funcy/)
-
-  - [pyrsistent: Persistent/Immutable/Functional data structures for Python](https://github.com/tobgu/pyrsistent)
-
-  - [pampy: Pattern matching for Python](https://github.com/santinic/pampy) (pure Python, no AST transforms!)
-
-- [List of languages that compile to Python](https://github.com/vindarel/languages-that-compile-to-python) including Hy, a Lisp (in the [Lisp-2](https://en.wikipedia.org/wiki/Lisp-1_vs._Lisp-2) family) that can use Python libraries.
-
-Old, but interesting:
-
-- [Peter Norvig (2000): Python for Lisp Programmers](http://www.norvig.com/python-lisp.html)
-
-- [David Mertz (2001): Charming Python - Functional programming in Python, part 2](https://www.ibm.com/developerworks/library/l-prog2/index.html)
+Links to blog posts, online articles and papers on topics relevant in the context of `unpythonic` have been collected to [a separate document](doc/readings.md).
