@@ -4,6 +4,7 @@
 - [Macros do not Compose](#macros-do-not-compose)
 - [Language Discontinuities](#language-discontinuities)
 - [What Belongs in Python?](#what-belongs-in-python)
+- [Killer features of Common Lisp](#killer-features-of-common-lisp)
 - [Common Lisp, Python, and productivity](#common-lisp-python-and-productivity)
 - [Python is not a Lisp](#python-is-not-a-lisp)
 - [On ``let`` and Python](#on-let-and-python)
@@ -64,29 +65,55 @@ If you feel [my hovercraft is full of eels](http://stupidpythonideas.blogspot.co
 
 Some have expressed the opinion [the statement-vs-expression dichotomy is a feature](http://stupidpythonideas.blogspot.com/2015/01/statements-and-expressions.html). The BDFL himself has famously stated that TCO has no place in Python [[1]](http://neopythonic.blogspot.com/2009/04/tail-recursion-elimination.html) [[2]](http://neopythonic.blogspot.fi/2009/04/final-words-on-tail-calls.html), and less famously that multi-expression lambdas or continuations have no place in Python [[3]](https://www.artima.com/weblogs/viewpost.jsp?thread=147358). Several potentially interesting PEPs have been deferred [[1]](https://www.python.org/dev/peps/pep-3150/) [[2]](https://www.python.org/dev/peps/pep-0403/) or rejected [[3]](https://www.python.org/dev/peps/pep-0511/) [[4]](https://www.python.org/dev/peps/pep-0463/) [[5]](https://www.python.org/dev/peps/pep-0472/).
 
-Of course, if I agreed, I wouldn't be doing this (or [this](https://github.com/Technologicat/pydialect)).
+Of course, if I agreed, I wouldn't be doing this (or [pydialect](https://github.com/Technologicat/pydialect), or [imacropy](https://github.com/Technologicat/imacropy)).
 
 On a point raised [here](https://www.artima.com/weblogs/viewpost.jsp?thread=147358) with respect to indentation-sensitive vs. indentation-insensitive parser modes, having seen [SRFI-110: Sweet-expressions (t-expressions)](https://srfi.schemers.org/srfi-110/srfi-110.html), I think Python is confusing matters by linking the mode to statements vs. expressions. A workable solution is to make *everything* support both modes (or even preprocess the source code text to use only one of the modes), which *uniformly* makes parentheses an alternative syntax for grouping.
 
 It would be nice to be able to use indentation to structure expressions to improve their readability, like one can do in Racket with [sweet](https://docs.racket-lang.org/sweet/), but I suppose ``lambda x: [expr0, expr1, ...]`` will have to do for a multiple-expression lambda in MacroPy. Unless I decide at some point to make a source filter for [Pydialect](https://github.com/Technologicat/pydialect) to auto-convert between indentation and parentheses; but for Python this is somewhat difficult to do, because statements **must** use indentation whereas expressions **must** use parentheses, and this must be done before we can invoke the standard parser to produce an AST. (And I don't want to maintain a [Pyparsing](https://github.com/pyparsing/pyparsing) grammar to parse a modified version of Python.)
 
+### Killer features of Common Lisp
+
+In my opinion, Common Lisp has three legendary killer features:
+
+ 1. [Conditions and restarts](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html), i.e. resumable exceptions,
+ 2. [Hot-patching](https://stackoverflow.com/questions/46499463/hot-debug-and-swap-in-common-lisp) (with Swank), and
+ 3. Compiling a high-level language into efficient machine code.
+
+But for those of us that [don't like parentheses](https://srfi.schemers.org/srfi-110/srfi-110.html) or accumulated historical cruft (bad naming, API irregularities), and/or consider it essential to have the extensive third-party library ecosystem of a popular language such as Python, switching to CL is not a solution. Design of a completely new language aside, which of these features can be transplanted onto an existing language?
+
+ 1. We have [a form of conditions and restarts](features.md#handlers-restarts-conditions-and-restarts).
+    - The experience is not seamless, because conditions and exceptions - Python's native error-handling paradigm - do not mix.
+    - What we have may work, to a limited extent, for a project that chooses to consistently use conditions instead of exceptions throughout. But all third-party libraries and the standard library will still raise exceptions.
+    - It would seem the error-handling model is something that must be chosen at the start when designing a language.
+
+ 2. We have [hot-patching](repl.md).
+    - This can be made to have a native feel in any sufficiently dynamic language. Both CL and Python qualify.
+    - In CL, connecting to a running Lisp app and monkey-patching it live is powered by *Swank*, the server component of [SLIME](https://en.wikipedia.org/wiki/SLIME). See [[0]](https://common-lisp.net/project/slime/doc/html/Connecting-to-a-remote-lisp.html), [[1]](https://stackoverflow.com/questions/31377098/interact-with-a-locally-long-running-common-lisp-image-possibly-daemonized-fro), [[2]](https://github.com/LispCookbook/cl-cookbook/issues/115) and [[3]](https://stackoverflow.com/questions/8874615/how-to-replace-a-running-function-in-common-lisp).
+    - Our implementation (`unpythonic.net.server` and `unpythonic.net.client`) doesn't talk with SLIME, but this being Python, it doesn't need to. The important point (and indeed [the stuff of legends](http://www.flownet.com/gat/jpl-lisp.html)) is to run **some kind of** [REPL](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) server in the background, so that the user may later connect to a running process to inspect and modify its state interactively. The exact tools and workflow may vary depending on the language, but having this feature **in some form** is, at least in my opinion, *obviously expected* of any serious dynamic language.
+    - As for the original Swank in CL, see [server setup](https://common-lisp.net/project/slime/doc/html/Setting-up-the-lisp-image.html), [SLIME](https://cliki.net/SLIME-HOWTO) and [swank-client](https://github.com/brown/swank-client). Swank servers [for Python](https://github.com/fgallina/swank-python) and [for Racket](https://github.com/mbal/swank-racket) also exist.
+
+ 3. Efficient compilation is not in CPython's design goals. Ouch!
+    - But there's [PyPy](https://www.pypy.org/), which supports Python 3.6. A quick test by running `python3 -m unpythonic.test.test_fploop` suggests that with `@unpythonic.looped`, for a do-nothing FP loop, PyPy3 is 6-7⨉ faster than CPython. Instead of a ~70⨉ slowdown compared to CPython's native `for` loop, in PyPy3 the overhead becomes only ~10⨉ (w.r.t. PyPy's native `for` loop). This is probably closer to the true overhead caused by the dynamic nature of Python, when the language is implemented with performance in mind.
+    - For the use case of numerics specifically, instead of Python, [Julia](https://docs.julialang.org/en/v1/manual/methods/) may be a better choice for writing high-level, yet performant code. It's a spiritual heir of Common Lisp, Fortran, *and Python*. Compilation to efficient machine code, with the help of gradual and inferred typing, is a design goal.
+
+
 ### Common Lisp, Python, and productivity
 
-The various essays by Paul Graham, especially [Revenge of the Nerds (2002)](http://paulgraham.com/icad.html), have given the initial impulse to many programmers for studying Lisp. They are well written and have provided a lot of exposure for Lisp. So how does the programming world look now, in that light, 20 years later?
+The various essays by Paul Graham, especially [Revenge of the Nerds (2002)](http://paulgraham.com/icad.html), have given the initial impulse to many programmers for studying Lisp. The essays are well written and have provided a lot of exposure for Lisp. So how does the programming world look in that light now, 20 years later?
 
-The base abstraction level of programming languages, even those in popular use, has increased since those essays were written. (The trend was visible already then, and was indeed noted in the essays.) The focus on low-level languages such as C++ has decreased. Java is still popular, but high-level FP languages that compile to JVM bytecode (Kotlin, Scala, Clojure) are rising.
+The base abstraction level of programming languages, even those in popular use, has increased. The trend was visible already then, and was indeed noted in the essays. The focus on low-level languages such as C++ has decreased. Java is still popular, but high-level FP languages that compile to JVM bytecode (Kotlin, Scala, Clojure) are rising.
 
-Python has become highly popular, and is now closer to Lisp than it was 20 years ago, especially after `MacroPy` introduced syntactic macros to Python (in 2013, according to [the git log](https://github.com/lihaoyi/macropy/commits/python2/macropy/__init__.py)). It wasn't bad as a Lisp replacement even back in 2000 - see Peter Norvig's essay [Python for Lisp Programmers](https://norvig.com/python-lisp.html). Some more historical background, specifically on lexically scoped closures (and the initial lack thereof), in [PEP 3104](https://www.python.org/dev/peps/pep-3104/), [PEP 227](https://www.python.org/dev/peps/pep-0227/), and [Historical problems with closures in JavaScript and Python](http://giocc.com/problems-with-closures-in-javascript-and-python.html).
+Python has become highly popular, and is now also closer to Lisp than it was 20 years ago, especially after `MacroPy` introduced syntactic macros to Python (in 2013, [according to the git log](https://github.com/lihaoyi/macropy/commits/python2/macropy/__init__.py)). Python wasn't bad as a Lisp replacement even back in 2000 - see Peter Norvig's essay [Python for Lisp Programmers](https://norvig.com/python-lisp.html). Some more historical background, specifically on lexically scoped closures (and the initial lack thereof), can be found in [PEP 3104](https://www.python.org/dev/peps/pep-3104/), [PEP 227](https://www.python.org/dev/peps/pep-0227/), and [Historical problems with closures in JavaScript and Python](http://giocc.com/problems-with-closures-in-javascript-and-python.html).
 
-In 2020, does it still make sense to learn the legendary Common Lisp?
+In 2020, does it still make sense to learn [the legendary](https://xkcd.com/297/) Common Lisp?
 
 To know exactly what it has to offer, yes. As baroque as some parts are, there are a lot of great ideas there. [Conditions](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) are one. [CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) is another. (Nowadays [Julia](https://docs.julialang.org/en/v1/manual/methods/) has CLOS-style [multiple-dispatch generic functions](https://docs.julialang.org/en/v1/manual/methods/).) More widely, in the ecosystem, Swank is one. Having more perspectives at one's disposal makes one a better programmer.
 
-But as a practical tool? Is it hands-down better than Python? Maybe no. Python has delivered on 90% of the productivity promise of Lisp. Both languages cut down significantly on [accidental complexity](https://en.wikipedia.org/wiki/No_Silver_Bullet). Python has a huge library ecosystem. `MacroPy`, `unpythonic` and `pydialect` are trying to push the language-level features a further 5%. (A full 100% is likely impossible when extending an existing language; if nothing else, there will be seams.)
+But as a practical tool? Is CL hands-down better than Python? Maybe no. Python has already delivered on 90% of the productivity promise of Lisp. Both languages cut down significantly on [accidental complexity](https://en.wikipedia.org/wiki/No_Silver_Bullet). Python has a huge library ecosystem. `MacroPy`, `unpythonic` and `pydialect` are trying to push the language-level features a further 5%. (A full 100% is likely impossible when extending an existing language; if nothing else, there will be seams.)
 
 As for productivity, [it may be](https://medium.com/smalltalk-talk/lisp-smalltalk-and-the-power-of-symmetry-8bd96aaa0c0c) that a form of code-data equivalence (symmetry!), not macros specifically, is what makes Lisp powerful. If so, there may be other ways to reach that equivalence. For example Smalltalk, like Lisp, *runs in the same context it's written in*. All Smalltalk data are programs. Smalltalk [may be making a comeback](https://hackernoon.com/how-to-evangelize-a-programming-language-0p7p3y02), in the form of [Pharo](https://pharo.org/).
 
-Haskell aims at code-data equivalence from a third angle (lookup tables vs. memoized pure functions), but I haven't used it in practice, so I don't have the experience to say whether this is enough to make it feel powerful in the same way.
+Haskell aims at code-data equivalence from a third angle (memoized pure functions are in essence infinite lookup tables), but I haven't used it in practice, so I don't have the experience to say whether this is enough to make it feel powerful in the same way.
 
 Image-based programming (live programming) is a common factor between Pharo and Common Lisp + Swank. This is another productivity booster that much of the programming world isn't that familiar with. It eliminates not only the edit/compile/restart cycle, but the edit/restart cycle as well, making the workflow a concurrent *edit/run* instead (without restarting the whole app at each change). Julia has [Revise.jl](https://github.com/timholy/Revise.jl) for something similar.
 
@@ -94,7 +121,7 @@ Image-based programming (live programming) is a common factor between Pharo and 
 
 The point behind providing `let` and `begin` (and the ``let[]`` and ``do[]`` [macros](macros.md)) is to make Python lambdas slightly more useful - which was really the starting point for the whole `unpythonic` experiment.
 
-The oft-quoted single-expression limitation of the Python ``lambda`` is ultimately a herring, as this library demonstrates. The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. We can work around some of this:
+The oft-quoted single-expression limitation of the Python ``lambda`` is ultimately a herring, as this library demonstrates. The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. (This observation has been earlier made by others, too; see e.g. the [Wikipedia page on anonymous functions](https://en.wikipedia.org/wiki/Anonymous_function#Python).) We can work around some of this:
 
  - The expression form of `if` can be used, but readability suffers if nested. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers there too. Another possibility is to use MacroPy to define a ``cond`` expression, but it's essentially duplicating a feature the language already almost has. Our [macros](macros.md) do exactly that, providing a ``cond`` expression as a macro.
  - Functional looping (with TCO, to boot) is possible.
