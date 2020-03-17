@@ -32,7 +32,7 @@
       - *Dynamic assignment* is descriptive, while *dynamic scoping* is nonsense, because *scope* is arguably a lexical concept (cf. dynamic *extent*).
     - Sometimes different subcultures have different names for the same ideas (e.g. Python's *unpacking* vs. Lisp's *destructuring*). When there is no universal standard, feel free to pick one option, but list the alternative names if reasonably possible. Bringing [a touch of the Rosetta stone](http://rosettacode.org/wiki/Rosetta_Code) helps discoverability.
     - If I have made a terminology mistake, please challenge it, to get it fixed in a future release.
-  - **Lack of robustness is a bug.** The code should the right thing in edge cases, possibly in corner cases too.
+  - **Lack of robustness is a bug.** The code should do the right thing in edge cases, possibly in corner cases too.
     - For example, `memoize` catches and caches exceptions. The singleton-related abstractions (`Singleton`, `sym` and `gsym`) worry about the thread-safety of constructing the singleton instance. All custom data structure types worry about pickling.
     - When it doesn't make sense to cover all corner cases, think it through, and give examples (in documentation) of what isn't covered.
 
