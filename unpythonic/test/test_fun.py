@@ -22,7 +22,22 @@ def test():
     f(3)
     f(4)
     f(3)
-    assert all(n == 1 for n in evaluations.values())
+    assert all(n == 1 for n in evaluations.values())  # called only once for each unique set of arguments
+
+    evaluations = 0
+    @memoize  # <-- important part
+    def square(x):
+        nonlocal evaluations
+        evaluations += 1
+        return x**2
+    assert square(2) == 4
+    assert evaluations == 1
+    assert square(3) == 9
+    assert evaluations == 2
+    assert square(3) == 9
+    assert evaluations == 2  # called only once for each unique set of arguments
+    assert square(x=3) == 9
+    assert evaluations == 2  # only the resulting bindings matter, not how you pass the args
 
     # "memoize lambda": classic evaluate-at-most-once thunk
     thunk = memoize(lambda: print("hi from thunk"))
