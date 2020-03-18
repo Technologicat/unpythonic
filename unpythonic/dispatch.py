@@ -31,33 +31,39 @@ def generic(f):
 
     **How to use**:
 
-    The `@generic`-decorated function definition itself *is just a declaration*
-    that defines the shape and parameter names of the formal parameter list.
-    The formal parameter list must remain the same across all methods of the
-    same generic function; only the types of the parameters may vary. That
-    function is otherwise a stub. It is never called.
+    The `@generic`-decorated function definition itself just declares the name
+    as a generic function, thus equipping it with the `register` decorator to
+    attach methods. That original function is never called, so its body can be
+    e.g. `pass` or `...`.
 
     Like in `functools.singledispatch`, methods (implementations for specific
-    combinations of argument types) are registered with the decorator
-    `@f.register`, where `f` is the function you decorated with `@generic`.
+    combinations of argument types and/or different shapes for the argument list)
+    are registered with the decorator `@f.register`, where `f` is the function
+    you decorated with `@generic`.
 
-    Each method must specify type hints **on all parameters**. Then, at call
-    time, types of **all** arguments are then automatically used for choosing
-    which method to call, i.e., multiple parameters are used for dispatching.
+    Each method must specify type hints **on all of its parameters**. Then, at
+    call time, the types of **all** arguments, as well as the number of arguments,
+    are automatically used for choosing which method to call. In other words, multiple
+    parameters are used for dispatching.
 
-    The first match wins, in most-recently-registered order. So specify the
-    implementation with the most generic types first, and then move on to the
-    more specific ones. The mnemonic is, "the function is generally defined
-    like this, except if the arguments match these particular types..."
+    The first match wins, in most-recently-registered order - that is, later
+    definitions override earlier ones. So specify the implementation with the
+    most generic types first, and then move on to the more specific ones. The
+    mnemonic is, "the function is generally defined like this, except if the
+    arguments match these particular types..."
 
     The point of this feature is to eliminate `if`/`elif`/`elif`... blocks
     that switch by `isinstance` on arguments, and then raise `TypeError`
     in the final `else`, by implementing the machinery once centrally.
 
+    Another use case are functions like the builtin `range` where the role
+    of an argument in a particular position depends on the number of arguments
+    given to the call.
+
     **Differences to tools in the standard library**:
 
     Unlike `functools.singledispatch`, the `@generic` function itself is
-    unused, except as an interface declaration for the parameter list.
+    unused.
 
     Unlike `typing.overload`, the implementations are to be provided in the
     method bodies.
@@ -74,11 +80,6 @@ def generic(f):
     # Dispatcher - this will replace the original f.
     @wraps(f)
     def multidispatch(*args, **kwargs):
-        # We use the parameter list of the original `@generic`-decorated
-        # function to match the function call arguments to the formal
-        # parameters of the function definition.
-        bindings = resolve_bindings(f, *args, **kwargs)
-
         def match(signature):
             # TODO: handle *args (bindings["vararg"])
             # TODO: handle **kwargs (bindings["kwarg"])
@@ -93,6 +94,10 @@ def generic(f):
         def methods():
             return reversed(multidispatch._registry)
         for method, signature in methods():
+            try:
+                bindings = resolve_bindings(method, *args, **kwargs)
+            except TypeError:  # arity mismatch, so this method can't be the one the call is looking for.
+                continue
             if match(signature):
                 return method(*args, **kwargs)
 
@@ -130,9 +135,10 @@ def generic(f):
         The method must have type annotations for all of its parameters;
         these are used for dispatching.
         """
-        # TODO: fail-fast: verify the shape of the parameter list of `function`
-        # is compatible with the `@generic` function to which we are attaching
-        # `function` as a new method.
+        # Using `inspect.signature` et al., we could auto-`Any` parameters
+        # that have no type annotation, but that would likely be a footgun.
+        # So we require a type annotation for each parameter.
+        # TODO: verify that there are no parameters that have no type annotation.
         signature = typing.get_type_hints(function)
         multidispatch._registry.append((function, signature))
         return multidispatch  # Replace the function with the dispatcher for this generic function.
@@ -149,9 +155,8 @@ def specific(f):
     allowing the types (for dynamic, run-time checking) to be specified with a
     very compact syntax.
 
-    Unlike in `@generic`, the function to be decorated simultaneously specifies
-    both the shape and parameter names of the formal parameter list, as well as
-    provides the body of the only method implementation.
+    Unlike in `@generic`, where the function being decorated is just a stub,
+    in `@specific` the only method is provided as the function being decorated.
 
     A `@specific` function has no `.register` attribute; after it is created,
     no more methods can be attached to it.
@@ -164,8 +169,8 @@ def specific(f):
 # --------------------------------------------------------------------------------
 
 @generic
-def zorblify(x, y):  # could use the ellipsis `...` as the body, but this is a unit test.
-    assert False  # Stub, used only for interface declaration. Never called.
+def zorblify():  # could use the ellipsis `...` as the body, but this is a unit test.
+    assert False  # Stub, not called.
 @zorblify.register
 def zorblify(x: int, y: int):
     return 2 * x + y
@@ -178,6 +183,24 @@ def zorblify(x: str, y: float):
 
 # TODO: def zorblify(x: int, *args: typing.Sequence[str]):
 
+# @generic can also be used to simplify argument handling code in functions
+# where the role of an argument in a particular position changes depending on
+# the number of arguments (like the range() builtin).
+#
+# The pattern is that the generic function canonizes the arguments:
+@generic
+def example(): ...
+@example.register
+def example(start: int, stop: int):
+    return _example_impl(start, 1, stop)
+@example.register
+def example(start: int, step: int, stop: int):
+    return _example_impl(start, step, stop)
+# ...after which the actual implementation always gets them in the same format.
+def _example_impl(start, step, stop):
+    return start, step, stop
+
+# One-method pony.
 @specific
 def blubnify(x: int, y: float):
     return x * y
@@ -195,6 +218,10 @@ def test():
         pass
     else:
         assert False  # there's no zorblify(float, float)
+
+    assert example(1, 5) == (1, 1, 5)
+    assert example(1, 1, 5) == (1, 1, 5)
+    assert example(1, 2, 5) == (1, 2, 5)
 
     assert blubnify(2, 21.0) == 42
     try:
