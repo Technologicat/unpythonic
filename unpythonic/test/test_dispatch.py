@@ -64,7 +64,7 @@ def test():
         pass
     else:
         assert False  # blubnify only accepts (int, float)
-    assert not hasattr(blubnify, "register")
+    assert not hasattr(blubnify, "register")  # and no more methods can be registered on it
 
     print("All tests PASSED")
 
