@@ -19,7 +19,7 @@ __all__ = ["memoize", "curry", "iscurried",
 
 from functools import wraps, partial
 
-from .arity import arities, resolve_bindings, UnknownArity
+from .arity import arities, resolve_bindings, tuplify_bindings, UnknownArity
 from .fold import reducel
 from .dynassign import dyn, make_dynvar
 from .regutil import register_decorator
@@ -46,8 +46,7 @@ def memoize(f):
     memo = {}
     @wraps(f)
     def memoized(*args, **kwargs):
-        with dyn.let(resolve_bindings_tuplify=True):
-            k = resolve_bindings(f, *args, **kwargs)
+        k = tuplify_bindings(resolve_bindings(f, *args, **kwargs))
         if k not in memo:
             try:
                 result = (_success, maybe_force_args(f, *args, **kwargs))
@@ -66,8 +65,7 @@ def memoize(f):
 #    memo = {}
 #    @wraps(f)
 #    def memoized(*args, **kwargs):
-#        with dyn.let(resolve_bindings_tuplify=True):
-#            k = resolve_bindings(f, *args, **kwargs)
+#        k = tuplify_bindings(resolve_bindings(f, *args, **kwargs))
 #        if k not in memo:
 #            memo[k] = f(*args, **kwargs)
 #        return memo[k]

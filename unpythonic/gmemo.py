@@ -6,12 +6,10 @@ or iterators created by factory functions."""
 
 __all__ = ["gmemoize", "imemoize", "fimemoize"]
 
-from operator import itemgetter
 from functools import wraps
 from threading import RLock
 
-from .arity import resolve_bindings
-from .dynassign import dyn
+from .arity import resolve_bindings, tuplify_bindings
 from .regutil import register_decorator
 from .symbol import sym
 
@@ -96,8 +94,7 @@ def gmemoize(gfunc):
     memos = {}
     @wraps(gfunc)
     def gmemoized(*args, **kwargs):
-        with dyn.let(resolve_bindings_tuplify=True):
-            k = resolve_bindings(gfunc, *args, **kwargs)
+        k = tuplify_bindings(resolve_bindings(gfunc, *args, **kwargs))
         if k not in memos:
             # underlying generator instance, memo instance, lock instance
             memos[k] = (gfunc(*args, **kwargs), [], RLock())

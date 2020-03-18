@@ -7,7 +7,7 @@ like Racket's (arity-includes?).
 
 __all__ = ["arities", "arity_includes",
            "required_kwargs", "optional_kwargs", "kwargs",
-           "resolve_bindings",
+           "resolve_bindings", "tuplify_bindings",
            "UnknownArity"]
 
 from inspect import signature, Parameter
@@ -15,10 +15,7 @@ from collections import OrderedDict
 from types import ModuleType
 import operator
 
-from .dynassign import dyn, make_dynvar
 from .symbol import gensym
-
-make_dynvar(resolve_bindings_tuplify=False)
 
 try:  # Python 3.5+
     from operator import matmul, imatmul
@@ -304,8 +301,7 @@ def resolve_bindings(f, *args, **kwargs):
     This is an inspection tool, which does not actually call `f`. This is useful for memoizers
     and other similar decorators that need a canonical representation of `f`'s parameter bindings.
 
-    If you want a hashable result, set the dynvar `resolve_bindings_tuplify` via `with dyn.let`.
-    We use dyn so our own call signature is not affected by passing this option.
+    If you want a hashable result, postprocess the result with `tuplify_bindings(result)`.
 
     For illustration, consider a simplistic memoizer::
 
@@ -338,8 +334,8 @@ def resolve_bindings(f, *args, **kwargs):
         def memoize(f):
             memo = {}
             def memoized(*args, **kwargs):
-                with dyn.let(resolve_bindings_tuplify=True):
-                    k = resolve_bindings(f, *args, **kwargs)  # --> {"a": 42} in either case
+                # --> {"a": 42} in either case
+                k = tuplify_bindings(resolve_bindings(f, *args, **kwargs))
                 if k in memo:
                     return memo[k]
                 memo[k] = v = f(*args, **kwargs)
@@ -361,10 +357,6 @@ def resolve_bindings(f, *args, **kwargs):
         vararg_name: `str`, the name of the vararg parameter; or `None`.
         kwarg: `OrderedDict` of bindings gathered by `**kwargs` if the
                function definition has one; otherwise `None`.
-
-    If `dyn.resolve_bindings_tuplify` is `True`, each `OrderedDict` object
-    in the return value are converted using `tuple(od.items())`. This
-    makes the return value hashable, if all the passed arguments are.
     """
     f, _ = _getfunc(f)
     params = signature(f).parameters
@@ -463,11 +455,6 @@ def resolve_bindings(f, *args, **kwargs):
             continue
         regularargs[param.name] = value
 
-    if dyn.resolve_bindings_tuplify:
-        regularargs = tuple(regularargs.items())
-        if varkw is not None:
-            slots[varkw] = tuple(slots[varkw].items())
-
     # Naming of the fields matches `ast.arguments`
     # https://greentreesnakes.readthedocs.io/en/latest/nodes.html#arguments
     bindings = OrderedDict()
@@ -476,7 +463,23 @@ def resolve_bindings(f, *args, **kwargs):
     bindings["vararg_name"] = varpos_name if varpos else None  # for introspection
     bindings["kwarg"] = slots[varkw] if varkw else None
 
-    if dyn.resolve_bindings_tuplify:
-        bindings = tuple(bindings.items())
-
     return bindings
+
+def tuplify_bindings(bindings):
+    """Convert the return value of `resolve_bindings` into a hashable form.
+
+    This is useful for memoizers and similar use cases, which need to use a
+    representation of the bindings as a dictionary key.
+
+    The values stored in the `"args"` and `"kwarg"` keys, as well as `bindings`
+    itself, are converted from `OrderedDict` to `tuple` using `tuple(od.items())`.
+    The result is hashable, if all the arguments passed in the bindings are.
+    """
+    def tuplify(od):
+        return tuple(od.items())
+    result = OrderedDict()
+    result["args"] = tuplify(bindings["args"])
+    result["vararg"] = bindings["vararg"]
+    result["vararg_name"] = bindings["vararg_name"]
+    result["kwarg"] = tuplify(bindings["kwarg"]) if bindings["kwarg"] is not None else None
+    return tuplify(result)
