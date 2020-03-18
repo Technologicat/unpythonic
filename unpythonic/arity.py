@@ -300,8 +300,7 @@ def resolve_bindings(f, *args, **kwargs):
 
     This is an inspection tool, which does not actually call `f`. This is useful for memoizers
     and other similar decorators that need a canonical representation of `f`'s parameter bindings.
-
-    If you want a hashable result, postprocess the result with `tuplify_bindings(result)`.
+    If you want a hashable result, postprocess the return value with `tuplify_bindings(result)`.
 
     For illustration, consider a simplistic memoizer::
 
@@ -327,14 +326,14 @@ def resolve_bindings(f, *args, **kwargs):
     Even though both calls bind {"a": 42} in the body of `f`, the memoizer sees the invocations
     differently, so its cache will miss.
 
-    This is solved by `resolve_bindings`::
+    This problem is solved by `resolve_bindings`::
 
         from operator import itemgetter
 
         def memoize(f):
             memo = {}
             def memoized(*args, **kwargs):
-                # --> {"a": 42} in either case
+                # --> sees the binding {"a": 42} in either case
                 k = tuplify_bindings(resolve_bindings(f, *args, **kwargs))
                 if k in memo:
                     return memo[k]
@@ -357,6 +356,23 @@ def resolve_bindings(f, *args, **kwargs):
         vararg_name: `str`, the name of the vararg parameter; or `None`.
         kwarg: `OrderedDict` of bindings gathered by `**kwargs` if the
                function definition has one; otherwise `None`.
+
+    **NOTE**:
+
+    We attempt to implement the exact same algorithm Python itself uses for
+    resolving argument bindings. The process is explained in the language
+    reference, although not in a step-by-step algorithmic form.
+
+        https://docs.python.org/3/reference/compound_stmts.html#function-definitions
+        https://docs.python.org/3/reference/expressions.html#calls
+
+    This function should report exactly those bindings that would actually be
+    established if `f` was actually called with the given `args` and `kwargs`.
+
+    If you encounter a case with any difference between what the result claims and
+    how Python itself assigns the bindings, that is a bug in our code. In such a
+    case, please report the issue, so it can be fixed, and then added to the unit
+    tests to ensure it won't come back.
     """
     f, _ = _getfunc(f)
     params = signature(f).parameters
