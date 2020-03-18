@@ -997,9 +997,30 @@ Examples (see also the next section):
 ```python
 from operator import add, mul
 from typing import NoReturn
-from unpythonic import andf, orf, flatmap, rotate, curry, dyn, zipr, rzip, \
-                       foldl, foldr, composer, to1st, cons, nil, ll, withself, \
-                       fix
+from unpythonic import memoize, fix, andf, orf, flatmap, rotate, curry, dyn, \
+                       zipr, rzip, foldl, foldr, composer, to1st, cons, nil, ll, \
+                       withself
+
+# memoize: cache the results of pure functions (arguments must be hashable)
+ncalls = 0
+@memoize  # <-- important part
+def square(x):
+    global ncalls
+    ncalls += 1
+    return x**2
+assert square(2) == 4
+assert ncalls == 1
+assert square(3) == 9
+assert ncalls == 2
+assert square(3) == 9
+assert ncalls == 2  # called only once for each unique set of arguments
+assert square(x=3) == 9
+assert ncalls == 2  # only the resulting bindings matter, not how you pass the args
+
+ # "memoize lambda": classic evaluate-at-most-once thunk
+thunk = memoize(lambda: print("hi from thunk"))
+thunk()  # the message is printed only the first time
+thunk()
 
 # detect and break infinite recursion cycles:
 # a(0) -> b(1) -> a(2) -> b(0) -> a(1) -> b(2) -> a(0) -> ...
