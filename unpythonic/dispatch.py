@@ -80,12 +80,14 @@ def generic(f):
     # Dispatcher - this will replace the original f.
     @wraps(f)
     def multidispatch(*args, **kwargs):
-        def match(signature):
-            # TODO: handle *args (bindings["vararg"])
-            # TODO: handle **kwargs (bindings["kwarg"])
+        # signature comes from typing.get_type_hints.
+        def match_argument_types(signature):
+            # TODO: handle *args (bindings["vararg"], bindings["vararg_name"])
+            # TODO: handle **kwargs (bindings["kwarg"], bindings["kwarg_name"])
             # TODO: handle advanced features such as Sequence[int], Optional[str], ...
             for parameter, value in bindings["args"].items():
-                p = signature[parameter]  # TODO: what if parameter is not there? TypeError?
+                assert parameter in signature  # resolve_bindings should already TypeError when not.
+                p = signature[parameter]
                 if p is not typing.Any and not isinstance(value, p):
                     return False
             return True
@@ -98,7 +100,7 @@ def generic(f):
                 bindings = resolve_bindings(method, *args, **kwargs)
             except TypeError:  # arity mismatch, so this method can't be the one the call is looking for.
                 continue
-            if match(signature):
+            if match_argument_types(signature):
                 return method(*args, **kwargs)
 
         # No match, report error.
@@ -129,7 +131,7 @@ def generic(f):
 
     # fullname = "{}.{}".format(f.__module__, f.__qualname__)
     multidispatch._registry = []
-    def register(function):
+    def register(thecallable):
         """Decorator. Register a new method for this generic function.
 
         The method must have type annotations for all of its parameters;
@@ -138,11 +140,11 @@ def generic(f):
         # Using `inspect.signature` et al., we could auto-`Any` parameters
         # that have no type annotation, but that would likely be a footgun.
         # So we require a type annotation for each parameter.
-        signature = typing.get_type_hints(function)
+        signature = typing.get_type_hints(thecallable)
 
         # Verify that the method has a type annotation for each parameter.
-        f, _ = _getfunc(function)
-        params = inspect.signature(f).parameters
+        function, _ = _getfunc(thecallable)
+        params = inspect.signature(function).parameters
         allparamnames = [p.name for p in params.values()]
         if not all(name in signature for name in allparamnames):
             failures = [name for name in allparamnames if name not in signature]
@@ -152,8 +154,10 @@ def generic(f):
                                                                                          ", ".join(wrapped))
             raise TypeError(msg)
 
-        multidispatch._registry.append((function, signature))
-        return multidispatch  # Replace the function with the dispatcher for this generic function.
+        multidispatch._registry.append((thecallable, signature))
+        # TODO: Does this work properly with instance methods and class methods?
+        # TODO: (At the moment, probably not. Just might, if `self` has a type annotation.)
+        return multidispatch  # Replace the callable with the dispatcher for this generic function.
     multidispatch.register = register  # publish the @f.register decorator
 
     return multidispatch
