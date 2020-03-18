@@ -68,49 +68,49 @@ def test():
         pass
     assert r(f) == (("args", (("a", 42),)),
                     ("vararg", None), ("vararg_name", None),
-                    ("kwarg", None))
+                    ("kwarg", None), ("kwarg_name", None))
     assert r(f, 17) == (("args", (("a", 17),)),
                         ("vararg", None), ("vararg_name", None),
-                        ("kwarg", None))
+                        ("kwarg", None), ("kwarg_name", None))
     assert r(f, a=23) == (("args", (("a", 23),)),
                           ("vararg", None), ("vararg_name", None),
-                          ("kwarg", None))
+                          ("kwarg", None), ("kwarg_name", None))
 
     def f(a, b, c):
         pass
     assert r(f, 1, 2, 3) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                              ("vararg", None), ("vararg_name", None),
-                             ("kwarg", None))
+                             ("kwarg", None), ("kwarg_name", None))
     assert r(f, a=1, b=2, c=3) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                                    ("vararg", None), ("vararg_name", None),
-                                   ("kwarg", None))
+                                   ("kwarg", None), ("kwarg_name", None))
     assert r(f, 1, 2, c=3) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                                ("vararg", None), ("vararg_name", None),
-                               ("kwarg", None))
+                               ("kwarg", None), ("kwarg_name", None))
     assert r(f, 1, c=3, b=2) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                                  ("vararg", None), ("vararg_name", None),
-                                 ("kwarg", None))
+                                 ("kwarg", None), ("kwarg_name", None))
     assert r(f, c=3, b=2, a=1) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                                    ("vararg", None), ("vararg_name", None),
-                                   ("kwarg", None))
+                                   ("kwarg", None), ("kwarg_name", None))
 
     def f(a, b, c, *args):
         pass
     assert r(f, 1, 2, 3, 4, 5) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                                    ("vararg", (4, 5)), ("vararg_name", "args"),
-                                   ("kwarg", None))
+                                   ("kwarg", None), ("kwarg_name", None))
 
     def f(a, b, c, **kw):
         pass
     assert r(f, 1, 2, 3, d=4, e=5) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                                        ("vararg", None), ("vararg_name", None),
-                                       ("kwarg", (("d", 4), ("e", 5))))
+                                       ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw"))
 
     def f(a, b, c, *args, **kw):
         pass
     assert r(f, 1, 2, 3, 4, 5, d=6, e=7) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                                              ("vararg", (4, 5)), ("vararg_name", "args"),
-                                             ("kwarg", (("d", 6), ("e", 7))))
+                                             ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw"))
 
     print("All tests PASSED")
 
