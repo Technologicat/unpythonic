@@ -13,6 +13,7 @@ from .arity import *
 from .assignonce import *
 from .collections import *
 from .conditions import *
+from .dispatch import *
 from .dynassign import *
 from .ec import *
 from .fix import *
