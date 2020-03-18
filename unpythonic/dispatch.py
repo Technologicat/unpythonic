@@ -9,9 +9,9 @@ For now this is just a simplistic test. If we want to get serious, we must
 add support for things like `*args`, `**kwargs`, `typing.Sequence[int]`,
 and in 3.8, `typing.Literal['a', 'b', 'c', 'd']`.
 
-**WARNING: PROVISIONAL FEATURE**
+**WARNING: EXPERIMENTAL FEATURE**
 
-This provisional feature is a proof-of-concept provided for technical preview
+This experimental feature is a proof-of-concept provided for technical preview
 and teaching purposes only.
 
 Details may still change in a backwards-incompatible way, or the whole
