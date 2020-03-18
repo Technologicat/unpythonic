@@ -229,21 +229,21 @@ def arities(f):
     except TypeError:  # f is of an unhashable type
         pass
     try:
-        l = 0
-        u = 0
+        lower = 0
+        upper = 0
         poskinds = set((Parameter.POSITIONAL_ONLY,
                         Parameter.POSITIONAL_OR_KEYWORD))
         for _, v in signature(f).parameters.items():
             if v.kind in poskinds:
-                u += 1
+                upper += 1
                 if v.default is Parameter.empty:
-                    l += 1  # no default --> required parameter
+                    lower += 1  # no default --> required parameter
             elif v.kind is Parameter.VAR_POSITIONAL:
-                u = _infty  # no upper limit
+                upper = _infty  # no upper limit
         if kind == "methodoninstance":  # self is passed implicitly
-            l -= 1
-            u -= 1
-        return l, u
+            lower -= 1
+            upper -= 1
+        return lower, upper
     except (TypeError, ValueError) as e:
         raise UnknownArity(*e.args)
 
@@ -292,8 +292,8 @@ def arity_includes(f, n):
 
     I.e., return whether ``f()`` can be called with ``n`` positional arguments.
     """
-    l, u = arities(f)
-    return l <= n <= u
+    lower, upper = arities(f)
+    return lower <= n <= upper
 
 def resolve_bindings(f, *args, **kwargs):
     """Resolve parameter bindings established by `f` when called with the given args and kwargs.
