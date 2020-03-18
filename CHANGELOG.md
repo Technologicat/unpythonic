@@ -51,6 +51,12 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
 - `sym`: a lispy symbol type; or in plain English: a lightweight, human-readable, process-wide unique marker, that can be quickly compared to another such marker by object identity (`is`). These named symbols are *interned*. Supplying the same name to the constructor results in receiving the same object instance. Symbols survive a `pickle` roundtrip.
 - `gensym`: a utility to create a new, unique *uninterned* symbol. Like the pythonic idiom `nonce = object()`, but with a human-readable label, and with `pickle` support. Object identity of gensyms is determined by an UUID, generated when the symbol is created. Gensyms also survive a `pickle` roundtrip.
 
+**Experimental features**:
+
+Each experimental feature is a provisional proof-of-concept, usually lacking battle-testing and polish. Details may still change in a backwards-incompatible way, or the whole feature may still be removed. Do not depend on it in production!
+
+- `generic`: Decorator: make a generic function with multiple dispatch. Arity and type annotations determine which method of the generic function a specific call of the function is dispatched to.
+- `specific`: Decorator: make a one-method pony. This is kind of the opposite of `@generic`. Injects dynamic type checking code with very compact notation; restricts allowed argument types to one specific combination only.
 
 **Non-breaking changes**:
 
