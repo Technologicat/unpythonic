@@ -53,6 +53,9 @@ This document collects links to blog posts, online articles and papers on topics
   - Requires a bit more glue code than the traditional approach, but allows easily switching out platform-specific components.
   - E.g. your database glue code should depend on your business logic; but the business logic should assume nothing about a database.
 
+- [Clean Code for Python](https://github.com/zedr/clean-code-python)
+  - *Software engineering principles, from Robert C. Martin's book [Clean Code](https://www.amazon.com/Clean-Code-Handbook-Software-Craftsmanship/dp/0132350882), adapted for Python.*
+
 - [PyPy3](http://pypy.org/), fast, JIT-ing Python 3 that's mostly a drop-in replacement for CPython 3.6. MacroPy works, too.
 
 - [Brython](https://brython.info/): Python 3 in the browser, as a replacement for JavaScript.
