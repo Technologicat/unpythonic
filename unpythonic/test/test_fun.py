@@ -70,7 +70,7 @@ def test():
         @memoize
         def doit(self, y):
             self.evaluations[(id(self), y)] += 1
-            return self.x*y
+            return self.x * y
     foo1 = Foo()
     foo1.doit(1)
     foo1.doit(1)
@@ -142,7 +142,7 @@ def test():
 
     # top-level curry context handling
     def double(x):
-        return 2*x
+        return 2 * x
     with dyn.let(curry_context=["whatever"]):
         curry(double, 2, "foo") == (4, "foo")
     try:
@@ -159,8 +159,8 @@ def test():
     assert (flip(f))(1, 2) == (2, 1)
     assert (flip(f))(1, b=2) == (1, 2)  # b -> kwargs
 
-    double = lambda x: 2*x
-    inc    = lambda x: x+1
+    double = lambda x: 2 * x
+    inc = lambda x: x + 1
     inc_then_double = composer1(double, inc)
     double_then_inc = composel1(double, inc)
     assert inc_then_double(3) == 8
@@ -181,8 +181,8 @@ def test():
     assert inc2_then_double(3) == 10
     assert double_then_inc2(3) == 8
 
-    assert to1st(double)(1, 2, 3)  == (2, 2, 3)
-    assert to2nd(double)(1, 2, 3)  == (1, 4, 3)
+    assert to1st(double)(1, 2, 3) == (2, 2, 3)
+    assert to2nd(double)(1, 2, 3) == (1, 4, 3)
     assert tolast(double)(1, 2, 3) == (1, 2, 6)
 
     processor = to((0, double),
@@ -211,11 +211,11 @@ def test():
     assert const(42)("anything") == 42
     assert const()("anything") is None
 
-    assert notf(lambda x: 2*x)(3) is False
-    assert notf(lambda x: 2*x)(0) is True
-    isint  = lambda x: isinstance(x, int)
+    assert notf(lambda x: 2 * x)(3) is False
+    assert notf(lambda x: 2 * x)(0) is True
+    isint = lambda x: isinstance(x, int)
     iseven = lambda x: x % 2 == 0
-    isstr  = lambda s: isinstance(s, str)
+    isstr = lambda s: isinstance(s, str)
     assert andf(isint, iseven)(42) is True
     assert andf(isint, iseven)(43) is False
     pred = orf(isstr, andf(isint, iseven))
