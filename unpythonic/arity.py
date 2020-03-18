@@ -348,7 +348,7 @@ def resolve_bindings(f, *args, **kwargs):
         f(42)
         f(a=42)  # now the cache hits
 
-    The return value of `resolve_bindings` is an `OrderedDict` with four keys:
+    The return value of `resolve_bindings` is an `OrderedDict` with five keys:
         args: `OrderedDict` of bindings made for regular parameters
               (positional only, positional or keyword, keyword only).
         vararg: `tuple` of arguments gathered by the vararg (`*args`) parameter
@@ -356,6 +356,7 @@ def resolve_bindings(f, *args, **kwargs):
         vararg_name: `str`, the name of the vararg parameter; or `None`.
         kwarg: `OrderedDict` of bindings gathered by `**kwargs` if the
                function definition has one; otherwise `None`.
+        kwarg_name: `str`, the name of the kwarg parameter; or `None`.
 
     **NOTE**:
 
@@ -399,6 +400,7 @@ def resolve_bindings(f, *args, **kwargs):
             varpos_name = param.name
         elif param.kind == Parameter.VAR_KEYWORD:
             varkw = slot
+            varkw_name = param.name
 
     # https://docs.python.org/3/reference/compound_stmts.html#function-definitions
     # https://docs.python.org/3/reference/expressions.html#calls
@@ -478,6 +480,7 @@ def resolve_bindings(f, *args, **kwargs):
     bindings["vararg"] = slots[varpos] if varpos else None
     bindings["vararg_name"] = varpos_name if varpos else None  # for introspection
     bindings["kwarg"] = slots[varkw] if varkw else None
+    bindings["kwarg_name"] = varkw_name if varkw else None  # for introspection
 
     return bindings
 
@@ -498,4 +501,5 @@ def tuplify_bindings(bindings):
     result["vararg"] = bindings["vararg"]
     result["vararg_name"] = bindings["vararg_name"]
     result["kwarg"] = tuplify(bindings["kwarg"]) if bindings["kwarg"] is not None else None
+    result["kwarg_name"] = bindings["kwarg_name"]
     return tuplify(result)
