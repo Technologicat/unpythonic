@@ -24,7 +24,7 @@ from functools import wraps
 import inspect
 import typing
 
-from .arity import resolve_bindings
+from .arity import resolve_bindings, _getfunc
 
 def generic(f):
     """Decorator. Make `f` a generic function (in the sense of CLOS or Julia).
@@ -138,8 +138,20 @@ def generic(f):
         # Using `inspect.signature` et al., we could auto-`Any` parameters
         # that have no type annotation, but that would likely be a footgun.
         # So we require a type annotation for each parameter.
-        # TODO: verify that there are no parameters that have no type annotation.
         signature = typing.get_type_hints(function)
+
+        # Verify that the method has a type annotation for each parameter.
+        f, _ = _getfunc(function)
+        params = inspect.signature(f).parameters
+        allparamnames = [p.name for p in params.values()]
+        if not all(name in signature for name in allparamnames):
+            failures = [name for name in allparamnames if name not in signature]
+            wrapped = ["'{}'".format(x) for x in failures]
+            plural = "s" if len(failures) > 1 else ""
+            msg = "Method definition missing type annotation for parameter{}: {}".format(plural,
+                                                                                         ", ".join(wrapped))
+            raise TypeError(msg)
+
         multidispatch._registry.append((function, signature))
         return multidispatch  # Replace the function with the dispatcher for this generic function.
     multidispatch.register = register  # publish the @f.register decorator
