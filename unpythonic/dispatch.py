@@ -80,12 +80,20 @@ def generic(f):
     # Dispatcher - this will replace the original f.
     @wraps(f)
     def multidispatch(*args, **kwargs):
-        # It's silly the stdlib doesn't have this function. Fuck it, we'll just have to implement one.
+        # It's silly that while Python supports type annotations, the stdlib doesn't have a function to
+        # perform a type annotation based runtime type check. Fuck it, we'll just have to implement one.
+        #
         # Many `typing` meta-utilities explicitly reject using isinstance and issubclass on them,
-        # so we have to hack those by inspecting the repr.
-        #     spec: either a concrete type, or one of the meta-utilities from the `typing` module.
+        # so we hack those by inspecting the repr.
+        #
+        #     value: value whose type to check
+        #
+        #     spec: match value against this.
+        #           Either a concrete type, or one of the meta-utilities from the `typing` module.
+        #
         #           Only the most fundamental meta-utilities (Any, TypeVar, Union, Tuple, Callable)
         #           are currently supported.
+        #
         # TODO: This is a solved problem, we should use https://github.com/agronholm/typeguard
         def match_type(value, spec):
             # TODO: Python 3.8 adds `typing.get_origin` and `typing.get_args`, which may be useful
@@ -140,9 +148,11 @@ def generic(f):
                     # else:
                     #     # TODO: we need the names of the positional arguments of the `value` callable here.
                     #     for a in argtypes:
-                    #         if not compatible_types(???, a):
+                    #         # TODO: Can't use match_type here; we're comparing two specs against each other,
+                    #         # TODO: not a value against a spec. Need to implement a compatible_specs function.
+                    #         if not compatible_specs(???, a):
                     #             return False
-                    # if not compatible_types(sig["return"], rettype):
+                    # if not compatible_specs(sig["return"], rettype):
                     #     return False
                     # return True
             except TypeError:  # probably one of those meta-utilities that hates issubclass for no reason
