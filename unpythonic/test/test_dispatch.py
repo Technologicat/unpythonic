@@ -1,5 +1,6 @@
 # -*- coding: utf-8; -*-
 
+import typing
 from ..dispatch import generic, specific
 
 @generic
@@ -39,6 +40,10 @@ def _example_impl(start, step, stop):
 def blubnify(x: int, y: float):
     return x * y
 
+@specific
+def gargle(x: typing.Union[int, str]):
+    return x
+
 def test():
     assert zorblify(17, 8) == 42
     assert zorblify(17, y=8) == 42  # can also use named arguments
@@ -65,6 +70,15 @@ def test():
     else:
         assert False  # blubnify only accepts (int, float)
     assert not hasattr(blubnify, "register")  # and no more methods can be registered on it
+
+    assert gargle(42) == 42
+    assert gargle("foo") == "foo"
+    try:
+        gargle(3.14)
+    except TypeError:
+        pass
+    else:
+        assert False  # gargle only accepts int or str
 
     print("All tests PASSED")
 

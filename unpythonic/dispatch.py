@@ -80,15 +80,87 @@ def generic(f):
     # Dispatcher - this will replace the original f.
     @wraps(f)
     def multidispatch(*args, **kwargs):
+        # It's silly the stdlib doesn't have this function. Fuck it, we'll just have to implement one.
+        # Many `typing` meta-utilities explicitly reject using isinstance and issubclass on them,
+        # so we have to hack those by inspecting the repr.
+        #     spec: either a concrete type, or one of the meta-utilities from the `typing` module.
+        #           Only the most fundamental meta-utilities (Any, TypeVar, Union, Tuple, Callable)
+        #           are currently supported.
+        # TODO: This is a solved problem, we should use https://github.com/agronholm/typeguard
+        def match_type(value, spec):
+            # TODO: Python 3.8 adds `typing.get_origin` and `typing.get_args`, which may be useful
+            # TODO: once we bump our minimum to that.
+            # TODO: Right now we're accessing internal fields to get what we need.
+            # https://docs.python.org/3/library/typing.html#typing.get_origin
+            if spec is typing.Any:
+                return True
+            if repr(spec.__class__) == "TypeVar":  # AnyStr gets normalized to TypeVar("AnyStr", str, bytes)
+                if not spec.__constraints__:  # just an abstract type name
+                    return True
+                return any(match_type(value, typ) for typ in spec.__constraints__)
+            # TODO: typing.Generic
+            # if repr(spec).startswith("typing.Generic["):
+            #     pass
+            # TODO: Protocol, Type, Iterable, Iterator, Reversible, ...
+            # TODO: List, Set, FrozenSet, Dict, NamedTuple
+            # TODO: many, many others; see https://docs.python.org/3/library/typing.html
+            if repr(spec.__class__) == "typing.Union":  # Optional gets normalized to Union[argtype, NoneType].
+                if spec.__args__ is None:  # bare `typing.Union`; has no types in it, so no value can match.
+                    return False
+                if not any(match_type(value, typ) for typ in spec.__args__):
+                    return False
+                return True
+            try:
+                if issubclass(spec, typing.Text):
+                    return isinstance(value, str)
+                if issubclass(spec, typing.Tuple):
+                    if not isinstance(value, tuple):
+                        return False
+                    if spec.__args__ is None:  # bare `typing.Tuple`, any tuple matches.
+                        return True
+                    # homogeneous type, arbitrary length
+                    if len(spec.__args__ == 2 and spec.__args__[1] is Ellipsis):
+                        typ = spec.__args__[0]
+                        return all(match_type(elt, typ) for elt in value)
+                    # heterogeneous types, exact length
+                    if len(value) == len(spec.__args__):
+                        return False
+                    return all(match_type(elt, typ) for typ, elt in zip(spec.__args__, value))
+                if issubclass(spec, typing.Callable):
+                    if not callable(value):
+                        return False
+                    return True
+                    # # TODO: Callable[[a0, a1, ...], ret], Callable[..., ret].
+                    # if spec.__args__ is None:  # bare `typing.Callable`, no restrictions on arg/return types.
+                    #     return True
+                    # sig = typing.get_type_hints(value)
+                    # *argtypes, rettype = spec.__args__
+                    # if len(argtypes) == 1 and argtypes[0] is Ellipsis:
+                    #     pass  # argument types not specified
+                    # else:
+                    #     # TODO: we need the names of the positional arguments of the `value` callable here.
+                    #     for a in argtypes:
+                    #         if not compatible_types(???, a):
+                    #             return False
+                    # if not compatible_types(sig["return"], rettype):
+                    #     return False
+                    # return True
+            except TypeError:  # probably one of those meta-utilities that hates issubclass for no reason
+                pass
+            # TODO: typing.Literal (Python 3.8)
+            # catch any meta-utilities we don't currently support
+            if hasattr(spec, "__module__") and spec.__module__ == "typing":
+                fullname = "{}.{}".format(spec.__module__, spec.__qualname__)
+                raise NotImplementedError("This simple runtime typechecker doesn't support {}".format(fullname))
+            return isinstance(value, spec)  # a concrete type parameter
         # signature comes from typing.get_type_hints.
         def match_argument_types(signature):
             # TODO: handle *args (bindings["vararg"], bindings["vararg_name"])
             # TODO: handle **kwargs (bindings["kwarg"], bindings["kwarg_name"])
-            # TODO: handle advanced features such as Sequence[int], Optional[str], ...
             for parameter, value in bindings["args"].items():
                 assert parameter in signature  # resolve_bindings should already TypeError when not.
-                p = signature[parameter]
-                if p is not typing.Any and not isinstance(value, p):
+                expected_type = signature[parameter]
+                if not match_type(value, expected_type):
                     return False
             return True
 
