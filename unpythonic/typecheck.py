@@ -66,7 +66,8 @@ def match_value_to_typespec(value, T):
             return False
         return True
 
-    # many of the meta-utilities hate issubclass with a passion, so we must catch TypeError.
+    # Many of the meta-utilities hate issubclass with a passion, so we must catch TypeError
+    # in case attempting to `issubclass(T, ...)` raises it.
     try:
         if issubclass(T, typing.Text):  # https://docs.python.org/3/library/typing.html#typing.Text
             return isinstance(value, str)  # alias for str
