@@ -53,8 +53,8 @@ def test():
     assert not matcht((1.1, 2.2, 3.3), typing.Tuple[int, ...])
     assert not matcht((1, 2.1, 9001), typing.Tuple[int, float, str])
     assert matcht((), typing.Tuple)
-    assert matcht((), typing.Tuple[int, ...])  # empty tuple matches a homogeneous tuple of any element type
-    assert matcht((), typing.Tuple[float, ...])
+    assert not matcht((), typing.Tuple[int, ...])  # empty tuple has no element type
+    assert not matcht((), typing.Tuple[float, ...])
 
     # type alias (at run time, this is just an assignment)
     U = typing.Union[int, str]

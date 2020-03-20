@@ -92,7 +92,9 @@ def match_value_to_typespec(value, T):
             # homogeneous type, arbitrary length
             if len(T.__args__) == 2 and T.__args__[1] is Ellipsis:
                 if not value:  # no elements
-                    return True
+                    # An empty tuple has no element type, so to make multiple dispatch
+                    # behave predictably (so it doesn't guess), we must reject it.
+                    return False
                 U = T.__args__[0]
                 return all(match_value_to_typespec(elt, U) for elt in value)
             # heterogeneous types, exact length
