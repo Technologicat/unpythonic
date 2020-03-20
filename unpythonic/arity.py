@@ -477,10 +477,10 @@ def resolve_bindings(f, *args, **kwargs):
     # https://greentreesnakes.readthedocs.io/en/latest/nodes.html#arguments
     bindings = OrderedDict()
     bindings["args"] = regularargs
-    bindings["vararg"] = slots[varpos] if varpos else None
-    bindings["vararg_name"] = varpos_name if varpos else None  # for introspection
-    bindings["kwarg"] = slots[varkw] if varkw else None
-    bindings["kwarg_name"] = varkw_name if varkw else None  # for introspection
+    bindings["vararg"] = slots[varpos] if varpos is not None else None
+    bindings["vararg_name"] = varpos_name if varpos is not None else None  # for introspection
+    bindings["kwarg"] = slots[varkw] if varkw is not None else None
+    bindings["kwarg_name"] = varkw_name if varkw is not None else None  # for introspection
 
     return bindings
 
