@@ -112,8 +112,7 @@ def match_value_to_typespec(value, T):
             # if not issubtype(rettype, sig["return"]):  # return type behaves covariantly.
             #     return False
             # return True
-    except TypeError as err:  # probably one of those meta-utilities that hates issubclass.
-        print(err)
+    except TypeError:  # probably one of those meta-utilities that hates issubclass.
         pass
 
     # catch any meta-utilities we don't currently support
