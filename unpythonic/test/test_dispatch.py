@@ -35,6 +35,16 @@ def example(start: int, step: int, stop: int):
 def _example_impl(start, step, stop):
     return start, step, stop
 
+# shorter, same effect
+@generic
+def example2(): ...
+@example2.register
+def example2(start: int, stop: int):
+    return example2(start, 1, stop)  # just call the method that has the implementation
+@example2.register
+def example2(start: int, step: int, stop: int):
+    return start, step, stop
+
 # varargs are supported via `typing.Tuple`
 @generic
 def gargle(): ...
@@ -74,6 +84,10 @@ def test():
     assert example(1, 5) == (1, 1, 5)
     assert example(1, 1, 5) == (1, 1, 5)
     assert example(1, 2, 5) == (1, 2, 5)
+
+    assert example2(1, 5) == (1, 1, 5)
+    assert example2(1, 1, 5) == (1, 1, 5)
+    assert example2(1, 2, 5) == (1, 2, 5)
 
     assert gargle(1, 2, 3, 4, 5) == "int"
     assert gargle(2.71828, 3.14159) == "float"
