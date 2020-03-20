@@ -47,7 +47,7 @@ def match_value_to_typespec(value, T):
     if T is typing.Any:
         return True
 
-    if repr(T.__class__) == "TypeVar":  # AnyStr normalizes to TypeVar("AnyStr", str, bytes)
+    if repr(T.__class__) == "typing.TypeVar":  # AnyStr normalizes to TypeVar("AnyStr", str, bytes)
         if not T.__constraints__:  # just an abstract type name
             return True
         return any(match_value_to_typespec(value, U) for U in T.__constraints__)
