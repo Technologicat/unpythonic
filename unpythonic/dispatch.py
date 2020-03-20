@@ -21,6 +21,7 @@ feature may still be removed. Do not depend on it in production!
 __all__ = ["generic", "specific"]
 
 from functools import wraps
+from itertools import chain
 import inspect
 import typing
 
@@ -83,9 +84,15 @@ def generic(f):
     def multidispatch(*args, **kwargs):
         # signature comes from typing.get_type_hints.
         def match_argument_types(signature):
-            # TODO: handle *args (bindings["vararg"], bindings["vararg_name"])
             # TODO: handle **kwargs (bindings["kwarg"], bindings["kwarg_name"])
-            for parameter, value in bindings["args"].items():
+            args_items = bindings["args"].items()
+            if bindings["vararg_name"]:
+                vararg_item = (bindings["vararg_name"], bindings["vararg"])  # *args
+                all_items = tuple(chain(args_items, (vararg_item,)))
+            else:
+                all_items = args_items
+
+            for parameter, value in all_items:
                 assert parameter in signature  # resolve_bindings should already TypeError when not.
                 expected_type = signature[parameter]
                 if not match_value_to_typespec(value, expected_type):

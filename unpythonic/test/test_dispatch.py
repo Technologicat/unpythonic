@@ -35,6 +35,19 @@ def example(start: int, step: int, stop: int):
 def _example_impl(start, step, stop):
     return start, step, stop
 
+# varargs are supported via `typing.Tuple`
+@generic
+def gargle(): ...
+@gargle.register
+def gargle(*args: typing.Tuple[int, ...]):  # any number of ints
+    return "int"
+@gargle.register
+def gargle(*args: typing.Tuple[float, ...]):  # any number of floats
+    return "float"
+@gargle.register
+def gargle(*args: typing.Tuple[int, float, str]):  # three args, matching the given types
+    return "int, float, str"
+
 # One-method pony.
 @specific
 def blubnify(x: int, y: float):
@@ -61,6 +74,11 @@ def test():
     assert example(1, 5) == (1, 1, 5)
     assert example(1, 1, 5) == (1, 1, 5)
     assert example(1, 2, 5) == (1, 2, 5)
+
+    assert gargle(1, 2, 3, 4, 5) == "int"
+    assert gargle(2.71828, 3.14159) == "float"
+    assert gargle(42, 6.022e23, "hello") == "int, float, str"
+    assert gargle(1, 2, 3) == "int"  # as many as in the [int, float, str] case
 
     assert blubnify(2, 21.0) == 42
     try:
