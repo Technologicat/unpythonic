@@ -5,10 +5,6 @@ Somewhat like `functools.singledispatch`, but for multiple dispatch.
 
     https://docs.python.org/3/library/functools.html#functools.singledispatch
 
-For now this is just a simplistic test. If we want to get serious, we must
-add support for things like `*args`, `**kwargs`, `typing.Sequence[int]`,
-and in 3.8, `typing.Literal['a', 'b', 'c', 'd']`.
-
 **WARNING: EXPERIMENTAL FEATURE**
 
 This experimental feature is a proof-of-concept provided for technical preview
@@ -43,41 +39,48 @@ def generic(f):
     are registered with the decorator `@f.register`, where `f` is the function
     you decorated with `@generic`.
 
-    Each method must specify type hints **on all of its parameters**. Then, at
-    call time, the types of **all** arguments, as well as the number of arguments,
-    are automatically used for choosing which method to call. In other words, multiple
-    parameters are used for dispatching.
+    Each method must specify type hints **on all of its parameters** except
+    `**kwargs` (if it has one). Then, at call time, the types of **all** arguments
+    (except any bound to `**kwargs`) as well as the number of arguments, are
+    automatically used for choosing which method to call. In other words,
+    multiple parameters are used for dispatching.
 
-    The first match wins, in most-recently-registered order - that is, later
-    definitions override earlier ones. So specify the implementation with the
-    most generic types first, and then move on to the more specific ones. The
-    mnemonic is, "the function is generally defined like this, except if the
-    arguments match these particular types..."
+    **Varargs are supported**. To have the contents of `*args` participate in
+    dispatching, annotate the parameter as `*args: typing.Tuple[...]`. For the
+    `...` part, see the documentation of the `typing` module. Both homogeneous
+    and heterogeneous tuples are supported.
+
+    The first method that matches wins, in most-recently-registered order. That
+    is, later definitions override earlier ones. So specify the implementation
+    with the most generic types first, and then move on to the more specific
+    ones. The mnemonic is, "the function is generally defined like this, except
+    if the arguments match these particular types..."
 
     The point of this feature is to eliminate `if`/`elif`/`elif`... blocks
     that switch by `isinstance` on arguments, and then raise `TypeError`
     in the final `else`, by implementing the machinery once centrally.
 
-    Another use case are functions like the builtin `range` where the role
-    of an argument in a particular position depends on the number of arguments
-    given to the call.
+    Another use case of `@generic` are functions like the builtin `range`, where
+    the *role* of an argument in a particular position depends on the *number of*
+    arguments passed in the call.
 
     **Differences to tools in the standard library**:
 
-    Unlike `functools.singledispatch`, the `@generic` function itself is
-    unused.
+    Unlike `functools.singledispatch`, the `@generic` function itself is unused.
 
-    Unlike `typing.overload`, the implementations are to be provided in the
-    method bodies.
+    Unlike `typing.overload`, the implementations are given in the method bodies.
 
     **CAUTION**:
 
     To declare a parameter of a method as dynamically typed, explicitly
     annotate it as `typing.Any`; don't just omit the type annotation.
-    Explicit is better than implicit; this is a feature.
+    Explicit is better than implicit; **this is a feature**.
 
-    Currently, advanced features of `typing` such as `Sequence[...]` are
-    not supported. This may or may not change in the future.
+    Dispatching by the contents of the `**kwargs` dictionary is not (yet)
+    supported.
+
+    See the limitations in `unpythonic.typecheck` for which features of the
+    `typing` module are supported and which are not.
     """
     # Dispatcher - this will replace the original f.
     @wraps(f)
