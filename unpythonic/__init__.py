@@ -39,6 +39,7 @@ from .singleton import *
 from .slicing import *
 from .symbol import *
 from .tco import *
+from .typecheck import *
 
 # HACK: break dependency loop
 from .lazyutil import _init_module
