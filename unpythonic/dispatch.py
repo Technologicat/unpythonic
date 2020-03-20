@@ -112,7 +112,7 @@ def generic(f):
         # TODO: was expected. The actual value at least implicitly contains the type information.
         #
         # TODO: Compute closest candidates, like Julia does? (see methods, MethodError)
-        a = [str(a) for a in args]
+        a = [repr(a) for a in args]
         sep = ", " if kwargs else ""
         kw = ["{}={}".format(k, str(v)) for k, v in kwargs]
         def format_method(method):  # Taking a page from Julia and some artistic liberty here.
