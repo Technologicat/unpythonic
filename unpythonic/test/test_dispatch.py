@@ -41,7 +41,7 @@ def blubnify(x: int, y: float):
     return x * y
 
 @specific
-def gargle(x: typing.Union[int, str]):
+def jack(x: typing.Union[int, str]):  # look, it's the union-jack!
     return x
 
 def test():
@@ -71,14 +71,14 @@ def test():
         assert False  # blubnify only accepts (int, float)
     assert not hasattr(blubnify, "register")  # and no more methods can be registered on it
 
-    assert gargle(42) == 42
-    assert gargle("foo") == "foo"
+    assert jack(42) == 42
+    assert jack("foo") == "foo"
     try:
-        gargle(3.14)
+        jack(3.14)
     except TypeError:
         pass
     else:
-        assert False  # gargle only accepts int or str
+        assert False  # jack only accepts int or str
 
     print("All tests PASSED")
 
