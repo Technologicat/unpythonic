@@ -39,6 +39,13 @@ def test():
     assert square(x=3) == 9
     assert evaluations == 2  # only the resulting bindings matter, not how you pass the args
 
+    # A tuple with only one object instance per unique contents (contents must be hashable):
+    @memoize
+    def memotuple(*args):
+        return tuple(args)
+    assert memotuple((1, 2, 3)) is memotuple((1, 2, 3))
+    assert memotuple((1, 2, 3)) is not memotuple((1, 2))
+
     # "memoize lambda": classic evaluate-at-most-once thunk
     thunk = memoize(lambda: print("hi from thunk"))
     thunk()
