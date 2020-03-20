@@ -117,7 +117,7 @@ def match_value_to_typespec(value, T):
 
     # catch any meta-utilities we don't currently support
     if hasattr(T, "__module__") and T.__module__ == "typing":
-        fullname = "{}.{}".format(T.__module__, T.__qualname__)
+        fullname = repr(T.__class__)
         raise NotImplementedError("This simple run-time type checker doesn't support '{}'".format(fullname))
 
     return isinstance(value, T)  # T is a concrete class
