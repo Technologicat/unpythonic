@@ -37,6 +37,8 @@ def match_value_to_typespec(value, T):
                following specifications:
                  - Optional[T] -> Union[T, NoneType]
                  - AnyStr -> TypeVar("AnyStr", str, bytes)
+
+    Returns `True` if the type matches; `False` if not.
     """
     # TODO: Python 3.8 adds `typing.get_origin` and `typing.get_args`, which may be useful
     # TODO: to analyze generics once we bump our minimum Python to that.
@@ -57,6 +59,7 @@ def match_value_to_typespec(value, T):
     # TODO: typing.Generic
     # if repr(T).startswith("typing.Generic["):
     #     pass
+    # TODO: typing.Literal (Python 3.8)
     # TODO: many, many others; see https://docs.python.org/3/library/typing.html
 
     if repr(T.__class__) == "typing.Union":  # Optional normalizes to Union[argtype, NoneType].
@@ -66,8 +69,8 @@ def match_value_to_typespec(value, T):
             return False
         return True
 
-    # Many of the meta-utilities hate issubclass with a passion, so we must catch TypeError
-    # in case attempting to `issubclass(T, ...)` raises it.
+    # Because many (but not all) of the meta-utilities hate issubclass with a passion,
+    # we must catch TypeError. We don't have a match yet, so T might still be one of them.
     try:
         if issubclass(T, typing.Text):  # https://docs.python.org/3/library/typing.html#typing.Text
             return isinstance(value, str)  # alias for str
@@ -112,8 +115,6 @@ def match_value_to_typespec(value, T):
     except TypeError as err:  # probably one of those meta-utilities that hates issubclass.
         print(err)
         pass
-
-    # TODO: typing.Literal (Python 3.8)
 
     # catch any meta-utilities we don't currently support
     if hasattr(T, "__module__") and T.__module__ == "typing":
