@@ -83,6 +83,8 @@ def match_value_to_typespec(value, T):
                 return True
             # homogeneous type, arbitrary length
             if len(T.__args__) == 2 and T.__args__[1] is Ellipsis:
+                if not value:  # no elements
+                    return True
                 U = T.__args__[0]
                 return all(match_value_to_typespec(elt, U) for elt in value)
             # heterogeneous types, exact length
