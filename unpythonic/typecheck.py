@@ -41,6 +41,7 @@ def isoftype(value, T):
 
                  - `Any`
                  - `TypeVar`
+                 - `NewType` (any instance of the underlying actual type will match)
                  - `Union[T1, T2, ..., TN]`
                  - `Tuple`, `Tuple[T, ...]`, `Tuple[T1, T2, ..., TN]`
                  - `Callable` (argument and return value types currently NOT checked)
