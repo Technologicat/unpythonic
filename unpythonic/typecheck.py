@@ -174,7 +174,7 @@ def isoftype(value, T):
             # bare `typing.Tuple`, no restrictions on length or element type.
             if T.__args__ is None:
                 return True
-            # homogeneous type, arbitrary length
+            # homogeneous element type, arbitrary length
             if len(T.__args__) == 2 and T.__args__[1] is Ellipsis:
                 if not value:  # no elements
                     # An empty tuple has no element type, so to make multiple dispatch
@@ -182,7 +182,7 @@ def isoftype(value, T):
                     return False
                 U = T.__args__[0]
                 return all(isoftype(elt, U) for elt in value)
-            # heterogeneous types, exact length
+            # heterogeneous element types, exact length
             if len(value) != len(T.__args__):
                 return False
             return all(isoftype(elt, U) for elt, U in zip(value, T.__args__))
