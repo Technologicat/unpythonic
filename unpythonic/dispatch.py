@@ -22,7 +22,7 @@ import inspect
 import typing
 
 from .arity import resolve_bindings, _getfunc
-from .typecheck import match_value_to_typespec
+from .typecheck import isoftype
 
 def generic(f):
     """Decorator. Make `f` a generic function (in the sense of CLOS or Julia).
@@ -98,7 +98,7 @@ def generic(f):
             for parameter, value in all_items:
                 assert parameter in signature  # resolve_bindings should already TypeError when not.
                 expected_type = signature[parameter]
-                if not match_value_to_typespec(value, expected_type):
+                if not isoftype(value, expected_type):
                     return False
             return True
 

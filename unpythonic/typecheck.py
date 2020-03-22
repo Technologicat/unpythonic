@@ -19,32 +19,38 @@ feature may still be removed. Do not depend on it in production!
 
 import typing
 
-__all__ = ["match_value_to_typespec"]
+__all__ = ["isoftype"]
 
 # Many `typing` meta-utilities explicitly reject using isinstance and issubclass on them,
 # so we hack those by inspecting the repr.
-def match_value_to_typespec(value, T):
-    """A simple run-time type check.
+def isoftype(value, T):
+    """Perform a type check at run time.
 
-    Check that `value` matches the type specification `T`.
+    A relative of the builtin `isinstance`, but subtly different. This function
+    checks `value` against the *type specification* `T`.
 
-        value: a regular run-time value whose type to check.
+        value: The run-time value whose type to check.
 
-        T:     a type specification to check against.
+        T:     Either a concrete type (e.g. `int`, `somemodule.MyClass`), or a type
+               specification using one of the meta-utilities defined by the `typing`
+               stdlib module.
 
-               Either a concrete type (e.g. `int`, `somemodule.MyClass`), or a specification
-               using one of the meta-utilities defined by the `typing` module.
+               If `T` is a concrete type, we just delegate to `isinstance`.
 
-               Only the most fundamental meta-utilities are currently supported:
-                 - Any, TypeVar
-                 - Union, Tuple
-                 - Callable
-                 - Text
+               Currently supported meta-utilities:
 
-               Additionally, the `typing` module itself automatically normalizes the
-               following specifications:
-                 - Optional[T] -> Union[T, NoneType]
-                 - AnyStr -> TypeVar("AnyStr", str, bytes)
+                 - `Any`
+                 - `TypeVar`
+                 - `Union[T1, T2, ..., TN]`
+                 - `Tuple`, `Tuple[T, ...]`, `Tuple[T1, T2, ..., TN]`
+                 - `Callable` (argument and return value types currently NOT checked)
+                 - `Text`
+
+               Additionally, the following meta-utilities also work, because the
+               `typing` module itself automatically normalizes them into supported ones:
+
+                 - `Optional[T]` (becomes `Union[T, NoneType]`)
+                 - `AnyStr` (becomes `TypeVar("AnyStr", str, bytes)`)
 
     Returns `True` if the type matches; `False` if not.
     """
@@ -60,7 +66,7 @@ def match_value_to_typespec(value, T):
     if repr(T.__class__) == "typing.TypeVar":  # AnyStr normalizes to TypeVar("AnyStr", str, bytes)
         if not T.__constraints__:  # just an abstract type name
             return True
-        return any(match_value_to_typespec(value, U) for U in T.__constraints__)
+        return any(isoftype(value, U) for U in T.__constraints__)
 
     # TODO: List, Set, FrozenSet, Dict, NamedTuple
     # TODO: Protocol, Type, Iterable, Iterator, Reversible, ...
@@ -73,7 +79,7 @@ def match_value_to_typespec(value, T):
     if repr(T.__class__) == "typing.Union":  # Optional normalizes to Union[argtype, NoneType].
         if T.__args__ is None:  # bare `typing.Union`; empty, has no types in it, so no value can match.
             return False
-        if not any(match_value_to_typespec(value, U) for U in T.__args__):
+        if not any(isoftype(value, U) for U in T.__args__):
             return False
         return True
 
@@ -96,11 +102,11 @@ def match_value_to_typespec(value, T):
                     # behave predictably (so it doesn't guess), we must reject it.
                     return False
                 U = T.__args__[0]
-                return all(match_value_to_typespec(elt, U) for elt in value)
+                return all(isoftype(elt, U) for elt in value)
             # heterogeneous types, exact length
             if len(value) != len(T.__args__):
                 return False
-            return all(match_value_to_typespec(elt, U) for elt, U in zip(value, T.__args__))
+            return all(isoftype(elt, U) for elt, U in zip(value, T.__args__))
 
         if issubclass(T, typing.Callable):
             if not callable(value):
@@ -116,7 +122,7 @@ def match_value_to_typespec(value, T):
             # else:
             #     # TODO: we need the names of the positional arguments of the `value` callable here.
             #     for a in argtypes:
-            #         # TODO: Can't use match_value_to_typespec here; we're comparing two specs against
+            #         # TODO: Can't use isoftype here; we're comparing two specs against
             #         # TODO: each other, not a value against T. Need to implement an `issubtype` function.
             #         # https://en.wikipedia.org/wiki/Covariance_and_contravariance_(computer_science)
             #         if not issubtype(???, a):  # arg types behave contravariantly.

@@ -57,7 +57,7 @@ Each experimental feature is a provisional proof-of-concept, usually lacking bat
 
 - `generic`: Decorator: make a generic function with multiple dispatch. Arity and type annotations determine which method of the generic function a specific call of the function is dispatched to.
 - `specific`: Decorator: make a one-method pony. This is kind of the opposite of `@generic`. Injects dynamic type checking code with very compact notation; restricts allowed argument types to one specific combination only.
-- `match_value_to_typespec`: A simplistic run-time type check, which supports some features from the [`typing`](https://docs.python.org/3/library/typing.html) module. We implement only a minimal feature set needed by the multiple dispatch system for its typical use cases. If you need a run-time type checker for serious use, consider the [`typeguard`](https://github.com/agronholm/typeguard) package.
+- `isoftype`: A simplistic run-time type check, which supports some features from the [`typing`](https://docs.python.org/3/library/typing.html) module. We implement only a minimal feature set needed by the multiple dispatch system for its typical use cases. If you need a run-time type checker for serious use, consider the [`typeguard`](https://github.com/agronholm/typeguard) package.
 
 **Non-breaking changes**:
 
