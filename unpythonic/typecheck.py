@@ -19,6 +19,7 @@ Details may still change in a backwards-incompatible way, or the whole
 feature may still be removed. Do not depend on it in production!
 """
 
+import collections
 import typing
 
 __all__ = ["isoftype"]
@@ -98,9 +99,8 @@ def isoftype(value, T):
     # TODO: If you add a feature to the type checker, please update this list.
     #
     # Python 3.6+:
-    #   Generic, NamedTuple, Deque, DefaultDict, Counter, ChainMap,
-    #   Type, AbstractSet, MutableSet,
-    #   Mapping, MutableMapping, Sequence, MutableSequence, ByteString,
+    #   Generic, NamedTuple, DefaultDict, Counter, ChainMap, Type,
+    #   Mapping, MutableMapping,
     #   KeysView, ItemsView, ValuesView,
     #   Awaitable, Coroutine, AsyncIterable, AsyncIterator,
     #   ContextManager, AsyncContextManager,
@@ -179,38 +179,42 @@ def isoftype(value, T):
                 return False
             return all(isoftype(elt, U) for elt, U in zip(value, T.__args__))
 
-        if issubclass(T, typing.List):
-            if not isinstance(value, list):
-                return False
-            if T.__args__ is None:
-                raise TypeError("Missing mandatory element type argument of `typing.List`")
-            assert len(T.__args__) == 1  # judging by the docs: https://docs.python.org/3/library/typing.html#typing.List
-            if not value:  # An empty list has no element type.
-                return False
-            U = T.__args__[0]
-            return all(isoftype(elt, U) for elt in value)
-
-        if issubclass(T, typing.Set):
-            if not isinstance(value, set):
-                return False
-            if T.__args__ is None:
-                raise TypeError("Missing mandatory element type argument of `typing.Set`")
-            assert len(T.__args__) == 1
-            if not value:  # An empty set has no element type.
-                return False
-            U = T.__args__[0]
-            return all(isoftype(elt, U) for elt in value)
-
-        if issubclass(T, typing.FrozenSet):
-            if not isinstance(value, frozenset):
-                return False
-            if T.__args__ is None:
-                raise TypeError("Missing mandatory element type argument of `typing.FrozenSet`")
-            assert len(T.__args__) == 1
-            if not value:  # An empty frozenset has no element type.
-                return False
-            U = T.__args__[0]
-            return all(isoftype(elt, U) for elt in value)
+        # Check collection types that allow non-destructive iteration.
+        #
+        # Special-case strings; they match typing.Sequence, but they're not
+        # generics; the class has no `__args__` so this code doesn't apply to
+        # them.
+        if T not in (str, bytes):
+            def iscollection(statictype, runtimetype):
+                if not isinstance(value, runtimetype):
+                    return False
+                if issubclass(statictype, typing.ByteString):
+                    # WTF? A ByteString is a Sequence[int], but only statically.
+                    # At run time, the `__args__` are actually empty - it looks
+                    # like a bare Sequence, which is invalid. Hack the special case.
+                    typeargs = (int,)
+                else:
+                    typeargs = T.__args__
+                if typeargs is None:
+                    raise TypeError("Missing mandatory element type argument of `{}`".format(statictype))
+                # Judging by the docs, List takes one type argument. The rest are similar.
+                # https://docs.python.org/3/library/typing.html#typing.List
+                assert len(typeargs) == 1
+                if not value:  # An empty collection has no element type.
+                    return False
+                U = typeargs[0]
+                return all(isoftype(elt, U) for elt in value)
+            for statictype, runtimetype in ((typing.List, list),
+                                            (typing.Set, set),
+                                            (typing.FrozenSet, frozenset),
+                                            (typing.Deque, collections.deque),
+                                            (typing.ByteString, collections.abc.ByteString),  # must check before Sequence
+                                            (typing.AbstractSet, collections.abc.Set),
+                                            (typing.MutableSet, collections.abc.MutableSet),
+                                            (typing.Sequence, collections.abc.Sequence),
+                                            (typing.MutableSequence, collections.abc.MutableSequence)):
+                if issubclass(T, statictype):
+                    return iscollection(statictype, runtimetype)
 
         if issubclass(T, typing.Dict):
             if not isinstance(value, dict):

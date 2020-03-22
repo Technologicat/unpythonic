@@ -1,5 +1,6 @@
 # -*- coding: utf-8; -*-
 
+import collections
 import typing
 from ..typecheck import isoftype
 
@@ -90,14 +91,24 @@ def test():
     assert isoftype("hello yet again", U)
     assert not isoftype(3.14, U)
 
-    # Text (in Python 3, alias of str)
+    # typing.Text (in Python 3, alias of str)
     assert isoftype("hi", typing.Text)
     assert not isoftype(42, typing.Text)
 
-    # AnyStr
+    # typing.AnyStr
     assert isoftype("hi", typing.AnyStr)
     assert isoftype(b"hi", typing.AnyStr)
     assert not isoftype(42, typing.AnyStr)
+
+    # typing.ByteString (bytes, bytearray, memoryview)
+    assert isoftype(b"hi", typing.ByteString)
+
+    # collections.deque
+    d = collections.deque()
+    assert not isoftype(d, typing.Deque[int])  # empty deque has no element type
+    d.append(42)
+    assert isoftype(d, typing.Deque[int])
+    assert not isoftype(d, typing.Deque[float])
 
     print("All tests PASSED")
 
