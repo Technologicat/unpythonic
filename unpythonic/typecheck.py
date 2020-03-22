@@ -41,6 +41,10 @@ def isoftype(value, T):
                  - `NewType` (any instance of the underlying actual type will match)
                  - `Union[T1, T2, ..., TN]`
                  - `Tuple`, `Tuple[T, ...]`, `Tuple[T1, T2, ..., TN]`
+                 - `List[T]`
+                 - `FrozenSet[T]`
+                 - `Set[T]`
+                 - `Dict[K, V]`
                  - `Callable` (argument and return value types currently NOT checked)
                  - `Text`
 
@@ -87,9 +91,9 @@ def isoftype(value, T):
             return True
         return any(isoftype(value, U) for U in T.__constraints__)
 
-    # TODO: List, Set, FrozenSet, Dict, NamedTuple
-    #
-    # TODO: Protocol, Type, Iterable, Iterator, Reversible, ...
+    # TODO: NamedTuple
+    # TODO: Deque
+    # TODO: Protocol, Type, Iterable, Sequence, Iterator, Reversible, ...
     #
     # TODO: typing.Generic
     # TODO: Python 3.8 adds `typing.get_origin` and `typing.get_args`, which may be useful
@@ -122,6 +126,15 @@ def isoftype(value, T):
         if issubclass(T, typing.Text):  # https://docs.python.org/3/library/typing.html#typing.Text
             return isinstance(value, str)  # alias for str
 
+        if issubclass(T, typing.List):
+            if not isinstance(value, list):
+                return False
+            if T.__args__ is None:
+                raise TypeError("Missing mandatory element type argument of `typing.List`")
+            assert len(T.__args__) == 1  # judging by the docs: https://docs.python.org/3/library/typing.html#typing.List
+            U = T.__args__[0]
+            return all(isoftype(elt, U) for elt in value)
+
         if issubclass(T, typing.Tuple):
             if not isinstance(value, tuple):
                 return False
@@ -140,6 +153,33 @@ def isoftype(value, T):
             if len(value) != len(T.__args__):
                 return False
             return all(isoftype(elt, U) for elt, U in zip(value, T.__args__))
+
+        if issubclass(T, typing.Set):
+            if not isinstance(value, set):
+                return False
+            if T.__args__ is None:
+                raise TypeError("Missing mandatory element type argument of `typing.Set`")
+            assert len(T.__args__) == 1
+            U = T.__args__[0]
+            return all(isoftype(elt, U) for elt in value)
+
+        if issubclass(T, typing.FrozenSet):
+            if not isinstance(value, frozenset):
+                return False
+            if T.__args__ is None:
+                raise TypeError("Missing mandatory element type argument of `typing.FrozenSet`")
+            assert len(T.__args__) == 1
+            U = T.__args__[0]
+            return all(isoftype(elt, U) for elt in value)
+
+        if issubclass(T, typing.Dict):
+            if not isinstance(value, dict):
+                return False
+            if T.__args__ is None:
+                raise TypeError("Missing mandatory key, value type arguments of `typing.Dict`")
+            assert len(T.__args__) == 2
+            K, V = T.__args__
+            return all(isoftype(k, K) and isoftype(v, V) for k, v in value.items())
 
         if issubclass(T, typing.Callable):
             if not callable(value):

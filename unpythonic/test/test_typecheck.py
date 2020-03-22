@@ -63,6 +63,27 @@ def test():
     assert not isoftype((), typing.Tuple[int, ...])  # empty tuple has no element type
     assert not isoftype((), typing.Tuple[float, ...])
 
+    # typing.List
+    assert isoftype([1, 2, 3], typing.List[int])
+    assert not isoftype([1, 2, 3], typing.List[float])
+    assert not isoftype((1, 2, 3), typing.List[int])  # it's a tuple, silly
+    assert not isoftype(42, typing.List[int])  # try something that's not even a collection
+
+    # typing.Set
+    assert isoftype({"cat", "fox", "python"}, typing.Set[str])
+    assert not isoftype({1, 2, 3}, typing.Set[str])
+    assert not isoftype(42, typing.Set[str])
+
+    # typing.FrozenSet
+    assert isoftype(frozenset({"cat", "fox", "python"}), typing.FrozenSet[str])
+    assert not isoftype(frozenset({1, 2, 3}), typing.FrozenSet[str])
+    assert not isoftype(42, typing.FrozenSet[str])
+
+    # typing.Dict
+    assert isoftype({17: "cat", 23: "fox", 42: "python"}, typing.Dict[int, str])
+    assert not isoftype({"bar": "foo", "tavern": "a place"}, typing.Dict[int, str])
+    assert not isoftype(42, typing.Dict[int, str])
+
     # type alias (at run time, this is just an assignment)
     U = typing.Union[int, str]
     assert isoftype(42, U)
