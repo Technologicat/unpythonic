@@ -154,6 +154,7 @@ def test():
     assert isoftype((1, 2, 3), typing.Hashable)
     assert isoftype([1, 2, 3], typing.Sized)
     assert not isoftype([1, 2, 3], typing.Hashable)
+    # TODO: test SupportsComplex, SupportsBytes
 
     # For these it's impossible, in general, to non-destructively check the
     # element type, so this run-time type checker ignores making that check.
@@ -163,6 +164,21 @@ def test():
     assert isoftype([1, 2, 3], typing.Reversible)
     assert isoftype([1, 2, 3], typing.Container)
     assert isoftype([1, 2, 3], typing.Collection)  # Sized Iterable Container
+
+    # KeysView, ValuesView, MappingView, ItemsView
+    d = {17: "cat", 23: "fox", 42: "python"}
+    assert isoftype(d.keys(), typing.KeysView[int])
+    assert isoftype(d.values(), typing.ValuesView[str])
+    assert isoftype(d.items(), typing.ItemsView[int, str])
+
+    # TODO: test MappingView
+    # The language docs don't exactly make it clear what MappingView is for.
+    # All these documentation pages only talk about `.keys()`, `.values()`
+    # and `.items()`, which correspond to the other three view types.
+    #  https://docs.python.org/3/library/typing.html#typing.MappingView
+    #  https://docs.python.org/3/library/collections.abc.html#collections.abc.MappingView
+    #  https://docs.python.org/3/glossary.html#term-dictionary-view
+    #  https://docs.python.org/3/library/stdtypes.html#dict-views
 
     print("All tests PASSED")
 
