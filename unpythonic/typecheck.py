@@ -4,7 +4,7 @@
 This implements just a minimal feature set needed for checking function arguments in
 typical uses of multiple dispatch (see `unpythonic.dispatch`).
 
-We currently have `isoftype` (cf. `isinstance`), but no `issubtype` (cf. `issubclass`).
+We currently provide `isoftype` (cf. `isinstance`), but no `issubtype` (cf. `issubclass`).
 
 If you need a run-time type checker for serious general use, consider `typeguard`:
 
@@ -23,8 +23,6 @@ import typing
 
 __all__ = ["isoftype"]
 
-# Many `typing` meta-utilities explicitly reject using isinstance and issubclass on them,
-# so we hack those by inspecting the repr.
 def isoftype(value, T):
     """Perform a type check at run time.
 
@@ -59,8 +57,26 @@ def isoftype(value, T):
 
     Returns `True` if the type matches; `False` if not.
     """
-    # TODO: Python 3.8 adds `typing.get_origin` and `typing.get_args`, which may be useful
-    # TODO: to analyze generics once we bump our minimum Python to that.
+    # TODO: This function is one big hack.
+    #
+    # As of Python 3.6, there seems to be no consistent way to identify a type
+    # specification at run time. So what we have is a mess.
+    #
+    # - Many `typing` meta-utilities explicitly `raise TypeError` when one
+    #   attempts The One Obvious Way To Do It (`isinstance`, `issubclass`).
+    #
+    # - Their `type` can be something like `typing.TypeVar`, `typing.Union`,
+    #   `<class typing.TupleMeta>`, `<class typing.CallableMeta>`... the
+    #   format is case-dependent. A check like `type(T) is typing.TypeVar`
+    #   doesn't work.
+    #
+    # So, we inspect `repr(T.__class__)` to match on the names of the prickly types,
+    # and call `issubclass` on those that don't hate us for that (catching `TypeError`
+    # in case `T` is an unsupported yet prickly type).
+    #
+    # Obviously, this won't work if someone subclasses one of the prickly types.
+    # `issubclass` would be The Right Thing, but since it's explicitly blocked,
+    # there's not much we can do.
     #
     # TODO: Right now we're accessing internal fields to get what we need.
     # https://docs.python.org/3/library/typing.html#typing.get_origin
@@ -74,12 +90,18 @@ def isoftype(value, T):
         return any(isoftype(value, U) for U in T.__constraints__)
 
     # TODO: List, Set, FrozenSet, Dict, NamedTuple
+    #
     # TODO: Protocol, Type, Iterable, Iterator, Reversible, ...
+    #
     # TODO: typing.Generic
+    # TODO: Python 3.8 adds `typing.get_origin` and `typing.get_args`, which may be useful
+    # TODO: to analyze generics once we bump our minimum Python to that.
     # if repr(T).startswith("typing.Generic["):
     #     pass
+    #
     # TODO: typing.Literal (Python 3.8)
-    # TODO: many, many others; see https://docs.python.org/3/library/typing.html
+    #
+    # TODO: many, many others; for the full list, see https://docs.python.org/3/library/typing.html
 
     if repr(T.__class__) == "typing.Union":  # Optional normalizes to Union[argtype, NoneType].
         if T.__args__ is None:  # bare `typing.Union`; empty, has no types in it, so no value can match.
@@ -88,8 +110,8 @@ def isoftype(value, T):
             return False
         return True
 
-    # Because many (but not all) of the meta-utilities hate issubclass with a passion,
-    # we must catch TypeError. We don't have a match yet, so T might still be one of them.
+    # We don't have a match yet, so T might still be one of those meta-utilities
+    # that hate `issubclass` with a passion.
     try:
         if issubclass(T, typing.Text):  # https://docs.python.org/3/library/typing.html#typing.Text
             return isinstance(value, str)  # alias for str
@@ -127,12 +149,19 @@ def isoftype(value, T):
             # else:
             #     # TODO: we need the names of the positional arguments of the `value` callable here.
             #     for a in argtypes:
-            #         # TODO: Can't use isoftype here; we're comparing two specs against
-            #         # TODO: each other, not a value against T. Need to implement an `issubtype` function.
+            #         # TODO: We need to compare two specs against each other, not a value against T.
+            #         # This needs an `issubtype` function.
+            #         #
+            #         # Note arguments behave contravariantly, while return values behave covariantly:
+            #         #   - f(x: animal) is a *subtype* of f(x: cat), since any use site that passes
+            #         #     in a cat (more specific) works fine with a function that accepts any animal
+            #         #     (more general).
+            #         #   - g() -> int is a subtype of g() -> Number, because any use site that
+            #         #     expects a Number (more general) can deal with an int (more specific).
             #         # https://en.wikipedia.org/wiki/Covariance_and_contravariance_(computer_science)
-            #         if not issubtype(???, a):  # arg types behave contravariantly.
+            #         if not issubtype(???, a):
             #             return False
-            # if not issubtype(rettype, sig["return"]):  # return type behaves covariantly.
+            # if not issubtype(rettype, sig["return"]):
             #     return False
             # return True
     except TypeError:  # probably one of those meta-utilities that hates issubclass.
@@ -144,3 +173,10 @@ def isoftype(value, T):
         raise NotImplementedError("This simple run-time type checker doesn't support '{}'".format(fullname))
 
     return isinstance(value, T)  # T is a concrete class
+
+# TODO: Add an `issubtype` function. It's needed to fully resolve callable types in `isoftype`.
+#
+# - It must take two typespec arguments, T1 and T2, but matches will be on the diagonal
+#   (e.g. a `Union` can only be a subtype of another `Union`).
+# - If T1 and T2 are both concrete types, delegate to `issubclass`.
+# - If exactly one of T1 or T2 is a concrete type, return `False.`
