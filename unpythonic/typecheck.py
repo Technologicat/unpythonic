@@ -1,8 +1,10 @@
 # -*- coding: utf-8; -*-
 """Simplistic run-time type checker.
 
-This implements just a minimal feature set needed for checking function arguments in
-typical uses of multiple dispatch (see `unpythonic.dispatch`).
+This implements just a minimal feature set needed for checking function
+arguments in typical uses of multiple dispatch (see `unpythonic.dispatch`).
+That said, this DOES support many (but not all) features of the `typing` stdlib
+module.
 
 We currently provide `isoftype` (cf. `isinstance`), but no `issubtype` (cf. `issubclass`).
 
@@ -42,11 +44,11 @@ def isoftype(value, T):
                  - `TypeVar`
                  - `NewType` (any instance of the underlying actual type will match)
                  - `Union[T1, T2, ..., TN]`
-                 - `Tuple`, `Tuple[T, ...]`, `Tuple[T1, T2, ..., TN]`
-                 - `List[T]`
-                 - `FrozenSet[T]`
-                 - `Set[T]`
-                 - `Dict[K, V]`
+                 - `Tuple`, `Tuple[T, ...]`, `Tuple[T1, T2, ..., TN]`, `Sequence[T]`
+                 - `List[T]`, `MutableSequence[T]`
+                 - `FrozenSet[T]`, `AbstractSet[T]`
+                 - `Set[T]`, `MutableSet[T]`
+                 - `Dict[K, V]`, `MutableMapping[K, V]`, `Mapping[K, V]`
                  - `Callable` (argument and return value types currently NOT checked)
                  - `Text`
 
@@ -100,7 +102,6 @@ def isoftype(value, T):
     #
     # Python 3.6+:
     #   Generic, NamedTuple, DefaultDict, Counter, ChainMap, Type,
-    #   Mapping, MutableMapping,
     #   KeysView, ItemsView, ValuesView,
     #   Awaitable, Coroutine, AsyncIterable, AsyncIterator,
     #   ContextManager, AsyncContextManager,
@@ -179,7 +180,7 @@ def isoftype(value, T):
                 return False
             return all(isoftype(elt, U) for elt, U in zip(value, T.__args__))
 
-        # Check collection types that allow non-destructive iteration.
+        # Check iterable types that allow non-destructive iteration.
         #
         # Special-case strings; they match typing.Sequence, but they're not
         # generics; the class has no `__args__` so this code doesn't apply to
@@ -216,16 +217,22 @@ def isoftype(value, T):
                 if issubclass(T, statictype):
                     return iscollection(statictype, runtimetype)
 
-        if issubclass(T, typing.Dict):
-            if not isinstance(value, dict):
+        # Check mapping types that allow non-destructive iteration.
+        def ismapping(statictype, runtimetype):
+            if not isinstance(value, runtimetype):
                 return False
             if T.__args__ is None:
-                raise TypeError("Missing mandatory key, value type arguments of `typing.Dict`")
+                raise TypeError("Missing mandatory key, value type arguments of `{}`".format(statictype))
             assert len(T.__args__) == 2
             if not value:  # An empty dict has no key and value types.
                 return False
             K, V = T.__args__
             return all(isoftype(k, K) and isoftype(v, V) for k, v in value.items())
+        for statictype, runtimetype in ((typing.Dict, dict),
+                                        (typing.Mapping, collections.abc.Mapping),
+                                        (typing.MutableMapping, collections.abc.MutableMapping)):
+            if issubclass(T, statictype):
+                return ismapping(statictype, runtimetype)
 
         if issubclass(T, typing.Callable):
             if not callable(value):
