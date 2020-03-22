@@ -30,7 +30,7 @@ def isoftype(value, T):
 
         value: The run-time value whose type to check.
 
-        T:     If `T` is a concrete type (e.g. `int`, `somemodule.MyClass`),
+        T:     When `T` is a concrete type (e.g. `int`, `somemodule.MyClass`),
                we just delegate to the builtin `isinstance`.
 
                The interesting case is when `T` is a *type specification*,
@@ -57,7 +57,7 @@ def isoftype(value, T):
                  - `Optional[T]` (becomes `Union[T, NoneType]`)
                  - `AnyStr` (becomes `TypeVar("AnyStr", str, bytes)`)
 
-    Returns `True` if the type matches; `False` if not.
+    Returns `True` if `value` matches the type specification; `False` if not.
     """
     # TODO: This function is one big hack.
     #
@@ -73,15 +73,16 @@ def isoftype(value, T):
     #   doesn't work.
     #
     # So, we inspect `repr(T.__class__)` to match on the names of the prickly types,
-    # and call `issubclass` on those that don't hate us for that (catching `TypeError`
-    # in case `T` is an unsupported yet prickly type).
+    # and call `issubclass` on those that don't hate us for doing so (catching
+    # `TypeError`, just in case `T` is an unsupported yet prickly type).
     #
     # Obviously, this won't work if someone subclasses one of the prickly types.
     # `issubclass` would be The Right Thing, but since it's explicitly blocked,
     # there's not much we can do.
-    #
+
     # TODO: Right now we're accessing internal fields to get what we need.
-    # https://docs.python.org/3/library/typing.html#typing.get_origin
+    # TODO: Would be nice to update this if Python, at some point, adds an
+    # TODO: official API to access the static type information at run time.
 
     if T is typing.Any:
         return True
@@ -91,19 +92,33 @@ def isoftype(value, T):
             return True
         return any(isoftype(value, U) for U in T.__constraints__)
 
-    # TODO: NamedTuple
-    # TODO: Deque
-    # TODO: Protocol, Type, Iterable, Sequence, Iterator, Reversible, ...
+    # TODO: Here is THE FULL LIST of `typing` features we **don't** currently support,
+    # TODO: as of Python 3.8 (March 2020). https://docs.python.org/3/library/typing.html
+    # TODO: If you add a feature to the type checker, please update this list.
     #
-    # TODO: typing.Generic
+    # Python 3.6+:
+    #   Generic, NamedTuple, Deque, DefaultDict, Counter, ChainMap,
+    #   Type, AbstractSet, MutableSet,
+    #   Mapping, MutableMapping, Sequence, MutableSequence, ByteString,
+    #   KeysView, ItemsView, ValuesView,
+    #   Awaitable, Coroutine, AsyncIterable, AsyncIterator,
+    #   ContextManager, AsyncContextManager,
+    #   Generator, AsyncGenerator,
+    #   IO, TextIO, BinaryIO,
+    #   Pattern, Match, (regular expressions)
+    #   NoReturn (callable return value only),
+    #   ClassVar, Final
+    #
+    # Python 3.7+: OrderedDict
+    # Python 3.8+: Protocol, SupportsIndex, TypedDict, Literal
+    #
+    # TODO: Do we need to support `typing.ForwardRef`?
+
     # TODO: Python 3.8 adds `typing.get_origin` and `typing.get_args`, which may be useful
     # TODO: to analyze generics once we bump our minimum Python to that.
+    # https://docs.python.org/3/library/typing.html#typing.get_origin
     # if repr(T).startswith("typing.Generic["):
     #     pass
-    #
-    # TODO: typing.Literal (Python 3.8)
-    #
-    # TODO: many, many others; for the full list, see https://docs.python.org/3/library/typing.html
 
     if repr(T.__class__) == "typing.Union":  # Optional normalizes to Union[argtype, NoneType].
         if T.__args__ is None:  # bare `typing.Union`; empty, has no types in it, so no value can match.
@@ -120,20 +135,29 @@ def isoftype(value, T):
         #   print(type(i))  # int
         return isinstance(value, T.__supertype__)
 
+    # Some one-trick ponies.
+    for U in (typing.Iterator,    # can't non-destructively check element type
+              typing.Iterable,    # can't non-destructively check element type
+              typing.Reversible,  # can't non-destructively check element type
+              typing.Container,   # can't check element type
+              typing.Collection,  # Sized Iterable Container; can't check element type
+              typing.SupportsInt,
+              typing.SupportsFloat,
+              typing.SupportsComplex,
+              typing.SupportsBytes,
+              # typing.SupportsIndex,  # TODO: enable this once our minimum is Python 3.8
+              typing.SupportsAbs,
+              typing.SupportsRound,
+              typing.Hashable,
+              typing.Sized):
+        if U is T:
+            return isinstance(value, U)
+
     # We don't have a match yet, so T might still be one of those meta-utilities
     # that hate `issubclass` with a passion.
     try:
         if issubclass(T, typing.Text):  # https://docs.python.org/3/library/typing.html#typing.Text
             return isinstance(value, str)  # alias for str
-
-        if issubclass(T, typing.List):
-            if not isinstance(value, list):
-                return False
-            if T.__args__ is None:
-                raise TypeError("Missing mandatory element type argument of `typing.List`")
-            assert len(T.__args__) == 1  # judging by the docs: https://docs.python.org/3/library/typing.html#typing.List
-            U = T.__args__[0]
-            return all(isoftype(elt, U) for elt in value)
 
         if issubclass(T, typing.Tuple):
             if not isinstance(value, tuple):
@@ -154,12 +178,25 @@ def isoftype(value, T):
                 return False
             return all(isoftype(elt, U) for elt, U in zip(value, T.__args__))
 
+        if issubclass(T, typing.List):
+            if not isinstance(value, list):
+                return False
+            if T.__args__ is None:
+                raise TypeError("Missing mandatory element type argument of `typing.List`")
+            assert len(T.__args__) == 1  # judging by the docs: https://docs.python.org/3/library/typing.html#typing.List
+            if not value:  # An empty list has no element type.
+                return False
+            U = T.__args__[0]
+            return all(isoftype(elt, U) for elt in value)
+
         if issubclass(T, typing.Set):
             if not isinstance(value, set):
                 return False
             if T.__args__ is None:
                 raise TypeError("Missing mandatory element type argument of `typing.Set`")
             assert len(T.__args__) == 1
+            if not value:  # An empty set has no element type.
+                return False
             U = T.__args__[0]
             return all(isoftype(elt, U) for elt in value)
 
@@ -169,6 +206,8 @@ def isoftype(value, T):
             if T.__args__ is None:
                 raise TypeError("Missing mandatory element type argument of `typing.FrozenSet`")
             assert len(T.__args__) == 1
+            if not value:  # An empty frozenset has no element type.
+                return False
             U = T.__args__[0]
             return all(isoftype(elt, U) for elt in value)
 
@@ -178,6 +217,8 @@ def isoftype(value, T):
             if T.__args__ is None:
                 raise TypeError("Missing mandatory key, value type arguments of `typing.Dict`")
             assert len(T.__args__) == 2
+            if not value:  # An empty dict has no key and value types.
+                return False
             K, V = T.__args__
             return all(isoftype(k, K) and isoftype(v, V) for k, v in value.items())
 
@@ -213,12 +254,12 @@ def isoftype(value, T):
     except TypeError:  # probably one of those meta-utilities that hates issubclass.
         pass
 
-    # catch any meta-utilities we don't currently support
+    # Catch any `typing` meta-utilities we don't currently support.
     if hasattr(T, "__module__") and T.__module__ == "typing":
         fullname = repr(T.__class__)
-        raise NotImplementedError("This simple run-time type checker doesn't support '{}'".format(fullname))
+        raise NotImplementedError("This run-time type checker doesn't currently support '{}'".format(fullname))
 
-    return isinstance(value, T)  # T is a concrete class
+    return isinstance(value, T)  # T is a concrete class, so delegate.
 
 # TODO: Add an `issubtype` function. It's needed to fully resolve callable types in `isoftype`.
 #
