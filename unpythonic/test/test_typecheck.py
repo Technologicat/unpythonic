@@ -13,6 +13,13 @@ def test():
     assert isoftype(lambda: ..., typing.Callable)
     assert not isoftype("blah", typing.Callable)
 
+    # typing.NewType
+    UserId = typing.NewType("UserId", int)
+    assert isoftype(UserId(42), UserId)
+    # Note limitation: since NewType types discard their type information at
+    # run time, any instance of the underlying actual run-time type will match.
+    assert isoftype(42, UserId)
+
     # typing.Any (i.e. explicitly say "don't care")
     assert isoftype(5, typing.Any)
     assert isoftype("something", typing.Any)
