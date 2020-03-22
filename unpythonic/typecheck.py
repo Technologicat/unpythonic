@@ -34,7 +34,8 @@ def isoftype(value, T):
                we just delegate to the builtin `isinstance`.
 
                The interesting case is when `T` is a *type specification*,
-               using one of the meta-utilities defined in the `typing` module:
+               using one of the meta-utilities defined in the `typing` module.
+               The most important ones are:
 
                  - `Any`
                  - `TypeVar`
