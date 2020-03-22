@@ -2,6 +2,8 @@
 
 import collections
 import typing
+
+from ..collections import frozendict
 from ..typecheck import isoftype
 
 def test():
@@ -109,6 +111,58 @@ def test():
     d.append(42)
     assert isoftype(d, typing.Deque[int])
     assert not isoftype(d, typing.Deque[float])
+
+    # typing.Mapping, typing.MutableMapping
+    assert isoftype(frozendict({1: "foo", 2: "bar"}), typing.Mapping[int, str])
+    assert not isoftype(frozendict({1: "foo", 2: "bar"}), typing.MutableMapping[int, str])
+    assert not isoftype(frozendict({1: "foo", 2: "bar"}), typing.Mapping[str, str])
+    assert isoftype({1: "foo", 2: "bar"}, typing.MutableMapping[int, str])
+    assert not isoftype(42, typing.Mapping[int, str])
+    # empty mapping has no key/value types
+    assert not isoftype({}, typing.MutableMapping[int, str])
+    assert not isoftype({}, typing.Mapping[int, str])
+    assert not isoftype(frozendict(), typing.Mapping[int, str])
+
+    # typing.Sequence, typing.MutableSequence
+    assert not isoftype((), typing.Sequence[int])  # empty sequence has no element type
+    assert isoftype((1, 2, 3), typing.Sequence[int])
+    assert not isoftype((1, 2, 3), typing.Sequence[float])
+    assert not isoftype((1, 2, 3), typing.MutableSequence[int])
+    assert isoftype([1, 2, 3], typing.Sequence[int])
+    assert isoftype([1, 2, 3], typing.MutableSequence[int])
+    assert not isoftype([], typing.MutableSequence[int])  # empty mutable sequence has no element type
+    assert not isoftype([1, 2, 3], typing.MutableSequence[float])
+    assert not isoftype(42, typing.Sequence[int])
+    assert not isoftype(42, typing.MutableSequence[int])
+
+    # typing.AbstractSet, typing.MutableSet
+    assert isoftype({1, 2, 3}, typing.AbstractSet[int])
+    assert isoftype({1, 2, 3}, typing.MutableSet[int])
+    assert not isoftype({1, 2, 3}, typing.AbstractSet[float])
+    assert isoftype(frozenset({1, 2, 3}), typing.AbstractSet[int])
+    assert not isoftype(frozenset({1, 2, 3}), typing.MutableSet[int])
+    assert not isoftype(42, typing.AbstractSet[int])
+    assert not isoftype(42, typing.MutableSet[int])
+
+    # one-trick ponies
+    assert isoftype(3.14, typing.SupportsInt)
+    # assert isoftype(3.14, typing.SupportsComplex)  # ehm, WTF?
+    assert isoftype(3.14, typing.SupportsAbs)
+    assert isoftype(3.14, typing.SupportsRound)
+    assert isoftype(42, typing.SupportsFloat)
+    assert isoftype((1, 2, 3), typing.Sized)
+    assert isoftype((1, 2, 3), typing.Hashable)
+    assert isoftype([1, 2, 3], typing.Sized)
+    assert not isoftype([1, 2, 3], typing.Hashable)
+
+    # For these it's impossible, in general, to non-destructively check the
+    # element type, so this run-time type checker ignores making that check.
+    # It only checks that the value is an instance of the appropriate ABC.
+    assert isoftype(iter([1, 2, 3]), typing.Iterator)
+    assert isoftype([1, 2, 3], typing.Iterable)
+    assert isoftype([1, 2, 3], typing.Reversible)
+    assert isoftype([1, 2, 3], typing.Container)
+    assert isoftype([1, 2, 3], typing.Collection)  # Sized Iterable Container
 
     print("All tests PASSED")
 

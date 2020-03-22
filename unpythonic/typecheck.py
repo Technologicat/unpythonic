@@ -143,17 +143,20 @@ def isoftype(value, T):
               typing.Reversible,  # can't non-destructively check element type
               typing.Container,   # can't check element type
               typing.Collection,  # Sized Iterable Container; can't check element type
-              typing.SupportsInt,
+              typing.Hashable,
+              typing.Sized):
+        if U is T:
+            return isinstance(value, U)
+    # "Protocols cannot be used with isinstance()", so:
+    for U in (typing.SupportsInt,
               typing.SupportsFloat,
               typing.SupportsComplex,
               typing.SupportsBytes,
               # typing.SupportsIndex,  # TODO: enable this once our minimum is Python 3.8
               typing.SupportsAbs,
-              typing.SupportsRound,
-              typing.Hashable,
-              typing.Sized):
+              typing.SupportsRound):
         if U is T:
-            return isinstance(value, U)
+            return issubclass(type(value), U)
 
     # We don't have a match yet, so T might still be one of those meta-utilities
     # that hate `issubclass` with a passion.
@@ -206,14 +209,16 @@ def isoftype(value, T):
                 U = typeargs[0]
                 return all(isoftype(elt, U) for elt in value)
             for statictype, runtimetype in ((typing.List, list),
-                                            (typing.Set, set),
                                             (typing.FrozenSet, frozenset),
+                                            (typing.Set, set),
                                             (typing.Deque, collections.deque),
                                             (typing.ByteString, collections.abc.ByteString),  # must check before Sequence
+                                            (typing.MutableSet, collections.abc.MutableSet),  # must check mutable first
+                                            # because a mutable value has *also* the interface of the immutable variant
+                                            # (e.g. MutableSet is a subtype of AbstractSet)
                                             (typing.AbstractSet, collections.abc.Set),
-                                            (typing.MutableSet, collections.abc.MutableSet),
-                                            (typing.Sequence, collections.abc.Sequence),
-                                            (typing.MutableSequence, collections.abc.MutableSequence)):
+                                            (typing.MutableSequence, collections.abc.MutableSequence),
+                                            (typing.Sequence, collections.abc.Sequence)):
                 if issubclass(T, statictype):
                     return iscollection(statictype, runtimetype)
 
@@ -229,8 +234,8 @@ def isoftype(value, T):
             K, V = T.__args__
             return all(isoftype(k, K) and isoftype(v, V) for k, v in value.items())
         for statictype, runtimetype in ((typing.Dict, dict),
-                                        (typing.Mapping, collections.abc.Mapping),
-                                        (typing.MutableMapping, collections.abc.MutableMapping)):
+                                        (typing.MutableMapping, collections.abc.MutableMapping),
+                                        (typing.Mapping, collections.abc.Mapping)):
             if issubclass(T, statictype):
                 return ismapping(statictype, runtimetype)
 
