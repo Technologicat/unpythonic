@@ -4,6 +4,8 @@
 This implements just a minimal feature set needed for checking function arguments in
 typical uses of multiple dispatch (see `unpythonic.dispatch`).
 
+We currently have `isoftype` (cf. `isinstance`), but no `issubtype` (cf. `issubclass`).
+
 If you need a run-time type checker for serious general use, consider `typeguard`:
 
     https://github.com/agronholm/typeguard
@@ -46,8 +48,11 @@ def isoftype(value, T):
                  - `Callable` (argument and return value types currently NOT checked)
                  - `Text`
 
+               Any checks on the type arguments of the meta-utilities are performed
+               recursively using `isoftype`, in order to allow compound specifications.
+
                Additionally, the following meta-utilities also work, because the
-               `typing` module itself automatically normalizes them into supported ones:
+               `typing` module automatically normalizes them into supported ones:
 
                  - `Optional[T]` (becomes `Union[T, NoneType]`)
                  - `AnyStr` (becomes `TypeVar("AnyStr", str, bytes)`)
