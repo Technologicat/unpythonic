@@ -26,18 +26,15 @@ __all__ = ["isoftype"]
 def isoftype(value, T):
     """Perform a type check at run time.
 
-    A relative of the builtin `isinstance`, but subtly different. This function
-    checks `value` against the *type specification* `T`.
+    Like `isinstance`, but check `value` against a *type specification* `T`.
 
         value: The run-time value whose type to check.
 
-        T:     Either a concrete type (e.g. `int`, `somemodule.MyClass`), or a type
-               specification using one of the meta-utilities defined by the `typing`
-               stdlib module.
+        T:     If `T` is a concrete type (e.g. `int`, `somemodule.MyClass`),
+               we just delegate to the builtin `isinstance`.
 
-               If `T` is a concrete type, we just delegate to `isinstance`.
-
-               Currently supported meta-utilities:
+               The interesting case is when `T` is a *type specification*,
+               using one of the meta-utilities defined in the `typing` module:
 
                  - `Any`
                  - `TypeVar`
