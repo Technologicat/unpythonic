@@ -1,7 +1,8 @@
 # -*- coding: utf-8; -*-
 
 import typing
-from ..dispatch import generic, specific
+from ..fun import curry
+from ..dispatch import generic, typed
 
 @generic
 def zorblify():  # could use the ellipsis `...` as the body, but this is a unit test.
@@ -58,12 +59,13 @@ def gargle(*args: typing.Tuple[float, ...]):  # any number of floats
 def gargle(*args: typing.Tuple[int, float, str]):  # three args, matching the given types
     return "int, float, str"
 
-# One-method pony.
-@specific
+# One-method pony, which automatically enforces argument types.
+# The type specification may use features from the `typing` stdlib module.
+@typed
 def blubnify(x: int, y: float):
     return x * y
 
-@specific
+@typed
 def jack(x: typing.Union[int, str]):  # look, it's the union-jack!
     return x
 
@@ -111,6 +113,21 @@ def test():
         pass
     else:
         assert False  # jack only accepts int or str
+
+    # integration: @typed, curry
+    f = curry(blubnify, 2)
+    assert callable(f)
+    assert f(21.0) == 42
+
+    # But be careful:
+    f = curry(blubnify, 2.0)  # wrong argument type; error not triggered yet
+    assert callable(f)
+    try:
+        assert f(21.0) == 42  # error will occur now, when the call is triggered
+    except TypeError:
+        pass
+    else:
+        assert False  # should have noticed incompatible argument types
 
     print("All tests PASSED")
 

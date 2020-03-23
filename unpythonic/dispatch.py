@@ -14,7 +14,7 @@ Details may still change in a backwards-incompatible way, or the whole
 feature may still be removed. Do not depend on it in production!
 """
 
-__all__ = ["generic", "specific"]
+__all__ = ["generic", "typed"]
 
 from functools import wraps
 from itertools import chain
@@ -81,6 +81,9 @@ def generic(f):
 
     See the limitations in `unpythonic.typecheck` for which features of the
     `typing` module are supported and which are not.
+
+    At the moment, `@generic` does not work with `curry`. Adding curry support
+    needs changes to the dispatch logic in `curry`.
     """
     # Dispatcher - this will replace the original f.
     @wraps(f)
@@ -173,20 +176,33 @@ def generic(f):
     return multidispatch
 
 
-def specific(f):
-    """Decorator. A one-method pony, which is kind of the opposite of `@generic`.
+def typed(f):
+    """Decorator. Restrict allowed argument types to one combination only.
 
-    This restricts the allowed argument types to one combination only. This can
-    be used to eliminate `isinstance` boilerplate code in the function body, by
-    allowing the types (for dynamic, run-time checking) to be specified with a
-    very compact syntax.
+    This can be used to eliminate `isinstance` boilerplate code in the
+    function body, by allowing the types (for dynamic, run-time checking)
+    to be specified with a very compact syntax - namely, type annotations.
+
+    Also, unlike a basic `isinstance` check, this allows using features
+    from the `typing` stdlib module in the type specifications.
 
     Unlike in `@generic`, where the function being decorated is just a stub,
-    in `@specific` the only method is provided as the function being decorated.
+    in `@typed` the only method is provided as the function being decorated.
 
-    A `@specific` function has no `.register` attribute; after it is created,
+    A `@typed` function has no `.register` attribute; after it is created,
     no more methods can be attached to it.
+
+    `@typed` works with `curry`, because the function has only one call
+    signature, as usual.
+
+    **CAUTION**:
+
+    If used with `curry`, argument type errors will only be detected when
+    `curry` triggers the actual call. To fix this, `curry` would need to
+    perform some more introspection on the callable, and to actually know
+    about this dispatch system. It's not high on the priority list.
     """
+    # TODO: Fix the epic fail at fail-fast, and update the corresponding test.
     s = generic(f)
     s.register(f)
     del s.register  # remove the ability to attach more methods
