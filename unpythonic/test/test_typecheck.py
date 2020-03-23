@@ -172,9 +172,7 @@ def test():
     assert isoftype(d.items(), typing.ItemsView[int, str])
 
     # TODO: test MappingView
-    # The language docs don't exactly make it clear what MappingView is for.
-    # All these documentation pages only talk about `.keys()`, `.values()`
-    # and `.items()`, which correspond to the other three view types.
+    # OTOH, do we need to? It seems it's just an ABC for the other three.
     #  https://docs.python.org/3/library/typing.html#typing.MappingView
     #  https://docs.python.org/3/library/collections.abc.html#collections.abc.MappingView
     #  https://docs.python.org/3/glossary.html#term-dictionary-view
