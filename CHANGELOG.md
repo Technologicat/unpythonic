@@ -56,8 +56,8 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
 Each experimental feature is a provisional proof-of-concept, usually lacking battle-testing and polish. Details may still change in a backwards-incompatible way, or the whole feature may still be removed. Do not depend on it in production!
 
 - `generic`: Decorator: make a generic function with multiple dispatch. Arity and type annotations determine which method of the generic function a specific call of the function is dispatched to.
-- `specific`: Decorator: make a one-method pony. This is kind of the opposite of `@generic`. Injects dynamic type checking code with very compact notation; restricts allowed argument types to one specific combination only.
-- `isoftype`: The big sister of `isinstance`. Type check a value against a type specification at run time, with support for many (but not all) features from the [`typing`](https://docs.python.org/3/library/typing.html) module. This is the machinery that powers the multiple dispatch system.
+- `typed`: Decorator: restrict allowed argument types to one specific combination only. This injects dynamic type checking code with very compact notation: namely, type annotations, with support for features from the `typing` stdlib module.
+- `isoftype`: The big sister of `isinstance`. Type check a value against a type specification at run time, with support for many (but not all) features from the [`typing`](https://docs.python.org/3/library/typing.html) module. This is the machinery that powers `@generic` and `@typed`.
   - If you need a run-time type checker for serious general use, consider the [`typeguard`](https://github.com/agronholm/typeguard) library.
 
 **Non-breaking changes**:
