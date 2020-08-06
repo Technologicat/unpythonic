@@ -37,7 +37,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
 - [``mogrify``: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
 - [``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic](#s-m-mg-lazy-mathematical-sequences-with-infix-arithmetic)
-- [``sym``, ``gensym``, ``Singleton``: Symbols and singletons](#sym-gensym-Singleton-symbols-and-singletons)
+- [``sym``, ``gensym``, ``Singleton``: symbols and singletons](#sym-gensym-Singleton-symbols-and-singletons)
 
 [**Control flow tools**](#control-flow-tools)
 - [``trampolined``, ``jump``: tail call optimization (TCO) / explicit continuations](#trampolined-jump-tail-call-optimization-tco--explicit-continuations)
@@ -1969,7 +1969,7 @@ assert tuple(take(3, cauchyprod(s1, s2))) == (2, 10*x, 28*x**2)
 Inspired by Haskell.
 
 
-### ``sym``, ``gensym``, ``Singleton``: Symbols and singletons
+### ``sym``, ``gensym``, ``Singleton``: symbols and singletons
 
 *Added in v0.14.2.*
 
