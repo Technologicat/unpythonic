@@ -3037,7 +3037,7 @@ jack(3.14)  # TypeError
 
 For which features of the ``typing`` stdlib module are supported, see ``isoftype`` below.
 
-**CAUTION** When using ``typed`` with ``curry``, the type checking (and hence ``TypeError``, if any) only occurs when the actual call triggers. Code using that combination may be hard to debug.
+**CAUTION**: When using ``typed`` with ``curry``, the type checking (and hence ``TypeError``, if any) only occurs when the actual call triggers. Code using that combination may be hard to debug.
 
 
 #### ``isoftype``: the big sister of ``isinstance``
