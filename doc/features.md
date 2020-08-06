@@ -660,7 +660,7 @@ tlb.clear()                 # When we clear the box in this thread...
 assert unbox(tlb) == "cat"  # ...this thread sees the current default object again.
 ```
 
-We also provide an **immutable** box, `Some`. This is useful for optional fields, to be able to tell apart the presence of a `None` value (`Some(None)`) from the absence of a value (`None`).
+We also provide an **immutable** box, `Some`. This can be useful for optional data. The idea is that the value, when present, is placed into a `Some`, such as `Some(42)`, `Some("cat")`, `Some(myobject)`. Then, the situation where the value is absent can be represented as a bare `None`. So specifically, `Some(None)` means that a value is present and this value is `None`, whereas a bare `None` means that there is no value.
 
 
 ### ``Shim``: redirect attribute accesses
@@ -913,11 +913,11 @@ x = piped(42) | double | inc | exitpipe
 assert x == 85
 
 p = piped(42) | double
-assert p | inc | getvalue == 85
+assert p | inc | exitpipe == 85
 assert p | exitpipe == 84  # p itself is never modified by the pipe system
 ```
 
-Set up a pipe by calling ``piped`` for the initial value. Pipe into the sentinel ``getvalue`` to exit the pipe and return the current value.
+Set up a pipe by calling ``piped`` for the initial value. Pipe into the sentinel ``exitpipe`` to exit the pipe and return the current value.
 
 **Lazy pipes**, useful for mutable initial values. To perform the planned computation, pipe into the sentinel ``exitpipe``:
 

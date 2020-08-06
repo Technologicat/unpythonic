@@ -43,7 +43,7 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
 - `box` now supports `.set(newvalue)` to rebind (returns the new value as a convenience), and `unbox(b)` to extract contents. Syntactic sugar for rebinding is `b << newvalue` (where `b` is a box).
 - `ThreadLocalBox`: A box with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.
 - `Some`: An immutable box. Useful for optional fields; tell apart the presence of a `None` value (`Some(None)`) from the absence of a value (`None`).
-- `Shim`: A shim holds a `box` or a `ThreadLocalBox`, and redirects attribute accesses to whatever object is currently in the box.
+- `Shim`: A shim holds a `box` or a `ThreadLocalBox`, and redirects attribute accesses to whatever object is currently in the box. The point is that the object in the box can be replaced with a different one later, while keeping the attribute proxy in place. One use case is to redirect standard output only in particular threads.
 - `islice` now supports negative start and stop. (**Caution**: no negative step; and it must consume the whole iterable to determine where it ends, if at all.)
 - `async_raise`: Inject KeyboardInterrupt into an arbitrary thread. (*CPython only*.)
 - `resolve_bindings`: Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.
