@@ -1,6 +1,8 @@
 # Links to relevant reading
 
-This document collects links to blog posts, online articles and papers on topics relevant in the context of `unpythonic`.
+This document collects links to blog posts, online articles and papers on topics at least somewhat relevant in the context of `unpythonic`.
+
+The common denominator is programming. Some relate to language design, some to curious individual technical details, and some are just cool finds, archived here because I don't currently have a better place for them.
 
 - [Evelyn Woods, 2017: A comparison of object models of Python, Lua, JavaScript and Perl](https://eev.ee/blog/2017/11/28/object-models/).
   - Useful reading for anyone interested in how the object models differ.
@@ -74,6 +76,16 @@ This document collects links to blog posts, online articles and papers on topics
     - Michael Hudson has done this (2002, 2004): [ActiveState Python recipe 160164: Automatically upgrade class instances](https://github.com/ActiveState/code/tree/master/recipes/Python/160164_automatically_upgrade_class_instances) when you redefine the class.
       - Triggered on module reloads, too. To decide what class to upgrade, it looks for a class of the same name in the scope that defined the new class. Then there's an instance tracker that keeps weakrefs to the existing instances of the old class.
     - A simpler solution might be to just [`gc.get_objects()`](https://docs.python.org/3/library/gc.html#gc.get_objects), and filter for what we want to find the instances to be updated. (Provided we still have a reference to the old class object, to use in the filter predicate. That part needs some thought.)
+
+- C2 Wiki on the [Compile-time typing problem](http://wiki.c2.com/?CompileTimeTypingProblem)
+
+- [dmbarbour, 2012: Why not events](https://awelonblue.wordpress.com/2012/07/01/why-not-events/)
+  - Linked from an [LtU discussion on (functional) reactive programming](http://lambda-the-ultimate.org/node/2057).
+
+- [StackOverflow: What is functional reactive programming?](https://stackoverflow.com/questions/1028250/what-is-functional-reactive-programming) contains some links to introductory material on FRP.
+
+- Maier, Rompf, Odersky 2010: Deprecating the Observer Pattern [PDF](http://archive.www6.in.tum.de/www6/pub/Main/TeachingWs2013MSE/2_OderskyDeprecatingObservers.pdf) [LtU discussion](http://lambda-the-ultimate.org/node/4028)
+
 
 ## Python-related FP resources
 

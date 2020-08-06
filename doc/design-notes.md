@@ -228,6 +228,7 @@ More on type systems:
 - [Martin Fowler on dynamic typing](https://www.martinfowler.com/bliki/DynamicTyping.html)
 - Do we need types? At least John Shutt (the author of the [Kernel](https://web.cs.wpi.edu/~jshutt/kernel.html) programming language) seems to think we don't: [Where do types come from?](http://fexpr.blogspot.com/2011/11/where-do-types-come-from.html)
 - In physics, units as used for dimension analysis are essentially a form of static typing.
+  - This has been discussed on LtU, see e.g. [[1]](http://lambda-the-ultimate.org/node/33) [[2]](http://lambda-the-ultimate.org/classic/message11877.html).
 
 ### Detailed Notes on Macros
 
