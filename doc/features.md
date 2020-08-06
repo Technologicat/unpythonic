@@ -3109,7 +3109,7 @@ See [the unit tests](../unpythonic/test/test_typecheck.py) for more.
 
 **CAUTION**: Callables are just checked for being callable; no further analysis is done. Type-checking callables properly requires a much more complex type checker.
 
-**CAUTION**: The `isoftype` function is one big hack. As of Python 3.6, there is no consistent way to handle a type specification at run time, and we must access some private attributes of the ``typing`` meta-utilities, because that seems to be the only way to get what we need to do this.
+**CAUTION**: The `isoftype` function is one big hack. As of Python 3.6, there is no consistent way to handle a type specification at run time. We must access some private attributes of the ``typing`` meta-utilities, because that seems to be the only way to get what we need to do this.
 
 If you need a run-time type checker for serious general use, consider the [`typeguard`](https://github.com/agronholm/typeguard) library, which focuses on that.
 
