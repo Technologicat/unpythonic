@@ -304,7 +304,7 @@ g()
 
 Dynamic variables are set using `with dyn.let(...)`. There is no `set`, `<<`, unlike in the other `unpythonic` environments.
 
-**Changed in v0.14.2.** *To bring this in line with [SRFI-39](https://srfi.schemers.org/srfi-39/srfi-39.html), `dyn` now supports rebinding, using assignment syntax such as `dyn.x = 42`. For an atomic mass update, see `dyn.update`. Rebinding occurs in the closest enclosing dynamic environment that has the target name bound. If the name is not bound in any dynamic environment, ``AttributeError`` is raised.*
+**Changed in v0.14.2.** *To bring this in line with [SRFI-39](https://srfi.schemers.org/srfi-39/srfi-39.html), `dyn` now supports rebinding, using assignment syntax such as `dyn.x = 42`. For an atomic mass-update, see `dyn.update`. Rebinding occurs in the closest enclosing dynamic environment that has the target name bound. If the name is not bound in any dynamic environment, ``AttributeError`` is raised.*
 
 **CAUTION**: Use rebinding of dynamic variables carefully, if at all. Stealth updates of dynamic variables defined in an enclosing dynamic extent can destroy any chance of statically reasoning about the code.
 
