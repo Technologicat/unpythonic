@@ -2844,7 +2844,7 @@ Generally a condition system operates as follows. A *signal* is sent (outward on
 
 The sequence of catching a signal and invoking a restart is termed *handling* the signal. Handlers are searched in order from innermost to outermost on the call stack. (Strictly speaking, the handlers live on a separate stack; we consider those handlers whose dynamic extent the point of execution is in, at the point of time when the signal is sent.)
 
-In general, it is allowed for a handler to fall through (return normally); then the next outer handler for the same signal type gets control. This allows chaining handlers to obtain their side effects, such as logging. This is referred to as *canceling*, since as a result, the signal remains unhandled.
+In general, it is allowed for a handler to fall through (return normally); then the next outer handler for the same signal type gets control. This allows the programmer to chain handlers to obtain their side effects, such as logging. This is referred to as *canceling*, since as a result, the signal remains unhandled.
 
 Viewed with respect to the call stack, the restarts live between the (outer) level of the handler, and the (inner) level where the signal was sent from. The main difference to the exception model is that unlike raising an exception, **sending a signal does not unwind the call stack**. Although the handlers live further out on the call stack, the stack does not unwind that far. The handlers are just consulted for what to do. The call stack unwinds only when a restart is being invoked. Then, only the part of the call stack between the location that sent the signal, and the invoked restart, is unwound.
 
