@@ -25,7 +25,11 @@ def zorblify(x: str, y: float):
 #
 # The pattern is that the generic function canonizes the arguments:
 @generic
-def example(): ...
+def example():
+    ...
+@example.register
+def example(stop: int):
+    return _example_impl(0, 1, stop)
 @example.register
 def example(start: int, stop: int):
     return _example_impl(start, 1, stop)
@@ -83,9 +87,9 @@ def test():
     else:
         assert False  # there's no zorblify(float, float)
 
-    assert example(1, 5) == (1, 1, 5)
-    assert example(1, 1, 5) == (1, 1, 5)
-    assert example(1, 2, 5) == (1, 2, 5)
+    assert example(10) == (0, 1, 10)
+    assert example(2, 10) == (2, 1, 10)
+    assert example(2, 3, 10) == (2, 3, 10)
 
     assert example2(1, 5) == (1, 1, 5)
     assert example2(1, 1, 5) == (1, 1, 5)

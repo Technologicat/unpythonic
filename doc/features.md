@@ -37,16 +37,17 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
 - [``mogrify``: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
 - [``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic](#s-m-mg-lazy-mathematical-sequences-with-infix-arithmetic)
-- [Symbols and singletons](#symbols-and-singletons)
+- [``sym``, ``gensym``, ``Singleton``: Symbols and singletons](#sym-gensym-Singleton-symbols-and-singletons)
 
 [**Control flow tools**](#control-flow-tools)
 - [``trampolined``, ``jump``: tail call optimization (TCO) / explicit continuations](#trampolined-jump-tail-call-optimization-tco--explicit-continuations)
 - [``looped``, ``looped_over``: loops in FP style (with TCO)](#looped-looped_over-loops-in-fp-style-with-tco)
 - [``gtrampolined``: generators with TCO](#gtrampolined-generators-with-tco): tail-chaining; like ``itertools.chain``, but from inside a generator.
-- [``catch``, ``throw``: escape continuations (ec)](#catch-throw-escape-continuations-ec)
+- [``catch``, ``throw``: escape continuations (ec)](#catch-throw-escape-continuations-ec) (as in [Lisp's `catch`/`throw`](http://www.gigamonkeys.com/book/the-special-operators.html), unlike C++ or Java)
   - [``call_ec``: first-class escape continuations](#call_ec-first-class-escape-continuations), like Racket's ``call/ec``.
 - [``forall``: nondeterministic evaluation](#forall-nondeterministic-evaluation), a tuple comprehension with multiple body expressions.
-- [``handlers``, ``restarts``: conditions and restarts](#handlers-restarts-conditions-and-restarts), a.k.a. resumable exceptions.
+- [``handlers``, ``restarts``: conditions and restarts](#handlers-restarts-conditions-and-restarts), a.k.a. **resumable exceptions**.
+- [``generic``, ``typed``, ``isoftype``: multiple dispatch](#generic-typed-isoftype-multiple-dispatch): create generic functions with type annotation syntax; also some friendly utilities.
 
 [**Other**](#other)
 - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope.
@@ -1968,7 +1969,7 @@ assert tuple(take(3, cauchyprod(s1, s2))) == (2, 10*x, 28*x**2)
 Inspired by Haskell.
 
 
-### Symbols and singletons
+### ``sym``, ``gensym``, ``Singleton``: Symbols and singletons
 
 *Added in v0.14.2.*
 
@@ -1988,7 +1989,7 @@ assert cat is not sym("dog")
 
 The constructor `sym` produces an ***interned symbol***. Whenever (in the same process) **the same name** is passed to the `sym` constructor, it gives **the same object instance**. Even unpickling a symbol that has the same name produces the same `sym` object instance as any other `sym` with that name.
 
-Thus a `sym` behaves like a Lisp symbol. Technically speaking, it's like a zen-minimalistic [Scheme/Racket symbol](https://stackoverflow.com/questions/8846628/what-exactly-is-a-symbol-in-lisp-scheme), since Common Lisp [stuffs all sorts of additional cruft in symbols](https://www.cs.cmu.edu/Groups/AI/html/cltl/clm/node27.html). If you insist on emulating that, note a `sym` is just a Python object, even though its instantiation logic plays by somewhat unusual rules.
+Thus a `sym` behaves like a Lisp symbol. Technically speaking, it's like a zen-minimalistic [Scheme/Racket symbol](https://stackoverflow.com/questions/8846628/what-exactly-is-a-symbol-in-lisp-scheme), since Common Lisp [stuffs all sorts of additional cruft in symbols](https://www.cs.cmu.edu/Groups/AI/html/cltl/clm/node27.html). If you insist on emulating that, note a `sym` is just a Python object you could customize in the usual ways, even though its instantiation logic plays by somewhat unusual rules.
 
 #### Gensym
 
@@ -2014,11 +2015,11 @@ Uninterned symbols are useful as guaranteed-unique sentinel or [nonce (sense 2, 
 
 They also have a superpower: with the help of the UUID automatically assigned by `gensym`, they survive a pickle roundtrip with object identity intact. Unpickling the *same* gensym value multiple times in the same process will produce just one object instance. (If the original return value from gensym is still alive, it is that same object instance.)
 
-The UUID is generated with the pseudo-random algorithm [`uuid.uuid4`](https://docs.python.org/3/library/uuid.html). Due to rollover of the time field, it is possible for collisions with current UUIDs to occur with those generated after (approximately) the year 3400. See [RFC 4122](https://tools.ietf.org/html/rfc4122).
+The UUID is generated with the pseudo-random algorithm [`uuid.uuid4`](https://docs.python.org/3/library/uuid.html). Due to rollover of the time field, it is possible for collisions with current UUIDs (as of the early 21st century) to occur with those generated after (approximately) the year 3400. See [RFC 4122](https://tools.ietf.org/html/rfc4122).
 
 #### Compared to other languages
 
-Our `sym` is like a Lisp/Scheme/Racket symbol, which is essentially an [interned string](https://en.wikipedia.org/wiki/String_interning), which in Lisps is a data type distinct from a regular string. In our implementation, we do **not** use [`sys.intern`](https://docs.python.org/3/library/sys.html#sys.intern); the interning mechanism of our symbol types is completely separate and independent of Python's string interning mechanism.
+Our `sym` is like a Lisp/Scheme/Racket symbol, which is essentially an [interned string](https://en.wikipedia.org/wiki/String_interning), which in the Lisp family is a data type distinct from a regular string. In our implementation, we do **not** use [`sys.intern`](https://docs.python.org/3/library/sys.html#sys.intern); the interning mechanism of our symbol types is completely separate and independent of Python's string interning mechanism.
 
 Our `gensym` is like the [Lisp `gensym`](http://clhs.lisp.se/Body/f_gensym.htm), and the [JavaScript `Symbol`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol).
 
@@ -2058,27 +2059,27 @@ Another question arises due to Python having builtin support for object persiste
 
 Our `Singleton` abstraction is the result of these pythonifications applied to the classic pattern. For more documentation and examples, see the unit tests in [`unpythonic/test/test_singleton.py`](../unpythonic/test/test_singleton.py).
 
-**NOTE**: A related pattern is the *[Borg](http://code.activestate.com/recipes/66531-singleton-we-dont-need-no-stinkin-singleton-the-bo/)*, a.k.a. *Monostate*. [After considering the matter](https://github.com/Technologicat/unpythonic/issues/22), it was felt that in the context of Python, it offers no advantages over the singleton abstraction, while eliminating a useful feature: the singleton abstraction allows using the object identity check (`is`) to identify the singleton instance. For this reason, `unpythonic` provides `Singleton`, but no `Borg`. If you feel this is unjust, please let me know - this decision can be revisited, if a situation in which a `Borg` is more appropriate than a `Singleton` comes up.
+**NOTE**: A related pattern is the *[Borg](http://code.activestate.com/recipes/66531-singleton-we-dont-need-no-stinkin-singleton-the-bo/)*, a.k.a. *Monostate*. [After considering the matter](https://github.com/Technologicat/unpythonic/issues/22), it was felt that in the context of Python, it offers no advantages over the singleton abstraction, while eliminating a useful feature: the singleton abstraction allows using the object identity check (`is`) to check if a name refers to the singleton instance. For this reason, `unpythonic` provides `Singleton`, but no `Borg`. If you feel this is unjust, please let me know - this decision can be revisited, if a situation in which a `Borg` is more appropriate than a `Singleton` comes up.
 
 **CAUTION**: `Singleton` introduces a custom metaclass to guard constructor calls. Hence it cannot be trivially combined with a class that uses another custom metaclass for some other purpose.
 
 #### When to use a singleton?
 
-Most often, don't. It's provided for the rare occasion where it's the appropriate abstraction. There exist **at least** three categories of use cases where singleton-like instantiation semantics are desirable:
+Most often, **don't**. ``Singleton`` is provided for the very rare occasion where it's the appropriate abstraction. There exist **at least** three categories of use cases where singleton-like instantiation semantics are desirable:
 
  1. **A process-wide unique marker value**, which has no functionality other than being quickly and uniquely identifiable as that marker.
-    - `sym` and `gensym` are the specific tools that cover this use case, depending on whether the intent is to allow that value to be passed in from the outside (`sym`), or whether the implementation just happens to internally need a guaranteed-unique value (`gensym`). For the latter case, sometimes a simple (and much faster) `nonce = object()` will do just as well, if you don't need the human-readable label and `pickle` support.
+    - `sym` and `gensym` are the specific tools that cover this use case, depending on whether the intent is to allow that value to be independently "constructed" in several places yet always obtaining the same instance (`sym`), or if the implementation just happens to internally need a guaranteed-unique value (`gensym`). For the latter case, sometimes a simple (and much faster) `nonce = object()` will do just as well, if you don't need the human-readable label and `pickle` support.
     - If you need the singleton object to have extra functionality (e.g. our `nil` supports the iterator protocol), it's possible to subclass `sym` or `gsym`, but subclassing `Singleton` is also a possible solution.
  2. **An empty immutable collection**.
     - It can't have elements added to it after construction, so there's no point in creating more than one instance of an empty *immutable* collection of any particular type.
-    - Unfortunately, a class can't easily be partly `Singleton`. So this use case is better coded manually, like `frozendict` does. Also, for this use case silently returning the existing instance is the right thing to do.
+    - Unfortunately, a class can't easily be partly `Singleton` (i.e., only when the instance is empty). So this use case is better coded manually, like `frozendict` does. Also, for this use case silently returning the existing instance is the right thing to do.
  3. **A service that may have at most one instance** per process.
     - *But only if it is certain* that there can't arise a situation where multiple simultaneous instances of the service are needed.
     - The dynamic assignment controller `dyn` is an example, and it is indeed a `Singleton`.
 
-Cases 1 and 2 have no meaningful instance data. Case 3 may or may not, depending on the specifics. If your object does, and if you want it to support `pickle`, you may want to customize [`__getnewargs__`](https://docs.python.org/3/library/pickle.html#object.__getnewargs__) (called *at pickling time*), [`__setstate__`](https://docs.python.org/3/library/pickle.html#object.__setstate__), and sometimes maybe also [`__getstate__`](https://docs.python.org/3/library/pickle.html#object.__getstate__). Note that unpickling skips `__init__`, and calls just `__new__` (with the "newargs") and `__setstate__`.
+Cases 1 and 2 have no meaningful instance data. Case 3 may or may not, depending on the specifics. If your object does, and if you want it to support `pickle`, you may want to customize [`__getnewargs__`](https://docs.python.org/3/library/pickle.html#object.__getnewargs__) (called *at pickling time*), [`__setstate__`](https://docs.python.org/3/library/pickle.html#object.__setstate__), and sometimes maybe also [`__getstate__`](https://docs.python.org/3/library/pickle.html#object.__getstate__). Note that unpickling skips `__init__`, and calls just `__new__` (with the "newargs") and then `__setstate__`.
 
-I'm not completely sure if it's meaningful to provide a generic `Singleton` abstraction for Python, except for teaching purposes. Practical use cases may differ so much, and some of the implementation details of the specific singleton object (esp. related to pickling) may depend so closely on the implementation details of the singleton abstraction, that it may be easier to just roll your own singleton code when needed. If you're new to customizing this part of Python, what we have here should at least be able to show a way to do this.
+I'm not completely sure if it's meaningful to provide a generic `Singleton` abstraction for Python, except for teaching purposes. Practical use cases may differ so much, and some of the implementation details of the specific singleton object (esp. related to pickling) may depend so closely on the implementation details of the singleton abstraction, that it may be easier to just roll your own singleton code when needed. If you're new to customizing this part of Python, the code we have here should at least demonstrate an approach for how to do this.
 
 
 ## Control flow tools
@@ -2914,6 +2915,203 @@ For Python, conditions were first implemented in [python-cl-conditions](https://
 What we provide here is essentially a rewrite, based on studying that implementation. The main reasons for the rewrite are to give the condition system an API consistent with the style of `unpythonic`, to drop any and all historical baggage without needing to consider backward compatibility, and to allow interaction with (and customization taking into account) the other parts of `unpythonic`. If you specifically need a condition system, not a kitchen-sink language extension, then by all means go for `python-cl-conditions`!
 
 The core idea can be expressed in fewer than 100 lines of Python; ours is (as of v0.14.2) 151 lines, not counting docstrings, comments, or blank lines. The main reason our module is over 700 lines are the docstrings.
+
+
+### ``generic``, ``typed``, ``isoftype``: multiple dispatch
+
+**Added in v0.14.2**.
+
+The ``generic`` decorator allows creating multiple-dispatch generic functions with type annotation syntax.
+
+We also provide some friendly utilities: ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first two) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
+
+#### ``generic``: multiple dispatch with type annotation syntax
+
+The ``generic`` decorator essentially allows replacing the `if`/`elif` dynamic type checking boilerplate of polymorphic functions with type annotations on the function parameters, with support for features from the `typing` stdlib module.
+
+The details are best explained by example:
+
+```python
+import typing
+from unpythonic import generic
+
+@generic
+def zorblify():
+    ...  # Stub, not called. This definition creates the generic function.
+
+# Now we can register methods to our function.
+@zorblify.register
+def zorblify(x: int, y: int):
+    return "int, int"
+@zorblify.register
+def zorblify(x: str, y: int):
+    return "str, int"
+@zorblify.register
+def zorblify(x: str, y: float):
+    return "str, float"
+
+# Then we just call our function as usual.
+# Note all arguments participate in dispatching (i.e. in choosing which method gets called).
+assert zorblify(2, 3) == "int, int"
+assert zorblify("cat", 3) == "str, int"
+assert zorblify("cat", 3.14) == "str, float"
+
+# Let's emulate the argument handling of Python's `range` builtin, just for fun.
+# Note the meaning of the argument in each position depends on the number of arguments.
+@generic
+def r():
+    ...
+@r.register
+def r(stop: int):
+    return _r_impl(0, 1, stop)
+@r.register
+def r(start: int, stop: int):
+    return _r_impl(start, 1, stop)
+@r.register
+def r(start: int, step: int, stop: int):
+    return _r_impl(start, step, stop)
+# With this arrangement, the actual implementation always gets the args in the same format,
+# so we can use meaningful names for its parameters.
+def _r_impl(start, step, stop):
+    return start, step, stop
+
+# Arity participates in dispatching, too.
+assert r(10) == (0, 1, 10)
+assert r(2, 10) == (2, 1, 10)
+assert r(2, 3, 10) == (2, 3, 10)
+
+# varargs are supported via `typing.Tuple`
+@generic
+def gargle(): ...
+@gargle.register
+def gargle(*args: typing.Tuple[int, ...]):  # any number of ints
+    return "int"
+@gargle.register
+def gargle(*args: typing.Tuple[float, ...]):  # any number of floats
+    return "float"
+@gargle.register
+def gargle(*args: typing.Tuple[int, float, str]):  # exactly three args, matching the specified types
+    return "int, float, str"
+
+assert gargle(1, 2, 3, 4, 5) == "int"
+assert gargle(2.71828, 3.14159) == "float"
+assert gargle(42, 6.022e23, "hello") == "int, float, str"
+assert gargle(1, 2, 3) == "int"  # as many as in the [int, float, str] case. Still resolves correctly.
+```
+
+See [the unit tests](../unpythonic/test/test_dispatch.py) for more. For which features of the ``typing`` stdlib module are supported, see ``isoftype`` below.
+
+Inspired by the [multi-methods of CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) (the Common Lisp Object System), and the [generic functions of Julia](https://docs.julialang.org/en/v1/manual/methods/).
+
+##### Notes
+
+*Terminology*: in both CLOS and in Julia, *function* is the generic entity, while *method* refers to its specialization to a particular combination of argument types. Note that *no object instance or class is needed*. Contrast with the classical OOP sense of *method*, i.e. a function that is associated with an object instance or class, with single dispatch based on the class (or in exotic cases, such as monkey-patched instances, on the instance).
+
+Based on my own initial experiments with this feature, the machinery itself works well enough, but to really shine - just like resumable exceptions - multiple dispatch needs to be used everywhere, throughout the language's ecosystem. Python obviously doesn't do that.
+
+
+#### ``typed``: add run-time type checks with type annotation syntax
+
+The ``typed`` decorator creates a one-method pony, which automatically enforces its argument types. Just like with ``generic``, the type specification may use features from the `typing` stdlib module.
+
+```python
+import typing
+from unpythonic import typed
+
+@typed
+def blubnify(x: int, y: float):
+    return x * y
+
+@typed
+def jack(x: typing.Union[int, str]):
+    return x
+
+assert blubnify(2, 21.0) == 42
+blubnify(2, 3)  # TypeError
+assert not hasattr(blubnify, "register")  # no more methods can be registered on this function
+
+assert jack(42) == 42
+assert jack("foo") == "foo"
+jack(3.14)  # TypeError
+```
+
+For which features of the ``typing`` stdlib module are supported, see ``isoftype`` below.
+
+**CAUTION** When using ``typed`` with ``curry``, the type checking (and hence ``TypeError``, if any) only occurs when the actual call triggers. Code using that combination may be hard to debug.
+
+
+#### ``isoftype``: the big sister of ``isinstance``
+
+Type check object instances against type specifications at run time. This is the machinery that powers ``generic`` and ``typed``. This goes beyond ``isinstance`` in that many (but unfortunately not all) features of the ``typing`` standard library module are supported.
+
+Any checks on the type arguments of the meta-utilities defined in the ``typing`` stdlib module are performed recursively using `isoftype` itself, in order to allow compound abstract specifications.
+
+Some examples:
+
+```python
+import typing
+from unpythonic import isoftype
+
+# concrete types - uninteresting, we just delegate to `isinstance`
+assert isoftype(17, int)
+assert isoftype(lambda: ..., typing.Callable)
+
+# typing.newType
+UserId = typing.NewType("UserId", int)
+assert isoftype(UserId(42), UserId)
+# Note limitation: since NewType types discard their type information at
+# run time, any instance of the underlying actual run-time type will match.
+assert isoftype(42, UserId)
+
+# typing.Any
+assert isoftype(5, typing.Any)
+assert isoftype("something", typing.Any)
+
+# TypeVar, bare; a named type, but behaves like Any.
+X = typing.TypeVar("X")
+assert isoftype(3.14, X)
+assert isoftype("anything", X)
+assert isoftype(lambda: ..., X)
+
+# TypeVar, with arguments; matches only the specs in the constraints.
+Number = typing.TypeVar("Number", int, float, complex)
+assert isoftype(31337, Number)
+assert isoftype(3.14159, Number)
+assert isoftype(1 + 2j, Number)
+
+# typing.Optional
+assert isoftype(None, typing.Optional[int])
+assert isoftype(1337, typing.Optional[int])
+
+# typing.Tuple
+assert isoftype((1, 2, 3), typing.Tuple)
+assert isoftype((1, 2, 3), typing.Tuple[int, ...])
+assert isoftype((1, 2.1, "footgun"), typing.Tuple[int, float, str])
+
+# typing.List
+assert isoftype([1, 2, 3], typing.List[int])
+
+U = typing.Union[int, str]
+assert isoftype(42, U)
+assert isoftype("hello yet again", U)
+
+# abstract container types
+assert isoftype({1: "foo", 2: "bar"}, typing.MutableMapping[int, str])
+assert isoftype((1, 2, 3), typing.Sequence[int])
+assert isoftype({1, 2, 3}, typing.AbstractSet[int])
+
+# one-trick ponies
+assert isoftype(3.14, typing.SupportsRound)
+assert isoftype([1, 2, 3], typing.Sized)
+```
+
+See [the unit tests](../unpythonic/test/test_typecheck.py) for more.
+
+**CAUTION**: Callables are just checked for being callable; no further analysis is done. Type-checking callables properly requires a much more complex type checker.
+
+**CAUTION**: The `isoftype` function is one big hack. As of Python 3.6, there is no consistent way to handle a type specification at run time, and we must access some private attributes of the ``typing`` meta-utilities, because that seems to be the only way to get what we need to do this.
+
+If you need a run-time type checker for serious general use, consider the [`typeguard`](https://github.com/agronholm/typeguard) library, which focuses on that.
 
 
 ## Other
