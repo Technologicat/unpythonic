@@ -54,7 +54,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
 - [``raisef``: ``raise`` as a function](#raisef-raise-as-a-function), useful inside a lambda.
 - [``pack``: multi-arg constructor for tuple](#pack-multi-arg-constructor-for-tuple)
-- [``namelambda``, rename a function](#namelambda-rename-a-function)
+- [``namelambda``: rename a function](#namelambda-rename-a-function)
 - [``timer``: a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
 - [``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers](#getattrrec-setattrrec-access-underlying-data-in-an-onion-of-wrappers)
 - [``arities``, ``kwargs``, ``resolve_bindings``: Function signature inspection utilities](#arities-kwargs-resolve_bindings-function-signature-inspection-utilities)
@@ -3340,7 +3340,7 @@ assert tuple(myzip(lol)) == ((1, 3, 5), (2, 4, 6))
 ```
 
 
-### ``namelambda``, rename a function
+### ``namelambda``: rename a function
 
 Rename any function object (including lambdas). The return value of ``namelambda`` is a modified copy; the original function object is not mutated. The input can be any function object (``isinstance(f, (types.LambdaType, types.FunctionType))``). It will be renamed even if it already has a name.
 
