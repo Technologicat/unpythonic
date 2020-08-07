@@ -23,6 +23,7 @@ __all__ = ["rev", "map", "map_longest",
            "flatten", "flatten1", "flatten_in",
            "iterate", "iterate1",
            "partition",
+           "partition_int",
            "inn", "iindex", "find",
            "window", "chunked",
            "within", "fixpoint",
@@ -584,10 +585,45 @@ def partition(pred, iterable):
     (Example: partition the natural numbers, and only ever read the even numbers.
     It will eventually run out of memory storing all the odd numbers "to be read
     later".)
+
+    Not to be confused with `unpythonic.it.partition_int`, which partitions
+    a (small) positive integer to smaller integers, in all possible ways,
+    such that those integers sum to the original one.
     """
     # iterable is walked only once; tee handles the intermediate storage.
     t1, t2 = tee(iterable)
     return filterfalse(pred, t1), filter(pred, t2)
+
+def partition_int(n):
+    """Yield all ordered sequences of smaller positive integers that sum to `n`.
+
+    `n` must be an integer >= 1.
+
+    Not to be confused with `unpythonic.it.partition`, which partitions an
+    iterable based on a predicate.
+
+    See:
+        https://en.wikipedia.org/wiki/Partition_(number_theory)
+    """
+    # sanity check and fail-fast
+    if not isinstance(n, int):
+        raise TypeError('n must be integer; got {:s}'.format(str(type(n))))
+    if n < 1:
+        raise ValueError('n must be positive; got {:d}'.format(n))
+
+    def _partition(n):
+        for k in range(1, n + 1):
+            m = n - k
+            if m == 0:
+                yield (k,)
+            else:
+                out = []
+                for item in _partition(m):
+                    out.append((k,) + item)
+                for term in out:
+                    yield term
+
+    return _partition(n)  # instantiate the generator
 
 def inn(x, iterable):
     """Contains-check (``x in iterable``) with automatic termination.

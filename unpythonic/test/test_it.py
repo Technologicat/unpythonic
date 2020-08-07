@@ -17,6 +17,8 @@ from ..it import map, mapr, rmap, zipr, rzip, \
                  uniqify, uniq, \
                  flatten, flatten1, flatten_in, \
                  unpack, \
+                 partition, \
+                 partition_int, \
                  inn, iindex, find, \
                  window, chunked, \
                  within, fixpoint, \
@@ -183,6 +185,14 @@ def test():
     g = mygen()
     g = dostuff(g)  # advances g, but then overwrites name g with the returned tail
     assert next(g) == 10
+
+    # partition: split an iterable according to a predicate
+    iseven = lambda item: item % 2 == 0
+    assert [tuple(it) for it in partition(iseven, range(10))] == [(1, 3, 5, 7, 9), (0, 2, 4, 6, 8)]
+
+    # partition_int: split a small positive integer, in all possible ways, into smaller integers that sum to it
+    assert tuple(partition_int(4)) == ((1, 1, 1, 1), (1, 1, 2), (1, 2, 1), (1, 3), (2, 1, 1), (2, 2), (3, 1), (4,))
+    assert all(sum(terms) == 10 for terms in partition_int(10))
 
     # inn: contains-check with automatic termination for monotonic iterables
     evens = imemoize(s(2, 4, ...))

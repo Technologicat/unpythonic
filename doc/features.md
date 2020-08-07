@@ -1390,6 +1390,7 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
    - `CountingIterator`: count how many items have been yielded, as a side effect. The count is stored in the `.count` attribute. **Added in v0.14.2.**
    - `slurp`: extract all items from a `queue.Queue` (until it is empty) to a list, returning that list. **Added in v0.14.2.**
    - `powerset`: yield the power set (set of all subsets) of an iterable. Works also for potentially infinite iterables, if only a finite prefix is ever requested. (But beware, both runtime and memory usage are exponential in the input size.) **Added in v0.14.2.**
+   - `partition_int`: split a small positive integer, in all possible ways, into smaller integers that sum to it. Useful e.g. for determining how many letters the components of an anagram may have. **Added in v0.14.2.**
 
 Examples:
 
@@ -1438,6 +1439,14 @@ def primes():
             yield n
 assert inn(31337, primes())
 assert not inn(1337, primes())
+
+# partition: split an iterable according to a predicate
+iseven = lambda x: x % 2 == 0
+assert [tuple(it) for it in partition(iseven, range(10))] == [(1, 3, 5, 7, 9), (0, 2, 4, 6, 8)]
+
+# partition_int: split a small positive integer, in all possible ways, into smaller integers that sum to it
+assert tuple(partition_int(4)) == ((1, 1, 1, 1), (1, 1, 2), (1, 2, 1), (1, 3), (2, 1, 1), (2, 2), (3, 1), (4,))
+assert all(sum(terms) == 10 for terms in partition_int(10))
 
 # iindex: find index of item in iterable (mostly only makes sense for memoized input)
 assert iindex(2, (1, 2, 3)) == 1

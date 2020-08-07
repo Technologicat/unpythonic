@@ -39,6 +39,7 @@ If you're still stuck on 3.4 and find something in the latest `unpythonic` 0.14.
   - `map`: Curry-friendly thin wrapper for the builtin `map`, making it mandatory to specify at least one iterable.
   - `running_minmax`, `minmax`: Extract both min and max in one pass over an iterable. The `running_` variant is a scan and returns a generator; the just-give-me-the-final-result variant is a fold.
 - `ulp`: Given a float `x`, return the value of the unit in the last place (the "least significant bit"). At `x = 1.0`, this is the [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon), by definition of the machine epsilon.
+- `partition_int`: split a small positive integer, in all possible ways, into smaller integers that sum to it.
 - `dyn` now supports rebinding, using the assignment syntax `dyn.x = 42`. To mass-update atomically, see `dyn.update`.
 - `box` now supports `.set(newvalue)` to rebind (returns the new value as a convenience), and `unbox(b)` to extract contents. Syntactic sugar for rebinding is `b << newvalue` (where `b` is a box).
 - `ThreadLocalBox`: A box with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.
