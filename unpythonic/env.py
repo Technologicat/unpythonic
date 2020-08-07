@@ -167,7 +167,7 @@ class env:
 
     # pretty-printing
     def __repr__(self):
-        bindings = ["{:s}={}".format(name,repr(value)) for name,value in self._env.items()]
+        bindings = ["{:s}={}".format(name, repr(value)) for name, value in self._env.items()]
         return "<env object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
 
     # other

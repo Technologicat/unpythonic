@@ -555,8 +555,8 @@ class _StrReprEqMixin:
             return True
         if len(self) != len(other):
             return False
-        for v, w in zip(self, other):
-            if v != w:
+        for v, wrap in zip(self, other):
+            if v != wrap:
                 return False
         return True
 
@@ -647,8 +647,8 @@ class roview(SequenceView, _StrReprEqMixin):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
             data, r = self._update_cache()
-            l = len(r)
-            if k >= l or k < -l:
+            n = len(r)
+            if k >= n or k < -n:
                 raise IndexError("view index out of range")
             return data[r[k]]
 
@@ -712,8 +712,8 @@ class view(roview, MutableSequenceView):
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
-            l = len(r)
-            if k >= l or k < -l:
+            n = len(r)
+            if k >= n or k < -n:
                 raise IndexError("view assigment index out of range")
             data[r[k]] = v
     def reverse(self):
@@ -749,10 +749,10 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
     def __iter__(self):
         if self.ix is None:  # allow no-op ShadowedSequences since the repr suggests one could do that
             return iter(self.seq)
-        l = len(self)
+        n = len(self)
         getone = self._getone
         def ShadowedSequenceIterator():
-            for j in range(l):
+            for j in range(n):
                 yield getone(j)
         return ShadowedSequenceIterator()
 
@@ -762,31 +762,32 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
     def __getitem__(self, k):
         if self.ix is None:  # allow no-op ShadowedSequences since the repr suggests one could do that
             return self.seq[k]
-        l = len(self)
+        n = len(self)
         if isinstance(k, slice):
             cls = type(self.seq)
             ctor = tuple if hasattr(cls, "_make") else cls  # slice of namedtuple -> tuple
-            return ctor(self._getone(j) for j in range(l)[k])
+            return ctor(self._getone(j) for j in range(n)[k])
         elif isinstance(k, tuple):
             raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
         else:
-            if k >= l or k < -l:
+            if k >= n or k < -n:
                 raise IndexError("ShadowedSequence index out of range")
             return self._getone(k)
 
     def _getone(self, k):
         ix = self.ix
-        l = len(self)
-        if in_slice(k, ix, l):
+        n = len(self)
+        if in_slice(k, ix, n):
             if isinstance(ix, int):
                 return self.v  # just one item
             # we already know k is in ix, so skip validation for speed.
-            i = _index_in_slice(k, ix, l, _validate=False)
+            i = _index_in_slice(k, ix, n, _validate=False)
             if i >= len(self.v):
                 raise IndexError("Replacement sequence too short; attempted to access index {} with len {} (items: {})".format(i, len(self.v), self.v))
             return self.v[i]
         return self.seq[k]  # not in slice
 
+# TODO: fix flake8 E741 ambiguous variable name "l". Here it's part of the public API, so we'll have to wait until 15.0 to change the name.
 def in_slice(i, s, l=None):
     """Return whether the int i is in the slice s.
 
@@ -816,6 +817,7 @@ def in_slice(i, s, l=None):
     on_grid = (i - start) % step == 0
     return at_or_after_start and on_grid and before_stop
 
+# TODO: fix flake8 E741 ambiguous variable name "l". Here it's part of the public API, so we'll have to wait until 15.0 to change the name.
 def index_in_slice(i, s, l=None):
     """Return the index of the int i in the slice s, or None if i is not in s.
 
@@ -827,36 +829,36 @@ def index_in_slice(i, s, l=None):
 
 # efficiency: allow skipping the validation check for call sites
 # that have already checked with in_slice().
-def _index_in_slice(i, s, l=None, _validate=True):
-    if (not _validate) or in_slice(i, s, l):
-        wrap = _make_negidx_converter(l)
-        start, _, step = _canonize_slice(s, l, wrap)
+def _index_in_slice(i, s, n=None, _validate=True):  # n: length of sequence being indexed
+    if (not _validate) or in_slice(i, s, n):
+        wrap = _make_negidx_converter(n)
+        start, _, step = _canonize_slice(s, n, wrap)
         return (wrap(i) - start) // step
 
-def _make_negidx_converter(l):  # l: length of sequence being indexed
-    if l is not None:
-        if not isinstance(l, int):
-            raise TypeError("l must be int, got {} with value {}".format(type(l), l))
-        if l <= 0:
-            raise ValueError("l must be an int >= 1, got {}".format(l))
+def _make_negidx_converter(n):  # n: length of sequence being indexed
+    if n is not None:
+        if not isinstance(n, int):
+            raise TypeError("n must be int, got {} with value {}".format(type(n), n))
+        if n <= 0:
+            raise ValueError("n must be an int >= 1, got {}".format(n))
         def apply_conversion(k):
-            return k % l
+            return k % n
     else:
         def apply_conversion(k):
-            raise ValueError("Need l to interpret negative indices")
+            raise ValueError("Need n to interpret negative indices")
     def convert(k):
         if k is not None:
             if not isinstance(k, int):
                 raise TypeError("k must be int, got {} with value {}".format(type(k), k))
-            # Almost standard semantics for negative indices. Usually -l < k < l,
+            # Almost standard semantics for negative indices. Usually -n < k < n,
             # but here we must allow for conversion of the end position, for
             # which the last valid value is one past the end.
-            if not -l <= k <= l:
-                raise IndexError("Should have -n <= k <= n, but n = len(args) = {}, and k = {}".format(l, k))
+            if not -n <= k <= n:
+                raise IndexError("Should have -n <= k <= n, but n = len(args) = {}, and k = {}".format(n, k))
             return apply_conversion(k) if k < 0 else k
     return convert
 
-def _canonize_slice(s, l=None, w=None):  # convert negatives, inject defaults.
+def _canonize_slice(s, n=None, wrap=None):  # convert negatives, inject defaults.
     if not isinstance(s, slice):
         raise TypeError("s must be slice, got {} with value {}".format(type(s), s))
 
@@ -864,23 +866,23 @@ def _canonize_slice(s, l=None, w=None):  # convert negatives, inject defaults.
     if step == 0:
         raise ValueError("slice step cannot be zero")  # message copied from range(5)[0:4:0]
 
-    wrap = w or _make_negidx_converter(l)
+    wrap = wrap or _make_negidx_converter(n)
 
     start = wrap(s.start)
     if start is None:
         if step > 0:
             start = 0
         else:
-            if l is None:
-                raise ValueError("Need l to determine default start for step < 0")
+            if n is None:
+                raise ValueError("Need n to determine default start for step < 0")
             start = wrap(-1)
 
     stop = wrap(s.stop)
     if stop is None:
         if step > 0:
-            if l is None:
-                raise ValueError("Need l to determine default stop for step > 0")
-            stop = l
+            if n is None:
+                raise ValueError("Need n to determine default stop for step > 0")
+            stop = n
         else:
             stop = -1  # yes, really -1 to have index 0 inside the slice
 

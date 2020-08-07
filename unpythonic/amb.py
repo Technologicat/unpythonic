@@ -113,7 +113,7 @@ def forall(*lines):
     # Notation used by the monad implementation for the bind and sequence
     # operators, with any relevant whitespace.
     bind = " >> "
-    seq  = ".then"
+    seq = ".then"
 
     class env:
         def __init__(self):
@@ -142,7 +142,7 @@ def forall(*lines):
     begin_is_open = False
     for j, item in enumerate(lines):
         is_first = (j == 0)
-        is_last  = (j == len(lines) - 1)
+        is_last = (j == len(lines) - 1)
 
         if isinstance(item, Assignment):
             name, body = item
@@ -251,7 +251,7 @@ class MonadicList:
     def __getitem__(self, i):
         return self.x[i]
 
-    def __add__(self, other): # concatenation of Lists, for convenience
+    def __add__(self, other):  # concatenation of Lists, for convenience
         cls = self.__class__
         return cls.from_iterable(self.x + other.x)
 
@@ -263,7 +263,7 @@ class MonadicList:
     def from_iterable(cls, iterable):  # convenience
         try:
             return cls(*iterable)
-        except TypeError: # maybe a generator; try forcing it before giving up.
+        except TypeError:  # maybe a generator; try forcing it before giving up.
             return cls(*tuple(iterable))
 
     def copy(self):

@@ -255,36 +255,36 @@ def s(*spec):
             return False
 
     def analyze(*spec):  # raw spec (part before '...' if any) --> description
-        l = len(spec)
-        if l == 1:
+        n = len(spec)
+        if n == 1:
             a0 = spec[0]
             return ("const", a0, None)
-        elif l == 2:
+        elif n == 2:
             a0, a1 = spec
             d1 = a1 - a0
             if d1 == 0:
                 return ("const", a0, None)
             return ("arith", a0, d1)
-        elif l == 3:
+        elif n == 3:
             a0, a1, a2 = spec
             d1 = a1 - a0
             d2 = a2 - a1
             if d2 == d1 == 0:         # a0, a0, a0, ...             [a0, identity]
                 return ("const", a0, None)
             if almosteq(d2, d1):      # a0, a0 + d, a0 + 2 d, ...   [a0, +d]
-                d = (d1 + d2)/2  # average to give roundoff errors a chance to cancel
+                d = (d1 + d2) / 2  # average to give roundoff errors a chance to cancel
                 return ("arith", a0, d)
             if a0 != 0 and a1 != 0 and a2 != 0:
-                r1 = a1/a0
-                r2 = a2/a1
+                r1 = a1 / a0
+                r2 = a2 / a1
                 if almosteq(r2, r1):  # a0, a0*r, a0*r**2, ...      [a0, *r]
-                    r = (r1 + r2)/2
+                    r = (r1 + r2) / 2
                     return ("geom", a0, r)
             if abs(a0) != 1 and a1 != 0 and a2 != 0:
                 p1 = log(abs(a1), abs(a0))
                 p2 = log(abs(a2), abs(a1))
                 if almosteq(p1, p2):  # a0, a0**p, (a0**p)**p, ...  [a0, **p]
-                    p = (p1 + p2)/2
+                    p = (p1 + p2) / 2
                     return ("power", a0, p)
             raise SyntaxError("Specification did not match any supported formula: '{}'".format(origspec))
         else:  # more elements are optional but must be consistent
@@ -311,12 +311,12 @@ def s(*spec):
                 return 1 + round(a)  # fencepost
         elif seqtype == "geom":
             # elt = x0*(k**a) --> k**a = (elt/x0) --> a = logk(elt/x0)
-            a = log(abs(elt/x0), abs(k))
+            a = log(abs(elt / x0), abs(k))
             if is_almost_int(a) and a > 0:
-                if not almosteq(x0*(k**a), elt):  # check parity of final term, could be an alternating sequence
+                if not almosteq(x0 * (k**a), elt):  # check parity of final term, could be an alternating sequence
                     return False
                 return 1 + round(a)
-        else: # seqtype == "power":
+        else:  # seqtype == "power":
             # elt = x0**(k**a) --> k**a = logx0 elt --> a = logk (logx0 elt)
             a = log(log(abs(elt), abs(x0)), abs(k))
             if is_almost_int(a) and a > 0:
@@ -356,7 +356,7 @@ def s(*spec):
         def arith():
             j = 0
             while True:
-                yield x0 + j*k
+                yield x0 + j * k
                 j += 1
         return m(arith() if n is infty else take(n, arith()))
     elif seqtype == "geom":
@@ -364,7 +364,7 @@ def s(*spec):
             def geom():
                 j = 0
                 while True:
-                    yield x0*(k**j)
+                    yield x0 * (k**j)
                     j += 1
         else:
             # e.g. "3" can be represented exactly as a base-2 float, but "1/3" can't,
@@ -372,14 +372,14 @@ def s(*spec):
             #
             # Note that 1/(1/3) --> 3.0 even for floats, so we don't actually
             # need to modify the detection algorithm to account for this.
-            kinv = 1/k
+            kinv = 1 / k
             def geom():
                 j = 0
                 while True:
-                    yield x0/(kinv**j)
+                    yield x0 / (kinv**j)
                     j += 1
         return m(geom() if n is infty else take(n, geom()))
-    else: # seqtype == "power":
+    else:  # seqtype == "power":
         if isinstance(k, _symExpr) or abs(k) >= 1:
             def power():
                 j = 0
@@ -387,11 +387,11 @@ def s(*spec):
                     yield x0**(k**j)
                     j += 1
         else:
-            kinv = 1/k
+            kinv = 1 / k
             def power():
                 j = 0
                 while True:
-                    yield x0**(1/(kinv**j))
+                    yield x0**(1 / (kinv**j))
                     j += 1
         return m(power() if n is infty else take(n, power()))
 
@@ -550,7 +550,7 @@ def _make_termwise_stream_binop(op, *settings):
         elif ig[1]:
             c = a
             return m(sop(c, y, *settings) for y in b)  # careful; op might not be commutative
-        else: # not any(ig):
+        else:  # not any(ig):
             return op(a, b, *settings)
     return sop
 
@@ -808,7 +808,7 @@ def fibonacci():
 def _primes():
     yield 2
     for n in count(start=3, step=2):
-        if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, _primes())):
+        if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, _primes())):
             yield n
 
 @gmemoize
@@ -818,7 +818,7 @@ def _fastprimes():
         memo.append(2)
         yield 2
         for n in count(start=3, step=2):
-            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, memo)):
+            if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, memo)):
                 memo.append(n)
                 yield n
     return primes()
@@ -838,5 +838,5 @@ def primes(optimize="speed"):
         raise ValueError("optimize must be 'memory' or 'speed'; got '{}'".format(optimize))
     if optimize == "speed":
         return m(_fastprimes())
-    else: # optimize == "memory":
+    else:  # optimize == "memory":
         return m(_primes())

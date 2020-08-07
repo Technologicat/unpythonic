@@ -320,35 +320,36 @@ def unfold(proc, *inits):
         value, *states = result
         yield value
 
-## This is **not** how to make a right map; the result is exactly the same
-## as for the ordinary (left) map and zip, but unnecessarily using a
-## recursive process for something that can be done using a linear one.
-## For documentation only. For working mapr, zipr, see unpythonic.it.
-## The trick is in the order in which the recurser yields its results.
-#def testme():
-#    squaretwo = lambda a, b: (a**2, b**2)
-#    print(tuple(mapr(squaretwo, (1, 2, 3), (4, 5))))
-#    print(tuple(map(squaretwo, (1, 2, 3), (4, 5))))
+# This is **not** how to make a right map; the result is exactly the same
+# as for the ordinary (left) map and zip, but unnecessarily using a
+# recursive process for something that can be done using a linear one.
+# For documentation only. For working mapr, zipr, see unpythonic.it.
+# The trick is in the order in which the recurser yields its results.
 #
-#def mapr(proc, *iterables):
-#    """Like map, but starting from the right. Recursive process.
+# def testme():
+#     squaretwo = lambda a, b: (a**2, b**2)
+#     print(tuple(mapr(squaretwo, (1, 2, 3), (4, 5))))
+#     print(tuple(map(squaretwo, (1, 2, 3), (4, 5))))
 #
-#    See ``rmap`` for the linear process that works by reversing each input.
-#    """
-#    def scanproc(*args):
-#        *elts, _ = args  # discard acc
-#        return proc(*elts)
-#    # discard the init value with butlast
-#    return butlast(scanr(scanproc, None, *iterables))
+# def mapr(proc, *iterables):
+#     """Like map, but starting from the right. Recursive process.
 #
-#def zipr(*iterables):
-#    """Like zip, but starting from the right. Recursive process.
+#     See ``rmap`` for the linear process that works by reversing each input.
+#     """
+#     def scanproc(*args):
+#         *elts, _ = args  # discard acc
+#         return proc(*elts)
+#     # discard the init value with butlast
+#     return butlast(scanr(scanproc, None, *iterables))
 #
-#    See ``rzip`` for the linear process that works by reversing each input.
-#    """
-#    def identity(*args):  # unpythonic.fun.identity, but dependency loop
-#        return args
-#    return mapr(identity, *iterables)
+# def zipr(*iterables):
+#     """Like zip, but starting from the right. Recursive process.
+#
+#     See ``rzip`` for the linear process that works by reversing each input.
+#     """
+#     def identity(*args):  # unpythonic.fun.identity, but dependency loop
+#         return args
+#     return mapr(identity, *iterables)
 
 def prod(iterable, start=1):
     """Like the builtin sum, but compute the product.

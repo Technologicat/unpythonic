@@ -47,10 +47,10 @@ def lazy_begin(*bodys):
                                  lambda: 42*x)
         print(f(1))  # 42
     """
-    l = len(bodys)
-    if not l:
+    n = len(bodys)
+    if not n:
         return None
-    if l == 1:
+    if n == 1:
         b = bodys[0]
         return b()
     *rest, last = bodys
@@ -68,10 +68,10 @@ def lazy_begin0(*bodys):
                                   lambda: print("hi"))
         print(g(1))  # 23
     """
-    l = len(bodys)
-    if not l:
+    n = len(bodys)
+    if not n:
         return None
-    if l == 1:
+    if n == 1:
         b = bodys[0]
         return b()
     first, *rest = bodys
