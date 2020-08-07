@@ -617,9 +617,9 @@ def partition_int(n, lower=1, upper=None):
 
     **CAUTION**: The number of possible partitions grows very quickly with `n`,
     so in practice this is only useful for small numbers, or with a lower limit
-    that is not too much smaller than `n` itself. A possible use case is
-    determining the number of letters to allocate for each component of an
-    anagram that may consist of several words.
+    that is not too much smaller than `n / 2`. A possible use case for this
+    function is to determine the number of letters to allocate for each
+    component of an anagram that may consist of several words.
 
     See:
         https://en.wikipedia.org/wiki/Partition_(number_theory)
