@@ -594,35 +594,51 @@ def partition(pred, iterable):
     t1, t2 = tee(iterable)
     return filterfalse(pred, t1), filter(pred, t2)
 
-def partition_int(n, lower=1):
+def partition_int(n, lower=1, upper=None):
     """Yield all ordered sequences of smaller positive integers that sum to `n`.
 
     `n` must be an integer >= 1.
 
-    `lower` is an optional lower limit for the members of the sum. Each number
-    must be `>= lower`. (Most of the splits are a ravioli consisting mostly of
-    ones, so it is much faster to not generate those than to filter them out
-    from the result. The default value `lower=1` generates everything.)
+    `lower` is an optional lower limit for each member of the sum. Each member
+    of the sum must be `>= lower`.
+
+    (Most of the splits are a ravioli consisting mostly of ones, so it is much
+    faster to not generate such splits than to filter them out from the result.
+    The default value `lower=1` generates everything.)
+
+    `upper` is, similarly, an optional upper limit; each member of the sum
+    must be `<= upper`. The default `None` means no upper limit (effectively,
+    in that case `upper=n`).
+
+    It must hold that `1 <= lower <= upper <= n`.
 
     Not to be confused with `unpythonic.it.partition`, which partitions an
     iterable based on a predicate.
 
     **CAUTION**: The number of possible partitions grows very quickly with `n`,
-    so in practice this is only useful for small numbers. A possible use case
-    is determining the number of letters to allocate for the components of an
-    anagram.
+    so in practice this is only useful for small numbers, or with a lower limit
+    that is not too much smaller than `n` itself. A possible use case is
+    determining the number of letters to allocate for each component of an
+    anagram that may consist of several words.
 
     See:
         https://en.wikipedia.org/wiki/Partition_(number_theory)
     """
-    # sanity check and fail-fast
+    # sanity check the preconditions, fail-fast
     if not isinstance(n, int):
         raise TypeError('n must be integer; got {:s}'.format(str(type(n))))
+    if not isinstance(lower, int):
+        raise TypeError('lower must be integer; got {:s}'.format(str(type(lower))))
+    if upper is not None and not isinstance(upper, int):
+        raise TypeError('upper must be integer; got {:s}'.format(str(type(upper))))
+    upper = upper if upper is not None else n
     if n < 1:
         raise ValueError('n must be positive; got {:d}'.format(n))
+    if lower < 1 or upper < 1 or lower > n or upper > n or lower > upper:
+        raise ValueError('it must hold that 1 <= lower <= upper <= n; got lower={:d}, upper={:d}'.format(lower, upper))
 
     def _partition(n):
-        for k in range(n, lower - 1, -1):
+        for k in range(min(n, upper), lower - 1, -1):
             m = n - k
             if m == 0:
                 yield (k,)

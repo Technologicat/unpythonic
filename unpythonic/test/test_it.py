@@ -193,8 +193,11 @@ def test():
     # partition_int: split a small positive integer, in all possible ways, into smaller integers that sum to it
     assert tuple(partition_int(4)) == ((4,), (3, 1), (2, 2), (2, 1, 1), (1, 3), (1, 2, 1), (1, 1, 2), (1, 1, 1, 1))
     assert tuple(partition_int(5, lower=2)) == ((5,), (3, 2), (2, 3))
+    assert tuple(partition_int(5, lower=2, upper=3)) == ((3, 2), (2, 3))
+    assert tuple(partition_int(10, lower=3, upper=5)) == ((5, 5), (4, 3, 3), (3, 4, 3), (3, 3, 4))
     assert all(sum(terms) == 10 for terms in partition_int(10))
     assert all(sum(terms) == 10 for terms in partition_int(10, lower=3))
+    assert all(sum(terms) == 10 for terms in partition_int(10, lower=3, upper=5))
 
     # inn: contains-check with automatic termination for monotonic iterables
     evens = imemoize(s(2, 4, ...))
