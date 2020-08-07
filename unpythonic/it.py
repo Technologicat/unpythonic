@@ -594,13 +594,23 @@ def partition(pred, iterable):
     t1, t2 = tee(iterable)
     return filterfalse(pred, t1), filter(pred, t2)
 
-def partition_int(n):
+def partition_int(n, lower=1):
     """Yield all ordered sequences of smaller positive integers that sum to `n`.
 
     `n` must be an integer >= 1.
 
+    `lower` is an optional lower limit for the members of the sum. Each number
+    must be `>= lower`. (Most of the splits are a ravioli consisting mostly of
+    ones, so it is much faster to not generate those than to filter them out
+    from the result. The default value `lower=1` generates everything.)
+
     Not to be confused with `unpythonic.it.partition`, which partitions an
     iterable based on a predicate.
+
+    **CAUTION**: The number of possible partitions grows very quickly with `n`,
+    so in practice this is only useful for small numbers. A possible use case
+    is determining the number of letters to allocate for the components of an
+    anagram.
 
     See:
         https://en.wikipedia.org/wiki/Partition_(number_theory)
@@ -612,7 +622,7 @@ def partition_int(n):
         raise ValueError('n must be positive; got {:d}'.format(n))
 
     def _partition(n):
-        for k in range(1, n + 1):
+        for k in range(n, lower - 1, -1):
             m = n - k
             if m == 0:
                 yield (k,)
@@ -622,6 +632,19 @@ def partition_int(n):
                     out.append((k,) + item)
                 for term in out:
                     yield term
+
+    # Original version with no lower bound support, for documentation.
+    # def _partition(n):
+    #     for k in range(1, n + 1):
+    #         m = n - k
+    #         if m == 0:
+    #             yield (k,)
+    #         else:
+    #             out = []
+    #             for item in _partition(m):
+    #                 out.append((k,) + item)
+    #             for term in out:
+    #                 yield term
 
     return _partition(n)  # instantiate the generator
 
