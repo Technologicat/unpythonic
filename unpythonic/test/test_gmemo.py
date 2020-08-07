@@ -52,7 +52,8 @@ def test():
     assert total_evaluations == 3
 
     # exception memoization
-    class AllOkJustTesting(Exception): pass
+    class AllOkJustTesting(Exception):
+        pass
     total_evaluations = 0
     @gmemoize
     def gen():
@@ -125,14 +126,14 @@ def test():
     def primes():  # no memoization, recomputes unnecessarily, very slow
         yield 2
         for n in count(start=3, step=2):
-            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
+            if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, primes())):
                 yield n
 
     @gmemoize  # <-- the only change (beside the function name)
     def mprimes():  # external memo for users, re-use it internally - simplest code
         yield 2
         for n in count(start=3, step=2):
-            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, mprimes())):
+            if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, mprimes())):
                 yield n
 
     def memo_primes():  # manual internal memo only - fastest, no caching for users
@@ -141,7 +142,7 @@ def test():
             memo.append(2)
             yield 2
             for n in count(start=3, step=2):
-                if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, memo)):
+                if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, memo)):
                     memo.append(n)
                     yield n
         return manual_mprimes()
@@ -162,7 +163,7 @@ def test():
             memo.append(2)
             yield 2
             for n in count(start=3, step=2):
-                if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, memo)):
+                if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, memo)):
                     memo.append(n)
                     yield n
         return manual_mprimes2()
@@ -177,7 +178,7 @@ def test():
         yield 2
         for n in chain([3, 5, 7], (d + k for d in count(10, step=10)
                                          for k in [1, 3, 7, 9])):
-            if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, mprimes2())):
+            if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, mprimes2())):
                 yield n
 
     # generalization: let's not be limited by base-10
@@ -206,14 +207,16 @@ def test():
         while True:
             nextp = next(theprimes)
             lastdigits = [n for n in lastdigits if not n % p == 0]
-            ns = [k*b + m for k in range(1, nextp)
-                          for m in lastdigits]
+            ns = [k * b + m for k in range(1, nextp)
+                            for m in lastdigits]
             # in ns, we have already eliminated the first np primes as possible factors, so skip checking them
             for n in ns:
-                if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, drop(np, mprimes3()))):
+                if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, drop(np, mprimes3()))):
                     yield n
             ps.append(nextp)
-            b *= nextp; p = nextp; np += 1
+            b *= nextp
+            p = nextp
+            np += 1
             lastdigits = lastdigits + ns
     assert tuple(take(500, mprimes3())) == tuple(take(500, mprimes2()))
 
@@ -230,13 +233,15 @@ def test():
             while True:
                 nextp = memo[np]
                 lastdigits = [n for n in lastdigits if not n % p == 0]
-                ns = [k*b + m for k in range(1, nextp)
-                              for m in lastdigits]
+                ns = [k * b + m for k in range(1, nextp)
+                                for m in lastdigits]
                 for n in ns:
-                    if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, drop(np, memo))):
+                    if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, drop(np, memo))):
                         memo.append(n)
                         yield n
-                b *= nextp; p = nextp; np += 1
+                b *= nextp
+                p = nextp
+                np += 1
                 lastdigits += ns
         return manual_mprimes3()
     assert tuple(take(500, memo_primes3())) == tuple(take(500, mprimes2()))
@@ -255,20 +260,22 @@ def test():
             while True:
                 nextp = memo[np]
                 lastdigits = [n for n in lastdigits if not n % p == 0]
-                ns = [k*b + m for k in range(1, nextp)
-                              for m in lastdigits]
+                ns = [k * b + m for k in range(1, nextp)
+                                for m in lastdigits]
                 for n in ns:
-                    if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, drop(np, memo))):
+                    if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, drop(np, memo))):
                         memo.append(n)
                         yield n
                 if np == maxnp:  # avoid table becoming too big (leading to memory bus dominated run time)
                     break
-                b *= nextp; p = nextp; np += 1
+                b *= nextp
+                p = nextp
+                np += 1
                 lastdigits += ns
             # once maximum b reached, stay at that b, using the final table of lastdigits
-            for kb in count(nextp*b, step=b):
+            for kb in count(nextp * b, step=b):
                 for n in (kb + m for m in lastdigits):
-                    if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, drop(np, memo))):
+                    if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, drop(np, memo))):
                         memo.append(n)
                         yield n
         return manual_mprimes4()

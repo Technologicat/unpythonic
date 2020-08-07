@@ -72,11 +72,11 @@ def test():
 #              (set(("tag",)), False), (set(("tag",)), True))
 #        es = (Escape(_, None, False),  Escape(_, None, True),  # `throw` instances
 #              Escape(_, "tag", False), Escape(_, "tag", True))
-##        # the other reasonable projection:
-##        ps = ((None, False), (set(("tag",)), False),
-##              (None, True), (set(("tag",)), True))
-##        es = (Escape(_, None, False), Escape(_, "tag", False),
-##              Escape(_, None, True), Escape(_, "tag", True))
+#        # # the other reasonable projection:
+#        # ps = ((None, False), (set(("tag",)), False),
+#        #       (None, True), (set(("tag",)), True))
+#        # es = (Escape(_, None, False), Escape(_, "tag", False),
+#        #       Escape(_, None, True), Escape(_, "tag", True))
 #        table = [[check(t, c, e) for e in es] for (t, c) in ps]  # col = e, row = p
 #        for row in table:
 #            print(row)

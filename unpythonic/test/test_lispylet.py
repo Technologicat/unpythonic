@@ -31,10 +31,10 @@ def test():
     # mutually recursive functions
     t = letrec((('evenp', lambda e:
                             lambda x:
-                              (x == 0) or  e.oddp(x - 1)),
-                ('oddp',  lambda e:
-                            lambda x:
-                              (x != 0) and e.evenp(x - 1))),
+                              (x == 0) or e.oddp(x - 1)),
+                ('oddp', lambda e:
+                           lambda x:
+                             (x != 0) and e.evenp(x - 1))),
                lambda e:
                  e.evenp(42))
     assert t is True
@@ -83,10 +83,10 @@ def test():
 
     @bletrec((('evenp', lambda e:
                           lambda x:
-                            (x == 0) or  e.oddp(x - 1)),
-              ('oddp',  lambda e:
-                          lambda x:
-                            (x != 0) and e.evenp(x - 1)),))
+                            (x == 0) or e.oddp(x - 1)),
+              ('oddp', lambda e:
+                         lambda x:
+                           (x != 0) and e.evenp(x - 1)),))
     def result(*, env):
         return env.evenp(42)
     assert result is True

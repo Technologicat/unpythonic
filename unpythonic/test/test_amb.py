@@ -47,9 +47,9 @@ def test():
 
     # pythagorean triples
     pt = forall(choice(z=range(1, 21)),                 # hypotenuse
-                choice(x=lambda e: range(1, e.z+1)),    # shorter leg
-                choice(y=lambda e: range(e.x, e.z+1)),  # longer leg
-                lambda e: insist(e.x*e.x + e.y*e.y == e.z*e.z),
+                choice(x=lambda e: range(1, e.z + 1)),    # shorter leg
+                choice(y=lambda e: range(e.x, e.z + 1)),  # longer leg
+                lambda e: insist(e.x * e.x + e.y * e.y == e.z * e.z),
                 lambda e: (e.x, e.y, e.z))
     assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                  (8, 15, 17), (9, 12, 15), (12, 16, 20))

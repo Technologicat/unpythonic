@@ -31,7 +31,7 @@ def test():
 
         try:
             e.set("c", 3)  # fail, e.c not bound
-        except AttributeError as err:
+        except AttributeError:
             pass
         else:
             print('Test 4 FAILED')

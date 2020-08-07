@@ -88,7 +88,7 @@ def test():
         assert env.x == 5
 
         @call
-        @dlet(x = 42)
+        @dlet(x=42)
         def _(*, env):
             assert env.x == 42
 
@@ -99,7 +99,7 @@ def test():
     def _ignored2(*, env):
         assert env.x == 5
 
-        @blet(x = 42)
+        @blet(x=42)
         def _ignored3(*, env):
             assert env.x == 42
 

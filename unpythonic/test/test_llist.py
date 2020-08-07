@@ -92,14 +92,14 @@ def test():
     q = ll(cons(1, 2), cons(3, 4))  # list of pairs, not a tree!
     assert [f(q) for f in [caar, cdar, cadr, cddr]] == [1, 2, cons(3, 4), nil]
 
-    l = ll(1, 2, 3)
-    assert [f(l) for f in [car, cadr, caddr, cdddr, cdr, cddr]] == [1, 2, 3, nil, ll(2, 3), ll(3)]
-    assert member(2, l) == ll(2, 3)
-    assert not member(5, l)
+    mylist = ll(1, 2, 3)
+    assert [f(mylist) for f in [car, cadr, caddr, cdddr, cdr, cddr]] == [1, 2, 3, nil, ll(2, 3), ll(3)]
+    assert member(2, mylist) == ll(2, 3)
+    assert not member(5, mylist)
 
     # sequence unpacking syntax
-    l, r = cons(1, 2)
-    assert l == 1 and r == 2
+    left, right = cons(1, 2)
+    assert left == 1 and right == 2
 
     a, b, c = ll(1, 2, 3)
     assert a == 1 and b == 2 and c == 3
@@ -116,8 +116,8 @@ def test():
     assert tuple(zip(ll(1, 2, 3), ll(4, 5, 6))) == ((1, 4), (2, 5), (3, 6))
     assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
 
-    l = ll(1, 2, 3)
-    k = loads(dumps(l))
+    mylist = ll(1, 2, 3)
+    k = loads(dumps(mylist))
     # Should iterate without crashing, since upon unpickling, the pickled nil singleton
     # translates to our nil singleton.
     #

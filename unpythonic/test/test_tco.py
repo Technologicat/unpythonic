@@ -57,11 +57,11 @@ def test():
     t = letrec(evenp=lambda e:
                      trampolined(lambda x:
                                    (x == 0) or jump(e.oddp, x - 1)),
-             oddp=lambda e:
-                     trampolined(lambda x:
+               oddp=lambda e:
+                    trampolined(lambda x:
                                    (x != 0) and jump(e.evenp, x - 1)),
-             body=lambda e:
-                     e.evenp(10000))
+               body=lambda e:
+                    e.evenp(10000))
     assert t is True
 
     print("All tests PASSED")
@@ -93,9 +93,9 @@ def test():
         dowork()
 
     print("do-nothing loop, {:d} iterations:".format(n))
-    print("  builtin for {:g}s ({:g}s/iter)".format(ip.dt, ip.dt/n))
-    print("  @trampolined {:g}s ({:g}s/iter)".format(fp1.dt, fp1.dt/n))
-    print("@trampolined slowdown {:g}x".format(fp1.dt/ip.dt))
+    print("  builtin for {:g}s ({:g}s/iter)".format(ip.dt, ip.dt / n))
+    print("  @trampolined {:g}s ({:g}s/iter)".format(fp1.dt, fp1.dt / n))
+    print("@trampolined slowdown {:g}x".format(fp1.dt / ip.dt))
 
 if __name__ == '__main__':
     test()

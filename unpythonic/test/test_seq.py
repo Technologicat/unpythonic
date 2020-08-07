@@ -186,11 +186,10 @@ def test():
            lambda e: s.add("foo"),  # now delayed until do() hits this line
            lambda e: s)
 
-    z = call_ec(
-          lambda ec:
-            do(assign(x=42),
-               lambda e: ec(e.x),                  # IMPORTANT: must delay this!
-               lambda e: print("never reached")))  # and this (as above)
+    z = call_ec(lambda ec:
+                do(assign(x=42),
+                   lambda e: ec(e.x),                  # IMPORTANT: must delay this!
+                   lambda e: print("never reached")))  # and this (as above)
     assert z == 42
 
     print("All tests PASSED")
