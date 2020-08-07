@@ -633,19 +633,6 @@ def partition_int(n, lower=1):
                 for term in out:
                     yield term
 
-    # Original version with no lower bound support, for documentation.
-    # def _partition(n):
-    #     for k in range(1, n + 1):
-    #         m = n - k
-    #         if m == 0:
-    #             yield (k,)
-    #         else:
-    #             out = []
-    #             for item in _partition(m):
-    #                 out.append((k,) + item)
-    #             for term in out:
-    #                 yield term
-
     return _partition(n)  # instantiate the generator
 
 def inn(x, iterable):
