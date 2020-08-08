@@ -11,10 +11,10 @@ from functools import wraps
 from itertools import repeat
 from abc import abstractmethod
 from collections import abc
-from collections.abc import Container, Iterable, Hashable, Sized, \
-                            Sequence, Mapping, Set, \
-                            MutableSequence, MutableMapping, MutableSet, \
-                            MappingView
+from collections.abc import (Container, Iterable, Hashable, Sized,
+                             Sequence, Mapping, Set,
+                             MutableSequence, MutableMapping, MutableSet,
+                             MappingView)
 from inspect import isclass
 from operator import lt, le, ge, gt
 import threading

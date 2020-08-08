@@ -28,14 +28,14 @@ __all__ = ["s", "m", "mg", "almosteq",
 
 from itertools import repeat, takewhile, count
 from functools import wraps
-from operator import add as primitive_add, mul as primitive_mul, \
-                     pow as primitive_pow, mod as primitive_mod, \
-                     floordiv as primitive_floordiv, truediv as primitive_truediv, \
-                     sub as primitive_sub, \
-                     neg as primitive_neg, pos as primitive_pos, \
-                     and_ as primitive_and, xor as primitive_xor, or_ as primitive_or, \
-                     lshift as primitive_lshift, rshift as primitive_rshift, \
-                     invert as primitive_invert
+from operator import (add as primitive_add, mul as primitive_mul,
+                      pow as primitive_pow, mod as primitive_mod,
+                      floordiv as primitive_floordiv, truediv as primitive_truediv,
+                      sub as primitive_sub,
+                      neg as primitive_neg, pos as primitive_pos,
+                      and_ as primitive_and, xor as primitive_xor, or_ as primitive_or,
+                      lshift as primitive_lshift, rshift as primitive_rshift,
+                      invert as primitive_invert)
 
 from .it import take, rev
 from .gmemo import imemoize, gmemoize
