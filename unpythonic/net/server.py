@@ -111,11 +111,6 @@ remote tab completion).
 
 __all__ = ["start", "stop"]  # Exports for code that wants to embed the server.
 
-try:
-    import ctypes
-except ImportError:
-    ctypes = None
-
 import rlcompleter  # yes, just rlcompleter without readline; backend for remote tab completion.
 import threading
 import sys
