@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """Conditionally import AST node types only supported by Python 3.5+ or 3.6+."""
 
-_NoSuchNodeType = object()
+from ..symbol import gensym
+
+_NoSuchNodeType = gensym("_NoSuchNodeType")
 
 try:  # Python 3.5+
     from ast import AsyncFor, AsyncFunctionDef, AsyncWith, Await, MatMult

@@ -50,6 +50,7 @@ from math import log as math_log, copysign, trunc, floor, ceil
 try:
     from mpmath import mpf, almosteq as mpf_almosteq
 except ImportError:
+    # Can't use a gensym here since `mpf` must be a unique *type*.
     mpf = type(_NoSuchType())
     mpf_almosteq = None
 
