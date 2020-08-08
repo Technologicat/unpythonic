@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 """Lambdas with multiple expressions, local variables, and a name."""
 
-from ast import Lambda, List, Name, Assign, Subscript, Call, \
-                FunctionDef, Attribute, keyword, Dict, Str, copy_location
+from ast import (Lambda, List, Name, Assign, Subscript, Call,
+                 FunctionDef, Attribute, keyword, Dict, Str, copy_location)
 from .astcompat import AsyncFunctionDef
 from copy import deepcopy
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
-from macropy.core.hquotes import macros, hq
+from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
-from macropy.quick_lambda import f, _  # _ for re-export only
+from macropy.quick_lambda import f, _  # _ for re-export only  # noqa: F401
 
 from ..dynassign import dyn
 from ..misc import namelambda
@@ -18,8 +18,8 @@ from ..env import env
 
 from .letdo import do
 from .letdoutil import islet, isenvassign, UnexpandedLetView, UnexpandedEnvAssignView, ExpandedDoView
-from .util import is_decorated_lambda, isx, make_isxpred, has_deco, \
-                  destructure_decorated_lambda, detect_lambda, splice
+from .util import (is_decorated_lambda, isx, make_isxpred, has_deco,
+                   destructure_decorated_lambda, detect_lambda, splice)
 
 def multilambda(block_body):
     @Walker

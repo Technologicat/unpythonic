@@ -5,11 +5,11 @@ from ast import Call, Lambda, FunctionDef, Name
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, ast_literal
-from macropy.core.hquotes import macros, hq
+from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
-from .util import suggest_decorator_index, isx, make_isxpred, has_curry, \
-                  sort_lambda_decorators
+from .util import (suggest_decorator_index, isx, make_isxpred, has_curry,
+                   sort_lambda_decorators)
 
 # CAUTION: unpythonic.syntax.lambdatools.namedlambda depends on the exact names
 # "curryf" and "currycall" to detect an auto-curried expression with a final lambda.

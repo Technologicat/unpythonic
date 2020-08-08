@@ -17,12 +17,12 @@ new local x, assign value from an x that lives in a lexically surrounding ``env`
 such as that created by the "let" decorator macro ``@dlet``).
 """
 
-from ast import Name, Tuple, \
-                Lambda, FunctionDef, ClassDef, \
-                List, For, Import, Try, With, \
-                ListComp, SetComp, GeneratorExp, DictComp, \
-                Store, Del, \
-                Global, Nonlocal
+from ast import (Name, Tuple,
+                 Lambda, FunctionDef, ClassDef,
+                 List, For, Import, Try, With,
+                 ListComp, SetComp, GeneratorExp, DictComp,
+                 Store, Del,
+                 Global, Nonlocal)
 from .astcompat import AsyncFunctionDef, AsyncFor, AsyncWith
 
 from macropy.core.walkers import Walker

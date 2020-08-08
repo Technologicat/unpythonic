@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 """Automatic lazy evaluation of function arguments."""
 
-from ast import Lambda, FunctionDef, Call, Name, Attribute, \
-                Starred, keyword, List, Tuple, Dict, Set, \
-                Subscript, Load
+from ast import (Lambda, FunctionDef, Call, Name, Attribute,
+                 Starred, keyword, List, Tuple, Dict, Set,
+                 Subscript, Load)
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, ast_literal
-from macropy.core.hquotes import macros, hq
+from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
-from macropy.quick_lambda import macros, lazy
+from macropy.quick_lambda import macros, lazy  # noqa: F811, F401
 
-from .util import suggest_decorator_index, sort_lambda_decorators, detect_lambda, \
-                  isx, make_isxpred, getname, is_decorator, wrapwith
+from .util import (suggest_decorator_index, sort_lambda_decorators, detect_lambda,
+                   isx, make_isxpred, getname, is_decorator, wrapwith)
 from .letdoutil import islet, isdo, ExpandedLetView
 from ..lazyutil import passthrough_lazy_args, force, force1, maybe_force_args
 from ..dynassign import dyn

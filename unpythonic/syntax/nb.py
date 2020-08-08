@@ -8,7 +8,7 @@ Auto-print top-level expressions, auto-assign last result as _.
 
 from ast import Expr
 
-from macropy.core.quotes import macros, q, ast_literal
+from macropy.core.quotes import macros, q, ast_literal  # noqa: F401
 
 def nb(body, args):
     p = args[0] if args else q[print]  # custom print function hook

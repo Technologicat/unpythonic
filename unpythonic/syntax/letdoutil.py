@@ -5,7 +5,8 @@ Separate from letdo.py for dependency reasons.
 Separate from util.py due to the length.
 """
 
-from ast import Call, Name, Subscript, Index, Compare, In, Tuple, List, Str, BinOp, LShift
+from ast import (Call, Name, Subscript, Index, Compare, In,
+                 Tuple, List, Str, BinOp, LShift)
 import re
 
 from macropy.core import Captured

@@ -5,25 +5,25 @@ The common factor is tail-position analysis."""
 
 from functools import partial
 
-from ast import Lambda, FunctionDef, \
-                arguments, arg, keyword, \
-                List, Tuple, \
-                Subscript, Index, \
-                Call, Name, Starred, NameConstant, \
-                BoolOp, And, Or, \
-                With, If, IfExp, Try, Assign, Return, Expr, \
-                copy_location
+from ast import (Lambda, FunctionDef,
+                 arguments, arg, keyword,
+                 List, Tuple,
+                 Subscript, Index,
+                 Call, Name, Starred, NameConstant,
+                 BoolOp, And, Or,
+                 With, If, IfExp, Try, Assign, Return, Expr,
+                 copy_location)
 from .astcompat import AsyncFunctionDef, AsyncWith
 
 from macropy.core.macros import macro_stub
 from macropy.core.quotes import macros, q, u, ast_literal, name
-from macropy.core.hquotes import macros, hq
+from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
-from .util import isx, make_isxpred, isec, \
-                  detect_callec, detect_lambda, \
-                  has_tco, sort_lambda_decorators, \
-                  suggest_decorator_index, ContinuationsMarker, wrapwith, ismarker
+from .util import (isx, make_isxpred, isec,
+                   detect_callec, detect_lambda,
+                   has_tco, sort_lambda_decorators,
+                   suggest_decorator_index, ContinuationsMarker, wrapwith, ismarker)
 from .letdoutil import isdo, islet, ExpandedLetView, ExpandedDoView
 from .ifexprs import aif
 
@@ -647,7 +647,7 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
                                                                lineno=tree.lineno,
                                                                col_offset=tree.col_offset)),
                                            transform(tree.values[-1])],
-                                     lineno=tree.lineno, col_offset=tree.col_offset)) # tail-call item
+                                     lineno=tree.lineno, col_offset=tree.col_offset))  # tail-call item
                 elif type(tree.op) is And:
                     # and(data1, ..., datan, tail) --> tail if all(others) else False
                     fal = q[False]

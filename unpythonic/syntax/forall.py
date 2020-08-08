@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 """Nondeterministic evaluation (a tuple comprehension with a multi-expr body)."""
 
-from ast import Tuple, Name, arg
+from ast import Tuple, arg
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
-from macropy.core.hquotes import macros, hq
-from macropy.core.walkers import Walker
+from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 
 from .util import splice
 from .letdoutil import isenvassign, UnexpandedEnvAssignView
 from ..amb import monadify
-from ..amb import insist, deny  # for re-export only
+from ..amb import insist, deny  # for re-export only  # noqa: F401
 
 def forall(exprs):
     """[syntax, expr] Nondeterministic evaluation.

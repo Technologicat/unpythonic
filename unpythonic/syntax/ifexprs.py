@@ -4,13 +4,13 @@
 from ast import Tuple
 
 from macropy.core.quotes import macros, q, ast_literal
-from macropy.core.hquotes import macros, hq
+from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 
 from .letdo import implicit_do, let
 
-# TODO: currently no "syntax-parameterize" in MacroPy. Would be convenient to
-# create a macro that expands to an error by default, and then override it
-# inside an aif.
+# TODO: currently no "syntax-parameterize" (see Racket) in MacroPy. Would be
+# convenient to create a macro that expands to an error by default, and then
+# override it inside an aif.
 #
 # We could just leave "it" undefined by default, but IDEs are happier if the
 # name exists, and this also gives us a chance to provide a docstring.

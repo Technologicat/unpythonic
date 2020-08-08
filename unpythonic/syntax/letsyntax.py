@@ -5,8 +5,8 @@
 # see letdo.py.
 
 from copy import deepcopy
-from ast import Name, Call, Starred, If, Num, Expr, With, \
-                FunctionDef, ClassDef, Attribute
+from ast import (Name, Call, Starred, If, Num, Expr, With,
+                 FunctionDef, ClassDef, Attribute)
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.walkers import Walker
@@ -73,7 +73,7 @@ def let_syntax_block(block_body):
 
         if kind == "template":
             _, args = _analyze_lhs(ctxmanager)  # syntactic limitation, can't place formal parameter list on the as-part
-        else: # kind == "barename":
+        else:  # kind == "barename":
             args = []
 
         if mode == "block":
@@ -81,7 +81,7 @@ def let_syntax_block(block_body):
                        body=withstmt.body,
                        orelse=[],
                        lineno=stmt.lineno, col_offset=stmt.col_offset)
-        else: # mode == "expr":
+        else:  # mode == "expr":
             if len(withstmt.body) != 1:
                 assert False, "'with expr:' expected a one-item body (use a do[] if need more)"
             theexpr = withstmt.body[0]

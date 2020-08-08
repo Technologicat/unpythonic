@@ -15,15 +15,15 @@
 
 from functools import partial
 
-from ast import Name, Attribute, \
-                Tuple, List, \
-                FunctionDef, Return, \
-                arguments, arg, \
-                Load, Subscript, Index
+from ast import (Name, Attribute,
+                 Tuple, List,
+                 FunctionDef, Return,
+                 arguments, arg,
+                 Load, Subscript, Index)
 from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
-from macropy.core.hquotes import macros, hq
+from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 from macropy.core.macros import macro_stub
 

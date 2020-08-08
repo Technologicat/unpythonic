@@ -4,9 +4,9 @@
 from functools import partial
 import re
 
-from ast import Call, Name, Attribute, Lambda, FunctionDef, \
-                If, Num, NameConstant, For, While, With, Try, ClassDef, \
-                withitem
+from ast import (Call, Name, Attribute, Lambda, FunctionDef,
+                 If, Num, NameConstant, For, While, With, Try, ClassDef,
+                 withitem)
 from .astcompat import AsyncFunctionDef, AsyncFor, AsyncWith
 
 from macropy.core import Captured

@@ -12,27 +12,27 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # are just for passing through to the client code that imports us.
 from .autoref import autoref as _autoref
 from .curry import curry as _curry
-from .forall import forall as _forall, insist, deny
-from .ifexprs import aif as _aif, it, cond as _cond
-from .lambdatools import multilambda as _multilambda, \
-                         namedlambda as _namedlambda, \
-                         quicklambda as _quicklambda, f, _, \
-                         envify as _envify
-from .lazify import lazify as _lazify, lazyrec as _lazyrec, force, force1
-from .letdo import do as _do, do0 as _do0, local, delete, \
-                   let as _let, letseq as _letseq, letrec as _letrec, \
-                   dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec, \
-                   blet as _blet, bletseq as _bletseq, bletrec as _bletrec
-from .letsyntax import let_syntax_expr, let_syntax_block, block, expr
+from .forall import forall as _forall, insist, deny  # noqa: F401
+from .ifexprs import aif as _aif, it, cond as _cond  # noqa: F401
+from .lambdatools import (multilambda as _multilambda,  # noqa: F401
+                          namedlambda as _namedlambda,
+                          quicklambda as _quicklambda, f, _,
+                          envify as _envify)
+from .lazify import lazify as _lazify, lazyrec as _lazyrec, force, force1  # noqa: F401
+from .letdo import (do as _do, do0 as _do0, local, delete,  # noqa: F401
+                    let as _let, letseq as _letseq, letrec as _letrec,
+                    dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec,
+                    blet as _blet, bletseq as _bletseq, bletrec as _bletrec)
+from .letsyntax import let_syntax_expr, let_syntax_block, block, expr  # noqa: F401
 from .nb import nb as _nb
-from .dbg import dbg_block as _dbg_block, dbg_expr as _dbg_expr, \
-                 dbgprint_block, dbgprint_expr
+from .dbg import (dbg_block as _dbg_block, dbg_expr as _dbg_expr,  # noqa: F401
+                  dbgprint_block, dbgprint_expr)
 from .prefix import prefix as _prefix
-from .tailtools import autoreturn as _autoreturn, tco as _tco, \
-                       continuations as _continuations, call_cc
+from .tailtools import (autoreturn as _autoreturn, tco as _tco,  # noqa: F401
+                        continuations as _continuations, call_cc)
 
-# "where" is only for passing through.
-from .letdoutil import UnexpandedLetView, _canonize_bindings, where
+# "where" is only for passing through (export).
+from .letdoutil import UnexpandedLetView, _canonize_bindings, where  # noqa: F401
 from ..dynassign import dyn, make_dynvar
 
 from macropy.core.macros import Macros
@@ -58,8 +58,10 @@ make_dynvar(gen_sym=nogensym)
 
 # -----------------------------------------------------------------------------
 
+# The "kw" we have here is the parameter from MacroPy; the "kw" we export (that
+# flake8 thinks conflicts with this) is the runtime stub for our `prefix` macro.
 @macros.block
-def autoref(tree, args, *, target, gen_sym, **kw):
+def autoref(tree, args, *, target, gen_sym, **kw):  # noqa: F811
     """Implicitly reference attributes of an object.
 
     Example::
@@ -82,7 +84,7 @@ def autoref(tree, args, *, target, gen_sym, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.expr
-def aif(tree, *, gen_sym, **kw):
+def aif(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, expr] Anaphoric if.
 
     Usage::
@@ -106,7 +108,7 @@ def aif(tree, *, gen_sym, **kw):
         return _aif(tree)
 
 @macros.expr
-def cond(tree, *, gen_sym, **kw):
+def cond(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, expr] Lispy cond; like "a if p else b", but has "elif".
 
     Usage::
@@ -133,7 +135,7 @@ def cond(tree, *, gen_sym, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.block
-def curry(tree, **kw):  # technically a list of trees, the body of the with block
+def curry(tree, **kw):  # technically a list of trees, the body of the with block  # noqa: F811
     """[syntax, block] Automatic currying.
 
     Usage::
@@ -184,7 +186,7 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
 # -----------------------------------------------------------------------------
 
 @macros.expr
-def let(tree, args, *, gen_sym, **kw):
+def let(tree, args, *, gen_sym, **kw):  # noqa: F811
     """[syntax, expr] Introduce local bindings.
 
     This is sugar on top of ``unpythonic.lispylet.let``.
@@ -243,7 +245,7 @@ def let(tree, args, *, gen_sym, **kw):
         return _destructure_and_apply_let(tree, args, _let)
 
 @macros.expr
-def letseq(tree, args, *, gen_sym, **kw):
+def letseq(tree, args, *, gen_sym, **kw):  # noqa: F811
     """[syntax, expr] Let with sequential binding (like Scheme/Racket let*).
 
     Like ``let``, but bindings take effect sequentially. Later bindings
@@ -255,7 +257,7 @@ def letseq(tree, args, *, gen_sym, **kw):
         return _destructure_and_apply_let(tree, args, _letseq)
 
 @macros.expr
-def letrec(tree, args, *, gen_sym, **kw):
+def letrec(tree, args, *, gen_sym, **kw):  # noqa: F811
     """[syntax, expr] Let with mutually recursive binding.
 
     Like ``let``, but bindings can see other bindings in the same ``letrec``.
@@ -283,7 +285,7 @@ def _destructure_and_apply_let(tree, args, expander, allow_call_in_name_position
 # Decorator versions, for "let over def".
 
 @macros.decorator
-def dlet(tree, args, *, gen_sym, **kw):
+def dlet(tree, args, *, gen_sym, **kw):  # noqa: F811
     """[syntax, decorator] Decorator version of let, for 'let over def'.
 
     Example::
@@ -308,7 +310,7 @@ def dlet(tree, args, *, gen_sym, **kw):
         return _destructure_and_apply_let(tree, args, _dlet)
 
 @macros.decorator
-def dletseq(tree, args, *, gen_sym, **kw):
+def dletseq(tree, args, *, gen_sym, **kw):  # noqa: F811
     """[syntax, decorator] Decorator version of letseq, for 'letseq over def'.
 
     Expands to nested function definitions, each with one ``dlet`` decorator.
@@ -326,7 +328,7 @@ def dletseq(tree, args, *, gen_sym, **kw):
         return _destructure_and_apply_let(tree, args, _dletseq)
 
 @macros.decorator
-def dletrec(tree, args, *, gen_sym, **kw):
+def dletrec(tree, args, *, gen_sym, **kw):  # noqa: F811
     """[syntax, decorator] Decorator version of letrec, for 'letrec over def'.
 
     Example::
@@ -344,7 +346,7 @@ def dletrec(tree, args, *, gen_sym, **kw):
         return _destructure_and_apply_let(tree, args, _dletrec)
 
 @macros.decorator
-def blet(tree, args, *, gen_sym, **kw):
+def blet(tree, args, *, gen_sym, **kw):  # noqa: F811
     """[syntax, decorator] def --> let block.
 
     Example::
@@ -358,7 +360,7 @@ def blet(tree, args, *, gen_sym, **kw):
         return _destructure_and_apply_let(tree, args, _blet)
 
 @macros.decorator
-def bletseq(tree, args, *, gen_sym, **kw):
+def bletseq(tree, args, *, gen_sym, **kw):  # noqa: F811
     """[syntax, decorator] def --> letseq block.
 
     Example::
@@ -374,7 +376,7 @@ def bletseq(tree, args, *, gen_sym, **kw):
         return _destructure_and_apply_let(tree, args, _bletseq)
 
 @macros.decorator
-def bletrec(tree, args, *, gen_sym, **kw):
+def bletrec(tree, args, *, gen_sym, **kw):  # noqa: F811
     """[syntax, decorator] def --> letrec block.
 
     Example::
@@ -404,7 +406,7 @@ def bletrec(tree, args, *, gen_sym, **kw):
 # Imperative code in expression position.
 
 @macros.expr
-def do(tree, *, gen_sym, **kw):
+def do(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, expr] Stuff imperative code into an expression position.
 
     Return value is the value of the last expression inside the ``do``.
@@ -536,7 +538,7 @@ def do(tree, *, gen_sym, **kw):
         return _do(tree)
 
 @macros.expr
-def do0(tree, *, gen_sym, **kw):
+def do0(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, expr] Like do, but return the value of the first expression."""
     with dyn.let(gen_sym=gen_sym):
         return _do0(tree)
@@ -544,17 +546,18 @@ def do0(tree, *, gen_sym, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.expr
-def let_syntax(tree, args, *, gen_sym, **kw):
+def let_syntax(tree, args, *, gen_sym, **kw):  # noqa: F811
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
         return _destructure_and_apply_let(tree, args, let_syntax_expr, allow_call_in_name_position=True)
 
 # Python has no function overloading, but expr and block macros go into
-# different parts of MacroPy's macro registry.
+# different parts of MacroPy's macro registry. The registration happens
+# as a side effect of the decorator.
 #
 # Normal run-time code sees only the dynamically latest definition,
 # so the docstring goes here.
-@macros.block
-def let_syntax(tree, **kw):
+@macros.block  # noqa: F811
+def let_syntax(tree, **kw):  # noqa: F811
     """[syntax] Introduce local **syntactic** bindings.
 
     **Expression variant**::
@@ -659,12 +662,12 @@ def let_syntax(tree, **kw):
     return let_syntax_block(block_body=tree)
 
 @macros.expr
-def abbrev(tree, args, *, gen_sym, **kw):
+def abbrev(tree, args, *, gen_sym, **kw):  # noqa: F811
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
         yield _destructure_and_apply_let(tree, args, let_syntax_expr, allow_call_in_name_position=True)
 
-@macros.block
-def abbrev(tree, **kw):
+@macros.block  # noqa: F811
+def abbrev(tree, **kw):  # noqa: F811
     """[syntax] Exactly like ``let_syntax``, but expands in the first pass, outside in.
 
     Because this variant expands before any macros in the body, it can locally
@@ -689,7 +692,7 @@ def abbrev(tree, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.expr
-def forall(tree, **kw):
+def forall(tree, **kw):  # noqa: F811
     """[syntax, expr] Nondeterministic evaluation.
 
     Fully based on AST transformation, with real lexical variables.
@@ -711,7 +714,7 @@ def forall(tree, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.block
-def multilambda(tree, *, gen_sym, **kw):
+def multilambda(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, block] Supercharge your lambdas: multiple expressions, local variables.
 
     For all ``lambda`` lexically inside the ``with multilambda`` block,
@@ -746,7 +749,7 @@ def multilambda(tree, *, gen_sym, **kw):
         return (yield from _multilambda(block_body=tree))
 
 @macros.block
-def namedlambda(tree, **kw):
+def namedlambda(tree, **kw):  # noqa: F811
     """[syntax, block] Name lambdas implicitly.
 
     Lexically inside a ``with namedlambda`` block, any literal ``lambda``
@@ -787,7 +790,7 @@ def namedlambda(tree, **kw):
     return (yield from _namedlambda(block_body=tree))
 
 @macros.block
-def quicklambda(tree, **kw):
+def quicklambda(tree, **kw):  # noqa: F811
     """[syntax, block] Use ``macropy.quick_lambda`` with ``unpythonic.syntax``.
 
     To be able to transform correctly, the block macros in ``unpythonic.syntax``
@@ -820,7 +823,7 @@ def quicklambda(tree, **kw):
     return (yield from _quicklambda(block_body=tree))
 
 @macros.block
-def envify(tree, *, gen_sym, **kw):
+def envify(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, block] Make formal parameters live in an unpythonic env.
 
     The purpose is to allow overwriting formals using unpythonic's
@@ -846,7 +849,7 @@ def envify(tree, *, gen_sym, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.block
-def autoreturn(tree, **kw):
+def autoreturn(tree, **kw):  # noqa: F811
     """[syntax, block] Implicit "return" in tail position, like in Lisps.
 
     Each ``def`` function definition lexically within the ``with autoreturn``
@@ -906,7 +909,7 @@ def autoreturn(tree, **kw):
     return (yield from _autoreturn(block_body=tree))
 
 @macros.block
-def tco(tree, *, gen_sym, **kw):
+def tco(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, block] Implicit tail-call optimization (TCO).
 
     Examples::
@@ -1007,7 +1010,7 @@ def tco(tree, *, gen_sym, **kw):
         return (yield from _tco(block_body=tree))
 
 @macros.block
-def continuations(tree, *, gen_sym, **kw):
+def continuations(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, block] call/cc for Python.
 
     This allows saving the control state and then jumping back later
@@ -1407,7 +1410,7 @@ def continuations(tree, *, gen_sym, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.block
-def nb(tree, args, **kw):
+def nb(tree, args, **kw):  # noqa: F811
     """[syntax, block] Ultralight math notebook.
 
     Auto-print top-level expressions, auto-assign last result as _.
@@ -1431,11 +1434,11 @@ def nb(tree, args, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.expr
-def dbg(tree, **kw):
+def dbg(tree, **kw):  # noqa: F811
     return _dbg_expr(tree)
 
-@macros.block
-def dbg(tree, args, **kw):
+@macros.block  # noqa: F811
+def dbg(tree, args, **kw):  # noqa: F811
     """[syntax] Debug-print expressions including their source code.
 
     **Expression variant**:
@@ -1515,7 +1518,7 @@ def dbg(tree, args, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.block
-def lazify(tree, *, gen_sym, **kw):
+def lazify(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, block] Call-by-need for Python.
 
     In a ``with lazify`` block, function arguments are evaluated only when
@@ -1851,7 +1854,7 @@ def lazify(tree, *, gen_sym, **kw):
         return (yield from _lazify(body=tree))
 
 @macros.expr
-def lazyrec(tree, **kw):
+def lazyrec(tree, **kw):  # noqa: F811
     """[syntax, expr] Delay items in a container literal, recursively.
 
     Essentially, this distributes ``lazy[]`` into the items inside a literal
@@ -1893,7 +1896,7 @@ def lazyrec(tree, **kw):
 # -----------------------------------------------------------------------------
 
 @macros.block
-def prefix(tree, **kw):
+def prefix(tree, **kw):  # noqa: F811
     """[syntax, block] Write Python like Lisp: the first item is the operator.
 
     Example::
@@ -1968,6 +1971,6 @@ def prefix(tree, **kw):
     return (yield from _prefix(block_body=tree))
 
 # TODO: using some name other than "kw" would silence the IDE warnings.
-from .prefix import q, u, kw  # for re-export only
+from .prefix import q, u, kw  # for re-export only  # noqa: F401
 
 # -----------------------------------------------------------------------------

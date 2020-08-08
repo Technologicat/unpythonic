@@ -10,7 +10,7 @@ from ast import Call, Name, Tuple, keyword
 import inspect
 
 from macropy.core.quotes import macros, q, u, ast_literal
-from macropy.core.hquotes import macros, hq
+from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 from macropy.core import unparse
 

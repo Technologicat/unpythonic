@@ -6,7 +6,7 @@ Experimental, not for use in production code.
 
 from ast import Name, Call, Tuple, Load
 
-from macropy.core.quotes import macros, q, u, ast_literal
+from macropy.core.quotes import macros, q, u, ast_literal  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
 from .letdoutil import islet, isdo, UnexpandedLetView, UnexpandedDoView
@@ -78,14 +78,16 @@ def prefix(block_body):
     # not having to worry about tuples possibly denoting function calls.
     yield transform.recurse(block_body, quotelevel=0)
 
-# note the exported "q" is ours, but the q we use in this module is a macro.
-class q:
+# Note the exported "q" and "u" are ours, but the "q" and "u" we use in this
+# module are macros. The "q" and "u" we define here are regular run-time objects,
+# namely the stubs for the "q" and "u" markers used within a `prefix` block.
+class q:  # noqa: F811
     """[syntax] Quote operator. Only meaningful in a tuple in a prefix block."""
     def __repr__(self):  # in case one of these ends up somewhere at runtime
         return "<quote>"
 q = q()
 
-class u:
+class u:  # noqa: F811
     """[syntax] Unquote operator. Only meaningful in a tuple in a prefix block."""
     def __repr__(self):  # in case one of these ends up somewhere at runtime
         return "<unquote>"

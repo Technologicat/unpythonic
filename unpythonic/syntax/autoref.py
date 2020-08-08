@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """Implicitly reference attributes of an object."""
 
-from ast import Name, Assign, Load, Call, Lambda, With, Str, arg, \
-                Attribute, Subscript, Store, Del
+from ast import (Name, Assign, Load, Call, Lambda, With, Str, arg,
+                 Attribute, Subscript, Store, Del)
 
 from macropy.core.quotes import macros, q, u, name, ast_literal
-from macropy.core.hquotes import macros, hq
+from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
 from .util import wrapwith, AutorefMarker
@@ -98,10 +98,10 @@ def autoref(block_body, args, asname):
     # (lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))
     def isautoreference(tree):
         return type(tree) is Call and \
-                 len(tree.args) == 1 and type(tree.args[0]) is Call and \
-                   type(tree.args[0].func) is Name and tree.args[0].func.id == "_autoref_resolve" and \
-                 type(tree.func) is Lambda and len(tree.func.args.args) == 1 and \
-                   tree.func.args.args[0].arg.startswith("_ar")
+               len(tree.args) == 1 and type(tree.args[0]) is Call and \
+               type(tree.args[0].func) is Name and tree.args[0].func.id == "_autoref_resolve" and \
+               type(tree.func) is Lambda and len(tree.func.args.args) == 1 and \
+               tree.func.args.args[0].arg.startswith("_ar")
     def get_resolver_list(tree):  # (p, o, "x")
         return tree.args[0].args[0].elts
     def add_to_resolver_list(tree, objnode):

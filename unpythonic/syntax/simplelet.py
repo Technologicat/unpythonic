@@ -18,7 +18,7 @@ from macropy.core.quotes import macros, q, ast_literal
 
 from ast import arg
 
-macros = Macros()
+macros = Macros()  # noqa: F811
 
 @macros.expr
 def let(tree, args, **kw):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
@@ -47,7 +47,7 @@ def let(tree, args, **kw):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
         let((x, 1), (y, 2))[print(x, y)]
         # --> (lambda x, y: print(x, y))(1, 2)
     """
-    names  = [k.id for k, _ in (a.elts for a in args)]
+    names = [k.id for k, _ in (a.elts for a in args)]
     if len(set(names)) < len(names):
         assert False, "binding names must be unique in the same let"
     values = [v for _, v in (a.elts for a in args)]
