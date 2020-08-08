@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Automatic tail-call optimization (TCO)."""
 
-from ...syntax import macros, tco, autoreturn, curry, do, let, letseq, dletrec, \
-                      quicklambda, f, _, continuations, call_cc
+from ...syntax import (macros, tco, autoreturn, curry, do, let, letseq, dletrec,  # noqa: F401
+                       quicklambda, f, _, continuations, call_cc)
 
 from ...ec import call_ec
 from ...fploop import looped_over
@@ -36,35 +36,35 @@ def test():
         # works with lambdas
         def lamtest():
             evenp = lambda x: (x == 0) or oddp(x - 1)
-            oddp  = lambda x: (x != 0) and evenp(x - 1)
+            oddp = lambda x: (x != 0) and evenp(x - 1)
             assert evenp(10000) is True
         lamtest()
 
         # works with let constructs
-        @dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
-                 (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+        @dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821, `dletrec` defines `evenp` here.
+                 (oddp, lambda x: (x != 0) and evenp(x - 1)))  # noqa: F821
         def g(x):
             return evenp(x)
         assert g(9001) is False
 
         def g(x):
-            return let((y, 3*x))[y]
+            return let((y, 3 * x))[y]  # noqa: F821, `let` defines `y` here.
         assert g(10) == 30
 
         def h(x):
-            return let((y, 2*x))[g(y)]
+            return let((y, 2 * x))[g(y)]  # noqa: F821
         assert h(10) == 60
 
         def h(x):
-            return letseq((y, x),
-                          (y, y+1),
-                          (y, y+1))[g(y)]
+            return letseq((y, x),  # noqa: F821, `letseq` defines `y` here.
+                          (y, y + 1),  # noqa: F821
+                          (y, y + 1))[g(y)]  # noqa: F821
         assert h(10) == 36
 
     # test also lambdas with no surrounding def inside the "with tco" block
     with tco:
         evenp = lambda x: (x == 0) or oddp(x - 1)
-        oddp  = lambda x: (x != 0) and evenp(x - 1)
+        oddp = lambda x: (x != 0) and evenp(x - 1)
         assert evenp(10000) is True
 
     # test also with self-referring lambda
@@ -91,7 +91,7 @@ def test():
     # call_ec combo
     with tco:
         def g(x):
-            return 2*x
+            return 2 * x
 
         @call_ec
         def result(ec):
@@ -130,16 +130,16 @@ def test():
     # TODO: improve test to actually detect the tail call
     with quicklambda, tco:
         def g(x):
-            return 2*x
-        func1 = f[g(3*_)]  # tail call
+            return 2 * x
+        func1 = f[g(3 * _)]  # tail call
         assert func1(10) == 60
 
-        func2 = f[3*g(_)]  # no tail call
+        func2 = f[3 * g(_)]  # no tail call
         assert func2(10) == 60
 
     with tco:
         evenp = lambda x: (x == 0) or oddp(x - 1)
-        oddp  = lambda x: (x != 0) and evenp(x - 1)
+        oddp = lambda x: (x != 0) and evenp(x - 1)  # noqa: F811, the previous one is no longer used.
         assert evenp(10000) is True
 
         with continuations:  # should be skipped by tco, since this already has TCO

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Automatic currying."""
 
-from ...syntax import macros, curry
+from ...syntax import macros, curry  # noqa: F401
 
 from ...fold import foldr
 from ...fun import composerc as compose
@@ -21,21 +21,21 @@ def test():
         assert add3(1)(2, 3) == 6
         assert add3(1, 2, 3) == 6
 
-#        # NOTE: because builtins cannot be inspected, curry just no-ops on them.
-#        # So this won't work:
-#        # v0.10.2: Workaround added for top-level builtins. Now this works.
-#        from operator import add
-#        try:
-#            f = add(1)
-#            assert f(2) == 3
-#        except TypeError:
-#            pass
-#        else:
-#            assert False, "update documentation"
-#        # In cases like this, make a wrapper:
-#        myadd = lambda a, b: add(a, b)
-#        f = myadd(1)
-#        assert f(2) == 3
+        # # NOTE: because builtins cannot be inspected, curry just no-ops on them.
+        # # So this won't work:
+        # # v0.10.2: Workaround added for top-level builtins. Now this works.
+        # from operator import add
+        # try:
+        #     f = add(1)
+        #     assert f(2) == 3
+        # except TypeError:
+        #     pass
+        # else:
+        #     assert False, "update unpythonic documentation"
+        # # In cases like this, make a wrapper:
+        # myadd = lambda a, b: add(a, b)
+        # f = myadd(1)
+        # assert f(2) == 3
 
         def stuffinto(lst, x):
             lst.append(x)  # uninspectable, currycall should no-op and pass the given args through as-is
@@ -68,7 +68,7 @@ def test():
         from unpythonic.tco import trampolined, jump
         from unpythonic.fun import withself
         fact = trampolined(withself(curry(lambda self, n, acc=1:
-                                    acc if n == 0 else jump(self, n - 1, n * acc))))
+                                          acc if n == 0 else jump(self, n - 1, n * acc))))
         assert fact(5) == 120
 
     # dict_items handling in mogrify

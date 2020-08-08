@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Continuations (call/cc for Python)."""
 
-from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, curry
+from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, curry  # noqa: F401
 
 from ...ec import call_ec
 from ...fploop import looped
@@ -23,7 +23,7 @@ def test():
         # The cc arg must be declared as the last one that has no default value,
         # or declared as by-name-only. It's always passed by name.
         def f(a, b, cc):
-            return 2*a, 3*b
+            return 2 * a, 3 * b
         assert f(3, 4) == (6, 12)
         x, y = f(3, 4)
         assert x == 6 and y == 12
@@ -102,7 +102,7 @@ def test():
     # call_ec combo
     with continuations:
         def g(x, cc):
-            return 2*x
+            return 2 * x
 
         @call_ec
         def result(ec):
@@ -179,7 +179,7 @@ def test():
     # same, with multiple-return-values and a starred assignment target
     with continuations:
         k = None  # kontinuation
-        def setk(*args, cc):
+        def setk(*args, cc):  # noqa: F811, the previous one is no longer used.
             nonlocal k
             k = cc  # current continuation, i.e. where to go after setk() finishes
             return args  # tuple means multiple-return-values
@@ -200,7 +200,7 @@ def test():
     vals = 1, 2
     with continuations:
         k = None
-        def setk(*args, cc):
+        def setk(*args, cc):  # noqa: F811, the previous one is no longer used.
             nonlocal k
             k = cc
             return args  # tuple return value (if not literal, tested at run-time) --> multiple-values
@@ -210,9 +210,9 @@ def test():
     # in continuation-enabled mode.
     with continuations:
         vals = 3, 4
-        assert k(*vals) == None
+        assert k(*vals) is None
         vals = 5, 6
-        assert k(*vals) == None
+        assert k(*vals) is None
 
     # multilambda combo
     with multilambda, continuations:
@@ -355,7 +355,7 @@ def test():
         assert fail() == 22
         assert fail() == 13
         assert fail() == 23
-        assert fail() == None
+        assert fail() is None
 
         def doit2():
             c1 = call_cc[amb((1, 2, 3))]
@@ -364,14 +364,14 @@ def test():
                 return fail()
             return c1, c2
         assert doit2() == (2, 20)
-        assert fail() == None
+        assert fail() is None
 
     # Pythagorean triples, pythonic way (to generate a reference solution)
     def pt_gen(maxn):
-        for z in range(1, maxn+1):
-            for y in range(1, z+1):
-                for x in range(1, y+1):
-                    if x*x + y*y != z*z:
+        for z in range(1, maxn + 1):
+            for y in range(1, z + 1):
+                for x in range(1, y + 1):
+                    if x * x + y * y != z * z:
                         continue
                     yield x, y, z
     pts = list(pt_gen(20))
@@ -383,12 +383,12 @@ def test():
             # This generates 1540 combinations, with several nested tail-calls each,
             # so we really need TCO here. (Without TCO, nothing would return until
             # the whole computation is done; it would blow the call stack very quickly.)
-            z = call_cc[amb(range(1, maxn+1))]
-            y = call_cc[amb(range(1, z+1))]
-            x = call_cc[amb(range(1, y+1))]
+            z = call_cc[amb(range(1, maxn + 1))]
+            y = call_cc[amb(range(1, z + 1))]
+            x = call_cc[amb(range(1, y + 1))]
             nonlocal count
             count += 1
-            if x*x + y*y != z*z:
+            if x * x + y * y != z * z:
                 return fail()
             return x, y, z
         out = []
@@ -403,7 +403,7 @@ def test():
 #     with curry:  # major slowdown, but works; must be in a separate "with"  # TODO: why separate?  https://github.com/azazel75/macropy/issues/21
     with autoreturn, continuations:
         stack = []
-        def amb(lst, cc):
+        def amb(lst, cc):  # noqa: F811, the previous one is no longer used.
             if lst:
                 first, *rest = tuple(lst)
                 if rest:
@@ -418,10 +418,10 @@ def test():
                 f()
 
         def pt(maxn):
-            z = call_cc[amb(range(1, maxn+1))]
-            y = call_cc[amb(range(1, z+1))]
-            x = call_cc[amb(range(1, y+1))]
-            if x*x + y*y == z*z:
+            z = call_cc[amb(range(1, maxn + 1))]
+            y = call_cc[amb(range(1, z + 1))]
+            x = call_cc[amb(range(1, y + 1))]
+            if x * x + y * y == z * z:
                 x, y, z
             else:
                 fail()
@@ -493,7 +493,7 @@ def test():
         assert tuple(out) == tuple(range(11))
         assert s == 10
         s = k()
-        assert tuple(out) == 2*tuple(range(11))
+        assert tuple(out) == 2 * tuple(range(11))
         assert s == 10
 
     # To eliminate the passing of acc into setk, let's use a closure:
@@ -514,7 +514,7 @@ def test():
         assert tuple(out) == tuple(range(11))
         assert s == 10
         s = k()
-        assert tuple(out) == 2*tuple(range(11))
+        assert tuple(out) == 2 * tuple(range(11))
         assert s == 10
 
     # conditional call_cc[f(...) if p else g(...)]
@@ -536,7 +536,7 @@ def test():
         assert tuple(out) == tuple(range(11))
         assert s == 10
         s = k()
-        assert tuple(out) == 2*tuple(range(11))
+        assert tuple(out) == 2 * tuple(range(11))
         assert s == 10
 
     print("All tests PASSED")

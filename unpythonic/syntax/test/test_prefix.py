@@ -6,7 +6,7 @@
 # Use "with show_expanded:" to see what it did.
 #from macropy.tracing import macros, show_expanded
 
-from ...syntax import macros, prefix, q, u, kw, curry, let, do
+from ...syntax import macros, prefix, q, u, kw, curry, let, do  # noqa: F401
 
 from ...fold import foldr
 from ...fun import composerc as compose, apply
@@ -55,9 +55,9 @@ def test():
             return args + tuple(sorted(kwargs.items()))
         assert (apply, g, lst) == (q, 1, 2, 3)
         # lst goes last; may have other args first
-        assert (apply, g, "hi", "ho", lst) == (q, "hi" ,"ho", 1, 2, 3)
+        assert (apply, g, "hi", "ho", lst) == (q, "hi", "ho", 1, 2, 3)
         # named args in apply are also fine
-        assert (apply, g, "hi", "ho", lst, kw(myarg=4)) == (q, "hi" ,"ho", 1, 2, 3, ('myarg', 4))
+        assert (apply, g, "hi", "ho", lst, kw(myarg=4)) == (q, "hi", "ho", 1, 2, 3, ('myarg', 4))
 
         # Function call transformation only applies to tuples in load context
         # (i.e. NOT on the LHS of an assignment)
@@ -72,7 +72,7 @@ def test():
 
         # but the RHSs of the bindings are transformed normally:
         def double(x):
-            return 2*x
+            return 2 * x
         a = let((x, (double, 21)))[x << x + 1]
         assert a == 43
 

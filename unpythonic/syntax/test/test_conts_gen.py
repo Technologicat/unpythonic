@@ -18,23 +18,23 @@ See also the Racket version of this:
     https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt
 """
 
-from ...syntax import macros, continuations, call_cc, dlet, abbrev, let_syntax, block
+from ...syntax import macros, continuations, call_cc, dlet, abbrev, let_syntax, block  # noqa: F401
 
 from ...fploop import looped
 from ...fun import identity
 
-from macropy.tracing import macros, show_expanded
+#from macropy.tracing import macros, show_expanded  # noqa: F811, F401
 
 def test():
     # a basic generator
     with continuations:
         # logic to resume after the last executed my_yield, if any
-        @dlet((k, None))
+        @dlet((k, None))  # noqa: F821, dlet defines the name.
         def g():
-            if k:
-                return k()
+            if k:  # noqa: F821
+                return k()  # noqa: F821
             def my_yield(value, cc):
-                k << cc
+                k << cc  # noqa: F821
                 cc = identity
                 return value
             # generator body
@@ -53,19 +53,19 @@ def test():
     #   otherwise we get stuck in an infinite loop.
     with continuations:
         # logic to resume after the last executed my_yield, if any
-        @dlet((k, None))
+        @dlet((k, None))  # noqa: F821
         def g():
-            if k:
-                return k()
+            if k:  # noqa: F821
+                return k()  # noqa: F821
             def my_yield(value, cc):
-                k << cc
+                k << cc  # noqa: F821
                 cc = identity
                 return value
             # generator body
             @looped
             def result(loop, i=0):
                 call_cc[my_yield(i)]
-                return loop(i+1)
+                return loop(i + 1)
             # To actually return the value when the yield escapes, pass it along.
             #
             # Recall that my_yield effectively returns a value, the normal way,
@@ -92,18 +92,18 @@ def test():
         # not part of the template (since we splice in stuff that is intended to
         # refer to the "k" in the @dlet env). So use abbrev[] instead of let_syntax[].
         with abbrev:
-            with block(value) as my_yield:
-                call_cc[my_yieldf(value)]  # for this to work, abbrev[] must eliminate its "if 1" blocks.
+            with block(value) as my_yield:  # noqa: F821, here `abbrev` defines the name `value` when we call `my_yield`.
+                call_cc[my_yieldf(value)]  # for this to work, abbrev[] must eliminate its "if 1" blocks.  # noqa: F821, my_yieldf will be defined below and this is a macro.
             with block as begin_generator_body:
                 # logic to resume after the last executed my_yield, if any
-                if k:
-                    return k()
+                if k:  # noqa: F821
+                    return k()  # noqa: F821
                 def my_yieldf(value, cc):
-                    k << cc
+                    k << cc  # noqa: F821
                     cc = identity
                     return value
 
-            @dlet((k, None))  # <-- we must still remember this line
+            @dlet((k, None))  # <-- we must still remember this line  # noqa: F821
             def g():
                 begin_generator_body
                 my_yield(1)
@@ -123,19 +123,19 @@ def test():
         # and the user code (generator body) doesn't refer to k directly.
         # (So "k" can be resolved lexically *in the input source code that goes to dlet[]*.)
         with let_syntax:
-            with block(value) as my_yield:
-                call_cc[my_yieldf(value)]  # for this to work, let_syntax[] must eliminate its "if 1" blocks.
-            with block(myname, body) as make_generator:
-                @dlet((k, None))
+            with block(value) as my_yield:  # noqa: F821
+                call_cc[my_yieldf(value)]  # for this to work, let_syntax[] must eliminate its "if 1" blocks.  # noqa: F821
+            with block(myname, body) as make_generator:  # noqa: F821, `let_syntax` defines `myname` and `body` when we call `make_generator`.
+                @dlet((k, None))  # noqa: F821
                 def myname():  # replaced by the user-supplied name, since "myname" is a template parameter.
                     # logic to resume after the last executed my_yield, if any
-                    if k:
-                        return k()
+                    if k:  # noqa: F821
+                        return k()  # noqa: F821
                     def my_yieldf(value, cc):
-                        k << cc
+                        k << cc  # noqa: F821
                         cc = identity
                         return value
-                    body
+                    body  # noqa: F821
 
             # We must define the body as an abbrev block to give it a name,
             # because template arguments must be expressions (and a name is,
@@ -161,15 +161,15 @@ def test():
                 @looped
                 def result(loop, i=0):
                     my_yield(i)
-                    return loop(i+1)
+                    return loop(i + 1)
                 return result
-            make_generator(g2, mybody2)
+            make_generator(g2, mybody2)  # noqa: F821, the name `g2` is used by `make_generator` (see above) to name the generator being created.
 
             out = []
-            x = g2()
+            x = g2()  # noqa: F821
             while x < 10:
                 out.append(x)
-                x = g2()
+                x = g2()  # noqa: F821
             assert out == list(range(10))
 
     # Unfortunately, this is as far as let_syntax[] gets us; if we wanted to

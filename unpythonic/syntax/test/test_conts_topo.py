@@ -6,7 +6,7 @@ For pictures, see ``doc/callcc_topology.pdf`` in the source distribution.
 
 from inspect import stack
 
-from ...syntax import macros, continuations, call_cc
+from ...syntax import macros, continuations, call_cc  # noqa: F401
 
 def me():
     """Return the caller's function name."""
@@ -30,7 +30,7 @@ def test():
     # sequence of continuations
     with continuations:
         out = []
-        def g(cc):
+        def g(cc):  # noqa: F811, the previous one is no longer used.
             out.append(me())
         def h(cc):
             out.append(me())
@@ -46,9 +46,9 @@ def test():
     # nested continuations, case 1 (left in the picture)
     with continuations:
         out = []
-        def h(cc):
+        def h(cc):  # noqa: F811, the previous one is no longer used.
             out.append(me())
-        def g(cc):
+        def g(cc):  # noqa: F811, the previous one is no longer used.
             out.append(me())
             call_cc[h()]
             out.append(me())
@@ -82,9 +82,9 @@ def test():
     # nested continuations, case 2b, call_cc in f1
     with continuations:
         out = []
-        def w(cc):
+        def w(cc):  # noqa: F811, the previous one is no longer used.
             out.append(me())
-        def v(cc):
+        def v(cc):  # noqa: F811, the previous one is no longer used.
             out.append(me())
             call_cc[w()]
             out.append(me())
@@ -101,11 +101,11 @@ def test():
     with continuations:
         out = []
         k = None
-        def h(cc):
+        def h(cc):  # noqa: F811, the previous one is no longer used.
             nonlocal k
             k = cc
             out.append(me())
-        def g(cc):
+        def g(cc):  # noqa: F811, the previous one is no longer used.
             out.append(me())
             call_cc[h()]
             out.append(me())  # g_cont1
@@ -118,7 +118,7 @@ def test():
     # confetti 1a - call_cc'ing into a saved continuation
     with continuations:
         out = []
-        def v():
+        def v():  # noqa: F811, the previous one is no longer used.
             out.append(me())
             call_cc[k()]
             out.append(me())

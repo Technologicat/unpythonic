@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Implicit return statements."""
 
-from ...syntax import macros, autoreturn
+from ...syntax import macros, autoreturn  # noqa: F401
 
 from ...env import env
 
@@ -40,7 +40,7 @@ def test():
             except ValueError:
                 "error"  # there's a tail position in each "except" clause
             else:  # if an "else" clause is present in a try, the tail position of the main path is there
-                2*x
+                2 * x
         assert h(10) == 20
         assert h(1) == "error"
 

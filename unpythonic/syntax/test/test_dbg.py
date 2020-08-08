@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ...syntax import macros, dbg
+from ...syntax import macros, dbg  # noqa: F401
 from ...misc import call
 
 def test():
@@ -41,7 +41,7 @@ def test():
     # local customized dbgprint_expr.
     @call
     def just_a_scope():
-        dbgprint_expr = lambda *args, **kwargs: args
+        dbgprint_expr = lambda *args, **kwargs: args  # noqa: F841, the `dbg[]` macro implicitly uses `dbgprint_expr`.
         x = dbg[2 + 3]
         assert x == ("(2 + 3)", 5)
 

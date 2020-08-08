@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Using continuations as an escape mechanism."""
 
-from ...syntax import macros, tco, continuations, call_cc
+from ...syntax import macros, tco, continuations, call_cc  # noqa: F401
 from ...ec import call_ec
 
 def test():
@@ -9,15 +9,15 @@ def test():
     def double_odd(x, ec):
         if x % 2 == 0:  # reject even "x"
             ec("not odd")
-        return 2*x
+        return 2 * x
     @call_ec
     def result1(ec):
-        y = double_odd(42, ec)
+        y = double_odd(42, ec)  # noqa: F841, this is just a silly example for testing.
         z = double_odd(21, ec)
         return z
     @call_ec
     def result2(ec):
-        y = double_odd(21, ec)
+        y = double_odd(21, ec)  # noqa: F841, this is just a silly example for testing.
         z = double_odd(42, ec)
         return z
     assert result1 == "not odd"
@@ -25,18 +25,18 @@ def test():
 
     # should work also in a "with tco" block
     with tco:
-        def double_odd(x, ec):
+        def double_odd(x, ec):  # noqa: F811, the previous one is no longer used.
             if x % 2 == 0:  # reject even "x"
                 ec("not odd")
-            return 2*x
+            return 2 * x
         @call_ec
         def result1(ec):
-            y = double_odd(42, ec)
+            y = double_odd(42, ec)  # noqa: F841, this is just a silly example for testing.
             z = double_odd(21, ec)  # avoid tail-calling because ec is not valid after result1() exits
             return z
         @call_ec
         def result2(ec):
-            y = double_odd(21, ec)
+            y = double_odd(21, ec)  # noqa: F841, this is just a silly example for testing.
             z = double_odd(42, ec)
             return z
         assert result1 == "not odd"
@@ -44,18 +44,18 @@ def test():
 
     # can we do this using the **continuations** machinery?
     with continuations:
-        def double_odd(x, ec, cc):
+        def double_odd(x, ec, cc):  # noqa: F811, the previous one is no longer used.
             if x % 2 == 0:
-                cc = ec  # try to escape by overriding cc...
+                cc = ec  # try to escape by overriding cc...  # noqa: F841
                 return "not odd"
-            return 2*x
+            return 2 * x
         def main1(cc):
             # cc actually has a default, so it's ok to not pass anything as cc here.
-            y = double_odd(42, ec=cc)  # y = "not odd"
+            y = double_odd(42, ec=cc)  # y = "not odd"  # noqa: F841, this is just a silly example for testing.
             z = double_odd(21, ec=cc)  # we could tail-call, but let's keep this similar to the first example.
             return z
         def main2(cc):
-            y = double_odd(21, ec=cc)
+            y = double_odd(21, ec=cc)  # noqa: F841, this is just a silly example for testing.
             z = double_odd(42, ec=cc)
             return z
         # ...but no call_cc[] anywhere, so cc is actually always
@@ -65,17 +65,17 @@ def test():
 
     # to fix that, let's call_cc[]:
     with continuations:
-        def double_odd(x, ec, cc):
+        def double_odd(x, ec, cc):  # noqa: F811, the previous one is no longer used.
             if x % 2 == 0:
-                cc = ec  # escape by overriding cc (now it works!)
+                cc = ec  # escape by overriding cc (now it works!)  # noqa: F841
                 return "not odd"
-            return 2*x
+            return 2 * x
         def main1(cc):
-            y = call_cc[double_odd(42, ec=cc)]
+            y = call_cc[double_odd(42, ec=cc)]  # noqa: F841, this is just a silly example for testing.
             z = call_cc[double_odd(21, ec=cc)]
             return z
         def main2(cc):
-            y = call_cc[double_odd(21, ec=cc)]
+            y = call_cc[double_odd(21, ec=cc)]  # noqa: F841, this is just a silly example for testing.
             z = call_cc[double_odd(42, ec=cc)]
             return z
         # call_cc[] captures the actual cont, so now this works as expected.
@@ -89,16 +89,16 @@ def test():
     # We can just as well use a tail-call, optimizing away a redundant
     # continuation capture:
     with continuations:
-        def double_odd(x, ec, cc):
+        def double_odd(x, ec, cc):  # noqa: F811, the previous one is no longer used
             if x % 2 == 0:
-                cc = ec
+                cc = ec  # noqa: F841
                 return "not odd"
-            return 2*x
+            return 2 * x
         def main1(cc):
-            y = call_cc[double_odd(42, ec=cc)]
+            y = call_cc[double_odd(42, ec=cc)]  # noqa: F841, this is just a silly example for testing.
             return double_odd(21, ec=cc)  # tail call, no further code to run in main1 so no call_cc needed.
         def main2(cc):
-            y = call_cc[double_odd(21, ec=cc)]
+            y = call_cc[double_odd(21, ec=cc)]  # noqa: F841, this is just a silly example for testing.
             return double_odd(42, ec=cc)
         assert main1() == "not odd"
         assert main2() == "not odd"

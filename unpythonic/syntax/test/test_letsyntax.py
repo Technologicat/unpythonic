@@ -11,7 +11,7 @@
 # At runtime (after macro expansion), let_syntax has zero performance overhead.
 #from macropy.tracing import macros, show_expanded
 
-from ...syntax import macros, let_syntax, abbrev, block, expr, where
+from ...syntax import macros, let_syntax, abbrev, block, expr, where  # noqa: F401
 
 def test():
     # expression variant
@@ -20,30 +20,30 @@ def test():
         nonlocal evaluations
         evaluations += 1
         return x
-    y = let_syntax((f, verylongfunctionname))[[  # extra brackets: implicit do
-                     f(),
-                     f(5)]]
+    y = let_syntax((f, verylongfunctionname))[[  # extra brackets: implicit do  # noqa: F821, `let_syntax` defines `f` here.
+                     f(),  # noqa: F821
+                     f(5)]]  # noqa: F821
     assert evaluations == 2
     assert y == 5
 
     # haskelly syntax
-    y = let_syntax[((f, verylongfunctionname))
-                   in [f(),
-                       f(17)]]
+    y = let_syntax[((f, verylongfunctionname))  # noqa: F821
+                   in [f(),  # noqa: F821
+                       f(17)]]  # noqa: F821
     assert evaluations == 4
     assert y == 17
 
-    y = let_syntax[[f(),
-                    f(23)],
-              where((f, verylongfunctionname))]
+    y = let_syntax[[f(),  # noqa: F821
+                    f(23)],  # noqa: F821
+                   where((f, verylongfunctionname))]  # noqa: F821
     assert evaluations == 6
     assert y == 23
 
     # templates
     #   - positional parameters only, no default values
-    y = let_syntax((f(a), verylongfunctionname(2*a)))[[
-                     f(2),
-                     f(3)]]
+    y = let_syntax((f(a), verylongfunctionname(2 * a)))[[  # noqa: F821
+                     f(2),  # noqa: F821
+                     f(3)]]  # noqa: F821
     assert evaluations == 8
     assert y == 6
 
@@ -78,12 +78,12 @@ def test():
         assert snd == 5
 
     with let_syntax:
-        with block(a, b, c) as makeabc:  # block template - parameters are expressions
-            lst = [a, b, c]
+        with block(a, b, c) as makeabc:  # block template - parameters are expressions  # noqa: F821, `let_syntax` defines `a`, `b`, `c` when we call `makeabc`.
+            lst = [a, b, c]  # noqa: F821
         makeabc(3 + 4, 2**3, 3 * 3)
         assert lst == [7, 8, 9]
-        with expr(n) as nth:  # single-expression template
-            lst[n]
+        with expr(n) as nth:  # single-expression template  # noqa: F821, `let_syntax` defines `n` when we call `nth`.
+            lst[n]  # noqa: F821
         assert nth(2) == 9
 
     # blocks may refer to ones defined previously in the same let_syntax
@@ -95,7 +95,7 @@ def test():
             append123
             append123
         maketwo123s
-        assert lst == [1, 2, 3]*2
+        assert lst == [1, 2, 3] * 2
 
     # lexical scoping
     with let_syntax:
@@ -123,55 +123,55 @@ def test():
         with block as append456:
             lst += [4, 5, 6]
         # template - applied before any barenames
-        with block(a) as twice:
-            a
-            a
+        with block(a) as twice:  # noqa: F821
+            a  # noqa: F821
+            a  # noqa: F821
         lst = []
         twice(append123)  # name of a barename substitution as a parameter
-        assert lst == [1, 2, 3]*2
+        assert lst == [1, 2, 3] * 2
         lst = []
         twice(append456)
-        assert lst == [4, 5, 6]*2
+        assert lst == [4, 5, 6] * 2
 
     with let_syntax:
         # in this example, both substitutions are templates, so they must be
         # defined in the same order they are meant to be applied.
-        with block(a) as twice:
-            a
-            a
-        with block(x, y, z) as appendxyz:
-            lst += [x, y, z]
+        with block(a) as twice:  # noqa: F821
+            a  # noqa: F821
+            a  # noqa: F821
+        with block(x, y, z) as appendxyz:  # noqa: F821
+            lst += [x, y, z]  # noqa: F821
         lst = []
         # template substitution invoked in a parameter
         twice(appendxyz(7, 8, 9))  # a call is an expression, so as long as not yet expanded, this is ok
-        assert lst == [7, 8, 9]*2
+        assert lst == [7, 8, 9] * 2
 
     # abbrev: like let_syntax, but expands in the first pass, outside in
     #   - no lexically scoped nesting
     #   - but can locally rename also macros (since abbrev itself expands before its body)
-    y = abbrev((f, verylongfunctionname))[[
-                 f(),
-                 f(5)]]
+    y = abbrev((f, verylongfunctionname))[[  # noqa: F821
+                 f(),  # noqa: F821
+                 f(5)]]  # noqa: F821
     assert y == 5
 
     # haskelly syntax
-    y = abbrev[((f, verylongfunctionname))
-               in [f(),
-                   f(17)]]
+    y = abbrev[((f, verylongfunctionname))  # noqa: F821
+               in [f(),  # noqa: F821
+                   f(17)]]  # noqa: F821
     assert y == 17
 
-    y = abbrev[[f(),
-                f(23)],
-          where((f, verylongfunctionname))]
+    y = abbrev[[f(),  # noqa: F821
+                f(23)],  # noqa: F821
+               where((f, verylongfunctionname))]  # noqa: F821
     assert y == 23
 
     # in abbrev, outer expands first, so in the assert,
     #     f -> longishname -> verylongfunctionname
     with abbrev:
         with expr as f:
-            longishname
+            longishname  # noqa: F821
         with abbrev:
-            with expr as longishname:
+            with expr as longishname:  # noqa: F841
                 verylongfunctionname
             assert f(10) == 10
 

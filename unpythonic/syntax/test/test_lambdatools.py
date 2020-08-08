@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """Multi-expression lambdas with implicit do; named lambdas."""
 
-from ...syntax import macros, multilambda, namedlambda, quicklambda, f, _, \
-                      envify, local, let, curry, autoreturn
+from ...syntax import (macros, multilambda, namedlambda, quicklambda, f, _,  # noqa: F401
+                       envify, local, let, curry, autoreturn)
 
 from functools import wraps
 
-# not really redefining "curry", the first one went into MacroPy's macro registry
-# (although this does mean the docstring of the macro will not be accessible from here)
-from ...fun import withself, curry
+# Not really redefining "curry". The first one went into MacroPy's macro registry,
+# and this one is a regular run-time function.
+# (Although this does mean the docstring of the macro will not be accessible from here.)
+from ...fun import withself, curry  # noqa: F811
 from ...tco import trampolined, jump
 from ...fploop import looped_over
 
@@ -18,23 +19,23 @@ def test():
         echo = lambda x: [print(x), x]
         assert echo("hi there") == "hi there"
 
-        count = let((x, 0))[
-                  lambda: [x << x + 1,
-                           x]]  # redundant, but demonstrating multi-expr body.
+        count = let((x, 0))[  # noqa: F821, the `let` macro defines `x` here.
+                  lambda: [x << x + 1,  # noqa: F821
+                           x]]  # redundant, but demonstrating multi-expr body.  # noqa: F821
         assert count() == 1
         assert count() == 2
 
-        test = let((x, 0))[
-                 lambda: [x << x + 1,      # x belongs to the surrounding let
-                          local[y << 42],  # y is local to the implicit do
-                          (x, y)]]
+        test = let((x, 0))[  # noqa: F821
+                 lambda: [x << x + 1,      # x belongs to the surrounding let  # noqa: F821
+                          local[y << 42],  # y is local to the implicit do  # noqa: F821
+                          (x, y)]]  # noqa: F821
         assert test() == (1, 42)
         assert test() == (2, 42)
 
         myadd = lambda x, y: [print("myadding", x, y),
-                              local[tmp << x + y],
-                              print("result is", tmp),
-                              tmp]
+                              local[tmp << x + y],  # noqa: F821, `local[]` defines the name on the LHS of the `<<`.
+                              print("result is", tmp),  # noqa: F821
+                              tmp]  # noqa: F821
         assert myadd(2, 3) == 5
 
         # only the outermost set of brackets denote a multi-expr body:
@@ -44,14 +45,14 @@ def test():
     with namedlambda:
         f1 = lambda x: x**3                      # assignment: name as "f1"
         assert f1.__name__ == "f1"
-        gn, hn = let((x, 42), (g, None), (h, None))[[
-                       g << (lambda x: x**2),    # env-assignment: name as "g"
-                       h << f1,                  # still "f1" (RHS is not a literal lambda)
-                       (g.__name__, h.__name__)]]
+        gn, hn = let((x, 42), (g, None), (h, None))[[  # noqa: F821
+                       g << (lambda x: x**2),               # env-assignment: name as "g"  # noqa: F821
+                       h << f1,                        # still "f1" (RHS is not a literal lambda)  # noqa: F821
+                       (g.__name__, h.__name__)]]      # noqa: F821
         assert gn == "g"
         assert hn == "f1"
 
-        foo = let[(f7, lambda x: x) in f7]       # let-binding: name as "f7"
+        foo = let[(f7, lambda x: x) in f7]       # let-binding: name as "f7"  # noqa: F821
         assert foo.__name__ == "f7"
 
         # function call with named arg
@@ -123,7 +124,7 @@ def test():
     # presence of autocurry should not confuse the first-pass output
     with namedlambda:
         with curry:
-            foo = let[(f7, None) in f7 << (lambda x: x)]
+            foo = let[(f7, None) in f7 << (lambda x: x)]  # noqa: F821
             assert foo.__name__ == "f7"
 
             f6 = mypardeco(2, 3, lambda x: x**2)
@@ -147,9 +148,9 @@ def test():
         assert result == 45
 
     with quicklambda, multilambda:
-        func = f[[local[x << _],
-                  local[y << _],
-                  x + y]]
+        func = f[[local[x << _],  # noqa: F821, F823, `quicklambda` implicitly defines `f[]` to mean `lambda`.
+                  local[y << _],  # noqa: F821
+                  x + y]]  # noqa: F821
         assert func(1, 2) == 3
 
     # formal parameters as an unpythonic env
@@ -164,7 +165,7 @@ def test():
             assert x == 3
             del x
             try:
-                x  # IDE complains about undefined name (correctly); that's the whole point of this test
+                x  # noqa: F821, the undefined name is the whole point of this test
             except AttributeError:  # note it's AttributeError since it's in an env
                 pass
             else:
@@ -175,7 +176,7 @@ def test():
     # We just use a different target for the store.
     with envify:
         def foo(n):
-            a, *n, b = (1, 2, 3, 4, 5)
+            a, *n, b = (1, 2, 3, 4, 5)  # noqa: F841, `a` and `b` are unused, this is just a silly test.
             assert n == [2, 3, 4]
         foo(10)
 
