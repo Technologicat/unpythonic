@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from ..arity import arities, required_kwargs, optional_kwargs, kwargs, \
-                    resolve_bindings, tuplify_bindings
+from ..arity import (arities, required_kwargs, optional_kwargs, kwargs,
+                     resolve_bindings, tuplify_bindings)
 
 def test():
     _ = None  # just some no-op value

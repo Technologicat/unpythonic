@@ -5,8 +5,10 @@ from ...misc import raisef
 from ...it import flatten
 from ...collections import frozendict
 
-from ...syntax import macros, lazify, lazyrec, let, letseq, letrec, curry, local, \
-                              continuations, call_cc
+from ...syntax import (macros, lazify, lazyrec,
+                       let, letseq, letrec, local,
+                       curry,
+                       continuations, call_cc)
 from ...syntax import force
 
 # Doesn't really override the earlier curry import. The first one went into

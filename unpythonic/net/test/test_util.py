@@ -2,8 +2,7 @@
 
 from .fixtures import nettest
 
-from ..util import recvall, \
-                   netstringify
+from ..util import recvall, netstringify
 
 def test():
     assert netstringify(b"hello world") == b"11:hello world,"
