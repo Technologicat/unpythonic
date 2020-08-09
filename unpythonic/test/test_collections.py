@@ -4,8 +4,8 @@ from collections.abc import Mapping, MutableMapping, Hashable, Container, Iterab
 from pickle import dumps, loads
 import threading
 
-from ..collections import box, ThreadLocalBox, Some, Shim, unbox, \
-                          frozendict, view, roview, ShadowedSequence, mogrify
+from ..collections import (box, ThreadLocalBox, Some, Shim, unbox,
+                           frozendict, view, roview, ShadowedSequence, mogrify)
 from ..fold import foldr
 
 def test():

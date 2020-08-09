@@ -8,9 +8,9 @@ from queue import Queue
 from time import sleep
 import threading
 
-from ..misc import call, callwith, raisef, pack, namelambda, timer, \
-                   getattrrec, setattrrec, Popper, CountingIterator, ulp, slurp, \
-                   async_raise
+from ..misc import (call, callwith, raisef, pack, namelambda, timer,
+                    getattrrec, setattrrec, Popper, CountingIterator, ulp, slurp,
+                    async_raise)
 from ..fun import withself
 
 def test():

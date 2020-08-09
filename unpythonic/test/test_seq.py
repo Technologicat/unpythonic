@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from ..seq import begin, begin0, lazy_begin, lazy_begin0, \
-                  pipe1, pipe, pipec, \
-                  piped1, piped, exitpipe, \
-                  lazy_piped1, lazy_piped, \
-                  do, do0, assign
+from ..seq import (begin, begin0, lazy_begin, lazy_begin0,
+                   pipe1, pipe, pipec,
+                   piped1, piped, exitpipe,
+                   lazy_piped1, lazy_piped,
+                   do, do0, assign)
 
 from ..ec import call_ec
 

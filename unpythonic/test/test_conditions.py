@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from ..conditions import signal, find_restart, invoke, invoker, use_value, \
-    restarts, with_restarts, handlers, \
-    available_restarts, available_handlers, \
-    error, cerror, proceed, \
-    warn, muffle, \
-    ControlError
+from ..conditions import (signal, find_restart, invoke, invoker, use_value,
+                          restarts, with_restarts, handlers,
+                          available_restarts, available_handlers,
+                          error, cerror, proceed,
+                          warn, muffle,
+                          ControlError)
 from ..misc import raisef, slurp
 from ..collections import box, unbox
 

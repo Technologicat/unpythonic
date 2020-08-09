@@ -2,13 +2,13 @@
 
 from collections import Counter
 
-from ..fun import memoize, curry, apply, \
-                  identity, const, \
-                  andf, orf, notf, \
-                  flip, rotate, \
-                  composel1, composer1, composel, composer, \
-                  to1st, to2nd, tolast, to, \
-                  withself
+from ..fun import (memoize, curry, apply,
+                   identity, const,
+                   andf, orf, notf,
+                   flip, rotate,
+                   composel1, composer1, composel, composer,
+                   to1st, to2nd, tolast, to,
+                   withself)
 
 from ..dynassign import dyn
 

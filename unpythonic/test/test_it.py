@@ -6,24 +6,24 @@ from operator import add, itemgetter
 from collections import deque
 from math import cos, sqrt
 
-from ..it import map, mapr, rmap, zipr, rzip, \
-                 map_longest, mapr_longest, rmap_longest, \
-                 zip_longest, zipr_longest, rzip_longest, \
-                 first, second, nth, last, lastn, \
-                 scons, pad, tail, butlast, butlastn, \
-                 flatmap, \
-                 take, drop, split_at, \
-                 rev, \
-                 uniqify, uniq, \
-                 flatten, flatten1, flatten_in, \
-                 unpack, \
-                 partition, \
-                 partition_int, \
-                 inn, iindex, find, \
-                 window, chunked, \
-                 within, fixpoint, \
-                 interleave, \
-                 powerset
+from ..it import (map, mapr, rmap, zipr, rzip,
+                  map_longest, mapr_longest, rmap_longest,
+                  zip_longest, zipr_longest, rzip_longest,
+                  first, second, nth, last, lastn,
+                  scons, pad, tail, butlast, butlastn,
+                  flatmap,
+                  take, drop, split_at,
+                  rev,
+                  uniqify, uniq,
+                  flatten, flatten1, flatten_in,
+                  unpack,
+                  partition,
+                  partition_int,
+                  inn, iindex, find,
+                  window, chunked,
+                  within, fixpoint,
+                  interleave,
+                  powerset)
 
 from ..fun import composel, identity, curry
 from ..gmemo import imemoize, gmemoize

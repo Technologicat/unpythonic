@@ -2,10 +2,10 @@
 
 from pickle import dumps, loads
 
-from ..llist import cons, car, cdr, nil, ll, llist, \
-                    caar, cdar, cadr, cddr, caddr, cdddr, \
-                    member, lreverse, lappend, lzip, \
-                    BinaryTreeIterator, JackOfAllTradesIterator
+from ..llist import (cons, car, cdr, nil, ll, llist,
+                     caar, cdar, cadr, cddr, caddr, cdddr,
+                     member, lreverse, lappend, lzip,
+                     BinaryTreeIterator, JackOfAllTradesIterator)
 
 from ..fold import foldl, foldr
 

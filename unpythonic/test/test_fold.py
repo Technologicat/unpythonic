@@ -3,9 +3,9 @@
 from operator import add, mul
 from functools import partial
 
-from ..fold import scanl, scanr, scanl1, scanr1, rscanl, \
-                   foldl, foldr, reducel, reducer, rfoldl, \
-                   unfold, unfold1, prod, running_minmax, minmax
+from ..fold import (scanl, scanr, scanl1, scanr1, rscanl,
+                    foldl, foldr, reducel, reducer, rfoldl,
+                    unfold, unfold1, prod, running_minmax, minmax)
 from ..fun import curry, composer, composerc, composel, to1st, rotate
 from ..llist import cons, nil, ll, lreverse
 from ..it import take, tail
