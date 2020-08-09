@@ -323,9 +323,10 @@ class Shim:
     essentially a transparent object proxy. (For example, a method call is an
     attribute read (via a descriptor), followed by a function call.)
 
-    thebox:   a `box` instance that holds the target object. The box must be
-              created manually, so a `box` or `ThreadLocalBox` can be chosen
-              as appropriate for the particular use case.
+    thebox:   a `box` instance that holds the target object. The box must
+              be created manually, to maximize composability: a `box` or
+              `ThreadLocalBox` can be chosen as appropriate for the
+              particular use case.
 
     fallback: optional; a fallback object. Either any object (not boxed),
               or a `box` instance (in case you want to replace the fallback
