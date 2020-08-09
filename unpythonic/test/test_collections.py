@@ -174,7 +174,7 @@ def test():
             x = "hi from Zee"
             y = "hi from Zee"
             z = "hi from Zee"
-        # There will be tried from left to right.
+        # These will be tried from left to right.
         boxes = [box(obj) for obj in (Ex(), Wai(), Zee())]
         *others, final_fallback = boxes
         s = foldr(Shim, final_fallback, others)  # Shim(box, fallback) <-> op(elt, acc)
