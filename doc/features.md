@@ -435,8 +435,10 @@ assert frozendict() is frozendict()
 *Laugh, it's funny.*
 
 ```python
-from unpythonic import cons, nil, ll, llist, car, cdr, caar, cdar, cadr, cddr, \
-                       member, lreverse, lappend, lzip, BinaryTreeIterator
+from unpythonic import (cons, nil, ll, llist,
+                        car, cdr, caar, cdar, cadr, cddr,
+                        member, lreverse, lappend, lzip,
+                        BinaryTreeIterator)
 
 c = cons(1, 2)
 assert car(c) == 1 and cdr(c) == 2
@@ -998,9 +1000,9 @@ Examples (see also the next section):
 ```python
 from operator import add, mul
 from typing import NoReturn
-from unpythonic import memoize, fix, andf, orf, flatmap, rotate, curry, dyn, \
-                       zipr, rzip, foldl, foldr, composer, to1st, cons, nil, ll, \
-                       withself
+from unpythonic import (memoize, fix, andf, orf, flatmap, rotate, curry, dyn,
+                        zipr, rzip, foldl, foldr, composer, to1st, cons, nil, ll,
+                        withself)
 
 # memoize: cache the results of pure functions (arguments must be hashable)
 ncalls = 0
@@ -1396,10 +1398,16 @@ Examples:
 
 ```python
 from functools import partial
-from unpythonic import scanl, scanr, foldl, foldr, flatmap, mapr, zipr, \
-                       uniqify, uniq, flatten1, flatten, flatten_in, take, drop, \
-                       unfold, unfold1, cons, nil, ll, curry, s, inn, iindex, window, \
-                       powerset
+from unpythonic import (scanl, scanr, foldl, foldr,
+                        mapr, zipr,
+                        uniqify, uniq,
+                        flatten1, flatten, flatten_in, flatmap,
+                        take, drop,
+                        unfold, unfold1,
+                        cons, nil, ll, curry,
+                        s, inn, iindex,
+                        window,
+                        powerset)
 
 assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
 assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
@@ -3432,9 +3440,9 @@ Convenience functions providing an easy-to-use API for inspecting a function's s
 Methods on objects and classes are treated specially, so that the reported arity matches what the programmer actually needs to supply when calling the method (i.e., implicit ``self`` and ``cls`` are ignored).
 
 ```python
-from unpythonic import arities, arity_includes, UnknownArity, \
-                       kwargs, required_kwargs, optional_kwargs,
-                       resolve_bindings
+from unpythonic import (arities, arity_includes, UnknownArity,
+                        kwargs, required_kwargs, optional_kwargs,
+                        resolve_bindings)
 
 f = lambda a, b: None
 assert arities(f) == (2, 2)  # min, max positional arity
