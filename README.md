@@ -33,7 +33,7 @@ This depends on the purpose of each feature, as well as ease-of-use consideratio
 
 Small, limited-space overview of the overall flavor. There's a lot more that doesn't fit here, especially in the pure-Python feature set. See the [full documentation](doc/features.md) and [unit tests](unpythonic/test/) for more examples.
 
-Click each example to expand.
+If reading this on GitHub, click each example to expand.
 
 #### Unpythonic in 30 seconds: Pure Python
 
