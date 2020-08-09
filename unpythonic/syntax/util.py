@@ -40,9 +40,9 @@ def isx(tree, x, accept_attr=True):
     # and bare names for anything hq[]'d; but any references that appear
     # explicitly in the user code may use either bare names or somemodule.f.
     ismatch = x if callable(x) else lambda s: s == x
-    return (type(tree) is Name and ismatch(tree.id)) or \
-           (type(tree) is Captured and ismatch(tree.name)) or \
-           (accept_attr and type(tree) is Attribute and ismatch(tree.attr))
+    return ((type(tree) is Name and ismatch(tree.id)) or
+            (type(tree) is Captured and ismatch(tree.name)) or
+            (accept_attr and type(tree) is Attribute and ismatch(tree.attr)))
 
 def make_isxpred(x):
     """Make a predicate for isx.
@@ -160,8 +160,8 @@ def is_decorator(tree, fname):
 
         - ``Call`` whose ``.func`` matches the above rule (parametric decorator).
     """
-    return isx(tree, fname) or \
-           (type(tree) is Call and isx(tree.func, fname))
+    return ((isx(tree, fname)) or
+            (type(tree) is Call and isx(tree.func, fname)))
 
 def is_lambda_decorator(tree, fname=None):
     """Test tree whether it decorates a lambda with ``fname``.
@@ -180,8 +180,8 @@ def is_lambda_decorator(tree, fname=None):
         trampolined(arg)                    # --> non-parametric decorator
         looped_over(range(10), acc=0)(arg)  # --> parametric decorator
     """
-    return (type(tree) is Call and len(tree.args) == 1) and \
-           (fname is None or is_decorator(tree.func, fname))
+    return ((type(tree) is Call and len(tree.args) == 1) and
+            (fname is None or is_decorator(tree.func, fname)))
 
 def is_decorated_lambda(tree, mode):
     """Detect a tree of the form f(g(h(lambda ...: ...)))

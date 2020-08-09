@@ -18,8 +18,8 @@ def where(*bindings):
 # avoid circular dependency; can't import from .util, so implement a minimal isx() for what we need
 def _isx(tree, x):
     ismatch = x if callable(x) else lambda s: s == x
-    return (type(tree) is Name and ismatch(tree.id)) or \
-           (type(tree) is Captured and ismatch(tree.name))
+    return ((type(tree) is Name and ismatch(tree.id)) or
+            (type(tree) is Captured and ismatch(tree.name)))
 def _pred(x):
     rematch = re.match
     pat = re.compile(r"^{}\d*$".format(x))
@@ -46,8 +46,8 @@ def _canonize_bindings(elts, locref, allow_call_in_name_position=False):
     allow_call_in_name_position: used by let_syntax to allow template definitions.
     """
     def iskey(x):
-        return type(x) is Name or \
-               allow_call_in_name_position and type(x) is Call and type(x.func) is Name
+        return ((type(x) is Name) or
+                (allow_call_in_name_position and type(x) is Call and type(x.func) is Name))
     if len(elts) == 2 and iskey(elts[0]):
         return [Tuple(elts=elts, lineno=locref.lineno, col_offset=locref.col_offset)]
     if all((type(b) is Tuple and len(b.elts) == 2 and iskey(b.elts[0])) for b in elts):
@@ -150,9 +150,15 @@ def _ishaskellylet(tree):
     To detect the full expression including the ``let[]``, use ``islet`` instead.
     """
     # let[((k0, v0), ...) in body]
-    if type(tree) is Compare and \
-       len(tree.ops) == 1 and type(tree.ops[0]) is In and \
-       type(tree.left) is Tuple:
+    def maybeiscontentofletin(tree):
+        return (type(tree) is Compare and
+                len(tree.ops) == 1 and type(tree.ops[0]) is In and
+                type(tree.left) is Tuple)
+    # let[body, where((k0, v0), ...)]
+    def maybeiscontentofletwhere(tree):
+        return type(tree) is Tuple and len(tree.elts) == 2 and type(tree.elts[1]) is Call
+
+    if maybeiscontentofletin(tree):
         bindings = tree.left
         if all((type(b) is Tuple and len(b.elts) == 2 and type(b.elts[0]) is Name)
                    for b in bindings.elts):
@@ -163,8 +169,7 @@ def _ishaskellylet(tree):
         #  require it, because they look like function calls in the AST.)
         if len(bindings.elts) == 2 and type(bindings.elts[0]) is Name:
             return "in_expr"
-    # let[body, where((k0, v0), ...)]
-    elif type(tree) is Tuple and len(tree.elts) == 2 and type(tree.elts[1]) is Call:
+    elif maybeiscontentofletwhere(tree):
         thecall = tree.elts[1]
         if type(thecall.func) is Name and thecall.func.id == "where":
             return "where_expr"
@@ -197,9 +202,9 @@ def isdo(tree, expanded=True):
             return False
         return kind
     # TODO: detect also do[] with a single expression inside? (now requires a comma)
-    return type(tree) is Subscript and \
-           type(tree.value) is Name and any(tree.value.id == x for x in ("do", "do0")) and \
-           type(tree.slice) is Index and type(tree.slice.value) is Tuple
+    return (type(tree) is Subscript and
+            type(tree.value) is Name and any(tree.value.id == x for x in ("do", "do0")) and
+            type(tree.slice) is Index and type(tree.slice.value) is Tuple)
 
 def isenvassign(tree):
     """Detect whether tree is an unpythonic ``env`` assignment, ``name << value``.

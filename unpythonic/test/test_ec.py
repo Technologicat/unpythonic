@@ -60,8 +60,7 @@ def test():
 
 #    def catching_truth_table():
 #        def check(tags, catch_untagged, e):
-#            if (tags is None and e.allow_catchall) or \
-#               (catch_untagged and e.tag is None):
+#            if (tags is None and e.allow_catchall) or (catch_untagged and e.tag is None):
 #                return 2  # unconditional catch
 #            if (tags is not None and e.tag is not None): # and e.tag in tags):
 #                   return 1  # catch if tags match

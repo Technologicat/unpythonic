@@ -255,8 +255,7 @@ def continuations(block_body):
         if type(tree) not in (Assign, Expr):
             return False
         tree = tree.value
-        if type(tree) is Subscript and type(tree.value) is Name \
-           and tree.value.id == "call_cc":
+        if type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "call_cc":
             if type(tree.slice) is Index:
                 return True
             assert False, "expected single expr, not slice in call_cc[...]"

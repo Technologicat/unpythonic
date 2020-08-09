@@ -284,8 +284,8 @@ def unfold1(proc, init):
         def step2(k):  # x0, x0 + 2, x0 + 4, ...
             return (k, k + 2)
 
-        assert tuple(take(10, unfold1(step2, 10))) == \\
-               (10, 12, 14, 16, 18, 20, 22, 24, 26, 28)
+        assert (tuple(take(10, unfold1(step2, 10))) ==
+                (10, 12, 14, 16, 18, 20, 22, 24, 26, 28))
     """
     state = init
     while True:
@@ -309,8 +309,8 @@ def unfold(proc, *inits):
         def fibo(a, b):
             return (a, b, a + b)
 
-        assert tuple(take(10, unfold(fibo, 1, 1))) == \\
-               (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+        assert (tuple(take(10, unfold(fibo, 1, 1))) ==
+                (1, 1, 2, 3, 5, 8, 13, 21, 34, 55))
     """
     states = inits
     while True:

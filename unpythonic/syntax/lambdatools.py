@@ -186,6 +186,10 @@ def envify(block_body):
             argnames.append(a.kwarg.arg)
         return argnames
 
+    def isfunctionoruserlambda(tree):
+        return ((type(tree) in (FunctionDef, AsyncFunctionDef)) or
+                (type(tree) is Lambda and id(tree) in userlambdas))
+
     # Create a renamed reference to the env() constructor to be sure the Call
     # nodes added by us have a unique .func (not used by other macros or user code)
     _ismakeenv = make_isxpred("_envify")
@@ -199,8 +203,7 @@ def envify(block_body):
                 return False
             return thecall.func.attr == "update" and any(isx(thecall.func.value, x) for x in enames)
 
-        if type(tree) in (FunctionDef, AsyncFunctionDef) or \
-           (type(tree) is Lambda and id(tree) in userlambdas):
+        if isfunctionoruserlambda(tree):
             argnames = getargs(tree)
             if argnames:
                 # prepend env init to function body, update bindings

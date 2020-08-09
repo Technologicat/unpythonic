@@ -89,19 +89,19 @@ def autoref(block_body, args, asname):
         if not (type(tree) is With and len(tree.items) == 1):
             return False
         ctxmanager = tree.items[0].context_expr
-        return type(ctxmanager) is Call and \
-                 type(ctxmanager.func) is Name and ctxmanager.func.id == "AutorefMarker" and \
-                 len(ctxmanager.args) == 1 and type(ctxmanager.args[0]) is Str
+        return (type(ctxmanager) is Call and
+                type(ctxmanager.func) is Name and ctxmanager.func.id == "AutorefMarker" and
+                len(ctxmanager.args) == 1 and type(ctxmanager.args[0]) is Str)
     def getreferent(tree):
         return tree.items[0].context_expr.args[0].s
 
     # (lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))
     def isautoreference(tree):
-        return type(tree) is Call and \
-               len(tree.args) == 1 and type(tree.args[0]) is Call and \
-               type(tree.args[0].func) is Name and tree.args[0].func.id == "_autoref_resolve" and \
-               type(tree.func) is Lambda and len(tree.func.args.args) == 1 and \
-               tree.func.args.args[0].arg.startswith("_ar")
+        return (type(tree) is Call and
+                len(tree.args) == 1 and type(tree.args[0]) is Call and
+                type(tree.args[0].func) is Name and tree.args[0].func.id == "_autoref_resolve" and
+                type(tree.func) is Lambda and len(tree.func.args.args) == 1 and
+                tree.func.args.args[0].arg.startswith("_ar"))
     def get_resolver_list(tree):  # (p, o, "x")
         return tree.args[0].args[0].elts
     def add_to_resolver_list(tree, objnode):

@@ -149,8 +149,8 @@ def test():
     assert myprod(b) == 12
 
     packtwo = lambda a, b: ll(a, b)  # using a tuple return value here would confuse curry.
-    assert foldl(composerc(cons, packtwo), nil, (1, 2, 3), (4, 5), longest=True) == \
-           ll(ll(3, None), ll(2, 5), ll(1, 4))
+    assert (foldl(composerc(cons, packtwo), nil, (1, 2, 3), (4, 5), longest=True) ==
+            ll(ll(3, None), ll(2, 5), ll(1, 4)))
 
     @rotate(-1)
     def zipper(acc, *rest):   # so that we can use the *args syntax to declare this

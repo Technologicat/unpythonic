@@ -200,15 +200,18 @@ def catch(tags=None, catch_untagged=True):
         else:  # single tag
             tags = set((tags,))
 
+    def shouldcatch(e):
+        return ((tags is None and e.allow_catchall) or
+                (catch_untagged and e.tag is None) or
+                (tags is not None and e.tag is not None and e.tag in tags))
+
     def decorator(f):
         @wraps(f)
         def catchpoint(*args, **kwargs):
             try:
                 return f(*args, **kwargs)
             except Escape as e:
-                if (tags is None and e.allow_catchall) or \
-                   (catch_untagged and e.tag is None) or \
-                   (tags is not None and e.tag is not None and e.tag in tags):
+                if shouldcatch(e):
                     return e.value
                 else:  # meant for someone else, pass it on
                     raise

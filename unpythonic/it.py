@@ -203,18 +203,18 @@ def flatmap(f, iterable0, *iterables):
             else:
                 s = x**0.5
                 return (s, -s)
-        assert tuple(flatmap(msqrt, (0, 1, 4, 9))) == \\
-               (0., 1., -1., 2., -2., 3., -3.)
+        assert (tuple(flatmap(msqrt, (0, 1, 4, 9))) ==
+                (0., 1., -1., 2., -2., 3., -3.))
 
         def add_and_tuplify(a, b):
             return (a + b,)
-        assert tuple(flatmap(add_and_tuplify, (10, 20, 30), (1, 2, 3))) == \\
-               (11, 22, 33)
+        assert (tuple(flatmap(add_and_tuplify, (10, 20, 30), (1, 2, 3))) ==
+                (11, 22, 33))
 
         def sum_and_diff(a, b):
             return (a + b, a - b)
-        assert tuple(flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3))) == \\
-               (11, 9, 22, 18, 33, 27)
+        assert (tuple(flatmap(sum_and_diff, (10, 20, 30), (1, 2, 3))) ==
+                (11, 9, 22, 18, 33, 27))
     """
     yield from chain.from_iterable(map(f, iterable0, *iterables))
 #    for xs in map(f, iterable0, *iterables):
@@ -531,10 +531,10 @@ def flatten_in(iterable, pred=None):
 
         is_nested = lambda e: all(isinstance(x, (list, tuple)) for x in e)
         data = (((1, 2), ((3, 4), (5, 6)), 7), ((8, 9), (10, 11)))
-        assert tuple(flatten(data, is_nested))    == \\
-               (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
-        assert tuple(flatten_in(data, is_nested)) == \\
-               (((1, 2), (3, 4), (5, 6), 7), (8, 9), (10, 11))
+        assert (tuple(flatten(data, is_nested)) ==
+                (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11)))
+        assert (tuple(flatten_in(data, is_nested)) ==
+                (((1, 2), (3, 4), (5, 6), 7), (8, 9), (10, 11)))
     """
     pred = pred or (lambda x: True)
     it = iter(iterable)
