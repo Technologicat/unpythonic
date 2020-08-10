@@ -120,7 +120,7 @@ Each experimental feature is a provisional proof-of-concept, usually lacking bat
 
 ---
 
-**0.14.0** 18 March 2019 - "Dotting the t's and crossing the i's" edition:
+**0.14.0** 18 March 2019 - *"Dotting the t's and crossing the i's" edition*:
 
 **Bugfixes**:
 
@@ -151,7 +151,7 @@ Each experimental feature is a provisional proof-of-concept, usually lacking bat
 
 ---
 
-**0.13.1** 1 March 2019 - "Maybe a slice?" [edition](https://en.wikipedia.org/wiki/Everybody%27s_Golf_4)
+**0.13.1** 1 March 2019 - *"Maybe a slice?" [edition](https://en.wikipedia.org/wiki/Everybody%27s_Golf_4)*
 
 **New**:
 
@@ -178,7 +178,7 @@ Each experimental feature is a provisional proof-of-concept, usually lacking bat
 
 ---
 
-**0.13.0** 25 February 2019 - "I'll evaluate this later" edition:
+**0.13.0** 25 February 2019 - *"I'll evaluate this later" edition*:
 
 **New**:
 
@@ -205,7 +205,7 @@ Each experimental feature is a provisional proof-of-concept, usually lacking bat
 
 ---
 
-**0.12.0** 9 January 2019 - "[Metamagical](https://en.wikipedia.org/wiki/Metamagical_Themas) engineering" edition:
+**0.12.0** 9 January 2019 - *"[Metamagical](https://en.wikipedia.org/wiki/Metamagical_Themas) engineering" edition*:
 
 *What does "metamagical" mean? To me, it means "going one level beyond magic". There is an ambiguity here: on the one hand, the word might mean "ultramagical" - magic of a higher order - yet on the other hand, the magical thing about magic is that what lies behind it is always nonmagical. That's metamagic for you!*
   --Douglas R. Hofstadter, *On Self-Referential Sentences* (essay, 1981)
@@ -228,7 +228,7 @@ Each experimental feature is a provisional proof-of-concept, usually lacking bat
 
 ---
 
-**0.11.1** 22 November 2018 - "Cleaning up, vol. 2" edition:
+**0.11.1** 22 November 2018 - *"Cleaning up, vol. 2" edition*:
 
 **Enhancements**:
 
@@ -247,7 +247,7 @@ Each experimental feature is a provisional proof-of-concept, usually lacking bat
 
 ---
 
-**0.11.0** 15 November 2018 - "Spring cleaning in winter" edition:
+**0.11.0** 15 November 2018 - *"Spring cleaning in winter" edition*:
 
 New:
 
@@ -283,7 +283,7 @@ Other:
 
 ---
 
-**0.10.4** 29 October 2018 - "573 combo!" edition[*](http://www.dancedancerevolution.wikia.com/wiki/573):
+**0.10.4** 29 October 2018 - *"573 combo!" edition[*](http://www.dancedancerevolution.wikia.com/wiki/573)*:
 
 - new: macro wrappers for the let decorators
 - fix: trampolined() should go on the outside even if the client code manually uses curry()
@@ -292,7 +292,7 @@ Other:
 
 ---
 
-**0.10.3** 25 October 2018 - "Small fixes" edition:
+**0.10.3** 25 October 2018 - *"Small fixes" edition*:
 
 - enh: ``curry`` macro now curries also definitions (``def``, ``lambda``), not only calls
 - fix: spurious recomputation bug in ``do[]``
@@ -300,7 +300,7 @@ Other:
 
 ---
 
-**0.10.2** 24 October 2018 - "Just a few more things" edition:
+**0.10.2** 24 October 2018 - *"Just a few more things" edition*:
 
 Bugfixes:
 
@@ -313,7 +313,7 @@ Bugfixes:
 
 ---
 
-**0.10.1** 23 October 2018 - "Just one more thing" edition:
+**0.10.1** 23 October 2018 - *["Just one more thing"](https://drmarkgriffiths.wordpress.com/2016/08/08/just-one-more-thing-the-psychology-of-columbo/) edition*:
 
 - ``continuations``: create continuation using same node type (``FunctionDef`` or ``AsyncFunctionDef``) as its parent function
 - ``autoreturn``: fix semantics of try block
@@ -321,7 +321,7 @@ Bugfixes:
 
 ---
 
-**0.10.0** 23 October 2018 - "0.10.0 is more than 0.9.∞" edition:
+**0.10.0** 23 October 2018 - *"0.10.0 is more than 0.9.∞" edition*:
 
 - Add more macros, notably ``continuations``, ``tco``, ``autoreturn``
 - Polish macros, especially their interaction
@@ -329,7 +329,7 @@ Bugfixes:
 
 ---
 
-**0.9.2** 9 October 2018 - "Through the looking glass" edition:
+**0.9.2** 9 October 2018 - *"Through the looking glass" edition*:
 
  - new `multilambda` block macro: supercharge regular Python lambdas, contained lexically inside the block, with support for multiple expressions and local variables. Use brackets to denote a multi-expression body.
  - new `fup` macro providing more natural syntax for functional updates; allows using slice syntax.
@@ -342,7 +342,7 @@ The macro_extras README now includes a table of contents for easy browsability.
 
 ---
 
-**0.9.0** 5 October 2018 - "Super Syntactic Fortress MACROS" edition:
+**0.9.0** 5 October 2018 - *["Super Syntactic Fortress MACROS"](https://en.wikipedia.org/wiki/Super_Dimension_Fortress_Macross) edition*:
 
 - **Macros!** New module `unpythonic.syntax`, adding syntactic macros for constructs where this improves usability. See [`macro_extras`](macro_extras/) for documentation.
   - Notable macros include `curry` (automatic currying for Python) and `cond` (multi-branch conditional expression, usable in a lambda), and macro variants of the `let` constructs (no boilerplate).
@@ -354,7 +354,7 @@ The macro_extras README now includes a table of contents for easy browsability.
 
 ---
 
-**0.8.8** 25 September 2018 - "More spicy" edition:
+**0.8.8** 25 September 2018 - *"More [spicy](https://github.com/Technologicat/spicy)" edition*:
 
 Changes:
 
@@ -375,7 +375,7 @@ Bugfixes/optimizations:
 
 ---
 
-**0.8.7** 24 September 2018 - "More iterable" edition:
+**0.8.7** 24 September 2018 - *"More iterable" edition*:
 
 Changes:
 
@@ -393,7 +393,7 @@ New:
 
 ---
 
-**0.8.6** 20 September 2018 - "Adding in the missing parts" edition:
+**0.8.6** 20 September 2018 - *"Adding in the missing parts" edition*:
 
 New features:
 
@@ -414,7 +414,7 @@ Bugfixes:
 
 ---
 
-**0.8.5** 19 September 2018 - "Liberté, égalité, fraternité" edition:
+**0.8.5** 19 September 2018 - *"Liberté, égalité, fraternité" edition*:
 
  - add `gtrampolined`: TCO (tail chaining) for generators
  - add `gmemoize`: memoization for generators
@@ -422,7 +422,7 @@ Bugfixes:
 
 ---
 
-**0.8.4** 18 September 2018 - "Hunt for the missing operators" edition:
+**0.8.4** 18 September 2018 - *["The hunt for missing operators"](https://en.wikipedia.org/wiki/The_Hunt_for_Red_October_(film)) edition*:
 
  - Parameterize scan and fold; can now terminate on longest input
  - Add `map_longest`, `mapr_longest`, `zipr_longest`
@@ -435,7 +435,7 @@ Technical enhancements:
 
 ---
 
-**0.8.3** 18 September 2018 - "I have always wanted to code in Listhonkell" edition:
+**0.8.3** 18 September 2018 - *"I have always wanted to code in Listhonkell" edition*:
 
  - Add `scanl`, `scanr`: lazy partial fold (a.k.a. accumulate) that returns a generator yielding intermediate results.
    - Also provided are `scanl1`, `scanr1` variants with one input sequence and optional init.
