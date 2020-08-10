@@ -3,7 +3,7 @@
 
 __all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer",
            "getattrrec", "setattrrec", "Popper", "CountingIterator", "ulp",
-           "slurp", "async_raise"]
+           "slurp", "async_raise", "callsite_filename"]
 
 from types import LambdaType, FunctionType, CodeType
 from time import monotonic
@@ -13,6 +13,7 @@ from sys import version_info, float_info
 from math import floor, log2
 from queue import Empty
 import threading
+import inspect
 
 # For async_raise only. Note `ctypes.pythonapi` is not an actual module;
 # you'll get a `ModuleNotFoundError` if you try to import it.
@@ -622,3 +623,14 @@ def async_raise(thread_obj, exception):
         # Clear the async exception, targeting the same thread identity, and hope for the best.
         PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.c_long(0))
         raise SystemError("PyThreadState_SetAsyncExc failed, broke the interpreter state.")
+
+def callsite_filename():
+    """Return the filename of the call site, as a string.
+
+    Useful as a building block for debug utilities and similar.
+    """
+    stack = inspect.stack()
+    frame = stack[1].frame
+    filename = frame.f_code.co_filename
+    del frame, stack
+    return filename

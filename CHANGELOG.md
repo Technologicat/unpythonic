@@ -1,6 +1,8 @@
-**0.14.3** (in progress)
+**0.14.3** (in progress):
 
-*No changes yet.*
+**New**:
+
+- `callsite_filename`: return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
 
 ---
 
