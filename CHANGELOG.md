@@ -3,6 +3,7 @@
 **New**:
 
 - `callsite_filename`: return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
+- Macro `test[expr]`, `test[expr, name]`. Similar to the builtin `assert`, but with the magic power of conditions: even if a test fails, further tests may continue running.
 
 ---
 
