@@ -10,7 +10,7 @@ from ...syntax import macros, test, tests_run, tests_failed  # noqa: F401
 
 from functools import partial
 
-from ...conditions import handlers, invoke, restarts
+from ...conditions import invoke, handlers, restarts
 
 def runtests():
     # Simple error reporter, just for a demonstration.
@@ -23,6 +23,13 @@ def runtests():
     report_and_proceed = partial(report, "proceed")
 
     # Basic usage.
+    #
+    # A `with handlers` block around the tests is mandatory. Without it,
+    # `test[]` will raise `ControlError` when the condition system detects that
+    # the cerror (correctable error, signaled by `test[]`) was not handled.
+    #
+    # (Only the client code can know what to do with the error, so `test[]`
+    #  cannot automatically write the `with handlers` block for us.)
     with handlers((AssertionError, report_and_proceed)):
         test[2 + 2 == 5]  # fails, but allows further tests to continue
         test[2 + 2 == 4]

@@ -36,7 +36,7 @@ def unpythonic_assert(sourcecode, value, filename, lineno, myname=None):
         from unpythonic.syntax import macros, test, tests_run, tests_failed
 
         import sys
-        from unpythonic import handlers, invoke
+        from unpythonic import invoke, handlers
 
         def report(err):
             print(err, file=sys.stderr)  # or log or whatever
