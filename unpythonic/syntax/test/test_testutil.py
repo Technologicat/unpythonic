@@ -6,11 +6,12 @@ compact assert-like syntax, while letting the rest of the tests run even if
 some tests fail.
 """
 
-from ...syntax import macros, test, tests_run, tests_failed  # noqa: F401
+from ...syntax import macros, test, tests_run, tests_failed, tests_errored  # noqa: F401
 
 from functools import partial
 
 from ...conditions import invoke, handlers, restarts
+from ...misc import raisef
 
 def runtests():
     # Simple error reporter, just for a demonstration.
@@ -36,8 +37,9 @@ def runtests():
         test[17 + 23 == 40, "my named test"]
     # One wouldn't normally use `assert` in a test module that uses `test[]`,
     # but we have to test `test[]` itself somehow.
-    assert tests_failed == 1  # we use the type pun that a box is equal to its content.
-    assert tests_run == 3
+    assert tests_run == 3  # we use the type pun that a box is equal to its content.
+    assert tests_failed == 1
+    assert tests_errored == 0
 
     # By setting up our own restart, we can skip the rest of a block of tests.
     #
@@ -47,6 +49,7 @@ def runtests():
     #
     # We can reset the counters by sending a new value into the box.
     tests_failed << 0
+    tests_errored << 0
     tests_run << 0
     report_and_skip = partial(report, "skip")
     with handlers((AssertionError, report_and_proceed)):
@@ -59,8 +62,22 @@ def runtests():
 
         test[2 + 2 == 8]  # fails, but allows further tests to continue
         test[2 + 2 == 9]
-    assert tests_failed == 4
     assert tests_run == 4
+    assert tests_failed == 4
+    assert tests_errored == 0
+
+    # The test machinery counts an uncaught exception inside a test expr as an error
+    # (i.e. the test did not run to completion), not a failure.
+    tests_failed << 0
+    tests_errored << 0
+    tests_run << 0
+    with handlers((AssertionError, report_and_proceed)):
+        test[raisef(RuntimeError)]  # errors out, but allows further tests to continue
+        test[2 + 2 == 4]
+        test[17 + 23 == 40, "my named test"]
+    assert tests_run == 3
+    assert tests_failed == 0
+    assert tests_errored == 1
 
     print("All tests PASSED")
 

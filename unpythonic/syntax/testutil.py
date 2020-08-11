@@ -20,9 +20,10 @@ from ..collections import box
 # counters.
 tests_run = box(0)
 tests_failed = box(0)
+tests_errored = box(0)
 
 # Just a regular function.
-def unpythonic_assert(sourcecode, value, filename, lineno, myname=None):
+def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     """Custom assert function, for building test frameworks.
 
     Upon a failing assertion, this will *signal* the `AssertionError` as a
@@ -57,8 +58,9 @@ def unpythonic_assert(sourcecode, value, filename, lineno, myname=None):
         `sourcecode` is a string representation of the source code expression
         that is being asserted.
 
-        `value` is the result of running that piece source code, at the call site.
-        If `value` is falsey, the assertion fails.
+        `thunk` is the expression itself, delayed by a lambda, so that this
+        function can run the expression at its leisure. If the result of
+        running the lambda is falsey, the assertion fails.
 
         `filename` is the filename at the call site, if applicable. (If called
         from the REPL, there is no file.)
@@ -76,20 +78,29 @@ def unpythonic_assert(sourcecode, value, filename, lineno, myname=None):
     """
     tests_run << tests_run.get() + 1
 
-    if value:
-        return
-
-    tests_failed << tests_failed.get() + 1
+    try:
+        if thunk():
+            return
+    except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
+        uncaught_exception_msg = err.args
+        tests_errored << tests_errored.get() + 1
+    else:
+        uncaught_exception_msg = None
+        tests_failed << tests_failed.get() + 1
 
     if myname is not None:
         error_msg = "Named assertion '{}' failed".format(myname)
     else:
         error_msg = "Assertion failed"
 
+    if uncaught_exception_msg is not None:
+        error_msg += " due to uncaught exception: {}".format(uncaught_exception_msg)
+
+    # TODO: polish the UX. How should we word the message so its presentation is clear in all cases?
     msg = "[{}:{}] {}: {}".format(filename, lineno, error_msg, sourcecode)
 
-    # We use cerror() instead of an exception so the client code can resume
-    # (after logging the error and such).
+    # We use cerror() to signal a failed/errored test, instead of an exception,
+    # so the client code can resume (after logging the failure and such).
     #
     # If the client code does not install a handler, then a `ControlError`
     # exception is raised by the condition system; leaving a cerror unhandled
@@ -110,8 +121,9 @@ def test(tree):
     else:
         myname = q[None]
 
+    # The lambda delays the execution of the test expr until `unpythonic_assert` gets control.
     return q[(ast_literal[asserter])(u[unparse(tree)],
-                                     ast_literal[tree],
+                                     lambda: ast_literal[tree],
                                      filename=ast_literal[filename],
                                      lineno=ast_literal[ln],
                                      myname=ast_literal[myname])]

@@ -9,7 +9,7 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # that implement the macros.
 
 # insist, deny, it, f, _, force, force1, local, delete, block, expr,
-# dbgprint_block, dbgprint_expr, call_cc, tests_run, tests_failed
+# dbgprint_block, dbgprint_expr, call_cc, tests_run, tests_failed, tests_errored
 # are just for passing through to the client code that imports us.
 from .autoref import autoref as _autoref
 from .curry import curry as _curry
@@ -31,7 +31,7 @@ from .dbg import (dbg_block as _dbg_block, dbg_expr as _dbg_expr,  # noqa: F401
 from .prefix import prefix as _prefix
 from .tailtools import (autoreturn as _autoreturn, tco as _tco,  # noqa: F401
                         continuations as _continuations, call_cc)
-from .testutil import (test as _test, tests_run, tests_failed)  # noqa: F401
+from .testutil import (test as _test, tests_run, tests_failed, tests_errored)  # noqa: F401
 
 # "where" is only for passing through (export).
 from .letdoutil import UnexpandedLetView, _canonize_bindings, where  # noqa: F401
@@ -2002,12 +2002,12 @@ def test(tree, **kw):  # noqa: F811
         `test[expr]`
         `test[expr, "name of my test"]`
 
-    Additionally, `tests_run` and `tests_failed` are `unpythonic.collections.box`
-    instances holding integers that describe what it says on the tin. Use the
-    `box` API to read or reset them.
+    Additionally, `tests_run`, `tests_failed` and `tests_errored` are
+    `unpythonic.collections.box` instances holding integers that describe
+    what it says on the tin. Use the `box` API to read or reset them.
 
-    Both counts start at zero when Python starts. The idea is to allow client
-    code to easily compute percentage of tests passed.
+    All three counts start at zero when Python starts. The idea is to allow
+    client code to easily compute percentage of tests passed.
 
     **How to use**:
 
@@ -2076,6 +2076,7 @@ def test(tree, **kw):  # noqa: F811
             test[2 + 2 == 7]  # fails, but allows further tests to continue
 
     See the unit tests in `unpythonic.syntax.test.test_testutil` for more variations.
+
     """
     return _test(tree)
 
