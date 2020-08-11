@@ -9,7 +9,6 @@ from ast import Tuple, Str
 
 from ..misc import callsite_filename
 from ..conditions import cerror
-from ..dynassign import make_dynvar, dyn
 from ..collections import box
 
 # Keep a global count (since Python last started) of how many unpythonic_asserts
@@ -22,35 +21,31 @@ from ..collections import box
 tests_run = box(0)
 tests_failed = box(0)
 
-make_dynvar(test_signal_errors=False)  # if True, use conditions instead of exceptions to signal failed tests.
-
 # Just a regular function.
 def unpythonic_assert(sourcecode, value, filename, lineno, myname=None):
     """Custom assert function, for building test frameworks.
 
-    If the dynvar `test_signal_errors` is truthy, then, upon a failing
-    assertion, this will signal the `AssertionError` as a correctable error,
-    via unpythonic's condition system (see `unpythonic.conditions.cerror`).
+    Upon a failing assertion, this will *signal* the `AssertionError` as a
+    *cerror* (correctable error), via unpythonic's condition system (see
+    `unpythonic.conditions.cerror`).
 
-    If that dynvar is falsey (default), the `AssertionError` is raised.
-
-    The idea is that `cerror` allows surrounding code to install a handler that
-    invokes the `proceed` restart, so that further tests may continue to run::
+    This allows the surrounding code to install a handler that invokes
+    the `proceed` restart, so upon a test failure, any further tests
+    still continue to run::
 
         from unpythonic.syntax import macros, test, tests_run, tests_failed
 
         import sys
-        from unpythonic import dyn, handlers, invoke
+        from unpythonic import handlers, invoke
 
         def report(err):
             print(err, file=sys.stderr)  # or log or whatever
             invoke("proceed")
 
-        with dyn.let(test_signal_errors=True):  # use conditions instead of exceptions
-            with handlers((AssertionError, report)):
-                test[2 + 2 == 5]  # fails, but allows further tests to continue
-                test[2 + 2 == 4]
-                test[17 + 23 == 40, "my named test"]
+        with handlers((AssertionError, report)):
+            test[2 + 2 == 5]  # fails, but allows further tests to continue
+            test[2 + 2 == 4]
+            test[17 + 23 == 40, "my named test"]
 
         assert tests_failed == 1  # we use the type pun that a box is equal to its content.
         assert tests_run == 3
@@ -90,10 +85,14 @@ def unpythonic_assert(sourcecode, value, filename, lineno, myname=None):
         error_msg = "Assertion failed"
 
     msg = "[{}:{}] {}: {}".format(filename, lineno, error_msg, sourcecode)
-    if dyn.test_signal_errors:
-        cerror(AssertionError(msg))  # use cerror() so the client code can resume (after logging and such).
-    else:
-        raise AssertionError(msg)
+
+    # We use cerror() instead of an exception so the client code can resume
+    # (after logging the error and such).
+    #
+    # If the client code does not install a handler, then a `ControlError`
+    # exception is raised by the condition system; leaving a cerror unhandled
+    # is considered an error.
+    cerror(AssertionError(msg))
 
 # The syntax transformer.
 def test(tree):

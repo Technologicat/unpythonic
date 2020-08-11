@@ -1980,20 +1980,21 @@ from .prefix import q, u, kw  # for re-export only  # noqa: F401
 # TODO: Some of this description comes from `unpythonic_assert`. We could expose that and refer to it?
 @macros.expr
 def test(tree, **kw):  # noqa: F811
-    """[syntax, expr] Perform a test.
+    """[syntax, expr] Perform a test, optionally continuing after failure.
 
     A low-level tool for building test frameworks for macro-enabled code.
 
     **Why**:
 
-      `pytest` achieves compact syntax by hijacking `assert`, but macro-enabled
-      code needs MacroPy's macro expander, so we can't allow a testing tool to
-      install its own import hook to do AST transformations (because doing that
-      disables the macro expander).
+      `pytest` achieves compact syntax for continuing upon test failure by
+      hijacking `assert` (which is arguably an elegant solution), but
+      macro-enabled code needs MacroPy's macro expander, so we can't allow
+      a testing tool to install its own import hook to do AST transformations
+      (because doing that disables the macro expander).
 
-      And MacroPy macros only exist in expr, block and decorator variants.
-      We can't just hijack any node type of the AST willy-nilly like `pytest`
-      does, so we solve this the MacroPy way - by providing an expr macro
+      MacroPy macros only exist in expr, block and decorator variants, so
+      we can't just hijack any node type of the AST willy-nilly like `pytest`
+      does. We solve this the MacroPy way - by providing an expr macro
       that can be used instead of `assert` when writing test cases.
 
     **Syntax**::
@@ -2002,40 +2003,37 @@ def test(tree, **kw):  # noqa: F811
         `test[expr, "name of my test"]`
 
     Additionally, `tests_run` and `tests_failed` are `unpythonic.collections.box`
-    holding integers that describe what it says on the tin. Use the `box` API
-    to read or reset them.
+    instances holding integers that describe what it says on the tin. Use the
+    `box` API to read or reset them.
 
-    The counts start at zero when Python starts. The idea is to allow client
+    Both counts start at zero when Python starts. The idea is to allow client
     code to easily compute percentage of tests passed.
 
     **How to use**:
 
     The behavior is similar to the builtin `assert`, with a twist.
 
-    If the dynvar `test_signal_errors` is truthy, then, upon a failing
-    test, this will signal the `AssertionError` as a correctable error,
-    via unpythonic's condition system (see `unpythonic.conditions.cerror`).
+    Upon a failing test, this will *signal* the `AssertionError` as a
+    *cerror* (correctable error), via unpythonic's condition system
+    (see `unpythonic.conditions.cerror`).
 
-    If that dynvar is falsey (default), the `AssertionError` is raised.
-
-    The idea is that `cerror` allows surrounding code to install a handler that
-    invokes the `proceed` restart after performing any logging and such, so that
-    although the error is reported, further tests still run::
+    This allows the surrounding code to install a handler that invokes
+    the `proceed` restart, so upon a test failure, any further tests
+    still continue to run::
 
         from unpythonic.syntax import macros, test, tests_run, tests_failed
 
         import sys
-        from unpythonic import dyn, handlers, invoke
+        from unpythonic import handlers, invoke
 
         def report(err):
             print(err, file=sys.stderr)  # or log or whatever
             invoke("proceed")
 
-        with dyn.let(test_signal_errors=True):  # use conditions instead of exceptions
-            with handlers((AssertionError, report)):
-                test[2 + 2 == 5]  # fails, but allows further tests to continue
-                test[2 + 2 == 4]
-                test[17 + 23 == 40, "my named test"]
+        with handlers((AssertionError, report)):
+            test[2 + 2 == 5]  # fails, but allows further tests to continue
+            test[2 + 2 == 4]
+            test[17 + 23 == 40, "my named test"]
 
         assert tests_failed == 1  # we use the type pun that a box is equal to its content.
         assert tests_run == 3
@@ -2048,16 +2046,15 @@ def test(tree, **kw):  # noqa: F811
             print(err, file=sys.stderr)  # or log or whatever
             sys.exit(255)
 
-        with dyn.let(test_signal_errors=True):  # use conditions instead of exceptions
-            with handlers((AssertionError, report)):
-                test[2 + 2 == 5]  # fails, but allows further tests to continue
+        with handlers((AssertionError, report)):
+            test[2 + 2 == 5]  # fails, but allows further tests to continue
 
-                with handlers((AssertionError, die)):
-                    test[2 + 2 == 6]  # --> die
-                    test[17 + 23 == 40, "my named test"]  # not reached
+            with handlers((AssertionError, die)):
+                test[2 + 2 == 6]  # --> die
+                test[17 + 23 == 40, "my named test"]  # not reached
 
-                # if this point was ever reached (currently it's not)...
-                test[2 + 2 == 7]  # ...this fails, but allows further tests to continue
+            # if this point was ever reached (currently it's not)...
+            test[2 + 2 == 7]  # ...this fails, but allows further tests to continue
 
     This works, because the dynamically most recently bound handler for the
     same signal type wins (see `unpythonic.conditions`).
@@ -2066,19 +2063,17 @@ def test(tree, **kw):  # noqa: F811
 
         from unpythonic import restarts, invoker
 
-        with dyn.let(test_signal_errors=True):  # use conditions instead of exceptions
-            with handlers((AssertionError, report)):
-                test[2 + 2 == 5]  # fails, but allows further tests to continue
+        with handlers((AssertionError, report)):
+            test[2 + 2 == 5]  # fails, but allows further tests to continue
 
-                with restarts(skip=(lambda: None)):  # just for control, no return value
-                    with handlers((AssertionError, invoker("skip"))):
-                        test[2 + 2 == 6]  # --> fails, skip the rest of this block
-                        test[17 + 23 == 40, "my named test"]  # not reached
+            with restarts(skip=(lambda: None)):  # just for control, no return value
+                with handlers((AssertionError, invoker("skip"))):
+                    test[2 + 2 == 6]  # --> fails, skip the rest of this block
+                    test[17 + 23 == 40, "my named test"]  # not reached
 
-                test[2 + 2 == 7]  # fails, but allows further tests to continue
+            test[2 + 2 == 7]  # fails, but allows further tests to continue
 
     See the unit tests in `unpythonic.syntax.test.test_testutil` for more variations.
-
     """
     return _test(tree)
 
