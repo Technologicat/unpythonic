@@ -648,7 +648,7 @@ def error(condition):
     #
     # TODO: Do we want to give one last chance to handle the ControlError?
     # TODO: And do we want to raise ControlError, or the original condition?
-    raise ControlError("Unhandled {}: {}".format(type(condition), condition))
+    raise ControlError("Unhandled error condition") from condition
 
 def cerror(condition):
     """Like `error`, but allow a handler to instruct the caller to ignore the error.
