@@ -3,7 +3,11 @@
 **New**:
 
 - `callsite_filename`: return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
-- Macro `test[expr]`, `test[expr, name]`. Similar to the builtin `assert`, but with the magic power of conditions: even if a test fails, further tests may continue running.
+- Macro `test[expr]`, `test[expr, name]`. Similar to the builtin `assert**, but with the magic power of conditions: even if a test fails, further tests may continue running.
+
+**Non-breaking changes**:
+
+- Conditions: when an unhandled `error` or `cerror` occurs, the original unhandled error is now available in the `__cause__` attribute of the `ControlError` exception that is raised in this situation.
 
 ---
 
