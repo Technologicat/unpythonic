@@ -4,7 +4,7 @@ from ..gtco import gtco, gtrampolined
 
 from ..it import last, take
 
-def test():
+def runtests():
     # basic usage:
     def march():
         yield 1
@@ -36,4 +36,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

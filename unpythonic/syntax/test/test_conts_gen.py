@@ -25,7 +25,7 @@ from ...fun import identity
 
 #from macropy.tracing import macros, show_expanded  # noqa: F811, F401
 
-def test():
+def runtests():
     # a basic generator
     with continuations:
         # logic to resume after the last executed my_yield, if any
@@ -184,4 +184,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

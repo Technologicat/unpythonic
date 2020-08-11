@@ -2,7 +2,7 @@
 
 from ..env import env
 
-def test():
+def runtests():
     # basic functionality
     with env(x=1) as e:
         assert len(e) == 1
@@ -86,4 +86,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

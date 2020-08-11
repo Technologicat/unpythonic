@@ -15,7 +15,7 @@ from ...seq import begin
 
 x = "the global x"  # for lexical scoping tests
 
-def test():
+def runtests():
     # Macro wrapper for unpythonic.seq.do (imperative code in expression position)
     #  - Declare and initialize a local variable with ``local[var << value]``.
     #    Is in scope from the next expression onward, for the (lexical) remainder
@@ -525,4 +525,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

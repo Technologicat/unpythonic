@@ -3,7 +3,7 @@
 from ...syntax import macros, dbg  # noqa: F401
 from ...misc import call
 
-def test():
+def runtests():
     with dbg:
         x = 2
         y = 3
@@ -48,4 +48,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

@@ -12,7 +12,7 @@ from ..fun import (memoize, curry, apply,
 
 from ..dynassign import dyn
 
-def test():
+def runtests():
     evaluations = Counter()
     @memoize
     def f(x):
@@ -236,4 +236,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

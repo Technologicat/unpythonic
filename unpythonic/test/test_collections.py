@@ -8,7 +8,7 @@ from ..collections import (box, ThreadLocalBox, Some, Shim, unbox,
                            frozendict, view, roview, ShadowedSequence, mogrify)
 from ..fold import foldr
 
-def test():
+def runtests():
     # box: mutable single-item container à la Racket
     b = box(17)
     def f(b):
@@ -463,4 +463,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

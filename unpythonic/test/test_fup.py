@@ -6,7 +6,7 @@ from collections import namedtuple
 from ..fup import fupdate
 from ..collections import frozendict
 
-def test():
+def runtests():
     # mutable sequence
     lst = [1, 2, 3]
     out = fupdate(lst, 1, 42)
@@ -105,4 +105,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

@@ -19,7 +19,7 @@ class Qux(Baz):
     def __setstate__(self, state):
         return
 
-def test():
+def runtests():
     # basic usage
     #
     # IMPORTANT: be sure to keep the reference to the object instance the constructor
@@ -74,4 +74,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

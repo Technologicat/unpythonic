@@ -8,7 +8,7 @@ from ..fold import scanl
 from ..gmemo import imemoize
 from ..misc import timer, ulp
 
-def test():
+def runtests():
     # convenience: explicitly listed elements, same as a genexpr using tuple input
     assert tuple(s(1)) == (1,)
     assert tuple(s(1, 2, 3, 4, 5)) == (1, 2, 3, 4, 5)
@@ -234,4 +234,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

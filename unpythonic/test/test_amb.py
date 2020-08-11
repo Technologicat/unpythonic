@@ -2,7 +2,7 @@
 
 from ..amb import forall, choice, insist, deny, ok, fail
 
-def test():
+def runtests():
     out = forall(choice(x=range(5)),
                  lambda e: e.x)
     assert out == tuple(range(5))
@@ -57,4 +57,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

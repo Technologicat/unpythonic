@@ -8,7 +8,7 @@ from ..seq import begin
 from ..misc import call, timer
 from ..ec import catch, throw
 
-def test():
+def runtests():
     # basic usage
     #
     @looped
@@ -387,4 +387,4 @@ def test():
     print("@looped_over slowdown {:g}x".format(fp3.dt / ip.dt))
 
 if __name__ == '__main__':
-    test()
+    runtests()

@@ -6,7 +6,7 @@ from ..env import env as _envcls
 from ..misc import call
 from ..seq import begin
 
-def test():
+def runtests():
     # order-preserving list uniqifier
     def uniqify_test():
         def f(lst):  # classical solution
@@ -153,4 +153,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

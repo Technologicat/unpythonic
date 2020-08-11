@@ -21,7 +21,7 @@ from ..tco import jump
 #     return log_f
 _logentryexit = lambda f: f  # disabled  # noqa: E731
 
-def test():
+def runtests():
     def debug(funcname, *args, **kwargs):
         # print("bottom called, funcname = {}, args = {}".format(funcname, args))
         # If we return something that depends on args, then fix may have to run
@@ -160,4 +160,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

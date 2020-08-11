@@ -3,7 +3,7 @@
 
 from ...syntax import macros, aif, it, cond, local  # noqa: F401
 
-def test():
+def runtests():
     # Anaphoric if: aif[test, then, otherwise]
     # Magic identifier "it" refers to the test result.
     assert aif[2 * 21,
@@ -32,4 +32,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

@@ -2,7 +2,7 @@
 
 from ...syntax import macros, nb  # noqa: F401
 
-def test():
+def runtests():
     with nb:
         assert _ is None  # noqa: F821, the `nb` macro defines `_` implicitly.
         2 + 3          # top-level expressions autoprint, and auto-assign result to _
@@ -26,4 +26,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

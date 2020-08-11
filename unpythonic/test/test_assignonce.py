@@ -2,7 +2,7 @@
 
 from ..assignonce import assignonce
 
-def test():
+def runtests():
     with assignonce() as e:
         try:
             e.a = 2
@@ -40,4 +40,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

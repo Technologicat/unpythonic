@@ -4,7 +4,7 @@ from .fixtures import nettest
 
 from ..util import recvall, netstringify
 
-def test():
+def runtests():
     assert netstringify(b"hello world") == b"11:hello world,"
 
     server = lambda sock: recvall(1024, sock)
@@ -14,4 +14,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

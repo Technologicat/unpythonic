@@ -4,7 +4,7 @@
 # There's also `deny`, which is `insist not`, but let's not import stuff we don't use.
 from ...syntax import macros, forall, insist  # noqa: F401
 
-def test():
+def runtests():
     # forall: pure AST transformation, with real lexical variables
     #   - assignment (with List-monadic magic) is ``var << iterable``
     out = forall[y << range(3),  # noqa: F821, `forall` defines the name on the LHS of the `<<`.
@@ -25,4 +25,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

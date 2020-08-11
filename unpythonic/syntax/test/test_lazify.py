@@ -21,7 +21,7 @@ from macropy.quick_lambda import Lazy  # usually not needed in client code; for 
 
 #from macropy.tracing import macros, show_expanded  # noqa: F811, F401
 
-def test():
+def runtests():
     # first test the low-level tools
 
     # supported container types: tuple, list, set, frozenset, dict, frozendict
@@ -380,4 +380,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

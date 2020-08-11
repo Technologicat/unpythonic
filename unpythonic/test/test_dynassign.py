@@ -5,7 +5,7 @@ from queue import Queue
 
 from ..dynassign import dyn, make_dynvar
 
-def test():
+def runtests():
     def f():
         assert dyn.a == 2  # no a in lexical scope
 
@@ -133,4 +133,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

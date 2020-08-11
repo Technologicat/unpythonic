@@ -6,7 +6,7 @@ from ...syntax import macros, autoref, let, do, local, lazify, curry  # noqa: F4
 
 from ...env import env
 
-def test():
+def runtests():
     e = env(a=1, b=2)
     c = 3
     with autoref(e):
@@ -105,4 +105,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

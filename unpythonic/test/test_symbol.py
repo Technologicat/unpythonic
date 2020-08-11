@@ -4,7 +4,7 @@ import pickle
 
 from ..symbol import sym, gensym
 
-def test():
+def runtests():
     # Basic idea: lightweight, human-readable, process-wide unique marker,
     # that can be quickly compared by object identity.
     assert sym("foo") is sym("foo")
@@ -46,4 +46,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

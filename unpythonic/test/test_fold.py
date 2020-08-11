@@ -10,7 +10,7 @@ from ..fun import curry, composer, composerc, composel, to1st, rotate
 from ..llist import cons, nil, ll, lreverse
 from ..it import take, tail
 
-def test():
+def runtests():
     # scan/accumulate: lazy fold that yields intermediate results.
     assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
     assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
@@ -195,4 +195,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

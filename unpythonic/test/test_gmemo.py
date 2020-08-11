@@ -9,7 +9,7 @@ from ..it import take, drop, last
 from ..fold import prod
 from ..misc import call, timer
 
-def test():
+def runtests():
     total_evaluations = 0
     @gmemoize
     def gen():
@@ -299,4 +299,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

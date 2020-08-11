@@ -12,7 +12,7 @@ from ..collections import box, unbox
 import threading
 from queue import Queue
 
-def test():
+def runtests():
     # basic usage
     def basic_usage():
         class OddNumberError(Exception):
@@ -419,4 +419,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

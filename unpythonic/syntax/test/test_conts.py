@@ -6,7 +6,7 @@ from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, c
 from ...ec import call_ec
 from ...fploop import looped
 
-def test():
+def runtests():
     # basic testing
     with continuations:
         def add1(x):
@@ -542,4 +542,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

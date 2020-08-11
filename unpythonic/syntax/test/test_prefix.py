@@ -12,7 +12,7 @@ from ...fold import foldr
 from ...fun import composerc as compose, apply
 from ...llist import cons, nil, ll
 
-def test():
+def runtests():
     with prefix:
         (print, "hello world")
         x = 42  # can write any regular Python, too
@@ -101,4 +101,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

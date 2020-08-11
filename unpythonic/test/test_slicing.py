@@ -6,7 +6,7 @@ from itertools import repeat
 from ..slicing import fup, islice
 from ..mathseq import primes, s
 
-def test():
+def runtests():
     # functional update for sequences
     # (when you want to be more functional than Python allows)
     lst = (1, 2, 3, 4, 5)
@@ -61,4 +61,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

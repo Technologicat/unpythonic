@@ -13,7 +13,7 @@
 
 from ...syntax import macros, let_syntax, abbrev, block, expr, where  # noqa: F401
 
-def test():
+def runtests():
     # expression variant
     evaluations = 0
     def verylongfunctionname(x=1):
@@ -178,4 +178,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

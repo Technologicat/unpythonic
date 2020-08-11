@@ -14,7 +14,7 @@ def me():
     framerecord = callstack[1]  # ignore me() itself, get caller's record
     return framerecord[3]       # function name
 
-def test():
+def runtests():
     # basic case: one continuation
     with continuations:
         out = []
@@ -215,4 +215,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

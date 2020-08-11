@@ -13,7 +13,7 @@ from ..misc import (call, callwith, raisef, pack, namelambda, timer,
                     async_raise)
 from ..fun import withself
 
-def test():
+def runtests():
     # def as a code block (function overwritten by return value)
     #
     @call
@@ -241,4 +241,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

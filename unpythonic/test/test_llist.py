@@ -9,7 +9,7 @@ from ..llist import (cons, car, cdr, nil, ll, llist,
 
 from ..fold import foldl, foldr
 
-def test():
+def runtests():
     # TODO: extend tests
 
     c = cons(1, 2)
@@ -161,4 +161,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

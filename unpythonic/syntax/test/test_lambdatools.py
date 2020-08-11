@@ -13,7 +13,7 @@ from ...fun import withself, curry  # noqa: F811
 from ...tco import trampolined, jump
 from ...fploop import looped_over
 
-def test():
+def runtests():
     with multilambda:
         # use brackets around the body of a lambda to denote a multi-expr body
         echo = lambda x: [print(x), x]
@@ -218,4 +218,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

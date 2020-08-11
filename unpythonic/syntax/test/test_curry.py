@@ -8,7 +8,7 @@ from ...fun import composerc as compose
 from ...llist import cons, nil, ll
 from ...collections import frozendict
 
-def test():
+def runtests():
     with curry:
         mymap = lambda f: foldr(compose(cons, f), nil)
         double = lambda x: 2 * x
@@ -81,4 +81,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

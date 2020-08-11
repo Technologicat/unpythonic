@@ -4,7 +4,7 @@
 from ...syntax import macros, tco, continuations, call_cc  # noqa: F401
 from ...ec import call_ec
 
-def test():
+def runtests():
     # basic strategy using an escape continuation
     def double_odd(x, ec):
         if x % 2 == 0:  # reject even "x"
@@ -106,4 +106,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

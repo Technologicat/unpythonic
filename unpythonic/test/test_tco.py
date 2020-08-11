@@ -8,7 +8,7 @@ from ..fun import withself
 from ..let import letrec
 from ..misc import timer
 
-def test():
+def runtests():
     # tail recursion
     @trampolined
     def fact(n, acc=1):
@@ -98,4 +98,4 @@ def test():
     print("@trampolined slowdown {:g}x".format(fp1.dt / ip.dt))
 
 if __name__ == '__main__':
-    test()
+    runtests()

@@ -2,7 +2,7 @@
 
 from ..ec import catch, throw, call_ec
 
-def test():
+def runtests():
     # "multi-return" using escape continuation
     #
     @catch()
@@ -84,4 +84,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

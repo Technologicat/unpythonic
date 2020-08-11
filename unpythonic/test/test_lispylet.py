@@ -4,7 +4,7 @@ from ..lispylet import let, letrec, dlet, dletrec, blet, bletrec
 
 from ..seq import begin
 
-def test():
+def runtests():
     x = let((('a', 1),
              ('b', 2)),
             lambda e: e.a + e.b)
@@ -150,4 +150,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

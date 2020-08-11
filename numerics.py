@@ -10,7 +10,7 @@ from unpythonic.fun import curry
 from unpythonic.it import unpack, drop, take, tail, first, second, last, iterate1
 from unpythonic.fold import scanl, scanl1, unfold
 
-def test():
+def runtests():
     # http://learnyouahaskell.com/higher-order-functions
     def collatz(n):
         if n < 1:
@@ -194,4 +194,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

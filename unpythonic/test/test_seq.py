@@ -8,7 +8,7 @@ from ..seq import (begin, begin0, lazy_begin, lazy_begin0,
 
 from ..ec import call_ec
 
-def test():
+def runtests():
     # sequence side effects in a lambda
     #
     f1 = lambda x: begin(print("cheeky side effect"), 42 * x)
@@ -195,4 +195,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

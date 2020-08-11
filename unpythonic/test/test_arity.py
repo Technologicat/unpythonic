@@ -3,7 +3,7 @@
 from ..arity import (arities, required_kwargs, optional_kwargs, kwargs,
                      resolve_bindings, tuplify_bindings)
 
-def test():
+def runtests():
     _ = None  # just some no-op value
     infty = float("+inf")
     items = (((lambda a: _), (1, 1)),
@@ -115,4 +115,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

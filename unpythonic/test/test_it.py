@@ -30,7 +30,7 @@ from ..gmemo import imemoize, gmemoize
 from ..mathseq import s
 from ..misc import Popper, ulp
 
-def test():
+def runtests():
     def noneadd(a, b):
         if all(x is not None for x in (a, b)):
             return a + b
@@ -327,4 +327,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

@@ -7,7 +7,7 @@ from .fixtures import nettest
 from ..msg import encodemsg, MessageDecoder
 from ..util import bytessource, streamsource, socketsource
 
-def test():
+def runtests():
     # sans-IO
 
     # Basic use.
@@ -106,4 +106,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

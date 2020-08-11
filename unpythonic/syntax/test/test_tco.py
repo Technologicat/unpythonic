@@ -8,7 +8,7 @@ from ...ec import call_ec
 from ...fploop import looped_over
 from ...fun import withself
 
-def test():
+def runtests():
     # - any explicit return statement in a function body is TCO'd
     # - any expression determined to be in a return-value position is analyzed
     #   to find the subexpression in tail position, and that subexpression is TCO'd
@@ -161,4 +161,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

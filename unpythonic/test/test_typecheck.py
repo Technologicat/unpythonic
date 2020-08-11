@@ -6,7 +6,7 @@ import typing
 from ..collections import frozendict
 from ..typecheck import isoftype
 
-def test():
+def runtests():
     # a concrete type
     assert isoftype(17, int)
     assert isoftype("hello", str)
@@ -181,4 +181,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

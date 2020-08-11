@@ -73,7 +73,7 @@ def blubnify(x: int, y: float):
 def jack(x: typing.Union[int, str]):  # look, it's the union-jack!
     return x
 
-def test():
+def runtests():
     assert zorblify(17, 8) == 42
     assert zorblify(17, y=8) == 42  # can also use named arguments
     assert zorblify(y=8, x=17) == 42
@@ -136,4 +136,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()

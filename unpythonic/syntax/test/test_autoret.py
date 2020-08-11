@@ -5,7 +5,7 @@ from ...syntax import macros, autoreturn  # noqa: F401
 
 from ...env import env
 
-def test():
+def runtests():
     # - in a function body, any expression "expr" in tail position
     #   (along any code path) is transformed to "return expr".
     # - if/elif/else, try/except/else/finally and "with" blocks are supported.
@@ -62,4 +62,4 @@ def test():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    test()
+    runtests()
