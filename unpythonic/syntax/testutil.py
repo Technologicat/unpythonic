@@ -10,11 +10,21 @@ from ast import Tuple, Str
 from ..misc import callsite_filename
 from ..conditions import cerror
 from ..dynassign import make_dynvar, dyn
+from ..collections import box
+
+# Keep a global count (since Python last started) of how many unpythonic_asserts
+# have run and how many have failed, so that the client code can easily calculate
+# the percentage of tests passed.
+#
+# We use `box` to keep this simple; its API supports querying and resetting,
+# so we don't need to build yet another single-purpose API for these particular
+# counters.
+tests_run = box(0)
+tests_failed = box(0)
 
 make_dynvar(test_signal_errors=False)  # if True, use conditions instead of exceptions to signal failed tests.
 
-# TODO: make it possible to automatically count invocations of `test[]`, to get the total number of tests
-
+# Just a regular function.
 def unpythonic_assert(sourcecode, value, filename, lineno, myname=None):
     """Custom assert function, for building test frameworks.
 
@@ -27,15 +37,12 @@ def unpythonic_assert(sourcecode, value, filename, lineno, myname=None):
     The idea is that `cerror` allows surrounding code to install a handler that
     invokes the `proceed` restart, so that further tests may continue to run::
 
-        from unpythonic.syntax import macros, test
+        from unpythonic.syntax import macros, test, tests_run, tests_failed
 
         import sys
         from unpythonic import dyn, handlers, invoke
 
-        errors = 0
         def report(err):
-            global errors
-            errors += 1
             print(err, file=sys.stderr)  # or log or whatever
             invoke("proceed")
 
@@ -45,7 +52,8 @@ def unpythonic_assert(sourcecode, value, filename, lineno, myname=None):
                 test[2 + 2 == 4]
                 test[17 + 23 == 40, "my named test"]
 
-        assert errors == 1
+        assert tests_failed == 1  # we use the type pun that a box is equal to its content.
+        assert tests_run == 3
 
     Parameters:
 
@@ -69,8 +77,12 @@ def unpythonic_assert(sourcecode, value, filename, lineno, myname=None):
 
     No return value.
     """
+    tests_run << tests_run.get() + 1
+
     if value:
         return
+
+    tests_failed << tests_failed.get() + 1
 
     if myname is not None:
         error_msg = "Named assertion '{}' failed".format(myname)
@@ -83,6 +95,7 @@ def unpythonic_assert(sourcecode, value, filename, lineno, myname=None):
     else:
         raise AssertionError(msg)
 
+# The syntax transformer.
 def test(tree):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = hq[callsite_filename()]

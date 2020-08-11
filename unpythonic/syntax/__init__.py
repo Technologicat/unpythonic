@@ -8,7 +8,8 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # contain the actual syntax transformers (regular functions that process ASTs)
 # that implement the macros.
 
-# insist, deny, it, f, _, force, force1, local, delete, block, expr, dbgprint_block, dbgprint_expr, call_cc
+# insist, deny, it, f, _, force, force1, local, delete, block, expr,
+# dbgprint_block, dbgprint_expr, call_cc, tests_run, tests_failed
 # are just for passing through to the client code that imports us.
 from .autoref import autoref as _autoref
 from .curry import curry as _curry
@@ -30,7 +31,7 @@ from .dbg import (dbg_block as _dbg_block, dbg_expr as _dbg_expr,  # noqa: F401
 from .prefix import prefix as _prefix
 from .tailtools import (autoreturn as _autoreturn, tco as _tco,  # noqa: F401
                         continuations as _continuations, call_cc)
-from .testutil import (test as _test)
+from .testutil import (test as _test, tests_run, tests_failed)  # noqa: F401
 
 # "where" is only for passing through (export).
 from .letdoutil import UnexpandedLetView, _canonize_bindings, where  # noqa: F401
@@ -2000,6 +2001,13 @@ def test(tree, **kw):  # noqa: F811
         `test[expr]`
         `test[expr, "name of my test"]`
 
+    Additionally, `tests_run` and `tests_failed` are `unpythonic.collections.box`
+    holding integers that describe what it says on the tin. Use the `box` API
+    to read or reset them.
+
+    The counts start at zero when Python starts. The idea is to allow client
+    code to easily compute percentage of tests passed.
+
     **How to use**:
 
     The behavior is similar to the builtin `assert`, with a twist.
@@ -2014,15 +2022,12 @@ def test(tree, **kw):  # noqa: F811
     invokes the `proceed` restart after performing any logging and such, so that
     although the error is reported, further tests still run::
 
-        from unpythonic.syntax import macros, test
+        from unpythonic.syntax import macros, test, tests_run, tests_failed
 
         import sys
         from unpythonic import dyn, handlers, invoke
 
-        errors = 0
         def report(err):
-            global errors
-            errors += 1
             print(err, file=sys.stderr)  # or log or whatever
             invoke("proceed")
 
@@ -2032,7 +2037,8 @@ def test(tree, **kw):  # noqa: F811
                 test[2 + 2 == 4]
                 test[17 + 23 == 40, "my named test"]
 
-        assert errors == 1
+        assert tests_failed == 1  # we use the type pun that a box is equal to its content.
+        assert tests_run == 3
 
     If you want to proceed after most failures, but there is some particularly
     critical test which, if it fails, should abort the rest of the whole unit,
