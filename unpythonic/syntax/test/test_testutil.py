@@ -37,6 +37,8 @@ def runtests():
     # The handler can be overridden locally. This works, because the
     # dynamically most recently bound handler for the same signal type wins
     # (see `unpythonic.conditions`).
+    #
+    # We can reset the counters by sending a new value into the box.
     tests_failed << 0
     tests_run << 0
     report_and_skip = partial(report, "skip")
