@@ -2035,6 +2035,8 @@ def test(tree, **kw):  # noqa: F811
             test[2 + 2 == 4]
             test[17 + 23 == 40, "my named test"]
 
+        # One wouldn't normally use `assert` in a test module that uses `test[]`.
+        # This is just to state that in this example, we expect these to hold.
         assert tests_failed == 1  # we use the type pun that a box is equal to its content.
         assert tests_run == 3
 

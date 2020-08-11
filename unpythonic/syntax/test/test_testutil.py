@@ -34,6 +34,8 @@ def runtests():
         test[2 + 2 == 5]  # fails, but allows further tests to continue
         test[2 + 2 == 4]
         test[17 + 23 == 40, "my named test"]
+    # One wouldn't normally use `assert` in a test module that uses `test[]`,
+    # but we have to test `test[]` itself somehow.
     assert tests_failed == 1  # we use the type pun that a box is equal to its content.
     assert tests_run == 3
 
