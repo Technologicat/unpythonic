@@ -1,8 +1,11 @@
 # Links to relevant reading
 
-This document collects links to blog posts, online articles and papers on topics at least somewhat relevant in the context of `unpythonic`.
+This document collects links to blog posts, online articles and actual scientific papers on topics at least somewhat relevant in the context of `unpythonic`.
 
 The common denominator is programming. Some relate to language design, some to curious individual technical details, and some are just cool finds, archived here because I don't currently have a better place for them.
+
+- [Matthias Felleisen, 1991: On the expressive power of programming languages](https://www.sciencedirect.com/science/article/pii/016764239190036W). Science of Computer Programming, 17(1--3), 1991, 35--75. [doi:10.1016/0167-6423(91)90036-W](https://doi.org/10.1016/0167-6423(91)90036-W)
+  - A seminal paper on how to quantify the difference in "power" between programming languages.
 
 - [Evelyn Woods, 2017: A comparison of object models of Python, Lua, JavaScript and Perl](https://eev.ee/blog/2017/11/28/object-models/).
   - Useful reading for anyone interested in how the object models differ.
