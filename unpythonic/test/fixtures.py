@@ -94,7 +94,7 @@ def terminate_session(exc):  # the parameter is ignored
     This can be used as a `reporter`, if you want a failure in a particular
     testset to abort the whole unit.
     """
-    TestConfig.printer(colorize("** TEST SESSION TERMINATED"))
+    TestConfig.printer(colorize("** TERMINATED", TC.BOLD, TestConfig.CS.HEADING))
     summary()
     sys.exit(255)
 
