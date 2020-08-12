@@ -88,7 +88,7 @@ netcat localhost 1337
 
 ```python
 from unpythonic.net import server
-server.start(locals=globals())
+server.start(locals={})
 ```
 
 That's all.
