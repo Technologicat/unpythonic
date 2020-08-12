@@ -25,10 +25,10 @@ See:
 from contextlib import contextmanager
 import sys
 
-from ..syntax.testutil import tests_run, tests_failed, tests_errored
+from ..syntax.testutil import tests_run, tests_failed, tests_errored, TestFailure, TestError
 from ..conditions import handlers, invoke
 
-__all__ = ["testset", "summary"]
+__all__ = ["start", "testset", "summary"]
 
 # TODO: Move the color stuff to another module, it could be generally useful.
 # TODO: Consider implementing the \x1b variant that comes with 256 colors
@@ -144,6 +144,14 @@ def summarize(runs, fails, errors, color=False):
                      colorize("({:0.2g}% pass)".format(pass_percentage), TC.BOLD, thecolor)])
     return "".join(snippets)
 
+def start():
+    """Print a banner that says TESTS BEGIN.
+
+    For easy visual recognition of where a test session begins in terminal output.
+    """
+    print(colorize("** TESTS BEGIN", TC.BOLD, TC.BLUE2),
+          file=sys.stderr)
+
 @contextmanager
 def testset(name=None, reporter=None):
     """Context manager representing a test set.
@@ -154,10 +162,10 @@ def testset(name=None, reporter=None):
     If not given, the testset is not named.
 
     The optional `reporter` specifies a custom *condition handler*. It receives
-    one argument, which is an `AssertionError` instance that was signaled by a
-    failed or errored test. It should print or log the error (whatever is
-    appropriate), and then `invoke("proceed")` to continue running the
-    remaining tests. (See `unpythonic.conditions.invoke`.)
+    one argument, which is a `TestFailure` or `TestError` instance that was
+    signaled by a failed/errored test. It should print or log the error
+    (whatever is appropriate), and then `invoke("proceed")` to continue running
+    the remaining tests. (See `unpythonic.conditions.invoke`.)
 
     If you want a failure in this testset to abort the whole unit, you can
     `sys.exit` from the reporter function.
@@ -178,6 +186,8 @@ def testset(name=None, reporter=None):
             test[...]
             test[...]
 
+        summary()  # <-- put this at the end of your test script, for totals
+
     **CAUTION**: Not thread-safe. The `test[...]` invocations should be made from
     a single thread, because `test[]` uses a global counter to track runs/fails.
 
@@ -190,16 +200,22 @@ def testset(name=None, reporter=None):
     if name is not None:
         title += colorize(" '{}'".format(name), TC.ITALIC)
     print(colorize("{} ".format(title), TC.BLUE2) +
-          colorize("BEGIN", TC.BLUE2, TC.BOLD),
+          colorize("BEGIN", TC.BOLD, TC.BLUE2),
           file=sys.stderr)
 
     def report_and_proceed(condition):
-        print(str(condition), file=sys.stderr)
+        if isinstance(condition, TestFailure):
+            msg = colorize("****** FAIL: ", TC.BOLD, TC.RED2)
+        elif isinstance(condition, TestError):
+            msg = colorize("****** ERROR: ", TC.BOLD, TC.YELLOW)
+        else:
+            assert False
+        print(msg + str(condition), file=sys.stderr)
         invoke("proceed")
 
     # The test[] macro signals a condition (using `cerror`), does not raise an
     # exception. That gives it the superpower to resume the rest of the tests.
-    with handlers((AssertionError, report_and_proceed)):
+    with handlers(((TestFailure, TestError), report_and_proceed)):
         yield
 
     r2 = tests_run.get()
@@ -220,12 +236,13 @@ def summary():
 
     **CAUTION**: This also counts tests that did not participate in any `testset`.
 
-    To make your summaries intuitively understandable, consider either placing
-    all of your tests into some `testset`, or not using testsets at all.
+    To make your numbers to add up transparently, consider either placing all
+    of your tests into some `testset` (even if some sets have just one test),
+    or not using testsets at all.
     """
     runs = tests_run.get()
     fails = tests_failed.get()
     errors = tests_errored.get()
-    print(colorize("**** TOTAL: ", TC.BLUE2, TC.BOLD) +
+    print(colorize("** TESTS TOTAL: ", TC.BOLD, TC.BLUE2) +
           summarize(runs, fails, errors, color=True),
           file=sys.stderr)

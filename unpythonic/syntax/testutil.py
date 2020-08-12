@@ -22,19 +22,36 @@ tests_run = box(0)
 tests_failed = box(0)
 tests_errored = box(0)
 
+class TestingException(Exception):
+    """Base type for testing-related exceptions."""
+class TestFailure(TestingException):
+    """Exception type indicating that a test failed."""
+class TestError(TestingException):
+    """Exception type indicating that a test did not run to completion.
+
+    This can happen due to an uncaught exception, or an unhandled
+    `error` (or `cerror`) condition.
+    """
+
 # Just a regular function.
 def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     """Custom assert function, for building test frameworks.
 
-    Upon a failing assertion, this will *signal* the `AssertionError` as a
+    Upon a failing assertion, this will *signal* a `TestFailure` as a
     *cerror* (correctable error), via unpythonic's condition system (see
     `unpythonic.conditions.cerror`).
 
-    This allows the surrounding code to install a handler that invokes
-    the `proceed` restart, so upon a test failure, any further tests
+    If a test fails to run to completion due to an uncaught exception or an
+    unhandled `error` (or `cerror`) condition, `TestError` is signaled,
+    so the caller can easily tell apart which case occurred.
+
+    Using conditions allows the surrounding code to install a handler that
+    invokes the `proceed` restart, so upon a test failure, any further tests
     still continue to run::
 
-        from unpythonic.syntax import macros, test, tests_run, tests_failed
+        from unpythonic.syntax import (macros, test,
+                                       tests_run, tests_failed, tests_errored,
+                                       TestFailure, TestError)
 
         import sys
         from unpythonic import invoke, handlers
@@ -43,7 +60,7 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
             print(err, file=sys.stderr)  # or log or whatever
             invoke("proceed")
 
-        with handlers((AssertionError, report)):
+        with handlers(((TestFailure, TestError), report)):
             test[2 + 2 == 5]  # fails, but allows further tests to continue
             test[2 + 2 == 4]
             test[17 + 23 == 40, "my named test"]
@@ -51,6 +68,7 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
         # One wouldn't normally use `assert` in a test module that uses `test[]`.
         # This is just to state that in this example, we expect these to hold.
         assert tests_failed == 1  # we use the type pun that a box is equal to its content.
+        assert tests_errored == 0
         assert tests_run == 3
 
     Parameters:
@@ -89,22 +107,21 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
             return desc + ", directly caused by earlier exception {}".format(describe_exception(e.__cause__))
         return desc
 
-    title = "Assertion" if myname is None else "Named assertion '{}'".format(myname)
+    title = "Test" if myname is None else "Named test '{}'".format(myname)
     try:
         if thunk():
             return
     except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
         tests_errored << tests_errored.get() + 1
+        conditiontype = TestError
         desc = describe_exception(err)
         error_msg = "{} errored: {}, due to uncaught exception {}".format(title, sourcecode, desc)
     else:
         tests_failed << tests_failed.get() + 1
+        conditiontype = TestFailure
         error_msg = "{} failed: {}".format(title, sourcecode)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
-
-    # TODO: Signal some other condition type when a test errors, so the caller
-    # TODO: can easily tell it apart from a test failure. RuntimeError?
 
     # We use cerror() to signal a failed/errored test, instead of raising an
     # exception, so the client code can resume (after logging the failure and
@@ -113,7 +130,7 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     # If the client code does not install a handler, then a `ControlError`
     # exception is raised by the condition system; leaving a cerror unhandled
     # is an error.
-    cerror(AssertionError(complete_msg))
+    cerror(conditiontype(complete_msg))
 
 # The syntax transformer.
 def test(tree):

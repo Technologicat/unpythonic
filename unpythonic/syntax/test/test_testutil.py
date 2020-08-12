@@ -6,11 +6,13 @@ compact assert-like syntax, while letting the rest of the tests run even if
 some tests fail.
 """
 
-from ...syntax import macros, test, tests_run, tests_failed, tests_errored  # noqa: F401
+from ...syntax import (macros, test,  # noqa: F401
+                       tests_run, tests_failed, tests_errored,
+                       TestFailure, TestError)
 
 from functools import partial
 
-from ...test.fixtures import testset, summary  # noqa: F401
+from ...test.fixtures import start, testset, summary  # noqa: F401
 
 from ...conditions import invoke, handlers, restarts
 from ...misc import raisef
@@ -33,7 +35,7 @@ def runtests():
     #
     # (Only the client code can know what to do with the error, so `test[]`
     #  cannot automatically write the `with handlers` block for us.)
-    with handlers((AssertionError, report_and_proceed)):
+    with handlers((TestFailure, report_and_proceed)):
         test[2 + 2 == 5]  # fails, but allows further tests to continue
         test[2 + 2 == 4]
         test[17 + 23 == 40, "my named test"]
@@ -54,11 +56,11 @@ def runtests():
     tests_errored << 0
     tests_run << 0
     report_and_skip = partial(report, "skip")
-    with handlers((AssertionError, report_and_proceed)):
+    with handlers(((TestFailure, TestError), report_and_proceed)):
         test[2 + 2 == 5]  # fails, but allows further tests to continue
 
         with restarts(skip=(lambda: None)):  # just for control, no return value
-            with handlers((AssertionError, report_and_skip)):
+            with handlers(((TestFailure, TestError), report_and_skip)):
                 test[2 + 2 == 6]  # --> fails, skips the rest of this block
                 test[2 + 2 == 7]  # not reached
 
@@ -73,7 +75,7 @@ def runtests():
     tests_failed << 0
     tests_errored << 0
     tests_run << 0
-    with handlers((AssertionError, report_and_proceed)):
+    with handlers(((TestFailure, TestError), report_and_proceed)):
         test[raisef(RuntimeError)]  # errors out, but allows further tests to continue
         test[2 + 2 == 4]
         test[17 + 23 == 40, "my named test"]
@@ -81,25 +83,29 @@ def runtests():
     assert tests_failed == 0
     assert tests_errored == 1
 
-    # # Syntactic sugar for creating testsets.
-    # # Testsets resume upon failure automatically, and also count passes,
-    # # fails and errors automatically (no need to reset counters).
-    # #
-    # # Just be sure to run all `test[]` invocations in the same thread,
-    # # because the counters (managed by `test[]` itself) are global.
-    # with testset():
-    #     test[2 + 2 == 4]
-    #     test[2 + 2 == 5]
+    # Syntactic sugar for creating testsets.
+    # Testsets resume upon failure automatically, and also count passes,
+    # fails and errors automatically (no need to reset counters).
     #
-    # # Testsets can be named.
-    # with testset("my fancy tests"):
-    #     test[2 + 2 == 4]
-    #     test[raisef(RuntimeError)]
-    #     test[2 + 2 == 6]
+    # Just be sure to run all `test[]` invocations in the same thread,
+    # because the counters (managed by `test[]` itself) are global.
     #
-    # # A final summary for all tests can also be printed.
-    # # (This counts also tests that did not participate in a testset.)
-    # summary()
+    # Testing can begin with a banner.
+    start()
+
+    with testset():
+        test[2 + 2 == 4]
+        test[2 + 2 == 5]
+
+    # Testsets can be named.
+    with testset("my fancy tests"):
+        test[2 + 2 == 4]
+        test[raisef(RuntimeError)]
+        test[2 + 2 == 6]
+
+    # A final summary for all tests can also be printed.
+    # (This counts also tests that did not participate in a testset.)
+    summary()
 
     print("All tests PASSED")
 

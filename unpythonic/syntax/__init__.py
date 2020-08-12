@@ -9,7 +9,8 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # that implement the macros.
 
 # insist, deny, it, f, _, force, force1, local, delete, block, expr,
-# dbgprint_block, dbgprint_expr, call_cc, tests_run, tests_failed, tests_errored
+# dbgprint_block, dbgprint_expr, call_cc,
+# tests_run, tests_failed, tests_errored, TestException, TestFailure, TestError
 # are just for passing through to the client code that imports us.
 from .autoref import autoref as _autoref
 from .curry import curry as _curry
@@ -31,8 +32,9 @@ from .dbg import (dbg_block as _dbg_block, dbg_expr as _dbg_expr,  # noqa: F401
 from .prefix import prefix as _prefix
 from .tailtools import (autoreturn as _autoreturn, tco as _tco,  # noqa: F401
                         continuations as _continuations, call_cc)
-from .testutil import (test as _test, tests_run, tests_failed, tests_errored)  # noqa: F401
-
+from .testutil import (test as _test,  # noqa: F401
+                       tests_run, tests_failed, tests_errored,
+                       TestingException, TestFailure, TestError)
 # "where" is only for passing through (export).
 from .letdoutil import UnexpandedLetView, _canonize_bindings, where  # noqa: F401
 from ..dynassign import dyn, make_dynvar
@@ -2013,15 +2015,21 @@ def test(tree, **kw):  # noqa: F811
 
     The behavior is similar to the builtin `assert`, with a twist.
 
-    Upon a failing test, this will *signal* the `AssertionError` as a
-    *cerror* (correctable error), via unpythonic's condition system
-    (see `unpythonic.conditions.cerror`).
+    Upon a failing test, this will *signal* a `TestFailure` as a *cerror*
+    (correctable error), via unpythonic's condition system (see
+    `unpythonic.conditions.cerror`).
 
-    This allows the surrounding code to install a handler that invokes
-    the `proceed` restart, so upon a test failure, any further tests
+    If a test fails to run to completion due to an uncaught exception or an
+    unhandled `error` (or `cerror`) condition, `TestError` is signaled,
+    so the caller can easily tell apart which case occurred.
+
+    Using conditions allows the surrounding code to install a handler that
+    invokes the `proceed` restart, so upon a test failure, any further tests
     still continue to run::
 
-        from unpythonic.syntax import macros, test, tests_run, tests_failed
+        from unpythonic.syntax import (macros, test,
+                                       tests_run, tests_failed, tests_errored,
+                                       TestFailure, TestError)
 
         import sys
         from unpythonic import invoke, handlers
@@ -2030,7 +2038,7 @@ def test(tree, **kw):  # noqa: F811
             print(err, file=sys.stderr)  # or log or whatever
             invoke("proceed")
 
-        with handlers((AssertionError, report)):
+        with handlers(((TestFailure, TestError), report)):
             test[2 + 2 == 5]  # fails, but allows further tests to continue
             test[2 + 2 == 4]
             test[17 + 23 == 40, "my named test"]
@@ -2038,6 +2046,7 @@ def test(tree, **kw):  # noqa: F811
         # One wouldn't normally use `assert` in a test module that uses `test[]`.
         # This is just to state that in this example, we expect these to hold.
         assert tests_failed == 1  # we use the type pun that a box is equal to its content.
+        assert tests_errored == 0
         assert tests_run == 3
 
     If you want to proceed after most failures, but there is some particularly
@@ -2048,10 +2057,10 @@ def test(tree, **kw):  # noqa: F811
             print(err, file=sys.stderr)  # or log or whatever
             sys.exit(255)
 
-        with handlers((AssertionError, report)):
+        with handlers(((TestFailure, TestError), report)):
             test[2 + 2 == 5]  # fails, but allows further tests to continue
 
-            with handlers((AssertionError, die)):
+            with handlers(((TestFailure, TestError), die)):
                 test[2 + 2 == 6]  # --> die
                 test[17 + 23 == 40, "my named test"]  # not reached
 
@@ -2065,18 +2074,18 @@ def test(tree, **kw):  # noqa: F811
 
         from unpythonic import restarts, invoker
 
-        with handlers((AssertionError, report)):
+        with handlers(((TestFailure, TestError), report)):
             test[2 + 2 == 5]  # fails, but allows further tests to continue
 
             with restarts(skip=(lambda: None)):  # just for control, no return value
-                with handlers((AssertionError, invoker("skip"))):
+                with handlers(((TestFailure, TestError), invoker("skip"))):
                     test[2 + 2 == 6]  # --> fails, skip the rest of this block
                     test[17 + 23 == 40, "my named test"]  # not reached
 
             test[2 + 2 == 7]  # fails, but allows further tests to continue
 
-    See the unit tests in `unpythonic.syntax.test.test_testutil` for more variations.
-
+    See the unit tests in `unpythonic.syntax.test.test_testutil` for more variations,
+    and some helpful utilities found elsewhere in `unpythonic`.
     """
     return _test(tree)
 
