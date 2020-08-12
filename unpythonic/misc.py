@@ -261,7 +261,7 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
     ``body`` is a thunk (0-argument function) that represents
     the body of the ``try`` block.
 
-    ``handlers`` is ``((excspec, handler), ...)``, where
+    ``handlers`` is ``(excspec, handler), ...``, where
                  ``excspec`` is either an exception type,
                              or a tuple of exception types.
                  ``handler`` is a 0-argument or 1-argument
@@ -285,8 +285,10 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
 
     If you need to share variables between ``body`` and ``finallyf``
     (which is likely, given what a ``finally`` block is intended
-    to do), consider wrapping the ``tryf`` in a ``let`` and
-    storing your variables there.
+    to do), consider wrapping the ``tryf`` in a ``let`` and storing
+    your variables there. If you want them to leak out of the ``tryf``,
+    you can also just create an ``env`` at an appropriate point,
+    and store them there.
     """
     def takes_arg(f):
         try:

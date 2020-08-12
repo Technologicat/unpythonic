@@ -127,6 +127,9 @@ def runtests():
                 elsef=lambda: "there") == "there"
     assert tryf(lambda: myfunc(),
                 (ValueError, lambda: "got a ValueError")) == "got a ValueError"
+    assert tryf(lambda: "hello",
+                (ValueError, lambda: "got a ValueError"),
+                elsef=lambda: "there") == "there"
     assert tryf(lambda: raisef(ValueError("oof")),
                 (TypeError, lambda: "got a TypeError"),
                 ((TypeError, ValueError), lambda: "got a TypeError or a ValueError"),
