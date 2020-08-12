@@ -31,6 +31,7 @@ else:
 
 from .regutil import register_decorator
 from .lazyutil import passthrough_lazy_args, maybe_force_args, force
+from .arity import arity_includes, UnknownArity
 
 # Only the single-argument form (just f) of the "call" decorator is supported by unpythonic.syntax.util.sort_lambda_decorators.
 #
@@ -251,6 +252,75 @@ def raisef(exc, *args, cause=None, **kwargs):
         raise exc from cause
     else:
         raise exc
+
+def tryf(body, *handlers, elsef=None, finallyf=None):
+    """``try``/``except``/``finally`` as a function.
+
+    This allows lambdas to handle exceptions.
+
+    ``body`` is a thunk (0-argument function) that represents
+    the body of the ``try`` block.
+
+    ``handlers`` is ``((excspec, handler), ...)``, where
+                 ``excspec`` is either an exception type,
+                             or a tuple of exception types.
+                 ``handler`` is a 0-argument or 1-argument
+                             function. If it takes an
+                             argument, it gets the exception
+                             instance.
+
+                 Handlers are tried in the order specified.
+
+    ``elsef`` is a thunk that represents the ``else`` block.
+
+    ``finallyf`` is a thunk that represents the ``finally`` block.
+
+    Upon normal completion, the return value of ``tryf`` is
+    the return value of ``elsef`` if that was specified, otherwise
+    the return value of ``body``.
+
+    If an exception was caught by one of the handlers, the return
+    value of ``tryf`` is the return value of the exception handler
+    that ran.
+
+    If you need to share variables between ``body`` and ``finallyf``
+    (which is likely, given what a ``finally`` block is intended
+    to do), consider wrapping the ``tryf`` in a ``let`` and
+    storing your variables there.
+    """
+    def takes_arg(f):
+        try:
+            if arity_includes(f, 1):
+                return True
+        except UnknownArity:
+            pass
+        return False
+
+    try:
+        ret = body()
+    except BaseException as e:
+        for excspec, handler in handlers:
+            if isinstance(excspec, tuple):  # tuple of exception types
+                if not all(issubclass(t, BaseException) for t in excspec):
+                    raise ValueError("All elements of a tuple excspec must be exception types")
+                if any(isinstance(e, t) for t in excspec):
+                    if takes_arg(handler):
+                        return handler(e)
+                    return handler()
+            elif issubclass(excspec, BaseException):  # single exception type
+                if isinstance(e, excspec):
+                    if takes_arg(handler):
+                        return handler(e)
+                    return handler()
+            else:
+                raise ValueError("excspec must be an exception type or tuple of exception types")
+    else:
+        if elsef is not None:
+            return elsef()
+        return ret
+    finally:
+        if finallyf is not None:
+            finallyf()
 
 def pack(*args):
     """Multi-argument constructor for tuples.

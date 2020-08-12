@@ -8,7 +8,7 @@ from queue import Queue
 from time import sleep
 import threading
 
-from ..misc import (call, callwith, raisef, pack, namelambda, timer,
+from ..misc import (call, callwith, raisef, tryf, pack, namelambda, timer,
                     getattrrec, setattrrec, Popper, CountingIterator, ulp, slurp,
                     async_raise)
 from ..fun import withself
@@ -120,6 +120,17 @@ def runtests():
         pass
     else:
         assert False
+
+    # tryf: handle an exception in an expression position
+    assert tryf(lambda: "hello") == "hello"
+    assert tryf(lambda: "hello",
+                elsef=lambda: "there") == "there"
+    assert tryf(lambda: myfunc(),
+                (ValueError, lambda: "got a ValueError")) == "got a ValueError"
+    assert tryf(lambda: raisef(ValueError("oof")),
+                (TypeError, lambda: "got a TypeError"),
+                ((TypeError, ValueError), lambda: "got a TypeError or a ValueError"),
+                (ValueError, lambda: "got a ValueError")) == "got a TypeError or a ValueError"
 
     myzip = lambda lol: map(pack, *lol)
     lol = ((1, 2), (3, 4), (5, 6))
