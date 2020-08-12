@@ -84,27 +84,37 @@ def runtests():
     assert tests_errored == 1
 
     # # Syntactic sugar for creating testsets.
-    # # Testsets resume upon failure automatically, and also count passes,
-    # # fails and errors automatically (no need to reset counters).
     # #
-    # # Just be sure to run all `test[]` invocations in the same thread,
+    # # Testsets present a simple interface, which automates a few things:
+    # #   - Resume testing upon failures and errors
+    # #   - Count passes, fails and errors, summarize totals
+    # #   - Print nicely colored ANSI terminal output into `sys.stderr`
+    # #
+    # # Note that any uncaught exception or `error`/`cerror` signal
+    # # outside any `test[]` construct still behaves normally.
+    # #
+    # # Be sure to run all `test[]` invocations in the same thread,
     # # because the counters (managed by `test[]` itself) are global.
     # #
-    # # Testing can begin with a banner.
+    # # Also, if you use testsets, be sure to run all `test[]` invocations
+    # # inside a testset; `testset` is what catches and prints failures
+    # # and errors.
+    # #
+    # # A test session begins by calling `start()`. This resets the
+    # # counters, and prints a banner for easy visual recognition.
     # start()
     #
     # with testset():
     #     test[2 + 2 == 4]
     #     test[2 + 2 == 5]
     #
-    # # Testsets can be named.
+    # # Testsets can be named. The name is printed.
     # with testset("my fancy tests"):
     #     test[2 + 2 == 4]
     #     test[raisef(RuntimeError)]
     #     test[2 + 2 == 6]
     #
-    # # A final summary for all tests can also be printed.
-    # # (This counts also tests that did not participate in a testset.)
+    # # Asking for a summary prints the totals since the last `start()`.
     # summary()
 
     print("All tests PASSED")

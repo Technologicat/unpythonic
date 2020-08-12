@@ -35,6 +35,9 @@ from ..conditions import handlers, invoke
 
 __all__ = ["start", "testset", "summary"]
 
+# TODO: Make coloring optional. Allow customizing where the headers are printed,
+# TODO: since we already allow customizing how the failures and errors are treated.
+
 # TODO: Move the general color stuff to another module, it could be useful.
 # TODO: Consider implementing the \x1b variant that comes with 256 colors
 # TODO: and does not rely on a palette.
