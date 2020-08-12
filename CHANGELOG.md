@@ -7,7 +7,12 @@
 
 **Non-breaking changes**:
 
-- Conditions: when an unhandled `error` or `cerror` occurs, the original unhandled error is now available in the `__cause__` attribute of the `ControlError` exception that is raised in this situation.
+- Conditions: when an unhandled `error` or `cerror` occurs, the original unhandled error is now available in the `__cause__` attribute of the `ControlError** exception that is raised in this situation.
+
+**Fixed**:
+
+- Conditions: `with handlers` catches also derived types, e.g. a handler for `Exception` now catches a signaled `ValueError`.
+- Conditions: Handler lookup works correctly also for `signal(SomeExceptionClass)` without creating an instance.
 
 ---
 
