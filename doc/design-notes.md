@@ -127,10 +127,15 @@ The point behind providing `let` and `begin` (and the ``let[]`` and ``do[]`` [ma
 
 The oft-quoted single-expression limitation of the Python ``lambda`` is ultimately a herring, as this library demonstrates. The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. (This observation has been earlier made by others, too; see e.g. the [Wikipedia page on anonymous functions](https://en.wikipedia.org/wiki/Anonymous_function#Python).) We can work around some of this:
 
- - The expression form of `if` can be used, but readability suffers if nested. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers there too. Another possibility is to use MacroPy to define a ``cond`` expression, but it's essentially duplicating a feature the language already almost has. Our [macros](macros.md) do exactly that, providing a ``cond`` expression as a macro.
- - Functional looping (with TCO, to boot) is possible.
- - ``unpythonic.ec.call_ec`` gives us ``return`` (the ec), and ``unpythonic.misc.raisef`` gives us ``raise``.
- - Exception handling (``try``/``except``/``else``/``finally``) and context management (``with``) are currently **not** available for lambdas, even in ``unpythonic``.
+ - The expr macro ``cond[]`` gives us a general ``if``/``elif``/``else`` expression.
+   - Without it, the expression form of `if` (that Python already has) could be used, but readability suffers if nested, since it has no ``elif``. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers even more.
+   - So we use MacroPy to define a ``cond`` expression, essentially duplicating a feature the language already almost has. See [our macros](macros.md).
+ - Functional looping (with TCO, to boot) is possible. See the constructs in ``unpythonic.fploop``.
+ - ``unpythonic.ec.call_ec`` gives us ``return`` (the ec).
+ - ``unpythonic.misc.raisef`` gives us ``raise``, and ``unpythonic.misc.tryf`` gives us ``try``/``except``/``else``/``finally``.
+ - A lambda can be named (``unpythonic.misc.namelambda``, with some practical limitations on the fully qualified name of nested lambdas).
+ - Even an anonymous function can recurse with some help (``unpythonic.fun.withself``).
+ - Context management (``with``) is currently **not** available for lambdas, even in ``unpythonic``.
 
 Still, ultimately one must keep in mind that Python is not a Lisp. Not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful, even though it does have a side effect.
 
