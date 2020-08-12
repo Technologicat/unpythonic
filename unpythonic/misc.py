@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous constructs."""
 
-__all__ = ["call", "callwith", "raisef", "pack", "namelambda", "timer",
+__all__ = ["call", "callwith", "raisef", "tryf", "pack", "namelambda", "timer",
            "getattrrec", "setattrrec", "Popper", "CountingIterator", "ulp",
            "slurp", "async_raise", "callsite_filename"]
 
