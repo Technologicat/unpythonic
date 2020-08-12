@@ -301,16 +301,22 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
     try:
         ret = body()
     except BaseException as e:
+        if isinstance(e, BaseException):  # "raise ValueError()"
+            exctype = type(e)
+        elif issubclass(e, BaseException):  # "raise ValueError"
+            exctype = e
+        else:
+            assert False  # Python can only raise stuff that inherits from BaseException
         for excspec, handler in handlers:
             if isinstance(excspec, tuple):  # tuple of exception types
                 if not all(issubclass(t, BaseException) for t in excspec):
                     raise ValueError("All elements of a tuple excspec must be exception types")
-                if any(isinstance(e, t) for t in excspec):
+                if any(issubclass(exctype, t) for t in excspec):
                     if takes_arg(handler):
                         return handler(e)
                     return handler()
             elif issubclass(excspec, BaseException):  # single exception type
-                if isinstance(e, excspec):
+                if issubclass(exctype, excspec):
                     if takes_arg(handler):
                         return handler(e)
                     return handler()

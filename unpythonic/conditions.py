@@ -139,7 +139,16 @@ def signal(condition):
     #
     # The unwinding, when it occurs, is performed when `invoke` is
     # called from inside the condition handler in the user code.
-    for handler in _find_handlers(type(condition)):
+
+    # Determine which handlers to look up.
+    if isinstance(condition, Exception):  # "signal(ValueError())"
+        exctype = type(condition)
+    elif issubclass(condition, Exception):  # "signal(ValueError)"
+        exctype = condition
+    else:
+        error(ControlError("Only exceptions and subclasses of Exception can be signaled; got {} with value '{}'.".format(type(condition), condition)))
+
+    for handler in _find_handlers(exctype):
         try:
             accepts_arg = arity_includes(handler, 1)
         except UnknownArity:
@@ -412,10 +421,10 @@ def _find_handlers(cls):  # 0..n (though 0 is an error, handled at the calling e
     for e in _stacks.handlers:
         for t, handler in e:  # t: tuple or type
             if isinstance(t, tuple):
-                if cls in t:
+                if any(issubclass(cls, x) for x in t):
                     yield handler
             else:
-                if cls is t:
+                if issubclass(cls, t):
                     yield handler
 
 BoundRestart = namedtuple("BoundRestart", ["name", "function", "context"])
