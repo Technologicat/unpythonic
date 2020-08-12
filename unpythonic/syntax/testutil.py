@@ -78,34 +78,42 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     """
     tests_run << tests_run.get() + 1
 
+    def describe_exception(e):
+        assert isinstance(e, BaseException)
+        msg = str(e)
+        if msg:
+            desc = "{} with message '{}'".format(type(e), msg)
+        else:
+            desc = "{}".format(type(e))
+        if e.__cause__ is not None:  # raise ... from ...
+            return desc + ", directly caused by earlier exception {}".format(describe_exception(e.__cause__))
+        return desc
+
+    title = "Assertion" if myname is None else "Named assertion '{}'".format(myname)
     try:
         if thunk():
             return
     except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
-        uncaught_exception_msg = err.args
         tests_errored << tests_errored.get() + 1
+        desc = describe_exception(err)
+        error_msg = "{} errored: {}, due to uncaught exception {}".format(title, sourcecode, desc)
     else:
-        uncaught_exception_msg = None
         tests_failed << tests_failed.get() + 1
+        error_msg = "{} failed: {}".format(title, sourcecode)
 
-    if myname is not None:
-        error_msg = "Named assertion '{}' failed".format(myname)
-    else:
-        error_msg = "Assertion failed"
+    complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
 
-    if uncaught_exception_msg is not None:
-        error_msg += " due to uncaught exception: {}".format(uncaught_exception_msg)
+    # TODO: Signal some other condition type when a test errors, so the caller
+    # TODO: can easily tell it apart from a test failure. RuntimeError?
 
-    # TODO: polish the UX. How should we word the message so its presentation is clear in all cases?
-    msg = "[{}:{}] {}: {}".format(filename, lineno, error_msg, sourcecode)
-
-    # We use cerror() to signal a failed/errored test, instead of an exception,
-    # so the client code can resume (after logging the failure and such).
+    # We use cerror() to signal a failed/errored test, instead of raising an
+    # exception, so the client code can resume (after logging the failure and
+    # such).
     #
     # If the client code does not install a handler, then a `ControlError`
     # exception is raised by the condition system; leaving a cerror unhandled
-    # is considered an error.
-    cerror(AssertionError(msg))
+    # is an error.
+    cerror(AssertionError(complete_msg))
 
 # The syntax transformer.
 def test(tree):

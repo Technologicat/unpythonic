@@ -10,6 +10,8 @@ from ...syntax import macros, test, tests_run, tests_failed, tests_errored  # no
 
 from functools import partial
 
+from ...test.fixtures import testset, summary  # noqa: F401
+
 from ...conditions import invoke, handlers, restarts
 from ...misc import raisef
 
@@ -78,6 +80,26 @@ def runtests():
     assert tests_run == 3
     assert tests_failed == 0
     assert tests_errored == 1
+
+    # # Syntactic sugar for creating testsets.
+    # # Testsets resume upon failure automatically, and also count passes,
+    # # fails and errors automatically (no need to reset counters).
+    # #
+    # # Just be sure to run all `test[]` invocations in the same thread,
+    # # because the counters (managed by `test[]` itself) are global.
+    # with testset():
+    #     test[2 + 2 == 4]
+    #     test[2 + 2 == 5]
+    #
+    # # Testsets can be named.
+    # with testset("my fancy tests"):
+    #     test[2 + 2 == 4]
+    #     test[raisef(RuntimeError)]
+    #     test[2 + 2 == 6]
+    #
+    # # A final summary for all tests can also be printed.
+    # # (This counts also tests that did not participate in a testset.)
+    # summary()
 
     print("All tests PASSED")
 
