@@ -101,6 +101,10 @@ def terminate_session(exc):  # the parameter is ignored
 class TestConfig:
     """Global settings for the testing utilities.
 
+    If you want to change the settings, just assign new values to the attributes
+    at any point in your test script (the new values will take effect from that
+    point forward). Probably the least confusing if done before calling `start()`.
+
     `printer`:   str -> None; side effect should be to display the string somehow.
                  Default is to `print` to `sys.stderr`.
     `use_color`: bool; use ANSI color escape sequences to colorize `printer` output.
