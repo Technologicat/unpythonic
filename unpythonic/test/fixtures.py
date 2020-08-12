@@ -28,20 +28,17 @@ See:
 """
 
 from contextlib import contextmanager
+from functools import partial
 import sys
 
 from ..syntax.testutil import tests_run, tests_failed, tests_errored, TestFailure, TestError
 from ..conditions import handlers, invoke
 
-__all__ = ["start", "testset", "summary"]
-
-# TODO: Make coloring optional. Allow customizing where the headers are printed,
-# TODO: since we already allow customizing how the failures and errors are treated.
+__all__ = ["start", "testset", "summary", "terminate_session"]
 
 # TODO: Move the general color stuff to another module, it could be useful.
 # TODO: Consider implementing the \x1b variant that comes with 256 colors
 # TODO: and does not rely on a palette.
-
 class TC:
     """Terminal colors, via ANSI escape sequences.
 
@@ -89,22 +86,62 @@ class TC:
     BEIGEBG = '\33[46m'
     WHITEBG = '\33[47m'
 
-class CS:
-    """The color scheme.
+def terminate_session(exc):  # the parameter is ignored
+    """Terminate the test session.
 
-    See the constants in the class `TC` for valid values.
+    This will shut down the program, with an exit code of 255.
 
-    The defaults are designed to fit the "Solarized" theme of `gnome-terminal`,
-    with "Show bold text in bright colors" set to OFF.
+    This can be used as a `reporter`, if you want a failure in a particular
+    testset to abort the whole unit.
     """
-    HEADING = TC.BLUE2
-    PASS = TC.GREEN
-    FAIL = TC.RED2
-    ERROR = TC.YELLOW
-    GREYED_OUT = TC.YELLOW2  # in that theme, actually grey
-    # These colors are used for the pass percentage.
-    SUMMARY_OK = TC.GREEN
-    SUMMARY_NOTOK = TC.YELLOW  # more readable than red on a dark background, yet stands out.
+    Config.printer(colorize("** TEST SESSION TERMINATED"))
+    summary()
+    sys.exit(255)
+
+class Config:
+    """Global settings for the testing utilities.
+
+    `printer`:   str -> None; side effect should be to display the string somehow.
+                 Default is to `print` to `sys.stderr`.
+    `use_color`: bool; use ANSI color escape sequences to colorize `printer` output.
+                 Default is `True`.
+    `reporter`:  Exception -> None; optional.
+    `CS`:        The color scheme.
+
+    The optional `reporter` is a custom callback for examining failures and
+    errors. `Config.reporter` sets the default that is used when no other
+    (more local) `reporter` is in effect.
+
+    It receives one argument, which is a `TestFailure` or `TestError` instance
+    that was signaled by a failed or errored test (respectively).
+
+    `reporter` is called after sending the error to `printer`, just before
+    resuming with the remaining tests. To continue processing, the `reporter`
+    should just return normally.
+
+    If you want a failure in a particular testset to abort the whole unit, you
+    can use `terminate_session` as your `reporter`.
+    """
+    printer = partial(print, file=sys.stderr)
+    use_color = True
+    reporter = None  # lambda exc: ...
+
+    class CS:
+        """The color scheme.
+
+        See the constants in the class `TC` for valid values.
+
+        The defaults are designed to fit the "Solarized" theme of `gnome-terminal`,
+        with "Show bold text in bright colors" set to OFF.
+        """
+        HEADING = TC.BLUE2
+        PASS = TC.GREEN
+        FAIL = TC.RED2
+        ERROR = TC.YELLOW
+        GREYED_OUT = TC.YELLOW2  # in that theme, actually grey
+        # These colors are used for the pass percentage.
+        SUMMARY_OK = TC.GREEN
+        SUMMARY_NOTOK = TC.YELLOW  # more readable than red on a dark background, yet stands out.
 
 def colorize(s, *colors):
     """Colorize string `s` for ANSI terminal display.
@@ -114,10 +151,12 @@ def colorize(s, *colors):
         colorize("I'm new here", TC.GREEN)
         colorize("I'm bold and bluetiful", TC.BOLD, TC.BLUE)
     """
+    if not Config.use_color:
+        return s
     COMMANDS = "".join(colors)
     return "{}{}{}".format(COMMANDS, s, TC.END)
 
-def summarize(runs, fails, errors, use_color=False):
+def summarize(runs, fails, errors):
     """Return a human-readable summary of passes, fails, errors, and the total number of tests run.
 
     `runs`, `fails`, `errors` are nonnegative integers that report the count
@@ -138,34 +177,28 @@ def summarize(runs, fails, errors, use_color=False):
     pass_ratio = 1 - fail_ratio - error_ratio
     pass_percentage = 100 * pass_ratio
 
-    if not use_color:
-        return "Pass {}, Fail {}, Error {}, Total {} ({:0.2g}% pass)".format(passes,
-                                                                             pass_percentage,
-                                                                             fails,
-                                                                             errors,
-                                                                             runs)
-    # The same in techni... ANSI color:
+    # In techni... ANSI color:
     snippets = []
-    color = CS.PASS if passes else CS.GREYED_OUT
+    color = Config.CS.PASS if passes else Config.CS.GREYED_OUT
     snippets.extend([colorize("Pass", TC.BOLD, color),
                      " ",
                      colorize("{}".format(passes), color),
-                     colorize(", ", CS.HEADING)])
-    color = CS.FAIL if fails else CS.GREYED_OUT
+                     colorize(", ", Config.CS.HEADING)])
+    color = Config.CS.FAIL if fails else Config.CS.GREYED_OUT
     snippets.extend([colorize("Fail", TC.BOLD, color),
                      " ",
                      colorize("{}".format(fails), color),
-                     colorize(", ", CS.HEADING)])
-    color = CS.ERROR if errors else CS.GREYED_OUT
+                     colorize(", ", Config.CS.HEADING)])
+    color = Config.CS.ERROR if errors else Config.CS.GREYED_OUT
     snippets.extend([colorize("Error", TC.BOLD, color),
                      " ",
                      colorize("{}".format(errors), color),
-                     colorize(", ", CS.HEADING)])
-    color = CS.HEADING if runs else CS.GREYED_OUT
+                     colorize(", ", Config.CS.HEADING)])
+    color = Config.CS.HEADING if runs else Config.CS.GREYED_OUT
     snippets.extend([colorize("Total", TC.BOLD, color),
                      " ",
                      colorize("{}".format(runs), color)])
-    color = CS.SUMMARY_OK if passes == runs else CS.SUMMARY_NOTOK
+    color = Config.CS.SUMMARY_OK if passes == runs else Config.CS.SUMMARY_NOTOK
     snippets.extend([" ",
                      colorize("({:0.2g}% pass)".format(pass_percentage), TC.BOLD, color)])
     return "".join(snippets)
@@ -179,9 +212,10 @@ def start():
     tests_run << 0
     tests_failed << 0
     tests_errored << 0
-    print(colorize("** TEST SESSION BEGIN", TC.BOLD, CS.HEADING),
-          file=sys.stderr)
+    Config.printer(colorize("** TEST SESSION BEGIN", TC.BOLD, Config.CS.HEADING))
 
+# We use a stack for reporters so that the local overrides can be nested.
+_reporter_stack = []
 @contextmanager
 def testset(name=None, reporter=None):
     """Context manager representing a test set.
@@ -192,18 +226,8 @@ def testset(name=None, reporter=None):
     `name` is an optional string specifying a human-readable name for the testset.
     If not given, the testset is not named.
 
-    The optional `reporter` specifies a custom *condition handler*. It receives
-    one argument, which is a `TestFailure` or `TestError` instance that was
-    signaled by a failed or errored test (respectively). It should print or log
-    the error, as appropriate, and then `invoke("proceed")` to continue running
-    the remaining tests. (See `unpythonic.conditions.invoke`.)
-
-    If you want a failure in this testset to abort the whole unit, you can call
-    `sys.exit` from your reporter function.
-
-    If not specified, a default reporter is used. The default reporter prints
-    prints `str(condition)` to `sys.stderr`, with a colored banner indicating
-    whether it is a test failure or an error.
+    `reporter` is like `Config.reporter`, but overriding that for this test set
+    (and any testsets contained within this one, unless they specify their own).
 
     **Usage**, a.k.a. unpythonic testing 101::
 
@@ -224,6 +248,7 @@ def testset(name=None, reporter=None):
 
     **CAUTION**: Not thread-safe. The `test[...]` invocations should be made from
     a single thread, because `test[]` uses global counters to track runs/fails/errors.
+
     """
     r1 = tests_run.get()
     f1 = tests_failed.get()
@@ -232,24 +257,40 @@ def testset(name=None, reporter=None):
     title = "**** Testset"
     if name is not None:
         title += colorize(" '{}'".format(name), TC.ITALIC)
-    print(colorize("{} ".format(title), CS.HEADING) +
-          colorize("BEGIN", TC.BOLD, CS.HEADING),
-          file=sys.stderr)
+    Config.printer(colorize("{} ".format(title), Config.CS.HEADING) +
+                     colorize("BEGIN", TC.BOLD, Config.CS.HEADING))
 
     def report_and_proceed(condition):
         if isinstance(condition, TestFailure):
-            msg = colorize("****** FAIL: ", TC.BOLD, CS.FAIL)
+            msg = colorize("****** FAIL: ", TC.BOLD, Config.CS.FAIL)
         elif isinstance(condition, TestError):
-            msg = colorize("****** ERROR: ", TC.BOLD, CS.ERROR)
+            msg = colorize("****** ERROR: ", TC.BOLD, Config.CS.ERROR)
         else:
             assert False
-        print(msg + str(condition), file=sys.stderr)
+        Config.printer(msg + str(condition))
+
+        # the custom callback
+        if _reporter_stack:
+            r = _reporter_stack[-1]
+        elif Config.reporter is not None:
+            r = Config.reporter
+        else:
+            r = None
+        if r is not None:
+            r(condition)
+
         invoke("proceed")
+
+    if reporter is not None:
+        _reporter_stack.append(reporter)
 
     # The test[] macro signals a condition (using `cerror`), does not raise an
     # exception. That gives it the superpower to resume the rest of the tests.
     with handlers(((TestFailure, TestError), report_and_proceed)):
         yield
+
+    if reporter is not None:
+        _reporter_stack.pop()
 
     r2 = tests_run.get()
     f2 = tests_failed.get()
@@ -258,11 +299,10 @@ def testset(name=None, reporter=None):
     runs = r2 - r1
     fails = f2 - f1
     errors = e2 - e1
-    print(colorize("{} ".format(title), CS.HEADING) +
-          colorize("END", TC.BOLD, CS.HEADING) +
-          colorize(": ", CS.HEADING) +
-          summarize(runs, fails, errors, use_color=True),
-          file=sys.stderr)
+    Config.printer(colorize("{} ".format(title), Config.CS.HEADING) +
+                     colorize("END", TC.BOLD, Config.CS.HEADING) +
+                     colorize(": ", Config.CS.HEADING) +
+                     summarize(runs, fails, errors))
 
 def summary():
     """End a test session.
@@ -284,6 +324,5 @@ def summary():
     runs = tests_run.get()
     fails = tests_failed.get()
     errors = tests_errored.get()
-    print(colorize("** TEST SESSION TOTAL: ", TC.BOLD, CS.HEADING) +
-          summarize(runs, fails, errors, use_color=True),
-          file=sys.stderr)
+    Config.printer(colorize("** TEST SESSION TOTAL: ", TC.BOLD, Config.CS.HEADING) +
+                     summarize(runs, fails, errors))
