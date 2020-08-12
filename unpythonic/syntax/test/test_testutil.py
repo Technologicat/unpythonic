@@ -12,7 +12,7 @@ from ...syntax import (macros, test,  # noqa: F401
 
 from functools import partial
 
-from ...test.fixtures import start, testset, summary  # noqa: F401
+from ...test.fixtures import start, testset, summary, terminate_session  # noqa: F401
 
 from ...conditions import invoke, handlers, restarts
 from ...misc import raisef
@@ -104,7 +104,7 @@ def runtests():
     # # counters, and prints a banner for easy visual recognition.
     # start()
     #
-    # with testset():
+    # with testset(reporter=terminate_session):
     #     test[2 + 2 == 4]
     #     test[2 + 2 == 5]
     #
@@ -113,6 +113,12 @@ def runtests():
     #     test[2 + 2 == 4]
     #     test[raisef(RuntimeError)]
     #     test[2 + 2 == 6]
+    #
+    # # # The whole test script can be terminated at the first failure in a
+    # # # particular testset, like this:
+    # # with testset(reporter=terminate_session):
+    #       test[2 + 2 == 4]
+    #       test[2 + 2 == 5]
     #
     # # Asking for a summary prints the totals since the last `start()`.
     # summary()
