@@ -206,7 +206,7 @@ def summarize(runs, fails, errors):
                      colorize("{}".format(runs), color)])
     color = TestConfig.CS.SUMMARY_OK if passes == runs else TestConfig.CS.SUMMARY_NOTOK
     snippets.extend([" ",
-                     colorize("({:0.2g}% pass)".format(pass_percentage), TC.BOLD, color)])
+                     colorize("({}% pass)".format(int(pass_percentage)), TC.BOLD, color)])
     return "".join(snippets)
 
 def start():
@@ -222,6 +222,7 @@ def start():
 
 # We use a stack for reporters so that the local overrides can be nested.
 _reporter_stack = []
+_indent_level = 0
 @contextmanager
 def testset(name=None, reporter=None):
     """Context manager representing a test set.
@@ -260,7 +261,11 @@ def testset(name=None, reporter=None):
     f1 = tests_failed.get()
     e1 = tests_errored.get()
 
-    title = "**** Testset"
+    global _indent_level
+    _indent_level += 1
+    stars = "*" * (2 * (1 + _indent_level))
+
+    title = "{} Testset".format(stars)
     if name is not None:
         title += colorize(" '{}'".format(name), TC.ITALIC)
     TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
@@ -268,9 +273,9 @@ def testset(name=None, reporter=None):
 
     def report_and_proceed(condition):
         if isinstance(condition, TestFailure):
-            msg = colorize("****** FAIL: ", TC.BOLD, TestConfig.CS.FAIL)
+            msg = colorize("{}** FAIL: ".format(stars), TC.BOLD, TestConfig.CS.FAIL)
         elif isinstance(condition, TestError):
-            msg = colorize("****** ERROR: ", TC.BOLD, TestConfig.CS.ERROR)
+            msg = colorize("{}** ERROR: ".format(stars), TC.BOLD, TestConfig.CS.ERROR)
         else:
             assert False
         TestConfig.printer(msg + str(condition))
@@ -297,6 +302,9 @@ def testset(name=None, reporter=None):
 
     if reporter is not None:
         _reporter_stack.pop()
+
+    _indent_level -= 1
+    assert _indent_level >= 0
 
     r2 = tests_run.get()
     f2 = tests_failed.get()

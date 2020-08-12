@@ -104,7 +104,7 @@ def runtests():
     # # counters, and prints a banner for easy visual recognition.
     # start()
     #
-    # with testset(reporter=terminate_session):
+    # with testset():
     #     test[2 + 2 == 4]
     #     test[2 + 2 == 5]
     #
@@ -114,11 +114,18 @@ def runtests():
     #     test[raisef(RuntimeError)]
     #     test[2 + 2 == 6]
     #
+    # # Testsets can be nested.
+    # with testset("outer"):
+    #     with testset("inner 1"):
+    #         test[2 + 2 == 4]
+    #     with testset("inner 2"):
+    #         test[2 + 2 == 4]
+    #
     # # # The whole test script can be terminated at the first failure in a
     # # # particular testset, like this:
     # # with testset(reporter=terminate_session):
-    #       test[2 + 2 == 4]
-    #       test[2 + 2 == 5]
+    # #    test[2 + 2 == 4]
+    # #    test[2 + 2 == 5]
     #
     # # Asking for a summary prints the totals since the last `start()`.
     # summary()
