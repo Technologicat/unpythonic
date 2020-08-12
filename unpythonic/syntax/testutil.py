@@ -42,7 +42,7 @@ def describe_exception(e):
     else:
         desc = "{}".format(type(e))
     if e.__cause__ is not None:  # raise ... from ...
-        return desc + ", directly caused by earlier exception {}".format(describe_exception(e.__cause__))
+        return desc + ", directly caused by {}".format(describe_exception(e.__cause__))
     return desc
 
 def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
@@ -139,7 +139,7 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, mynam
         thunk()
         tests_failed << tests_failed.get() + 1
         conditiontype = TestFailure
-        error_msg = "{} failed: did not raise expected exception {}: {}".format(exctype, title, sourcecode)
+        error_msg = "{} failed: did not raise expected exception {}: {}".format(title, exctype, sourcecode)
     except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
         if isinstance(err, exctype):
             return  # the expected exception, all ok!
@@ -171,7 +171,7 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, myna
             # i.e. if thunk() completed normally.
             tests_failed << tests_failed.get() + 1
             conditiontype = TestFailure
-            error_msg = "{} failed: did not signal expected condition {}: {}".format(exctype, title, sourcecode)
+            error_msg = "{} failed: did not signal expected condition {}: {}".format(title, exctype, sourcecode)
             complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
             cerror(conditiontype(complete_msg))
         return  # expected condition signaled, all ok!
