@@ -34,9 +34,9 @@ import sys
 from ..syntax.testutil import tests_run, tests_failed, tests_errored, TestFailure, TestError
 from ..conditions import handlers, invoke
 
-__all__ = ["start", "testset", "summary", "terminate_session"]
+__all__ = ["start", "testset", "summary", "terminate_session", "TestConfig"]
 
-# TODO: Move the general color stuff to another module, it could be useful.
+# TODO: Move the general color stuff (TC, colorize) to another module, it could be useful.
 # TODO: Consider implementing the \x1b variant that comes with 256 colors
 # TODO: and does not rely on a palette.
 class TC:
@@ -94,11 +94,11 @@ def terminate_session(exc):  # the parameter is ignored
     This can be used as a `reporter`, if you want a failure in a particular
     testset to abort the whole unit.
     """
-    Config.printer(colorize("** TEST SESSION TERMINATED"))
+    TestConfig.printer(colorize("** TEST SESSION TERMINATED"))
     summary()
     sys.exit(255)
 
-class Config:
+class TestConfig:
     """Global settings for the testing utilities.
 
     `printer`:   str -> None; side effect should be to display the string somehow.
@@ -109,7 +109,7 @@ class Config:
     `CS`:        The color scheme.
 
     The optional `reporter` is a custom callback for examining failures and
-    errors. `Config.reporter` sets the default that is used when no other
+    errors. `TestConfig.reporter` sets the default that is used when no other
     (more local) `reporter` is in effect.
 
     It receives one argument, which is a `TestFailure` or `TestError` instance
@@ -146,12 +146,14 @@ class Config:
 def colorize(s, *colors):
     """Colorize string `s` for ANSI terminal display.
 
+    No-op (return `s`) if `TestConfig.use_color` is falsey.
+
     Usage::
 
         colorize("I'm new here", TC.GREEN)
         colorize("I'm bold and bluetiful", TC.BOLD, TC.BLUE)
     """
-    if not Config.use_color:
+    if not TestConfig.use_color:
         return s
     COMMANDS = "".join(colors)
     return "{}{}{}".format(COMMANDS, s, TC.END)
@@ -179,26 +181,26 @@ def summarize(runs, fails, errors):
 
     # In techni... ANSI color:
     snippets = []
-    color = Config.CS.PASS if passes else Config.CS.GREYED_OUT
+    color = TestConfig.CS.PASS if passes else TestConfig.CS.GREYED_OUT
     snippets.extend([colorize("Pass", TC.BOLD, color),
                      " ",
                      colorize("{}".format(passes), color),
-                     colorize(", ", Config.CS.HEADING)])
-    color = Config.CS.FAIL if fails else Config.CS.GREYED_OUT
+                     colorize(", ", TestConfig.CS.HEADING)])
+    color = TestConfig.CS.FAIL if fails else TestConfig.CS.GREYED_OUT
     snippets.extend([colorize("Fail", TC.BOLD, color),
                      " ",
                      colorize("{}".format(fails), color),
-                     colorize(", ", Config.CS.HEADING)])
-    color = Config.CS.ERROR if errors else Config.CS.GREYED_OUT
+                     colorize(", ", TestConfig.CS.HEADING)])
+    color = TestConfig.CS.ERROR if errors else TestConfig.CS.GREYED_OUT
     snippets.extend([colorize("Error", TC.BOLD, color),
                      " ",
                      colorize("{}".format(errors), color),
-                     colorize(", ", Config.CS.HEADING)])
-    color = Config.CS.HEADING if runs else Config.CS.GREYED_OUT
+                     colorize(", ", TestConfig.CS.HEADING)])
+    color = TestConfig.CS.HEADING if runs else TestConfig.CS.GREYED_OUT
     snippets.extend([colorize("Total", TC.BOLD, color),
                      " ",
                      colorize("{}".format(runs), color)])
-    color = Config.CS.SUMMARY_OK if passes == runs else Config.CS.SUMMARY_NOTOK
+    color = TestConfig.CS.SUMMARY_OK if passes == runs else TestConfig.CS.SUMMARY_NOTOK
     snippets.extend([" ",
                      colorize("({:0.2g}% pass)".format(pass_percentage), TC.BOLD, color)])
     return "".join(snippets)
@@ -212,7 +214,7 @@ def start():
     tests_run << 0
     tests_failed << 0
     tests_errored << 0
-    Config.printer(colorize("** TEST SESSION BEGIN", TC.BOLD, Config.CS.HEADING))
+    TestConfig.printer(colorize("** TEST SESSION BEGIN", TC.BOLD, TestConfig.CS.HEADING))
 
 # We use a stack for reporters so that the local overrides can be nested.
 _reporter_stack = []
@@ -226,7 +228,7 @@ def testset(name=None, reporter=None):
     `name` is an optional string specifying a human-readable name for the testset.
     If not given, the testset is not named.
 
-    `reporter` is like `Config.reporter`, but overriding that for this test set
+    `reporter` is like `TestConfig.reporter`, but overriding that for this test set
     (and any testsets contained within this one, unless they specify their own).
 
     **Usage**, a.k.a. unpythonic testing 101::
@@ -257,23 +259,23 @@ def testset(name=None, reporter=None):
     title = "**** Testset"
     if name is not None:
         title += colorize(" '{}'".format(name), TC.ITALIC)
-    Config.printer(colorize("{} ".format(title), Config.CS.HEADING) +
-                     colorize("BEGIN", TC.BOLD, Config.CS.HEADING))
+    TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
+                       colorize("BEGIN", TC.BOLD, TestConfig.CS.HEADING))
 
     def report_and_proceed(condition):
         if isinstance(condition, TestFailure):
-            msg = colorize("****** FAIL: ", TC.BOLD, Config.CS.FAIL)
+            msg = colorize("****** FAIL: ", TC.BOLD, TestConfig.CS.FAIL)
         elif isinstance(condition, TestError):
-            msg = colorize("****** ERROR: ", TC.BOLD, Config.CS.ERROR)
+            msg = colorize("****** ERROR: ", TC.BOLD, TestConfig.CS.ERROR)
         else:
             assert False
-        Config.printer(msg + str(condition))
+        TestConfig.printer(msg + str(condition))
 
         # the custom callback
         if _reporter_stack:
             r = _reporter_stack[-1]
-        elif Config.reporter is not None:
-            r = Config.reporter
+        elif TestConfig.reporter is not None:
+            r = TestConfig.reporter
         else:
             r = None
         if r is not None:
@@ -299,10 +301,10 @@ def testset(name=None, reporter=None):
     runs = r2 - r1
     fails = f2 - f1
     errors = e2 - e1
-    Config.printer(colorize("{} ".format(title), Config.CS.HEADING) +
-                     colorize("END", TC.BOLD, Config.CS.HEADING) +
-                     colorize(": ", Config.CS.HEADING) +
-                     summarize(runs, fails, errors))
+    TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
+                       colorize("END", TC.BOLD, TestConfig.CS.HEADING) +
+                       colorize(": ", TestConfig.CS.HEADING) +
+                       summarize(runs, fails, errors))
 
 def summary():
     """End a test session.
@@ -324,5 +326,5 @@ def summary():
     runs = tests_run.get()
     fails = tests_failed.get()
     errors = tests_errored.get()
-    Config.printer(colorize("** TEST SESSION TOTAL: ", TC.BOLD, Config.CS.HEADING) +
-                     summarize(runs, fails, errors))
+    TestConfig.printer(colorize("** TEST SESSION TOTAL: ", TC.BOLD, TestConfig.CS.HEADING) +
+                       summarize(runs, fails, errors))
