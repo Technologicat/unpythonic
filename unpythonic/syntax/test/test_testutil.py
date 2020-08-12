@@ -12,7 +12,7 @@ from ...syntax import (macros, test,  # noqa: F401
 
 from functools import partial
 
-from ...test.fixtures import start, testset, summary, terminate_session  # noqa: F401
+from ...test.fixtures import session, testset, terminate  # noqa: F401
 
 from ...conditions import invoke, handlers, restarts
 from ...misc import raisef
@@ -83,52 +83,46 @@ def runtests():
     assert tests_failed == 0
     assert tests_errored == 1
 
-    # # Syntactic sugar for creating testsets.
-    # #
-    # # Testsets present a simple interface, which automates a few things:
-    # #   - Resume testing upon failures and errors
-    # #   - Count passes, fails and errors, summarize totals
-    # #   - Print nicely colored ANSI terminal output into `sys.stderr`
-    # #
-    # # Note that any uncaught exception or `error`/`cerror` signal
-    # # outside any `test[]` construct still behaves normally.
-    # #
-    # # Be sure to run all `test[]` invocations in the same thread,
-    # # because the counters (managed by `test[]` itself) are global.
-    # #
-    # # Also, if you use testsets, be sure to run all `test[]` invocations
-    # # inside a testset; `testset` is what catches and prints failures
-    # # and errors.
-    # #
-    # # A test session begins by calling `start()`. This resets the
-    # # counters, and prints a banner for easy visual recognition.
-    # start()
+    # Syntactic sugar for creating testsets.
     #
-    # with testset():
-    #     test[2 + 2 == 4]
-    #     test[2 + 2 == 5]
+    # Testsets present a simple interface, which automates a few things:
+    #   - Resume testing upon failures and errors
+    #   - Count passes, fails and errors, summarize totals
+    #   - Print nicely colored ANSI terminal output into `sys.stderr`
     #
-    # # Testsets can be named. The name is printed.
-    # with testset("my fancy tests"):
-    #     test[2 + 2 == 4]
-    #     test[raisef(RuntimeError)]
-    #     test[2 + 2 == 6]
+    # Note that any uncaught exception or `error`/`cerror` signal
+    # outside any `test[]` construct still behaves normally.
     #
-    # # Testsets can be nested.
-    # with testset("outer"):
-    #     with testset("inner 1"):
-    #         test[2 + 2 == 4]
-    #     with testset("inner 2"):
-    #         test[2 + 2 == 4]
+    # Be sure to run all `test[]` invocations in the same thread,
+    # because the counters (managed by `test[]` itself) are global.
     #
-    # # # The whole test script can be terminated at the first failure in a
-    # # # particular testset, like this:
-    # # with testset(reporter=terminate_session):
-    # #    test[2 + 2 == 4]
-    # #    test[2 + 2 == 5]
+    # Also, if you use testsets, be sure to run all `test[]` invocations
+    # inside a testset; `testset` is what catches and prints failures
+    # and errors.
     #
-    # # Asking for a summary prints the totals since the last `start()`.
-    # summary()
+    with session("foo"):
+        with testset():
+            test[2 + 2 == 4]
+            test[2 + 2 == 5]
+
+        # Testsets can be named. The name is printed.
+        with testset("my fancy tests"):
+            test[2 + 2 == 4]
+            test[raisef(RuntimeError)]
+            test[2 + 2 == 6]
+
+        # Testsets can be nested.
+        with testset("outer"):
+            with testset("inner 1"):
+                test[2 + 2 == 4]
+            with testset("inner 2"):
+                test[2 + 2 == 4]
+
+        # The whole session can be terminated at the first failure in a
+        # particular testset, like this:
+        with testset(reporter=terminate):
+            test[2 + 2 == 5]
+            test[2 + 2 == 4]
 
     print("All tests PASSED")
 

@@ -34,7 +34,7 @@ import sys
 from ..syntax.testutil import tests_run, tests_failed, tests_errored, TestFailure, TestError
 from ..conditions import handlers, invoke
 
-__all__ = ["start", "testset", "summary", "terminate_session", "TestConfig"]
+__all__ = ["testset", "terminate", "TestConfig"]
 
 # TODO: Move the general color stuff (TC, colorize) to another module, it could be useful.
 # TODO: Consider implementing the \x1b variant that comes with 256 colors
@@ -86,18 +86,6 @@ class TC:
     BEIGEBG = '\33[46m'
     WHITEBG = '\33[47m'
 
-def terminate_session(exc):  # the parameter is ignored
-    """Terminate the test session.
-
-    This will shut down the program, with an exit code of 255.
-
-    This can be used as a `reporter`, if you want a failure in a particular
-    testset to abort the whole unit.
-    """
-    TestConfig.printer(colorize("** TERMINATED", TC.BOLD, TestConfig.CS.HEADING))
-    summary()
-    sys.exit(255)
-
 class TestConfig:
     """Global settings for the testing utilities.
 
@@ -124,7 +112,7 @@ class TestConfig:
     should just return normally.
 
     If you want a failure in a particular testset to abort the whole unit, you
-    can use `terminate_session` as your `reporter`.
+    can use `terminate` as your `reporter`.
     """
     printer = partial(print, file=sys.stderr)
     use_color = True
@@ -209,26 +197,65 @@ def summarize(runs, fails, errors):
                      colorize("({}% pass)".format(int(pass_percentage)), TC.BOLD, color)])
     return "".join(snippets)
 
-def start():
-    """Start a test session.
+class TestSessionExit(Exception):
+    """Exception, raising which terminates the current test session."""
+def terminate(exc):  # the parameter is ignored
+    """Terminate the test session.
 
-    Reset test counters, and print a colored banner that says TEST SESSION BEGIN,
-    for easy visual recognition of where a test session begins in terminal output.
+    This will shut down the program, with an exit code of 255.
+
+    This can be used as a `reporter`, if you want a failure in a particular
+    testset to abort the whole unit.
     """
-    tests_run << 0
-    tests_failed << 0
-    tests_errored << 0
-    TestConfig.printer(colorize("** TEST SESSION BEGIN", TC.BOLD, TestConfig.CS.HEADING))
+    TestConfig.printer(colorize("** TERMINATED", TC.BOLD, TestConfig.CS.HEADING))
+    raise TestSessionExit
+
+_nesting_level = 0
+@contextmanager
+def session(name=None):
+    """Context manager representing a test session."""
+    if _nesting_level > 0:
+        raise RuntimeError("A test `session` cannot be nested inside a `testset`.")
+
+    r1 = tests_run.get()
+    f1 = tests_failed.get()
+    e1 = tests_errored.get()
+
+    title = colorize("** SESSION", TC.BOLD, TestConfig.CS.HEADING)
+    if name is not None:
+        title += colorize(" '{}'".format(name), TC.ITALIC, TestConfig.CS.HEADING)
+    TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
+                       colorize("BEGIN", TC.BOLD, TestConfig.CS.HEADING))
+
+    # TestSessionExit needs to be raised as an exception, not signaled as a condition,
+    # due to integration with the rest of Python (particularly, `contextlib`).
+    #
+    # We are paused when the user triggers the exception; `contextlib` detects the
+    # exception and re-raises it into us.
+    try:
+        yield
+    except TestSessionExit:
+        pass
+
+    r2 = tests_run.get()
+    f2 = tests_failed.get()
+    e2 = tests_errored.get()
+
+    runs = r2 - r1
+    fails = f2 - f1
+    errors = e2 - e1
+    TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
+                       colorize("END", TC.BOLD, TestConfig.CS.HEADING) +
+                       colorize(": ", TestConfig.CS.HEADING) +
+                       summarize(runs, fails, errors))
 
 # We use a stack for reporters so that the local overrides can be nested.
 _reporter_stack = []
-_indent_level = 0
 @contextmanager
 def testset(name=None, reporter=None):
     """Context manager representing a test set.
 
     Automatically computes passes, fails, errors, total, and the pass percentage.
-    Prints ANSI colored output into `sys.stderr`.
 
     `name` is an optional string specifying a human-readable name for the testset.
     If not given, the testset is not named.
@@ -239,31 +266,27 @@ def testset(name=None, reporter=None):
     **Usage**, a.k.a. unpythonic testing 101::
 
         from unpythonic.syntax import macros, test
-        from unpythonic.test.fixtures import start, testset, summary
+        from unpythonic.test.fixtures import session, testset
 
-        start()  # reset counters, print TEST SESSION BEGIN
+        with session():
+            with testset():
+                test[...]
+                test[...]
 
-        with testset():
-            test[...]
-            test[...]
-
-        with testset("my fancy tests"):
-            test[...]
-            test[...]
-
-        summary()  # <-- put this at the end of your test script, for totals
+            with testset("my fancy tests"):
+                test[...]
+                test[...]
 
     **CAUTION**: Not thread-safe. The `test[...]` invocations should be made from
     a single thread, because `test[]` uses global counters to track runs/fails/errors.
-
     """
     r1 = tests_run.get()
     f1 = tests_failed.get()
     e1 = tests_errored.get()
 
-    global _indent_level
-    _indent_level += 1
-    stars = "*" * (2 * (1 + _indent_level))
+    global _nesting_level
+    _nesting_level += 1
+    stars = "*" * (2 * (1 + _nesting_level))
 
     title = "{} Testset".format(stars)
     if name is not None:
@@ -303,8 +326,8 @@ def testset(name=None, reporter=None):
     if reporter is not None:
         _reporter_stack.pop()
 
-    _indent_level -= 1
-    assert _indent_level >= 0
+    _nesting_level -= 1
+    assert _nesting_level >= 0
 
     r2 = tests_run.get()
     f2 = tests_failed.get()
@@ -316,27 +339,4 @@ def testset(name=None, reporter=None):
     TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
                        colorize("END", TC.BOLD, TestConfig.CS.HEADING) +
                        colorize(": ", TestConfig.CS.HEADING) +
-                       summarize(runs, fails, errors))
-
-def summary():
-    """End a test session.
-
-    Print a colored final summary of test session results.
-
-    **CAUTION**: This also counts tests (since last `start()`) that did not
-    participate in any `testset`.
-
-    To make your numbers to add up transparently, either place all of your
-    tests into some `testset` (even if some sets have just one test), or not
-    using testsets at all.
-
-    Using testsets is the easier option, because then `testset` handles the
-    tallying and nicely colored ANSI terminal output for you. Also, that way,
-    the client code doesn't even have to care that there is a newfangled
-    condition system thing behind the magic machinery.
-    """
-    runs = tests_run.get()
-    fails = tests_failed.get()
-    errors = tests_errored.get()
-    TestConfig.printer(colorize("** TEST SESSION TOTAL: ", TC.BOLD, TestConfig.CS.HEADING) +
                        summarize(runs, fails, errors))
