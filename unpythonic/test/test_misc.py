@@ -128,16 +128,16 @@ def runtests():
     square = lambda x: x**2
     assert square.__code__.co_name == "<lambda>"
     assert square.__name__ == "<lambda>"
-    assert square.__qualname__ == "test.<locals>.<lambda>"
+    assert square.__qualname__ == "runtests.<locals>.<lambda>"
     square = namelambda("square")(square)
     assert square.__code__.co_name == "square"
     assert square.__name__ == "square"
-    assert square.__qualname__ == "test.<locals>.square"
+    assert square.__qualname__ == "runtests.<locals>.square"
 
     # CAUTION: in case of nested lambdas, the inner doesn't see the outer's new name:
     nested = namelambda("outer")(lambda: namelambda("inner")(withself(lambda self: self)))
-    assert nested.__qualname__ == "test.<locals>.outer"
-    assert nested().__qualname__ == "test.<locals>.<lambda>.<locals>.inner"
+    assert nested.__qualname__ == "runtests.<locals>.outer"
+    assert nested().__qualname__ == "runtests.<locals>.<lambda>.<locals>.inner"
 
     # simple performance timer as a context manager
     with timer() as tictoc:
