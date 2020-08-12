@@ -12,6 +12,7 @@ from ..misc import (call, callwith, raisef, tryf, pack, namelambda, timer,
                     getattrrec, setattrrec, Popper, CountingIterator, ulp, slurp,
                     async_raise)
 from ..fun import withself
+from ..env import env
 
 def runtests():
     # def as a code block (function overwritten by return value)
@@ -134,6 +135,12 @@ def runtests():
                 (TypeError, lambda: "got a TypeError"),
                 ((TypeError, ValueError), lambda: "got a TypeError or a ValueError"),
                 (ValueError, lambda: "got a ValueError")) == "got a TypeError or a ValueError"
+    e = env(finally_ran=False)
+    assert e.finally_ran is False
+    assert tryf(lambda: "hello",
+                elsef=lambda: "there",
+                finallyf=lambda: e << ("finally_ran", True)) == "there"
+    assert e.finally_ran is True
 
     myzip = lambda lol: map(pack, *lol)
     lol = ((1, 2), (3, 4), (5, 6))
