@@ -7,8 +7,8 @@ from macropy.core import unparse
 
 from ast import Tuple, Str
 
-from ..misc import callsite_filename
-from ..conditions import cerror
+from ..misc import callsite_filename, raisef
+from ..conditions import cerror, handlers, restarts, invoker
 from ..collections import box
 
 # Keep a global count (since Python last started) of how many unpythonic_asserts
@@ -29,11 +29,22 @@ class TestFailure(TestingException):
 class TestError(TestingException):
     """Exception type indicating that a test did not run to completion.
 
-    This can happen due to an uncaught exception, or an unhandled
+    This can happen due to an unexpected exception, or an unhandled
     `error` (or `cerror`) condition.
     """
 
-# Just a regular function.
+# Regular functions.
+def describe_exception(e):
+    assert isinstance(e, BaseException)
+    msg = str(e)
+    if msg:
+        desc = "{} with message '{}'".format(type(e), msg)
+    else:
+        desc = "{}".format(type(e))
+    if e.__cause__ is not None:  # raise ... from ...
+        return desc + ", directly caused by earlier exception {}".format(describe_exception(e.__cause__))
+    return desc
+
 def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     """Custom assert function, for building test frameworks.
 
@@ -41,7 +52,7 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     *cerror* (correctable error), via unpythonic's condition system (see
     `unpythonic.conditions.cerror`).
 
-    If a test fails to run to completion due to an uncaught exception or an
+    If a test fails to run to completion due to an unexpected exception or an
     unhandled `error` (or `cerror`) condition, `TestError` is signaled,
     so the caller can easily tell apart which case occurred.
 
@@ -95,18 +106,6 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     No return value.
     """
     tests_run << tests_run.get() + 1
-
-    def describe_exception(e):
-        assert isinstance(e, BaseException)
-        msg = str(e)
-        if msg:
-            desc = "{} with message '{}'".format(type(e), msg)
-        else:
-            desc = "{}".format(type(e))
-        if e.__cause__ is not None:  # raise ... from ...
-            return desc + ", directly caused by earlier exception {}".format(describe_exception(e.__cause__))
-        return desc
-
     title = "Test" if myname is None else "Named test '{}'".format(myname)
     try:
         if thunk():
@@ -115,7 +114,7 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
         tests_errored << tests_errored.get() + 1
         conditiontype = TestError
         desc = describe_exception(err)
-        error_msg = "{} errored: {}, due to uncaught exception {}".format(title, sourcecode, desc)
+        error_msg = "{} errored: {}, due to unexpected exception {}".format(title, sourcecode, desc)
     else:
         tests_failed << tests_failed.get() + 1
         conditiontype = TestFailure
@@ -132,7 +131,70 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     # is an error.
     cerror(conditiontype(complete_msg))
 
-# The syntax transformer.
+def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, myname=None):
+    """Like `unpythonic_assert`, but assert that running `sourcecode` raises `exctype`."""
+    tests_run << tests_run.get() + 1
+    title = "Test" if myname is None else "Named test '{}'".format(myname)
+    try:
+        thunk()
+        tests_failed << tests_failed.get() + 1
+        conditiontype = TestFailure
+        error_msg = "{} failed: did not raise expected exception {}: {}".format(exctype, title, sourcecode)
+    except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
+        if isinstance(err, exctype):
+            return  # the expected exception, all ok!
+        tests_errored << tests_errored.get() + 1
+        conditiontype = TestError
+        desc = describe_exception(err)
+        error_msg = "{} errored: {}, due to unexpected exception {}".format(title, sourcecode, desc)
+
+    complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
+    cerror(conditiontype(complete_msg))
+
+def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, myname=None):
+    """Like `unpythonic_assert`, but assert that running `sourcecode` signals `exctype`.
+
+    "Signal" as in `unpythonic.conditions.signal` and its sisters `error`, `cerror`, `warn`.
+    """
+    class UnexpectedSignal(Exception):
+        def __init__(self, exc):
+            self.exc = exc
+    tests_run << tests_run.get() + 1
+    title = "Test" if myname is None else "Named test '{}'".format(myname)
+    try:
+        with restarts(_unpythonic_assert_signals_success=lambda: None,  # no value, for control only
+                      _unpythonic_assert_signals_error=lambda exc: raisef(UnexpectedSignal(exc))):
+            with handlers((exctype, invoker("_unpythonic_assert_signals_success")),
+                          (Exception, invoker("_unpythonic_assert_signals_error"))):
+                thunk()
+            # We only reach this point if the success restart was not invoked,
+            # i.e. if thunk() completed normally.
+            tests_failed << tests_failed.get() + 1
+            conditiontype = TestFailure
+            error_msg = "{} failed: did not signal expected condition {}: {}".format(exctype, title, sourcecode)
+            complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
+            cerror(conditiontype(complete_msg))
+        return  # expected condition signaled, all ok!
+    # some other condition signaled
+    except UnexpectedSignal as err:
+        tests_errored << tests_errored.get() + 1
+        conditiontype = TestError
+        desc = describe_exception(err)
+        error_msg = "{} errored: {}, due to unexpected signal {}".format(title, sourcecode, desc)
+        complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
+        cerror(conditiontype(complete_msg))
+    # unexpected exception raised
+    except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
+        tests_errored << tests_errored.get() + 1
+        conditiontype = TestError
+        desc = describe_exception(err)
+        error_msg = "{} errored: {}, due to unexpected exception {}".format(title, sourcecode, desc)
+        complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
+        cerror(conditiontype(complete_msg))
+
+# TODO: add test_raises, test_signals
+
+# Syntax transformers.
 def test(tree):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = hq[callsite_filename()]
