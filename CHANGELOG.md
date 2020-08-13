@@ -13,8 +13,11 @@
 
 **Fixed**:
 
-- Conditions: `with handlers` catches also derived types, e.g. a handler for `Exception` now catches a signaled `ValueError`.
-- Conditions: Handler lookup works correctly also for `signal(SomeExceptionClass)` without creating an instance.
+- Condition system:
+  - `with handlers` catches also derived types, e.g. a handler for `Exception` now catches a signaled `ValueError`.
+  - Handler lookup works correctly also for `signal(SomeExceptionClass)` without creating an instance.
+  - Conditions can now inherit from `BaseException`, not only from `Exception.`
+  - Uses of `issubclass` are now properly protected by a `try`/`except` when the first argument might not be a class (since in that case `issubclass` raises `TypeError`).
 
 ---
 
