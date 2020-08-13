@@ -93,15 +93,12 @@ def runtests():
     #   - Print nicely colored ANSI terminal output into `sys.stderr`
     #   - Don't need to care that it uses conditions and restarts
     #
-    # Note that any uncaught exception or `error`/`cerror` signal
-    # outside any `test[]` construct still behaves normally.
-    #
     # Be sure to run all `test[]` invocations in the same thread,
     # because the counters (managed by `test[]` itself) are global.
     #
-    # Also, if you use testsets, be sure to run all `test[]` invocations
-    # inside a testset; `testset` is what catches and prints failures
-    # and errors.
+    # Also, if you use this high-level machinery, be sure to run all `test[]`
+    # invocations inside a testset; `testset` is what catches and prints
+    # failures and errors.
     #
     # with session("foo"):
     #     with testset():
