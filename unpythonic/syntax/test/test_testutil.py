@@ -97,7 +97,7 @@ def runtests():
 
     # # The session construct provides an exit point for test session
     # # termination, and an implicit top-level testset.
-    # A session can be started only when not already inside a testset.
+    # # A session can be started only when not already inside a testset.
     # with session("framework demo"):
     #     # A session may contain bare tests. They are implicitly part of the
     #     # top-level testset.
