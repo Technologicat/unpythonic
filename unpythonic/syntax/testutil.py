@@ -7,9 +7,10 @@ from macropy.core import unparse
 
 from ast import Tuple, Str
 
-from ..misc import callsite_filename, raisef
-from ..conditions import cerror, handlers, restarts, invoker
-from ..collections import box
+from ..misc import callsite_filename
+from ..conditions import cerror, handlers, restarts, invoke
+from ..collections import box, unbox
+from ..symbol import gensym
 
 # Keep a global count (since Python last started) of how many unpythonic_asserts
 # have run and how many have failed, so that the client code can easily calculate
@@ -33,17 +34,46 @@ class TestError(TestingException):
     `error` (or `cerror`) condition.
     """
 
-# Regular functions.
+# Regular code, no macros yet.
 def describe_exception(e):
-    assert isinstance(e, BaseException)
-    msg = str(e)
-    if msg:
-        desc = "{} with message '{}'".format(type(e), msg)
+    if isinstance(e, BaseException):
+        msg = str(e)
+        if msg:
+            desc = "{} with message '{}'".format(type(e), msg)
+        else:
+            desc = "{}".format(type(e))
+        if e.__cause__ is not None:  # raise ... from ...
+            return desc + ", directly caused by {}".format(describe_exception(e.__cause__))
     else:
-        desc = "{}".format(type(e))
-    if e.__cause__ is not None:  # raise ... from ...
-        return desc + ", directly caused by {}".format(describe_exception(e.__cause__))
+        desc = str(e)
     return desc
+
+_completed = gensym("_completed")  # returned normally
+_signaled = gensym("_signaled")  # via unpythonic.conditions.signal and its sisters
+_raised = gensym("_raised")  # via raise
+def _observe(thunk):
+    """Run `thunk` and report how it fared.
+
+    Internal helper for implementing assert functions.
+
+    The return value is:
+
+      - `(_completed, return_value)` if the thunk completed normally
+      - `(_signaled, condition_instance)` if a signal from inside
+        the dynamic extent of thunk propagated to this level.
+      - `(_raised, exception_instance)` if an exception from inside
+        the dynamic extent of thunk propagated to this level.
+    """
+    try:
+        with restarts(_got_signal=lambda exc: exc) as sig:
+            with handlers((Exception, lambda exc: invoke("_got_signal", exc))):
+                ret = thunk()
+            # We only reach this point if the restart was not invoked,
+            # i.e. if thunk() completed normally.
+            return _completed, ret
+        return _signaled, unbox(sig)
+    except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
+        return _raised, err
 
 def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     """Custom assert function, for building test frameworks.
@@ -105,21 +135,26 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
 
     No return value.
     """
-    tests_run << tests_run.get() + 1
+    mode, result = _observe(thunk)
+    tests_run << unbox(tests_run) + 1
+
     title = "Test" if myname is None else "Named test '{}'".format(myname)
-    try:
-        if thunk():
+    if mode is _completed:
+        if result:
             return
-    # TODO: catch signals, too
-    except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
-        tests_errored << tests_errored.get() + 1
-        conditiontype = TestError
-        desc = describe_exception(err)
-        error_msg = "{} errored: {}, due to unexpected exception {}".format(title, sourcecode, desc)
-    else:
-        tests_failed << tests_failed.get() + 1
+        tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
         error_msg = "{} failed: {}".format(title, sourcecode)
+    elif mode is _signaled:
+        tests_errored << unbox(tests_errored) + 1
+        conditiontype = TestError
+        desc = describe_exception(result)
+        error_msg = "{} errored: {}, due to unexpected signal {}".format(title, sourcecode, desc)
+    else:  # mode is _raised:
+        tests_errored << unbox(tests_errored) + 1
+        conditiontype = TestError
+        desc = describe_exception(result)
+        error_msg = "{} errored: {}, due to unexpected exception {}".format(title, sourcecode, desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
 
@@ -132,71 +167,66 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     # is an error.
     cerror(conditiontype(complete_msg))
 
-def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, myname=None):
-    """Like `unpythonic_assert`, but assert that running `sourcecode` raises `exctype`."""
-    tests_run << tests_run.get() + 1
-    title = "Test" if myname is None else "Named test '{}'".format(myname)
-    try:
-        thunk()
-        tests_failed << tests_failed.get() + 1
-        conditiontype = TestFailure
-        error_msg = "{} failed: did not raise expected exception {}: {}".format(title, exctype, sourcecode)
-    # TODO: catch signals, too
-    except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
-        if isinstance(err, exctype):
-            return  # the expected exception, all ok!
-        tests_errored << tests_errored.get() + 1
-        conditiontype = TestError
-        desc = describe_exception(err)
-        error_msg = "{} errored: {}, due to unexpected exception {}".format(title, sourcecode, desc)
-
-    complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
-    cerror(conditiontype(complete_msg))
-
 def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, myname=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` signals `exctype`.
 
     "Signal" as in `unpythonic.conditions.signal` and its sisters `error`, `cerror`, `warn`.
     """
-    class UnexpectedSignal(Exception):
-        def __init__(self, exc):
-            self.exc = exc
-    tests_run << tests_run.get() + 1
+    mode, result = _observe(thunk)
+    tests_run << unbox(tests_run) + 1
+
     title = "Test" if myname is None else "Named test '{}'".format(myname)
-    try:
-        with restarts(_unpythonic_assert_signals_success=lambda: None,  # no value, for control only
-                      _unpythonic_assert_signals_error=lambda exc: raisef(UnexpectedSignal(exc))):
-            with handlers((exctype, invoker("_unpythonic_assert_signals_success")),
-                          (Exception, invoker("_unpythonic_assert_signals_error"))):
-                thunk()
-            # We only reach this point if the success restart was not invoked,
-            # i.e. if thunk() completed normally.
-            tests_failed << tests_failed.get() + 1
-            conditiontype = TestFailure
-            error_msg = "{} failed: did not signal expected condition {}: {}".format(title, exctype, sourcecode)
-            complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
-            cerror(conditiontype(complete_msg))
-        return  # expected condition signaled, all ok!
-    # some other condition signaled
-    except UnexpectedSignal as err:
-        tests_errored << tests_errored.get() + 1
+    if mode is _completed:
+        tests_failed << unbox(tests_failed) + 1
+        conditiontype = TestFailure
+        error_msg = "{} failed: {}, did not signal expected condition {}".format(title, sourcecode, describe_exception(exctype))
+    elif mode is _signaled:
+        # allow both "signal(SomeError())" and "signal(SomeError)"
+        if isinstance(result, exctype) or issubclass(result, exctype):
+            return
+        tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(err)
+        desc = describe_exception(result)
         error_msg = "{} errored: {}, due to unexpected signal {}".format(title, sourcecode, desc)
-        complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
-        cerror(conditiontype(complete_msg))
-    # unexpected exception raised
-    except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
-        tests_errored << tests_errored.get() + 1
+    else:  # mode is _raised:
+        tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(err)
+        desc = describe_exception(result)
         error_msg = "{} errored: {}, due to unexpected exception {}".format(title, sourcecode, desc)
-        complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
-        cerror(conditiontype(complete_msg))
+
+    complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
+    cerror(conditiontype(complete_msg))
+
+def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, myname=None):
+    """Like `unpythonic_assert`, but assert that running `sourcecode` raises `exctype`."""
+    mode, result = _observe(thunk)
+    tests_run << unbox(tests_run) + 1
+
+    title = "Test" if myname is None else "Named test '{}'".format(myname)
+    if mode is _completed:
+        tests_failed << unbox(tests_failed) + 1
+        conditiontype = TestFailure
+        error_msg = "{} failed: {}, did not raise expected exception {}".format(title, sourcecode, describe_exception(exctype))
+    elif mode is _signaled:
+        tests_errored << unbox(tests_errored) + 1
+        conditiontype = TestError
+        desc = describe_exception(result)
+        error_msg = "{} errored: {}, due to unexpected signal {}".format(title, sourcecode, desc)
+    else:  # mode is _raised:
+        # allow both "raise SomeError()" and "raise SomeError"
+        if isinstance(result, exctype):
+            return
+        tests_errored << unbox(tests_errored) + 1
+        conditiontype = TestError
+        desc = describe_exception(result)
+        error_msg = "{} errored: {}, due to unexpected exception {}".format(title, sourcecode, desc)
+
+    complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
+    cerror(conditiontype(complete_msg))
 
 # TODO: add test_raises, test_signals
 
-# Syntax transformers.
+# Syntax transformers for the macros.
 def test(tree):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = hq[callsite_filename()]
