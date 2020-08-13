@@ -140,15 +140,17 @@ def signal(condition):
     # The unwinding, when it occurs, is performed when `invoke` is
     # called from inside the condition handler in the user code.
 
-    # Determine which handlers to look up.
-    if isinstance(condition, Exception):  # "signal(ValueError())"
-        exctype = type(condition)
-    elif issubclass(condition, Exception):  # "signal(ValueError)"
-        exctype = condition
-    else:
+    def determine_exctype(exc):
+        if isinstance(exc, BaseException):  # "signal(SomeError())"
+            return type(exc)
+        try:
+            if issubclass(exc, BaseException):  # "signal(SomeError)"
+                return exc
+        except TypeError:  # "issubclass() arg 1 must be a class"
+            pass
         error(ControlError("Only exceptions and subclasses of Exception can be signaled; got {} with value '{}'.".format(type(condition), condition)))
 
-    for handler in _find_handlers(exctype):
+    for handler in _find_handlers(determine_exctype(condition)):
         try:
             accepts_arg = arity_includes(handler, 1)
         except UnknownArity:
@@ -402,8 +404,16 @@ class handlers(_Stacked):
     # the `with handlers` form.
     def __init__(self, *bindings):
         """binding: (cls, callable)"""
+        def safeissubclass(t, u):
+            try:
+                return issubclass(t, u)
+            except TypeError:  # "issubclass() arg 1 must be a class"
+                pass
+            return False
         for t, c in bindings:
-            if not (((isinstance(t, tuple) and all(issubclass(x, Exception) for x in t)) or issubclass(t, Exception)) and callable(c)):
+            if not (((isinstance(t, tuple) and all(safeissubclass(x, BaseException) for x in t)) or
+                     safeissubclass(t, BaseException)) and
+                    callable(c)):
                 error(TypeError("Each binding must be of the form (type, callable) or ((t0, ..., tn), callable)"))
         super().__init__(bindings)
         self.dq = _stacks.handlers
