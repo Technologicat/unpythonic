@@ -110,6 +110,7 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     try:
         if thunk():
             return
+    # TODO: catch signals, too
     except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
         tests_errored << tests_errored.get() + 1
         conditiontype = TestError
@@ -140,6 +141,7 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, mynam
         tests_failed << tests_failed.get() + 1
         conditiontype = TestFailure
         error_msg = "{} failed: did not raise expected exception {}: {}".format(title, exctype, sourcecode)
+    # TODO: catch signals, too
     except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
         if isinstance(err, exctype):
             return  # the expected exception, all ok!
