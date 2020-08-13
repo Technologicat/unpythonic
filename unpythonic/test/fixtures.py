@@ -90,6 +90,7 @@ See:
 
 from contextlib import contextmanager
 from functools import partial
+from enum import Enum
 import sys
 
 from ..syntax.testutil import tests_run, tests_failed, tests_errored, TestFailure, TestError, describe_exception
@@ -100,10 +101,8 @@ __all__ = ["session", "testset", "terminate", "TestConfig"]
 # TODO: Move the general color stuff (TC, colorize) to another module, it could be useful.
 # TODO: Consider implementing the \x1b variant that comes with 256 colors
 # TODO: and does not rely on a palette.
-class TC:  # TODO: make this an enum.Enum?
+class TC(Enum):
     """Terminal colors, via ANSI escape sequences.
-
-    This is just a bunch of constants.
 
     This uses the terminal app palette (16 colors), so e.g. GREEN2 may actually
     be blue, depending on the user's color scheme.
@@ -163,7 +162,7 @@ class TestConfig:
     `use_color`: bool; use ANSI color escape sequences to colorize `printer` output.
                  Default is `True`.
     `postproc`:  Exception -> None; optional. Default None (no postproc).
-    `CS`:        The color scheme. See the `TC` bunch of constants.
+    `CS`:        The color scheme.
 
     The optional `postproc` is a custom callback for examining failures and
     errors. `TestConfig.postproc` sets the default that is used when no other
@@ -186,7 +185,7 @@ class TestConfig:
     class CS:
         """The color scheme.
 
-        See the constants in the class `TC` for valid values.
+        See the `TC` enum for valid values.
 
         The defaults are designed to fit the "Solarized" theme of `gnome-terminal`,
         with "Show bold text in bright colors" set to OFF.
@@ -205,6 +204,8 @@ def colorize(s, *colors):
 
     No-op (return `s`) if `TestConfig.use_color` is falsey.
 
+    For available `colors`, see the `TC` enum.
+
     Usage::
 
         colorize("I'm new here", TC.GREEN)
@@ -212,8 +213,8 @@ def colorize(s, *colors):
     """
     if not TestConfig.use_color:
         return s
-    COMMANDS = "".join(colors)
-    return "{}{}{}".format(COMMANDS, s, TC.END)
+    COMMANDS = "".join(x.value for x in colors)
+    return "{}{}{}".format(COMMANDS, s, TC.END.value)
 
 def summarize(runs, fails, errors):
     """Return a human-readable summary of passes, fails, errors, and the total number of tests run.
