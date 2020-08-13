@@ -298,24 +298,35 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
             pass
         return False
 
+    def isexceptiontype(exc):
+        try:
+            if issubclass(exc, BaseException):
+                return True
+        except TypeError:  # "issubclass() arg 1 must be a class"
+            pass
+        return False
+
+    def determine_exctype(exc):
+        if isinstance(exc, BaseException):  # "raise SomeError()"
+            return type(exc)
+        if isexceptiontype(exc):  # "raise SomeError"
+            return exc
+        assert False  # Python can only raise stuff that inherits from BaseException
+
     try:
         ret = body()
     except BaseException as e:
-        if isinstance(e, BaseException):  # "raise ValueError()"
-            exctype = type(e)
-        elif issubclass(e, BaseException):  # "raise ValueError"
-            exctype = e
-        else:
-            assert False  # Python can only raise stuff that inherits from BaseException
+        exctype = determine_exctype(e)
         for excspec, handler in handlers:
             if isinstance(excspec, tuple):  # tuple of exception types
-                if not all(issubclass(t, BaseException) for t in excspec):
+                if not all(isexceptiontype(t) for t in excspec):
                     raise ValueError("All elements of a tuple excspec must be exception types")
+                # this is safe, exctype is always a class at this point.
                 if any(issubclass(exctype, t) for t in excspec):
                     if takes_arg(handler):
                         return handler(e)
                     return handler()
-            elif issubclass(excspec, BaseException):  # single exception type
+            elif isexceptiontype(excspec):  # single exception type
                 if issubclass(exctype, excspec):
                     if takes_arg(handler):
                         return handler(e)
