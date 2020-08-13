@@ -194,6 +194,7 @@ class TestConfig:
     use_color = True
     postproc = None
 
+    # TODO: make it possible to combine styles here.
     class CS:
         """The color scheme.
 
