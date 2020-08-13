@@ -14,7 +14,7 @@ from functools import partial
 
 from ...test.fixtures import session, testset, terminate  # noqa: F401
 
-from ...conditions import invoke, handlers, restarts
+from ...conditions import invoke, handlers, restarts, cerror  # noqa: F401
 from ...misc import raisef
 
 def runtests():
@@ -113,6 +113,7 @@ def runtests():
     #     with testset("my fancy tests"):
     #         test[2 + 2 == 4]
     #         test[raisef(RuntimeError)]
+    #         test[cerror(RuntimeError)]
     #         test[2 + 2 == 6]
     #
     #         # A testset reports any stray signals or exceptions it receives
@@ -124,7 +125,6 @@ def runtests():
     #         #   depends on which signal protocol it is.
     #         # - When an exception is caught, the testset terminates, because
     #         #   exceptions do not support resuming.
-    #         from ...conditions import cerror
     #         cerror(RuntimeError("blargh"))
     #
     #         raise RuntimeError("gargle")
