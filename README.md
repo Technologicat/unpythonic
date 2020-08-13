@@ -2,6 +2,8 @@
 
 In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing features for Python, mainly from the list processing tradition, but with some Haskellisms mixed in. We extend the language with a set of [syntactic macros](https://en.wikipedia.org/wiki/Macro_(computer_science)#Syntactic_macros). We also provide an in-process, background [REPL](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) server for live inspection and hot-patching. The emphasis is on **clear, pythonic syntax**, **making features work together**, and **obsessive correctness**.
 
+*Some hypertext features of this README, such as local links to detailed documentation, and expandable example highlights, are not supported when viewed on PyPI; [view on GitHub](https://github.com/Technologicat/unpythonic) to have those work properly.*
+
 ### Dependencies
 
 None required.
@@ -32,8 +34,6 @@ This depends on the purpose of each feature, as well as ease-of-use consideratio
 ### Examples
 
 Small, limited-space overview of the overall flavor. There's a lot more that doesn't fit here, especially in the pure-Python feature set. See the [full documentation](doc/features.md) and [unit tests](unpythonic/test/) for more examples.
-
-If reading this on GitHub, click each example to expand.
 
 #### Unpythonic in 30 seconds: Pure Python
 
