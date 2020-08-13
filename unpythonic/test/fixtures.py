@@ -31,8 +31,8 @@ from contextlib import contextmanager
 from functools import partial
 import sys
 
-from ..syntax.testutil import tests_run, tests_failed, tests_errored, TestFailure, TestError
-from ..conditions import handlers, invoke
+from ..syntax.testutil import tests_run, tests_failed, tests_errored, TestFailure, TestError, describe_exception
+from ..conditions import handlers, find_restart, invoke
 
 __all__ = ["testset", "terminate", "TestConfig"]
 
@@ -97,26 +97,26 @@ class TestConfig:
                  Default is to `print` to `sys.stderr`.
     `use_color`: bool; use ANSI color escape sequences to colorize `printer` output.
                  Default is `True`.
-    `reporter`:  Exception -> None; optional.
+    `postproc`:  Exception -> None; optional.
     `CS`:        The color scheme.
 
-    The optional `reporter` is a custom callback for examining failures and
-    errors. `TestConfig.reporter` sets the default that is used when no other
-    (more local) `reporter` is in effect.
+    The optional `postproc` is a custom callback for examining failures and
+    errors. `TestConfig.postproc` sets the default that is used when no other
+    (more local) `postproc` is in effect.
 
     It receives one argument, which is a `TestFailure` or `TestError` instance
     that was signaled by a failed or errored test (respectively).
 
-    `reporter` is called after sending the error to `printer`, just before
-    resuming with the remaining tests. To continue processing, the `reporter`
+    `postproc` is called after sending the error to `printer`, just before
+    resuming with the remaining tests. To continue processing, the `postproc`
     should just return normally.
 
     If you want a failure in a particular testset to abort the whole unit, you
-    can use `terminate` as your `reporter`.
+    can use `terminate` as your `postproc`.
     """
     printer = partial(print, file=sys.stderr)
     use_color = True
-    reporter = None  # lambda exc: ...
+    postproc = None
 
     class CS:
         """The color scheme.
@@ -204,10 +204,10 @@ def terminate(exc):  # the parameter is ignored
 
     This will shut down the program, with an exit code of 255.
 
-    This can be used as a `reporter`, if you want a failure in a particular
+    This can be used as a `postproc`, if you want a failure in a particular
     testset to abort the whole unit.
     """
-    TestConfig.printer(colorize("** TERMINATED", TC.BOLD, TestConfig.CS.HEADING))
+    TestConfig.printer(colorize("** TERMINATING SESSION", TC.BOLD, TestConfig.CS.HEADING))
     raise TestSessionExit
 
 _nesting_level = 0
@@ -227,9 +227,6 @@ def session(name=None):
     TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
                        colorize("BEGIN", TC.BOLD, TestConfig.CS.HEADING))
 
-    # TestSessionExit needs to be raised as an exception, not signaled as a condition,
-    # due to integration with the rest of Python (particularly, `contextlib`).
-    #
     # We are paused when the user triggers the exception; `contextlib` detects the
     # exception and re-raises it into us.
     try:
@@ -249,10 +246,10 @@ def session(name=None):
                        colorize(": ", TestConfig.CS.HEADING) +
                        summarize(runs, fails, errors))
 
-# We use a stack for reporters so that the local overrides can be nested.
-_reporter_stack = []
+# We use a stack for postprocs so that the local overrides can be nested.
+_postproc_stack = []
 @contextmanager
-def testset(name=None, reporter=None):
+def testset(name=None, postproc=None):
     """Context manager representing a test set.
 
     Automatically computes passes, fails, errors, total, and the pass percentage.
@@ -260,7 +257,7 @@ def testset(name=None, reporter=None):
     `name` is an optional string specifying a human-readable name for the testset.
     If not given, the testset is not named.
 
-    `reporter` is like `TestConfig.reporter`, but overriding that for this test set
+    `postproc` is like `TestConfig.postproc`, but overriding that for this test set
     (and any testsets contained within this one, unless they specify their own).
 
     **Usage**, a.k.a. unpythonic testing 101::
@@ -295,36 +292,51 @@ def testset(name=None, reporter=None):
                        colorize("BEGIN", TC.BOLD, TestConfig.CS.HEADING))
 
     def report_and_proceed(condition):
+        # The assert helpers in `unpythonic.syntax.testutil` signal only TestFailure and TestError,
+        # no matter what happens inside the test expression.
         if isinstance(condition, TestFailure):
-            msg = colorize("{}** FAIL: ".format(stars), TC.BOLD, TestConfig.CS.FAIL)
+            msg = colorize("{}** FAIL: ".format(stars), TC.BOLD, TestConfig.CS.FAIL) + str(condition)
         elif isinstance(condition, TestError):
-            msg = colorize("{}** ERROR: ".format(stars), TC.BOLD, TestConfig.CS.ERROR)
+            msg = colorize("{}** ERROR: ".format(stars), TC.BOLD, TestConfig.CS.ERROR) + str(condition)
+        # So any other signal must come from another source.
         else:
-            assert False
-        TestConfig.printer(msg + str(condition))
+            msg = colorize("{}** Testset received signal outside test[]: ".format(stars), TC.BOLD, TestConfig.CS.ERROR) + describe_exception(condition)
+        TestConfig.printer(msg)
 
         # the custom callback
-        if _reporter_stack:
-            r = _reporter_stack[-1]
-        elif TestConfig.reporter is not None:
-            r = TestConfig.reporter
+        if _postproc_stack:
+            r = _postproc_stack[-1]
+        elif TestConfig.postproc is not None:
+            r = TestConfig.postproc
         else:
             r = None
         if r is not None:
             r(condition)
 
-        invoke("proceed")
+        # We find first instead of just invoking so that we support all standard signal
+        # protocols, not just `cerror` (which defines "proceed").
+        p = find_restart("proceed")
+        if p is not None:
+            invoke(p)
+        # Otherwise we just return normally.
 
-    if reporter is not None:
-        _reporter_stack.append(reporter)
+    if postproc is not None:
+        _postproc_stack.append(postproc)
 
     # The test[] macro signals a condition (using `cerror`), does not raise an
     # exception. That gives it the superpower to resume the rest of the tests.
-    with handlers(((TestFailure, TestError), report_and_proceed)):
-        yield
+    try:
+        with handlers((Exception, report_and_proceed)):
+            yield
+    except TestSessionExit:  # pass through, it belongs to session, not us
+        pass
+    except Exception as err:
+        msg = colorize("{}** Testset terminated by exception outside test[]: ".format(stars), TC.BOLD, TestConfig.CS.ERROR)
+        msg += describe_exception(err)
+        TestConfig.printer(msg)
 
-    if reporter is not None:
-        _reporter_stack.pop()
+    if postproc is not None:
+        _postproc_stack.pop()
 
     _nesting_level -= 1
     assert _nesting_level >= 0

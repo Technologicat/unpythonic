@@ -18,6 +18,8 @@ from ...conditions import invoke, handlers, restarts
 from ...misc import raisef
 
 def runtests():
+    # Low-level machinery.
+
     # Simple error reporter, just for a demonstration.
     #
     # If we don't need to configure which restart to invoke after the error has
@@ -83,12 +85,13 @@ def runtests():
     assert tests_failed == 0
     assert tests_errored == 1
 
-    # Syntactic sugar for creating testsets.
+    # High-level machinery: syntactic sugar for creating testsets.
     #
     # Testsets present a simple interface, which automates a few things:
     #   - Resume testing upon failures and errors
     #   - Count passes, fails and errors, summarize totals
     #   - Print nicely colored ANSI terminal output into `sys.stderr`
+    #   - Don't need to care that it uses conditions and restarts
     #
     # Note that any uncaught exception or `error`/`cerror` signal
     # outside any `test[]` construct still behaves normally.
@@ -100,29 +103,43 @@ def runtests():
     # inside a testset; `testset` is what catches and prints failures
     # and errors.
     #
-    with session("foo"):
-        with testset():
-            test[2 + 2 == 4]
-            test[2 + 2 == 5]
-
-        # Testsets can be named. The name is printed.
-        with testset("my fancy tests"):
-            test[2 + 2 == 4]
-            test[raisef(RuntimeError)]
-            test[2 + 2 == 6]
-
-        # Testsets can be nested.
-        with testset("outer"):
-            with testset("inner 1"):
-                test[2 + 2 == 4]
-            with testset("inner 2"):
-                test[2 + 2 == 4]
-
-        # The whole session can be terminated at the first failure in a
-        # particular testset, like this:
-        with testset(reporter=terminate):
-            test[2 + 2 == 5]
-            test[2 + 2 == 4]
+    # with session("foo"):
+    #     with testset():
+    #         test[2 + 2 == 4]
+    #         test[2 + 2 == 5]
+    #
+    #     # Testsets can be named. The name is printed.
+    #     with testset("my fancy tests"):
+    #         test[2 + 2 == 4]
+    #         test[raisef(RuntimeError)]
+    #         test[2 + 2 == 6]
+    #
+    #         # A testset reports any stray signals or exceptions it receives
+    #         # (from outside a `test[]` construct).
+    #         #
+    #         # - When a signal arrives via `cerror`, the testset resumes.
+    #         # - When some other signal protocol is used (no "proceed" restart
+    #         #   is in scope), the handler returns normally; what then happens
+    #         #   depends on which signal protocol it is.
+    #         # - When an exception is caught, the testset terminates, because
+    #         #   exceptions do not support resuming.
+    #         from ...conditions import cerror
+    #         cerror(RuntimeError("blargh"))
+    #
+    #         raise RuntimeError("gargle")
+    #
+    #     # Testsets can be nested.
+    #     with testset("outer"):
+    #         with testset("inner 1"):
+    #             test[2 + 2 == 4]
+    #         with testset("inner 2"):
+    #             test[2 + 2 == 4]
+    #
+    #     # The whole session can be terminated at the first failure in a
+    #     # particular testset, like this:
+    #     with testset(postproc=terminate):
+    #         test[2 + 2 == 5]
+    #         test[2 + 2 == 4]
 
     print("All tests PASSED")
 
