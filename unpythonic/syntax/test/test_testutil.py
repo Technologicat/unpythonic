@@ -112,12 +112,12 @@ def runtests():
     #     # Testsets can be named. The name is printed in the output.
     #     with testset("my fancy tests"):
     #         test[2 + 2 == 4]
-    #         test[raisef(RuntimeError)]
-    #         test[cerror(RuntimeError)]
+    #         test[raisef(RuntimeError)]  # exceptions are caught.
+    #         test[cerror(RuntimeError)]  # signals are caught, too.
     #         test[2 + 2 == 6]
     #
-    #         # A testset reports any stray signals or exceptions it receives
-    #         # (from outside a `test[]` construct).
+    #         # A testset reports also any stray signals or exceptions it receives
+    #         # from outside a `test[]` construct.
     #         #
     #         # - When a signal arrives via `cerror`, the testset resumes.
     #         # - When some other signal protocol is used (no "proceed" restart
@@ -126,7 +126,6 @@ def runtests():
     #         # - When an exception is caught, the testset terminates, because
     #         #   exceptions do not support resuming.
     #         cerror(RuntimeError("blargh"))
-    #
     #         raise RuntimeError("gargle")
     #
     #     # Testsets can be nested.

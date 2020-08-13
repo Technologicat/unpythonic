@@ -42,14 +42,16 @@ framework or two among friends?
             test[2 + 2 == 5]
 
         # Testsets can be named. The name is printed in the output.
+        from unpythonic.misc import raisef
+        from unpythonic.conditions import cerror
         with testset("my fancy tests"):
             test[2 + 2 == 4]
-            from unpythonic.misc import raisef
-            test[raisef(RuntimeError)]
+            test[raisef(RuntimeError)]  # exceptions are caught.
+            test[cerror(RuntimeError)]  # signals are caught, too.
             test[2 + 2 == 6]
 
-            # A testset reports any stray signals or exceptions it receives
-            # (from outside a `test[]` construct).
+            # A testset reports also any stray signals or exceptions it receives
+            # from outside a `test[]` construct.
             #
             # - When a signal arrives via `cerror`, the testset resumes.
             # - When some other signal protocol is used (no "proceed" restart
@@ -57,9 +59,7 @@ framework or two among friends?
             #   depends on which signal protocol it is.
             # - When an exception is caught, the testset terminates, because
             #   exceptions do not support resuming.
-            from unpythonic.conditions import cerror
             cerror(RuntimeError("blargh"))
-
             raise RuntimeError("gargle")
 
         # Testsets can be nested.
