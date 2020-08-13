@@ -100,7 +100,10 @@ def runtests():
     # invocations inside a testset; `testset` is what catches and prints
     # failures and errors.
     #
+    # # The session construct tallies grand totals, and provides an exit point
+    # # for test session termination.
     # with session("foo"):
+    #     # Tests are contained in testsets.
     #     with testset():
     #         test[2 + 2 == 4]
     #         test[2 + 2 == 5]
