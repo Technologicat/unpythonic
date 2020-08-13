@@ -1,5 +1,5 @@
 # -*- coding: utf-8; -*-
-"""A simplistic testing framework for macro-enabled Python code.
+"""unpythonic.test.fixtures, a testing framework for macro-enabled Python code.
 
 This is an 80% solution. Hopefully it's the 80% you need.
 
@@ -22,6 +22,67 @@ Python code.)
 So just like everything else in this project, we roll our own. What's a testing
 framework or two among friends?
 
+**Usage**, a.k.a. unpythonic testing 101::
+
+    from unpythonic.syntax import macros, test
+    from unpythonic.test.fixtures import session, testset, terminate
+
+    # The session construct provides an exit point for test session
+    # termination, and an implicit top-level testset.
+    # A session can be started only when not already inside a testset.
+    with session("framework demo"):
+        # A session may contain bare tests. They are implicitly part of the
+        # top-level testset.
+        test[2 + 2 == 4]
+        test[2 + 2 == 5]
+
+        # Tests can be further grouped into testsets, if desired.
+        with testset():
+            test[2 + 2 == 4]
+            test[2 + 2 == 5]
+
+        # Testsets can be named. The name is printed in the output.
+        with testset("my fancy tests"):
+            test[2 + 2 == 4]
+            from unpythonic.misc import raisef
+            test[raisef(RuntimeError)]
+            test[2 + 2 == 6]
+
+            # A testset reports any stray signals or exceptions it receives
+            # (from outside a `test[]` construct).
+            #
+            # - When a signal arrives via `cerror`, the testset resumes.
+            # - When some other signal protocol is used (no "proceed" restart
+            #   is in scope), the handler returns normally; what then happens
+            #   depends on which signal protocol it is.
+            # - When an exception is caught, the testset terminates, because
+            #   exceptions do not support resuming.
+            from unpythonic.conditions import cerror
+            cerror(RuntimeError("blargh"))
+
+            raise RuntimeError("gargle")
+
+        # Testsets can be nested.
+        with testset("outer"):
+            with testset("inner 1"):
+                test[2 + 2 == 4]
+            with testset("inner 2"):
+                test[2 + 2 == 4]
+
+        # # The session can be terminated early by calling terminate()
+        # # at any point inside the dynamic extent of `with session`.
+        # # This causes the `with session` to exit immediately.
+        # terminate()
+
+        # The session can also be terminated by the first failure in a
+        # particular testset by using `terminate` as the `postproc`:
+        with testset(postproc=terminate):
+            test[2 + 2 == 5]
+            test[2 + 2 == 4]
+
+If you want to customize, look at the `postproc` parameter of `testset`,
+and the `TestConfig` bunch of constants.
+
 See:
     https://github.com/Technologicat/unpythonic/issues/5
     https://github.com/Technologicat/unpythonic/issues/44
@@ -34,13 +95,15 @@ import sys
 from ..syntax.testutil import tests_run, tests_failed, tests_errored, TestFailure, TestError, describe_exception
 from ..conditions import handlers, find_restart, invoke
 
-__all__ = ["testset", "terminate", "TestConfig"]
+__all__ = ["session", "testset", "terminate", "TestConfig"]
 
 # TODO: Move the general color stuff (TC, colorize) to another module, it could be useful.
 # TODO: Consider implementing the \x1b variant that comes with 256 colors
 # TODO: and does not rely on a palette.
-class TC:
+class TC:  # TODO: make this an enum.Enum?
     """Terminal colors, via ANSI escape sequences.
+
+    This is just a bunch of constants.
 
     This uses the terminal app palette (16 colors), so e.g. GREEN2 may actually
     be blue, depending on the user's color scheme.
@@ -89,16 +152,18 @@ class TC:
 class TestConfig:
     """Global settings for the testing utilities.
 
+    This is just a bunch of constants.
+
     If you want to change the settings, just assign new values to the attributes
     at any point in your test script (the new values will take effect from that
-    point forward). Probably the least confusing if done before calling `start()`.
+    point forward). Probably the least confusing if done before the `with session`.
 
-    `printer`:   str -> None; side effect should be to display the string somehow.
-                 Default is to `print` to `sys.stderr`.
+    `printer`:   str -> None; side effect should be to display the string in some
+                 appropriate way. Default is to `print` to `sys.stderr`.
     `use_color`: bool; use ANSI color escape sequences to colorize `printer` output.
                  Default is `True`.
-    `postproc`:  Exception -> None; optional.
-    `CS`:        The color scheme.
+    `postproc`:  Exception -> None; optional. Default None (no postproc).
+    `CS`:        The color scheme. See the `TC` bunch of constants.
 
     The optional `postproc` is a custom callback for examining failures and
     errors. `TestConfig.postproc` sets the default that is used when no other
@@ -153,7 +218,7 @@ def colorize(s, *colors):
 def summarize(runs, fails, errors):
     """Return a human-readable summary of passes, fails, errors, and the total number of tests run.
 
-    `runs`, `fails`, `errors` are nonnegative integers that report the count
+    `runs`, `fails`, `errors` are nonnegative integers containing the count
     of what it says on the tin.
 
     If `use_color` is truthy, use ANSI terminal colors and bolding.
@@ -199,13 +264,12 @@ def summarize(runs, fails, errors):
 
 class TestSessionExit(Exception):
     """Exception, raising which terminates the current test session."""
-def terminate(exc):  # the parameter is ignored
+def terminate(exc=None):  # the parameter is ignored
     """Terminate the test session.
 
-    This will shut down the program, with an exit code of 255.
-
-    This can be used as a `postproc`, if you want a failure in a particular
-    testset to abort the whole unit.
+    The parameter is ignored. It is provided for API compatibility so that
+    this can be used as a `postproc`, if you want a failure in a particular
+    testset to abort the session.
     """
     TestConfig.printer(colorize("** TERMINATING SESSION", TC.BOLD, TestConfig.CS.HEADING))
     raise TestSessionExit
@@ -213,13 +277,16 @@ def terminate(exc):  # the parameter is ignored
 _nesting_level = 0
 @contextmanager
 def session(name=None):
-    """Context manager representing a test session."""
+    """Context manager representing a test session.
+
+    Provides an exit point for terminating the test session. To terminate
+    early, call `terminate` during the dynamic extent of `with session`.
+
+    To terminate the session by the first failure in a particular testset,
+    use `terminate` as `postproc` for that testset.
+    """
     if _nesting_level > 0:
         raise RuntimeError("A test `session` cannot be nested inside a `testset`.")
-
-    r1 = tests_run.get()
-    f1 = tests_failed.get()
-    e1 = tests_errored.get()
 
     title = colorize("** SESSION", TC.BOLD, TestConfig.CS.HEADING)
     if name is not None:
@@ -230,21 +297,18 @@ def session(name=None):
     # We are paused when the user triggers the exception; `contextlib` detects the
     # exception and re-raises it into us.
     try:
-        yield
+        # Wrap in a top-level testset to catch all stray signals/exceptions
+        # during a session.
+        #
+        # This also separates concerns - this top-level testset tallies
+        # the grand totals so we don't have to.
+        with testset("top level"):
+            yield
     except TestSessionExit:
         pass
 
-    r2 = tests_run.get()
-    f2 = tests_failed.get()
-    e2 = tests_errored.get()
-
-    runs = r2 - r1
-    fails = f2 - f1
-    errors = e2 - e1
     TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
-                       colorize("END", TC.BOLD, TestConfig.CS.HEADING) +
-                       colorize(": ", TestConfig.CS.HEADING) +
-                       summarize(runs, fails, errors))
+                       colorize("END", TC.BOLD, TestConfig.CS.HEADING))
 
 # We use a stack for postprocs so that the local overrides can be nested.
 _postproc_stack = []
@@ -260,20 +324,6 @@ def testset(name=None, postproc=None):
     `postproc` is like `TestConfig.postproc`, but overriding that for this test set
     (and any testsets contained within this one, unless they specify their own).
 
-    **Usage**, a.k.a. unpythonic testing 101::
-
-        from unpythonic.syntax import macros, test
-        from unpythonic.test.fixtures import session, testset
-
-        with session():
-            with testset():
-                test[...]
-                test[...]
-
-            with testset("my fancy tests"):
-                test[...]
-                test[...]
-
     **CAUTION**: Not thread-safe. The `test[...]` invocations should be made from
     a single thread, because `test[]` uses global counters to track runs/fails/errors.
     """
@@ -283,7 +333,7 @@ def testset(name=None, postproc=None):
 
     global _nesting_level
     _nesting_level += 1
-    stars = "*" * (2 * (1 + _nesting_level))
+    stars = "*" * (2 * _nesting_level)
 
     title = "{} Testset".format(stars)
     if name is not None:

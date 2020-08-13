@@ -85,30 +85,31 @@ def runtests():
     assert tests_failed == 0
     assert tests_errored == 1
 
-    # High-level machinery: syntactic sugar for creating testsets.
+    # High-level machinery: unpythonic.test.fixtures, a testing framework.
     #
-    # Testsets present a simple interface, which automates a few things:
-    #   - Resume testing upon failures and errors
-    #   - Count passes, fails and errors, summarize totals
+    #   - Automatically resume testing upon failure or error, if possible
+    #   - Automatically count passes, fails and errors, summarize totals
     #   - Print nicely colored ANSI terminal output into `sys.stderr`
-    #   - Don't need to care that it uses conditions and restarts
+    #   - Don't need to care that it's implemented with conditions and restarts
     #
-    # Be sure to run all `test[]` invocations in the same thread,
+    # Still, be sure to run all `test[]` invocations in the same thread,
     # because the counters (managed by `test[]` itself) are global.
+
+    # # The session construct provides an exit point for test session
+    # # termination, and an implicit top-level testset.
+    # A session can be started only when not already inside a testset.
+    # with session("framework demo"):
+    #     # A session may contain bare tests. They are implicitly part of the
+    #     # top-level testset.
+    #     test[2 + 2 == 4]
+    #     test[2 + 2 == 5]
     #
-    # Also, if you use this high-level machinery, be sure to run all `test[]`
-    # invocations inside a testset; `testset` is what catches and prints
-    # failures and errors.
-    #
-    # # The session construct tallies grand totals, and provides an exit point
-    # # for test session termination.
-    # with session("foo"):
-    #     # Tests are contained in testsets.
+    #     # Tests can be further grouped into testsets, if desired.
     #     with testset():
     #         test[2 + 2 == 4]
     #         test[2 + 2 == 5]
     #
-    #     # Testsets can be named. The name is printed.
+    #     # Testsets can be named. The name is printed in the output.
     #     with testset("my fancy tests"):
     #         test[2 + 2 == 4]
     #         test[raisef(RuntimeError)]
@@ -134,9 +135,16 @@ def runtests():
     #             test[2 + 2 == 4]
     #         with testset("inner 2"):
     #             test[2 + 2 == 4]
+    #         with testset("inner 3"):
+    #             pass
     #
-    #     # The whole session can be terminated at the first failure in a
-    #     # particular testset, like this:
+    #     # # The session can be terminated early by calling terminate()
+    #     # # at any point inside the dynamic extent of `with session`.
+    #     # # This causes the `with session` to exit immediately.
+    #     # terminate()
+    #
+    #     # The session can also be terminated by the first failure in a
+    #     # particular testset by using `terminate` as the `postproc`:
     #     with testset(postproc=terminate):
     #         test[2 + 2 == 5]
     #         test[2 + 2 == 4]
