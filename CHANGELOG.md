@@ -2,8 +2,10 @@
 
 **New**:
 
+- `unpythonic.test.fixtures`, a lightweight testing framework for macro-enabled Python code.
+  - Context managers `session` and `testset`.
+  - Macro (in `unpythonic.syntax`) `test[expr]`, `test[expr, name]`. Similar to the builtin `assert`, but with the magic of conditions and restarts: even if a test fails or errors out, further tests continue running.
 - `callsite_filename`: return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
-- Macro `test[expr]`, `test[expr, name]`. Similar to the builtin `assert**, but with the magic power of conditions: even if a test fails, further tests may continue running.
 
 **Non-breaking changes**:
 
