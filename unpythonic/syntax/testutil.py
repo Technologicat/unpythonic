@@ -228,8 +228,6 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, mynam
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg))
 
-# TODO: add test_raises, test_signals
-
 # Syntax transformers for the macros.
 def test(tree):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
@@ -246,6 +244,53 @@ def test(tree):
 
     # The lambda delays the execution of the test expr until `unpythonic_assert` gets control.
     return q[(ast_literal[asserter])(u[unparse(tree)],
+                                     lambda: ast_literal[tree],
+                                     filename=ast_literal[filename],
+                                     lineno=ast_literal[ln],
+                                     myname=ast_literal[myname])]
+
+def test_signals(tree):
+    ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
+    filename = hq[callsite_filename()]
+    asserter = hq[unpythonic_assert_signals]
+
+    # test_signals[exctype, expr]
+    # TODO: Python 3.8+: ast.Constant, no ast.Str
+    if type(tree) is Tuple and len(tree.elts) == 3 and type(tree.elts[2]) is Str:
+        exctype, tree, myname = tree.elts
+    # test_signals[exctype, expr]
+    elif type(tree) is Tuple and len(tree.elts) == 2:
+        exctype, tree = tree.elts
+        myname = q[None]
+    else:
+        assert False, "Expected one of test_signals[exctype, expr], test_signals[exctype, expr, name]"
+
+    return q[(ast_literal[asserter])(ast_literal[exctype],
+                                     u[unparse(tree)],
+                                     lambda: ast_literal[tree],
+                                     filename=ast_literal[filename],
+                                     lineno=ast_literal[ln],
+                                     myname=ast_literal[myname])]
+
+# TODO: refactor
+def test_raises(tree):
+    ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
+    filename = hq[callsite_filename()]
+    asserter = hq[unpythonic_assert_raises]
+
+    # test_signals[exctype, expr]
+    # TODO: Python 3.8+: ast.Constant, no ast.Str
+    if type(tree) is Tuple and len(tree.elts) == 3 and type(tree.elts[2]) is Str:
+        exctype, tree, myname = tree.elts
+    # test_signals[exctype, expr]
+    elif type(tree) is Tuple and len(tree.elts) == 2:
+        exctype, tree = tree.elts
+        myname = q[None]
+    else:
+        assert False, "Expected one of test_raises[exctype, expr], test_raises[exctype, expr, name]"
+
+    return q[(ast_literal[asserter])(ast_literal[exctype],
+                                     u[unparse(tree)],
                                      lambda: ast_literal[tree],
                                      filename=ast_literal[filename],
                                      lineno=ast_literal[ln],

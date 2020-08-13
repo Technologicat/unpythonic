@@ -6,7 +6,7 @@ compact assert-like syntax, while letting the rest of the tests run even if
 some tests fail.
 """
 
-from ...syntax import (macros, test,  # noqa: F401
+from ...syntax import (macros, test, test_signals, test_raises,  # noqa: F401
                        tests_run, tests_failed, tests_errored,
                        TestFailure, TestError)
 
@@ -136,6 +136,18 @@ def runtests():
     #             test[2 + 2 == 4]
     #         with testset("inner 3"):
     #             pass
+    #
+    #     # TODO: Think about the UX of the messages here.
+    #     # TODO: Can we make `signal` contain a traceback?
+    #     with testset("test_raises"):
+    #         test_raises[RuntimeError, raisef(RuntimeError)]
+    #         test_raises[RuntimeError, 2 + 2 == 4]
+    #         test_raises[RuntimeError, raisef(ValueError)]
+    #
+    #     with testset("test_signals"):
+    #         test_signals[RuntimeError, cerror(RuntimeError)]
+    #         test_signals[RuntimeError, 2 + 2 == 4]
+    #         test_signals[RuntimeError, cerror(ValueError)]
     #
     #     # # The session can be terminated early by calling terminate()
     #     # # at any point inside the dynamic extent of `with session`.

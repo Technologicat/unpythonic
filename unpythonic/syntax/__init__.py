@@ -32,7 +32,8 @@ from .dbg import (dbg_block as _dbg_block, dbg_expr as _dbg_expr,  # noqa: F401
 from .prefix import prefix as _prefix
 from .tailtools import (autoreturn as _autoreturn, tco as _tco,  # noqa: F401
                         continuations as _continuations, call_cc)
-from .testutil import (test as _test,  # noqa: F401
+from .testutil import (test as _test, test_signals as _test_signals,  # noqa: F401
+                       test_raises as _test_raises,
                        tests_run, tests_failed, tests_errored,
                        TestingException, TestFailure, TestError)
 # "where" is only for passing through (export).
@@ -2088,5 +2089,58 @@ def test(tree, **kw):  # noqa: F811
     and some helpful utilities found elsewhere in `unpythonic`.
     """
     return _test(tree)
+
+@macros.expr
+def test_signals(tree, **kw):  # noqa: F811
+    """[syntax, expr] Like `test`, but expect the expression to signal a condition.
+
+    "Signal" as in `unpythonic.conditions.signal` and its sisters.
+
+    Syntax::
+
+        test_signals[exctype, expr]
+        test_signals[exctype, expr, name]
+
+    Example::
+
+        test_signals[ValueError, myfunc()]
+        test_signals[ValueError, myfunc(), "my named test"]
+
+    The test succeeds, if `expr` signals a condition of type `exctype`, and the
+    signal propagates into the (implicit) handler inside the `test_signals[]`
+    construct.
+
+    If `expr` returns normally, the test fails.
+
+    If `expr` signals some other type of condition, or raises an exception, the
+    test errors.
+    """
+    return _test_signals(tree)
+
+@macros.expr
+def test_raises(tree, **kw):  # noqa: F811
+    """[syntax, expr] Like `test`, but expect the expression raise an exception.
+
+    Syntax::
+
+        test_raises[exctype, expr]
+        test_raises[exctype, expr, name]
+
+    Example::
+
+        test_raises[TypeError, issubclass(1, int)]
+        test_raises[ValueError, myfunc()]
+        test_raises[ValueError, myfunc(), "my named test"]
+
+    The test succeeds, if `expr` raises an exception of type `exctype`, and the
+    exception propagates into the (implicit) handler inside the `test_raises[]`
+    construct.
+
+    If `expr` returns normally, the test fails.
+
+    If `expr` signals a condition, or raises some other type of exception, the
+    test errors.
+    """
+    return _test_raises(tree)
 
 # -----------------------------------------------------------------------------
