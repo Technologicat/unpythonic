@@ -6,6 +6,7 @@ from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core import unparse
 
 from ast import Tuple, Str
+from traceback import format_tb
 
 from ..misc import callsite_filename
 from ..conditions import cerror, handlers, restarts, invoke
@@ -34,6 +35,7 @@ class TestError(TestingException):
     `error` (or `cerror`) condition.
     """
 
+# TODO: move this generic tool to unpythonic.test.fixtures.
 # Regular code, no macros yet.
 def describe_exception(e):
     if isinstance(e, BaseException):
@@ -43,7 +45,9 @@ def describe_exception(e):
         else:
             desc = "{}".format(type(e))
         if e.__cause__ is not None:  # raise ... from ...
-            return desc + ", directly caused by {}".format(describe_exception(e.__cause__))
+            desc += ", directly caused by {}".format(describe_exception(e.__cause__))
+        if e.__traceback__ is not None:
+            desc += "\n" + "".join(format_tb(e.__traceback__))
     else:
         desc = str(e)
     return desc
