@@ -68,7 +68,7 @@ import warnings
 
 from .collections import box, unbox
 from .arity import arity_includes, UnknownArity
-from .misc import namelambda
+from .misc import namelambda, equip_with_traceback
 
 _stacks = threading.local()
 def _ensure_stacks():  # per-thread init
@@ -86,6 +86,7 @@ class ControlError(Exception):
     when no handler handles the signal.
     """
 
+# TODO: now that signals have tracebacks (in Python 3.7+), "signal from" (like "raise from") would be nice.
 def signal(condition):
     """Signal a condition.
 
@@ -133,6 +134,10 @@ def signal(condition):
 
     You can signal any exception or warning object, both builtins and any
     custom ones.
+
+    On Python 3.7 and later, the exception object representing the signaled
+    condition is equipped with a traceback, just like a raised exception.
+    On Python 3.6 this is not possible, so the traceback is `None`.
     """
     # Since the handler is called normally, we don't unwind the call stack,
     # remaining inside the `signal()` call in the low-level code.
@@ -149,6 +154,15 @@ def signal(condition):
         except TypeError:  # "issubclass() arg 1 must be a class"
             pass
         error(ControlError("Only exceptions and subclasses of Exception can be signaled; got {} with value '{}'.".format(type(condition), condition)))
+
+    # Embed a stack trace in the signal, like Python does for raised exceptions.
+    # This only works on Python 3.7 and later, because we need to create a traceback object in pure Python code.
+    if isinstance(condition, BaseException):  # but do it in the "signal(SomeError())" case only
+        try:
+            # In the result, omit equip_with_traceback() and signal().
+            condition = equip_with_traceback(condition, depth=2)
+        except NotImplementedError:
+            pass  # well, we tried!
 
     for handler in _find_handlers(determine_exctype(condition)):
         try:
