@@ -358,6 +358,55 @@ If this sounds a lot like an exception system, that's because conditions are the
 
 #### Unpythonic in 30 seconds: Language extensions with macros
 
+<details><summary>unpythonic.test.fixtures: a minimalistic test framework for macro-enabled Python code.</summary>
+
+*[docs TODO]*; for now, look at `unpythonic.syntax.test.test_testutil` and the docstrings of the various constructs in the example below.
+
+```python
+from unpythonic.syntax import macros, test, test_raises
+from unpythonic.test.fixtures import session, testset, terminate
+
+def f():
+    raise RuntimeError("argh!")
+
+def g(a, b):
+    return a * b
+
+with session("simple framework demo"):
+    with testset():
+        test[2 + 2 == 4]
+        test_raises[RuntimeError, f()]
+
+    with testset("outer"):
+        with testset("inner 1"):
+            test[g(6, 7) == 42]
+        with testset("inner 2"):
+            test[None is None]
+        with testset("inner 3"):  # an empty testset is considered 100% passed.
+            pass
+
+    with testset(postproc=terminate):
+        test[2 * 2 == 5]  # fails, terminating the nearest dynamically enclosing `with session`
+        test[2 * 2 == 4]  # not reached
+```
+
+We provide the low-level syntactic constructs `test[]`, `test_raises[]` and `test_signals[]`, with the usual meanings. The last one is for condition system support; see `unpythonic.conditions`.
+
+As usual in test frameworks, the testing constructs behave somewhat like `assert`, with the difference that a failed or errored test will not abort the whole unit (unless explicitly asked to do so).
+
+The `with session()` is optional. The human-readable session name is also optional, used for display purposes only. The session serves two roles: it provides an exit point for `terminate`, and defines an implicit top-level `testset`.
+
+Tests can optionally be grouped into testsets. Each `testset` tallies passed, failed and errored tests within it, and displays the totals when it exits. Testsets can be named and nested.
+
+Testsets also provide the option to locally install a `postproc` handler that gets a copy of each failure or error in that testset (and by default, any of its inner testsets), after the failure or error has been printed. In nested testsets, the dynamically innermost `postproc` wins.
+
+If you want to set a default global `postproc`, which is used when no local `postproc` is in effect, see the `TestConfig` bunch of constants in `unpythonic.test.fixtures`. It also contains some other configuration options.
+
+The `with testset` construct comes with one other important feature. The nearest dynamically enclosing `with testset` catches any stray exceptions or signals that occur within its dynamic extent, but outside a test. In case of an uncaught signal, the error is reported, and the testset resumes. In case of an uncaught exception, the error is reported, and the testset terminates (because the exception model does not support resuming).
+
+We provide a custom testing framework, because `unpythonic` is effectively a language extension. This was somewhat inspired by [Julia](https://julialang.org/)'s [`Test` package](https://docs.julialang.org/en/v1/stdlib/Test/) (in the standard library).
+</details>  
+
 <details><summary>let: expression-local variables.</summary>
 
 [[docs](doc/macros.md#let-letseq-letrec-as-macros)]
