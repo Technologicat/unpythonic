@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous constructs."""
 
-__all__ = ["call", "callwith", "raisef", "tryf", "pack", "namelambda", "timer",
-           "getattrrec", "setattrrec", "Popper", "CountingIterator", "ulp",
+__all__ = ["call", "callwith", "raisef", "tryf", "equip_with_traceback",
+           "pack", "namelambda", "timer",
+           "getattrrec", "setattrrec",
+           "Popper", "CountingIterator",
+           "ulp",
            "slurp", "async_raise", "callsite_filename"]
 
-from types import LambdaType, FunctionType, CodeType
+from types import LambdaType, FunctionType, CodeType, TracebackType
 from time import monotonic
 from copy import copy
 from functools import partial
@@ -340,6 +343,56 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
     finally:
         if finallyf is not None:
             finallyf()
+
+def equip_with_traceback(exc, depth=0):  # Python 3.7+
+    """Given an exception instance exc, equip it with a traceback.
+
+    `depth` is the starting depth for `sys._getframe`.
+
+    The return value is `exc`, with its traceback set to the produced
+    traceback.
+
+    Python 3.7 and later only.
+
+    When not supported, raises `NotImplementedError`.
+
+    This is useful in some special cases only, mainly when `raise` cannot be
+    used for some reason, and a manually created exception instance needs a
+    traceback. (E.g. in implementing the system for conditions and restarts.)
+
+    The `sys._getframe` function exists in CPython and in PyPy3,
+    but for another arbitrary Python implementation this is not
+    guaranteed.
+
+    Based on solution by StackOverflow user Zbyl:
+        https://stackoverflow.com/a/54653137
+
+    See also:
+        https://docs.python.org/3/library/types.html#types.TracebackType
+        https://docs.python.org/3/reference/datamodel.html#traceback-objects
+        https://docs.python.org/3/library/sys.html#sys._getframe
+    """
+    if not isinstance(exc, BaseException):
+        raise TypeError("exc must be an exception instance; got {} with value '{}'".format(type(exc), exc))
+
+    try:
+        getframe = sys._getframe
+    except AttributeError as err:
+        raise NotImplementedError("Need a Python interpreter which has `sys._getframe`") from err
+
+    tb = None
+    while True:
+        try:
+            frame = getframe(depth)
+            depth += 1
+        except ValueError:
+            break
+        # Python 3.7+ allows creating types.TracebackType objects from Python code.
+        try:
+            tb = TracebackType(tb, frame, frame.f_lasti, frame.f_lineno)
+        except TypeError as err:  # Python 3.6
+            raise NotImplementedError("Need Python 3.7 or later to create traceback objects") from err
+    return exc.with_traceback(tb)
 
 def pack(*args):
     """Multi-argument constructor for tuples.
