@@ -91,9 +91,10 @@ See:
 from contextlib import contextmanager
 from functools import partial
 from enum import Enum
+from traceback import format_tb
 import sys
 
-from ..syntax.testutil import tests_run, tests_failed, tests_errored, TestFailure, TestError, describe_exception
+from ..syntax.testutil import tests_run, tests_failed, tests_errored, TestFailure, TestError
 from ..conditions import handlers, find_restart, invoke
 from ..collections import unbox
 
@@ -194,26 +195,27 @@ class TestConfig:
     use_color = True
     postproc = None
 
-    # TODO: make it possible to combine styles here.
     class CS:
         """The color scheme.
 
-        See the `TC` enum for valid values.
+        See the `TC` enum for valid values. To make a compound style, place the
+        values into a tuple.
 
         The defaults are designed to fit the "Solarized" (Zenburn-like) theme
         of `gnome-terminal`, with "Show bold text in bright colors" set to OFF.
+        But they should work with most color schemes.
         """
         HEADING = TC.LIGHTBLUE
         PASS = TC.GREEN
         FAIL = TC.LIGHTRED
         ERROR = TC.YELLOW
-        GREYED_OUT = TC.LIGHTYELLOW  # in that theme, actually grey
+        GREYED_OUT = (TC.DIM, HEADING)
         # These colors are used for the pass percentage.
         SUMMARY_OK = TC.GREEN
         SUMMARY_NOTOK = TC.YELLOW  # more readable than red on a dark background, yet stands out.
 
 def colorize(s, *colors):
-    """Colorize string `s` for ANSI terminal display.
+    """Colorize string `s` for ANSI terminal display. Reset color at end of `s`.
 
     No-op (return `s`) if `TestConfig.use_color` is falsey.
 
@@ -223,19 +225,76 @@ def colorize(s, *colors):
 
         colorize("I'm new here", TC.GREEN)
         colorize("I'm bold and bluetiful", TC.BRIGHT, TC.BLUE)
+
+    Each entry can also be a `tuple` (arbitrarily nested), which is useful
+    for defining compound styles::
+
+        BRIGHT_BLUE = (TC.BRIGHT, TC.BLUE)
+        ...
+        colorize("I'm bold and bluetiful, too", BRIGHT_BLUE)
     """
     if not TestConfig.use_color:
         return s
-    COMMANDS = "".join(x.value for x in colors)
-    return "{}{}{}".format(COMMANDS, s, TC.RESET.value)
+    def get_ansi_color_sequence(c):  # recursive, so each entry can be a tuple.
+        if isinstance(c, tuple):
+            return "".join(get_ansi_color_sequence(elt) for elt in c)
+        if not isinstance(c, TC):
+            raise TypeError("Expected a TC instance, got {} with value '{}'".format(type(c), c))
+        return c.value
+    return "{}{}{}".format(get_ansi_color_sequence(colors),
+                           s,
+                           get_ansi_color_sequence(TC.RESET))
+
+def describe_exception(exc):
+    """Return a human-readable (possibly multi-line) description of exception `exc`.
+
+    The output as close as possible to how Python itself formats exceptions,
+    but the tracebacks are dimmed using ANSI color to better separate headings
+    from details.
+
+    See:
+        https://docs.python.org/3/library/exceptions.html
+        https://stackoverflow.com/questions/16414744/python-exception-chaining
+    """
+    def describe_instance(instance):
+        snippets = []
+
+        if instance.__traceback__ is not None:
+            snippets.append(colorize("\nTraceback (most recent call last):\n" +
+                                     "".join(format_tb(instance.__traceback__)), TC.DIM))
+
+        msg = str(instance)
+        if msg:
+            snippets.append("{}: {}".format(type(instance), msg))
+        else:
+            snippets.append("{}".format(type(instance)))
+
+        return snippets
+
+    def describe_recursive(exc):
+        if isinstance(exc, BaseException):  # "raise SomeError()"
+            snippets = []
+
+            if exc.__cause__ is not None:  # raise ... from ...
+                snippets.extend(describe_recursive(exc.__cause__))
+                snippets.append("\n\nThe above exception was the direct cause of the following exception:\n")
+            elif not exc.__suppress_context__ and exc.__context__ is not None:
+                snippets.extend(describe_recursive(exc.__context__))
+                snippets.append("\n\nDuring handling of the above exception, another exception occurred:\n")
+
+            snippets.extend(describe_instance(exc))
+
+            return snippets
+        else:  # "raise SomeError"
+            return [str(exc)]
+
+    return "".join(describe_recursive(exc))
 
 def summarize(runs, fails, errors):
     """Return a human-readable summary of passes, fails, errors, and the total number of tests run.
 
     `runs`, `fails`, `errors` are nonnegative integers containing the count
     of what it says on the tin.
-
-    If `use_color` is truthy, use ANSI terminal colors and bolding.
     """
     assert isinstance(runs, int) and runs >= 0
     assert isinstance(fails, int) and fails >= 0

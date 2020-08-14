@@ -6,12 +6,17 @@ from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core import unparse
 
 from ast import Tuple, Str
-from traceback import format_tb
 
 from ..misc import callsite_filename
 from ..conditions import cerror, handlers, restarts, invoke
 from ..collections import box, unbox
 from ..symbol import gensym
+# We need only test.fixtures.describe_exception, but can't import directly due to from-import loop
+# (the test.fixtures module needs our counters).
+from .. import test as testmodule
+
+# -----------------------------------------------------------------------------
+# Regular code, no macros yet.
 
 # Keep a global count (since Python last started) of how many unpythonic_asserts
 # have run and how many have failed, so that the client code can easily calculate
@@ -34,23 +39,6 @@ class TestError(TestingException):
     This can happen due to an unexpected exception, or an unhandled
     `error` (or `cerror`) condition.
     """
-
-# TODO: move this generic tool to unpythonic.test.fixtures.
-# Regular code, no macros yet.
-def describe_exception(e):
-    if isinstance(e, BaseException):
-        msg = str(e)
-        if msg:
-            desc = "{} with message '{}'".format(type(e), msg)
-        else:
-            desc = "{}".format(type(e))
-        if e.__cause__ is not None:  # raise ... from ...
-            desc += ", directly caused by {}".format(describe_exception(e.__cause__))
-        if e.__traceback__ is not None:
-            desc += "\n" + "".join(format_tb(e.__traceback__))
-    else:
-        desc = str(e)
-    return desc
 
 _completed = gensym("_completed")  # returned normally
 _signaled = gensym("_signaled")  # via unpythonic.conditions.signal and its sisters
@@ -152,13 +140,13 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     elif mode is _signaled:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
-        error_msg = "{} errored: {}, due to unexpected signal {}".format(title, sourcecode, desc)
+        desc = testmodule.fixtures.describe_exception(result)
+        error_msg = "{} errored: {}, due to unexpected signal: {}".format(title, sourcecode, desc)
     else:  # mode is _raised:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
-        error_msg = "{} errored: {}, due to unexpected exception {}".format(title, sourcecode, desc)
+        desc = testmodule.fixtures.describe_exception(result)
+        error_msg = "{} errored: {}, due to unexpected exception: {}".format(title, sourcecode, desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
 
@@ -183,20 +171,20 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, myna
     if mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
-        error_msg = "{} failed: {}, did not signal expected condition {}".format(title, sourcecode, describe_exception(exctype))
+        error_msg = "{} failed: {}, expected signal: {}, nothing was signaled.".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype))
     elif mode is _signaled:
         # allow both "signal(SomeError())" and "signal(SomeError)"
         if isinstance(result, exctype) or issubclass(result, exctype):
             return
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
-        error_msg = "{} errored: {}, due to unexpected signal {}".format(title, sourcecode, desc)
+        desc = testmodule.fixtures.describe_exception(result)
+        error_msg = "{} errored: {}, expected signal: {}, got unexpected signal: {}".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype), desc)
     else:  # mode is _raised:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
-        error_msg = "{} errored: {}, due to unexpected exception {}".format(title, sourcecode, desc)
+        desc = testmodule.fixtures.describe_exception(result)
+        error_msg = "{} errored: {}, expected signal: {}, got unexpected exception: {}".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype), desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg))
@@ -210,31 +198,34 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, mynam
     if mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
-        error_msg = "{} failed: {}, did not raise expected exception {}".format(title, sourcecode, describe_exception(exctype))
+        error_msg = "{} failed: {}, expected exception: {}, nothing was raised.".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype))
     elif mode is _signaled:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
-        error_msg = "{} errored: {}, due to unexpected signal {}".format(title, sourcecode, desc)
+        desc = testmodule.fixtures.describe_exception(result)
+        error_msg = "{} errored: {}, expected exception: {}, got unexpected signal: {}".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype), desc)
     else:  # mode is _raised:
         # allow both "raise SomeError()" and "raise SomeError"
         if isinstance(result, exctype):
             return
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
-        error_msg = "{} errored: {}, due to unexpected exception {}".format(title, sourcecode, desc)
+        desc = testmodule.fixtures.describe_exception(result)
+        error_msg = "{} errored: {}, expected exception: {}, got unexpected exception: {}".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype), desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg))
 
+
+# -----------------------------------------------------------------------------
 # Syntax transformers for the macros.
+
 def test(tree):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = hq[callsite_filename()]
     asserter = hq[unpythonic_assert]
 
-    # test[expr, "name of this test"]  (like assert expr, name)
+    # test[expr, name]  (like assert expr, name)
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     if type(tree) is Tuple and len(tree.elts) == 2 and type(tree.elts[1]) is Str:
         tree, myname = tree.elts
@@ -249,49 +240,29 @@ def test(tree):
                                      lineno=ast_literal[ln],
                                      myname=ast_literal[myname])]
 
+def _test_signals_or_raises(tree, syntaxname, asserter):
+    ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
+    filename = hq[callsite_filename()]
+
+    # test_signals[exctype, expr, name]
+    # TODO: Python 3.8+: ast.Constant, no ast.Str
+    if type(tree) is Tuple and len(tree.elts) == 3 and type(tree.elts[2]) is Str:
+        exctype, tree, myname = tree.elts
+    # test_signals[exctype, expr]
+    elif type(tree) is Tuple and len(tree.elts) == 2:
+        exctype, tree = tree.elts
+        myname = q[None]
+    else:
+        assert False, "Expected one of {stx}[exctype, expr], {stx}[exctype, expr, name]".format(stx=syntaxname)
+
+    return q[(ast_literal[asserter])(ast_literal[exctype],
+                                     u[unparse(tree)],
+                                     lambda: ast_literal[tree],
+                                     filename=ast_literal[filename],
+                                     lineno=ast_literal[ln],
+                                     myname=ast_literal[myname])]
+
 def test_signals(tree):
-    ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
-    filename = hq[callsite_filename()]
-    asserter = hq[unpythonic_assert_signals]
-
-    # test_signals[exctype, expr]
-    # TODO: Python 3.8+: ast.Constant, no ast.Str
-    if type(tree) is Tuple and len(tree.elts) == 3 and type(tree.elts[2]) is Str:
-        exctype, tree, myname = tree.elts
-    # test_signals[exctype, expr]
-    elif type(tree) is Tuple and len(tree.elts) == 2:
-        exctype, tree = tree.elts
-        myname = q[None]
-    else:
-        assert False, "Expected one of test_signals[exctype, expr], test_signals[exctype, expr, name]"
-
-    return q[(ast_literal[asserter])(ast_literal[exctype],
-                                     u[unparse(tree)],
-                                     lambda: ast_literal[tree],
-                                     filename=ast_literal[filename],
-                                     lineno=ast_literal[ln],
-                                     myname=ast_literal[myname])]
-
-# TODO: refactor
+    return _test_signals_or_raises(tree, "test_signals", hq[unpythonic_assert_signals])
 def test_raises(tree):
-    ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
-    filename = hq[callsite_filename()]
-    asserter = hq[unpythonic_assert_raises]
-
-    # test_signals[exctype, expr]
-    # TODO: Python 3.8+: ast.Constant, no ast.Str
-    if type(tree) is Tuple and len(tree.elts) == 3 and type(tree.elts[2]) is Str:
-        exctype, tree, myname = tree.elts
-    # test_signals[exctype, expr]
-    elif type(tree) is Tuple and len(tree.elts) == 2:
-        exctype, tree = tree.elts
-        myname = q[None]
-    else:
-        assert False, "Expected one of test_raises[exctype, expr], test_raises[exctype, expr, name]"
-
-    return q[(ast_literal[asserter])(ast_literal[exctype],
-                                     u[unparse(tree)],
-                                     lambda: ast_literal[tree],
-                                     filename=ast_literal[filename],
-                                     lineno=ast_literal[ln],
-                                     myname=ast_literal[myname])]
+    return _test_signals_or_raises(tree, "test_raises", hq[unpythonic_assert_raises])

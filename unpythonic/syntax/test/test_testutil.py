@@ -137,8 +137,6 @@ def runtests():
     #         with testset("inner 3"):
     #             pass
     #
-    #     # TODO: Think about the UX of the messages here.
-    #     # TODO: Can we make `signal` contain a traceback?
     #     with testset("test_raises"):
     #         test_raises[RuntimeError, raisef(RuntimeError)]
     #         test_raises[RuntimeError, 2 + 2 == 4]
@@ -148,6 +146,19 @@ def runtests():
     #         test_signals[RuntimeError, cerror(RuntimeError)]
     #         test_signals[RuntimeError, 2 + 2 == 4]
     #         test_signals[RuntimeError, cerror(ValueError)]
+    #
+    #     with testset("nested exceptions"):
+    #         with testset("raise from"):
+    #             try:
+    #                 raise ValueError
+    #             except ValueError as e:
+    #                 raise RuntimeError from e
+    #
+    #         with testset("just chain them"):
+    #             try:
+    #                 raise ValueError
+    #             except ValueError:
+    #                 raise RuntimeError
     #
     #     # # The session can be terminated early by calling terminate()
     #     # # at any point inside the dynamic extent of `with session`.
