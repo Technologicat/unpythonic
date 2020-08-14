@@ -6,6 +6,7 @@
   - Context managers `session` and `testset`.
   - Macro (in `unpythonic.syntax`) `test[expr]`, `test[expr, name]`. Similar to the builtin `assert`, but with the magic of conditions and restarts: even if a test fails or errors out, further tests continue running.
 - `callsite_filename`: return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
+- `equip_with_traceback`: take a manually created exception instance, equip it with a traceback. Requires Python 3.7 or later.
 
 **Non-breaking changes**:
 
