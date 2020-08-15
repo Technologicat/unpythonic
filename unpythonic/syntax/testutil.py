@@ -272,6 +272,15 @@ def test_expr_raises(tree):
 # -----------------------------------------------------------------------------
 # Block variants.
 
+def _make_identifier(s):
+    """Given a human-readable label, attempt to convert it into an identifier."""
+    maybe_identifier = s.replace(" ", "_")
+    # Lowercase just the first letter to follow Python function naming conventions.
+    maybe_identifier = maybe_identifier[0].lower() + maybe_identifier[1:]
+    if maybe_identifier.isidentifier():
+        return maybe_identifier
+    return None
+
 # The strategy is we capture the block body into a new function definition,
 # and then apply `test_expr` to a call to that function.
 #
@@ -281,17 +290,15 @@ def test_expr_raises(tree):
 # test as an anonymous test block.
 #
 def test_block(block_body, args):
-    # with test["my test name"]:
+    # with test("my test name"):
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     function_name = "anonymous_test_block"
     if len(args) == 1 and type(args[0]) is Str:
         myname = args[0]
         # Name the generated function using the test name when possible.
-        maybe_fname = myname.s.replace(" ", "_")
-        # Lowercase just the first letter to follow Python function naming conventions.
-        maybe_fname = maybe_fname[0].lower() + maybe_fname[1:]
-        if maybe_fname.isidentifier():
-            function_name = maybe_fname
+        maybe_function_name = _make_identifier(myname.s)
+        if maybe_function_name is not None:
+            function_name = maybe_function_name
     # with test:
     elif len(args) == 0:
         myname = None
@@ -313,10 +320,47 @@ def test_block(block_body, args):
     thefunc = newbody[0]
     thefunc.name = final_function_name
     thefunc.body = block_body
+    # Add a `return True` to satisfy the test when the function returns normally.
+    with q as thereturn:
+        return True
+    thefunc.body.append(thereturn)
     return newbody
 
 # args: exctype, myname
 def test_block_signals(block_body, args):
     assert False, "Not implemented yet"
+
 def test_block_raises(block_body, args):
-    assert False, "Not implemented yet"
+    # with test_raises(exctype, "my test name"):
+    # TODO: Python 3.8+: ast.Constant, no ast.Str
+    function_name = "anonymous_test_block"
+    if len(args) == 2 and type(args[1]) is Str:
+        exctype, myname = args
+        # Name the generated function using the test name when possible.
+        maybe_function_name = _make_identifier(myname.s)
+        if maybe_function_name is not None:
+            function_name = maybe_function_name
+    # with test_raises(exctype):
+    elif len(args) == 1:
+        exctype = args[0]
+        myname = None
+    else:
+        assert False, 'Expected `with test_raises(exctype):` or `with test_raises(exctype, "my test name"):`'
+
+    gen_sym = dyn.gen_sym
+    final_function_name = gen_sym(function_name)
+
+    if myname is not None:
+        thetest = test_expr_raises(q[(ast_literal[exctype], name[final_function_name](), ast_literal[myname])])
+    else:
+        thetest = test_expr_raises(q[(ast_literal[exctype], name[final_function_name]())])
+
+    with q as newbody:
+        def _():
+            ...
+        ast_literal[thetest]
+    thefunc = newbody[0]
+    thefunc.name = final_function_name
+    thefunc.body = block_body
+    # TODO: fix the missing line number
+    return newbody
