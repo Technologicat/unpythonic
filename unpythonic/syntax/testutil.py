@@ -5,7 +5,7 @@ from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core import unparse
 
-from ast import Tuple, Str
+from ast import Tuple, Str, copy_location
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..misc import callsite_filename
@@ -308,10 +308,16 @@ def test_block(block_body, args):
     gen_sym = dyn.gen_sym
     final_function_name = gen_sym(function_name)
 
+    thecall = q[name[final_function_name]()]
     if myname is not None:
-        thetest = test_expr(q[(name[final_function_name](), ast_literal[myname])])
+        # Fill in the source line number; the `test_expr_raises` syntax transformer needs
+        # to have it in the top-level node of the `tree` we hand to it.
+        thetuple = q[(ast_literal[thecall], ast_literal[myname])]
+        thetuple = copy_location(thetuple, block_body[0])
+        thetest = test_expr(thetuple)
     else:
-        thetest = test_expr(q[name[final_function_name]()])
+        thecall = copy_location(thecall, block_body[0])
+        thetest = test_expr(thecall)
 
     with q as newbody:
         def _():
@@ -350,10 +356,17 @@ def test_block_raises(block_body, args):
     gen_sym = dyn.gen_sym
     final_function_name = gen_sym(function_name)
 
+    thecall = q[name[final_function_name]()]
     if myname is not None:
-        thetest = test_expr_raises(q[(ast_literal[exctype], name[final_function_name](), ast_literal[myname])])
+        # Fill in the source line number; the `test_expr_raises` syntax transformer needs
+        # to have it in the top-level node of the `tree` we hand to it.
+        thetuple = q[(ast_literal[exctype], ast_literal[thecall], ast_literal[myname])]
+        thetuple = copy_location(thetuple, block_body[0])
+        thetest = test_expr_raises(thetuple)
     else:
-        thetest = test_expr_raises(q[(ast_literal[exctype], name[final_function_name]())])
+        thetuple = q[(ast_literal[exctype], ast_literal[thecall])]
+        thetuple = copy_location(thetuple, block_body[0])
+        thetest = test_expr_raises(thetuple)
 
     with q as newbody:
         def _():
@@ -362,5 +375,4 @@ def test_block_raises(block_body, args):
     thefunc = newbody[0]
     thefunc.name = final_function_name
     thefunc.body = block_body
-    # TODO: fix the missing line number
     return newbody
