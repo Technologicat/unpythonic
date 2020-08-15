@@ -332,11 +332,7 @@ def test_block(block_body, args):
     thefunc.body.append(thereturn)
     return newbody
 
-# args: exctype, myname
-def test_block_signals(block_body, args):
-    assert False, "Not implemented yet"
-
-def test_block_raises(block_body, args):
+def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
     # with test_raises(exctype, "my test name"):
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     function_name = "anonymous_test_block"
@@ -351,22 +347,23 @@ def test_block_raises(block_body, args):
         exctype = args[0]
         myname = None
     else:
-        assert False, 'Expected `with test_raises(exctype):` or `with test_raises(exctype, "my test name"):`'
+        assert False, 'Expected `with {stx}(exctype):` or `with {stx}(exctype, "my test name"):`'.format(stx=syntaxname)
 
     gen_sym = dyn.gen_sym
     final_function_name = gen_sym(function_name)
 
     thecall = q[name[final_function_name]()]
     if myname is not None:
-        # Fill in the source line number; the `test_expr_raises` syntax transformer needs
-        # to have it in the top-level node of the `tree` we hand to it.
+        # Fill in the source line number; the `test_expr_raises` and
+        # `test_expr_signals` syntax transformers need to have it in
+        # the top-level node of the `tree` we hand to it.
         thetuple = q[(ast_literal[exctype], ast_literal[thecall], ast_literal[myname])]
         thetuple = copy_location(thetuple, block_body[0])
-        thetest = test_expr_raises(thetuple)
+        thetest = transformer(thetuple)
     else:
         thetuple = q[(ast_literal[exctype], ast_literal[thecall])]
         thetuple = copy_location(thetuple, block_body[0])
-        thetest = test_expr_raises(thetuple)
+        thetest = transformer(thetuple)
 
     with q as newbody:
         def _():
@@ -376,3 +373,8 @@ def test_block_raises(block_body, args):
     thefunc.name = final_function_name
     thefunc.body = block_body
     return newbody
+
+def test_block_signals(block_body, args):
+    return _test_block_signals_or_raises(block_body, args, "test_signals", test_expr_signals)
+def test_block_raises(block_body, args):
+    return _test_block_signals_or_raises(block_body, args, "test_raises", test_expr_raises)
