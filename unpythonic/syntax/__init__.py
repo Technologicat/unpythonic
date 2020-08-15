@@ -32,8 +32,12 @@ from .dbg import (dbg_block as _dbg_block, dbg_expr as _dbg_expr,  # noqa: F401
 from .prefix import prefix as _prefix
 from .tailtools import (autoreturn as _autoreturn, tco as _tco,  # noqa: F401
                         continuations as _continuations, call_cc)
-from .testutil import (test as _test, test_signals as _test_signals,  # noqa: F401
-                       test_raises as _test_raises,
+from .testutil import (test_expr as _test_expr,  # noqa: F401
+                       test_expr_signals as _test_expr_signals,
+                       test_expr_raises as _test_expr_raises,
+                       test_block as _test_block,
+                       test_block_signals as _test_block_signals,
+                       test_block_raises as _test_block_raises,
                        tests_run, tests_failed, tests_errored,
                        TestingException, TestFailure, TestError)
 # "where" is only for passing through (export).
@@ -1980,12 +1984,40 @@ from .prefix import q, u, kw  # for re-export only  # noqa: F401
 
 # -----------------------------------------------------------------------------
 
-# TODO: Some of this description comes from `unpythonic_assert`. We could expose that and refer to it?
-@macros.expr
+@macros.block
+def test(tree, args, *, gen_sym, **kw):  # noqa: F811
+    with dyn.let(gen_sym=gen_sym):
+        return _test_block(block_body=tree, args=args)
+
+@macros.expr  # noqa: F811
 def test(tree, **kw):  # noqa: F811
-    """[syntax, expr] Perform a test, optionally continuing after failure.
+    """[syntax] Perform a test, optionally continuing after failure.
 
     A low-level tool for building test frameworks for macro-enabled code.
+
+    **Expression variant**::
+
+        test[expr]
+        test[expr, "name of my test"]
+
+    The test succeeds if `expr` evaluates to truthy.
+
+    **Block variant**::
+
+        with test:
+            body...
+
+        with test("name of my test"):
+            body...
+
+    The test succeeds if the body runs to completion normally.
+
+    Additionally, `tests_run`, `tests_failed` and `tests_errored` are
+    `unpythonic.collections.box` instances holding integers that describe
+    what it says on the tin. Use the `box` API to read or reset them.
+
+    All three counts start at zero when Python starts. The idea is to allow
+    client code to easily compute percentage of tests passed.
 
     **Why**:
 
@@ -1999,18 +2031,6 @@ def test(tree, **kw):  # noqa: F811
       we can't just hijack any node type of the AST willy-nilly like `pytest`
       does. We solve this the MacroPy way - by providing an expr macro
       that can be used instead of `assert` when writing test cases.
-
-    **Syntax**::
-
-        `test[expr]`
-        `test[expr, "name of my test"]`
-
-    Additionally, `tests_run`, `tests_failed` and `tests_errored` are
-    `unpythonic.collections.box` instances holding integers that describe
-    what it says on the tin. Use the `box` API to read or reset them.
-
-    All three counts start at zero when Python starts. The idea is to allow
-    client code to easily compute percentage of tests passed.
 
     **How to use**:
 
@@ -2088,9 +2108,14 @@ def test(tree, **kw):  # noqa: F811
     See the unit tests in `unpythonic.syntax.test.test_testutil` for more variations,
     and some helpful utilities found elsewhere in `unpythonic`.
     """
-    return _test(tree)
+    return _test_expr(tree)
 
-@macros.expr
+@macros.block
+def test_signals(tree, args, *, gen_sym, **kw):  # noqa: F811
+    with dyn.let(gen_sym=gen_sym):
+        return _test_block_signals(block_body=tree, args=args)
+
+@macros.expr  # noqa: F811
 def test_signals(tree, **kw):  # noqa: F811
     """[syntax, expr] Like `test`, but expect the expression to signal a condition.
 
@@ -2115,9 +2140,14 @@ def test_signals(tree, **kw):  # noqa: F811
     If `expr` signals some other type of condition, or raises an exception, the
     test errors.
     """
-    return _test_signals(tree)
+    return _test_expr_signals(tree)
 
-@macros.expr
+@macros.block
+def test_raises(tree, args, *, gen_sym, **kw):  # noqa: F811
+    with dyn.let(gen_sym=gen_sym):
+        return _test_block_raises(block_body=tree, args=args)
+
+@macros.expr  # noqa: F811
 def test_raises(tree, **kw):  # noqa: F811
     """[syntax, expr] Like `test`, but expect the expression raise an exception.
 
@@ -2141,6 +2171,6 @@ def test_raises(tree, **kw):  # noqa: F811
     If `expr` signals a condition, or raises some other type of exception, the
     test errors.
     """
-    return _test_raises(tree)
+    return _test_expr_raises(tree)
 
 # -----------------------------------------------------------------------------

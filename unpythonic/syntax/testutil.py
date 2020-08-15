@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
 """Utilities for writing tests."""
 
-from macropy.core.quotes import macros, q, u, ast_literal
+from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core import unparse
 
 from ast import Tuple, Str
 
+from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..misc import callsite_filename
 from ..conditions import cerror, handlers, restarts, invoke
 from ..collections import box, unbox
-from ..symbol import gensym
-# We need only test.fixtures.describe_exception, but can't import directly due to from-import loop
-# (the test.fixtures module needs our counters).
-from .. import test as testmodule
+from ..symbol import sym
+from ..test.fixtures import describe_exception
 
 # -----------------------------------------------------------------------------
 # Regular code, no macros yet.
@@ -40,9 +39,9 @@ class TestError(TestingException):
     `error` (or `cerror`) condition.
     """
 
-_completed = gensym("_completed")  # returned normally
-_signaled = gensym("_signaled")  # via unpythonic.conditions.signal and its sisters
-_raised = gensym("_raised")  # via raise
+_completed = sym("_completed")  # returned normally
+_signaled = sym("_signaled")  # via unpythonic.conditions.signal and its sisters
+_raised = sym("_raised")  # via raise
 def _observe(thunk):
     """Run `thunk` and report how it fared.
 
@@ -140,12 +139,12 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     elif mode is _signaled:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = testmodule.fixtures.describe_exception(result)
+        desc = describe_exception(result)
         error_msg = "{} errored: {}, due to unexpected signal: {}".format(title, sourcecode, desc)
     else:  # mode is _raised:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = testmodule.fixtures.describe_exception(result)
+        desc = describe_exception(result)
         error_msg = "{} errored: {}, due to unexpected exception: {}".format(title, sourcecode, desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
@@ -171,20 +170,20 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, myna
     if mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
-        error_msg = "{} failed: {}, expected signal: {}, nothing was signaled.".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype))
+        error_msg = "{} failed: {}, expected signal: {}, nothing was signaled.".format(title, sourcecode, describe_exception(exctype))
     elif mode is _signaled:
         # allow both "signal(SomeError())" and "signal(SomeError)"
         if isinstance(result, exctype) or issubclass(result, exctype):
             return
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = testmodule.fixtures.describe_exception(result)
-        error_msg = "{} errored: {}, expected signal: {}, got unexpected signal: {}".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype), desc)
+        desc = describe_exception(result)
+        error_msg = "{} errored: {}, expected signal: {}, got unexpected signal: {}".format(title, sourcecode, describe_exception(exctype), desc)
     else:  # mode is _raised:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = testmodule.fixtures.describe_exception(result)
-        error_msg = "{} errored: {}, expected signal: {}, got unexpected exception: {}".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype), desc)
+        desc = describe_exception(result)
+        error_msg = "{} errored: {}, expected signal: {}, got unexpected exception: {}".format(title, sourcecode, describe_exception(exctype), desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg))
@@ -198,20 +197,20 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, mynam
     if mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
-        error_msg = "{} failed: {}, expected exception: {}, nothing was raised.".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype))
+        error_msg = "{} failed: {}, expected exception: {}, nothing was raised.".format(title, sourcecode, describe_exception(exctype))
     elif mode is _signaled:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = testmodule.fixtures.describe_exception(result)
-        error_msg = "{} errored: {}, expected exception: {}, got unexpected signal: {}".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype), desc)
+        desc = describe_exception(result)
+        error_msg = "{} errored: {}, expected exception: {}, got unexpected signal: {}".format(title, sourcecode, describe_exception(exctype), desc)
     else:  # mode is _raised:
         # allow both "raise SomeError()" and "raise SomeError"
         if isinstance(result, exctype):
             return
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = testmodule.fixtures.describe_exception(result)
-        error_msg = "{} errored: {}, expected exception: {}, got unexpected exception: {}".format(title, sourcecode, testmodule.fixtures.describe_exception(exctype), desc)
+        desc = describe_exception(result)
+        error_msg = "{} errored: {}, expected exception: {}, got unexpected exception: {}".format(title, sourcecode, describe_exception(exctype), desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg))
@@ -220,7 +219,10 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, mynam
 # -----------------------------------------------------------------------------
 # Syntax transformers for the macros.
 
-def test(tree):
+# -----------------------------------------------------------------------------
+# Expr variants.
+
+def test_expr(tree):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = hq[callsite_filename()]
     asserter = hq[unpythonic_assert]
@@ -240,7 +242,7 @@ def test(tree):
                                      lineno=ast_literal[ln],
                                      myname=ast_literal[myname])]
 
-def _test_signals_or_raises(tree, syntaxname, asserter):
+def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = hq[callsite_filename()]
 
@@ -262,7 +264,59 @@ def _test_signals_or_raises(tree, syntaxname, asserter):
                                      lineno=ast_literal[ln],
                                      myname=ast_literal[myname])]
 
-def test_signals(tree):
-    return _test_signals_or_raises(tree, "test_signals", hq[unpythonic_assert_signals])
-def test_raises(tree):
-    return _test_signals_or_raises(tree, "test_raises", hq[unpythonic_assert_raises])
+def test_expr_signals(tree):
+    return _test_expr_signals_or_raises(tree, "test_signals", hq[unpythonic_assert_signals])
+def test_expr_raises(tree):
+    return _test_expr_signals_or_raises(tree, "test_raises", hq[unpythonic_assert_raises])
+
+# -----------------------------------------------------------------------------
+# Block variants.
+
+# The strategy is we capture the block body into a new function definition,
+# and then apply `test_expr` to a call to that function.
+#
+# The function is named with a MacroPy gen_sym; if the test is named,
+# that name is mangled into a function name if reasonably possible.
+# When no name is given or mangling would be nontrivial, we treat the
+# test as an anonymous test block.
+#
+def test_block(block_body, args):
+    # with test["my test name"]:
+    # TODO: Python 3.8+: ast.Constant, no ast.Str
+    function_name = "anonymous_test_block"
+    if len(args) == 1 and type(args[0]) is Str:
+        myname = args[0]
+        # Name the generated function using the test name when possible.
+        maybe_fname = myname.s.replace(" ", "_")
+        # Lowercase just the first letter to follow Python function naming conventions.
+        maybe_fname = maybe_fname[0].lower() + maybe_fname[1:]
+        if maybe_fname.isidentifier():
+            function_name = maybe_fname
+    # with test:
+    elif len(args) == 0:
+        myname = None
+    else:
+        assert False, 'Expected `with test:` or `with test("my test name"):`'
+
+    gen_sym = dyn.gen_sym
+    final_function_name = gen_sym(function_name)
+
+    if myname is not None:
+        thetest = test_expr(q[(name[final_function_name](), ast_literal[myname])])
+    else:
+        thetest = test_expr(q[name[final_function_name]()])
+
+    with q as newbody:
+        def _():
+            ...
+        ast_literal[thetest]
+    thefunc = newbody[0]
+    thefunc.name = final_function_name
+    thefunc.body = block_body
+    return newbody
+
+# args: exctype, myname
+def test_block_signals(block_body, args):
+    assert False, "Not implemented yet"
+def test_block_raises(block_body, args):
+    assert False, "Not implemented yet"
