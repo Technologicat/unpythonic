@@ -293,12 +293,12 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
     you can also just create an ``env`` at an appropriate point,
     and store them there.
     """
-    def takes_arg(f):
+    def accepts_arg(f):
         try:
             if arity_includes(f, 1):
                 return True
         except UnknownArity:
-            pass
+            return True  # just assume it
         return False
 
     def isexceptiontype(exc):
@@ -318,24 +318,26 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
 
     try:
         ret = body()
-    except BaseException as e:
-        exctype = determine_exctype(e)
+    except BaseException as exception:
+        exctype = determine_exctype(exception)
         for excspec, handler in handlers:
             if isinstance(excspec, tuple):  # tuple of exception types
                 if not all(isexceptiontype(t) for t in excspec):
-                    raise ValueError("All elements of a tuple excspec must be exception types")
+                    raise TypeError("All elements of a tuple excspec must be exception types")
                 # this is safe, exctype is always a class at this point.
                 if any(issubclass(exctype, t) for t in excspec):
-                    if takes_arg(handler):
-                        return handler(e)
-                    return handler()
+                    if accepts_arg(handler):
+                        return handler(exception)
+                    else:
+                        return handler()
             elif isexceptiontype(excspec):  # single exception type
                 if issubclass(exctype, excspec):
-                    if takes_arg(handler):
-                        return handler(e)
-                    return handler()
+                    if accepts_arg(handler):
+                        return handler(exception)
+                    else:
+                        return handler()
             else:
-                raise ValueError("excspec must be an exception type or tuple of exception types")
+                raise TypeError("excspec must be an exception type or tuple of exception types")
     else:
         if elsef is not None:
             return elsef()
