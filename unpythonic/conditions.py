@@ -155,6 +155,14 @@ def signal(condition):
             pass
         error(ControlError("Only exceptions and subclasses of Exception can be signaled; got {} with value '{}'.".format(type(condition), condition)))
 
+    def accepts_arg(f):
+        try:
+            if arity_includes(f, 1):
+                return True
+        except UnknownArity:
+            return True  # just assume it
+        return False
+
     # Embed a stack trace in the signal, like Python does for raised exceptions.
     # This only works on Python 3.7 and later, because we need to create a traceback object in pure Python code.
     if isinstance(condition, BaseException):  # but do it in the "signal(SomeError())" case only
@@ -165,11 +173,7 @@ def signal(condition):
             pass  # well, we tried!
 
     for handler in _find_handlers(determine_exctype(condition)):
-        try:
-            accepts_arg = arity_includes(handler, 1)
-        except UnknownArity:
-            accepts_arg = True  # just assume it
-        if accepts_arg:
+        if accepts_arg(handler):
             handler(condition)
         else:
             handler()
