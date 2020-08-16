@@ -12,7 +12,7 @@ from ...syntax import (macros, test, test_signals, test_raises,  # noqa: F401
 
 from functools import partial
 
-from ...test.fixtures import session, testset, terminate  # noqa: F401
+from ...test.fixtures import session, testset, terminate, returns_normally  # noqa: F401
 
 from ...conditions import invoke, handlers, restarts, cerror  # noqa: F401
 from ...misc import raisef
@@ -94,7 +94,7 @@ def runtests():
     #
     # Still, be sure to run all `test[]` invocations in the same thread,
     # because the counters (managed by `test[]` itself) are global.
-
+    #
     # # The session construct provides an exit point for test session
     # # termination, and an implicit top-level testset.
     # # A session can be started only when not already inside a testset.
@@ -159,6 +159,17 @@ def runtests():
     #                 raise ValueError
     #             except ValueError:
     #                 raise RuntimeError
+    #
+    #     with testset("normal return, don't care about value"):
+    #         # There's also a block variant that asserts the block completes normally
+    #         # (no exception or signal).
+    #         with test("block variant"):
+    #             ...
+    #
+    #         # To get that effect in the expression variant:
+    #         def f(x):
+    #             return 2 * x
+    #         test[returns_normally(f(21))]
     #
     #     # # The session can be terminated early by calling terminate()
     #     # # at any point inside the dynamic extent of `with session`.

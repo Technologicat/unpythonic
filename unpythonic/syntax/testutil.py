@@ -55,9 +55,28 @@ def _observe(thunk):
       - `(_raised, exception_instance)` if an exception from inside
         the dynamic extent of thunk propagated to this level.
     """
+    def intercept(condition):
+        def determine_exctype(exc):
+            if isinstance(exc, BaseException):  # "signal(SomeError())"
+                return type(exc)
+            try:
+                if issubclass(exc, BaseException):  # "signal(SomeError)"
+                    return exc
+            except TypeError:  # "issubclass() arg 1 must be a class"
+                pass
+            assert False  # unpythonic.conditions.signal() does the validation for us
+
+        # If we get an internal signal, ignore it and let it fall through to the
+        # nearest enclosing `testset`, for reporting. This can happen if a `test[]`
+        # is nested within a `with test:` block, or if `test[]` expressions are nested.
+        exctype = determine_exctype(condition)
+        if issubclass(exctype, TestingException):
+            return  # cancel and delegate to the next outer handler
+        invoke("_got_signal", condition)
+
     try:
         with restarts(_got_signal=lambda exc: exc) as sig:
-            with handlers((Exception, lambda exc: invoke("_got_signal", exc))):
+            with handlers((Exception, intercept)):
                 ret = thunk()
             # We only reach this point if the restart was not invoked,
             # i.e. if thunk() completed normally.
@@ -163,6 +182,13 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, myna
 
     "Signal" as in `unpythonic.conditions.signal` and its sisters `error`, `cerror`, `warn`.
     """
+    def safeissubclass(t, u):
+        try:
+            return issubclass(t, u)
+        except TypeError:  # "issubclass() arg 1 must be a class"
+            pass
+        return False
+
     mode, result = _observe(thunk)
     tests_run << unbox(tests_run) + 1
 
@@ -173,7 +199,7 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, myna
         error_msg = "{} failed: {}, expected signal: {}, nothing was signaled.".format(title, sourcecode, describe_exception(exctype))
     elif mode is _signaled:
         # allow both "signal(SomeError())" and "signal(SomeError)"
-        if isinstance(result, exctype) or issubclass(result, exctype):
+        if isinstance(result, exctype) or safeissubclass(result, exctype):
             return
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
@@ -190,6 +216,13 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, myna
 
 def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, myname=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` raises `exctype`."""
+    def safeissubclass(t, u):
+        try:
+            return issubclass(t, u)
+        except TypeError:  # "issubclass() arg 1 must be a class"
+            pass
+        return False
+
     mode, result = _observe(thunk)
     tests_run << unbox(tests_run) + 1
 
@@ -205,7 +238,7 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, mynam
         error_msg = "{} errored: {}, expected exception: {}, got unexpected signal: {}".format(title, sourcecode, describe_exception(exctype), desc)
     else:  # mode is _raised:
         # allow both "raise SomeError()" and "raise SomeError"
-        if isinstance(result, exctype):
+        if isinstance(result, exctype) or safeissubclass(result, exctype):
             return
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError

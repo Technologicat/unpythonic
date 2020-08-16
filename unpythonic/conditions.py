@@ -760,7 +760,8 @@ def warn(condition):
     in the caller of `warn` instead of unwinding to the handler.
     """
     with restarts(muffle=(lambda: None)):  # just for control, no return value
-        signal(condition)
+        with restarts(_proceed=(lambda: None)):  # for internal use by unpythonic.test.fixtures
+            signal(condition)
         if isinstance(condition, Warning):
             warnings.warn(condition, stacklevel=2)  # 2 to ignore our lispy `warn` wrapper.
         else:

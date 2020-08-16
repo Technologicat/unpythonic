@@ -89,6 +89,7 @@ See:
 """
 
 from contextlib import contextmanager
+from collections import deque
 from functools import partial
 from enum import Enum
 from traceback import format_tb
@@ -115,7 +116,7 @@ try:
 except ImportError as err:
     raise ImportError("unpythonic.test.fixtures requires MacroPy, please install it.") from err
 
-__all__ = ["session", "testset", "terminate", "TestConfig"]
+__all__ = ["session", "testset", "terminate", "returns_normally", "TestConfig"]
 
 # TODO: Move the general color stuff (TC, colorize) to another module, it could be useful.
 # TODO: Consider implementing the variant which separates effect/fg-color/bg-color with
@@ -364,6 +365,23 @@ def terminate(exc=None):  # the parameter is ignored
     TestConfig.printer(colorize("** TERMINATING SESSION", TC.BRIGHT, TestConfig.CS.HEADING))
     raise TestSessionExit
 
+def returns_normally(expr):
+    """For use inside `test[]` and its sisters.
+
+    Assert that `expr` runs to completion without raising or signaling.
+
+    Usage::
+
+        test[returns_normally(myfunc())]
+    """
+    # The magic is, `test[]` lifts its expr into a lambda. When the test runs,
+    # our arg gets evaluated first, and then its value is passed to us.
+    #
+    # To make the test succeed whenever `unpythonic.syntax.testutil._observe`
+    # didn't catch an unexpected signal or exception in `expr`, we just ignore
+    # our arg, and:
+    return True
+
 _nesting_level = 0
 @contextmanager
 def session(name=None):
@@ -401,7 +419,7 @@ def session(name=None):
                        colorize("END", TC.BRIGHT, TestConfig.CS.HEADING))
 
 # We use a stack for postprocs so that the local overrides can be nested.
-_postproc_stack = []
+_postproc_stack = deque()
 @contextmanager
 def testset(name=None, postproc=None):
     """Context manager representing a test set.
@@ -431,7 +449,7 @@ def testset(name=None, postproc=None):
     TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
                        colorize("BEGIN", TC.BRIGHT, TestConfig.CS.HEADING))
 
-    def report_and_proceed(condition):
+    def print_and_proceed(condition):
         # The assert helpers in `unpythonic.syntax.testutil` signal only TestFailure and TestError,
         # no matter what happens inside the test expression.
         if isinstance(condition, testutil.TestFailure):
@@ -445,7 +463,7 @@ def testset(name=None, postproc=None):
 
         # the custom callback
         if _postproc_stack:
-            r = _postproc_stack[-1]
+            r = _postproc_stack[0]
         elif TestConfig.postproc is not None:
             r = TestConfig.postproc
         else:
@@ -456,17 +474,22 @@ def testset(name=None, postproc=None):
         # We find first instead of just invoking so that we support all standard signal
         # protocols, not just `cerror` (which defines "proceed").
         p = find_restart("proceed")
+        if not p:
+            # HACK: unpythonic.conditions.warn defines a "_proceed" for us, so
+            # we can let the warning happen, but stop it from propagating to
+            # outer testsets and being displayed multiple times.
+            p = find_restart("_proceed")
         if p is not None:
             invoke(p)
-        # Otherwise we just return normally.
+        # Otherwise we just return normally (cancel and delegate to next outer handler).
 
     if postproc is not None:
-        _postproc_stack.append(postproc)
+        _postproc_stack.appendleft(postproc)
 
     # The test[] macro signals a condition (using `cerror`), does not raise an
     # exception. That gives it the superpower to resume the rest of the tests.
     try:
-        with handlers((Exception, report_and_proceed)):
+        with handlers((Exception, print_and_proceed)):
             yield
     except TestSessionExit:  # pass through, it belongs to session, not us
         pass
@@ -476,7 +499,7 @@ def testset(name=None, postproc=None):
         TestConfig.printer(msg)
 
     if postproc is not None:
-        _postproc_stack.pop()
+        _postproc_stack.popleft()
 
     _nesting_level -= 1
     assert _nesting_level >= 0
