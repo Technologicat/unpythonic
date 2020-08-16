@@ -12,7 +12,7 @@ from ..misc import callsite_filename
 from ..conditions import cerror, handlers, restarts, invoke
 from ..collections import box, unbox
 from ..symbol import sym
-from ..test.fixtures import describe_exception
+from ..test.fixtures import describe_exception, _ignore_uncaught_signals
 
 # -----------------------------------------------------------------------------
 # Regular code, no macros yet.
@@ -56,6 +56,9 @@ def _observe(thunk):
         the dynamic extent of thunk propagated to this level.
     """
     def intercept(condition):
+        if unbox(_ignore_uncaught_signals):
+            return  # cancel and delegate to the next outer handler
+
         def determine_exctype(exc):
             if isinstance(exc, BaseException):  # "signal(SomeError())"
                 return type(exc)
@@ -66,9 +69,10 @@ def _observe(thunk):
                 pass
             assert False  # unpythonic.conditions.signal() does the validation for us
 
-        # If we get an internal signal, ignore it and let it fall through to the
-        # nearest enclosing `testset`, for reporting. This can happen if a `test[]`
-        # is nested within a `with test:` block, or if `test[]` expressions are nested.
+        # If we get an internal signal from this test framework itself, ignore
+        # it and let it fall through to the nearest enclosing `testset`, for
+        # reporting. This can happen if a `test[]` is nested within a `with
+        # test:` block, or if `test[]` expressions are nested.
         exctype = determine_exctype(condition)
         if issubclass(exctype, TestingException):
             return  # cancel and delegate to the next outer handler
@@ -82,6 +86,8 @@ def _observe(thunk):
             # i.e. if thunk() completed normally.
             return _completed, ret
         return _signaled, unbox(sig)
+    # This testing framework always signals, never raises, so we don't need any
+    # special handling here.
     except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
         return _raised, err
 

@@ -96,7 +96,7 @@ from traceback import format_tb
 import sys
 
 from ..conditions import handlers, find_restart, invoke
-from ..collections import unbox
+from ..collections import box, unbox
 
 # We need the test counters and the exception types from syntax.testutil.
 #
@@ -116,7 +116,7 @@ try:
 except ImportError as err:
     raise ImportError("unpythonic.test.fixtures requires MacroPy, please install it.") from err
 
-__all__ = ["session", "testset", "terminate", "returns_normally", "TestConfig"]
+__all__ = ["session", "testset", "terminate", "returns_normally", "ignore_signals", "TestConfig"]
 
 # TODO: Move the general color stuff (TC, colorize) to another module, it could be useful.
 # TODO: Consider implementing the variant which separates effect/fg-color/bg-color with
@@ -382,6 +382,33 @@ def returns_normally(expr):
     # our arg, and:
     return True
 
+_ignore_uncaught_signals = box(False)
+@contextmanager
+def ignore_signals():
+    """Context manager.
+
+    Causes `test[]` and its sisters, and `with testset`, to ignore any
+    uncaught signals.
+
+    (Otherwise, any uncaught signals are reported.)
+
+    Does not affect uncaught exceptions. Unlike signals, exceptions unwind the
+    stack immediately, so for exceptions, there is no possibility to ignore the
+    exceptional condition while allowing its signaler to proceed.
+
+    For signals, that possibility is sometimes useful; the purpose of this
+    construct is to explicitly document that intent in the form of automated
+    tests.
+    """
+    # TODO: maybe make a stack.
+    # TODO: maybe use positive naming: _catch_uncaught_signals.
+    # (It's named this way because the need to ignore signals is a rare exceptional situation.)
+    if unbox(_ignore_uncaught_signals):
+        raise RuntimeError("`with ignore_signals` cannot be nested.")
+    _ignore_uncaught_signals << True
+    yield
+    _ignore_uncaught_signals << False
+
 _nesting_level = 0
 @contextmanager
 def session(name=None):
@@ -458,6 +485,8 @@ def testset(name=None, postproc=None):
             msg = colorize("{}** ERROR: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR) + str(condition)
         # So any other signal must come from another source.
         else:
+            if unbox(_ignore_uncaught_signals):
+                return  # cancel and delegate to the next outer handler
             msg = colorize("{}** Testset received signal outside test[]: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR) + describe_exception(condition)
         TestConfig.printer(msg)
 
@@ -481,7 +510,7 @@ def testset(name=None, postproc=None):
             p = find_restart("_proceed")
         if p is not None:
             invoke(p)
-        # Otherwise we just return normally (cancel and delegate to next outer handler).
+        # Otherwise we just return normally (cancel and delegate to the next outer handler).
 
     if postproc is not None:
         _postproc_stack.appendleft(postproc)
