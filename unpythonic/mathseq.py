@@ -439,11 +439,15 @@ class m:
 
         f = m(take(5, c))  # ...and it can be restored by m'ing again.
         assert isinstance(f, m)
+
+        g = m((1, 2, 3, 4, 5))
+        h = m((2, 3, 4, 5, 6))
+        assert tuple(g + h) == (3, 5, 7, 9, 11)
     """
     def __init__(self, iterable):
         self._g = iterable
     def __iter__(self):
-        return self._g
+        return iter(self._g)
     def __add__(self, other):
         return sadd(self, other)
     def __radd__(self, other):
