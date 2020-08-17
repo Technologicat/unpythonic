@@ -278,7 +278,7 @@ def colorize(s, *colors):
 def describe_exception(exc):
     """Return a human-readable (possibly multi-line) description of exception `exc`.
 
-    The output as close as possible to how Python itself formats exceptions,
+    The output is as close as possible to how Python itself formats exceptions,
     but the tracebacks are dimmed using ANSI color to better separate headings
     from details.
 
