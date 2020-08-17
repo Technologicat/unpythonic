@@ -103,13 +103,7 @@ from ..symbol import sym
 # We need the test counters and the exception types from syntax.testutil.
 #
 # But, to avoid a from-import loop, we can't import names from inside
-# syntax.testutil, because it in turn needs our `describe_exception`.
-# This could be resolved either way, as long as one of the modules
-# imports the other *module*, instead of importing names from inside it.
-#
-# We do that here, because the design is cleaner if all regular modules of
-# `unpythonic` are guaranteed to be fully initialized before anything in
-# `unpythonic.syntax` starts to run.
+# syntax.testutil, because it in turn needs some stuff from us.
 #
 # Note this testing framework also depends on MacroPy, because `test[]`
 # and its sisters are macros.

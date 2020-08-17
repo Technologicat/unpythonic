@@ -12,7 +12,8 @@ from ..misc import callsite_filename
 from ..conditions import cerror, handlers, restarts, invoke
 from ..collections import box, unbox
 from ..symbol import sym
-from ..test.fixtures import describe_exception, _ignore_uncaught_signals, fail
+
+from ..test import fixtures
 
 # -----------------------------------------------------------------------------
 # Regular code, no macros yet.
@@ -56,7 +57,7 @@ def _observe(thunk):
         the dynamic extent of thunk propagated to this level.
     """
     def intercept(condition):
-        if unbox(_ignore_uncaught_signals):
+        if unbox(fixtures._ignore_uncaught_signals):
             return  # cancel and delegate to the next outer handler
 
         def determine_exctype(exc):
@@ -159,7 +160,7 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, message=None):
 
     # special case for unconditionally failing tests
     # (e.g. line that should not be reached, optional dependency not installed, ...)
-    if mode is _completed and result is fail:
+    if mode is _completed and result is fixtures.fail:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
         if message is not None:
@@ -180,12 +181,12 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, message=None):
     elif mode is _signaled:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
+        desc = fixtures.describe_exception(result)
         error_msg = "Test errored: {}{}, due to unexpected signal: {}".format(sourcecode, custom_msg, desc)
     else:  # mode is _raised:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
+        desc = fixtures.describe_exception(result)
         error_msg = "Test errored: {}{}, due to unexpected exception: {}".format(sourcecode, custom_msg, desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
@@ -221,7 +222,7 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, mess
 
     # special case for unconditionally failing tests
     # (e.g. line that should not be reached, optional dependency not installed, ...)
-    if mode is _completed and result is fail:
+    if mode is _completed and result is fixtures.fail:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
         if message is not None:
@@ -236,20 +237,20 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, mess
     elif mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
-        error_msg = "Test failed: {}{}, expected signal: {}, nothing was signaled.".format(sourcecode, custom_msg, describe_exception(exctype))
+        error_msg = "Test failed: {}{}, expected signal: {}, nothing was signaled.".format(sourcecode, custom_msg, fixtures.describe_exception(exctype))
     elif mode is _signaled:
         # allow both "signal(SomeError())" and "signal(SomeError)"
         if isinstance(result, exctype) or safeissubclass(result, exctype):
             return
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
-        error_msg = "Test errored: {}{}, expected signal: {}, got unexpected signal: {}".format(sourcecode, custom_msg, describe_exception(exctype), desc)
+        desc = fixtures.describe_exception(result)
+        error_msg = "Test errored: {}{}, expected signal: {}, got unexpected signal: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
     else:  # mode is _raised:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
-        error_msg = "Test errored: {}{}, expected signal: {}, got unexpected exception: {}".format(sourcecode, custom_msg, describe_exception(exctype), desc)
+        desc = fixtures.describe_exception(result)
+        error_msg = "Test errored: {}{}, expected signal: {}, got unexpected exception: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg))
@@ -273,7 +274,7 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, messa
 
     # special case for unconditionally failing tests
     # (e.g. line that should not be reached, optional dependency not installed, ...)
-    if mode is _completed and result is fail:
+    if mode is _completed and result is fixtures.fail:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
         if message is not None:
@@ -288,20 +289,20 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, messa
     elif mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
-        error_msg = "Test failed: {}{}, expected exception: {}, nothing was raised.".format(sourcecode, custom_msg, describe_exception(exctype))
+        error_msg = "Test failed: {}{}, expected exception: {}, nothing was raised.".format(sourcecode, custom_msg, fixtures.describe_exception(exctype))
     elif mode is _signaled:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
-        error_msg = "Test errored: {}{}, expected exception: {}, got unexpected signal: {}".format(sourcecode, custom_msg, describe_exception(exctype), desc)
+        desc = fixtures.describe_exception(result)
+        error_msg = "Test errored: {}{}, expected exception: {}, got unexpected signal: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
     else:  # mode is _raised:
         # allow both "raise SomeError()" and "raise SomeError"
         if isinstance(result, exctype) or safeissubclass(result, exctype):
             return
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
-        desc = describe_exception(result)
-        error_msg = "Test errored: {}{}, expected exception: {}, got unexpected exception: {}".format(sourcecode, custom_msg, describe_exception(exctype), desc)
+        desc = fixtures.describe_exception(result)
+        error_msg = "Test errored: {}{}, expected exception: {}, got unexpected exception: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg))
