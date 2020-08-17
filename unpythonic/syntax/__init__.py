@@ -2010,14 +2010,10 @@ def test(tree, **kw):  # noqa: F811
         with test("name of my test"):
             body...
 
-    The test succeeds if the body runs to completion normally.
+    The test succeeds if the block body runs to completion normally.
 
-    Additionally, `tests_run`, `tests_failed` and `tests_errored` are
-    `unpythonic.collections.box` instances holding integers that describe
-    what it says on the tin. Use the `box` API to read or reset them.
-
-    All three counts start at zero when Python starts. The idea is to allow
-    client code to easily compute percentage of tests passed.
+    **CAUTION**: the block variant implicitly inserts a `def`, so any new
+    variables assigned to will be local to the `with test` block.
 
     **Why**:
 
@@ -2070,6 +2066,12 @@ def test(tree, **kw):  # noqa: F811
         assert tests_errored == 0
         assert tests_run == 3
 
+    The counters `tests_run`, `tests_failed` and `tests_errored` are
+    `unpythonic.collections.box` instances holding integers that describe
+    what it says on the tin. Use the `box` API to read or reset them.
+    All three counts start at zero when Python starts. The idea is to allow
+    client code to easily compute percentage of tests passed.
+
     If you want to proceed after most failures, but there is some particularly
     critical test which, if it fails, should abort the rest of the whole unit,
     you can override the handler locally::
@@ -2106,7 +2108,7 @@ def test(tree, **kw):  # noqa: F811
             test[2 + 2 == 7]  # fails, but allows further tests to continue
 
     See the unit tests in `unpythonic.syntax.test.test_testutil` for more variations,
-    and some helpful utilities found elsewhere in `unpythonic`.
+    and the high-level testing framework `unpythonic.test.fixtures`.
     """
     return _test_expr(tree)
 
