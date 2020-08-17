@@ -91,7 +91,7 @@ def runtests():
 
             # But having any args remaining when the top-level curry context exits
             # is an error:
-            test_raises[TypeError, curry(double, 2, "foo")]
+            test_raises[TypeError, curry(double, 2, "unused extra arg")]
 
             # This also works; curried f takes one argument and the second one is passed
             # through on the right; this two-tuple then ends up as the arguments to cons.

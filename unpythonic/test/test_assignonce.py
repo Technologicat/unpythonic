@@ -12,13 +12,13 @@ def runtests():
                 e.a = 2
                 e.b = 3
 
-            with test_raises(AttributeError, "trying to redefine an already defined name"):
+            with test_raises(AttributeError, "should not be able to redefine an already defined name"):
                 e.a = 5
 
             with test("rebind"):
                 e.set("a", 42)  # rebind
 
-            with test_raises(AttributeError, "trying to rebind an unbound name"):
+            with test_raises(AttributeError, "should not be able to rebind an unbound name"):
                 e.set("c", 3)
 
 if __name__ == '__main__':

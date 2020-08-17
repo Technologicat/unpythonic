@@ -128,7 +128,7 @@ def runtests():
                         test[err is olderr]  # exception instance memoized, should be the same every time
                     olderr = err
                 else:
-                    test[False, "memoize should not block raise, but it did"]
+                    test[False, "memoize should not prevent exception propagation"]
             test[evaluations == 1]
 
         with testset("@curry"):
@@ -168,10 +168,10 @@ def runtests():
             def double(x):
                 return 2 * x
             # curry raises by default when top-level curry context exits with args remaining:
-            with test_raises(TypeError, "default case"):
+            with test_raises(TypeError, "leftover args should not be allowed by default"):
                 curry(double, 2, "foo")
             # to disable the error, use this trick to explicitly state your intent:
-            with test("case with manually created surrounding context"):
+            with test("leftover args should be allowed with manually created surrounding context"):
                 with dyn.let(curry_context=["whatever"]):  # any human-readable label is fine.
                     curry(double, 2, "foo") == (4, "foo")
 

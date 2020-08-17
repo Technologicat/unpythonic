@@ -240,14 +240,14 @@ def runtests():
             test[ulp(2.0) == 2 * eps]
             test[ulp(0.5) == 0.5 * eps]
 
-        with testset("slurp"):
+        with testset("slurp (drain a queue into a list)"):
             q = Queue()
             for k in range(10):
                 q.put(k)
             test[slurp(q) == list(range(10))]
 
         # async_raise - evil ctypes hack to inject an asynchronous exception into another running thread
-        with testset("async_raise"):
+        with testset("async_raise (inject KeyboardInterrupt)"):
             try:
                 # Test whether the Python we're running on provides ctypes. At least CPython and PyPy3 do.
                 # For PyPy3, the general rule is "if it imports, it should work", so let's go along with that.

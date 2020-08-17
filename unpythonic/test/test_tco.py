@@ -55,6 +55,8 @@ def runtests():
 
         # explicit continuations - DANGER: functional spaghetti code!
         with testset("functional spaghetti code"):
+            class SpaghettiError(Exception):
+                pass
             @trampolined
             def foo():
                 return jump(bar)
@@ -63,8 +65,8 @@ def runtests():
                 return jump(baz)
             @trampolined
             def baz():
-                raise RuntimeError("Look at the call stack, bar() was zapped by TCO!")
-            test_raises[RuntimeError, foo()]
+                raise SpaghettiError("Look at the call stack, bar() was zapped by TCO!")
+            test_raises[SpaghettiError, foo()]
 
         with testset("error cases"):
             # Printing a warning is the best these cases can do, unfortunately, due to how `__del__` works.

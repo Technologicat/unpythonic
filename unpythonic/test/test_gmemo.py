@@ -78,7 +78,7 @@ def runtests():
             except AllOkJustTesting as err:
                 exc_instance = err
             else:
-                test[False, "should have raised at the second next() call"]
+                test[False, "should raise at the second next() call"]
             test[total_evaluations == 2]
 
             g2 = gen()
@@ -89,7 +89,7 @@ def runtests():
             except AllOkJustTesting as err2:
                 test[err2 is exc_instance, "should be the same cached exception instance"]
             else:
-                test[False, "should have raised at the second next() call"]
+                test[False, "should raise at the second next() call"]
             test[total_evaluations == 2]
 
         with testset("memoizing a sequence partially"):

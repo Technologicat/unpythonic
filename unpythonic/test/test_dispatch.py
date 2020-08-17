@@ -15,7 +15,8 @@ def zorblify(x: int, y: int):
     return 2 * x + y
 @zorblify.register
 def zorblify(x: str, y: int):
-    assert False  # Because dispatching occurs on both arguments, this is not reached in tests.
+    # Because dispatching occurs on both arguments, this method is not reached by the tests.
+    test[False, "this method should not be reached by the tests"]
 @zorblify.register
 def zorblify(x: str, y: float):
     return "{} {}".format(x[::-1], y)

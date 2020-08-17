@@ -62,27 +62,27 @@ def runtests():
             test[s == 35]
 
         with testset("error cases"):
-            with test_raises(ValueError, "@looped: invalid definition, no loop parameter"):
+            with test_raises(ValueError, "@looped: should detect invalid definition, no loop parameter"):
                 @looped
                 def s():
                     pass
 
-            with test_raises(ValueError, "@looped: invalid definition, extra parameter not initialized"):
+            with test_raises(ValueError, "@looped: should detect invalid definition, extra parameter not initialized"):
                 @looped
                 def s(loop, myextra):
                     pass
 
-            with test_raises(ValueError, "@looped_over: invalid definition, no (loop, x, acc) parameters for loop body"):
+            with test_raises(ValueError, "@looped_over: should detect invalid definition, no (loop, x, acc) parameters for loop body"):
                 @looped_over(range(10), acc=())
                 def s():
                     pass
 
-            with test_raises(ValueError, "@looped_over: invalid definition, no acc parameter for loop body"):
+            with test_raises(ValueError, "@looped_over: should detect invalid definition, no acc parameter for loop body"):
                 @looped_over(range(10), acc=())
                 def s(loop, x):
                     pass
 
-            with test_raises(ValueError, "@looped_over: invalid definition, extra parameter not initialized"):
+            with test_raises(ValueError, "@looped_over: should detect invalid definition, extra parameter not initialized"):
                 @looped_over(range(10), acc=())
                 def s(loop, x, acc, myextra):
                     pass
@@ -285,6 +285,7 @@ def runtests():
             test[result == 90]
 
         with testset("how to terminate surrounding function from inside loop"):
+            # Use the lispy throw/catch:
             @catch()
             def f():
                 @looped
@@ -292,7 +293,7 @@ def runtests():
                     if i > 5:
                         throw(acc)
                     return loop(acc + i, i + 1)
-                print("not reached")
+                test[False, "this line should not be reached"]
                 return False
             test[f() == 15]
 
@@ -310,9 +311,9 @@ def runtests():
                         if i > 5:
                             throw(acc, tag="foo")  # Throw instance tag must be a single value.
                         return loop(acc + i, i + 1)
-                    print("never reached")
+                    test[False, "this line should not be reached"]
                     return False
-                print("never reached either")
+                test[False, "this line should not be reached"]
                 return False
             test[foo() == 15]
 

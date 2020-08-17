@@ -4,6 +4,7 @@ from ..syntax import macros, test, test_raises  # noqa: F401
 from .fixtures import testset
 
 from ..ec import catch, throw, call_ec
+from ..seq import begin
 
 def runtests():
     with testset("unpythonic.ec"):
@@ -12,19 +13,21 @@ def runtests():
             def f():
                 def g():
                     throw("hello from g")  # the argument becomes the return value of f()
-                    print("not reached")
+                    test[False, "this line should not be reached"]
                 g()
-                print("not reached either")
+                test[False, "this line should not be reached"]
             test[f() == "hello from g"]
 
         with testset("escape from a lambda"):
             # begin() returns the last value. What if we don't want that?
-            # (this works because ec() uses the exception mechanism)
-            from ..seq import begin
+            #
+            # This works because ec() uses the exception mechanism,
+            # so it interrupts the evaluation of the tuple of args
+            # before `begin` is even called.
             result = call_ec(lambda ec:
                                begin(print("hi from lambda"),
                                      ec(42),  # now we can effectively "return ..." at any point from a lambda!
-                                     print("never reached")))
+                                     test[False, "this line should not be reached"]))
             test[result == 42]
 
         with testset("lispy call/ec (call-with-escape-continuation)"):
@@ -32,7 +35,7 @@ def runtests():
             def result(ec):  # effectively, just a code block!
                 answer = 42
                 ec(answer)  # here this has the same effect as "return answer"...
-                print("never reached")
+                test[False, "this line should not be reached"]
                 answer = 23
                 return answer
             test[result == 42]
@@ -42,15 +45,15 @@ def runtests():
                 answer = 42
                 def inner():
                     ec(answer)  # ...but here this directly escapes from the outer def
-                    print("never reached")
+                    test[False, "this line should not be reached"]
                     return 23
                 answer = inner()
-                print("never reached either")
+                test[False, "this line should not be reached"]
                 return answer
             test[result == 42]
 
         with testset("error case"):
-            with test_raises(RuntimeError, "calling ec outside its dynamic extent"):
+            with test_raises(RuntimeError, "should not be able to call an ec instance outside its dynamic extent"):
                 @call_ec
                 def erroneous(ec):
                     return ec

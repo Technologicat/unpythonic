@@ -177,20 +177,22 @@ def runtests():
             #
             # WRONG!
             s = set()
-            z = do(lambda e: print(s),  # there is already an item...
-                   s.add("foo"),        # ...because already added before do() gets control.
+            z = do(lambda e: test[s],   # there is already an item...
+                   s.add("foo"),        # ...because already added here, before do() gets control.
                    lambda e: s)
+            test[z == {"foo"}]
 
             # OK
             s = set()
-            z = do(lambda e: print(s),      # empty, ok!
-                   lambda e: s.add("foo"),  # now delayed until do() hits this line
+            z = do(lambda e: test[not s],   # empty, ok!
+                   lambda e: s.add("foo"),  # now this is delayed until do() hits this line
                    lambda e: s)
+            test[z == {"foo"}]
 
             z = call_ec(lambda ec:
                         do(assign(x=42),
-                           lambda e: ec(e.x),                  # IMPORTANT: must delay this!
-                           lambda e: print("never reached")))  # and this (as above)
+                           lambda e: ec(e.x),                                          # IMPORTANT: must delay this!
+                           lambda e: test[False, "this line should not be reached"]))  # and this (as above)
             test[z == 42]
 
 if __name__ == '__main__':

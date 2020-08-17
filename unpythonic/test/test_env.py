@@ -50,7 +50,7 @@ def runtests():
         with testset("error cases"):
             with env(x=1) as e:
                 e.finalize()
-                with test_raises(AttributeError, "a finalized environment does not accept new bindings"):
+                with test_raises(AttributeError, "should not be able to add new bindings to a finalized environment"):
                     e.y = 42
 
             # undefined name
@@ -61,11 +61,11 @@ def runtests():
                 test_raises[AttributeError, e.set("foo", 42)]  # invalid, set() only modifies existing bindings
 
             with env() as e:
-                with test_raises(ValueError, "invalid identifier in __setitem__"):
+                with test_raises(ValueError, "should detect invalid identifier in __setitem__"):
                     e["∞"] = 1  # invalid identifier in store context (__setitem__)
 
             with env() as e:
-                with test_raises(ValueError, "invalid identifier in __getitem__"):
+                with test_raises(ValueError, "should detect invalid identifier in __getitem__"):
                     e["∞"]  # invalid identifier in load context (__getitem__)
 
 if __name__ == '__main__':

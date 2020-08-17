@@ -98,7 +98,7 @@ def runtests():
             test[out == (2, 3, 2, 3, 2, 3, 42, 3, 2, 3)]
 
         with testset("error cases"):
-            with test_raises(IndexError, "replacement sequence too short"):
+            with test_raises(IndexError, "should detect replacement sequence too short"):
                 lst = (1, 2, 3, 4, 5)
                 out = fupdate(lst, slice(1, None, 2), (10,))  # need 2 items, have 1
 

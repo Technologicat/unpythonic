@@ -140,12 +140,13 @@ def runtests():
             test_raises[AttributeError,
                         let((('x', 0),),
                             lambda e:
-                              e.set('y', 3))]  # error, y is not defined
+                              e.set('y', 3)),
+                        "e.y should not be defined"]
 
-            with test_raises(AttributeError, "let environment is final (no new bindings inside the body)"):
+            with test_raises(AttributeError, "let environment should be final (should not be able to create new bindings in it inside the let body)"):
                 @blet((('x', 1),))
                 def error1(*, env):
-                    env.y = 2  # error, cannot introduce new bindings to a let environment
+                    env.y = 2  # error, cannot introduce new bindings into a let environment
 
 if __name__ == '__main__':
     runtests()

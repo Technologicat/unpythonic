@@ -159,27 +159,27 @@ def runtests():
         with testset("error cases"):
             test_raises[SyntaxError,
                         s(1, ..., 1),
-                        "length of a constant sequence cannot be determined from a final element"]
+                        "should detect that the length of a constant sequence cannot be determined from a final element"]
             test_raises[SyntaxError,
                         s(1, 2, ..., 10.5),
-                        "the final element, if given, must be in the specified sequence"]
+                        "should detect that the final element, if given, must be in the specified sequence"]
             test_raises[SyntaxError,
-                        s(1, 2, ..., -10)]
+                        s(1, 2, ..., -10),
+                        "should detect that the final element, if given, must be in the specified sequence"]
             test_raises[SyntaxError,
                         s(2, 4, 0, ...),
-                        "geometric sequence must have no zero elements"]
+                        "should detect that a geometric sequence must have no zero elements"]
             test_raises[SyntaxError,
                         s(2, 3, 5, 7, 11, ...),
-                        "s() is not that smart!"]
+                        "should detect that s() is not that smart!"]
             test_raises[SyntaxError,
                         s(1, 1, 2, 3, 5, ...),
-                        "s() is not that smart!"]
+                        "should detect that s() is not that smart!"]
 
         with testset("symbolic input with SymPy"):
             try:
                 from sympy import symbols
             except ImportError:
-                # TODO: need mechanism to report failure to load optional dependencies
                 test[False, "SymPy not installed, cannot test symbolic input for mathseq"]
             else:
                 x0 = symbols("x0", real=True)
@@ -197,7 +197,7 @@ def runtests():
 
                 test_raises[SyntaxError,
                             tuple(s(x0, x0 * k, ..., x0 * k**3)) == (x0, x0 * k, x0 * k**2, x0 * k**3),
-                            "too few terms, should think it's supposed to be an arithmetic sequence"]
+                            "too few terms for geometric sequence, the analyzer should (incorrectly) try an arithmetic sequence and think the final element does not match"]
 
                 x0, k = symbols("x0, k", positive=True)
                 test[tuple(s(x0, x0**k, x0**(k**2), ..., x0**(k**5))) == (x0, x0**k, x0**(k**2), x0**(k**3), x0**(k**4), x0**(k**5))]

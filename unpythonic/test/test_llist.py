@@ -43,7 +43,7 @@ def runtests():
             l3 = cons(6, cdr(l1))
             test[l3 == ll(6, 2, 1)]
 
-            thebinarytree = cons(cons(1, 2), cons(3, 4))
+        thebinarytree = cons(cons(1, 2), cons(3, 4))
 
         with testset("repr"):
             test[repr(cons(1, 2)) == "cons(1, 2)"]

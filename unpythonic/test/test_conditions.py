@@ -358,6 +358,7 @@ def runtests():
                 with handlers((JustTesting, lambda c: use_value(42))):
                     with restarts(use_value=(lambda x: x)) as result:
                         warn(JustTesting("handled warn() does not print a warning"))
+                        test[False, "should not be reached, because the restart takes over"]
                         result << 21  # not reached, because the restart takes over
                     test[unbox(result) == 42]
             warn_protocol()
@@ -410,7 +411,7 @@ def runtests():
                     test_raises[ControlError, invoke("woo")]
 
                 # error case: invoke an undefined restart
-                with test_signals(ControlError, "invoking nonexistent restart"):
+                with test_signals(ControlError, "should yell when trying to invoke a nonexistent restart"):
                     with restarts(foo=(lambda x: x)):
                         invoke("bar")
             errorcases()
