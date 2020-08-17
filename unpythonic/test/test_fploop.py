@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from ..syntax import macros, test, test_raises  # noqa: F401
-from .fixtures import testset
+from .fixtures import testset, fail
 
 from ..fploop import looped, looped_over, breakably_looped, breakably_looped_over
 from ..tco import trampolined, jump
@@ -293,7 +293,7 @@ def runtests():
                     if i > 5:
                         throw(acc)
                     return loop(acc + i, i + 1)
-                test[False, "this line should not be reached"]
+                test[fail, "This line should not be reached."]
                 return False
             test[f() == 15]
 
@@ -311,9 +311,9 @@ def runtests():
                         if i > 5:
                             throw(acc, tag="foo")  # Throw instance tag must be a single value.
                         return loop(acc + i, i + 1)
-                    test[False, "this line should not be reached"]
+                    test[fail, "This line should not be reached."]
                     return False
-                test[False, "this line should not be reached"]
+                test[fail, "This line should not be reached."]
                 return False
             test[foo() == 15]
 
