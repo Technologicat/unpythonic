@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
-from .fixtures import testset, fail
+from ..syntax import macros, test, test_raises, fail  # noqa: F401
+from .fixtures import testset
 
 from ..ec import catch, throw, call_ec
 from ..seq import begin
@@ -13,9 +13,9 @@ def runtests():
             def f():
                 def g():
                     throw("hello from g")  # the argument becomes the return value of f()
-                    test[fail, "This line should not be reached."]
+                    fail["This line should not be reached."]
                 g()
-                test[fail, "This line should not be reached."]
+                fail["This line should not be reached."]
             test[f() == "hello from g"]
 
         with testset("escape from a lambda"):
@@ -27,7 +27,7 @@ def runtests():
             result = call_ec(lambda ec:
                                begin(print("hi from lambda"),
                                      ec(42),  # now we can effectively "return ..." at any point from a lambda!
-                                     test[fail, "This line should not be reached."]))
+                                     fail["This line should not be reached."]))
             test[result == 42]
 
         with testset("lispy call/ec (call-with-escape-continuation)"):
@@ -35,7 +35,7 @@ def runtests():
             def result(ec):  # effectively, just a code block!
                 answer = 42
                 ec(answer)  # here this has the same effect as "return answer"...
-                test[fail, "This line should not be reached."]
+                fail["This line should not be reached."]
                 answer = 23
                 return answer
             test[result == 42]
@@ -45,10 +45,10 @@ def runtests():
                 answer = 42
                 def inner():
                     ec(answer)  # ...but here this directly escapes from the outer def
-                    test[fail, "This line should not be reached."]
+                    fail["This line should not be reached."]
                     return 23
                 answer = inner()
-                test[fail, "This line should not be reached."]
+                fail["This line should not be reached."]
                 return answer
             test[result == 42]
 

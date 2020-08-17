@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
-from .fixtures import testset, fail
+from ..syntax import macros, test, test_raises, error  # noqa: F401
+from .fixtures import testset
 
 from operator import mul
 
@@ -180,7 +180,7 @@ def runtests():
             try:
                 from sympy import symbols
             except ImportError:
-                test[fail, "SymPy not installed in this Python, cannot test symbolic input for mathseq."]
+                error["SymPy not installed in this Python, cannot test symbolic input for mathseq."]
             else:
                 x0 = symbols("x0", real=True)
                 k = symbols("k", positive=True)  # important for geometric series

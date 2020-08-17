@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
-from .fixtures import testset, fail
+from ..syntax import macros, test, test_raises, fail  # noqa: F401
+from .fixtures import testset
 
 from collections import Counter
 
@@ -128,7 +128,7 @@ def runtests():
                         test[err is olderr]  # exception instance memoized, should be the same every time
                     olderr = err
                 else:
-                    test[fail, "memoize should not prevent exception propagation."]
+                    fail["memoize should not prevent exception propagation."]
             test[evaluations == 1]
 
         with testset("@curry"):

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
-from .fixtures import testset, fail
+from ..syntax import macros, test, test_raises, error  # noqa: F401
+from .fixtures import testset
 
 from operator import add
 from functools import partial
@@ -267,7 +267,7 @@ def runtests():
                 t.join()
                 test[out[0] < 9]  # terminated early due to the injected KeyboardInterrupt
             except NotImplementedError:
-                test[fail, "async_raise not supported on this Python interpreter."]
+                error["async_raise not supported on this Python interpreter."]
 
 if __name__ == '__main__':
     runtests()

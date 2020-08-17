@@ -1,7 +1,7 @@
 # -*- coding: utf-8; -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
-from .fixtures import testset, fail
+from ..syntax import macros, test, test_raises, fail  # noqa: F401
+from .fixtures import testset
 
 import typing
 from ..fun import curry
@@ -16,7 +16,7 @@ def zorblify(x: int, y: int):
 @zorblify.register
 def zorblify(x: str, y: int):
     # Because dispatching occurs on both arguments, this method is not reached by the tests.
-    test[fail, "this method should not be reached by the tests"]
+    fail["this method should not be reached by the tests"]
 @zorblify.register
 def zorblify(x: str, y: float):
     return "{} {}".format(x[::-1], y)

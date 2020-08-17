@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
-from .fixtures import testset, fail
+from ..syntax import macros, test, test_raises, fail  # noqa: F401
+from .fixtures import testset
 
 from itertools import count, takewhile, chain
 from collections import Counter
@@ -78,7 +78,7 @@ def runtests():
             except AllOkJustTesting as err:
                 exc_instance = err
             else:
-                test[fail, "Should have raised at the second next() call."]
+                fail["Should have raised at the second next() call."]
             test[total_evaluations == 2]
 
             g2 = gen()
@@ -89,7 +89,7 @@ def runtests():
             except AllOkJustTesting as err2:
                 test[err2 is exc_instance, "should be the same cached exception instance"]
             else:
-                test[fail, "Should have raised at the second next() call."]
+                fail["Should have raised at the second next() call."]
             test[total_evaluations == 2]
 
         with testset("memoizing a sequence partially"):

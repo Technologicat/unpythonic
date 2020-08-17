@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
-from .fixtures import testset, fail
+from ..syntax import macros, test, test_raises, fail  # noqa: F401
+from .fixtures import testset
 
 from ..seq import (begin, begin0, lazy_begin, lazy_begin0,
                    pipe1, pipe, pipec,
@@ -191,8 +191,8 @@ def runtests():
 
             z = call_ec(lambda ec:
                         do(assign(x=42),
-                           lambda e: ec(e.x),                                          # IMPORTANT: must delay this!
-                           lambda e: test[fail, "This line should not be reached."]))  # and this (as above)
+                           lambda e: ec(e.x),                                    # IMPORTANT: must delay this!
+                           lambda e: fail["This line should not be reached."]))  # and this (as above)
             test[z == 42]
 
 if __name__ == '__main__':

@@ -14,8 +14,8 @@
 # for that, manual testing is sufficient (see commented-out example session in
 # `unpythonic.syntax.test.test_testutil`).
 
-from ..syntax import macros, test, test_raises, test_signals  # noqa: F401
-from .fixtures import testset, catch_signals, returns_normally, fail
+from ..syntax import macros, test, test_raises, test_signals, fail  # noqa: F401
+from .fixtures import testset, catch_signals, returns_normally
 
 from ..conditions import (signal, find_restart, invoke, invoker, use_value,
                           restarts, with_restarts, handlers,
@@ -358,7 +358,7 @@ def runtests():
                 with handlers((JustTesting, lambda c: use_value(42))):
                     with restarts(use_value=(lambda x: x)) as result:
                         warn(JustTesting("handled warn() does not print a warning"))
-                        test[fail, "This line should not be reached, because the restart takes over."]
+                        fail["This line should not be reached, because the restart takes over."]
                         result << 21  # not reached, because the restart takes over
                     test[unbox(result) == 42]
             warn_protocol()
