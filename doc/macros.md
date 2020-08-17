@@ -1730,7 +1730,7 @@ This Elisp snippet can be used to add syntax highlighting for keywords specific 
   (defun my/unpythonic-syntax-highlight-setup ()
     "Set up additional syntax highlighting for `unpythonic.syntax' and MacroPy in Python mode."
     ;; adapted from code in dash.el
-    (let ((new-keywords '("test" "test_raises" "test_signals"
+    (let ((new-keywords '("test" "test_raises" "test_signals" "fail" "error"
                           "signal" "handlers" "restarts" ; not macros, but in a role similar to exception handling constructs in the conditions/restarts system.
                           "let" "dlet" "blet"
                           "letseq" "dletseq" "bletseq"
