@@ -112,10 +112,7 @@ from ..collections import box, unbox
 #
 # Note this testing framework also depends on MacroPy, because `test[]`
 # and its sisters are macros.
-try:
-    from ..syntax import testutil
-except ImportError as err:
-    raise ImportError("unpythonic.test.fixtures requires MacroPy, please install it first.") from err
+from ..syntax import testutil
 
 __all__ = ["session", "testset", "terminate", "returns_normally", "ignore_signals", "TestConfig"]
 
