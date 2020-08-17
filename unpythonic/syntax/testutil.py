@@ -91,7 +91,7 @@ def _observe(thunk):
     except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
         return _raised, err
 
-def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
+def unpythonic_assert(sourcecode, thunk, filename, lineno, message=None):
     """Custom assert function, for building test frameworks.
 
     Upon a failing assertion, this will *signal* a `TestFailure` as a
@@ -144,33 +144,35 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
 
         These are best extracted automatically using the `test[]` macro.
 
-        `myname` is an optional string, a name for the assertion being performed.
-        It can be used for naming individual tests. The assertion error message
-        is either "Named assertion 'foo bar' failed" or "Assertion failed",
-        depending on whether `myname` was provided or not.
+        `message` is an optional string, included in the generated error message
+        if the assertion fails.
 
     No return value.
     """
     mode, result = _observe(thunk)
     tests_run << unbox(tests_run) + 1
 
-    title = "Test" if myname is None else "Named test '{}'".format(myname)
+    if message is not None:
+        custom_msg = ", with message '{}'".format(message)
+    else:
+        custom_msg = ""
+
     if mode is _completed:
         if result:
             return
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
-        error_msg = "{} failed: {}".format(title, sourcecode)
+        error_msg = "Test failed: {}{}".format(sourcecode, custom_msg)
     elif mode is _signaled:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
         desc = describe_exception(result)
-        error_msg = "{} errored: {}, due to unexpected signal: {}".format(title, sourcecode, desc)
+        error_msg = "Test errored: {}{}, due to unexpected signal: {}".format(sourcecode, custom_msg, desc)
     else:  # mode is _raised:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
         desc = describe_exception(result)
-        error_msg = "{} errored: {}, due to unexpected exception: {}".format(title, sourcecode, desc)
+        error_msg = "Test errored: {}{}, due to unexpected exception: {}".format(sourcecode, custom_msg, desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
 
@@ -183,7 +185,7 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, myname=None):
     # is an error.
     cerror(conditiontype(complete_msg))
 
-def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, myname=None):
+def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, message=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` signals `exctype`.
 
     "Signal" as in `unpythonic.conditions.signal` and its sisters `error`, `cerror`, `warn`.
@@ -198,11 +200,15 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, myna
     mode, result = _observe(thunk)
     tests_run << unbox(tests_run) + 1
 
-    title = "Test" if myname is None else "Named test '{}'".format(myname)
+    if message is not None:
+        custom_msg = ", with message '{}'".format(message)
+    else:
+        custom_msg = ""
+
     if mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
-        error_msg = "{} failed: {}, expected signal: {}, nothing was signaled.".format(title, sourcecode, describe_exception(exctype))
+        error_msg = "Test failed: {}{}, expected signal: {}, nothing was signaled.".format(sourcecode, custom_msg, describe_exception(exctype))
     elif mode is _signaled:
         # allow both "signal(SomeError())" and "signal(SomeError)"
         if isinstance(result, exctype) or safeissubclass(result, exctype):
@@ -210,17 +216,17 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, myna
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
         desc = describe_exception(result)
-        error_msg = "{} errored: {}, expected signal: {}, got unexpected signal: {}".format(title, sourcecode, describe_exception(exctype), desc)
+        error_msg = "Test errored: {}{}, expected signal: {}, got unexpected signal: {}".format(sourcecode, custom_msg, describe_exception(exctype), desc)
     else:  # mode is _raised:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
         desc = describe_exception(result)
-        error_msg = "{} errored: {}, expected signal: {}, got unexpected exception: {}".format(title, sourcecode, describe_exception(exctype), desc)
+        error_msg = "Test errored: {}{}, expected signal: {}, got unexpected exception: {}".format(sourcecode, custom_msg, describe_exception(exctype), desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg))
 
-def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, myname=None):
+def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, message=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` raises `exctype`."""
     def safeissubclass(t, u):
         try:
@@ -232,16 +238,20 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, mynam
     mode, result = _observe(thunk)
     tests_run << unbox(tests_run) + 1
 
-    title = "Test" if myname is None else "Named test '{}'".format(myname)
+    if message is not None:
+        custom_msg = ", with message '{}'".format(message)
+    else:
+        custom_msg = ""
+
     if mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
-        error_msg = "{} failed: {}, expected exception: {}, nothing was raised.".format(title, sourcecode, describe_exception(exctype))
+        error_msg = "Test failed: {}{}, expected exception: {}, nothing was raised.".format(sourcecode, custom_msg, describe_exception(exctype))
     elif mode is _signaled:
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
         desc = describe_exception(result)
-        error_msg = "{} errored: {}, expected exception: {}, got unexpected signal: {}".format(title, sourcecode, describe_exception(exctype), desc)
+        error_msg = "Test errored: {}{}, expected exception: {}, got unexpected signal: {}".format(sourcecode, custom_msg, describe_exception(exctype), desc)
     else:  # mode is _raised:
         # allow both "raise SomeError()" and "raise SomeError"
         if isinstance(result, exctype) or safeissubclass(result, exctype):
@@ -249,7 +259,7 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, mynam
         tests_errored << unbox(tests_errored) + 1
         conditiontype = TestError
         desc = describe_exception(result)
-        error_msg = "{} errored: {}, expected exception: {}, got unexpected exception: {}".format(title, sourcecode, describe_exception(exctype), desc)
+        error_msg = "Test errored: {}{}, expected exception: {}, got unexpected exception: {}".format(sourcecode, custom_msg, describe_exception(exctype), desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg))
@@ -269,17 +279,17 @@ def test_expr(tree):
     # test[expr, name]  (like assert expr, name)
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     if type(tree) is Tuple and len(tree.elts) == 2 and type(tree.elts[1]) is Str:
-        tree, myname = tree.elts
+        tree, message = tree.elts
     # test[expr]  (like assert expr)
     else:
-        myname = q[None]
+        message = q[None]
 
     # The lambda delays the execution of the test expr until `unpythonic_assert` gets control.
     return q[(ast_literal[asserter])(u[unparse(tree)],
                                      lambda: ast_literal[tree],
                                      filename=ast_literal[filename],
                                      lineno=ast_literal[ln],
-                                     myname=ast_literal[myname])]
+                                     message=ast_literal[message])]
 
 def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
@@ -288,11 +298,11 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     # test_signals[exctype, expr, name]
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     if type(tree) is Tuple and len(tree.elts) == 3 and type(tree.elts[2]) is Str:
-        exctype, tree, myname = tree.elts
+        exctype, tree, message = tree.elts
     # test_signals[exctype, expr]
     elif type(tree) is Tuple and len(tree.elts) == 2:
         exctype, tree = tree.elts
-        myname = q[None]
+        message = q[None]
     else:
         assert False, "Expected one of {stx}[exctype, expr], {stx}[exctype, expr, name]".format(stx=syntaxname)
 
@@ -301,7 +311,7 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
                                      lambda: ast_literal[tree],
                                      filename=ast_literal[filename],
                                      lineno=ast_literal[ln],
-                                     myname=ast_literal[myname])]
+                                     message=ast_literal[message])]
 
 def test_expr_signals(tree):
     return _test_expr_signals_or_raises(tree, "test_signals", hq[unpythonic_assert_signals])
@@ -333,14 +343,14 @@ def test_block(block_body, args):
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     function_name = "anonymous_test_block"
     if len(args) == 1 and type(args[0]) is Str:
-        myname = args[0]
+        message = args[0]
         # Name the generated function using the test name when possible.
-        maybe_function_name = _make_identifier(myname.s)
+        maybe_function_name = _make_identifier(message.s)
         if maybe_function_name is not None:
             function_name = maybe_function_name
     # with test:
     elif len(args) == 0:
-        myname = None
+        message = None
     else:
         assert False, 'Expected `with test:` or `with test("my test name"):`'
 
@@ -348,10 +358,10 @@ def test_block(block_body, args):
     final_function_name = gen_sym(function_name)
 
     thecall = q[name[final_function_name]()]
-    if myname is not None:
+    if message is not None:
         # Fill in the source line number; the `test_expr_raises` syntax transformer needs
         # to have it in the top-level node of the `tree` we hand to it.
-        thetuple = q[(ast_literal[thecall], ast_literal[myname])]
+        thetuple = q[(ast_literal[thecall], ast_literal[message])]
         thetuple = copy_location(thetuple, block_body[0])
         thetest = test_expr(thetuple)
     else:
@@ -376,15 +386,15 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     function_name = "anonymous_test_block"
     if len(args) == 2 and type(args[1]) is Str:
-        exctype, myname = args
+        exctype, message = args
         # Name the generated function using the test name when possible.
-        maybe_function_name = _make_identifier(myname.s)
+        maybe_function_name = _make_identifier(message.s)
         if maybe_function_name is not None:
             function_name = maybe_function_name
     # with test_raises(exctype):
     elif len(args) == 1:
         exctype = args[0]
-        myname = None
+        message = None
     else:
         assert False, 'Expected `with {stx}(exctype):` or `with {stx}(exctype, "my test name"):`'.format(stx=syntaxname)
 
@@ -392,11 +402,11 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
     final_function_name = gen_sym(function_name)
 
     thecall = q[name[final_function_name]()]
-    if myname is not None:
+    if message is not None:
         # Fill in the source line number; the `test_expr_raises` and
         # `test_expr_signals` syntax transformers need to have it in
         # the top-level node of the `tree` we hand to it.
-        thetuple = q[(ast_literal[exctype], ast_literal[thecall], ast_literal[myname])]
+        thetuple = q[(ast_literal[exctype], ast_literal[thecall], ast_literal[message])]
         thetuple = copy_location(thetuple, block_body[0])
         thetest = transformer(thetuple)
     else:

@@ -1998,7 +1998,7 @@ def test(tree, **kw):  # noqa: F811
     **Expression variant**::
 
         test[expr]
-        test[expr, "name of my test"]
+        test[expr, message]
 
     The test succeeds if `expr` evaluates to truthy.
 
@@ -2007,7 +2007,7 @@ def test(tree, **kw):  # noqa: F811
         with test:
             body...
 
-        with test("name of my test"):
+        with test(message):
             body...
 
     The test succeeds if the block body runs to completion normally.
@@ -2058,7 +2058,7 @@ def test(tree, **kw):  # noqa: F811
         with handlers(((TestFailure, TestError), report)):
             test[2 + 2 == 5]  # fails, but allows further tests to continue
             test[2 + 2 == 4]
-            test[17 + 23 == 40, "my named test"]
+            test[17 + 23 == 40, "failure message"]
 
         # One wouldn't normally use `assert` in a test module that uses `test[]`.
         # This is just to state that in this example, we expect these to hold.
@@ -2085,7 +2085,7 @@ def test(tree, **kw):  # noqa: F811
 
             with handlers(((TestFailure, TestError), die)):
                 test[2 + 2 == 6]  # --> die
-                test[17 + 23 == 40, "my named test"]  # not reached
+                test[17 + 23 == 40, "failure message"]  # not reached
 
             # if this point was ever reached (currently it's not)...
             test[2 + 2 == 7]  # ...this fails, but allows further tests to continue
@@ -2103,7 +2103,7 @@ def test(tree, **kw):  # noqa: F811
             with restarts(skip=(lambda: None)):  # just for control, no return value
                 with handlers(((TestFailure, TestError), invoker("skip"))):
                     test[2 + 2 == 6]  # --> fails, skip the rest of this block
-                    test[17 + 23 == 40, "my named test"]  # not reached
+                    test[17 + 23 == 40, "failure message"]  # not reached
 
             test[2 + 2 == 7]  # fails, but allows further tests to continue
 
@@ -2126,12 +2126,12 @@ def test_signals(tree, **kw):  # noqa: F811
     Syntax::
 
         test_signals[exctype, expr]
-        test_signals[exctype, expr, name]
+        test_signals[exctype, expr, message]
 
     Example::
 
         test_signals[ValueError, myfunc()]
-        test_signals[ValueError, myfunc(), "my named test"]
+        test_signals[ValueError, myfunc(), "failure message"]
 
     The test succeeds, if `expr` signals a condition of type `exctype`, and the
     signal propagates into the (implicit) handler inside the `test_signals[]`
@@ -2156,13 +2156,13 @@ def test_raises(tree, **kw):  # noqa: F811
     Syntax::
 
         test_raises[exctype, expr]
-        test_raises[exctype, expr, name]
+        test_raises[exctype, expr, message]
 
     Example::
 
         test_raises[TypeError, issubclass(1, int)]
         test_raises[ValueError, myfunc()]
-        test_raises[ValueError, myfunc(), "my named test"]
+        test_raises[ValueError, myfunc(), "failure message"]
 
     The test succeeds, if `expr` raises an exception of type `exctype`, and the
     exception propagates into the (implicit) handler inside the `test_raises[]`

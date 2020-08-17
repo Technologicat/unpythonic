@@ -4,7 +4,7 @@
 
 - `unpythonic.test.fixtures`, a lightweight testing framework for macro-enabled Python code.
   - Context managers `session`, `testset`, and `ignore_signals`. Various helper functions, such as `returns_normally` (for use in a `test[]`).
-  - Macros (in `unpythonic.syntax`): `test[expr]`, `test[expr, name]`, `test_raises[exctype, expr]`, `test_raises[exctype, expr, name]`, `test_signals[exctype, expr]`, `test_signals[exctype, expr, name]`. Similar to the builtin `assert`, but with the magic of conditions and restarts: even if a test fails or errors out, further tests continue running.
+  - Macros (in `unpythonic.syntax`): `test[expr]`, `test[expr, message]`, `test_raises[exctype, expr]`, `test_raises[exctype, expr, message]`, `test_signals[exctype, expr]`, `test_signals[exctype, expr, message]`. Similar to the builtin `assert`, but with the magic of conditions and restarts: even if a test fails or errors out, further tests continue running.
 - `callsite_filename`: return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
 - `equip_with_traceback`: take a manually created exception instance, equip it with a traceback. Requires Python 3.7 or later.
 

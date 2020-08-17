@@ -102,7 +102,8 @@ def runtests():
     #     # A session may contain bare tests. They are implicitly part of the
     #     # top-level testset.
     #     test[2 + 2 == 4]
-    #     test[2 + 2 == 5]
+    #     # Tests can have a human-readable failure message.
+    #     test[2 + 2 == 5, "should be five, no?"]
     #
     #     # Tests can be further grouped into testsets, if desired.
     #     with testset():
@@ -112,8 +113,8 @@ def runtests():
     #     # Testsets can be named. The name is printed in the output.
     #     with testset("my fancy tests"):
     #         test[2 + 2 == 4]
-    #         test[raisef(RuntimeError)]  # exceptions are caught.
-    #         test[cerror(RuntimeError)]  # signals are caught, too.
+    #         test[raisef(RuntimeError), "augh!"]  # exceptions are caught.
+    #         test[cerror(RuntimeError), "owww!"]  # signals are caught, too.
     #         test[2 + 2 == 6]
     #
     #         # A testset reports also any stray signals or exceptions it receives

@@ -34,7 +34,8 @@ framework or two among friends?
         # A session may contain bare tests. They are implicitly part of the
         # top-level testset.
         test[2 + 2 == 4]
-        test[2 + 2 == 5]
+        # Tests can have a human-readable failure message.
+        test[2 + 2 == 5, "should be five, no?"]
 
         # Tests can be further grouped into testsets, if desired.
         with testset():
@@ -114,7 +115,7 @@ from ..collections import box, unbox
 try:
     from ..syntax import testutil
 except ImportError as err:
-    raise ImportError("unpythonic.test.fixtures requires MacroPy, please install it.") from err
+    raise ImportError("unpythonic.test.fixtures requires MacroPy, please install it first.") from err
 
 __all__ = ["session", "testset", "terminate", "returns_normally", "ignore_signals", "TestConfig"]
 
