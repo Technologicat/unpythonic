@@ -15,7 +15,7 @@
 # `unpythonic.syntax.test.test_testutil`).
 
 from ..syntax import macros, test, test_raises, test_signals  # noqa: F401
-from .fixtures import testset, ignore_signals, returns_normally, fail
+from .fixtures import testset, catch_signals, returns_normally, fail
 
 from ..conditions import (signal, find_restart, invoke, invoker, use_value,
                           restarts, with_restarts, handlers,
@@ -77,11 +77,11 @@ def runtests():
                     # that catches everything, making the `OddNumberError` signal no longer unhandled -
                     # but (in the testing framework's opinion) still very much unexpected.
                     #
-                    # So to avoid spurious "unexpected signal" errors, we use `with ignore_signals`
+                    # So to avoid spurious "unexpected signal" errors, we use `with catch_signals(False)`
                     # to tell the testing framework that any uncaught signals within the dynamic extent
                     # of the "with" block are none of its business. This way we can test that the condition
                     # system raises on uncaught `cerror` signals.
-                    with ignore_signals():
+                    with catch_signals(False):
                         test_raises[ControlError, lowlevel()]
 
                     # When using cerror() - short for "correctable error" - it automatically
@@ -107,10 +107,10 @@ def runtests():
                             # preventing the signal from ever reaching our
                             # handler.
                             #
-                            # We can either `with ignore_signals():` (but that
-                            # solution obviously fails to report any stray
-                            # signals of other types), or `test[]` just an
-                            # expression that shouldn't signal.
+                            # We can either `with catch_signals(False):`
+                            # (but that solution obviously fails to report
+                            # any stray signals of other types), or `test[]`
+                            # just an expression that shouldn't signal.
                             result = lowlevel()
                             test[result == list(range(10))]
 
@@ -210,7 +210,7 @@ def runtests():
                 # for other standard options.
                 #
                 def highlevel1():
-                    with ignore_signals():  # tell the testing framework not to mind the uncaught signal
+                    with catch_signals(False):  # tell the testing framework not to mind the uncaught signal
                         test[midlevel() == "low level ran to completion > normal exit from low level > normal exit from mid level"]
                 highlevel1()
 
@@ -341,7 +341,7 @@ def runtests():
 
         with testset("warn protocol"):
             def warn_protocol():
-                with ignore_signals():  # don't report the uncaught warn() as an unexpected signal in testing
+                with catch_signals(False):  # don't report the uncaught warn() as an unexpected signal in testing
                     with handlers():
                         with restarts() as result:
                             print("Testing warn() - this should print a warning:")
@@ -399,7 +399,7 @@ def runtests():
             def errorcases():
                 # The signal() low-level function does not require the condition to be handled.
                 # If unhandled, signal() just returns normally.
-                with ignore_signals():
+                with catch_signals(False):
                     test[returns_normally(signal(RuntimeError("woo")))]
 
                 # error case: invoke outside the dynamic extent of any `with restarts`,
@@ -407,7 +407,7 @@ def runtests():
                 # This *signals* ControlError...
                 test_signals[ControlError, invoke("woo")]
                 # ...but if that is not handled, *raises* ControlError.
-                with ignore_signals():
+                with catch_signals(False):
                     test_raises[ControlError, invoke("woo")]
 
                 # error case: invoke an undefined restart

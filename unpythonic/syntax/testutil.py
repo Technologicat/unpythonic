@@ -57,7 +57,7 @@ def _observe(thunk):
         the dynamic extent of thunk propagated to this level.
     """
     def intercept(condition):
-        if unbox(fixtures._ignore_uncaught_signals):
+        if not fixtures._catch_uncaught_signals[0]:
             return  # cancel and delegate to the next outer handler
 
         def determine_exctype(exc):

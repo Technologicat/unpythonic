@@ -109,7 +109,7 @@ from ..symbol import sym
 # and its sisters are macros.
 from ..syntax import testutil
 
-__all__ = ["session", "testset", "terminate", "returns_normally", "fail", "ignore_signals", "TestConfig"]
+__all__ = ["session", "testset", "terminate", "returns_normally", "fail", "catch_signals", "TestConfig"]
 
 fail = sym("fail")
 fail.__doc__ = """Symbol. Used as the test expression, unconditionally fails the test.
@@ -394,15 +394,13 @@ def returns_normally(expr):
     # our arg, and:
     return True
 
-_ignore_uncaught_signals = box(False)
+_catch_uncaught_signals = deque([True])  # on by default
 @contextmanager
-def ignore_signals():
+def catch_signals(state):
     """Context manager.
 
-    Causes `test[]` and its sisters, and `with testset`, to ignore any
-    uncaught signals.
-
-    (Otherwise, any uncaught signals are reported.)
+    Controls whether `test[]` and its sisters, and `with testset`,
+    catch uncaught signals. (Default is `True`).
 
     Does not affect uncaught exceptions. Unlike signals, exceptions unwind the
     stack immediately, so for exceptions, there is no possibility to ignore the
@@ -411,15 +409,13 @@ def ignore_signals():
     For signals, that possibility is sometimes useful; the purpose of this
     construct is to explicitly document that intent in the form of automated
     tests.
+
+    `with catch_signals` blocks can be nested; the most recent (i.e.
+    dynamically innermost) one wins.
     """
-    # TODO: maybe make a stack.
-    # TODO: maybe use positive naming: _catch_uncaught_signals.
-    # (It's named this way because the need to ignore signals is a rare exceptional situation.)
-    if unbox(_ignore_uncaught_signals):
-        raise RuntimeError("`with ignore_signals` cannot be nested.")
-    _ignore_uncaught_signals << True
+    _catch_uncaught_signals.appendleft(state)
     yield
-    _ignore_uncaught_signals << False
+    _catch_uncaught_signals.popleft()
 
 _nesting_level = 0
 @contextmanager
@@ -497,7 +493,7 @@ def testset(name=None, postproc=None):
             msg = colorize("{}** ERROR: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR) + str(condition)
         # So any other signal must come from another source.
         else:
-            if unbox(_ignore_uncaught_signals):
+            if not _catch_uncaught_signals[0]:
                 return  # cancel and delegate to the next outer handler
             msg = colorize("{}** Testset received signal outside test[]: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR) + describe_exception(condition)
         TestConfig.printer(msg)
