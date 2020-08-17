@@ -1,89 +1,72 @@
 # -*- coding: utf-8 -*-
 
+from ..syntax import macros, test, test_raises  # noqa: F401
+from .fixtures import testset
+
 from ..env import env
 
 def runtests():
-    # basic functionality
-    with env(x=1) as e:
-        assert len(e) == 1
-        assert e.x == 1
+    with testset("unpythonic.env"):
+        with testset("basic usage"):
+            with env(x=1) as e:
+                test[len(e) == 1]
+                test[e.x == 1]
 
-    # create new item
-    with env(x=1) as e:
-        e.y = 42
-        assert e.y == 42
-        assert len(e) == 2
+            # create new item inside the "with" block
+            with env(x=1) as e:
+                test[len(e) == 1]
+                e.y = 42
+                test[e.y == 42]
+                test[len(e) == 2]
 
-    # undefined name
-    try:
-        with env(x=1) as e:
-            e.y  # invalid, no y in e
-    except AttributeError:
-        pass
-    else:
-        assert False
+            # manual clear
+            with env(x=1) as e:
+                e.clear()
+                test[len(e) == 0]
+            test[len(e) == 0]
 
-    # manual clear
-    with env(x=1) as e:
-        e.clear()
-        assert len(e) == 0
+            # auto-clear upon exit from "with" block
+            with env(a=42) as e:
+                test[len(e) == 1]
+            test[len(e) == 0]
 
-    # auto-clear upon exit from "with" block
-    with env(a=42) as e:
-        assert len(e) == 1
-    assert len(e) == 0
+        with testset("syntactic sugar"):
+            with env(x=1, y=2, z=3) as e:
+                # iteration, subscripting
+                test[{name for name in e} == set(("x", "y", "z"))]
+                test[{(name, e[name]) for name in e} == set((("x", 1),
+                                                             ("y", 2),
+                                                             ("z", 3)))]
+                test[dict(e.items()) == {"x": 1, "y": 2, "z": 3}]
 
-    # finalize
-    try:
-        with env(x=1) as e:
-            e.finalize()
-            e.y = 42  # invalid, a finalized environment doesn't accept new bindings
-    except AttributeError:
-        pass
-    else:
-        assert False
+                # membership testing
+                test["x" in e]
+                test["a" not in e]
 
-    with env(x=1, y=2, z=3) as e:
-        # iteration, subscripting
-        assert {name for name in e} == set(("x", "y", "z"))
-        assert {(name, e[name]) for name in e} == set((("x", 1),
-                                                       ("y", 2),
-                                                       ("z", 3)))
-        assert dict(e.items()) == {"x": 1, "y": 2, "z": 3}
+                # modify existing binding
+                test[e.set("x", 42) == 42]  # returns the new value
+                test[e << ("x", 23) is e]   # instance passthrough for chaining
 
-        # membership testing
-        assert "x" in e
-        assert "a" not in e
+        with testset("error cases"):
+            with env(x=1) as e:
+                e.finalize()
+                with test_raises(AttributeError, "a finalized environment does not accept new bindings"):
+                    e.y = 42
 
-        # modify existing binding
-        assert e.set("x", 42) == 42  # returns the new value
-        assert e << ("x", 23) is e   # instance passthrough for chaining
+            # undefined name
+            with env(x=1) as e:
+                test_raises[AttributeError, e.y]  # invalid, no y in e
 
-    try:
-        with env() as e:
-            e.set("foo", 42)  # invalid, set() only modifies existing bindings
-    except AttributeError:
-        pass
-    else:
-        assert False
+            with env() as e:
+                test_raises[AttributeError, e.set("foo", 42)]  # invalid, set() only modifies existing bindings
 
-    try:
-        with env() as e:
-            e["∞"] = 1  # invalid identifier in store context (__setitem__)
-    except ValueError:
-        pass
-    else:
-        assert False
+            with env() as e:
+                with test_raises(ValueError, "invalid identifier in __setitem__"):
+                    e["∞"] = 1  # invalid identifier in store context (__setitem__)
 
-    try:
-        with env() as e:
-            e["∞"]  # invalid identifier in load context (__getitem__)
-    except ValueError:
-        pass
-    else:
-        assert False
-
-    print("All tests PASSED")
+            with env() as e:
+                with test_raises(ValueError, "invalid identifier in __getitem__"):
+                    e["∞"]  # invalid identifier in load context (__getitem__)
 
 if __name__ == '__main__':
     runtests()

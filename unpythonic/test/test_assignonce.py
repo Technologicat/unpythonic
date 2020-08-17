@@ -1,43 +1,25 @@
 # -*- coding: utf-8 -*-
 
+from ..syntax import macros, test, test_raises  # noqa: F401
+from .fixtures import testset
+
 from ..assignonce import assignonce
 
 def runtests():
-    with assignonce() as e:
-        try:
-            e.a = 2
-            e.b = 3
-        except AttributeError as err:
-            print('Test 1 FAILED: {}'.format(err))
-            assert False
-        else:
-            pass
+    with testset("unpythonic.assignonce"):
+        with assignonce() as e:
+            with test("basic usage"):
+                e.a = 2
+                e.b = 3
 
-        try:
-            e.a = 5  # fail, e.a already defined
-        except AttributeError:
-            pass
-        else:
-            print('Test 2 FAILED')
-            assert False
+            with test_raises(AttributeError, "trying to redefine an already defined name"):
+                e.a = 5
 
-        try:
-            e.set("a", 42)  # rebind
-        except AttributeError as err:
-            print('Test 3 FAILED: {}'.format(err))
-            assert False
-        else:
-            pass
+            with test("rebind"):
+                e.set("a", 42)  # rebind
 
-        try:
-            e.set("c", 3)  # fail, e.c not bound
-        except AttributeError:
-            pass
-        else:
-            print('Test 4 FAILED')
-            assert False
-
-    print("All tests PASSED")
+            with test_raises(AttributeError, "trying to rebind an unbound name"):
+                e.set("c", 3)
 
 if __name__ == '__main__':
     runtests()

@@ -1,5 +1,8 @@
 # -*- coding: utf-8; -*-
 
+from ..syntax import macros, test, test_raises  # noqa: F401
+from .fixtures import testset, returns_normally
+
 import pickle
 import gc
 
@@ -20,58 +23,55 @@ class Qux(Baz):
         return
 
 def runtests():
-    # basic usage
-    #
-    # IMPORTANT: be sure to keep the reference to the object instance the constructor
-    # gives you. This is the only time you'll see it.
-    foo = Foo()
-    try:
-        Foo()
-    except TypeError:
-        pass
-    else:
-        assert False  # should have errored out, a Foo already exists!
+    with testset("unpythonic.singleton"):
+        with testset("basic usage"):
+            # IMPORTANT: be sure to keep the reference to the object instance the constructor
+            # gives you. This is the only time you'll see it.
+            foo = Foo()
+            test_raises[TypeError, Foo(), "should have errored out, a Foo already exists"]
 
-    del foo  # deleting the only strong reference kills the Foo instance from the singleton instances
-    gc.collect()  # Need to request garbage collection on PyPy, because otherwise no guarantee when it'll happen.
-    Foo()    # so now it's ok to create a new Foo
+            del foo  # deleting the only strong reference kills the Foo instance from the singleton instances
+            gc.collect()  # Need to request garbage collection on PyPy, because otherwise no guarantee when it'll happen.
+            test[returns_normally(Foo())]    # so now it's ok to create a new Foo
 
-    # another class that inherits from a singleton class
-    bar = Bar()  # noqa: F841, our strong reference keeps the object alive while testing.
-    try:
-        Bar()
-    except TypeError:
-        pass
-    else:
-        assert False  # should have errored out, a Bar already exists!
+            # another class that inherits from a singleton class
+            bar = Bar()  # noqa: F841, our strong reference keeps the object alive while testing.
+            test_raises[TypeError, Bar(), "should have errored out, a Bar already exists"]
 
-    # pickling: basic use
-    baz = Baz(17)
-    s = pickle.dumps(baz)
-    baz2 = pickle.loads(s)
-    assert baz2 is baz  # it's the same instance
+        with testset("pickling"):
+            # TODO: FIXME: This module is not the real "__main__" when running under the `macropy3` wrapper.
+            # We HACK this for now so that these pickling tests can run. Not quite sure whether `macropy3` even
+            # should attempt to overwrite `sys.modules["__main__"]` with the "main" module it imports; doing
+            # that might just break something.
+            import sys
+            sys.modules["__main__"].Baz = Baz
+            sys.modules["__main__"].Qux = Qux
 
-    # pickling: by default (if no custom `__getstate__`/`__setstate__`),
-    # the state of the singleton object is restored (overwritten!) upon
-    # unpickling it.
-    baz.x = 23
-    assert baz.x == 23
-    baz2 = pickle.loads(s)
-    assert baz2 is baz   # again, it's the same instance
-    assert baz.x == 17  # but unpickling has overwritten the state
+            # pickling: basic use
+            baz = Baz(17)
+            s = pickle.dumps(baz)
+            baz2 = pickle.loads(s)
+            test[baz2 is baz]  # it's the same instance
 
-    # With a custom no-op `__setstate__`, the existing singleton instance's
-    # state remains untouched even after unpickling an instance of that
-    # singleton. This strategy may be useful when defining singletons which
-    # have no meaningful state to serialize/deserialize.
-    qux = Qux(17)
-    s = pickle.dumps(qux)
-    qux.x = 23
-    qux2 = pickle.loads(s)
-    assert qux2 is qux   # it's the same instance
-    assert qux.x == 23  # and unpickling didn't change the state
+            # pickling: by default (if no custom `__getstate__`/`__setstate__`),
+            # the state of the singleton object is restored (overwritten!) upon
+            # unpickling it.
+            baz.x = 23
+            test[baz.x == 23]
+            baz2 = pickle.loads(s)
+            test[baz2 is baz]   # again, it's the same instance
+            test[baz.x == 17]  # but unpickling has overwritten the state
 
-    print("All tests PASSED")
+            # With a custom no-op `__setstate__`, the existing singleton instance's
+            # state remains untouched even after unpickling an instance of that
+            # singleton. This strategy may be useful when defining singletons which
+            # have no meaningful state to serialize/deserialize.
+            qux = Qux(17)
+            s = pickle.dumps(qux)
+            qux.x = 23
+            qux2 = pickle.loads(s)
+            test[qux2 is qux]   # it's the same instance
+            test[qux.x == 23]  # and unpickling didn't change the state
 
 if __name__ == '__main__':
     runtests()
