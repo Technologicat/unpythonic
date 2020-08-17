@@ -188,12 +188,13 @@ class TestConfig:
     at any point in your test script (the new values will take effect from that
     point forward). Probably the least confusing if done before the `with session`.
 
-    `printer`:   str -> None; side effect should be to display the string in some
-                 appropriate way. Default is to `print` to `sys.stderr`.
-    `use_color`: bool; use ANSI color escape sequences to colorize `printer` output.
-                 Default is `True`.
-    `postproc`:  Exception -> None; optional. Default None (no postproc).
-    `CS`:        The color scheme.
+    `printer`:          str -> None; side effect should be to display the string in some
+                        appropriate way. Default is to `print` to `sys.stderr`.
+    `use_color`:        bool; use ANSI color escape sequences to colorize `printer` output.
+                        Default is `True`.
+    `postproc`:         Exception -> None; optional. Default None (no postproc).
+    `indent_per_level`: How many stars to indent per nesting level of `testset`.
+    `CS`:               The color scheme.
 
     The optional `postproc` is a custom callback for examining failures and
     errors. `TestConfig.postproc` sets the default that is used when no other
@@ -212,6 +213,7 @@ class TestConfig:
     printer = partial(print, file=sys.stderr)
     use_color = True
     postproc = None
+    indent_per_level = 2
 
     class CS:
         """The color scheme.
@@ -468,7 +470,7 @@ def testset(name=None, postproc=None):
 
     global _nesting_level
     _nesting_level += 1
-    stars = "*" * (2 * _nesting_level)
+    stars = "*" * (TestConfig.indent_per_level * _nesting_level)
 
     title = "{} Testset".format(stars)
     if name is not None:
