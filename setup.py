@@ -111,8 +111,10 @@ setup(
     # See
     #    http://setuptools.readthedocs.io/en/latest/setuptools.html
     #
-    setup_requires=[],
-    install_requires=[],
+    python_requires=">=3.4,<3.8",
+    install_requires=[],  # MacroPy is optional for us, so we can't really put "macropy3" here even though we recommend it.
+    # setup_requires=[],  # TODO: Using setup_requires is discouraged in favor of https://www.python.org/dev/peps/pep-0518/
+    # test_requires=["macropy3"],  # TODO: not very useful, because only "python3 setup.py test" installs these, and we don't use that.
     provides=["unpythonic"],
 
     # keywords for PyPI (in case you upload your project)
