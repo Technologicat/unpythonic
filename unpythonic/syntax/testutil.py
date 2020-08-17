@@ -18,6 +18,9 @@ from ..test import fixtures
 # -----------------------------------------------------------------------------
 # Regular code, no macros yet.
 
+_fail = sym("_fail")  # used by the fail[] macro
+_error = sym("_error")  # used by the error[] macro
+
 # Keep a global count (since Python last started) of how many unpythonic_asserts
 # have run and how many have failed, so that the client code can easily calculate
 # the percentage of tests passed.
@@ -158,13 +161,13 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, message=None):
     else:
         custom_msg = ""
 
-    # special case for unconditionally failing tests
+    # special cases for unconditional failures
     # (e.g. line that should not be reached, optional dependency not installed, ...)
-    if mode is _completed and result is fixtures.fail:
+    if mode is _completed and result is _fail:  # fail[...]
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
         if message is not None:
-            # In this case, if the user-given message is specified, it is all
+            # If a user-given message is specified for `fail[]`, it is all
             # that should be displayed. We don't want confusing noise such as
             # "Test failed"; the intent of signaling an unconditional failure
             # is something different from actually testing the value of an
@@ -172,6 +175,14 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, message=None):
             error_msg = message
         else:
             error_msg = "Unconditional failure requested, no message."
+    elif mode is _completed and result is _error:  # error[...]
+        tests_errored << unbox(tests_errored) + 1
+        conditiontype = TestError
+        if message is not None:
+            error_msg = message
+        else:
+            error_msg = "Unconditional error requested, no message."
+    # general cases
     elif mode is _completed:
         if result:
             return
@@ -220,21 +231,7 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, mess
     else:
         custom_msg = ""
 
-    # special case for unconditionally failing tests
-    # (e.g. line that should not be reached, optional dependency not installed, ...)
-    if mode is _completed and result is fixtures.fail:
-        tests_failed << unbox(tests_failed) + 1
-        conditiontype = TestFailure
-        if message is not None:
-            # In this case, if the user-given message is specified, it is all
-            # that should be displayed. We don't want confusing noise such as
-            # "Test failed"; the intent of signaling an unconditional failure
-            # is something different from actually testing the value of an
-            # expression.
-            error_msg = message
-        else:
-            error_msg = "Unconditional failure requested, no message."
-    elif mode is _completed:
+    if mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
         error_msg = "Test failed: {}{}, expected signal: {}, nothing was signaled.".format(sourcecode, custom_msg, fixtures.describe_exception(exctype))
@@ -272,21 +269,7 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, messa
     else:
         custom_msg = ""
 
-    # special case for unconditionally failing tests
-    # (e.g. line that should not be reached, optional dependency not installed, ...)
-    if mode is _completed and result is fixtures.fail:
-        tests_failed << unbox(tests_failed) + 1
-        conditiontype = TestFailure
-        if message is not None:
-            # In this case, if the user-given message is specified, it is all
-            # that should be displayed. We don't want confusing noise such as
-            # "Test failed"; the intent of signaling an unconditional failure
-            # is something different from actually testing the value of an
-            # expression.
-            error_msg = message
-        else:
-            error_msg = "Unconditional failure requested, no message."
-    elif mode is _completed:
+    if mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
         error_msg = "Test failed: {}{}, expected exception: {}, nothing was raised.".format(sourcecode, custom_msg, fixtures.describe_exception(exctype))
@@ -310,6 +293,19 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, messa
 
 # -----------------------------------------------------------------------------
 # Syntax transformers for the macros.
+
+def _fail_or_error_expr(tree, syntaxname, marker):
+    # TODO: Python 3.8+: ast.Constant, no ast.Str
+    if type(tree) is not Str:
+        assert False, "expected {stx}[message]".format(stx=syntaxname)
+    thetuple = q[(ast_literal[marker], ast_literal[tree])]
+    thetuple = copy_location(thetuple, tree)
+    return test_expr(thetuple)
+
+def fail_expr(tree):
+    return _fail_or_error_expr(tree, "fail", hq[_fail])
+def error_expr(tree):
+    return _fail_or_error_expr(tree, "error", hq[_error])
 
 # -----------------------------------------------------------------------------
 # Expr variants.

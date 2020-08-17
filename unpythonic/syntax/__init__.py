@@ -38,6 +38,7 @@ from .testutil import (test_expr as _test_expr,  # noqa: F401
                        test_block as _test_block,
                        test_block_signals as _test_block_signals,
                        test_block_raises as _test_block_raises,
+                       fail_expr as _fail_expr, error_expr as _error_expr,
                        tests_run, tests_failed, tests_errored,
                        TestingException, TestFailure, TestError)
 # "where" is only for passing through (export).
@@ -1983,6 +1984,44 @@ def prefix(tree, **kw):  # noqa: F811
 from .prefix import q, u, kw  # for re-export only  # noqa: F401
 
 # -----------------------------------------------------------------------------
+
+@macros.expr
+def fail(tree, **kw):  # noqa: F811
+    """[syntax, expr] Produce a test failure, unconditionally.
+
+    Useful to e.g. mark a line of code that should not be reached in automated
+    tests, reaching which is therefore a test failure.
+
+    Usage::
+
+        fail["human-readable reason"]
+
+    which has the same effect as::
+
+        test[False, "human-readable reason"]
+
+    except in the case of `fail[]`, the error message generating machinery is
+    special-cased to omit the source code expression, because it explictly
+    states that the intent of the "test" is not actually to perform a test.
+
+    See also `error[]` to produce a test error instead.
+    """
+    return _fail_expr(tree)
+
+@macros.expr
+def error(tree, **kw):  # noqa: F811
+    """[syntax, expr] Produce a test error, unconditionally.
+
+    Useful to e.g. indicate to the user that an optional dependency that could
+    be used to run some integration test is not installed.
+
+    Usage::
+
+        error["human-readable reason"]
+
+    See also `error[]` to produce a test failure instead.
+    """
+    return _error_expr(tree)
 
 @macros.block
 def test(tree, args, *, gen_sym, **kw):  # noqa: F811

@@ -97,8 +97,7 @@ from traceback import format_tb
 import sys
 
 from ..conditions import handlers, find_restart, invoke
-from ..collections import box, unbox
-from ..symbol import sym
+from ..collections import unbox
 
 # We need the test counters and the exception types from syntax.testutil.
 #
@@ -109,24 +108,7 @@ from ..symbol import sym
 # and its sisters are macros.
 from ..syntax import testutil
 
-__all__ = ["session", "testset", "terminate", "returns_normally", "fail", "catch_signals", "TestConfig"]
-
-fail = sym("fail")
-fail.__doc__ = """Symbol. Used as the test expression, unconditionally fails the test.
-
-Usage::
-
-    test[fail, "human-readable reason here"]
-
-Has the same effect as::
-
-    test[False, "human-readable reason here"]
-
-except that the error message generating machinery is special-cased to omit the
-unimportant source code expression when the intent of the "test" is something
-entirely different, such as marking a line that should not be reached,
-or informing the programmer that an optional dependency is not installed.
-"""
+__all__ = ["session", "testset", "terminate", "returns_normally", "catch_signals", "TestConfig"]
 
 # TODO: Move the general color stuff (TC, colorize) to another module, it could be useful.
 # TODO: Consider implementing the variant which separates effect/fg-color/bg-color with
