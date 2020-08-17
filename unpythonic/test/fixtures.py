@@ -98,6 +98,7 @@ import sys
 
 from ..conditions import handlers, find_restart, invoke
 from ..collections import box, unbox
+from ..symbol import sym
 
 # We need the test counters and the exception types from syntax.testutil.
 #
@@ -114,7 +115,24 @@ from ..collections import box, unbox
 # and its sisters are macros.
 from ..syntax import testutil
 
-__all__ = ["session", "testset", "terminate", "returns_normally", "ignore_signals", "TestConfig"]
+__all__ = ["session", "testset", "terminate", "returns_normally", "fail", "ignore_signals", "TestConfig"]
+
+fail = sym("fail")
+fail.__doc__ = """Symbol. Used as the test expression, unconditionally fails the test.
+
+Usage::
+
+    test[fail, "human-readable reason here"]
+
+Has the same effect as::
+
+    test[False, "human-readable reason here"]
+
+except that the error message generating machinery is special-cased to omit the
+unimportant source code expression when the intent of the "test" is something
+entirely different, such as marking a line that should not be reached,
+or informing the programmer that an optional dependency is not installed.
+"""
 
 # TODO: Move the general color stuff (TC, colorize) to another module, it could be useful.
 # TODO: Consider implementing the variant which separates effect/fg-color/bg-color with

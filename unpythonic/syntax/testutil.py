@@ -12,7 +12,7 @@ from ..misc import callsite_filename
 from ..conditions import cerror, handlers, restarts, invoke
 from ..collections import box, unbox
 from ..symbol import sym
-from ..test.fixtures import describe_exception, _ignore_uncaught_signals
+from ..test.fixtures import describe_exception, _ignore_uncaught_signals, fail
 
 # -----------------------------------------------------------------------------
 # Regular code, no macros yet.
@@ -157,7 +157,21 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, message=None):
     else:
         custom_msg = ""
 
-    if mode is _completed:
+    # special case for unconditionally failing tests
+    # (e.g. line that should not be reached, optional dependency not installed, ...)
+    if mode is _completed and result is fail:
+        tests_failed << unbox(tests_failed) + 1
+        conditiontype = TestFailure
+        if message is not None:
+            # In this case, if the user-given message is specified, it is all
+            # that should be displayed. We don't want confusing noise such as
+            # "Test failed"; the intent of signaling an unconditional failure
+            # is something different from actually testing the value of an
+            # expression.
+            error_msg = message
+        else:
+            error_msg = "Unconditional failure requested, no message."
+    elif mode is _completed:
         if result:
             return
         tests_failed << unbox(tests_failed) + 1
@@ -205,7 +219,21 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, mess
     else:
         custom_msg = ""
 
-    if mode is _completed:
+    # special case for unconditionally failing tests
+    # (e.g. line that should not be reached, optional dependency not installed, ...)
+    if mode is _completed and result is fail:
+        tests_failed << unbox(tests_failed) + 1
+        conditiontype = TestFailure
+        if message is not None:
+            # In this case, if the user-given message is specified, it is all
+            # that should be displayed. We don't want confusing noise such as
+            # "Test failed"; the intent of signaling an unconditional failure
+            # is something different from actually testing the value of an
+            # expression.
+            error_msg = message
+        else:
+            error_msg = "Unconditional failure requested, no message."
+    elif mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
         error_msg = "Test failed: {}{}, expected signal: {}, nothing was signaled.".format(sourcecode, custom_msg, describe_exception(exctype))
@@ -243,7 +271,21 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, messa
     else:
         custom_msg = ""
 
-    if mode is _completed:
+    # special case for unconditionally failing tests
+    # (e.g. line that should not be reached, optional dependency not installed, ...)
+    if mode is _completed and result is fail:
+        tests_failed << unbox(tests_failed) + 1
+        conditiontype = TestFailure
+        if message is not None:
+            # In this case, if the user-given message is specified, it is all
+            # that should be displayed. We don't want confusing noise such as
+            # "Test failed"; the intent of signaling an unconditional failure
+            # is something different from actually testing the value of an
+            # expression.
+            error_msg = message
+        else:
+            error_msg = "Unconditional failure requested, no message."
+    elif mode is _completed:
         tests_failed << unbox(tests_failed) + 1
         conditiontype = TestFailure
         error_msg = "Test failed: {}{}, expected exception: {}, nothing was raised.".format(sourcecode, custom_msg, describe_exception(exctype))
