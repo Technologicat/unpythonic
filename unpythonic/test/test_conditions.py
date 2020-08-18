@@ -25,6 +25,7 @@ from ..conditions import (signal, find_restart, invoke, invoker, use_value,
                           ControlError)
 from ..misc import raisef, slurp
 from ..collections import box, unbox
+from ..it import subset
 
 import threading
 from queue import Queue
@@ -290,9 +291,6 @@ def runtests():
             test_usevalue()
 
         with testset("live inspection"):
-            def is_subset(part, whole):  # TODO: move to unpythonic.it?
-                return all(elt in whole for elt in part)
-
             def inspection():
                 with handlers((JustTesting, invoker("hello")),
                               (RuntimeError, lambda c: use_value(42))):
@@ -300,10 +298,10 @@ def runtests():
                                   use_value=(lambda x: x)):
                         # The test system defines some internal restarts/handlers,
                         # so ours are not the full list - but they are a partial list.
-                        test[is_subset(["hello", "use_value"],
-                                       [name for name, _callable in available_restarts()])]
-                        test[is_subset([JustTesting, RuntimeError],
-                                       [t for t, _callable in available_handlers()])]
+                        test[subset(["hello", "use_value"],
+                                    [name for name, _callable in available_restarts()])]
+                        test[subset([JustTesting, RuntimeError],
+                                    [t for t, _callable in available_handlers()])]
             inspection()
 
         with testset("alternate syntax"):

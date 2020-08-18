@@ -1391,6 +1391,7 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
    - `iindex`: like ``list.index``, but for a general iterable. Consumes the iterable, so only makes sense for memoized inputs.
    - `CountingIterator`: count how many items have been yielded, as a side effect. The count is stored in the `.count` attribute. **Added in v0.14.2.**
    - `slurp`: extract all items from a `queue.Queue` (until it is empty) to a list, returning that list. **Added in v0.14.2.**
+   - `subset`: test whether an iterable is a subset of another. **Added in v0.14.3.**
    - `powerset`: yield the power set (set of all subsets) of an iterable. Works also for potentially infinite iterables, if only a finite prefix is ever requested. (But beware, both runtime and memory usage are exponential in the input size.) **Added in v0.14.2.**
    - `partition_int`: split a small positive integer, in all possible ways, into smaller integers that sum to it. Useful e.g. for determining how many letters the components of an anagram may have. **Added in v0.14.2.**
 
@@ -1407,7 +1408,7 @@ from unpythonic import (scanl, scanr, foldl, foldr,
                         cons, nil, ll, curry,
                         s, inn, iindex,
                         window,
-                        powerset)
+                        subset, powerset)
 
 assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
 assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
@@ -1471,6 +1472,10 @@ out = []
 for a, b, c in window(lst, n=3):
     out.append((a, b, c))
 assert out == [(0, 1, 2), (1, 2, 3), (2, 3, 4)]
+
+# subset
+assert subset([1, 2, 3], [1, 2, 3, 4, 5])
+assert subset({"cat"}, {"cat", "lynx"})
 
 # power set (set of all subsets) of an iterable
 assert tuple(powerset(range(3))) == ((0,), (1,), (0, 1), (2,), (0, 2), (1, 2), (0, 1, 2))

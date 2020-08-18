@@ -26,7 +26,7 @@ from ..it import (map, mapr, rmap, zipr, rzip,
                   window, chunked,
                   within, fixpoint,
                   interleave,
-                  powerset)
+                  subset, powerset)
 
 from ..fun import composel, identity, curry
 from ..gmemo import imemoize, gmemoize
@@ -285,9 +285,17 @@ def runtests():
             b = ('+', '*')
             test[tuple(interleave(a, b)) == ('a', '+', 'b', '*', 'c')]
 
+        with testset("subset"):
+            test[subset([1, 2, 3], [1, 2, 3, 4, 5])]
+            test[subset({"cat"}, {"cat", "lynx"})]
+
         # Power set (set of all subsets) of an iterable.
         with testset("powerset"):
             test[tuple(powerset(range(3))) == ((0,), (1,), (0, 1), (2,), (0, 2), (1, 2), (0, 1, 2))]
+            r = tuple(range(5))
+            test[all(subset(tuple(s), r) for s in powerset(r))]
+            S = {"cat", "lynx", "lion", "tiger"}  # unordered
+            test[all(subset(tuple(s), S) for s in powerset(S))]
 
         # within() - terminate a Cauchy sequence after a tolerance is reached.
         # The condition is `abs(a - b) <= tol` **for the last two yielded items**.

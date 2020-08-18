@@ -28,7 +28,7 @@ __all__ = ["rev", "map", "map_longest",
            "window", "chunked",
            "within", "fixpoint",
            "interleave",
-           "powerset"]
+           "subset", "powerset"]
 
 from builtins import map as stdlib_map
 from operator import itemgetter
@@ -891,6 +891,21 @@ def interleave(*iterables):
             yield from roundrobin()
     except ShortestInputEnded:
         return
+
+def subset(part, whole):
+    """Test whether `part` is a subset of `whole`.
+
+    Both must be iterable. Note consumable iterables will be consumed
+    by the test!
+
+    This is a convenience function.
+
+    Examples::
+
+        assert subset([1, 2, 3], [1, 2, 3, 4, 5])
+        assert subset({"cat"}, {"cat", "lynx"})
+    """
+    return all(elt in whole for elt in part)
 
 def powerset(iterable):
     """Yield the powerset of a general iterable.

@@ -9,6 +9,7 @@
     - Helper macros `fail[message]` and `error[message]` for producing unconditional failures or errors. Useful e.g. if the test reached a line that should be unreachable, or when an optional dependency for some integration test is not installed.
 - `callsite_filename`: return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
 - `equip_with_traceback`: take a manually created exception instance, equip it with a traceback. Requires Python 3.7 or later.
+- `subset`: test whether an iterable is a subset of another. Convenience function.
 
 **Non-breaking changes**:
 
