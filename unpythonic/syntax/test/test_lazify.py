@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Automatic lazy evaluation of function arguments."""
 
-from ...syntax import macros, test, test_raises  # noqa: F401
+from ...syntax import macros, test, test_raises, error  # noqa: F401
 from ...test.fixtures import testset
 
 from ...misc import raisef
@@ -342,6 +342,7 @@ def runtests():
         # introducing the HasThon programming language (it has 100% more Thon than popular brands)
         # If you want a continuation-enabled HasThon, use "with continuations, curry, lazify".
         with testset("HasThon, with 100% more Thon than the competition"):
+            error["Fix this testset!"]  # Curry seems to fail here, the tests are not called.
             with curry, lazify:
                 def add3(a, b, c):
                     return a + b + c
