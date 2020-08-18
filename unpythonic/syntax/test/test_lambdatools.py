@@ -9,8 +9,6 @@ from ...syntax import (macros, multilambda, namedlambda, quicklambda, f, _,  # n
 
 from functools import wraps
 
-from macropy.tracing import macros, show_expanded
-
 # Not really redefining "curry". The first one went into MacroPy's macro registry,
 # and this one is a regular run-time function.
 # (Although this does mean the docstring of the macro will not be accessible from here.)
