@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ...syntax import macros, test, test_raises, error  # noqa: F401
+from ...syntax import macros, test, error  # noqa: F401
 from ...test.fixtures import testset
 
 from ...syntax import macros, nb  # noqa: F401, F811
