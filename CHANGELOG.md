@@ -22,6 +22,7 @@
   - Handler lookup works correctly also for `signal(SomeExceptionClass)` without creating an instance.
   - Conditions can now inherit from `BaseException`, not only from `Exception.`
   - Uses of `issubclass` are now properly protected by a `try`/`except` when the first argument might not be a class (since in that case `issubclass` raises `TypeError`).
+- Bug in `m()` prevented mathifying iterables that are not themselves iterators (e.g. `tuple`).
 
 ---
 
