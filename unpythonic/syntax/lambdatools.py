@@ -166,7 +166,7 @@ def quicklambda(block_body):
     @Walker
     def transform(tree, **kw):
         if isquicklambda(tree):
-            return f.transform(tree.slice.value)
+            return f.transform(tree.slice.value)  # TODO: this requires azazel75/macropy/HEAD, the released macropy3 1.1.0b2 is not enough.
         return tree
     new_block_body = [transform.recurse(stmt) for stmt in block_body]
     yield new_block_body
