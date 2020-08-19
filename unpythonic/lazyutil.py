@@ -70,13 +70,32 @@ def passthrough_lazy_args(f):
     `maybe_force_args` to make the actual call, so that the call target is
     also checked for this mark.)
 
-    ***CAUTION***: The mark is implemented as an attribute on the function
+    **CAUTION**: The mark is implemented as an attribute on the function
     object. Hence, if the result is wrapped by another decorator, the mark
     won't be active on the final decorated function.
 
     The exact position where you want this in the decorator list depends
     on what exactly you're doing - the priority is set to `95` to make this
     apply before `curry`, so that `curry` will see the mark.
+
+    **NOTE**: Conceptually, an argument having the passthrough-only property
+    is closely related to parametric polymorphism. A function that just passes
+    through an argument to another function, without accessing it, usually is
+    parametric (in the polymorphism sense) in that argument. See the
+    introduction of:
+
+        Arjun Guha, Jacob Matthews, Robert Bruce Findler, Shriram Krishnamurthi 2007:
+        Relationally-Parametric Polymorphic Contracts
+            http://cs.brown.edu/~sk/Publications/Papers/Published/gmfk-rel-par-poly-cont/
+
+    For simplicity, this decorator assumes blanket parametricity - i.e. the
+    decorated function *could* be parametric in *all* of its arguments. however,
+    it is not the role of this decorator to guarantee anything about parametricity.
+    This is an implementation detail that says "treat this function as if it could
+    be parametric in any or all of its arguments".
+
+    It is then the responsibility of the decorated function to force those arguments
+    it actually needs to access (i.e., not just pass through).
     """
     f._passthrough_lazy_args = True
     return f
