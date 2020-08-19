@@ -30,20 +30,21 @@ _test_macro_names = ["test", "test_signals", "test_raises", "error", "fail"]
 _test_function_names = ["unpythonic_assert",
                         "unpythonic_assert_signals",
                         "unpythonic_assert_raises"]
+def isunexpandedtestmacro(tree):
+    """Return whether `tree` is an invocation of a testing macro, unexpanded."""
+    return (type(tree) is Subscript and
+            type(tree.value) is Name and
+            tree.value.id in _test_macro_names)
+def isexpandedtestmacro(tree):
+    """Return whether `tree` is an invocation of a testing macro, expanded."""
+    return (type(tree) is Call and
+            any(isx(tree.func, fname, accept_attr=False)
+                for fname in _test_function_names))
 def istestmacro(tree):
     """Return whether `tree` is an invocation of a testing macro.
 
-    Expanded or unexpanded doesn't matter; this is currently provided
-    so that other macros can detect and skip subtrees that invoke a test.
+    Expanded or unexpanded doesn't matter.
     """
-    def isunexpandedtestmacro(tree):
-        return (type(tree) is Subscript and
-                type(tree.value) is Name and
-                tree.value.id in _test_macro_names)
-    def isexpandedtestmacro(tree):
-        return (type(tree) is Call and
-                any(isx(tree.func, fname, accept_attr=False)
-                    for fname in _test_function_names))
     return isunexpandedtestmacro(tree) or isexpandedtestmacro(tree)
 
 # -----------------------------------------------------------------------------

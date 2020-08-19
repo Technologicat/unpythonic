@@ -4,12 +4,13 @@
 Experimental, not for use in production code.
 """
 
-from ast import Name, Call, Tuple, Load
+from ast import Name, Call, Tuple, Load, Index
 
 from macropy.core.quotes import macros, q, u, ast_literal  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
 from .letdoutil import islet, isdo, UnexpandedLetView, UnexpandedDoView
+from .testutil import isunexpandedtestmacro
 
 from ..it import flatmap, rev, uniqify
 
@@ -42,6 +43,20 @@ def prefix(block_body):
             view = UnexpandedDoView(tree)
             view.body = [transform.recurse(expr, quotelevel=quotelevel) for expr in view.body]
             return tree
+
+        # integration with testing framework
+        if isunexpandedtestmacro(tree):
+            stop()
+            if type(tree.slice) is not Index:
+                assert False, "prefix: Slice and ExtSlice not implemented in analysis of testing macro arguments"
+            body = tree.slice.value
+            if type(body) is Tuple:
+                # skip the transformation of the argument tuple itself, but transform its elements
+                body.elts = [transform.recurse(expr, quotelevel=quotelevel) for expr in body.elts]
+            else:
+                tree.slice.value = transform.recurse(tree.slice.value, quotelevel=quotelevel)
+            return tree
+
         # general case
         # macro-created nodes might not have a ctx, but we run in the first pass.
         if not (type(tree) is Tuple and type(tree.ctx) is Load):
