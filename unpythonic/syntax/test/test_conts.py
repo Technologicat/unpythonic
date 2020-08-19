@@ -437,7 +437,6 @@ def runtests():
                 test[out == pts]
 
         with testset("integration with autoreturn and curry simultaneously"):
-            error["Fix this test case!"]
             with curry:  # major slowdown, but works; must be in a separate "with"  # TODO: why separate?  https://github.com/azazel75/macropy/issues/21
                 with autoreturn, continuations:
                     stack = []
@@ -468,12 +467,7 @@ def runtests():
                     while x is not None:
                         out.append(x)
                         x = fail()
-                    # TODO: trying to print() fails here on PyPy3, figure out why
-                    test[out == pts]  # TODO: curry fails here (both interpreters), for some reason leaving unpythonic_assert as a curried function that never gets called.
-                    # Here's the output from "with show_expanded":
-                    # currycall(unpythonic_assert, '(out == pts)',
-                    #                              currycall(trampolined, curryf((lambda cc=identity, _pcc=None: currycall(currycall(chain_conts, _pcc, cc), (out == pts))))),
-                    #                              filename=currycall(callsite_filename), lineno=473, message=None)
+                    test[out == pts]
 
         with testset("integration with @looped (unpythonic.fploop)"):
             with continuations:
