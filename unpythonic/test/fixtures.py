@@ -157,7 +157,7 @@ class TestConfig:
     `use_color`:        bool; use ANSI color escape sequences to colorize `printer` output.
                         Default is `True`.
     `postproc`:         Exception -> None; optional. Default None (no postproc).
-    `indent_per_level`: How many stars to indent per nesting level of `testset`.
+    `indent_per_level`: How many indent to indent per nesting level of `testset`.
     `CS`:               The color scheme.
 
     The optional `postproc` is a custom callback for examining failures and
@@ -354,7 +354,7 @@ def session(name=None):
     if _nesting_level > 0:
         raise RuntimeError("A test `session` cannot be nested inside a `testset`.")
 
-    title = maybe_colorize("** SESSION", TC.BRIGHT, TestConfig.CS.HEADING)
+    title = maybe_colorize("SESSION", TC.BRIGHT, TestConfig.CS.HEADING)
     if name is not None:
         title += maybe_colorize(" '{}'".format(name), TC.ITALIC, TestConfig.CS.HEADING)
     TestConfig.printer(maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
@@ -398,10 +398,13 @@ def testset(name=None, postproc=None):
     e1 = unbox(testutil.tests_errored)
 
     global _nesting_level
+    indent = ("*" * (TestConfig.indent_per_level * _nesting_level))
+    if len(indent):
+        indent += " "
+    errmsg_extra_indent = "*" * TestConfig.indent_per_level
     _nesting_level += 1
-    stars = "*" * (TestConfig.indent_per_level * _nesting_level)
 
-    title = "{} Testset".format(stars)
+    title = "{}Testset".format(indent)
     if name is not None:
         title += maybe_colorize(" '{}'".format(name), TC.ITALIC)
     TestConfig.printer(maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
@@ -411,9 +414,11 @@ def testset(name=None, postproc=None):
         # The assert helpers in `unpythonic.syntax.testutil` signal only TestFailure and TestError,
         # no matter what happens inside the test expression.
         if isinstance(condition, testutil.TestFailure):
-            msg = maybe_colorize("{}** FAIL: ".format(stars), TC.BRIGHT, TestConfig.CS.FAIL) + str(condition)
+            msg = maybe_colorize("{}{}FAIL: ".format(errmsg_extra_indent, indent),
+                                 TC.BRIGHT, TestConfig.CS.FAIL) + str(condition)
         elif isinstance(condition, testutil.TestError):
-            msg = maybe_colorize("{}** ERROR: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR) + str(condition)
+            msg = maybe_colorize("{}{}ERROR: ".format(errmsg_extra_indent, indent),
+                                 TC.BRIGHT, TestConfig.CS.ERROR) + str(condition)
         # So any other signal must come from another source.
         else:
             if not _catch_uncaught_signals[0]:
@@ -421,7 +426,8 @@ def testset(name=None, postproc=None):
             # To highlight the error in the summary, count it as an errored test.
             testutil.tests_run << unbox(testutil.tests_run) + 1
             testutil.tests_errored << unbox(testutil.tests_errored) + 1
-            msg = maybe_colorize("{}** Testset received signal outside test[]: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR) + describe_exception(condition)
+            msg = maybe_colorize("{}{}Testset received signal outside test[]: ".format(errmsg_extra_indent, indent),
+                                 TC.BRIGHT, TestConfig.CS.ERROR) + describe_exception(condition)
         TestConfig.printer(msg)
 
         # the custom callback
@@ -460,7 +466,8 @@ def testset(name=None, postproc=None):
         # To highlight the error in the summary, count it as an errored test.
         testutil.tests_run << unbox(testutil.tests_run) + 1
         testutil.tests_errored << unbox(testutil.tests_errored) + 1
-        msg = maybe_colorize("{}** Testset terminated by exception outside test[]: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR)
+        msg = maybe_colorize("{}{}Testset terminated by exception outside test[]: ".format(errmsg_extra_indent, indent),
+                             TC.BRIGHT, TestConfig.CS.ERROR)
         msg += describe_exception(err)
         TestConfig.printer(msg)
 
