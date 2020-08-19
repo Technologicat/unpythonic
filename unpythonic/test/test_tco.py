@@ -4,6 +4,7 @@ from ..syntax import macros, test, test_raises  # noqa: F401
 from .fixtures import testset, returns_normally
 
 from sys import stderr
+import gc
 
 from ..tco import trampolined, jump
 
@@ -77,10 +78,12 @@ def runtests():
             def foo2():
                 return jump(bar2)
             foo2()
+            gc.collect()  # Need to request garbage collection on PyPy, because otherwise no guarantee when it'll happen.
             print("** Missing 'return' in 'return jump':", file=stderr)
             def foo3():
                 jump(bar2)
             foo3()
+            gc.collect()  # Need to request garbage collection on PyPy, because otherwise no guarantee when it'll happen.
 
         # TODO: need some kind of benchmarking tools to do this properly.
         with testset("performance benchmark"):
