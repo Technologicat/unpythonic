@@ -2031,124 +2031,107 @@ def test(tree, args, *, gen_sym, **kw):  # noqa: F811
 
 @macros.expr  # noqa: F811
 def test(tree, **kw):  # noqa: F811
-    """[syntax] Perform a test, optionally continuing after failure.
+    """[syntax] Make a test assertion. For building automated tests.
 
-    A low-level tool for building test frameworks for macro-enabled code.
+    **Testing overview**:
+
+    Use `testset` from `unpythonic.test.fixtures` to automatically handle
+    failure and error reporting. See the unit tests of `unpythonic` for
+    examples.
+
+    Use the `test[]`, `test_raises[]`, `test_signals[]`, `fail[]` and `error[]`
+    macros inside a `with testset()`, as appropriate.
+
+    See also the docstrings of any constructs exported from that module.
 
     **Expression variant**::
 
         test[expr]
         test[expr, message]
 
-    The test succeeds if `expr` evaluates to truthy.
+    The test succeeds if `expr` evaluates to truthy. The `message`
+    is used in forming the error message if the test fails or errors.
+
+    If you want to assert just that an expression runs to completion
+    normally, and don't care about the return value::
+
+        from unpythonic.test.fixtures import returns_normally
+
+        test[returns_normally(expr)]
+        test[returns_normally(expr), message]
+
+    This can be useful for testing functions with side effects.
+    Beside checking what the side effects did, it can be useful
+    to assert that the function completed normally.
 
     **Block variant**::
 
         with test:
-            body...
+            body0
+            ...
 
         with test(message):
-            body...
+            body0
+            ...
 
     The test succeeds if the block body runs to completion normally.
 
-    **CAUTION**: the block variant implicitly inserts a `def`, so any new
-    variables assigned to will be local to the `with test` block.
+    **CAUTION**: the block variant implicitly inserts a `def` and then
+    delegates to the expression variant (to `test[]` a call into the newly
+    defined thunk), so any new variables assigned to will be local to
+    the `with test` block.
 
-    **Why**:
+    Use the `nonlocal` or `global` declarations if you need to mutate something
+    defined on the outside.
 
-      `pytest` achieves compact syntax for continuing upon test failure by
-      hijacking `assert` (which is arguably an elegant solution), but
-      macro-enabled code needs MacroPy's macro expander, so we can't allow
-      a testing tool to install its own import hook to do AST transformations
-      (because doing that disables the macro expander).
+    The implicitly defined thunk, if it returns normally, always returns
+    `True`, so that upon normal completion, the test succeeds.
 
-      MacroPy macros only exist in expr, block and decorator variants, so
-      we can't just hijack any node type of the AST willy-nilly like `pytest`
-      does. We solve this the MacroPy way - by providing an expr macro
-      that can be used instead of `assert` when writing test cases.
+    **Failure and error signaling**:
 
-    **How to use**:
-
-    The behavior is similar to the builtin `assert`, with a twist.
-
-    Upon a failing test, this will *signal* a `TestFailure` as a *cerror*
-    (correctable error), via unpythonic's condition system (see
-    `unpythonic.conditions.cerror`).
+    Upon a test failure, `test[]` will *signal* a `TestFailure` using the
+    *cerror* (correctable error) protocol, via unpythonic's condition system,
+    which is a pythonification of that in Common Lisp. See `unpythonic.conditions`.
 
     If a test fails to run to completion due to an uncaught exception or an
-    unhandled `error` (or `cerror`) condition, `TestError` is signaled,
-    so the caller can easily tell apart which case occurred.
+    unhandled signal (e.g. an `error` or `cerror` condition), `TestError`
+    is signaled instead, so the caller can easily tell apart which case
+    occurred.
 
-    Using conditions allows the surrounding code to install a handler that
-    invokes the `proceed` restart, so upon a test failure, any further tests
-    still continue to run::
+    These condition types are defined in `unpythonic.syntax.test.testutil`.
+    They inherit from `TestingException`, defined in the same module.
 
-        from unpythonic.syntax import (macros, test,
-                                       tests_run, tests_failed, tests_errored,
-                                       TestFailure, TestError)
+    *Signaling* a condition, instead of *raising* an exception, allows the
+    surrounding code (inside the test framework) to install a handler that
+    invokes the `proceed` restart (if there is such in scope), so upon a test
+    failure or error, the test suite resumes.
 
-        import sys
-        from unpythonic import invoke, handlers
+    **Disabling the signal barrier**:
 
-        def report(err):
-            print(err, file=sys.stderr)  # or log or whatever
-            invoke("proceed")
+    As implied above, `test[]` (likewise `with test:`) forms a barrier that
+    alerts the user about uncaught signals, and stops those signals from
+    propagating further. If your `with handlers` block that needs to see the
+    signal is outside the `test`, or if allowing a signal to go uncaught is
+    part of normal operation (e.g. `warn` signals are often not caught, because
+    the only reason to do so would be to muffle the warning), use a `with
+    catch_signals(False):` block (from `unpythonic.test.fixtures`) to disable
+    the signal barrier::
 
-        with handlers(((TestFailure, TestError), report)):
-            test[2 + 2 == 5]  # fails, but allows further tests to continue
-            test[2 + 2 == 4]
-            test[17 + 23 == 40, "failure message"]
+        from unpythonic.test.fixtures import catch_signals
 
-        # One wouldn't normally use `assert` in a test module that uses `test[]`.
-        # This is just to state that in this example, we expect these to hold.
-        assert tests_failed == 1  # we use the type pun that a box is equal to its content.
-        assert tests_errored == 0
-        assert tests_run == 3
+        with catch_signals(False):
+            test[...]
 
-    The counters `tests_run`, `tests_failed` and `tests_errored` are
-    `unpythonic.collections.box` instances holding integers that describe
-    what it says on the tin. Use the `box` API to read or reset them.
-    All three counts start at zero when Python starts. The idea is to allow
-    client code to easily compute percentage of tests passed.
+    Another way to avoid catching signals that should not be caught by the
+    test framework is to rearrange the `test[]` so that the expression being
+    asserted cannot signal. For example, save the result of a computation
+    into a variable first, and then use it in the `test[]`, instead of
+    invoking that computation inside the `test[]`. See
+    `unpythonic.test.test_conditions` for examples.
 
-    If you want to proceed after most failures, but there is some particularly
-    critical test which, if it fails, should abort the rest of the whole unit,
-    you can override the handler locally::
-
-        def die(err):
-            print(err, file=sys.stderr)  # or log or whatever
-            sys.exit(255)
-
-        with handlers(((TestFailure, TestError), report)):
-            test[2 + 2 == 5]  # fails, but allows further tests to continue
-
-            with handlers(((TestFailure, TestError), die)):
-                test[2 + 2 == 6]  # --> die
-                test[17 + 23 == 40, "failure message"]  # not reached
-
-            # if this point was ever reached (currently it's not)...
-            test[2 + 2 == 7]  # ...this fails, but allows further tests to continue
-
-    This works, because the dynamically most recently bound handler for the
-    same signal type wins (see `unpythonic.conditions`).
-
-    Similarly, if you want to skip the rest of a block of tests upon a failure::
-
-        from unpythonic import restarts, invoker
-
-        with handlers(((TestFailure, TestError), report)):
-            test[2 + 2 == 5]  # fails, but allows further tests to continue
-
-            with restarts(skip=(lambda: None)):  # just for control, no return value
-                with handlers(((TestFailure, TestError), invoker("skip"))):
-                    test[2 + 2 == 6]  # --> fails, skip the rest of this block
-                    test[17 + 23 == 40, "failure message"]  # not reached
-
-            test[2 + 2 == 7]  # fails, but allows further tests to continue
-
-    See the unit tests in `unpythonic.syntax.test.test_testutil` for more variations,
-    and the high-level testing framework `unpythonic.test.fixtures`.
+    Exceptions are always caught by `test[]`, because exceptions do not support
+    resumption; unlike with signals, the inner level is already destroyed by
+    the time the exception is caught by the test construct.
     """
     return _test_expr(tree)
 

@@ -8,19 +8,23 @@ rudimentary test reports for macro-enabled Python code, particularly
 `unpythonic` itself (see issue #5).
 
 This also demonstrates how to build a simple testing framework on top of the
-`test[]` macros.
+`test[]` macro and its sisters.
 
-We can't use `unittest` due to some of `unpythonic`'s constructs having the
-same name as the module hosting the construct. (This is an issue in `unpythonic`
-specifically, see issue #44.)
+**Why**:
+
+We can't use `unittest` to test `unpythonic`, due to some constructs having the
+same name as the module hosting the construct. This is an issue in `unpythonic`
+specifically, see issue #44.
 
 We can't use the otherwise excellent `pytest`, because in order to get the nice
 syntax that redefines `assert`, it has to install an import hook, and in doing
 so disables the macro expander. (This is a problem shared by all macro-enabled
 Python code.)
 
-So just like everything else in this project, we roll our own. What's a testing
-framework or two among friends?
+As for why a `test[]` macro, MacroPy macros only exist in expr, block and
+decorator variants, so we can't just hijack any AST node type like `pytest`'s
+custom import hook does. So we solve this the MacroPy way - by providing an
+expr macro that can be used instead of `assert` when writing test cases.
 
 **Usage**, a.k.a. unpythonic testing 101::
 
@@ -70,6 +74,22 @@ framework or two among friends?
             with testset("inner 2"):
                 test[2 + 2 == 4]
 
+        # Unconditional errors can be emitted with `error[]`.
+        # Useful e.g. if an optional dependency is missing:
+        with testset("integration"):
+            try:
+                import blargly
+            except ImportError:
+                error["blargly not installed, cannot test integration with it."]
+            else:
+                ... # blargly integration tests go here
+
+        # Similarly, unconditional errors can be emitted with `fail[]`.
+        # Useful for marking a testing TODO, or for marking a line
+        # that should be unreachable in a code example.
+        with testset("really fancy tests"):
+            fail["really fancy tests not implemented yet!"]
+
         # # The session can be terminated early by calling terminate()
         # # at any point inside the dynamic extent of `with session`.
         # # This causes the `with session` to exit immediately.
@@ -79,7 +99,7 @@ framework or two among friends?
         # particular testset by using `terminate` as the `postproc`:
         with testset(postproc=terminate):
             test[2 + 2 == 5]
-            test[2 + 2 == 4]
+            test[2 + 2 == 4]  # not reached
 
 If you want to customize, look at the `postproc` parameter of `testset`,
 and the `TestConfig` bunch of constants.

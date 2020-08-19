@@ -4,6 +4,14 @@
 The `test[]` macro allows to write unit tests for macro-enabled code, in a
 compact assert-like syntax, while letting the rest of the tests run even if
 some tests fail.
+
+This file is not part of the automated test suite of `unpythonic`, hence the
+deviation from the common naming scheme. We can hardly use the test framework
+to test itself; so this module relies on just asserts.
+
+There are also not that many automated tests for the test framework - most of
+the functionality is visual and it was just eyeballed. See the session example
+below to generate lots of colorful output, exercising the different features.
 """
 
 from ...syntax import (macros, test, test_signals, test_raises,  # noqa: F401
@@ -40,7 +48,7 @@ def runtests():
     with handlers((TestFailure, report_and_proceed)):
         test[2 + 2 == 5]  # fails, but allows further tests to continue
         test[2 + 2 == 4]
-        test[17 + 23 == 40, "my named test"]
+        test[17 + 23 == 40, "my failure message"]
     # One wouldn't normally use `assert` in a test module that uses `test[]`,
     # but we have to test `test[]` itself somehow.
     assert tests_run == 3  # we use the type pun that a box is equal to its content.
@@ -80,13 +88,49 @@ def runtests():
     with handlers(((TestFailure, TestError), report_and_proceed)):
         test[raisef(RuntimeError)]  # errors out, but allows further tests to continue
         test[2 + 2 == 4]
-        test[17 + 23 == 40, "my named test"]
+        test[17 + 23 == 40, "my failure message"]
     assert tests_run == 3
     assert tests_failed == 0
     assert tests_errored == 1
 
-    # High-level machinery: unpythonic.test.fixtures, a testing framework.
+    # # If you want to proceed after most failures, but there is some particularly
+    # # critical test which, if it fails, should abort the rest of the whole unit,
+    # # you can override the handler locally:
     #
+    # def die(err):
+    #     print(err, file=sys.stderr)  # or log or whatever
+    #     sys.exit(255)
+    #
+    # with handlers(((TestFailure, TestError), report)):
+    #     test[2 + 2 == 5]  # fails, but allows further tests to continue
+    #
+    #     with handlers(((TestFailure, TestError), die)):
+    #         test[2 + 2 == 6]  # --> die
+    #         test[17 + 23 == 40, "my failure message"]  # not reached
+    #
+    #     # if this point was ever reached (currently it's not)...
+    #     test[2 + 2 == 7]  # ...this fails, but allows further tests to continue
+    #
+    # # This works, because the dynamically most recently bound handler for the
+    # # same signal type wins (see `unpythonic.conditions`).
+    # #
+    # # Similarly, if you want to skip the rest of a block of tests upon a failure:
+    #
+    # from unpythonic.conditions import restarts, invoker
+    #
+    # with handlers(((TestFailure, TestError), report)):
+    #     test[2 + 2 == 5]  # fails, but allows further tests to continue
+    #
+    #     with restarts(skip=(lambda: None)):  # just for control, no return value
+    #         with handlers(((TestFailure, TestError), invoker("skip"))):
+    #             test[2 + 2 == 6]  # --> fails, skip the rest of this block
+    #             test[17 + 23 == 40, "my failure message"]  # not reached
+    #
+    #     test[2 + 2 == 7]  # fails, but allows further tests to continue
+
+    # --------------------------------------------------------------------------------
+    # High-level machinery: unpythonic.test.fixtures, a testing framework.
+
     #   - Automatically resume testing upon failure or error, if possible
     #   - Automatically count passes, fails and errors, summarize totals
     #   - Print nicely colored ANSI terminal output into `sys.stderr`
@@ -94,6 +138,8 @@ def runtests():
     #
     # Still, be sure to run all `test[]` invocations in the same thread,
     # because the counters (managed by `test[]` itself) are global.
+    #
+    # Example session:
     #
     # # The session construct provides an exit point for test session
     # # termination, and an implicit top-level testset.
@@ -165,9 +211,9 @@ def runtests():
     #         # There's also a block variant that asserts the block completes normally
     #         # (no exception or signal).
     #         with test("block variant"):
-    #             ...
+    #             print("hello world")
     #
-    #         # To get that effect in the expression variant:
+    #         # To get that effect in the expression variant, call `returns_normally`:
     #         def f(x):
     #             return 2 * x
     #         test[returns_normally(f(21))]
@@ -181,7 +227,7 @@ def runtests():
     #     # particular testset by using `terminate` as the `postproc`:
     #     with testset(postproc=terminate):
     #         test[2 + 2 == 5]
-    #         test[2 + 2 == 4]
+    #         test[2 + 2 == 4]  # not reached
 
     print("All tests PASSED")
 
