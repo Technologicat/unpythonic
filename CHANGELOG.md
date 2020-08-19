@@ -1,4 +1,4 @@
-**0.14.3** (in progress):
+**0.14.3** (in progress; updated 19 August 2020):
 
 **New**:
 
@@ -13,7 +13,11 @@
 
 **Non-breaking changes**:
 
+- To ease installation, relax version requirement of the optional MacroPy dependency to the latest released on PyPI, 1.1.0b2.
+  - Once MacroPy updates, we'll upgrade; 1.1.0b2 is missing some small features we would like to use.
 - Conditions: when an unhandled `error` or `cerror` occurs, the original unhandled error is now available in the `__cause__` attribute of the `ControlError** exception that is raised in this situation.
+- Document named-arg bug in `curry` in the docstring. See [#61](https://github.com/Technologicat/unpythonic/issues/61). Fixing this needs a better `partial`, so for now it's a known issue.
+- All of `unpythonic` itself is now tested using the new testing framework for macro-enabled code, `unpythonic.test.fixtures`. **Hence, developing `unpythonic` now requires MacroPy.** For **using** `unpythonic`, MacroPy remains strictly optional, as it will at least for the foreseeable future.
 
 **Fixed**:
 
@@ -23,6 +27,7 @@
   - Conditions can now inherit from `BaseException`, not only from `Exception.`
   - Uses of `issubclass` are now properly protected by a `try`/`except` when the first argument might not be a class (since in that case `issubclass` raises `TypeError`).
 - Bug in `m()` prevented mathifying iterables that are not themselves iterators (e.g. `tuple`).
+- PyPy3 support: fixed crash in querying the arity of builtin functions. The fact that a function is builtin is reported slightly differently compared to CPython. See [#67](https://github.com/Technologicat/unpythonic/issues/67).
 
 ---
 
