@@ -360,7 +360,7 @@ If this sounds a lot like an exception system, that's because conditions are the
 
 <details><summary>unpythonic.test.fixtures: a minimalistic test framework for macro-enabled Python code.</summary>
 
-*[docs TODO]*; for now, look at the docstrings of the various constructs in the example below, the module `unpythonic.test.fixtures` (which provides much of this), and the module `unpythonic.syntax.test.test_testutil`. For lots of examples, see the unit tests of `unpythonic` itself. (Particularly, how to test code using conditions and restarts can be found in `unpythonic.test.test_conditions`.)
+*[docs TODO]*; for now, look at the docstrings of the various constructs in the example below, the module `unpythonic.test.fixtures` (which provides much of this), and the automated tests of `unpythonic` itself. (Particularly, how to test code using conditions and restarts can be found in `unpythonic.test.test_conditions`.)
 
 ```python
 from unpythonic.syntax import macros, test, test_raises, fail, error
