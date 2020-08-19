@@ -273,7 +273,11 @@ def s(*spec):
             if d2 == d1 == 0:         # a0, a0, a0, ...             [a0, identity]
                 return ("const", a0, None)
             if almosteq(d2, d1):      # a0, a0 + d, a0 + 2 d, ...   [a0, +d]
-                d = (d1 + d2) / 2  # average to give roundoff errors a chance to cancel
+                if d1 == d2:
+                    d = d1
+                else:
+                    # Note: even an arithmetic sequence will now become float.
+                    d = (d1 + d2) / 2  # average to give roundoff errors a chance to cancel
                 return ("arith", a0, d)
             if a0 != 0 and a1 != 0 and a2 != 0:
                 r1 = a1 / a0
@@ -309,21 +313,21 @@ def s(*spec):
             # elt = x0 + a*k --> a = (elt - x0) / k
             a = (elt - x0) / k
             if is_almost_int(a) and a > 0:
-                return 1 + round(a)  # fencepost
+                return int(1 + round(a))  # fencepost
         elif seqtype == "geom":
             # elt = x0*(k**a) --> k**a = (elt/x0) --> a = logk(elt/x0)
             a = log(abs(elt / x0), abs(k))
             if is_almost_int(a) and a > 0:
                 if not almosteq(x0 * (k**a), elt):  # check parity of final term, could be an alternating sequence
                     return False
-                return 1 + round(a)
+                return int(1 + round(a))
         else:  # seqtype == "power":
             # elt = x0**(k**a) --> k**a = logx0 elt --> a = logk (logx0 elt)
             a = log(log(abs(elt), abs(x0)), abs(k))
             if is_almost_int(a) and a > 0:
                 if not almosteq(x0**(k**a), elt):  # parity
                     return False
-                return 1 + round(a)
+                return int(1 + round(a))
         return False
 
     # analyze the specification
