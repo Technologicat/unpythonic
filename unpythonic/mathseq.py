@@ -283,7 +283,11 @@ def s(*spec):
                 r1 = a1 / a0
                 r2 = a2 / a1
                 if almosteq(r2, r1):  # a0, a0*r, a0*r**2, ...      [a0, *r]
-                    r = (r1 + r2) / 2
+                    if all(isinstance(a, int) for a in (a0, a1, a2)) and a1 // a0 == r1 and a2 // a1 == r2:
+                        r = a1 // a0
+                    else:
+                        # becomes float
+                        r = (r1 + r2) / 2
                     return ("geom", a0, r)
             if abs(a0) != 1 and a1 != 0 and a2 != 0:
                 p1 = log(abs(a1), abs(a0))

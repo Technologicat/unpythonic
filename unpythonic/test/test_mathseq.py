@@ -22,15 +22,25 @@ def runtests():
         # always infinite length, because final element cannot be used to deduce length.
         with testset("s, constant sequence"):
             test[tuple(take(10, s(1, ...))) == (1,) * 10]
+            # type stability (not that it does us any good in Python)
+            test[all(isinstance(x, int) for x in take(10, s(1, ...)))]
+            test[all(isinstance(x, float) for x in take(10, s(1.0, ...)))]
 
         # arithmetic sequence [a0, +d] -> a0, a0 + d, a0 + 2 d + ...
         with testset("s, arithmetic sequence"):
             test[tuple(take(10, s(1, 2, ...))) == tuple(range(1, 11))]     # two elements is enough
             test[tuple(take(10, s(1, 2, 3, ...))) == tuple(range(1, 11))]  # more is allowed if consistent
+            # type stability
+            test[all(isinstance(x, int) for x in take(10, s(1, 3, ...)))]
+            test[all(isinstance(x, int) for x in take(10, s(1, 3, 5, ...)))]
+            test[all(isinstance(x, float) for x in take(10, s(1.0, 3.0, ...)))]
+            test[all(isinstance(x, float) for x in take(10, s(1.0, 3.0, 5.0, ...)))]
 
         # geometric sequence [a0, *r] -> a0, a0*r, a0*r**2, ...
         # three elements is enough, more allowed if consistent
         with testset("s, geometric sequence"):
+            test[all(isinstance(x, int) for x in take(10, s(2, 4, 8, ...)))]  # type stability
+            test[all(isinstance(x, float) for x in take(10, s(2.0, 4.0, 8.0, ...)))]  # type stability
             test[tuple(take(10, s(1, 2, 4, ...))) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)]
             test[tuple(take(10, s(1, 2, 4, 8, ...))) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)]
             test[tuple(take(10, s(1, 1 / 2, 1 / 4, ...))) == (1, 1 / 2, 1 / 4, 1 / 8, 1 / 16, 1 / 32, 1 / 64, 1 / 128, 1 / 256, 1 / 512)]
@@ -60,6 +70,7 @@ def runtests():
         # power sequence [a0, **p] -> a0, a0**p, a0**(p**2), ...
         # three elements is enough, more allowed if consistent
         with testset("s, power sequence"):
+            # a power sequence is always float, so no tests for type stability.
             test[tuple(take(5, s(2, 4, 16, ...))) == (2, 4, 16, 256, 65536)]                # 2, 2**2, 2**4, 2**8, ...
             test[tuple(take(5, s(2, 4, 16, 256, ...))) == (2, 4, 16, 256, 65536)]
             test[tuple(take(5, s(2, 1 / 4, 16, ...))) == (2, 1 / 4, 16, 1 / 256, 65536)]    # 2, 2**-2, 2**4, 2**-8, ...
