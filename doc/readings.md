@@ -112,7 +112,7 @@ The common denominator is programming. Some relate to language design, some to c
 
 - [Arjun Guha, Jacob Matthews, Robert Bruce Findler, Shriram Krishnamurthi 2007: Relationally-Parametric Polymorphic Contracts](http://cs.brown.edu/~sk/Publications/Papers/Published/gmfk-rel-par-poly-cont/).
 
-- [Guillaume Marceau, Gregory H. Cooper, Jonathan P. Spiro, Shriram Krishnamurhi, Steven P. Reiss 2007: The Design and Implementation of a Dataflow Language for Scriptable Debugging](http://cs.brown.edu/~sk/Publications/Papers/Published/mcskr-dataflow-lang-script-debug-journal/).
+- [Guillaume Marceau, Gregory H. Cooper, Jonathan P. Spiro, Shriram Krishnamurthi, Steven P. Reiss 2007: The Design and Implementation of a Dataflow Language for Scriptable Debugging](http://cs.brown.edu/~sk/Publications/Papers/Published/mcskr-dataflow-lang-script-debug-journal/).
   - This is the paper that introduces the [MzTake](http://www.cs.brown.edu/research/plt/software/mztake/) debugger for PLT Scheme (the predecessor of Racket).
 
 
