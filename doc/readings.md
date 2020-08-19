@@ -107,7 +107,7 @@ The common denominator is programming. Some relate to language design, some to c
     - Python: `raise ... from ...`.
   - Lots more, but stopping here; that's already enough quoted from one paper in a readings list.
 
-- Gregor Kiczales, John Lamping, Cristina Videira Lopes, Chris Maeda, Anurag Mendhekar, Gail Murphy 1997: Open Implementation Design Guidelines. In ICSE '97: Proceedings of the 19th international conference on Software engineering. May 1997. Pages 481--490. [doi:10.1145/253228.253431](https ://doi.org/10.1145/253228.253431).
+- Gregor Kiczales, John Lamping, Cristina Videira Lopes, Chris Maeda, Anurag Mendhekar, Gail Murphy 1997: Open Implementation Design Guidelines. In ICSE '97: Proceedings of the 19th international conference on Software engineering. May 1997. Pages 481--490. [doi:10.1145/253228.253431](https://doi.org/10.1145/253228.253431).
   - In the introduction: *"The open implementation approach works by somewhat shifting the black-box guidelines for module design. Whereas black-box modules hide all aspects of their implementation, open implementation modules allow clients some control over selection of their implementation strategy, while still hiding many true details of their implementation. In doing this, open implementation module designs strive for an appropriate balance between preserving the kind of opacity black-box modules have, and providing the kind of performance tailorability some clients require."*
 
 
