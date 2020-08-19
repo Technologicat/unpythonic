@@ -28,6 +28,9 @@
   - Uses of `issubclass` are now properly protected by a `try`/`except` when the first argument might not be a class (since in that case `issubclass` raises `TypeError`).
 - Bug in `m()` prevented mathifying iterables that are not themselves iterators (e.g. `tuple`).
 - PyPy3 support: fixed crash in querying the arity of builtin functions. The fact that a function is builtin is reported slightly differently compared to CPython. See [#67](https://github.com/Technologicat/unpythonic/issues/67).
+- Bugs in `s()`:
+  - Respect the type of the input numbers. Particularly, if all the inputs are integers, and the sequence formula allows it, make the created sequence output integers, too.
+  - In the internal function `nofterms()`, convert the output to `int` so it won't accidentally become `sympy.core.numbers.Integer` when the input is symbolic. We actually want native Python integers.
 
 ---
 
