@@ -800,7 +800,7 @@ def namedlambda(tree, **kw):  # noqa: F811
     return (yield from _namedlambda(block_body=tree))
 
 @macros.block
-def quicklambda(tree, **kw):  # noqa: F811
+def quicklambda(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, block] Use ``macropy.quick_lambda`` with ``unpythonic.syntax``.
 
     To be able to transform correctly, the block macros in ``unpythonic.syntax``
@@ -830,7 +830,8 @@ def quicklambda(tree, **kw):  # noqa: F811
     once. If we're giving names to them, a regular ``lambda`` is shorter to write.
     The point is, this combo is now possible.)
     """
-    return (yield from _quicklambda(block_body=tree))
+    with dyn.let(gen_sym=gen_sym):
+        return (yield from _quicklambda(block_body=tree))
 
 @macros.block
 def envify(tree, *, gen_sym, **kw):  # noqa: F811

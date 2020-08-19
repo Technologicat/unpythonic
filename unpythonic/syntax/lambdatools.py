@@ -2,7 +2,8 @@
 """Lambdas with multiple expressions, local variables, and a name."""
 
 from ast import (Lambda, List, Name, Assign, Subscript, Call,
-                 FunctionDef, Attribute, keyword, Dict, Str, copy_location)
+                 FunctionDef, Attribute, keyword, Dict, Str, arg,
+                 copy_location)
 from .astcompat import AsyncFunctionDef
 from copy import deepcopy
 
@@ -161,12 +162,41 @@ def namedlambda(block_body):
     return [rec(stmt) for stmt in newbody]               # second pass: transform in expanded autocurry
 
 def quicklambda(block_body):
+    # TODO/FIXME: `f_transform` is actually `f` from `macropy.quick_lambda`,
+    # TODO/FIXME: stripped into a bare syntax transformer.
+    #
+    # We have copied the implementation here, because the released MacroPy3 1.1.0b2
+    # does not autogenerate a `.transform` attribute for macros; in the HEAD version,
+    # that attribute allows accessing the underlying syntax transformer.
+    #
+    # Used under the MIT license.
+    # Copyright (c) 2013-2018, Li Haoyi, Justin Holmgren, Alberto Berti and all the other contributors.
+    gen_sym = dyn.gen_sym
+    def f_transform(tree):
+        @Walker
+        def underscore_search(tree, collect, **kw):
+            if isinstance(tree, Name) and tree.id == "_":
+                name = gen_sym("_")
+                tree.id = name
+                collect(name)
+                return tree
+        tree, used_names = underscore_search.recurse_collect(tree)
+        new_tree = q[lambda: ast_literal[tree]]
+        new_tree.args.args = [arg(arg=x) for x in used_names]
+        return new_tree
+
+    # The rest is our code.
     def isquicklambda(tree):
         return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "f"
     @Walker
     def transform(tree, **kw):
         if isquicklambda(tree):
-            return f.transform(tree.slice.value)  # TODO: this requires azazel75/macropy/HEAD, the released macropy3 1.1.0b2 is not enough.
+            # TODO: With MacroPy3 from azazel75/macropy/HEAD, we can call `f.transform`
+            # TODO: and we don't need our own `f_transform` function. Kill the hack
+            # TODO: once a new version of MacroPy3 is released.
+            if hasattr(f, "transform"):
+                return f.transform(tree.slice.value)
+            return f_transform(tree.slice.value)  # fallback for MacroPy3 1.1.0b2
         return tree
     new_block_body = [transform.recurse(stmt) for stmt in block_body]
     yield new_block_body
