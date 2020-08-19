@@ -92,7 +92,6 @@ See:
 from contextlib import contextmanager
 from collections import deque
 from functools import partial
-from enum import Enum
 from traceback import format_tb
 import sys
 
@@ -108,68 +107,21 @@ from ..collections import unbox
 # and its sisters are macros.
 from ..syntax import testutil
 
+from .ansicolor import TC, colorize
+
 __all__ = ["session", "testset", "terminate", "returns_normally", "catch_signals", "TestConfig"]
 
-# TODO: Move the general color stuff (TC, colorize) to another module, it could be useful.
-# TODO: Consider implementing the variant which separates effect/fg-color/bg-color with
-# TODO: semicolons and sends them in the same command.
-#
-# TODO: Could also use Colorama (which also works on Windows), but that's one more dependency.
-class TC(Enum):
-    """Terminal colors, via ANSI escape sequences.
+def maybe_colorize(s, *colors):
+    """Colorize `s` with ANSI color escapes if enabled in the global `TestConfig`.
 
-    This uses the terminal app palette (16 colors), so e.g. LIGHTGREEN may actually
-    be blue, depending on the user's color scheme.
+    If color is disabled (`TestConfig.use_color` is falsey), then no-op, i.e.
+    return the original `s` as-is.
 
-    The colors are listed in palette order.
-
-    See:
-        https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters
-        https://stackoverflow.com/questions/287871/print-in-terminal-with-colors
-        https://github.com/tartley/colorama
+    See `unpythonic.test.ansicolor.colorize` for details.
     """
-    # For grepping: \33 octal is \x1b hex.
-    RESET = '\33[0m'  # return to normal state, ending colorization
-    RESETSTYLE = '\33[22m'  # return to normal brightness
-    RESETFG = '\33[39m'
-    RESETBG = '\33[49m'
-
-    # styles
-    BRIGHT = '\33[1m'  # a.k.a. bold
-    DIM = '\33[2m'
-    ITALIC = '\33[3m'
-    URL = '\33[4m'  # underline plus possibly a special color (depends on terminal app)
-    BLINK = '\33[5m'
-    BLINK2 = '\33[6m'  # same effect as BLINK?
-    SELECTED = '\33[7m'
-
-    # foreground colors
-    BLACK = '\33[30m'
-    RED = '\33[31m'
-    GREEN = '\33[32m'
-    YELLOW = '\33[33m'
-    BLUE = '\33[34m'
-    MAGENTA = '\33[35m'
-    CYAN = '\33[36m'
-    WHITE = '\33[37m'
-    LIGHTBLACK = '\33[90m'
-    LIGHTRED = '\33[91m'
-    LIGHTGREEN = '\33[92m'
-    LIGHTYELLOW = '\33[93m'
-    LIGHTBLUE = '\33[94m'
-    LIGHTMAGENTA = '\33[95m'
-    LIGHTCYAN = '\33[96m'
-    LIGHTWHITE = '\33[97m'
-
-    # background colors
-    BLACKBG = '\33[40m'
-    REDBG = '\33[41m'
-    GREENBG = '\33[42m'
-    YELLOWBG = '\33[43m'
-    BLUEBG = '\33[44m'
-    MAGENTABG = '\33[45m'
-    CYANBG = '\33[46m'
-    WHITEBG = '\33[47m'
+    if not TestConfig.use_color:
+        return s
+    return colorize(s, *colors)
 
 class TestConfig:
     """Global settings for the testing utilities.
@@ -210,8 +162,8 @@ class TestConfig:
     class CS:
         """The color scheme.
 
-        See the `TC` enum for valid values. To make a compound style, place the
-        values into a tuple.
+        See the `unpythonic.test.ansicolor.TC` enum for valid values. To make a
+        compound style, place the values into a tuple.
 
         The defaults are designed to fit the "Solarized" (Zenburn-like) theme
         of `gnome-terminal`, with "Show bold text in bright colors" set to OFF.
@@ -225,37 +177,6 @@ class TestConfig:
         # These colors are used for the pass percentage.
         SUMMARY_OK = TC.GREEN
         SUMMARY_NOTOK = TC.YELLOW  # more readable than red on a dark background, yet stands out.
-
-def colorize(s, *colors):
-    """Colorize string `s` for ANSI terminal display. Reset color at end of `s`.
-
-    No-op (return `s`) if `TestConfig.use_color` is falsey.
-
-    For available `colors`, see the `TC` enum.
-
-    Usage::
-
-        colorize("I'm new here", TC.GREEN)
-        colorize("I'm bold and bluetiful", TC.BRIGHT, TC.BLUE)
-
-    Each entry can also be a `tuple` (arbitrarily nested), which is useful
-    for defining compound styles::
-
-        BRIGHT_BLUE = (TC.BRIGHT, TC.BLUE)
-        ...
-        colorize("I'm bold and bluetiful, too", BRIGHT_BLUE)
-    """
-    if not TestConfig.use_color:
-        return s
-    def get_ansi_color_sequence(c):  # recursive, so each entry can be a tuple.
-        if isinstance(c, tuple):
-            return "".join(get_ansi_color_sequence(elt) for elt in c)
-        if not isinstance(c, TC):
-            raise TypeError("Expected a TC instance, got {} with value '{}'".format(type(c), c))
-        return c.value
-    return "{}{}{}".format(get_ansi_color_sequence(colors),
-                           s,
-                           get_ansi_color_sequence(TC.RESET))
 
 def describe_exception(exc):
     """Return a human-readable (possibly multi-line) description of exception `exc`.
@@ -272,8 +193,8 @@ def describe_exception(exc):
         snippets = []
 
         if instance.__traceback__ is not None:
-            snippets.append(colorize("\nTraceback (most recent call last):\n" +
-                                     "".join(format_tb(instance.__traceback__)), TC.DIM))
+            snippets.append(maybe_colorize("\nTraceback (most recent call last):\n" +
+                                           "".join(format_tb(instance.__traceback__)), TC.DIM))
 
         msg = str(instance)
         if msg:
@@ -324,27 +245,27 @@ def summarize(runs, fails, errors):
     # In techni... ANSI color:
     snippets = []
     color = TestConfig.CS.PASS if passes else TestConfig.CS.GREYED_OUT
-    snippets.extend([colorize("Pass", TC.BRIGHT, color),
+    snippets.extend([maybe_colorize("Pass", TC.BRIGHT, color),
                      " ",
-                     colorize("{}".format(passes), color),
-                     colorize(", ", TestConfig.CS.HEADING)])
+                     maybe_colorize("{}".format(passes), color),
+                     maybe_colorize(", ", TestConfig.CS.HEADING)])
     color = TestConfig.CS.FAIL if fails else TestConfig.CS.GREYED_OUT
-    snippets.extend([colorize("Fail", TC.BRIGHT, color),
+    snippets.extend([maybe_colorize("Fail", TC.BRIGHT, color),
                      " ",
-                     colorize("{}".format(fails), color),
-                     colorize(", ", TestConfig.CS.HEADING)])
+                     maybe_colorize("{}".format(fails), color),
+                     maybe_colorize(", ", TestConfig.CS.HEADING)])
     color = TestConfig.CS.ERROR if errors else TestConfig.CS.GREYED_OUT
-    snippets.extend([colorize("Error", TC.BRIGHT, color),
+    snippets.extend([maybe_colorize("Error", TC.BRIGHT, color),
                      " ",
-                     colorize("{}".format(errors), color),
-                     colorize(", ", TestConfig.CS.HEADING)])
+                     maybe_colorize("{}".format(errors), color),
+                     maybe_colorize(", ", TestConfig.CS.HEADING)])
     color = TestConfig.CS.HEADING if runs else TestConfig.CS.GREYED_OUT
-    snippets.extend([colorize("Total", TC.BRIGHT, color),
+    snippets.extend([maybe_colorize("Total", TC.BRIGHT, color),
                      " ",
-                     colorize("{}".format(runs), color)])
+                     maybe_colorize("{}".format(runs), color)])
     color = TestConfig.CS.SUMMARY_OK if passes == runs else TestConfig.CS.SUMMARY_NOTOK
     snippets.extend([" ",
-                     colorize("({}% pass)".format(int(pass_percentage)), TC.BRIGHT, color)])
+                     maybe_colorize("({}% pass)".format(int(pass_percentage)), TC.BRIGHT, color)])
     return "".join(snippets)
 
 class TestSessionExit(Exception):
@@ -356,7 +277,7 @@ def terminate(exc=None):  # the parameter is ignored
     this can be used as a `postproc`, if you want a failure in a particular
     testset to abort the session.
     """
-    TestConfig.printer(colorize("** TERMINATING SESSION", TC.BRIGHT, TestConfig.CS.HEADING))
+    TestConfig.printer(maybe_colorize("** TERMINATING SESSION", TC.BRIGHT, TestConfig.CS.HEADING))
     raise TestSessionExit
 
 def returns_normally(expr):
@@ -413,11 +334,11 @@ def session(name=None):
     if _nesting_level > 0:
         raise RuntimeError("A test `session` cannot be nested inside a `testset`.")
 
-    title = colorize("** SESSION", TC.BRIGHT, TestConfig.CS.HEADING)
+    title = maybe_colorize("** SESSION", TC.BRIGHT, TestConfig.CS.HEADING)
     if name is not None:
-        title += colorize(" '{}'".format(name), TC.ITALIC, TestConfig.CS.HEADING)
-    TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
-                       colorize("BEGIN", TC.BRIGHT, TestConfig.CS.HEADING))
+        title += maybe_colorize(" '{}'".format(name), TC.ITALIC, TestConfig.CS.HEADING)
+    TestConfig.printer(maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
+                       maybe_colorize("BEGIN", TC.BRIGHT, TestConfig.CS.HEADING))
 
     # We are paused when the user triggers the exception; `contextlib` detects the
     # exception and re-raises it into us.
@@ -432,8 +353,8 @@ def session(name=None):
     except TestSessionExit:
         pass
 
-    TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
-                       colorize("END", TC.BRIGHT, TestConfig.CS.HEADING))
+    TestConfig.printer(maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
+                       maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING))
 
 # We use a stack for postprocs so that the local overrides can be nested.
 _postproc_stack = deque()
@@ -462,22 +383,25 @@ def testset(name=None, postproc=None):
 
     title = "{} Testset".format(stars)
     if name is not None:
-        title += colorize(" '{}'".format(name), TC.ITALIC)
-    TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
-                       colorize("BEGIN", TC.BRIGHT, TestConfig.CS.HEADING))
+        title += maybe_colorize(" '{}'".format(name), TC.ITALIC)
+    TestConfig.printer(maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
+                       maybe_colorize("BEGIN", TC.BRIGHT, TestConfig.CS.HEADING))
 
     def print_and_proceed(condition):
         # The assert helpers in `unpythonic.syntax.testutil` signal only TestFailure and TestError,
         # no matter what happens inside the test expression.
         if isinstance(condition, testutil.TestFailure):
-            msg = colorize("{}** FAIL: ".format(stars), TC.BRIGHT, TestConfig.CS.FAIL) + str(condition)
+            msg = maybe_colorize("{}** FAIL: ".format(stars), TC.BRIGHT, TestConfig.CS.FAIL) + str(condition)
         elif isinstance(condition, testutil.TestError):
-            msg = colorize("{}** ERROR: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR) + str(condition)
+            msg = maybe_colorize("{}** ERROR: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR) + str(condition)
         # So any other signal must come from another source.
         else:
             if not _catch_uncaught_signals[0]:
                 return  # cancel and delegate to the next outer handler
-            msg = colorize("{}** Testset received signal outside test[]: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR) + describe_exception(condition)
+            # To highlight the error in the summary, count it as an errored test.
+            testutil.tests_run << unbox(testutil.tests_run) + 1
+            testutil.tests_errored << unbox(testutil.tests_errored) + 1
+            msg = maybe_colorize("{}** Testset received signal outside test[]: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR) + describe_exception(condition)
         TestConfig.printer(msg)
 
         # the custom callback
@@ -513,7 +437,10 @@ def testset(name=None, postproc=None):
     except TestSessionExit:  # pass through, it belongs to session, not us
         pass
     except Exception as err:
-        msg = colorize("{}** Testset terminated by exception outside test[]: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR)
+        # To highlight the error in the summary, count it as an errored test.
+        testutil.tests_run << unbox(testutil.tests_run) + 1
+        testutil.tests_errored << unbox(testutil.tests_errored) + 1
+        msg = maybe_colorize("{}** Testset terminated by exception outside test[]: ".format(stars), TC.BRIGHT, TestConfig.CS.ERROR)
         msg += describe_exception(err)
         TestConfig.printer(msg)
 
@@ -530,7 +457,7 @@ def testset(name=None, postproc=None):
     runs = r2 - r1
     fails = f2 - f1
     errors = e2 - e1
-    TestConfig.printer(colorize("{} ".format(title), TestConfig.CS.HEADING) +
-                       colorize("END", TC.BRIGHT, TestConfig.CS.HEADING) +
-                       colorize(": ", TestConfig.CS.HEADING) +
+    TestConfig.printer(maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
+                       maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING) +
+                       maybe_colorize(": ", TestConfig.CS.HEADING) +
                        summarize(runs, fails, errors))
