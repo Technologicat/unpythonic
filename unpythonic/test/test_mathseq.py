@@ -203,9 +203,9 @@ def runtests():
                 test[tuple(s(x0, x0**k, x0**(k**2), ..., x0**(k**5))) == (x0, x0**k, x0**(k**2), x0**(k**3), x0**(k**4), x0**(k**5))]
 
                 x = symbols("x", real=True)
-                px = lambda stream: stream * s(1, x, x**2, ...)
-                s1 = px(s(1, 3, 5, ...))
-                s2 = px(s(2, 4, 6, ...))
+                powerseries_with_coeffs = lambda stream: stream * s(1, x, x**2, ...)
+                s1 = powerseries_with_coeffs(s(1, 3, 5, ...))
+                s2 = powerseries_with_coeffs(s(2, 4, 6, ...))
                 test[tuple(take(3, cauchyprod(s1, s2))) == (2, 10 * x, 28 * x**2)]
 
         with testset("some special sequences"):
