@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Utilities for writing tests."""
+"""Utilities for writing tests.
+
+See also `unpythonic.test.fixtures` for the high-level machinery.
+"""
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core import unparse
 
-from ast import Tuple, Str, copy_location
+from ast import Tuple, Str, Subscript, Name, Call, copy_location
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..misc import callsite_filename
@@ -13,7 +16,35 @@ from ..conditions import cerror, handlers, restarts, invoke
 from ..collections import box, unbox
 from ..symbol import sym
 
+from .util import isx
+
 from ..test import fixtures
+
+# -----------------------------------------------------------------------------
+# Helper for other macros to detect uses of the ones we define here.
+
+# Note the unexpanded `error[]` macro is distinguishable from a call to
+# the function `unpythonic.conditions.error`, because a macro invocation
+# is an `ast.Subscript`, whereas a function call is an `ast.Call`.
+_test_macro_names = ["test", "test_signals", "test_raises", "error", "fail"]
+_test_function_names = ["unpythonic_assert",
+                        "unpythonic_assert_signals",
+                        "unpythonic_assert_raises"]
+def istestmacro(tree):
+    """Return whether `tree` is an invocation of a testing macro.
+
+    Expanded or unexpanded doesn't matter; this is currently provided
+    so that other macros can detect and skip subtrees that invoke a test.
+    """
+    def isunexpandedtestmacro(tree):
+        return (type(tree) is Subscript and
+                type(tree.value) is Name and
+                tree.value.id in _test_macro_names)
+    def isexpandedtestmacro(tree):
+        return (type(tree) is Call and
+                any(isx(tree.func, fname, accept_attr=False)
+                    for fname in _test_function_names))
+    return isunexpandedtestmacro(tree) or isexpandedtestmacro(tree)
 
 # -----------------------------------------------------------------------------
 # Regular code, no macros yet.
