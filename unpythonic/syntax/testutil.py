@@ -95,7 +95,7 @@ def _observe(thunk):
     except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
         return _raised, err
 
-def unpythonic_assert(sourcecode, thunk, filename, lineno, message=None):
+def unpythonic_assert(sourcecode, thunk, *, filename, lineno, message=None):
     """Custom assert function, for building test frameworks.
 
     Upon a failing assertion, this will *signal* a `TestFailure` as a
@@ -211,7 +211,7 @@ def unpythonic_assert(sourcecode, thunk, filename, lineno, message=None):
     # is an error.
     cerror(conditiontype(complete_msg))
 
-def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, message=None):
+def unpythonic_assert_signals(exctype, sourcecode, thunk, *, filename, lineno, message=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` signals `exctype`.
 
     "Signal" as in `unpythonic.conditions.signal` and its sisters `error`, `cerror`, `warn`.
@@ -252,7 +252,7 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, filename, lineno, mess
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg))
 
-def unpythonic_assert_raises(exctype, sourcecode, thunk, filename, lineno, message=None):
+def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, message=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` raises `exctype`."""
     def safeissubclass(t, u):
         try:

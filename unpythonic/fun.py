@@ -176,6 +176,17 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
         with_n = lambda *args: (partial(f, n) for n, f in args)
         clip = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
         assert tuple(curry(clip, 5, 10, range(20))) == tuple(range(5, 15))
+
+    **CAUTION**: BUG: `curry` may fail to actually call the function even after
+    sufficient arguments have been collected, if some of the positional-or-keyword
+    arguments of the function being curried are passed by name (in the first call).
+    It seems those arguments don't reduce the expected remaining positional arity,
+    although they should. See issue #61:
+        https://github.com/Technologicat/unpythonic/issues/61
+
+    **Workaround**: if possible, at the definition site for your function, declare
+    any arguments you plan to pass by name as keyword-only; then they won't affect
+    the positional arity.
     """
     f = force(f)  # lazify support: we need the value of f
     # trivial case first: prevent stacking curried wrappers
