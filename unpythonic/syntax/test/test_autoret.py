@@ -24,7 +24,7 @@ def runtests():
 
             def f2():
                 return "I'll just return this"  # explicit return, not transformed
-            test[f() == "I'll just return this"]
+            test[f2() == "I'll just return this"]
 
         with testset("if, elif, else"):
             def g(x):
