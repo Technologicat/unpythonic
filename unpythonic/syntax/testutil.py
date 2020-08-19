@@ -124,7 +124,7 @@ def unpythonic_assert(sourcecode, thunk, *, filename, lineno, message=None):
         with handlers(((TestFailure, TestError), report)):
             test[2 + 2 == 5]  # fails, but allows further tests to continue
             test[2 + 2 == 4]
-            test[17 + 23 == 40, "my named test"]
+            test[17 + 23 == 40, "failure message"]
 
         # One wouldn't normally use `assert` in a test module that uses `test[]`.
         # This is just to state that in this example, we expect these to hold.
