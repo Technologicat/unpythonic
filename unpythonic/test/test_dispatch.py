@@ -9,7 +9,7 @@ from ..dispatch import generic, typed
 
 @generic
 def zorblify():  # could use the ellipsis `...` as the body, but this is a unit test.
-    assert False  # Stub, not called.
+    fail["this stub should never be called"]
 @zorblify.register
 def zorblify(x: int, y: int):
     return 2 * x + y
@@ -46,7 +46,8 @@ def _example_impl(start, step, stop):
 
 # shorter, same effect
 @generic
-def example2(): ...
+def example2():
+    ...
 @example2.register
 def example2(start: int, stop: int):
     return example2(start, 1, stop)  # just call the method that has the implementation
@@ -56,7 +57,8 @@ def example2(start: int, step: int, stop: int):
 
 # varargs are supported via `typing.Tuple`
 @generic
-def gargle(): ...
+def gargle():
+    ...
 @gargle.register
 def gargle(*args: typing.Tuple[int, ...]):  # any number of ints
     return "int"
