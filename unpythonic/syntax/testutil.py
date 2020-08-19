@@ -374,7 +374,7 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
         exctype, tree = tree.elts
         message = q[None]
     else:
-        assert False, "Expected one of {stx}[exctype, expr], {stx}[exctype, expr, name]".format(stx=syntaxname)
+        assert False, "Expected one of {stx}[exctype, expr], {stx}[exctype, expr, message]".format(stx=syntaxname)
 
     return q[(ast_literal[asserter])(ast_literal[exctype],
                                      u[unparse(tree)],
@@ -403,18 +403,18 @@ def _make_identifier(s):
 # The strategy is we capture the block body into a new function definition,
 # and then apply `test_expr` to a call to that function.
 #
-# The function is named with a MacroPy gen_sym; if the test is named,
-# that name is mangled into a function name if reasonably possible.
-# When no name is given or mangling would be nontrivial, we treat the
-# test as an anonymous test block.
+# The function is named with a MacroPy gen_sym; if the test has a failure
+# message, that message is mangled into a function name if reasonably possible.
+# When no message is given or mangling would be nontrivial, we treat the test as
+# an anonymous test block.
 #
 def test_block(block_body, args):
-    # with test("my test name"):
+    # with test(message):
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     function_name = "anonymous_test_block"
     if len(args) == 1 and type(args[0]) is Str:
         message = args[0]
-        # Name the generated function using the test name when possible.
+        # Name the generated function using the failure message when possible.
         maybe_function_name = _make_identifier(message.s)
         if maybe_function_name is not None:
             function_name = maybe_function_name
@@ -422,7 +422,7 @@ def test_block(block_body, args):
     elif len(args) == 0:
         message = None
     else:
-        assert False, 'Expected `with test:` or `with test("my test name"):`'
+        assert False, 'Expected `with test:` or `with test(message):`'
 
     gen_sym = dyn.gen_sym
     final_function_name = gen_sym(function_name)
@@ -452,12 +452,12 @@ def test_block(block_body, args):
     return newbody
 
 def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
-    # with test_raises(exctype, "my test name"):
+    # with test_raises(exctype, message):
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     function_name = "anonymous_test_block"
     if len(args) == 2 and type(args[1]) is Str:
         exctype, message = args
-        # Name the generated function using the test name when possible.
+        # Name the generated function using the failure message when possible.
         maybe_function_name = _make_identifier(message.s)
         if maybe_function_name is not None:
             function_name = maybe_function_name
@@ -466,7 +466,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
         exctype = args[0]
         message = None
     else:
-        assert False, 'Expected `with {stx}(exctype):` or `with {stx}(exctype, "my test name"):`'.format(stx=syntaxname)
+        assert False, 'Expected `with {stx}(exctype):` or `with {stx}(exctype, message):`'.format(stx=syntaxname)
 
     gen_sym = dyn.gen_sym
     final_function_name = gen_sym(function_name)
