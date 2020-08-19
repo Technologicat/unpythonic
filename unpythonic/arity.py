@@ -181,7 +181,9 @@ def _getfunc(f):
         if not hasattr(f, "__self__"):
             return False
         self = f.__self__
-        if isinstance(self, ModuleType) and self.__name__ == "builtins":  # e.g. print
+        if f.__self__ is None:  # builtin functions on PyPy3
+            return False
+        if isinstance(self, ModuleType) and self.__name__ == "builtins":  # builtin functions on CPython
             return False
         return True
     kind = "function"
