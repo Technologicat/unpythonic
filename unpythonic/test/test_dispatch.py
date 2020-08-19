@@ -1,7 +1,7 @@
 # -*- coding: utf-8; -*-
 
 from ..syntax import macros, test, test_raises, fail  # noqa: F401
-from .fixtures import testset
+from .fixtures import session, testset
 
 import typing
 from ..fun import curry
@@ -78,47 +78,47 @@ def jack(x: typing.Union[int, str]):  # look, it's the union-jack!
     return x
 
 def runtests():
-    with testset("unpythonic.dispatch"):
-        with testset("@generic"):
-            test[zorblify(17, 8) == 42]
-            test[zorblify(17, y=8) == 42]  # can also use named arguments
-            test[zorblify(y=8, x=17) == 42]
-            test[zorblify("tac", 1.0) == "cat 1.0"]
-            test[zorblify(y=1.0, x="tac") == "cat 1.0"]
+    with testset("@generic"):
+        test[zorblify(17, 8) == 42]
+        test[zorblify(17, y=8) == 42]  # can also use named arguments
+        test[zorblify(y=8, x=17) == 42]
+        test[zorblify("tac", 1.0) == "cat 1.0"]
+        test[zorblify(y=1.0, x="tac") == "cat 1.0"]
 
-            test_raises[TypeError, zorblify(1.0, 2.0)]  # there's no zorblify(float, float)
+        test_raises[TypeError, zorblify(1.0, 2.0)]  # there's no zorblify(float, float)
 
-            test[example(10) == (0, 1, 10)]
-            test[example(2, 10) == (2, 1, 10)]
-            test[example(2, 3, 10) == (2, 3, 10)]
+        test[example(10) == (0, 1, 10)]
+        test[example(2, 10) == (2, 1, 10)]
+        test[example(2, 3, 10) == (2, 3, 10)]
 
-            test[example2(1, 5) == (1, 1, 5)]
-            test[example2(1, 1, 5) == (1, 1, 5)]
-            test[example2(1, 2, 5) == (1, 2, 5)]
+        test[example2(1, 5) == (1, 1, 5)]
+        test[example2(1, 1, 5) == (1, 1, 5)]
+        test[example2(1, 2, 5) == (1, 2, 5)]
 
-            test[gargle(1, 2, 3, 4, 5) == "int"]
-            test[gargle(2.71828, 3.14159) == "float"]
-            test[gargle(42, 6.022e23, "hello") == "int, float, str"]
-            test[gargle(1, 2, 3) == "int"]  # as many as in the [int, float, str] case
+        test[gargle(1, 2, 3, 4, 5) == "int"]
+        test[gargle(2.71828, 3.14159) == "float"]
+        test[gargle(42, 6.022e23, "hello") == "int, float, str"]
+        test[gargle(1, 2, 3) == "int"]  # as many as in the [int, float, str] case
 
-        with testset("@typed"):
-            test[blubnify(2, 21.0) == 42]
-            test_raises[TypeError, blubnify(2, 3)]  # blubnify only accepts (int, float)
-            test[not hasattr(blubnify, "register")]  # and no more methods can be registered on it
+    with testset("@typed"):
+        test[blubnify(2, 21.0) == 42]
+        test_raises[TypeError, blubnify(2, 3)]  # blubnify only accepts (int, float)
+        test[not hasattr(blubnify, "register")]  # and no more methods can be registered on it
 
-            test[jack(42) == 42]
-            test[jack("foo") == "foo"]
-            test_raises[TypeError, jack(3.14)]  # jack only accepts int or str
+        test[jack(42) == 42]
+        test[jack("foo") == "foo"]
+        test_raises[TypeError, jack(3.14)]  # jack only accepts int or str
 
-        with testset("@typed integration with curry"):
-            f = curry(blubnify, 2)
-            test[callable(f)]
-            test[f(21.0) == 42]
+    with testset("@typed integration with curry"):
+        f = curry(blubnify, 2)
+        test[callable(f)]
+        test[f(21.0) == 42]
 
-            # But be careful:
-            f = curry(blubnify, 2.0)  # wrong argument type; error not triggered yet
-            test[callable(f)]
-            test_raises[TypeError, f(21.0) == 42]  # error will occur now, when the call is triggered
+        # But be careful:
+        f = curry(blubnify, 2.0)  # wrong argument type; error not triggered yet
+        test[callable(f)]
+        test_raises[TypeError, f(21.0) == 42]  # error will occur now, when the call is triggered
 
 if __name__ == '__main__':
-    runtests()
+    with session(__file__):
+        runtests()
