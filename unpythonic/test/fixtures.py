@@ -8,7 +8,7 @@ rudimentary test reports for macro-enabled Python code, particularly
 `unpythonic` itself (see issue #5).
 
 This also demonstrates how to build a simple testing framework on top of the
-`test[]` macro.
+`test[]` macros.
 
 We can't use `unittest` due to some of `unpythonic`'s constructs having the
 same name as the module hosting the construct. (This is an issue in `unpythonic`
