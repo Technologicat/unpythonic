@@ -110,6 +110,10 @@ The common denominator is programming. Some relate to language design, some to c
 - Gregor Kiczales, John Lamping, Cristina Videira Lopes, Chris Maeda, Anurag Mendhekar, Gail Murphy 1997: Open Implementation Design Guidelines. In ICSE '97: Proceedings of the 19th international conference on Software engineering. May 1997. Pages 481--490. [doi:10.1145/253228.253431](https://doi.org/10.1145/253228.253431).
   - In the introduction: *"The open implementation approach works by somewhat shifting the black-box guidelines for module design. Whereas black-box modules hide all aspects of their implementation, open implementation modules allow clients some control over selection of their implementation strategy, while still hiding many true details of their implementation. In doing this, open implementation module designs strive for an appropriate balance between preserving the kind of opacity black-box modules have, and providing the kind of performance tailorability some clients require."*
 
+- [Arjun Guha, Jacob Matthews, Robert Bruce Findler, Shriram Krishnamurthi 2007: Relationally-Parametric Polymorphic Contracts](http://cs.brown.edu/~sk/Publications/Papers/Published/gmfk-rel-par-poly-cont/).
+
+- [Guillaume Marceau, Gregory H. Cooper, Jonathan P. Spiro, Shriram Krishnamurhi, Steven P. Reiss 2007: The Design and Implementation of a Dataflow Language for Scriptable Debugging](http://cs.brown.edu/~sk/Publications/Papers/Published/mcskr-dataflow-lang-script-debug-journal/).
+
 
 ## Python-related FP resources
 
