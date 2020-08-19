@@ -1,16 +1,18 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Run all tests for `unpythonic`.
+
+The test framework uses macros, but this top-level script does not. This can be
+run under regular `python3` (i.e. does not need the `macropy3` wrapper from the
+`imacropy` PyPI package).
+"""
 
 import os
 import re
-import subprocess
+from importlib import import_module
 
-# https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters
-# https://stackoverflow.com/questions/287871/print-in-terminal-with-colors
-CHEAD = "\033[32m"  # dark green
-CPASS = "\033[92m"  # light green
-CFAIL = "\033[91m"  # light red
-CEND = "\033[39m"   # reset FG color to default
+from unpythonic.test.fixtures import session, testset
+
+import macropy.activate  # noqa: F401
 
 def listtestmodules(path):
     testfiles = listtestfiles(path)
@@ -25,44 +27,22 @@ def modname(path, filename):  # some/dir/mod.py --> some.dir.mod
     themod = re.sub(r"\.py$", r"", filename)
     return ".".join([modpath, themod])
 
-def runtests(testsetname, modules, command_prefix):
-    print(CHEAD + "*** Testing {} ***".format(testsetname) + CEND)
-    fails = 0
-    for mod in modules:
-        print(CHEAD + "*** Running {} ***".format(mod) + CEND)
-        # TODO: migrate to subprocess.run (Python 3.5+)
-        ret = subprocess.call(command_prefix + [mod])
-        if ret == 0:
-            print(CPASS + "*** PASS ***" + CEND)
-        else:
-            fails += 1
-            print(CFAIL + "*** FAIL ***" + CEND)
-    if not fails:
-        print(CPASS + "*** ALL OK in {} ***".format(testsetname) + CEND)
-    else:
-        print(CFAIL + "*** AT LEAST ONE FAIL in {} ***".format(testsetname))
-    return fails
-
 def main():
-    totalfails = 0
-    totalfails += runtests("regular code",
-                           (listtestmodules(os.path.join("unpythonic", "test")) +
-                            listtestmodules(os.path.join("unpythonic", "net", "test"))),
-                           ["python3", "-m"])
-
-    try:
-        import macropy.activate  # noqa: F401
-    except ImportError:
-        print(CHEAD + "*** Could not initialize MacroPy, skipping macro tests. ***" + CEND)
-    else:
-        totalfails += runtests("macros",
-                               listtestmodules(os.path.join("unpythonic", "syntax", "test")),
-                               ["macropy3", "-m"])
-
-    if not totalfails:
-        print(CPASS + "*** ALL OK ***" + CEND)
-    else:
-        print(CFAIL + "*** AT LEAST ONE FAIL ***" + CEND)
+    with session():
+        testsets = (("regular code", (listtestmodules(os.path.join("unpythonic", "test")) +
+                                      listtestmodules(os.path.join("unpythonic", "net", "test")))),
+                    ("macros", listtestmodules(os.path.join("unpythonic", "syntax", "test"))))
+        for tsname, modnames in testsets:
+            with testset(tsname):
+                for m in modnames:
+                    # Wrap each module in its own testset to protect the umbrella testset
+                    # against ImportError as well as any failures at macro expansion time.
+                    with testset(m):
+                        # TODO: We're not inside a package, so we currently can't use a relative import.
+                        # TODO: So we just hope this resolves to the local `unpythonic` source code,
+                        # TODO: not to an installed copy of the library.
+                        mod = import_module(m)
+                        mod.runtests()
 
 if __name__ == '__main__':
     main()
