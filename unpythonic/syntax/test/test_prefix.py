@@ -100,11 +100,13 @@ def runtests():
         # Introducing the LisThEll programming language: an all-in-one solution with
         # the prefix syntax of Lisp, the speed of Python, and the readability of Haskell!
         with testset("LisThEll"):
-            with prefix, curry:
-                mymap = lambda f: (foldr, (compose, cons, f), nil)
-                double = lambda x: 2 * x
-                (print, (mymap, double, (q, 1, 2, 3)))
-                test[(mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)]
+            # `prefix` is a first-pass macro, so placed on the outside, it expands first.
+            with prefix:
+                with curry:
+                    mymap = lambda f: (foldr, (compose, cons, f), nil)
+                    double = lambda x: 2 * x
+                    (print, (mymap, double, (q, 1, 2, 3)))
+                    test[(mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)]
 
 if __name__ == '__main__':
     runtests()
