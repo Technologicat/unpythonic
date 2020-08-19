@@ -1189,7 +1189,7 @@ curry(f, a, (g, x, y), b, c)
 
 because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by design; as with all things Python, *explicit is better than implicit*.
 
-**Note**: to code in curried style, a [contract system](https://github.com/AndreaCensi/contracts) or a [static type checker](http://mypy-lang.org/) is useful; also, be careful with variadic functions.
+**Note**: to code in curried style, a [contract system](https://en.wikipedia.org/wiki/Design_by_contract) (such as [icontract](https://github.com/Parquery/icontract) or [PyContracts](https://github.com/AndreaCensi/contracts)) or the [mypy static type checker](http://mypy-lang.org/) can be useful; also, be careful with variadic functions.
 
 
 #### ``fix``: break infinite recursion cycles
