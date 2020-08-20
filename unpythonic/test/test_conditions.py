@@ -252,13 +252,13 @@ def runtests():
         test_multiple_signal_types()
 
     # invoker(restart_name) creates a handler callable that just invokes
-# the given restart (passing through args and kwargs to it, if any are given).
+    # the given restart (passing through args and kwargs to it, if any are given).
     with testset("invoker"):
         def test_invoker():
             with handlers((JustTesting, invoker("hello"))):
                 with restarts(hello=(lambda: "hello")) as result:
                     warn(JustTesting())
-                    result << 21
+                    fail["This line should not be reached in the tests."]  # pragma: no cover
                 test[unbox(result) == "hello"]
         test_invoker()
 
@@ -268,7 +268,7 @@ def runtests():
             with handlers((JustTesting, (lambda c: invoke("use_value", 42)))):
                 with restarts(use_value=(lambda x: x)) as result:
                     signal(JustTesting())
-                    result << 21
+                    fail["This line should not be reached in the tests."]  # pragma: no cover
                 test[unbox(result) == 42]
 
             # can be shortened using the predefined `use_value` function, which immediately
@@ -276,7 +276,7 @@ def runtests():
             with handlers((JustTesting, lambda c: use_value(42))):
                 with restarts(use_value=(lambda x: x)) as result:
                     signal(JustTesting())
-                    result << 21
+                    fail["This line should not be reached in the tests."]  # pragma: no cover
                 test[unbox(result) == 42]
 
             # The `invoker` factory is also an option here, if you're sending a constant.
@@ -285,7 +285,7 @@ def runtests():
             with handlers((JustTesting, invoker("use_value", 42))):
                 with restarts(use_value=(lambda x: x)) as result:
                     signal(JustTesting())
-                    result << 21
+                    fail["This line should not be reached in the tests."]  # pragma: no cover
                 test[unbox(result) == 42]
         test_usevalue()
 
@@ -313,8 +313,14 @@ def runtests():
                 @with_restarts(use_value=(lambda x: x))
                 def result():
                     error(JustTesting())
-                    return 21
+                    fail["This line should not be reached in the tests."]  # pragma: no cover
                 test[result == 42]
+
+                # To return a result normally in this alternate syntax, just `return` it.
+                @with_restarts(use_value=(lambda x: x))
+                def result():
+                    return 21
+                test[result == 21]
 
                 # hifi usage - as a function
                 with_usevalue = with_restarts(use_value=(lambda x: x))
@@ -322,7 +328,7 @@ def runtests():
                 # restarts that were given as arguments to `with_restarts`:
                 def mythunk():
                     error(JustTesting())
-                    return 21
+                    fail["This line should not be reached in the tests."]  # pragma: no cover
                 result = with_usevalue(mythunk)
                 test[result == 42]
         alternate_syntax()
@@ -378,7 +384,7 @@ def runtests():
                 # Let's set up "myrestart".
                 with restarts(myrestart=(lambda: 42)) as result:
                     signal(JustACondition())
-                    result << 21
+                    fail["This line should not be reached in the tests."]  # pragma: no cover
                 test[unbox(result) == 42]  # should be the return value of the restart.
 
             # If there is no "myrestart" in scope, the above handler will *raise* NoItDidntExist.
@@ -421,12 +427,12 @@ def runtests():
             def lowlevel2():
                 with restarts(r=(lambda x: x)) as a:
                     signal(HelpMe(21))
-                    a << False
+                    fail["This line should not be reached in the tests."]  # pragma: no cover
                 with restarts(r=(lambda x: x)):
                     # here this is lexically nested, but could be in another function as well.
                     with restarts(r=(lambda x: 2 * x)) as b:
                         signal(HelpMe(21))
-                        b << False
+                        fail["This line should not be reached in the tests."]  # pragma: no cover
                 return a, b
             with test:
                 with handlers((HelpMe, lambda c: invoke("r", c.value))):
@@ -440,7 +446,7 @@ def runtests():
             def lowlevel3():
                 with restarts(use_value=(lambda x: x)) as a:
                     signal(HelpMe(42))
-                    a << False
+                    fail["This line should not be reached in the tests."]  # pragma: no cover
                 return unbox(a)
 
             # If an inner handler returns normally, the next outer handler (if any) for
@@ -452,7 +458,7 @@ def runtests():
                 with handlers((HelpMe, lambda c: [outer_handler_ran << True,
                                                   use_value(c.value)])):
                     with handlers((HelpMe, lambda: [inner_handler_ran << True,
-                                                    None])):  # return normally from handler to cancel-and-delegate
+                                                    None])):  # return normally to cancel-and-delegate to outer handler
                         result = lowlevel3()
                         test[result == 42]
                         test[unbox(inner_handler_ran) is True]
@@ -479,7 +485,8 @@ def runtests():
             def lowlevel4(tag):
                 with restarts(use_value=(lambda x: x)) as result:
                     signal(HelpMe((tag, 42)))
-                    result << (tag, 21)  # if the signal is not handled, the box will hold (tag, 21)
+                    # This runs in 1000 different threads, so return a marker value instead of calling fail[].
+                    result << (tag, 21)  # if the signal is not handled, the box will hold (tag, 21)  # pragma: no cover
                 return unbox(result)
             def worker(comm, tid):
                 with handlers((HelpMe, lambda c: use_value(c.value))):
