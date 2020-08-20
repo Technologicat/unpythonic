@@ -343,6 +343,7 @@ def error_expr(tree):
 # Expr variants.
 
 def test_expr(tree):
+    # Note we want the line number *before macro expansion*, so we capture it now.
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = hq[callsite_filename()]
     asserter = hq[unpythonic_assert]
