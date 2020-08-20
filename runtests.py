@@ -8,9 +8,12 @@ run under regular `python3` (i.e. does not need the `macropy3` wrapper from the
 
 import os
 import re
+import sys
 from importlib import import_module
 
 from unpythonic.test.fixtures import session, testset
+from unpythonic.syntax.testutil import tests_errored, tests_failed
+from unpythonic.collections import unbox
 
 import macropy.activate  # noqa: F401
 
@@ -43,6 +46,9 @@ def main():
                         # TODO: not to an installed copy of the library.
                         mod = import_module(m)
                         mod.runtests()
+    all_passed = (unbox(tests_failed) + unbox(tests_errored)) == 0
+    return all_passed
 
 if __name__ == '__main__':
-    main()
+    if not main():
+        sys.exit(1)
