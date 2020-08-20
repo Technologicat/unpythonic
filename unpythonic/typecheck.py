@@ -133,7 +133,7 @@ def isoftype(value, T):
             return False
         return True
 
-    if callable(T) and T.__qualname__ == "NewType.<locals>.new_type":
+    if callable(T) and hasattr(T, "__qualname__") and T.__qualname__ == "NewType.<locals>.new_type":
         # This is the best we can do, because the static types created by `typing.NewType`
         # have a constructor that discards the type information at runtime:
         #   UserId = typing.NewType("UserId", int)
