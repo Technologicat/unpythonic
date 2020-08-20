@@ -772,6 +772,9 @@ def callsite_filename():
     """Return the filename of the call site, as a string.
 
     Useful as a building block for debug utilities and similar.
+
+    The filename is grabbed from the call stack using `inspect`.
+    This works also in the REPL (where `__file__` is undefined).
     """
     stack = inspect.stack()
     frame = stack[1].frame
