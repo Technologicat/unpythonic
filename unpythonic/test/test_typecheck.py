@@ -187,6 +187,6 @@ def runtests():
         #  https://docs.python.org/3/glossary.html#term-dictionary-view
         #  https://docs.python.org/3/library/stdtypes.html#dict-views
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

@@ -67,6 +67,6 @@ def runtests():
                     e.x  # tail position in a with block
             test[ctx() == "hi"]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

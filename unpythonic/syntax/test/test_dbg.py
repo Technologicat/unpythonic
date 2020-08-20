@@ -51,6 +51,6 @@ def runtests():
             x = dbg[2 + 3]
             test[x == ("(2 + 3)", 5)]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

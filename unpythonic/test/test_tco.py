@@ -104,6 +104,6 @@ def runtests():
         print("  @trampolined {:g}s ({:g}s/iter)".format(fp1.dt, fp1.dt / n))
         print("@trampolined slowdown {:g}x".format(fp1.dt / ip.dt))
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

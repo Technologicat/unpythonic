@@ -387,6 +387,6 @@ def runtests():
             # this 1/0 is sent directly into "more", as the call_cc returns again
             test[k('thrice', 1 / 0) == ['the call returned', 'thrice']]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

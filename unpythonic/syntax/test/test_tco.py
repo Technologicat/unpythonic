@@ -174,6 +174,6 @@ def runtests():
                 test[k('again') == ['the call returned', 'again']]
                 test[k('thrice', '!') == ['the call returned', 'thrice', '!']]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

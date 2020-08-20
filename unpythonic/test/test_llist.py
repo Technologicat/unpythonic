@@ -166,6 +166,6 @@ def runtests():
         #  session, and there's no instance data to load.)
         test[tuple(k) == (1, 2, 3)]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

@@ -195,6 +195,6 @@ def runtests():
         test[tuple(running_minmax((3, 2, 1))) == ((3, 3), (2, 3), (1, 3))]
         test[minmax((1, 2, 3)) == (1, 3)]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

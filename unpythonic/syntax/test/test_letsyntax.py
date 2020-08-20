@@ -178,6 +178,6 @@ def runtests():
                     verylongfunctionname
                 test[f(10) == 10]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

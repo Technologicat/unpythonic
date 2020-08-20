@@ -576,6 +576,6 @@ def runtests():
             test[tuple(out) == 2 * tuple(range(11))]
             test[s == 10]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

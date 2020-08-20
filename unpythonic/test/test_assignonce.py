@@ -20,6 +20,6 @@ def runtests():
         with test_raises(AttributeError, "should not be able to rebind an unbound name"):
             e.set("c", 3)
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

@@ -121,6 +121,6 @@ def runtests():
         test[callable(f)]
         test_raises[TypeError, f(21.0) == 42]  # error will occur now, when the call is triggered
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

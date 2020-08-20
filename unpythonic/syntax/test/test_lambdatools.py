@@ -217,6 +217,6 @@ def runtests():
         test[f(1) == 11]
         test[f(1) == 12]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

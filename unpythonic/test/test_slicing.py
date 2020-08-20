@@ -61,6 +61,6 @@ def runtests():
         test[tuple(islice(range(10))[-20:]) == tuple(range(10))]  # start < 0, past the start of the iterable
         test[tuple(islice(range(10))[-20:5]) == tuple(range(5))]  # same, but with stop > 0
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

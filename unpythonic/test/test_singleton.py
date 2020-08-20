@@ -72,6 +72,6 @@ def runtests():
         test[qux2 is qux]   # it's the same instance
         test[qux.x == 23]  # and unpickling didn't change the state
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

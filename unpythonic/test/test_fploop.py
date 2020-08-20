@@ -370,6 +370,6 @@ def runtests():
         print("@looped slowdown {:g}x".format(fp2.dt / ip.dt))
         print("@looped_over slowdown {:g}x".format(fp3.dt / ip.dt))
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

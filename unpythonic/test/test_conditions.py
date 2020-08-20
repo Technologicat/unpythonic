@@ -498,6 +498,6 @@ def runtests():
             test[tuple(sorted(tag for tag, x in results)) == tuple(range(n))]
         multithreading()
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

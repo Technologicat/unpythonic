@@ -106,6 +106,6 @@ def runtests():
             with autoref(e):
                 test[a == 1]  # noqa: F821
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

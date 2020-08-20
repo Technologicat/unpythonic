@@ -84,6 +84,6 @@ def runtests():
             test[tuple(sorted(d1.items())) == (('bar', 'tavern'), ('foo', 'bar'))]
             test[tuple(sorted(d2.items())) == (('bar', 'pub'), ('foo', 'bar'))]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

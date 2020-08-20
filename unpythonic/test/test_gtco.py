@@ -38,6 +38,6 @@ def runtests():
             return range(10, 20)  # can tail-chain into any iterable
         test[tuple(ranges()) == tuple(range(20))]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

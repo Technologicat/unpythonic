@@ -118,6 +118,6 @@ def runtests():
                                                ("vararg", (4, 5)), ("vararg_name", "args"),
                                                ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw"))]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

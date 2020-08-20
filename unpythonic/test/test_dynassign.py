@@ -122,6 +122,6 @@ def runtests():
             test[noimplicits(items) == (("a", 1), ("b", 2),
                                         ("im_always_there", True))]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

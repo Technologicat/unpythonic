@@ -107,6 +107,6 @@ def runtests():
                 (print, (mymap, double, (q, 1, 2, 3)))
                 test[(mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

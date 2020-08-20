@@ -187,6 +187,6 @@ def runtests():
         # outside any make_generator are caught at runtime. The actual template the
         # make_generator macro needs to splice in is already here in the final example.)
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

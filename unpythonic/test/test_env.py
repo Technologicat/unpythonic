@@ -67,6 +67,6 @@ def runtests():
             with test_raises(ValueError, "should detect invalid identifier in __getitem__"):
                 e["∞"]  # invalid identifier in load context (__getitem__)
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

@@ -101,6 +101,6 @@ def runtests():
             lst = (1, 2, 3, 4, 5)
             out = fupdate(lst, slice(1, None, 2), (10,))  # need 2 items, have 1
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

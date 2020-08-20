@@ -28,6 +28,6 @@ def runtests():
                 3 * _  # noqa: F821
                 test[_ == 3 * x * y]  # noqa: F821
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

@@ -151,6 +151,6 @@ def runtests():
             def error1(*, env):
                 env.y = 2  # error, cannot introduce new bindings into a let environment
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

@@ -234,6 +234,6 @@ def runtests():
 
         test[last(take(3379, primes())) == 31337]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

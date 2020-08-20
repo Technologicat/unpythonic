@@ -249,6 +249,6 @@ def runtests():
         fact = withself(lambda self, n: n * self(n - 1) if n > 1 else 1)
         test[fact(5) == 120]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

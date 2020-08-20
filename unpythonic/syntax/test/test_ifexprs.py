@@ -38,6 +38,6 @@ def runtests():
         test[answer(3) == "three"]
         test[answer(4) == "something else"]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

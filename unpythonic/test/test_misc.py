@@ -268,6 +268,6 @@ def runtests():
         except NotImplementedError:
             error["async_raise not supported on this Python interpreter."]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

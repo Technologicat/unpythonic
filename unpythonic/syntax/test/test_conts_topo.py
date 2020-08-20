@@ -215,6 +215,6 @@ def runtests():
             f1()
             test[out == ['f1', 'y_cont', 's_cont', 'r_cont', 'x_cont', 'f2']]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

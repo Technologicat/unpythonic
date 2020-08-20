@@ -302,6 +302,6 @@ def runtests():
                 last(take(n, g))
             print(g, tictoc.dt)
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

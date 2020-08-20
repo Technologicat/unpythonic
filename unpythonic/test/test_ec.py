@@ -83,6 +83,6 @@ def runtests():
     #         print(row)
     # catching_truth_table()
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

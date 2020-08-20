@@ -345,6 +345,6 @@ def runtests():
         test[all(sum(terms) == 10 for terms in partition_int(10, lower=3))]
         test[all(sum(terms) == 10 for terms in partition_int(10, lower=3, upper=5))]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

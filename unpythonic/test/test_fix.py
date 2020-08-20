@@ -171,6 +171,6 @@ def runtests():
             return f(k)
         test[g(0) is NoReturn]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()
