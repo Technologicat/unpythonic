@@ -171,6 +171,7 @@ def isoftype(value, T):
                 res = (list(res[:-1]), res[-1])
             return res
         return ()
+    # <--- end of local copies of get_origin and get_args. The rest is our code.
 
     # Optional normalizes to Union[argtype, NoneType].
     # Python 3.6 has the repr, 3.7+ use typing._GenericAlias.
