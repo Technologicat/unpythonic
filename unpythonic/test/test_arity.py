@@ -121,7 +121,9 @@ def runtests():
                        vararg_name_r == vararg_name_t and kwarg_name_r == kwarg_name_t)
             if not couldbe:
                 return False
-            return set(kwarg_r) == set(kwarg_t)
+            name_r, contents_r = kwarg_r
+            name_t, contents_t = kwarg_t
+            return name_r == name_t and set(contents_r) == set(contents_t)
 
         def f(a, b, c, **kw):
             pass
