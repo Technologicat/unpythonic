@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, fail  # noqa: F401
 from .fixtures import session, testset, returns_normally
 
 from sys import stderr
@@ -73,7 +73,7 @@ def runtests():
         print("*** These two error cases SHOULD PRINT A WARNING:", file=stderr)
         print("** No surrounding trampoline:", file=stderr)
         def bar2():
-            pass
+            fail["This line should not be reached."]  # pragma: no cover
         def foo2():
             return jump(bar2)
         foo2()

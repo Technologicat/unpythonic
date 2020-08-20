@@ -19,6 +19,9 @@ class Baz(Singleton):
 class Qux(Baz):
     def __getstate__(self):
         return None
+    # TODO: coverage says this is never actually called. Maybe the data in the
+    # pickle file knows that `__getstate__` returned `None`, and `loads` skips
+    # calling `__setstate__`?
     def __setstate__(self, state):
         return
 
@@ -61,10 +64,10 @@ def runtests():
         test[baz2 is baz]   # again, it's the same instance
         test[baz.x == 17]  # but unpickling has overwritten the state
 
-        # With a custom no-op `__setstate__`, the existing singleton instance's
-        # state remains untouched even after unpickling an instance of that
-        # singleton. This strategy may be useful when defining singletons which
-        # have no meaningful state to serialize/deserialize.
+        # With custom no-op `__getstate__` and `__setstate__`, the existing
+        # singleton instance's state remains untouched even after unpickling an
+        # instance of that singleton. This strategy may be useful when defining
+        # singletons which have no meaningful state to serialize/deserialize.
         qux = Qux(17)
         s = pickle.dumps(qux)
         qux.x = 23

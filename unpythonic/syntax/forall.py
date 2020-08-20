@@ -28,7 +28,7 @@ def forall(exprs):
         assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                      (8, 15, 17), (9, 12, 15), (12, 16, 20))
     """
-    if type(exprs) is not Tuple:
+    if type(exprs) is not Tuple:  # pragma: no cover, let's not test macro expansion errors.
         assert False, "forall body: expected a sequence of comma-separated expressions"
     def build(lines, tree):
         if not lines:

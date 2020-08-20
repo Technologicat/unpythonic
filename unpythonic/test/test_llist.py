@@ -8,7 +8,8 @@ from pickle import dumps, loads
 from ..llist import (cons, car, cdr, nil, ll, llist,
                      caar, cdar, cadr, cddr, caddr, cdddr,
                      member, lreverse, lappend, lzip,
-                     BinaryTreeIterator, JackOfAllTradesIterator)
+                     BinaryTreeIterator, JackOfAllTradesIterator,
+                     TailIterator)
 
 from ..fold import foldl, foldr
 
@@ -19,9 +20,13 @@ def runtests():
         test[car(c) == 1]
         test[cdr(c) == 2]
 
+        test_raises[TypeError, car("sedan")]
+        test_raises[TypeError, cdr("disc")]
+
         with test_raises(TypeError, "cons cells should be immutable"):
             c.car = 3
 
+        test[c == c]
         test[cons(1, 2) == cons(1, 2)]
         test[cons(1, 2) != cons(2, 3)]
 
@@ -45,9 +50,11 @@ def runtests():
     thebinarytree = cons(cons(1, 2), cons(3, 4))
 
     with testset("repr"):
+        test[repr(nil) == "nil"]
         test[repr(cons(1, 2)) == "cons(1, 2)"]
         test[repr(ll(1, 2, 3)) == "ll(1, 2, 3)"]
         test[repr(thebinarytree) == "cons(cons(1, 2), cons(3, 4))"]
+        test[repr(cons(cons(1, 2), 3)) == "cons(cons(1, 2), 3)"]
 
         test[cons(1, 2).lispyrepr() == "(1 . 2)"]
         test[ll(1, 2, 3).lispyrepr() == "(1 2 3)"]
@@ -88,13 +95,17 @@ def runtests():
         test[cons(3, 4) not in s]
         test[ll(1, 2) not in s]
 
-    with testset("binary tree"):
+    with testset("iteration schemes"):
         test[[f(thebinarytree) for f in [caar, cdar, cadr, cddr]] == [1, 2, 3, 4]]
         test[tuple(BinaryTreeIterator(thebinarytree)) == (1, 2, 3, 4)]  # non-default iteration scheme
         test_raises[TypeError, tuple(thebinarytree)]  # binary tree should not be iterable as a linked list
 
-    # generic iterator that understands both linked lists and binary trees
-    with testset("JackOfAllTradesIterator (generic)"):
+        test_raises[TypeError, JackOfAllTradesIterator("not a cons")]
+        test_raises[TypeError, BinaryTreeIterator("not a cons")]
+        test_raises[TypeError, TailIterator("not a cons")]
+        test_raises[TypeError, tuple(TailIterator(cons(cons(1, 2), 3)))]
+
+        # generic iterator that understands both linked lists and binary trees
         test[tuple(JackOfAllTradesIterator(ll(1, 2, 3, 4))) == (1, 2, 3, 4)]
         test[tuple(JackOfAllTradesIterator(thebinarytree)) == (1, 2, 3, 4)]
         test[tuple(JackOfAllTradesIterator(cons(1, 2))) == (1, 2)]  # a single cons is a degenerate binary tree
@@ -114,6 +125,8 @@ def runtests():
         t2 = cons(cons(nil, 1), cons(nil, 2))
         test[tuple(BinaryTreeIterator(t2)) == (nil, 1, nil, 2)]
         test[tuple(JackOfAllTradesIterator(t2)) == (nil, 1, nil, 2)]  # but doesn't skip nil in the car slot
+
+        test[tuple(TailIterator(thelinkedlist)) == (ll(1, 2, 3), ll(2, 3), ll(3))]
 
     with testset("long linked list"):
         test[tuple(JackOfAllTradesIterator(llist(range(10000)))) == tuple(range(10000))]  # no crash

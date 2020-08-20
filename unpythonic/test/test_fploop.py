@@ -64,27 +64,27 @@ def runtests():
         with test_raises(ValueError, "@looped: should detect invalid definition, no loop parameter"):
             @looped
             def s():
-                pass
+                fail["Should not be reached because the definition is faulty."]  # pragma: no cover
 
         with test_raises(ValueError, "@looped: should detect invalid definition, extra parameter not initialized"):
             @looped
             def s(loop, myextra):
-                pass
+                fail["Should not be reached because the definition is faulty."]  # pragma: no cover
 
         with test_raises(ValueError, "@looped_over: should detect invalid definition, no (loop, x, acc) parameters for loop body"):
             @looped_over(range(10), acc=())
             def s():
-                pass
+                fail["Should not be reached because the definition is faulty."]  # pragma: no cover
 
         with test_raises(ValueError, "@looped_over: should detect invalid definition, no acc parameter for loop body"):
             @looped_over(range(10), acc=())
             def s(loop, x):
-                pass
+                fail["Should not be reached because the definition is faulty."]  # pragma: no cover
 
         with test_raises(ValueError, "@looped_over: should detect invalid definition, extra parameter not initialized"):
             @looped_over(range(10), acc=())
             def s(loop, x, acc, myextra):
-                pass
+                fail["Should not be reached because the definition is faulty."]  # pragma: no cover
 
     with testset("FP loop over iterable"):
         @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
@@ -205,6 +205,11 @@ def runtests():
         def result(acc, elt):
             return acc * elt
         test[result == 24]
+
+        @fold_over(())
+        def result(acc, elt):
+            fail["Should not be reached, because the iterable is empty."]  # pragma: no cover
+        test[result is None]
 
     with testset("the old chestnut"):
         funcs = []

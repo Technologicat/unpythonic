@@ -2,7 +2,7 @@
 """Implicitly reference attributes of an object."""
 
 from ...syntax import macros, test, test_raises  # noqa: F401
-from ...test.fixtures import session, testset
+from ...test.fixtures import session, testset, returns_normally
 
 from ...syntax import macros, autoref, let, do, local, lazify, curry  # noqa: F401, F811
 #from macropy.tracing import macros, show_expanded  # noqa: F811
@@ -48,6 +48,13 @@ def runtests():
         e2 = env(a=42, c=17)
         with autoref(e):
             with autoref(e2):
+                test[a == 42]  # noqa: F821
+                test[b == 2]  # noqa: F821
+                test[c == 17]
+
+        with autoref(e) as outer:  # noqa: F841, we're invoking a different case inside the macro code.
+            with autoref(e2) as inner:  # noqa: F841
+                test[returns_normally(outer.a)]  # exists
                 test[a == 42]  # noqa: F821
                 test[b == 2]  # noqa: F821
                 test[c == 17]
