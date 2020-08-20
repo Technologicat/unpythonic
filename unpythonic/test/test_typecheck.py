@@ -172,7 +172,8 @@ def runtests():
         test[isoftype([1, 2, 3], typing.Iterable)]
         test[isoftype([1, 2, 3], typing.Reversible)]
         test[isoftype([1, 2, 3], typing.Container)]
-        test[isoftype([1, 2, 3], typing.Collection)]  # Sized Iterable Container
+        if hasattr(typing, "Collection"):  # Python 3.6+
+            test[isoftype([1, 2, 3], typing.Collection)]  # Sized Iterable Container
 
     with testset("typing.KeysView, typing.ValuesView, typing.ItemsView"):
         d = {17: "cat", 23: "fox", 42: "python"}
