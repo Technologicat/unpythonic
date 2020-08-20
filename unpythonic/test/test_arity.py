@@ -108,15 +108,12 @@ def runtests():
 
         def f(a, b, c, **kw):
             pass
-        import sys  # DEBUG
-        print(r(f, 1, 2, 3, d=4, e=5), file=sys.stderr)  # DEBUG
         test[r(f, 1, 2, 3, d=4, e=5) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                                          ("vararg", None), ("vararg_name", None),
                                          ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw"))]
 
         def f(a, b, c, *args, **kw):
             pass
-        print(r(f, 1, 2, 3, 4, 5, d=6, e=7), file=sys.stderr)  # DEBUG
         test[r(f, 1, 2, 3, 4, 5, d=6, e=7) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                                                ("vararg", (4, 5)), ("vararg_name", "args"),
                                                ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw"))]
