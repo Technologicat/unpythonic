@@ -30,7 +30,7 @@ def zorblify(x: str, y: float):
 # The pattern is that the generic function canonizes the arguments:
 @generic
 def example():
-    ...
+    ...  # pragma: no cover
 @example.register
 def example(stop: int):
     return _example_impl(0, 1, stop)
@@ -47,7 +47,7 @@ def _example_impl(start, step, stop):
 # shorter, same effect
 @generic
 def example2():
-    ...
+    ...  # pragma: no cover
 @example2.register
 def example2(start: int, stop: int):
     return example2(start, 1, stop)  # just call the method that has the implementation
@@ -58,7 +58,7 @@ def example2(start: int, step: int, stop: int):
 # varargs are supported via `typing.Tuple`
 @generic
 def gargle():
-    ...
+    ...  # pragma: no cover
 @gargle.register
 def gargle(*args: typing.Tuple[int, ...]):  # any number of ints
     return "int"
