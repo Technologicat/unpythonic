@@ -15,7 +15,16 @@ def me():
     """Return the caller's function name."""
     callstack = stack()
     framerecord = callstack[1]  # ignore me() itself, get caller's record
-    return framerecord[3]       # function name
+    # Python 3.5+ have named fields here.
+    #     named tuple FrameInfo(frame, filename, lineno, function, code_context, index)
+    # But on 3.4:
+    #     When the following functions return “frame records,” each record is a
+    #     tuple of six items: the frame object, the filename, the line number of
+    #     the current line, the function name, a list of lines of context from the
+    #     source code, and the index of the current line within that list.
+    #         https://docs.python.org/3.4/library/inspect.html#the-interpreter-stack
+    return framerecord[3]  # function name
+    # return framerecord.function  # Python 3.5+
 
 def runtests():
     with testset("basic case: one continuation"):
