@@ -92,7 +92,14 @@ def isoftype(value, T):
     if T is typing.Any:
         return True
 
-    if repr(T.__class__) == "typing.TypeVar":  # AnyStr normalizes to TypeVar("AnyStr", str, bytes)
+    def repr_matches(U, what):
+        # Python 3.6 has e.g. "typing.TypeVar" as the repr,
+        # but Python 3.7+ adds the "<class '...'>" around it.
+        r = repr(U.__class__)
+        return r == what or r == "<class '{}'>".format(what)
+
+    # AnyStr normalizes to TypeVar("AnyStr", str, bytes)
+    if repr_matches(T, "typing.TypeVar"):
         if not T.__constraints__:  # just an abstract type name
             return True
         return any(isoftype(value, U) for U in T.__constraints__)
@@ -126,13 +133,14 @@ def isoftype(value, T):
     # if repr(T).startswith("typing.Generic["):
     #     pass
 
-    if repr(T.__class__) == "typing.Union":  # Optional normalizes to Union[argtype, NoneType].
+    if repr_matches(T, "typing.Union"):  # Optional normalizes to Union[argtype, NoneType].
         if T.__args__ is None:  # bare `typing.Union`; empty, has no types in it, so no value can match.
             return False
         if not any(isoftype(value, U) for U in T.__args__):
             return False
         return True
 
+    # TODO: in Python 3.7+, what is this mysterious callable that doesn't have `__qualname__`?
     if callable(T) and hasattr(T, "__qualname__") and T.__qualname__ == "NewType.<locals>.new_type":
         # This is the best we can do, because the static types created by `typing.NewType`
         # have a constructor that discards the type information at runtime:
@@ -298,10 +306,13 @@ def isoftype(value, T):
         fullname = repr(T.__class__)
         raise NotImplementedError("This run-time type checker doesn't currently support '{}'".format(fullname))
 
-    try:  # DEBUG
-        return isinstance(value, T)  # T is a concrete class, so delegate.
-    except TypeError:
-        raise(TypeError("{}, {}, {}, {}".format(type(T), repr(T.__class__), str(T), repr(T))))
+    try:
+        return isinstance(value, T)  # T should be a concrete class, so delegate.
+    except TypeError as err:  # for debugging
+        raise TypeError("Failed to understand the type, so here's some debug data: {}, {}, {}, {}".format(type(T),
+                                                                                                          repr(T.__class__),
+                                                                                                          str(T),
+                                                                                                          repr(T))) from err
 
 # TODO: Add an `issubtype` function. It's needed to fully resolve callable types in `isoftype`.
 #
