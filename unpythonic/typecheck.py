@@ -301,7 +301,7 @@ def isoftype(value, T):
     try:  # DEBUG
         return isinstance(value, T)  # T is a concrete class, so delegate.
     except TypeError:
-        raise(TypeError(str(T)))
+        raise(TypeError("{}, {}, {}".format(type(T), str(T), repr(T))))
 
 # TODO: Add an `issubtype` function. It's needed to fully resolve callable types in `isoftype`.
 #
