@@ -271,6 +271,12 @@ def continuations(block_body):
                 # ...unless we're at the top level of the "with continuations" block
                 if not after:
                     assert False, "call_cc[] cannot appear as the last statement of a 'with continuations' block (no continuation to capture)"
+                # TODO: To support Python's scoping properly in assignments after the `call_cc`,
+                # TODO: we have to scan `before` for assignments to local variables (stopping at
+                # TODO: scope boundaries; use `get_names_in_store_context` from our `scoping` module),
+                # TODO: and declare those variables `nonlocal` in `after`. This way the binding
+                # TODO: will be shared between the original context and the continuation.
+                # See Politz et al 2013 (the "full monty" paper), section 4.2.
                 return before, stmt, after
             before.append(stmt)
             if not after:
