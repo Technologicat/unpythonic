@@ -1,6 +1,8 @@
 [flake8]
 # ignore silly style items
 ignore =
+    # too complex (mcgabe)
+    C901,
     # overhanging indent
     E126,
     # continuation line over-indented for visual indent
