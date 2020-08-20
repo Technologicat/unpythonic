@@ -25,9 +25,15 @@ import collections
 import typing
 
 try:
-    _MyGenericAlias = typing._GenericAlias
+    _MyGenericAlias = typing._GenericAlias  # Python 3.7+
 except AttributeError:  # Python 3.6 and earlier
     class _MyGenericAlias:  # unused, but must be a class to support isinstance() check.
+        pass
+
+try:
+    _MyCollection = typing.Collection  # Python 3.6+
+except AttributeError:  # Python 3.5 and earlier
+    class _MyCollection:
         pass
 
 from .misc import safeissubclass
@@ -196,7 +202,7 @@ def isoftype(value, T):
               typing.Iterable,    # can't non-destructively check element type
               typing.Reversible,  # can't non-destructively check element type
               typing.Container,   # can't check element type
-              typing.Collection,  # Sized Iterable Container; can't check element type
+              _MyCollection,      # Sized Iterable Container; can't check element type
               typing.Hashable,
               typing.Sized):
         if U is T:
