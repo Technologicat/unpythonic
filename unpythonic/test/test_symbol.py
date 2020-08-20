@@ -4,8 +4,13 @@ from ..syntax import macros, test  # noqa: F401
 from .fixtures import session, testset
 
 import pickle
+import threading
+from queue import Queue
+import gc
 
 from ..symbol import sym, gensym
+from ..misc import slurp
+from ..it import allsame
 
 def runtests():
     # Basic idea: lightweight, human-readable, process-wide unique marker,
@@ -30,6 +35,21 @@ def runtests():
         test["λ" * 80 is not "λ" * 80]
         test[sym("λ" * 80) is sym("λ" * 80)]
 
+    with testset("sym thread safety"):
+        with test:  # just interested that it runs to completion
+            que = Queue()
+            def worker():
+                que.put(sym("hello world"))
+            n = 10000
+            threads = [threading.Thread(target=worker) for _ in range(n)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            lst = slurp(que)
+            test[len(lst) == n]
+            test[allsame(lst)]
+
     with testset("gensym (uninterned symbol, nonce value)"):
         # Gensyms are uninterned symbols, useful as nonce/sentinel values.
         tabby = gensym("cat")
@@ -46,6 +66,27 @@ def runtests():
         print(scottishfold)
         print(repr(tabby))
         print(repr(scottishfold))
+
+    with testset("gensym thread safety"):
+        # TODO: These must be outside the `with test` because a test block
+        # implicitly creates a function (whence a local scope).
+        g = gensym("hello")
+        s = pickle.dumps(g)
+        del g  # blammo. Due to the gensym registry being a weakref, it should really be gone.
+        gc.collect()  # PyPy3
+        with test:  # just interested that it runs to completion
+            que = Queue()
+            def worker():
+                que.put(pickle.loads(s))
+            n = 10000
+            threads = [threading.Thread(target=worker) for _ in range(n)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            lst = slurp(que)
+            test[len(lst) == n]
+            test[allsame(lst)]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

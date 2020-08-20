@@ -118,6 +118,9 @@ class gsym(Symbol):
                 if uid not in _gensyms:
                     instance = _gensyms[uid] = super().__new__(cls)
                 else:
+                    # Provided that one of the `uuid` functions creates the
+                    # `uid`, this case should only be possible when unpickling
+                    # the same pickled gsym in several threads simultaneously.
                     instance = _gensyms[uid]
             return instance
 
