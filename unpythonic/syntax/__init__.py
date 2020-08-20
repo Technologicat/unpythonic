@@ -63,7 +63,7 @@ dbgprint_expr = macros.expose_unhygienic(dbgprint_expr)
 # This default is here to yell if it's needed and missing; the traceback
 # will tell exactly which syntax transformer needed it.
 def nogensym(*args, **kwargs):
-    raise RuntimeError("No gen_sym function set")
+    raise RuntimeError("No gen_sym function set")  # pragma: no cover
 make_dynvar(gen_sym=nogensym)
 
 # -----------------------------------------------------------------------------

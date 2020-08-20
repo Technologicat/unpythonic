@@ -332,7 +332,6 @@ def runtests():
             with handlers((RuntimeError, lambda c: use_value(42))):
                 with restarts(use_value=(lambda x: x)) as result:
                     error(RuntimeError("foo"))
-                    result << 21
                 test[unbox(result) == 42]
         error_protocol()
 
@@ -355,8 +354,7 @@ def runtests():
             with handlers((JustTesting, lambda c: use_value(42))):
                 with restarts(use_value=(lambda x: x)) as result:
                     warn(JustTesting("handled warn() does not print a warning"))
-                    fail["This line should not be reached, because the restart takes over."]
-                    result << 21  # not reached, because the restart takes over
+                    fail["This line should not be reached, because the restart takes over."]  # pragma: no cover
                 test[unbox(result) == 42]
         warn_protocol()
 

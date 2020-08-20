@@ -12,9 +12,9 @@ def runtests():
         def f():
             def g():
                 throw("hello from g")  # the argument becomes the return value of f()
-                fail["This line should not be reached."]
+                fail["This line should not be reached."]  # pragma: no cover
             g()
-            fail["This line should not be reached."]
+            fail["This line should not be reached."]  # pragma: no cover
         test[f() == "hello from g"]
 
     with testset("escape from a lambda"):
@@ -26,7 +26,7 @@ def runtests():
         result = call_ec(lambda ec:
                            begin(print("hi from lambda"),
                                  ec(42),  # now we can effectively "return ..." at any point from a lambda!
-                                 fail["This line should not be reached."]))
+                                 fail["This line should not be reached."]))  # pragma: no cover
         test[result == 42]
 
     with testset("lispy call/ec (call-with-escape-continuation)"):
@@ -34,9 +34,7 @@ def runtests():
         def result(ec):  # effectively, just a code block!
             answer = 42
             ec(answer)  # here this has the same effect as "return answer"...
-            fail["This line should not be reached."]
-            answer = 23
-            return answer
+            fail["This line should not be reached."]  # pragma: no cover
         test[result == 42]
 
         @call_ec
@@ -44,11 +42,9 @@ def runtests():
             answer = 42
             def inner():
                 ec(answer)  # ...but here this directly escapes from the outer def
-                fail["This line should not be reached."]
-                return 23
+                fail["This line should not be reached."]  # pragma: no cover
             answer = inner()
-            fail["This line should not be reached."]
-            return answer
+            fail["This line should not be reached."]  # pragma: no cover
         test[result == 42]
 
     with testset("error case"):

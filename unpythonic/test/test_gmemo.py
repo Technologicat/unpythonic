@@ -77,7 +77,7 @@ def runtests():
         except AllOkJustTesting as err:
             exc_instance = err
         else:
-            fail["Should have raised at the second next() call."]
+            fail["Should have raised at the second next() call."]  # pragma: no cover
         test[total_evaluations == 2]
 
         g2 = gen()
@@ -88,7 +88,7 @@ def runtests():
         except AllOkJustTesting as err2:
             test[err2 is exc_instance, "should be the same cached exception instance"]
         else:
-            fail["Should have raised at the second next() call."]
+            fail["Should have raised at the second next() call."]  # pragma: no cover
         test[total_evaluations == 2]
 
     with testset("memoizing a sequence partially"):

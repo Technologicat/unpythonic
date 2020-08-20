@@ -292,8 +292,7 @@ def runtests():
                 if i > 5:
                     throw(acc)
                 return loop(acc + i, i + 1)
-            fail["This line should not be reached."]
-            return False
+            fail["This line should not be reached."]  # pragma: no cover
         test[f() == 15]
 
         # Use tagged throws to control where the escape is sent.
@@ -310,10 +309,8 @@ def runtests():
                     if i > 5:
                         throw(acc, tag="foo")  # Throw instance tag must be a single value.
                     return loop(acc + i, i + 1)
-                fail["This line should not be reached."]
-                return False
-            fail["This line should not be reached."]
-            return False
+                fail["This line should not be reached."]  # pragma: no cover
+            fail["This line should not be reached."]  # pragma: no cover
         test[foo() == 15]
 
     with testset("break, continue"):

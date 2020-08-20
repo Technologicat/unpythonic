@@ -9,14 +9,14 @@ from ..dispatch import generic, typed
 
 @generic
 def zorblify():  # could use the ellipsis `...` as the body, but this is a unit test.
-    fail["this stub should never be called"]
+    fail["this stub should never be called"]  # pragma: no cover
 @zorblify.register
 def zorblify(x: int, y: int):
     return 2 * x + y
 @zorblify.register
 def zorblify(x: str, y: int):
     # Because dispatching occurs on both arguments, this method is not reached by the tests.
-    fail["this method should not be reached by the tests"]
+    fail["this method should not be reached by the tests"]  # pragma: no cover
 @zorblify.register
 def zorblify(x: str, y: float):
     return "{} {}".format(x[::-1], y)

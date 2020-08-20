@@ -127,7 +127,7 @@ def runtests():
                     test[err is olderr]  # exception instance memoized, should be the same every time
                 olderr = err
             else:
-                fail["memoize should not prevent exception propagation."]
+                fail["memoize should not prevent exception propagation."]  # pragma: no cover
         test[evaluations == 1]
 
     with testset("@curry"):

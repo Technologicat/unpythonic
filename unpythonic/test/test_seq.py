@@ -191,7 +191,7 @@ def runtests():
         z = call_ec(lambda ec:
                     do(assign(x=42),
                        lambda e: ec(e.x),                                    # IMPORTANT: must delay this!
-                       lambda e: fail["This line should not be reached."]))  # and this (as above)
+                       lambda e: fail["This line should not be reached."]))  # and this (as above)  # pragma: no cover
         test[z == 42]
 
 if __name__ == '__main__':  # pragma: no cover

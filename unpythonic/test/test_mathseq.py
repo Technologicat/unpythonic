@@ -189,7 +189,7 @@ def runtests():
     with testset("symbolic input with SymPy"):
         try:
             from sympy import symbols
-        except ImportError:
+        except ImportError:  # pragma: no cover
             error["SymPy not installed in this Python, cannot test symbolic input for mathseq."]
         else:
             x0 = symbols("x0", real=True)

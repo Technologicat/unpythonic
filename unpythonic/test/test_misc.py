@@ -41,7 +41,7 @@ def runtests():
                 for y in range(10):
                     if x * y == 42:
                         return (x, y)
-                    ...  # more code here
+                    ...  # more code here  # pragma: no cover
         test[result == (6, 7)]
 
         # can also be used normally
@@ -265,7 +265,7 @@ def runtests():
             async_raise(t, KeyboardInterrupt)
             t.join()
             test[out[0] < 9]  # terminated early due to the injected KeyboardInterrupt
-        except NotImplementedError:
+        except NotImplementedError:  # pragma: no cover
             error["async_raise not supported on this Python interpreter."]
 
 if __name__ == '__main__':  # pragma: no cover

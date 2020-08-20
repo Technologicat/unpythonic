@@ -288,7 +288,7 @@ def runtests():
         @dlet((x, "the env x"))
         def test2():
             return x  # local var assignment not in effect yet  # noqa: F823, `dlet` defines `x` here.
-            x = "the unused local x"  # noqa: F841, this `x` being unused is the point of this test.
+            x = "the unused local x"  # noqa: F841, this `x` being unused is the point of this test.  # pragma: no cover
         test[test2() == "the env x"]
 
         @dlet((x, "the env x"))
@@ -375,7 +375,7 @@ def runtests():
         def test11():
             x = "the local x"
             return x  # not deleted yet
-            del x
+            del x  # this seems to be optimized out by Python.  # pragma: no cover
         test[test11() == "the local x"]
 
         @dlet((x, "the env x"))
@@ -391,7 +391,7 @@ def runtests():
             x = "the local x"
             del x
             return x  # noqa: F823, this `x` refers to the `x` in the `dlet` env.
-            x = "the unused local x"  # noqa: F841, this `x` being unused is the point of this test.
+            x = "the unused local x"  # noqa: F841, this `x` being unused is the point of this test.  # pragma: no cover
         test[test13() == "the env x"]
 
         with test_raises(NameError, "should have tried to access the deleted nonlocal x"):
