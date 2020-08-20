@@ -105,20 +105,20 @@ def runtests():
         # only the outermost extra brackets denote a multi-expr body
         a = let((x, 1),
                 (y, 2))[[  # noqa: F821
-                  [1, 2]]]
+                    [1, 2]]]
         test[a == [1, 2]]
 
         # implicit do works also in letseq, letrec
         a = letseq((x, 1),
                    (y, x + 1))[[  # noqa: F821
-                     x << 1337,
-                     (x, y)]]  # noqa: F821
+                       x << 1337,
+                       (x, y)]]  # noqa: F821
         test[a == (1337, 2)]
 
         a = letrec((x, 1),
                    (y, x + 1))[[  # noqa: F821
-                     x << 1337,
-                     (x, y)]]  # noqa: F821
+                       x << 1337,
+                       (x, y)]]  # noqa: F821
         test[a == (1337, 2)]
 
     with testset("scoping, name shadowing"):
@@ -129,7 +129,7 @@ def runtests():
         letrec((z, 1))[  # noqa: F821
           begin(out.append(z),  # noqa: F821
                 letrec((z, 2))[  # noqa: F821
-                  out.append(z)])]  # (be careful with the parentheses!)  # noqa: F821
+                    out.append(z)])]  # (be careful with the parentheses!)  # noqa: F821
         test[out == [1, 2]]
 
         # same using implicit do (extra brackets)
@@ -137,7 +137,7 @@ def runtests():
         letrec((z, 1))[[  # noqa: F821
                  out.append(z),  # noqa: F821
                  letrec((z, 2))[  # noqa: F821
-                          out.append(z)]]]  # noqa: F821
+                     out.append(z)]]]  # noqa: F821
         test[out == [1, 2]]
 
         # lexical scoping: assignment updates the innermost value by that name:
@@ -147,8 +147,8 @@ def runtests():
                   # assignment to env is an expression, returns the new value
                   out.append(z << 5),  # noqa: F821
                   letrec((z, 2))[  # noqa: F821
-                  begin(out.append(z),         # inner z  # noqa: F821
-                        out.append(z << 7))],  # update inner z  # noqa: F821
+                      begin(out.append(z),         # inner z  # noqa: F821
+                            out.append(z << 7))],  # update inner z  # noqa: F821
                   out.append(z))]  # outer z  # noqa: F821
         test[out == [1, 5, 2, 7, 5]]
 
@@ -166,8 +166,8 @@ def runtests():
         letrec((x, 1))[[
                  out.append(x),
                  letrec((z, 2))[[  # noqa: F821
-                          out.append(z),  # noqa: F821
-                          out.append(x << 7)]],
+                     out.append(z),  # noqa: F821
+                     out.append(x << 7)]],
                  out.append(x)]]
         test[out == [1, 2, 7, 7]]
 
