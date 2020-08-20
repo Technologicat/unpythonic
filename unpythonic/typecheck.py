@@ -298,7 +298,10 @@ def isoftype(value, T):
         fullname = repr(T.__class__)
         raise NotImplementedError("This run-time type checker doesn't currently support '{}'".format(fullname))
 
-    return isinstance(value, T)  # T is a concrete class, so delegate.
+    try:  # DEBUG
+        return isinstance(value, T)  # T is a concrete class, so delegate.
+    except TypeError:
+        raise(TypeError(str(T)))
 
 # TODO: Add an `issubtype` function. It's needed to fully resolve callable types in `isoftype`.
 #
