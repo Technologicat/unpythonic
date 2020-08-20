@@ -200,13 +200,19 @@ def isoftype(value, T):
     # Some one-trick ponies.
     for U in (typing.Iterator,    # can't non-destructively check element type
               typing.Iterable,    # can't non-destructively check element type
-              typing.Reversible,  # can't non-destructively check element type
               typing.Container,   # can't check element type
               _MyCollection,      # Sized Iterable Container; can't check element type
               typing.Hashable,
               typing.Sized):
         if U is T:
             return isinstance(value, U)
+
+    if T is typing.Reversible:  # can't non-destructively check element type
+        # We don't isinstance(), because in Python 3.5, typing.Reversible is just a protocol,
+        # and "<class 'TypeError'>: Protocols cannot be used with isinstance()."
+        # https://docs.python.org/3/library/collections.abc.html#module-collections.abc
+        return hasattr(value, "__reversed__")
+
     # "Protocols cannot be used with isinstance()", so:
     for U in (typing.SupportsInt,
               typing.SupportsFloat,
