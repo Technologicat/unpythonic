@@ -127,9 +127,9 @@ def runtests():
         # the inner environment's z, which makes the outer expansion leave it alone):
         out = []
         letrec((z, 1))[  # noqa: F821
-          begin(out.append(z),  # noqa: F821
-                letrec((z, 2))[  # noqa: F821
-                    out.append(z)])]  # (be careful with the parentheses!)  # noqa: F821
+            begin(out.append(z),  # noqa: F821
+                  letrec((z, 2))[  # noqa: F821
+                      out.append(z)])]  # (be careful with the parentheses!)  # noqa: F821
         test[out == [1, 2]]
 
         # same using implicit do (extra brackets)
