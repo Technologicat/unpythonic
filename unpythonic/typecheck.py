@@ -338,8 +338,7 @@ def isoftype(value, T):
             #     return False
             # return True
     except TypeError:  # probably one of those meta-utilities that hates issubclass.
-        # assert False  # this is a good idea while debugging the type checker.
-        pass
+        raise  # DEBUG
 
     # Catch any `typing` meta-utilities we don't currently support.
     if hasattr(T, "__module__") and T.__module__ == "typing":
