@@ -32,8 +32,13 @@ def modname(path, filename):  # some/dir/mod.py --> some.dir.mod
 
 def main():
     with session():
-        testsets = (("regular code", (listtestmodules(os.path.join("unpythonic", "test")) +
-                                      listtestmodules(os.path.join("unpythonic", "net", "test")))),
+        # TODO: The net tests crash due to MacroPy 1.1.0b2 not liking `bytes` literals.
+        # TODO: So we have disabled them for now. Re-enable when the issue is fixed.
+        # TODO: See: https://github.com/azazel75/macropy/issues/26
+        # testsets = (("regular code", (listtestmodules(os.path.join("unpythonic", "test")) +
+        #                               listtestmodules(os.path.join("unpythonic", "net", "test")))),
+        #             ("macros", listtestmodules(os.path.join("unpythonic", "syntax", "test"))))
+        testsets = (("regular code", listtestmodules(os.path.join("unpythonic", "test"))),
                     ("macros", listtestmodules(os.path.join("unpythonic", "syntax", "test"))))
         for tsname, modnames in testsets:
             with testset(tsname):
