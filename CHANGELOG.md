@@ -10,6 +10,7 @@
 - `callsite_filename`: return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
 - `equip_with_traceback`: take a manually created exception instance, equip it with a traceback. Requires Python 3.7 or later.
 - `subset`: test whether an iterable is a subset of another. Convenience function.
+- `allsame`: test whether all elements of an iterable are the same. Sometimes useful in writing testing code.
 
 **Non-breaking changes**:
 

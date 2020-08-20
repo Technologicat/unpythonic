@@ -28,7 +28,8 @@ __all__ = ["rev", "map", "map_longest",
            "window", "chunked",
            "within", "fixpoint",
            "interleave",
-           "subset", "powerset"]
+           "subset", "powerset",
+           "allsame"]
 
 from builtins import map as stdlib_map
 from operator import itemgetter
@@ -991,3 +992,24 @@ def powerset(iterable):
         bag.append(x)
         yield from t
         bag.extend(t)
+
+def allsame(iterable):
+    """Return whether all elements of an iterable are the same.
+
+    The test uses `!=` to compare.
+
+    If `iterable` is empty, the return value is `True` (like for `all`).
+
+    If `iterable` has just one element, the return value is `True`.
+
+    **CAUTION**: Consumes consumable iterables.
+    """
+    it = iter(iterable)
+    try:
+        x0 = next(it)
+    except StopIteration:
+        return True  # like all(()) is True
+    for x in it:
+        if x != x0:
+            return False
+    return True

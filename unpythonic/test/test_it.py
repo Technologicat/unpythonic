@@ -26,7 +26,8 @@ from ..it import (map, mapr, rmap, zipr, rzip,
                   window, chunked,
                   within, fixpoint,
                   interleave,
-                  subset, powerset)
+                  subset, powerset,
+                  allsame)
 
 from ..fun import composel, identity, curry
 from ..gmemo import imemoize, gmemoize
@@ -344,6 +345,12 @@ def runtests():
         test[all(sum(terms) == 10 for terms in partition_int(10))]
         test[all(sum(terms) == 10 for terms in partition_int(10, lower=3))]
         test[all(sum(terms) == 10 for terms in partition_int(10, lower=3, upper=5))]
+
+    with testset("allsame"):
+        test[allsame(())]
+        test[allsame((1,))]
+        test[allsame((8, 8, 8, 8, 8))]
+        test[not allsame((1, 2, 3))]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
