@@ -32,8 +32,12 @@ def runtests():
         test[eval(repr(foo)) is foo]
 
         # Symbol interning has nothing to do with string interning.
-        test["λ" * 80 is not "λ" * 80]
-        test[sym("λ" * 80) is sym("λ" * 80)]
+        many = 5000
+        test[sym("λ" * many) is sym("λ" * many)]
+        # To defeat string interning, used to be that 80 exotic characters
+        # would be enough in Python 3.6 to make CPython decide not to intern it,
+        # but Python 3.7 bumped that up.
+        test["λ" * many is not "λ" * many]
 
     with testset("sym thread safety"):
         with test:  # just interested that it runs to completion
