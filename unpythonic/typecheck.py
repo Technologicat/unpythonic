@@ -214,134 +214,131 @@ def isoftype(value, T):
 
     # We don't have a match yet, so T might still be one of those meta-utilities
     # that hate `issubclass` with a passion.
-    try:
-        if safeissubclass(T, typing.Text):  # https://docs.python.org/3/library/typing.html#typing.Text
-            return isinstance(value, str)  # alias for str
+    if safeissubclass(T, typing.Text):  # https://docs.python.org/3/library/typing.html#typing.Text
+        return isinstance(value, str)  # alias for str
 
-        # Subclass test for Python 3.6 only. Python 3.7+ have typing._GenericAlias for the generics.
-        if safeissubclass(T, typing.Tuple) or get_origin(T) is tuple:
-            if not isinstance(value, tuple):
+    # Subclass test for Python 3.6 only. Python 3.7+ have typing._GenericAlias for the generics.
+    if safeissubclass(T, typing.Tuple) or get_origin(T) is tuple:
+        if not isinstance(value, tuple):
+            return False
+        # blare `typing.Tuple`, no restrictions on length or element type.
+        if T.__args__ is None:
+            return True
+        # homogeneous element type, arbitrary length
+        if len(T.__args__) == 2 and T.__args__[1] is Ellipsis:
+            if not value:  # no elements
+                # An empty tuple has no element type, so to make multiple dispatch
+                # behave predictably (so it doesn't guess), we must reject it.
                 return False
-            # blare `typing.Tuple`, no restrictions on length or element type.
-            if T.__args__ is None:
-                return True
-            # homogeneous element type, arbitrary length
-            if len(T.__args__) == 2 and T.__args__[1] is Ellipsis:
-                if not value:  # no elements
-                    # An empty tuple has no element type, so to make multiple dispatch
-                    # behave predictably (so it doesn't guess), we must reject it.
-                    return False
-                U = T.__args__[0]
-                return all(isoftype(elt, U) for elt in value)
-            # heterogeneous element types, exact length
-            if len(value) != len(T.__args__):
-                return False
-            return all(isoftype(elt, U) for elt, U in zip(value, T.__args__))
+            U = T.__args__[0]
+            return all(isoftype(elt, U) for elt in value)
+        # heterogeneous element types, exact length
+        if len(value) != len(T.__args__):
+            return False
+        return all(isoftype(elt, U) for elt, U in zip(value, T.__args__))
 
-        # Check mapping types that allow non-destructive iteration.
-        def ismapping(statictype, runtimetype):
+    # Check mapping types that allow non-destructive iteration.
+    def ismapping(statictype, runtimetype):
+        if not isinstance(value, runtimetype):
+            return False
+        if T.__args__ is None:
+            raise TypeError("Missing mandatory key, value type arguments of `{}`".format(statictype))
+        assert len(T.__args__) == 2
+        if not value:  # An empty dict has no key and value types.
+            return False
+        K, V = T.__args__
+        return all(isoftype(k, K) and isoftype(v, V) for k, v in value.items())
+    for statictype, runtimetype in ((typing.Dict, dict),
+                                    (typing.MutableMapping, collections.abc.MutableMapping),
+                                    (typing.Mapping, collections.abc.Mapping)):
+        if safeissubclass(T, statictype) or get_origin(T) is runtimetype:
+            return ismapping(statictype, runtimetype)
+
+    # ItemsView is a special-case mapping in that we must not call
+    # `.items()` on `value`.
+    if safeissubclass(T, typing.ItemsView) or get_origin(T) is collections.abc.ItemsView:
+        if not isinstance(value, collections.abc.ItemsView):
+            return False
+        if T.__args__ is None:
+            raise TypeError("Missing mandatory key, value type arguments of `{}`".format(statictype))
+        assert len(T.__args__) == 2
+        if not value:  # An empty dict has no key and value types.
+            return False
+        K, V = T.__args__
+        return all(isoftype(k, K) and isoftype(v, V) for k, v in value)
+
+    # Check iterable types that allow non-destructive iteration.
+    #
+    # Special-case strings; they match typing.Sequence, but they're not
+    # generics; the class has no `__args__` so this code doesn't apply to
+    # them.
+    if T not in (str, bytes):
+        def iscollection(statictype, runtimetype):
             if not isinstance(value, runtimetype):
                 return False
-            if T.__args__ is None:
-                raise TypeError("Missing mandatory key, value type arguments of `{}`".format(statictype))
-            assert len(T.__args__) == 2
-            if not value:  # An empty dict has no key and value types.
+            if safeissubclass(statictype, typing.ByteString) or get_origin(statictype) is collections.abc.ByteString:
+                # WTF? A ByteString is a Sequence[int], but only statically.
+                # At run time, the `__args__` are actually empty - it looks
+                # like a bare Sequence, which is invalid. HACK the special case.
+                typeargs = (int,)
+            else:
+                typeargs = T.__args__
+            if typeargs is None:
+                raise TypeError("Missing mandatory element type argument of `{}`".format(statictype))
+            # Judging by the docs, List takes one type argument. The rest are similar.
+            # https://docs.python.org/3/library/typing.html#typing.List
+            assert len(typeargs) == 1
+            if not value:  # An empty collection has no element type.
                 return False
-            K, V = T.__args__
-            return all(isoftype(k, K) and isoftype(v, V) for k, v in value.items())
-        for statictype, runtimetype in ((typing.Dict, dict),
-                                        (typing.MutableMapping, collections.abc.MutableMapping),
-                                        (typing.Mapping, collections.abc.Mapping)):
+            U = typeargs[0]
+            return all(isoftype(elt, U) for elt in value)
+        for statictype, runtimetype in ((typing.List, list),
+                                        (typing.FrozenSet, frozenset),
+                                        (typing.Set, set),
+                                        (typing.Deque, collections.deque),
+                                        (typing.ByteString, collections.abc.ByteString),  # must check before Sequence
+                                        (typing.MutableSet, collections.abc.MutableSet),  # must check mutable first
+                                        # because a mutable value has *also* the interface of the immutable variant
+                                        # (e.g. MutableSet is a subtype of AbstractSet)
+                                        (typing.KeysView, collections.abc.KeysView),
+                                        (typing.ValuesView, collections.abc.ValuesView),
+                                        (typing.MappingView, collections.abc.MappingView),  # MappingView has one type argument so it goes here?
+                                        (typing.AbstractSet, collections.abc.Set),
+                                        (typing.MutableSequence, collections.abc.MutableSequence),
+                                        (typing.MappingView, collections.abc.MappingView),
+                                        (typing.Sequence, collections.abc.Sequence)):
             if safeissubclass(T, statictype) or get_origin(T) is runtimetype:
-                return ismapping(statictype, runtimetype)
+                return iscollection(statictype, runtimetype)
 
-        # ItemsView is a special-case mapping in that we must not call
-        # `.items()` on `value`.
-        if safeissubclass(T, typing.ItemsView) or get_origin(T) is collections.abc.ItemsView:
-            if not isinstance(value, collections.abc.ItemsView):
-                return False
-            if T.__args__ is None:
-                raise TypeError("Missing mandatory key, value type arguments of `{}`".format(statictype))
-            assert len(T.__args__) == 2
-            if not value:  # An empty dict has no key and value types.
-                return False
-            K, V = T.__args__
-            return all(isoftype(k, K) and isoftype(v, V) for k, v in value)
-
-        # Check iterable types that allow non-destructive iteration.
-        #
-        # Special-case strings; they match typing.Sequence, but they're not
-        # generics; the class has no `__args__` so this code doesn't apply to
-        # them.
-        if T not in (str, bytes):
-            def iscollection(statictype, runtimetype):
-                if not isinstance(value, runtimetype):
-                    return False
-                if safeissubclass(statictype, typing.ByteString) or get_origin(statictype) is collections.abc.ByteString:
-                    # WTF? A ByteString is a Sequence[int], but only statically.
-                    # At run time, the `__args__` are actually empty - it looks
-                    # like a bare Sequence, which is invalid. HACK the special case.
-                    typeargs = (int,)
-                else:
-                    typeargs = T.__args__
-                if typeargs is None:
-                    raise TypeError("Missing mandatory element type argument of `{}`".format(statictype))
-                # Judging by the docs, List takes one type argument. The rest are similar.
-                # https://docs.python.org/3/library/typing.html#typing.List
-                assert len(typeargs) == 1
-                if not value:  # An empty collection has no element type.
-                    return False
-                U = typeargs[0]
-                return all(isoftype(elt, U) for elt in value)
-            for statictype, runtimetype in ((typing.List, list),
-                                            (typing.FrozenSet, frozenset),
-                                            (typing.Set, set),
-                                            (typing.Deque, collections.deque),
-                                            (typing.ByteString, collections.abc.ByteString),  # must check before Sequence
-                                            (typing.MutableSet, collections.abc.MutableSet),  # must check mutable first
-                                            # because a mutable value has *also* the interface of the immutable variant
-                                            # (e.g. MutableSet is a subtype of AbstractSet)
-                                            (typing.KeysView, collections.abc.KeysView),
-                                            (typing.ValuesView, collections.abc.ValuesView),
-                                            (typing.MappingView, collections.abc.MappingView),  # MappingView has one type argument so it goes here?
-                                            (typing.AbstractSet, collections.abc.Set),
-                                            (typing.MutableSequence, collections.abc.MutableSequence),
-                                            (typing.MappingView, collections.abc.MappingView),
-                                            (typing.Sequence, collections.abc.Sequence)):
-                if safeissubclass(T, statictype) or get_origin(T) is runtimetype:
-                    return iscollection(statictype, runtimetype)
-
-        if safeissubclass(T, typing.Callable) or get_origin(T) is collections.abc.Callable:
-            if not callable(value):
-                return False
-            return True
-            # # TODO: analyze Callable[[a0, a1, ...], ret], Callable[..., ret].
-            # if T.__args__ is None:  # bare `typing.Callable`, no restrictions on arg/return types.
-            #     return True
-            # sig = typing.get_type_hints(value)
-            # *argtypes, rettype = T.__args__
-            # if len(argtypes) == 1 and argtypes[0] is Ellipsis:
-            #     pass  # argument types not specified
-            # else:
-            #     # TODO: we need the names of the positional arguments of the `value` callable here.
-            #     for a in argtypes:
-            #         # TODO: We need to compare two specs against each other, not a value against T.
-            #         # This needs an `issubtype` function.
-            #         #
-            #         # Note arguments behave contravariantly, while return values behave covariantly:
-            #         #   - f(x: animal) is a *subtype* of f(x: cat), since any use site that passes
-            #         #     in a cat (more specific) works fine with a function that accepts any animal
-            #         #     (more general).
-            #         #   - g() -> int is a subtype of g() -> Number, because any use site that
-            #         #     expects a Number (more general) can deal with an int (more specific).
-            #         # https://en.wikipedia.org/wiki/Covariance_and_contravariance_(computer_science)
-            #         if not issubtype(???, a):
-            #             return False
-            # if not issubtype(rettype, sig["return"]):
-            #     return False
-            # return True
-    except TypeError:  # probably one of those meta-utilities that hates issubclass.
-        raise  # DEBUG
+    if safeissubclass(T, typing.Callable) or get_origin(T) is collections.abc.Callable:
+        if not callable(value):
+            return False
+        return True
+        # # TODO: analyze Callable[[a0, a1, ...], ret], Callable[..., ret].
+        # if T.__args__ is None:  # bare `typing.Callable`, no restrictions on arg/return types.
+        #     return True
+        # sig = typing.get_type_hints(value)
+        # *argtypes, rettype = T.__args__
+        # if len(argtypes) == 1 and argtypes[0] is Ellipsis:
+        #     pass  # argument types not specified
+        # else:
+        #     # TODO: we need the names of the positional arguments of the `value` callable here.
+        #     for a in argtypes:
+        #         # TODO: We need to compare two specs against each other, not a value against T.
+        #         # This needs an `issubtype` function.
+        #         #
+        #         # Note arguments behave contravariantly, while return values behave covariantly:
+        #         #   - f(x: animal) is a *subtype* of f(x: cat), since any use site that passes
+        #         #     in a cat (more specific) works fine with a function that accepts any animal
+        #         #     (more general).
+        #         #   - g() -> int is a subtype of g() -> Number, because any use site that
+        #         #     expects a Number (more general) can deal with an int (more specific).
+        #         # https://en.wikipedia.org/wiki/Covariance_and_contravariance_(computer_science)
+        #         if not issubtype(???, a):
+        #             return False
+        # if not issubtype(rettype, sig["return"]):
+        #     return False
+        # return True
 
     # Catch any `typing` meta-utilities we don't currently support.
     if hasattr(T, "__module__") and T.__module__ == "typing":
