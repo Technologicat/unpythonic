@@ -1394,6 +1394,7 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
    - `subset`: test whether an iterable is a subset of another. **Added in v0.14.3.**
    - `powerset`: yield the power set (set of all subsets) of an iterable. Works also for potentially infinite iterables, if only a finite prefix is ever requested. (But beware, both runtime and memory usage are exponential in the input size.) **Added in v0.14.2.**
    - `partition_int`: split a small positive integer, in all possible ways, into smaller integers that sum to it. Useful e.g. for determining how many letters the components of an anagram may have. **Added in v0.14.2.**
+   - `allsame`: test whether all elements of an iterable are the same. Sometimes useful in writing testing code. **Added in v0.14.3.**
 
 Examples:
 
@@ -1408,7 +1409,8 @@ from unpythonic import (scanl, scanr, foldl, foldr,
                         cons, nil, ll, curry,
                         s, inn, iindex,
                         window,
-                        subset, powerset)
+                        subset, powerset,
+                        allsame)
 
 assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
 assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
@@ -1479,6 +1481,14 @@ assert subset({"cat"}, {"cat", "lynx"})
 
 # power set (set of all subsets) of an iterable
 assert tuple(powerset(range(3))) == ((0,), (1,), (0, 1), (2,), (0, 2), (1, 2), (0, 1, 2))
+r = range(10)
+assert all(subset(s, r) for s in powerset(r))
+
+# test whether all elements of a finite iterable are the same
+assert allsame(())
+assert allsame((1,))
+assert allsame((8, 8, 8, 8, 8))
+assert not allsame((1, 2, 3))
 
 # flatmap
 def msqrt(x):  # multivalued sqrt
