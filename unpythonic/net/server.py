@@ -199,7 +199,8 @@ def doc(obj):
             obj = obj.__wrapped__  # this is needed to make inspect.getsourcefile work with macros
         filename = inspect.getsourcefile(obj)
         source, firstlineno = inspect.getsourcelines(obj)
-        print(f"{filename}:{firstlineno}")
+        print("{filename}:{firstlineno}".format(filename=filename,
+                                                firstlineno=firstlineno))
     except (TypeError, OSError):
         pass
     print(inspect.cleandoc(obj.__doc__))
