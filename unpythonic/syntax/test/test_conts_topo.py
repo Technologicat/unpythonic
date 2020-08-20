@@ -17,6 +17,7 @@ def me():
     framerecord = callstack[1]  # ignore me() itself, get caller's record
     # Python 3.5+ have named fields here.
     #     named tuple FrameInfo(frame, filename, lineno, function, code_context, index)
+    #         https://docs.python.org/3/library/inspect.html#the-interpreter-stack
     # But on 3.4:
     #     When the following functions return “frame records,” each record is a
     #     tuple of six items: the frame object, the filename, the line number of
