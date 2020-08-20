@@ -221,7 +221,7 @@ def isoftype(value, T):
     if safeissubclass(T, typing.Tuple) or get_origin(T) is tuple:
         if not isinstance(value, tuple):
             return False
-        # blare `typing.Tuple`, no restrictions on length or element type.
+        # bare `typing.Tuple`, no restrictions on length or element type.
         if T.__args__ is None:
             return True
         # homogeneous element type, arbitrary length
