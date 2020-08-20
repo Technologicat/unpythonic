@@ -8,7 +8,7 @@ rudimentary test reports for macro-enabled Python code, particularly
 `unpythonic` itself (see issue #5).
 
 This also demonstrates how to build a simple testing framework on top of the
-`test[]` macro and its sisters.
+`test[]` macro and its sisters. (NOTE: hence MacroPy required!)
 
 **Why**:
 
@@ -116,20 +116,41 @@ from traceback import format_tb
 import sys
 
 from ..conditions import handlers, find_restart, invoke
-from ..collections import unbox
-
-# We need the test counters and the exception types from syntax.testutil.
-#
-# But, to avoid a from-import loop, we can't import names from inside
-# syntax.testutil, because it in turn needs some stuff from us.
-#
-# Note this testing framework also depends on MacroPy, because `test[]`
-# and its sisters are macros.
-from ..syntax import testutil
+from ..collections import box, unbox
 
 from .ansicolor import TC, colorize
 
-__all__ = ["session", "testset", "terminate", "returns_normally", "catch_signals", "TestConfig"]
+__all__ = ["session", "testset",
+           "terminate",
+           "returns_normally", "catch_signals",
+           "TestConfig",
+           "tests_run", "tests_failed", "tests_errored",
+           "TestingException", "TestFailure", "TestError"]
+
+# Keep a global count (since Python last started) of how many unpythonic_asserts
+# have run and how many have failed, so that the client code can easily calculate
+# the percentage of tests passed.
+#
+# We use `box` to keep this simple; its API supports querying and resetting,
+# so we don't need to build yet another single-purpose API for these particular
+# counters.
+tests_run = box(0)
+tests_failed = box(0)
+tests_errored = box(0)
+tests_run.__doc__ = "How many tests have run, in total. Boxed global counter."
+tests_failed.__doc__ = "How many tests have failed, in total. Boxed global counter."
+tests_errored.__doc__ = "How many tests have errored, in total. Boxed global counter."
+
+class TestingException(Exception):
+    """Base type for testing-related exceptions."""
+class TestFailure(TestingException):
+    """Exception type indicating that a test failed."""
+class TestError(TestingException):
+    """Exception type indicating that a test did not run to completion.
+
+    This can happen due to an unexpected exception, or an unhandled
+    `error` (or `cerror`) condition.
+    """
 
 def maybe_colorize(s, *colors):
     """Colorize `s` with ANSI color escapes if enabled in the global `TestConfig`.
@@ -393,9 +414,9 @@ def testset(name=None, postproc=None):
     **CAUTION**: Not thread-safe. The `test[...]` invocations should be made from
     a single thread, because `test[]` uses global counters to track runs/fails/errors.
     """
-    r1 = unbox(testutil.tests_run)
-    f1 = unbox(testutil.tests_failed)
-    e1 = unbox(testutil.tests_errored)
+    r1 = unbox(tests_run)
+    f1 = unbox(tests_failed)
+    e1 = unbox(tests_errored)
 
     global _nesting_level
     indent = ("*" * (TestConfig.indent_per_level * _nesting_level))
@@ -413,10 +434,10 @@ def testset(name=None, postproc=None):
     def print_and_proceed(condition):
         # The assert helpers in `unpythonic.syntax.testutil` signal only TestFailure and TestError,
         # no matter what happens inside the test expression.
-        if isinstance(condition, testutil.TestFailure):
+        if isinstance(condition, TestFailure):
             msg = maybe_colorize("{}{}FAIL: ".format(errmsg_extra_indent, indent),
                                  TC.BRIGHT, TestConfig.CS.FAIL) + str(condition)
-        elif isinstance(condition, testutil.TestError):
+        elif isinstance(condition, TestError):
             msg = maybe_colorize("{}{}ERROR: ".format(errmsg_extra_indent, indent),
                                  TC.BRIGHT, TestConfig.CS.ERROR) + str(condition)
         # So any other signal must come from another source.
@@ -424,8 +445,8 @@ def testset(name=None, postproc=None):
             if not _catch_uncaught_signals[0]:
                 return  # cancel and delegate to the next outer handler
             # To highlight the error in the summary, count it as an errored test.
-            testutil.tests_run << unbox(testutil.tests_run) + 1
-            testutil.tests_errored << unbox(testutil.tests_errored) + 1
+            tests_run << unbox(tests_run) + 1
+            tests_errored << unbox(tests_errored) + 1
             msg = maybe_colorize("{}{}Testset received signal outside test[]: ".format(errmsg_extra_indent, indent),
                                  TC.BRIGHT, TestConfig.CS.ERROR) + describe_exception(condition)
         TestConfig.printer(msg)
@@ -464,8 +485,8 @@ def testset(name=None, postproc=None):
         pass
     except Exception as err:
         # To highlight the error in the summary, count it as an errored test.
-        testutil.tests_run << unbox(testutil.tests_run) + 1
-        testutil.tests_errored << unbox(testutil.tests_errored) + 1
+        tests_run << unbox(tests_run) + 1
+        tests_errored << unbox(tests_errored) + 1
         msg = maybe_colorize("{}{}Testset terminated by exception outside test[]: ".format(errmsg_extra_indent, indent),
                              TC.BRIGHT, TestConfig.CS.ERROR)
         msg += describe_exception(err)
@@ -477,9 +498,9 @@ def testset(name=None, postproc=None):
     _nesting_level -= 1
     assert _nesting_level >= 0
 
-    r2 = unbox(testutil.tests_run)
-    f2 = unbox(testutil.tests_failed)
-    e2 = unbox(testutil.tests_errored)
+    r2 = unbox(tests_run)
+    f2 = unbox(tests_failed)
+    e2 = unbox(tests_errored)
 
     runs = r2 - r1
     fails = f2 - f1

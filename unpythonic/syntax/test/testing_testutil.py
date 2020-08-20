@@ -14,13 +14,13 @@ the functionality is visual and it was just eyeballed. See the session example
 below to generate lots of colorful output, exercising the different features.
 """
 
-from ...syntax import (macros, test, test_signals, test_raises,  # noqa: F401
-                       tests_run, tests_failed, tests_errored,
-                       TestFailure, TestError)
+from ...syntax import macros, test, test_signals, test_raises  # noqa: F401
 
 from functools import partial
 
-from ...test.fixtures import session, testset, terminate, returns_normally  # noqa: F401
+from ...test.fixtures import (session, testset, terminate, returns_normally,  # noqa: F401
+                              tests_run, tests_failed, tests_errored,
+                              TestFailure, TestError)
 
 from ...conditions import invoke, handlers, restarts, cerror  # noqa: F401
 from ...misc import raisef

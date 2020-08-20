@@ -11,8 +11,7 @@ import re
 import sys
 from importlib import import_module
 
-from unpythonic.test.fixtures import session, testset
-from unpythonic.syntax.testutil import tests_errored, tests_failed
+from unpythonic.test.fixtures import session, testset, tests_errored, tests_failed
 from unpythonic.collections import unbox
 
 import macropy.activate  # noqa: F401

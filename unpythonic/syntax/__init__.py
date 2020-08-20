@@ -9,8 +9,7 @@ Requires MacroPy (package ``macropy3`` on PyPI).
 # that implement the macros.
 
 # insist, deny, it, f, _, force, force1, local, delete, block, expr,
-# dbgprint_block, dbgprint_expr, call_cc,
-# tests_run, tests_failed, tests_errored, TestException, TestFailure, TestError
+# dbgprint_block, dbgprint_expr, call_cc
 # are just for passing through to the client code that imports us.
 from .autoref import autoref as _autoref
 from .curry import curry as _curry
@@ -32,15 +31,13 @@ from .dbg import (dbg_block as _dbg_block, dbg_expr as _dbg_expr,  # noqa: F401
 from .prefix import prefix as _prefix
 from .tailtools import (autoreturn as _autoreturn, tco as _tco,  # noqa: F401
                         continuations as _continuations, call_cc)
-from .testutil import (test_expr as _test_expr,  # noqa: F401
+from .testutil import (test_expr as _test_expr,
                        test_expr_signals as _test_expr_signals,
                        test_expr_raises as _test_expr_raises,
                        test_block as _test_block,
                        test_block_signals as _test_block_signals,
                        test_block_raises as _test_block_raises,
-                       fail_expr as _fail_expr, error_expr as _error_expr,
-                       tests_run, tests_failed, tests_errored,
-                       TestingException, TestFailure, TestError)
+                       fail_expr as _fail_expr, error_expr as _error_expr)
 # "where" is only for passing through (export).
 from .letdoutil import UnexpandedLetView, _canonize_bindings, where  # noqa: F401
 from ..dynassign import dyn, make_dynvar
@@ -2098,7 +2095,7 @@ def test(tree, **kw):  # noqa: F811
     is signaled instead, so the caller can easily tell apart which case
     occurred.
 
-    These condition types are defined in `unpythonic.syntax.test.testutil`.
+    These condition types are defined in `unpythonic.test.fixtures`.
     They inherit from `TestingException`, defined in the same module.
 
     *Signaling* a condition, instead of *raising* an exception, allows the
