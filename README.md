@@ -4,7 +4,7 @@ In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing f
 
 ![100% Python](https://img.shields.io/github/languages/top/Technologicat/unpythonic) ![supported language versions](https://img.shields.io/pypi/pyversions/unpythonic) ![supported implementations](https://img.shields.io/pypi/implementation/unpythonic) ![CI status](https://img.shields.io/github/workflow/status/Technologicat/unpythonic/Python%20package)  
 ![version on PyPI](https://img.shields.io/pypi/v/unpythonic) ![PyPI package format](https://img.shields.io/pypi/format/unpythonic) ![dependency status](https://img.shields.io/librariesio/github/Technologicat/unpythonic)  
-![license: BSD](https://img.shields.io/pypi/l/unpythonic) ![open issues](https://img.shields.io/github/issues/Technologicat/unpythonic) [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/Technologicat/unpythonic/issues)
+![license: BSD](https://img.shields.io/pypi/l/unpythonic) ![open issues](https://img.shields.io/github/issues/Technologicat/unpythonic) [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](HACKING.md)
 
 *Some hypertext features of this README, such as local links to detailed documentation, and expandable example highlights, are not supported when viewed on PyPI; [view on GitHub](https://github.com/Technologicat/unpythonic) to have those work properly.*
 
@@ -593,7 +593,7 @@ or
 
 Not working as advertised? Missing a feature? Documentation needs improvement?
 
-**[Issue reports](https://github.com/Technologicat/unpythonic/issues) and [pull requests](https://github.com/Technologicat/unpythonic/pulls) are welcome.**
+**[Issue reports](https://github.com/Technologicat/unpythonic/issues) and [pull requests](https://github.com/Technologicat/unpythonic/pulls) are welcome.** [Contribution guidelines](HACKING.md).
 
 While `unpythonic` is intended as a serious tool for improving productivity as well as for teaching, right now my work priorities mean that it's developed and maintained on whatever time I can spare for it. Thus getting a response may take a while, depending on which project I happen to be working on.
 
