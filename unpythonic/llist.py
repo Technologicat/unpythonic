@@ -116,7 +116,7 @@ class LinkedListOrCellIterator(ConsIterator):
                 else:
                     if _fullerror:
                         raise TypeError("Not a linked list or a single cons cell: {}".format(head))
-                    else:  # avoid infinite loop in cons.__repr__
+                    else:  # avoid infinite loop in cons.__repr__ (it uses LinkedListIterator, though)  # pragma: no cover
                         raise TypeError("Not a linked list or a single cons cell")
         super().__init__(head, walker)
 
@@ -280,7 +280,7 @@ def _build_accessor(name):
     return composer1i(f[char] for char in spec)
 
 def car(x):
-    """Return the first half of a cons cell."""  # no autobuild, we want a docstring.
+    """Return the first half of a cons cell."""
     return _car(x)
 def cdr(x):
     """Return the second half of a cons cell."""
