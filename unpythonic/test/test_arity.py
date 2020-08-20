@@ -106,17 +106,48 @@ def runtests():
                                      ("vararg", (4, 5)), ("vararg_name", "args"),
                                      ("kwarg", None), ("kwarg_name", None))]
 
+        # On Python 3.5, there's no guarantee about the ordering of the kwargs.
+        # Our analysis machinery preserves the order it gets, but the *input*
+        # may already differ from how the invocation of `r` is written in the
+        # source code here.
+        #
+        # So we must allow for arbitrary ordering of the kwargs when checking
+        # the result.
+        #
+        def check35(result, truth):
+            args_r, vararg_r, vararg_name_r, kwarg_r, kwarg_name_r = result
+            args_t, vararg_t, vararg_name_t, kwarg_t, kwarg_name_t = truth
+            couldbe = (args_r == args_t and vararg_r == vararg_t and
+                       vararg_name_r == vararg_name_t and kwarg_name_r == kwarg_name_t)
+            if not couldbe:
+                return False
+            return set(kwarg_r) == set(kwarg_t)
+
         def f(a, b, c, **kw):
             pass
-        test[r(f, 1, 2, 3, d=4, e=5) == (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                         ("vararg", None), ("vararg_name", None),
-                                         ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw"))]
+        test[check35(r(f, 1, 2, 3, d=4, e=5), (("args", (("a", 1), ("b", 2), ("c", 3))),
+                                               ("vararg", None), ("vararg_name", None),
+                                               ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw")))]
 
         def f(a, b, c, *args, **kw):
             pass
-        test[r(f, 1, 2, 3, 4, 5, d=6, e=7) == (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                               ("vararg", (4, 5)), ("vararg_name", "args"),
-                                               ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw"))]
+        test[check35(r(f, 1, 2, 3, 4, 5, d=6, e=7), (("args", (("a", 1), ("b", 2), ("c", 3))),
+                                                     ("vararg", (4, 5)), ("vararg_name", "args"),
+                                                     ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw")))]
+
+        # TODO: On Python 3.6+, this becomes just:
+        #
+        # def f(a, b, c, **kw):
+        #     pass
+        # test[r(f, 1, 2, 3, d=4, e=5) == (("args", (("a", 1), ("b", 2), ("c", 3))),
+        #                                  ("vararg", None), ("vararg_name", None),
+        #                                  ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw"))]
+        #
+        # def f(a, b, c, *args, **kw):
+        #     pass
+        # test[r(f, 1, 2, 3, 4, 5, d=6, e=7) == (("args", (("a", 1), ("b", 2), ("c", 3))),
+        #                                        ("vararg", (4, 5)), ("vararg_name", "args"),
+        #                                        ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw"))]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
