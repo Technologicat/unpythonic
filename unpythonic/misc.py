@@ -6,7 +6,7 @@ __all__ = ["call", "callwith", "raisef", "tryf", "equip_with_traceback",
            "getattrrec", "setattrrec",
            "Popper", "CountingIterator",
            "ulp",
-           "slurp", "async_raise", "callsite_filename"]
+           "slurp", "async_raise", "callsite_filename", "safeissubclass"]
 
 from types import LambdaType, FunctionType, CodeType, TracebackType
 from time import monotonic
@@ -781,3 +781,11 @@ def callsite_filename():
     filename = frame.f_code.co_filename
     del frame, stack
     return filename
+
+def safeissubclass(cls, cls_or_tuple):
+    """Like issubclass, but if `cls` is not a class, swallow the `TypeError` and return `False`."""
+    try:
+        return issubclass(cls, cls_or_tuple)
+    except TypeError:  # "issubclass() arg 1 must be a class"
+        pass
+    return False

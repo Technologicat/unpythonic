@@ -11,6 +11,7 @@
 - `equip_with_traceback`: take a manually created exception instance, equip it with a traceback. Requires Python 3.7 or later.
 - `subset`: test whether an iterable is a subset of another. Convenience function.
 - `allsame`: test whether all elements of an iterable are the same. Sometimes useful in writing testing code.
+- `safeissubclass`: like issubclass, but if `cls` is not a class, swallow the `TypeError` and return `False`. Sometimes useful when dealing with lots of code that needs to check types dynamically.
 
 **Non-breaking changes**:
 

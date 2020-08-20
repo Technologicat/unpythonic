@@ -11,7 +11,7 @@ from macropy.core import unparse
 from ast import Tuple, Str, Subscript, Name, Call, copy_location
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
-from ..misc import callsite_filename
+from ..misc import callsite_filename, safeissubclass
 from ..conditions import cerror, handlers, restarts, invoke
 from ..collections import box, unbox
 from ..symbol import sym
@@ -248,13 +248,6 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, *, filename, lineno, m
 
     "Signal" as in `unpythonic.conditions.signal` and its sisters `error`, `cerror`, `warn`.
     """
-    def safeissubclass(t, u):
-        try:
-            return issubclass(t, u)
-        except TypeError:  # "issubclass() arg 1 must be a class"
-            pass
-        return False
-
     mode, result = _observe(thunk)
     tests_run << unbox(tests_run) + 1
 
@@ -286,13 +279,6 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, *, filename, lineno, m
 
 def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, message=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` raises `exctype`."""
-    def safeissubclass(t, u):
-        try:
-            return issubclass(t, u)
-        except TypeError:  # "issubclass() arg 1 must be a class"
-            pass
-        return False
-
     mode, result = _observe(thunk)
     tests_run << unbox(tests_run) + 1
 

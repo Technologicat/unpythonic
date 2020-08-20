@@ -68,7 +68,7 @@ import warnings
 
 from .collections import box, unbox
 from .arity import arity_includes, UnknownArity
-from .misc import namelambda, equip_with_traceback
+from .misc import namelambda, equip_with_traceback, safeissubclass
 
 _stacks = threading.local()
 def _ensure_stacks():  # per-thread init
@@ -422,12 +422,6 @@ class handlers(_Stacked):
     # the `with handlers` form.
     def __init__(self, *bindings):
         """binding: (cls, callable)"""
-        def safeissubclass(t, u):
-            try:
-                return issubclass(t, u)
-            except TypeError:  # "issubclass() arg 1 must be a class"
-                pass
-            return False
         for t, c in bindings:
             if not (((isinstance(t, tuple) and all(safeissubclass(x, BaseException) for x in t)) or
                      safeissubclass(t, BaseException)) and

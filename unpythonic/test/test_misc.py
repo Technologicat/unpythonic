@@ -13,7 +13,7 @@ import threading
 
 from ..misc import (call, callwith, raisef, tryf, pack, namelambda, timer,
                     getattrrec, setattrrec, Popper, CountingIterator, ulp, slurp,
-                    async_raise)
+                    async_raise, callsite_filename, safeissubclass)
 from ..fun import withself
 from ..env import env
 
@@ -267,6 +267,22 @@ def runtests():
             test[out[0] < 9]  # terminated early due to the injected KeyboardInterrupt
         except NotImplementedError:  # pragma: no cover
             error["async_raise not supported on this Python interpreter."]
+
+    with testset("callsite_filename"):
+        test["test_misc.py" in callsite_filename()]
+
+    # Like issubclass, but if `cls` is not a class, swallow the `TypeError` and return `False`.
+    with testset("safeissubclass"):
+        class MetalBox:
+            pass
+        class PlasticBox:
+            pass
+        class Safe(MetalBox):
+            pass
+        test[safeissubclass(Safe, MetalBox)]
+        test[not safeissubclass(Safe, PlasticBox)]
+        test[safeissubclass(Safe, (PlasticBox, MetalBox))]
+        test[not safeissubclass("definitely not a class", MetalBox)]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
