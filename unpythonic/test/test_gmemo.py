@@ -284,6 +284,7 @@ def runtests():
                             yield n
             return manual_mprimes4()
         test[tuple(take(500, memo_primes4())) == tuple(take(500, mprimes2()))]
+        test[last(take(5000, memo_primes4())) == 48611]  # trigger the maxnp case
 
         test[tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)]
         test[tuple(take(10, mprimes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)]
