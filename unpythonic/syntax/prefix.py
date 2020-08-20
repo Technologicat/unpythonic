@@ -5,6 +5,19 @@ Experimental, not for use in production code.
 """
 
 from ast import Name, Call, Tuple, Load, Index
+import sys
+
+# Python 3.4 expects a Call node to have `starargs` and `kwargs` attributes.
+# These are gone in Python 3.5+, because the AST representation of function
+# calls was changed in 3.5.
+#     https://greentreesnakes.readthedocs.io/en/latest/nodes.html#Call
+#
+# Well, more exactly, `macropy.core.unparse` expects to find those attributes,
+# and our testing framework just happens to unparse the input to a test macro,
+# so it can show the expr if the test happens to go south.
+#
+# So we have to be careful to generate well-formed nodes.
+PYTHON34 = sys.version_info >= (3, 4) and sys.version_info < (3, 5)
 
 from macropy.core.quotes import macros, q, u, ast_literal  # noqa: F811, F401
 from macropy.core.walkers import Walker
@@ -88,7 +101,11 @@ def prefix(block_body):
             assert False, "kw(...) may only specify named args"
         kwargs = flatmap(lambda x: x.keywords, filter(iskwargs, data))
         kwargs = list(rev(uniqify(rev(kwargs), key=lambda x: x.arg)))  # latest wins, but keep original ordering
-        return Call(func=op, args=posargs, keywords=list(kwargs))
+        thecall = Call(func=op, args=posargs, keywords=list(kwargs))
+        if PYTHON34:  # Python 3.4 only
+            thecall.starargs = None
+            thecall.kwargs = None
+        return thecall
     # This is a first-pass macro. Any nested macros should get clean standard Python,
     # not having to worry about tuples possibly denoting function calls.
     yield transform.recurse(block_body, quotelevel=0)
