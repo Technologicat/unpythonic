@@ -5,8 +5,12 @@ from .fixtures import session, testset, returns_normally
 
 import pickle
 import gc
+import threading
+from queue import Queue
 
 from ..singleton import Singleton
+from ..misc import slurp
+from ..it import allsame
 
 # For testing. Defined at the top level to allow pickling.
 class Foo(Singleton):
@@ -74,6 +78,46 @@ def runtests():
         qux2 = pickle.loads(s)
         test[qux2 is qux]   # it's the same instance
         test[qux.x == 23]  # and unpickling didn't change the state
+
+    with testset("thread safety"):
+        with test:  # just interested that it runs to completion
+            class Quux(Singleton):
+                pass
+            que = Queue()
+            def worker():
+                try:
+                    que.put(Quux())
+                except TypeError:
+                    pass
+            n = 1000
+            threads = [threading.Thread(target=worker) for _ in range(n)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            lst = slurp(que)
+            test[len(lst) == 1]
+
+        # TODO: These must be outside the `with test` because a test block
+        # implicitly creates a function (whence a local scope).
+        s = pickle.dumps(baz)
+        del baz
+        with test:
+            que = Queue()
+            def worker():
+                try:
+                    que.put(pickle.loads(s))  # let's race!
+                except TypeError:  # pragma: no cover
+                    que.put(None)
+            n = 10000
+            threads = [threading.Thread(target=worker) for _ in range(n)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            lst = slurp(que)
+            test[all(x is not None for x in lst)]
+            test[allsame(lst)]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
