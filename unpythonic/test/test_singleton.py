@@ -102,6 +102,7 @@ def runtests():
         # implicitly creates a function (whence a local scope).
         s = pickle.dumps(baz)
         del baz
+        gc.collect()
         with test:
             que = Queue()
             def worker():
