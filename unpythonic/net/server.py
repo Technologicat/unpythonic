@@ -121,21 +121,26 @@ import atexit
 import inspect
 from itertools import count
 
+try:  # Python 3.6+
+    MyModuleNotFoundError = ModuleNotFoundError
+except NameError:
+    MyModuleNotFoundError = ImportError
+
 try:
     from macropy.core.macros import WrappedFunction
-except ModuleNotFoundError:  # probably no MacroPy installed
+except MyModuleNotFoundError:  # probably no MacroPy installed
     WrappedFunction = None
 
 try:
     # Improved macro-enabled console. Imacropy semantics; ?, ?? docstring/source viewing syntax;
     # improved handling of macro import errors; can reload macros and re-establish macro bindings.
     from imacropy.console import MacroConsole as Console
-except ModuleNotFoundError:
+except MyModuleNotFoundError:
     try:
         # MacroPy's own macro-enabled console
         import macropy.activate  # noqa: F401, just needed to boot up MacroPy.
         from macropy.core.console import MacroConsole as Console
-    except ModuleNotFoundError:
+    except MyModuleNotFoundError:
         from code import InteractiveConsole as Console
 
 from ..collections import ThreadLocalBox, Shim
