@@ -3,7 +3,11 @@
 from ...syntax import macros, test  # noqa: F401
 from ...test.fixtures import session, testset
 
+from functools import partial
+
 from ...syntax import macros, dbg  # noqa: F401, F811
+
+from ...syntax import dbgprint_block
 from ...misc import call
 
 def runtests():
@@ -19,10 +23,20 @@ def runtests():
         prt(x)    # transformed
         print(x)  # not transformed, because custom print function specified
 
+    # can print several expressions in the same call
     with dbg(prt):
         x = 2
         y = 3
         prt(x, y, 17 + 23)
+
+    # How to use a custom separator in the default function, `dbgprint_block`.
+    # It special-cases separators containing `\n`, so that the filename/lineno
+    # header is then printed once per item.
+    multiline_prt = partial(dbgprint_block, sep="\n")
+    with dbg(multiline_prt):
+        x = 2
+        y = 3
+        multiline_prt(x, y, 17 + 23)
 
     # now for some proper unit testing
     with testset("basic usage"):

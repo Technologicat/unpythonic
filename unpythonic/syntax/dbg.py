@@ -62,7 +62,7 @@ def dbgprint_block(ks, vs, *, filename=None, lineno=None, sep=", ", **kwargs):
     """
     header = "[{}:{}] ".format(filename, lineno)
     if "\n" in sep:
-        print(sep.join("{} {}: {}".format(header, k, v) for k, v in zip(ks, vs)), **kwargs)
+        print(sep.join("{}{}: {}".format(header, k, v) for k, v in zip(ks, vs)), **kwargs)
     else:
         print(header + sep.join("{}: {}".format(k, v) for k, v in zip(ks, vs)), **kwargs)
 
@@ -70,7 +70,7 @@ def dbg_block(body, args):
     if args:  # custom print function hook
         # TODO: add support for Attribute to support using a method as a custom print function
         # (the problem is we must syntactically find matches in the AST, and AST nodes don't support comparison)
-        if type(args[0]) is not Name:
+        if type(args[0]) is not Name:  # pragma: no cover, let's not test the macro expansion errors.
             assert False, "Custom debug print function must be specified by a bare name"
         p = args[0]
         pname = p.id  # name of the print function as it appears in the user code
