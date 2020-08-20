@@ -222,7 +222,7 @@ def isoftype(value, T):
         if not isinstance(value, tuple):
             return False
         # bare `typing.Tuple`, no restrictions on length or element type.
-        if T.__args__ is None:
+        if not T.__args__:
             return True
         # homogeneous element type, arbitrary length
         if len(T.__args__) == 2 and T.__args__[1] is Ellipsis:
