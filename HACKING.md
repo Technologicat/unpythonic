@@ -72,17 +72,31 @@
 
 ## Technical overview
 
-In short: regular code is in `unpythonic`, macros are in `unpythonic.syntax`, and REPL server related stuff is in `unpythonic.net`. Since `unpythonic` is a relatively loose collection of language extensions and utilities, that's about it.
+In short: regular code is in `unpythonic`, macros are in `unpythonic.syntax`, and REPL server related stuff is in `unpythonic.net`.
 
-To study a particular feature, just start from the entry point, and follow the definitions recursively. Use an IDE or Emacs's `anaconda-mode` ~for convenience~ to stay sane.
+Automated tests are in `test`, under the directory whose modules they test. The test runner is, unsurprisingly, `runtests.py`, at the top level. Yes, I know many developers [prefer to separate](https://blog.ionelmc.ro/2014/05/25/python-packaging/#the-structure) the `src` and `test` hierarchies at the top level; we currently don't, mostly for historical reasons.
 
-`curry` has some consequences, but nothing that a grep wouldn't find.
+For coverage analysis, [`coverage.py`](https://github.com/nedbat/coveragepy) works fine. Block macros do cause [some false negatives](https://github.com/nedbat/coveragepy/issues/1004), but this is minor.
+
+We use a custom testing framework, which lives in the modules `unpythonic.test.fixtures` and `unpythonic.syntax.testutil`. It uses conditions and restarts to communicate between individual tests and the testset, which acts as a reporter.
+
+In retrospect, given that the main aim was compact testing syntax for macro-enabled Python code (without installing another import hook, doing which would disable the macro expander), it might have made more sense to make the testing macros compile to [pytest](https://docs.pytest.org/en/latest/). But hey, it's short, may have applications in teaching... and now we can easily write custom runners, since the testing framework is just a MacroPy library.
+
+(The whole framework is less than 1k SLOC, counting docstrings, comments and blanks; less than 500 SLOC if counting only active code lines.)
+
+Since `unpythonic` is a relatively loose collection of language extensions and utilities, that's about it for the 30 000 ft (9 144 m) view.
+
+To study a particular feature, just start from the entry point, and follow the definitions recursively. Use an IDE or Emacs's `anaconda-mode` ~for convenience~ to stay sane. Look at the tests for examples.
+
+`curry` has some [cross-cutting concerns](https://en.wikipedia.org/wiki/Cross-cutting_concern), but nothing that a grep wouldn't find.
 
 The `lazify` and `continuations` macros are the most complex parts. As for the lazifier, grep also for `passthrough_lazy_args` and `maybe_force_args`. As for continuations, read the `tco` macro first, and keep in mind how that works when reading `continuations`.
 
 `unpythonic.syntax.scoping` is a unfortunate artifact that is needed to implement macros that interact with Python's scoping rules, notably `let`.
 
-As of early 2020, the main target is Python 3.6, both **CPython** and **PyPy3**. The code should run on 3.4 or any later Python. The intent is to drop support for 3.4 and 3.5 in the next major version. Special attention should be devoted to compatibility with 3.8, which flipped the switch on the compiler so that now it generates `ast.Constant` nodes for literals. We have some macro code dealing with the old `ast.Num`, `ast.Str` or `ast.NameConstant`, which should be made to accept `ast.Constant` (in addition to the old types, as long as we support Python 3.6 and 3.7).
+As of the second half of 2020, the main target platform is Python 3.6, both **CPython** and **PyPy3**. The code should run on 3.4 or any later Python. We have [a GitHub workflow](https://github.com/Technologicat/unpythonic/actions?query=workflow%3A%22Python+package%22) that runs the test suite 
+
+The intent is to drop support for 3.4 and 3.5 in the next major version. Special attention should be devoted to compatibility with 3.8, which flipped the switch on the compiler so that now it generates `ast.Constant` nodes for literals. We have ~some~ possibly lots of macro code dealing with the old `ast.Num`, `ast.Str` or `ast.NameConstant`, which should be made to accept `ast.Constant` (in addition to the old types, as long as we support Python 3.6 and 3.7).
 
 
 ## Style guide
