@@ -2057,8 +2057,8 @@ def test(tree, **kw):  # noqa: F811
     failure and error reporting. See the unit tests of `unpythonic` for
     examples.
 
-    Use the `test[]`, `test_raises[]`, `test_signals[]`, `fail[]` and `error[]`
-    macros inside a `with testset()`, as appropriate.
+    Use the `test[]`, `test_raises[]`, `test_signals[]`, `fail[]`, `error[]`
+    and `warn[]` macros inside a `with testset()`, as appropriate.
 
     See also the docstrings of any constructs exported from that module.
 
