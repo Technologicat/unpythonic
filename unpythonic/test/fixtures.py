@@ -426,10 +426,12 @@ def testset(name=None, postproc=None):
     **CAUTION**: Not thread-safe. The `test[...]` invocations should be made from
     a single thread, because `test[]` uses global counters to track runs/fails/errors.
     """
-    r1 = unbox(tests_run)
-    f1 = unbox(tests_failed)
-    e1 = unbox(tests_errored)
-    w1 = unbox(tests_warned)
+    def counters():
+        return tuple(unbox(b) for b in (tests_run,
+                                        tests_failed,
+                                        tests_errored,
+                                        tests_warned))
+    r1, f1, e1, w1 = counters()
 
     def makeindent(level):
         indent = "*" * (TestConfig.indent_per_level * level)
@@ -518,15 +520,12 @@ def testset(name=None, postproc=None):
     _nesting_level -= 1
     assert _nesting_level >= 0
 
-    r2 = unbox(tests_run)
-    f2 = unbox(tests_failed)
-    e2 = unbox(tests_errored)
-    w2 = unbox(tests_warned)
-
+    r2, f2, e2, w2 = counters()
     runs = r2 - r1
     fails = f2 - f1
     errors = e2 - e1
     warns = w2 - w1
+
     msg = (maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
            maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING) +
            maybe_colorize(": ", TestConfig.CS.HEADING) +
