@@ -23,7 +23,7 @@
 
 **Fixed**:
 
-- Compatibility with Pythons 3.4, 3.5 and 3.7, thanks to a newly set up CI workflow for automated multi-version testing.
+- Compatibility with Pythons 3.4, 3.5 and 3.7, thanks to a newly set up [CI](https://en.wikipedia.org/wiki/Continuous_integration) [workflow](https://github.com/Technologicat/unpythonic/actions) for automated multi-version testing.
 - PyPy3 support: fixed crash in querying the arity of builtin functions. The fact that a function is builtin is reported slightly differently compared to CPython. See [#67](https://github.com/Technologicat/unpythonic/issues/67).
 - Bug in `m()` prevented mathifying iterables that are not themselves iterators (e.g. `tuple`).
 - Bugs in `s()`:
