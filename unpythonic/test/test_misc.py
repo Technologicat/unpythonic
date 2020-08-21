@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises, error  # noqa: F401
+from ..syntax import macros, test, test_raises, error, warn  # noqa: F401
 from .fixtures import session, testset
 
 from operator import add
@@ -247,7 +247,9 @@ def runtests():
         test[slurp(q) == list(range(10))]
 
     # async_raise - evil ctypes hack to inject an asynchronous exception into another running thread
-    if sys.implementation.name == "cpython":  # TODO: erroring test breaks CI, so we'll just disable it for now.
+    if sys.implementation.name != "cpython":
+        warn["async_raise only supported on CPython, skipping test."]
+    else:
         with testset("async_raise (inject KeyboardInterrupt)"):
             try:
                 # Test whether the Python we're running on provides ctypes. At least CPython and PyPy3 do.

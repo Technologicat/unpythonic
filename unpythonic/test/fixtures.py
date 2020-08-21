@@ -137,9 +137,18 @@ __all__ = ["session", "testset",
 tests_run = box(0)
 tests_failed = box(0)
 tests_errored = box(0)
+tests_warned = box(0)
 tests_run.__doc__ = "How many tests have run, in total. Boxed global counter."
 tests_failed.__doc__ = "How many tests have failed, in total. Boxed global counter."
 tests_errored.__doc__ = "How many tests have errored, in total. Boxed global counter."
+tests_warned.__doc__ = """How many tests emitted a warning. Boxed global counter.
+
+Warnings don't count toward the total number of tests run, and are not
+considered essential (i.e. the test suite will succeed even with warnings).
+
+The `+ N Warnings` message will be shown at the end of the nearest enclosing testset,
+and any testsets enclosing that one, up to the top level.
+"""
 
 class TestingException(Exception):
     """Base type for testing-related exceptions."""
@@ -151,6 +160,8 @@ class TestError(TestingException):
     This can happen due to an unexpected exception, or an unhandled
     `error` (or `cerror`) condition.
     """
+class TestWarning(TestingException):
+    """Exception type for a human-initiated test warning."""
 
 def maybe_colorize(s, *colors):
     """Colorize `s` with ANSI color escapes if enabled in the global `TestConfig`.
@@ -214,6 +225,7 @@ class TestConfig:
         PASS = TC.GREEN
         FAIL = TC.LIGHTRED
         ERROR = TC.YELLOW
+        WARNING = TC.YELLOW
         GREYED_OUT = (TC.DIM, HEADING)
         # These colors are used for the pass percentage.
         SUMMARY_OK = TC.GREEN
@@ -417,12 +429,17 @@ def testset(name=None, postproc=None):
     r1 = unbox(tests_run)
     f1 = unbox(tests_failed)
     e1 = unbox(tests_errored)
+    w1 = unbox(tests_warned)
+
+    def makeindent(level):
+        indent = "*" * (TestConfig.indent_per_level * level)
+        if len(indent):
+            indent += " "
+        return indent
 
     global _nesting_level
-    indent = ("*" * (TestConfig.indent_per_level * _nesting_level))
-    if len(indent):
-        indent += " "
-    errmsg_extra_indent = "*" * TestConfig.indent_per_level
+    indent = makeindent(_nesting_level)
+    errmsg_indent = makeindent(_nesting_level + 1)
     _nesting_level += 1
 
     title = "{}Testset".format(indent)
@@ -432,14 +449,18 @@ def testset(name=None, postproc=None):
                        maybe_colorize("BEGIN", TC.BRIGHT, TestConfig.CS.HEADING))
 
     def print_and_proceed(condition):
-        # The assert helpers in `unpythonic.syntax.testutil` signal only TestFailure and TestError,
-        # no matter what happens inside the test expression.
+        # The assert helpers in `unpythonic.syntax.testutil` signal only
+        # the descendants of `TestingException`, no matter what happens
+        # inside the test expression.
         if isinstance(condition, TestFailure):
-            msg = maybe_colorize("{}{}FAIL: ".format(errmsg_extra_indent, indent),
+            msg = maybe_colorize("{}FAIL: ".format(errmsg_indent),
                                  TC.BRIGHT, TestConfig.CS.FAIL) + str(condition)
         elif isinstance(condition, TestError):
-            msg = maybe_colorize("{}{}ERROR: ".format(errmsg_extra_indent, indent),
+            msg = maybe_colorize("{}ERROR: ".format(errmsg_indent),
                                  TC.BRIGHT, TestConfig.CS.ERROR) + str(condition)
+        elif isinstance(condition, TestWarning):
+            msg = maybe_colorize("{}WARNING: ".format(errmsg_indent),
+                                 TC.BRIGHT, TestConfig.CS.WARNING) + str(condition)
         # So any other signal must come from another source.
         else:
             if not _catch_uncaught_signals[0]:
@@ -447,7 +468,7 @@ def testset(name=None, postproc=None):
             # To highlight the error in the summary, count it as an errored test.
             tests_run << unbox(tests_run) + 1
             tests_errored << unbox(tests_errored) + 1
-            msg = maybe_colorize("{}{}Testset received signal outside test[]: ".format(errmsg_extra_indent, indent),
+            msg = maybe_colorize("{}Testset received signal outside test[]: ".format(errmsg_indent),
                                  TC.BRIGHT, TestConfig.CS.ERROR) + describe_exception(condition)
         TestConfig.printer(msg)
 
@@ -487,25 +508,30 @@ def testset(name=None, postproc=None):
         # To highlight the error in the summary, count it as an errored test.
         tests_run << unbox(tests_run) + 1
         tests_errored << unbox(tests_errored) + 1
-        msg = maybe_colorize("{}{}Testset terminated by exception outside test[]: ".format(errmsg_extra_indent, indent),
+        msg = maybe_colorize("{}Testset terminated by exception outside test[]: ".format(errmsg_indent),
                              TC.BRIGHT, TestConfig.CS.ERROR)
         msg += describe_exception(err)
         TestConfig.printer(msg)
 
     if postproc is not None:
         _postproc_stack.popleft()
-
     _nesting_level -= 1
     assert _nesting_level >= 0
 
     r2 = unbox(tests_run)
     f2 = unbox(tests_failed)
     e2 = unbox(tests_errored)
+    w2 = unbox(tests_warned)
 
     runs = r2 - r1
     fails = f2 - f1
     errors = e2 - e1
-    TestConfig.printer(maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
-                       maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING) +
-                       maybe_colorize(": ", TestConfig.CS.HEADING) +
-                       summarize(runs, fails, errors))
+    warns = w2 - w1
+    msg = (maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
+           maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING) +
+           maybe_colorize(": ", TestConfig.CS.HEADING) +
+           summarize(runs, fails, errors))
+    if warns > 0:
+        plural = "s" if warns > 1 else ""
+        msg += maybe_colorize(" + {} Warning{}".format(warns, plural), TC.BRIGHT, TestConfig.CS.WARNING)
+    TestConfig.printer(msg)

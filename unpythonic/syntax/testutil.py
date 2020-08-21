@@ -26,7 +26,7 @@ from ..test import fixtures
 # Note the unexpanded `error[]` macro is distinguishable from a call to
 # the function `unpythonic.conditions.error`, because a macro invocation
 # is an `ast.Subscript`, whereas a function call is an `ast.Call`.
-_test_macro_names = ["test", "test_signals", "test_raises", "error", "fail"]
+_test_macro_names = ["test", "test_signals", "test_raises", "error", "fail", "warn"]
 _test_function_names = ["unpythonic_assert",
                         "unpythonic_assert_signals",
                         "unpythonic_assert_raises"]
@@ -52,6 +52,7 @@ def istestmacro(tree):
 
 _fail = sym("_fail")  # used by the fail[] macro
 _error = sym("_error")  # used by the error[] macro
+_warn = sym("_warn")  # used by the warn[] macro
 
 _completed = sym("_completed")  # returned normally
 _signaled = sym("_signaled")  # via unpythonic.conditions.signal and its sisters
@@ -170,6 +171,21 @@ def unpythonic_assert(sourcecode, thunk, *, filename, lineno, message=None):
             error_msg = message
         else:
             error_msg = "Unconditional error requested, no message."
+    elif mode is _completed and result is _warn:  # warn[...]
+        fixtures.tests_warned << unbox(fixtures.tests_warned) + 1
+        # HACK: warnings don't count into the test total
+        fixtures.tests_run << unbox(fixtures.tests_run) - 1
+        conditiontype = fixtures.TestWarning
+        if message is not None:
+            error_msg = message
+        else:
+            error_msg = "Warning requested, no message."
+        # We need to use the `cerror` protocol, so that the handler
+        # will invoke "proceed", thus handling the signal and preventing
+        # any outer handlers from running. This is important to prevent
+        # the warning being printed multiple times (once per testset level).
+        #
+        # So we may as well use the same code path as the fail and error cases.
     # general cases
     elif mode is _completed:
         if result:
@@ -268,7 +284,7 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, me
 # -----------------------------------------------------------------------------
 # Syntax transformers for the macros.
 
-def _fail_or_error_expr(tree, syntaxname, marker):
+def _unconditional_error_expr(tree, syntaxname, marker):
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     if type(tree) is not Str:
         assert False, "expected {stx}[message]".format(stx=syntaxname)
@@ -277,9 +293,11 @@ def _fail_or_error_expr(tree, syntaxname, marker):
     return test_expr(thetuple)
 
 def fail_expr(tree):
-    return _fail_or_error_expr(tree, "fail", hq[_fail])
+    return _unconditional_error_expr(tree, "fail", hq[_fail])
 def error_expr(tree):
-    return _fail_or_error_expr(tree, "error", hq[_error])
+    return _unconditional_error_expr(tree, "error", hq[_error])
+def warn_expr(tree):
+    return _unconditional_error_expr(tree, "warn", hq[_warn])
 
 # -----------------------------------------------------------------------------
 # Expr variants.

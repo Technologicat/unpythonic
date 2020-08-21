@@ -37,7 +37,9 @@ from .testutil import (test_expr as _test_expr,
                        test_block as _test_block,
                        test_block_signals as _test_block_signals,
                        test_block_raises as _test_block_raises,
-                       fail_expr as _fail_expr, error_expr as _error_expr)
+                       fail_expr as _fail_expr,
+                       error_expr as _error_expr,
+                       warn_expr as _warn_expr)
 # "where" is only for passing through (export).
 from .letdoutil import UnexpandedLetView, _canonize_bindings, where  # noqa: F401
 from ..dynassign import dyn, make_dynvar
@@ -2002,7 +2004,7 @@ def fail(tree, **kw):  # noqa: F811
     special-cased to omit the source code expression, because it explictly
     states that the intent of the "test" is not actually to perform a test.
 
-    See also `error[]` to produce a test error instead.
+    See also `error[]`, `warn[]`.
     """
     return _fail_expr(tree)
 
@@ -2017,9 +2019,28 @@ def error(tree, **kw):  # noqa: F811
 
         error["human-readable reason"]
 
-    See also `error[]` to produce a test failure instead.
+    See also `warn[]`, `fail[]`.
     """
     return _error_expr(tree)
+
+@macros.expr
+def warn(tree, **kw):  # noqa: F811
+    """[syntax, expr] Produce a warning, unconditionally.
+
+    Useful to e.g. indicate that the Python interpreter or version the
+    tests are running on does not support a particular test, or to alert
+    about a non-essential TODO.
+
+    A warning does not increase the failure count, so it will not cause
+    your CI workflow to break.
+
+    Usage::
+
+        warn["human-readable reason"]
+
+    See also `error[]`, `fail[]`.
+    """
+    return _warn_expr(tree)
 
 @macros.block
 def test(tree, args, *, gen_sym, **kw):  # noqa: F811
