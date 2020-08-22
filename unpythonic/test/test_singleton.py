@@ -110,7 +110,7 @@ def runtests():
                     que.put(pickle.loads(s))  # let's race!
                 except TypeError:  # pragma: no cover
                     que.put(None)
-            n = 10000
+            n = 1000
             threads = [threading.Thread(target=worker) for _ in range(n)]
             for t in threads:
                 t.start()

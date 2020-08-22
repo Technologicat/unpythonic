@@ -44,7 +44,7 @@ def runtests():
             que = Queue()
             def worker():
                 que.put(sym("hello world"))
-            n = 10000
+            n = 1000
             threads = [threading.Thread(target=worker) for _ in range(n)]
             for t in threads:
                 t.start()
@@ -82,7 +82,7 @@ def runtests():
             que = Queue()
             def worker():
                 que.put(pickle.loads(s))
-            n = 10000
+            n = 1000
             threads = [threading.Thread(target=worker) for _ in range(n)]
             for t in threads:
                 t.start()
