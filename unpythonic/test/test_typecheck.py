@@ -58,6 +58,11 @@ def runtests():
         test[isoftype(23, typing.Union[int, str])]
         test[isoftype("hello again", typing.Union[int, str])]
         test[not isoftype(3.14, typing.Union[int, str])]
+        # The bare Union (no args) is empty, it has no types in it, so no value can match.
+        test[not isoftype(23, typing.Union)]
+        test[not isoftype("hello again", typing.Union)]
+        test[not isoftype(3.14, typing.Union)]
+        test[not isoftype(None, typing.Union)]
 
     with testset("typing.Optional"):
         test[isoftype(None, typing.Optional[int])]
@@ -73,6 +78,7 @@ def runtests():
         test[isoftype((), typing.Tuple)]
         test[not isoftype((), typing.Tuple[int, ...])]  # empty tuple has no element type
         test[not isoftype((), typing.Tuple[float, ...])]
+        test[not isoftype([1, 2, 3], typing.Tuple)]  # list is not tuple
 
     with testset("typing.List"):
         test[isoftype([1, 2, 3], typing.List[int])]
@@ -94,6 +100,8 @@ def runtests():
         test[isoftype({17: "cat", 23: "fox", 42: "python"}, typing.Dict[int, str])]
         test[not isoftype({"bar": "foo", "tavern": "a place"}, typing.Dict[int, str])]
         test[not isoftype(42, typing.Dict[int, str])]
+        # missing type arguments
+        test_raises[TypeError, isoftype({"cat": "small cat", "lion": "big cat"}, typing.Dict)]
 
     # type alias (at run time, this is just an assignment)
     with testset("type alias"):
@@ -182,6 +190,14 @@ def runtests():
         test[isoftype(d.keys(), typing.KeysView[int])]
         test[isoftype(d.values(), typing.ValuesView[str])]
         test[isoftype(d.items(), typing.ItemsView[int, str])]
+
+        # missing mandatory type argument(s)
+        test_raises[TypeError, isoftype(d.keys(), typing.KeysView)]
+        test_raises[TypeError, isoftype(d.values(), typing.ValuesView)]
+        test_raises[TypeError, isoftype(d.items(), typing.ItemsView)]
+
+        test[not isoftype("hello", typing.ItemsView)]
+        test[not isoftype({}.items(), typing.ItemsView[int, str])]  # empty dict has no key, value types
 
         # TODO: test MappingView
         # OTOH, do we need to? It seems it's just an ABC for the other three.

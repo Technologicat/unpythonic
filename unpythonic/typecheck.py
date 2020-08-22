@@ -26,13 +26,13 @@ import typing
 
 try:
     _MyGenericAlias = typing._GenericAlias  # Python 3.7+
-except AttributeError:  # Python 3.6 and earlier
+except AttributeError:  # Python 3.6 and earlier  # pragma: no cover
     class _MyGenericAlias:  # unused, but must be a class to support isinstance() check.
         pass
 
 try:
     _MyCollection = typing.Collection  # Python 3.6+
-except AttributeError:  # Python 3.5 and earlier
+except AttributeError:  # Python 3.5 and earlier  # pragma: no cover
     class _MyCollection:
         pass
 
@@ -161,22 +161,22 @@ def isoftype(value, T):
         if tp is typing.Generic:
             return typing.Generic
         return None
-    def get_args(tp):
-        """Get type arguments with all substitutions performed.
-        For unions, basic simplifications used by Union constructor are performed.
-        Examples::
-            get_args(Dict[str, int]) == (str, int)
-            get_args(int) == ()
-            get_args(Union[int, Union[T, int], str][int]) == (int, str)
-            get_args(Union[int, Tuple[T, int]][str]) == (int, Tuple[str, int])
-            get_args(Callable[[], T][int]) == ([], int)
-        """
-        if isinstance(tp, _MyGenericAlias) and not tp._special:
-            res = tp.__args__
-            if get_origin(tp) is collections.abc.Callable and res[0] is not Ellipsis:
-                res = (list(res[:-1]), res[-1])
-            return res
-        return ()
+    # def get_args(tp):
+    #     """Get type arguments with all substitutions performed.
+    #     For unions, basic simplifications used by Union constructor are performed.
+    #     Examples::
+    #         get_args(Dict[str, int]) == (str, int)
+    #         get_args(int) == ()
+    #         get_args(Union[int, Union[T, int], str][int]) == (int, str)
+    #         get_args(Union[int, Tuple[T, int]][str]) == (int, Tuple[str, int])
+    #         get_args(Callable[[], T][int]) == ([], int)
+    #     """
+    #     if isinstance(tp, _MyGenericAlias) and not tp._special:
+    #         res = tp.__args__
+    #         if get_origin(tp) is collections.abc.Callable and res[0] is not Ellipsis:
+    #             res = (list(res[:-1]), res[-1])
+    #         return res
+    #     return ()
     # <--- end of local copies of get_origin and get_args. The rest is our code.
 
     # Optional normalizes to Union[argtype, NoneType].
@@ -353,13 +353,13 @@ def isoftype(value, T):
         # return True
 
     # Catch any `typing` meta-utilities we don't currently support.
-    if hasattr(T, "__module__") and T.__module__ == "typing":
+    if hasattr(T, "__module__") and T.__module__ == "typing":  # pragma: no cover, only happens when something goes wrong.
         fullname = repr(T.__class__)
         raise NotImplementedError("This run-time type checker doesn't currently support '{}'".format(fullname))
 
     try:
         return isinstance(value, T)  # T should be a concrete class, so delegate.
-    except TypeError as err:  # for debugging
+    except TypeError as err:  # pragma: no cover, for debugging when things go wrong
         raise TypeError("Failed to understand the type, so here's some debug data: {}, {}, {}, {}".format(type(T),
                                                                                                           repr(T.__class__),
                                                                                                           str(T),
