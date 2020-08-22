@@ -114,6 +114,6 @@ def runtests():
     #         sock.sendall(encodemsg(b"hello again"))
     #     test[nettest(server3, client3) == [b"hello world", b"hello again"]]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

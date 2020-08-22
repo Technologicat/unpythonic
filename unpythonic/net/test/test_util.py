@@ -20,6 +20,6 @@ def runtests():
     # client = lambda sock: [sock.sendall(b"x" * 512), sock.sendall(b"x" * 512)]
     # test[len(nettest(server, client)) == 1024]
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

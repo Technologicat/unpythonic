@@ -36,13 +36,13 @@ def runtests():
             def __init__(self):
                 pass
             def meth(self, x):
-                pass
+                pass  # pragma: no cover, this class is here just to be analyzed, not run.
             @classmethod
             def classmeth(cls, x):
-                pass
+                pass  # pragma: no cover
             @staticmethod
             def staticmeth(x):
-                pass
+                pass  # pragma: no cover
         test[arities(A) == (0, 0)]  # no args beside the implicit self
         # methods on the class
         test[arities(A.meth) == (2, 2)]
@@ -65,13 +65,13 @@ def runtests():
             return tuplify_bindings(resolve_bindings(f, *args, **kwargs))
 
         def f(a):
-            pass
+            pass  # pragma: no cover, this is here just to be analyzed.
         byposition = r(f, 1)
         byname = r(f, a=1)
         test[byposition == byname]
 
         def f(a=42):
-            pass
+            pass  # pragma: no cover
         test[r(f) == (("args", (("a", 42),)),
                       ("vararg", None), ("vararg_name", None),
                       ("kwarg", None), ("kwarg_name", None))]
@@ -83,7 +83,7 @@ def runtests():
                             ("kwarg", None), ("kwarg_name", None))]
 
         def f(a, b, c):
-            pass
+            pass  # pragma: no cover
         test[r(f, 1, 2, 3) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                                ("vararg", None), ("vararg_name", None),
                                ("kwarg", None), ("kwarg_name", None))]
@@ -101,7 +101,7 @@ def runtests():
                                      ("kwarg", None), ("kwarg_name", None))]
 
         def f(a, b, c, *args):
-            pass
+            pass  # pragma: no cover
         test[r(f, 1, 2, 3, 4, 5) == (("args", (("a", 1), ("b", 2), ("c", 3))),
                                      ("vararg", (4, 5)), ("vararg_name", "args"),
                                      ("kwarg", None), ("kwarg_name", None))]
@@ -120,19 +120,19 @@ def runtests():
             couldbe = (args_r == args_t and vararg_r == vararg_t and
                        vararg_name_r == vararg_name_t and kwarg_name_r == kwarg_name_t)
             if not couldbe:
-                return False
+                return False  # pragma: no cover, should only happen if the tests fail.
             name_r, contents_r = kwarg_r
             name_t, contents_t = kwarg_t
             return name_r == name_t and set(contents_r) == set(contents_t)
 
         def f(a, b, c, **kw):
-            pass
+            pass  # pragma: no cover
         test[check35(r(f, 1, 2, 3, d=4, e=5), (("args", (("a", 1), ("b", 2), ("c", 3))),
                                                ("vararg", None), ("vararg_name", None),
                                                ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw")))]
 
         def f(a, b, c, *args, **kw):
-            pass
+            pass  # pragma: no cover
         test[check35(r(f, 1, 2, 3, 4, 5, d=6, e=7), (("args", (("a", 1), ("b", 2), ("c", 3))),
                                                      ("vararg", (4, 5)), ("vararg_name", "args"),
                                                      ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw")))]

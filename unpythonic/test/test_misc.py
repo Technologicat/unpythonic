@@ -248,7 +248,7 @@ def runtests():
 
     # async_raise - evil ctypes hack to inject an asynchronous exception into another running thread
     if sys.implementation.name != "cpython":
-        warn["async_raise only supported on CPython, skipping test."]
+        warn["async_raise only supported on CPython, skipping test."]  # pragma: no cover
     else:
         with testset("async_raise (inject KeyboardInterrupt)"):
             try:

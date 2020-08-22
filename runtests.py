@@ -50,4 +50,4 @@ def main():
 
 if __name__ == '__main__':
     if not main():
-        sys.exit(1)
+        sys.exit(1)  # pragma: no cover, this only runs when the tests fail.
