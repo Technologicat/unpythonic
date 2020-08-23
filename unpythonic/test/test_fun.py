@@ -10,10 +10,12 @@ from ..fun import (memoize, curry, apply,
                    andf, orf, notf,
                    flip, rotate,
                    composel1, composer1, composel, composer,
-                   to1st, to2nd, tolast, to,
+                   composelc, composerc,
+                   to1st, to2nd, tokth, tolast, to,
                    withself)
 
 from ..dynassign import dyn
+from ..arity import UnknownArity
 
 def runtests():
     with testset("identity function"):
@@ -174,6 +176,14 @@ def runtests():
             with dyn.let(curry_context=["whatever"]):  # any human-readable label is fine.
                 curry(double, 2, "foo") == (4, "foo")
 
+    with testset("curry error cases"):
+        lst = []
+        test_raises[UnknownArity, curry(lst.append)]  # uninspectable method of builtin type
+        # Internal feature, used by curry macro. If uninspectables are said to be ok,
+        # then attempting to curry an uninspectable simply returns the original function.
+        # `is` doesn't work here (due to method binding machinery?), so we compare the memory address.
+        test[id(curry(lst.append, _curry_allow_uninspectable=True)) == id(lst.append)]
+
     with testset("compose"):
         double = lambda x: 2 * x
         inc = lambda x: x + 1
@@ -197,6 +207,22 @@ def runtests():
         test[inc2_then_double(3) == 10]
         test[double_then_inc2(3) == 8]
 
+    with testset("curry in compose chain"):
+        def f1(a, b):
+            return 2 * a, 3 * b
+        def f2(a, b):
+            return a + b
+        f1_then_f2_a = composelc(f1, f2)
+        f1_then_f2_b = composerc(f2, f1)
+        test[f1_then_f2_a(2, 3) == f1_then_f2_b(2, 3) == 13]
+
+        def f3(a, b):
+            return a, b
+        def f4(a, b, c):
+            return a + b + c
+        f1_then_f3_then_f4 = composelc(f1, f3, f4)
+        test[f1_then_f3_then_f4(2, 3, 5) == 18]  # extra arg passed through on the right
+
     with testset("to1st, to2nd, tolast, to (argument shunting)"):
         test[to1st(double)(1, 2, 3) == (2, 2, 3)]
         test[to2nd(double)(1, 2, 3) == (1, 4, 3)]
@@ -207,6 +233,10 @@ def runtests():
                        (1, composer(double, double)),
                        (0, inc))
         test[processor(1, 2, 3) == (3, 8, 4)]
+
+    with testset("tokth error cases"):
+        test_raises[TypeError, tokth(3, double)()]  # expect at least one argument
+        test_raises[IndexError, tokth(5, double)(1, 2, 3)]  # k > length of arglist
 
     with testset("flip arglist"):
         def f(a, b):
@@ -221,6 +251,10 @@ def runtests():
 
         # inner to outer: (a, b, c) -> (b, c, a) -> (a, c, b)
         test[flip(rotate(-1)(identity))(1, 2, 3) == (1, 3, 2)]
+
+    with testset("rotate error cases"):
+        test_raises[TypeError, (rotate(1)(identity))()]  # expect at least one argument
+        test_raises[IndexError, (rotate(5)(identity))(1, 2, 3)]  # rotating more than length of arglist
 
     with testset("lispy apply"):
         def hello(*args):
