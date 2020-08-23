@@ -276,16 +276,21 @@ def describe_exception(exc):
 
     return "".join(describe_recursive(exc))
 
-def summarize(runs, fails, errors):
-    """Return a human-readable summary of passes, fails, errors, and the total number of tests run.
+def summarize(runs, fails, errors, warns):
+    """Return a human-readable summary.
 
-    `runs`, `fails`, `errors` are nonnegative integers containing the count
-    of what it says on the tin.
+    How many tests ran, passed, failed, errored, or warned.
+
+    `runs`, `fails`, `errors`, `warns` are nonnegative integers containing the
+    count of what it says on the tin.
     """
     assert isinstance(runs, int) and runs >= 0
     assert isinstance(fails, int) and fails >= 0
     assert isinstance(errors, int) and errors >= 0
+    assert isinstance(warns, int) and warns >= 0
 
+    # TODO: Currently we don't count warnings in the total number of tests.
+    # TODO: Think about if this is good or if it should be changed.
     passes = runs - fails - errors
     if runs:
         fail_ratio = fails / runs
@@ -319,6 +324,10 @@ def summarize(runs, fails, errors):
     color = TestConfig.CS.SUMMARY_OK if passes == runs else TestConfig.CS.SUMMARY_NOTOK
     snippets.extend([" ",
                      maybe_colorize("({}% pass)".format(int(pass_percentage)), TC.BRIGHT, color)])
+    if warns > 0:
+        color = TestConfig.CS.WARNING
+        snippets.extend([" ",
+                         maybe_colorize("+ {} Warn".format(warns), TC.BRIGHT, color)])
     return "".join(snippets)
 
 class TestSessionExit(Exception):
@@ -529,8 +538,5 @@ def testset(name=None, postproc=None):
     msg = (maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
            maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING) +
            maybe_colorize(": ", TestConfig.CS.HEADING) +
-           summarize(runs, fails, errors))
-    if warns > 0:
-        plural = "s" if warns > 1 else ""
-        msg += maybe_colorize(" + {} Warning{}".format(warns, plural), TC.BRIGHT, TestConfig.CS.WARNING)
+           summarize(runs, fails, errors, warns))
     TestConfig.printer(msg)
