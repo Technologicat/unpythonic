@@ -585,7 +585,8 @@ def tokth(k, f):
 
     Negative indices also supported.
 
-    Especially useful in multi-arg compose chains. See ``test()`` for examples.
+    Especially useful in multi-arg compose chains.
+    See ``unpythonic.test.test_fun`` for examples.
     """
     def apply_f_to_kth_arg(*args):
         n = len(args)
@@ -593,10 +594,8 @@ def tokth(k, f):
             raise TypeError("Expected at least one argument")
         if not -n < k < n:  # standard semantics for negative indices
             raise IndexError("Should have -n < k < n, but n = len(args) = {}, and k = {}".format(n, k))
-        j = k % n
-        m = j + 1
-        if n < m:
-            raise TypeError("Expected at least {:d} arguments, got {:d}".format(m, n))
+        j = k % n  # --> j ∈ {0, 1, ..., n - 1}, even if k < 0
+        m = j + 1  # --> m ∈ {1, 2, ..., n}
         out = list(args[:j])
         out.append(maybe_force_args(f, args[j]))  # mth argument
         if n > m:
