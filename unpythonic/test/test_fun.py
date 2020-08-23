@@ -178,7 +178,12 @@ def runtests():
 
     with testset("curry error cases"):
         lst = []
-        print(curry(lst.append))  # DEBUG
+
+        from ..arity import arities
+        import sys
+        min_arity, max_arity = arities(lst.append)
+        print(min_arity, max_arity, file=sys.stderr)
+
         test_raises[UnknownArity, curry(lst.append)]  # uninspectable method of builtin type
         # Internal feature, used by curry macro. If uninspectables are said to be ok,
         # then attempting to curry an uninspectable simply returns the original function.
