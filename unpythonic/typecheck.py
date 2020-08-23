@@ -157,9 +157,9 @@ def isoftype(value, T):
             get_origin(List[Tuple[T, T]][int]) == list
         """
         if isinstance(tp, _MyGenericAlias):
-            return tp.__origin__
+            return tp.__origin__  # pragma: no cover, Python 3.7+ only.
         if tp is typing.Generic:
-            return typing.Generic
+            return typing.Generic  # pragma: no cover, Python 3.7+ only.
         return None
     # def get_args(tp):
     #     """Get type arguments with all substitutions performed.
@@ -190,7 +190,7 @@ def isoftype(value, T):
 
     # Python 3.7+ bare typing.Union; empty, has no types in it, so no value can match.
     if T is typing.Union:  # isinstance(T, typing._SpecialForm) and T._name == "Union":
-        return False
+        return False  # pragma: no cover, Python 3.7+ only.
 
     # TODO: in Python 3.7+, what is the mysterious callable that doesn't have `__qualname__`?
     if callable(T) and hasattr(T, "__qualname__") and T.__qualname__ == "NewType.<locals>.new_type":
