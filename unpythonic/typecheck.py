@@ -303,8 +303,9 @@ def isoftype(value, T):
                 typeargs = (int,)
             else:
                 typeargs = T.__args__
+            # Python 3.6: consistent behavior with 3.7+, which use an unconstrained TypeVar T.
             if typeargs is None:
-                raise TypeError("Missing mandatory element type argument of `{}`".format(statictype))
+                typeargs = (typing.TypeVar("T"))
             # Judging by the docs, List takes one type argument. The rest are similar.
             # https://docs.python.org/3/library/typing.html#typing.List
             assert len(typeargs) == 1
