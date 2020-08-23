@@ -182,11 +182,15 @@ def isoftype(value, T):
     # Optional normalizes to Union[argtype, NoneType].
     # Python 3.6 has the repr, 3.7+ use typing._GenericAlias.
     if repr(T.__class__) == "typing.Union" or get_origin(T) is typing.Union:
-        if T.__args__ is None:  # bare `typing.Union`; empty, has no types in it, so no value can match.
+        if T.__args__ is None:  # Python 3.6 bare `typing.Union`; empty, has no types in it, so no value can match.
             return False
         if not any(isoftype(value, U) for U in T.__args__):
             return False
         return True
+
+    # Python 3.7+ bare typing.Union; empty, has no types in it, so no value can match.
+    if T is typing.Union:  # isinstance(T, typing._SpecialForm) and T._name == "Union":
+        return False
 
     # TODO: in Python 3.7+, what is the mysterious callable that doesn't have `__qualname__`?
     if callable(T) and hasattr(T, "__qualname__") and T.__qualname__ == "NewType.<locals>.new_type":
@@ -253,12 +257,14 @@ def isoftype(value, T):
     def ismapping(statictype, runtimetype):
         if not isinstance(value, runtimetype):
             return False
-        if T.__args__ is None:
-            raise TypeError("Missing mandatory key, value type arguments of `{}`".format(statictype))
-        assert len(T.__args__) == 2
+        if T.__args__ is None:  # Python 3.6: consistent behavior with 3.7+, which use unconstrained TypeVar KT, VT.
+            args = (typing.TypeVar("KT"), typing.TypeVar("VT"))
+        else:
+            args = T.__args__
+        assert len(args) == 2
         if not value:  # An empty dict has no key and value types.
             return False
-        K, V = T.__args__
+        K, V = args
         return all(isoftype(k, K) and isoftype(v, V) for k, v in value.items())
     for statictype, runtimetype in ((typing.Dict, dict),
                                     (typing.MutableMapping, collections.abc.MutableMapping),
@@ -271,12 +277,14 @@ def isoftype(value, T):
     if safeissubclass(T, typing.ItemsView) or get_origin(T) is collections.abc.ItemsView:
         if not isinstance(value, collections.abc.ItemsView):
             return False
-        if T.__args__ is None:
-            raise TypeError("Missing mandatory key, value type arguments of `{}`".format(statictype))
-        assert len(T.__args__) == 2
+        if T.__args__ is None:  # Python 3.6: consistent behavior with 3.7+, which use unconstrained TypeVar KT, VT.
+            args = (typing.TypeVar("KT"), typing.TypeVar("VT"))
+        else:
+            args = T.__args__
+        assert len(args) == 2
         if not value:  # An empty dict has no key and value types.
             return False
-        K, V = T.__args__
+        K, V = args
         return all(isoftype(k, K) and isoftype(v, V) for k, v in value)
 
     # Check iterable types that allow non-destructive iteration.

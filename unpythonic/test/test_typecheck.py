@@ -100,8 +100,8 @@ def runtests():
         test[isoftype({17: "cat", 23: "fox", 42: "python"}, typing.Dict[int, str])]
         test[not isoftype({"bar": "foo", "tavern": "a place"}, typing.Dict[int, str])]
         test[not isoftype(42, typing.Dict[int, str])]
-        # missing type arguments
-        test_raises[TypeError, isoftype({"cat": "small cat", "lion": "big cat"}, typing.Dict)]
+        # no type arguments: any key/value types ok (consistent with Python 3.7+)
+        test[isoftype({"cat": "animal", "pi": 3.14159, 2.71828: "e"}, typing.Dict)]
 
     # type alias (at run time, this is just an assignment)
     with testset("type alias"):
@@ -191,10 +191,10 @@ def runtests():
         test[isoftype(d.values(), typing.ValuesView[str])]
         test[isoftype(d.items(), typing.ItemsView[int, str])]
 
-        # missing mandatory type argument(s)
-        test_raises[TypeError, isoftype(d.keys(), typing.KeysView)]
-        test_raises[TypeError, isoftype(d.values(), typing.ValuesView)]
-        test_raises[TypeError, isoftype(d.items(), typing.ItemsView)]
+        # no type arguments: any key/value types ok (consistent with Python 3.7+)
+        test[isoftype(d.keys(), typing.KeysView)]
+        test[isoftype(d.values(), typing.ValuesView)]
+        test[isoftype(d.items(), typing.ItemsView)]
 
         test[not isoftype("hello", typing.ItemsView)]
         test[not isoftype({}.items(), typing.ItemsView[int, str])]  # empty dict has no key, value types
