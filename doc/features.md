@@ -2955,6 +2955,8 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 **Added in v0.14.2**.
 
+**Changed in v0.14.3**. *The multiple-dispatch decorator `@generic` no longer takes a master definition. Methods are registered directly with `@generic`; the first method definition implicitly creates the generic function.*
+
 The ``generic`` decorator allows creating multiple-dispatch generic functions with type annotation syntax.
 
 We also provide some friendly utilities: ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first two) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
@@ -2969,18 +2971,13 @@ The details are best explained by example:
 import typing
 from unpythonic import generic
 
-@generic
-def zorblify():
-    ...  # Stub, not called. This definition creates the generic function.
-
-# Now we can register methods to our function.
-@zorblify.register
+@generic  # The first definition creates the generic function, and registers the first method.
 def zorblify(x: int, y: int):
     return "int, int"
-@zorblify.register
+@generic  # noqa: F811, registered as a method of the same generic function.
 def zorblify(x: str, y: int):
     return "str, int"
-@zorblify.register
+@generic  # noqa: F811
 def zorblify(x: str, y: float):
     return "str, float"
 
@@ -2993,15 +2990,12 @@ assert zorblify("cat", 3.14) == "str, float"
 # Let's emulate the argument handling of Python's `range` builtin, just for fun.
 # Note the meaning of the argument in each position depends on the number of arguments.
 @generic
-def r():
-    ...
-@r.register
 def r(stop: int):
     return _r_impl(0, 1, stop)
-@r.register
+@generic  # noqa: F811
 def r(start: int, stop: int):
     return _r_impl(start, 1, stop)
-@r.register
+@generic  # noqa: F811
 def r(start: int, step: int, stop: int):
     return _r_impl(start, step, stop)
 # With this arrangement, the actual implementation always gets the args in the same format,
@@ -3016,14 +3010,12 @@ assert r(2, 3, 10) == (2, 3, 10)
 
 # varargs are supported via `typing.Tuple`
 @generic
-def gargle(): ...
-@gargle.register
 def gargle(*args: typing.Tuple[int, ...]):  # any number of ints
     return "int"
-@gargle.register
+@generic  # noqa: F811
 def gargle(*args: typing.Tuple[float, ...]):  # any number of floats
     return "float"
-@gargle.register
+@generic  # noqa: F811
 def gargle(*args: typing.Tuple[int, float, str]):  # exactly three args, matching the specified types
     return "int, float, str"
 

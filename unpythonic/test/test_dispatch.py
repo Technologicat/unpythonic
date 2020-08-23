@@ -8,16 +8,13 @@ from ..fun import curry
 from ..dispatch import generic, typed
 
 @generic
-def zorblify():  # could use the ellipsis `...` as the body, but this is a unit test.
-    fail["this stub should never be called"]  # pragma: no cover
-@zorblify.register
 def zorblify(x: int, y: int):
     return 2 * x + y
-@zorblify.register
+@generic  # noqa: F811, registered as a method of the same generic function.
 def zorblify(x: str, y: int):
     # Because dispatching occurs on both arguments, this method is not reached by the tests.
     fail["this method should not be reached by the tests"]  # pragma: no cover
-@zorblify.register
+@generic  # noqa: F811
 def zorblify(x: str, y: float):
     return "{} {}".format(x[::-1], y)
 
@@ -27,45 +24,37 @@ def zorblify(x: str, y: float):
 # where the role of an argument in a particular position changes depending on
 # the number of arguments (like the range() builtin).
 #
-# The pattern is that the generic function canonizes the arguments:
+# The pattern is that the generic function canonizes the arguments,
+# and then calls the actual implementation, which always gets them
+# in the same format.
 @generic
-def example():
-    ...  # pragma: no cover
-@example.register
 def example(stop: int):
     return _example_impl(0, 1, stop)
-@example.register
+@generic  # noqa: F811
 def example(start: int, stop: int):
     return _example_impl(start, 1, stop)
-@example.register
+@generic  # noqa: F811
 def example(start: int, step: int, stop: int):
     return _example_impl(start, step, stop)
-# ...after which the actual implementation always gets them in the same format.
-def _example_impl(start, step, stop):
+def _example_impl(start, step, stop):  # no @generic!
     return start, step, stop
 
 # shorter, same effect
 @generic
-def example2():
-    ...  # pragma: no cover
-@example2.register
 def example2(start: int, stop: int):
     return example2(start, 1, stop)  # just call the method that has the implementation
-@example2.register
+@generic  # noqa: F811
 def example2(start: int, step: int, stop: int):
     return start, step, stop
 
 # varargs are supported via `typing.Tuple`
 @generic
-def gargle():
-    ...  # pragma: no cover
-@gargle.register
 def gargle(*args: typing.Tuple[int, ...]):  # any number of ints
     return "int"
-@gargle.register
+@generic  # noqa: F811
 def gargle(*args: typing.Tuple[float, ...]):  # any number of floats
     return "float"
-@gargle.register
+@generic  # noqa: F811
 def gargle(*args: typing.Tuple[int, float, str]):  # three args, matching the given types
     return "int, float, str"
 

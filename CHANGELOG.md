@@ -21,6 +21,10 @@
 - Document named-arg bug in `curry` in the docstring. See [#61](https://github.com/Technologicat/unpythonic/issues/61). Fixing this needs a better `partial`, so for now it's a known issue.
 - All of `unpythonic` itself is now tested using the new testing framework for macro-enabled code, `unpythonic.test.fixtures`. **Hence, developing `unpythonic` now requires MacroPy.** For **using** `unpythonic`, MacroPy remains strictly optional, as it will at least for the foreseeable future.
 
+**Breaking changes (experimental parts only)**:
+
+- The multiple-dispatch decorator `@generic` no longer takes a master definition. Methods are registered directly with `@generic`; the first method definition implicitly creates the generic function.
+
 **Fixed**:
 
 - Compatibility with Pythons 3.4, 3.5 and 3.7, thanks to a newly set up [CI](https://en.wikipedia.org/wiki/Continuous_integration) [workflow](https://github.com/Technologicat/unpythonic/actions) for automated multi-version testing.
