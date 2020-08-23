@@ -100,6 +100,20 @@ def runtests():
         test[jack("foo") == "foo"]
         test_raises[TypeError, jack(3.14)]  # jack only accepts int or str
 
+    with testset("error cases"):
+        with test_raises(TypeError, "@typed should only accept a single method"):
+            @typed
+            def errorcase1(x: int):
+                pass  # pragma: no cover
+            @typed  # noqa: F811
+            def errorcase1(x: str):
+                pass  # pragma: no cover
+
+        with test_raises(TypeError, "@generic should complain about missing type annotations"):
+            @generic
+            def errorcase2(x):
+                pass  # pragma: no cover
+
     with testset("@typed integration with curry"):
         f = curry(blubnify, 2)
         test[callable(f)]

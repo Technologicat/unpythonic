@@ -204,7 +204,7 @@ def generic(f):
             function, _ = _getfunc(thecallable)
             params = inspect.signature(function).parameters
             allparamnames = [p.name for p in params.values()]
-            if not all(name in signature for name in allparamnames):  # pragma: no cover
+            if not all(name in signature for name in allparamnames):
                 failures = [name for name in allparamnames if name not in signature]
                 wrapped = ["'{}'".format(x) for x in failures]
                 plural = "s" if len(failures) > 1 else ""
@@ -222,7 +222,7 @@ def generic(f):
     dispatcher = _dispatcher_registry[fullname]
     if hasattr(dispatcher, "_register"):  # co-operation with @typed, below
         return dispatcher._register(f)
-    raise TypeError("@typed: cannot register additional methods.")  # pragma: no cover
+    raise TypeError("@typed: cannot register additional methods.")
 
 
 def typed(f):
