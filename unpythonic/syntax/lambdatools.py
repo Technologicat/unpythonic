@@ -135,9 +135,9 @@ def namedlambda(block_body):
                     kw.value = rec(kw.value)
             tree.args = rec(tree.args)
             if hasattr(tree, "starargs"):  # Python 3.4
-                tree.starargs = rec(tree.starargs)
+                tree.starargs = rec(tree.starargs)  # pragma: no cover
             if hasattr(tree, "kwargs"):  # Python 3.4
-                tree.kwargs = rec(tree.kwargs)
+                tree.kwargs = rec(tree.kwargs)  # pragma: no cover
         elif type(tree) is Dict:  # {"f": lambda: ..., "g": lambda: ...}
             stop()
             lst = list(zip(tree.keys, tree.values))
@@ -172,7 +172,7 @@ def quicklambda(block_body):
     # Used under the MIT license.
     # Copyright (c) 2013-2018, Li Haoyi, Justin Holmgren, Alberto Berti and all the other contributors.
     gen_sym = dyn.gen_sym
-    def f_transform(tree):
+    def f_transform(tree):  # pragma: no cover, fallback for MacroPy 1.1.0b2
         @Walker
         def underscore_search(tree, collect, **kw):
             if isinstance(tree, Name) and tree.id == "_":
@@ -196,7 +196,7 @@ def quicklambda(block_body):
             # TODO: once a new version of MacroPy3 is released.
             if hasattr(f, "transform"):
                 return f.transform(tree.slice.value)
-            return f_transform(tree.slice.value)  # fallback for MacroPy3 1.1.0b2
+            return f_transform(tree.slice.value)  # pragma: no cover, fallback for MacroPy3 1.1.0b2
         return tree
     new_block_body = [transform.recurse(stmt) for stmt in block_body]
     yield new_block_body
