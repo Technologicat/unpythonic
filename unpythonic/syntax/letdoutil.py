@@ -22,7 +22,7 @@ def _isx(tree, x):
             (type(tree) is Captured and ismatch(tree.name)))
 def _pred(x):
     rematch = re.match
-    pat = re.compile(r"^{}\d*$".format(x))
+    pat = re.compile(r"^{}\d*$".format(x))  # numbering caused by MacroPy hq[], hygienic quote
     return lambda s: rematch(pat, s)
 _isletf = _pred("letter")  # name must match what ``unpythonic.syntax.letdo._letimpl`` uses in its output.
 _isdof = _pred("dof")      # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
@@ -101,7 +101,7 @@ def islet(tree, expanded=True):
         elif not _isx(tree.func, _isletf):
             return False
         mode = [kw.value for kw in tree.keywords if kw.arg == "mode"]
-        assert len(mode) == 1 and type(mode[0]) is Str
+        assert len(mode) == 1 and type(mode[0]) is Str  # TODO: Python 3.8+: ast.Constant, no ast.Str
         mode = mode[0].s
         kwnames = [kw.arg for kw in tree.keywords]
         if "_envname" in kwnames:
@@ -274,7 +274,7 @@ class UnexpandedLetView:
         data = islet(tree, expanded=False)
         self._has_subscript_container = True
         if not data:
-            # the macro interface only gets the bracketed part as tree,
+            # The macro interface only gets the bracketed part as "tree",
             # so we jump through hoops to make this usable both from
             # syntax transformers (which have access to the full AST)
             # and the macro interface (which needs to destructure bindings and body
@@ -282,7 +282,7 @@ class UnexpandedLetView:
             h = _ishaskellylet(tree)
             if not h:
                 raise TypeError("expected a tree representing an unexpanded let, got {}".format(tree))
-            data = (h, None)  # cannot detect mode, no access to the surrounding subscript form
+            data = (h, None)  # cannot detect mode, because no access to the surrounding Subscript AST node
             self._has_subscript_container = False
         self._tree = tree
         self._type, self.mode = data
@@ -293,11 +293,11 @@ class UnexpandedLetView:
 
     def _getbindings(self):
         t = self._type
-        if t == "decorator":  # bare Call
+        if t == "decorator":  # bare Call, dlet(...), blet(...)
             return _canonize_bindings(self._tree.args, self._tree)
-        elif t == "lispy_expr":  # Call inside a Subscript
+        elif t == "lispy_expr":  # Call inside a Subscript, (let(...))[...]
             return _canonize_bindings(self._tree.value.args, self._tree.value)
-        else:  # haskelly let
+        else:  # haskelly let, let[(...) in ...], let[..., where(...)]
             theexpr = self._tree.slice.value if self._has_subscript_container else self._tree
             if t == "in_expr":
                 return _canonize_bindings(theexpr.left.elts, theexpr.left)

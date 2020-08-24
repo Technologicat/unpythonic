@@ -282,12 +282,13 @@ def letrec(tree, args, *, gen_sym, **kw):  # noqa: F811
     with dyn.let(gen_sym=gen_sym):
         return _destructure_and_apply_let(tree, args, _letrec)
 
+# allow_call_in_name_position: used by let_syntax to allow template definitions.
 def _destructure_and_apply_let(tree, args, expander, allow_call_in_name_position=False):
     if args:
         bs = _canonize_bindings(args, locref=tree, allow_call_in_name_position=allow_call_in_name_position)
         return expander(bindings=bs, body=tree)
-    # haskelly syntax
-    view = UnexpandedLetView(tree)  # note this gets only the part inside the brackets
+    # haskelly syntax, let[(...) in ...], let[..., where(...)]
+    view = UnexpandedLetView(tree)  # note "tree" here is only the part inside the brackets
     return expander(bindings=view.bindings, body=view.body)
 
 # -----------------------------------------------------------------------------
