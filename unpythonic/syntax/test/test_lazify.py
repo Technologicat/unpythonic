@@ -388,7 +388,7 @@ def runtests():
             @trampolined
             def func2(x):
                 return 2 * x
-            test[func2(21) == 42]
+            test[func1(21) == 42]
 
             print("*** This error case SHOULD PRINT A WARNING:", file=stderr)
             with test_raises(RuntimeError):
