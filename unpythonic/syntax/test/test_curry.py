@@ -6,8 +6,9 @@ from ...test.fixtures import session, testset
 
 from ...syntax import macros, curry  # noqa: F401, F811
 
+# Not really overriding previous `curry`; that was a macro, this is a run-time function.
+from ...fun import composerc as compose, curry  # noqa: F811
 from ...fold import foldr
-from ...fun import composerc as compose
 from ...llist import cons, nil, ll
 from ...collections import frozendict
 
@@ -62,7 +63,6 @@ def runtests():
     # (convenience, for with-currying existing code)
     with testset("extra @curry insertion avoidance logic"):
         with curry:
-            from unpythonic.fun import curry
             @curry
             def add3(a, b, c):
                 return a + b + c
