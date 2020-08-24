@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Operations on sequences, with native slice syntax. Syntactic sugar, pure Python."""
 
-from ..syntax import macros, test  # noqa: F401
+from ..syntax import macros, test, test_raises  # noqa: F401
 from .fixtures import session, testset
 
 from itertools import repeat
@@ -13,13 +13,16 @@ def runtests():
     # functional update for sequences
     # (when you want to be more functional than Python allows)
     with testset("slice syntax for fupdate"):
-        lst = (1, 2, 3, 4, 5)
-        test[fup(lst)[3] << 42 == (1, 2, 3, 42, 5)]
-        test[fup(lst)[0::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)]
-        test[fup(lst)[1::2] << tuple(repeat(10, 3)) == (1, 10, 3, 10, 5)]
-        test[fup(lst)[::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)]
-        test[fup(lst)[::-1] << tuple(range(5)) == (4, 3, 2, 1, 0)]
-        test[lst == (1, 2, 3, 4, 5)]
+        tup = (1, 2, 3, 4, 5)
+        test[type(fup(tup)[3] << 42) is type(tup)]
+        test[fup(tup)[3] << 42 == (1, 2, 3, 42, 5)]
+        test[fup(tup)[0::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)]
+        test[fup(tup)[1::2] << tuple(repeat(10, 3)) == (1, 10, 3, 10, 5)]
+        test[fup(tup)[::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)]
+        test[fup(tup)[::-1] << tuple(range(5)) == (4, 3, 2, 1, 0)]
+        test[tup == (1, 2, 3, 4, 5)]
+
+        test_raises[TypeError, fup(tup)[2, 3]]  # multidimensional indexing not supported
 
     with testset("slice syntax wrapper for itertools.islice"):
         p = primes()
@@ -33,6 +36,9 @@ def runtests():
         odds = islice(s(1, 2, ...))[::2]
         test[tuple(islice(odds)[:5]) == (1, 3, 5, 7, 9)]
         test[tuple(islice(odds)[:5]) == (11, 13, 15, 17, 19)]  # five more
+
+        finite = (x for x in range(5))  # consumable iterable, no sequence protocol
+        test[islice(finite)[-1] == 4]
 
     with testset("negative start, stop in the islice wrapper"):
         # !! step must be positive !!
@@ -60,6 +66,9 @@ def runtests():
         test[tuple(islice(range(10))[:-20]) == ()]                # stop < 0, past the start of the iterable
         test[tuple(islice(range(10))[-20:]) == tuple(range(10))]  # start < 0, past the start of the iterable
         test[tuple(islice(range(10))[-20:5]) == tuple(range(5))]  # same, but with stop > 0
+
+    with testset("error cases"):
+        test_raises[TypeError, islice(range(10))[2, 3]]  # multidimensional indexing not supported
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

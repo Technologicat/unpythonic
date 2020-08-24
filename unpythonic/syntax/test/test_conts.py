@@ -34,7 +34,7 @@ def runtests():
             def g(a, b):
                 x, y = call_cc[f(a, b)]
                 return x, y
-                fail["This line should not be reached."]
+                fail["This line should not be reached."]  # pragma: no cover
             test[g(3, 4) == (6, 12)]
 
             xs, *a = call_cc[f(1, 2)]
@@ -342,6 +342,8 @@ def runtests():
                     return f()
 
             # testing
+            test[amb(()) is None]
+
             def doit1():
                 c1 = call_cc[amb((1, 2, 3))]
                 c2 = call_cc[amb((10, 20))]
@@ -420,6 +422,9 @@ def runtests():
                     f = stack.pop()
                     f()
 
+            # testing
+            test[amb(()) is None]
+
             def pt(maxn):
                 z = call_cc[amb(range(1, maxn + 1))]
                 y = call_cc[amb(range(1, z + 1))]
@@ -452,6 +457,9 @@ def runtests():
                     if stack:
                         f = stack.pop()
                         f()
+
+                # testing
+                test[amb(()) is None]
 
                 def pt(maxn):
                     z = call_cc[amb(range(1, maxn + 1))]

@@ -18,11 +18,12 @@ def runtests():
         test[type(out) is type(lst)]
 
     with testset("immutable sequence"):
-        lst = (1, 2, 3, 4, 5)
-        out = fupdate(lst, slice(1, 5, 2), tuple(repeat(10, 2)))
-        test[lst == (1, 2, 3, 4, 5)]
+        tup = (1, 2, 3, 4, 5)
+        out = fupdate(tup, slice(1, 5, 2), tuple(repeat(10, 2)))
+        test[tup == (1, 2, 3, 4, 5)]
         test[out == (1, 10, 3, 10, 5)]
-        test[type(out) is type(lst)]
+        test[type(out) is type(tup)]
+        test[fupdate(tup) == tup]  # no indices, no bindings --> copy
 
     with testset("namedtuple"):
         A = namedtuple("A", "p q")
@@ -53,53 +54,56 @@ def runtests():
         test[out == [1, 2, 42]]
 
     with testset("no start index"):
-        lst = (1, 2, 3, 4, 5)
-        out = fupdate(lst, slice(None, 5, 2), tuple(repeat(10, 3)))
-        test[lst == (1, 2, 3, 4, 5)]
+        tup = (1, 2, 3, 4, 5)
+        out = fupdate(tup, slice(None, 5, 2), tuple(repeat(10, 3)))
+        test[tup == (1, 2, 3, 4, 5)]
         test[out == (10, 2, 10, 4, 10)]
 
     with testset("no stop index"):
-        lst = (1, 2, 3, 4, 5)
-        out = fupdate(lst, slice(1, None, 2), tuple(repeat(10, 2)))
-        test[lst == (1, 2, 3, 4, 5)]
+        tup = (1, 2, 3, 4, 5)
+        out = fupdate(tup, slice(1, None, 2), tuple(repeat(10, 2)))
+        test[tup == (1, 2, 3, 4, 5)]
         test[out == (1, 10, 3, 10, 5)]
 
     with testset("no start or stop index, just step"):
-        lst = (1, 2, 3, 4, 5)
-        out = fupdate(lst, slice(None, None, 2), tuple(repeat(10, 3)))
-        test[lst == (1, 2, 3, 4, 5)]
+        tup = (1, 2, 3, 4, 5)
+        out = fupdate(tup, slice(None, None, 2), tuple(repeat(10, 3)))
+        test[tup == (1, 2, 3, 4, 5)]
         test[out == (10, 2, 10, 4, 10)]
 
     with testset("just step, backwards"):
-        lst = (1, 2, 3, 4, 5)
-        out = fupdate(lst, slice(None, None, -1), tuple(range(5)))
-        test[lst == (1, 2, 3, 4, 5)]
+        tup = (1, 2, 3, 4, 5)
+        out = fupdate(tup, slice(None, None, -1), tuple(range(5)))
+        test[tup == (1, 2, 3, 4, 5)]
         test[out == (4, 3, 2, 1, 0)]
 
     with testset("multiple individual items"):
-        lst = (1, 2, 3, 4, 5)
-        out = fupdate(lst, (1, 2, 3), (17, 23, 42))
-        test[lst == (1, 2, 3, 4, 5)]
+        tup = (1, 2, 3, 4, 5)
+        out = fupdate(tup, (1, 2, 3), (17, 23, 42))
+        test[tup == (1, 2, 3, 4, 5)]
         test[out == (1, 17, 23, 42, 5)]
 
     with testset("multiple slices and sequences"):
-        lst = tuple(range(10))
-        out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2)),
+        tup = tuple(range(10))
+        out = fupdate(tup, (slice(0, 10, 2), slice(1, 10, 2)),
                       (tuple(repeat(2, 5)), tuple(repeat(3, 5))))
-        test[lst == tuple(range(10))]
+        test[tup == tuple(range(10))]
         test[out == (2, 3, 2, 3, 2, 3, 2, 3, 2, 3)]
 
     with testset("mix and match"):
-        lst = tuple(range(10))
-        out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2), 6),
+        tup = tuple(range(10))
+        out = fupdate(tup, (slice(0, 10, 2), slice(1, 10, 2), 6),
                       (tuple(repeat(2, 5)), tuple(repeat(3, 5)), 42))
-        test[lst == tuple(range(10))]
+        test[tup == tuple(range(10))]
         test[out == (2, 3, 2, 3, 2, 3, 42, 3, 2, 3)]
 
     with testset("error cases"):
         with test_raises(IndexError, "should detect replacement sequence too short"):
-            lst = (1, 2, 3, 4, 5)
-            out = fupdate(lst, slice(1, None, 2), (10,))  # need 2 items, have 1
+            tup = (1, 2, 3, 4, 5)
+            out = fupdate(tup, slice(1, None, 2), (10,))  # need 2 items, have 1
+
+        # cannot specify both indices and bindings
+        test_raises[ValueError, fupdate(tup, slice(1, None, 2), (10,), somename="some value")]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
