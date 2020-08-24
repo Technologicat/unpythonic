@@ -4,6 +4,9 @@ from ..syntax import macros, test, test_raises, fail  # noqa: F401
 from .fixtures import session, testset
 
 from collections import Counter
+import sys
+
+PYTHON36_or_older = sys.version_info < (3, 7)
 
 from ..fun import (memoize, curry, apply,
                    identity, const,
@@ -176,19 +179,16 @@ def runtests():
             with dyn.let(curry_context=["whatever"]):  # any human-readable label is fine.
                 curry(double, 2, "foo") == (4, "foo")
 
-    with testset("curry error cases"):
-        lst = []
-
-        a = curry(lst.append)
-        a(42)
-        import sys
-        print(lst, file=sys.stderr)
-
-        test_raises[UnknownArity, curry(lst.append)]  # uninspectable method of builtin type
-        # Internal feature, used by curry macro. If uninspectables are said to be ok,
-        # then attempting to curry an uninspectable simply returns the original function.
-        # `is` doesn't work here (due to method binding machinery?), so we compare the memory address.
-        test[id(curry(lst.append, _curry_allow_uninspectable=True)) == id(lst.append)]
+    # Methods of builtin types have uninspectable arity up to Python 3.6.
+    # Python 3.7 seems to fix this at least for `list`.
+    if PYTHON36_or_older:
+        with testset("uninspectable builtins"):
+            lst = []
+            test_raises[UnknownArity, curry(lst.append)]  # uninspectable method of builtin type
+            # Internal feature, used by curry macro. If uninspectables are said to be ok,
+            # then attempting to curry an uninspectable simply returns the original function.
+            # `is` doesn't work here (due to method binding machinery?), so we compare the memory address.
+            test[id(curry(lst.append, _curry_allow_uninspectable=True)) == id(lst.append)]
 
     with testset("compose"):
         double = lambda x: 2 * x
