@@ -437,10 +437,10 @@ def runtests():
             # invalid bindings
             with test_signals(TypeError):
                 with restarts(myrestart=42):  # name=callable, ...
-                    pass
+                    pass  # pragma: no cover
             with test_signals(TypeError):
                 with handlers(("ha ha ha", 42)):  # (excspec, callable), ...
-                    pass
+                    pass  # pragma: no cover
         errorcases()
 
     # name shadowing: dynamically the most recent binding of the same restart name wins
