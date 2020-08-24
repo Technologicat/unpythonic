@@ -217,6 +217,14 @@ def runtests():
             vals = 5, 6
             test[k(*vals) is None]
 
+    with testset("conditional top-level call_cc"):
+        with continuations:
+            x = call_cc[setk("yes") if 42 % 2 == 0 else None]
+            test[x == "yes"]
+
+            x = call_cc[None if 42 % 2 == 0 else setk("yes")]
+            test[x is None]
+
     with testset("integration with multilambda"):
         with multilambda, continuations:
             out = []

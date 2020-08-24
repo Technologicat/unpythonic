@@ -104,7 +104,7 @@ def runtests():
             def result(ec):
                 print("hi")
                 ec(g(21))  # the call in the args of an ec gets TCO'd
-                fail["This line should not be reached."]
+                fail["This line should not be reached."]  # pragma: no cover
             test[result == 42]
 
             result = call_ec(lambda ec:
@@ -112,6 +112,12 @@ def runtests():
                                   ec(g(21)),
                                   fail["This line should not be reached."]])
             test[result == 42]
+
+            @call_ec
+            def silly(ec):
+                return ec(g(21))  # redundant "return" optimized away from the AST; the ec already escapes.
+                fail["This line should not be reached."]  # pragma: no cover
+            test[silly == 42]
 
     with testset("integration with curry"):
         def testcurrycombo():
