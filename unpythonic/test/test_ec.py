@@ -17,6 +17,39 @@ def runtests():
             fail["This line should not be reached."]  # pragma: no cover
         test[f() == "hello from g"]
 
+    # throws can be tagged with human-readable labels.
+    with testset("tagged throws"):
+        @catch(tags="outer")
+        def outerfunc():
+            @catch(tags="inner")
+            def innerfunc():
+                throw(21, tag="inner")
+                fail["This line should not be reached."]  # pragma: no cover
+            return 2 * innerfunc()
+        test[outerfunc() == 42]
+
+        @catch(tags="outer")
+        def outerfunc():
+            @catch(tags="inner")
+            def innerfunc():
+                throw(21, tag="outer")
+                fail["This line should not be reached."]  # pragma: no cover
+            innerfunc()
+            fail["This line should not be reached."]  # pragma: no cover
+        test[outerfunc() == 21]
+
+        # A catch can accept throws for multiple tags. These are OR'd.
+        @catch(tags=("outer", "something_else"))
+        def outerfunc():
+            @catch(tags="inner")
+            def innerfunc():
+                # A throw can have only one tag.
+                throw(42, tag="something_else")
+                fail["This line should not be reached."]  # pragma: no cover
+            innerfunc()
+            fail["This line should not be reached."]  # pragma: no cover
+        test[outerfunc() == 42]
+
     with testset("escape from a lambda"):
         # begin() returns the last value. What if we don't want that?
         #

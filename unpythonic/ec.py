@@ -33,7 +33,7 @@ from functools import wraps
 from .regutil import register_decorator
 # from .symbol import gensym
 
-def escape(value, tag=None, allow_catchall=True):
+def escape(value, tag=None, allow_catchall=True):  # pragma: no cover
     """Alias for `throw`, for backward compatibility.
 
     Will be removed in 0.15.0.
@@ -41,7 +41,7 @@ def escape(value, tag=None, allow_catchall=True):
     warn("`escape` has been renamed `throw` as in Common Lisp; this alias will be removed in 0.15.0.", FutureWarning)
     return throw(value, tag, allow_catchall)
 
-def setescape(tags=None, catch_untagged=True):
+def setescape(tags=None, catch_untagged=True):  # pragma: no cover
     """Alias for `catch`, for backward compatibility.
 
     Will be removed in 0.15.0.

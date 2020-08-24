@@ -17,7 +17,7 @@ def runtests():
     with testset("integration with symbolic math"):
         try:
             from sympy import symbols, pprint
-        except ImportError:
+        except ImportError:  # pragma: no cover
             error["SymPy not installed in this Python, cannot test symbolic math in nb."]
         else:
             with nb(pprint):  # you can specify a custom print function (first positional arg)
