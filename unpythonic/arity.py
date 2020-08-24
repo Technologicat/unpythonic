@@ -19,7 +19,7 @@ from .symbol import gensym
 
 try:  # Python 3.5+
     from operator import matmul, imatmul
-except ImportError:
+except ImportError:  # pragma: no cover, Python 3.4 only.
     NoSuchBuiltin = gensym("NoSuchBuiltin")
     matmul = imatmul = NoSuchBuiltin
 
@@ -182,7 +182,7 @@ def _getfunc(f):
             return False
         self = f.__self__
         if f.__self__ is None:  # builtin functions on PyPy3
-            return False
+            return False  # pragma: no cover
         if isinstance(self, ModuleType) and self.__name__ == "builtins":  # builtin functions on CPython
             return False
         return True
@@ -204,7 +204,8 @@ def arities(f):
 
     This uses inspect.signature; note that the signature of builtin functions
     cannot be inspected. This is worked around to some extent, but e.g.
-    methods of built-in classes (such as ``list``) might not be inspectable.
+    methods of built-in classes (such as ``list``) might not be inspectable
+    (at least on CPython < 3.7).
 
     For methods, ``self`` or ``cls`` does not count toward the arity,
     because it is passed implicitly by Python.

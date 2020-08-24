@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test  # noqa: F401
+from ..syntax import macros, test, test_raises  # noqa: F401
 from .fixtures import session, testset
 
-from ..arity import (arities, required_kwargs, optional_kwargs, kwargs,
+from ..arity import (arities, arity_includes,
+                     required_kwargs, optional_kwargs, kwargs,
                      resolve_bindings, tuplify_bindings)
 
 def runtests():
@@ -19,9 +20,14 @@ def runtests():
                  ((lambda a, b, *, c: _), (2, 2)),
                  ((lambda *, a: _), (0, 0)),
                  ((lambda a, b, *arg, c, **kwargs: _), (2, infty)),
-                 ((lambda a, b=42: _), (1, 2)))
+                 ((lambda a, b=42: _), (1, 2)),
+                 (print, (1, infty)))  # builtin
         for f, answer in items:
             test[arities(f) == answer]
+
+        test[arity_includes((lambda a: _), 1)]
+        test[not arity_includes((lambda a: _), 2)]
+        test[arity_includes((lambda a, *args: _), 5)]
 
     with testset("kwargs"):
         test[required_kwargs(lambda *, a, b, c=42: _) == set(('a', 'b'))]
@@ -106,7 +112,7 @@ def runtests():
                                      ("vararg", (4, 5)), ("vararg_name", "args"),
                                      ("kwarg", None), ("kwarg_name", None))]
 
-        # On Python 3.5, there's no guarantee about the ordering of the kwargs.
+        # On Pythons < 3.6, there's no guarantee about the ordering of the kwargs.
         # Our analysis machinery preserves the order it gets, but the *input*
         # may already differ from how the invocation of `r` is written in the
         # source code here.
@@ -114,7 +120,7 @@ def runtests():
         # So we must allow for arbitrary ordering of the kwargs when checking
         # the result.
         #
-        def check35(result, truth):
+        def checkpre36(result, truth):
             args_r, vararg_r, vararg_name_r, kwarg_r, kwarg_name_r = result
             args_t, vararg_t, vararg_name_t, kwarg_t, kwarg_name_t = truth
             couldbe = (args_r == args_t and vararg_r == vararg_t and
@@ -127,15 +133,15 @@ def runtests():
 
         def f(a, b, c, **kw):
             pass  # pragma: no cover
-        test[check35(r(f, 1, 2, 3, d=4, e=5), (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                               ("vararg", None), ("vararg_name", None),
-                                               ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw")))]
+        test[checkpre36(r(f, 1, 2, 3, d=4, e=5), (("args", (("a", 1), ("b", 2), ("c", 3))),
+                                                  ("vararg", None), ("vararg_name", None),
+                                                  ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw")))]
 
         def f(a, b, c, *args, **kw):
             pass  # pragma: no cover
-        test[check35(r(f, 1, 2, 3, 4, 5, d=6, e=7), (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                                     ("vararg", (4, 5)), ("vararg_name", "args"),
-                                                     ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw")))]
+        test[checkpre36(r(f, 1, 2, 3, 4, 5, d=6, e=7), (("args", (("a", 1), ("b", 2), ("c", 3))),
+                                                        ("vararg", (4, 5)), ("vararg_name", "args"),
+                                                        ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw")))]
 
         # TODO: On Python 3.6+, this becomes just:
         #
@@ -150,6 +156,23 @@ def runtests():
         # test[r(f, 1, 2, 3, 4, 5, d=6, e=7) == (("args", (("a", 1), ("b", 2), ("c", 3))),
         #                                        ("vararg", (4, 5)), ("vararg_name", "args"),
         #                                        ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw"))]
+
+    with testset("resolve_bindings error cases"):
+        def f(a):
+            pass  # pragma: no cover
+        test_raises[TypeError, resolve_bindings(f, 1, 2)]  # too many args
+        test_raises[TypeError, resolve_bindings(f, 1, a=2)]  # same arg assigned twice
+        test_raises[TypeError, resolve_bindings(f, 1, b=2)]  # unexpected kwarg
+
+        # The number of missing required positional args affects the error message
+        # à la Python 3.6, so let's exercise that part of the code, too.
+        test_raises[TypeError, resolve_bindings(f)]  # missing 1 required positional arg
+        def g(a, b):
+            pass  # pragma: no cover
+        test_raises[TypeError, resolve_bindings(g)]  # missing 2 required positional args
+        def h(a, b, c):
+            pass  # pragma: no cover
+        test_raises[TypeError, resolve_bindings(h)]  # missing 3 required positional args
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
