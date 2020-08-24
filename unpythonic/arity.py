@@ -247,7 +247,7 @@ def arities(f):
             lower -= 1
             upper -= 1
         return lower, upper
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError) as e:  # likely an uninspectable method of a builtin
         raise UnknownArity(*e.args)
 
 def required_kwargs(f):
