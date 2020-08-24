@@ -18,7 +18,7 @@ None required.
 
 The officially supported language version is **Python 3.6**, on both CPython and PyPy3.
 
-The 0.14.x series should run on 3.4 through 3.7, but we do not actively test on pythons other than 3.6. Support for 3.8 is planned in one of the next few releases. Pure-Python features should already work; but macro code still needs changes to account for AST representation changes in 3.8, see issue [#16](https://github.com/Technologicat/unpythonic/issues/16).
+The 0.14.x series should run on CPythons 3.4 through 3.7, and on PyPy3; the [CI](https://en.wikipedia.org/wiki/Continuous_integration) process verifies the tests pass on those platforms. Support for 3.8 is planned in one of the next few releases. Pure-Python features should already work; but macro code still needs changes to account for AST representation changes in 3.8, see issue [#16](https://github.com/Technologicat/unpythonic/issues/16).
 
 ### Documentation
 
