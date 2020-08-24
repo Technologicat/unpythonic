@@ -168,6 +168,11 @@ def runtests():
             highlevel()
         basic_usage2()
 
+    with testset("signaling a class instead of an instance"):
+        class JustTesting(Exception):
+            pass
+        test_signals[JustTesting, signal(JustTesting)]
+
     # More elaborate error handling scenarios can be constructed by defining
     # restarts at multiple levels, as appropriate.
     #
@@ -351,6 +356,12 @@ def runtests():
                         result << 21
                     test[unbox(result) == 21]
 
+            with catch_signals(False):
+                with handlers():
+                    with restarts():
+                        print("Testing warn() - this should print a warning:")
+                        warn(Warning("Testing the warning system, 1 2 3."))
+
             with handlers((JustTesting, muffle)):  # canonical way to muffle a warning
                 with restarts() as result:
                     warn(JustTesting("unhandled warn() does not print a warning when it is muffled"))
@@ -415,6 +426,21 @@ def runtests():
             with test_signals(ControlError, "should yell when trying to invoke a nonexistent restart"):
                 with restarts(foo=(lambda x: x)):
                     invoke("bar")
+
+            # a signal must be an Exception instance or subclass
+            test_signals[ControlError, signal(int)]
+            test_signals[ControlError, signal(42)]
+
+            # invoke() accepts only a name (str) or a return value of `find_restart`
+            test_signals[TypeError, invoke(42)]
+
+            # invalid bindings
+            with test_signals(TypeError):
+                with restarts(myrestart=42):  # name=callable, ...
+                    pass
+            with test_signals(TypeError):
+                with handlers(("ha ha ha", 42)):  # (excspec, callable), ...
+                    pass
         errorcases()
 
     # name shadowing: dynamically the most recent binding of the same restart name wins

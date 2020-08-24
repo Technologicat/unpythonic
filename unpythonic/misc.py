@@ -297,7 +297,7 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
         try:
             if arity_includes(f, 1):
                 return True
-        except UnknownArity:
+        except UnknownArity:  # pragma: no cover
             return True  # just assume it
         return False
 
