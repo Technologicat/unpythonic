@@ -53,7 +53,26 @@ def _letimpl(bindings, body, mode):
 
     body = implicit_do(body)
     if not bindings:
-        return body
+        # Optimize out a `let` with no bindings. The macro layer cannot trigger
+        # this case, because our syntaxes always require at least one binding.
+        # So this check is here just to protect against use with no bindings directly
+        # from other syntax transformers, which in theory could attempt anything.
+        #
+        # The reason the macro layer never calls us with no bindings is technical.
+        # In the macro interface, with no bindings, the macro's `args` are `()`
+        # whether it was invoked as `let()[...]` or just `let[...]`. Thus,
+        # there is no way to distinguish, in the macro layer, between these
+        # two. We can't use `UnexpandedLetView` to do the dirty work of AST
+        # analysis, because MacroPy does too much automatically: in the macro
+        # layer, `tree` is only the part inside the brackets. So we really
+        # can't see whether the part outside the brackets was a Call with no
+        # arguments, or just a Name - both cases get treated exactly the same,
+        # as a macro invocation with empty `args`.
+        #
+        # The latter form, `let[...]`, is used by the haskelly syntax
+        # `let[(...) in ...]`, `let[..., where(...)]` - and in these cases,
+        # both the bindings and the body reside inside the brackets.
+        return body  # pragma: no cover
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
 
@@ -162,9 +181,12 @@ def _dletimpl(bindings, body, mode, kind):
     assert mode in ("let", "letrec")
     assert kind in ("decorate", "call")
     if type(body) not in (FunctionDef, AsyncFunctionDef):
-        assert False, "Expected a function definition to decorate"
+        assert False, "Expected a function definition to decorate"  # pragma: no cover
     if not bindings:
-        return body
+        # Similarly as above, this cannot trigger from the macro layer no
+        # matter what that layer does. This is here to optimize away a `dlet`
+        # with no bindings, when used directly from other syntax transformers.
+        return body  # pragma: no cover
 
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
@@ -221,9 +243,12 @@ def _dletseqimpl(bindings, body, kind):
     #
     assert kind in ("decorate", "call")
     if type(body) not in (FunctionDef, AsyncFunctionDef):
-        assert False, "Expected a function definition to decorate"
+        assert False, "Expected a function definition to decorate"  # pragma: no cover
     if not bindings:
-        return body
+        # Similarly as above, this cannot trigger from the macro layer no
+        # matter what that layer does. This is here to optimize away a `dletseq`
+        # with no bindings, when used directly from other syntax transformers.
+        return body  # pragma: no cover
 
     userargs = body.args  # original arguments to the def
     fname = body.name
@@ -263,7 +288,7 @@ def _dletseqimpl(bindings, body, kind):
 
 def do(tree):
     if type(tree) not in (Tuple, List):
-        assert False, "do body: expected a sequence of comma-separated expressions"
+        assert False, "do body: expected a sequence of comma-separated expressions"  # pragma: no cover, let's not test the macro expansion errors.
 
     gen_sym = dyn.gen_sym
     e = gen_sym("e")
@@ -278,10 +303,10 @@ def do(tree):
     def find_localdefs(tree, collect, **kw):
         if islocaldef(tree):
             if type(tree.slice) is not Index:  # no slice syntax allowed
-                assert False, "local[...] takes exactly one expression of the form 'name << value'"
+                assert False, "local[...] takes exactly one expression of the form 'name << value'"  # pragma: no cover
             expr = tree.slice.value
             if not isenvassign(expr):
-                assert False, "local(...) takes exactly one expression of the form 'name << value'"
+                assert False, "local(...) takes exactly one expression of the form 'name << value'"  # pragma: no cover
             view = UnexpandedEnvAssignView(expr)
             collect(view.name)
             return expr  # local[...] -> ..., the "local" tag has done its job
@@ -290,10 +315,10 @@ def do(tree):
     def find_deletes(tree, collect, **kw):
         if isdelete(tree):
             if type(tree.slice) is not Index:  # no slice syntax allowed
-                assert False, "delete[...] takes exactly one name"
+                assert False, "delete[...] takes exactly one name"  # pragma: no cover
             expr = tree.slice.value
             if type(expr) is not Name:
-                assert False, "delete[...] takes exactly one name"
+                assert False, "delete[...] takes exactly one name"  # pragma: no cover
             collect(expr.id)
             return q[ast_literal[envdel](u[expr.id])]  # delete[...] -> e.pop(...)
         return tree
@@ -308,7 +333,7 @@ def do(tree):
         assert not (newnames and deletednames), "a do-item may have only local[] or delete[], not both"
         if newnames:
             if any(x in names for x in newnames):
-                assert False, "local names must be unique in the same do"
+                assert False, "local names must be unique in the same do"  # pragma: no cover
         # The envassignment transform (LHS) needs the updated bindings, whereas
         # the name transform (RHS) should use the previous bindings, so that any
         # changes to bindings take effect starting from the **next** do-item.
@@ -329,7 +354,7 @@ def local(*args, **kwargs):
 
     Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
     (extra bracket syntax)."""
-    pass
+    pass  # pragma: no cover, macro stub
 
 @macro_stub
 def delete(*args, **kwargs):
@@ -341,11 +366,11 @@ def delete(*args, **kwargs):
     Note ``do[]`` supports local variable deletion, but the ``let[]``
     constructs don't, by design.
     """
-    pass
+    pass  # pragma: no cover, macro stub
 
 def do0(tree):
     if type(tree) not in (Tuple, List):
-        assert False, "do0 body: expected a sequence of comma-separated expressions"
+        assert False, "do0 body: expected a sequence of comma-separated expressions"  # pragma: no cover
     elts = tree.elts
     newelts = []
     newelts.append(q[name["local"][name["_do0_result"] << (ast_literal[elts[0]])]])
