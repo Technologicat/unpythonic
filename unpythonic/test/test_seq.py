@@ -27,6 +27,12 @@ def runtests():
                                    lambda: print("cheeky side effect"))
         test[f4(2) == 84]
 
+        # special cases
+        test[lazy_begin() is None]
+        test[lazy_begin(lambda: 42) == 42]
+        test[lazy_begin0() is None]
+        test[lazy_begin0(lambda: 42) == 42]
+
     # pipe: sequence functions
     with testset("pipe (sequence functions)"):
         double = lambda x: 2 * x
@@ -127,6 +133,9 @@ def runtests():
         p | exitpipe
         test[fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]]
 
+        # abuse multi-arg version for single-arg case
+        test[lazy_piped(42) | double | inc | exitpipe == 85]
+
     # do: improved begin() that can name intermediate results
     with testset("do (code imperatively in expressions)"):
         y = do(assign(x=17),
@@ -193,6 +202,10 @@ def runtests():
                        lambda e: ec(e.x),                                    # IMPORTANT: must delay this!
                        lambda e: fail["This line should not be reached."]))  # and this (as above)  # pragma: no cover
         test[z == 42]
+
+    with testset("do error cases"):
+        test_raises[ValueError, do(lambda e: assign(x=2, y=3))]  # expect only one binding per assign()
+        test_raises[ValueError, do(lambda: 42)]  # missing the env parameter
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

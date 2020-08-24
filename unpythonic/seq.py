@@ -145,7 +145,7 @@ def pipe1(value0, *bodys):
 
 class Getvalue(Singleton):  # singleton sentinel with a nice repr
     """Sentinel; pipe into this to exit a shell-like pipe and return the current value."""
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return "<sentinel for pipe exit>"
 getvalue = Getvalue()
 runpipe = getvalue  # same thing as getvalue, but semantically better name for lazy pipes
@@ -185,7 +185,7 @@ class piped1:
             return self._x
         cls = self.__class__
         return cls(f(self._x))  # functional update
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return "<piped1 at 0x{:x}; value {}>".format(id(self), self._x)
 
 class lazy_piped1:
@@ -247,7 +247,7 @@ class lazy_piped1:
         # just pass on the reference to the original x.
         cls = self.__class__
         return cls(x=self._x, _funcs=self._funcs + (f,))
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return "<lazy_piped1 at 0x{:x}; initial value now {}, functions {}>".format(id(self), self._x, self._funcs)
 
 def pipe(values0, *bodys):
@@ -330,14 +330,12 @@ class piped:
         if f is exitpipe:
             return xs if len(xs) > 1 else xs[0]
         cls = self.__class__
-        if isinstance(xs, tuple):
-            newxs = f(*xs)
-        else:
-            newxs = f(xs)
+        assert isinstance(xs, tuple)  # __init__ ensures this
+        newxs = f(*xs)
         if isinstance(newxs, tuple):
             return cls(*newxs)
         return cls(newxs)
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return "<piped at 0x{:x}; values {}>".format(id(self), self._xs)
 
 class lazy_piped:
@@ -379,11 +377,14 @@ class lazy_piped:
                     vs = g(*vs)
                 else:
                     vs = g(vs)
-            return vs if len(vs) > 1 else vs[0]
+            if isinstance(vs, tuple):
+                return vs if len(vs) > 1 else vs[0]
+            else:
+                return vs
         # just pass on the references to the original xs.
         cls = self.__class__
         return cls(*self._xs, _funcs=self._funcs + (f,))
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return "<lazy_piped at 0x{:x}; initial values now {}, functions {}>".format(id(self), self._xs, self._funcs)
 
 # do(): improved begin() that can name intermediate results and refer to them
@@ -485,7 +486,7 @@ def do(*items):
             try:
                 if not arity_includes(v, 1):
                     raise ValueError("Arity mismatch; callable value must allow arity 1, to take in the environment.")
-            except UnknownArity:  # well, we tried!
+            except UnknownArity:  # well, we tried!  # pragma: no cover
                 pass
             return v(e)
         return v
