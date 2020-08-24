@@ -77,7 +77,7 @@ def isec(tree, known_ecs):
 
     **CAUTION**: Only bare-name references are supported.
     """
-    return type(tree) is Call and type(tree.func) is Name and tree.func.id in known_ecs
+    return type(tree) is Call and getname(tree.func, accept_attr=False) in known_ecs
 
 def detect_callec(tree):
     """Collect names of escape continuations from call_ec invocations in tree.

@@ -524,12 +524,11 @@ def _tco_transform_def(tree, *, preproc_cb, **kw):
 # transform_retexpr: return-value expression transformer (for TCO and stuff).
 @Walker
 def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
-    treeisec = isec(tree, known_ecs)
     if type(tree) is Return:
         non = q[None]
         non = copy_location(non, tree)
         value = tree.value or non  # return --> return None  (bare return has value=None in the AST)
-        if not treeisec:
+        if not isec(value, known_ecs):
             return Return(value=transform_retexpr(value, known_ecs))
         else:
             # An ec call already escapes, so the return is redundant.
@@ -538,7 +537,7 @@ def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
             # this cleans up the code, since eliminating the "return" allows us
             # to omit a redundant "let".
             return Expr(value=value)  # return ec(...) --> ec(...)
-    elif treeisec:  # TCO the arg of an ec(...) call
+    elif isec(tree, known_ecs):  # TCO the arg of an ec(...) call
         if len(tree.args) > 1:
             assert False, "expected exactly one argument for escape continuation"  # pragma: no cover
         tree.args[0] = transform_retexpr(tree.args[0], known_ecs)
