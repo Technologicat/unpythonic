@@ -180,8 +180,9 @@ def runtests():
                 curry(double, 2, "foo") == (4, "foo")
 
     # Methods of builtin types have uninspectable arity up to Python 3.6.
-    # Python 3.7 seems to fix this at least for `list`.
-    if PYTHON36_or_older:
+    # Python 3.7 seems to fix this at least for `list`, and PyPy3 (7.3.0; Python 3.6.9)
+    # doesn't have this error either.
+    if PYTHON36_or_older and sys.implementation.name == "cpython":
         with testset("uninspectable builtins"):
             lst = []
             test_raises[UnknownArity, curry(lst.append)]  # uninspectable method of builtin type
