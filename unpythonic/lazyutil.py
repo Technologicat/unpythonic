@@ -39,7 +39,7 @@ try:  # MacroPy is optional for unpythonic
     #  - So to be safe, **always import macropy.activate first**, before other MacroPy modules.
     import macropy.activate  # noqa: F401, we only import it first so MacroPy boots up correctly.
     from macropy.quick_lambda import Lazy  # This is what we actually need here.
-except ImportError:
+except ImportError:  # pragma: no cover, only triggered if MacroPy is not installed, but running the test suite needs MacroPy.
     class Lazy:
         pass
 
