@@ -1,28 +1,33 @@
 # -*- coding: utf-8 -*-
 """Automatic lazy evaluation of function arguments."""
 
-from ...syntax import macros, test, test_raises, error  # noqa: F401
+from macropy.quick_lambda import macros, lazy  # noqa: F401
+from macropy.quick_lambda import Lazy  # usually not needed in client code; for our tests only
+
+from ...syntax import macros, test, test_raises, error  # noqa: F811, F401
 from ...test.fixtures import session, testset
 
-from ...misc import raisef
-from ...it import flatten
-from ...collections import frozendict
-
-from ...syntax import (macros, lazify, lazyrec,  # noqa: F811
+from ...syntax import (macros, lazify, lazyrec,  # noqa: F811, F401
                        let, letseq, letrec, local,
+                       tco,
                        curry,
                        continuations, call_cc)
 from ...syntax import force
 
 # Doesn't really override the earlier curry import. The first one went into
 # MacroPy's macro registry, and this one is a regular run-time function.
+from ...collections import frozendict
+from ...ec import call_ec
 from ...fun import (curry, memoize, flip, rotate, apply,  # noqa: F811
                     notf, andf, orf, tokth, withself)
-from ...misc import call, callwith
+from ...it import flatten
+from ...misc import raisef, call, callwith
+from ...tco import trampolined, jump
+
 from ...lazyutil import islazy
 
-from macropy.quick_lambda import macros, lazy  # noqa: F811, F401
-from macropy.quick_lambda import Lazy  # usually not needed in client code; for our tests only
+from sys import stderr
+import gc
 
 def runtests():
     # first test the low-level tools
@@ -278,43 +283,6 @@ def runtests():
                 return f15(2 * a, 2 * b)
             test[f14(21, 1 / 0) == 42]
 
-    # relevant utilities in unpythonic.fun preserve the "passthrough lazy args" mark
-    with testset("integration with function utilities"):
-        with lazify:
-            def g1(x):
-                return x < 3
-            test[islazy(g1)]
-            test[g1(2) is True]
-            g2 = notf(g1)
-            test[islazy(g2)]
-            test[g2(2) is False]
-
-            def g3(x):
-                return x > 1
-            test[islazy(g3)]
-            test[g3(2) is True]
-            g4 = andf(g1, g3)
-            test[islazy(g4)]
-            test[g4(2) is True]
-
-            g5 = orf(g1, g3)
-            test[islazy(g5)]
-            test[g5(2) is True]
-
-            def h1(x):
-                return 42 * x
-            test[islazy(h1)]
-            test[h1(2) == 84]
-            h2 = tokth(1, h1)
-            test[islazy(h2)]
-            # args 0 and 2 never *used* by h2, so we need to force()
-            # to get their values to compare the reference answer to.
-            test[force(h2(1, 2, 3)) == (1, 84, 3)]
-
-            fact = withself(lambda self, n, acc=1: self(n - 1, acc * n) if n > 1 else acc)  # linear process
-            test[islazy(fact)]
-            test[fact(5) == 120]
-
     # let bindings have a role similar to function arguments, so we auto-lazify there
     with testset("integration with let, letseq, letrec"):
         with lazify:
@@ -377,9 +345,76 @@ def runtests():
             test[apply(derp, 1, (2, 3 / 0)) == (1, 2)]
             test[apply(derp, 1, 2, (3 / 0,)) == (1, 2)]
 
-    # introducing the HasThon programming language (it has 100% more Thon than popular brands)
-    # If you want a continuation-enabled HasThon, use "with continuations, curry, lazify".
-    with testset("HasThon, with 100% more Thon than the competition"):
+            # relevant utilities in unpythonic.fun preserve the "passthrough lazy args" mark
+            def g1(x):
+                return x < 3
+            test[islazy(g1)]
+            test[g1(2) is True]
+            g2 = notf(g1)
+            test[islazy(g2)]
+            test[g2(2) is False]
+
+            def g3(x):
+                return x > 1
+            test[islazy(g3)]
+            test[g3(2) is True]
+            g4 = andf(g1, g3)
+            test[islazy(g4)]
+            test[g4(2) is True]
+
+            g5 = orf(g1, g3)
+            test[islazy(g5)]
+            test[g5(2) is True]
+
+            def h1(x):
+                return 42 * x
+            test[islazy(h1)]
+            test[h1(2) == 84]
+            h2 = tokth(1, h1)
+            test[islazy(h2)]
+            # args 0 and 2 never *used* by h2, so we need to force()
+            # to get their values to compare the reference answer to.
+            test[force(h2(1, 2, 3)) == (1, 84, 3)]
+
+            fact = withself(lambda self, n, acc=1: self(n - 1, acc * n) if n > 1 else acc)  # linear process
+            test[islazy(fact)]
+            test[fact(5) == 120]
+
+    with testset("integration with TCO"):
+        with lazify:
+            @trampolined
+            def func1(x):
+                return jump(func2, x)
+            @trampolined
+            def func2(x):
+                return 2 * x
+            test[func2(21) == 42]
+
+            print("*** This error case SHOULD PRINT A WARNING:", file=stderr)
+            with test_raises(RuntimeError):
+                @trampolined
+                def func3():
+                    return jump(42)
+                func3()
+            gc.collect()
+
+    with testset("integration with TCO and call_ec"):
+        with lazify:
+            @trampolined
+            @call_ec
+            def withec1(ec):
+                ec(42)
+            test[withec1 == 42]
+
+        with tco, lazify:
+            @call_ec
+            def withec2(ec):
+                ec(42)
+            test[withec2 == 42]
+
+    # Introducing the HasThon programming language.
+    # For a continuation-enabled HasThon, use "with continuations, curry, lazify".
+    with testset("HasThon, with 100% more Thon than popular brands"):
         with curry, lazify:
             def add3(a, b, c):
                 return a + b + c

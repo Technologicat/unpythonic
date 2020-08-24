@@ -69,8 +69,17 @@ def runtests():
         test_raises[SpaghettiError, foo()]
 
     with testset("error cases"):
-        # Printing a warning is the best these cases can do, unfortunately, due to how `__del__` works.
-        print("*** These two error cases SHOULD PRINT A WARNING:", file=stderr)
+        # Printing a warning is the best some of these cases can do, unfortunately, due to how `__del__` works.
+        print("*** These error cases SHOULD PRINT A WARNING:", file=stderr)
+
+        print("** Attempted jump into an inert data value:", file=stderr)
+        with test_raises(RuntimeError):
+            @trampolined
+            def errorcase1():
+                return jump(42)
+            errorcase1()
+        gc.collect()
+
         print("** No surrounding trampoline:", file=stderr)
         def bar2():
             fail["This line should not be reached."]  # pragma: no cover
@@ -78,6 +87,7 @@ def runtests():
             return jump(bar2)
         foo2()
         gc.collect()  # Need to request garbage collection on PyPy, because otherwise no guarantee when it'll happen.
+
         print("** Missing 'return' in 'return jump':", file=stderr)
         def foo3():
             jump(bar2)
