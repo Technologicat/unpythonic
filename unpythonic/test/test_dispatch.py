@@ -91,6 +91,49 @@ def runtests():
         test[gargle(42, 6.022e23, "hello") == "int, float, str"]
         test[gargle(1, 2, 3) == "int"]  # as many as in the [int, float, str] case
 
+    with testset("@generic integration with OOP"):
+        class TestTarget:
+            myname = "Test target"
+            def __init__(self, a):
+                self.a = a
+
+            @generic
+            @staticmethod
+            def staticmeth(x: str):
+                return " ".join(2 * x)
+            @generic  # noqa: F811
+            @staticmethod
+            def staticmeth(x: int):
+                return 2 * x
+
+            @generic
+            @classmethod
+            def clsmeth(cls, x: str):
+                return "{} says: {}".format(cls.myname, " ".join(2 * x))
+            @generic  # noqa: F811
+            @classmethod  # careful, generic can't check that all variants are a classmethod!
+            def clsmeth(cls, x: int):
+                return "{} computes: {}".format(cls.myname, 2 * x)
+
+            @generic
+            def instmeth(self, x: str):
+                return " ".join(self.a * x)
+            @generic  # noqa: F811
+            def instmeth(self, x: int):
+                return self.a * x
+
+        tt = TestTarget(3)
+        test[tt.instmeth("hi") == "hi hi hi"]
+        test[tt.instmeth(21) == 63]
+        test[tt.clsmeth("hi") == "Test target says: hi hi"]  # call via instance
+        test[tt.clsmeth(21) == "Test target computes: 42"]
+        test[TestTarget.clsmeth("hi") == "Test target says: hi hi"]  # call via class
+        test[TestTarget.clsmeth(21) == "Test target computes: 42"]
+        test[tt.staticmeth("hi") == "hi hi"]  # call via instance
+        test[tt.staticmeth(21) == 42]
+        test[TestTarget.staticmeth("hi") == "hi hi"]  # call via class
+        test[TestTarget.staticmeth(21) == 42]
+
     with testset("@typed"):
         test[blubnify(2, 21.0) == 42]
         test_raises[TypeError, blubnify(2, 3)]  # blubnify only accepts (int, float)
