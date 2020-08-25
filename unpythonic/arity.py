@@ -181,12 +181,11 @@ def _getfunc(f):
         if not hasattr(f, "__self__"):
             return False
         self = f.__self__
-        if f.__self__ is None:  # builtin functions on PyPy3
+        if self is None:  # builtin functions on PyPy3
             return False  # pragma: no cover
         if isinstance(self, ModuleType) and self.__name__ == "builtins":  # builtin functions on CPython
             return False
         return True
-    kind = "function"
     if ismethod(f):
         obj_or_cls = f.__self__
         if isinstance(obj_or_cls, type):  # TODO: do all custom metaclasses inherit from type?
@@ -197,7 +196,7 @@ def _getfunc(f):
             kind = "methodoninstance"
         return (getattr(cls, f.__name__), kind)
     else:
-        return (f, kind)
+        return (f, "function")
 
 def arities(f):
     """Inspect f's minimum and maximum positional arity.
