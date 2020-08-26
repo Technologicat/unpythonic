@@ -311,6 +311,8 @@ def arity_includes(f, n):
     lower, upper = arities(f)
     return lower <= n <= upper
 
+# TODO: Can we replace this by `inspect.Signature.bind`, once we bump minimum Python 3.5+?
+# TODO: Python 3.4 has `inspect.callargs` (deprecated since 3.5).
 def resolve_bindings(f, *args, **kwargs):
     """Resolve parameter bindings established by `f` when called with the given args and kwargs.
 
