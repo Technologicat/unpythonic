@@ -19,7 +19,7 @@ from inspect import isclass
 from operator import lt, le, ge, gt
 import threading
 
-from .llist import cons
+from .llist import cons, Nil
 from .misc import getattrrec
 from .env import env
 from .dynassign import _Dyn
@@ -65,8 +65,7 @@ def mogrify(func, container):
 
         - The ``cons`` container from ``unpythonic.llist`` (including the
           ``llist`` linked lists). This is treated with the general tree
-          strategy, so nested linked lists will be flattened, and the
-          final ``nil`` is also processed.
+          strategy. Any ``nil`` is passed through as-is.
 
     Any value that does not match any of these is treated as an atom.
 
@@ -81,7 +80,7 @@ def mogrify(func, container):
             y = [doit(elt) for elt in x]
             if hasattr(x, "clear"):
                 x.clear()  # list has this, but not guaranteed by MutableSequence
-            else:
+            else:  # pragma: no cover, no realistic `MutableSequence` that is missing `clear`?
                 while x:
                     x.pop()
             x.extend(y)
@@ -95,7 +94,7 @@ def mogrify(func, container):
             x.clear()
             if hasattr(x, "update"):
                 x.update(y)  # set has this, but not guaranteed by MutableSet
-            else:
+            else:  # pragma: no cover, no realistic `MutableSet` that is missing `update`?
                 for elt in y:
                     x.add(elt)
             return x
@@ -110,6 +109,8 @@ def mogrify(func, container):
             x.set(doit(x.get()))
             return x
         # immutable containers
+        elif isinstance(x, Nil):  # for unpythonic.llist.ll() support
+            return x
         elif isinstance(x, cons):
             return cons(doit(x.car), doit(x.cdr))
         elif isinstance(x, Some):
@@ -184,7 +185,7 @@ class box:
     """
     def __init__(self, x=None):
         self.x = x
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return "box({})".format(repr(self.x))
     def __contains__(self, x):
         return self.x == x
@@ -234,7 +235,7 @@ class ThreadLocalBox(box):
     def __init__(self, x=None):
         self.storage = threading.local()
         self._default = x
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         """**WARNING**: the repr shows only the content seen by the current thread."""
         return "ThreadLocalBox({})".format(repr(self.get()))
     def __contains__(self, x):
@@ -278,7 +279,7 @@ class Some:
     """
     def __init__(self, x=None):
         self.x = x
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return "Some({})".format(repr(self.x))
     def __contains__(self, x):
         return self.x == x
@@ -450,14 +451,11 @@ class frozendict:
         super().__init__()
         self._data = {}
         for m in ms:
-            try:
-                self._data.update(m)
-            except TypeError:
-                pass
+            self._data.update(m)
         self._data.update(bindings)
 
     @wraps(dict.__repr__)
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return "frozendict({})".format(self._data.__repr__())
 
     def __hash__(self):
@@ -534,21 +532,21 @@ class MutableSequenceView(SequenceView):
     """
     @abstractmethod
     def __setitem__(self, k, v):
-        pass
+        pass  # pragma: no cover
     @abstractmethod
     def reverse(self):
-        pass
+        pass  # pragma: no cover
 
 # -----------------------------------------------------------------------------
 
 class _StrReprEqMixin:
-    def _lowlevel_repr(self):
+    def _lowlevel_repr(self):  # pragma: no cover
         cls = type(getattrrec(self, "seq"))  # de-onionize
         ctor = tuple if hasattr(cls, "_make") else cls  # slice of namedtuple -> tuple
         return ctor(x for x in self)
-    def __str__(self):
+    def __str__(self):  # pragma: no cover
         return str(self._lowlevel_repr())
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return "{:s}({!r})".format(self.__class__.__name__, self._lowlevel_repr())
 
     def __eq__(self, other):
@@ -556,8 +554,8 @@ class _StrReprEqMixin:
             return True
         if len(self) != len(other):
             return False
-        for v, wrap in zip(self, other):
-            if v != wrap:
+        for v1, v2 in zip(self, other):
+            if v1 != v2:
                 return False
         return True
 
@@ -850,18 +848,27 @@ def _make_negidx_converter(n):  # n: length of sequence being indexed
     def convert(k):
         if k is not None:
             if not isinstance(k, int):
-                raise TypeError("k must be int, got {} with value {}".format(type(k), k))
+                # This is not triggered in the current code because the outer
+                # layers protect against having to check here, but since the
+                # `convert` function is returned to the caller, let's be
+                # careful.
+                raise TypeError("k must be int, got {} with value {}".format(type(k), k))  # pragma: no cover
             # Almost standard semantics for negative indices. Usually -n < k < n,
             # but here we must allow for conversion of the end position, for
             # which the last valid value is one past the end.
-            if not -n <= k <= n:
-                raise IndexError("Should have -n <= k <= n, but n = len(args) = {}, and k = {}".format(n, k))
+            if n is not None and not -n <= k <= n:
+                raise IndexError("Should have -n <= k <= n, but n = {}, and k = {}".format(n, k))
             return apply_conversion(k) if k < 0 else k
     return convert
 
 def _canonize_slice(s, n=None, wrap=None):  # convert negatives, inject defaults.
     if not isinstance(s, slice):
-        raise TypeError("s must be slice, got {} with value {}".format(type(s), s))
+        # Not triggered in the current code, because this is an internal function
+        # and `in_slice` already checks; but let's be careful in case this is later
+        # used elsewhere. (And, it's already possible that some internal caller
+        # incorrectly uses the no-check mode of the internal implementation function
+        # `_index_in_slice`.)
+        raise TypeError("s must be slice, got {} with value {}".format(type(s), s))  # pragma: no cover
 
     step = s.step if s.step is not None else +1  # no "s.step or +1"; someone may try step=0
     if step == 0:

@@ -8,10 +8,50 @@ from pickle import dumps, loads
 import threading
 
 from ..collections import (box, ThreadLocalBox, Some, Shim, unbox,
-                           frozendict, view, roview, ShadowedSequence, mogrify)
+                           frozendict, view, roview, ShadowedSequence, mogrify,
+                           in_slice, index_in_slice)
 from ..fold import foldr
+from ..llist import cons, ll
 
 def runtests():
+    with testset("internal utilities"):
+        test[in_slice(5, slice(10))]
+        test[in_slice(5, 5)]  # convenience: int instead of a slice
+        test[in_slice(5, slice(1, 10, 2))]
+        test[not in_slice(5, slice(0, 10, 2))]
+
+        test[index_in_slice(5, slice(10)) == 5]
+        test[index_in_slice(5, slice(1, 10, 2)) == 2]
+
+        # with sequence length parameter, and with negative indices
+        test[in_slice(8, slice(0, None, 1), 10)]
+        test[in_slice(-2, slice(0, None, 1), 10)]
+        test[in_slice(9, 9, 10)]  # convenience
+        test[in_slice(-1, -1, 10)]
+        test[in_slice(7, slice(None, None, -1), 10)]
+        test[in_slice(-3, slice(None, None, -1), 10)]
+        test[in_slice(7, slice(9, None, -1), 10)]
+        test[in_slice(-3, slice(9, None, -1), 10)]
+
+        test[in_slice(5, slice(0, None, 1), 10)]
+        test_raises[IndexError, in_slice(5, slice(0, None, 1), 3)]  # out of range when length = 3
+
+        test[index_in_slice(-1, slice(10), 10) == 9]
+        test[index_in_slice(-1, slice(None, None, -1), 10) == 0]
+        test[index_in_slice(7, slice(None, None, -2), 10) == 1]
+        test[index_in_slice(-3, slice(None, None, -2), 10) == 1]
+
+        test_raises[TypeError, in_slice("not an index", slice(10))]
+        test_raises[TypeError, in_slice(5, "not a slice or int")]
+        test_raises[TypeError, in_slice(1, slice(10), "not a length")]
+        test_raises[ValueError, in_slice(1, slice(10), -3)]  # negative length
+
+        test_raises[ValueError, in_slice(-1, slice(10))]  # need length to interpret negative indices
+
+        test_raises[ValueError, in_slice(1, slice(0, None, 0))]  # zero step
+        test_raises[ValueError, in_slice(1, slice(0, None, 1))]  # missing length for default stop with positive step
+        test_raises[ValueError, in_slice(1, slice(None, None, -1))]  # missing length for default start with negative step
+
     # box: mutable single-item container à la Racket
     with testset("box"):
         b = box(17)
@@ -76,6 +116,15 @@ def runtests():
         t.join()
         test[unbox(tlb) == 42]  # In the main thread, this box still has the original value.
 
+        test[42 in tlb]
+        test[[x for x in tlb] == [42]]
+        test[tlb == 42]
+        test[len(tlb) == 1]
+
+        tlb2 = ThreadLocalBox(42)
+        test[tlb2 is not tlb]
+        test[tlb2 == tlb]
+
         # The default object can be changed.
         tlb = ThreadLocalBox(42)
         # We haven't sent any object to the box, so we see the default object.
@@ -115,6 +164,9 @@ def runtests():
         test[42 in s]
         test_raises[TypeError, s << 23]  # immutable
         test_raises[AttributeError, s.set(23)]
+
+        test[[x for x in s] == [42]]
+        test[len(s) == 1]
 
     # Shim (a.k.a. attribute proxy): redirect attribute accesses.
     #
@@ -180,6 +232,8 @@ def runtests():
             test[s.y == "hi from Wai"]
             test[s.z == "hi from Zee"]
         test_chaining()
+
+        test_raises[TypeError, Shim("la la la")]  # not a box, shouldn't be able to Shim it
 
     # frozendict: immutable dictionary (like frozenset, but for dictionaries)
     with testset("frozendict"):
@@ -320,6 +374,18 @@ def runtests():
         test[v == [1, 2, 3, 4, 5]]
         test[lst == [42, 0, 1, 2, 3, 4, 5]]
 
+        tup = (1, 2, 3, 4, 5)
+        test_raises[TypeError, view(tup)]  # tuple is read-only, view is read/write
+
+        lst = list(range(5))
+        v = view(lst)[2:]
+        with test_raises(TypeError):
+            v[2, 3] = 42  # multidimensional indexing not supported
+        with test_raises(IndexError):
+            v[9001] = 42
+        with test_raises(IndexError):
+            v[-9001] = 42
+
     # read-only live view for sequences
     # useful to give read access to a sequence that is an internal detail
     with testset("roview"):
@@ -335,6 +401,24 @@ def runtests():
             v[2] = 3
         test_raises[AttributeError, v.reverse()]  # read-only view does not support in-place reverse
 
+        tup = tuple(range(5))
+        v1 = roview(tup)[2:]
+        test[v1 == v1]
+        v2 = roview(tup)[2:]
+        test[v2 is not v1]
+        test[v2 == v1]
+        v3 = roview(tup)[3:]
+        test[v3 != v1]
+        v4 = roview(tup)[0:2]
+        v5 = roview(tup)[1:3]
+        test[v5 != v4]
+
+        tup = tuple(range(5))
+        v1 = roview(tup)[2:]
+        test_raises[TypeError, v1[2, 3]]  # multidimensional indexing not supported
+        test_raises[IndexError, v1[9001]]
+        test_raises[IndexError, v1[-9001]]
+
     # sequence shadowing (like ChainMap, but only two levels, and for sequences, not mappings)
     with testset("ShadowedSequence"):
         tpl = (1, 2, 3, 4, 5)
@@ -342,6 +426,10 @@ def runtests():
         test[s == (1, 2, 42, 4, 5)]
         test[tpl == (1, 2, 3, 4, 5)]
         test[s[2:] == (42, 4, 5)]
+
+        test_raises[TypeError, s[2, 3]]  # multidimensional indexing not supported
+        test_raises[IndexError, s[9001]]
+        test_raises[IndexError, s[-9001]]
 
         s2 = ShadowedSequence(tpl, slice(2, 4), (23, 42))
         test[s2 == (1, 2, 23, 42, 5)]
@@ -356,6 +444,16 @@ def runtests():
         test[s4 == (1, 2, 23, 100, 200)]
         test[s2 == (1, 2, 23, 42, 5)]
         test[tpl == (1, 2, 3, 4, 5)]
+
+        with test_raises(TypeError):
+            ShadowedSequence(s4, "la la la", "new value")  # not a valid index specification
+
+        # no-op ShadowedSequence is allowed
+        s5 = ShadowedSequence(tpl)
+        test[s5[3] == 4]
+
+        s6 = ShadowedSequence(tpl, slice(2, 4), (23,))  # replacement too short...
+        test_raises[IndexError, s6[3]]  # ...which is detected here
 
     # mogrify: in-place map for various data structures (see docstring for details)
     with testset("mogrify"):
@@ -387,10 +485,15 @@ def runtests():
         test[mogrify(double, d.values()) == {4, 8, 12}]
         test[d == {1: 2, 3: 4, 5: 6}]
 
+        test[mogrify(double, cons(1, 2)) == cons(2, 4)]
+        test[mogrify(double, ll(1, 2, 3)) == ll(2, 4, 6)]
+
         b = box(17)
         b2 = mogrify(double, b)
         test[b2 == 34]
         test[b2 is b]
+
+        test[mogrify(double, Some(21)) == Some(42)]
 
         tup = (1, 2, 3)
         tup2 = mogrify(double, tup)
