@@ -15,7 +15,7 @@ def runtests():
     class AnalysisTarget:
         def __init__(self):
             pass
-        def meth(self, x):
+        def instmeth(self, x):
             pass  # pragma: no cover, this class is here just to be analyzed, not run.
         @classmethod
         def classmeth(cls, x):
@@ -30,12 +30,37 @@ def runtests():
             function, kind = _getfunc(thecallable)
             return kind
         test[kindof(barefunction) == "function"]
-        test[kindof(AnalysisTarget.meth) == "function"]  # instance method, not bound to instance
+        test[kindof(AnalysisTarget.instmeth) == "function"]  # instance method, not bound to instance
         test[kindof(AnalysisTarget.classmeth) == "classmethod"]
         test[kindof(AnalysisTarget.staticmeth) == "function"]  # @staticmethod vanishes by this point
-        test[kindof(target.meth) == "instancemethod"]
+        test[kindof(target.instmeth) == "instancemethod"]
         test[kindof(target.classmeth) == "classmethod"]
         test[kindof(target.staticmeth) == "function"]
+
+        # Behavior of `_getfunc` while evaluating a class body and called from
+        # a decorator that applies *after* `@classmethod` or `@staticmethod`.
+        # Not actually used in the codebase, but we want those cases covered too.
+        kinds = []
+        def grabkind(meth):
+            kinds.append(kindof(meth))
+            return meth
+        class Silly:
+            @grabkind
+            @classmethod
+            def classmeth(cls):
+                pass  # pragma: no cover
+
+            @grabkind
+            @staticmethod
+            def staticmeth():
+                pass  # pragma: no cover
+
+            # At class body evaluation time, an instance method
+            # is indistinguishable from a bare function.
+            @grabkind
+            def instmeth(self):
+                pass  # pragma: no cover
+        test[kinds == ["classmethod", "staticmethod", "function"]]
 
     with testset("arities basic usage"):
         _ = None  # just some no-op value
@@ -69,11 +94,11 @@ def runtests():
     with testset("arities and OOP"):
         test[arities(AnalysisTarget) == (0, 0)]  # no args beside the implicit self
         # methods on the class
-        test[arities(AnalysisTarget.meth) == (2, 2)]  # instance method, not bound to instance
+        test[arities(AnalysisTarget.instmeth) == (2, 2)]  # instance method, not bound to instance
         test[arities(AnalysisTarget.classmeth) == (1, 1)]  # cls is implicit, so just one
         test[arities(AnalysisTarget.staticmeth) == (1, 1)]
         # methods on an instance
-        test[arities(target.meth) == (1, 1)]  # self is implicit, so just one
+        test[arities(target.instmeth) == (1, 1)]  # self is implicit, so just one
         test[arities(target.classmeth) == (1, 1)]
         test[arities(target.staticmeth) == (1, 1)]
 

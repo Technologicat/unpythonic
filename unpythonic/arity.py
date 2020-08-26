@@ -194,8 +194,7 @@ def _getfunc(f):
         #
         # Also, while evaluating a class body, `ismethod` always returns False.
         # (Use case: decorator that further decorates a `@classmethod` or a
-        # `@staticmethod` calls us to get the underlying function. See
-        # `unpythonic.dispatch`.)
+        # `@staticmethod` calls us to get the underlying function.)
         if isinstance(f, staticmethod):
             kind = "staticmethod"
             raw_function = f.__func__
