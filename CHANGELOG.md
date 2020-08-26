@@ -17,18 +17,19 @@
 
 - `@generic` and `@typed` can now decorate instance methods, class methods and static methods. This makes those *methods (OOP sense)* have *methods (generic function sense)*. Get it?
   - `self` and `cls` parameters do not participate in dispatching, and need no type annotation.
-  - Beside appearing as the first positional-or-keyword parameter, the self-like parameter must be named one of `self`, `this`, `cls`, or `klass` to be detected by the ignore mechanism. This limitation is due to implementation reasons; while a class body is being evaluated, the context needed to distinguish a method (OOP sense) from a regular function is not yet present.
-  - If you use inheritance with this, Python first performs [MRO](https://en.wikipedia.org/wiki/C3_linearization) lookup normally. Only then, and *only within the class that matched that MRO lookup* for the method (OOP sense), multiple dispatch is applied to pick the method (generic function sense).
-    - So it is not currently possible to specialize a descendant's method (OOP sense) using a different parameter type; to do that, the descendant must have **all desired** `@generic` variants defined, and any variants that are desired to delegate to `super()` must do that explicitly. This might or might not change in a future release.
+  - Beside appearing as the first positional-or-keyword parameter, the self-like parameter **must be named** one of `self`, `this`, `cls`, or `klass` to be detected by the ignore mechanism. This limitation is due to implementation reasons; while a class body is being evaluated, the context needed to distinguish a method (OOP sense) from a regular function is not yet present.
+  - OOP inheritance support: when `@generic` is installed on an OOP method (instance method, or `@classmethod`), then at call time, classes are tried in [MRO](https://en.wikipedia.org/wiki/C3_linearization) order. All generic-function methods of the OOP method defined in the class currently being looked up are tested for matches first, before moving on to the next class in the MRO. (This has subtle consequences, related to in which class in the hierarchy the various generic-function methods for a particular OOP method are defined.)
+  - To work with OOP inheritance, `@generic` must be the outermost decorator (except `@classmethod` or `@staticmethod`, which are essentially compiler annotations).
+  - However, when installed on a `@staticmethod`, the `@generic` decorator does not support MRO lookup, because that would make no sense. See discussions on interaction between `@staticmethod` and `super` in Python: [[1]](https://bugs.python.org/issue31118) [[2]](https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction/26807879).
 - To ease installation, relax version requirement of the optional MacroPy dependency to the latest released on PyPI, 1.1.0b2.
   - Once MacroPy updates, we'll upgrade; 1.1.0b2 is missing some small features we would like to use.
 - Conditions: when an unhandled `error` or `cerror` occurs, the original unhandled error is now available in the `__cause__` attribute of the `ControlError** exception that is raised in this situation.
 - Document named-arg bug in `curry` in the docstring. See [#61](https://github.com/Technologicat/unpythonic/issues/61). Fixing this needs a better `partial`, so for now it's a known issue.
 - All of `unpythonic` itself is now tested using the new testing framework for macro-enabled code, `unpythonic.test.fixtures`. **Hence, developing `unpythonic` now requires MacroPy.** For **using** `unpythonic`, MacroPy remains strictly optional, as it will at least for the foreseeable future.
 
-**Breaking changes (experimental parts only)**:
+**Breaking changes**:
 
-- `@generic` no longer takes a master definition. Methods (in the generic function sense) are registered directly with `@generic`; the first method definition implicitly creates the generic function.
+- *Experimental*: `@generic` no longer takes a master definition. Methods (in the generic function sense) are registered directly with `@generic`; the first method definition implicitly creates the generic function.
 
 **Fixed**:
 
@@ -43,6 +44,7 @@
   - Handler lookup works correctly also for `signal(SomeExceptionClass)` without creating an instance.
   - Conditions can now inherit from `BaseException`, not only from `Exception.`
   - Uses of `issubclass` are now properly protected by a `try`/`except` when the first argument might not be a class (since in that case `issubclass` raises `TypeError`).
+- `mogrify` now skips `nil`, actually making it useful for processing `ll` linked lists. Although this is technically a breaking change, the original behavior was broken, so it should not affect any existing code.
 
 ---
 

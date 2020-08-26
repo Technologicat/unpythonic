@@ -25,7 +25,24 @@ from .arity import resolve_bindings, _getfunc
 from .typecheck import isoftype
 
 _dispatcher_registry = {}
-_likely_self_names = ["self", "this", "cls", "klass"]
+
+# Not strictly part of "the" public API, but stealthily public (with the usual
+# public-API guarantees) because, although unlikely, an occasional user may
+# need to customize this.
+self_parameter_names = ["self", "this", "cls", "klass"]
+
+# TODO: meh, a list instance's __doc__ is not writable. Put this doc somewhere.
+#
+# self_parameter_names.__doc__ = """self/cls parameter names for `@generic`.
+#
+# When one of these parameter names appears in the first positional parameter position
+# of a function decorated with `@generic` (or `@typed`), it is detected as being an
+# OOP-related `self` or `cls` parameter, triggering special handling.
+#
+# If you use something other than the usual Python naming conventions for the self/cls
+# parameter, just append the names you use to this list.
+# """
+
 def generic(f):
     """Decorator. Make `f` a generic function (in the sense of CLOS or Julia).
 
@@ -115,6 +132,35 @@ def generic(f):
 
     Unlike `typing.overload`, the implementations are given in the method bodies.
 
+    **Interaction with OOP**:
+
+    Beside regular functions, `@generic` can be installed on instance, class
+    or static methods (in the OOP sense). `self` and `cls` parameters do not
+    participate in dispatching, and need no type annotation.
+
+    On instance and class methods, the self-like parameter, beside appearing as
+    the first positional-or-keyword parameter, **must be named** one of `self`,
+    `this`, `cls`, or `klass` to be detected by the ignore mechanism. This
+    limitation is due to implementation reasons; while a class body is being
+    evaluated, the context needed to distinguish a method (OOP sense) from a
+    regular function is not yet present.
+
+    When `@generic` is installed on an instance method or on a `@classmethod`,
+    then at call time, classes are tried in MRO order. **All** generic-function
+    methods of the OOP method defined in the class currently being looked up
+    are tested for matches first, **before** moving on to the next class in the
+    MRO. (This has subtle consequences, related to in which class in the
+    hierarchy the various generic-function methods for a particular OOP method
+    are defined.)
+
+    For *static methods* MRO lookup is not supported. Basically, one of the
+    roles of `cls` or `self` is to define the MRO; a `@staticmethod` doesn't
+    have that.
+
+    To work with OOP inheritance, `@generic` must be the outermost decorator,
+    except `@classmethod` or `@staticmethod`, which are essentially compiler
+    annotations.
+
     **CAUTION**:
 
     To declare a parameter of a method as dynamically typed, explicitly
@@ -137,13 +183,24 @@ def generic(f):
         return "{}.{}".format(inspect.getmodule(f), function.__qualname__)
     fullname = getfullname(f)
 
+    # HACK for cls/self analysis
+    def name_of_1st_positional_parameter(f):
+        function, _ = _getfunc(f)
+        params = inspect.signature(function).parameters
+        poskinds = set((inspect.Parameter.POSITIONAL_ONLY,
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD))
+        for param in params.values():
+            if param.kind in poskinds:
+                return param.name
+        return None
+
     if fullname not in _dispatcher_registry:
         # Create the dispatcher. This will replace the original f.
         @wraps(f)
         def dispatcher(*args, **kwargs):
             # `signature` comes from typing.get_type_hints.
             # `bindings` is populated in the surrounding scope below.
-            def match_argument_types(signature):
+            def match_argument_types(type_signature):
                 # TODO: handle **kwargs (bindings["kwarg"], bindings["kwarg_name"])
                 args_items = bindings["args"].items()
                 if bindings["vararg_name"]:
@@ -153,20 +210,54 @@ def generic(f):
                     all_items = args_items
 
                 for parameter, value in all_items:
-                    assert parameter in signature  # resolve_bindings should already TypeError when not.
-                    expected_type = signature[parameter]
+                    assert parameter in type_signature  # resolve_bindings should already TypeError when not.
+                    expected_type = type_signature[parameter]
                     if not isoftype(value, expected_type):
                         return False
                 return True
 
             # Dispatch.
             def methods():
-                # TODO: Support OOP inheritance. Need to walk the MRO. To do that,
-                # TODO: maybe the dispatcher registry needs to be reorganized.
-                # TODO: Currently, when this is used with OOP, we only look for
-                # TODO: variants of the same OOP method in the same class, because
-                # TODO: that's what the dispatcher is attached to.
-                return reversed(dispatcher._method_registry)
+                # For regular functions, ours is the only registry we need to look at:
+                relevant_registries = [reversed(dispatcher._method_registry)]
+
+                # But if this dispatcher is installed on an OOP method, we must
+                # look up generic function methods also in the class's MRO.
+                #
+                # For *static methods* MRO is not supported. Basically, one of
+                # the roles of `cls` or `self` is to define the MRO; a static
+                # method doesn't have that.
+                #
+                # See discussions on interaction between `@staticmethod` and `super` in Python:
+                #   https://bugs.python.org/issue31118
+                #    https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction/26807879
+                #
+                # TODO/FIXME: Not possible to detect self/cls parameters correctly.
+                # Here we're operating at the wrong abstraction level for that,
+                # since we see just bare functions.
+                #
+                # Let's see if we might have a self/cls parameter, and if so, get its value.
+                first_param_name = name_of_1st_positional_parameter(f)
+                if first_param_name in self_parameter_names:
+                    if len(args) < 1:
+                        raise TypeError("MRO lookup failed: no value provided for self-like parameter '{}' when calling generic-function OOP method {}".format(first_param_name, fullname))
+                    first_arg_value = args[0]
+                    dynamic_instance = first_arg_value  # self/cls
+                    theclass = None
+                    if isinstance(dynamic_instance, type):  # cls
+                        theclass = dynamic_instance
+                    elif hasattr(dynamic_instance, "__class__"):  # self
+                        theclass = dynamic_instance.__class__
+                    if theclass is not None:  # ignore false positives when possible
+                        for base in theclass.__mro__[1:]:  # skip the class itself in the MRO
+                            if hasattr(base, f.__name__):  # does this particular super have f?
+                                base_oop_method = getattr(base, f.__name__)
+                                base_raw_function, _ = _getfunc(base_oop_method)
+                                if hasattr(base_raw_function, "_method_registry"):  # it's @generic
+                                    base_registry = getattr(base_raw_function, "_method_registry")
+                                    relevant_registries.append(reversed(base_registry))
+
+                return chain.from_iterable(relevant_registries)
             for method, signature in methods():
                 try:
                     bindings = resolve_bindings(method, *args, **kwargs)
@@ -229,6 +320,8 @@ def generic(f):
             params_names = [p.name for p in params.values()]
             type_signature = typing.get_type_hints(function)
 
+            # In the type signature, auto-`Any` the self/cls parameter, if any.
+            #
             # TODO/FIXME: Not possible to detect self/cls parameters correctly.
             #
             # The `@generic` decorator runs while the class body is being
@@ -243,7 +336,7 @@ def generic(f):
             # when they appear the first position, though **Python itself
             # doesn't do that**. For any crazy person not following Python
             # naming conventions, our approach won't work.
-            if len(params_names) >= 1 and params_names[0] in _likely_self_names:
+            if len(params_names) >= 1 and params_names[0] in self_parameter_names:
                 # In Python 3.6+, `dict` preserves insertion order. Make sure
                 # the `self` parameter appears first, for clearer error messages
                 # when no matching method is found.

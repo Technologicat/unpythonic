@@ -145,6 +145,55 @@ def runtests():
         test[returns_normally(tt.checked(42))]
         test_raises[TypeError, tt.checked("hi")]
 
+    # In OOP, `@generic` dispatches across the MRO.
+    #
+    # The classes are tried in MRO order, matching all methods in a single class
+    # before moving on to the next one.
+    with testset("@generic integration with OOP, with inheritance"):
+        class BabyTestTarget(TestTarget):  # child class, get it?
+            @staticmethod
+            @generic
+            def staticmeth(x: float):
+                return "float {}".format(2 * x)
+
+            @classmethod
+            @generic
+            def clsmeth(cls, x: float):
+                return "{} floats: {}".format(cls.myname, 2 * x)
+
+            @generic
+            def instmeth(self, x: float):
+                return "floating with {}".format(self.a * x)
+
+        tt2 = BabyTestTarget(3)
+        # the new generic-function methods become available, installed on the OOP method
+        test[tt2.instmeth(3.14) == "floating with 9.42"]
+        # old generic-function methods registered by the ancestor remain available
+        test[tt2.instmeth("hi") == "hi hi hi"]
+        test[tt2.instmeth(21) == 63]
+        test[tt2.clsmeth(3.14) == "Test target floats: 6.28"]
+        test[tt2.clsmeth("hi") == "Test target says: hi hi"]
+        test[tt2.clsmeth(21) == "Test target computes: 42"]
+        test[BabyTestTarget.clsmeth(3.14) == "Test target floats: 6.28"]
+        test[BabyTestTarget.clsmeth("hi") == "Test target says: hi hi"]
+        test[BabyTestTarget.clsmeth(21) == "Test target computes: 42"]
+
+        # `@generic` on *static methods* **does not** support MRO lookup.
+        # Basically, one of the roles of `cls` or `self` is to define the MRO;
+        # a static method doesn't have that.
+        #
+        # See discussions on interaction between `@staticmethod` and `super` in Python:
+        #   https://bugs.python.org/issue31118
+        #    https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction/26807879
+        test[tt2.staticmeth(3.14) == "float 6.28"]  # this is available on `tt2`
+        test_raises[TypeError, tt2.staticmeth("hi")]  # but this is not (no MRO)
+        test_raises[TypeError, tt2.staticmeth(21)]
+        test[BabyTestTarget.staticmeth(3.14) == "float 6.28"]  # available on `BabyTestTarget`
+        test_raises[TypeError, BabyTestTarget.staticmeth("hi")]  # not available (no MRO)
+        test_raises[TypeError, BabyTestTarget.staticmeth(21)]
+
+        test_raises[TypeError, tt2.clsmeth(None)]  # not defined for NoneType
+
     with testset("@typed"):
         test[blubnify(2, 21.0) == 42]
         test_raises[TypeError, blubnify(2, 3)]  # blubnify only accepts (int, float)
