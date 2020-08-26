@@ -176,11 +176,13 @@ def scanl1(proc, iterable, init=None):
         assert tuple(pprods(data)) == (1, 2, 6, 24)
     """
     it = iter(iterable)
-    if not init:
+    if init is None:
         try:
             init = next(it)
         except StopIteration:
-            return None  # empty input iterable
+            def empty_iterable():
+                yield from ()
+            return empty_iterable()
     return scanl(proc, init, it)
 
 _uselast = object()  # sentinel
