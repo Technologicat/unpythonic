@@ -743,6 +743,7 @@ def find(predicate, iterable, default=None):
     """
     return next(filter(predicate, iterable), default)
 
+# TODO: in 0.15.0, maybe switch the argument order of window() for curry-friendliness?
 def window(iterable, n=2):
     """Sliding length-n window iterator for a general iterable.
 
