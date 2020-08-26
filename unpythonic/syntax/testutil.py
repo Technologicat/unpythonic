@@ -8,7 +8,7 @@ from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core import unparse
 
-from ast import Tuple, Str, Subscript, Name, Call, copy_location
+from ast import Tuple, Str, Subscript, Name, Call, copy_location, Compare
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..misc import callsite_filename, safeissubclass
@@ -106,7 +106,7 @@ def _observe(thunk):
     except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
         return _raised, err
 
-def unpythonic_assert(sourcecode, thunk, *, filename, lineno, message=None):
+def unpythonic_assert(sourcecode, compute, check, *, filename, lineno, message=None):
     """Custom assert function, for building test frameworks.
 
     Upon a failing assertion, this will *signal* a `fixtures.TestFailure`
@@ -126,9 +126,26 @@ def unpythonic_assert(sourcecode, thunk, *, filename, lineno, message=None):
         `sourcecode` is a string representation of the source code expression
         that is being asserted.
 
-        `thunk` is the expression itself, delayed by a lambda, so that this
-        function can run the expression at its leisure. If the result of
-        running the lambda is falsey, the assertion fails.
+        `compute` and `check` form the test itself.
+
+          - `compute` is a thunk (0-argument function) that computes the
+            desired test expression and returns its value.
+
+          - `check` is one of:
+
+            - `None`, to use a default implicit truth value check against the
+              return value from `compute`.
+
+            - A 1-argument function that, when passed the value returned by
+              `compute`, returns a truth value that indicates whether
+              the test passed.
+
+              This is useful for e.g. splitting a comparison test `expr < 3`
+              into the `expr` and `... < 3` parts, so that upon failure, the
+              test framework can print the unexpected value of `expr` for
+              human inspection. (The `test[]` macro does this splitting.)
+
+        If the result of the check is falsey, the assertion fails.
 
         `filename` is the filename at the call site, if applicable. (If called
         from the REPL, there is no file.)
@@ -142,7 +159,31 @@ def unpythonic_assert(sourcecode, thunk, *, filename, lineno, message=None):
 
     No return value.
     """
-    mode, result = _observe(thunk)
+    mode, value = _observe(compute)
+    test_result = value
+
+    # We populate `wrong_value_msg` pre-emptively, even if the value is correct.
+    # It's only used if `compute` (and the optional `check`, if any) return normally,
+    # but the value is not what was expected.
+    if check is None:  # implicit check for truth value
+        wrong_value_msg = ", due to result = {}".format(value)
+    elif mode is _completed:  # check is not None and...
+        # Custom check, via comparison destructuring in `test_expr`.
+        # Only meaningful to run it if `compute` returned normally.
+        # We need to harness `check`, too, in case *it* is faulty.
+        check_mode, test_result = _observe(lambda: check(value))
+        if check_mode is _completed:
+            # Both `compute` and `check` returned normally. Pre-populate the error message.
+            wrong_value_msg = ", due to LHS = {}".format(value)
+        else:  # pragma: no cover
+            # `check` crashed, e.g. test[myfunc() == 1/0]
+            assert check_mode in (_signaled, _raised)
+            # `wrong_value_msg` not used in the code path that starts here.
+            # Replace the original mode and error message so we report the `check` failure instead.
+            mode = check_mode
+            message = "Failure during checking test result"
+            # Note test_result is the failure from observing the check.
+
     fixtures.tests_run << unbox(fixtures.tests_run) + 1
 
     if message is not None:
@@ -151,8 +192,7 @@ def unpythonic_assert(sourcecode, thunk, *, filename, lineno, message=None):
         custom_msg = ""
 
     # special cases for unconditional failures
-    # (e.g. line that should not be reached, optional dependency not installed, ...)
-    if mode is _completed and result is _fail:  # fail[...]
+    if mode is _completed and test_result is _fail:  # fail[...], e.g. unreachable line reached
         fixtures.tests_failed << unbox(fixtures.tests_failed) + 1
         conditiontype = fixtures.TestFailure
         if message is not None:
@@ -164,14 +204,14 @@ def unpythonic_assert(sourcecode, thunk, *, filename, lineno, message=None):
             error_msg = message
         else:
             error_msg = "Unconditional failure requested, no message."
-    elif mode is _completed and result is _error:  # error[...]
+    elif mode is _completed and test_result is _error:  # error[...], e.g. dependency not installed
         fixtures.tests_errored << unbox(fixtures.tests_errored) + 1
         conditiontype = fixtures.TestError
         if message is not None:
             error_msg = message
         else:
             error_msg = "Unconditional error requested, no message."
-    elif mode is _completed and result is _warn:  # warn[...]
+    elif mode is _completed and test_result is _warn:  # warn[...], e.g. some test disabled for now
         fixtures.tests_warned << unbox(fixtures.tests_warned) + 1
         # HACK: warnings don't count into the test total
         fixtures.tests_run << unbox(fixtures.tests_run) - 1
@@ -188,20 +228,20 @@ def unpythonic_assert(sourcecode, thunk, *, filename, lineno, message=None):
         # So we may as well use the same code path as the fail and error cases.
     # general cases
     elif mode is _completed:
-        if result:
+        if test_result:
             return
         fixtures.tests_failed << unbox(fixtures.tests_failed) + 1
         conditiontype = fixtures.TestFailure
-        error_msg = "Test failed: {}{}".format(sourcecode, custom_msg)
+        error_msg = "Test failed: {}{}{}".format(sourcecode, wrong_value_msg, custom_msg)
     elif mode is _signaled:
         fixtures.tests_errored << unbox(fixtures.tests_errored) + 1
         conditiontype = fixtures.TestError
-        desc = fixtures.describe_exception(result)
+        desc = fixtures.describe_exception(test_result)
         error_msg = "Test errored: {}{}, due to unexpected signal: {}".format(sourcecode, custom_msg, desc)
     else:  # mode is _raised:
         fixtures.tests_errored << unbox(fixtures.tests_errored) + 1
         conditiontype = fixtures.TestError
-        desc = fixtures.describe_exception(result)
+        desc = fixtures.describe_exception(test_result)
         error_msg = "Test errored: {}{}, due to unexpected exception: {}".format(sourcecode, custom_msg, desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
@@ -316,9 +356,27 @@ def test_expr(tree):
     else:
         message = q[None]
 
-    # The lambda delays the execution of the test expr until `unpythonic_assert` gets control.
-    return q[(ast_literal[asserter])(u[unparse(tree)],
-                                     lambda: ast_literal[tree],
+    # We delay the execution of the test expr using a lambda, so
+    # `unpythonic_assert` can get control first before the expr runs.
+    #
+    # If the test is a comparison, destructure it into expr (LHS) and check
+    # (everything else) parts. This allows us to include the LHS value into
+    # the test failure message.
+    #
+    # But before we edit the tree, get the source code in its pre-transformation
+    # state, so we can include that too into the test failure message.
+    sourcecode = unparse(tree)
+    if type(tree) is Compare:
+        compute_tree = q[lambda: ast_literal[tree.left]]
+        tree.left = q[name["value"]]  # the arg of the lambda below
+        check_tree = q[lambda value: ast_literal[tree]]
+    else:
+        compute_tree = q[lambda: ast_literal[tree]]
+        check_tree = q[None]  # the check is optional, defaulting to a truth value check.
+
+    return q[(ast_literal[asserter])(u[sourcecode],
+                                     ast_literal[compute_tree],
+                                     ast_literal[check_tree],
                                      filename=ast_literal[filename],
                                      lineno=ast_literal[ln],
                                      message=ast_literal[message])]
