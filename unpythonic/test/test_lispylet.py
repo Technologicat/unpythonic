@@ -147,6 +147,12 @@ def runtests():
             def error1(*, env):
                 env.y = 2  # error, cannot introduce new bindings into a let environment
 
+        test_raises[TypeError, let((), "not a callable")]
+        test_raises[TypeError, let((), lambda: None)]  # body callable must be able to take in environment
+        test_raises[AttributeError, let((('x', 1),
+                                         ('x', 2)), lambda e: e.x)]  # trying to reassign same name
+        test_raises[TypeError, letrec((('x', lambda: 1),), lambda e: e.x)]  # callable value must be able to take in environment
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()
