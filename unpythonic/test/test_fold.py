@@ -6,8 +6,8 @@ from .fixtures import session, testset
 from operator import add, mul
 from functools import partial
 
-from ..fold import (scanl, scanr, scanl1, scanr1, rscanl,
-                    foldl, foldr, reducel, reducer, rfoldl,
+from ..fold import (scanl, scanr, scanl1, scanr1, rscanl, rscanl1,
+                    foldl, foldr, reducel, reducer, rreducel, rfoldl,
                     unfold, unfold1, prod, running_minmax, minmax)
 from ..fun import curry, composer, composerc, composel, to1st, rotate
 from ..llist import cons, nil, ll, lreverse
@@ -28,6 +28,13 @@ def runtests():
         test[tuple(scanl1(add, (1, 2, 3))) == (1, 3, 6)]
         test[tuple(scanr1(add, (1, 2, 3))) == (3, 5, 6)]
 
+        # empty input with no init yields an empty iterable
+        test[tuple(scanl1(add, ())) == ()]
+        test[tuple(scanr1(add, ())) == ()]
+
+        # rscanl1: reverse input, then scanl1.
+        test[tuple(rscanl1(add, (1, 2, 3))) == (3, 5, 6)]
+
     # in contrast, fold just returns the final result.
     with testset("fold"):
         test[foldl(cons, nil, ll(1, 2, 3)) == ll(3, 2, 1)]
@@ -36,6 +43,9 @@ def runtests():
         # reduce is a fold with a single input, with init optional.
         test[reducel(add, (1, 2, 3)) == 6]
         test[reducer(add, (1, 2, 3)) == 6]
+
+        # rreducel: reverse input, then reducel.
+        test[rreducel(add, (1, 2, 3)) == 6]
 
     with testset("partial sums and products via scan"):
         psums = composer(tail, curry(scanl, add, 0))  # tail to drop the init value
@@ -167,10 +177,10 @@ def runtests():
 
     with testset("unfold"):
         def step2(k):  # x0, x0 + 2, x0 + 4, ...
-            return (k, k + 2)
+            return (k, k + 2)  # (value, newstate)
 
         def fibo(a, b):
-            return (a, b, a + b)
+            return (a, b, a + b)  # (value, *newstates)
 
         def myiterate(f, x):  # x0, f(x0), f(f(x0)), ...
             return (x, f, f(x))
@@ -185,6 +195,13 @@ def runtests():
         test[tuple(take(5, unfold(myiterate, lambda x: x**2, 2))) == (2, 4, 16, 256, 65536)]
         test[tuple(unfold(zip_two, (1, 2, 3, 4), (5, 6, 7))) == ((1, 5), (2, 6), (3, 7))]
 
+        # A finite sequence can return `None` from the proc to signify the sequence ends.
+        def upto10(k):
+            if k < 10:
+                return (k, k + 1)
+            # else: return None, to signify the sequence ends.
+        test[tuple(unfold1(upto10, 0)) == tuple(range(10))]
+
     # Product. Missing battery, considering stdlib has sum().
     with testset("prod (product of elements of iterable)"):
         test[prod((2, 3, 4)) == 24]
@@ -194,6 +211,8 @@ def runtests():
         test[tuple(running_minmax((1, 2, 3))) == ((1, 1), (1, 2), (1, 3))]
         test[tuple(running_minmax((3, 2, 1))) == ((3, 3), (2, 3), (1, 3))]
         test[minmax((1, 2, 3)) == (1, 3)]
+
+        test[tuple(running_minmax(())) == ()]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
