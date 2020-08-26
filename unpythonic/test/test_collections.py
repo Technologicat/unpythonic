@@ -14,7 +14,8 @@ from ..fold import foldr
 from ..llist import cons, ll
 
 def runtests():
-    with testset("internal utilities"):
+    # These are useful for building sequence-handling tools that work with slices.
+    with testset("slice index queries"):
         test[in_slice(5, slice(10))]
         test[in_slice(5, 5)]  # convenience: int instead of a slice
         test[in_slice(5, slice(1, 10, 2))]
@@ -23,34 +24,47 @@ def runtests():
         test[index_in_slice(5, slice(10)) == 5]
         test[index_in_slice(5, slice(1, 10, 2)) == 2]
 
-        # with sequence length parameter, and with negative indices
+        # - sequence length parameter
+        # - default start and stop
+        test[in_slice(5, slice(None, 10, 1))]
+        test[in_slice(5, slice(0, None, 1), 10)]
+        test[in_slice(5, slice(None, None, 1), 10)]
+        # - negative indices (allowed when sequence length is known)
         test[in_slice(8, slice(0, None, 1), 10)]
         test[in_slice(-2, slice(0, None, 1), 10)]
         test[in_slice(9, 9, 10)]  # convenience
         test[in_slice(-1, -1, 10)]
+        # Just like in regular slice syntax in Python, to walk a sequence
+        # backwards until we reach its first element requires using `None`
+        # as `stop`. Trying `slice(-1, -1, -1)` gives an empty slice,
+        # because -1 refers to the last element also when it appears
+        # in the `stop` position.
+        test[not in_slice(0, slice(9, -1, -1), 10)]  # empty slice
+        test[in_slice(0, slice(9, None, -1), 10)]  # stop=None; ok!
         test[in_slice(7, slice(None, None, -1), 10)]
         test[in_slice(-3, slice(None, None, -1), 10)]
         test[in_slice(7, slice(9, None, -1), 10)]
         test[in_slice(-3, slice(9, None, -1), 10)]
 
-        test[in_slice(5, slice(0, None, 1), 10)]
-        test_raises[IndexError, in_slice(5, slice(0, None, 1), 3)]  # out of range when length = 3
-
+        # Given an index to the original sequence, convert it to the
+        # corresponding index inside the given slice. Return `None` if the
+        # given index is not in the slice.
         test[index_in_slice(-1, slice(10), 10) == 9]
         test[index_in_slice(-1, slice(None, None, -1), 10) == 0]
         test[index_in_slice(7, slice(None, None, -2), 10) == 1]
         test[index_in_slice(-3, slice(None, None, -2), 10) == 1]
+        test[index_in_slice(6, slice(None, None, -2), 10) is None]  # original index 6 not in this slice
 
         test_raises[TypeError, in_slice("not an index", slice(10))]
         test_raises[TypeError, in_slice(5, "not a slice or int")]
         test_raises[TypeError, in_slice(1, slice(10), "not a length")]
-        test_raises[ValueError, in_slice(1, slice(10), -3)]  # negative length
-
-        test_raises[ValueError, in_slice(-1, slice(10))]  # need length to interpret negative indices
+        test_raises[IndexError, in_slice(5, slice(0, None, 1), 3)]  # out of range when length = 3
+        test_raises[ValueError, in_slice(1, slice(10), -3)]  # negative sequence length
 
         test_raises[ValueError, in_slice(1, slice(0, None, 0))]  # zero step
         test_raises[ValueError, in_slice(1, slice(0, None, 1))]  # missing length for default stop with positive step
         test_raises[ValueError, in_slice(1, slice(None, None, -1))]  # missing length for default start with negative step
+        test_raises[ValueError, in_slice(-1, slice(10))]  # missing length to interpret negative indices
 
     # box: mutable single-item container à la Racket
     with testset("box"):
