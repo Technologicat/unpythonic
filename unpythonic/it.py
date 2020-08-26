@@ -276,15 +276,16 @@ def drop(n, iterable):
 
     This is ``consume`` from ``itertools`` recipes.
     """
+    if n is None:
+        it = iter(iterable)
+        deque(it, maxlen=0)
+        return it
     if not isinstance(n, int):
         raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
     if n < 0:
         raise ValueError("expected n >= 0, got {}".format(n))
     it = iter(iterable)
-    if n is None:
-        deque(it, maxlen=0)
-    else:
-        next(islice(it, n, n), None)  # advance it to empty slice starting at n
+    next(islice(it, n, n), None)  # advance it to empty slice starting at n
     return it
 
 def split_at(n, iterable):
