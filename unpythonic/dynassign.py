@@ -55,7 +55,10 @@ class _DynLiveView(ChainMap):
         super().__init__(self)
         self._refresh()
         _getobservers()[id(self)] = self
-    def __del__(self):
+    # TODO: __del__ most certainly runs during test_dynassign (as can be
+    # evidenced by placing a debug print inside it), but coverage fails
+    # to report it as covered.
+    def __del__(self):  # pragma: no cover
         # No idea how, but our REPL server can trigger a KeyError here
         # if the user views `help()`, which causes the client to get stuck.
         # Then pressing `q` in the server console to quit the help, and then
