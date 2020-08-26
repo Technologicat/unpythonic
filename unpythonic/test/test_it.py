@@ -16,10 +16,11 @@ from ..it import (map, mapr, rmap, zipr, rzip,
                   scons, pad, tail, butlast, butlastn,
                   flatmap,
                   take, drop, split_at,
+                  unpack,
                   rev,
                   uniqify, uniq,
                   flatten, flatten1, flatten_in,
-                  unpack,
+                  iterate1, iterate,
                   partition,
                   partition_int,
                   inn, iindex, find,
@@ -83,6 +84,10 @@ def runtests():
         test[nth(2, range(5)) == 2]
         test[last(range(5)) == 4]
 
+        test_raises[TypeError, nth("not a number", range(5))]
+        test_raises[ValueError, nth(-3, range(5))]
+        test[nth(10, range(5)) is None]  # default
+
     with testset("scons (stream-cons)"):
         test[tuple(scons(0, range(1, 5))) == tuple(range(5))]
         test[tuple(tail(scons("foo", range(5)))) == tuple(range(5))]
@@ -90,6 +95,9 @@ def runtests():
     with testset("flattening"):
         test[tuple(flatten(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, 4, 5, 6, 7, 8, 9)]
         test[tuple(flatten1(((1, 2), (3, (4, 5), 6), (7, 8, 9)))) == (1, 2, 3, (4, 5), 6, 7, 8, 9)]
+
+        test[tuple(flatten1(((1, 2), (3, (4, 5), 6), (7, 8, 9)),
+                            lambda tup: len(tup) < 3)) == (1, 2, (3, (4, 5), 6), (7, 8, 9))]
 
         is_nested = lambda e: all(isinstance(x, (list, tuple)) for x in e)
         test[tuple(flatten((((1, 2), (3, 4)), (5, 6)), is_nested)) == ((1, 2), (3, 4), (5, 6))]
@@ -127,6 +135,9 @@ def runtests():
         test[tuple(butlast(range(5))) == (0, 1, 2, 3)]
         test[tuple(butlastn(3, range(5))) == (0, 1)]
 
+        test[tuple(butlastn(5, range(5))) == ()]
+        test[tuple(butlastn(10, range(5))) == ()]
+
         drop5take5 = composel(partial(drop, 5), partial(take, 5))
         test[tuple(drop5take5(range(20))) == tuple(range(5, 10))]
 
@@ -139,6 +150,14 @@ def runtests():
         drop5take10 = composel(*with_n((5, drop), (10, take)))
         test[tuple(drop5take10(range(20))) == tuple(range(5, 15))]
 
+        # drop with n=None means to consume until the iterable runs out.
+        test[tuple(drop(None, range(10))) == ()]
+
+        test_raises[TypeError, take("not a number", range(5))]
+        test_raises[ValueError, take(-3, range(5))]
+        test_raises[TypeError, drop("not a number", range(5))]
+        test_raises[ValueError, drop(-3, range(5))]
+
     with testset("split_at"):
         a, b = map(tuple, split_at(5, range(10)))
         test[a == tuple(range(5))]
@@ -147,6 +166,9 @@ def runtests():
         a, b = map(tuple, split_at(5, range(3)))
         test[a == tuple(range(3))]
         test[b == ()]
+
+        test_raises[TypeError, split_at("not a number", range(10))]
+        test_raises[ValueError, split_at(-3, range(10))]
 
     with testset("uniqify, uniq"):
         test[tuple(uniqify((1, 1, 2, 2, 2, 2, 4, 3, 3, 3))) == (1, 2, 4, 3)]
@@ -172,6 +194,7 @@ def runtests():
                 yield x
         def peektwo(s):
             a, b, tl = unpack(2, s, k=0)  # peek two, set tl to 0th tail (the original s)
+            # ...do something with a and b...
             return tl
         g = ten_through_fifteen()
         peektwo(g)  # gotcha: g itself advances!
@@ -188,7 +211,17 @@ def runtests():
         g = peektwo(g)  # the original g advances, but we then overwrite the name g with the tail returned by peektwo
         test[next(g) == 10]
 
-    # inn: contains-check with automatic termination for monotonic iterables
+        test_raises[TypeError, unpack("not a number", range(5))]
+        test_raises[ValueError, unpack(-3, range(5))]
+        test_raises[TypeError, unpack(3, range(5), k="not a number")]
+        test_raises[ValueError, unpack(3, range(5), k=-3)]
+
+        # fast-forward when k > n
+        a, b, tl = unpack(2, range(5), k=3)
+        test[a == 0 and b == 1]
+        test[next(tl) == 3]
+
+    # inn: contains-check with automatic termination for monotonic divergent iterables
     with testset("inn"):
         evens = imemoize(s(2, 4, ...))
         test[inn(42, evens())]
@@ -202,6 +235,13 @@ def runtests():
                     yield n
         test[inn(31337, primes())]
         test[not inn(1337, primes())]
+
+        # corner cases
+        test[not inn(10, ())]  # empty input
+        test[inn(10, (10,))]  # match at first element
+        test[not inn(11, (10,))]  # fail after one element
+        test[not inn(11, (10, 10, 10))]  # fail after elements equal to the first one
+        test[inn(11, (10, 10, 10, 11))]  # match at first element differing from the first one
 
     # iindex: find index of item in iterable (mostly only makes sense for memoized input)
     with testset("iindex"):
@@ -269,12 +309,17 @@ def runtests():
         test[inp == deque([])]
         test[out == [(0, 1), (1, 2), (2, 10), (10, 11), (11, 12)]]
 
+        test_raises[ValueError, window(range(5), n=1)]
+        test[tuple(window(range(5), n=10)) == ()]
+
     # chunked() - split an iterable into constant-length chunks.
     with testset("chunked"):
         chunks = chunked(3, range(9))
         test[[tuple(chunk) for chunk in chunks] == [(0, 1, 2), (3, 4, 5), (6, 7, 8)]]
         chunks = chunked(3, range(7))
         test[[tuple(chunk) for chunk in chunks] == [(0, 1, 2), (3, 4, 5), (6,)]]
+
+        test_raises[ValueError, chunked(1, range(5))]
 
     # Interleave iterables.
     with testset("interleave"):
@@ -296,6 +341,18 @@ def runtests():
         test[all(subset(tuple(s), r) for s in powerset(r))]
         S = {"cat", "lynx", "lion", "tiger"}  # unordered
         test[all(subset(tuple(s), S) for s in powerset(S))]
+
+    # repeated function application
+    with testset("iterate1, iterate"):
+        test[last(take(100, iterate1(cos, 1.0))) == 0.7390851332151607]
+
+        # Multi-arg version (n in, n out). May as well demonstrate that
+        # it doesn't matter where you start, the fixed point of cosine
+        # remains the same.
+        def cos3(a, b, c):
+            return cos(a), cos(b), cos(c)
+        fp = 0.7390851332151607
+        test[last(take(100, iterate(cos3, 1.0, 2.0, 3.0))) == (fp, fp, fp)]
 
     # within() - terminate a Cauchy sequence after a tolerance is reached.
     # The condition is `abs(a - b) <= tol` **for the last two yielded items**.
@@ -345,6 +402,16 @@ def runtests():
         test[all(sum(terms) == 10 for terms in partition_int(10))]
         test[all(sum(terms) == 10 for terms in partition_int(10, lower=3))]
         test[all(sum(terms) == 10 for terms in partition_int(10, lower=3, upper=5))]
+
+        test_raises[TypeError, partition_int("not a number")]
+        test_raises[TypeError, partition_int(4, lower="not a number")]
+        test_raises[TypeError, partition_int(4, upper="not a number")]
+        test_raises[ValueError, partition_int(-3)]
+        test_raises[ValueError, partition_int(4, lower=-1)]
+        test_raises[ValueError, partition_int(4, lower=5)]
+        test_raises[ValueError, partition_int(4, upper=-1)]
+        test_raises[ValueError, partition_int(4, upper=5)]
+        test_raises[ValueError, partition_int(4, lower=3, upper=2)]
 
     with testset("allsame"):
         test[allsame(())]
