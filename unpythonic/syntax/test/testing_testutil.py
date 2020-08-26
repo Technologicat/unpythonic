@@ -136,9 +136,6 @@ def runtests():
     #   - Print nicely colored ANSI terminal output into `sys.stderr`
     #   - Don't need to care that it's implemented with conditions and restarts
     #
-    # Still, be sure to run all `test[]` invocations in the same thread,
-    # because the counters (managed by `test[]` itself) are global.
-    #
     # Example session:
     #
     # # The session construct provides an exit point for test session

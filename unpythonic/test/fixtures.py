@@ -113,6 +113,7 @@ from contextlib import contextmanager
 from collections import deque
 from functools import partial
 from traceback import format_tb
+from threading import Lock
 import sys
 
 from ..conditions import handlers, find_restart, invoke
@@ -149,6 +150,24 @@ considered essential (i.e. the test suite will succeed even with warnings).
 The `+ N Warnings` message will be shown at the end of the nearest enclosing testset,
 and any testsets enclosing that one, up to the top level.
 """
+_counter_update_lock = Lock()
+def _update(counter, delta):
+    """Update a global test counter in a thread-safe way.
+
+    `counter`: object; one of `tests_run`, `tests_failed`,
+               `tests_errored` or `tests_warned`.
+    `delta`: amount to update by (additive).
+    """
+    with _counter_update_lock:
+        counter << unbox(counter) + delta
+def _reset(counter):
+    """Reset a global test counter in a thread-safe way.
+
+    `counter`: object; one of `tests_run`, `tests_failed`,
+               `tests_errored` or `tests_warned`.
+    """
+    with _counter_update_lock:
+        counter << 0
 
 class TestingException(Exception):
     """Base type for testing-related exceptions."""
@@ -431,9 +450,6 @@ def testset(name=None, postproc=None):
 
     `postproc` is like `TestConfig.postproc`, but overriding that for this test set
     (and any testsets contained within this one, unless they specify their own).
-
-    **CAUTION**: Not thread-safe. The `test[...]` invocations should be made from
-    a single thread, because `test[]` uses global counters to track runs/fails/errors.
     """
     def counters():
         return tuple(unbox(b) for b in (tests_run,
@@ -477,8 +493,8 @@ def testset(name=None, postproc=None):
             if not _catch_uncaught_signals[0]:
                 return  # cancel and delegate to the next outer handler
             # To highlight the error in the summary, count it as an errored test.
-            tests_run << unbox(tests_run) + 1
-            tests_errored << unbox(tests_errored) + 1
+            _update(tests_run, +1)
+            _update(tests_errored, +1)
             msg = maybe_colorize("{}Testset received signal outside test[]: ".format(errmsg_indent),
                                  TC.BRIGHT, TestConfig.CS.ERROR) + describe_exception(condition)
         TestConfig.printer(msg)
@@ -517,8 +533,8 @@ def testset(name=None, postproc=None):
         pass
     except Exception as err:
         # To highlight the error in the summary, count it as an errored test.
-        tests_run << unbox(tests_run) + 1
-        tests_errored << unbox(tests_errored) + 1
+        _update(tests_run, +1)
+        _update(tests_errored, +1)
         msg = maybe_colorize("{}Testset terminated by exception outside test[]: ".format(errmsg_indent),
                              TC.BRIGHT, TestConfig.CS.ERROR)
         msg += describe_exception(err)

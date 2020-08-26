@@ -161,6 +161,7 @@ def unpythonic_assert(sourcecode, compute, check, *, filename, lineno, message=N
     """
     mode, value = _observe(compute)
     test_result = value
+    fixtures._update(fixtures.tests_run, +1)
 
     # We populate `wrong_value_msg` pre-emptively, even if the value is correct.
     # It's only used if `compute` (and the optional `check`, if any) return normally,
@@ -184,8 +185,6 @@ def unpythonic_assert(sourcecode, compute, check, *, filename, lineno, message=N
             message = "Failure during checking test result"
             # Note test_result is the failure from observing the check.
 
-    fixtures.tests_run << unbox(fixtures.tests_run) + 1
-
     if message is not None:
         custom_msg = ", with message '{}'".format(message)
     else:
@@ -193,7 +192,7 @@ def unpythonic_assert(sourcecode, compute, check, *, filename, lineno, message=N
 
     # special cases for unconditional failures
     if mode is _completed and test_result is _fail:  # fail[...], e.g. unreachable line reached
-        fixtures.tests_failed << unbox(fixtures.tests_failed) + 1
+        fixtures._update(fixtures.tests_failed, +1)
         conditiontype = fixtures.TestFailure
         if message is not None:
             # If a user-given message is specified for `fail[]`, it is all
@@ -205,16 +204,16 @@ def unpythonic_assert(sourcecode, compute, check, *, filename, lineno, message=N
         else:
             error_msg = "Unconditional failure requested, no message."
     elif mode is _completed and test_result is _error:  # error[...], e.g. dependency not installed
-        fixtures.tests_errored << unbox(fixtures.tests_errored) + 1
+        fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
         if message is not None:
             error_msg = message
         else:
             error_msg = "Unconditional error requested, no message."
     elif mode is _completed and test_result is _warn:  # warn[...], e.g. some test disabled for now
-        fixtures.tests_warned << unbox(fixtures.tests_warned) + 1
+        fixtures._update(fixtures.tests_warned, +1)
         # HACK: warnings don't count into the test total
-        fixtures.tests_run << unbox(fixtures.tests_run) - 1
+        fixtures._update(fixtures.tests_run, -1)
         conditiontype = fixtures.TestWarning
         if message is not None:
             error_msg = message
@@ -230,16 +229,16 @@ def unpythonic_assert(sourcecode, compute, check, *, filename, lineno, message=N
     elif mode is _completed:
         if test_result:
             return
-        fixtures.tests_failed << unbox(fixtures.tests_failed) + 1
+        fixtures._update(fixtures.tests_failed, +1)
         conditiontype = fixtures.TestFailure
         error_msg = "Test failed: {}{}{}".format(sourcecode, wrong_value_msg, custom_msg)
     elif mode is _signaled:
-        fixtures.tests_errored << unbox(fixtures.tests_errored) + 1
+        fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
         desc = fixtures.describe_exception(test_result)
         error_msg = "Test errored: {}{}, due to unexpected signal: {}".format(sourcecode, custom_msg, desc)
     else:  # mode is _raised:
-        fixtures.tests_errored << unbox(fixtures.tests_errored) + 1
+        fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
         desc = fixtures.describe_exception(test_result)
         error_msg = "Test errored: {}{}, due to unexpected exception: {}".format(sourcecode, custom_msg, desc)
@@ -261,7 +260,7 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, *, filename, lineno, m
     "Signal" as in `unpythonic.conditions.signal` and its sisters `error`, `cerror`, `warn`.
     """
     mode, result = _observe(thunk)
-    fixtures.tests_run << unbox(fixtures.tests_run) + 1
+    fixtures._update(fixtures.tests_run, +1)
 
     if message is not None:
         custom_msg = ", with message '{}'".format(message)
@@ -269,19 +268,19 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, *, filename, lineno, m
         custom_msg = ""
 
     if mode is _completed:
-        fixtures.tests_failed << unbox(fixtures.tests_failed) + 1
+        fixtures._update(fixtures.tests_failed, +1)
         conditiontype = fixtures.TestFailure
         error_msg = "Test failed: {}{}, expected signal: {}, nothing was signaled.".format(sourcecode, custom_msg, fixtures.describe_exception(exctype))
     elif mode is _signaled:
         # allow both "signal(SomeError())" and "signal(SomeError)"
         if isinstance(result, exctype) or safeissubclass(result, exctype):
             return
-        fixtures.tests_errored << unbox(fixtures.tests_errored) + 1
+        fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
         desc = fixtures.describe_exception(result)
         error_msg = "Test errored: {}{}, expected signal: {}, got unexpected signal: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
     else:  # mode is _raised:
-        fixtures.tests_errored << unbox(fixtures.tests_errored) + 1
+        fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
         desc = fixtures.describe_exception(result)
         error_msg = "Test errored: {}{}, expected signal: {}, got unexpected exception: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
@@ -292,7 +291,7 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, *, filename, lineno, m
 def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, message=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` raises `exctype`."""
     mode, result = _observe(thunk)
-    fixtures.tests_run << unbox(fixtures.tests_run) + 1
+    fixtures._update(fixtures.tests_run, +1)
 
     if message is not None:
         custom_msg = ", with message '{}'".format(message)
@@ -300,11 +299,11 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, me
         custom_msg = ""
 
     if mode is _completed:
-        fixtures.tests_failed << unbox(fixtures.tests_failed) + 1
+        fixtures._update(fixtures.tests_failed, +1)
         conditiontype = fixtures.TestFailure
         error_msg = "Test failed: {}{}, expected exception: {}, nothing was raised.".format(sourcecode, custom_msg, fixtures.describe_exception(exctype))
     elif mode is _signaled:
-        fixtures.tests_errored << unbox(fixtures.tests_errored) + 1
+        fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
         desc = fixtures.describe_exception(result)
         error_msg = "Test errored: {}{}, expected exception: {}, got unexpected signal: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
@@ -312,7 +311,7 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, me
         # allow both "raise SomeError()" and "raise SomeError"
         if isinstance(result, exctype) or safeissubclass(result, exctype):
             return
-        fixtures.tests_errored << unbox(fixtures.tests_errored) + 1
+        fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
         desc = fixtures.describe_exception(result)
         error_msg = "Test errored: {}{}, expected exception: {}, got unexpected exception: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
