@@ -5,9 +5,38 @@ from .fixtures import session, testset
 
 from ..arity import (arities, arity_includes,
                      required_kwargs, optional_kwargs, kwargs,
-                     resolve_bindings, tuplify_bindings)
+                     resolve_bindings, tuplify_bindings,
+                     _getfunc)
 
 def runtests():
+    def barefunction(x):
+        pass  # pragma: no cover
+
+    class AnalysisTarget:
+        def __init__(self):
+            pass
+        def meth(self, x):
+            pass  # pragma: no cover, this class is here just to be analyzed, not run.
+        @classmethod
+        def classmeth(cls, x):
+            pass  # pragma: no cover
+        @staticmethod
+        def staticmeth(x):
+            pass  # pragma: no cover
+    target = AnalysisTarget()
+
+    with testset("internal utilities"):
+        def kindof(thecallable):
+            function, kind = _getfunc(thecallable)
+            return kind
+        test[kindof(barefunction) == "function"]
+        test[kindof(AnalysisTarget.meth) == "function"]  # instance method, not bound to instance
+        test[kindof(AnalysisTarget.classmeth) == "classmethod"]
+        test[kindof(AnalysisTarget.staticmeth) == "function"]  # @staticmethod vanishes by this point
+        test[kindof(target.meth) == "instancemethod"]
+        test[kindof(target.classmeth) == "classmethod"]
+        test[kindof(target.staticmeth) == "function"]
+
     with testset("arities basic usage"):
         _ = None  # just some no-op value
         infty = float("+inf")
@@ -38,28 +67,15 @@ def runtests():
         test[kwargs(lambda a, b, c=42: _) == (set(), set())]
 
     with testset("arities and OOP"):
-        class A:
-            def __init__(self):
-                pass
-            def meth(self, x):
-                pass  # pragma: no cover, this class is here just to be analyzed, not run.
-            @classmethod
-            def classmeth(cls, x):
-                pass  # pragma: no cover
-            @staticmethod
-            def staticmeth(x):
-                pass  # pragma: no cover
-        test[arities(A) == (0, 0)]  # no args beside the implicit self
+        test[arities(AnalysisTarget) == (0, 0)]  # no args beside the implicit self
         # methods on the class
-        test[arities(A.meth) == (2, 2)]
-        test[arities(A.classmeth) == (1, 1)]
-        test[arities(A.staticmeth) == (1, 1)]
+        test[arities(AnalysisTarget.meth) == (2, 2)]  # instance method, not bound to instance
+        test[arities(AnalysisTarget.classmeth) == (1, 1)]  # cls is implicit, so just one
+        test[arities(AnalysisTarget.staticmeth) == (1, 1)]
         # methods on an instance
-        a = A()
-        test[arities(a.meth) == (1, 1)]  # self is implicit, so just one
-        # class and static methods are always unbound
-        test[arities(a.classmeth) == (1, 1)]
-        test[arities(a.staticmeth) == (1, 1)]
+        test[arities(target.meth) == (1, 1)]  # self is implicit, so just one
+        test[arities(target.classmeth) == (1, 1)]
+        test[arities(target.staticmeth) == (1, 1)]
 
     # resolve_bindings: resolve parameter bindings established by a function
     # when it is called with the given args and kwargs.

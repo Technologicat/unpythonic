@@ -15,6 +15,11 @@
 
 **Non-breaking changes**:
 
+- `@generic` and `@typed` can now decorate instance methods, class methods and static methods. This makes those *methods (OOP sense)* have *methods (generic function sense)*. Get it?
+  - `self` and `cls` parameters do not participate in dispatching, and need no type annotation.
+  - Beside appearing as the first positional-or-keyword parameter, the self-like parameter must be named one of `self`, `this`, `cls`, or `klass` to be detected by the ignore mechanism. This limitation is due to implementation reasons; while a class body is being evaluated, the context needed to distinguish a method (OOP sense) from a regular function is not yet present.
+  - If you use inheritance with this, Python first performs [MRO](https://en.wikipedia.org/wiki/C3_linearization) lookup normally. Only then, and *only within the class that matched that MRO lookup* for the method (OOP sense), multiple dispatch is applied to pick the method (generic function sense).
+    - So it is not currently possible to specialize a descendant's method (OOP sense) using a different parameter type; to do that, the descendant must have **all desired** `@generic` variants defined, and any variants that are desired to delegate to `super()` must do that explicitly. This might or might not change in a future release.
 - To ease installation, relax version requirement of the optional MacroPy dependency to the latest released on PyPI, 1.1.0b2.
   - Once MacroPy updates, we'll upgrade; 1.1.0b2 is missing some small features we would like to use.
 - Conditions: when an unhandled `error` or `cerror` occurs, the original unhandled error is now available in the `__cause__` attribute of the `ControlError** exception that is raised in this situation.
@@ -23,7 +28,7 @@
 
 **Breaking changes (experimental parts only)**:
 
-- The multiple-dispatch decorator `@generic` no longer takes a master definition. Methods are registered directly with `@generic`; the first method definition implicitly creates the generic function.
+- `@generic` no longer takes a master definition. Methods (in the generic function sense) are registered directly with `@generic`; the first method definition implicitly creates the generic function.
 
 **Fixed**:
 

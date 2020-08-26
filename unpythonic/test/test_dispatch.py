@@ -1,7 +1,7 @@
 # -*- coding: utf-8; -*-
 
 from ..syntax import macros, test, test_raises, fail  # noqa: F401
-from .fixtures import session, testset
+from .fixtures import session, testset, returns_normally
 
 import typing
 from ..fun import curry
@@ -97,30 +97,39 @@ def runtests():
             def __init__(self, a):
                 self.a = a
 
+            # The OOP method type modifier (`@staticmethod` or `@classmethod`),
+            # if any, goes on the outside.
+            @staticmethod
             @generic
-            @staticmethod
             def staticmeth(x: str):
-                return " ".join(2 * x)
-            @generic  # noqa: F811
-            @staticmethod
+                return " ".join(2 * [x])
+            @staticmethod  # noqa: F811
+            @generic
             def staticmeth(x: int):
                 return 2 * x
 
-            @generic
+            # `cls` does not need a type annotation.
             @classmethod
+            @generic
             def clsmeth(cls, x: str):
-                return "{} says: {}".format(cls.myname, " ".join(2 * x))
-            @generic  # noqa: F811
-            @classmethod  # careful, generic can't check that all variants are a classmethod!
+                return "{} says: {}".format(cls.myname, " ".join(2 * [x]))
+            # be careful, generic can't check that all variants are a @classmethod!
+            @classmethod  # noqa: F811
+            @generic
             def clsmeth(cls, x: int):
                 return "{} computes: {}".format(cls.myname, 2 * x)
 
+            # `self` does not need a type annotation.
             @generic
             def instmeth(self, x: str):
-                return " ".join(self.a * x)
+                return " ".join(self.a * [x])
             @generic  # noqa: F811
             def instmeth(self, x: int):
                 return self.a * x
+
+            @typed
+            def checked(self, x: int):
+                pass  # pragma: no cover
 
         tt = TestTarget(3)
         test[tt.instmeth("hi") == "hi hi hi"]
@@ -133,6 +142,8 @@ def runtests():
         test[tt.staticmeth(21) == 42]
         test[TestTarget.staticmeth("hi") == "hi hi"]  # call via class
         test[TestTarget.staticmeth(21) == 42]
+        test[returns_normally(tt.checked(42))]
+        test_raises[TypeError, tt.checked("hi")]
 
     with testset("@typed"):
         test[blubnify(2, 21.0) == 42]

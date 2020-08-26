@@ -10,9 +10,8 @@ __all__ = ["arities", "arity_includes",
            "resolve_bindings", "tuplify_bindings",
            "UnknownArity"]
 
-from inspect import signature, Parameter
+from inspect import signature, Parameter, ismethod
 from collections import OrderedDict
-from types import ModuleType
 import operator
 
 from .symbol import gensym
@@ -165,38 +164,48 @@ _builtin_arities = {  # inspectable, but reporting incorrectly
 def _getfunc(f):
     """Given a function or method, return the underlying function.
 
-    Return value is a tuple ``(f, kind)``, where ``kind`` is one of
-    ``function``, ``methodoninstance``, ``methodonclass``.
+    Return value is a tuple ``(function, kind)``, where ``kind`` is one of
+    "function", "instancemethod", "classmethod", "staticmethod".
+
+    Note how `inspect.ismethod()`, which we use, behaves::
+       a = A()
+       inspect.ismethod(A.meth)        # -> False (not bound to instance, __self__ is None)
+       inspect.ismethod(A.classmeth)   # -> True
+       inspect.ismethod(A.staticmeth)  # -> False
+       inspect.ismethod(a.meth)        # -> True
+       inspect.ismethod(a.classmeth)   # -> True
+       inspect.ismethod(a.staticmeth)  # -> False
+
+    so often you'll get "function" when the sensible answer would be "staticmethod".
+    The "staticmethod" kind is only seen if this is called while evaluating a class body;
+    particularly, from a decorator that further decorates some `@staticmethod`.
     """
-    # inspect.ismethod() does a slightly different thing:
-    #    a = A()
-    #    inspect.ismethod(A.meth) -> False
-    #    inspect.ismethod(A.classmeth) -> True
-    #    inspect.ismethod(A.staticmeth) -> False
-    #    inspect.ismethod(a.meth) -> True
-    #    inspect.ismethod(a.classmeth) -> True
-    #    inspect.ismethod(a.staticmeth) -> False
-    # whereas we want True for meth and classmeth for both A and a.
-    def ismethod(f):
-        if not hasattr(f, "__self__"):
-            return False
-        self = f.__self__
-        if self is None:  # builtin functions on PyPy3
-            return False  # pragma: no cover
-        if isinstance(self, ModuleType) and self.__name__ == "builtins":  # builtin functions on CPython
-            return False
-        return True
     if ismethod(f):
-        obj_or_cls = f.__self__
-        if isinstance(obj_or_cls, type):  # TODO: do all custom metaclasses inherit from type?
-            cls = obj_or_cls
-            kind = "methodonclass"
+        # If __self__ points to a class, it's a @classmethod, otherwise a regular instance method.
+        # Classes are instances of `type`.
+        if isinstance(f.__self__, type):  # TODO: do all custom metaclasses inherit from type?
+            kind = "classmethod"
         else:
-            cls = obj_or_cls.__class__
-            kind = "methodoninstance"
-        return (getattr(cls, f.__name__), kind)
+            kind = "instancemethod"
+        raw_function = f.__func__
     else:
-        return (f, "function")
+        # A staticmethod behaves like a regular function, though it lives in
+        # the namespace of a class. `ismethod` doesn't recognize it.
+        #
+        # Also, while evaluating a class body, `ismethod` always returns False.
+        # (Use case: decorator that further decorates a `@classmethod` or a
+        # `@staticmethod` calls us to get the underlying function. See
+        # `unpythonic.dispatch`.)
+        if isinstance(f, staticmethod):
+            kind = "staticmethod"
+            raw_function = f.__func__
+        elif isinstance(f, classmethod):
+            kind = "classmethod"
+            raw_function = f.__func__
+        else:
+            kind = "function"  # a regular function (not a method)
+            raw_function = f
+    return (raw_function, kind)
 
 def arities(f):
     """Inspect f's minimum and maximum positional arity.
@@ -206,8 +215,14 @@ def arities(f):
     methods of built-in classes (such as ``list``) might not be inspectable
     (at least on CPython < 3.7).
 
-    For methods, ``self`` or ``cls`` does not count toward the arity,
-    because it is passed implicitly by Python.
+    For bound methods, ``self`` or ``cls`` does not count toward the arity,
+    because these are passed implicitly by Python. Note a `@classmethod` becomes
+    bound already when accessed as an attribute of the class, whereas an instance
+    method only becomes bound if accessed as an attribute of an instance.
+
+    (In other words, accessing an *instance* method as an attribute of a *class*
+     does not implicitly provide a `self`, because there is none to be had. This
+     behavior is reflected in the return value of `arities`.)
 
     Parameters:
         `f`: function
@@ -242,7 +257,7 @@ def arities(f):
                     lower += 1  # no default --> required parameter
             elif v.kind is Parameter.VAR_POSITIONAL:
                 upper = _infty  # no upper limit
-        if kind == "methodoninstance":  # self is passed implicitly
+        if kind in ("instancemethod", "classmethod"):  # self/cls is passed implicitly
             lower -= 1
             upper -= 1
         return lower, upper

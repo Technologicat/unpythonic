@@ -25,6 +25,7 @@ from .arity import resolve_bindings, _getfunc
 from .typecheck import isoftype
 
 _dispatcher_registry = {}
+_likely_self_names = ["self", "this", "cls", "klass"]
 def generic(f):
     """Decorator. Make `f` a generic function (in the sense of CLOS or Julia).
 
@@ -129,12 +130,19 @@ def generic(f):
     At the moment, `@generic` does not work with `curry`. Adding curry support
     needs changes to the dispatch logic in `curry`.
     """
-    fullname = "{}.{}".format(f.__module__, f.__qualname__)
+    # The inspect stdlib module docs are useful here:
+    #     https://docs.python.org/3/library/inspect.html
+    def getfullname(f):
+        function, _ = _getfunc(f)
+        return "{}.{}".format(inspect.getmodule(f), function.__qualname__)
+    fullname = getfullname(f)
+
     if fullname not in _dispatcher_registry:
         # Create the dispatcher. This will replace the original f.
         @wraps(f)
         def dispatcher(*args, **kwargs):
-            # signature comes from typing.get_type_hints.
+            # `signature` comes from typing.get_type_hints.
+            # `bindings` is populated in the surrounding scope below.
             def match_argument_types(signature):
                 # TODO: handle **kwargs (bindings["kwarg"], bindings["kwarg_name"])
                 args_items = bindings["args"].items()
@@ -153,6 +161,11 @@ def generic(f):
 
             # Dispatch.
             def methods():
+                # TODO: Support OOP inheritance. Need to walk the MRO. To do that,
+                # TODO: maybe the dispatcher registry needs to be reorganized.
+                # TODO: Currently, when this is used with OOP, we only look for
+                # TODO: variants of the same OOP method in the same class, because
+                # TODO: that's what the dispatcher is attached to.
                 return reversed(dispatcher._method_registry)
             for method, signature in methods():
                 try:
@@ -175,14 +188,16 @@ def generic(f):
             sep = ", " if kwargs else ""
             kw = ["{}={}".format(k, str(v)) for k, v in kwargs]
             def format_method(method):  # Taking a page from Julia and some artistic liberty here.
-                obj, signature = method
-                filename = inspect.getsourcefile(obj)
-                source, firstlineno = inspect.getsourcelines(obj)
-                return "{} from {}:{}".format(signature, filename, firstlineno)
+                thecallable, type_signature = method
+                function, _ = _getfunc(thecallable)
+                filename = inspect.getsourcefile(function)
+                source, firstlineno = inspect.getsourcelines(function)
+                return "{} from {}:{}".format(type_signature, filename, firstlineno)
             methods_str = ["  {}".format(format_method(x)) for x in methods()]
             candidates = "\n".join(methods_str)
+            function, _ = _getfunc(f)
             msg = ("No method found matching {}({}{}{}).\n"
-                   "Candidate signatures (in order of match attempts):\n{}").format(f.__qualname__,
+                   "Candidate signatures (in order of match attempts):\n{}").format(function.__qualname__,
                                                                                     ", ".join(a),
                                                                                     sep, ", ".join(kw),
                                                                                     candidates)
@@ -194,27 +209,61 @@ def generic(f):
 
             The method must have type annotations for all of its parameters;
             these are used for dispatching.
+
+            An exception is the `self` or `cls` parameter of an OOP instance
+            method or class method; that does not participate in dispatching,
+            and does not need a type annotation.
             """
             # Using `inspect.signature` et al., we could auto-`Any` parameters
             # that have no type annotation, but that would likely be a footgun.
             # So we require a type annotation for each parameter.
-            signature = typing.get_type_hints(thecallable)
+            #
+            # One exception: the self/cls parameter of OOP instance methods and
+            # class methods is not meaningful for dispatching, and we don't
+            # have a runtime value to auto-populate its expected type when the
+            # definition runs. So we set it to `typing.Any` in the method's
+            # expected type signature, which makes the dispatcher ignore it.
 
-            # Verify that the method has a type annotation for each parameter.
-            function, _ = _getfunc(thecallable)
+            function, kind = _getfunc(thecallable)
             params = inspect.signature(function).parameters
-            allparamnames = [p.name for p in params.values()]
-            if not all(name in signature for name in allparamnames):
-                failures = [name for name in allparamnames if name not in signature]
+            params_names = [p.name for p in params.values()]
+            type_signature = typing.get_type_hints(function)
+
+            # TODO/FIXME: Not possible to detect self/cls parameters correctly.
+            #
+            # The `@generic` decorator runs while the class body is being
+            # evaluated. In that context, an instance method looks just like a
+            # regular function.
+            #
+            # Also if `@generic` runs before `@classmethod` (to place Python's
+            # implicit `cls` handling outermost), also a class method looks
+            # just like a regular function to us.
+            #
+            # So we HACK, and special-case some suggestive *parameter names*
+            # when they appear the first position, though **Python itself
+            # doesn't do that**. For any crazy person not following Python
+            # naming conventions, our approach won't work.
+            if len(params_names) >= 1 and params_names[0] in _likely_self_names:
+                # In Python 3.6+, `dict` preserves insertion order. Make sure
+                # the `self` parameter appears first, for clearer error messages
+                # when no matching method is found.
+                #
+                # TODO: Due to Python 3.4 compatibility, we have to do it like this:
+                type_signature_new = {params_names[0]: typing.Any}
+                type_signature_new.update(type_signature)
+                type_signature = type_signature_new
+                # In Python 3.5+, we could just:
+                # type_signature = {params_names[0]: typing.Any, **type_signature}
+
+            if not all(name in type_signature for name in params_names):
+                failures = [name for name in params_names if name not in type_signature]
                 wrapped = ["'{}'".format(x) for x in failures]
                 plural = "s" if len(failures) > 1 else ""
                 msg = "Method definition missing type annotation for parameter{}: {}".format(plural,
                                                                                              ", ".join(wrapped))
                 raise TypeError(msg)
 
-            dispatcher._method_registry.append((thecallable, signature))
-            # TODO: Does this work properly with instance methods and class methods?
-            # TODO: (At the moment, probably not. Just might, if `self` has a type annotation.)
+            dispatcher._method_registry.append((thecallable, type_signature))
             return dispatcher  # Replace the callable with the dispatcher for this generic function.
 
         dispatcher._register = register  # save it for use by us later
@@ -250,5 +299,5 @@ def typed(f):
     """
     # TODO: Fix the epic fail at fail-fast, and update the corresponding test.
     s = generic(f)
-    del s._register  # remove the ability to attach more methods
+    del s._register  # remove the ability to register more methods
     return s
