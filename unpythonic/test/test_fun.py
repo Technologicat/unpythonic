@@ -186,10 +186,19 @@ def runtests():
         with testset("uninspectable builtins"):
             lst = []
             test_raises[UnknownArity, curry(lst.append)]  # uninspectable method of builtin type
+
             # Internal feature, used by curry macro. If uninspectables are said to be ok,
             # then attempting to curry an uninspectable simply returns the original function.
-            # `is` doesn't work here (due to method binding machinery?), so we compare the memory address.
-            test[id(curry(lst.append, _curry_allow_uninspectable=True)) == id(lst.append)]
+            #
+            # Due to Python's method binding machinery re-triggering the descriptor on each lookup,
+            # each lookup of `lst.append` will produce a *new* instance of the object that
+            # represents the bound method (builtin method, in this case). They print the same,
+            # they look the same... but they `is not` the same.
+            #
+            # To avoid this pitfall, we do the lookup exactly once - and then reuse the result.
+            m1 = lst.append
+            m2 = curry(m1, _curry_allow_uninspectable=True)
+            test[m2 is m1]
 
     with testset("compose"):
         double = lambda x: 2 * x
