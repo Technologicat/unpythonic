@@ -8,7 +8,7 @@ from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core import unparse
 
-from ast import Tuple, Str, Subscript, Name, Call, copy_location, Compare
+from ast import Tuple, Str, Subscript, Name, Call, copy_location, Compare, In, NotIn
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..misc import callsite_filename, safeissubclass
@@ -175,7 +175,9 @@ def unpythonic_assert(sourcecode, compute, check, *, filename, lineno, message=N
         check_mode, test_result = _observe(lambda: check(value))
         if check_mode is _completed:
             # Both `compute` and `check` returned normally. Pre-populate the error message.
-            wrong_value_msg = ", due to LHS = {}".format(value)
+            # We can't call this "LHS", because in a membership test `in`/`not in`,
+            # the computed expr is on the RHS. So let's just call it "result".
+            wrong_value_msg = ", due to result = {}".format(value)
         else:  # pragma: no cover
             # `check` crashed, e.g. test[myfunc() == 1/0]
             assert check_mode in (_signaled, _raised)
@@ -366,9 +368,20 @@ def test_expr(tree):
     # state, so we can include that too into the test failure message.
     sourcecode = unparse(tree)
     if type(tree) is Compare:
-        compute_tree = q[lambda: ast_literal[tree.left]]
-        tree.left = q[name["value"]]  # the arg of the lambda below
-        check_tree = q[lambda value: ast_literal[tree]]
+        if type(tree.ops[0]) in (In, NotIn):
+            # For the membership tests, the RHS is the important part.
+            if len(tree.ops) == 1:
+                compute_tree = q[lambda: ast_literal[tree.comparators[0]]]
+                tree.comparators[0] = q[name["value"]]  # the arg of the lambda below
+                check_tree = q[lambda value: ast_literal[tree]]
+            else:  # more than one RHS, so bail; don't try to destructure what we don't understand.
+                compute_tree = q[lambda: ast_literal[tree]]
+                check_tree = q[None]
+        else:
+            # For anything but a membership test, the LHS is the important part.
+            compute_tree = q[lambda: ast_literal[tree.left]]
+            tree.left = q[name["value"]]  # the arg of the lambda below
+            check_tree = q[lambda value: ast_literal[tree]]
     else:
         compute_tree = q[lambda: ast_literal[tree]]
         check_tree = q[None]  # the check is optional, defaulting to a truth value check.
