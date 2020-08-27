@@ -51,6 +51,12 @@ def runtests():
         test[evaluations == 8]
         test[y == 6]
 
+        # Renaming via let_syntax also affects attributes
+        class Silly:
+            realthing = 42
+        # This test will either pass, or error out with an AttributeError.
+        test[let_syntax[((alias, realthing)) in Silly.alias] == 42]  # noqa: F821
+
     with testset("block variant"):
         with let_syntax:
             with block as make123:  # capture one or more statements
@@ -97,6 +103,21 @@ def runtests():
                 append123
             maketwo123s
             test[lst == [1, 2, 3] * 2]
+
+        # Renaming via let_syntax also affects names of class and function definitions
+        with let_syntax:
+            # when the identifier "alias" is encountered, change it to "realthing"
+            with expr as alias:
+                realthing  # noqa: F821
+            with expr as Alias:
+                Realthing  # noqa: F821
+            class Alias:
+                x = 42
+            def alias():
+                return 42
+            # These tests will either pass, or error out with a NameError.
+            test[realthing() == 42]  # noqa: F821
+            test[Realthing.x == 42]  # noqa: F821
 
     with testset("lexical scoping"):
         with let_syntax:
