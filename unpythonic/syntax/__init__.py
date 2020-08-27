@@ -282,6 +282,16 @@ def letrec(tree, args, *, gen_sym, **kw):  # noqa: F811
     with dyn.let(gen_sym=gen_sym):
         return _destructure_and_apply_let(tree, args, _letrec)
 
+# NOTE: Unfortunately, at the macro interface, the invocations `let()[...]`
+# (Call, empty args) and `let[...]` (just a Name) are indistinguishable,
+# because MacroPy does too much automatically, sending us `args = ()`
+# in both cases.
+#
+# So when `args = ()`, this function assumes haskelly let syntax
+# `let[(...) in ...]` or `let[..., where(...)]`. In these cases,
+# both the bindings and the body reside inside the brackets (i.e.,
+# in the AST contained in the `tree` argument).
+#
 # allow_call_in_name_position: used by let_syntax to allow template definitions.
 def _destructure_and_apply_let(tree, args, expander, allow_call_in_name_position=False):
     if args:
