@@ -107,7 +107,7 @@ def detect_callec(tree):
     and `throw` covers the use of `unpythonic.ec.throw`.)
     """
     fallbacks = ["ec", "brk", "throw"]
-    iscallec = partial(isx, make_isxpred("call_ec"))
+    iscallec = partial(isx, x=make_isxpred("call_ec"))
     @Walker
     def detect(tree, *, collect, **kw):
         # TODO: add support for general use of call_ec as a function (difficult)
