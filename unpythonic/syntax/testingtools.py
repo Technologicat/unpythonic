@@ -370,6 +370,11 @@ def test_expr(tree):
     if type(tree) is Compare:
         if type(tree.ops[0]) in (In, NotIn):
             # For the membership tests, the RHS is the important part.
+            # TODO: No, RHS is not always the important part. Can't autodetect.
+            #     test[myconstant in computeset(...)]  # RHS
+            #     test[computeitem(...) in expected_results_plus_uninteresting_items]  # LHS
+            # TODO: Always extract the LHS by default, and let the user override?
+            # TODO: Override with e.g. syntax like test[myconstant in important[dostuff(...)]]?
             if len(tree.ops) == 1:
                 compute_tree = q[lambda: ast_literal[tree.comparators[0]]]
                 tree.comparators[0] = q[name["value"]]  # the arg of the lambda below
