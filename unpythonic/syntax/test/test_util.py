@@ -4,7 +4,7 @@
 from ...syntax import macros, do, local, test, test_raises, fail  # noqa: F401
 from ...test.fixtures import session, testset
 
-from macropy.core.quotes import macros, q  # noqa: F811
+from macropy.core.quotes import macros, q, name  # noqa: F811
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 
 from ...syntax.util import (isx, make_isxpred, getname,
@@ -14,10 +14,10 @@ from ...syntax.util import (isx, make_isxpred, getname,
                             suggest_decorator_index,
                             is_lambda_decorator, is_decorated_lambda,
                             destructure_decorated_lambda, sort_lambda_decorators,
-                            eliminate_ifones,
-                            transform_statements)
+                            transform_statements, eliminate_ifones,
+                            splice, wrapwith, ismarker)
 
-from ast import Call, Name, Expr, Num, Str
+from ast import Call, Name, Expr, Num, Str, With, withitem
 
 from ...ec import call_ec, throw  # just so hq[] captures them, like in real code
 
@@ -281,12 +281,46 @@ def runtests():
         result = eliminate_ifones(eliminate_ifones_testdata8)
         test[len(result) == 1 and ishello(result[0])]
 
-        # TODO
-        # transform_statements
-        # splice
-        # wrapwith
-        # ismarker
-        # ASTMarker
+    with testset("splice"):
+        with q as splice_testdata:
+            name["_here_"]
+            name["_here_"]
+        test[all(stmt.value.id == "_here_" for stmt in splice_testdata)]
+        splice(splice_testdata, q[name["replacement"]], "_here_")
+        test[all(stmt.value.id == "replacement" for stmt in splice_testdata)]
+
+    with testset("wrapwith"):
+        with q as wrapwith_testdata:
+            42  # pragma: no cover
+        # known fake location information so we can check it copies correctly
+        wrapwith_testdata[0].lineno = 9001
+        wrapwith_testdata[0].col_offset = 9
+        wrapped = wrapwith(q[name["ExampleContextManager"]], wrapwith_testdata)
+        test[type(wrapped) is list]
+        thewith = wrapped[0]
+        test[type(thewith) is With]
+        test[thewith.lineno == 9001]
+        test[thewith.col_offset == 9]
+        test[type(thewith.items[0]) is withitem]
+        ctxmanager = thewith.items[0].context_expr
+        test[type(ctxmanager) is Name]
+        test[ctxmanager.id == "ExampleContextManager"]
+        firststmt = thewith.body[0]
+        test[type(firststmt) is Expr]
+        test[type(firststmt.value) is Num]  # TODO: Python 3.8+: ast.Constant, no ast.Num
+        test[firststmt.value.n == 42]  # TODO: Python 3.8+: ast.Constant, no ast.Num
+
+    with testset("ismarker"):
+        with q as ismarker_testdata1:
+            with ExampleMarker:  # noqa: F821  # pragma: no cover
+                ...
+        with q as ismarker_testdata2:
+            with NotAMarker1, NotAMarker2:  # noqa: F821  # pragma: no cover
+                ...
+        test[ismarker("ExampleMarker", ismarker_testdata1[0])]
+        test[not ismarker("AnotherMarker", ismarker_testdata1[0])]  # right type, different marker
+        test[not ismarker("NotAMarker1", ismarker_testdata2[0])]  # a marker must be the only ctxmanager in the `with`
+        test[not ismarker("ExampleMarker", q["surprise!"])]  # wrong AST node type
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
