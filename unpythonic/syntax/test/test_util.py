@@ -58,7 +58,7 @@ def runtests():
 
         test["my_fancy_ec" in detect_callec(q[call_ec(lambda my_fancy_ec: None)])]
         with q as call_ec_testdata:
-            @call_ec
+            @call_ec  # pragma: no cover
             def f(my_fancy_ec):
                 pass  # pragma: no cover
         test["my_fancy_ec" in detect_callec(call_ec_testdata)]
@@ -72,8 +72,8 @@ def runtests():
         # (MacroPy-technically, it's a second-pass macro, so any macros nested inside
         #  have already expanded when the quote macro runs.)
         with q as detect_lambda_testdata:
-            a = lambda: None  # noqa: F841
-            b = do[local[x << 21],  # noqa: F821, F841
+            a = lambda: None  # noqa: F841  # pragma: no cover
+            b = do[local[x << 21],  # noqa: F821, F841  # pragma: no cover
                    lambda y: x * y]  # noqa: F821
         test[len(detect_lambda.collect(detect_lambda_testdata)) == 2]
 
@@ -82,11 +82,11 @@ def runtests():
         test[is_decorator(q[decorate_with("flowers")], "decorate_with")]  # noqa: F821
 
         with q as has_tco_testdata1:
-            @trampolined  # noqa: F821, just quoted.
+            @trampolined  # noqa: F821, just quoted.  # pragma: no cover
             def ihavetco():
                 pass  # pragma: no cover
         with q as has_tco_testdata2:
-            def idonthavetco():
+            def idonthavetco():  # pragma: no cover
                 pass  # pragma: no cover
         test[has_tco(has_tco_testdata1[0])]
         test[not has_tco(has_tco_testdata2[0])]
@@ -97,11 +97,11 @@ def runtests():
         test[has_tco(q[trampolined(decorate(lambda: None))])]  # noqa: F821
 
         with q as has_curry_testdata1:
-            @curry  # noqa: F821, just quoted.
+            @curry  # noqa: F821, just quoted.  # pragma: no cover
             def ihavecurry():
                 pass  # pragma: no cover
         with q as has_curry_testdata2:
-            def idonthavecurry():
+            def idonthavecurry():  # pragma: no cover
                 pass  # pragma: no cover
         test[has_curry(has_curry_testdata1[0])]
         test[not has_curry(has_curry_testdata2[0])]
@@ -114,11 +114,11 @@ def runtests():
         test[has_deco(["decorate"], q["surprise!"]) is None]  # wrong AST type, test not applicable
 
         with q as has_deco_testdata1:
-            @artdeco  # noqa: F821, just quoted.
+            @artdeco  # noqa: F821, just quoted.  # pragma: no cover
             def ihaveartdeco():
                 pass  # pragma: no cover
         with q as has_deco_testdata2:
-            def idonthaveartdeco():
+            def idonthaveartdeco():  # pragma: no cover
                 pass  # pragma: no cover
         test[has_deco(["artdeco"], has_deco_testdata1[0])]
         test[not has_deco(["artdeco"], has_deco_testdata2[0])]
@@ -139,8 +139,8 @@ def runtests():
 
         # find correct insertion index of a known decorator
         with q as sdi_testdata1:
-            @memoize  # noqa: F821
-            @curry  # noqa: F821
+            @memoize  # noqa: F821  # pragma: no cover
+            @curry  # noqa: F821  # pragma: no cover
             def purespicy(a, b, c):
                 pass  # pragma: no cover
         test[suggest_decorator_index("artdeco", sdi_testdata1[0].decorator_list) is None]  # unknown decorator
@@ -149,8 +149,8 @@ def runtests():
         test[suggest_decorator_index("passthrough_lazy_args", sdi_testdata1[0].decorator_list) == 2]  # after all of those already specified
 
         with q as sdi_testdata2:
-            @artdeco  # noqa: F821
-            @neoclassical  # noqa: F821
+            @artdeco  # noqa: F821  # pragma: no cover
+            @neoclassical  # noqa: F821  # pragma: no cover
             def architectural():
                 pass  # pragma: no cover
         test[suggest_decorator_index("trampolined", sdi_testdata2[0].decorator_list) is None]  # known decorator, but only unknown decorators in the decorator_list
@@ -196,15 +196,15 @@ def runtests():
 
     with testset("statement utilities"):
         with q as transform_statements_testdata:
-            def myfunction(x):
+            def myfunction(x):  # pragma: no cover
                 "function body"
-                try:
+                try:  # pragma: no cover
                     "try"
-                    if x:
+                    if x:  # pragma: no cover
                         "if body"
                     else:
                         "if else"
-                except ValueError:
+                except ValueError:  # pragma: no cover
                     "except"
                 finally:
                     "finally"
@@ -229,7 +229,7 @@ def runtests():
         test[len(result) == 1 and ishello(result[0])]
 
         with q as eliminate_ifones_testdata2:
-            if 0:
+            if 0:  # pragma: no cover
                 "hello"
         result = eliminate_ifones(eliminate_ifones_testdata2)
         test[len(result) == 0]
@@ -242,7 +242,7 @@ def runtests():
         test[len(result) == 1 and ishello(result[0])]
 
         with q as eliminate_ifones_testdata4:
-            if False:
+            if False:  # pragma: no cover
                 "hello"
         result = eliminate_ifones(eliminate_ifones_testdata4)
         test[len(result) == 0]
