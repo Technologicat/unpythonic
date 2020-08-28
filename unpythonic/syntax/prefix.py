@@ -23,7 +23,7 @@ from macropy.core.quotes import macros, q, u, ast_literal  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
 from .letdoutil import islet, isdo, UnexpandedLetView, UnexpandedDoView
-from .testutil import isunexpandedtestmacro
+from .testingtools import isunexpandedtestmacro
 
 from ..it import flatmap, rev, uniqify
 

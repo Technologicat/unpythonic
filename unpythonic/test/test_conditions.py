@@ -12,7 +12,7 @@
 # `unpythonic` is to write tests that test the testing framework. Currently we
 # don't do that. The test framework is considered to change at most slowly, so
 # for that, manual testing is sufficient (see commented-out example session in
-# `unpythonic.syntax.test.test_testutil`).
+# `unpythonic.syntax.test.testing_testingtools`).
 
 from ..syntax import macros, test, test_raises, test_signals, fail  # noqa: F401
 from .fixtures import session, testset, catch_signals, returns_normally

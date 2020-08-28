@@ -31,15 +31,15 @@ from .dbg import (dbg_block as _dbg_block, dbg_expr as _dbg_expr,  # noqa: F401
 from .prefix import prefix as _prefix
 from .tailtools import (autoreturn as _autoreturn, tco as _tco,  # noqa: F401
                         continuations as _continuations, call_cc)
-from .testutil import (test_expr as _test_expr,
-                       test_expr_signals as _test_expr_signals,
-                       test_expr_raises as _test_expr_raises,
-                       test_block as _test_block,
-                       test_block_signals as _test_block_signals,
-                       test_block_raises as _test_block_raises,
-                       fail_expr as _fail_expr,
-                       error_expr as _error_expr,
-                       warn_expr as _warn_expr)
+from .testingtools import (test_expr as _test_expr,
+                           test_expr_signals as _test_expr_signals,
+                           test_expr_raises as _test_expr_raises,
+                           test_block as _test_block,
+                           test_block_signals as _test_block_signals,
+                           test_block_raises as _test_block_raises,
+                           fail_expr as _fail_expr,
+                           error_expr as _error_expr,
+                           warn_expr as _warn_expr)
 # "where" is only for passing through (export).
 from .letdoutil import UnexpandedLetView, _canonize_bindings, where  # noqa: F401
 from ..dynassign import dyn, make_dynvar

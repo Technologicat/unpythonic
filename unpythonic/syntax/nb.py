@@ -10,7 +10,7 @@ from ast import Expr
 
 from macropy.core.quotes import macros, q, ast_literal  # noqa: F401
 
-from .testutil import istestmacro
+from .testingtools import istestmacro
 
 def nb(body, args):
     p = args[0] if args else q[print]  # custom print function hook

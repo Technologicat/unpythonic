@@ -373,7 +373,7 @@ def returns_normally(expr):
     # The magic is, `test[]` lifts its expr into a lambda. When the test runs,
     # our arg gets evaluated first, and then its value is passed to us.
     #
-    # To make the test succeed whenever `unpythonic.syntax.testutil._observe`
+    # To make the test succeed whenever `unpythonic.syntax.testingtools._observe`
     # didn't catch an unexpected signal or exception in `expr`, we just ignore
     # our arg, and:
     return True
@@ -476,7 +476,7 @@ def testset(name=None, postproc=None):
                        maybe_colorize("BEGIN", TC.BRIGHT, TestConfig.CS.HEADING))
 
     def print_and_proceed(condition):
-        # The assert helpers in `unpythonic.syntax.testutil` signal only
+        # The assert helpers in `unpythonic.syntax.testingtools` signal only
         # the descendants of `TestingException`, no matter what happens
         # inside the test expression.
         if isinstance(condition, TestFailure):

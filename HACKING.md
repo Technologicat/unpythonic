@@ -78,7 +78,7 @@ Automated tests are in `test`, under the directory whose modules they test. The 
 
 For coverage analysis, [`coverage.py`](https://github.com/nedbat/coveragepy) works fine. Block macros do cause [some false negatives](https://github.com/nedbat/coveragepy/issues/1004), but this is minor.
 
-We use a custom testing framework, which lives in the modules `unpythonic.test.fixtures` and `unpythonic.syntax.testutil`. It uses conditions and restarts to communicate between individual tests and the testset, which acts as a reporter.
+We use a custom testing framework, which lives in the modules `unpythonic.test.fixtures` and `unpythonic.syntax.testingtools`. It uses conditions and restarts to communicate between individual tests and the testset, which acts as a reporter.
 
 In retrospect, given that the main aim was compact testing syntax for macro-enabled Python code (without installing another import hook, doing which would disable the macro expander), it might have made more sense to make the testing macros compile to [pytest](https://docs.pytest.org/en/latest/). But hey, it's short, may have applications in teaching... and now we can easily write custom runners, since the testing framework is just a MacroPy library.
 

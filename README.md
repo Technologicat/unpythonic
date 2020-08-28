@@ -413,7 +413,7 @@ The `with session()` is optional. The human-readable session name is also option
 
 Tests can optionally be grouped into testsets. Each `testset` tallies passed, failed and errored tests within it, and displays the totals when it exits. Testsets can be named and nested.
 
-Testsets also provide the option to locally install a `postproc` handler that gets a copy of each failure or error in that testset (and by default, any of its inner testsets), after the failure or error has been printed. In nested testsets, the dynamically innermost `postproc` wins. A failure is an instance of `unpythonic.syntax.testutil.TestFailure`, and an error is an instance of `unpythonic.syntax.testutil.TestError`. Both inherit from `unpythonic.syntax.testutil.TestingException`.
+Testsets also provide the option to locally install a `postproc` handler that gets a copy of each failure or error in that testset (and by default, any of its inner testsets), after the failure or error has been printed. In nested testsets, the dynamically innermost `postproc` wins. A failure is an instance of `unpythonic.test.fixtures.TestFailure`, and an error is an instance of `unpythonic.test.fixtures.TestError`. Both inherit from `unpythonic.test.fixtures.TestingException`.
 
 If you want to set a default global `postproc`, which is used when no local `postproc` is in effect, see the `TestConfig` bunch of constants in `unpythonic.test.fixtures`. It also contains some other configuration options.
 
