@@ -316,6 +316,9 @@ def sort_lambda_decorators(tree):
 def suggest_decorator_index(deco_name, decorator_list):
     """Suggest insertion index for decorator deco_name in given decorator_list.
 
+    ``decorator_list`` is the eponymous attribute of a ``FunctionDef``
+    or ``AsyncFunctionDef`` AST node.
+
     The return value ``k`` is intended to be used like this::
 
         if k is not None:
