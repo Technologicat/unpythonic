@@ -412,11 +412,11 @@ def transform_statements(f, body):
     the transformation ``f``.
 
     ``f`` is a one-argument function that takes an AST representing a single
-    statement, and returns a ``list`` of ASTs representing statements.
-    If the output is such a ``list``, it will be spliced to replace the
-    input statement. This allows ``f`` to drop a statement (1->0) or to
-    replace one statement with several (1->n), beside making one-to-one (1->1)
-    transformations.
+    statement, and that **must** return a ``list`` of ASTs representing statements.
+
+    The output ``list`` will be spliced to replace the input statement. This
+    allows ``f`` to drop a statement (1->0) or to replace one statement with
+    several (1->n), beside making one-to-one (1->1) transformations.
 
     (Transformations requiring n input statements are currently not supported.)
 
