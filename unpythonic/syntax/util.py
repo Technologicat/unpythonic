@@ -2,6 +2,7 @@
 """Utilities for working with syntax."""
 
 from functools import partial
+from copy import deepcopy
 import re
 
 from ast import (Call, Name, Attribute, Lambda, FunctionDef,
@@ -466,7 +467,9 @@ def splice(tree, rep, tag):
     def doit(tree, *, stop, **kw):
         if type(tree) is Name and tree.id == tag:
             stop()
-            return rep
+            # Copy just to be on the safe side. Different instances may be
+            # edited differently by other macros expanded later.
+            return deepcopy(rep)
         return tree
     return doit.recurse(tree)
 
