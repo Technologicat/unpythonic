@@ -455,7 +455,7 @@ def transform_statements(f, body):
 def splice(tree, rep, tag):
     """Splice in a tree into another tree.
 
-    Walk ``tree``, replacing the first occurrence of a ``Name(id=tag)`` with
+    Walk ``tree``, replacing all occurrences of a ``Name(id=tag)`` with
     the tree ``rep``.
 
     This is convenient for first building a skeleton with a marker such as
@@ -474,6 +474,8 @@ def wrapwith(item, body, locref=None):
     """Wrap ``body`` with a single-item ``with`` block, using ``item``.
 
     ``item`` must be an expr, used as ``context_expr`` of the ``withitem`` node.
+
+    ``body`` must be a ``list`` of AST nodes.
 
     ``locref`` is an optional AST node to copy source location info from.
     If not supplied, ``body[0]`` is used.
