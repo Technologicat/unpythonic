@@ -141,7 +141,11 @@ def detect_lambda(tree, *, collect, stop, **kw):
         stop()
         thebody = ExpandedDoView(tree).body
         for thelambda in thebody:  # lambda e: ...
-            detect_lambda.collect(thelambda.body)
+            # NOTE: If a collecting Walker recurses further to collect in a
+            # branch that has already called `stop()`, the results must be
+            # propagated manually.
+            for theid in detect_lambda.collect(thelambda.body):
+                collect(theid)
     if type(tree) is Lambda:
         collect(id(tree))
     return tree
