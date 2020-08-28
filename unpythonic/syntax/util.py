@@ -444,7 +444,11 @@ def transform_statements(f, body):
                 handler.body = rec(handler.body)
         elif type(tree) is list:  # multiple-statement body in AST
             return [output_stmt for input_stmt in tree for output_stmt in rec(input_stmt)]
-        return f(tree)  # a single statement
+        # A single statement. Transform it.
+        replacement = f(tree)
+        if not isinstance(replacement, list):
+            raise TypeError("`f` must return a list of statements, got {} with value '{}'".format(type(replacement), replacement))  # pragma: no cover
+        return replacement
     return rec(body)
 
 def splice(tree, rep, tag):
