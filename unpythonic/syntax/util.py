@@ -358,11 +358,12 @@ def suggest_decorator_index(deco_name, decorator_list):
         return 0
     if targetpri > knownpris[-1]:
         return len(decorator_list)
+    assert knownpris[0] <= targetpri <= knownpris[-1]
     for pri, dname in zip(knownpris, knownnames):
-        if targetpri >= pri:
+        if pri >= targetpri:
             break
     else:
-        return None
+        assert False  # pragma: no cover
     return names.index(dname)
 
 def eliminate_ifones(body):
