@@ -230,7 +230,7 @@ def destructure_decorated_lambda(tree):
             return get(tree.args[0], lst + [tree])
         elif type(tree) is Lambda:
             return lst, tree
-        assert False, "Expected a chain of Call nodes terminating in a Lambda node"
+        assert False, "Expected a chain of Call nodes terminating in a Lambda node"  # pragma: no cover
     return get(tree, [])
 
 def has_tco(tree, userlambdas=[]):
@@ -291,8 +291,9 @@ def sort_lambda_decorators(tree):
         for k, (pri, fname) in enumerate(decorator_registry):
             if is_lambda_decorator(tree, fname):
                 return k
-        x = getname(tree.func) if type(tree) is Call else "<unknown>"
-        assert False, "Only registered decorators can be auto-sorted, '{:s}' is not; see unpythonic.regutil".format(x)
+        # Only happens if called for a `tree` containing unknown (not registered) decorators.
+        x = getname(tree.func) if type(tree) is Call else "<unknown>"  # pragma: no cover
+        assert False, "Only registered decorators can be auto-sorted, '{:s}' is not; see unpythonic.regutil".format(x)  # pragma: no cover
 
     @Walker
     def fixit(tree, *, stop, **kw):
@@ -331,7 +332,7 @@ def suggest_decorator_index(deco_name, decorator_list):
     is ``None``.
     """
     if deco_name not in all_decorators:
-        return None  # unknown decorator, don't know where it should go
+        return None  # unknown decorator, don't know where it should go  # pragma: no cover
     names = [getname(tree) for tree in decorator_list]
     pri_by_name = {dname: pri for pri, dname in decorator_registry}
 
@@ -382,12 +383,12 @@ def eliminate_ifones(body):
     """
     def isifone(tree):
         if type(tree) is If:
-            if type(tree.test) is Num:
+            if type(tree.test) is Num:  # TODO: Python 3.8+: ast.Constant, no ast.Num
                 if tree.test.n == 1:
                     return "then"
                 elif tree.test.n == 0:
                     return "else"
-            elif type(tree.test) is NameConstant:
+            elif type(tree.test) is NameConstant:  # TODO: Python 3.8+: ast.Constant, no ast.NameConstant
                 if tree.test.value is True:
                     return "then"
                 elif tree.test.value in (False, None):

@@ -1,0 +1,293 @@
+# -*- coding: utf-8 -*-
+"""Utilities for building macros."""
+
+from ...syntax import macros, do, local, test, test_raises, fail  # noqa: F401
+from ...test.fixtures import session, testset
+
+from macropy.core.quotes import macros, q  # noqa: F811
+from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+
+from ...syntax.util import (isx, make_isxpred, getname,
+                            isec, detect_callec,
+                            detect_lambda,
+                            is_decorator, has_tco, has_curry, has_deco,
+                            suggest_decorator_index,
+                            is_lambda_decorator, is_decorated_lambda,
+                            destructure_decorated_lambda, sort_lambda_decorators,
+                            eliminate_ifones,
+                            transform_statements)
+
+from ast import Call, Name, Expr, Num, Str
+
+from ...ec import call_ec, throw  # just so hq[] captures them, like in real code
+
+def runtests():
+    with testset("isx, make_isxpred, getname"):
+        # test data
+        def capture_this():
+            pass  # pragma: no cover
+        barename = q[ok]  # noqa: F821
+        captured = hq[capture_this()]
+        attribute = q[someobj.ok]  # noqa: F821
+
+        test[isx(barename, "ok")]
+        test[type(captured) is Call]
+        test[isx(captured.func, "capture_this")]
+        test[isx(attribute, "ok")]
+        test[not isx(attribute, "ok", accept_attr=False)]
+
+        isfab = make_isxpred("fab")
+        test[isx(q[fab], isfab)]  # noqa: F821
+        test[isx(q[fab4], isfab)]  # noqa: F821
+        test[isx(q[someobj.fab4], isfab)]  # noqa: F821
+
+        test[getname(barename) == "ok"]
+        test[getname(captured.func) == "capture_this"]
+        test[getname(attribute) == "ok"]
+        test[getname(attribute, accept_attr=False) is None]
+
+    with testset("escape continuation (ec) utilities"):
+        def ec():
+            pass  # pragma: no cover
+        known_ecs = ["ec", "brk", "throw"]  # see `fallbacks` in `detect_callec`
+        test[isec(q[ec(42)], known_ecs)]
+        test[isec(hq[ec(42)], known_ecs)]
+        test[isec(q[throw(42)], known_ecs)]
+        test[isec(hq[throw(42)], known_ecs)]
+        test[not isec(q[myfunc(42)], known_ecs)]  # noqa: F821
+
+        test["my_fancy_ec" in detect_callec(q[call_ec(lambda my_fancy_ec: None)])]
+        with q as call_ec_testdata:
+            @call_ec
+            def f(my_fancy_ec):
+                pass  # pragma: no cover
+        test["my_fancy_ec" in detect_callec(call_ec_testdata)]
+
+    with testset("detect_lambda"):
+        # Lispers NOTE: in MacroPy, the quasiquote `q` (similarly hygienic
+        # quasiquote `hq`) is a macro, not a special operator; it **does not**
+        # prevent the expansion of any macros invoked in the quoted code.
+        # It just lifts source code into the corresponding AST representation.
+        #
+        # (MacroPy-technically, it's a second-pass macro, so any macros nested inside
+        #  have already expanded when the quote macro runs.)
+        with q as detect_lambda_testdata:
+            a = lambda: None  # noqa: F841
+            b = do[local[x << 21],  # noqa: F821, F841
+                   lambda y: x * y]  # noqa: F821
+        test[len(detect_lambda.collect(detect_lambda_testdata)) == 2]
+
+    with testset("decorator utilities"):
+        test[is_decorator(q[decorate], "decorate")]  # noqa: F821
+        test[is_decorator(q[decorate_with("flowers")], "decorate_with")]  # noqa: F821
+
+        with q as has_tco_testdata1:
+            @trampolined  # noqa: F821, just quoted.
+            def ihavetco():
+                pass  # pragma: no cover
+        with q as has_tco_testdata2:
+            def idonthavetco():
+                pass  # pragma: no cover
+        test[has_tco(has_tco_testdata1[0])]
+        test[not has_tco(has_tco_testdata2[0])]
+        test[not has_tco(q[lambda: None])]
+        test[not has_tco(q[decorate(lambda: None)])]  # noqa: F821
+        test[has_tco(q[trampolined(lambda: None)])]  # noqa: F821
+        test[has_tco(q[decorate(trampolined(lambda: None))])]  # noqa: F821
+        test[has_tco(q[trampolined(decorate(lambda: None))])]  # noqa: F821
+
+        with q as has_curry_testdata1:
+            @curry  # noqa: F821, just quoted.
+            def ihavecurry():
+                pass  # pragma: no cover
+        with q as has_curry_testdata2:
+            def idonthavecurry():
+                pass  # pragma: no cover
+        test[has_curry(has_curry_testdata1[0])]
+        test[not has_curry(has_curry_testdata2[0])]
+        test[not has_curry(q[lambda: None])]
+        test[not has_curry(q[decorate(lambda: None)])]  # noqa: F821
+        test[has_curry(q[curry(lambda: None)])]  # noqa: F821
+        test[has_curry(q[decorate(curry(lambda: None))])]  # noqa: F821
+        test[has_curry(q[curry(decorate(lambda: None))])]  # noqa: F821
+
+        test[has_deco(["decorate"], q["surprise!"]) is None]  # wrong AST type, test not applicable
+
+        with q as has_deco_testdata1:
+            @artdeco  # noqa: F821, just quoted.
+            def ihaveartdeco():
+                pass  # pragma: no cover
+        with q as has_deco_testdata2:
+            def idonthaveartdeco():
+                pass  # pragma: no cover
+        test[has_deco(["artdeco"], has_deco_testdata1[0])]
+        test[not has_deco(["artdeco"], has_deco_testdata2[0])]
+        test[not has_deco(["artdeco"], q[lambda: None])]
+        test[not has_deco(["artdeco"], q[postmodern(lambda: None)])]  # noqa: F821
+        test[has_deco(["artdeco"], q[artdeco(lambda: None)])]  # noqa: F821
+        test[has_deco(["artdeco"], q[postmodern(artdeco(lambda: None))])]  # noqa: F821
+        test[has_deco(["artdeco"], q[artdeco(postmodern(lambda: None))])]  # noqa: F821
+
+        # if more than one option, OR'd
+        test[has_deco(["artdeco", "neoclassical"], has_deco_testdata1[0])]
+        test[not has_deco(["artdeco", "neoclassical"], has_deco_testdata2[0])]
+        test[not has_deco(["artdeco", "neoclassical"], q[lambda: None])]
+        test[not has_deco(["artdeco", "neoclassical"], q[postmodern(lambda: None)])]  # noqa: F821
+        test[has_deco(["artdeco", "neoclassical"], q[artdeco(lambda: None)])]  # noqa: F821
+        test[has_deco(["artdeco", "neoclassical"], q[postmodern(artdeco(lambda: None))])]  # noqa: F821
+        test[has_deco(["artdeco", "neoclassical"], q[artdeco(postmodern(lambda: None))])]  # noqa: F821
+
+        # find correct insertion index of a known decorator
+        with q as sdi_testdata1:
+            @memoize  # noqa: F821
+            @curry  # noqa: F821
+            def purespicy(a, b, c):
+                pass  # pragma: no cover
+        test[suggest_decorator_index("artdeco", sdi_testdata1[0].decorator_list) is None]  # unknown decorator
+        test[suggest_decorator_index("namelambda", sdi_testdata1[0].decorator_list) == 0]  # before any of those already specified
+        test[suggest_decorator_index("trampolined", sdi_testdata1[0].decorator_list) == 1]  # in the middle of those already specified
+        test[suggest_decorator_index("passthrough_lazy_args", sdi_testdata1[0].decorator_list) == 2]  # after all of those already specified
+
+        with q as sdi_testdata2:
+            @artdeco  # noqa: F821
+            @neoclassical  # noqa: F821
+            def architectural():
+                pass  # pragma: no cover
+        test[suggest_decorator_index("trampolined", sdi_testdata2[0].decorator_list) is None]  # known decorator, but only unknown decorators in the decorator_list
+
+    with testset("decorated lambda machinery"):
+        # detect if a Call could be a decorator for a lambda
+        test[is_lambda_decorator(q[decorate(...)])]  # noqa: F821
+        test[is_lambda_decorator(q[decorate(...)], fname="decorate")]  # noqa: F821
+        test[not is_lambda_decorator(q[decorate(...)], fname="artdeco")]  # noqa: F821
+        test[not is_lambda_decorator(q[ihavenoargs()])]  # noqa: F821
+        test[not is_lambda_decorator(q[ihavemorethanonearg(..., ...)])]  # noqa: F821
+
+        # detect a chain of Call nodes terminating in a Lambda
+        test[not is_decorated_lambda(q[lambda: None], "any")]
+        test[is_decorated_lambda(q[artdeco(lambda: None)], "any")]  # noqa: F821
+        test[not is_decorated_lambda(q[artdeco(lambda: None)], "known")]  # noqa: F821
+
+        test[is_decorated_lambda(q[curry(lambda: None)], "any")]  # noqa: F821
+        test[is_decorated_lambda(q[curry(lambda: None)], "known")]  # noqa: F821
+
+        test[is_decorated_lambda(q[memoize(trampolined(curry(lambda: None)))], "known")]  # noqa: F821
+        # mode="known" requires **all** the decorators to be recognized.
+        test[not is_decorated_lambda(q[memoize(artdeco(curry(lambda: None)))], "known")]  # noqa: F821
+
+        # extract the "decorator list" of a decorated lambda
+        # (This returns the original AST nodes, for in-place transformations.)
+        decos, lam = destructure_decorated_lambda(q[memoize(trampolined(curry(lambda: 42)))])  # noqa: F821
+        test[len(decos) == 3]
+        test[all(type(node) is Call and type(node.func) is Name for node in decos)]
+        test[[node.func.id for node in decos] == ["memoize", "trampolined", "curry"]]
+        test[type(lam.body) is Num]  # TODO: Python 3.8+: ast.Constant, no ast.Num
+        test[lam.body.n == 42]  # TODO: Python 3.8+: ast.Constant, no ast.Num
+
+        def test_sort_lambda_decorators(testdata):
+            sort_lambda_decorators(testdata)
+            decos, _ = destructure_decorated_lambda(testdata)
+            # correct ordering according to unpythonic.regutil.decorator_registry
+            test[[node.func.id for node in decos] == ["memoize", "trampolined", "curry"]]
+        # input ordering correct, no effect
+        test_sort_lambda_decorators(q[memoize(trampolined(curry(lambda: 42)))])  # noqa: F821
+        # input ordering wrong, let the sorter fix it
+        test_sort_lambda_decorators(q[curry(memoize(trampolined(lambda: 42)))])  # noqa: F821
+
+    with testset("statement utilities"):
+        with q as transform_statements_testdata:
+            def myfunction(x):
+                "function body"
+                try:
+                    "try"
+                    if x:
+                        "if body"
+                    else:
+                        "if else"
+                except ValueError:
+                    "except"
+                finally:
+                    "finally"
+        collected = []
+        def collectstrings(tree):
+            # TODO: Python 3.8+: ast.Constant, no ast.Str
+            if type(tree) is Expr and type(tree.value) is Str:
+                collected.append(tree.value.s)
+            return [tree]
+        transform_statements(collectstrings, transform_statements_testdata)
+        test[set(collected) == {"function body", "try", "if body", "if else", "finally", "except"}]
+
+        def ishello(tree):
+            # TODO: Python 3.8+: ast.Constant, no ast.Str
+            return type(tree) is Expr and type(tree.value) is Str and tree.value.s == "hello"
+
+        # numeric
+        with q as eliminate_ifones_testdata1:
+            if 1:
+                "hello"
+        result = eliminate_ifones(eliminate_ifones_testdata1)
+        test[len(result) == 1 and ishello(result[0])]
+
+        with q as eliminate_ifones_testdata2:
+            if 0:
+                "hello"
+        result = eliminate_ifones(eliminate_ifones_testdata2)
+        test[len(result) == 0]
+
+        # boolean
+        with q as eliminate_ifones_testdata3:
+            if True:
+                "hello"
+        result = eliminate_ifones(eliminate_ifones_testdata3)
+        test[len(result) == 1 and ishello(result[0])]
+
+        with q as eliminate_ifones_testdata4:
+            if False:
+                "hello"
+        result = eliminate_ifones(eliminate_ifones_testdata4)
+        test[len(result) == 0]
+
+        # leave just one branch, numeric
+        with q as eliminate_ifones_testdata5:
+            if 1:
+                "hello"
+            else:
+                "bye"
+        result = eliminate_ifones(eliminate_ifones_testdata5)
+        test[len(result) == 1 and ishello(result[0])]
+
+        with q as eliminate_ifones_testdata6:
+            if 0:
+                "bye"
+            else:
+                "hello"
+        result = eliminate_ifones(eliminate_ifones_testdata6)
+        test[len(result) == 1 and ishello(result[0])]
+
+        # leave just one branch, boolean
+        with q as eliminate_ifones_testdata7:
+            if True:
+                "hello"
+            else:
+                "bye"
+        result = eliminate_ifones(eliminate_ifones_testdata7)
+        test[len(result) == 1 and ishello(result[0])]
+
+        with q as eliminate_ifones_testdata8:
+            if False:
+                "bye"
+            else:
+                "hello"
+        result = eliminate_ifones(eliminate_ifones_testdata8)
+        test[len(result) == 1 and ishello(result[0])]
+
+        # TODO
+        # transform_statements
+        # splice
+        # wrapwith
+        # ismarker
+        # ASTMarker
+
+if __name__ == '__main__':  # pragma: no cover
+    with session(__file__):
+        runtests()
