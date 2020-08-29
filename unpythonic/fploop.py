@@ -120,7 +120,7 @@ def looped(body):
     try:
         if not arity_includes(body, 1):
             raise ValueError("Body arity mismatch. (Is 'loop' parameter declared? Do all extra parameters have their defaults set?)")
-    except UnknownArity:  # well, we tried!
+    except UnknownArity:  # well, we tried!  # pragma: no cover
         pass
     tb = trampolined(body)  # enable "return jump(...)"
     return tb(loop)  # like @call, run the (now trampolined) body.
@@ -169,7 +169,7 @@ def breakably_looped(body):
         try:
             if not arity_includes(body, 2):
                 raise ValueError("Body arity mismatch. (Are (loop, brk) declared? Do all extra parameters have their defaults set?)")
-        except UnknownArity:  # well, we tried!
+        except UnknownArity:  # well, we tried!  # pragma: no cover
             pass
         tb = trampolined(body)
         return tb(loop, brk)
@@ -261,7 +261,7 @@ def looped_over(iterable, acc=None):  # decorator factory
         try:
             if not arity_includes(body, 3):
                 raise ValueError("Body arity mismatch. (Are (loop, x, acc) declared? Do all extra parameters have their defaults set?)")
-        except UnknownArity:  # well, we tried!
+        except UnknownArity:  # well, we tried!  # pragma: no cover
             pass
         try:
             x0 = next(it)
@@ -332,7 +332,7 @@ def breakably_looped_over(iterable, acc=None):  # decorator factory
             try:
                 if not arity_includes(body, 5):
                     raise ValueError("Body arity mismatch. (Are (loop, x, acc, cnt, brk) declared? Do all extra parameters have their defaults set?)")
-            except UnknownArity:  # well, we tried!
+            except UnknownArity:  # well, we tried!  # pragma: no cover
                 pass
             try:
                 x0 = next(it)

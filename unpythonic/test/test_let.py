@@ -141,6 +141,12 @@ def runtests():
         test[result is False]
 
     with testset("error cases"):
+        # TODO: Python 3.6+ (up to 3.5, can't guarantee argument evaluation order)
+        # test_raises[AttributeError,
+        #             letrec(a=lambda e: e.b + 1,  # error, e.b does not exist yet (simple value refers to binding below it)
+        #                    b=42,
+        #                    body=lambda e: e.a)]
+
         test_raises[AttributeError,
                     let(x=0,
                         body=lambda e: e.set('y', 3)),
@@ -150,6 +156,12 @@ def runtests():
             @blet(x=1)
             def error1(*, env):
                 env.y = 2  # error, cannot introduce new bindings into a let environment
+
+        test_raises[TypeError, let(body="not a callable")]
+        test_raises[TypeError, let(body=lambda: None)]  # body callable must be able to take in environment
+        # Reassigning the same name is blocked by Python itself (SyntaxError), so no test for that.
+        test_raises[TypeError, letrec(x=lambda: 1,
+                                      body=lambda e: e.x)]  # callable value must be able to take in environment
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

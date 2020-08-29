@@ -327,6 +327,11 @@ def runtests():
             return loop(acc + i, i + 1)  # provide the additional parameters
         test[result == 45]
 
+        with test_raises(ValueError):
+            @breakably_looped
+            def result(loop):  # missing `brk` parameter
+                pass  # pragma: no cover
+
         # break, continue
         @breakably_looped_over(range(100), acc=0)
         def s(loop, x, acc, cnt, brk):
@@ -345,6 +350,28 @@ def runtests():
                 return cnt()
             return loop(acc + x)
         test[s == 15]
+
+        # termination by running out of input elements
+        @breakably_looped_over(range(10), acc=0)
+        def s(loop, x, acc, cnt, brk):
+            return loop(acc + x)
+        test[s == 45]
+
+        # empty input iterable
+        @breakably_looped_over((), acc=0)
+        def s(loop, x, acc, cnt, brk):
+            return loop(acc + x)
+        test[s == 0]
+
+        with test_raises(ValueError):
+            @breakably_looped_over(range(10), acc=0)
+            def s(loop, x, acc):  # missing `cnt` and `brk` parameters
+                return loop(acc + x)
+
+        with test_raises(ValueError):
+            @breakably_looped_over(range(10), acc=0)
+            def s(loop, x, acc, cnt):  # missing `brk` parameter
+                return loop(acc + x)
 
     # TODO: need some kind of benchmarking tools to do this properly.
     with testset("performance benchmark"):
