@@ -198,7 +198,9 @@ def runtests():
         test[nested.__qualname__ == "runtests.<locals>.outer"]
         test[nested().__qualname__ == "runtests.<locals>.<lambda>.<locals>.inner"]
 
-        test_raises[TypeError, namelambda("renamed")(42)]  # not a function
+        # TODO: Can't raise TypeError; @fploop et al. do-it-now-and-replace-def-with-result
+        # TODO: decorators need to do this.
+        test[namelambda("renamed")(42) == 42]  # not a function
 
     # simple performance timer as a context manager
     with testset("timer"):
