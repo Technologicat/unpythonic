@@ -72,6 +72,20 @@ _ctor_handling_modes = {  # constructors that take iterable(s) as positional arg
                         "ll": ("all", "all")}
 _ctorcalls_all = _ctorcalls_map + _ctorcalls_seq
 
+# Usability: warn about incorrect use to prevent mysterious errors whose cause is hard to find.
+#
+# Constructors for which the positional mode is "literal_only" are susceptible
+# to a particular variety of human error.
+#
+# Without the check in `lazify_ctorcall`, the invocation `lazyrec[tuple(1/0, 2/0)]`
+# will crash due to a `ZeroDivisionError`. The lazifier skips the arguments, because
+# the `tuple()` call is wrong; it should be `lazyrec[tuple((1/0, 2/0))]`.
+# Note the outer parentheses; `tuple` takes an iterable as **its only argument**.
+#
+# `frozendict` is not in this list, because it has the functional-update initialization
+# variant `frozendict(mapping1, mapping2, ...)`.
+_ctorcalls_that_take_exactly_one_positional_arg = {"tuple", "list", "set", "dict", "frozenset", "llist"}
+
 islazy = make_isxpred("lazy")  # unexpanded
 isLazy = make_isxpred("Lazy")  # expanded
 def lazyrec(tree):
@@ -102,6 +116,9 @@ def lazyrec(tree):
         return tree
 
     def lazify_ctorcall(tree, positionals="all", keywords="all"):
+        if getname(tree.func) in _ctorcalls_that_take_exactly_one_positional_arg and len(tree.args) > 1:
+            assert False, "lazyrec[]: while analyzing constructor call `{}`: there should be exactly one argument, but {} were given.".format(getname(tree.func), len(tree.args))  # pragma: no cover
+
         newargs = []
         for a in tree.args:
             if type(a) is Starred:  # *args in Python 3.5+
