@@ -145,16 +145,6 @@ def signal(condition):
     # The unwinding, when it occurs, is performed when `invoke` is
     # called from inside the condition handler in the user code.
 
-    def determine_exctype(exc):
-        if isinstance(exc, BaseException):  # "signal(SomeError())"
-            return type(exc)
-        try:
-            if issubclass(exc, BaseException):  # "signal(SomeError)"
-                return exc
-        except TypeError:  # "issubclass() arg 1 must be a class"
-            pass
-        error(ControlError("Only exceptions and subclasses of Exception can be signaled; got {} with value '{}'.".format(type(condition), condition)))
-
     def accepts_arg(f):
         try:
             if arity_includes(f, 1):
@@ -163,16 +153,33 @@ def signal(condition):
             return True  # just assume it
         return False
 
+    # Consistency with behavior of exceptions in Python:
+    #   Even if a class is raised, as in `raise StopIteration`, the `raise` statement
+    #   converts it into an instance by instantiating with no args. So we need no
+    #   special handling for the "class raised" case.
+    #     https://docs.python.org/3/reference/simple_stmts.html#the-raise-statement
+    #     https://stackoverflow.com/questions/19768515/is-there-a-difference-between-raising-exception-class-and-exception-instance/19768732
+    def canonize(exc):
+        if isinstance(exc, BaseException):  # "signal(SomeError())"
+            return exc
+        try:
+            if issubclass(exc, BaseException):  # "signal(SomeError)"
+                return exc()  # instantiate with no args, like `raise` does
+        except TypeError:  # "issubclass() arg 1 must be a class"
+            pass
+        error(ControlError("Only exceptions and subclasses of Exception can be signaled; got {} with value '{}'.".format(type(condition), condition)))
+
+    condition = canonize(condition)
+
     # Embed a stack trace in the signal, like Python does for raised exceptions.
     # This only works on Python 3.7 and later, because we need to create a traceback object in pure Python code.
-    if isinstance(condition, BaseException):  # but do it in the "signal(SomeError())" case only
-        try:
-            # In the result, omit equip_with_traceback() and signal().
-            condition = equip_with_traceback(condition, depth=2)
-        except NotImplementedError:
-            pass  # well, we tried!
+    try:
+        # In the result, omit equip_with_traceback() and signal().
+        condition = equip_with_traceback(condition, depth=2)
+    except NotImplementedError:  # pragma: no cover
+        pass  # well, we tried!
 
-    for handler in _find_handlers(determine_exctype(condition)):
+    for handler in _find_handlers(type(condition)):
         if accepts_arg(handler):
             handler(condition)
         else:
