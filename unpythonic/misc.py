@@ -387,17 +387,18 @@ def equip_with_traceback(exc, depth=0):  # Python 3.7+
 
     tb = None
     while True:
+        # Starting from given depth, get all frames up to the root of the call stack.
         try:
             frame = getframe(depth)
             depth += 1
         except ValueError:
             break
-        # Python 3.7+ allows creating types.TracebackType objects from Python code.
-        try:
-            tb = TracebackType(tb, frame, frame.f_lasti, frame.f_lineno)
-        except TypeError as err:  # Python 3.6
-            raise NotImplementedError("Need Python 3.7 or later to create traceback objects") from err
-    return exc.with_traceback(tb)
+    # Python 3.7+ allows creating types.TracebackType objects from Python code.
+    try:
+        tb = TracebackType(tb, frame, frame.f_lasti, frame.f_lineno)
+    except TypeError as err:  # Python 3.6 or earlier
+        raise NotImplementedError("Need Python 3.7 or later to create traceback objects") from err
+    return exc.with_traceback(tb)  # Python 3.7+
 
 def pack(*args):
     """Multi-argument constructor for tuples.
