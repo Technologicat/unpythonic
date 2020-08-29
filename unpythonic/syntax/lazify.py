@@ -307,7 +307,6 @@ def lazify(body):
                 ln, co = tree.lineno, tree.col_offset
                 thefunc = rec(tree.func)
 
-                # TODO: test *args support in Python 3.5+ (this **should** work according to the AST specs)
                 adata = []
                 for x in tree.args:
                     if type(x) is Starred:  # *args in Python 3.5+
@@ -317,7 +316,6 @@ def lazify(body):
                         v = transform_arg(x)
                     adata.append(v)
 
-                # TODO: test **kwargs support in Python 3.5+ (this **should** work according to the AST specs)
                 kwdata = []
                 for x in tree.keywords:
                     if x.arg is None:  # **kwargs in Python 3.5+
