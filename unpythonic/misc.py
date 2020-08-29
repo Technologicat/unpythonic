@@ -756,6 +756,9 @@ def async_raise(thread_obj, exception):
     if not ctypes or not PyThreadState_SetAsyncExc:
         raise NotImplementedError("async_raise not supported on this Python interpreter.")
 
+    if not hasattr(thread_obj, "ident"):
+        raise TypeError("Expected a thread object, got {} with value '{}'".format(type(thread_obj), thread_obj))
+
     target_tid = thread_obj.ident
     if target_tid not in {thread.ident for thread in threading.enumerate()}:
         raise ValueError("Invalid thread object, cannot find its ident among currently active threads.")
