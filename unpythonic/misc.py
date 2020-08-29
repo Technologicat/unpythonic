@@ -469,7 +469,7 @@ def namelambda(name):
     """
     def rename(f):
         if not isinstance(f, (LambdaType, FunctionType)):
-            return f
+            raise TypeError("Expected a function, got {} with value '{}'".format(type(f), f))
         f = copy(f)
         # __name__ for tools like pydoc; __qualname__ for repr(); __code__.co_name for stack traces
         #     https://stackoverflow.com/questions/40661758/name-of-a-python-function-in-a-stack-trace
