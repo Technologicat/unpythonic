@@ -37,6 +37,7 @@ def runtests():
                         return evenp(x - 1)
                     return False
                 test[evenp(10000) is True]
+                test[oddp(10001) is True]
             deftest()
 
         with testset("basic usage in lambda"):
@@ -94,6 +95,7 @@ def runtests():
                     else:
                         False
                 test[evenp(10000) is True]
+                test[oddp(10001) is True]
 
     with testset("integration with call_ec"):
         with tco:
