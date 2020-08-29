@@ -242,11 +242,16 @@ def lazify(body):
                 if type(tree) is Lambda:
                     lam = tree
                     tree = hq[passthrough_lazy_args(ast_literal[tree])]
+                    # TODO: This doesn't really do anything; we don't here see the chain
+                    # TODO: of Call nodes (decorators) that surround the Lambda node.
                     tree = sort_lambda_decorators(tree)
                     lam.body = rec(lam.body)
                 else:
-                    tree.decorator_list = rec(tree.decorator_list)
                     k = suggest_decorator_index("passthrough_lazy_args", tree.decorator_list)
+                    # Force the decorators only after `suggest_decorator_index`
+                    # has suggested us where to put ours.
+                    # TODO: could make `suggest_decorator_index` ignore a `force()` wrapper.
+                    tree.decorator_list = rec(tree.decorator_list)
                     if k is not None:
                         tree.decorator_list.insert(k, hq[passthrough_lazy_args])
                     else:
