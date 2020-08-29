@@ -246,7 +246,9 @@ def _let(mode, body, **bindings):
     env = _envcls()
     for k, v in bindings.items():
         if k in env:
-            raise AttributeError("Cannot rebind the same name '{}' in a {} initializer list".format(k, mode))
+            # Can't happen when used via the public API, because Python itself
+            # blocks passing the same argument by name twice.
+            raise AttributeError("Cannot rebind the same name '{}' in a {} initializer list".format(k, mode))  # pragma: no cover
         if mode == "letrec" and callable(v):
             try:
                 if not arity_includes(v, 1):
