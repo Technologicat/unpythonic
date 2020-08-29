@@ -64,7 +64,7 @@ _ctor_handling_modes = {  # constructors that take iterable(s) as positional arg
                         "set": ("literal_only", "all"),
                         "frozenset": ("literal_only", "all"),
                         "llist": ("literal_only", "all"),
-                        # constructors that take individual items.
+                        # constructors that take individual items as separate positional args.
                         "box": ("all", "all"),
                         "ThreadLocalBox": ("all", "all"),
                         "Some": ("all", "all"),
