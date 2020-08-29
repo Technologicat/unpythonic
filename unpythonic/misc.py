@@ -679,6 +679,7 @@ def slurp(queue):
 # via a decorator that it's willing to accept asynchronous exceptions, and check that mark here, making this
 # mechanism strictly opt-in. The decorator could inject an `asyncexc_ok` attribute to the Thread object;
 # that's enough to prevent accidental misuse.
+# OTOH, having no such mechanism is the simpler design.
 def async_raise(thread_obj, exception):
     """Raise an exception inside an arbitrary active `threading.Thread`.
 
