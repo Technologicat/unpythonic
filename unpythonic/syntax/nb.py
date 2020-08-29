@@ -15,7 +15,7 @@ from .testingtools import istestmacro
 def nb(body, args):
     p = args[0] if args else q[print]  # custom print function hook
     newbody = []
-    with q as init:
+    with q as init:  # pragma: no cover, quoted only.
         _ = None
         theprint = ast_literal[p]
     newbody.extend(init)
@@ -27,7 +27,7 @@ def nb(body, args):
         if type(stmt) is not Expr or istestmacro(stmt.value):
             newbody.append(stmt)
             continue
-        with q as newstmts:
+        with q as newstmts:  # pragma: no cover, quoted only.
             _ = ast_literal[stmt.value]
             if _ is not None:
                 theprint(_)

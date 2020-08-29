@@ -45,7 +45,7 @@ def prefix(block_body):
             view = UnexpandedLetView(tree)
             for binding in view.bindings:
                 if type(binding) is not Tuple:
-                    assert False, "prefix: expected a tuple in let binding position"
+                    assert False, "prefix: expected a tuple in let binding position"  # pragma: no cover
                 _, value = binding.elts  # leave name alone, recurse into value
                 binding.elts[1] = transform.recurse(value, quotelevel=quotelevel)
             if view.body:
@@ -61,7 +61,7 @@ def prefix(block_body):
         if isunexpandedtestmacro(tree):
             stop()
             if type(tree.slice) is not Index:
-                assert False, "prefix: Slice and ExtSlice not implemented in analysis of testing macro arguments"
+                assert False, "prefix: Slice and ExtSlice not implemented in analysis of testing macro arguments"  # pragma: no cover
             body = tree.slice.value
             if type(body) is Tuple:
                 # skip the transformation of the argument tuple itself, but transform its elements
@@ -78,7 +78,7 @@ def prefix(block_body):
         while True:
             if isunquote(op):
                 if quotelevel < 1:
-                    assert False, "unquote while not in quote"
+                    assert False, "unquote while not in quote"  # pragma: no cover
                 quotelevel -= 1
             elif isquote(op):
                 quotelevel += 1
@@ -86,23 +86,23 @@ def prefix(block_body):
                 break
             set_ctx(quotelevel=quotelevel)
             if not len(data):
-                assert False, "a prefix tuple cannot contain only quote/unquote operators"
+                assert False, "a prefix tuple cannot contain only quote/unquote operators"  # pragma: no cover
             op, *data = data
         if quotelevel > 0:
             quoted = [op] + data
             if any(iskwargs(x) for x in quoted):
-                assert False, "kw(...) may only appear in a prefix tuple representing a function call"
+                assert False, "kw(...) may only appear in a prefix tuple representing a function call"  # pragma: no cover
             return q[(ast_literal[quoted],)]
         # (f, a1, ..., an) --> f(a1, ..., an)
         posargs = [x for x in data if not iskwargs(x)]
         # TODO: tag *args and **kwargs in a kw() as invalid, too (currently just ignored)
         invalids = list(flatmap(lambda x: x.args, filter(iskwargs, data)))
         if invalids:
-            assert False, "kw(...) may only specify named args"
+            assert False, "kw(...) may only specify named args"  # pragma: no cover
         kwargs = flatmap(lambda x: x.keywords, filter(iskwargs, data))
         kwargs = list(rev(uniqify(rev(kwargs), key=lambda x: x.arg)))  # latest wins, but keep original ordering
         thecall = Call(func=op, args=posargs, keywords=list(kwargs))
-        if PYTHON34:  # Python 3.4 only
+        if PYTHON34:  # pragma: no cover, Python 3.4 only
             thecall.starargs = None
             thecall.kwargs = None
         return thecall
@@ -115,17 +115,17 @@ def prefix(block_body):
 # namely the stubs for the "q" and "u" markers used within a `prefix` block.
 class q:  # noqa: F811
     """[syntax] Quote operator. Only meaningful in a tuple in a prefix block."""
-    def __repr__(self):  # in case one of these ends up somewhere at runtime
+    def __repr__(self):  # in case one of these ends up somewhere at runtime  # pragma: no cover
         return "<quote>"
 q = q()
 
 class u:  # noqa: F811
     """[syntax] Unquote operator. Only meaningful in a tuple in a prefix block."""
-    def __repr__(self):  # in case one of these ends up somewhere at runtime
+    def __repr__(self):  # in case one of these ends up somewhere at runtime  # pragma: no cover
         return "<unquote>"
 u = u()
 
 # not a @macro_stub; it only raises a run-time error on foo[...], not foo(...)
 def kw(**kwargs):
     """[syntax] Pass-named-args operator. Only meaningful in a tuple in a prefix block."""
-    raise RuntimeError("kw only meaningful inside a tuple in a prefix block")
+    raise RuntimeError("kw only meaningful inside a tuple in a prefix block")  # pragma: no cover
