@@ -23,6 +23,7 @@ import typing
 
 from .arity import resolve_bindings, _getfunc
 from .typecheck import isoftype
+from .regutil import register_decorator
 
 _dispatcher_registry = {}
 
@@ -43,6 +44,7 @@ self_parameter_names = ["self", "this", "cls", "klass"]
 # parameter, just append the names you use to this list.
 # """
 
+@register_decorator(priority=98)
 def generic(f):
     """Decorator. Make `f` a generic function (in the sense of CLOS or Julia).
 
@@ -157,9 +159,8 @@ def generic(f):
     roles of `cls` or `self` is to define the MRO; a `@staticmethod` doesn't
     have that.
 
-    To work with OOP inheritance, `@generic` must be the outermost decorator,
-    except `@classmethod` or `@staticmethod`, which are essentially compiler
-    annotations.
+    To work with OOP inheritance, in the decorator list, `@generic` must be
+    on inside of (i.e. run before) `@classmethod` or `@staticmethod`.
 
     **CAUTION**:
 
@@ -367,6 +368,7 @@ def generic(f):
     raise TypeError("@typed: cannot register additional methods.")
 
 
+@register_decorator(priority=98)
 def typed(f):
     """Decorator. Restrict allowed argument types to one combination only.
 
