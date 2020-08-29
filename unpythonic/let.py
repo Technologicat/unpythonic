@@ -252,8 +252,8 @@ def _let(mode, body, **bindings):
         if mode == "letrec" and callable(v):
             try:
                 if not arity_includes(v, 1):
-                    raise ValueError("Arity mismatch; callable value must allow arity 1, to take in the environment.")
-            except UnknownArity:  # well, we tried!
+                    raise TypeError("Arity mismatch; callable value must allow arity 1, to take in the environment.")
+            except UnknownArity:  # well, we tried!  # pragma: no cover
                 pass
             v = v(env)
         env[k] = v
@@ -264,8 +264,8 @@ def _let(mode, body, **bindings):
             raise TypeError("Expected callable body, got '{}' with value '{}'".format(type(body), body))
         try:
             if not arity_includes(body, 1):
-                raise ValueError("Arity mismatch; body must allow arity 1, to take in the environment.")
-        except UnknownArity:  # well, we tried!
+                raise TypeError("Arity mismatch; body must allow arity 1, to take in the environment.")
+        except UnknownArity:  # well, we tried!  # pragma: no cover
             pass
     return env if body is None else body(env)
 
