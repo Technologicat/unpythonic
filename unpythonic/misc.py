@@ -28,7 +28,7 @@ import sys
 if sys.implementation.name == "cpython":
     import ctypes
     PyThreadState_SetAsyncExc = ctypes.pythonapi.PyThreadState_SetAsyncExc
-else:
+else:  # pragma: no cover, coverage is measured on CPython.
     ctypes = None
     PyThreadState_SetAsyncExc = None
 
@@ -382,7 +382,7 @@ def equip_with_traceback(exc, depth=0):  # Python 3.7+
 
     try:
         getframe = sys._getframe
-    except AttributeError as err:
+    except AttributeError as err:  # pragma: no cover, both CPython and PyPy3 have sys._getframe.
         raise NotImplementedError("Need a Python interpreter which has `sys._getframe`") from err
 
     tb = None
@@ -484,7 +484,7 @@ def namelambda(name):
         co = f.__code__
         # https://github.com/ipython/ipython/blob/master/IPython/core/interactiveshell.py
         # https://www.python.org/dev/peps/pep-0570/
-        if version_info > (3, 8, 0, 'alpha', 3):
+        if version_info > (3, 8, 0, 'alpha', 3):  # Python 3.8+
             f.__code__ = CodeType(co.co_argcount, co.co_posonlyargcount, co.co_kwonlyargcount,
                                   co.co_nlocals, co.co_stacksize, co.co_flags,
                                   co.co_code, co.co_consts, co.co_names,
@@ -754,7 +754,7 @@ def async_raise(thread_obj, exception):
         https://gist.github.com/liuw/2407154
     """
     if not ctypes or not PyThreadState_SetAsyncExc:
-        raise NotImplementedError("async_raise not supported on this Python interpreter.")
+        raise NotImplementedError("async_raise not supported on this Python interpreter.")  # pragma: no cover
 
     if not hasattr(thread_obj, "ident"):
         raise TypeError("Expected a thread object, got {} with value '{}'".format(type(thread_obj), thread_obj))
@@ -765,13 +765,13 @@ def async_raise(thread_obj, exception):
 
     affected_count = PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.py_object(exception))
     if affected_count == 0:
-        raise ValueError("PyThreadState_SetAsyncExc did not accept the thread ident, even though it was among the currently active threads.")
+        raise ValueError("PyThreadState_SetAsyncExc did not accept the thread ident, even though it was among the currently active threads.")  # pragma: no cover
 
     # TODO: check CPython source code if this case can actually ever happen.
     #
     # The API docs seem to hint that 0 or 1 are the only possible return values.
     # If so, we can remove this `SystemError` case and the "potentially dangerous" caution.
-    elif affected_count > 1:
+    elif affected_count > 1:  # pragma: no cover
         # Clear the async exception, targeting the same thread identity, and hope for the best.
         PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.c_long(0))
         raise SystemError("PyThreadState_SetAsyncExc failed, broke the interpreter state.")

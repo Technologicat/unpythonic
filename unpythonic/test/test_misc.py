@@ -12,7 +12,8 @@ from time import sleep
 import threading
 import sys
 
-from ..misc import (call, callwith, raisef, tryf, pack, namelambda, timer,
+from ..misc import (call, callwith, raisef, tryf, equip_with_traceback,
+                    pack, namelambda, timer,
                     getattrrec, setattrrec, Popper, CountingIterator, ulp, slurp,
                     async_raise, callsite_filename, safeissubclass)
 from ..fun import withself
@@ -101,33 +102,43 @@ def runtests():
 
     # raisef: raise an exception from an expression position
     with testset("raisef (raise exception from an expression)"):
-        myfunc = lambda: raisef(ValueError("all ok"))  # the argument works the same as in `raise ...`
-        test_raises[ValueError, myfunc()]
+        raise_instance = lambda: raisef(ValueError("all ok"))  # the argument works the same as in `raise ...`
+        test_raises[ValueError, raise_instance()]
         try:
-            myfunc()
+            raise_instance()
         except ValueError as err:
             test[err.__cause__ is None]  # like plain `raise ...`, no cause set (default behavior)
 
         # using the `cause` parameter, raisef can also perform a `raise ... from ...`
         exc = TypeError("oof")
-        myfunc = lambda: raisef(ValueError("all ok"), cause=exc)
-        test_raises[ValueError, myfunc()]
+        raise_instance = lambda: raisef(ValueError("all ok"), cause=exc)
+        test_raises[ValueError, raise_instance()]
         try:
-            myfunc()
+            raise_instance()
         except ValueError as err:
             test[err.__cause__ is exc]  # cause specified, like `raise ... from ...`
 
         # raisef with old-style parameters (as of v0.14.2, deprecated, will be dropped in v0.15.0)
-        myfunc = lambda: raisef(ValueError, "all ok")
-        test_raises[ValueError, myfunc()]
+        raise_instance = lambda: raisef(ValueError, "all ok")
+        test_raises[ValueError, raise_instance()]
+
+        # can also raise an exception class (no instance)
+        test_raises[StopIteration, raisef(StopIteration)]
 
     # tryf: handle an exception in an expression position
     with testset("tryf (try/except/finally in an expression)"):
+        raise_instance = lambda: raisef(ValueError("all ok"))
+        raise_class = lambda: raisef(ValueError)
+
         test[tryf(lambda: "hello") == "hello"]
         test[tryf(lambda: "hello",
                   elsef=lambda: "there") == "there"]
-        test[tryf(lambda: myfunc(),
+        test[tryf(lambda: raise_instance(),
                   (ValueError, lambda: "got a ValueError")) == "got a ValueError"]
+        test[tryf(lambda: raise_instance(),
+                  (ValueError, lambda err: "got a ValueError: '{}'".format(err.args[0]))) == "got a ValueError: 'all ok'"]
+        test[tryf(lambda: raise_instance(),
+                  ((RuntimeError, ValueError), lambda err: "got a RuntimeError or ValueError: '{}'".format(err.args[0]))) == "got a RuntimeError or ValueError: 'all ok'"]
         test[tryf(lambda: "hello",
                   (ValueError, lambda: "got a ValueError"),
                   elsef=lambda: "there") == "there"]
@@ -142,6 +153,30 @@ def runtests():
                   elsef=lambda: "there",
                   finallyf=lambda: e << ("finally_ran", True)) == "there"]
         test[e.finally_ran is True]
+
+        test[tryf(lambda: raise_class(),
+                  (ValueError, lambda: "ok")) == "ok"]
+        test[tryf(lambda: raise_class(),
+                  ((RuntimeError, ValueError), lambda: "ok")) == "ok"]
+
+        test_raises[TypeError, tryf(lambda: "hello",
+                                    (str, lambda: "got a string"))]  # str is not an exception type
+        test_raises[TypeError, tryf(lambda: "hello",
+                                    ((ValueError, str), lambda: "got a string"))]  # same, in the tuple case
+        test_raises[TypeError, tryf(lambda: "hello",
+                                    ("not a type at all!", lambda: "got a string"))]
+
+    with testset("equip_with_traceback"):
+        e = Exception("just testing")
+        try:
+            e = equip_with_traceback(e)
+        except NotImplementedError:
+            warn["equip_with_traceback only supported on Python 3.7+, skipping test."]
+        else:
+            # Can't do meaningful testing on the result, so just check it's there.
+            test[e.__traceback__ is not None]
+
+        test_raises[TypeError, equip_with_traceback("not an exception")]
 
     with testset("pack"):
         myzip = lambda lol: map(pack, *lol)
@@ -162,6 +197,8 @@ def runtests():
         nested = namelambda("outer")(lambda: namelambda("inner")(withself(lambda self: self)))
         test[nested.__qualname__ == "runtests.<locals>.outer"]
         test[nested().__qualname__ == "runtests.<locals>.<lambda>.<locals>.inner"]
+
+        test_raises[TypeError, namelambda("renamed")(42)]  # not a function
 
     # simple performance timer as a context manager
     with testset("timer"):
@@ -271,6 +308,13 @@ def runtests():
                 test[out[0] < 9]  # terminated early due to the injected KeyboardInterrupt
             except NotImplementedError:  # pragma: no cover
                 error["async_raise not supported on this Python interpreter."]
+
+            test_raises[TypeError, async_raise(42, KeyboardInterrupt)]  # not a thread
+
+            t = threading.Thread(target=lambda: None)
+            t.start()
+            t.join()
+            test_raises[ValueError, async_raise(t, KeyboardInterrupt)]  # thread no longer running
 
     with testset("callsite_filename"):
         test["test_misc.py" in callsite_filename()]
