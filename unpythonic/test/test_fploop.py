@@ -360,18 +360,18 @@ def runtests():
         # empty input iterable
         @breakably_looped_over((), acc=0)
         def s(loop, x, acc, cnt, brk):
-            return loop(acc + x)
+            return loop(acc + x)  # pragma: no cover
         test[s == 0]
 
         with test_raises(ValueError):
             @breakably_looped_over(range(10), acc=0)
             def s(loop, x, acc):  # missing `cnt` and `brk` parameters
-                return loop(acc + x)
+                return loop(acc + x)  # pragma: no cover
 
         with test_raises(ValueError):
             @breakably_looped_over(range(10), acc=0)
             def s(loop, x, acc, cnt):  # missing `brk` parameter
-                return loop(acc + x)
+                return loop(acc + x)  # pragma: no cover
 
     # TODO: need some kind of benchmarking tools to do this properly.
     with testset("performance benchmark"):
