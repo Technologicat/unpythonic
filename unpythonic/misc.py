@@ -309,35 +309,38 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
             pass
         return False
 
-    def determine_exctype(exc):
-        if isinstance(exc, BaseException):  # "raise SomeError()"
-            return type(exc)
-        if isexceptiontype(exc):  # "raise SomeError"
-            return exc
-        assert False  # Python can only raise stuff that inherits from BaseException
+    # validate handlers
+    for excspec, handler in handlers:
+        if isinstance(excspec, tuple):  # tuple of exception types
+            if not all(isexceptiontype(t) for t in excspec):
+                raise TypeError("All elements of a tuple excspec must be exception types, got {}".format(excspec))
+        elif not isexceptiontype(excspec):  # single exception type
+            raise TypeError("excspec must be an exception type or tuple of exception types, got {}".format(excspec))
 
+    # run
     try:
         ret = body()
     except BaseException as exception:
-        exctype = determine_exctype(exception)
+        # Even if a class is raised, as in `raise StopIteration`, the `raise` statement
+        # converts it into an instance by instantiating with no args. So we need no
+        # special handling for the "class raised" case.
+        #   https://docs.python.org/3/reference/simple_stmts.html#the-raise-statement
+        #   https://stackoverflow.com/questions/19768515/is-there-a-difference-between-raising-exception-class-and-exception-instance/19768732
+        exctype = type(exception)
         for excspec, handler in handlers:
             if isinstance(excspec, tuple):  # tuple of exception types
-                if not all(isexceptiontype(t) for t in excspec):
-                    raise TypeError("All elements of a tuple excspec must be exception types")
                 # this is safe, exctype is always a class at this point.
                 if any(issubclass(exctype, t) for t in excspec):
                     if accepts_arg(handler):
                         return handler(exception)
                     else:
                         return handler()
-            elif isexceptiontype(excspec):  # single exception type
+            else:  # single exception type
                 if issubclass(exctype, excspec):
                     if accepts_arg(handler):
                         return handler(exception)
                     else:
                         return handler()
-            else:
-                raise TypeError("excspec must be an exception type or tuple of exception types")
     else:
         if elsef is not None:
             return elsef()
