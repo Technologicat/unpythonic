@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """Automatic lazy evaluation of function arguments."""
 
-from macropy.quick_lambda import macros, lazy  # noqa: F401
-from macropy.quick_lambda import Lazy  # usually not needed in client code; for our tests only
-
-from ...syntax import macros, test, test_raises, error  # noqa: F811, F401
+from ...syntax import macros, test, test_raises, error, warn  # noqa: F401
 from ...test.fixtures import session, testset
+
+from macropy.quick_lambda import macros, lazy  # noqa: F811, F401
+from macropy.quick_lambda import Lazy  # usually not needed in client code; for our tests only
 
 from ...syntax import (macros, lazify, lazyrec,  # noqa: F811, F401
                        let, letseq, letrec, local,
@@ -21,6 +21,7 @@ from ...ec import call_ec
 from ...fun import (curry, memoize, flip, rotate, apply,  # noqa: F811
                     notf, andf, orf, tokth, withself)
 from ...it import flatten
+from ...llist import ll
 from ...misc import raisef, call, callwith
 from ...tco import trampolined, jump
 
@@ -50,6 +51,34 @@ def runtests():
 
         fdic = lazyrec[frozendict({'a': 2 + 3, 'b': 2 * 21, 'c': 1 / 0})]
         test[all(type(v) is Lazy for k, v in fdic.items())]
+
+        # Works also when using the constructor call syntax for the container.
+        tpl = lazyrec[tuple((2 + 3, 2 * 21, 1 / 0))]
+        test[all(type(x) is Lazy for x in tpl)]
+
+        lst = lazyrec[list((2 + 3, 2 * 21, 1 / 0))]
+        test[all(type(x) is Lazy for x in lst)]
+
+        s = lazyrec[set((2 + 3, 2 * 21, 1 / 0))]
+        test[all(type(x) is Lazy for x in s)]
+
+        dic = lazyrec[dict(a=2 + 3, b=2 * 21, c=1 / 0)]
+        test[all(type(v) is Lazy for k, v in dic.items())]
+
+        # warn["Some tests that require Python 3.5 or later are currently disabled due to compatibility with 3.4."]
+        dic = lazyrec[dict(a=2 + 3, b=2 * 21, **{'c': 1 / 0})]
+        test[all(type(v) is Lazy for k, v in dic.items())]
+
+        llst = lazyrec[ll(*(1 / 0, 2 / 0, 3 / 0))]
+        test[all(type(x) is Lazy for x in llst)]
+
+        # Works also when a constructor call is nested inside a constructor call being lazified.
+        llst = lazyrec[ll(2 + 3, ll(2 * 21))]
+        it = iter(llst)
+        first, second = next(it), next(it)
+        test[type(first) is Lazy]
+        second_firstitem = next(iter(second))
+        test[type(second_firstitem) is Lazy]
 
     with testset("force (compute the lazy value now; the inverse of lazyrec)"):
         tpl = lazyrec[(2 + 3, 2 * 21)]
@@ -91,6 +120,19 @@ def runtests():
             # In this example, the divisions by zero are never performed.
             test[my_if(True, 23, 1 / 0) == 23]
             test[my_if(False, 1 / 0, 42) == 42]
+
+    with testset("lazify functions that have decorators"):
+        # With a `def` or `async def` that has decorators, `lazify`
+        # consults `suggest_decorator_index` as to where to plonk
+        # `passthrough_lazy_args`.
+        # TODO: Currently decorated lambdas aren't as lucky; difficult to do.
+        with lazify:
+            @trampolined
+            def fact(n, acc=1):
+                if n == 1:
+                    return acc
+                return jump(fact, n - 1, n * acc)
+            test[fact(5) == 120]
 
     with testset("named args"):
         with lazify:
@@ -141,7 +183,20 @@ def runtests():
             test[bar(a=1, b=2, c=1 / 0) == (1, 2)]
             test[bar(**{"a": 1, "b": 2, "c": 1 / 0}) == (1, 2)]
 
-    with testset("auto-forcing"):
+    with testset("literal containers appearing starred in calls"):
+        with lazify:
+            # To trigger this edge case, we have to star a constructor call
+            # to a literal container that accepts multiple arguments.
+            def bar(*args):
+                return args
+            test[bar(*ll("tavern", "pub")) == ("tavern", "pub")]
+
+            # And similarly for **kwargs.
+            def bar(**dic):
+                return dic["a"], dic["b"]
+            test[bar(**dict(a="tavern", b="pub"))]
+
+    with testset("auto-force"):
         with lazify:
             def f(x):
                 test[x == 17]  # auto-forced because "x" is the name of a formal parameter
@@ -161,7 +216,7 @@ def runtests():
                 test[x == 42]  # auto-forced (now gets the cached value) since "x" is the original name
             g(2 * 21)
 
-    with testset("auto-lazifying"):
+    with testset("auto-lazify when a literal container appears as a function argument"):
         # constructing a literal container in a function argument auto-lazifies it
         with lazify:
             def f(lst):

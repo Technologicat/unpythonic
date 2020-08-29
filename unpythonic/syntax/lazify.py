@@ -115,7 +115,7 @@ def lazyrec(tree):
         #
         # Maybe could be worked around by not importing lazy here, but that defeats hygiene.
         elif type(tree) is Subscript and isx(tree.value, islazy):  # unexpanded
-            stop()
+            stop()  # pragma: no cover
         elif type(tree) is Call and isx(tree.func, isLazy):  # expanded
             stop()
         else:
@@ -146,10 +146,10 @@ def lazyrec(tree):
                 kw.value = rec(kw.value)
         # *args and **kwargs in Python 3.4
         if hasattr(tree, "starargs"):
-            if tree.starargs is not None and is_literal_container(tree.starargs, maps_only=False):
+            if tree.starargs is not None and is_literal_container(tree.starargs, maps_only=False):  # pragma: no cover, Python 3.4 only.
                 tree.starargs = rec(tree.starargs)
         if hasattr(tree, "kwargs"):
-            if tree.kwargs is not None and is_literal_container(tree.kwargs, maps_only=True):
+            if tree.kwargs is not None and is_literal_container(tree.kwargs, maps_only=True):  # pragma: no cover, Python 3.4 only.
                 tree.kwargs = rec(tree.kwargs)
 
     rec = transform.recurse
@@ -160,10 +160,14 @@ def is_literal_container(tree, maps_only=False):
     if not maps_only:
         if type(tree) in (List, Tuple, Set):
             return True
+        # Not reached in case of `lazyrec`, because `lazify_ctorcall` recurses
+        # into the the arg using `transform`. Which in turn uses `lazify_ctorcall`,
+        # which (beside the constructor name) looks only at the args.
         if type(tree) is Call and any(isx(tree.func, s) for s in _ctorcalls_seq):
             return True
     if type(tree) is Dict:
         return True
+    # Not reached in case of `lazyrec`, similarly as above.
     if type(tree) is Call and any(isx(tree.func, s) for s in _ctorcalls_map):
         return True
     return False
@@ -311,9 +315,9 @@ def lazify(body):
                 tree.args = rec(tree.args)
                 tree.keywords = rec(tree.keywords)
                 # Python 3.4
-                if hasattr(tree, "starargs"):
+                if hasattr(tree, "starargs"):  # pragma: no cover, Python 3.4 only.
                     tree.starargs = rec(tree.starargs)
-                if hasattr(tree, "kwargs"):
+                if hasattr(tree, "kwargs"):  # pragma: no cover, Python 3.4 only.
                     tree.kwargs = rec(tree.kwargs)
             else:
                 stop()
@@ -343,12 +347,12 @@ def lazify(body):
                               keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, x in kwdata],
                               lineno=ln, col_offset=co)
 
-                if hasattr(tree, "starargs"):  # *args in Python 3.4
+                if hasattr(tree, "starargs"):  # *args in Python 3.4  # pragma: no cover
                     if tree.starargs is not None:
                         mycall.starargs = transform_starred(tree.starargs)
                     else:
                         mycall.starargs = None
-                if hasattr(tree, "kwargs"):  # **kwargs in Python 3.4
+                if hasattr(tree, "kwargs"):  # **kwargs in Python 3.4  # pragma: no cover
                     if tree.kwargs is not None:
                         mycall.kwargs = transform_starred(tree.kwargs, dstarred=True)
                     else:
