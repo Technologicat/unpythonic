@@ -56,7 +56,7 @@ def runtests():
         m = MonadicList(1, 2, 3)
         test_raises[TypeError, m.join()]  # join() flattens a nested list, which m isn't
 
-        # Example usage of `guard`
+        # Usage example for `guard`
         m = MonadicList(1, 2, 3)
         test[tuple(m >> (lambda x: MonadicList.guard(x % 2 == 1)
                                               .then(MonadicList(x)))) == (1, 3)]
