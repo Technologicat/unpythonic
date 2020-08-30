@@ -163,8 +163,8 @@ def forall(*lines):
         if callable(body):
             try:
                 if not arity_includes(body, 1):
-                    raise ValueError("Arity mismatch; callable body must allow arity 1, to take in the environment.")
-            except UnknownArity:
+                    raise TypeError("Arity mismatch; callable body must allow arity 1, to take in the environment.")
+            except UnknownArity:  # pragma: no cover
                 pass
             code = "monadify(bodys[{j:d}](e), {flag:s})".format(flag=unpack_flag, j=j)
         else:  # doesn't need the environment
