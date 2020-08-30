@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Implicitly reference attributes of an object."""
 
-from ...syntax import macros, test, test_raises  # noqa: F401
+from ...syntax import macros, test, test_raises, the  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
 from ...syntax import macros, autoref, let, do, local, lazify, curry  # noqa: F401, F811
@@ -32,7 +32,7 @@ def runtests():
 
         with autoref(e) as e3:
             x = 3
-            test["x" not in e3]
+            test["x" not in the[e3]]
             test[x == 3]
             del x
 
@@ -70,8 +70,8 @@ def runtests():
     with testset("attributes and subscripts"):
         e2 = env(x=e, s=[1, 2, 3])
         with autoref(e2) as e2:
-            test["x" in e2]
-            test["e" not in e2]
+            test["x" in the[e2]]
+            test["e" not in the[e2]]
             test[x is e]       # --> e2.x is e (attempts to look up "e" in e2, fails, lets Python resolve "e")  # noqa: F821
             test[x.a == 1]     # --> e2.x.a  # noqa: F821
             test[x["b"] == 2]  # --> e2.x["b"]  # noqa: F821

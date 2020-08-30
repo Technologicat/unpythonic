@@ -31,7 +31,7 @@ from .dbg import (dbg_block as _dbg_block, dbg_expr as _dbg_expr,  # noqa: F401
 from .prefix import prefix as _prefix
 from .tailtools import (autoreturn as _autoreturn, tco as _tco,  # noqa: F401
                         continuations as _continuations, call_cc)
-from .testingtools import (test_expr as _test_expr,
+from .testingtools import (test_expr as _test_expr,  # noqa: F401, `the` only for passing through.
                            test_expr_signals as _test_expr_signals,
                            test_expr_raises as _test_expr_raises,
                            test_block as _test_block,
@@ -39,7 +39,8 @@ from .testingtools import (test_expr as _test_expr,
                            test_block_raises as _test_block_raises,
                            fail_expr as _fail_expr,
                            error_expr as _error_expr,
-                           warn_expr as _warn_expr)
+                           warn_expr as _warn_expr,
+                           the)
 # "where" is only for passing through (export).
 from .letdoutil import UnexpandedLetView, _canonize_bindings, where  # noqa: F401
 from ..dynassign import dyn, make_dynvar
@@ -1997,7 +1998,7 @@ from .prefix import q, u, kw  # for re-export only  # noqa: F401
 # -----------------------------------------------------------------------------
 
 @macros.expr
-def fail(tree, **kw):  # noqa: F811
+def fail(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, expr] Produce a test failure, unconditionally.
 
     Useful to e.g. mark a line of code that should not be reached in automated
@@ -2017,10 +2018,11 @@ def fail(tree, **kw):  # noqa: F811
 
     See also `error[]`, `warn[]`.
     """
-    return _fail_expr(tree)
+    with dyn.let(gen_sym=gen_sym):
+        return _fail_expr(tree)
 
 @macros.expr
-def error(tree, **kw):  # noqa: F811
+def error(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, expr] Produce a test error, unconditionally.
 
     Useful to e.g. indicate to the user that an optional dependency that could
@@ -2032,10 +2034,11 @@ def error(tree, **kw):  # noqa: F811
 
     See also `warn[]`, `fail[]`.
     """
-    return _error_expr(tree)
+    with dyn.let(gen_sym=gen_sym):
+        return _error_expr(tree)
 
 @macros.expr
-def warn(tree, **kw):  # noqa: F811
+def warn(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax, expr] Produce a warning, unconditionally.
 
     Useful to e.g. indicate that the Python interpreter or version the
@@ -2051,7 +2054,8 @@ def warn(tree, **kw):  # noqa: F811
 
     See also `error[]`, `fail[]`.
     """
-    return _warn_expr(tree)
+    with dyn.let(gen_sym=gen_sym):
+        return _warn_expr(tree)
 
 @macros.block
 def test(tree, args, *, gen_sym, **kw):  # noqa: F811
@@ -2059,7 +2063,7 @@ def test(tree, args, *, gen_sym, **kw):  # noqa: F811
         return _test_block(block_body=tree, args=args)
 
 @macros.expr  # noqa: F811
-def test(tree, **kw):  # noqa: F811
+def test(tree, *, gen_sym, **kw):  # noqa: F811
     """[syntax] Make a test assertion. For building automated tests.
 
     **Testing overview**:
@@ -2093,6 +2097,22 @@ def test(tree, **kw):  # noqa: F811
     Beside checking what the side effects did, it can be useful
     to assert that the function completed normally.
 
+    Upon test failure, the expression variant of the `test[]` macro
+    captures as "result" and prints the value of:
+
+      - If `expr` is a comparison: the LHS.
+      - Otherwise, the whole `expr`.
+
+    If you want to override, then inside the `test[...]`, mark your
+    interesting subexpression as `the[subexpr]`.
+
+    The `the[]` 'macro' (actually just a mark) can also be imported
+    from this module, so that its appearance in your source code
+    won't confuse `flake8`, even though the mark is deleted during
+    macro expansion.
+
+    At most one `the[]` may appear in a single `test[...]`.
+
     **Block variant**::
 
         with test:
@@ -2104,6 +2124,9 @@ def test(tree, **kw):  # noqa: F811
             ...
 
     The test succeeds if the block body runs to completion normally.
+
+    No meaningful capture is done in the block variant; the `the[]` mark
+    is **not** supported.
 
     **CAUTION**: the block variant implicitly inserts a `def` and then
     delegates to the expression variant (to `test[]` a call into the newly
@@ -2162,7 +2185,8 @@ def test(tree, **kw):  # noqa: F811
     resumption; unlike with signals, the inner level is already destroyed by
     the time the exception is caught by the test construct.
     """
-    return _test_expr(tree)
+    with dyn.let(gen_sym=gen_sym):
+        return _test_expr(tree)
 
 @macros.block
 def test_signals(tree, args, *, gen_sym, **kw):  # noqa: F811
@@ -2180,6 +2204,14 @@ def test_signals(tree, **kw):  # noqa: F811
         test_signals[exctype, expr]
         test_signals[exctype, expr, message]
 
+        with test_signals(exctype):
+            body0
+            ...
+
+        with test_signals(exctype, message):
+            body0
+            ...
+
     Example::
 
         test_signals[ValueError, myfunc()]
@@ -2193,6 +2225,8 @@ def test_signals(tree, **kw):  # noqa: F811
 
     If `expr` signals some other type of condition, or raises an exception, the
     test errors.
+
+    This macro **does not** support using the `the[]` mark.
     """
     return _test_expr_signals(tree)
 
@@ -2210,6 +2244,14 @@ def test_raises(tree, **kw):  # noqa: F811
         test_raises[exctype, expr]
         test_raises[exctype, expr, message]
 
+        with test_raises(exctype):
+            body0
+            ...
+
+        with test_raises(exctype, message):
+            body0
+            ...
+
     Example::
 
         test_raises[TypeError, issubclass(1, int)]
@@ -2224,6 +2266,8 @@ def test_raises(tree, **kw):  # noqa: F811
 
     If `expr` signals a condition, or raises some other type of exception, the
     test errors.
+
+    This macro **does not** support using the `the[]` mark.
     """
     return _test_expr_raises(tree)
 

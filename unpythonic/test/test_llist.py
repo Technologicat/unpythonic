@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, the  # noqa: F401
 from .fixtures import session, testset
 
 from pickle import dumps, loads
@@ -90,10 +90,10 @@ def runtests():
         s = set()
         s.add(cons(1, 2))
         s.add(ll(1, 2, 3))
-        test[cons(1, 2) in s]
-        test[ll(1, 2, 3) in s]
-        test[cons(3, 4) not in s]
-        test[ll(1, 2) not in s]
+        test[cons(1, 2) in the[s]]
+        test[ll(1, 2, 3) in the[s]]
+        test[cons(3, 4) not in the[s]]
+        test[ll(1, 2) not in the[s]]
 
     with testset("iteration schemes"):
         test[[f(thebinarytree) for f in [caar, cdar, cadr, cddr]] == [1, 2, 3, 4]]

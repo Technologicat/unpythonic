@@ -6,6 +6,8 @@
   - Context managers `session`, `testset`, and `catch_signals`. Various helper functions, such as `returns_normally` (for use in a `test[]`).
   - Testing macros, similar to the builtin `assert`, but with the magic of conditions and restarts: even if a test fails or errors out, further tests continue running.
     - `test[expr]`, `test[expr, message]`, `test_raises[exctype, expr]`, `test_raises[exctype, expr, message]`, `test_signals[exctype, expr]`, `test_signals[exctype, expr, message]`.
+    - To help diagnosing test failures with minimum fuss, the `test[...]` macro provides an optional marker `the[expr]` to tag the interesting part inside the `test[...]` when the simplistic default capture logic doesn't capture the part you want.
+      - The default is to capture the LHS when the test is a comparison, otherwise capture the whole expression. If the `the[expr]` marker is used, the `the` part is captured instead.
     - Helper macros `fail[message]` and `error[message]` for producing unconditional failures or errors. Useful e.g. if the test reached a line that should be unreachable, or when an optional dependency for some integration test is not installed.
 - `callsite_filename`: return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
 - `equip_with_traceback`: take a manually created exception instance, equip it with a traceback. Requires Python 3.7 or later.

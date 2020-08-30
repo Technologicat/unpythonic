@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Utilities for building macros."""
 
-from ...syntax import macros, do, local, test, test_raises, fail  # noqa: F401
+from ...syntax import macros, do, local, test, test_raises, fail, the  # noqa: F401
 from ...test.fixtures import session, testset
 
 from macropy.core.quotes import macros, q, name  # noqa: F811
@@ -56,12 +56,12 @@ def runtests():
         test[isec(hq[throw(42)], known_ecs)]
         test[not isec(q[myfunc(42)], known_ecs)]  # noqa: F821
 
-        test["my_fancy_ec" in detect_callec(q[call_ec(lambda my_fancy_ec: None)])]
+        test["my_fancy_ec" in the[detect_callec(q[call_ec(lambda my_fancy_ec: None)])]]
         with q as call_ec_testdata:
             @call_ec  # pragma: no cover
             def f(my_fancy_ec):
                 pass  # pragma: no cover
-        test["my_fancy_ec" in detect_callec(call_ec_testdata)]
+        test["my_fancy_ec" in the[detect_callec(call_ec_testdata)]]
 
     with testset("detect_lambda"):
         # Lispers NOTE: in MacroPy, the quasiquote `q` (similarly hygienic

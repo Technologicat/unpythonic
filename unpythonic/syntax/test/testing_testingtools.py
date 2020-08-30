@@ -14,7 +14,7 @@ the functionality is visual and it was just eyeballed. See the session example
 below to generate lots of colorful output, exercising the different features.
 """
 
-from ...syntax import macros, test, test_signals, test_raises  # noqa: F401
+from ...syntax import macros, test, test_signals, test_raises, fail, error, warn, the  # noqa: F401
 
 from functools import partial
 
@@ -180,6 +180,19 @@ def runtests():
     #             test[2 + 2 == 4]
     #         with testset("inner 3"):
     #             pass
+    #
+    #     fail["Use fail[] to e.g. signify a line should not be reached."]
+    #     error["Use error[] to e.g. signify optional dependencies failed to load."]
+    #     warn["Use warn[] to e.g. signify that some of your tests are currently disabled."]
+    #
+    #     # By default, for test failure reporting, `test[]` captures as "result":
+    #     #   - If the test is a comparison: the LHS
+    #     #   - Otherwise, the whole expr.
+    #     # To override, tag the interesting part as `the[subexpr]`:
+    #     with testset("the[]"):
+    #         test[5 == 2 + 2]  # by default, the framework thinks the LHS "5" is the important part
+    #         test[5 == the[2 + 2]]  # override it like this
+    #         test[4 == the[2 + 2]]
     #
     #     with testset("test_raises"):
     #         test_raises[RuntimeError, raisef(RuntimeError)]

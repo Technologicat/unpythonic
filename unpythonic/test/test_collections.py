@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, the  # noqa: F401
 from .fixtures import session, testset
 
 from collections.abc import Mapping, MutableMapping, Hashable, Container, Iterable, Sized
@@ -76,8 +76,8 @@ def runtests():
         test[b.x == 23]
 
         b2 = box(17)
-        test[17 in b2]
-        test[23 not in b2]
+        test[17 in the[b2]]
+        test[23 not in the[b2]]
         test[[x for x in b2] == [17]]
         test[b2 == 17]  # for convenience, a box is considered equal to the item it contains
         test[len(b2) == 1]
@@ -130,7 +130,7 @@ def runtests():
         t.join()
         test[unbox(tlb) == 42]  # In the main thread, this box still has the original value.
 
-        test[42 in tlb]
+        test[42 in the[tlb]]
         test[[x for x in tlb] == [42]]
         test[tlb == 42]
         test[len(tlb) == 1]
@@ -171,11 +171,11 @@ def runtests():
         s = Some(None)
         test[s is not None]
         test[unbox(s) is None]
-        test[None in s]
+        test[None in the[s]]
 
         s = Some(42)
         test[unbox(s) == 42]
-        test[42 in s]
+        test[42 in the[s]]
         test_raises[TypeError, s << 23]  # immutable
         test_raises[AttributeError, s.set(23)]
 
@@ -266,7 +266,7 @@ def runtests():
         test[frozendict() is frozendict()]  # empty-frozendict singleton property
 
         d7 = frozendict({1: 2, 3: 4})
-        test[3 in d7]
+        test[3 in the[d7]]
         test[len(d7) == 2]
         test[set(d7.keys()) == {1, 3}]
         test[set(d7.values()) == {2, 4}]
@@ -319,8 +319,8 @@ def runtests():
         test[v[2] == 10]
         test[v[::-1] == [4, 3, 10, 1, 0]]
         test[tuple(reversed(v)) == (4, 3, 10, 1, 0)]
-        test[10 in v]
-        test[42 not in v]
+        test[10 in the[v]]
+        test[42 not in the[v]]
         test[[x for x in v] == [0, 1, 10, 3, 4]]
         test[len(v) == 5]
         test[v.index(10) == 2]

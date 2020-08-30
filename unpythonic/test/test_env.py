@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, the  # noqa: F401
 from .fixtures import session, testset
 
 from ..env import env
@@ -49,8 +49,8 @@ def runtests():
                 test[e2 != e]
 
             # membership testing
-            test["x" in e]
-            test["a" not in e]
+            test["x" in the[e]]
+            test["a" not in the[e]]
 
             # modify existing binding
             test[e.set("x", 42) == 42]  # returns the new value

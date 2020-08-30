@@ -6,9 +6,11 @@ See also `unpythonic.test.fixtures` for the high-level machinery.
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+from macropy.core.walkers import Walker
+from macropy.core.macros import macro_stub
 from macropy.core import unparse
 
-from ast import Tuple, Str, Subscript, Name, Call, copy_location, Compare, In, NotIn
+from ast import Tuple, Str, Subscript, Name, Call, copy_location, Compare, arg
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..misc import callsite_filename, safeissubclass
@@ -343,6 +345,42 @@ def warn_expr(tree):
 # -----------------------------------------------------------------------------
 # Expr variants.
 
+@macro_stub
+def the(*args, **kwargs):
+    """[syntax] In a `test[]`, mark a subexpression as the interesting one.
+
+    Examples::
+
+        test[myconstant in the[computeset(...)]]
+
+        test[the[computeitem(...)] in expected_results_plus_uninteresting_items]
+
+    The value of the interesting expression is what gets reported as "result"
+    if the test fails. By default, `test[expr]` captures for reporting::
+
+      - The LHS, if `expr` is a comparison. So e.g. `test[x < 3]` needs no
+        annotation to do the right thing.
+      - The whole `expr` otherwise.
+
+    Because occasionally it is nice to capture some other part for display,
+    we provide the `the[...]` mark. When the mark is present inside `expr`,
+    the subexpression marked as `the[...]` is captured.
+
+    The value is passed through (actually, the whole mark is deleted during
+    macro expansion).
+
+    A `test[...]` may have at most one `the[...]`. In case of nested tests,
+    each `the[...]` is for the lexically innermost surrounding one.
+
+    For `test_raises[...]` and `test_signals[...]`, the `the[...]` mark is
+    not supported.
+
+    The `the[...]` mark is especially useful in case of tests using `in` or
+    `not in`, since for those either side of the comparison may be the
+    interesting one, depending on the use case.
+    """
+    pass  # pragma: no cover, macro stub
+
 def test_expr(tree):
     # Note we want the line number *before macro expansion*, so we capture it now.
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
@@ -359,37 +397,53 @@ def test_expr(tree):
 
     # We delay the execution of the test expr using a lambda, so
     # `unpythonic_assert` can get control first before the expr runs.
-    #
-    # If the test is a comparison, destructure it into expr (LHS) and check
-    # (everything else) parts. This allows us to include the LHS value into
-    # the test failure message.
-    #
+
     # But before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that too into the test failure message.
     sourcecode = unparse(tree)
-    if type(tree) is Compare:
-        if type(tree.ops[0]) in (In, NotIn):
-            # For the membership tests, the RHS is the important part.
-            # TODO: No, RHS is not always the important part. Can't autodetect.
-            #     test[myconstant in computeset(...)]  # RHS
-            #     test[computeitem(...) in expected_results_plus_uninteresting_items]  # LHS
-            # TODO: Always extract the LHS by default, and let the user override?
-            # TODO: Override with e.g. syntax like test[myconstant in important[dostuff(...)]]?
-            if len(tree.ops) == 1:
-                compute_tree = q[lambda: ast_literal[tree.comparators[0]]]
-                tree.comparators[0] = q[name["value"]]  # the arg of the lambda below
-                check_tree = q[lambda value: ast_literal[tree]]
-            else:  # more than one RHS, so bail; don't try to destructure what we don't understand.
-                compute_tree = q[lambda: ast_literal[tree]]
-                check_tree = q[None]
+
+    gen_sym = dyn.gen_sym
+    vname = gen_sym("value")
+
+    # Destructuring utilities for tagging a custom part of the expr
+    # to be displayed upon test failure, using `the[...]`:
+    #   test[myconstant in the[computeset(...)]]
+    #   test[the[computeitem(...)] in expected_results_plus_uninteresting_items]
+    def is_important_expr_tag(tree):
+        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "the"
+    @Walker
+    def istagged(tree, *, collect, stop, **kw):
+        if is_important_expr_tag(tree):
+            stop()
+            collect(tree.slice.value)
+            return q[name[vname]]
+        return tree
+
+    tree, the_exprs = istagged.recurse_collect(tree)
+    if len(the_exprs) > 1:
+        assert False, "test[]: At most one `the[...]` may appear in expr"  # pragma: no cover
+    elif len(the_exprs) == 1:
+        # Manually marked interesting subexpression; capture it.
+        the_expr = the_exprs[0]
+        compute_tree = q[lambda: ast_literal[the_expr]]
+        check_tree = q[lambda _: ast_literal[tree]]
+        check_tree.args.args[0] = arg(arg=vname)  # inject the gensymmed parameter name
+    else:  # default capture logic
+        if type(tree) is Compare:
+            # If the test is a comparison, we destructure it into compute (LHS)
+            # and check (everything else) parts. This allows us to automatically
+            # include the LHS value into the test failure message.
+            the_expr = tree.left
+            compute_tree = q[lambda: ast_literal[the_expr]]
+            tree.left = q[name[vname]]
+            check_tree = q[lambda _: ast_literal[tree]]
+            check_tree.args.args[0] = arg(arg=vname)  # inject the gensymmed parameter name
         else:
-            # For anything but a membership test, the LHS is the important part.
-            compute_tree = q[lambda: ast_literal[tree.left]]
-            tree.left = q[name["value"]]  # the arg of the lambda below
-            check_tree = q[lambda value: ast_literal[tree]]
-    else:
-        compute_tree = q[lambda: ast_literal[tree]]
-        check_tree = q[None]  # the check is optional, defaulting to a truth value check.
+            # Otherwise we capture the whole expr.
+            # The asserter skips the custom check if we don't provide one,
+            # so the only thing we actually need to do here is to delay expr.
+            compute_tree = q[lambda: ast_literal[tree]]
+            check_tree = q[None]  # the check is optional, defaulting to a truth value check.
 
     return q[(ast_literal[asserter])(u[sourcecode],
                                      ast_literal[compute_tree],

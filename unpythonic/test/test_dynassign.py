@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, the  # noqa: F401
 from .fixtures import session, testset, returns_normally
 
 import threading
@@ -64,8 +64,8 @@ def runtests():
     with testset("syntactic sugar"):
         with dyn.let(**D):
             # membership test
-            test["a" in dyn]
-            test["c" not in dyn]
+            test["a" in the[dyn]]
+            test["c" not in the[dyn]]
 
             # subscript syntax as an alternative notation to refer to dynamic vars
             test[dyn.a is dyn["a"]]
