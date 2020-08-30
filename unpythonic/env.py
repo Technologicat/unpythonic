@@ -136,7 +136,10 @@ class env:
             raise TypeError("clearing a finalized environment not allowed")
         return self._env.clear()
     def update(self, *mapping, **bindings):
+        """See `dict.update` for the signature."""
         if mapping:
+            if len(mapping) > 1:
+                raise ValueError("Expected at most one `mapping`, got {}.".format(len(mapping)))
             m = mapping[0]
             if self._finalized and any(k not in self for k in m):
                 raise AttributeError("adding new bindings to a finalized environment is not allowed")
