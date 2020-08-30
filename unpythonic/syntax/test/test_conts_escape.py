@@ -17,13 +17,13 @@ def runtests():
         @call_ec
         def result1(ec):
             y = double_odd(42, ec)  # noqa: F841, this is just a silly example for testing.
-            z = double_odd(21, ec)
-            return z
+            z = double_odd(21, ec)  # pragma: no cover, should not be reached.
+            return z  # pragma: no cover, should not be reached.
         @call_ec
         def result2(ec):
             y = double_odd(21, ec)  # noqa: F841, this is just a silly example for testing.
             z = double_odd(42, ec)
-            return z
+            return z  # pragma: no cover, should not be reached.
         test[result1 == "not odd"]
         test[result2 == "not odd"]
 
@@ -37,13 +37,13 @@ def runtests():
             @call_ec
             def result1(ec):
                 y = double_odd(42, ec)  # noqa: F841, this is just a silly example for testing.
-                z = double_odd(21, ec)  # avoid tail-calling because ec is not valid after result1() exits
-                return z
+                z = double_odd(21, ec)  # avoid tail-calling because ec is not valid after result1() exits  # pragma: no cover, should not be reached.
+                return z  # pragma: no cover, should not be reached.
             @call_ec
             def result2(ec):
                 y = double_odd(21, ec)  # noqa: F841, this is just a silly example for testing.
                 z = double_odd(42, ec)
-                return z
+                return z  # pragma: no cover, should not be reached.
             test[result1 == "not odd"]
             test[result2 == "not odd"]
 
@@ -79,12 +79,12 @@ def runtests():
                 return 2 * x
             def main1(cc):
                 y = call_cc[double_odd(42, ec=cc)]  # noqa: F841, this is just a silly example for testing.
-                z = call_cc[double_odd(21, ec=cc)]
-                return z
+                z = call_cc[double_odd(21, ec=cc)]  # pragma: no cover, should not be reached.
+                return z  # pragma: no cover, should not be reached.
             def main2(cc):
                 y = call_cc[double_odd(21, ec=cc)]  # noqa: F841, this is just a silly example for testing.
                 z = call_cc[double_odd(42, ec=cc)]
-                return z
+                return z  # pragma: no cover, should not be reached.
             # call_cc[] captures the actual cont, so now this works as expected.
             test[main1() == "not odd"]
             test[main2() == "not odd"]
@@ -104,7 +104,7 @@ def runtests():
                 return 2 * x
             def main1(cc):
                 y = call_cc[double_odd(42, ec=cc)]  # noqa: F841, this is just a silly example for testing.
-                return double_odd(21, ec=cc)  # tail call, no further code to run in main1 so no call_cc needed.
+                return double_odd(21, ec=cc)  # tail call, no further code to run in main1 so no call_cc needed.  # pragma: no cover, should not be reached.
             def main2(cc):
                 y = call_cc[double_odd(21, ec=cc)]  # noqa: F841, this is just a silly example for testing.
                 return double_odd(42, ec=cc)
