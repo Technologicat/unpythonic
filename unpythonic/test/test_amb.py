@@ -14,7 +14,7 @@ def runtests():
         test[m[0] == 1 and m[1] == 2 and m[2] == 3]
 
         m = MonadicList(nil)  # special *item* that produces an empty *list*
-        test[tuple(m) is ()]
+        test[tuple(m) == ()]
 
         # Monadic bind (for MonadicList, it's flatmap).
         # This also tests fmap and join.
