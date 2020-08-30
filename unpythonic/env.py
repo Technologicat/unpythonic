@@ -88,7 +88,7 @@ class env:
         return e[name]
 
     def __delattr__(self, name):
-        if not name.isidentifier():
+        if not name.isidentifier():  # Can happen through __delitem__.
             raise ValueError("'{}' is not a valid identifier".format(name))
         if self._finalized:
             raise TypeError("deleting bindings from a finalized environment not allowed; attempted to delete '{:s}'".format(name))
