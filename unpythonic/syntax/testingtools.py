@@ -13,10 +13,11 @@ from macropy.core import unparse
 from ast import Tuple, Str, Subscript, Name, Call, copy_location, Compare, arg
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
+from ..env import env
 from ..misc import callsite_filename, safeissubclass
 from ..conditions import cerror, handlers, restarts, invoke
 from ..collections import unbox
-from ..symbol import sym
+from ..symbol import sym, gensym
 
 from .util import isx
 
@@ -56,7 +57,7 @@ _fail = sym("_fail")  # used by the fail[] macro
 _error = sym("_error")  # used by the error[] macro
 _warn = sym("_warn")  # used by the warn[] macro
 
-_completed = sym("_completed")  # returned normally
+_completed = sym("_completed")  # thunk returned normally
 _signaled = sym("_signaled")  # via unpythonic.conditions.signal and its sisters
 _raised = sym("_raised")  # via raise
 def _observe(thunk):
@@ -76,21 +77,11 @@ def _observe(thunk):
         if not fixtures._catch_uncaught_signals[0]:
             return  # cancel and delegate to the next outer handler
 
-        def determine_exctype(exc):
-            if isinstance(exc, BaseException):  # "signal(SomeError())"
-                return type(exc)
-            try:
-                if issubclass(exc, BaseException):  # "signal(SomeError)"
-                    return exc
-            except TypeError:  # "issubclass() arg 1 must be a class"
-                pass
-            assert False  # unpythonic.conditions.signal() does the validation for us
-
         # If we get an internal signal from this test framework itself, ignore
         # it and let it fall through to the nearest enclosing `testset`, for
         # reporting. This can happen if a `test[]` is nested within a `with
         # test:` block, or if `test[]` expressions are nested.
-        exctype = determine_exctype(condition)
+        exctype = type(condition)
         if issubclass(exctype, fixtures.TestingException):
             return  # cancel and delegate to the next outer handler
         invoke("_got_signal", condition)
@@ -108,7 +99,9 @@ def _observe(thunk):
     except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
         return _raised, err
 
-def unpythonic_assert(sourcecode, compute, check, *, filename, lineno, message=None):
+
+_unassigned = gensym("_unassigned")  # runtime gensym / nonce value.
+def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
     """Custom assert function, for building test frameworks.
 
     Upon a failing assertion, this will *signal* a `fixtures.TestFailure`
@@ -128,26 +121,13 @@ def unpythonic_assert(sourcecode, compute, check, *, filename, lineno, message=N
         `sourcecode` is a string representation of the source code expression
         that is being asserted.
 
-        `compute` and `check` form the test itself.
+        `func` is the test itself, in the form a 1-argument function that
+        takes as its only argument an `unpythonic.env`. (The `the[]`
+        mechanism uses the `env` to store the value of the captured
+        subexpression.)
 
-          - `compute` is a thunk (0-argument function) that computes the
-            desired test expression and returns its value.
-
-          - `check` is one of:
-
-            - `None`, to use a default implicit truth value check against the
-              return value from `compute`.
-
-            - A 1-argument function that, when passed the value returned by
-              `compute`, returns a truth value that indicates whether
-              the test passed.
-
-              This is useful for e.g. splitting a comparison test `expr < 3`
-              into the `expr` and `... < 3` parts, so that upon failure, the
-              test framework can print the unexpected value of `expr` for
-              human inspection. (The `test[]` macro does this splitting.)
-
-        If the result of the check is falsey, the assertion fails.
+        The function should compute the desired test expression and return
+        its value. If the result is falsey, the assertion fails.
 
         `filename` is the filename at the call site, if applicable. (If called
         from the REPL, there is no file.)
@@ -161,33 +141,18 @@ def unpythonic_assert(sourcecode, compute, check, *, filename, lineno, message=N
 
     No return value.
     """
-    mode, value = _observe(compute)
-    test_result = value
+    # The the[] marker, if any, inside a test[], injects code to record the
+    # value of the interesting subexpression as `captured_value` in the env
+    # we send to `func` as its argument.
+    e = env(captured_value=_unassigned)
+    mode, test_result = _observe(lambda: func(e))  # <-- run the actual expr being asserted
+    if e.captured_value is not _unassigned:
+        value = e.captured_value
+    else:
+        # It's legal to omit capturing the value of any subexpr.
+        # In that case, we capture the value of the whole expression.
+        value = test_result
     fixtures._update(fixtures.tests_run, +1)
-
-    # We populate `wrong_value_msg` pre-emptively, even if the value is correct.
-    # It's only used if `compute` (and the optional `check`, if any) return normally,
-    # but the value is not what was expected.
-    if check is None:  # implicit check for truth value
-        wrong_value_msg = ", due to result = {}".format(value)
-    elif mode is _completed:  # check is not None and...
-        # Custom check, via comparison destructuring in `test_expr`.
-        # Only meaningful to run it if `compute` returned normally.
-        # We need to harness `check`, too, in case *it* is faulty.
-        check_mode, test_result = _observe(lambda: check(value))
-        if check_mode is _completed:
-            # Both `compute` and `check` returned normally. Pre-populate the error message.
-            # We can't call this "LHS", because in a membership test `in`/`not in`,
-            # the computed expr is on the RHS. So let's just call it "result".
-            wrong_value_msg = ", due to result = {}".format(value)
-        else:  # pragma: no cover
-            # `check` crashed, e.g. test[myfunc() == 1/0]
-            assert check_mode in (_signaled, _raised)
-            # `wrong_value_msg` not used in the code path that starts here.
-            # Replace the original mode and error message so we report the `check` failure instead.
-            mode = check_mode
-            message = "Failure during checking test result"
-            # Note test_result is the failure from observing the check.
 
     if message is not None:
         custom_msg = ", with message '{}'".format(message)
@@ -235,7 +200,7 @@ def unpythonic_assert(sourcecode, compute, check, *, filename, lineno, message=N
             return
         fixtures._update(fixtures.tests_failed, +1)
         conditiontype = fixtures.TestFailure
-        error_msg = "Test failed: {}{}{}".format(sourcecode, wrong_value_msg, custom_msg)
+        error_msg = "Test failed: {}, due to result = {}{}".format(sourcecode, value, custom_msg)
     elif mode is _signaled:
         fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
@@ -347,37 +312,40 @@ def warn_expr(tree):
 
 @macro_stub
 def the(*args, **kwargs):
-    """[syntax] In a `test[]`, mark a subexpression as the interesting one.
+    """[syntax, expr] In a `test[]`, mark a subexpression as the interesting one.
 
-    Examples::
+    What `test[expr]` captures for reporting as "result" if the test fails::
 
+      - If `the[...]` is present, the subexpression marked as `the[...]`.
+      - Else if `expr` is a comparison, the LHS (leftmost term in case of
+        a chained comparison). So e.g. `test[x < 3]` (or the second example
+        above) needs no annotation to do the right thing. This is a common
+        use case, hence automatic.
+      - Else the whole `expr`.
+
+    So the `the[...]` mark is useful in tests involving comparisons::
+
+        test[lower_limit < the[computeitem(...)]]
+        test[lower_limit < the[computeitem(...)] < upper_limit]
         test[myconstant in the[computeset(...)]]
 
-        test[the[computeitem(...)] in expected_results_plus_uninteresting_items]
+    Note the above rules mean that if the interesting subexpression is the
+    leftmost term of a comparison, `the[...]` is optional, although allowed
+    (to explicitly document intent). These have the same effect::
 
-    The value of the interesting expression is what gets reported as "result"
-    if the test fails. By default, `test[expr]` captures for reporting::
+        test[the[computeitem(...)] in myitems]
+        test[computeitem(...) in myitems]
 
-      - The LHS, if `expr` is a comparison. So e.g. `test[x < 3]` needs no
-        annotation to do the right thing.
-      - The whole `expr` otherwise.
+    The `the[...]` mark passes the value through, and does not affect the
+    evaluation order of user code.
 
-    Because occasionally it is nice to capture some other part for display,
-    we provide the `the[...]` mark. When the mark is present inside `expr`,
-    the subexpression marked as `the[...]` is captured.
+    A `test[...]` may have at most one `the[...]`.
 
-    The value is passed through (actually, the whole mark is deleted during
-    macro expansion).
-
-    A `test[...]` may have at most one `the[...]`. In case of nested tests,
-    each `the[...]` is for the lexically innermost surrounding one.
+    In case of nested tests, each `the[...]` is understood as belonging to
+    the lexically innermost surrounding one.
 
     For `test_raises[...]` and `test_signals[...]`, the `the[...]` mark is
     not supported.
-
-    The `the[...]` mark is especially useful in case of tests using `in` or
-    `not in`, since for those either side of the comparison may be the
-    interesting one, depending on the use case.
     """
     pass  # pragma: no cover, macro stub
 
@@ -403,51 +371,35 @@ def test_expr(tree):
     sourcecode = unparse(tree)
 
     gen_sym = dyn.gen_sym
-    vname = gen_sym("value")
+    envname = gen_sym("e")  # for injecting the captured value
 
     # Destructuring utilities for tagging a custom part of the expr
     # to be displayed upon test failure, using `the[...]`:
     #   test[myconstant in the[computeset(...)]]
     #   test[the[computeitem(...)] in expected_results_plus_uninteresting_items]
-    def is_important_expr_tag(tree):
+    def is_important_subexpr_tag(tree):
         return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "the"
+    def inject_value_recorder(tree):  # wrap tree with the the[] handler
+        return q[name[envname].set("captured_value", ast_literal[tree])]
     @Walker
     def istagged(tree, *, collect, stop, **kw):
-        if is_important_expr_tag(tree):
+        if is_important_subexpr_tag(tree):
             stop()
-            collect(tree.slice.value)
-            return q[name[vname]]
+            collect(tree.slice.value)  # or anything really; value not used, we just count them.
+            return inject_value_recorder(tree.slice.value)
         return tree
 
     tree, the_exprs = istagged.recurse_collect(tree)
     if len(the_exprs) > 1:
         assert False, "test[]: At most one `the[...]` may appear in expr"  # pragma: no cover
-    elif len(the_exprs) == 1:
-        # Manually marked interesting subexpression; capture it.
-        the_expr = the_exprs[0]
-        compute_tree = q[lambda: ast_literal[the_expr]]
-        check_tree = q[lambda _: ast_literal[tree]]
-        check_tree.args.args[0] = arg(arg=vname)  # inject the gensymmed parameter name
-    else:  # default capture logic
-        if type(tree) is Compare:
-            # If the test is a comparison, we destructure it into compute (LHS)
-            # and check (everything else) parts. This allows us to automatically
-            # include the LHS value into the test failure message.
-            the_expr = tree.left
-            compute_tree = q[lambda: ast_literal[the_expr]]
-            tree.left = q[name[vname]]
-            check_tree = q[lambda _: ast_literal[tree]]
-            check_tree.args.args[0] = arg(arg=vname)  # inject the gensymmed parameter name
-        else:
-            # Otherwise we capture the whole expr.
-            # The asserter skips the custom check if we don't provide one,
-            # so the only thing we actually need to do here is to delay expr.
-            compute_tree = q[lambda: ast_literal[tree]]
-            check_tree = q[None]  # the check is optional, defaulting to a truth value check.
+    if len(the_exprs) == 0 and type(tree) is Compare:  # inject the implicit the[] on the LHS
+        tree.left = inject_value_recorder(tree.left)
+
+    func_tree = q[lambda _: ast_literal[tree]]  # create the function that takes in the env
+    func_tree.args.args[0] = arg(arg=envname)  # inject the gensymmed parameter name
 
     return q[(ast_literal[asserter])(u[sourcecode],
-                                     ast_literal[compute_tree],
-                                     ast_literal[check_tree],
+                                     ast_literal[func_tree],
                                      filename=ast_literal[filename],
                                      lineno=ast_literal[ln],
                                      message=ast_literal[message])]

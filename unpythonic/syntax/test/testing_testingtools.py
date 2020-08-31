@@ -93,6 +93,24 @@ def runtests():
     assert tests_failed == 0
     assert tests_errored == 1
 
+    # Test the `the[]` marker, which changes which subexpression has its value
+    # captured for test failure message display purposes.
+    tests_failed << 0
+    tests_errored << 0
+    tests_run << 0
+    with handlers(((TestFailure, TestError), report_and_proceed)):
+        count = 0
+        def counter():
+            nonlocal count
+            count += 1
+            return count
+        test[counter() < counter()]
+        test[the[counter()] < counter()]
+        test[counter() < the[counter()]]  # evaluation order not affected
+    assert tests_run == 3
+    assert tests_failed == 0
+    assert tests_errored == 0
+
     # # If you want to proceed after most failures, but there is some particularly
     # # critical test which, if it fails, should abort the rest of the whole unit,
     # # you can override the handler locally:
