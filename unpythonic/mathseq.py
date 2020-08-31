@@ -51,7 +51,7 @@ try:
     from mpmath import mpf, almosteq as mpf_almosteq
 except ImportError:
     # Can't use a gensym here since `mpf` must be a unique *type*.
-    mpf = type(_NoSuchType())
+    mpf = _NoSuchType
     mpf_almosteq = None
 
 def _numsign(x):
@@ -73,7 +73,7 @@ try:
 except ImportError:
     log = math_log
     sign = _numsign
-    _symExpr = type(_NoSuchType())
+    _symExpr = _NoSuchType
 
 def almosteq(a, b, tol=1e-8):
     """Almost-equality that supports several formats.
