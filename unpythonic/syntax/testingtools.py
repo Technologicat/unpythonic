@@ -434,15 +434,6 @@ def test_expr_raises(tree):
 # -----------------------------------------------------------------------------
 # Block variants.
 
-def _make_identifier(s):
-    """Given a human-readable label, attempt to convert it into an identifier."""
-    maybe_identifier = s.replace(" ", "_")
-    # Lowercase just the first letter to follow Python function naming conventions.
-    maybe_identifier = maybe_identifier[0].lower() + maybe_identifier[1:]
-    if maybe_identifier.isidentifier():
-        return maybe_identifier
-    return None
-
 # The strategy is we capture the block body into a new function definition,
 # and then apply `test_expr` to a call to that function.
 #
@@ -454,13 +445,8 @@ def _make_identifier(s):
 def test_block(block_body, args):
     # with test(message):
     # TODO: Python 3.8+: ast.Constant, no ast.Str
-    function_name = "anonymous_test_block"
     if len(args) == 1 and type(args[0]) is Str:
         message = args[0]
-        # Name the generated function using the failure message when possible.
-        maybe_function_name = _make_identifier(message.s)
-        if maybe_function_name is not None:
-            function_name = maybe_function_name
     # with test:
     elif len(args) == 0:
         message = None
@@ -468,9 +454,9 @@ def test_block(block_body, args):
         assert False, 'Expected `with test:` or `with test(message):`'
 
     gen_sym = dyn.gen_sym
-    final_function_name = gen_sym(function_name)
+    function_name = gen_sym("test_block")
 
-    thecall = q[name[final_function_name]()]
+    thecall = q[name[function_name]()]
     if message is not None:
         # Fill in the source line number; the `test_expr_raises` syntax transformer needs
         # to have it in the top-level node of the `tree` we hand to it.
@@ -486,7 +472,7 @@ def test_block(block_body, args):
             ...
         ast_literal[thetest]
     thefunc = newbody[0]
-    thefunc.name = final_function_name
+    thefunc.name = function_name
     thefunc.body = block_body
     # Add a `return True` to satisfy the test when the function returns normally.
     with q as thereturn:
@@ -497,13 +483,8 @@ def test_block(block_body, args):
 def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
     # with test_raises(exctype, message):
     # TODO: Python 3.8+: ast.Constant, no ast.Str
-    function_name = "anonymous_test_block"
     if len(args) == 2 and type(args[1]) is Str:
         exctype, message = args
-        # Name the generated function using the failure message when possible.
-        maybe_function_name = _make_identifier(message.s)
-        if maybe_function_name is not None:
-            function_name = maybe_function_name
     # with test_raises(exctype):
     elif len(args) == 1:
         exctype = args[0]
@@ -512,9 +493,9 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
         assert False, 'Expected `with {stx}(exctype):` or `with {stx}(exctype, message):`'.format(stx=syntaxname)
 
     gen_sym = dyn.gen_sym
-    final_function_name = gen_sym(function_name)
+    function_name = gen_sym("test_block")
 
-    thecall = q[name[final_function_name]()]
+    thecall = q[name[function_name]()]
     if message is not None:
         # Fill in the source line number; the `test_expr_raises` and
         # `test_expr_signals` syntax transformers need to have it in
@@ -532,7 +513,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
             ...
         ast_literal[thetest]
     thefunc = newbody[0]
-    thefunc.name = final_function_name
+    thefunc.name = function_name
     thefunc.body = block_body
     return newbody
 
