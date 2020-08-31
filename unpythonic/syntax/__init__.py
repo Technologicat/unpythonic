@@ -2083,20 +2083,23 @@ def test(tree, args, *, gen_sym, **kw):  # noqa: F811
 
 @macros.expr  # noqa: F811
 def test(tree, *, gen_sym, **kw):  # noqa: F811
-    """[syntax] Make a test assertion. For building automated tests.
+    """[syntax] Make a test assertion. For writing automated tests.
 
     **Testing overview**:
-
-    Use `testset` from `unpythonic.test.fixtures` to automatically handle
-    failure and error reporting. See the unit tests of `unpythonic` for
-    examples.
 
     Use the `test[]`, `test_raises[]`, `test_signals[]`, `fail[]`, `error[]`
     and `warn[]` macros inside a `with testset()`, as appropriate.
 
-    See also the docstrings of any constructs exported from that module.
+    See `testset` and `session` in the module `unpythonic.test.fixtures`,
+    as well as the docstrings of any constructs exported from that module.
 
-    **Expression variant**::
+    See below for tips and tricks.
+
+    Finally, see the unit tests of `unpythonic` itself for examples.
+
+    **Expression variant**:
+
+    Syntax::
 
         test[expr]
         test[expr, message]
@@ -2112,57 +2115,80 @@ def test(tree, *, gen_sym, **kw):  # noqa: F811
         test[returns_normally(expr)]
         test[returns_normally(expr), message]
 
-    This can be useful for testing functions with side effects.
-    Beside checking what the side effects did, it can be useful
-    to assert that the function completed normally.
+    This can be useful for testing functions with side effects; sometimes
+    what is important is that the function completes normally.
 
-    Upon test failure, the expression variant of the `test[]` macro
-    captures as "result" and prints the value of:
+    What `test[expr]` captures for reporting as "result" in the failure
+    message, if the test fails:
 
-      - If `expr` is a comparison: the LHS.
-      - Otherwise, the whole `expr`.
+      - If a `the[...]` mark is present, the subexpression marked as `the[...]`.
+        At most one `the[]` may appear in a single `test[...]`.
+      - Else if `expr` is a comparison, the LHS (leftmost term in case of
+        a chained comparison). So e.g. `test[x < 3]` needs no annotation
+        to do the right thing. This is a common use case, hence automatic.
+      - Else the whole `expr`.
 
-    If you want to override, then inside the `test[...]`, mark your
-    interesting subexpression as `the[subexpr]`.
+    The `the[...]` mark is useful in tests involving comparisons::
 
-    The `the[]` 'macro' (actually just a mark) can also be imported
-    from this module, so that its appearance in your source code
-    won't confuse `flake8`, even though the mark is deleted during
-    macro expansion.
+        test[lower_limit < the[computeitem(...)]]
+        test[lower_limit < the[computeitem(...)] < upper_limit]
+        test[myconstant in the[computeset(...)]]
 
-    At most one `the[]` may appear in a single `test[...]`.
+    If your interesting part is on the LHS, `the[]` is optional, although
+    allowed (to explicitly document intent). These have the same effect::
 
-    **Block variant**::
+        test[the[computeitem(...)] in myitems]
+        test[computeitem(...) in myitems]
+
+    The `the[...]` mark passes the value through, and does not affect the
+    evaluation order of user code.
+
+    The `the[]` mark can be imported as a macro from this module, so that
+    its appearance in your source code won't confuse `flake8`.
+
+    **Block variant**:
+
+    A test that requires statements (e.g. assignments) can be written as a
+    `with test` block::
 
         with test:
             body0
             ...
+            return expr  # optional
 
         with test(message):
             body0
             ...
+            return expr  # optional
 
-    The test succeeds if the block body runs to completion normally.
+    The test block is automatically lifted into a function, so it introduces
+    **a local scope**. Use the `nonlocal` or `global` declarations if you need
+    to mutate something defined on the outside.
 
-    No meaningful capture is done in the block variant; the `the[]` mark
-    is **not** supported.
+    If there is a `return` at the top level of the block, that is the return
+    value from the test; it is what will be asserted.
 
-    **CAUTION**: the block variant implicitly inserts a `def` and then
-    delegates to the expression variant (to `test[]` a call into the newly
-    defined thunk), so any new variables assigned to will be local to
-    the `with test` block.
+    If there is no `return`, the test asserts that the block completes normally,
+    just like a `test[returns_normally(...)]` does for an expression.
 
-    Use the `nonlocal` or `global` declarations if you need to mutate something
-    defined on the outside.
+    (The asymmetry in syntax reflects the asymmetry between expressions and
+    statements in Python. Likewise, the fact that `with test` requires `return`
+    to return a value, but `test[...]` doesn't, is similar to the difference
+    between `def` and `lambda`.)
 
-    The implicitly defined thunk, if it returns normally, always returns
-    `True`, so that upon normal completion, the test succeeds.
+    In the block variant, the "result" capture rules apply to the return value
+    designated by `return`. To override, the `the[]` mark can be used for
+    capturing the value of any one expression inside the block. (It doesn't
+    have to be in the `return`.)
+
+    At most one `the[]` may appear in the same `with test` block.
 
     **Failure and error signaling**:
 
     Upon a test failure, `test[]` will *signal* a `TestFailure` using the
-    *cerror* (correctable error) protocol, via unpythonic's condition system,
-    which is a pythonification of that in Common Lisp. See `unpythonic.conditions`.
+    *cerror* (correctable error) protocol, via unpythonic's condition
+    system, which is a pythonification of Common Lisp's condition system.
+    See `unpythonic.conditions`.
 
     If a test fails to run to completion due to an uncaught exception or an
     unhandled signal (e.g. an `error` or `cerror` condition), `TestError`
@@ -2181,12 +2207,12 @@ def test(tree, *, gen_sym, **kw):  # noqa: F811
 
     As implied above, `test[]` (likewise `with test:`) forms a barrier that
     alerts the user about uncaught signals, and stops those signals from
-    propagating further. If your `with handlers` block that needs to see the
-    signal is outside the `test`, or if allowing a signal to go uncaught is
-    part of normal operation (e.g. `warn` signals are often not caught, because
-    the only reason to do so would be to muffle the warning), use a `with
-    catch_signals(False):` block (from `unpythonic.test.fixtures`) to disable
-    the signal barrier::
+    propagating further. If your `with handlers` block that needs to see
+    the signal is outside the `test` invocation, or if allowing a signal to
+    go uncaught is part of normal operation (e.g. `warn` signals are often
+    not caught, because the only reason to do so is to muffle the warning),
+    use a `with catch_signals(False):` block (from the module
+    `unpythonic.test.fixtures`) to disable the signal barrier::
 
         from unpythonic.test.fixtures import catch_signals
 
@@ -2195,14 +2221,15 @@ def test(tree, *, gen_sym, **kw):  # noqa: F811
 
     Another way to avoid catching signals that should not be caught by the
     test framework is to rearrange the `test[]` so that the expression being
-    asserted cannot signal. For example, save the result of a computation
-    into a variable first, and then use it in the `test[]`, instead of
-    invoking that computation inside the `test[]`. See
+    asserted cannot result in an uncaught signal. For example, save the result
+    of a computation into a variable first, and then use it in the `test[]`,
+    instead of invoking that computation inside the `test[]`. See
     `unpythonic.test.test_conditions` for examples.
 
     Exceptions are always caught by `test[]`, because exceptions do not support
-    resumption; unlike with signals, the inner level is already destroyed by
-    the time the exception is caught by the test construct.
+    resumption; unlike with signals, the inner level of the call stack is already
+    destroyed by the time the exception is caught by the test construct.
+
     """
     with dyn.let(gen_sym=gen_sym):
         return _test_expr(tree)
@@ -2245,7 +2272,10 @@ def test_signals(tree, **kw):  # noqa: F811
     If `expr` signals some other type of condition, or raises an exception, the
     test errors.
 
-    This macro **does not** support using the `the[]` mark.
+    **Differences to `test[]`, `with test`**:
+
+    As the focus of this construct is on signaling vs. returning normally, the
+    `the[]` mark is not supported. The block variant does not support `return`.
     """
     return _test_expr_signals(tree)
 
@@ -2286,7 +2316,10 @@ def test_raises(tree, **kw):  # noqa: F811
     If `expr` signals a condition, or raises some other type of exception, the
     test errors.
 
-    This macro **does not** support using the `the[]` mark.
+    **Differences to `test[]`, `with test`**:
+
+    As the focus of this construct is on raising vs. returning normally, the
+    `the[]` mark is not supported. The block variant does not support `return`.
     """
     return _test_expr_raises(tree)
 

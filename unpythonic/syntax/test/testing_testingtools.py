@@ -203,6 +203,30 @@ def runtests():
     #     error["Use error[] to e.g. signify optional dependencies failed to load."]
     #     warn["Use warn[] to e.g. signify that some of your tests are currently disabled."]
     #
+    #     # Tests that require statements (e.g. assignments) can be written as a `with test` block.
+    #     # The test block is automatically lifted into a function, so it introduces a local scope.
+    #     #
+    #     # If there is a `return`, the return value will be asserted.
+    #     # If there is no `return`, the test asserts that the block completes normally.
+    #     with testset("test blocks"):
+    #         with test:
+    #             a = 2
+    #             return a + a == 4
+    #
+    #         # A test block can have a failure message:
+    #         with test("should be three, no?"):
+    #             a = 2
+    #             return a + a == 3
+    #
+    #         # Similarly, there are also `with test_raises` and `with test_signals` blocks,
+    #         # though they don't support `return` - they always assert that the block
+    #         # raises or signals, respectively.
+    #         with test_raises(RuntimeError):
+    #             raise RuntimeError()
+    #
+    #         with test_raises(RuntimeError, "should have raised"):
+    #             raise RuntimeError()
+    #
     #     # By default, for test failure reporting, `test[]` captures as "result":
     #     #   - If the test is a comparison: the LHS
     #     #   - Otherwise, the whole expr.
@@ -211,6 +235,14 @@ def runtests():
     #         test[5 == 2 + 2]  # by default, the framework thinks the LHS "5" is the important part
     #         test[5 == the[2 + 2]]  # override it like this
     #         test[4 == the[2 + 2]]
+    #
+    #         # `the[]` also works in `with test` blocks.
+    #         #
+    #         # It doesn't need to be in the `return` expression; can be on any expression
+    #         # inside the block.
+    #         with test:
+    #             a = 2
+    #             return the[a + a] == 4
     #
     #     with testset("test_raises"):
     #         test_raises[RuntimeError, raisef(RuntimeError)]
