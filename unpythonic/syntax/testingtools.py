@@ -312,7 +312,9 @@ def warn_expr(tree):
 
 @macro_stub
 def the(*args, **kwargs):
-    """[syntax, expr] In a `test[]`, mark a subexpression as the interesting one.
+    """[syntax, expr] In a test, mark a subexpression as the interesting one.
+
+    Only meaningful inside a `test[]`, or inside a `with test` block.
 
     What `test[expr]` captures for reporting as "result" if the test fails:
 
@@ -344,8 +346,7 @@ def the(*args, **kwargs):
     In case of nested tests, each `the[...]` is understood as belonging to
     the lexically innermost surrounding one.
 
-    For `test_raises[...]` and `test_signals[...]`, the `the[...]` mark is
-    not supported.
+    For `test_raises` and `test_signals`, the `the[...]` mark is not supported.
     """
     pass  # pragma: no cover, macro stub
 
