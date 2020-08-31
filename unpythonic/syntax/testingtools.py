@@ -10,7 +10,7 @@ from macropy.core.walkers import Walker
 from macropy.core.macros import macro_stub
 from macropy.core import unparse
 
-from ast import Tuple, Str, Subscript, Name, Call, copy_location, Compare, arg
+from ast import Tuple, Str, Subscript, Name, Call, copy_location, Compare, arg, Return
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..env import env
@@ -314,7 +314,7 @@ def warn_expr(tree):
 def the(*args, **kwargs):
     """[syntax, expr] In a `test[]`, mark a subexpression as the interesting one.
 
-    What `test[expr]` captures for reporting as "result" if the test fails::
+    What `test[expr]` captures for reporting as "result" if the test fails:
 
       - If `the[...]` is present, the subexpression marked as `the[...]`.
       - Else if `expr` is a comparison, the LHS (leftmost term in case of
@@ -349,6 +349,22 @@ def the(*args, **kwargs):
     """
     pass  # pragma: no cover, macro stub
 
+# Destructuring utilities for marking a custom part of the expr
+# to be displayed upon test failure, using `the[...]`:
+#   test[myconstant in the[computeset(...)]]
+#   test[the[computeitem(...)] in expected_results_plus_uninteresting_items]
+def _is_important_subexpr_mark(tree):
+    return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "the"
+def _inject_value_recorder(envname, tree):  # wrap tree with the the[] handler
+    return q[name[envname].set("captured_value", ast_literal[tree])]
+@Walker
+def _transform_important_subexpr(tree, *, collect, stop, envname, **kw):
+    if _is_important_subexpr_mark(tree):
+        stop()
+        collect(tree.slice.value)  # or anything really; value not used, we just count them.
+        return _inject_value_recorder(envname, tree.slice.value)
+    return tree
+
 def test_expr(tree):
     # Note we want the line number *before macro expansion*, so we capture it now.
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
@@ -363,38 +379,25 @@ def test_expr(tree):
     else:
         message = q[None]
 
-    # We delay the execution of the test expr using a lambda, so
-    # `unpythonic_assert` can get control first before the expr runs.
-
-    # But before we edit the tree, get the source code in its pre-transformation
-    # state, so we can include that too into the test failure message.
+    # Before we edit the tree, get the source code in its pre-transformation
+    # state, so we can include that into the test failure message.
     sourcecode = unparse(tree)
 
     gen_sym = dyn.gen_sym
     envname = gen_sym("e")  # for injecting the captured value
 
-    # Destructuring utilities for tagging a custom part of the expr
-    # to be displayed upon test failure, using `the[...]`:
-    #   test[myconstant in the[computeset(...)]]
-    #   test[the[computeitem(...)] in expected_results_plus_uninteresting_items]
-    def is_important_subexpr_tag(tree):
-        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "the"
-    def inject_value_recorder(tree):  # wrap tree with the the[] handler
-        return q[name[envname].set("captured_value", ast_literal[tree])]
-    @Walker
-    def istagged(tree, *, collect, stop, **kw):
-        if is_important_subexpr_tag(tree):
-            stop()
-            collect(tree.slice.value)  # or anything really; value not used, we just count them.
-            return inject_value_recorder(tree.slice.value)
-        return tree
-
-    tree, the_exprs = istagged.recurse_collect(tree)
+    # Handle the `the[...]` mark, if any.
+    tree, the_exprs = _transform_important_subexpr.recurse_collect(tree, envname=envname)
     if len(the_exprs) > 1:
         assert False, "test[]: At most one `the[...]` may appear in expr"  # pragma: no cover
     if len(the_exprs) == 0 and type(tree) is Compare:  # inject the implicit the[] on the LHS
-        tree.left = inject_value_recorder(tree.left)
+        tree.left = _inject_value_recorder(envname, tree.left)
 
+    # We delay the execution of the test expr using a lambda, so
+    # `unpythonic_assert` can get control first before the expr runs.
+    #
+    # Also, we need the lambda for passing in the value capture environment
+    # for the `the[]` mark, anyway.
     func_tree = q[lambda _: ast_literal[tree]]  # create the function that takes in the env
     func_tree.args.args[0] = arg(arg=envname)  # inject the gensymmed parameter name
 
@@ -435,49 +438,73 @@ def test_expr_raises(tree):
 # Block variants.
 
 # The strategy is we capture the block body into a new function definition,
-# and then apply `test_expr` to a call to that function.
-#
-# The function is named with a MacroPy gen_sym; if the test has a failure
-# message, that message is mangled into a function name if reasonably possible.
-# When no message is given or mangling would be nontrivial, we treat the test as
-# an anonymous test block.
-#
+# and then `unpythonic_assert` on that function.
 def test_block(block_body, args):
+    if not block_body:
+        return []  # pragma: no cover, cannot happen through the public API.
+    first_stmt = block_body[0]
+
+    # Note we want the line number *before macro expansion*, so we capture it now.
+    ln = q[u[first_stmt.lineno]] if hasattr(first_stmt, "lineno") else q[None]
+    filename = hq[callsite_filename()]
+    asserter = hq[unpythonic_assert]
+
     # with test(message):
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     if len(args) == 1 and type(args[0]) is Str:
         message = args[0]
     # with test:
     elif len(args) == 0:
-        message = None
+        message = q[None]
     else:
         assert False, 'Expected `with test:` or `with test(message):`'
 
+    # Before we edit the tree, get the source code in its pre-transformation
+    # state, so we can include that into the test failure message.
+    sourcecode = unparse(block_body)
+
     gen_sym = dyn.gen_sym
-    function_name = gen_sym("test_block")
+    envname = gen_sym("e")  # for injecting the captured value
+    testblock_function_name = gen_sym("test_block")
 
-    thecall = q[name[function_name]()]
-    if message is not None:
-        # Fill in the source line number; the `test_expr_raises` syntax transformer needs
-        # to have it in the top-level node of the `tree` we hand to it.
-        thetuple = q[(ast_literal[thecall], ast_literal[message])]
-        thetuple = copy_location(thetuple, block_body[0])
-        thetest = test_expr(thetuple)
-    else:
-        thecall = copy_location(thecall, block_body[0])
-        thetest = test_expr(thecall)
+    # Handle the `the[...]` mark, if any.
+    block_body, the_exprs = _transform_important_subexpr.recurse_collect(block_body, envname=envname)
+    if len(the_exprs) > 1:
+        assert False, "test[]: At most one `the[...]` may appear in a `with test` block"  # pragma: no cover
 
+    thetest = q[(ast_literal[asserter])(u[sourcecode],
+                                        name[testblock_function_name],
+                                        filename=ast_literal[filename],
+                                        lineno=ast_literal[ln],
+                                        message=ast_literal[message])]
     with q as newbody:
-        def _():
+        def _insert_funcname_here_(_insert_envname_here_):
             ...
         ast_literal[thetest]
     thefunc = newbody[0]
-    thefunc.name = function_name
+    thefunc.name = testblock_function_name
+    thefunc.args.args[0] = arg(arg=envname)  # inject the gensymmed parameter name
+
+    # Handle the return statement.
+    #
+    # We just check if there is at least one; if so, we don't need to do
+    # anything; the returned value is what the test should return to the
+    # asserter.
+    for stmt in block_body:
+        if type(stmt) is Return:
+            retval = stmt.value
+            if len(the_exprs) == 0 and type(retval) is Compare:
+                # inject the implicit the[] on the LHS
+                retval.left = _inject_value_recorder(envname, retval.left)
+    else:
+        # When there is no return statement at the top level of the `with test` block,
+        # we inject a `return True` to satisfy the test when the function returns normally.
+        with q as thereturn:
+            return True
+        block_body.append(thereturn)
+
     thefunc.body = block_body
-    # Add a `return True` to satisfy the test when the function returns normally.
-    with q as thereturn:
-        return True
-    thefunc.body.append(thereturn)
+
     return newbody
 
 def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
@@ -493,13 +520,13 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
         assert False, 'Expected `with {stx}(exctype):` or `with {stx}(exctype, message):`'.format(stx=syntaxname)
 
     gen_sym = dyn.gen_sym
-    function_name = gen_sym("test_block")
+    testblock_function_name = gen_sym("test_block")
 
-    thecall = q[name[function_name]()]
+    thecall = q[name[testblock_function_name]()]
     if message is not None:
         # Fill in the source line number; the `test_expr_raises` and
         # `test_expr_signals` syntax transformers need to have it in
-        # the top-level node of the `tree` we hand to it.
+        # the top-level node of the `tree` we hand to them.
         thetuple = q[(ast_literal[exctype], ast_literal[thecall], ast_literal[message])]
         thetuple = copy_location(thetuple, block_body[0])
         thetest = transformer(thetuple)
@@ -509,11 +536,11 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
         thetest = transformer(thetuple)
 
     with q as newbody:
-        def _():
+        def _insert_funcname_here_():
             ...
         ast_literal[thetest]
     thefunc = newbody[0]
-    thefunc.name = function_name
+    thefunc.name = testblock_function_name
     thefunc.body = block_body
     return newbody
 
