@@ -419,9 +419,9 @@ The test macros also come in block variants, `with test`, `with test_raises`, `w
 
 We provide the helper macros `fail[message]`, `error[message]` and `warn[message]` for producing unconditional failures, errors or warnings. Examples of the intended meanings:
 
-- `fail[...]` e.g. for a line that should be unreachable.
-- `error[...]` e.g. if an optional dependency for an integration test is not installed.
-- `warn[...]` e.g. if some test is temporarily disabled, e.g. for syntactic compatibility so that the code can run on an old Python version.
+- `fail[...]` if reaching that point means that the test failed, e.g. on a line that should be unreachable.
+- `error[...]` if the test cannot run, e.g. if an optional dependency for an integration test is not installed.
+- `warn[...]` if the test is temporarily disabled and needs future attention, e.g. for syntactic compatibility to make the code run for now on an old Python version.
 
 Warnings produced by `warn[]` are currently (v0.14.3) not counted in the total number of tests run.
 
