@@ -189,7 +189,11 @@ def autoref(block_body, args, asname):
         # Subscript similarly, a[1][2] --> Subscript(Subscript(a, 1), 2), so Name "a" gets transformed.
         return tree
 
-    # skip (by name) some common references inserted by other macros
+    # Skip (by name) some common references inserted by other macros.
+    #
+    # We are a second-pass macro (inside out), so any first-pass macro invocations,
+    # as well as any second-pass macro invocations inside the `with autoref` block,
+    # have already expanded by the time we run our transformer.
     always_skip = ['letter', 'dof', 'namelambda', 'curry', 'currycall', 'lazy', 'lazyrec', 'maybe_force_args',
                    # test framework stuff
                    'unpythonic_assert', 'unpythonic_assert_signals', 'unpythonic_assert_raises',
