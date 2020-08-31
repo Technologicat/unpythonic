@@ -363,7 +363,7 @@ If this sounds a lot like an exception system, that's because conditions are the
 *[docs TODO]*; for now, look at the docstrings of the various constructs in the example below, the module `unpythonic.test.fixtures` (which provides much of this), and the automated tests of `unpythonic` itself. (Particularly, how to test code using conditions and restarts can be found in `unpythonic.test.test_conditions`.)
 
 ```python
-from unpythonic.syntax import macros, test, test_raises, fail, error
+from unpythonic.syntax import macros, test, test_raises, fail, error, the
 from unpythonic.test.fixtures import session, testset, terminate, returns_normally
 
 def f():
@@ -373,12 +373,22 @@ def g(a, b):
     return a * b
     fail["this line should be unreachable"]
 
+count = 0
+def counter():
+    count += 1
+    return count
+
 with session("simple framework demo"):
     with testset():
         test[2 + 2 == 4]
         test_raises[RuntimeError, f()]
         test[returns_normally(g(2, 3))]
         test[g(2, 3) == 6]
+        # Use `the[]` in a `test[]` to declare the interesting part,
+        # whose value gets displayed in case of a test failure.
+        # Defaults (if no `the[]`) are the leftmost term of
+        # a top-level comparison, and otherwise the whole expr.
+        test[counter() < the[counter()]]
 
     with testset("outer"):
         with testset("inner 1"):
@@ -403,9 +413,19 @@ with session("simple framework demo"):
 
 We provide the low-level syntactic constructs `test[]`, `test_raises[]` and `test_signals[]`, with the usual meanings. The last one is for testing code that uses conditions and restarts; see `unpythonic.conditions`.
 
+Inside a `test[]` expression, `the[]` can be used to declare a subexpression as the interesting part, for displaying its value as *"result"* in the test failure message if the test fails. By default (if no `the[]` is present), `test[]` captures the leftmost term if the top-level expression is a comparison (common use case), and otherwise the whole expression.
+
+There can be at most one `the[]` in each `test`. In case of nested `test[]`, each `the[...]` is understood as belonging to the lexically innermost surrounding one.
+
 The test macros also come in block variants, `with test`, `with test_raises`, `with test_signals`.
 
-We provide the helper macros `fail[message]` and `error[message]` for producing unconditional failures or errors. These can be useful e.g. if a test reached a line that should be unreachable, or when an optional dependency for an integration test is not installed.
+We provide the helper macros `fail[message]`, `error[message]` and `warn[message]` for producing unconditional failures, errors or warnings. Examples of the intended meanings:
+
+- `fail[...]` e.g. for a line that should be unreachable.
+- `error[...]` e.g. if an optional dependency for an integration test is not installed.
+- `warn[...]` e.g. if some test is temporarily disabled, e.g. for syntactic compatibility so that the code can run on an old Python version.
+
+Warnings produced by `warn[]` are currently (v0.14.3) not counted in the total number of tests run.
 
 As usual in test frameworks, the testing constructs behave somewhat like `assert`, with the difference that a failure or error will not abort the whole unit (unless explicitly asked to do so).
 
