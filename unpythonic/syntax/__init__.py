@@ -87,6 +87,25 @@ def autoref(tree, args, *, target, gen_sym, **kw):  # noqa: F811
     are not redirected.
 
     Useful e.g. with the ``.mat`` file loader of SciPy.
+
+    **CAUTION**: `autoref` is essentially the `with` construct of JavaScript
+    (which is completely different from Python's meaning of `with`), which is
+    nowadays deprecated. See:
+
+        https://www.ecma-international.org/ecma-262/6.0/#sec-with-statement
+        https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/with
+        https://2ality.com/2011/06/with-statement.html
+
+    **CAUTION**: The auto-reference `with` construct was deprecated in JavaScript
+    **for security reasons**. Since the autoref'd object **will hijack all name
+    lookups**, use `with autoref` only with an object you trust!
+
+    **CAUTION**: `with autoref` also complicates static code analysis or makes it
+    outright infeasible, for the same reason. It is impossible to statically know
+    whether something that looks like a bare name in the source code is actually
+    a true bare name, or a reference to an attribute of the autoref'd object.
+    That status can also change at any time, since the lookup is dynamic, and
+    attributes can be added and removed dynamically.
     """
     with dyn.let(gen_sym=gen_sym):
         return _autoref(block_body=tree, args=args, asname=target)
