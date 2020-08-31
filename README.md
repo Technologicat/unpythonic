@@ -385,10 +385,7 @@ with session("simple framework demo"):
         test_raises[RuntimeError, f()]
         test[returns_normally(g(2, 3))]
         test[g(2, 3) == 6]
-        # Use `the[]` in a `test[]` to declare the interesting part,
-        # whose value gets displayed in case of a test failure.
-        # Defaults (if no `the[]`) are the leftmost term of
-        # a top-level comparison, and otherwise the whole expr.
+        # Use `the[]` in a `test[]` to declare what you want to inspect if the test fails.
         test[counter() < the[counter()]]
 
     with testset("outer"):
