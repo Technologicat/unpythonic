@@ -508,7 +508,15 @@ def test_block(block_body, args):
 
     return newbody
 
-def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
+def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
+    if not block_body:
+        return []  # pragma: no cover, cannot happen through the public API.
+    first_stmt = block_body[0]
+
+    # Note we want the line number *before macro expansion*, so we capture it now.
+    ln = q[u[first_stmt.lineno]] if hasattr(first_stmt, "lineno") else q[None]
+    filename = hq[callsite_filename()]
+
     # with test_raises(exctype, message):
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     if len(args) == 2 and type(args[1]) is Str:
@@ -516,28 +524,26 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
     # with test_raises(exctype):
     elif len(args) == 1:
         exctype = args[0]
-        message = None
+        message = q[None]
     else:
         assert False, 'Expected `with {stx}(exctype):` or `with {stx}(exctype, message):`'.format(stx=syntaxname)
 
+    # Before we edit the tree, get the source code in its pre-transformation
+    # state, so we can include that into the test failure message.
+    sourcecode = unparse(block_body)
+
     gen_sym = dyn.gen_sym
     testblock_function_name = gen_sym("test_block")
+    #def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, message=None):
 
-    thecall = q[name[testblock_function_name]()]
-    if message is not None:
-        # Fill in the source line number; the `test_expr_raises` and
-        # `test_expr_signals` syntax transformers need to have it in
-        # the top-level node of the `tree` we hand to them.
-        thetuple = q[(ast_literal[exctype], ast_literal[thecall], ast_literal[message])]
-        thetuple = copy_location(thetuple, block_body[0])
-        thetest = transformer(thetuple)
-    else:
-        thetuple = q[(ast_literal[exctype], ast_literal[thecall])]
-        thetuple = copy_location(thetuple, block_body[0])
-        thetest = transformer(thetuple)
-
+    thetest = q[(ast_literal[asserter])(ast_literal[exctype],
+                                        u[sourcecode],
+                                        name[testblock_function_name],
+                                        filename=ast_literal[filename],
+                                        lineno=ast_literal[ln],
+                                        message=ast_literal[message])]
     with q as newbody:
-        def _insert_funcname_here_():
+        def _insert_funcname_here_():  # no env needed, since `the[]` is not meaningful here.
             ...
         ast_literal[thetest]
     thefunc = newbody[0]
@@ -546,6 +552,6 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, transformer):
     return newbody
 
 def test_block_signals(block_body, args):
-    return _test_block_signals_or_raises(block_body, args, "test_signals", test_expr_signals)
+    return _test_block_signals_or_raises(block_body, args, "test_signals", hq[unpythonic_assert_signals])
 def test_block_raises(block_body, args):
-    return _test_block_signals_or_raises(block_body, args, "test_raises", test_expr_raises)
+    return _test_block_signals_or_raises(block_body, args, "test_raises", hq[unpythonic_assert_raises])
