@@ -355,7 +355,7 @@ def test_expr(tree):
     filename = hq[callsite_filename()]
     asserter = hq[unpythonic_assert]
 
-    # test[expr, name]  (like assert expr, name)
+    # test[expr, message]  (like assert expr, message)
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     if type(tree) is Tuple and len(tree.elts) == 2 and type(tree.elts[1]) is Str:
         tree, message = tree.elts
@@ -408,7 +408,7 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = hq[callsite_filename()]
 
-    # test_signals[exctype, expr, name]
+    # test_signals[exctype, expr, message]
     # TODO: Python 3.8+: ast.Constant, no ast.Str
     if type(tree) is Tuple and len(tree.elts) == 3 and type(tree.elts[2]) is Str:
         exctype, tree, message = tree.elts
