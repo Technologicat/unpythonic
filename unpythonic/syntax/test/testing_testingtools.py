@@ -238,8 +238,10 @@ def runtests():
     #
     #         # `the[]` also works in `with test` blocks.
     #         #
-    #         # It doesn't need to be in the `return` expression; can be on any expression
-    #         # inside the block.
+    #         # It doesn't need to be in the `return` expression; it can be on
+    #         # any expression inside the block.
+    #         #
+    #         # Note `with test_raises` and `with test_signals` don't support `the[]`.
     #         with test:
     #             a = 2
     #             return the[a + a] == 4
