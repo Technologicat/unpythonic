@@ -29,7 +29,7 @@ from ..test import fixtures
 # Note the unexpanded `error[]` macro is distinguishable from a call to
 # the function `unpythonic.conditions.error`, because a macro invocation
 # is an `ast.Subscript`, whereas a function call is an `ast.Call`.
-_test_macro_names = ["test", "test_signals", "test_raises", "error", "fail", "warn"]
+_test_macro_names = ["test", "test_signals", "test_raises", "error", "fail", "warn", "the"]
 _test_function_names = ["unpythonic_assert",
                         "unpythonic_assert_signals",
                         "unpythonic_assert_raises"]
