@@ -49,28 +49,45 @@ from sys import float_info
 from math import log as math_log, copysign, trunc, floor, ceil
 try:
     from mpmath import mpf, almosteq as mpf_almosteq
-except ImportError:
+except ImportError:  # pragma: no cover, optional at runtime, but installed at development time.
     # Can't use a gensym here since `mpf` must be a unique *type*.
     mpf = _NoSuchType
     mpf_almosteq = None
 
 def _numsign(x):
+    """The sign function, for numeric inputs."""
     if x == 0:
         return 0
     return int(copysign(1.0, x))
 
 try:
     from sympy import log as _symlog, Expr as _symExpr, sign as _symsign
-    def log(x, b):
+    def log(x, b=None):
+        """The logarithm function.
+
+        Works for both numeric and symbolic (`SymPy.Expr`) inputs.
+
+        Default base `b=None` means `e`, i.e. take the natural logarithm.
+        """
         if isinstance(x, _symExpr):
             # https://stackoverflow.com/questions/46129259/how-to-simplify-logarithm-of-exponent-in-sympy
-            return _symlog(x, b).expand(force=True)
-        return math_log(x, b)
+            if b is not None:
+                return _symlog(x, b).expand(force=True)
+            else:
+                return _symlog(x).expand(force=True)
+        if b is not None:
+            return math_log(x, b)
+        else:
+            return math_log(x)
     def sign(x):
+        """The sign function.
+
+        Works for both numeric and symbolic (`SymPy.Expr`) inputs.
+        """
         if isinstance(x, _symExpr):
             return _symsign(x)
         return _numsign(x)
-except ImportError:
+except ImportError:  # pragma: no cover, optional at runtime, but installed at development time.
     log = math_log
     sign = _numsign
     _symExpr = _NoSuchType
@@ -98,12 +115,12 @@ def almosteq(a, b, tol=1e-8):
     if isinstance(a, mpf) and isinstance(b, mpf):
         return mpf_almosteq(a, b, tol)
     # compare as native float if only one is an mpf
-    elif isinstance(a, mpf) and isinstance(b, float):
+    elif isinstance(a, mpf) and isinstance(b, (float, int)):
         a = float(a)
-    elif isinstance(a, float) and isinstance(b, mpf):
+    elif isinstance(a, (float, int)) and isinstance(b, mpf):
         b = float(b)
 
-    if not all(isinstance(x, float) for x in (a, b)):
+    if not all(isinstance(x, (float, int)) for x in (a, b)):
         return False  # non-float type, already determined that a != b
     min_normal = float_info.min
     max_float = float_info.max
