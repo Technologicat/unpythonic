@@ -4,14 +4,55 @@ from ..syntax import macros, test, test_raises, error  # noqa: F401
 from .fixtures import session, testset
 
 from operator import mul
+from math import exp
 
-from ..mathseq import s, m, mg, sadd, smul, spow, cauchyprod, primes, fibonacci
+from ..mathseq import (s, m, mg,
+                       sadd, smul, spow, cauchyprod,
+                       primes, fibonacci,
+                       sign, log, almosteq)
 from ..it import take, last
 from ..fold import scanl
 from ..gmemo import imemoize
 from ..misc import timer, ulp
 
 def runtests():
+    with testset("sign (adapter, numeric and symbolic)"):
+        test[sign(42) == +1]
+        test[sign(0) == 0]
+        test[sign(-42) == -1]
+        test[sign(42.0) == +1]
+        test[sign(0.0) == 0]
+        test[sign(-42.0) == -1]
+        try:
+            from sympy import symbols
+        except ImportError:  # pragma: no cover
+            error["SymPy not installed in this Python, cannot test symbolic input for mathseq."]
+        else:
+            x = symbols("x", positive=True)
+            test[sign(x) == +1]
+            test[sign(0 * x) == 0]
+            test[sign(-x) == -1]
+
+    with testset("logarithm (adapter, numeric and symbolic)"):
+        test[log(exp(2)) == 2]
+        test[log(exp(2.0)) == 2.0]
+        try:
+            from sympy import symbols, exp as symbolicExp, E as NeperE
+        except ImportError:  # pragma: no cover
+            error["SymPy not installed in this Python, cannot test symbolic input for mathseq."]
+        else:
+            test[log(NeperE**2) == 2]
+            x = symbols("x", positive=True)
+            test[log(symbolicExp(x)) == x]
+
+    with testset("almosteq"):
+        # For anything but floating-point inputs, it's exact equality.
+        test[almosteq("abc", "abc")]
+        test[not almosteq("ab", "abc")]
+
+        test[almosteq(1.0, 1.0 + ulp(1.0))]
+        test[almosteq(1e-309, 0, tol=1.0)]
+
     # explicitly listed elements, same as a genexpr using tuple input
     with testset("s, convenience"):
         test[tuple(s(1)) == (1,)]
