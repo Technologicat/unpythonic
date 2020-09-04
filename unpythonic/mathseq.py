@@ -442,7 +442,6 @@ def s(*spec):
 
 # -----------------------------------------------------------------------------
 
-# https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 class m:
     """Endow any iterable with infix math support (termwise).
 
@@ -487,6 +486,10 @@ class m:
         g = m((1, 2, 3, 4, 5))
         h = m((2, 3, 4, 5, 6))
         assert tuple(g + h) == (3, 5, 7, 9, 11)
+
+    See the relevant part of the Python language reference:
+
+        https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
     """
     def __init__(self, iterable):
         self._g = iterable
