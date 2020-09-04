@@ -35,7 +35,10 @@ from operator import (add as primitive_add, mul as primitive_mul,
                       neg as primitive_neg, pos as primitive_pos,
                       and_ as primitive_and, xor as primitive_xor, or_ as primitive_or,
                       lshift as primitive_lshift, rshift as primitive_rshift,
-                      invert as primitive_invert)
+                      invert as primitive_invert,
+                      lt as primitive_lt, le as primitive_le,
+                      eq as primitive_eq, ne as primitive_ne,
+                      ge as primitive_ge, gt as primitive_gt)
 
 from .it import take, rev, window
 from .gmemo import imemoize, gmemoize
@@ -563,7 +566,28 @@ class m:
         return sor(self, other)
     def __ror__(self, other):
         return sor(other, self)
-    # TODO: conversion (bool, complex, int, float) and comparison operators? Do we want those?
+    # Can't do this because each of these conversion operators must return an
+    # instance of that primitive type.
+    # def __bool__(self):
+    #     return sbool(self)
+    # def __complex__(self):
+    #     return scomplex(self)
+    # def __int__(self):
+    #     return sint(self)
+    # def __float__(self):
+    #     return sfloat(self)
+    def __lt__(self, other):
+        return slt(self, other)
+    def __le__(self, other):
+        return sle(self, other)
+    def __eq__(self, other):
+        return seq(self, other)
+    def __ne__(self, other):
+        return sne(self, other)
+    def __ge__(self, other):
+        return sge(self, other)
+    def __gt__(self, other):
+        return sgt(self, other)
 
 def mg(gfunc):
     """Decorator: make gfunc m() the returned generator instances.
@@ -688,6 +712,30 @@ See:
     https://docs.python.org/3/library/operator.html#operator.not_
 """
 
+# Can't do this because each of these conversion operators must return an
+# instance of that primitive type.
+#
+# sbool = _make_termwise_stream_unop(bool)
+# sbool.__doc__ = """Termwise bool(a) for an iterable."""
+# scomplex = _make_termwise_stream_unop(complex)
+# scomplex.__doc__ = """Termwise complex(a) for an iterable."""
+# sint = _make_termwise_stream_unop(int)
+# sint.__doc__ = """Termwise int(a) for an iterable."""
+# sfloat = _make_termwise_stream_unop(float)
+# sfloat.__doc__ = """Termwise float(a) for an iterable."""
+
+slt = _make_termwise_stream_binop(primitive_lt)
+slt.__doc__ = """Termwise a < b when one or both are iterables."""
+sle = _make_termwise_stream_binop(primitive_le)
+sle.__doc__ = """Termwise a <= b when one or both are iterables."""
+seq = _make_termwise_stream_binop(primitive_eq)
+seq.__doc__ = """Termwise a == b when one or both are iterables."""
+sne = _make_termwise_stream_binop(primitive_ne)
+sne.__doc__ = """Termwise a != b when one or both are iterables."""
+sge = _make_termwise_stream_binop(primitive_ge)
+sge.__doc__ = """Termwise a >= b when one or both are iterables."""
+sgt = _make_termwise_stream_binop(primitive_gt)
+sgt.__doc__ = """Termwise a > b when one or both are iterables."""
 
 # -----------------------------------------------------------------------------
 
