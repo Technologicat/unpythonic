@@ -319,7 +319,7 @@ def s(*spec):
         else:  # more elements are optional but must be consistent
             data = [analyze(*triplet) for triplet in window(iterable=spec, n=3)]
             seqtypes, x0s, ks = zip(*data)
-            def isconst(*xs):
+            def isconst(xs):
                 first, *rest = xs
                 return all(almosteq(x, first) for x in rest)
             if not isconst(seqtypes) or not isconst(ks):
