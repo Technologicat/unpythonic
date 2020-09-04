@@ -241,10 +241,22 @@ def s(*spec):
 
     A symbolic example::
 
-        x = symbols("x", real=True)  # SymPy
-        px = lambda stream: stream * s(1, x, x**2, ...)  # powers of x
-        s1 = px(s(1, 3, 5, ...))  # 1, 3*x, 5*x**2, ...
-        s2 = px(s(2, 4, 6, ...))  # 2, 4*x, 6*x**2, ...
+        from sympy import symbols
+        x = symbols("x", real=True)
+        powers_of_x = lambda: s(1, x, x**2, ...)
+        univariate_polynomial = lambda coeffs: coeffs * powers_of_x()
+        s1 = univariate_polynomial(s(1, 3, 5, ...))  # 1, 3*x, 5*x**2, ...
+        s2 = univariate_polynomial(s(2, 4, 6, ...))  # 2, 4*x, 6*x**2, ...
+
+    In the example, the lambda is needed because the iterable produced
+    by `s(...)` is consumable; hence we must instantiate a new copy of
+    the powers of x each time `univariate_polynomial` is called.
+    We could also use `mg(imemoize(...))`:
+
+        powers_of_x = mg(imemoize(s(1, x, x**2, ...)))
+        univariate_polynomial = lambda coeffs: coeffs * powers_of_x()
+
+    The rest as above.
 
     **Notes**
 
