@@ -585,26 +585,26 @@ def mg(gfunc):
 # The *settings mechanism is used by round and pow.
 # These are recursive to support iterables containing iterables (e.g. an iterable of math sequences).
 def _make_termwise_stream_unop(op, *settings):
-    def sop(a):
+    def stream_op(a):
         if hasattr(a, "__iter__"):
-            return m(sop(x, *settings) for x in a)
+            return m(stream_op(x) for x in a)
         return op(a, *settings)
-    return sop
+    return stream_op
 def _make_termwise_stream_binop(op, *settings):
-    def sop(a, b):
-        ig = [hasattr(x, "__iter__") for x in (a, b)]
-        if all(ig):
+    def stream_op(a, b):
+        isiterable = [hasattr(x, "__iter__") for x in (a, b)]
+        if all(isiterable):
             # it's very convenient here that zip() terminates when the shorter input runs out.
-            return m(sop(x, y, *settings) for x, y in zip(a, b))
-        elif ig[0]:
+            return m(stream_op(x, y) for x, y in zip(a, b))
+        elif isiterable[0]:
             c = b
-            return m(sop(x, c, *settings) for x in a)
-        elif ig[1]:
+            return m(stream_op(x, c) for x in a)
+        elif isiterable[1]:
             c = a
-            return m(sop(c, y, *settings) for y in b)  # careful; op might not be commutative
-        else:  # not any(ig):
+            return m(stream_op(c, y) for y in b)  # careful; op might not be commutative
+        else:  # not any(isiterable):
             return op(a, b, *settings)
-    return sop
+    return stream_op
 
 # We expose the full set of "m" operators also as functions à la the ``operator`` module.
 _add = _make_termwise_stream_binop(primitive_add)
