@@ -358,7 +358,7 @@ def s(*spec):
 
     # analyze the specification
     if Ellipsis not in spec:  # convenience fallback
-        return (x for x in spec)
+        return m(x for x in spec)
     else:
         *spec, last = spec
         if last is Ellipsis:
