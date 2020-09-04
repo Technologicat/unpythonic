@@ -314,6 +314,7 @@ def s(*spec):
                 if almosteq(p1, p2):  # a0, a0**p, (a0**p)**p, ...  [a0, **p]
                     p = (p1 + p2) / 2
                     return ("power", a0, p)
+            # Most unrecognized sequences trigger this case.
             raise SyntaxError("Specification did not match any supported formula: '{}'".format(origspec))
         else:  # more elements are optional but must be consistent
             data = [analyze(*triplet) for triplet in zip(spec, spec[1:], spec[2:])]
@@ -322,6 +323,8 @@ def s(*spec):
                 first, *rest = xs
                 return all(almosteq(x, first) for x in rest)
             if not isconst(seqtypes) or not isconst(ks):
+                # This case is only triggered if all triplets specify some
+                # recognized sequence, but the specifications don't agree.
                 raise SyntaxError("Inconsistent specification '{}'".format(origspec))
             return data[0]
 
