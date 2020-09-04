@@ -582,6 +582,11 @@ def mg(gfunc):
         return m(gfunc(*args, **kwargs))
     return mathify
 
+# -----------------------------------------------------------------------------
+# We expose the full set of "m" operators also as functions à la the ``operator`` module.
+# Prefix "s", short for "mathematical Sequence".
+# https://docs.python.org/3/library/operator.html
+
 # The *settings mechanism is used by round and pow.
 # These are recursive to support iterables containing iterables (e.g. an iterable of math sequences).
 def _make_termwise_stream_unop(op, *settings):
@@ -606,49 +611,20 @@ def _make_termwise_stream_binop(op, *settings):
             return op(a, b, *settings)
     return stream_op
 
-# We expose the full set of "m" operators also as functions à la the ``operator`` module.
-_add = _make_termwise_stream_binop(primitive_add)
-_sub = _make_termwise_stream_binop(primitive_sub)
-_abs = _make_termwise_stream_unop(abs)
-_pos = _make_termwise_stream_unop(primitive_pos)
-_neg = _make_termwise_stream_unop(primitive_neg)
-_mul = _make_termwise_stream_binop(primitive_mul)
+sadd = _make_termwise_stream_binop(primitive_add)
+sadd.__doc__ = """Termwise a + b when one or both are iterables."""
+ssub = _make_termwise_stream_binop(primitive_sub)
+ssub.__doc__ = """Termwise a - b when one or both are iterables."""
+sabs = _make_termwise_stream_unop(abs)
+sabs.__doc__ = """Termwise abs(a) for an iterable."""
+spos = _make_termwise_stream_unop(primitive_pos)
+spos.__doc__ = """Termwise +a for an iterable."""
+sneg = _make_termwise_stream_unop(primitive_neg)
+sneg.__doc__ = """Termwise -a for an iterable."""
+smul = _make_termwise_stream_binop(primitive_mul)
+smul.__doc__ = """Termwise a * b when one or both are iterables."""
+
 _pow = _make_termwise_stream_binop(primitive_pow)  # 2-arg form
-_truediv = _make_termwise_stream_binop(primitive_truediv)
-_floordiv = _make_termwise_stream_binop(primitive_floordiv)
-_mod = _make_termwise_stream_binop(primitive_mod)
-_divmod = _make_termwise_stream_binop(divmod)
-_round = _make_termwise_stream_unop(round)  # 1-arg form
-_trunc = _make_termwise_stream_unop(trunc)
-_floor = _make_termwise_stream_unop(floor)
-_ceil = _make_termwise_stream_unop(ceil)
-_lshift = _make_termwise_stream_binop(primitive_lshift)
-_rshift = _make_termwise_stream_binop(primitive_rshift)
-_and = _make_termwise_stream_binop(primitive_and)
-_xor = _make_termwise_stream_binop(primitive_xor)
-_or = _make_termwise_stream_binop(primitive_or)
-_invert = _make_termwise_stream_unop(primitive_invert)
-def sadd(a, b):
-    """Termwise a + b when one or both are iterables."""
-    return _add(a, b)
-def ssub(a, b):
-    """Termwise a - b when one or both are iterables."""
-    return _sub(a, b)
-def sabs(a):
-    """Termwise abs(a) for an iterable."""
-    return _abs(a)
-def spos(a):
-    """Termwise +a for an iterable."""
-    return _pos(a)
-def sneg(a):
-    """Termwise -a for an iterable."""
-    return _neg(a)
-def sinvert(a):
-    """Termwise ~a for an iterable."""
-    return _invert(a)
-def smul(a, b):
-    """Termwise a * b when one or both are iterables."""
-    return _mul(a, b)
 def spow(a, b, *mod):
     """Termwise a ** b when one or both are iterables.
 
@@ -657,50 +633,61 @@ def spow(a, b, *mod):
     """
     op = _make_termwise_stream_binop(pow, mod[0]) if mod else _pow
     return op(a, b)
-def struediv(a, b):
-    """Termwise a / b when one or both are iterables."""
-    return _truediv(a, b)
-def sfloordiv(a, b):
-    """Termwise a // b when one or both are iterables."""
-    return _floordiv(a, b)
-def smod(a, b):
-    """Termwise a % b when one or both are iterables."""
-    return _mod(a, b)
-def sdivmod(a, b):
-    """Termwise (a // b, a % b) when one or both are iterables."""
-    return _divmod(a, b)
+
+struediv = _make_termwise_stream_binop(primitive_truediv)
+struediv.__doc__ = """Termwise a / b when one or both are iterables."""
+sfloordiv = _make_termwise_stream_binop(primitive_floordiv)
+sfloordiv.__doc__ = """Termwise a // b when one or both are iterables."""
+smod = _make_termwise_stream_binop(primitive_mod)
+smod.__doc__ = """Termwise a % b when one or both are iterables."""
+sdivmod = _make_termwise_stream_binop(divmod)
+sdivmod.__doc__ = """Termwise (a // b, a % b) when one or both are iterables."""
+
+_round = _make_termwise_stream_unop(round)  # 1-arg form
 def sround(a, *ndigits):
     """Termwise round(a) for an iterable.
 
     An optional second argument is supported, and passed through to the
     built-in ``round`` function.
+
+    As with the built-in, rounding is correct taking into account the float
+    representation, which is base-2.
+
+        https://docs.python.org/3/library/functions.html#round
     """
     op = _make_termwise_stream_unop(round, ndigits[0]) if ndigits else _round
     return op(a)
-def strunc(a):
-    """Termwise math.trunc(a) for an iterable."""
-    return _trunc(a)
-def sfloor(a):
-    """Termwise math.floor(a) for an iterable."""
-    return _floor(a)
-def sceil(a):
-    """Termwise math.ceil(a) for an iterable."""
-    return _ceil(a)
-def slshift(a, b):
-    """Termwise a << b when one or both are iterables."""
-    return _lshift(a, b)
-def srshift(a, b):
-    """Termwise a >> b when one or both are iterables."""
-    return _rshift(a, b)
-def sand(a, b):
-    """Termwise a & b when one or both are iterables."""
-    return _and(a, b)
-def sxor(a, b):
-    """Termwise a ^ b when one or both are iterables."""
-    return _xor(a, b)
-def sor(a, b):
-    """Termwise a | b when one or both are iterables."""
-    return _or(a, b)
+
+strunc = _make_termwise_stream_unop(trunc)
+strunc.__doc__ = """Termwise math.trunc(a) for an iterable."""
+sfloor = _make_termwise_stream_unop(floor)
+sfloor.__doc__ = """Termwise math.floor(a) for an iterable."""
+sceil = _make_termwise_stream_unop(ceil)
+sceil.__doc__ = """Termwise math.ceil(a) for an iterable."""
+
+# bit twiddling operations
+slshift = _make_termwise_stream_binop(primitive_lshift)
+slshift.__doc__ = """Termwise a << b when one or both are iterables."""
+srshift = _make_termwise_stream_binop(primitive_rshift)
+srshift.__doc__ = """Termwise a >> b when one or both are iterables."""
+sand = _make_termwise_stream_binop(primitive_and)
+sand.__doc__ = """Termwise a & b when one or both are iterables."""
+sxor = _make_termwise_stream_binop(primitive_xor)
+sxor.__doc__ = """Termwise a ^ b when one or both are iterables."""
+sor = _make_termwise_stream_binop(primitive_or)
+sor.__doc__ = """Termwise a | b when one or both are iterables."""
+sinvert = _make_termwise_stream_unop(primitive_invert)
+sinvert.__doc__ = """Termwise ~a for an iterable.
+
+Note this is a bitwise invert, which is usually not what you want.
+
+However, there is no ``__not__`` method for object instances,
+only the interpreter core defines that operation.
+
+See:
+    https://docs.python.org/3/library/operator.html#operator.not_
+"""
+
 
 # -----------------------------------------------------------------------------
 
