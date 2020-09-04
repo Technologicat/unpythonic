@@ -37,7 +37,7 @@ from operator import (add as primitive_add, mul as primitive_mul,
                       lshift as primitive_lshift, rshift as primitive_rshift,
                       invert as primitive_invert)
 
-from .it import take, rev
+from .it import take, rev, window
 from .gmemo import imemoize, gmemoize
 
 class _NoSuchType:
@@ -317,7 +317,7 @@ def s(*spec):
             # Most unrecognized sequences trigger this case.
             raise SyntaxError("Specification did not match any supported formula: '{}'".format(origspec))
         else:  # more elements are optional but must be consistent
-            data = [analyze(*triplet) for triplet in zip(spec, spec[1:], spec[2:])]
+            data = [analyze(*triplet) for triplet in window(iterable=spec, n=3)]
             seqtypes, x0s, ks = zip(*data)
             def isconst(*xs):
                 first, *rest = xs
