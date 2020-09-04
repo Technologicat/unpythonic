@@ -14,7 +14,7 @@ from ast import Tuple, Str, Subscript, Name, Call, copy_location, Compare, arg, 
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..env import env
-from ..misc import callsite_filename, safeissubclass
+from ..misc import callsite_filename
 from ..conditions import cerror, handlers, restarts, invoke
 from ..collections import unbox
 from ..symbol import sym, gensym
@@ -57,9 +57,6 @@ _fail = sym("_fail")  # used by the fail[] macro
 _error = sym("_error")  # used by the error[] macro
 _warn = sym("_warn")  # used by the warn[] macro
 
-_completed = sym("_completed")  # thunk returned normally
-_signaled = sym("_signaled")  # via unpythonic.conditions.signal and its sisters
-_raised = sym("_raised")  # via raise
 def _observe(thunk):
     """Run `thunk` and report how it fared.
 
@@ -67,10 +64,10 @@ def _observe(thunk):
 
     The return value is:
 
-      - `(_completed, return_value)` if the thunk completed normally
-      - `(_signaled, condition_instance)` if a signal from inside
+      - `(completed, return_value)` if the thunk completed normally
+      - `(signaled, condition_instance)` if a signal from inside
         the dynamic extent of thunk propagated to this level.
-      - `(_raised, exception_instance)` if an exception from inside
+      - `(raised, exception_instance)` if an exception from inside
         the dynamic extent of thunk propagated to this level.
     """
     def intercept(condition):
@@ -81,8 +78,7 @@ def _observe(thunk):
         # it and let it fall through to the nearest enclosing `testset`, for
         # reporting. This can happen if a `test[]` is nested within a `with
         # test:` block, or if `test[]` expressions are nested.
-        exctype = type(condition)
-        if issubclass(exctype, fixtures.TestingException):
+        if issubclass(type(condition), fixtures.TestingException):
             return  # cancel and delegate to the next outer handler
         invoke("_got_signal", condition)
 
@@ -92,12 +88,12 @@ def _observe(thunk):
                 ret = thunk()
             # We only reach this point if the restart was not invoked,
             # i.e. if thunk() completed normally.
-            return _completed, ret
-        return _signaled, unbox(sig)
+            return fixtures.completed, ret
+        return fixtures.signaled, unbox(sig)
     # This testing framework always signals, never raises, so we don't need any
     # special handling here.
     except Exception as err:  # including ControlError raised by an unhandled `unpythonic.conditions.error`
-        return _raised, err
+        return fixtures.raised, err
 
 
 _unassigned = gensym("_unassigned")  # runtime gensym / nonce value.
@@ -121,10 +117,11 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
         `sourcecode` is a string representation of the source code expression
         that is being asserted.
 
-        `func` is the test itself, in the form a 1-argument function that
-        takes as its only argument an `unpythonic.env`. (The `the[]`
-        mechanism uses the `env` to store the value of the captured
-        subexpression.)
+        `func` is the test itself, as a 1-argument function that accepts
+        as its only argument an `unpythonic.env`. The `the[]` mechanism
+        uses this `env` to store the value of the captured subexpression.
+        (It is also perfectly fine to not store anything there; the presence
+         or absence of a captured value is detected automatically.)
 
         The function should compute the desired test expression and return
         its value. If the result is falsey, the assertion fails.
@@ -134,7 +131,7 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
 
         `lineno` is the line number at the call site.
 
-        These are best extracted automatically using the `test[]` macro.
+        These are best extracted automatically using the test macros.
 
         `message` is an optional string, included in the generated error message
         if the assertion fails.
@@ -160,9 +157,11 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
         custom_msg = ""
 
     # special cases for unconditional failures
-    if mode is _completed and test_result is _fail:  # fail[...], e.g. unreachable line reached
+    origin = "test"
+    if mode is fixtures.completed and test_result is _fail:  # fail[...], e.g. unreachable line reached
         fixtures._update(fixtures.tests_failed, +1)
         conditiontype = fixtures.TestFailure
+        origin = "fail"
         if message is not None:
             # If a user-given message is specified for `fail[]`, it is all
             # that should be displayed. We don't want confusing noise such as
@@ -172,18 +171,20 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
             error_msg = message
         else:
             error_msg = "Unconditional failure requested, no message."
-    elif mode is _completed and test_result is _error:  # error[...], e.g. dependency not installed
+    elif mode is fixtures.completed and test_result is _error:  # error[...], e.g. dependency not installed
         fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
+        origin = "error"
         if message is not None:
             error_msg = message
         else:
             error_msg = "Unconditional error requested, no message."
-    elif mode is _completed and test_result is _warn:  # warn[...], e.g. some test disabled for now
+    elif mode is fixtures.completed and test_result is _warn:  # warn[...], e.g. some test disabled for now
         fixtures._update(fixtures.tests_warned, +1)
         # HACK: warnings don't count into the test total
         fixtures._update(fixtures.tests_run, -1)
         conditiontype = fixtures.TestWarning
+        origin = "warn"
         if message is not None:
             error_msg = message
         else:
@@ -195,18 +196,18 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
         #
         # So we may as well use the same code path as the fail and error cases.
     # general cases
-    elif mode is _completed:
+    elif mode is fixtures.completed:
         if test_result:
             return
         fixtures._update(fixtures.tests_failed, +1)
         conditiontype = fixtures.TestFailure
         error_msg = "Test failed: {}, due to result = {}{}".format(sourcecode, value, custom_msg)
-    elif mode is _signaled:
+    elif mode is fixtures.signaled:
         fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
         desc = fixtures.describe_exception(test_result)
         error_msg = "Test errored: {}{}, due to unexpected signal: {}".format(sourcecode, custom_msg, desc)
-    else:  # mode is _raised:
+    else:  # mode is fixtures.raised:
         fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
         desc = fixtures.describe_exception(test_result)
@@ -221,14 +222,19 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
     # If the client code does not install a handler, then a `ControlError`
     # exception is raised by the condition system; leaving a cerror unhandled
     # is an error.
-    cerror(conditiontype(complete_msg))
+    #
+    # As well as forming an error message for humans, we provide the data
+    # in a machine-readable format for run-time inspection.
+    cerror(conditiontype(complete_msg, origin=origin, custom_message=message,
+                         filename=filename, lineno=lineno, sourcecode=sourcecode,
+                         mode=mode, result=test_result, captured_value=value))
 
 def unpythonic_assert_signals(exctype, sourcecode, thunk, *, filename, lineno, message=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` signals `exctype`.
 
     "Signal" as in `unpythonic.conditions.signal` and its sisters `error`, `cerror`, `warn`.
     """
-    mode, result = _observe(thunk)
+    mode, test_result = _observe(thunk)
     fixtures._update(fixtures.tests_run, +1)
 
     if message is not None:
@@ -236,30 +242,31 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, *, filename, lineno, m
     else:
         custom_msg = ""
 
-    if mode is _completed:
+    if mode is fixtures.completed:
         fixtures._update(fixtures.tests_failed, +1)
         conditiontype = fixtures.TestFailure
         error_msg = "Test failed: {}{}, expected signal: {}, nothing was signaled.".format(sourcecode, custom_msg, fixtures.describe_exception(exctype))
-    elif mode is _signaled:
-        # allow both "signal(SomeError())" and "signal(SomeError)"
-        if isinstance(result, exctype) or safeissubclass(result, exctype):
+    elif mode is fixtures.signaled:
+        if isinstance(test_result, exctype):
             return
         fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
-        desc = fixtures.describe_exception(result)
+        desc = fixtures.describe_exception(test_result)
         error_msg = "Test errored: {}{}, expected signal: {}, got unexpected signal: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
-    else:  # mode is _raised:
+    else:  # mode is fixtures.raised:
         fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
-        desc = fixtures.describe_exception(result)
+        desc = fixtures.describe_exception(test_result)
         error_msg = "Test errored: {}{}, expected signal: {}, got unexpected exception: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
-    cerror(conditiontype(complete_msg))
+    cerror(conditiontype(complete_msg, origin="test_signals", custom_message=message,
+                         filename=filename, lineno=lineno, sourcecode=sourcecode,
+                         mode=mode, result=test_result, captured_value=test_result))
 
 def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, message=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` raises `exctype`."""
-    mode, result = _observe(thunk)
+    mode, test_result = _observe(thunk)
     fixtures._update(fixtures.tests_run, +1)
 
     if message is not None:
@@ -267,26 +274,27 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, me
     else:
         custom_msg = ""
 
-    if mode is _completed:
+    if mode is fixtures.completed:
         fixtures._update(fixtures.tests_failed, +1)
         conditiontype = fixtures.TestFailure
         error_msg = "Test failed: {}{}, expected exception: {}, nothing was raised.".format(sourcecode, custom_msg, fixtures.describe_exception(exctype))
-    elif mode is _signaled:
+    elif mode is fixtures.signaled:
         fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
-        desc = fixtures.describe_exception(result)
+        desc = fixtures.describe_exception(test_result)
         error_msg = "Test errored: {}{}, expected exception: {}, got unexpected signal: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
-    else:  # mode is _raised:
-        # allow both "raise SomeError()" and "raise SomeError"
-        if isinstance(result, exctype) or safeissubclass(result, exctype):
+    else:  # mode is fixtures.raised:
+        if isinstance(test_result, exctype):
             return
         fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
-        desc = fixtures.describe_exception(result)
+        desc = fixtures.describe_exception(test_result)
         error_msg = "Test errored: {}{}, expected exception: {}, got unexpected exception: {}".format(sourcecode, custom_msg, fixtures.describe_exception(exctype), desc)
 
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
-    cerror(conditiontype(complete_msg))
+    cerror(conditiontype(complete_msg, origin="test_raises", custom_message=message,
+                         filename=filename, lineno=lineno, sourcecode=sourcecode,
+                         mode=mode, result=test_result, captured_value=test_result))
 
 
 # -----------------------------------------------------------------------------

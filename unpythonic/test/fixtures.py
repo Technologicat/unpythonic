@@ -118,6 +118,7 @@ import sys
 
 from ..conditions import handlers, find_restart, invoke
 from ..collections import box, unbox
+from ..symbol import sym
 
 from .ansicolor import TC, colorize
 
@@ -125,8 +126,10 @@ __all__ = ["session", "testset",
            "terminate",
            "returns_normally", "catch_signals",
            "TestConfig",
-           "tests_run", "tests_failed", "tests_errored",
-           "TestingException", "TestFailure", "TestError"]
+           "tests_run", "tests_failed", "tests_errored", "tests_warned",
+           "TestingException", "TestFailure", "TestError", "TestWarning",
+           "completed", "signaled", "raised",
+           "describe_exception"]
 
 # Keep a global count (since Python last started) of how many unpythonic_asserts
 # have run and how many have failed, so that the client code can easily calculate
@@ -169,18 +172,123 @@ def _reset(counter):
     with _counter_update_lock:
         counter << 0
 
+completed = sym("completed")
+completed.__doc__ = """TestingException `mode`: the test ran to completion normally.
+
+This does not mean that the test assertion succeeded, but only that
+it exited normally (i.e. did not signal or raise).
+"""
+signaled = sym("signaled")
+signaled.__doc__ = """TestingException `mode`: the test signaled a condition.
+
+The signal was not caught inside the test.
+
+See `unpythonic.conditions.signal` and its sisters `error`, `cerror`, `warn`.
+"""
+raised = sym("raised")
+raised.__doc__ = """TestingException `mode`: the test raised an exception.
+
+The exception was not caught inside the test.
+"""
 class TestingException(Exception):
     """Base type for testing-related exceptions."""
+    def __init__(self, *args, origin=None, custom_message=None,
+                 filename=None, lineno=None, sourcecode=None,
+                 mode=None, result=None, captured_value=None):
+        """Parameters:
+
+        `*args`: like in Exception. Usually just one, a human-readable
+                 error message as str.
+
+        Additionally, the test macros automatically fill in the following
+        optional parameters, for runtime inspection. These are stored in
+        instance attributes with the same name as the corresponding parameter:
+
+        `origin`: str, which of the test asserters produced this exception.
+                  One of "test", "test_signals", "test_raises", "fail", "error", "warn".
+
+        `custom_message`: str or None. The optional, user-provided human-readable
+                          custom failure message, if any.
+
+                          Test blocks that just assert that the block returns normally
+                          (default behavior if no `return` used) are encouraged to carry
+                          a clarifying message, provided by the user, to explain what was
+                          expected to happen, if it turns out that the test fails or errors.
+
+                          (Often, in such cases, the context alone is insufficient for a
+                           human not intimately familiar with the code to judge why the test
+                           block should or should not exit normally, so a message is useful.)
+
+                          Any invocation of `fail[]`, `error[]` and `warn[]` will also
+                          typically carry such a message, since that's the whole point
+                          of using those constructs.
+
+                          For any other use case though, the details are often clear enough
+                          from the code of the test assertion (or test block) itself, so
+                          there is no need for the user to include a custom failure message.
+
+        `filename`: str, the full path of the file containing the test in which
+                    the exception occurred.
+        `lineno`: int, line number in `filename` (1-based, as usual).
+        `sourcecode`: str, captured (actually unparsed from AST) source code of the test
+                      assertion (or test block). If a block, may have multiple lines.
+
+        `mode`: sym, how the test exited. One of `completed`, `signaled`, `raised` (which see).
+
+        `result`: If `mode is completed`, then the value of the test assertion (or the return
+                  value of a test block, respectively). Note test blocks that just assert
+                  that the block completes normally always return `True` when they complete
+                  normally.
+
+                  If `mode is signaled`, the signal instance (an `Exception` object).
+
+                  If `mode is raised`, the exception instance (an `Exception` object).
+
+                  If you need to format an exception (and its chained exceptions, if any)
+                  for human consumption, in a notation as close as possible to what Python
+                  itself uses for reporting uncaught exceptions, see `describe_exception`.
+
+        `captured_value`: The value the test macros refer to as "result" in the error messages.
+                If a `the[]` was used, the value of the `the[]` subexpression.
+
+                Else if the top level of the test assertion (or the return value of a test block,
+                respectively) was a comparison, the value of the leftmost term.
+
+                Else `captured_value is result`.
+
+                Note that `test_signals` and `test_raises` do not support capturing;
+                for them, it always holds that `captured_value is result`.
+        """
+        super().__init__(*args)
+        self.origin = origin
+        self.custom_message = custom_message
+        self.filename = filename
+        self.lineno = lineno
+        self.sourcecode = sourcecode
+        self.mode = mode
+        self.result = result
+        self.captured_value = captured_value
 class TestFailure(TestingException):
-    """Exception type indicating that a test failed."""
+    """Exception: a test ran to completion normally, but the test assertion failed.
+
+    May also mean that a test was expected to signal or raise, but it didn't.
+    """
 class TestError(TestingException):
-    """Exception type indicating that a test did not run to completion.
+    """Exception: a test did not run to completion normally.
+
+    It was also not expected to signal or raise, at least not the
+    exception type that was observed.
 
     This can happen due to an unexpected exception, or an unhandled
     `error` (or `cerror`) condition.
     """
 class TestWarning(TestingException):
-    """Exception type for a human-initiated test warning."""
+    """Exception: a human-initiated test warning.
+
+    Warnings (see the `warn[]` macro) can be used e.g. to mark tests that
+    are temporarily disabled due to external factors, such as language-level
+    compatibility issues, or a bug in a library yours depends on.
+    """
 
 def maybe_colorize(s, *colors):
     """Colorize `s` with ANSI color escapes if enabled in the global `TestConfig`.
