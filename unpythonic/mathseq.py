@@ -92,6 +92,8 @@ except ImportError:  # pragma: no cover, optional at runtime, but installed at d
     sign = _numsign
     _symExpr = _NoSuchType
 
+# TODO: Overhaul `almosteq` in v0.15.0, should work like mpf for consistency.
+# TODO: Also move it to `unpythonic.misc`, where `ulp` already is. Or make a `numutil`.
 def almosteq(a, b, tol=1e-8):
     """Almost-equality that supports several formats.
 
