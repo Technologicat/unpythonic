@@ -374,12 +374,16 @@ def s(*spec):
     else:
         *spec, last = spec
         if last is Ellipsis:
+            if not spec:
+                raise SyntaxError("Expected s(a0, a1, ...) or s(a0, a1, ..., an); got '{}'".format(origspec))
+            assert spec  # not empty
             seqtype, x0, k = analyze(*spec)
             n = infty
         else:
             *spec, dots = spec
-            if dots is not Ellipsis:
+            if not (dots is Ellipsis and spec):
                 raise SyntaxError("Expected s(a0, a1, ...) or s(a0, a1, ..., an); got '{}'".format(origspec))
+            assert spec  # not empty
             desc = analyze(*spec)
             n = nofterms(desc, last)
             if n is False:
@@ -387,8 +391,6 @@ def s(*spec):
             elif n is infty:
                 raise SyntaxError("The length of a constant sequence cannot be determined from a final element; got '{}'".format(origspec))
             seqtype, x0, k = desc
-        if not spec:
-            raise SyntaxError("Expected at least one term before the '...'; got '{}'".format(origspec))
 
     # generate the sequence
     if seqtype == "const":
