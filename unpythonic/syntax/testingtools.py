@@ -26,6 +26,9 @@ from ..test import fixtures
 # -----------------------------------------------------------------------------
 # Helper for other macros to detect uses of the ones we define here.
 
+# TODO: Detect asserters only? Now this breaks the handling of the[] in a prefix block.
+# TODO: It should be handled like any expr, but currently it's skipped because it's listed here.
+
 # Note the unexpanded `error[]` macro is distinguishable from a call to
 # the function `unpythonic.conditions.error`, because a macro invocation
 # is an `ast.Subscript`, whereas a function call is an `ast.Call`.
