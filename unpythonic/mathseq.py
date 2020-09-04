@@ -506,7 +506,7 @@ class m:
     def __abs__(self):
         return sabs(self)
     def __pos__(self):
-        return self
+        return spos(self)
     def __neg__(self):
         return sneg(self)
     def __invert__(self):
