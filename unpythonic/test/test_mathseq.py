@@ -4,7 +4,8 @@ from ..syntax import macros, test, test_raises, error  # noqa: F401
 from .fixtures import session, testset
 
 from operator import mul
-from math import exp
+from math import exp, trunc, floor, ceil
+from sys import float_info
 
 from ..mathseq import (s, m, mg,
                        sadd, smul, spow, cauchyprod,
@@ -51,9 +52,26 @@ def runtests():
         test[not almosteq("ab", "abc")]
 
         test[almosteq(1.0, 1.0 + ulp(1.0))]
-        test[almosteq(1e-309, 0, tol=1.0)]
 
-    # explicitly listed elements, same as a genexpr using tuple input
+        # TODO: counterintuitively, need a large tolerance here, because when one operand is zero,
+        # TODO: the final tolerance is actually tol*min_normal.
+        min_normal = float_info.min
+        test[almosteq(min_normal / 2, 0, tol=1.0)]
+
+        too_large = 2**int(1e6)
+        test_raises[OverflowError, float(too_large), "UPDATE THIS, need a float overflow here."]
+        test[almosteq(too_large, too_large + 1)]  # works, because 1/too_large is very small.
+
+        try:
+            from mpmath import mpf
+        except ImportError:
+            error["mpmath not installed in this Python, cannot test arbitrary precision input for mathseq."]
+        else:
+            test[almosteq(mpf(1.0), mpf(1.0 + ulp(1.0)))]
+            test[almosteq(1.0, mpf(1.0 + ulp(1.0)))]
+            test[almosteq(mpf(1.0), 1.0 + ulp(1.0))]
+
+            # explicitly listed elements, same as a genexpr using tuple input
     with testset("s, convenience"):
         test[tuple(s(1)) == (1,)]
         test[tuple(s(1, 2, 3, 4, 5)) == (1, 2, 3, 4, 5)]
@@ -62,6 +80,9 @@ def runtests():
     # always infinite length, because final element cannot be used to deduce length.
     with testset("s, constant sequence"):
         test[tuple(take(10, s(1, ...))) == (1,) * 10]
+        # exercise the different branches of the analyzer
+        test[tuple(take(10, s(1, 1, ...))) == (1,) * 10]
+        test[tuple(take(10, s(1, 1, 1, ...))) == (1,) * 10]
         # type stability (not that it does us any good in Python)
         test[all(isinstance(x, int) for x in take(10, s(1, ...)))]
         test[all(isinstance(x, float) for x in take(10, s(1.0, ...)))]
@@ -70,6 +91,13 @@ def runtests():
     with testset("s, arithmetic sequence"):
         test[tuple(take(10, s(1, 2, ...))) == tuple(range(1, 11))]     # two elements is enough
         test[tuple(take(10, s(1, 2, 3, ...))) == tuple(range(1, 11))]  # more is allowed if consistent
+        # Trigger the analyzer corner case where consecutive differences are almost, but not exactly the same.
+        # 1/3 is a useful constant here, as it has no exact float representation at any finite number of bits.
+        # That's also a source of party tricks such as 7/3 - 4/3 - 1 = machine epsilon (in IEEE-754).
+        # (Expand that in binary to see why.)
+        # Here the 2/3 term is one ulp off from the "exact" result (which has only representation error).
+        test[all(abs(x - y) <= min(ulp(x), ulp(y)) for x, y in zip(tuple(take(5, s(1 / 3, 2 / 3, 3 / 3, ...))),
+                                                                   (1 / 3, 2 / 3, 3 / 3, 4 / 3, 5 / 3)))]
         # type stability
         test[all(isinstance(x, int) for x in take(10, s(1, 3, ...)))]
         test[all(isinstance(x, int) for x in take(10, s(1, 3, 5, ...)))]
@@ -149,6 +177,13 @@ def runtests():
         test[tuple(cauchyprod((2, 4), (1, 3, 5), require="all")) == (2, 10)]
         test[tuple(cauchyprod((2,), (1, 3, 5), require="all")) == (2,)]
 
+        # both inputs must be iterables for this operation to be defined
+        test_raises[TypeError, cauchyprod(1, 2)]
+        test_raises[TypeError, cauchyprod(s(1, 3, 5, ...), 2)]
+        test_raises[TypeError, cauchyprod(2, s(1, 3, 5, ...))]
+        # The optional "require" argument must be "all" or "any".
+        test_raises[ValueError, cauchyprod(s(1, 3, 5, ...), s(2, 4, 6, ...), require="invalid_value")]
+
     with testset("m, mg (infix syntax for arithmetic)"):
         # Sequences returned by `s` are `m`'d implicitly.
         test[tuple(take(5, s(1, 3, 5, ...) + s(2, 4, 6, ...))) == (3, 7, 11, 15, 19)]
@@ -166,6 +201,48 @@ def runtests():
         test[tuple(take(5, s(1, 3, ...)**s(2, 4, ...))) == (1, 3**4, 5**6, 7**8, 9**10)]
         test[tuple(take(5, s(1, 3, ...)**2)) == (1, 3**2, 5**2, 7**2, 9**2)]
         test[tuple(take(5, 2**s(1, 3, ...))) == (2**1, 2**3, 2**5, 2**7, 2**9)]
+
+        test[tuple(take(5, abs(s(-1, -2, ...)))) == (1, 2, 3, 4, 5)]  # m.__abs__
+        test[tuple(take(5, +s(-1, -2, ...))) == (-1, -2, -3, -4, -5)]  # m.__pos__
+        test[tuple(take(5, -s(-1, -2, ...))) == (1, 2, 3, 4, 5)]  # m.__neg__
+        test[tuple(take(5, s(1, 2, ...) // 2)) == (0, 1, 1, 2, 2)]
+        test[tuple(take(5, 10 // s(1, 2, ...))) == (10, 5, 3, 2, 2)]
+        test[tuple(take(5, s(1, 2, ...) % 2)) == (1, 0, 1, 0, 1)]
+        test[tuple(take(5, 10 % s(1, 2, ...))) == (0, 0, 1, 2, 0)]
+        test[tuple(take(5, divmod(s(1, 2, ...), 2))) == ((0, 1), (1, 0), (1, 1), (2, 0), (2, 1))]
+        test[tuple(take(5, divmod(10, s(1, 2, ...)))) == ((10, 0), (5, 0), (3, 1), (2, 2), (2, 0))]
+        test[tuple(take(5, round(s(1.111, 2.222, ...)))) == (1, 2, 3, 4, 6)]
+        # But be careful. As the language reference warns:
+        #   https://docs.python.org/3/library/functions.html#round
+        # rounding is correct taking into account the float representation, which is base-2.
+        test[tuple(take(5, round(s(1.111, 2.222, ...), 2))) == (1.11, 2.22, 3.33, 4.44, 5.55)]
+
+        test[tuple(take(5, trunc(s(1.111, 2.222, ...)))) == (1, 2, 3, 4, 5)]
+        test[tuple(take(5, floor(s(1.111, 2.222, ...)))) == (1, 2, 3, 4, 5)]
+        test[tuple(take(5, ceil(s(1.111, 2.222, ...)))) == (2, 3, 4, 5, 6)]
+
+        # bit shifts
+        test[tuple(take(5, s(1, 2, 4, ...) << 1)) == (2, 4, 8, 16, 32)]
+        test[tuple(take(5, 1 << s(1, 2, ...))) == (2, 4, 8, 16, 32)]
+        test[tuple(take(5, s(2, 4, 8, ...) >> 1)) == (1, 2, 4, 8, 16)]
+        test[tuple(take(5, 32 >> s(1, 2, ...))) == (16, 8, 4, 2, 1)]
+
+        # termwise bitwise logical operations
+        test[tuple(m((0, 1, 0, 1)) & m((0, 0, 1, 1))) == (0, 0, 0, 1)]
+        test[tuple(m((0, 1, 0, 1)) | m((0, 0, 1, 1))) == (0, 1, 1, 1)]
+        test[tuple(m((0, 1, 0, 1)) ^ m((0, 0, 1, 1))) == (0, 1, 1, 0)]  # xor
+        test[tuple(1 & m((0, 1))) == (0, 1)]
+        test[tuple(1 | m((0, 1))) == (1, 1)]
+        test[tuple(1 ^ m((0, 1))) == (1, 0)]
+        test[tuple(take(5, ~s(1, 2, ...))) == (-2, -3, -4, -5, -6)]  # m.__invert__
+
+        # v0.14.3+: termwise comparison
+        test[tuple(s(1, 2, 3) < s(2, 3, 4)) == (True, True, True)]
+        test[tuple(s(1, 2, 3) <= s(1, 2, 4)) == (True, True, True)]
+        test[tuple(s(1, 2, 3) == s(3, 2, 1)) == (False, True, False)]
+        test[tuple(s(1, 2, 3) != s(3, 2, 1)) == (True, False, True)]
+        test[tuple(s(1, 2, 3) >= s(2, 3, 4)) == (False, False, False)]
+        test[tuple(s(1, 2, 3) > s(1, 2, 4)) == (False, False, False)]
 
         a = s(1, 3, ...)
         b = s(2, 4, ...)
@@ -208,6 +285,12 @@ def runtests():
         test[abs(last(s(0.01, 0.02, ..., 10000)) - 10000.0) <= ulp(10000.0)]
 
     with testset("error cases"):
+        # invalid specifications
+        test_raises[SyntaxError, s(...)]  # no data to work with
+        test_raises[SyntaxError, s(..., 1)]  # no initial term, ellipsis
+        test_raises[SyntaxError, s(..., 1, 2)]  # no initial term, multiple terms after the ellipsis
+        test_raises[SyntaxError, s(0, ..., 2, 3)]  # multiple terms after the ellipsis
+
         test_raises[SyntaxError,
                     s(1, ..., 1),
                     "should detect that the length of a constant sequence cannot be determined from a final element"]
@@ -220,6 +303,15 @@ def runtests():
         test_raises[SyntaxError,
                     s(2, 4, 0, ...),
                     "should detect that a geometric sequence must have no zero elements"]
+        test_raises[SyntaxError,
+                    s(2, -4, 8, ..., -32),
+                    "should detect that the parity of the last term of alternating geometric sequence is wrong"]
+        test_raises[SyntaxError,
+                    s(2, -1 / 4, 16, ..., -65536),
+                    "should detect that the parity of the last term of alternating power sequence is wrong"]
+        test_raises[SyntaxError,
+                    s(0, 1, 2, 4, ...),
+                    "should detect two incompatible sequence types (arith 0, 1, 2; geom 1, 2, 4)"]
         test_raises[SyntaxError,
                     s(2, 3, 5, 7, 11, ...),
                     "should detect that s() is not that smart!"]
@@ -262,6 +354,10 @@ def runtests():
     with testset("some special sequences"):
         test[tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)]
         test[tuple(take(10, fibonacci())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)]
+
+        test[tuple(take(10, primes(optimize="speed"))) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)]
+        test[tuple(take(10, primes(optimize="memory"))) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)]
+        test_raises[ValueError, primes(optimize="fun")]  # only "speed" and "memory" modes exist
 
         factorials = imemoize(scanl(mul, 1, s(1, 2, ...)))  # 0!, 1!, 2!, ...
         test[last(take(6, factorials())) == 120]
