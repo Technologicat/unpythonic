@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Lexical scoping support.
+"""Lexical scope analysis tools.
 
 This is used to support interaction of the ``let[]`` and ``do[]`` macros
 (which use ``env`` to simulate a lexical environment, with static name lookup
@@ -8,7 +8,9 @@ at macro-expansion time) with Python's built-in lexical scoping system.
 This module cares only about Python's standard scoping rules, but with a
 small twist: assignments (creation of local variables) and local deletes
 are considered to take effect **from the next statement onward**, for the
-**lexically remaining part** of the current scope.
+**lexically remaining part** of the current scope. (This is how Python
+behaves at run time, anyway; trying to delete a local that hasn't yet
+been assigned to raises `UnboundLocalError`.)
 
 This is mainly for symmetry with how ``do[]`` handles ``local[...]``, but it also
 allows the RHS of an assignment to see the old bindings. This may be important
