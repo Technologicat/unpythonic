@@ -193,7 +193,7 @@ def is_literal_container(tree, maps_only=False):
 #   - keep in mind that force(x) == x if x is a non-promise atom, so a wrapper is not needed
 #   - don't lazify "with", eager init is the whole point of a context manager
 #   - don't lazify "for", the loop counter changes value imperatively (and usually rather rapidly)
-# full list: see unpythonic.syntax.scoping.get_names_in_store_context (and the link therein)
+# full list: see unpythonic.syntax.scopeanalyzer.get_names_in_store_context (and the link therein)
 
 def lazify(body):
     # first pass, outside-in

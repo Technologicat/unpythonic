@@ -32,7 +32,7 @@ from ..seq import do as dof
 from ..dynassign import dyn
 from ..misc import namelambda
 
-from .scoping import scoped_walker
+from .scopeanalyzer import scoped_walker
 from .letdoutil import isenvassign, UnexpandedEnvAssignView
 
 def let(bindings, body):

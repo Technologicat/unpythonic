@@ -92,7 +92,7 @@ To study a particular feature, just start from the entry point, and follow the d
 
 The `lazify` and `continuations` macros are the most complex parts. As for the lazifier, grep also for `passthrough_lazy_args` and `maybe_force_args`. As for continuations, read the `tco` macro first, and keep in mind how that works when reading `continuations`.
 
-`unpythonic.syntax.scoping` is a unfortunate artifact that is needed to implement macros that interact with Python's scoping rules, notably `let`.
+`unpythonic.syntax.scopeanalyzer` is a unfortunate artifact that is needed to implement macros that interact with Python's scoping rules, notably `let`.
 
 As of the second half of 2020, the main target platform is Python 3.6, both **CPython** and **PyPy3**. The code should run on 3.4 or any later Python. We have [a GitHub workflow](https://github.com/Technologicat/unpythonic/actions?query=workflow%3A%22Python+package%22) that runs the test suite 
 
