@@ -3,7 +3,7 @@
 
 This is used to support interaction of the ``let[]`` and ``do[]`` macros
 (which use ``env`` to simulate a lexical environment, with static name lookup
-at macro-expansion time) with Python's standard lexical scoping system.
+at macro-expansion time) with Python's built-in lexical scoping system.
 
 This module cares only about Python's standard scoping rules, but with a
 small twist: assignments (creation of local variables) and local deletes
@@ -15,6 +15,18 @@ allows the RHS of an assignment to see the old bindings. This may be important
 if the RHS uses some ``env`` variables, so that things like "x = x" work (create
 new local x, assign value from an x that lives in a lexically surrounding ``env``,
 such as that created by the "let" decorator macro ``@dlet``).
+
+Deletions of nonlocals and globals are ignored, because those are too dynamic
+for static analysis to make sense.
+
+Scope analysis for Python is unnecessarily complicated, because it conflates
+definition and rebinding - in any language that keeps these separate, the `global`
+and `nonlocal` keywords aren't needed. For discussion on this point, see:
+
+    Joe Gibbs Politz, Alejandro Martinez, Matthew Milano, Sumner Warren,
+    Daniel Patterson, Junsong Li, Anand Chitipothu, Shriram Krishnamurthi, 2013,
+    Python: The Full Monty - A Tested Semantics for the Python Programming Language.
+    OOPSLA '13. http://dx.doi.org/10.1145/2509136.2509536
 """
 
 from ast import (Name, Tuple,
@@ -32,27 +44,27 @@ from ..it import uniqify
 def isnewscope(tree):
     """Return whether tree introduces a new lexical scope.
 
-    (According to Python's standard scoping rules.)
+    (According to Python's scoping rules.)
     """
     return type(tree) in (Lambda, FunctionDef, AsyncFunctionDef, ClassDef, ListComp, SetComp, GeneratorExp, DictComp)
 
+# TODO: For generality, add a possibility for the callback to use stop()?
 @Walker
 def scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ctx, stop, **kw):
-    """Walk and process a tree, keeping track of which names are shadowed.
+    """Walk and process a tree, keeping track of which names are in scope.
 
-    Names in an unpythonic env can be shadowed by e.g. real lexical variables,
-    formal parameters of function definitions, or names declared ``nonlocal``
-    or ``global``. See ``getshadowers``.
+    This essentially equips a custom AST walker with scope analysis.
 
-    callback: function, (tree, shadowed_names) --> tree
+    `callback`: callable, (tree, names_in_scope) --> tree
+                Called for each AST node of the input `tree`, to perform the
+                real work. It may edit the tree in-place.
     """
-    # TODO: think about proper handling of ClassDef
     if type(tree) in (Lambda, ListComp, SetComp, GeneratorExp, DictComp, ClassDef):
-        moreargs, _ = getshadowers(tree)
+        moreargs, _ = get_lexical_variables(tree)
         set_ctx(args=(args + moreargs))
     elif type(tree) in (FunctionDef, AsyncFunctionDef):
         stop()
-        moreargs, newnonlocals = getshadowers(tree)
+        moreargs, newnonlocals = get_lexical_variables(tree)
         args = args + moreargs
         for expr in (tree.args, tree.decorator_list):
             scoped_walker.recurse(expr, localvars=localvars, args=args, nonlocals=nonlocals, callback=callback)
@@ -72,15 +84,15 @@ def scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ct
             if deletedlocalvars:
                 localvars = [x for x in localvars if x not in deletedlocalvars]
         return tree
-    shadowed = args + localvars + nonlocals
-    return callback(tree, shadowed)
+    names_in_scope = args + localvars + nonlocals
+    return callback(tree, names_in_scope)
 
-def getshadowers(tree):
-    """In a tree representing a lexical scope, get names that shadow names in unpythonic envs.
+def get_lexical_variables(tree):
+    """In a tree representing a lexical scope, get names currently in scope.
 
     An AST node represents a scope if ``isnewscope(tree)`` returns ``True``.
 
-    This collects:
+    We collect:
 
         - formal parameter names of ``Lambda``, ``FunctionDef``, ``AsyncFunctionDef``
 
@@ -100,6 +112,12 @@ def getshadowers(tree):
     of ``str``. The list ``nonlocals`` contains names declared ``nonlocal`` or
     ``global`` in (precisely) this scope; the list ``args`` contains everything
     else.
+
+    In the context of `unpythonic`, the names returned by this function are
+    exactly those that shadow names in an `unpythonic.env.env` in the `let`
+    and `do` constructs. They be shadowed by e.g. real lexical variables
+    (created by assignment), formal parameters of function definitions,
+    or names declared ``nonlocal`` or ``global``.
     """
     if type(tree) in (Lambda, FunctionDef, AsyncFunctionDef):
         a = tree.args
@@ -125,16 +143,37 @@ def getshadowers(tree):
 
         return list(uniqify(fname + argnames)), list(uniqify(nonlocals))
 
-    # TODO: think about proper handling of ClassDef
     elif type(tree) is ClassDef:
         cname = [tree.name]
         bases = [b.id for b in tree.bases if type(b) is Name]
-        # these are referred to via self.foo, so they don't shadow bare names.
+        # these are referred to via self.foo, not by bare names.
 #        classattrs = _get_names_in_store_context.collect(tree.body)
 #        methods = [f.name for f in tree.body if type(f) is FunctionDef]
         return list(uniqify(cname + bases)), []
 
     elif type(tree) in (ListComp, SetComp, GeneratorExp, DictComp):
+        # In the scoping of the generators in a comprehension in Python,
+        # there is an important subtlety. Quoting from `analyze_comprehension`
+        # in `pyan3/pyan/analyzer.py`:
+        #
+        #   The outermost iterator is evaluated in the current scope;
+        #   everything else in the new inner scope.
+        #
+        #   See function symtable_handle_comprehension() in
+        #     https://github.com/python/cpython/blob/master/Python/symtable.c
+        #   For how it works, see
+        #     https://stackoverflow.com/questions/48753060/what-are-these-extra-symbols-in-a-comprehensions-symtable
+        #   For related discussion, see
+        #     https://bugs.python.org/issue10544
+        #
+        # This doesn't affect us in this particular function, though,
+        # because we're only interested in collecting the names of
+        # targets defined at the level of this particular `tree`.
+        #
+        # So, for example, if we're analyzing a `ListComp`, the
+        # targets *at that level* will be in scope *for that ListComp*
+        # (and any nested listcomps, which is why we provide the
+        # `scoped_walker`.)
         targetnames = []
         for g in tree.generators:
             if type(g.target) is Name:
@@ -147,7 +186,7 @@ def getshadowers(tree):
                     return tree
                 targetnames.extend(extractnames.collect(g.target))
             else:
-                assert False, "unimplemented: comprehension target of type {}".type(g.target)
+                assert False, "Scope analyzer: unimplemented: comprehension target of type {}".type(g.target)
 
         return list(uniqify(targetnames)), []
 
@@ -159,7 +198,7 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
 
     This includes:
 
-        - Any ``Name`` in store context
+        - Any ``Name`` in store context (such as on the LHS of an `Assign` node)
 
         - The name of ``FunctionDef``, ``AsyncFunctionDef`` or``ClassDef``
 
@@ -177,7 +216,8 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
     This stops at the boundary of any nested scopes.
 
     To find out new local vars, exclude any names in ``nonlocals`` as returned
-    by ``getshadowers``.
+    by ``get_lexical_variables`` for the nearest lexically surrounding parent
+    tree that represents a scope.
     """
     def collect_name_or_list(t):
         if type(t) is Name:
@@ -186,7 +226,7 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
             for x in t.elts:
                 collect(x.id)
         else:
-            assert False, "unknown type {}".format(type(t))
+            assert False, "Scope analyzer: unimplemented: collect names from type {}".format(type(t))
     # Useful article: http://excess.org/article/2014/04/bar-foo/
     if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
         collect(tree.name)
@@ -211,7 +251,12 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
 
 @Walker
 def get_names_in_del_context(tree, *, stop, collect, **kw):
-    """In a tree representing a statement, get names in del context."""
+    """In a tree representing a statement, get names in del context.
+
+    **Note**: This is intended for static analysis of lexical variables.
+    We detect `del x` only, ignoring `del o.x` and `del d['x']`, because
+    those don't delete the lexical variables `o` and `d`.
+    """
     if isnewscope(tree):
         stop()
     # We want to detect things like "del x":
