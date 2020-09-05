@@ -147,6 +147,9 @@ def get_lexical_variables(tree):
 
     elif type(tree) is ClassDef:
         cname = [tree.name]
+        # TODO: Base class scan currently only supports bare ``Name`` nodes.
+        # TODO: Not clear what we should do if a base is an ``Attribute``
+        # TODO: (``mymod.myclass``) or a ``Subscript`` (``my_list_of_classes[0]``).
         bases = [b.id for b in tree.bases if type(b) is Name]
         # these are referred to via self.foo, not by bare names.
 #        classattrs = _get_names_in_store_context.collect(tree.body)
