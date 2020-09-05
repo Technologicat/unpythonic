@@ -62,11 +62,11 @@ def scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ct
                 real work. It may edit the tree in-place.
     """
     if type(tree) in (Lambda, ListComp, SetComp, GeneratorExp, DictComp, ClassDef):
-        moreargs, _ = get_lexical_variables(tree)
+        moreargs, _ = get_lexical_variables(tree, collect_locals=False)
         set_ctx(args=(args + moreargs))
     elif type(tree) in (FunctionDef, AsyncFunctionDef):
         stop()
-        moreargs, newnonlocals = get_lexical_variables(tree)
+        moreargs, newnonlocals = get_lexical_variables(tree, collect_locals=False)
         args = args + moreargs
         for expr in (tree.args, tree.decorator_list):
             scoped_walker.recurse(expr, localvars=localvars, args=args, nonlocals=nonlocals, callback=callback)
@@ -89,26 +89,41 @@ def scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ct
     names_in_scope = args + localvars + nonlocals
     return callback(tree, names_in_scope)
 
-def get_lexical_variables(tree):
+def get_lexical_variables(tree, collect_locals=True):
     """In a tree representing a lexical scope, get names currently in scope.
 
     An AST node represents a scope if ``isnewscope(tree)`` returns ``True``.
 
+    `collect_locals` affects how this analyzes ``FunctionDef`` and
+    ``AsyncFunctionDef`` nodes.
+
     We collect:
 
-        - formal parameter names of ``Lambda``, ``FunctionDef``, ``AsyncFunctionDef``
+        - formal parameter names of ``Lambda``, ``FunctionDef``, ``AsyncFunctionDef``,
+          plus:
 
-            - plus function name of ``FunctionDef``, ``AsyncFunctionDef``
+            - function name of ``FunctionDef``, ``AsyncFunctionDef``
 
             - any names declared ``nonlocal`` or ``global`` in a ``FunctionDef``
               or ``AsyncFunctionDef``
+
+            - For ``FunctionDef``, ``AsyncFunctionDef``: if `collect_locals` is `True`,
+              any names from assignment LHSs in the function body.
+
+              This means that the `collect_locals=True` mode leads to a purely static
+              (i.e. purely lexical) analysis. Any local name defined anywhere in the
+              function body is considered to be in scope.
+
+              If `collect_locals` is `False`, assignment LHSs are ignored. It is then
+              the caller's responsibility to perform the appropriate dynamic analysis.
+              See `scoped_walker` for an example of how to do that.
 
         - names of comprehension targets in ``ListComp``, ``SetComp``,
           ``GeneratorExp``, ``DictComp``
 
         - class name and base class names of ``ClassDef``
 
-            - **CAUTION**: base class scan only supports bare ``Name`` nodes
+            - **CAUTION**: base class scan currently only supports bare ``Name`` nodes
 
     Return value is (``args``, ``nonlocals``), where each component is a ``list``
     of ``str``. The list ``nonlocals`` contains names declared ``nonlocal`` or
@@ -130,9 +145,14 @@ def get_lexical_variables(tree):
             argnames.append(a.kwarg.arg)
 
         fname = []
+        localvars = []
         nonlocals = []
         if type(tree) in (FunctionDef, AsyncFunctionDef):
             fname = [tree.name]
+
+            if collect_locals:
+                localvars = uniqify(get_names_in_store_context.collect(tree.body))
+
             @Walker
             def getnonlocals(tree, *, stop, collect, **kw):
                 if isnewscope(tree):
@@ -143,7 +163,7 @@ def get_lexical_variables(tree):
                 return tree
             nonlocals = getnonlocals.collect(tree.body)
 
-        return list(uniqify(fname + argnames)), list(uniqify(nonlocals))
+        return list(uniqify(fname + argnames + localvars)), list(uniqify(nonlocals))
 
     elif type(tree) is ClassDef:
         cname = [tree.name]
