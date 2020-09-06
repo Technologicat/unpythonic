@@ -170,6 +170,9 @@ def get_lexical_variables(tree, collect_locals=True):
     (created by assignment), formal parameters of function definitions,
     or names declared ``nonlocal`` or ``global``.
     """
+    if not isnewscope(tree):
+        raise TypeError("Expected a tree representing a lexical scope, got {}".format(type(tree)))
+
     if type(tree) in (Lambda, FunctionDef, AsyncFunctionDef):
         a = tree.args
         argnames = [x.arg for x in a.args + a.kwonlyargs]
@@ -185,7 +188,7 @@ def get_lexical_variables(tree, collect_locals=True):
             fname = [tree.name]
 
             if collect_locals:
-                localvars = uniqify(get_names_in_store_context.collect(tree.body))
+                localvars = list(uniqify(get_names_in_store_context.collect(tree.body)))
 
             @Walker
             def getnonlocals(tree, *, stop, collect, **kw):
@@ -244,12 +247,12 @@ def get_lexical_variables(tree, collect_locals=True):
                         collect(tree.id)
                     return tree
                 targetnames.extend(extractnames.collect(g.target))
-            else:
+            else:  # pragma: no cover
                 assert False, "Scope analyzer: unimplemented: comprehension target of type {}".type(g.target)
 
         return list(uniqify(targetnames)), []
 
-    return [], []
+    assert False  # cannot happen  # pragma: no cover
 
 @Walker
 def get_names_in_store_context(tree, *, stop, collect, **kw):
