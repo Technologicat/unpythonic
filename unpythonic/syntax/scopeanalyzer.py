@@ -144,11 +144,13 @@ def get_lexical_variables(tree, collect_locals=True):
 
               This means that the `collect_locals=True` mode leads to a purely static
               (i.e. purely lexical) analysis. Any local name defined anywhere in the
-              function body is considered to be in scope.
+              function body is considered to be in scope. (In parts of the scope,
+              the name may still be unbound; see Python's `UnboundLocalError`.)
 
               If `collect_locals` is `False`, assignment LHSs are ignored. It is then
-              the caller's responsibility to perform the appropriate dynamic analysis.
-              See `scoped_walker` for an example of how to do that.
+              the caller's responsibility to perform the appropriate dynamic analysis,
+              although doing so doesn't fully make sense. See `scoped_walker` for an
+              example of how to do that.
 
         - names of comprehension targets in ``ListComp``, ``SetComp``,
           ``GeneratorExp``, ``DictComp``
