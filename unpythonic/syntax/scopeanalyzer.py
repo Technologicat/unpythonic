@@ -252,6 +252,7 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
                 collect_name_or_list(x)
         else:
             assert False, "Scope analyzer: unimplemented: collect names from type {}".format(type(t))
+    # https://docs.python.org/3/reference/executionmodel.html#binding-of-names
     # Useful article: http://excess.org/article/2014/04/bar-foo/
     if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
         collect(tree.name)
@@ -261,6 +262,15 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
         for x in tree.names:
             collect(x.asname if x.asname is not None else x.name)
     elif type(tree) is Try:
+        # https://docs.python.org/3/reference/compound_stmts.html#the-try-statement
+        #
+        # TODO: The `err` in  `except SomeException as err` is only bound within the `except` block,
+        # TODO: not elsewhere in the parent scope. But we don't have the machinery to make that distinction,
+        # TODO: so for now we pretend it's bound in the whole parent scope. Usually the same name is not
+        # TODO: used for anything else in the same scope, so in practice this (although wrong) is often fine.
+        #
+        # TODO: We can't cheat by handling `Try` as a new scope, because any other name bound inside the
+        # TODO: `try`, even inside the `except` blocks, will be bound in the whole parent scope.
         for h in tree.handlers:
             collect(h.name)
     elif type(tree) is (With, AsyncWith):
