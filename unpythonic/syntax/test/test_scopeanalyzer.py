@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Lexical scope analysis tools."""
 
-from ...syntax import macros, test, warn  # noqa: F401
+from ...syntax import macros, test, test_raises, warn  # noqa: F401
 from ...test.fixtures import session, testset
 
 from macropy.core.quotes import macros, q  # noqa: F811, F401
@@ -171,7 +171,45 @@ def runtests():
         test[get_names_in_del_context.collect(getnames_del_scope_boundary[1].body) == ["y"]]
 
     with testset("get_lexical_variables"):
-        warn["TODO: This testset not implemented yet."]
+        with q as getlexvars_fdef:
+            y = 21  # pragma: no cover
+            def myfunc(x, *args, kwonlyarg, **kwargs):  # pragma: no cover
+                nonlocal y  # not really needed here, except for exercising the analyzer.
+                global g
+                def inner(blah):
+                    abc = 123  # noqa: F841
+                z = 2 * y  # noqa: F841
+        test_raises[TypeError, get_lexical_variables(getlexvars_fdef[0])]  # wrong AST node type
+        test[get_lexical_variables(getlexvars_fdef[1]) == (["myfunc",
+                                                            "x", "kwonlyarg", "args", "kwargs",
+                                                            "inner",
+                                                            "z"],
+                                                           ["y", "g"])]
+
+        # If we disable `collect_locals`, then `inner` and `z` should not be collected.
+        test[get_lexical_variables(getlexvars_fdef[1], collect_locals=False) == (["myfunc",
+                                                                                  "x", "kwonlyarg",
+                                                                                  "args", "kwargs"],
+                                                                                 ["y", "g"])]
+
+        with q as getlexvars_classdef:
+            class WorldClassy(Classy):  # pragma: no cover
+                pass
+        test[get_lexical_variables(getlexvars_classdef[0]) == (["WorldClassy", "Classy"],
+                                                               [])]
+
+        with q as getlexvars_listcomp_simple:
+            [x for x in range(5)]  # note this goes into an ast.Expr  # pragma: no cover
+        test[get_lexical_variables(getlexvars_listcomp_simple[0].value) == (["x"],
+                                                                            [])]
+        with q as getlexvars_listcomp_tuple_in_expr:
+            [(x, y) for x in range(5) for y in range(x)]  # pragma: no cover
+        test[get_lexical_variables(getlexvars_listcomp_tuple_in_expr[0].value) == (["x", "y"],
+                                                                                   [])]
+        with q as getlexvars_listcomp_tuple_in_target:
+            [(x, y) for x, y in zip(range(5), range(5))]  # pragma: no cover
+        test[get_lexical_variables(getlexvars_listcomp_tuple_in_target[0].value) == (["x", "y"],
+                                                                                     [])]
 
     with testset("scoped_walker"):
         warn["TODO: This testset not implemented yet."]
