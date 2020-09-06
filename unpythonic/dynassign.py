@@ -259,7 +259,7 @@ class _Dyn(Singleton):
         setattr(self, k, v)
 
     # pretty-printing
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         bindings = ["{:s}={}".format(k, repr(self[k])) for k in self]
         return "<dyn object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
 dyn = _Dyn()
