@@ -10,7 +10,7 @@ from macropy.core.walkers import Walker
 from macropy.core.macros import macro_stub
 from macropy.core import unparse
 
-from ast import Tuple, Str, Subscript, Name, Call, copy_location, Compare, arg, Return
+from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..env import env
@@ -304,9 +304,6 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, me
 # Syntax transformers for the macros.
 
 def _unconditional_error_expr(tree, syntaxname, marker):
-    # TODO: Python 3.8+: ast.Constant, no ast.Str
-    if type(tree) is not Str:
-        assert False, "expected {stx}[message]".format(stx=syntaxname)
     thetuple = q[(ast_literal[marker], ast_literal[tree])]
     thetuple = copy_location(thetuple, tree)
     return test_expr(thetuple)
@@ -384,8 +381,7 @@ def test_expr(tree):
     asserter = hq[unpythonic_assert]
 
     # test[expr, message]  (like assert expr, message)
-    # TODO: Python 3.8+: ast.Constant, no ast.Str
-    if type(tree) is Tuple and len(tree.elts) == 2 and type(tree.elts[1]) is Str:
+    if type(tree) is Tuple and len(tree.elts) == 2:
         tree, message = tree.elts
     # test[expr]  (like assert expr)
     else:
@@ -424,8 +420,7 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     filename = hq[callsite_filename()]
 
     # test_signals[exctype, expr, message]
-    # TODO: Python 3.8+: ast.Constant, no ast.Str
-    if type(tree) is Tuple and len(tree.elts) == 3 and type(tree.elts[2]) is Str:
+    if type(tree) is Tuple and len(tree.elts) == 3:
         exctype, tree, message = tree.elts
     # test_signals[exctype, expr]
     elif type(tree) is Tuple and len(tree.elts) == 2:
@@ -462,8 +457,7 @@ def test_block(block_body, args):
     asserter = hq[unpythonic_assert]
 
     # with test(message):
-    # TODO: Python 3.8+: ast.Constant, no ast.Str
-    if len(args) == 1 and type(args[0]) is Str:
+    if len(args) == 1:
         message = args[0]
     # with test:
     elif len(args) == 0:
@@ -529,8 +523,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
     filename = hq[callsite_filename()]
 
     # with test_raises(exctype, message):
-    # TODO: Python 3.8+: ast.Constant, no ast.Str
-    if len(args) == 2 and type(args[1]) is Str:
+    if len(args) == 2:
         exctype, message = args
     # with test_raises(exctype):
     elif len(args) == 1:
