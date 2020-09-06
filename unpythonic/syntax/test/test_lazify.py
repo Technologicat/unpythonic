@@ -12,7 +12,7 @@ from ...syntax import (macros, lazify, lazyrec,  # noqa: F811, F401
                        tco,
                        curry,
                        continuations, call_cc)
-from ...syntax import force
+from ...syntax import force, force1
 
 # Doesn't really override the earlier curry import. The first one went into
 # MacroPy's macro registry, and this one is a regular run-time function.
@@ -80,6 +80,20 @@ def runtests():
         test[type(second_firstitem) is Lazy]
 
     with testset("force (compute the lazy value now; the inverse of lazyrec)"):
+        # force1() forces a promise
+        promise = lazy[2 + 3]
+        test[type(promise) is Lazy]
+        test[type(force1(promise)) == int]
+        test[force1("not a promise") == "not a promise"]  # anything else is passed through
+
+        # force() recurses into containers, forcing any promises found therein
+        promises = (lazy[2 + 3], lazy[2 * 21])
+        test[type(force1(promises)) is tuple]
+        test[all(type(x) is Lazy for x in force1(promises))]
+        test[type(force(promises)) is tuple]
+        test[all(type(x) is int for x in force(promises))]
+
+        # so force() is the inverse of lazyrec[]
         tpl = lazyrec[(2 + 3, 2 * 21)]
         test[force(tpl) == (5, 42)]
 
