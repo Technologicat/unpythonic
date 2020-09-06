@@ -130,9 +130,9 @@ def runtests():
         with q as getnames_try:
             try:  # pragma: no cover
                 pass
-            except Exception as err:  # noqa: F841
+            except Exception as err:  # noqa: F841  # pragma: no cover
                 pass
-            except KeyboardInterrupt as kbi:  # noqa: F841
+            except KeyboardInterrupt as kbi:  # noqa: F841  # pragma: no cover
                 pass
         test[get_names_in_store_context.collect(getnames_try) == ["err", "kbi"]]
 
