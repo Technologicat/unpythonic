@@ -33,7 +33,7 @@ and `nonlocal` keywords aren't needed. For discussion on this point, see:
 
 from ast import (Name, Tuple,
                  Lambda, FunctionDef, ClassDef,
-                 List, For, Import, Try, With,
+                 List, For, Import, ImportFrom, Try, With,
                  ListComp, SetComp, GeneratorExp, DictComp,
                  Store, Del,
                  Global, Nonlocal)
@@ -256,9 +256,10 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
     # Useful article: http://excess.org/article/2014/04/bar-foo/
     if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
         collect(tree.name)
-    elif type(tree) is (For, AsyncFor):
-        collect_name_or_list(tree.target)
-    elif type(tree) is Import:
+    # We don't need to handle for loops specially; the targets are Name nodes in Store context.
+    # elif type(tree) in (For, AsyncFor):
+    #     collect_name_or_list(tree.target)
+    elif type(tree) in (Import, ImportFrom):
         for x in tree.names:
             collect(x.asname if x.asname is not None else x.name)
     elif type(tree) is Try:
