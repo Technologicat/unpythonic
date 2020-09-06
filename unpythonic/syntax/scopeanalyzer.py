@@ -65,11 +65,11 @@ point, and on the need for an "uninitialized" special value (called ☠), see:
 
 from ast import (Name, Tuple,
                  Lambda, FunctionDef, ClassDef,
-                 List, Import, ImportFrom, Try, With,
+                 Import, ImportFrom, Try,
                  ListComp, SetComp, GeneratorExp, DictComp,
                  Store, Del,
                  Global, Nonlocal)
-from .astcompat import AsyncFunctionDef, AsyncWith
+from .astcompat import AsyncFunctionDef
 
 from macropy.core.walkers import Walker
 
@@ -278,14 +278,15 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
     by ``get_lexical_variables`` for the nearest lexically surrounding parent
     tree that represents a scope.
     """
-    def collect_name_or_list(t):
-        if type(t) is Name:
-            collect(t.id)
-        elif type(t) in (Tuple, List):
-            for x in t.elts:
-                collect_name_or_list(x)
-        else:
-            assert False, "Scope analyzer: unimplemented: collect names from type {}".format(type(t))
+    # def collect_name_or_list(t):
+    #     if type(t) is Name:
+    #         collect(t.id)
+    #     elif type(t) in (Tuple, List):
+    #         for x in t.elts:
+    #             collect_name_or_list(x)
+    #     else:
+    #         assert False, "Scope analyzer: unimplemented: collect names from type {}".format(type(t))
+
     # https://docs.python.org/3/reference/executionmodel.html#binding-of-names
     # Useful article: http://excess.org/article/2014/04/bar-foo/
     if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
@@ -308,10 +309,11 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
         # TODO: `try`, even inside the `except` blocks, will be bound in the whole parent scope.
         for h in tree.handlers:
             collect(h.name)
-    elif type(tree) is (With, AsyncWith):
-        for item in tree.items:
-            if item.optional_vars is not None:
-                collect_name_or_list(item.optional_vars)
+    # Same note as for for loops.
+    # elif type(tree) in (With, AsyncWith):
+    #     for item in tree.items:
+    #         if item.optional_vars is not None:
+    #             collect_name_or_list(item.optional_vars)
     if isnewscope(tree):
         stop()
     # macro-created nodes might not have a ctx, but our macros don't create lexical assignments.
