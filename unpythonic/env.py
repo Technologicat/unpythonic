@@ -169,7 +169,7 @@ class env:
         self._env.clear()  # on context exit, clear even if we are a finalized env
 
     # pretty-printing
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         bindings = ["{:s}={}".format(name, repr(value)) for name, value in self._env.items()]
         return "<env object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
 
