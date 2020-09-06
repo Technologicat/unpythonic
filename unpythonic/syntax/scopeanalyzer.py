@@ -21,9 +21,41 @@ such as that created by the "let" decorator macro ``@dlet``).
 Deletions of nonlocals and globals are ignored, because those are too dynamic
 for static analysis to make sense.
 
-Scope analysis for Python is unnecessarily complicated, because it conflates
-definition and rebinding - in any language that keeps these separate, the `global`
-and `nonlocal` keywords aren't needed. For discussion on this point, see:
+
+**CAUTION**:
+
+What we do currently (before v0.15.0) doesn't fully make sense.
+
+Scope - in the sense of controlling lexical name resolution - is a static
+(purely lexical) concept, but whether a particular name (once lexically
+resolved) has been initialized (or, say, whether it has been deleted) is a
+dynamic (run-time) feature. (I would say "property", if that word didn't
+have an entirely different technical meaning in Python.)
+
+Consider deleting a name in one branch of an `if`/`else`. After that
+`if`/`else`, is the name still defined or not? Of course, with very few
+exceptional trivial cases such as `if 1`, this depends on the condition
+part of the `if` at run time, and thus can't be statically determined.
+
+In order to make more sense, in v0.15.0, we will migrate to a fully static analysis.
+This will make the analyzer consistent with how Python itself handles scoping,
+at the cost of slightly (but backward-incompatibly) changing the semantics of
+some corner cases in the usage of `let` and `do`.
+
+As of v0.14.3, a fully lexical mode has been added to `get_lexical_variables`
+(which, up to v0.14.2, used to be called `getshadowers`), and is enabled by default.
+
+It is disabled when `scoped_walker` calls `get_lexical_variables`, to preserve
+old behavior until the next opportunity for a public interface change.
+In v0.15.0, we will make `scoped_walker` use the fully lexical mode.
+
+
+**NOTE**:
+
+Scope analysis for Python is complicated, because the language's syntax
+conflates definition and rebinding. In any language that keeps these separate,
+the `global` and `nonlocal` keywords aren't needed. For discussion on this
+point, and on the need for an "uninitialized" special value (called ☠), see:
 
     Joe Gibbs Politz, Alejandro Martinez, Matthew Milano, Sumner Warren,
     Daniel Patterson, Junsong Li, Anand Chitipothu, Shriram Krishnamurthi, 2013,
