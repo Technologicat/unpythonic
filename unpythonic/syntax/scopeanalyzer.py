@@ -33,11 +33,11 @@ and `nonlocal` keywords aren't needed. For discussion on this point, see:
 
 from ast import (Name, Tuple,
                  Lambda, FunctionDef, ClassDef,
-                 List, For, Import, ImportFrom, Try, With,
+                 List, Import, ImportFrom, Try, With,
                  ListComp, SetComp, GeneratorExp, DictComp,
                  Store, Del,
                  Global, Nonlocal)
-from .astcompat import AsyncFunctionDef, AsyncFor, AsyncWith
+from .astcompat import AsyncFunctionDef, AsyncWith
 
 from macropy.core.walkers import Walker
 
