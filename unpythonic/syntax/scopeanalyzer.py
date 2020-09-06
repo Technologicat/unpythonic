@@ -249,7 +249,7 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
             collect(t.id)
         elif type(t) in (Tuple, List):
             for x in t.elts:
-                collect(x.id)
+                collect_name_or_list(x)
         else:
             assert False, "Scope analyzer: unimplemented: collect names from type {}".format(type(t))
     # Useful article: http://excess.org/article/2014/04/bar-foo/
