@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Automatic lazy evaluation of function arguments."""
 
-from ...syntax import macros, test, test_raises, error, warn  # noqa: F401
+from ...syntax import macros, test, test_raises, error  # noqa: F401
 from ...test.fixtures import session, testset
 
 from macropy.quick_lambda import macros, lazy  # noqa: F811, F401
@@ -65,7 +65,6 @@ def runtests():
         dic = lazyrec[dict(a=2 + 3, b=2 * 21, c=1 / 0)]
         test[all(type(v) is Lazy for k, v in dic.items())]
 
-        # warn["Some tests that require Python 3.5 or later are currently disabled due to compatibility with 3.4."]
         dic = lazyrec[dict(a=2 + 3, b=2 * 21, **{'c': 1 / 0})]
         test[all(type(v) is Lazy for k, v in dic.items())]
 
