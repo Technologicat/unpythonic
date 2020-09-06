@@ -1,6 +1,6 @@
 # -*- coding: utf-8; -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, the  # noqa: F401
 from .fixtures import session, testset, returns_normally
 
 import pickle
@@ -95,8 +95,12 @@ def runtests():
                 t.start()
             for t in threads:
                 t.join()
+            # Rarely, a race may lead to multiple threads succeeding in
+            # instantiating the singleton. If that happens, all the created
+            # instances should be the same one. So test that, rather than
+            # that only one was created.
             lst = slurp(que)
-            test[len(lst) == 1]
+            test[allsame(the[lst])]  # lst is short and we'd like to see it if the test fails.
 
         # TODO: These must be outside the `with test` because a test block
         # implicitly creates a function (whence a local scope).
@@ -117,6 +121,7 @@ def runtests():
             for t in threads:
                 t.join()
             lst = slurp(que)
+            test[len(lst) == n]
             test[all(x is not None for x in lst)]
             test[allsame(lst)]
 
