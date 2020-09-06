@@ -52,6 +52,10 @@ In v0.15.0, we will make `scoped_walker` use the fully lexical mode.
 
 **NOTE**:
 
+Relevant part of the Python language reference:
+
+    https://docs.python.org/3/reference/executionmodel.html#naming-and-binding
+
 Scope analysis for Python is complicated, because the language's syntax
 conflates definition and rebinding. In any language that keeps these separate,
 the `global` and `nonlocal` keywords aren't needed. For discussion on this
