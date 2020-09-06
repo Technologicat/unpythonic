@@ -64,7 +64,7 @@ def runtests():
 
         try:
             from mpmath import mpf
-        except ImportError:
+        except ImportError:  # pragma: no cover
             error["mpmath not installed in this Python, cannot test arbitrary precision input for mathseq."]
         else:
             test[almosteq(mpf(1.0), mpf(1.0 + ulp(1.0)))]
