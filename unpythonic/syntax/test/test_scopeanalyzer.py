@@ -4,8 +4,10 @@
 from ...syntax import macros, test, test_raises, warn  # noqa: F401
 from ...test.fixtures import session, testset
 
-from macropy.core.quotes import macros, q  # noqa: F811, F401
+from macropy.core.quotes import macros, q, name  # noqa: F811, F401
 # from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+
+from ast import Name
 
 from ...syntax.scopeanalyzer import (isnewscope,
                                      get_names_in_store_context,
@@ -212,7 +214,62 @@ def runtests():
                                                                                      [])]
 
     with testset("scoped_walker"):
-        warn["TODO: This testset not implemented yet."]
+        def istestlocation(tree):  # mark where to apply the test[] in the walking process
+            return type(tree) is Name and tree.id == "_apply_test_here_"
+        def make_checker(expected_names):
+            def check(tree, actual_names):
+                if istestlocation(tree):
+                    # Upon a test failure, test[] auto-reports the value of
+                    # only one expr (which is the LHS, unless we use `the[]`),
+                    # but we can report additional values in the message.
+                    test[actual_names == expected_names,
+                         "expected_names = {}".format(expected_names)]
+                return tree
+            return check
+
+        with q as scoped_onefunc:
+            def f(x):  # noqa: F811  # pragma: no cover
+                name["_apply_test_here_"]
+        scoped_walker.recurse(scoped_onefunc, callback=make_checker(["f", "x"]))
+
+        with q as scoped_nestedfunc1:
+            def f(x):  # noqa: F811  # pragma: no cover
+                name["_apply_test_here_"]
+                def g(y):
+                    pass
+        scoped_walker.recurse(scoped_nestedfunc1, callback=make_checker(["f", "x"]))
+
+        with q as scoped_nestedfunc2:
+            def f(x):  # noqa: F811  # pragma: no cover
+                def g(y):
+                    name["_apply_test_here_"]
+        scoped_walker.recurse(scoped_nestedfunc2, callback=make_checker(["f", "x", "g", "y"]))
+
+        with q as scoped_classdef:
+            class WorldClassy(Classy):  # noqa: F811  # pragma: no cover
+                name["_apply_test_here_"]
+        scoped_walker.recurse(scoped_classdef, callback=make_checker(["WorldClassy", "Classy"]))
+
+        with q as scoped_localvar1:
+            def f():  # noqa: F811  # pragma: no cover
+                x = 42  # noqa: F841
+                name["_apply_test_here_"]
+        scoped_walker.recurse(scoped_localvar1, callback=make_checker(["f", "x"]))
+
+        # TODO: In 0.15.0, fully lexical scope analysis; update this test at that time.
+        with q as scoped_localvar2:
+            def f():  # noqa: F811  # pragma: no cover
+                name["_apply_test_here_"]
+                x = 42  # noqa: F841
+        scoped_walker.recurse(scoped_localvar2, callback=make_checker(["f"]))  # x not yet created
+
+        # TODO: In 0.15.0, fully lexical scope analysis; update this test at that time.
+        with q as scoped_localvar3:
+            def f():  # noqa: F811  # pragma: no cover
+                x = 42  # noqa: F841
+                del x
+                name["_apply_test_here_"]
+        scoped_walker.recurse(scoped_localvar3, callback=make_checker(["f"]))  # x already deleted
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
