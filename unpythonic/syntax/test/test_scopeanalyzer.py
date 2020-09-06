@@ -163,6 +163,13 @@ def runtests():
             del d["x"]  # noqa: F821, F841  # pragma: no cover
         test[get_names_in_del_context.collect(getnames_del_subscript) == []]
 
+        with q as getnames_del_scope_boundary:
+            del x  # noqa: F821  # pragma: no cover
+            def f3():  # pragma: no cover
+                del y  # noqa: F821
+        test[get_names_in_del_context.collect(getnames_del_scope_boundary) == ["x"]]
+        test[get_names_in_del_context.collect(getnames_del_scope_boundary[1].body) == ["y"]]
+
     with testset("get_lexical_variables"):
         warn["TODO: This testset not implemented yet."]
 
