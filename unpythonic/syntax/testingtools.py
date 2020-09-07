@@ -10,7 +10,7 @@ from macropy.core.walkers import Walker
 from macropy.core.macros import macro_stub
 from macropy.core import unparse
 
-from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return
+from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return, parse, Expr
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..env import env
@@ -148,9 +148,16 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
     mode, test_result = _observe(lambda: func(e))  # <-- run the actual expr being asserted
     if e.captured_values:
         # The condition filters out some pathological cases such as "4 = 4" in `test[4 in (1, 2, 3)]`.
+        # Canonization eliminates surface syntax differences such as which quote character is used
+        # for string literals, and parenthesization.
+        def canonize_expr(sourcecode):
+            tree = parse(sourcecode)
+            expr_node = tree.body[0]
+            assert type(expr_node) is Expr
+            return unparse(expr_node.value).strip()
         values_strs = ["{} = {}".format(subexpr_sourcecode, subexpr_value)
                        for subexpr_sourcecode, subexpr_value in e.captured_values
-                       if str(subexpr_sourcecode.strip()) != repr(subexpr_value).strip()]
+                       if canonize_expr(subexpr_sourcecode) != canonize_expr(repr(subexpr_value))]
         if values_strs:
             values_msg = ", due to " + ", ".join(values_strs)
         else:  # if we got only trivialities, the captures were not useful. Use the default message.
