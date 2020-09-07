@@ -17,7 +17,7 @@ from ..env import env
 from ..misc import callsite_filename
 from ..conditions import cerror, handlers, restarts, invoke
 from ..collections import unbox
-from ..symbol import sym, gensym
+from ..symbol import sym
 
 from .util import isx
 
@@ -99,7 +99,6 @@ def _observe(thunk):
         return fixtures.raised, err
 
 
-_unassigned = gensym("_unassigned")  # runtime gensym / nonce value.
 def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
     """Custom assert function, for building test frameworks.
 
@@ -142,16 +141,19 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
     No return value.
     """
     # The the[] marker, if any, inside a test[], injects code to record the
-    # value of the interesting subexpression as `captured_value` in the env
-    # we send to `func` as its argument.
-    e = env(captured_value=_unassigned)
+    # value of an interesting subexpression in `captured_values` in the env
+    # we send to `func` as its argument. A `the[]` is also implicitly injected
+    # by the comparison destructuring mechanism.
+    e = env(captured_values=[])
     mode, test_result = _observe(lambda: func(e))  # <-- run the actual expr being asserted
-    if e.captured_value is not _unassigned:
-        value = e.captured_value
+    if e.captured_values:
+        values_strs = ["{} = {}".format(subexpr_sourcecode, subexpr_value)
+                       for subexpr_sourcecode, subexpr_value in e.captured_values]
+        values_msg = ", due to " + ", ".join(values_strs)
     else:
-        # It's legal to omit capturing the value of any subexpr.
-        # In that case, we capture the value of the whole expression.
-        value = test_result
+        # It's legal to omit capturing the values of any subexprs.
+        # In that case, we report the value of the whole expression.
+        values_msg = ", due to result = {}".format(test_result)
     fixtures._update(fixtures.tests_run, +1)
 
     if message is not None:
@@ -204,7 +206,7 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
             return
         fixtures._update(fixtures.tests_failed, +1)
         conditiontype = fixtures.TestFailure
-        error_msg = "Test failed: {}, due to result = {}{}".format(sourcecode, value, custom_msg)
+        error_msg = "Test failed: {}{}{}".format(sourcecode, values_msg, custom_msg)
     elif mode is fixtures.signaled:
         fixtures._update(fixtures.tests_errored, +1)
         conditiontype = fixtures.TestError
@@ -230,7 +232,7 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
     # in a machine-readable format for run-time inspection.
     cerror(conditiontype(complete_msg, origin=origin, custom_message=message,
                          filename=filename, lineno=lineno, sourcecode=sourcecode,
-                         mode=mode, result=test_result, captured_value=value))
+                         mode=mode, result=test_result, captured_values=e.captured_values))
 
 def unpythonic_assert_signals(exctype, sourcecode, thunk, *, filename, lineno, message=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` signals `exctype`.
@@ -265,7 +267,7 @@ def unpythonic_assert_signals(exctype, sourcecode, thunk, *, filename, lineno, m
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg, origin="test_signals", custom_message=message,
                          filename=filename, lineno=lineno, sourcecode=sourcecode,
-                         mode=mode, result=test_result, captured_value=test_result))
+                         mode=mode, result=test_result, captured_values=[]))
 
 def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, message=None):
     """Like `unpythonic_assert`, but assert that running `sourcecode` raises `exctype`."""
@@ -297,7 +299,7 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, me
     complete_msg = "[{}:{}] {}".format(filename, lineno, error_msg)
     cerror(conditiontype(complete_msg, origin="test_raises", custom_message=message,
                          filename=filename, lineno=lineno, sourcecode=sourcecode,
-                         mode=mode, result=test_result, captured_value=test_result))
+                         mode=mode, result=test_result, captured_values=[]))
 
 
 # -----------------------------------------------------------------------------
@@ -324,14 +326,16 @@ def the(*args, **kwargs):
 
     Only meaningful inside a `test[]`, or inside a `with test` block.
 
-    What `test[expr]` captures for reporting as "result" if the test fails:
+    What `test[expr]` captures for reporting for human inspection upon
+    test failure:
 
-      - If `the[...]` is present, the subexpression marked as `the[...]`.
+      - If any `the[...]` are present, the subexpressions marked as `the[...]`.
+
       - Else if `expr` is a comparison, the LHS (leftmost term in case of
-        a chained comparison). So e.g. `test[x < 3]` (or the second example
-        above) needs no annotation to do the right thing. This is a common
-        use case, hence automatic.
-      - Else the whole `expr`.
+        a chained comparison). So e.g. `test[x < 3]` needs no annotation
+        to do the right thing. This is a common use case, hence automatic.
+
+      - Else nothing is captured; the value of the whole `expr` is reported.
 
     So the `the[...]` mark is useful in tests involving comparisons::
 
@@ -339,9 +343,14 @@ def the(*args, **kwargs):
         test[lower_limit < the[computeitem(...)] < upper_limit]
         test[myconstant in the[computeset(...)]]
 
-    Note the above rules mean that if the interesting subexpression is the
-    leftmost term of a comparison, `the[...]` is optional, although allowed
-    (to explicitly document intent). These have the same effect::
+    especially if you need to capture several subexpressions::
+
+        test[the[counter()] < the[counter()]]
+
+    Note the above rules mean that if there is just one interesting
+    subexpression, and it is the leftmost term of a comparison, `the[...]`
+    is optional, although allowed (to explicitly document intent).
+    These have the same effect::
 
         test[the[computeitem(...)] in myitems]
         test[computeitem(...) in myitems]
@@ -349,10 +358,11 @@ def the(*args, **kwargs):
     The `the[...]` mark passes the value through, and does not affect the
     evaluation order of user code.
 
-    A `test[...]` may have at most one `the[...]`.
+    A `test[...]` may have multiple `the[...]`; the captured values are
+    gathered in a list that is shown upon test failure.
 
     In case of nested tests, each `the[...]` is understood as belonging to
-    the lexically innermost surrounding one.
+    the lexically innermost surrounding test.
 
     For `test_raises` and `test_signals`, the `the[...]` mark is not supported.
     """
@@ -364,8 +374,14 @@ def the(*args, **kwargs):
 #   test[the[computeitem(...)] in expected_results_plus_uninteresting_items]
 def _is_important_subexpr_mark(tree):
     return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "the"
+def _record_value(envname, sourcecode, value):
+    envname.captured_values.append((sourcecode, value))
+    return value
 def _inject_value_recorder(envname, tree):  # wrap tree with the the[] handler
-    return q[name[envname].set("captured_value", ast_literal[tree])]
+    recorder = hq[_record_value]
+    return q[ast_literal[recorder](name[envname],
+                                   u[unparse(tree)],
+                                   ast_literal[tree])]
 @Walker
 def _transform_important_subexpr(tree, *, collect, stop, envname, **kw):
     if _is_important_subexpr_mark(tree):
@@ -394,11 +410,9 @@ def test_expr(tree):
     gen_sym = dyn.gen_sym
     envname = gen_sym("e")  # for injecting the captured value
 
-    # Handle the `the[...]` mark, if any.
+    # Handle the `the[...]` marks, if any.
     tree, the_exprs = _transform_important_subexpr.recurse_collect(tree, envname=envname)
-    if len(the_exprs) > 1:
-        assert False, "test[]: At most one `the[...]` may appear in expr"  # pragma: no cover
-    if len(the_exprs) == 0 and type(tree) is Compare:  # inject the implicit the[] on the LHS
+    if not the_exprs and type(tree) is Compare:  # inject the implicit the[] on the LHS
         tree.left = _inject_value_recorder(envname, tree.left)
 
     # We delay the execution of the test expr using a lambda, so
@@ -473,10 +487,8 @@ def test_block(block_body, args):
     envname = gen_sym("e")  # for injecting the captured value
     testblock_function_name = gen_sym("test_block")
 
-    # Handle the `the[...]` mark, if any.
+    # Handle the `the[...]` marks, if any.
     block_body, the_exprs = _transform_important_subexpr.recurse_collect(block_body, envname=envname)
-    if len(the_exprs) > 1:
-        assert False, "test[]: At most one `the[...]` may appear in a `with test` block"  # pragma: no cover
 
     thetest = q[(ast_literal[asserter])(u[sourcecode],
                                         name[testblock_function_name],
@@ -499,7 +511,7 @@ def test_block(block_body, args):
     for stmt in block_body:
         if type(stmt) is Return:
             retval = stmt.value
-            if len(the_exprs) == 0 and type(retval) is Compare:
+            if not the_exprs and type(retval) is Compare:
                 # inject the implicit the[] on the LHS
                 retval.left = _inject_value_recorder(envname, retval.left)
     else:

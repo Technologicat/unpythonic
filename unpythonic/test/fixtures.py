@@ -194,7 +194,7 @@ class TestingException(Exception):
     """Base type for testing-related exceptions."""
     def __init__(self, *args, origin=None, custom_message=None,
                  filename=None, lineno=None, sourcecode=None,
-                 mode=None, result=None, captured_value=None):
+                 mode=None, result=None, captured_values=None):
         """Parameters:
 
         `*args`: like in Exception. Usually just one, a human-readable
@@ -248,16 +248,17 @@ class TestingException(Exception):
                   for human consumption, in a notation as close as possible to what Python
                   itself uses for reporting uncaught exceptions, see `describe_exception`.
 
-        `captured_value`: The value the test macros refer to as "result" in the error messages.
-                If a `the[]` was used, the value of the `the[]` subexpression.
+        `captured_values`: list, may be empty. Each item is of the form `(sourcecode_str, value)`.
+                If any `the[]` were used, an item is created for each `the[]` subexpression,
+                in the order the subexpressions were evaluated.
 
                 Else if the top level of the test assertion (or the return value of a test block,
-                respectively) was a comparison, the value of the leftmost term.
+                respectively) was a comparison, an item is created for the leftmost term.
 
-                Else `captured_value is result`.
+                Else empty.
 
                 Note that `test_signals` and `test_raises` do not support capturing;
-                for them, it always holds that `captured_value is result`.
+                for them `captures_values` is always empty.
         """
         super().__init__(*args)
         self.origin = origin
@@ -267,7 +268,7 @@ class TestingException(Exception):
         self.sourcecode = sourcecode
         self.mode = mode
         self.result = result
-        self.captured_value = captured_value
+        self.captured_values = captured_values
 class TestFailure(TestingException):
     """Exception: a test ran to completion normally, but the test assertion failed.
 

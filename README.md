@@ -411,9 +411,9 @@ with session("simple framework demo"):
 
 We provide the low-level syntactic constructs `test[]`, `test_raises[]` and `test_signals[]`, with the usual meanings. The last one is for testing code that uses conditions and restarts; see `unpythonic.conditions`.
 
-Inside a `test[]` expression, `the[]` can be used to declare a subexpression as the interesting part, for displaying its value as *"result"* in the test failure message if the test fails. By default (if no `the[]` is present), `test[]` captures the leftmost term if the top-level expression is a comparison (common use case), and otherwise the whole expression.
+Inside a `test[]` expression, `the[]` can be used to declare a subexpression as interesting, for displaying its source code and value in the test failure message if the test fails. By default (if no `the[]` is present), `test[]` captures the leftmost term if the top-level expression is a comparison (common use case), and otherwise does not capture anything (but if the test fails, shows the value of the whole expression).
 
-There can be at most one `the[]` in each `test`. In case of nested `test[]`, each `the[...]` is understood as belonging to the lexically innermost surrounding one.
+There may be an arbitrary number of `the[]` in each `test`. The captured values are gathered in a list that is shown upon test failure. In case of nested `test[]`, each `the[...]` is understood as belonging to the lexically innermost surrounding test.
 
 The test macros also come in block variants, `with test`, `with test_raises`, `with test_signals`.
 
