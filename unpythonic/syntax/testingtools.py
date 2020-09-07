@@ -147,9 +147,14 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
     e = env(captured_values=[])
     mode, test_result = _observe(lambda: func(e))  # <-- run the actual expr being asserted
     if e.captured_values:
+        # The condition filters out some pathological cases such as "4 = 4" in `test[4 in (1, 2, 3)]`.
         values_strs = ["{} = {}".format(subexpr_sourcecode, subexpr_value)
-                       for subexpr_sourcecode, subexpr_value in e.captured_values]
-        values_msg = ", due to " + ", ".join(values_strs)
+                       for subexpr_sourcecode, subexpr_value in e.captured_values
+                       if str(subexpr_sourcecode.strip()) != repr(subexpr_value).strip()]
+        if values_strs:
+            values_msg = ", due to " + ", ".join(values_strs)
+        else:  # if we got only trivialities, the captures were not useful. Use the default message.
+            values_msg = ", due to result = {}".format(test_result)
     else:
         # It's legal to omit capturing the values of any subexprs.
         # In that case, we report the value of the whole expression.
