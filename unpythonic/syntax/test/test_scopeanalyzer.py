@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Lexical scope analysis tools."""
 
-from ...syntax import macros, test, test_raises, warn  # noqa: F401
+from ...syntax import macros, test, test_raises, warn, the  # noqa: F401
 from ...test.fixtures import session, testset
 
 from macropy.core.quotes import macros, q, name  # noqa: F811, F401
@@ -224,11 +224,9 @@ def runtests():
         def make_checker(expected_names):
             def check(tree, actual_names):
                 if istestlocation(tree):
-                    # Upon a test failure, test[] auto-reports the value of
-                    # only one expr (which is the LHS, unless we use `the[]`),
-                    # but we can report additional values in the message.
-                    test[actual_names == expected_names,
-                         "expected_names = {}".format(expected_names)]
+                    # We use multiple the[] to capture both sides
+                    # for inspection if the test fails.
+                    test[the[actual_names] == the[expected_names]]
                 return tree
             return check
 
