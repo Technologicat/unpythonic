@@ -151,7 +151,10 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
         # Canonization eliminates surface syntax differences such as which quote character is used
         # for string literals, and parenthesization.
         def canonize_expr(sourcecode):
-            tree = parse(sourcecode)
+            try:
+                tree = parse(sourcecode)
+            except SyntaxError:  # sometimes a repr isn't valid source code
+                return None
             expr_node = tree.body[0]
             assert type(expr_node) is Expr
             return unparse(expr_node.value).strip()
