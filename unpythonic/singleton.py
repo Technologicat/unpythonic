@@ -123,6 +123,9 @@ _instances = WeakValueDictionary()
 # we override `__call__` **in the metaclass**, in order to override calls
 # of the class (i.e. constructor invocations).
 class ThereCanBeOnlyOne(type):
+    # TODO: Should we "with _instances_update_lock" already here?
+    # TODO: That way only one thread could proceed to __new__,
+    # TODO: which is more consistent with the single-thread behavior.
     def __call__(cls, *args, **kwargs):
         # Here we can do things like call `cls.__init__` only if `cls` was not
         # already in `_instances`... or outright refuse to create a second instance:
@@ -167,7 +170,7 @@ class Singleton(metaclass=ThereCanBeOnlyOne):
         try:  # EAFP to eliminate TOCTTOU.
             return _instances[cls]
         except KeyError:
-            # But we still need to be careful to avoid race conditions.
+            # Then be careful to avoid race conditions.
             with _instances_update_lock:
                 if cls not in _instances:
                     # We were the first thread to acquire the lock.

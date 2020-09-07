@@ -95,11 +95,16 @@ def runtests():
                 t.start()
             for t in threads:
                 t.join()
-            # Rarely, a race may lead to multiple threads succeeding in
-            # instantiating the singleton. If that happens, all the created
-            # instances should be the same one. So test that, rather than
-            # that only one was created.
+            # There's a race that, rarely, may lead to multiple threads concurrently
+            # seeing that the singleton instance does not yet exist, and thus successfully
+            # entering __new__. We handle that by locking, so that even in that case,
+            # only one instance is actually created.
+            #
+            # When that happens, all the instantiations that succeeded should
+            # return the same object instance. So test that, rather than that
+            # only one instantiation was performed.
             lst = slurp(que)
+            test[len(lst) >= 1]
             test[allsame(the[lst])]  # lst is short and we'd like to see it if the test fails.
 
         # TODO: These must be outside the `with test` because a test block
