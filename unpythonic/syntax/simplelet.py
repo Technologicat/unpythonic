@@ -49,7 +49,7 @@ def let(tree, args, **kw):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     """
     names = [k.id for k, _ in (a.elts for a in args)]
     if len(set(names)) < len(names):
-        assert False, "binding names must be unique in the same let"
+        assert False, "binding names must be unique in the same let"  # pragma: no cover
     values = [v for _, v in (a.elts for a in args)]
     lam = q[lambda: ast_literal[tree]]
     lam.args.args = [arg(arg=x) for x in names]  # inject args
