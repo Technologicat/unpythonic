@@ -71,10 +71,11 @@ def runtests():
             test[almosteq(1.0, mpf(1.0 + ulp(1.0)))]
             test[almosteq(mpf(1.0), 1.0 + ulp(1.0))]
 
-            # explicitly listed elements, same as a genexpr using tuple input
+    # explicitly listed elements, same as a genexpr using tuple input (but supports infix math)
     with testset("s, convenience"):
         test[tuple(s(1)) == (1,)]
         test[tuple(s(1, 2, 3, 4, 5)) == (1, 2, 3, 4, 5)]
+        test[tuple(s(1, 2, 3) + s(4, 5, 6)) == (5, 7, 9)]
 
     # constant sequence: [a0, identity] -> a0, a0, a0, ...
     # always infinite length, because final element cannot be used to deduce length.
@@ -86,6 +87,17 @@ def runtests():
         # type stability (not that it does us any good in Python)
         test[all(isinstance(x, int) for x in take(10, s(1, ...)))]
         test[all(isinstance(x, float) for x in take(10, s(1.0, ...)))]
+
+    # infinite-length cyclic sequence
+    with testset("s, cyclic sequence"):  # v0.14.3+
+        # Tag the repeating cycle of elements with a list. A final `...`, after the list, is mandatory.
+        test[tuple(take(10, s([8], ...))) == (8,) * 10]
+        test[tuple(take(10, s(1, [8], ...))) == (1,) + (8,) * 9]
+        test[tuple(take(10, s([1, 2], ...))) == (1, 2) * 5]
+        # An initial non-repeated segment is allowed.
+        test[tuple(take(10, s(1, 2, [3, 4], ...))) == (1, 2) + (3, 4) * 4]
+        # Infix math is supported.
+        test[tuple(take(10, s([1, 2], ...) + s([3, 4], ...))) == (4, 6) * 5]
 
     # arithmetic sequence [a0, +d] -> a0, a0 + d, a0 + 2 d + ...
     with testset("s, arithmetic sequence"):
@@ -294,24 +306,42 @@ def runtests():
         test_raises[SyntaxError,
                     s(1, ..., 1),
                     "should detect that the length of a constant sequence cannot be determined from a final element"]
+
+        test_raises[SyntaxError,
+                    s([], ...),
+                    "should detect that a cyclic sequence must have at least one repeating element"]
+        test_raises[SyntaxError,
+                    s(1, 2, [], ...),
+                    "should detect that a cyclic sequence must have at least one repeating element"]
+        test_raises[SyntaxError,
+                    s([1, 2]),
+                    "should detect missing final ... in cyclic sequence"]
+        test_raises[SyntaxError,
+                    s(1, 2, [3, 4]),
+                    "should detect missing final ... in cyclic sequence"]
+
         test_raises[SyntaxError,
                     s(1, 2, ..., 10.5),
                     "should detect that the final element, if given, must be in the specified sequence"]
         test_raises[SyntaxError,
                     s(1, 2, ..., -10),
                     "should detect that the final element, if given, must be in the specified sequence"]
+
         test_raises[SyntaxError,
                     s(2, 4, 0, ...),
                     "should detect that a geometric sequence must have no zero elements"]
+
         test_raises[SyntaxError,
                     s(2, -4, 8, ..., -32),
                     "should detect that the parity of the last term of alternating geometric sequence is wrong"]
         test_raises[SyntaxError,
                     s(2, -1 / 4, 16, ..., -65536),
                     "should detect that the parity of the last term of alternating power sequence is wrong"]
+
         test_raises[SyntaxError,
                     s(0, 1, 2, 4, ...),
                     "should detect two incompatible sequence types (arith 0, 1, 2; geom 1, 2, 4)"]
+
         test_raises[SyntaxError,
                     s(2, 3, 5, 7, 11, ...),
                     "should detect that s() is not that smart!"]

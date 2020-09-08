@@ -151,7 +151,8 @@ def s(*spec):
     *Convenience fallback*:
 
     As a fallback, we accept an explicit enumeration of all elements of the
-    desired sequence. This returns a genexpr that reads from a tuple. Syntax::
+    desired sequence. This returns a genexpr that reads from a tuple, but
+    adds infix math support. Syntax::
 
         s(1, 2, 3, 4, 5)
 
@@ -167,6 +168,23 @@ def s(*spec):
     Constant sequences **do not** support the optional-final-element termination
     syntax, because the number of terms cannot be computed from the value of the
     final element.
+
+    *Cyclic sequence*:
+
+    Convenience feature. Tag the repeating cycle of elements with a list
+    (must be a list, not a tuple). The list must have at least one element.
+    A final ``...``, after the list, is mandatory. Syntax::
+
+        s([*repeats], ...)
+        s(*initials, [*repeats], ...)
+
+    Examples::
+
+        s([1, 2], ...)        # --> 1, 2, 1, 2, 1, 2, ...
+        s(1, 2, [3, 4], ...)  # --> 1, 2, 3, 4, 3, 4, ... (3, 4 repeat)
+
+    Cyclic sequences **do not** support the optional-final-element termination
+    syntax.
 
     *Arithmetic sequence*: ``[a0, +d] -> a0, a0 + d, a0 + 2 d, ...``
 
@@ -371,21 +389,39 @@ def s(*spec):
                 return int(1 + round(a))
         return False
 
+    # v0.14.3+: cyclic infinite sequences
+    def iscyclic(spec):
+        assert len(spec) >= 1
+        *maybe_initial, maybe_repeating = spec
+        if isinstance(maybe_repeating, list):
+            if not maybe_repeating:
+                raise SyntaxError("Expected non-empty list of repeating elements for cyclic sequence.")
+            return True
+        return False
+
     # analyze the specification
     if Ellipsis not in spec:  # convenience fallback
+        if iscyclic(spec):
+            raise SyntaxError("Expected final ... for cyclic sequence.")
         return m(x for x in spec)
     else:
         *spec, last = spec
         if last is Ellipsis:
             if not spec:
-                raise SyntaxError("Expected s(a0, a1, ...) or s(a0, a1, ..., an); got '{}'".format(origspec))
+                raise SyntaxError("Expected s(a0, a1, ...), s(a0, a1, ..., an), s([*repeats], ...), or s(*initials, [*repeats], ...); got '{}'".format(origspec))
             assert spec  # not empty
-            seqtype, x0, k = analyze(*spec)
-            n = infty
+            # v0.14.3+: cyclic infinite sequences
+            if iscyclic(spec):
+                seqtype = "cyclic"
+                *initial, repeating = spec
+                n = infty
+            else:
+                seqtype, x0, k = analyze(*spec)
+                n = infty
         else:
             *spec, dots = spec
             if not (dots is Ellipsis and spec):
-                raise SyntaxError("Expected s(a0, a1, ...) or s(a0, a1, ..., an); got '{}'".format(origspec))
+                raise SyntaxError("Expected s(a0, a1, ...) or s(a0, a1, ..., an), s([*repeats], ...), or s(*initials, [*repeats], ...); got '{}'".format(origspec))
             assert spec  # not empty
             desc = analyze(*spec)
             n = nofterms(desc, last)
@@ -398,6 +434,12 @@ def s(*spec):
     # generate the sequence
     if seqtype == "const":
         return m(repeat(x0) if n is infty else repeat(x0, n))
+    elif seqtype == "cyclic":
+        def cyclic():
+            yield from initial
+            while True:
+                yield from repeating
+        return m(cyclic())
     elif seqtype == "arith":
         # itertools.count doesn't avoid accumulating roundoff error for floats, so we implement our own.
         # This should be, for any j, within 1 ULP of the true result.

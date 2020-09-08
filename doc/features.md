@@ -1907,7 +1907,9 @@ For convenience, we introduce some special cases:
 
 ### ``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic
 
-We provide a compact syntax to create lazy constant, arithmetic, geometric and power sequences: ``s(...)``. Numeric (``int``, ``float``, ``mpmath``) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
+**Changed in v0.14.3.** Added convenience mode to generate cyclic infinite sequences.
+
+We provide a compact syntax to create lazy constant, cyclic, arithmetic, geometric and power sequences: ``s(...)``. Numeric (``int``, ``float``, ``mpmath``) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
 
 We also provide arithmetic operation support for iterables (termwise). To make any iterable infix math aware, use ``m(iterable)``. The arithmetic is lazy; it just plans computations, returning a new lazy mathematical sequence. To extract values, iterate over the result. (Note this implies that expressions consisting of thousands of operations will overflow Python's call stack. In practice this shouldn't be a problem.)
 
@@ -1926,6 +1928,11 @@ assert tuple(take(10, s(1, ...))) == (1,)*10
 assert tuple(take(10, s(1, 2, ...))) == tuple(range(1, 11))
 assert tuple(take(10, s(1, 2, 4, ...))) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
 assert tuple(take(5, s(2, 4, 16, ...))) == (2, 4, 16, 256, 65536)  # 2, 2**2, (2**2)**2, ...
+
+assert tuple(take(10, s([8], ...))) == (8,) * 10
+assert tuple(take(10, s(1, [8], ...))) == (1,) + (8,) * 9
+assert tuple(take(10, s([1, 2], ...))) == (1, 2) * 5
+assert tuple(take(10, s(1, 2, [3, 4], ...))) == (1, 2) + (3, 4) * 4
 
 assert tuple(s(1, 2, ..., 10)) == tuple(range(1, 11))
 assert tuple(s(1, 2, 4, ..., 512)) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)

@@ -17,6 +17,7 @@
 
 **Non-breaking changes**:
 
+- `s` now has a convenience mode for generating cyclic infinite sequences.
 - `@generic` and `@typed` can now decorate instance methods, class methods and static methods. This makes those *methods (OOP sense)* have *methods (generic function sense)*. Get it?
   - `self` and `cls` parameters do not participate in dispatching, and need no type annotation.
   - Beside appearing as the first positional-or-keyword parameter, the self-like parameter **must be named** one of `self`, `this`, `cls`, or `klass` to be detected by the ignore mechanism. This limitation is due to implementation reasons; while a class body is being evaluated, the context needed to distinguish a method (OOP sense) from a regular function is not yet present.
