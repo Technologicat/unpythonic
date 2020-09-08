@@ -6,7 +6,7 @@ from .fixtures import session, testset
 from ..arity import (arities, arity_includes,
                      required_kwargs, optional_kwargs, kwargs,
                      resolve_bindings, tuplify_bindings,
-                     _getfunc)
+                     getfunc)
 
 def runtests():
     def barefunction(x):
@@ -27,7 +27,7 @@ def runtests():
 
     with testset("internal utilities"):
         def kindof(thecallable):
-            function, kind = _getfunc(thecallable)
+            function, kind = getfunc(thecallable)
             return kind
         test[kindof(barefunction) == "function"]
         test[kindof(AnalysisTarget.instmeth) == "function"]  # instance method, not bound to instance
@@ -37,7 +37,7 @@ def runtests():
         test[kindof(target.classmeth) == "classmethod"]
         test[kindof(target.staticmeth) == "function"]
 
-        # Behavior of `_getfunc` while evaluating a class body and called from
+        # Behavior of `getfunc` while evaluating a class body and called from
         # a decorator that applies *after* `@classmethod` or `@staticmethod`.
         # Not actually used in the codebase, but we want those cases covered too.
         kinds = []

@@ -5,7 +5,8 @@ This module uses ``inspect`` out of necessity. The idea is to provide something
 like Racket's (arity-includes?).
 """
 
-__all__ = ["arities", "arity_includes",
+__all__ = ["getfunc",
+           "arities", "arity_includes",
            "required_kwargs", "optional_kwargs", "kwargs",
            "resolve_bindings", "tuplify_bindings",
            "UnknownArity"]
@@ -161,7 +162,7 @@ _builtin_arities = {  # inspectable, but reporting incorrectly
                     operator.itruediv: (2, 2),
                     operator.ixor: (2, 2)}
 
-def _getfunc(f):
+def getfunc(f):  # public as of v0.14.3+
     """Given a function or method, return the underlying function.
 
     Return value is a tuple ``(function, kind)``, where ``kind`` is one of
@@ -238,7 +239,7 @@ def arities(f):
         UnknownArity
             If inspection failed.
     """
-    f, kind = _getfunc(f)
+    f, kind = getfunc(f)
     try:
         if f in _builtin_arities:
             return _builtin_arities[f]
@@ -282,7 +283,7 @@ def optional_kwargs(f):
     return _kwargs(f, optionals=True)
 
 def _kwargs(f, optionals=True):
-    f, _ = _getfunc(f)
+    f, _ = getfunc(f)
     try:
         if optionals:
             pred = lambda v: v.default is not Parameter.empty  # optionals
@@ -393,7 +394,7 @@ def resolve_bindings(f, *args, **kwargs):
     case, please report the issue, so it can be fixed, and then added to the unit
     tests to ensure it won't come back.
     """
-    f, _ = _getfunc(f)
+    f, _ = getfunc(f)
     params = signature(f).parameters
 
     # https://docs.python.org/3/library/inspect.html#inspect.Signature

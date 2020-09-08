@@ -21,7 +21,7 @@ from itertools import chain
 import inspect
 import typing
 
-from .arity import resolve_bindings, _getfunc
+from .arity import resolve_bindings, getfunc
 from .typecheck import isoftype
 from .regutil import register_decorator
 
@@ -180,13 +180,13 @@ def generic(f):
     # The inspect stdlib module docs are useful here:
     #     https://docs.python.org/3/library/inspect.html
     def getfullname(f):
-        function, _ = _getfunc(f)
+        function, _ = getfunc(f)
         return "{}.{}".format(inspect.getmodule(f), function.__qualname__)
     fullname = getfullname(f)
 
     # HACK for cls/self analysis
     def name_of_1st_positional_parameter(f):
-        function, _ = _getfunc(f)
+        function, _ = getfunc(f)
         params = inspect.signature(function).parameters
         poskinds = set((inspect.Parameter.POSITIONAL_ONLY,
                         inspect.Parameter.POSITIONAL_OR_KEYWORD))
@@ -253,7 +253,7 @@ def generic(f):
                         for base in theclass.__mro__[1:]:  # skip the class itself in the MRO
                             if hasattr(base, f.__name__):  # does this particular super have f?
                                 base_oop_method = getattr(base, f.__name__)
-                                base_raw_function, _ = _getfunc(base_oop_method)
+                                base_raw_function, _ = getfunc(base_oop_method)
                                 if hasattr(base_raw_function, "_method_registry"):  # it's @generic
                                     base_registry = getattr(base_raw_function, "_method_registry")
                                     relevant_registries.append(reversed(base_registry))
@@ -281,13 +281,13 @@ def generic(f):
             kw = ["{}={}".format(k, str(v)) for k, v in kwargs]
             def format_method(method):  # Taking a page from Julia and some artistic liberty here.
                 thecallable, type_signature = method
-                function, _ = _getfunc(thecallable)
+                function, _ = getfunc(thecallable)
                 filename = inspect.getsourcefile(function)
                 source, firstlineno = inspect.getsourcelines(function)
                 return "{} from {}:{}".format(type_signature, filename, firstlineno)
             methods_str = ["  {}".format(format_method(x)) for x in methods()]
             candidates = "\n".join(methods_str)
-            function, _ = _getfunc(f)
+            function, _ = getfunc(f)
             msg = ("No method found matching {}({}{}{}).\n"
                    "Candidate signatures (in order of match attempts):\n{}").format(function.__qualname__,
                                                                                     ", ".join(a),
@@ -316,7 +316,7 @@ def generic(f):
             # definition runs. So we set it to `typing.Any` in the method's
             # expected type signature, which makes the dispatcher ignore it.
 
-            function, kind = _getfunc(thecallable)
+            function, kind = getfunc(thecallable)
             params = inspect.signature(function).parameters
             params_names = [p.name for p in params.values()]
             type_signature = typing.get_type_hints(function)
