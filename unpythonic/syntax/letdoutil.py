@@ -43,7 +43,9 @@ def canonize_bindings(elts, locref, allow_call_in_name_position=False):  # publi
     locref: AST node to copy location information from, in case we need to
     make a wrapper for a single binding.
 
-    allow_call_in_name_position: used by let_syntax to allow template definitions.
+    allow_call_in_name_position: used by let_syntax to allow template definitions;
+    in the call, the "function" is the template name, and the positional "parameters"
+    are the template parameters (which may then appear in the template body).
     """
     def iskey(x):
         return ((type(x) is Name) or
