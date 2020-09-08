@@ -28,7 +28,7 @@ _isletf = _pred("letter")  # name must match what ``unpythonic.syntax.letdo._let
 _isdof = _pred("dof")      # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
 _iscurrycall = _pred("currycall")  # output of ``unpythonic.syntax.curry``
 
-def canonize_bindings(elts, locref, allow_call_in_name_position=False):
+def canonize_bindings(elts, locref, allow_call_in_name_position=False):  # public as of v0.14.3+
     """Wrap a single binding without container into a length-1 list.
 
     Pass through multiple bindings as-is.
