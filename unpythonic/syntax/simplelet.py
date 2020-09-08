@@ -34,7 +34,7 @@ def _letseq(tree, args):
     if not args:
         return tree
     first, *rest = args
-    return _let(_letseq(tree, rest), first)
+    return _let(_letseq(tree, rest), (first,))
 
 # Macro interface
 @macros.expr
