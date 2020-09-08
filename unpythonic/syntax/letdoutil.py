@@ -29,16 +29,16 @@ _isdof = _pred("dof")      # name must match what ``unpythonic.syntax.letdo.do``
 _iscurrycall = _pred("currycall")  # output of ``unpythonic.syntax.curry``
 
 def canonize_bindings(elts, locref, allow_call_in_name_position=False):  # public as of v0.14.3+
-    """Wrap a single binding without container into a length-1 list.
+    """Wrap a single binding without container into a length-1 `list`.
 
     Pass through multiple bindings as-is.
 
     Yell if the input format is invalid.
 
     elts: `list` of bindings, either::
-        [(k0, v0), ...]   # multiple bindings
-        [(k, v)]          # single binding also ok
-        [k, v]            # special single binding format, missing container
+        [(k0, v0), ...]   # multiple bindings contained in a tuple
+        [(k, v),]         # single binding contained in a tuple also ok
+        [k, v]            # special single binding format, missing tuple container
 
     where the ks and vs are AST nodes.
 
