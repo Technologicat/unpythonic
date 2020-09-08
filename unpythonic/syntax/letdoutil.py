@@ -13,7 +13,7 @@ from macropy.core import Captured
 
 def where(*bindings):
     """[syntax] Only meaningful in a let[body, where((k0, v0), ...)]."""
-    raise RuntimeError("where() is only meaningful in a let[body, where((k0, v0), ...)]")
+    raise RuntimeError("where() is only meaningful in a let[body, where((k0, v0), ...)]")  # pragma: no cover
 
 # avoid circular dependency; can't import from .util, so implement a minimal isx() for what we need
 def _isx(tree, x):
