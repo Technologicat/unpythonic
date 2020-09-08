@@ -38,7 +38,7 @@ def _letseq(tree, args):
 
 # Macro interface
 @macros.expr
-def let(tree, args, **kw):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
+def let(tree, args, **kw):  # args: `tuple`, each element `ast.Tuple`: (k1, v1), (k2, v2), ..., (kn, vn)
     """[syntax, expr] Introduce local bindings, as real lexical variables.
 
     See also ``unpythonic.syntax.let``, which uses an ``env`` to allow assignments.
