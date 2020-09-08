@@ -20,6 +20,23 @@ from ast import arg
 
 macros = Macros()  # noqa: F811
 
+# Syntax transformers
+def _let(tree, args):
+    names = [k.id for k, _ in (a.elts for a in args)]
+    if len(set(names)) < len(names):
+        assert False, "binding names must be unique in the same let"  # pragma: no cover
+    values = [v for _, v in (a.elts for a in args)]
+    lam = q[lambda: ast_literal[tree]]
+    lam.args.args = [arg(arg=x) for x in names]  # inject args
+    return q[ast_literal[lam](ast_literal[values])]
+
+def _letseq(tree, args):
+    if not args:
+        return tree
+    first, *rest = args
+    return _let(_letseq(tree, *rest), first)
+
+# Macro interface
 @macros.expr
 def let(tree, args, **kw):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     """[syntax, expr] Introduce local bindings, as real lexical variables.
@@ -47,13 +64,7 @@ def let(tree, args, **kw):  # args; ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
         let((x, 1), (y, 2))[print(x, y)]
         # --> (lambda x, y: print(x, y))(1, 2)
     """
-    names = [k.id for k, _ in (a.elts for a in args)]
-    if len(set(names)) < len(names):
-        assert False, "binding names must be unique in the same let"  # pragma: no cover
-    values = [v for _, v in (a.elts for a in args)]
-    lam = q[lambda: ast_literal[tree]]
-    lam.args.args = [arg(arg=x) for x in names]  # inject args
-    return q[ast_literal[lam](ast_literal[values])]
+    return _let(tree, args)
 
 @macros.expr
 def letseq(tree, args, **kw):
@@ -67,7 +78,4 @@ def letseq(tree, args, **kw):
     Real lexical variables. See also ``unpythonic.syntax.letseq``, which uses
     an ``env`` to allow assignments.
     """
-    if not args:
-        return tree
-    first, *rest = args
-    return let.transform(letseq.transform(tree, *rest), first)
+    return _letseq(tree, args)
