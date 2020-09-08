@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises, error  # noqa: F401
+from ..syntax import macros, test, test_raises, error, the  # noqa: F401
 from .fixtures import session, testset
 
 from operator import mul
@@ -85,8 +85,8 @@ def runtests():
         test[tuple(take(10, s(1, 1, ...))) == (1,) * 10]
         test[tuple(take(10, s(1, 1, 1, ...))) == (1,) * 10]
         # type stability (not that it does us any good in Python)
-        test[all(isinstance(x, int) for x in take(10, s(1, ...)))]
-        test[all(isinstance(x, float) for x in take(10, s(1.0, ...)))]
+        test[all(isinstance(the[x], int) for x in take(10, s(1, ...)))]
+        test[all(isinstance(the[x], float) for x in take(10, s(1.0, ...)))]
 
     # infinite-length cyclic sequence
     with testset("s, cyclic sequence"):  # v0.14.3+
@@ -108,19 +108,19 @@ def runtests():
         # That's also a source of party tricks such as 7/3 - 4/3 - 1 = machine epsilon (in IEEE-754).
         # (Expand that in binary to see why.)
         # Here the 2/3 term is one ulp off from the "exact" result (which has only representation error).
-        test[all(abs(x - y) <= min(ulp(x), ulp(y)) for x, y in zip(tuple(take(5, s(1 / 3, 2 / 3, 3 / 3, ...))),
-                                                                   (1 / 3, 2 / 3, 3 / 3, 4 / 3, 5 / 3)))]
+        test[all(the[abs(x - y)] <= min(ulp(x), ulp(y)) for x, y in zip(tuple(take(5, s(1 / 3, 2 / 3, 3 / 3, ...))),
+                                                                        (1 / 3, 2 / 3, 3 / 3, 4 / 3, 5 / 3)))]
         # type stability
-        test[all(isinstance(x, int) for x in take(10, s(1, 3, ...)))]
-        test[all(isinstance(x, int) for x in take(10, s(1, 3, 5, ...)))]
-        test[all(isinstance(x, float) for x in take(10, s(1.0, 3.0, ...)))]
-        test[all(isinstance(x, float) for x in take(10, s(1.0, 3.0, 5.0, ...)))]
+        test[all(isinstance(the[x], int) for x in take(10, s(1, 3, ...)))]
+        test[all(isinstance(the[x], int) for x in take(10, s(1, 3, 5, ...)))]
+        test[all(isinstance(the[x], float) for x in take(10, s(1.0, 3.0, ...)))]
+        test[all(isinstance(the[x], float) for x in take(10, s(1.0, 3.0, 5.0, ...)))]
 
     # geometric sequence [a0, *r] -> a0, a0*r, a0*r**2, ...
     # three elements is enough, more allowed if consistent
     with testset("s, geometric sequence"):
-        test[all(isinstance(x, int) for x in take(10, s(2, 4, 8, ...)))]  # type stability
-        test[all(isinstance(x, float) for x in take(10, s(2.0, 4.0, 8.0, ...)))]  # type stability
+        test[all(isinstance(the[x], int) for x in take(10, s(2, 4, 8, ...)))]  # type stability
+        test[all(isinstance(the[x], float) for x in take(10, s(2.0, 4.0, 8.0, ...)))]  # type stability
         test[tuple(take(10, s(1, 2, 4, ...))) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)]
         test[tuple(take(10, s(1, 2, 4, 8, ...))) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)]
         test[tuple(take(10, s(1, 1 / 2, 1 / 4, ...))) == (1, 1 / 2, 1 / 4, 1 / 8, 1 / 16, 1 / 32, 1 / 64, 1 / 128, 1 / 256, 1 / 512)]
