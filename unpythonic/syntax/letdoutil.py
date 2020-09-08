@@ -133,12 +133,11 @@ def islet(tree, expanded=True):
     # The haskelly syntaxes are only available as a let expression (no decorator form).
     elif type(macro) is Name:
         s = macro.id
-        if not any(s == x for x in exprnames):
-            return False
-        h = _ishaskellylet(expr)
-        if h:
-            return (h, s)
-    return False
+        if any(s == x for x in exprnames):
+            h = _ishaskellylet(expr)
+            if h:
+                return (h, s)
+    return False  # not a let macro invocation, or invalid let syntax.
 
 def _ishaskellylet(tree):
     """Test whether tree is the content of a haskelly let.
