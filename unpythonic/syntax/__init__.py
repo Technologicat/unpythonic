@@ -4,34 +4,36 @@
 Requires MacroPy (package ``macropy3`` on PyPI).
 """
 
+from ..dynassign import dyn, make_dynvar
+
 # This module contains the macro interface and docstrings; the submodules
 # contain the actual syntax transformers (regular functions that process ASTs)
 # that implement the macros.
 
-# insist, deny, it, f, _, force, force1, local, delete, block, expr,
-# dbgprint_block, dbgprint_expr, call_cc
-# are just for passing through to the client code that imports us.
+# Syntax transformers and internal utilities
 from .autoref import autoref as _autoref
 from .curry import curry as _curry
-from .forall import forall as _forall, insist, deny  # noqa: F401
-from .ifexprs import aif as _aif, it, cond as _cond  # noqa: F401
-from .lambdatools import (multilambda as _multilambda,  # noqa: F401
+from .dbg import dbg_block as _dbg_block, dbg_expr as _dbg_expr
+from .forall import forall as _forall
+from .ifexprs import aif as _aif, cond as _cond
+from .lambdatools import (multilambda as _multilambda,
                           namedlambda as _namedlambda,
-                          quicklambda as _quicklambda, f, _,
+                          quicklambda as _quicklambda,
                           envify as _envify)
-from .lazify import lazify as _lazify, lazyrec as _lazyrec, force, force1  # noqa: F401
-from .letdo import (do as _do, do0 as _do0, local, delete,  # noqa: F401
+from .lazify import lazify as _lazify, lazyrec as _lazyrec
+from .letdo import (do as _do, do0 as _do0,
                     let as _let, letseq as _letseq, letrec as _letrec,
                     dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec,
                     blet as _blet, bletseq as _bletseq, bletrec as _bletrec)
-from .letsyntax import let_syntax_expr, let_syntax_block, block, expr  # noqa: F401
+from .letdoutil import (UnexpandedLetView as _UnexpandedLetView,
+                        canonize_bindings as _canonize_bindings)
+from .letsyntax import (let_syntax_expr as _let_syntax_expr,
+                        let_syntax_block as _let_syntax_block)
 from .nb import nb as _nb
-from .dbg import (dbg_block as _dbg_block, dbg_expr as _dbg_expr,  # noqa: F401
-                  dbgprint_block, dbgprint_expr)
 from .prefix import prefix as _prefix
-from .tailtools import (autoreturn as _autoreturn, tco as _tco,  # noqa: F401
-                        continuations as _continuations, call_cc)
-from .testingtools import (test_expr as _test_expr,  # noqa: F401, `the` only for passing through.
+from .tailtools import (autoreturn as _autoreturn, tco as _tco,
+                        continuations as _continuations)
+from .testingtools import (test_expr as _test_expr,
                            test_expr_signals as _test_expr_signals,
                            test_expr_raises as _test_expr_raises,
                            test_block as _test_block,
@@ -39,14 +41,23 @@ from .testingtools import (test_expr as _test_expr,  # noqa: F401, `the` only fo
                            test_block_raises as _test_block_raises,
                            fail_expr as _fail_expr,
                            error_expr as _error_expr,
-                           warn_expr as _warn_expr,
-                           the)
-# "where" is only for passing through (export).
-from .letdoutil import UnexpandedLetView, _canonize_bindings, where  # noqa: F401
-from ..dynassign import dyn, make_dynvar
+                           warn_expr as _warn_expr)
 
+# Re-exports (for client code that uses us)
+from .dbg import dbgprint_block, dbgprint_expr  # noqa: F401
+from .forall import insist, deny  # noqa: F401
+from .ifexprs import it  # noqa: F401
+from .lambdatools import f, _  # noqa: F401
+from .letdoutil import where  # noqa: F401
+from .lazify import force, force1  # noqa: F401
+from .letdo import local, delete  # noqa: F401
+from .letsyntax import block, expr  # noqa: F401
+from .prefix import q, u, kw  # noqa: F401  # TODO: bad names, MacroPy uses them too.
+from .tailtools import call_cc  # noqa: F401
+from .testingtools import the  # noqa: F401
+
+# Initialize the macro interface
 from macropy.core.macros import Macros
-
 macros = Macros()
 
 # Inject default debug printer for expressions.
@@ -318,7 +329,7 @@ def _destructure_and_apply_let(tree, args, expander, allow_call_in_name_position
         bs = _canonize_bindings(args, locref=tree, allow_call_in_name_position=allow_call_in_name_position)
         return expander(bindings=bs, body=tree)
     # haskelly syntax, let[(...) in ...], let[..., where(...)]
-    view = UnexpandedLetView(tree)  # note "tree" here is only the part inside the brackets
+    view = _UnexpandedLetView(tree)  # note "tree" here is only the part inside the brackets
     return expander(bindings=view.bindings, body=view.body)
 
 # -----------------------------------------------------------------------------
@@ -588,7 +599,7 @@ def do0(tree, *, gen_sym, **kw):  # noqa: F811
 @macros.expr
 def let_syntax(tree, args, *, gen_sym, **kw):  # noqa: F811
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
-        return _destructure_and_apply_let(tree, args, let_syntax_expr, allow_call_in_name_position=True)
+        return _destructure_and_apply_let(tree, args, _let_syntax_expr, allow_call_in_name_position=True)
 
 # Python has no function overloading, but expr and block macros go into
 # different parts of MacroPy's macro registry. The registration happens
@@ -699,12 +710,12 @@ def let_syntax(tree, **kw):  # noqa: F811
     If you need to do something complex, prefer writing a real macro directly
     in MacroPy.
     """
-    return let_syntax_block(block_body=tree)
+    return _let_syntax_block(block_body=tree)
 
 @macros.expr
 def abbrev(tree, args, *, gen_sym, **kw):  # noqa: F811
     with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
-        yield _destructure_and_apply_let(tree, args, let_syntax_expr, allow_call_in_name_position=True)
+        yield _destructure_and_apply_let(tree, args, _let_syntax_expr, allow_call_in_name_position=True)
 
 @macros.block  # noqa: F811
 def abbrev(tree, **kw):  # noqa: F811
@@ -727,7 +738,7 @@ def abbrev(tree, **kw):  # noqa: F811
     in the inner ``abbrev`` will undergo substitution when the outer
     ``abbrev`` expands.
     """
-    yield let_syntax_block(block_body=tree)
+    yield _let_syntax_block(block_body=tree)
 
 # -----------------------------------------------------------------------------
 
@@ -2011,70 +2022,7 @@ def prefix(tree, **kw):  # noqa: F811
     """
     return (yield from _prefix(block_body=tree))
 
-# TODO: using some name other than "kw" would silence the IDE warnings.
-from .prefix import q, u, kw  # for re-export only  # noqa: F401
-
 # -----------------------------------------------------------------------------
-
-@macros.expr
-def fail(tree, *, gen_sym, **kw):  # noqa: F811
-    """[syntax, expr] Produce a test failure, unconditionally.
-
-    Useful to e.g. mark a line of code that should not be reached in automated
-    tests, reaching which is therefore a test failure.
-
-    Usage::
-
-        fail["human-readable reason"]
-
-    which has the same effect as::
-
-        test[False, "human-readable reason"]
-
-    except in the case of `fail[]`, the error message generating machinery is
-    special-cased to omit the source code expression, because it explictly
-    states that the intent of the "test" is not actually to perform a test.
-
-    See also `error[]`, `warn[]`.
-    """
-    with dyn.let(gen_sym=gen_sym):
-        return _fail_expr(tree)
-
-@macros.expr
-def error(tree, *, gen_sym, **kw):  # noqa: F811
-    """[syntax, expr] Produce a test error, unconditionally.
-
-    Useful to e.g. indicate to the user that an optional dependency that could
-    be used to run some integration test is not installed.
-
-    Usage::
-
-        error["human-readable reason"]
-
-    See also `warn[]`, `fail[]`.
-    """
-    with dyn.let(gen_sym=gen_sym):
-        return _error_expr(tree)
-
-@macros.expr
-def warn(tree, *, gen_sym, **kw):  # noqa: F811
-    """[syntax, expr] Produce a warning, unconditionally.
-
-    Useful to e.g. indicate that the Python interpreter or version the
-    tests are running on does not support a particular test, or to alert
-    about a non-essential TODO.
-
-    A warning does not increase the failure count, so it will not cause
-    your CI workflow to break.
-
-    Usage::
-
-        warn["human-readable reason"]
-
-    See also `error[]`, `fail[]`.
-    """
-    with dyn.let(gen_sym=gen_sym):
-        return _warn_expr(tree)
 
 @macros.block
 def test(tree, args, *, gen_sym, **kw):  # noqa: F811
@@ -2322,5 +2270,65 @@ def test_raises(tree, **kw):  # noqa: F811
     `the[]` mark is not supported. The block variant does not support `return`.
     """
     return _test_expr_raises(tree)
+
+@macros.expr
+def fail(tree, *, gen_sym, **kw):  # noqa: F811
+    """[syntax, expr] Produce a test failure, unconditionally.
+
+    Useful to e.g. mark a line of code that should not be reached in automated
+    tests, reaching which is therefore a test failure.
+
+    Usage::
+
+        fail["human-readable reason"]
+
+    which has the same effect as::
+
+        test[False, "human-readable reason"]
+
+    except in the case of `fail[]`, the error message generating machinery is
+    special-cased to omit the source code expression, because it explictly
+    states that the intent of the "test" is not actually to perform a test.
+
+    See also `error[]`, `warn[]`.
+    """
+    with dyn.let(gen_sym=gen_sym):
+        return _fail_expr(tree)
+
+@macros.expr
+def error(tree, *, gen_sym, **kw):  # noqa: F811
+    """[syntax, expr] Produce a test error, unconditionally.
+
+    Useful to e.g. indicate to the user that an optional dependency that could
+    be used to run some integration test is not installed.
+
+    Usage::
+
+        error["human-readable reason"]
+
+    See also `warn[]`, `fail[]`.
+    """
+    with dyn.let(gen_sym=gen_sym):
+        return _error_expr(tree)
+
+@macros.expr
+def warn(tree, *, gen_sym, **kw):  # noqa: F811
+    """[syntax, expr] Produce a test warning, unconditionally.
+
+    Useful to e.g. indicate that the Python interpreter or version the
+    tests are running on does not support a particular test, or to alert
+    about a non-essential TODO.
+
+    A warning does not increase the failure count, so it will not cause
+    your CI workflow to break.
+
+    Usage::
+
+        warn["human-readable reason"]
+
+    See also `error[]`, `fail[]`.
+    """
+    with dyn.let(gen_sym=gen_sym):
+        return _warn_expr(tree)
 
 # -----------------------------------------------------------------------------

@@ -28,7 +28,7 @@ _isletf = _pred("letter")  # name must match what ``unpythonic.syntax.letdo._let
 _isdof = _pred("dof")      # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
 _iscurrycall = _pred("currycall")  # output of ``unpythonic.syntax.curry``
 
-def _canonize_bindings(elts, locref, allow_call_in_name_position=False):
+def canonize_bindings(elts, locref, allow_call_in_name_position=False):
     """Wrap a single binding without container into a length-1 list.
 
     Pass through multiple bindings as-is.
@@ -294,15 +294,15 @@ class UnexpandedLetView:
     def _getbindings(self):
         t = self._type
         if t == "decorator":  # bare Call, dlet(...), blet(...)
-            return _canonize_bindings(self._tree.args, self._tree)
+            return canonize_bindings(self._tree.args, self._tree)
         elif t == "lispy_expr":  # Call inside a Subscript, (let(...))[...]
-            return _canonize_bindings(self._tree.value.args, self._tree.value)
+            return canonize_bindings(self._tree.value.args, self._tree.value)
         else:  # haskelly let, let[(...) in ...], let[..., where(...)]
             theexpr = self._tree.slice.value if self._has_subscript_container else self._tree
             if t == "in_expr":
-                return _canonize_bindings(theexpr.left.elts, theexpr.left)
+                return canonize_bindings(theexpr.left.elts, theexpr.left)
             elif t == "where_expr":
-                return _canonize_bindings(theexpr.elts[1].args, theexpr.elts[1])
+                return canonize_bindings(theexpr.elts[1].args, theexpr.elts[1])
     def _setbindings(self, newbindings):
         t = self._type
         if t == "decorator":
