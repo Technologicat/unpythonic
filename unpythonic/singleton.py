@@ -115,6 +115,7 @@ import threading
 from weakref import WeakValueDictionary
 
 _instances = WeakValueDictionary()
+_instances_update_lock = threading.RLock()
 
 # Metaclass: override default __new__ + __init__ behavior, to allow creating
 # at most one instance.
@@ -123,21 +124,27 @@ _instances = WeakValueDictionary()
 # we override `__call__` **in the metaclass**, in order to override calls
 # of the class (i.e. constructor invocations).
 class ThereCanBeOnlyOne(type):
-    # TODO: Should we "with _instances_update_lock" already here?
-    # TODO: That way only one thread could proceed to __new__,
-    # TODO: which is more consistent with the single-thread behavior.
     def __call__(cls, *args, **kwargs):
-        # Here we can do things like call `cls.__init__` only if `cls` was not
-        # already in `_instances`... or outright refuse to create a second instance:
-        if cls in _instances:
-            raise TypeError("Singleton instance of {} already exists".format(cls))
-        # When allowed to proceed, we mimic default behavior.
-        # TODO: Maybe we should just "return super().__call__(cls, *args, **kwargs)"?
-        # TODO: That doesn't work in the case where we have extra arguments,
-        # TODO: so for now we do this manually. Maybe investigate later.
-        instance = cls.__new__(cls, *args, **kwargs)
-        cls.__init__(instance, *args, **kwargs)
-        return instance
+        # For consistency with single-thread behavior, don't let more than one
+        # `__call__` run concurrently. This eliminates a race when many threads
+        # try to instantiate the singleton, guaranteeing only one of them will
+        # enter `__new__`.
+        #
+        # This does nothing for the case where many threads try to unpickle a singleton,
+        # though, because doing that skips the metaclass's `__call__`. For that, we lock
+        # also inside `Singleton.__new__`.
+        with _instances_update_lock:
+            # Here we can do things like call `cls.__init__` only if `cls` was not
+            # already in `_instances`... or outright refuse to create a second instance:
+            if cls in _instances:
+                raise TypeError("Singleton instance of {} already exists".format(cls))
+            # When allowed to proceed, we mimic default behavior.
+            # TODO: Maybe we should just "return super().__call__(cls, *args, **kwargs)"?
+            # TODO: That doesn't work in the case where we have extra arguments,
+            # TODO: so for now we do this manually. Maybe investigate later.
+            instance = cls.__new__(cls, *args, **kwargs)
+            cls.__init__(instance, *args, **kwargs)
+            return instance
 
 # Base class: override instance creation, in a way that interacts correctly
 # with pickle.
@@ -150,7 +157,6 @@ class ThereCanBeOnlyOne(type):
 #
 # So a base class is really the right place to insert a custom `__new__` to
 # achieve what we want.
-_instances_update_lock = threading.Lock()
 class Singleton(metaclass=ThereCanBeOnlyOne):
     """Base class for singletons. Can be used as a mixin.
 
