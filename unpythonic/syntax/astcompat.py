@@ -7,10 +7,12 @@ _NoSuchNodeType = gensym("_NoSuchNodeType")
 
 try:  # Python 3.5+
     from ast import AsyncFor, AsyncFunctionDef, AsyncWith, Await, MatMult
-except ImportError:
+except ImportError:  # pragma: no cover
     AsyncFor = AsyncFunctionDef = AsyncWith = Await = MatMult = _NoSuchNodeType
 
 try:  # Python 3.6+
     from ast import AnnAssign, FormattedValue, JoinedStr
-except ImportError:
+except ImportError:  # pragma: no cover
     AnnAssign = FormattedValue = JoinedStr = _NoSuchNodeType
+
+# TODO: Python 3.8 support: Constant (replaces many node types!), NamedExpr (a.k.a. walrus operator ":=")
