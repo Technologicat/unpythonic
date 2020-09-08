@@ -176,7 +176,7 @@ def _ishaskellylet(tree):
         thecall = tree.elts[1]
         if type(thecall.func) is Name and thecall.func.id == "where":
             return "where_expr"
-    return False
+    return False  # invalid syntax for haskelly let
 
 def isdo(tree, expanded=True):
     """Detect whether tree is a ``do[]`` or ``do0[]``.
