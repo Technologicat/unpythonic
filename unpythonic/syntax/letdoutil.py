@@ -54,7 +54,7 @@ def canonize_bindings(elts, locref, allow_call_in_name_position=False):  # publi
         return [Tuple(elts=elts, lineno=locref.lineno, col_offset=locref.col_offset)]
     if all((type(b) is Tuple and len(b.elts) == 2 and iskey(b.elts[0])) for b in elts):
         return elts
-    assert False, "expected bindings to be ((k0, v0), ...) or a single (k, v)"
+    assert False, "expected bindings to be ((k0, v0), ...) or a single (k, v)"  # pragma: no cover
 
 def islet(tree, expanded=True):
     """Test whether tree is a ``let[]``, ``letseq[]``, ``letrec[]``,
