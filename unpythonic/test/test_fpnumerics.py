@@ -23,13 +23,18 @@ def runtests():
     with testset("collatz sequence"):
         # http://learnyouahaskell.com/higher-order-functions
         def collatz(n):
-            if n < 1:
-                raise ValueError()
-            while True:
-                yield n
-                if n == 1:
-                    break
-                n = n // 2 if n % 2 == 0 else 3 * n + 1
+            # fail-fast sanity check
+            if not isinstance(n, int):  # pragma: no cover
+                raise TypeError("Expected integer n, got {} with value '{}'".format(type(n), n))
+            if n < 1:  # pragma: no cover
+                raise ValueError("n must be >= 1, got {}".format(n))
+            def collatz_gen(n):
+                while True:
+                    yield n
+                    if n == 1:
+                        break
+                    n = n // 2 if n % 2 == 0 else 3 * n + 1
+            return collatz_gen(n)
         test[tuple(collatz(13)) == (13, 40, 20, 10, 5, 16, 8, 4, 2, 1)]
         test[tuple(collatz(10)) == (10, 5, 16, 8, 4, 2, 1)]
         test[tuple(collatz(30)) == (30, 15, 46, 23, 70, 35, 106, 53, 160, 80, 40, 20, 10, 5, 16, 8, 4, 2, 1)]
