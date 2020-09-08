@@ -35,10 +35,12 @@ def canonize_bindings(elts, locref, allow_call_in_name_position=False):  # publi
 
     Yell if the input format is invalid.
 
-    elts: list of bindings, either::
+    elts: `list` of bindings, either::
         [(k0, v0), ...]   # multiple bindings
         [(k, v)]          # single binding also ok
         [k, v]            # special single binding format, missing container
+
+    where the ks and vs are AST nodes.
 
     locref: AST node to copy location information from, in case we need to
     make a wrapper for a single binding.
