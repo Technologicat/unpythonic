@@ -258,7 +258,7 @@ class TestingException(Exception):
                 Else empty.
 
                 Note that `test_signals` and `test_raises` do not support capturing;
-                for them `captures_values` is always empty.
+                for them `captured_values` is always empty.
         """
         super().__init__(*args)
         self.origin = origin
