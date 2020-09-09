@@ -34,9 +34,9 @@ def runtests():
         locref = q[name["here"]]
         locref.lineno = 9001
         locref.col_offset = 9
-        test[validate(canonize_bindings(q[k0, v0].elts, locref))]  # noqa: F821, it's quoted.
-        test[validate(canonize_bindings(q[((k0, v0),)].elts, locref))]  # noqa: F821
-        test[validate(canonize_bindings(q[(k0, v0), (k1, v1)].elts, locref))]  # noqa: F821
+        test[validate(the[canonize_bindings(q[k0, v0].elts, locref)])]  # noqa: F821, it's quoted.
+        test[validate(the[canonize_bindings(q[((k0, v0),)].elts, locref)])]  # noqa: F821
+        test[validate(the[canonize_bindings(q[(k0, v0), (k1, v1)].elts, locref)])]  # noqa: F821
 
     with testset("islet"):
         test[not islet(q[x])]  # noqa: F821
@@ -49,15 +49,15 @@ def runtests():
         #
         # (MacroPy-technically, it's a second-pass macro, so any macros nested inside
         #  have already expanded when the quote macro runs.)
-        test[islet(q[let((x, 21))[2 * x]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
-        test[islet(q[let[(x, 21) in 2 * x]]) == ("expanded_expr", "let")]  # noqa: F821
-        test[islet(q[let[2 * x, where(x, 21)]]) == ("expanded_expr", "let")]  # noqa: F821
+        test[islet(the[q[let((x, 21))[2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
+        test[islet(the[q[let[(x, 21) in 2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821
+        test[islet(the[q[let[2 * x, where(x, 21)]]]) == ("expanded_expr", "let")]  # noqa: F821
 
         with q as testdata:  # pragma: no cover
             @dlet((x, 21))  # noqa: F821
             def f1():
                 return 2 * x  # noqa: F821
-        test[islet(testdata[0].decorator_list[0]) == ("expanded_decorator", "let")]
+        test[islet(the[testdata[0].decorator_list[0]]) == ("expanded_decorator", "let")]
 
         # So, to test the detector for unexpanded let forms, we cheat. We don't
         # actually invoke the let macro here, but arrange the tree being
@@ -67,41 +67,36 @@ def runtests():
         # but then we couldn't test the detector for expanded let forms.
         testdata = q[definitelynotlet((x, 21))[2 * x]]  # noqa: F821
         testdata.value.func.id = "let"
-        test[islet(testdata, expanded=False) == ("lispy_expr", "let"),
-             "The source code was '{}'".format(unparse(testdata))]
+        test[islet(the[testdata], expanded=False) == ("lispy_expr", "let")]
 
         # one binding special case for haskelly let-in
         testdata = q[definitelynotlet[(x, 21) in 2 * x]]  # noqa: F821
         testdata.value.id = "let"
-        test[islet(testdata, expanded=False) == ("in_expr", "let"),
-             "The source code was '{}'".format(unparse(testdata))]
+        test[islet(the[testdata], expanded=False) == ("in_expr", "let")]
 
         testdata = q[definitelynotlet[((x, 21), (y, 2)) in y * x]]  # noqa: F821
         testdata.value.id = "let"
-        test[islet(testdata, expanded=False) == ("in_expr", "let"),
-             "The source code was '{}'".format(unparse(testdata))]
+        test[islet(the[testdata], expanded=False) == ("in_expr", "let")]
 
         testdata = q[definitelynotlet[2 * x, where(x, 21)]]  # noqa: F821
         testdata.value.id = "let"
-        test[islet(testdata, expanded=False) == ("where_expr", "let"),
-             "The source code was '{}'".format(unparse(testdata))]
+        test[islet(the[testdata], expanded=False) == ("where_expr", "let")]
 
         # some other macro invocation
-        test[not islet(q[someothermacro((x, 21))[2 * x]], expanded=False)]  # noqa: F821
-        test[not islet(q[someothermacro[(x, 21) in 2 * x]], expanded=False)]  # noqa: F821
+        test[not islet(the[q[someothermacro((x, 21))[2 * x]]], expanded=False)]  # noqa: F821
+        test[not islet(the[q[someothermacro[(x, 21) in 2 * x]]], expanded=False)]  # noqa: F821
 
         # invalid syntax for haskelly let-in
         testdata = q[definitelynotlet[a in b]]  # noqa: F821
         testdata.value.id = "let"
-        test[not islet(testdata, expanded=False),
-             "The source code was '{}'".format(unparse(testdata))]
+        test[not islet(the[testdata], expanded=False)]
 
         with q as testdata:  # pragma: no cover
             @definitelynotdlet((x, 21))  # noqa: F821
             def f2():
                 return 2 * x  # noqa: F821
         testdata[0].decorator_list[0].func.id = "dlet"
-        test[islet(testdata[0].decorator_list[0], expanded=False) == ("decorator", "dlet")]
+        test[islet(the[testdata[0].decorator_list[0]], expanded=False) == ("decorator", "dlet")]
 
     with testset("islet integration with curry"):
         # NOTE: We have to be careful with how we set up the test data here.
@@ -113,22 +108,33 @@ def runtests():
             with curry:  # pragma: no cover
                 let((x, 21))[2 * x]  # noqa: F821  # note this goes into an ast.Expr
         thelet = testdata[0].value
-        test[islet(thelet) == ("curried_expr", "let")]
+        test[islet(the[thelet]) == ("curried_expr", "let")]
 
         with q as testdata:
             with curry:  # pragma: no cover
                 let[(x, 21) in 2 * x]  # noqa: F821
         thelet = testdata[0].value
-        test[islet(thelet) == ("curried_expr", "let")]
+        test[islet(the[thelet]) == ("curried_expr", "let")]
 
         with q as testdata:
             with curry:  # pragma: no cover
                 let[2 * x, where(x, 21)]  # noqa: F821
         thelet = testdata[0].value
-        test[islet(thelet) == ("curried_expr", "let")]
+        test[islet(the[thelet]) == ("curried_expr", "let")]
 
     with testset("isdo"):
-        warn["TODO: This testset not implemented yet."]
+        test[not isdo(q[x])]  # noqa: F821
+        test[not isdo(q[f()])]  # noqa: F821
+
+        test[isdo(the[q[do[x << 21,  # noqa: F821
+                           2 * x]]]) == "expanded"]  # noqa: F821
+
+        with q as testdata:  # pragma: no cover
+            with curry:
+                do[x << 21,  # noqa: F821
+                   2 * x]  # noqa: F821
+        thedo = testdata[0].value
+        test[isdo(the[thedo]) == "curried"]
 
     with testset("isenvassign"):
         warn["TODO: This testset not implemented yet."]
