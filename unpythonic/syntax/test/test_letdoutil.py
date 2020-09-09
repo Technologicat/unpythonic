@@ -8,9 +8,9 @@ from macropy.core.quotes import macros, q, name  # noqa: F811, F401
 # from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 # from macropy.tracing import macros, show_expanded
 
-from ...syntax import macros, let, dlet, do, curry
+from ...syntax import macros, let, dlet, do, curry  # noqa: F811, F401
 
-from ast import Tuple, Name, Num, copy_location
+from ast import Tuple, Name, Num, Lambda, BinOp, Attribute
 
 from macropy.core import unparse
 
@@ -184,10 +184,12 @@ def runtests():
 
     with testset("let destructuring (unexpanded)"):
         def testletdestructuring(testdata):
-            # read
             view = UnexpandedLetView(testdata)
+
+            # read
+            # In the unexpanded form, the outer container of bindings is a `list`.
             test[len(view.bindings) == 2]
-            test[unparse(view.bindings[0]) == "(x, 21)"]
+            test[unparse(view.bindings[0]) == "(x, 21)"]  # the variable names are identifiers
             test[unparse(view.bindings[1]) == "(y, 2)"]
             test[unparse(view.body) == "(y * x)"]
 
@@ -257,12 +259,69 @@ def runtests():
                     "not a let form"]
 
     with testset("let destructuring (expanded)"):
+        def testletdestructuring(testdata):
+            view = ExpandedLetView(testdata)
+
+            # read
+            # In the expanded form, the outer container of bindings is an `ast.Tuple`.
+            test[len(view.bindings.elts) == 2]
+            test[unparse(view.bindings.elts[0]) == "('x', 21)"]  # the variable names are strings
+            test[unparse(view.bindings.elts[1]) == "('y', 2)"]
+
+            # Reading the let body in the expanded form is painful:
+            lam = view.body  # lambda e: e.y * e.x
+            test[type(lam) is Lambda]
+            lambody = lam.body
+            test[type(lambody) is BinOp]
+            test[type(the[lambody.left]) is Attribute and lambody.left.attr == "y"]
+            test[type(the[lambody.right]) is Attribute and lambody.right.attr == "x"]
+
+            # write
+            newbindings = q[("z", 21), ("t", 2)]  # noqa: F821
+            view.bindings = newbindings  # ...like this.
+            test[len(view.bindings.elts) == 2]
+            test[unparse(view.bindings.elts[0]) == "('z', 21)"]  # the variable names are strings
+            test[unparse(view.bindings.elts[1]) == "('t', 2)"]
+
+            # Editing an expanded let body is downright depressing:
+            envname = lam.args.args[0].arg
+            newbody = q[lambda _: name[envname].z * name[envname].t]  # noqa: F821
+            newbody.args.args[0].arg = envname
+            view.body = newbody
+
+            lam = view.body  # lambda e: e.y * e.x
+            test[type(lam) is Lambda]
+            lambody = lam.body
+            test[type(lambody) is BinOp]
+            test[type(the[lambody.left]) is Attribute and lambody.left.attr == "z"]
+            test[type(the[lambody.right]) is Attribute and lambody.right.attr == "t"]
+
+        # lispy expr
+        testdata = q[let((x, 21), (y, 2))[y * x]]  # noqa: F821
+        testletdestructuring(testdata)
+
+        # haskelly let-in
+        testdata = q[let[((x, 21), (y, 2)) in y * x]]  # noqa: F821
+        testletdestructuring(testdata)
+
+        # haskelly let-where
+        testdata = q[let[y * x, where((x, 21), (y, 2))]]  # noqa: F821
+        testletdestructuring(testdata)
+
+        test_raises[TypeError,
+                    ExpandedLetView(q[x]),  # noqa: F821
+                    "not an expanded let form"]
+
+    with testset("let destructuring (expanded) integration with curry"):
         warn["TODO: This testset not implemented yet."]
-        # ExpandedLetView
+        # with q as testdata:
+        #     with curry:  # pragma: no cover
+        #         pass
 
     with testset("do destructuring"):
         warn["TODO: This testset not implemented yet."]
-        # UnexpandedDoView, ExpandedDoView
+        # TODO: UnexpandedDoView
+        # TODO: ExpandedDoView
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
