@@ -10,14 +10,15 @@ from macropy.core.quotes import macros, q, name  # noqa: F811, F401
 
 from ...syntax import macros, let, dlet, do, curry
 
-from ast import Tuple, Name
+from ast import Tuple, Name, Num, copy_location
 
 from macropy.core import unparse
 
 from ...syntax.letdoutil import (canonize_bindings,
-                                 islet, isdo, isenvassign,
-                                 UnexpandedLetView, UnexpandedDoView, UnexpandedEnvAssignView,
-                                 ExpandedLetView, ExpandedDoView)
+                                 isenvassign, islet, isdo,
+                                 UnexpandedEnvAssignView,
+                                 UnexpandedLetView, ExpandedLetView,
+                                 UnexpandedDoView, ExpandedDoView)
 
 def runtests():
     with testset("canonize_bindings"):
@@ -37,6 +38,12 @@ def runtests():
         test[validate(the[canonize_bindings(q[k0, v0].elts, locref)])]  # noqa: F821, it's quoted.
         test[validate(the[canonize_bindings(q[((k0, v0),)].elts, locref)])]  # noqa: F821
         test[validate(the[canonize_bindings(q[(k0, v0), (k1, v1)].elts, locref)])]  # noqa: F821
+
+    # The let[] and do[] macros, used in the tests of islet() and isdo(),
+    # need this utility, so we must test it first.
+    with testset("isenvassign"):
+        test[not isenvassign(q[x])]  # noqa: F821
+        test[isenvassign(q[x << 42])]  # noqa: F821
 
     with testset("islet"):
         test[not islet(q[x])]  # noqa: F821
@@ -136,14 +143,126 @@ def runtests():
         thedo = testdata[0].value
         test[isdo(the[thedo]) == "curried"]
 
-    with testset("isenvassign"):
-        warn["TODO: This testset not implemented yet."]
+        testdata = q[definitelynotdo[x << 21,  # noqa: F821
+                                     2 * x]]  # noqa: F821
+        testdata.value.id = "do"
+        test[isdo(the[testdata], expanded=False) == "do"]
 
-    with testset("let destructuring"):
+        testdata = q[definitelynotdo[23,  # noqa: F821
+                                     x << 21,  # noqa: F821
+                                     2 * x]]  # noqa: F821
+        testdata.value.id = "do0"
+        test[isdo(the[testdata], expanded=False) == "do0"]
+
+        testdata = q[someothermacro[x << 21,  # noqa: F821
+                                    2 * x]]  # noqa: F821
+        test[not isdo(the[testdata], expanded=False)]
+
+    with testset("envassign destructuring"):
+        testdata = q[x << 42]  # noqa: F821
+        view = UnexpandedEnvAssignView(testdata)
+
+        # read
+        test[view.name == "x"]
+        test[type(the[view.value]) is Num and view.value.n == 42]  # TODO: Python 3.8: ast.Constant, no ast.Num
+
+        # write
+        view.name = "y"
+        view.value = q[23]
+        test[view.name == "y"]
+        test[type(the[view.value]) is Num and view.value.n == 23]
+
+        # it's a live view
+        test[unparse(testdata) == "(y << 23)"]
+
+        # error cases
+        test_raises[TypeError,
+                    UnexpandedEnvAssignView(q[x]),  # noqa: F821
+                    "not an env assignment"]
+        with test_raises(TypeError, "name must be str"):
+            view.name = 1234
+
+    with testset("let destructuring (unexpanded)"):
+        def testletdestructuring(testdata):
+            # read
+            view = UnexpandedLetView(testdata)
+            test[len(view.bindings) == 2]
+            test[unparse(view.bindings[0]) == "(x, 21)"]
+            test[unparse(view.bindings[1]) == "(y, 2)"]
+            test[unparse(view.body) == "(y * x)"]
+
+            # write
+            #
+            # It's also legal to edit the AST nodes in view.bindings directly.
+            # But the job of the setter, which we want to test here,
+            # is to handle reassigning `view.bindings`.
+            newbindings = q[(z, 21), (t, 2)].elts  # noqa: F821
+            view.bindings = newbindings  # ...like this.
+            view.body = q[z * t]  # noqa: F821
+            test[len(view.bindings) == 2]
+            test[unparse(view.bindings[0]) == "(z, 21)"]
+            test[unparse(view.bindings[1]) == "(t, 2)"]
+            test[unparse(view.body) == "(z * t)"]
+
+        # lispy expr
+        testdata = q[definitelynotlet((x, 21), (y, 2))[y * x]]  # noqa: F821
+        testdata.value.func.id = "let"
+        testletdestructuring(testdata)
+
+        # haskelly let-in
+        testdata = q[definitelynotlet[((x, 21), (y, 2)) in y * x]]  # noqa: F821
+        testdata.value.id = "let"
+        testletdestructuring(testdata)
+
+        # haskelly let-where
+        testdata = q[definitelynotlet[y * x, where((x, 21), (y, 2))]]  # noqa: F821
+        testdata.value.id = "let"
+        testletdestructuring(testdata)
+
+        # disembodied haskelly let-in (just the content, no macro invocation)
+        testdata = q[((x, 21), (y, 2)) in y * x]  # noqa: F821
+        testletdestructuring(testdata)
+
+        # disembodied haskelly let-where (just the content, no macro invocation)
+        testdata = q[y * x, where((x, 21), (y, 2))]  # noqa: F821
+        testletdestructuring(testdata)
+
+        # decorator
+        with q as testdata:  # pragma: no cover
+            @definitelynotdlet((x, 21), (y, 2))  # noqa: F821
+            def f3():
+                return 2 * x  # noqa: F821
+        testdata[0].decorator_list[0].func.id = "dlet"
+
+        # read
+        view = UnexpandedLetView(testdata[0].decorator_list[0])
+        test[len(view.bindings) == 2]
+        test[unparse(view.bindings[0]) == "(x, 21)"]
+        test[unparse(view.bindings[1]) == "(y, 2)"]
+        test_raises[TypeError,
+                    view.body,
+                    "decorator let does not have an accessible body"]
+
+        # write
+        newbindings = q[(z, 21), (t, 2)].elts  # noqa: F821
+        view.bindings = newbindings
+        test[len(view.bindings) == 2]
+        test[unparse(view.bindings[0]) == "(z, 21)"]
+        test[unparse(view.bindings[1]) == "(t, 2)"]
+        with test_raises(TypeError, "decorator let does not have an accessible body"):
+            view.body = q[x]  # noqa: F821
+
+        test_raises[TypeError,
+                    UnexpandedLetView(q[x]),  # noqa: F821
+                    "not a let form"]
+
+    with testset("let destructuring (expanded)"):
         warn["TODO: This testset not implemented yet."]
+        # ExpandedLetView
 
     with testset("do destructuring"):
         warn["TODO: This testset not implemented yet."]
+        # UnexpandedDoView, ExpandedDoView
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
