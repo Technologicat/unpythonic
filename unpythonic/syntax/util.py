@@ -433,6 +433,11 @@ def transform_statements(f, body):
     """
     def rec(tree):
         # TODO: brittle, may need changes as the Python AST evolves. Better ways to do this?
+        #
+        # TODO: In the __mro__ of AST nodes, there's ast.expr for expressions
+        # TODO: and ast.stmt for statements. Could we isinstance() on that,
+        # TODO: dir() the attributes, and recurse on anything that contains
+        # TODO: further statements?
         if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef, With, AsyncWith):
             tree.body = rec(tree.body)
         elif type(tree) in (If, For, While, AsyncFor):
