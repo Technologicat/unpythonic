@@ -385,7 +385,7 @@ with session("simple framework demo"):
         test_raises[RuntimeError, f()]
         test[returns_normally(g(2, 3))]
         test[g(2, 3) == 6]
-        # Use `the[]` in a `test[]` to declare what you want to inspect if the test fails.
+        # Use `the[]` (or several) in a `test[]` to declare what you want to inspect if the test fails.
         test[counter() < the[counter()]]
 
     with testset("outer"):
@@ -411,33 +411,57 @@ with session("simple framework demo"):
 
 We provide the low-level syntactic constructs `test[]`, `test_raises[]` and `test_signals[]`, with the usual meanings. The last one is for testing code that uses conditions and restarts; see `unpythonic.conditions`.
 
-Inside a `test[]` expression, `the[]` can be used to declare a subexpression as interesting, for displaying its source code and value in the test failure message if the test fails. By default (if no `the[]` is present), `test[]` captures the leftmost term if the top-level expression is a comparison (common use case), and otherwise does not capture anything (but if the test fails, shows the value of the whole expression).
-
-There may be an arbitrary number of `the[]` in each `test`. The captured values are gathered in a list that is shown upon test failure. In case of nested `test[]`, each `the[...]` is understood as belonging to the lexically innermost surrounding test.
-
 The test macros also come in block variants, `with test`, `with test_raises`, `with test_signals`.
-
-We provide the helper macros `fail[message]`, `error[message]` and `warn[message]` for producing unconditional failures, errors or warnings. Examples of the intended meanings:
-
-- `fail[...]` if reaching that point means that the test failed, e.g. on a line that should be unreachable.
-- `error[...]` if the test cannot run, e.g. if an optional dependency for an integration test is not installed.
-- `warn[...]` if the test is temporarily disabled and needs future attention, e.g. for syntactic compatibility to make the code run for now on an old Python version.
-
-Warnings produced by `warn[]` are currently (v0.14.3) not counted in the total number of tests run.
 
 As usual in test frameworks, the testing constructs behave somewhat like `assert`, with the difference that a failure or error will not abort the whole unit (unless explicitly asked to do so).
 
-The `with session()` is optional. The human-readable session name is also optional, used for display purposes only. The session serves two roles: it provides an exit point for `terminate`, and defines an implicit top-level `testset`.
+Because `unpythonic.test.fixtures` is, by design, a somewhat programmable *no-framework* (cf. "NoSQL"), it is up to you to define (in your custom test runner) whether having any failures, errors or warnings should lead to the whole test suite failing. In `unpythonic`'s own tests (see the very short [`runtests.py`](runtests.py)), warnings do not cause the test suite to fail, but errors and failures do. This choice has proven useful at least for me.
+
+The helper macros `fail[message]`, `error[message]` and `warn[message]` unconditionally produce a test failure, a test error, or a testing warning, respectively. This can be useful:
+
+- `fail[...]` if that expression should be unreachable when the code being tested works properly.
+- `error[...]` if some part of your tests is unable to run.
+- `warn[...]` if some tests are temporarily disabled and need future attention, e.g. for syntactic compatibility to make the code run for now on an old Python version.
+
+Currently (v0.14.3), warnings produced by `warn[]` are not counted in the total number of tests run. But you can still get the warning count from the separate counter `unpythonic.test.fixtures.tests_warned` (see `unpythonic.collections.box`; basically you can `b.get()` or `unbox(b)` to read the value currently inside a box).
+
+##### Test sessions and testsets
+
+The `with session()` in the example above is optional. The human-readable session name is also optional, used for display purposes only. The session serves two roles: it provides an exit point for `terminate`, and defines an implicit top-level `testset`.
 
 Tests can optionally be grouped into testsets. Each `testset` tallies passed, failed and errored tests within it, and displays the totals when it exits. Testsets can be named and nested.
 
-Testsets also provide the option to locally install a `postproc` handler that gets a copy of each failure or error in that testset (and by default, any of its inner testsets), after the failure or error has been printed. In nested testsets, the dynamically innermost `postproc` wins. A failure is an instance of `unpythonic.test.fixtures.TestFailure`, and an error is an instance of `unpythonic.test.fixtures.TestError`. Both inherit from `unpythonic.test.fixtures.TestingException`.
+Testsets also provide the option to locally install a `postproc` handler that gets a copy of each failure or error in that testset (and by default, any of its inner testsets), after the failure or error has been printed. In nested testsets, the dynamically innermost `postproc` wins. A failure is an instance of `unpythonic.test.fixtures.TestFailure`, an error is an instance of `unpythonic.test.fixtures.TestError`, and a warning is an instance of `unpythonic.test.fixtures.TestWarning`. All three inherit from `unpythonic.test.fixtures.TestingException`. Beside the human-readable message, these exception types contain attributes with programmatically inspectable information about what happened.
 
 If you want to set a default global `postproc`, which is used when no local `postproc` is in effect, see the `TestConfig` bunch of constants in `unpythonic.test.fixtures`. It also contains some other configuration options.
 
 The `with testset` construct comes with one other important feature. The nearest dynamically enclosing `with testset` catches any stray exceptions or signals that occur within its dynamic extent, but outside a test. In case of an uncaught signal, the error is reported, and the testset resumes. In case of an uncaught exception, the error is reported, and the testset terminates (because the exception model does not support resuming).
 
 Catching of uncaught *signals*, in both the low-level `test` constructs and the high-level `testset`, can be disabled using `with catch_signals(False)`. This is useful in testing code that uses conditions and restarts; sometimes allowing a signal (e.g. from `unpythonic.conditions.warn`) to remain uncaught is the right thing to do.
+
+##### `the[]`: capture the value of interesting subexpressions
+
+Inside a `test[]` expression, the `the[]` macro can be used to declare a subexpression as interesting, for capturing its source code and value into the test failure message, which is shown if the test fails. The capture is a side effect - the value is passed through as-is.
+
+By default (if no explicit `the[]` is present), `test[]` implicitly inserts a `the[]` for the leftmost term if the top-level expression is a comparison (common use case), and otherwise does not capture anything.
+
+When nothing is captured, if the test fails, the value of the whole expression is shown. Of course, you'll then already know the value is falsey, but there's still the possibly useful distinction of whether it's, say, `False`, `None` or `[]`.
+
+A `test` can have any number of subexpressions marked as `the[]`. It is possible to even nest a `the[]` inside another `the[]`, if you need the value of some subexpression as well as one of *its* subexpressions. The captured values are gathered, in the order they were evaluated (by Python's standard evaluation rules), into a list that is shown upon test failure.
+
+(Note this implies that e.g. `test[all(pred(the[x]) for x in iterable)` may actually capture fewer `x` than `iterable` has, because `all` will terminate evaluation after the first failing term, i.e. the first one for which `pred(x)` is falsey.)
+
+In case of nested `test[]`, each `the[...]` is understood as belonging to the lexically innermost surrounding test.
+
+The `the[]` mechanism is smart enough to skip reporting trivialities for literals, such as `(1, 2, 3) = (1, 2, 3)` in `test[4 in the[(1, 2, 3)]]`, or `4 = 4` in `test[4 in (1, 2, 3)]`. Note the implicit `the[]` on the LHS, because `in` is a comparison operator.
+
+If nothing but such trivialities were captured, the failure message will instead report the value of the whole expression. (The captures still remain inspectable in the exception instance.)
+
+To make testing/debugging macro code more convenient, the `the[]` mechanism automatically unparses an AST value into its source code representation for display in the test failure message. This is meant e.g. for debugging macro utilities, to which a test case hands some quoted code (i.e. code lifted into its AST representation using MacroPy's `q[]` macro). See [`unpythonic.syntax.test.test_letdoutil`](unpythonic/syntax/test/test_letdoutil.py) for some examples. (Note the unparsing is done for display only; the raw value remains inspectable in the exception instance.)
+
+Please note that the unparsed source code representation may have inessential differences in surface syntax compared to the original source code as written in the data fed into your test case, such as parenthesization, and which quote character is used for string literals. Python's AST format does not store that information.
+
+##### Why?
 
 We provide a custom testing framework, because `unpythonic` is effectively a language extension. Inspired by [Julia](https://julialang.org/)'s standard-library [`Test` package](https://docs.julialang.org/en/v1/stdlib/Test/).
 </details>  
