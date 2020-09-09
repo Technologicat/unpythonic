@@ -10,7 +10,7 @@ from macropy.core.walkers import Walker
 from macropy.core.macros import macro_stub
 from macropy.core import unparse
 
-from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return, parse, Expr
+from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return, parse, Expr, AST
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..env import env
@@ -147,23 +147,42 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
     e = env(captured_values=[])
     mode, test_result = _observe(lambda: func(e))  # <-- run the actual expr being asserted
     if e.captured_values:
-        # The condition filters out some pathological cases such as "4 = 4" in `test[4 in (1, 2, 3)]`.
-        # Canonization eliminates surface syntax differences such as which quote character is used
-        # for string literals, and parenthesization.
+        # Convenience for testing/debugging macro code:
+        #
+        # For the failure message, log the value itself, except if that value
+        # is an AST, unparse it to source code and log that instead. This is
+        # convenient, because:
+        #
+        # 1) The repr of anything in the `ast` stdlib module is completely useless, and
+        # 2) Python is not homoiconic, so the source code representation more closely
+        #    resembles the actual source code of the test case that failed.
+        #
+        # This is only done for logging. In order to avoid breaking introspection,
+        # the actual exception instance (if the test fails) always gets the
+        # original raw values.
+        logged_values = [(source, (v if not isinstance(v, AST) else "<AST; unparsed form: '{}'>".format(unparse(v))))
+                         for source, v in e.captured_values]
+
+        # Canonization eliminates surface syntax differences such as
+        # parenthesization, and which quote character is used for
+        # string literals.
         def canonize_expr(sourcecode):
             try:
                 tree = parse(sourcecode)
-            except SyntaxError:  # sometimes a repr isn't valid source code
+            except SyntaxError:  # a repr might not be valid source code
                 return None
             expr_node = tree.body[0]
             assert type(expr_node) is Expr
             return unparse(expr_node.value).strip()
+
+        # The condition filters out trivialities due to literals, such as "4 = 4" in `test[4 in (1, 2, 3)]`.
         values_strs = ["{} = {}".format(subexpr_sourcecode, subexpr_value)
-                       for subexpr_sourcecode, subexpr_value in e.captured_values
+                       for subexpr_sourcecode, subexpr_value in logged_values
                        if canonize_expr(subexpr_sourcecode) != canonize_expr(repr(subexpr_value))]
+
         if values_strs:
             values_msg = ", due to " + ", ".join(values_strs)
-        else:  # if we got only trivialities, the captures were not useful. Use the default message.
+        else:  # if we have no useful details to report, report the value of the whole expression.
             values_msg = ", due to result = {}".format(test_result)
     else:
         # It's legal to omit capturing the values of any subexprs.
@@ -215,6 +234,7 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
         # the warning being printed multiple times (once per testset level).
         #
         # So we may as well use the same code path as the fail and error cases.
+
     # general cases
     elif mode is fixtures.completed:
         if test_result:
@@ -402,7 +422,14 @@ def _transform_important_subexpr(tree, *, collect, stop, envname, **kw):
     if _is_important_subexpr_mark(tree):
         stop()
         collect(tree.slice.value)  # or anything really; value not used, we just count them.
-        return _inject_value_recorder(envname, tree.slice.value)
+        # Handle any nested the[] subexpressions
+        subtree, collected = _transform_important_subexpr.recurse_collect(tree.slice.value, envname=envname)
+        # NOTE: If a collecting Walker recurses further to collect in a
+        # branch that has already called `stop()`, the results must be
+        # propagated manually.
+        for item in collected:
+            collect(item)
+        return _inject_value_recorder(envname, subtree)
     return tree
 
 def test_expr(tree):
