@@ -449,7 +449,7 @@ When nothing is captured, if the test fails, the value of the whole expression i
 
 A `test` can have any number of subexpressions marked as `the[]`. It is possible to even nest a `the[]` inside another `the[]`, if you need the value of some subexpression as well as one of *its* subexpressions. The captured values are gathered, in the order they were evaluated (by Python's standard evaluation rules), into a list that is shown upon test failure.
 
-(Note this implies that e.g. `test[all(pred(the[x]) for x in iterable)` may actually capture fewer `x` than `iterable` has, because `all` will terminate evaluation after the first failing term, i.e. the first one for which `pred(x)` is falsey.)
+(Note this implies that e.g. `test[all(pred(the[x]) for x in iterable)` may actually capture fewer `x` than `iterable` has, because `all` will terminate evaluation after the first failing term, i.e. the first one for which `pred(x)` is falsey. Similarly, expressions involving the logical `and` and `or` operators (which in Python are short-circuiting) might not evaluate all of the terms before the test is known to fail (and evaluation terminates).)
 
 In case of nested `test[]`, each `the[...]` is understood as belonging to the lexically innermost surrounding test.
 
