@@ -359,7 +359,6 @@ class UnexpandedLetView:
     def _getbody(self):
         t = self._type
         if t == "decorator":
-            # not reached, but let's leave this here for documentation.
             raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
         elif t == "lispy_expr":
             return self._tree.slice.value
@@ -372,7 +371,6 @@ class UnexpandedLetView:
     def _setbody(self, newbody):
         t = self._type
         if t == "decorator":
-            # not reached, but let's leave this here for documentation.
             raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
         elif t == "lispy_expr":
             self._tree.slice.value = newbody
@@ -438,9 +436,11 @@ class ExpandedLetView:
     Depending on whether let mode is "let" or "letrec", each binding is a
     bare value or ``lambda e: ...``, respectively.
 
-    Usually ``body``, when available, is a single expression. In the case of a
-    multiple-expression body, ``body`` is an expanded ``do``, which can be
-    destructured using ``ExpandedDoView``.
+    Usually ``body``, when available, is a single expression, of the format
+    ``lambda e: ...``.
+
+    In the case of a multiple-expression body, ``body`` is an expanded ``do``,
+    which can be destructured using ``ExpandedDoView``.
     """
     def __init__(self, tree):
         data = islet(tree, expanded=True)
@@ -449,9 +449,7 @@ class ExpandedLetView:
         self._tree = tree
         self._type, self.mode = data
         if self._type not in ("expanded_decorator", "expanded_expr", "curried_decorator", "curried_expr"):
-            raise NotImplementedError("unknown expanded let form type '{}'".format(self._type))
-        if self._type.endswith("decorator"):
-            self.body = None
+            raise NotImplementedError("unknown expanded let form type '{}'".format(self._type))  # pragma: no cover, this just catches the internal error if we add new forms but forget to add them here.
         self.curried = self._type.startswith("curried")
 
     def _getbindings(self):
@@ -503,6 +501,8 @@ class ExpandedLetView:
     bindings = property(fget=_getbindings, fset=_setbindings, doc="The bindings subform of the let, as an ast.Tuple. Writable.")
 
     def _getbody(self):
+        if self._type.endswith("decorator"):
+            raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
         #   currycall(letter, bindings, currycall(currycall(namelambda, "let_body"), curryf(lambda e: ...)))
         #   letter(bindings, namelambda("let_body")(lambda e: ...))
         if self.curried:
@@ -510,6 +510,8 @@ class ExpandedLetView:
         else:
             return self._tree.args[1].args[0]
     def _setbody(self, newbody):
+        if self._type.endswith("decorator"):
+            raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
         if self.curried:
             self._tree.args[2].args[1].args[0] = newbody
         else:
