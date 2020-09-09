@@ -58,6 +58,14 @@ def canonize_bindings(elts, locref, allow_call_in_name_position=False):  # publi
         return elts
     assert False, "expected bindings to be ((k0, v0), ...) or a single (k, v)"  # pragma: no cover
 
+def isenvassign(tree):
+    """Detect whether tree is an unpythonic ``env`` assignment, ``name << value``.
+
+    The only way this differs from a general left-shift is that the LHS must be
+    an ``ast.Name``.
+    """
+    return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
+
 def islet(tree, expanded=True):
     """Test whether tree is a ``let[]``, ``letseq[]``, ``letrec[]``,
     ``let_syntax[]``, or ``abbrev[]``.
@@ -204,19 +212,50 @@ def isdo(tree, expanded=True):
             return False
         return kind
     # TODO: detect also do[] with a single expression inside? (now requires a comma)
-    return (type(tree) is Subscript and
+    if not (type(tree) is Subscript and
             type(tree.value) is Name and any(tree.value.id == x for x in ("do", "do0")) and
-            type(tree.slice) is Index and type(tree.slice.value) is Tuple)
-
-def isenvassign(tree):
-    """Detect whether tree is an unpythonic ``env`` assignment, ``name << value``.
-
-    The only way this differs from a general left-shift is that the LHS must be
-    an ``ast.Name``.
-    """
-    return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
+            type(tree.slice) is Index and type(tree.slice.value) is Tuple):
+        return False
+    return tree.value.id
 
 # -----------------------------------------------------------------------------
+
+class UnexpandedEnvAssignView:
+    """Destructure an env-assignment, writably.
+
+    If ``tree`` cannot be interpreted as an unpythonic ``env`` assignment
+    of the form ``name << value``, then ``TypeError`` is raised.
+
+    For easy in-place modification of both ``name`` and ``value``. Use before
+    the env-assignment is expanded away (so, before the ``let[]`` or ``do[]``
+    containing it is expanded away).
+
+    **Attributes**:
+
+        ``name``: the name of the variable, as a str.
+
+        ``value``: the thing being assigned, as an AST.
+
+    Writing to either attribute updates the original.
+    """
+    def __init__(self, tree):
+        if not isenvassign(tree):
+            raise TypeError("expected a tree representing an unexpanded env-assignment, got {}".format(tree))
+        self._tree = tree
+
+    def _getname(self):
+        return self._tree.left.id
+    def _setname(self, newname):
+        if not isinstance(newname, str):
+            raise TypeError("expected str for new name, got '{}' with value '{}'".format(type(newname), newname))
+        self._tree.left.id = newname
+    name = property(fget=_getname, fset=_setname, doc="The name of the assigned var, as an str. Writable.")
+
+    def _getvalue(self):
+        return self._tree.right
+    def _setvalue(self, newvalue):
+        self._tree.right = newvalue
+    value = property(fget=_getvalue, fset=_setvalue, doc="The value of the assigned var, as an AST. Writable.")
 
 # TODO: kwargs support for let(x=42)[...] if implemented later
 class UnexpandedLetView:
@@ -289,9 +328,7 @@ class UnexpandedLetView:
         self._tree = tree
         self._type, self.mode = data
         if self._type not in ("decorator", "lispy_expr", "in_expr", "where_expr"):
-            raise NotImplementedError("unknown unexpanded let form type '{}'".format(self._type))
-        if self._type == "decorator":
-            self.body = None
+            raise NotImplementedError("unknown unexpanded let form type '{}'".format(self._type))  # pragma: no cover, this just catches the internal error if we add new forms but forget to add them here.
 
     def _getbindings(self):
         t = self._type
@@ -386,43 +423,6 @@ class UnexpandedDoView:
         else:
             self._tree.elts = newbody
     body = property(fget=_getbody, fset=_setbody, doc="The body of the do. Writable.")
-
-class UnexpandedEnvAssignView:
-    """Destructure an env-assignment, writably.
-
-    If ``tree`` cannot be interpreted as an unpythonic ``env`` assignment
-    of the form ``name << value``, then ``TypeError`` is raised.
-
-    For easy in-place modification of both ``name`` and ``value``. Use before
-    the env-assignment is expanded away (so, before the ``let[]`` or ``do[]``
-    containing it is expanded away).
-
-    **Attributes**:
-
-        ``name``: the name of the variable, as a str.
-
-        ``value``: the thing being assigned, as an AST.
-
-    Writing to either attribute updates the original.
-    """
-    def __init__(self, tree):
-        if not isenvassign(tree):
-            raise TypeError("expected a tree representing an unexpanded env-assignment, got {}".format(tree))
-        self._tree = tree
-
-    def _getname(self):
-        return self._tree.left.id
-    def _setname(self, newname):
-        if not isinstance(newname, str):
-            raise TypeError("expected str for new name, got '{}' with value '{}'".format(type(newname), newname))
-        self._tree.left.id = newname
-    name = property(fget=_getname, fset=_setname, doc="The name of the assigned var, as an str. Writable.")
-
-    def _getvalue(self):
-        return self._tree.right
-    def _setvalue(self, newvalue):
-        self._tree.right = newvalue
-    value = property(fget=_getvalue, fset=_setvalue, doc="The value of the assigned var, as an AST. Writable.")
 
 # -----------------------------------------------------------------------------
 
