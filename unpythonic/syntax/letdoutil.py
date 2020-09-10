@@ -441,11 +441,30 @@ class ExpandedLetView:
     Depending on whether let mode is "let" or "letrec", the RHS of each binding
     is a bare value or ``lambda e: ...``, respectively.
 
-    Usually ``body``, when available, is a single expression, of the format
-    ``lambda e: ...``.
+    ``body``, when available, is a single expression, of the format ``lambda e: ...``.
 
-    In the case of a multiple-expression body, ``body`` is an expanded ``do``,
-    which can be destructured using ``ExpandedDoView``.
+    In the case of a multiple-expression body (implicit do, a.k.a. extra bracket syntax),
+    the body *of that lambda* is an expanded ``do``, which can be destructured using
+    ``ExpandedDoView``.
+
+    The ``let`` environment name is available in the ``envname`` property (read-only).
+    When editing the bindings and the body, you'll need it to refer to the variables
+    defined in the let, since those are actually attributes of the env.
+
+    **New features added in v0.14.3**:
+
+    For the ``lambda e: ...``, in both the body and in letrec bindings, when
+    assigning a new `body` or `bindings`, the correct envname is auto-injected
+    as the arg of the lambda. So you only need ``envname`` to refer to the let
+    environment *inside the body of that lambda*.
+
+    Some basic type validation is performed by the property setters when
+    assigning a new `body` or `bindings`. Note this implies that if you edit
+    `bindings` in-place, without assigning to the `bindings` property,
+    **absolutely no validation is performed**, and also the envname
+    auto-injection is skipped, because that too is performed by the property
+    setter. So it's better to always reassign the whole `bindings`, even if you
+    just make some minor adjustment to one of the bindings.
     """
     def __init__(self, tree):
         data = islet(tree, expanded=True)
@@ -508,13 +527,13 @@ class ExpandedLetView:
             return thebindings
     def _setbindings(self, newbindings):
         if type(newbindings) is not Tuple:
-            raise TypeError("Expected ast.Tuple as the new bindings of the let, got {}".format(type(newbindings)))
+            raise TypeError("Expected ast.Tuple as the new bindings of the let, got {}".format(type(newbindings)))  # pragma: no cover
         if not all(type(elt) is Tuple for elt in newbindings.elts):
-            raise TypeError("Expected ast.Tuple of ast.Tuple as the new bindings of the let")
+            raise TypeError("Expected ast.Tuple of ast.Tuple as the new bindings of the let")  # pragma: no cover
         if not all(len(binding.elts) == 2 for binding in newbindings.elts):
-            raise TypeError("Expected ast.Tuple of length-2 ast.Tuple as the new bindings of the let")
+            raise TypeError("Expected ast.Tuple of length-2 ast.Tuple as the new bindings of the let")  # pragma: no cover
         if len(newbindings.elts) != len(self.bindings.elts):
-            assert False, "changing the number of items currently not supported by this view (do that before the let[] expands)"
+            assert False, "changing the number of items currently not supported by this view (do that before the let[] expands)"  # pragma: no cover
         for newb in newbindings.elts:
             newk, newv = newb.elts
             if type(newk) is not Str:  # TODO: Python 3.8: ast.Constant, no ast.Str
@@ -570,10 +589,10 @@ class ExpandedLetView:
     def _setbody(self, newbody):
         if self._type.endswith("decorator"):
             raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
-        # TODO: might also be an expanded do[]. Do we need different handling then? Or is the call to do wrapped in a lambda inserted by the let?
-        if type(newbody) is Lambda:
-            envname = self.envname
-            newbody.args.args[0].arg = envname  # v0.14.3+: convenience: auto-inject correct envname
+        if type(newbody) is not Lambda:
+            raise TypeError("The body must be of the form `lambda e: ...`")  # pragma: no cover
+        envname = self.envname
+        newbody.args.args[0].arg = envname  # v0.14.3+: convenience: auto-inject correct envname
         #   currycall(letter, bindings, currycall(currycall(namelambda, "let_body"), curryf(lambda e: ...)))
         #                                                                                   ^^^^^^^^^^^^^
         #   letter(bindings, (namelambda("let_body"))(lambda e: ...))
