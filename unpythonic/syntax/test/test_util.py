@@ -7,8 +7,7 @@ from ...test.fixtures import session, testset
 from macropy.core.quotes import macros, q, name  # noqa: F811
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 
-from ...syntax.util import (isx, make_isxpred, getname,
-                            isec, detect_callec,
+from ...syntax.util import (isec, detect_callec,
                             detect_lambda,
                             is_decorator, has_tco, has_curry, has_deco,
                             suggest_decorator_index,
@@ -22,30 +21,6 @@ from ast import Call, Name, Expr, Num, Str, With, withitem
 from ...ec import call_ec, throw  # just so hq[] captures them, like in real code
 
 def runtests():
-    with testset("isx, make_isxpred, getname"):
-        # test data
-        def capture_this():
-            pass  # pragma: no cover
-        barename = q[ok]  # noqa: F821
-        captured = hq[capture_this()]
-        attribute = q[someobj.ok]  # noqa: F821
-
-        test[isx(barename, "ok")]
-        test[type(captured) is Call]
-        test[isx(captured.func, "capture_this")]
-        test[isx(attribute, "ok")]
-        test[not isx(attribute, "ok", accept_attr=False)]
-
-        isfab = make_isxpred("fab")
-        test[isx(q[fab], isfab)]  # noqa: F821
-        test[isx(q[fab4], isfab)]  # noqa: F821
-        test[isx(q[someobj.fab4], isfab)]  # noqa: F821
-
-        test[getname(barename) == "ok"]
-        test[getname(captured.func) == "capture_this"]
-        test[getname(attribute) == "ok"]
-        test[getname(attribute, accept_attr=False) is None]
-
     with testset("escape continuation (ec) utilities"):
         def ec():
             pass  # pragma: no cover
