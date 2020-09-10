@@ -160,7 +160,7 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
         # This is only done for logging. In order to avoid breaking introspection,
         # the actual exception instance (if the test fails) always gets the
         # original raw values.
-        logged_values = [(source, (v if not isinstance(v, AST) else "<AST; unparsed form: '{}'>".format(unparse(v))))
+        logged_values = [(source, (repr(v) if not isinstance(v, AST) else "<AST; unparsed form: '{}'>".format(unparse(v))))
                          for source, v in e.captured_values]
 
         # Canonization eliminates surface syntax differences such as
