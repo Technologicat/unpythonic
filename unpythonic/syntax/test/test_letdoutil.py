@@ -23,6 +23,9 @@ from ...syntax.letdoutil import (canonize_bindings,
                                  UnexpandedDoView, ExpandedDoView)
 
 def runtests():
+    # --------------------------------------------------------------------------------
+    # Internal-ish utilities
+
     with testset("canonize_bindings"):
         # canonize_bindings takes in a list of bindings, and outputs a list of bindings.
         def validate(lst):
@@ -40,6 +43,9 @@ def runtests():
         test[validate(the[canonize_bindings(q[k0, v0].elts, locref)])]  # noqa: F821, it's quoted.
         test[validate(the[canonize_bindings(q[((k0, v0),)].elts, locref)])]  # noqa: F821
         test[validate(the[canonize_bindings(q[(k0, v0), (k1, v1)].elts, locref)])]  # noqa: F821
+
+    # --------------------------------------------------------------------------------
+    # AST structure matching
 
     # The let[] and do[] macros, used in the tests of islet() and isdo(),
     # need this utility, so we must test it first.
@@ -160,6 +166,9 @@ def runtests():
                                     2 * x]]  # noqa: F821
         test[not isdo(the[testdata], expanded=False)]
 
+    # --------------------------------------------------------------------------------
+    # Destructuring - envassign
+
     with testset("envassign destructuring"):
         testdata = q[x << 42]  # noqa: F821
         view = UnexpandedEnvAssignView(testdata)
@@ -183,6 +192,9 @@ def runtests():
                     "not an env assignment"]
         with test_raises(TypeError, "name must be str"):
             view.name = 1234
+
+    # --------------------------------------------------------------------------------
+    # Destructuring - unexpanded let - the phase where all sensible people do their AST edits
 
     with testset("let destructuring (unexpanded)"):
         def testletdestructuring(testdata):
@@ -260,54 +272,58 @@ def runtests():
                     UnexpandedLetView(q[x]),  # noqa: F821
                     "not a let form"]
 
+    # --------------------------------------------------------------------------------
+    # Destructuring - expanded let - for those unfortunate macros that expand after let[]
+    # (yet need to edit its AST for interop purposes)
+
+    def testexpandedletdestructuring(testdata):
+        view = ExpandedLetView(testdata)
+
+        # read
+        # In the expanded form, the outer container of bindings is an `ast.Tuple`.
+        test[len(view.bindings.elts) == 2]
+        test[unparse(view.bindings.elts[0]) == "('x', 21)"]  # the variable names are strings
+        test[unparse(view.bindings.elts[1]) == "('y', 2)"]
+
+        # Reading an expanded let body is painful:
+        lam = view.body  # lambda e: e.y * e.x
+        test[type(lam) is Lambda]
+        lambody = lam.body
+        test[type(lambody) is BinOp]
+        test[type(the[lambody.left]) is Attribute and lambody.left.attr == "y"]
+        test[type(the[lambody.right]) is Attribute and lambody.right.attr == "x"]
+
+        # write
+        newbindings = q[("z", 21), ("t", 2)]  # noqa: F821
+        view.bindings = newbindings
+        test[len(view.bindings.elts) == 2]
+        test[unparse(view.bindings.elts[0]) == "('z', 21)"]
+        test[unparse(view.bindings.elts[1]) == "('t', 2)"]
+
+        # edit an expanded let body
+        envname = view.envname
+        newbody = q[lambda _: name[envname].z * name[envname].t]  # noqa: F821
+        view.body = newbody  # the body lambda gets the correct envname auto-injected as its arg
+
+        lam = view.body  # lambda e: e.z * e.t
+        test[type(lam) is Lambda]
+        lambody = lam.body
+        test[type(lambody) is BinOp]
+        test[type(the[lambody.left]) is Attribute and lambody.left.attr == "z"]
+        test[type(the[lambody.right]) is Attribute and lambody.right.attr == "t"]
+
     with testset("let destructuring (expanded let)"):
-        def testletdestructuring(testdata):
-            view = ExpandedLetView(testdata)
-
-            # read
-            # In the expanded form, the outer container of bindings is an `ast.Tuple`.
-            test[len(view.bindings.elts) == 2]
-            test[unparse(view.bindings.elts[0]) == "('x', 21)"]  # the variable names are strings
-            test[unparse(view.bindings.elts[1]) == "('y', 2)"]
-
-            # Reading an expanded let body is painful:
-            lam = view.body  # lambda e: e.y * e.x
-            test[type(lam) is Lambda]
-            lambody = lam.body
-            test[type(lambody) is BinOp]
-            test[type(the[lambody.left]) is Attribute and lambody.left.attr == "y"]
-            test[type(the[lambody.right]) is Attribute and lambody.right.attr == "x"]
-
-            # write
-            newbindings = q[("z", 21), ("t", 2)]  # noqa: F821
-            view.bindings = newbindings
-            test[len(view.bindings.elts) == 2]
-            test[unparse(view.bindings.elts[0]) == "('z', 21)"]
-            test[unparse(view.bindings.elts[1]) == "('t', 2)"]
-
-            # edit an expanded let body
-            envname = view.envname
-            newbody = q[lambda _: name[envname].z * name[envname].t]  # noqa: F821
-            view.body = newbody  # the body lambda gets the correct envname auto-injected as its arg
-
-            lam = view.body  # lambda e: e.z * e.t
-            test[type(lam) is Lambda]
-            lambody = lam.body
-            test[type(lambody) is BinOp]
-            test[type(the[lambody.left]) is Attribute and lambody.left.attr == "z"]
-            test[type(the[lambody.right]) is Attribute and lambody.right.attr == "t"]
-
         # lispy expr
         testdata = q[let((x, 21), (y, 2))[y * x]]  # noqa: F821
-        testletdestructuring(testdata)
+        testexpandedletdestructuring(testdata)
 
         # haskelly let-in
         testdata = q[let[((x, 21), (y, 2)) in y * x]]  # noqa: F821
-        testletdestructuring(testdata)
+        testexpandedletdestructuring(testdata)
 
         # haskelly let-where
         testdata = q[let[y * x, where((x, 21), (y, 2))]]  # noqa: F821
-        testletdestructuring(testdata)
+        testexpandedletdestructuring(testdata)
 
         # decorator
         with q as testdata:  # pragma: no cover
@@ -345,62 +361,65 @@ def runtests():
                     ExpandedLetView(q[x]),  # noqa: F821
                     "not an expanded let form"]
 
+    # --------------------------------------------------------------------------------
+    # Destructuring - expanded letrec - for the truly desperate
+
+    def testexpandedletrecdestructuring(testdata):
+        view = ExpandedLetView(testdata)
+
+        # With an expanded letrec, even reading the bindings gets painful:
+        def testbindings(*expected):
+            for b, (k, v) in zip(view.bindings.elts, expected):
+                test[len(b.elts) == 2]
+                bk, lam = b.elts
+                # outer quotes, source code; inner quotes, str within that source
+                test[the[unparse(bk)] == the["'{}'".format(k)]]
+                test[type(lam) is Lambda]
+                lambody = lam.body
+                test[type(the[lambody]) is Num and lambody.n == the[v]]  # TODO: Python 3.8: ast.Constant, no ast.Num
+
+        # read
+        test[len(view.bindings.elts) == 2]
+        testbindings(('x', 21), ('y', 2))
+
+        # Reading an expanded letrec body
+        lam = view.body  # lambda e: e.y * e.x
+        test[type(lam) is Lambda]
+        lambody = lam.body
+        test[type(lambody) is BinOp]
+        test[type(the[lambody.left]) is Attribute and lambody.left.attr == "y"]
+        test[type(the[lambody.right]) is Attribute and lambody.right.attr == "x"]
+
+        # write
+        newbindings = q[("z", lambda _: 21), ("t", lambda _: 2)]  # noqa: F821
+        view.bindings = newbindings  # each binding lambda gets the correct envname auto-injected as its arg
+        test[len(view.bindings.elts) == 2]
+        testbindings(('z', 21), ('t', 2))
+
+        # Editing an expanded letrec body
+        envname = view.envname
+        newbody = q[lambda _: name[envname].z * name[envname].t]  # noqa: F821
+        view.body = newbody  # the body lambda gets the correct envname auto-injected as its arg
+
+        lam = view.body  # lambda e: e.z * e.t
+        test[type(lam) is Lambda]
+        lambody = lam.body
+        test[type(lambody) is BinOp]
+        test[type(the[lambody.left]) is Attribute and lambody.left.attr == "z"]
+        test[type(the[lambody.right]) is Attribute and lambody.right.attr == "t"]
+
     with testset("let destructuring (expanded letrec)"):
-        def testletdestructuring(testdata):
-            view = ExpandedLetView(testdata)
-
-            # With an expanded letrec, even reading the bindings gets painful:
-            def testbindings(*expected):
-                for b, (k, v) in zip(view.bindings.elts, expected):
-                    test[len(b.elts) == 2]
-                    bk, lam = b.elts
-                    # outer quotes, source code; inner quotes, str within that source
-                    test[the[unparse(bk)] == the["'{}'".format(k)]]
-                    test[type(lam) is Lambda]
-                    lambody = lam.body
-                    test[type(the[lambody]) is Num and lambody.n == the[v]]  # TODO: Python 3.8: ast.Constant, no ast.Num
-
-            # read
-            test[len(view.bindings.elts) == 2]
-            testbindings(('x', 21), ('y', 2))
-
-            # Reading an expanded letrec body
-            lam = view.body  # lambda e: e.y * e.x
-            test[type(lam) is Lambda]
-            lambody = lam.body
-            test[type(lambody) is BinOp]
-            test[type(the[lambody.left]) is Attribute and lambody.left.attr == "y"]
-            test[type(the[lambody.right]) is Attribute and lambody.right.attr == "x"]
-
-            # write
-            newbindings = q[("z", lambda _: 21), ("t", lambda _: 2)]  # noqa: F821
-            view.bindings = newbindings  # each binding lambda gets the correct envname auto-injected as its arg
-            test[len(view.bindings.elts) == 2]
-            testbindings(('z', 21), ('t', 2))
-
-            # Editing an expanded letrec body
-            envname = view.envname
-            newbody = q[lambda _: name[envname].z * name[envname].t]  # noqa: F821
-            view.body = newbody  # the body lambda gets the correct envname auto-injected as its arg
-
-            lam = view.body  # lambda e: e.z * e.t
-            test[type(lam) is Lambda]
-            lambody = lam.body
-            test[type(lambody) is BinOp]
-            test[type(the[lambody.left]) is Attribute and lambody.left.attr == "z"]
-            test[type(the[lambody.right]) is Attribute and lambody.right.attr == "t"]
-
         # lispy expr
         testdata = q[letrec[((x, 21), (y, 2)) in y * x]]  # noqa: F821
-        testletdestructuring(testdata)
+        testexpandedletrecdestructuring(testdata)
 
         # haskelly let-in
         testdata = q[letrec[((x, 21), (y, 2)) in y * x]]  # noqa: F821
-        testletdestructuring(testdata)
+        testexpandedletrecdestructuring(testdata)
 
         # haskelly let-where
         testdata = q[letrec[y * x, where((x, 21), (y, 2))]]  # noqa: F821
-        testletdestructuring(testdata)
+        testexpandedletrecdestructuring(testdata)
 
         # decorator, letrec
         with q as testdata:  # pragma: no cover
@@ -415,11 +434,24 @@ def runtests():
             view.body = q[x]  # noqa: F821
         test[view.envname is not None]  # dletrec decorator has envname in the bindings
 
+    # --------------------------------------------------------------------------------
+    # Destructuring - expanded let and letrec, integration with curry
+
     with testset("let destructuring (expanded) integration with curry"):
-        warn["TODO: This testset not implemented yet."]
-        # with q as testdata:
-        #     with curry:  # pragma: no cover
-        #         pass
+        with q as testdata:
+            with curry:  # pragma: no cover
+                let[((x, 21), (y, 2)) in y * x]  # noqa: F821  # note this goes into an ast.Expr
+        thelet = testdata[0].value
+        testexpandedletdestructuring(thelet)
+
+        with q as testdata:
+            with curry:  # pragma: no cover
+                letrec[((x, 21), (y, 2)) in y * x]  # noqa: F821
+        thelet = testdata[0].value
+        testexpandedletrecdestructuring(thelet)
+
+    # --------------------------------------------------------------------------------
+    # Destructuring - unexpanded do
 
     with testset("do destructuring"):
         warn["TODO: This testset not implemented yet."]
