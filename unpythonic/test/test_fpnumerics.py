@@ -15,7 +15,7 @@ from math import sin, pi, log2
 from unpythonic.fun import curry
 from unpythonic.it import unpack, drop, take, tail, first, second, last, iterate1, within
 from unpythonic.fold import scanl, scanl1, unfold
-from unpythonic.mathseq import mg, m
+from unpythonic.mathseq import gmathify, imathify
 from unpythonic.gmemo import gmemoize
 from unpythonic.gtco import gtrampolined
 
@@ -65,23 +65,23 @@ def runtests():
     # the sequence to tail-chain into a new instance of itself.
     #
     with testset("implicit infinite streams"):
-        @mg
+        @gmathify
         @gtrampolined
         def ones_fp():
             yield 1
             return ones_fp()
-        @mg
+        @gmathify
         @gmemoize
         def nats_fp(start=0):
             yield start
             yield from nats_fp(start) + ones_fp()
-        @mg
+        @gmathify
         @gmemoize
         def fibos_fp():
             yield 1
             yield 1
             yield from fibos_fp() + tail(fibos_fp())
-        @mg
+        @gmathify
         @gmemoize
         def powers_of_2():
             yield 1
@@ -100,20 +100,20 @@ def runtests():
         # https://www.vex.net/~trebla/haskell/scanl.xhtml
         #
         # In Python, though, these will eventually crash due to stack overflow.
-        @mg
+        @gmathify
         def zs():  # s0 = 0, rs = [0, ...], xs = [0, ...]
             yield from scanl(add, 0, zs())
-        @mg
+        @gmathify
         def os():  # s0 = 1, rs = [1, ...], xs = [0, ...]
             yield from scanl(add, 1, zs())
-        @mg
+        @gmathify
         def ns(start=0):  # s0 = start, rs = [start, start+1, ...], xs = [1, ...]
             yield from scanl(add, start, os())
-        @mg
+        @gmathify
         def fs():  # s0 = 1, scons(1, rs) = fibos, xs = fibos
             yield 1
             yield from scanl(add, 1, fs())
-        @mg
+        @gmathify
         def p2s():  # s0 = 1, rs = xs = [1, 2, 4, ...]
             yield from scanl(add, 1, p2s())
         test[tuple(take(10, zs())) == (0,) * 10]
@@ -123,18 +123,18 @@ def runtests():
         test[tuple(take(10, p2s())) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)]
 
         # Better Python: simple is better than complex. No stack overflow, no tricks needed.
-        @mg
+        @gmathify
         def ones():
             return repeat(1)
-        @mg
+        @gmathify
         def nats(start=0):
             return scanl(add, start, ones())
-        @mg
+        @gmathify
         def fibos():
             def nextfibo(a, b):
                 return a, b, a + b
             return unfold(nextfibo, 1, 1)
-        @mg
+        @gmathify
         def pows():
             return scanl(mul, 1, repeat(2))
         test[tuple(take(10, ones())) == (1,) * 10]
@@ -200,7 +200,7 @@ def runtests():
     # https://sites.ualberta.ca/~jhoover/325/CourseNotes/section/Streams.htm
     #
     with testset("pi approximation with Euler series acceleration"):
-        partial_sums = lambda s: m(scanl1(add, s))
+        partial_sums = lambda s: imathify(scanl1(add, s))
         def pi_summands(n):
             """Yield the terms of the sequence π/4 = 1 - 1/3 + 1/5 - 1/7 + ... """
             sign = +1

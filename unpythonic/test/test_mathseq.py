@@ -7,7 +7,7 @@ from operator import mul
 from math import exp, trunc, floor, ceil
 from sys import float_info
 
-from ..mathseq import (s, m, mg,
+from ..mathseq import (s, imathify, gmathify,
                        sadd, smul, spow, cauchyprod,
                        primes, fibonacci,
                        sign, log, almosteq)
@@ -196,8 +196,8 @@ def runtests():
         # The optional "require" argument must be "all" or "any".
         test_raises[ValueError, cauchyprod(s(1, 3, 5, ...), s(2, 4, 6, ...), require="invalid_value")]
 
-    with testset("m, mg (infix syntax for arithmetic)"):
-        # Sequences returned by `s` are `m`'d implicitly.
+    with testset("imathify, gmathify (infix syntax for arithmetic)"):
+        # Sequences returned by `s` are `imathify`'d implicitly.
         test[tuple(take(5, s(1, 3, 5, ...) + s(2, 4, 6, ...))) == (3, 7, 11, 15, 19)]
         test[tuple(take(5, 1 + s(1, 3, ...))) == (2, 4, 6, 8, 10)]
         test[tuple(take(5, 1 - s(1, 3, ...))) == (0, -2, -4, -6, -8)]
@@ -214,9 +214,9 @@ def runtests():
         test[tuple(take(5, s(1, 3, ...)**2)) == (1, 3**2, 5**2, 7**2, 9**2)]
         test[tuple(take(5, 2**s(1, 3, ...))) == (2**1, 2**3, 2**5, 2**7, 2**9)]
 
-        test[tuple(take(5, abs(s(-1, -2, ...)))) == (1, 2, 3, 4, 5)]  # m.__abs__
-        test[tuple(take(5, +s(-1, -2, ...))) == (-1, -2, -3, -4, -5)]  # m.__pos__
-        test[tuple(take(5, -s(-1, -2, ...))) == (1, 2, 3, 4, 5)]  # m.__neg__
+        test[tuple(take(5, abs(s(-1, -2, ...)))) == (1, 2, 3, 4, 5)]  # imathify.__abs__
+        test[tuple(take(5, +s(-1, -2, ...))) == (-1, -2, -3, -4, -5)]  # imathify.__pos__
+        test[tuple(take(5, -s(-1, -2, ...))) == (1, 2, 3, 4, 5)]  # imathify.__neg__
         test[tuple(take(5, s(1, 2, ...) // 2)) == (0, 1, 1, 2, 2)]
         test[tuple(take(5, 10 // s(1, 2, ...))) == (10, 5, 3, 2, 2)]
         test[tuple(take(5, s(1, 2, ...) % 2)) == (1, 0, 1, 0, 1)]
@@ -240,13 +240,13 @@ def runtests():
         test[tuple(take(5, 32 >> s(1, 2, ...))) == (16, 8, 4, 2, 1)]
 
         # termwise bitwise logical operations
-        test[tuple(m((0, 1, 0, 1)) & m((0, 0, 1, 1))) == (0, 0, 0, 1)]
-        test[tuple(m((0, 1, 0, 1)) | m((0, 0, 1, 1))) == (0, 1, 1, 1)]
-        test[tuple(m((0, 1, 0, 1)) ^ m((0, 0, 1, 1))) == (0, 1, 1, 0)]  # xor
-        test[tuple(1 & m((0, 1))) == (0, 1)]
-        test[tuple(1 | m((0, 1))) == (1, 1)]
-        test[tuple(1 ^ m((0, 1))) == (1, 0)]
-        test[tuple(take(5, ~s(1, 2, ...))) == (-2, -3, -4, -5, -6)]  # m.__invert__
+        test[tuple(imathify((0, 1, 0, 1)) & imathify((0, 0, 1, 1))) == (0, 0, 0, 1)]
+        test[tuple(imathify((0, 1, 0, 1)) | imathify((0, 0, 1, 1))) == (0, 1, 1, 1)]
+        test[tuple(imathify((0, 1, 0, 1)) ^ imathify((0, 0, 1, 1))) == (0, 1, 1, 0)]  # xor
+        test[tuple(1 & imathify((0, 1))) == (0, 1)]
+        test[tuple(1 | imathify((0, 1))) == (1, 1)]
+        test[tuple(1 ^ imathify((0, 1))) == (1, 0)]
+        test[tuple(take(5, ~s(1, 2, ...))) == (-2, -3, -4, -5, -6)]  # imathify.__invert__
 
         # v0.14.3+: termwise comparison
         test[tuple(s(1, 2, 3) < s(2, 3, 4)) == (True, True, True)]
@@ -259,24 +259,24 @@ def runtests():
         a = s(1, 3, ...)
         b = s(2, 4, ...)
         c = a + b
-        test[isinstance(c, m)]
+        test[isinstance(c, imathify)]
         test[tuple(take(5, c)) == (3, 7, 11, 15, 19)]
 
         d = 1 / (a + b)
-        test[isinstance(d, m)]
+        test[isinstance(d, imathify)]
 
         e = take(5, c)
-        test[not isinstance(e, m)]
+        test[not isinstance(e, imathify)]
 
-        f = m(take(5, c))
-        test[isinstance(f, m)]
+        f = imathify(take(5, c))
+        test[isinstance(f, imathify)]
 
-        g = m((1, 2, 3, 4, 5))
-        h = m((2, 3, 4, 5, 6))
+        g = imathify((1, 2, 3, 4, 5))
+        h = imathify((2, 3, 4, 5, 6))
         test[tuple(g + h) == (3, 5, 7, 9, 11)]
 
-        # `mg`: make a gfunc `m` the returned generator instances.
-        a = mg(imemoize(s(1, 2, ...)))
+        # `gmathify`: make a gfunc `imathify` the returned generator instances.
+        a = gmathify(imemoize(s(1, 2, ...)))
         test[last(take(5, a())) == 5]
         test[last(take(5, a())) == 5]
         test[last(take(5, a() + a())) == 10]

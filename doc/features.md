@@ -36,7 +36,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``fup``: functional update; ``ShadowedSequence``](#fup-functional-update-shadowedsequence): like ``collections.ChainMap``, but for sequences.
 - [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
 - [``mogrify``: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
-- [``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic](#s-m-mg-lazy-mathematical-sequences-with-infix-arithmetic)
+- [``s``, ``imathify``, ``gmathify``: lazy mathematical sequences with infix arithmetic](#s-imathify-gmathify-lazy-mathematical-sequences-with-infix-arithmetic)
 - [``sym``, ``gensym``, ``Singleton``: symbols and singletons](#sym-gensym-Singleton-symbols-and-singletons)
 
 [**Control flow tools**](#control-flow-tools)
@@ -1905,24 +1905,26 @@ For convenience, we introduce some special cases:
     Note that since ``cons`` is immutable, anyway, if you know you have a long linked list where you need to update the values, just iterate over it and produce a new copy - that will work as intended.
 
 
-### ``s``, ``m``, ``mg``: lazy mathematical sequences with infix arithmetic
+### ``s``, ``imathify``, ``gmathify``: lazy mathematical sequences with infix arithmetic
 
 **Changed in v0.14.3.** Added convenience mode to generate cyclic infinite sequences.
 
+**Changed in v0.14.3.** To improve descriptiveness, and for consistency with names of other abstractions in `unpythonic`, `m` has been renamed `imathify` and `mg` has been renamed `gmathify`. The old names will continue working in v0.14.x, and will be removed in v0.15.0. This is a one-time change; it is not likely that these names will be changed ever again.
+
 We provide a compact syntax to create lazy constant, cyclic, arithmetic, geometric and power sequences: ``s(...)``. Numeric (``int``, ``float``, ``mpmath``) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
 
-We also provide arithmetic operation support for iterables (termwise). To make any iterable infix math aware, use ``m(iterable)``. The arithmetic is lazy; it just plans computations, returning a new lazy mathematical sequence. To extract values, iterate over the result. (Note this implies that expressions consisting of thousands of operations will overflow Python's call stack. In practice this shouldn't be a problem.)
+We also provide arithmetic operation support for iterables (termwise). To make any iterable infix math aware, use ``imathify(iterable)``. The arithmetic is lazy; it just plans computations, returning a new lazy mathematical sequence. To extract values, iterate over the result. (Note this implies that expressions consisting of thousands of operations will overflow Python's call stack. In practice this shouldn't be a problem.)
 
 The function versions of the arithmetic operations (also provided, à la the ``operator`` module) have an **s** prefix (short for mathematical **sequence**), because in Python the **i** prefix (which could stand for *iterable*) is already used to denote the in-place operators.
 
 We provide the [Cauchy product](https://en.wikipedia.org/wiki/Cauchy_product), and its generalization, the diagonal combination-reduction, for two (possibly infinite) iterables. Note ``cauchyprod`` **does not sum the series**; given the input sequences ``a`` and ``b``, the call ``cauchyprod(a, b)`` computes the elements of the output sequence ``c``.
 
-We also provide ``mg``, a decorator to mathify a gfunc, so that it will ``m()`` the generator instances it makes. Combo with ``imemoize`` for great justice, e.g. ``a = mg(imemoize(s(1, 2, ...)))``.
+We also provide ``gmathify``, a decorator to mathify a gfunc, so that it will ``imathify()`` the generator instances it makes. Combo with ``imemoize`` for great justice, e.g. ``a = gmathify(imemoize(myiterable))``, and then ``a()`` to instantiate a memoized-and-mathified copy.
 
 Finally, we provide ready-made generators that yield some common sequences (currently, the Fibonacci numbers and the prime numbers). The prime generator is an FP-ized sieve of Eratosthenes.
 
 ```python
-from unpythonic import s, m, cauchyprod, take, last, fibonacci, primes
+from unpythonic import s, imathify, cauchyprod, take, last, fibonacci, primes
 
 assert tuple(take(10, s(1, ...))) == (1,)*10
 assert tuple(take(10, s(1, 2, ...))) == tuple(range(1, 11))
@@ -1952,29 +1954,29 @@ assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
 assert tuple(take(10, fibonacci())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 ```
 
-A math iterable (i.e. one that has infix math support) is an instance of the class ``m``:
+A math iterable (i.e. one that has infix math support) is an instance of the class ``imathify``:
 
 ```python
 a = s(1, 3, ...)
 b = s(2, 4, ...)
 c = a + b
-assert isinstance(a, m)
-assert isinstance(b, m)
-assert isinstance(c, m)
+assert isinstance(a, imathify)
+assert isinstance(b, imathify)
+assert isinstance(c, imathify)
 assert tuple(take(5, c)) == (3, 7, 11, 15, 19)
 
 d = 1 / (a + b)
-assert isinstance(d, m)
+assert isinstance(d, imathify)
 ```
 
-Applying an operation meant for regular (non-math) iterables will drop the arithmetic support, but it can be restored by m'ing manually:
+Applying an operation meant for regular (non-math) iterables will drop the arithmetic support, but it can be restored by `imathify`-ing manually:
 
 ```python
 e = take(5, c)
-assert not isinstance(e, m)
+assert not isinstance(e, imathify)
 
-f = m(take(5, c))
-assert isinstance(f, m)
+f = imathify(take(5, c))
+assert isinstance(f, imathify)
 ```
 
 Symbolic expression support with SymPy:

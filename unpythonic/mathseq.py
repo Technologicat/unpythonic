@@ -18,7 +18,9 @@ Finally, we provide ready-made generators that yield some common sequences
 (currently, the Fibonacci numbers and the prime numbers).
 """
 
-__all__ = ["s", "m", "mg", "almosteq",
+__all__ = ["s", "imathify", "gmathify",
+           "m", "mg",  # old names, pre-0.14.3, will go away in 0.15.0
+           "almosteq",
            "sadd", "ssub", "sabs", "spos", "sneg", "sinvert", "smul", "spow",
            "struediv", "sfloordiv", "smod", "sdivmod",
            "sround", "strunc", "sfloor", "sceil",
@@ -26,6 +28,7 @@ __all__ = ["s", "m", "mg", "almosteq",
            "cauchyprod", "diagonal_reduce",
            "fibonacci", "primes"]
 
+from warnings import warn
 from itertools import repeat, takewhile, count
 from functools import wraps
 from operator import (add as primitive_add, mul as primitive_mul,
@@ -272,9 +275,9 @@ def s(*spec):
     In the example, the lambda is needed because the iterable produced
     by `s(...)` is consumable; hence we must instantiate a new copy of
     the powers of x each time `univariate_polynomial` is called.
-    We could also use `mg(imemoize(...))`:
+    We could also use `gmathify(imemoize(...))`:
 
-        powers_of_x = mg(imemoize(s(1, x, x**2, ...)))
+        powers_of_x = gmathify(imemoize(s(1, x, x**2, ...)))
         univariate_polynomial = lambda coeffs: coeffs * powers_of_x()
 
     The rest as above.
@@ -403,7 +406,7 @@ def s(*spec):
     if Ellipsis not in spec:  # convenience fallback
         if iscyclic(spec):
             raise SyntaxError("Expected final ... for cyclic sequence.")
-        return m(x for x in spec)
+        return imathify(x for x in spec)
     else:
         *spec, last = spec
         if last is Ellipsis:
@@ -433,13 +436,13 @@ def s(*spec):
 
     # generate the sequence
     if seqtype == "const":
-        return m(repeat(x0) if n is infty else repeat(x0, n))
+        return imathify(repeat(x0) if n is infty else repeat(x0, n))
     elif seqtype == "cyclic":
         def cyclic():
             yield from initial
             while True:
                 yield from repeating
-        return m(cyclic())
+        return imathify(cyclic())
     elif seqtype == "arith":
         # itertools.count doesn't avoid accumulating roundoff error for floats, so we implement our own.
         # This should be, for any j, within 1 ULP of the true result.
@@ -448,10 +451,10 @@ def s(*spec):
             while True:
                 yield x0 + j * k
                 j += 1
-        return m(arith() if n is infty else take(n, arith()))
+        return imathify(arith() if n is infty else take(n, arith()))
     elif seqtype == "geom":
         if isinstance(k, _symExpr) or abs(k) >= 1:
-            def geom():
+            def geoimathify():
                 j = 0
                 while True:
                     yield x0 * (k**j)
@@ -463,12 +466,12 @@ def s(*spec):
             # Note that 1/(1/3) --> 3.0 even for floats, so we don't actually
             # need to modify the detection algorithm to account for this.
             kinv = 1 / k
-            def geom():
+            def geoimathify():
                 j = 0
                 while True:
                     yield x0 / (kinv**j)
                     j += 1
-        return m(geom() if n is infty else take(n, geom()))
+        return imathify(geoimathify() if n is infty else take(n, geoimathify()))
     else:  # seqtype == "power":
         if isinstance(k, _symExpr) or abs(k) >= 1:
             def power():
@@ -483,11 +486,11 @@ def s(*spec):
                 while True:
                     yield x0**(1 / (kinv**j))
                     j += 1
-        return m(power() if n is infty else take(n, power()))
+        return imathify(power() if n is infty else take(n, power()))
 
 # -----------------------------------------------------------------------------
 
-class m:
+class imathify:
     """Endow any iterable with infix math support (termwise).
 
     The original iterable is saved to an attribute, and ``m.__iter__`` redirects
@@ -525,11 +528,11 @@ class m:
         e = take(5, c)     # general iterable operation drops math support...
         assert not isinstance(e, m)
 
-        f = m(take(5, c))  # ...and it can be restored by m'ing again.
+        f = imathify(take(5, c))  # ...and it can be restored by m'ing again.
         assert isinstance(f, m)
 
-        g = m((1, 2, 3, 4, 5))
-        h = m((2, 3, 4, 5, 6))
+        g = imathify((1, 2, 3, 4, 5))
+        h = imathify((2, 3, 4, 5, 6))
         assert tuple(g + h) == (3, 5, 7, 9, 11)
 
     See the relevant part of the Python language reference:
@@ -631,25 +634,41 @@ class m:
     def __gt__(self, other):
         return sgt(self, other)
 
-def mg(gfunc):
-    """Decorator: make gfunc m() the returned generator instances.
+class m(imathify):  # pragma: no cover
+    """Alias for `imathify`, for backward compatibility.
+
+    Will be removed in 0.15.0."""
+    def __init__(self, iterable):
+        warn("`m` has been renamed `imathify`, which is more descriptive; this alias will be removed in 0.15.0.", FutureWarning)
+        super().__init__(iterable)
+
+def gmathify(gfunc):
+    """Decorator: make gfunc imathify() the returned generator instances.
 
     Return a new gfunc, which passes all its arguments to the original ``gfunc``.
 
     Example::
 
-        a = mg(imemoize(s(1, 2, ...)))
+        a = gmathify(imemoize(s(1, 2, ...)))
         assert last(take(5, a())) == 5
         assert last(take(5, a())) == 5
         assert last(take(5, a() + a())) == 10
     """
     @wraps(gfunc)
     def mathify(*args, **kwargs):
-        return m(gfunc(*args, **kwargs))
+        return imathify(gfunc(*args, **kwargs))
     return mathify
 
+def mg(gfunc):  # pragma: no cover
+    """Alias for `gmathify`, for backward compatibility.
+
+    Will be removed in 0.15.0.
+    """
+    warn("`mg` has been renamed `gmathify`, which is more descriptive; this alias will be removed in 0.15.0.", FutureWarning)
+    return gmathify(gfunc)
+
 # -----------------------------------------------------------------------------
-# We expose the full set of "m" operators also as functions à la the ``operator`` module.
+# We expose the full set of "imathify" operators also as functions à la the ``operator`` module.
 # Prefix "s", short for "mathematical Sequence".
 # https://docs.python.org/3/library/operator.html
 
@@ -658,7 +677,7 @@ def mg(gfunc):
 def _make_termwise_stream_unop(op, *settings):
     def stream_op(a):
         if hasattr(a, "__iter__"):
-            return m(stream_op(x) for x in a)
+            return imathify(stream_op(x) for x in a)
         return op(a, *settings)
     return stream_op
 def _make_termwise_stream_binop(op, *settings):
@@ -666,13 +685,13 @@ def _make_termwise_stream_binop(op, *settings):
         isiterable = [hasattr(x, "__iter__") for x in (a, b)]
         if all(isiterable):
             # it's very convenient here that zip() terminates when the shorter input runs out.
-            return m(stream_op(x, y) for x, y in zip(a, b))
+            return imathify(stream_op(x, y) for x, y in zip(a, b))
         elif isiterable[0]:
             c = b
-            return m(stream_op(x, c) for x in a)
+            return imathify(stream_op(x, c) for x in a)
         elif isiterable[1]:
             c = a
-            return m(stream_op(c, y) for y in b)  # careful; op might not be commutative
+            return imathify(stream_op(c, y) for y in b)  # careful; op might not be commutative
         else:  # not any(isiterable):
             return op(a, b, *settings)
     return stream_op
@@ -786,7 +805,7 @@ def cauchyprod(a, b, *, require="any"):
 
     Defined by::
 
-        c[k] = sum(a[j] * b[k-j], j = 0, 1, ..., k),  k = 0, 1, ...
+        c[k] = suimathify(a[j] * b[k-j], j = 0, 1, ..., k),  k = 0, 1, ...
 
     As a table::
 
@@ -913,7 +932,7 @@ def diagonal_reduce(a, b, *, combine, reduce, require="any"):
                 break
             yield reduce(combine(xs, rev(ys)))
             n += 1
-    return m(diagonal())
+    return imathify(diagonal())
 
 # -----------------------------------------------------------------------------
 
@@ -924,7 +943,7 @@ def fibonacci():
         while True:
             yield a
             a, b = b, a + b
-    return m(fibos())
+    return imathify(fibos())
 
 # See test_gmemo.py for history. This is an FP-ized sieve of Eratosthenes.
 #
@@ -966,6 +985,6 @@ def primes(optimize="speed"):
     if optimize not in ("memory", "speed"):
         raise ValueError("optimize must be 'memory' or 'speed'; got '{}'".format(optimize))
     if optimize == "speed":
-        return m(_fastprimes())
+        return imathify(_fastprimes())
     else:  # optimize == "memory":
-        return m(_primes())
+        return imathify(_primes())
