@@ -433,8 +433,13 @@ class ExpandedLetView:
     is currently not supported. Prefer doing any extensive modifications in the
     first pass, before the ``let[]`` expands.
 
-    Depending on whether let mode is "let" or "letrec", each binding is a
-    bare value or ``lambda e: ...``, respectively.
+    The bindings are contained in an `ast.Tuple`. Each binding is also an `ast.Tuple`.
+
+    The LHS of each binding (containing a variable name) is an `str` (not a
+    `Name` node; the expansion of the `let` has transformed them).
+
+    Depending on whether let mode is "let" or "letrec", the RHS of each binding
+    is a bare value or ``lambda e: ...``, respectively.
 
     Usually ``body``, when available, is a single expression, of the format
     ``lambda e: ...``.
@@ -461,11 +466,13 @@ class ExpandedLetView:
             myelts = []
             if self.curried:
                 # "((k, currycall(currycall(namelambda, "letrec_binding_YYY"), curryf(lambda e: ...))), ...)"
+                #   ~~~                                                               ^^^^^^^^^^^^^
                 for b in thebindings.elts:
                     k, v = b.elts
                     myelts.append(Tuple(elts=[k, v.args[1].args[0]]))
             else:
-                # "((k, namelambda("letrec_binding_YYY")(lambda e: ...)), ...)"
+                # "((k, (namelambda("letrec_binding_YYY"))(lambda e: ...)), ...)"
+                #   ~~~                                    ^^^^^^^^^^^^^
                 for b in thebindings.elts:
                     k, v = b.elts
                     myelts.append(Tuple(elts=[k, v.args[0]]))
@@ -481,20 +488,32 @@ class ExpandedLetView:
             raise TypeError("Expected ast.Tuple of length-2 ast.Tuple as the new bindings of the let")
         if len(newbindings.elts) != len(self.bindings.elts):
             assert False, "changing the number of items currently not supported by this view (do that before the let[] expands)"
+        # Abstract away the namelambda(...). We support both "with curry" and bare formats:
+        #   currycall(letter, bindings, currycall(currycall(namelambda, "let_body"), curryf(lambda e: ...)))
+        #   letter(bindings, namelambda("let_body")(lambda e: ...))
         thebindings = self._tree.args[1] if self.curried else self._tree.args[0]
         if self.mode == "letrec":
             newelts = []
             curried = self.curried
             for oldb, newb in zip(thebindings.elts, newbindings.elts):
-                oldk, oldv = oldb.elts
+                oldk, thev = oldb.elts
                 newk, newv = newb.elts
                 if curried:
-                    oldv.args[1].args[0] = newv
-                    oldv.args[0].args[1].s = "letrec_binding_{}".format(newk.id)
+                    # "((k, currycall(currycall(namelambda, "letrec_binding_YYY"), curryf(lambda e: ...))), ...)"
+                    #                                       ~~~~~~~~~~~~~~~~~~~~          ^^^^^^^^^^^^^
+                    thev.args[1].args[0] = newv
+                    thev.args[0].args[1].s = "letrec_binding_{}".format(newk.s)  # TODO: Python 3.8: ast.Constant, no ast.Str
                 else:
-                    oldv.args[0] = newv
-                    oldv.func.args[0].s = "letrec_binding_{}".format(newk.id)  # update name in the namelambda(...)
-                newelts.append(Tuple(elts=[newk, oldv], lineno=oldb.lineno, col_offset=oldb.col_offset))
+                    # "((k, (namelambda("letrec_binding_YYY"))(lambda e: ...)), ...)"
+                    #                   ~~~~~~~~~~~~~~~~~~~~   ^^^^^^^^^^^^^
+                    thev.args[0] = newv
+                    thev.func.args[0].s = "letrec_binding_{}".format(newk.s)  # update name in the namelambda(...)  # TODO: Python 3.8: ast.Constant, no ast.Str
+                # Macro-generated nodes may be missing source location information,
+                # in which case we let MacroPy fix it later.
+                if hasattr(oldb, "lineno") and hasattr(oldb, "col_offset"):
+                    newelts.append(Tuple(elts=[newk, thev], lineno=oldb.lineno, col_offset=oldb.col_offset))
+                else:
+                    newelts.append(Tuple(elts=[newk, thev]))
             thebindings.elts = newelts
         else:
             thebindings.elts = newbindings.elts
