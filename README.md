@@ -284,7 +284,7 @@ lst[2] = 42
 assert v == [0, 42, 10, 20, 8]
 ```
 </details>  
-<details><summary>Pipes: focus on data flow in function composition.</summary>
+<details><summary>Pipes: method chaining syntax for regular functions.</summary>
 
 [[docs](doc/features.md#pipe-piped-lazy_piped-sequence-functions)]
 
@@ -296,6 +296,8 @@ inc    = lambda x: x + 1
 x = piped(42) | double | inc | exitpipe
 assert x == 85
 ```
+
+The point is usability: in a function composition using pipe syntax, data flows from left to right.
 </details>  
 <details><summary>Conditions: resumable, modular error handling, like in Common Lisp.</summary>
 
