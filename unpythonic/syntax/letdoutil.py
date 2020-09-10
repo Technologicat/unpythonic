@@ -6,7 +6,7 @@ Separate from util.py due to the length.
 """
 
 from ast import (Call, Name, Subscript, Index, Compare, In,
-                 Tuple, List, Str, BinOp, LShift)
+                 Tuple, List, Str, BinOp, LShift, Lambda)
 import re
 
 from macropy.core import Captured
@@ -457,6 +457,33 @@ class ExpandedLetView:
             raise NotImplementedError("unknown expanded let form type '{}'".format(self._type))  # pragma: no cover, this just catches the internal error if we add new forms but forget to add them here.
         self.curried = self._type.startswith("curried")
 
+    def _get_envname(self):
+        try:
+            body = self.body
+            if type(body) is not Lambda:
+                raise TypeError  # pragma: no cover
+            return body.args.args[0].arg
+        except (TypeError, AttributeError):  # pragma: no cover
+            pass
+        # no body (we might be a decorator) or can't access it - if we're a letrec, try the bindings
+        try:
+            # only happens for @dletrec, because a regular letrec always has a body.
+            if self.mode == "letrec":
+                bindings = self.bindings
+                if not bindings.elts:  # need at least one binding
+                    raise ValueError  # pragma: no cover
+                b = bindings.elts[0]
+                if len(b.elts) != 2:  # (k, lambda e: ...)
+                    raise ValueError  # pragma: no cover
+                lam = b.elts[1]
+                if type(lam) is not Lambda:
+                    raise TypeError  # pragma: no cover
+                return lam.args.args[0].arg
+        except (TypeError, AttributeError, ValueError):  # pragma: no cover
+            pass
+        return None  # give up
+    envname = property(fget=_get_envname, fset=None, doc="The name of the `env`, as `str`, or `None` if it can't be determined (e.g. in a `dlet`, in which case it's not needed). Read-only.")
+
     def _getbindings(self):
         # Abstract away the namelambda(...). We support both "with curry" and bare formats:
         #   currycall(letter, bindings, currycall(currycall(namelambda, "let_body"), curryf(lambda e: ...)))
@@ -488,6 +515,10 @@ class ExpandedLetView:
             raise TypeError("Expected ast.Tuple of length-2 ast.Tuple as the new bindings of the let")
         if len(newbindings.elts) != len(self.bindings.elts):
             assert False, "changing the number of items currently not supported by this view (do that before the let[] expands)"
+        for newb in newbindings.elts:
+            newk, newv = newb.elts
+            if type(newk) is not Str:  # TODO: Python 3.8: ast.Constant, no ast.Str
+                raise TypeError("ExpandedLetView: let: each key must be an ast.Str")  # pragma: no cover
         # Abstract away the namelambda(...). We support both "with curry" and bare formats:
         #   currycall(letter, bindings, currycall(currycall(namelambda, "let_body"), curryf(lambda e: ...)))
         #   letter(bindings, namelambda("let_body")(lambda e: ...))
@@ -495,21 +526,27 @@ class ExpandedLetView:
         if self.mode == "letrec":
             newelts = []
             curried = self.curried
+            envname = self.envname
             for oldb, newb in zip(thebindings.elts, newbindings.elts):
                 oldk, thev = oldb.elts
                 newk, newv = newb.elts
+                if type(newv) is not Lambda:
+                    raise TypeError("ExpandedLetView: letrec: each value must be of the form `lambda e: ...`")  # pragma: no cover
                 if curried:
-                    # "((k, currycall(currycall(namelambda, "letrec_binding_YYY"), curryf(lambda e: ...))), ...)"
-                    #                                       ~~~~~~~~~~~~~~~~~~~~          ^^^^^^^^^^^^^
+                    #   ((k, currycall(currycall(namelambda, "letrec_binding_YYY"), curryf(lambda e: ...))), ...)
+                    #                                        ~~~~~~~~~~~~~~~~~~~~          ^^^^^^^^^^^^^
+                    newv.args.args[0].arg = envname  # v0.14.3+: convenience: auto-inject correct envname
                     thev.args[1].args[0] = newv
                     thev.args[0].args[1].s = "letrec_binding_{}".format(newk.s)  # TODO: Python 3.8: ast.Constant, no ast.Str
                 else:
-                    # "((k, (namelambda("letrec_binding_YYY"))(lambda e: ...)), ...)"
-                    #                   ~~~~~~~~~~~~~~~~~~~~   ^^^^^^^^^^^^^
+                    #   ((k, (namelambda("letrec_binding_YYY"))(lambda e: ...)), ...)
+                    #                    ~~~~~~~~~~~~~~~~~~~~   ^^^^^^^^^^^^^
+                    newv.args.args[0].arg = envname  # v0.14.3+: convenience: auto-inject correct envname
                     thev.args[0] = newv
                     thev.func.args[0].s = "letrec_binding_{}".format(newk.s)  # update name in the namelambda(...)  # TODO: Python 3.8: ast.Constant, no ast.Str
                 # Macro-generated nodes may be missing source location information,
                 # in which case we let MacroPy fix it later.
+                # This is mainly an issue for the unit tests of this module, which macro-generate the "old" data.
                 if hasattr(oldb, "lineno") and hasattr(oldb, "col_offset"):
                     newelts.append(Tuple(elts=[newk, thev], lineno=oldb.lineno, col_offset=oldb.col_offset))
                 else:
@@ -523,7 +560,9 @@ class ExpandedLetView:
         if self._type.endswith("decorator"):
             raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
         #   currycall(letter, bindings, currycall(currycall(namelambda, "let_body"), curryf(lambda e: ...)))
-        #   letter(bindings, namelambda("let_body")(lambda e: ...))
+        #                                                                                   ^^^^^^^^^^^^^
+        #   letter(bindings, (namelambda("let_body"))(lambda e: ...))
+        #                                             ^^^^^^^^^^^^^
         if self.curried:
             return self._tree.args[2].args[1].args[0]
         else:
@@ -531,6 +570,14 @@ class ExpandedLetView:
     def _setbody(self, newbody):
         if self._type.endswith("decorator"):
             raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
+        # TODO: might also be an expanded do[]. Do we need different handling then? Or is the call to do wrapped in a lambda inserted by the let?
+        if type(newbody) is Lambda:
+            envname = self.envname
+            newbody.args.args[0].arg = envname  # v0.14.3+: convenience: auto-inject correct envname
+        #   currycall(letter, bindings, currycall(currycall(namelambda, "let_body"), curryf(lambda e: ...)))
+        #                                                                                   ^^^^^^^^^^^^^
+        #   letter(bindings, (namelambda("let_body"))(lambda e: ...))
+        #                                             ^^^^^^^^^^^^^
         if self.curried:
             self._tree.args[2].args[1].args[0] = newbody
         else:
@@ -555,9 +602,13 @@ class ExpandedDoView:
         self.curried = t.startswith("curried")
         self._tree = tree
 
+    # TODO: envname auto-inject machinery
+
     def _getbody(self):
-        # "currycall(dof, currycall(currycall(namelambda, "do_lineXXX"), curryf(lambda e: ...)), ...)"
-        # "dof(namelambda("do_lineXXX")(lambda e: ...), ...)"
+        #   currycall(dof, currycall(currycall(namelambda, "do_lineXXX"), curryf(lambda e: ...)), ...)
+        #                                                                        ^^^^^^^^^^^^^
+        #   dof((namelambda("do_lineXXX"))(lambda e: ...), ...)
+        #                                  ^^^^^^^^^^^^^
         if self.curried:
             theitems = self._tree.args[1:]
             return [item.args[1].args[0] for item in theitems]
@@ -569,6 +620,10 @@ class ExpandedDoView:
             raise TypeError("Expected list as the new body of the do, got {}".format(type(newbody)))
         if len(newbody) != len(self.body):
             assert False, "changing the number of items currently not supported by this view (do that before the do[] expands)"
+        #   currycall(dof, currycall(currycall(namelambda, "do_lineXXX"), curryf(lambda e: ...)), ...)
+        #                                                                        ^^^^^^^^^^^^^
+        #   dof((namelambda("do_lineXXX"))(lambda e: ...), ...)
+        #                                  ^^^^^^^^^^^^^
         if self.curried:
             theitems = self._tree.args[1:]
             for old, new in zip(theitems, newbody):

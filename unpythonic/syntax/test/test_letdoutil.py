@@ -283,13 +283,12 @@ def runtests():
             test[unparse(view.bindings.elts[0]) == "('z', 21)"]
             test[unparse(view.bindings.elts[1]) == "('t', 2)"]
 
-            # Editing an expanded let body is downright depressing:
-            envname = lam.args.args[0].arg
+            # edit an expanded let body
+            envname = view.envname
             newbody = q[lambda _: name[envname].z * name[envname].t]  # noqa: F821
-            newbody.args.args[0].arg = envname
-            view.body = newbody
+            view.body = newbody  # the body lambda gets the correct envname auto-injected as its arg
 
-            lam = view.body  # lambda e: e.y * e.x
+            lam = view.body  # lambda e: e.z * e.t
             test[type(lam) is Lambda]
             lambody = lam.body
             test[type(lambody) is BinOp]
@@ -340,20 +339,17 @@ def runtests():
             test[type(the[lambody.right]) is Attribute and lambody.right.attr == "x"]
 
             # write
-            envname = lam.args.args[0].arg
             newbindings = q[("z", lambda _: 21), ("t", lambda _: 2)]  # noqa: F821
-            newbindings.elts[0].elts[1].args.args[0].arg = envname
-            newbindings.elts[1].elts[1].args.args[0].arg = envname
-            view.bindings = newbindings
+            view.bindings = newbindings  # each binding lambda gets the correct envname auto-injected as its arg
             test[len(view.bindings.elts) == 2]
             testbindings(('z', 21), ('t', 2))
 
             # Editing an expanded letrec body
+            envname = view.envname
             newbody = q[lambda _: name[envname].z * name[envname].t]  # noqa: F821
-            newbody.args.args[0].arg = envname
-            view.body = newbody
+            view.body = newbody  # the body lambda gets the correct envname auto-injected as its arg
 
-            lam = view.body  # lambda e: e.y * e.x
+            lam = view.body  # lambda e: e.z * e.t
             test[type(lam) is Lambda]
             lambody = lam.body
             test[type(lambody) is BinOp]
