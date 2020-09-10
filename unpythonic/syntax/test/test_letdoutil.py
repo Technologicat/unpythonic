@@ -8,7 +8,9 @@ from macropy.core.quotes import macros, q, name  # noqa: F811, F401
 # from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 # from macropy.tracing import macros, show_expanded
 
-from ...syntax import macros, let, letrec, dlet, do, curry  # noqa: F811, F401
+from ...syntax import (macros, let, letrec, dlet, dletrec,  # noqa: F811, F401
+                       do, local,
+                       curry)
 
 from ast import Tuple, Name, Num, Lambda, BinOp, Attribute
 
@@ -307,6 +309,38 @@ def runtests():
         testdata = q[let[y * x, where((x, 21), (y, 2))]]  # noqa: F821
         testletdestructuring(testdata)
 
+        # decorator
+        with q as testdata:  # pragma: no cover
+            @dlet((x, 21), (y, 2))  # noqa: F821
+            def f4():
+                return 2 * x  # noqa: F821
+        view = ExpandedLetView(testdata[0].decorator_list[0])
+        test_raises[TypeError,
+                    view.body,
+                    "decorator let does not have an accessible body"]
+        with test_raises(TypeError, "decorator let does not have an accessible body"):
+            view.body = q[x]  # noqa: F821
+        test[view.envname is None]  # dlet decorator doesn't have an envname, either
+
+        # let with implicit do (extra bracket syntax)
+        #
+        # with show_expanded:
+        #     let[((x, 21)) in [local[z << 2],
+        #                       z * x]]
+        #
+        # After macro expansion:
+        #   letter((('x', 21),),
+        #          namelambda('let_body')((lambda e1:
+        #              dof(namelambda('do_line1')((lambda e: e._set('z', 2))),
+        #                  namelambda('do_line2')((lambda e: (e.z * e1.x)))))),
+        #          mode='let')
+        #
+        testdata = q[let[((x, 21)) in [local[z << 2],  # noqa: F821
+                                       z * x]]]  # noqa: F821
+        view = ExpandedLetView(testdata)
+        lam = view.body
+        test[isdo(the[lam.body])]
+
         test_raises[TypeError,
                     ExpandedLetView(q[x]),  # noqa: F821
                     "not an expanded let form"]
@@ -356,8 +390,30 @@ def runtests():
             test[type(the[lambody.left]) is Attribute and lambody.left.attr == "z"]
             test[type(the[lambody.right]) is Attribute and lambody.right.attr == "t"]
 
+        # lispy expr
         testdata = q[letrec[((x, 21), (y, 2)) in y * x]]  # noqa: F821
         testletdestructuring(testdata)
+
+        # haskelly let-in
+        testdata = q[letrec[((x, 21), (y, 2)) in y * x]]  # noqa: F821
+        testletdestructuring(testdata)
+
+        # haskelly let-where
+        testdata = q[letrec[y * x, where((x, 21), (y, 2))]]  # noqa: F821
+        testletdestructuring(testdata)
+
+        # decorator, letrec
+        with q as testdata:  # pragma: no cover
+            @dletrec((x, 21), (y, 2))  # noqa: F821
+            def f5():
+                return 2 * x  # noqa: F821
+        view = ExpandedLetView(testdata[0].decorator_list[0])
+        test_raises[TypeError,
+                    view.body,
+                    "decorator let does not have an accessible body"]
+        with test_raises(TypeError, "decorator let does not have an accessible body"):
+            view.body = q[x]  # noqa: F821
+        test[view.envname is not None]  # dletrec decorator has envname in the bindings
 
     with testset("let destructuring (expanded) integration with curry"):
         warn["TODO: This testset not implemented yet."]
