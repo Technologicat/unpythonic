@@ -278,9 +278,9 @@ def runtests():
 
             # write
             newbindings = q[("z", 21), ("t", 2)]  # noqa: F821
-            view.bindings = newbindings  # ...like this.
+            view.bindings = newbindings
             test[len(view.bindings.elts) == 2]
-            test[unparse(view.bindings.elts[0]) == "('z', 21)"]  # the variable names are strings
+            test[unparse(view.bindings.elts[0]) == "('z', 21)"]
             test[unparse(view.bindings.elts[1]) == "('t', 2)"]
 
             # Editing an expanded let body is downright depressing:
@@ -316,7 +316,7 @@ def runtests():
         def testletdestructuring(testdata):
             view = ExpandedLetView(testdata)
 
-            # With letrec, even reading the bindings gets painful:
+            # With an expanded letrec, even reading the bindings gets painful:
             def testbindings(*expected):
                 for b, (k, v) in zip(view.bindings.elts, expected):
                     test[len(b.elts) == 2]
