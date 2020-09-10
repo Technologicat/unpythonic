@@ -1,4 +1,4 @@
-**0.14.3** (in progress; updated 21 August 2020) - *Much more robust* edition:
+**0.14.3** (in progress; updated 11 September 2020) - *Testing and all that [jazz](https://en.wikipedia.org/wiki/Take_Five)* edition:
 
 **New**:
 
@@ -6,9 +6,9 @@
   - Context managers `session`, `testset`, and `catch_signals`. Various helper functions, such as `returns_normally` (for use in a `test[]`).
   - Testing macros, similar to the builtin `assert`, but with the magic of conditions and restarts: even if a test fails or errors out, further tests continue running.
     - `test[expr]`, `test[expr, message]`, `test_raises[exctype, expr]`, `test_raises[exctype, expr, message]`, `test_signals[exctype, expr]`, `test_signals[exctype, expr, message]`.
-    - To help diagnosing test failures with minimum fuss, the `test[...]` macro provides an optional marker `the[expr]` to tag the interesting part inside the `test[...]` when the simplistic default capture logic doesn't capture the part you want.
-      - The default is to capture the LHS when the test is a comparison, otherwise capture the whole expression. If the `the[expr]` marker is used, the `the` part is captured instead.
-    - Helper macros `fail[message]` and `error[message]` for producing unconditional failures or errors. Useful e.g. if the test reached a line that should be unreachable, or when an optional dependency for some integration test is not installed.
+    - To help diagnose test failures with minimum fuss, the `test[...]` macro provides an optional marker `the[expr]` to capture the values of interesting subexpressions inside a `test[...]`, for display in the test failure message (along with the corresponding source code).
+      - Often even that is not needed; by default, if no `the[]` are present, `test[]` captures the value of the leftmost term when the test is a comparison (common use case).
+    - Helper macros `fail[message]`, `error[message]` and `warn[message]` for producing unconditional failures, errors or warnings.
 - `callsite_filename`: return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
 - `equip_with_traceback`: take a manually created exception instance, equip it with a traceback. Requires Python 3.7 or later.
 - `subset`: test whether an iterable is a subset of another. Convenience function.
@@ -18,6 +18,7 @@
 **Non-breaking changes**:
 
 - `s` now has a convenience mode for generating cyclic infinite sequences.
+- `m` is now `imathify` and `mg` is now `gmathify`, for descriptiveness, and for consistency with naming other abstractions in `unpythonic`. **The old names will remain working in v0.14.x, and will be removed in v0.15.0.**
 - `@generic` and `@typed` can now decorate instance methods, class methods and static methods. This makes those *methods (OOP sense)* have *methods (generic function sense)*. Get it?
   - `self` and `cls` parameters do not participate in dispatching, and need no type annotation.
   - Beside appearing as the first positional-or-keyword parameter, the self-like parameter **must be named** one of `self`, `this`, `cls`, or `klass` to be detected by the ignore mechanism. This limitation is due to implementation reasons; while a class body is being evaluated, the context needed to distinguish a method (OOP sense) from a regular function is not yet present.
@@ -25,8 +26,9 @@
   - To work with OOP inheritance, `@generic` must be the outermost decorator (except `@classmethod` or `@staticmethod`, which are essentially compiler annotations).
   - However, when installed on a `@staticmethod`, the `@generic` decorator does not support MRO lookup, because that would make no sense. See discussions on interaction between `@staticmethod` and `super` in Python: [[1]](https://bugs.python.org/issue31118) [[2]](https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction/26807879).
 - To ease installation, relax version requirement of the optional MacroPy dependency to the latest released on PyPI, 1.1.0b2.
-  - Once MacroPy updates, we'll upgrade; 1.1.0b2 is missing some small features we would like to use.
+  - Once MacroPy updates, we'll upgrade; 1.1.0b2 is missing some small features we would like to use (particularly the `.transform` attribute of macros, which allows calling the underlying syntax transformer function).
 - Conditions: when an unhandled `error` or `cerror` occurs, the original unhandled error is now available in the `__cause__` attribute of the `ControlError** exception that is raised in this situation.
+- Conditions: on Python 3.7+, `signal` now equips the condition instance with a traceback, for consistency with `raise`.
 - Document named-arg bug in `curry` in the docstring. See [#61](https://github.com/Technologicat/unpythonic/issues/61). Fixing this needs a better `partial`, so for now it's a known issue.
 - All of `unpythonic` itself is now tested using the new testing framework for macro-enabled code, `unpythonic.test.fixtures`. **Hence, developing `unpythonic` now requires MacroPy.** For **using** `unpythonic`, MacroPy remains strictly optional, as it will at least for the foreseeable future.
 
@@ -36,17 +38,13 @@
 
 **Fixed**:
 
-- Compatibility with Pythons 3.4, 3.5 and 3.7, thanks to a newly set up [CI](https://en.wikipedia.org/wiki/Continuous_integration) [workflow](https://github.com/Technologicat/unpythonic/actions) for automated multi-version testing.
-- PyPy3 support: fixed crash in querying the arity of builtin functions. The fact that a function is builtin is reported slightly differently compared to CPython. See [#67](https://github.com/Technologicat/unpythonic/issues/67).
-- Bug in `m()` prevented mathifying iterables that are not themselves iterators (e.g. `tuple`).
-- Bugs in `s()`:
-  - Respect the type of the input numbers. Particularly, if all the inputs are integers, and the sequence formula allows it, make the created sequence output integers, too.
-  - In the internal function `nofterms()`, convert the output to `int` so it won't accidentally become `sympy.core.numbers.Integer` when the input is symbolic. We actually want native Python integers.
+- Compatibility with Pythons 3.4, 3.5 and 3.7, thanks to a newly set up [CI](https://en.wikipedia.org/wiki/Continuous_integration) [workflow](https://github.com/Technologicat/unpythonic/actions) for automated multi-version testing. Also test coverage (statement coverage) is measured by the workflow.
+- Significantly improved test coverage, from 85% to 92%. See  [#68](https://github.com/Technologicat/unpythonic/issues/68). Many small bugs fixed.
+- PyPy3 support: fixed crash in querying the arity of builtin functions. See [#67](https://github.com/Technologicat/unpythonic/issues/67).
 - Condition system:
   - `with handlers` catches also derived types, e.g. a handler for `Exception` now catches a signaled `ValueError`.
-  - Handler lookup works correctly also for `signal(SomeExceptionClass)` without creating an instance.
+  - `signal(SomeExceptionClass)` now implicitly creates an instance with no arguments, just like `raise` does.
   - Conditions can now inherit from `BaseException`, not only from `Exception.`
-  - Uses of `issubclass` are now properly protected by a `try`/`except` when the first argument might not be a class (since in that case `issubclass` raises `TypeError`).
 - `mogrify` now skips `nil`, actually making it useful for processing `ll` linked lists. Although this is technically a breaking change, the original behavior was broken, so it should not affect any existing code.
 
 ---
