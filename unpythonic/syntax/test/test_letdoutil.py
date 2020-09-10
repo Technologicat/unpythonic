@@ -12,7 +12,7 @@ from ...syntax import (macros, let, letrec, dlet, dletrec,  # noqa: F811, F401
                        do, local,
                        curry)
 
-from ast import Tuple, Name, Num, Lambda, BinOp, Attribute
+from ast import Tuple, Name, Num, Lambda, BinOp, Attribute, Call
 
 from macropy.core import unparse
 
@@ -453,10 +453,87 @@ def runtests():
     # --------------------------------------------------------------------------------
     # Destructuring - unexpanded do
 
-    with testset("do destructuring"):
-        warn["TODO: This testset not implemented yet."]
-        # TODO: UnexpandedDoView
-        # TODO: ExpandedDoView
+    with testset("do destructuring (unexpanded)"):
+        testdata = q[definitelynotdo[local[x << 21],  # noqa: F821
+                                     2 * x]]  # noqa: F821
+        testdata.value.id = "do"
+        view = UnexpandedDoView(testdata)
+        # read
+        thebody = view.body
+        test[isenvassign(the[thebody[0].slice.value])]
+        # write
+        # This mutates the original, but we have to assign `view.body` to trigger the setter.
+        thebody[0] = q[local[x << 9001]]  # noqa: F821
+        view.body = thebody
+
+        # implicit do, a.k.a. extra bracket syntax
+        testdata = q[definitelynotlet[[local[x << 21],  # noqa: F821
+                                       2 * x]]]  # noqa: F821
+        testdata.value.id = "let"
+        theimplicitdo = testdata.slice.value
+        view = UnexpandedDoView(theimplicitdo)
+        # read
+        thebody = view.body
+        test[isenvassign(the[thebody[0].slice.value])]
+        # write
+        thebody[0] = q[local[x << 9001]]  # noqa: F821
+        view.body = thebody
+
+        test_raises[TypeError,
+                    UnexpandedDoView(q[x]),  # noqa: F821
+                    "not a do form"]
+
+    # --------------------------------------------------------------------------------
+    # Destructuring - expanded do
+
+    with testset("do destructuring (expanded)"):
+        testdata = q[do[local[x << 21],  # noqa: F821
+                        2 * x]]  # noqa: F821
+        view = ExpandedDoView(testdata)
+        test[view.envname is not None]
+
+        # read
+        # e._set('x', 21)
+        thebody = view.body
+        lam = thebody[0]
+        test[type(the[lam.body]) is Call and
+             type(lam.body.func) is Attribute and
+             lam.body.func.attr == "_set" and
+             unparse(lam.body.args[0]) == "'x'"]
+        # write
+        # This mutates the original, but we have to assign `view.body` to trigger the setter.
+        envname = view.envname
+        thebody[0] = q[lambda _: name[envname]._set('x', 9001)]  # noqa: F821
+        view.body = thebody  # the body lambdas gets the correct envname auto-injected as their arg
+
+        test_raises[TypeError,
+                    ExpandedDoView(q[x]),  # noqa: F821
+                    "not an expanded do form"]
+
+    with testset("do destructuring (expanded) integration with curry"):
+        with q as testdata:  # pragma: no cover
+            with curry:
+                do[local[x << 21],  # noqa: F821
+                   2 * x]  # noqa: F821
+        thedo = testdata[0].value
+        view = ExpandedDoView(thedo)
+        test[view.envname is not None]
+
+        # read
+        # currycall(e._set, 'x', 21)
+        thebody = view.body
+        lam = thebody[0]
+        test[type(the[lam.body]) is Call and
+             type(lam.body.func) is Name and
+             lam.body.func.id == "currycall" and
+             type(lam.body.args[0]) is Attribute and
+             lam.body.args[0].attr == "_set" and
+             unparse(lam.body.args[1]) == "'x'"]
+        # write
+        # This mutates the original, but we have to assign `view.body` to trigger the setter.
+        envname = view.envname
+        thebody[0] = q[lambda _: name[envname]._set('x', 9001)]  # noqa: F821
+        view.body = thebody  # the body lambdas gets the correct envname auto-injected as their arg
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
