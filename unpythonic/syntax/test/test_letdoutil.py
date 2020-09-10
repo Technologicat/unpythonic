@@ -10,7 +10,7 @@ from macropy.core.quotes import macros, q, name  # noqa: F811, F401
 
 from ...syntax import macros, let, letrec, dlet, do, curry  # noqa: F811, F401
 
-from ast import Tuple, Name, Num, Lambda, BinOp, Attribute, copy_location
+from ast import Tuple, Name, Num, Lambda, BinOp, Attribute
 
 from macropy.core import unparse
 
@@ -26,10 +26,10 @@ def runtests():
         def validate(lst):
             for b in lst:
                 if type(b) is not Tuple or len(b.elts) != 2:
-                    return False
+                    return False  # pragma: no cover, only reached if the test fails.
                 k, v = b.elts
                 if type(k) is not Name:
-                    return False
+                    return False  # pragma: no cover, only reached if the test fails.
             return True
         # known fake location information
         locref = q[name["here"]]
@@ -314,11 +314,6 @@ def runtests():
 
     with testset("let destructuring (expanded letrec)"):
         def testletdestructuring(testdata):
-            # known fake location information
-            locref = q[name["here"]]
-            locref.lineno = 9001
-            locref.col_offset = 9
-            testdata = copy_location(testdata, locref)
             view = ExpandedLetView(testdata)
 
             # With letrec, even reading the bindings gets painful:
@@ -345,14 +340,15 @@ def runtests():
             test[type(the[lambody.right]) is Attribute and lambody.right.attr == "x"]
 
             # write
-            newbindings = q[("z", 21), ("t", 2)]  # noqa: F821
-            view.bindings = newbindings  # ...like this.
+            envname = lam.args.args[0].arg
+            newbindings = q[("z", lambda _: 21), ("t", lambda _: 2)]  # noqa: F821
+            newbindings.elts[0].elts[1].args.args[0].arg = envname
+            newbindings.elts[1].elts[1].args.args[0].arg = envname
+            view.bindings = newbindings
             test[len(view.bindings.elts) == 2]
-            test[unparse(view.bindings.elts[0]) == "('z', 21)"]  # the variable names are strings
-            test[unparse(view.bindings.elts[1]) == "('t', 2)"]
+            testbindings(('z', 21), ('t', 2))
 
             # Editing an expanded letrec body
-            envname = lam.args.args[0].arg
             newbody = q[lambda _: name[envname].z * name[envname].t]  # noqa: F821
             newbody.args.args[0].arg = envname
             view.body = newbody
