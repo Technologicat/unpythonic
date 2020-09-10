@@ -447,11 +447,11 @@ class ExpandedLetView:
     the body *of that lambda* is an expanded ``do``, which can be destructured using
     ``ExpandedDoView``.
 
+    **New features added in v0.14.3**:
+
     The ``let`` environment name is available in the ``envname`` property (read-only).
     When editing the bindings and the body, you'll need it to refer to the variables
     defined in the let, since those are actually attributes of the env.
-
-    **New features added in v0.14.3**:
 
     For the ``lambda e: ...``, in both the body and in letrec bindings, when
     assigning a new `body` or `bindings`, the correct envname is auto-injected
@@ -612,7 +612,25 @@ class ExpandedDoView:
     is currently not supported. Prefer doing any extensive modifications in the
     first pass, before the ``do[]`` expands.
 
-    Each item in the ``body`` list is of the form ``lambda e: ...``.
+    ``body`` is a ``list``, where each item is of the form ``lambda e: ...``.
+
+    **New features added in v0.14.3**:
+
+    The ``do`` environment name is available in the ``envname`` property (read-only).
+    When editing  the body, you'll need it to refer to the variables defined in the
+    do, since those are actually attributes of the env.
+
+    For all the ``lambda e: ...`` in the body, when assigning a new `body`, the
+    correct envname is auto-injected as the arg of the lambda. So you only need
+    ``envname`` to refer to the let environment *inside the body of those lambdas*.
+
+    Some basic type validation is performed by the property setter when
+    assigning a new `body`. Note this implies that if you edit `body` in-place,
+    without assigning to the `body` property, **absolutely no validation is
+    performed**, and also the envname auto-injection is skipped, because that
+    too is performed by the property setter. So it's better to always reassign
+    the whole `body`, even if you just make some minor adjustment to one of the
+    items.
     """
     def __init__(self, tree):
         t = isdo(tree, expanded=True)
@@ -621,7 +639,19 @@ class ExpandedDoView:
         self.curried = t.startswith("curried")
         self._tree = tree
 
-    # TODO: envname auto-inject machinery
+    def _get_envname(self):
+        try:
+            body = self.body
+            if not body:  # no body items
+                raise ValueError  # pragma: no cover
+            firstitem = body[0]
+            if type(firstitem) is not Lambda:
+                raise TypeError  # pragma: no cover
+            return firstitem.args.args[0].arg
+        except (TypeError, ValueError, AttributeError):  # pragma: no cover
+            pass
+        return None  # give up  # pragma: no cover
+    envname = property(fget=_get_envname, fset=None, doc="The name of the `env`, as `str`, or `None` if it can't be determined (e.g. blank body). Read-only.")
 
     def _getbody(self):
         #   currycall(dof, currycall(currycall(namelambda, "do_lineXXX"), curryf(lambda e: ...)), ...)
@@ -636,20 +666,27 @@ class ExpandedDoView:
             return [item.args[0] for item in theitems]
     def _setbody(self, newbody):
         if not isinstance(newbody, list):  # yes, a runtime list!
-            raise TypeError("Expected list as the new body of the do, got {}".format(type(newbody)))
+            raise TypeError("Expected list as the new body of the do, got {}".format(type(newbody)))  # pragma: no cover
         if len(newbody) != len(self.body):
-            assert False, "changing the number of items currently not supported by this view (do that before the do[] expands)"
+            assert False, "changing the number of items currently not supported by this view (do that before the do[] expands)"  # pragma: no cover
         #   currycall(dof, currycall(currycall(namelambda, "do_lineXXX"), curryf(lambda e: ...)), ...)
         #                                                                        ^^^^^^^^^^^^^
         #   dof((namelambda("do_lineXXX"))(lambda e: ...), ...)
         #                                  ^^^^^^^^^^^^^
+        envname = self.envname
         if self.curried:
             theitems = self._tree.args[1:]
             for old, new in zip(theitems, newbody):
+                if type(new) is not Lambda:
+                    raise TypeError("Each item of the body must be of the form `lambda e: ...`")  # pragma: no cover
+                new.args.args[0].arg = envname  # v0.14.3+: convenience: auto-inject correct envname
                 old.args[1].args[0] = new
         else:
             theitems = self._tree.args
             for old, new in zip(theitems, newbody):
+                if type(new) is not Lambda:
+                    raise TypeError("Each item of the body must be of the form `lambda e: ...`")  # pragma: no cover
+                new.args.args[0].arg = envname  # v0.14.3+: convenience: auto-inject correct envname
                 old.args[0] = new
     body = property(fget=_getbody, fset=_setbody, doc="The body of the do. Writable.")
 
