@@ -8,9 +8,9 @@ from macropy.core.quotes import macros, q, name  # noqa: F811, F401
 # from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 # from macropy.tracing import macros, show_expanded
 
-from ...syntax import macros, let, dlet, do, curry  # noqa: F811, F401
+from ...syntax import macros, let, letrec, dlet, do, curry  # noqa: F811, F401
 
-from ast import Tuple, Name, Num, Lambda, BinOp, Attribute
+from ast import Tuple, Name, Num, Lambda, BinOp, Attribute, copy_location
 
 from macropy.core import unparse
 
@@ -258,7 +258,7 @@ def runtests():
                     UnexpandedLetView(q[x]),  # noqa: F821
                     "not a let form"]
 
-    with testset("let destructuring (expanded)"):
+    with testset("let destructuring (expanded let)"):
         def testletdestructuring(testdata):
             view = ExpandedLetView(testdata)
 
@@ -268,7 +268,7 @@ def runtests():
             test[unparse(view.bindings.elts[0]) == "('x', 21)"]  # the variable names are strings
             test[unparse(view.bindings.elts[1]) == "('y', 2)"]
 
-            # Reading the let body in the expanded form is painful:
+            # Reading an expanded let body is painful:
             lam = view.body  # lambda e: e.y * e.x
             test[type(lam) is Lambda]
             lambody = lam.body
@@ -311,6 +311,61 @@ def runtests():
         test_raises[TypeError,
                     ExpandedLetView(q[x]),  # noqa: F821
                     "not an expanded let form"]
+
+    with testset("let destructuring (expanded letrec)"):
+        def testletdestructuring(testdata):
+            # known fake location information
+            locref = q[name["here"]]
+            locref.lineno = 9001
+            locref.col_offset = 9
+            testdata = copy_location(testdata, locref)
+            view = ExpandedLetView(testdata)
+
+            # With letrec, even reading the bindings gets painful:
+            def testbindings(*expected):
+                for b, (k, v) in zip(view.bindings.elts, expected):
+                    test[len(b.elts) == 2]
+                    bk, lam = b.elts
+                    # outer quotes, source code; inner quotes, str within that source
+                    test[the[unparse(bk)] == the["'{}'".format(k)]]
+                    test[type(lam) is Lambda]
+                    lambody = lam.body
+                    test[type(the[lambody]) is Num and lambody.n == the[v]]  # TODO: Python 3.8: ast.Constant, no ast.Num
+
+            # read
+            test[len(view.bindings.elts) == 2]
+            testbindings(('x', 21), ('y', 2))
+
+            # Reading an expanded letrec body
+            lam = view.body  # lambda e: e.y * e.x
+            test[type(lam) is Lambda]
+            lambody = lam.body
+            test[type(lambody) is BinOp]
+            test[type(the[lambody.left]) is Attribute and lambody.left.attr == "y"]
+            test[type(the[lambody.right]) is Attribute and lambody.right.attr == "x"]
+
+            # write
+            newbindings = q[("z", 21), ("t", 2)]  # noqa: F821
+            view.bindings = newbindings  # ...like this.
+            test[len(view.bindings.elts) == 2]
+            test[unparse(view.bindings.elts[0]) == "('z', 21)"]  # the variable names are strings
+            test[unparse(view.bindings.elts[1]) == "('t', 2)"]
+
+            # Editing an expanded letrec body
+            envname = lam.args.args[0].arg
+            newbody = q[lambda _: name[envname].z * name[envname].t]  # noqa: F821
+            newbody.args.args[0].arg = envname
+            view.body = newbody
+
+            lam = view.body  # lambda e: e.y * e.x
+            test[type(lam) is Lambda]
+            lambody = lam.body
+            test[type(lambody) is BinOp]
+            test[type(the[lambody.left]) is Attribute and lambody.left.attr == "z"]
+            test[type(the[lambody.right]) is Attribute and lambody.right.attr == "t"]
+
+        testdata = q[letrec[((x, 21), (y, 2)) in y * x]]  # noqa: F821
+        testletdestructuring(testdata)
 
     with testset("let destructuring (expanded) integration with curry"):
         warn["TODO: This testset not implemented yet."]
