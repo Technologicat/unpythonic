@@ -123,6 +123,12 @@ The common denominator is programming. Some relate to language design, some to c
 
     *Finally, unit testing frameworks provide a mechanism for checking that output from a function matches the expected answer. With respect to debugging, unit testing suffers from the same limitations as contracts. Namely, they operate statically and only along interface lines."*
 
+- [Joe Gibbs Politz, Alejandro Martinez, Matthew Milano, Sumner Warren, Daniel Patterson, Junsong Li, Anand Chitipothu, Shriram Krishnamurthi 2013: Python: The Full Monty - A Tested Semantics for the Python Programming Language. OOPSLA '13.](https://cs.brown.edu/~sk/Publications/Papers/Published/pmmwplck-python-full-monty/paper.pdf) [doi: 10.1145/2509136.2509536](http://dx.doi.org/10.1145/2509136.2509536)
+  - A very ambitious undertaking, with nice results.
+  - Scope analysis in Python is painful, because the language's syntax conflates definition and rebinding.
+  - A special `uninitialized` value (which the paper calls ☠) is needed, because Scope - in the sense of controlling lexical name resolution - is a static (purely lexical) concept, but whether a particular name (once lexically resolved) has been initialized (or, say, whether it has been deleted) is a dynamic (run-time) feature. (I would say "property", if that word didn't have an entirely different technical meaning in Python.)
+  - Our `continuations` macro essentially does what the authors call *a standard [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style) transformation*, plus some technical details due to various bits of impedance mismatch.
+
 
 ## Python-related FP resources
 
