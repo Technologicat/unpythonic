@@ -80,19 +80,19 @@ For coverage analysis, [`coverage.py`](https://github.com/nedbat/coveragepy) wor
 
 We use a custom testing framework, which lives in the modules `unpythonic.test.fixtures` and `unpythonic.syntax.testingtools`. It uses conditions and restarts to communicate between individual tests and the testset, which acts as a reporter.
 
-In retrospect, given that the main aim was compact testing syntax for macro-enabled Python code (without installing another import hook, doing which would disable the macro expander), it might have made more sense to make the testing macros compile to [pytest](https://docs.pytest.org/en/latest/). But hey, it's short, may have applications in teaching... and now we can easily write custom runners, since the testing framework is just a MacroPy library.
+In retrospect, given that the main aim was compact testing syntax for macro-enabled Python code (without installing another import hook, doing which would disable the macro expander), it might have made more sense to make the testing macros compile to [pytest](https://docs.pytest.org/en/latest/). But hey, it's short, may have applications in teaching... and now we can easily write custom test runners, since the testing framework is just a MacroPy library. It's essentially a *no-framework* (cf. "NoSQL"), which provides the essentials and lets the user define the rest.
 
-(The whole framework is less than 1k SLOC, counting docstrings, comments and blanks; less than 500 SLOC if counting only active code lines.)
+(The whole framework is about 1.3k SLOC, counting docstrings, comments and blanks; under 600 SLOC if counting only active code lines. Add another 800 SLOC (all) / 200 SLOC (active code lines) for the condition system.)
 
 Since `unpythonic` is a relatively loose collection of language extensions and utilities, that's about it for the 30 000 ft (9 144 m) view.
 
-To study a particular feature, just start from the entry point, and follow the definitions recursively. Use an IDE or Emacs's `anaconda-mode` ~for convenience~ to stay sane. Look at the tests for examples.
+To study a particular feature, just start from the entry point that piques your interest, and follow the definitions recursively. Use an IDE or Emacs's `anaconda-mode` ~for convenience~ to stay sane. Look at the automated tests; those double as usage examples, sometimes containing finer points that didn't make it to prose documentation.
 
 `curry` has some [cross-cutting concerns](https://en.wikipedia.org/wiki/Cross-cutting_concern), but nothing that a grep wouldn't find.
 
-The `lazify` and `continuations` macros are the most complex parts. As for the lazifier, grep also for `passthrough_lazy_args` and `maybe_force_args`. As for continuations, read the `tco` macro first, and keep in mind how that works when reading `continuations`.
+The `lazify` and `continuations` macros are the most complex (and perhaps fearsome?) parts. As for the lazifier, grep also for `passthrough_lazy_args` and `maybe_force_args`. As for continuations, read the `tco` macro first, and keep in mind how that works when reading `continuations`. The `continuations` macro is essentially what [academics call](https://cs.brown.edu/~sk/Publications/Papers/Published/pmmwplck-python-full-monty/paper.pdf) *"a standard [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style) transformation"*, plus some technical details due to various bits of impedance mismatch.
 
-`unpythonic.syntax.scopeanalyzer` is a unfortunate artifact that is needed to implement macros that interact with Python's scoping rules, notably `let`.
+`unpythonic.syntax.scopeanalyzer` is a unfortunate artifact that is needed to implement macros that interact with Python's scoping rules, notably `let`. Fortunately, [the language reference explicitly documents](https://docs.python.org/3/reference/executionmodel.html#naming-and-binding) what is needed for a lexical scope analysis for Python. So we have just implemented that (better, as an AST analysis, rather than scanning the surface syntax text).
 
 As of the second half of 2020, the main target platform is Python 3.6, both **CPython** and **PyPy3**. The code should run on 3.4 or any later Python. We have [a GitHub workflow](https://github.com/Technologicat/unpythonic/actions?query=workflow%3A%22Python+package%22) that runs the test suite 
 
