@@ -32,22 +32,22 @@ from ..test import fixtures
 # Note the unexpanded `error[]` macro is distinguishable from a call to
 # the function `unpythonic.conditions.error`, because a macro invocation
 # is an `ast.Subscript`, whereas a function call is an `ast.Call`.
-_test_macro_names = ["test", "test_signals", "test_raises", "error", "fail", "warn", "the"]
+_test_asserter_names = ["test", "test_signals", "test_raises", "error", "fail", "warn"]
 _test_function_names = ["unpythonic_assert",
                         "unpythonic_assert_signals",
                         "unpythonic_assert_raises"]
 def isunexpandedtestmacro(tree):
-    """Return whether `tree` is an invocation of a testing macro, unexpanded."""
+    """Return whether `tree` is an invocation of a test asserter, unexpanded."""
     return (type(tree) is Subscript and
             type(tree.value) is Name and
-            tree.value.id in _test_macro_names)
+            tree.value.id in _test_asserter_names)
 def isexpandedtestmacro(tree):
-    """Return whether `tree` is an invocation of a testing macro, expanded."""
+    """Return whether `tree` is an invocation of a test asserter, expanded."""
     return (type(tree) is Call and
             any(isx(tree.func, fname, accept_attr=False)
                 for fname in _test_function_names))
 def istestmacro(tree):
-    """Return whether `tree` is an invocation of a testing macro.
+    """Return whether `tree` is an invocation of a test asserter.
 
     Expanded or unexpanded doesn't matter.
     """
@@ -419,7 +419,14 @@ def _inject_value_recorder(envname, tree):  # wrap tree with the the[] handler
                                    ast_literal[tree])]
 @Walker
 def _transform_important_subexpr(tree, *, collect, stop, envname, **kw):
-    if _is_important_subexpr_mark(tree):
+    # The the[] mark mechanism runs in the first pass, outside in,
+    # because for reporting, it needs to capture the source AST
+    # in the form the code appears in the actual source file.
+    #
+    # Respect the boundaries of nested test constructs.
+    if isunexpandedtestmacro(tree):
+        stop()
+    elif _is_important_subexpr_mark(tree):
         stop()
         collect(tree.slice.value)  # or anything really; value not used, we just count them.
         # Handle any nested the[] subexpressions
@@ -447,6 +454,10 @@ def test_expr(tree):
 
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.
+    #
+    # We capture the source in the first pass, so that no macros in tree are
+    # expanded yet. For the same reason, we process the `the[]` marks in the
+    # first pass.
     sourcecode = unparse(tree)
 
     gen_sym = dyn.gen_sym
@@ -456,6 +467,9 @@ def test_expr(tree):
     tree, the_exprs = _transform_important_subexpr.recurse_collect(tree, envname=envname)
     if not the_exprs and type(tree) is Compare:  # inject the implicit the[] on the LHS
         tree.left = _inject_value_recorder(envname, tree.left)
+
+    # End of first pass.
+    tree = yield tree
 
     # We delay the execution of the test expr using a lambda, so
     # `unpythonic_assert` can get control first before the expr runs.
@@ -485,8 +499,18 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     else:
         assert False, "Expected one of {stx}[exctype, expr], {stx}[exctype, expr, message]".format(stx=syntaxname)
 
+    # Before we edit the tree, get the source code in its pre-transformation
+    # state, so we can include that into the test failure message.
+    #
+    # We capture the source in the first pass, so that no macros in tree are
+    # expanded yet.
+    sourcecode = unparse(tree)
+
+    # End of first pass.
+    tree = yield tree
+
     return q[(ast_literal[asserter])(ast_literal[exctype],
-                                     u[unparse(tree)],
+                                     u[sourcecode],
                                      lambda: ast_literal[tree],
                                      filename=ast_literal[filename],
                                      lineno=ast_literal[ln],
@@ -523,6 +547,10 @@ def test_block(block_body, args):
 
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.
+    #
+    # We capture the source in the first pass, so that no macros in tree are
+    # expanded yet. For the same reason, we process the `the[]` marks in the
+    # first pass.
     sourcecode = unparse(block_body)
 
     gen_sym = dyn.gen_sym
@@ -531,6 +559,9 @@ def test_block(block_body, args):
 
     # Handle the `the[...]` marks, if any.
     block_body, the_exprs = _transform_important_subexpr.recurse_collect(block_body, envname=envname)
+
+    # End of first pass.
+    block_body = yield block_body
 
     thetest = q[(ast_literal[asserter])(u[sourcecode],
                                         name[testblock_function_name],
@@ -588,7 +619,13 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
 
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.
+    #
+    # We capture the source in the first pass, so that no macros in tree are
+    # expanded yet.
     sourcecode = unparse(block_body)
+
+    # End of first pass.
+    block_body = yield block_body
 
     gen_sym = dyn.gen_sym
     testblock_function_name = gen_sym("test_block")

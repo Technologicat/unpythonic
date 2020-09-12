@@ -2027,7 +2027,7 @@ def prefix(tree, **kw):  # noqa: F811
 @macros.block
 def test(tree, args, *, gen_sym, **kw):  # noqa: F811
     with dyn.let(gen_sym=gen_sym):
-        return _test_block(block_body=tree, args=args)
+        return (yield from _test_block(block_body=tree, args=args))
 
 @macros.expr  # noqa: F811
 def test(tree, *, gen_sym, **kw):  # noqa: F811
@@ -2184,12 +2184,12 @@ def test(tree, *, gen_sym, **kw):  # noqa: F811
     destroyed by the time the exception is caught by the test construct.
     """
     with dyn.let(gen_sym=gen_sym):
-        return _test_expr(tree)
+        return (yield from _test_expr(tree))
 
 @macros.block
 def test_signals(tree, args, *, gen_sym, **kw):  # noqa: F811
     with dyn.let(gen_sym=gen_sym):
-        return _test_block_signals(block_body=tree, args=args)
+        return (yield from _test_block_signals(block_body=tree, args=args))
 
 @macros.expr  # noqa: F811
 def test_signals(tree, **kw):  # noqa: F811
@@ -2229,12 +2229,12 @@ def test_signals(tree, **kw):  # noqa: F811
     As the focus of this construct is on signaling vs. returning normally, the
     `the[]` mark is not supported. The block variant does not support `return`.
     """
-    return _test_expr_signals(tree)
+    return (yield from _test_expr_signals(tree))
 
 @macros.block
 def test_raises(tree, args, *, gen_sym, **kw):  # noqa: F811
     with dyn.let(gen_sym=gen_sym):
-        return _test_block_raises(block_body=tree, args=args)
+        return (yield from _test_block_raises(block_body=tree, args=args))
 
 @macros.expr  # noqa: F811
 def test_raises(tree, **kw):  # noqa: F811
@@ -2273,7 +2273,7 @@ def test_raises(tree, **kw):  # noqa: F811
     As the focus of this construct is on raising vs. returning normally, the
     `the[]` mark is not supported. The block variant does not support `return`.
     """
-    return _test_expr_raises(tree)
+    return (yield from _test_expr_raises(tree))
 
 @macros.expr
 def fail(tree, *, gen_sym, **kw):  # noqa: F811
@@ -2297,7 +2297,7 @@ def fail(tree, *, gen_sym, **kw):  # noqa: F811
     See also `error[]`, `warn[]`.
     """
     with dyn.let(gen_sym=gen_sym):
-        return _fail_expr(tree)
+        return (yield from _fail_expr(tree))
 
 @macros.expr
 def error(tree, *, gen_sym, **kw):  # noqa: F811
@@ -2313,7 +2313,7 @@ def error(tree, *, gen_sym, **kw):  # noqa: F811
     See also `warn[]`, `fail[]`.
     """
     with dyn.let(gen_sym=gen_sym):
-        return _error_expr(tree)
+        return (yield from _error_expr(tree))
 
 @macros.expr
 def warn(tree, *, gen_sym, **kw):  # noqa: F811
@@ -2333,6 +2333,6 @@ def warn(tree, *, gen_sym, **kw):  # noqa: F811
     See also `error[]`, `fail[]`.
     """
     with dyn.let(gen_sym=gen_sym):
-        return _warn_expr(tree)
+        return (yield from _warn_expr(tree))
 
 # -----------------------------------------------------------------------------
