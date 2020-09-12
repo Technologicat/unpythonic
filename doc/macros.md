@@ -1698,7 +1698,7 @@ Testsets can be nested arbitrarily deep.
 
 The function `terminate`, when called, exits the test session immediately. Usually it is not needed, but it is provided for convenience.
 
-**Additional tools for code using conditions and restarts**:
+Additional tools for code using **conditions and restarts**:
 
 The `catch_signals` context manager controls the signal barrier of `with testset` and the `test` family of syntactic constructs. It is provided for writing tests for code that uses conditions and restarts.
 
