@@ -1690,6 +1690,8 @@ with session(name):
 
 Each `name` above is human-readable and optional. The purpose of the naming feature is to improve [scannability](https://www.teachingenglish.org.uk/article/scanning) of the testing report for the human reader.
 
+Note that even if `name` is omitted, the parentheses are still mandatory, because `session` and `testset` are just garden variety context managers that must be instantiated in order for them to perform their jobs.
+
 A session implicitly introduces a top-level testset, for convenience.
 
 Testsets can be nested arbitrarily deep.
@@ -1721,6 +1723,10 @@ fail[message]
 error[message]
 warn[message]
 ```
+
+Inside a `test`, the helper macro `the[]` is available to mark interesting subexpressions inside `expr`, for failure and error reporting. An `expr` may contain an arbitrary number of `the[]`. By default, if `expr` is a comparison, the leftmost term is automatically marked (so that e.g. `test[x < 3]` will automatically report the value of `x` if the test fails); otherwise nothing. The default is only used if there is no explicit `the[]` inside `expr`.
+
+The constructs `test_raises`, `test_signals`, `fail`, `error` and `warn` do **not** support `the[]`.
 
 Tests can be nested; this is sometimes useful as an explicit signal barrier.
 
@@ -1756,6 +1762,10 @@ with test_signals(exctype, message):
     body
     ...
 ```
+
+In `with test`, the `the[]` helper macro is available. It can be used to mark any number of expressions and/or subexpressions in the block body.
+
+The constructs `with test_raises`, `with test_signals` do **not** support `the[]`.
 
 Tests can be nested; this is sometimes useful as an explicit signal barrier.
 
@@ -1853,7 +1863,7 @@ What we have is small, simple, custom-built for its purpose (works well with mac
 
 A test framework can be reused across many different projects, and the error-catching and reporting code, if anything, is something that is shared across all test cases. Also, following our naming scheme, it had to be called `unpythonic.test.something`, and `fixtures` just happened to fit the theme.
 
-Inspired by [Julia](https://julialang.org/)'s standard-library [`Test` package](https://docs.julialang.org/en/v1/stdlib/Test/).
+Inspired by [Julia](https://julialang.org/)'s standard-library [`Test` package](https://docs.julialang.org/en/v1/stdlib/Test/), and [chapter 9 of Peter Seibel's Practical Common Lisp](http://www.gigamonkeys.com/book/practical-building-a-unit-test-framework.html).
 
 
 ### ``dbg``: debug-print expressions with source code
