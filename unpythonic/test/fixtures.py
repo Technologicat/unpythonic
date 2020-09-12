@@ -324,8 +324,8 @@ class TestConfig:
     errors. `TestConfig.postproc` sets the default that is used when no other
     (more local) `postproc` is in effect.
 
-    It receives one argument, which is a `TestFailure` or `TestError` instance
-    that was signaled by a failed or errored test (respectively).
+    It receives one argument, which is a `TestFailure`, `TestError` or `TestWarning`
+    instance that was signaled by a failed, errored or warned test (respectively).
 
     `postproc` is called after sending the error to `printer`, just before
     resuming with the remaining tests. To continue processing, the `postproc`
@@ -334,6 +334,21 @@ class TestConfig:
     If you want a failure in a particular testset to abort the whole unit, you
     can use `terminate` as your `postproc`.
     """
+    # It is overwhelmingly common that tests are invoked from a single thread,
+    # so by default, all threads share the same printer. (It is not worth
+    # complicating the common use case here to cater for the rare use case.)
+    #
+    # However, if you want different printers in different threads, that can
+    # be done. As `printer`, use a `Shim` that contains a `ThreadLocalBox`.
+    # In each thread, place in that box a custom object that has a `__call__`
+    # method that takes the same args `print` does. Because `Shim` redirects
+    # all attribute accesses, it will redirect the lookup of `__call__`
+    # (it doesn't have its own `__call__`, so it assumes the client wants to
+    # call the thing that is inside the box), and hence that method will then
+    # be used for printing.
+    #
+    # TODO: This is subject to change later if I figure out a better design
+    # TODO: that conveniently caters for *both* the common and rare use cases.
     printer = partial(print, file=sys.stderr)
     use_color = True
     postproc = None
@@ -511,8 +526,7 @@ def catch_signals(state):
     yield
     _threadlocals.catch_uncaught_signals.popleft()
 
-# TODO: how to handle nesting level across multiple threads? Fully independent doesn't make sense.
-_nesting_level = 0
+_threadlocals.nesting_level = 0
 @contextmanager
 def session(name=None):
     """Context manager representing a test session.
@@ -523,7 +537,7 @@ def session(name=None):
     To terminate the session by the first failure in a particular testset,
     use `terminate` as `postproc` for that testset.
     """
-    if _nesting_level > 0:
+    if _threadlocals.nesting_level > 0:
         raise RuntimeError("A test `session` cannot be nested inside a `testset`.")
 
     title = maybe_colorize("SESSION", TC.BRIGHT, TestConfig.CS.HEADING)
@@ -575,10 +589,9 @@ def testset(name=None, postproc=None):
             indent += " "
         return indent
 
-    global _nesting_level
-    indent = makeindent(_nesting_level)
-    errmsg_indent = makeindent(_nesting_level + 1)
-    _nesting_level += 1
+    indent = makeindent(_threadlocals.nesting_level)
+    errmsg_indent = makeindent(_threadlocals.nesting_level + 1)
+    _threadlocals.nesting_level += 1
 
     title = "{}Testset".format(indent)
     if name is not None:
@@ -653,8 +666,8 @@ def testset(name=None, postproc=None):
     finally:
         if postproc is not None:
             _threadlocals.postproc_stack.popleft()
-        _nesting_level -= 1
-        assert _nesting_level >= 0
+        _threadlocals.nesting_level -= 1
+        assert _threadlocals.nesting_level >= 0
 
         r2, f2, e2, w2 = counters()
         runs = r2 - r1
