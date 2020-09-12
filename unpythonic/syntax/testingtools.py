@@ -555,7 +555,6 @@ def test_block(block_body, args):
 
     gen_sym = dyn.gen_sym
     envname = gen_sym("e")  # for injecting the captured value
-    testblock_function_name = gen_sym("test_block")
 
     # Handle the `the[...]` marks, if any.
     block_body, the_exprs = _transform_important_subexpr.recurse_collect(block_body, envname=envname)
@@ -563,6 +562,7 @@ def test_block(block_body, args):
     # End of first pass.
     block_body = yield block_body
 
+    testblock_function_name = gen_sym("test_block")
     thetest = q[(ast_literal[asserter])(u[sourcecode],
                                         name[testblock_function_name],
                                         filename=ast_literal[filename],
@@ -629,8 +629,6 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
 
     gen_sym = dyn.gen_sym
     testblock_function_name = gen_sym("test_block")
-    #def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, message=None):
-
     thetest = q[(ast_literal[asserter])(ast_literal[exctype],
                                         u[sourcecode],
                                         name[testblock_function_name],
