@@ -5,19 +5,19 @@
 Based on various sources; links provided in the source code comments.
 """
 
-from unpythonic.syntax import macros, test  # noqa: F401
-from unpythonic.test.fixtures import session, testset, returns_normally
+from ..syntax import macros, test  # noqa: F401
+from .fixtures import session, testset, returns_normally
 
 from operator import add, mul
 from itertools import repeat
 from math import sin, pi, log2
 
-from unpythonic.fun import curry
-from unpythonic.it import unpack, drop, take, tail, first, second, last, iterate1, within
-from unpythonic.fold import scanl, scanl1, unfold
-from unpythonic.mathseq import gmathify, imathify
-from unpythonic.gmemo import gmemoize
-from unpythonic.gtco import gtrampolined
+from ..fun import curry
+from ..it import unpack, drop, take, tail, first, second, last, iterate1, within
+from ..fold import scanl, scanl1, unfold
+from ..mathseq import gmathify, imathify
+from ..gmemo import gmemoize
+from ..gtco import gtrampolined
 
 def runtests():
     with testset("collatz sequence"):
