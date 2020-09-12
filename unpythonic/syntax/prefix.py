@@ -4,7 +4,7 @@
 Experimental, not for use in production code.
 """
 
-from ast import Name, Call, Tuple, Load, Index
+from ast import Name, Call, Tuple, Load, Index, Subscript
 import sys
 
 # Python 3.4 expects a Call node to have `starargs` and `kwargs` attributes.
@@ -23,7 +23,6 @@ from macropy.core.quotes import macros, q, u, ast_literal  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
 from .letdoutil import islet, isdo, UnexpandedLetView, UnexpandedDoView
-from .testingtools import isunexpandedtestmacro
 
 from ..it import flatmap, rev, uniqify
 
@@ -57,18 +56,24 @@ def prefix(block_body):
             view.body = [transform.recurse(expr, quotelevel=quotelevel) for expr in view.body]
             return tree
 
-        # integration with testing framework
-        if isunexpandedtestmacro(tree):
-            stop()
-            if type(tree.slice) is not Index:
-                assert False, "prefix: Slice and ExtSlice not implemented in analysis of testing macro arguments"  # pragma: no cover
+        # Integration with other macros, including the testing framework.
+        # Macros may take a tuple as the top-level expr, but typically don't take slice syntax.
+        #
+        # A top-level tuple is packed into an Index, not into an ExtSlice:
+        #     ast.parse("a[1, 2]").body[0].value.slice        # --> <_ast.Index at 0x7fd57505f208>
+        #     ast.parse("a[1, 2]").body[0].value.slice.value  # --> <_ast.Tuple at 0x7fd590962ef0>
+        # The structure is for this example is
+        #     Module
+        #       Expr
+        #         Subscript
+        if type(tree) is Subscript and type(tree.slice) is Index:
             body = tree.slice.value
             if type(body) is Tuple:
+                stop()
                 # skip the transformation of the argument tuple itself, but transform its elements
                 body.elts = [transform.recurse(expr, quotelevel=quotelevel) for expr in body.elts]
-            else:
-                tree.slice.value = transform.recurse(tree.slice.value, quotelevel=quotelevel)
-            return tree
+                return tree
+            # in any other case, continue processing normally
 
         # general case
         # macro-created nodes might not have a ctx, but we run in the first pass.
