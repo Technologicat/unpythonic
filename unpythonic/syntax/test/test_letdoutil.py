@@ -287,9 +287,9 @@ def runtests():
 
         # Reading an expanded let body is painful:
         lam = view.body  # lambda e: e.y * e.x
-        test[type(lam) is Lambda]
+        test[type(the[lam]) is Lambda]
         lambody = lam.body
-        test[type(lambody) is BinOp]
+        test[type(the[lambody]) is BinOp]
         test[type(the[lambody.left]) is Attribute and lambody.left.attr == "y"]
         test[type(the[lambody.right]) is Attribute and lambody.right.attr == "x"]
 
@@ -374,7 +374,7 @@ def runtests():
                 bk, lam = b.elts
                 # outer quotes, source code; inner quotes, str within that source
                 test[the[unparse(bk)] == the["'{}'".format(k)]]
-                test[type(lam) is Lambda]
+                test[type(the[lam]) is Lambda]
                 lambody = lam.body
                 test[type(the[lambody]) is Num and lambody.n == the[v]]  # TODO: Python 3.8: ast.Constant, no ast.Num
 
@@ -384,9 +384,9 @@ def runtests():
 
         # Reading an expanded letrec body
         lam = view.body  # lambda e: e.y * e.x
-        test[type(lam) is Lambda]
+        test[type(the[lam]) is Lambda]
         lambody = lam.body
-        test[type(lambody) is BinOp]
+        test[type(the[lambody]) is BinOp]
         test[type(the[lambody.left]) is Attribute and lambody.left.attr == "y"]
         test[type(the[lambody.right]) is Attribute and lambody.right.attr == "x"]
 
