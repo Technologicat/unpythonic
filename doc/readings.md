@@ -129,6 +129,16 @@ The common denominator is programming. Some relate to language design, some to c
   - A special `uninitialized` value (which the paper calls ☠) is needed, because Scope - in the sense of controlling lexical name resolution - is a static (purely lexical) concept, but whether a particular name (once lexically resolved) has been initialized (or, say, whether it has been deleted) is a dynamic (run-time) feature. (I would say "property", if that word didn't have an entirely different technical meaning in Python.)
   - Our `continuations` macro essentially does what the authors call *a standard [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style) transformation*, plus some technical details due to various bits of impedance mismatch.
 
+- [John Shutt's blog](https://fexpr.blogspot.com/) contains many interesting posts on programming language design. He's the author of the [Kernel](https://web.cs.wpi.edu/~jshutt/kernel.html) Lisp dialect. Some pickings from the blog:
+  - [Fexpr (2011)](https://fexpr.blogspot.com/2011/04/fexpr.html).
+    - The common wisdom that macros were a better choice is misleading.
+  - [Bypassing no-go theorems (2013)](https://fexpr.blogspot.com/2013/07/bypassing-no-go-theorems.html).
+    - Especially relevant is the section on Mitchell Wand's no-go theorem [*The Theory of Fexprs is Trivial*](https://www.ccs.neu.edu/home/wand/pubs.html#Wand98).
+  - [Abstractive power (2013)](https://fexpr.blogspot.com/2013/12/abstractive-power.html).
+  - [Where do types come from? (2011)](https://fexpr.blogspot.com/2011/11/where-do-types-come-from.html).
+  - [Continuations and term-rewriting calculi (2014)](https://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html).
+  - Discussion of Kernel on LtU: [Decomposing lambda - the Kernel language](http://lambda-the-ultimate.org/node/1680).
+
 
 ## Python-related FP resources
 
