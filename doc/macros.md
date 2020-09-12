@@ -1671,7 +1671,7 @@ from unpythonic.test.fixtures import (session, testset, returns_normally,
                                       catch_signals, terminate)
 ```
 
-**Sessions and testsets** - structure of a testing script:
+**Overall structure** - session and testsets:
 
 ```python
 with session(name):
@@ -1688,19 +1688,23 @@ with session(name):
             ...
 ```
 
-The `name` is human-readable and optional; it is shown in the testing report.
+Each `name` above is human-readable and optional. The purpose of the naming feature is to improve [scannability](https://www.teachingenglish.org.uk/article/scanning) of the testing report for the human reader.
 
 A session implicitly introduces a top-level testset, for convenience.
 
 Testsets can be nested arbitrarily deep.
 
-The function `terminate`, when called, exits the test session immediately. Usually not needed, but provided for convenience.
+The function `terminate`, when called, exits the test session immediately. Usually it is not needed, but it is provided for convenience.
+
+**Additional tools for code using conditions and restarts**
 
 The `catch_signals` context manager controls the signal barrier of `with testset` and the `test` family of syntactic constructs. It is provided for writing tests for code that uses conditions and restarts.
 
 Used as `with catch_signals(False)`, it disables the signal barrier. Within the dynamic extent of the block, an uncaught signal (in the sense of `unpythonic.conditions.signal` and its sisters) is not considered an error. This can be useful, because sometimes leaving a signal uncaught is the right thing to do. See [`unpythonic.test.test_conditions`](../unpythonic/test/test_conditions.py) for examples.
 
 It can be nested. Used as `with catch_signals(True)`, it re-enables the barrier, if currently disabled.
+
+When a `with catch_signals` block exits, the previous state of the signal barrier is automatically restored.
 
 **Expression** forms:
 
