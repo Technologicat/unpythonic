@@ -74,7 +74,7 @@ def _observe(thunk):
         the dynamic extent of thunk propagated to this level.
     """
     def intercept(condition):
-        if not fixtures._catch_uncaught_signals[0]:
+        if not fixtures._threadlocals.catch_uncaught_signals[0]:
             return  # cancel and delegate to the next outer handler
 
         # If we get an internal signal from this test framework itself, ignore

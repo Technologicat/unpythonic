@@ -113,7 +113,7 @@ from contextlib import contextmanager
 from collections import deque
 from functools import partial
 from traceback import format_tb
-from threading import Lock
+import threading
 import sys
 
 from ..conditions import handlers, find_restart, invoke
@@ -153,7 +153,7 @@ considered essential (i.e. the test suite will succeed even with warnings).
 The `+ N Warnings` message will be shown at the end of the nearest enclosing testset,
 and any testsets enclosing that one, up to the top level.
 """
-_counter_update_lock = Lock()
+_counter_update_lock = threading.Lock()
 def _update(counter, delta):
     """Update a global test counter in a thread-safe way.
 
@@ -487,7 +487,8 @@ def returns_normally(expr):
     # our arg, and:
     return True
 
-_catch_uncaught_signals = deque([True])  # on by default
+_threadlocals = threading.local()
+_threadlocals.catch_uncaught_signals = deque([True])  # on by default
 @contextmanager
 def catch_signals(state):
     """Context manager.
@@ -506,10 +507,11 @@ def catch_signals(state):
     `with catch_signals` blocks can be nested; the most recent (i.e.
     dynamically innermost) one wins.
     """
-    _catch_uncaught_signals.appendleft(state)
+    _threadlocals.catch_uncaught_signals.appendleft(state)
     yield
-    _catch_uncaught_signals.popleft()
+    _threadlocals.catch_uncaught_signals.popleft()
 
+# TODO: how to handle nesting level across multiple threads? Fully independent doesn't make sense.
 _nesting_level = 0
 @contextmanager
 def session(name=None):
@@ -547,7 +549,7 @@ def session(name=None):
                        maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING))
 
 # We use a stack for postprocs so that the local overrides can be nested.
-_postproc_stack = deque()
+_threadlocals.postproc_stack = deque()
 @contextmanager
 def testset(name=None, postproc=None):
     """Context manager representing a test set.
@@ -599,7 +601,7 @@ def testset(name=None, postproc=None):
                                  TC.BRIGHT, TestConfig.CS.WARNING) + str(condition)
         # So any other signal must come from another source.
         else:
-            if not _catch_uncaught_signals[0]:
+            if not _threadlocals.catch_uncaught_signals[0]:
                 return  # cancel and delegate to the next outer handler
             # To highlight the error in the summary, count it as an errored test.
             _update(tests_run, +1)
@@ -609,9 +611,9 @@ def testset(name=None, postproc=None):
         TestConfig.printer(msg)
 
         # the custom callback
-        if _postproc_stack:
-            r = _postproc_stack[0]
-        elif TestConfig.postproc is not None:
+        if _threadlocals.postproc_stack:
+            r = _threadlocals.postproc_stack[0]
+        elif TestConfig.postproc is not None:  # the global default is shared across all threads.
             r = TestConfig.postproc
         else:
             r = None
@@ -631,7 +633,7 @@ def testset(name=None, postproc=None):
         # Otherwise we just return normally (cancel and delegate to the next outer handler).
 
     if postproc is not None:
-        _postproc_stack.appendleft(postproc)
+        _threadlocals.postproc_stack.appendleft(postproc)
 
     # The test[] macro signals a condition (using `cerror`), does not raise an
     # exception. That gives it the superpower to resume the rest of the tests.
@@ -648,11 +650,11 @@ def testset(name=None, postproc=None):
                              TC.BRIGHT, TestConfig.CS.ERROR)
         msg += describe_exception(err)
         TestConfig.printer(msg)
-
-    if postproc is not None:
-        _postproc_stack.popleft()
-    _nesting_level -= 1
-    assert _nesting_level >= 0
+    finally:
+        if postproc is not None:
+            _threadlocals.postproc_stack.popleft()
+        _nesting_level -= 1
+        assert _nesting_level >= 0
 
     r2, f2, e2, w2 = counters()
     runs = r2 - r1
