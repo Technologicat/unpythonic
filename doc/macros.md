@@ -66,6 +66,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
   - [`the`: capture the value of interesting subexpressions](#the-capture-the-value-of-interesting-subexpressions)
   - [Test sessions and testsets](#test-sessions-and-testsets)
   - [Producing unconditional failures, errors, and warnings](#producing-unconditional-failures-errors-and-warnings)
+  - [Advanced: building a custom test framework](#advanced-building-a-custom-test-framework)
   - [Why another test framework?](#why-another-test-framework)
   - [Etymology and roots](#etymology-and-roots)
 - [``dbg``: debug-print expressions with source code](#dbg-debug-print-expressions-with-source-code)
@@ -1585,7 +1586,9 @@ This is similar to the JavaScript [`with` construct](https://developer.mozilla.o
 
 ### ``unpythonic.test.fixtures``: a test framework for macro-enabled Python
 
-We provide a lightweight, MacroPy-based test framework for testing macro-enabled Python. Example session:
+**Added in v0.14.3.**
+
+We provide a lightweight, MacroPy-based test framework for testing macro-enabled Python:
 
 ```python
 from unpythonic.syntax import macros, test, test_raises, fail, error, warn, the
@@ -1654,7 +1657,7 @@ By default, the `test[expr]` macro asserts that the value of `expr` is truthy. I
 
 The test macros also come in block variants, `with test`, `with test_raises(exctype)`, `with test_signals(exctype)`.
 
-As usual in test frameworks, the testing constructs behave somewhat like `assert`, with the difference that a failure or error will not abort the whole unit (unless explicitly asked to do so). There is no return value; upon success, the test constructs return `None`. Upon failure (test assertion not satisfied) or error (unexpected exception or signal), the failure or error is reported, and further tests continue running.
+As usual in test frameworks, the test constructs behave somewhat like `assert`, with the difference that a failure or error will not abort the whole unit (unless explicitly asked to do so). There is no return value; upon success, the test constructs return `None`. Upon failure (test assertion not satisfied) or error (unexpected exception or signal), the failure or error is reported, and further tests continue running.
 
 All the test variants catch any uncaught exceptions and signals from inside the test expression or block. Any unexpected uncaught exception or signal is considered an error.
 
@@ -1785,17 +1788,17 @@ The `with test_raises(exctype)` and `with test_signals(exctype)` blocks assert t
 
 The point of `unpythonic.test.fixtures` is to make testing macro-enabled Python as frictionless as reasonably possible.
 
-Inside a `test[]` expression, or anywhere within the code in a `with test` block, the `the[]` macro can be used to declare any number of subexpressions as interesting, for capturing the source code and value into the test failure message, which is shown if the test fails. The capture is a side effect - the value is passed through as-is.
+Inside a `test[]` expression, or anywhere within the code in a `with test` block, the `the[]` macro can be used to declare any number of subexpressions as interesting, for capturing the source code and value into the test failure message, which is shown if the test fails. Source code is captured in the first pass (outside in), before any nested second-pass (inside out) macros expand. (Most of the macros defined by `unpythonic` expand in the second pass.) The value is captured at run time as a side effect just after the value has been evaluated.
 
 By default (if no explicit `the[]` is present), `test[]` implicitly inserts a `the[]` for the leftmost term if the top-level expression is a comparison (common use case), and otherwise does not capture anything.
 
-When nothing is captured, if the test fails, the value of the whole expression is shown. Of course, you'll then already know the value is falsey, but there's still the possibly useful distinction of whether it's, say, `False`, `None` or `[]`.
+When nothing is captured, if the test fails, the value of the whole expression is shown. Of course, you'll then already know the value is falsey, but there's still the possibly useful distinction of whether it's, say, `False`, `None`, `0` or `[]`.
 
-A `test` can have any number of subexpressions marked as `the[]`. It is possible to even nest a `the[]` inside another `the[]`, if you need the value of some subexpression as well as one of *its* subexpressions. The captured values are gathered, in the order they were evaluated (by Python's standard evaluation rules), into a list that is shown upon test failure.
+A `test[]` or `with test` can have any number of subexpressions marked as `the[]`. It is possible to even nest a `the[]` inside another `the[]`, if you need the value of some subexpression as well as one of *its* subexpressions. The captured values are gathered, in the order they were evaluated (by Python's standard evaluation rules), into a list that is shown upon test failure.
 
-Note that following Python's standard evaluation rules implies that short-circuiting expressions such as `test[all(pred(the[x]) for x in iterable)]` may actually capture fewer `x` than `iterable` has, because `all` will terminate evaluation after the first failing term (i.e. the first one for which `pred(x)` is falsey). Similarly, expressions involving the logical `and` and `or` operators (which in Python are short-circuiting) might not evaluate all of the terms before the test is known to fail (and evaluation terminates).
+Following Python's standard evaluation rules implies that short-circuiting expressions such as `test[all(pred(the[x]) for x in iterable)]` may actually capture fewer `x` than `iterable` has, because `all` will terminate evaluation after the first failing term (i.e. the first one for which `pred(x)` is falsey). Similarly, expressions involving the logical `and` and `or` operators (which in Python are short-circuiting) might not evaluate all of the terms before the test is known to fail (and evaluation terminates).
 
-In case of nested `test[]`, each `the[...]` is understood as belonging to the lexically innermost surrounding test.
+In case of nested `test[]` or nested `with test`, each `the[...]` is understood as belonging to the lexically innermost surrounding test.
 
 The `the[]` mechanism is smart enough to skip reporting trivialities for literals, such as `(1, 2, 3) = (1, 2, 3)` in `test[4 in the[(1, 2, 3)]]`, or `4 = 4` in `test[4 in (1, 2, 3)]`. In the second case, note the implicit `the[]` on the LHS, because `in` is a comparison operator.
 
@@ -1803,7 +1806,7 @@ If nothing but such trivialities were captured, the failure message will instead
 
 To make testing/debugging macro code more convenient, the `the[]` mechanism automatically unparses an AST value into its source code representation for display in the test failure message. This is meant for debugging macro utilities, to which a test case hands some quoted code (i.e. code lifted into its AST representation using MacroPy's `q[]` macro). See [`unpythonic.syntax.test.test_letdoutil`](unpythonic/syntax/test/test_letdoutil.py) for some examples. (Note the unparsing is done for display only; the raw value remains inspectable in the exception instance.)
 
-Note that the unparsed source code representation **may have inessential differences in surface syntax** compared to the original source code as written in the data fed into your test case, such as parenthesization, and which quote character is used for string literals. Python's AST format does not store that information.
+**CAUTION**: The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``macropy.core.unparse``.
 
 #### Test sessions and testsets
 
@@ -1811,9 +1814,7 @@ The `with session()` in the example session above is optional. The human-readabl
 
 Tests can optionally be grouped into testsets. Each `testset` tallies passed, failed and errored tests within it, and displays the totals when it exits. Testsets can be named and nested.
 
-It is useful to have at least one `testset` (e.g. the implicit top-level one established by `with session`), because the `testset` mechanism forms one half of the test framework. It is possible to use the test macros without a `testset`, but that is only recommended for the use case of building alternative test frameworks.
-
-(If you really want to experiment with that, read the docstring of `test`. Set up a condition handler to intercept test failures and errors. These will be signaled via `cerror`, using the conditions and restarts mechanism. Report the failure/error as desired, and invoke the `proceed` restart to let testing continue. See the implementation of `testset` for details.)
+It is useful to have at least one `testset` (e.g. the implicit top-level one established by `with session`), because the `testset` mechanism forms one half of the test framework. It is possible to use the test macros without a `testset`, but that is only intended for building alternative test frameworks.
 
 Testsets also provide an option to locally install a `postproc` handler that gets a copy of each failure or error in that testset (and by default, any of its inner testsets), after the failure or error has been printed. In nested testsets, the dynamically innermost `postproc` wins. A failure is an instance of `unpythonic.test.fixtures.TestFailure`, an error is an instance of `unpythonic.test.fixtures.TestError`, and a warning is an instance of `unpythonic.test.fixtures.TestWarning`. All three inherit from `unpythonic.test.fixtures.TestingException`. Beside the human-readable message, these exception types contain attributes with programmatically inspectable information about what happened.
 
@@ -1837,6 +1838,16 @@ The helper macros `fail[message]`, `error[message]` and `warn[message]` uncondit
 
 Currently (v0.14.3), warnings produced by `warn[]` are not counted in the total number of tests run. But you can still get the warning count from the separate counter `unpythonic.test.fixtures.tests_warned` (see `unpythonic.collections.box`; basically you can `b.get()` or `unbox(b)` to read the value currently inside a box).
 
+#### Advanced: building a custom test framework
+
+If `unpythonic.test.fixtures` does not fit your needs and you want to experiment with creating your own framework, the test asserter macros are reusable. For reference, their implementations can be found in `unpythonic.syntax.testingtools`. They refer to a few objects in `unpythonic.test.fixtures`; consider these a common ground that is not strictly part of the surrounding framework.
+
+Start by reading the docstring of the `test` macro, which documents some low-level details.
+
+Set up a condition handler to intercept test failures and errors. These will be signaled via `cerror`, using the conditions and restarts mechanism. See `unpythonic.conditions`. Report the failure/error in any way you desire, and then invoke the `proceed` restart (from your condition handler) to let testing continue.
+
+Look at the implementation of `testset` as an example.
+
 #### Why another test framework?
 
 Because `unpythonic` is effectively a language extension, the standard options were not applicable.
@@ -1849,17 +1860,17 @@ Also, in my opinion, `unittest` is overly verbose to use; automated tests are al
 
 The central functional requirement for whatever would be used for testing `unpythonic` was to be able to easily deal with macro-enabled Python. No hoops to jump through, compared to testing regular Python, in order to be able to test all of `unpythonic` (including `unpythonic.syntax`) in a uniform way.
 
-If it was simple and minimalistic, that would be a bonus. As of v0.14.3, the whole test framework is about 1.3k SLOC, counting docstrings, comments and blanks; under 600 SLOC if counting only active code lines. Add another 800 SLOC (all) / 200 SLOC (active code lines) for the machinery behind conditions and restarts.
+Simple and minimalistic would be a bonus. As of v0.14.3, the whole test framework is about 1.3k SLOC, counting docstrings, comments and blanks; under 600 SLOC if counting only active code lines. Add another 800 SLOC (all) / 200 SLOC (active code lines) for the machinery that implements conditions and restarts.
 
 The framework will likely still evolve a bit as I find more holes in the [UX](https://en.wikipedia.org/wiki/User_experience) - which so far has led to features such as `the[]` and AST value auto-unparsing - but most of the desired functionality is already there. For example, I consider pytest-style implicit fixtures and a central test discovery system as outside the scope of this system.
 
-It's clear that `unpythonic.test.fixtures` is not going to replace `pytest`, nor does it aim to do so - [any more than Chuck Moore's Forth-based VLSI tools](https://yosefk.com/blog/my-history-with-forth-stack-machines.html) were going to replace the commercial VLSI offerings.
+It's clear that `unpythonic.test.fixtures` is not going to replace `pytest`, nor does it aim to do so - [any more than Chuck Moore's Forth-based VLSI tools](https://yosefk.com/blog/my-history-with-forth-stack-machines.html) were intended to replace the commercial [VLSI](https://en.wikipedia.org/wiki/Very_Large_Scale_Integration) offerings.
 
 What we have is small, simple, custom-built for its purpose (works well with macro-enabled Python; integrates with conditions and restarts), arguably somewhat pedagogic (demonstrates how to build a test framework in under 1k SLOC), and importantly, works just fine.
 
 #### Etymology and roots
 
-[Test fixture](https://en.wikipedia.org/wiki/Test_fixture) *is an environment used to consistently test some item, device, or piece of software*. In automated tests, it is typically a piece of code that is reused within the test suite for a project, to perform initialization and/or teardown tasks common to several test cases.
+[Test fixture](https://en.wikipedia.org/wiki/Test_fixture) *is an environment used to consistently test some item, device, or piece of software*. In automated tests, it is typically a piece of code that is reused within the test suite of a project, to perform initialization and/or teardown tasks common to several test cases.
 
 A test framework can be reused across many different projects, and the error-catching and reporting code, if anything, is something that is shared across all test cases. Also, following our naming scheme, it had to be called `unpythonic.test.something`, and `fixtures` just happened to fit the theme.
 
