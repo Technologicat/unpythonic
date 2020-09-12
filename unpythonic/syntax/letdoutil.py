@@ -439,9 +439,10 @@ class ExpandedLetView:
 
     **New features added in v0.14.3**:
 
-    The ``let`` environment name is available in the ``envname`` property (read-only).
-    When editing the bindings and the body, you'll need it to refer to the variables
-    defined in the let, since those are actually attributes of the env.
+    The ``let`` environment name is available in the ``envname`` attribute.
+    When editing the bindings and the body, you'll need it to refer to the
+    variables defined in the let, since those are actually attributes of the
+    env.
 
     For the ``lambda e: ...``, in both the body and in letrec bindings, when
     assigning a new `body` or `bindings`, the correct envname is auto-injected
@@ -465,8 +466,10 @@ class ExpandedLetView:
         if self._type not in ("expanded_decorator", "expanded_expr", "curried_decorator", "curried_expr"):
             raise NotImplementedError("unknown expanded let form type '{}'".format(self._type))  # pragma: no cover, this just catches the internal error if we add new forms but forget to add them here.
         self.curried = self._type.startswith("curried")
+        self.envname = self._deduce_envname()  # stash at init time to prevent corruption by user mutations.
 
-    def _get_envname(self):
+    def _deduce_envname(self):
+        assert all(hasattr(self, x) for x in ("_tree", "_type", "mode", "curried"))  # fully initialized
         try:
             body = self.body
             if type(body) is not Lambda:
@@ -491,7 +494,6 @@ class ExpandedLetView:
         except (TypeError, AttributeError, ValueError):  # pragma: no cover
             pass
         return None  # give up
-    envname = property(fget=_get_envname, fset=None, doc="The name of the `env`, as `str`, or `None` if it can't be determined (e.g. in a `dlet`, in which case it's not needed). Read-only.")
 
     def _getbindings(self):
         # Abstract away the namelambda(...). We support both "with curry" and bare formats:
@@ -581,8 +583,7 @@ class ExpandedLetView:
             raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
         if type(newbody) is not Lambda:
             raise TypeError("The body must be of the form `lambda e: ...`")  # pragma: no cover
-        envname = self.envname
-        newbody.args.args[0].arg = envname  # v0.14.3+: convenience: auto-inject correct envname
+        newbody.args.args[0].arg = self.envname  # v0.14.3+: convenience: auto-inject correct envname
         #   currycall(letter, bindings, currycall(currycall(namelambda, "let_body"), curryf(lambda e: ...)))
         #                                                                                   ^^^^^^^^^^^^^
         #   letter(bindings, (namelambda("let_body"))(lambda e: ...))
@@ -606,8 +607,8 @@ class ExpandedDoView:
 
     **New features added in v0.14.3**:
 
-    The ``do`` environment name is available in the ``envname`` property (read-only).
-    When editing  the body, you'll need it to refer to the variables defined in the
+    The ``do`` environment name is available in the ``envname`` attribute. When
+    editing the body, you'll need it to refer to the variables defined in the
     do, since those are actually attributes of the env.
 
     For all the ``lambda e: ...`` in the body, when assigning a new `body`, the
@@ -628,8 +629,10 @@ class ExpandedDoView:
             raise TypeError("expected a tree representing an expanded do, got {}".format(tree))
         self.curried = t.startswith("curried")
         self._tree = tree
+        self.envname = self._deduce_envname()  # stash at init time to prevent corruption by user mutations.
 
-    def _get_envname(self):
+    def _deduce_envname(self):
+        assert all(hasattr(self, x) for x in ("_tree", "curried"))  # fully initialized
         try:
             body = self.body
             if not body:  # no body items
@@ -641,7 +644,6 @@ class ExpandedDoView:
         except (TypeError, ValueError, AttributeError):  # pragma: no cover
             pass
         return None  # give up  # pragma: no cover
-    envname = property(fget=_get_envname, fset=None, doc="The name of the `env`, as `str`, or `None` if it can't be determined (e.g. blank body). Read-only.")
 
     def _getbody(self):
         #   currycall(dof, currycall(currycall(namelambda, "do_lineXXX"), curryf(lambda e: ...)), ...)
