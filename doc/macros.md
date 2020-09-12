@@ -1671,6 +1671,37 @@ from unpythonic.test.fixtures import (session, testset, returns_normally,
                                       catch_signals, terminate)
 ```
 
+**Sessions and testsets** - structure of a testing script:
+
+```python
+with session(name):
+    with testset(name):
+        ...
+
+    with testset(name):
+        ...
+        with testset(name):
+            ...
+
+    with testset(name):
+        with catch_signals(False):
+            ...
+```
+
+The `name` is human-readable and optional; it is shown in the testing report.
+
+A session implicitly introduces a top-level testset, for convenience.
+
+Testsets can be nested arbitrarily deep.
+
+The function `terminate`, when called, exits the test session immediately. Usually not needed, but provided for convenience.
+
+The `catch_signals` context manager controls the signal barrier of `with testset` and the `test` family of syntactic constructs. It is provided for writing tests for code that uses conditions and restarts.
+
+Used as `with catch_signals(False)`, it disables the signal barrier. Within the dynamic extent of the block, an uncaught signal (in the sense of `unpythonic.conditions.signal` and its sisters) is not considered an error. This can be useful, because sometimes leaving a signal uncaught is the right thing to do. See [`unpythonic.test.test_conditions`](../unpythonic/test/test_conditions.py) for examples.
+
+It can be nested. Used as `with catch_signals(True)`, it re-enables the barrier, if currently disabled.
+
 **Expression** forms:
 
 ```python
@@ -1686,6 +1717,10 @@ fail[message]
 error[message]
 warn[message]
 ```
+
+Tests can be nested; this is sometimes useful as an explicit signal barrier.
+
+Note the macros `error[]` and `warn[]` have nothing to do with the functions with the same name in `unpythonic.conditions`. The macros are part of the test framework; the functions with the same name are signaling protocols of the conditions and restarts system. Following the usual naming conventions in both systems, this naming conflict is unfortunately what we get.
 
 **Block** forms:
 
@@ -1717,6 +1752,8 @@ with test_signals(exctype, message):
     body
     ...
 ```
+
+Tests can be nested; this is sometimes useful as an explicit signal barrier.
 
 #### `with test`: test blocks
 
@@ -1768,7 +1805,11 @@ Testsets also provide an option to locally install a `postproc` handler that get
 
 If you want to set a default global `postproc`, which is used when no local `postproc` is in effect, this too is configured in the `TestConfig` bunch of constants in `unpythonic.test.fixtures`.
 
-The `with testset` construct comes with one other important feature. The nearest dynamically enclosing `with testset` catches any stray exceptions or signals that occur within its dynamic extent, but outside a test. In case of an uncaught signal, the error is reported, and the testset resumes. In case of an uncaught exception, the error is reported, and the testset terminates (because the exception model does not support resuming).
+The `with testset` construct comes with one other important feature. The nearest dynamically enclosing `with testset` **catches any stray exceptions or signals** that occur within its dynamic extent, but outside a test construct.
+
+In case of an uncaught signal, the error is reported, and the testset resumes.
+
+In case of an uncaught exception, the error is reported, and the testset terminates, because the exception model does not support resuming.
 
 Catching of uncaught *signals*, in both the low-level `test` constructs and the high-level `testset`, can be disabled using `with catch_signals(False)`. This is useful in testing code that uses conditions and restarts; sometimes allowing a signal (e.g. from `unpythonic.conditions.warn`) to remain uncaught is the right thing to do.
 
