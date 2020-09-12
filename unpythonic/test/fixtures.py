@@ -656,14 +656,14 @@ def testset(name=None, postproc=None):
         _nesting_level -= 1
         assert _nesting_level >= 0
 
-    r2, f2, e2, w2 = counters()
-    runs = r2 - r1
-    fails = f2 - f1
-    errors = e2 - e1
-    warns = w2 - w1
+        r2, f2, e2, w2 = counters()
+        runs = r2 - r1
+        fails = f2 - f1
+        errors = e2 - e1
+        warns = w2 - w1
 
-    msg = (maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
-           maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING) +
-           maybe_colorize(": ", TestConfig.CS.HEADING) +
-           summarize(runs, fails, errors, warns))
-    TestConfig.printer(msg)
+        msg = (maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
+               maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING) +
+               maybe_colorize(": ", TestConfig.CS.HEADING) +
+               summarize(runs, fails, errors, warns))
+        TestConfig.printer(msg)
