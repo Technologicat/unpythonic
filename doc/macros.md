@@ -1779,7 +1779,7 @@ By default, a `with test` block asserts just that it completes normally. If you 
 
 (Another way to view the default behavior is that the `with test` macro injects a `return True` at the end of the block, if there is no `return`. This is actually how the default behavior is implemented.)
 
-The `with test_raises(exctype)` and `with test_signals(exctype)` blocks assert that the block raises (respectively, signals) the declared exception (condition) type. These blocks are implicitly lifted into functions, too, but they do not check the return value. For them, not raising/signaling the declared exception/condition type is considered a test failure.
+The `with test_raises(exctype)` and `with test_signals(exctype)` blocks assert that the block raises (respectively, signals) the declared exception (condition) type. These blocks are implicitly lifted into functions, too, but they do not check the return value. For them, **not** raising/signaling the declared exception/condition type is considered a test failure. Raising/signaling some other (hence unexpected) exception/condition type is considered an error.
 
 #### `the`: capture the value of interesting subexpressions
 
