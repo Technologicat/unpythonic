@@ -2143,8 +2143,13 @@ def test(tree, *, gen_sym, **kw):  # noqa: F811
     is signaled instead, so the caller can easily tell apart which case
     occurred.
 
+    Finally, when a `warn[]` runs, `TestWarning` is signaled.
+
     These condition types are defined in `unpythonic.test.fixtures`.
     They inherit from `TestingException`, defined in the same module.
+    Beside the human-readable message, these exception types contain
+    attributes with programmatically inspectable information about
+    what happened. See the docstring of `TestingException`.
 
     *Signaling* a condition, instead of *raising* an exception, allows the
     surrounding code (inside the test framework) to install a handler that
@@ -2177,7 +2182,6 @@ def test(tree, *, gen_sym, **kw):  # noqa: F811
     Exceptions are always caught by `test[]`, because exceptions do not support
     resumption; unlike with signals, the inner level of the call stack is already
     destroyed by the time the exception is caught by the test construct.
-
     """
     with dyn.let(gen_sym=gen_sym):
         return _test_expr(tree)
