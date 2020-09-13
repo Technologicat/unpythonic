@@ -8,6 +8,7 @@ import gc
 
 from ..tco import trampolined, jump
 
+from ..ec import call_ec
 from ..fun import withself
 from ..let import letrec
 from ..misc import timer
@@ -67,6 +68,13 @@ def runtests():
         def baz():
             raise SpaghettiError("Look at the call stack, bar() was zapped by TCO!")
         test_raises[SpaghettiError, foo()]
+
+    with testset("integration with call_ec"):
+        @trampolined
+        @call_ec
+        def withec(ec):
+            ec(42)
+        test[withec == 42]
 
     with testset("error cases"):
         # Printing a warning is the best some of these cases can do, unfortunately, due to how `__del__` works.
