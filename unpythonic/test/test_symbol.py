@@ -1,6 +1,6 @@
 # -*- coding: utf-8; -*-
 
-from ..syntax import macros, test  # noqa: F401
+from ..syntax import macros, test, the  # noqa: F401
 from .fixtures import session, testset
 
 import pickle
@@ -16,28 +16,28 @@ def runtests():
     # Basic idea: lightweight, human-readable, process-wide unique marker,
     # that can be quickly compared by object identity.
     with testset("sym (interned symbol)"):
-        test[sym("foo") is sym("foo")]
+        test[the[sym("foo") is sym("foo")]]
 
         # Works even if pickled.
         foo = sym("foo")
         s = pickle.dumps(foo)
         o = pickle.loads(s)
-        test[o is foo]
-        test[o is sym("foo")]
+        test[the[o is foo]]
+        test[the[o is sym("foo")]]
 
         # str() returns the human-readable name as a string.
         test[str(sym("foo")) == "foo"]
 
         # repr() returns the source code that can be used to re-create the symbol.
-        test[eval(repr(foo)) is foo]
+        test[the[eval(repr(foo))] is the[foo]]
 
         # Symbol interning has nothing to do with string interning.
         many = 5000
-        test[sym("λ" * many) is sym("λ" * many)]
+        test[the[sym("λ" * many) is sym("λ" * many)]]
         # To defeat string interning, used to be that 80 exotic characters
         # would be enough in Python 3.6 to make CPython decide not to intern it,
         # but Python 3.7 bumped that up.
-        test["λ" * many is not "λ" * many]
+        test[the["λ" * many is not "λ" * many]]
 
     with testset("sym thread safety"):
         with test:  # just interested that it runs to completion
@@ -51,21 +51,24 @@ def runtests():
             for t in threads:
                 t.join()
             lst = slurp(que)
-            test[len(lst) == n]
+            test[the[len(lst)] == the[n]]
             test[allsame(lst)]
 
     with testset("gensym (uninterned symbol, nonce value)"):
         # Gensyms are uninterned symbols, useful as nonce/sentinel values.
+        #
+        # This has nothing to do with MacroPy's `gen_sym`, which picks a
+        # locally unused name for a new identifier.
         tabby = gensym("cat")
         scottishfold = gensym("cat")
-        test[tabby is not scottishfold]
+        test[the[tabby] is not the[scottishfold]]
 
         # Gensyms also survive a pickle roundtrip (this is powered by an UUID).
         s = pickle.dumps(tabby)
         o = pickle.loads(s)
-        test[o is tabby]
+        test[the[o is tabby]]
         o2 = pickle.loads(s)
-        test[o2 is tabby]
+        test[the[o2 is tabby]]
         print(tabby)
         print(scottishfold)
         print(repr(tabby))
@@ -89,7 +92,7 @@ def runtests():
             for t in threads:
                 t.join()
             lst = slurp(que)
-            test[len(lst) == n]
+            test[the[len(lst)] == the[n]]
             test[allsame(lst)]
 
 if __name__ == '__main__':  # pragma: no cover

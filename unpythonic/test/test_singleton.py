@@ -1,6 +1,6 @@
 # -*- coding: utf-8; -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, the  # noqa: F401
 from .fixtures import session, testset, returns_normally
 
 import pickle
@@ -57,7 +57,7 @@ def runtests():
         baz = Baz(17)
         s = pickle.dumps(baz)
         baz2 = pickle.loads(s)
-        test[baz2 is baz]  # it's the same instance
+        test[the[baz2 is baz]]  # it's the same instance
 
         # pickling: by default (if no custom `__getstate__`/`__setstate__`),
         # the state of the singleton object is restored (overwritten!) upon
@@ -65,7 +65,7 @@ def runtests():
         baz.x = 23
         test[baz.x == 23]
         baz2 = pickle.loads(s)
-        test[baz2 is baz]   # again, it's the same instance
+        test[the[baz2 is baz]]   # again, it's the same instance
         test[baz.x == 17]  # but unpickling has overwritten the state
 
         # With custom no-op `__getstate__` and `__setstate__`, the existing
@@ -76,7 +76,7 @@ def runtests():
         s = pickle.dumps(qux)
         qux.x = 23
         qux2 = pickle.loads(s)
-        test[qux2 is qux]   # it's the same instance
+        test[the[qux2 is qux]]   # it's the same instance
         test[qux.x == 23]  # and unpickling didn't change the state
 
     with testset("thread safety"):
@@ -117,7 +117,7 @@ def runtests():
             for t in threads:
                 t.join()
             lst = slurp(que)
-            test[len(lst) == n]
+            test[the[len(lst)] == the[n]]
             test[all(x is not None for x in lst)]
             test[allsame(lst)]
 

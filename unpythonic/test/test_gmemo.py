@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises, fail  # noqa: F401
+from ..syntax import macros, test, test_raises, fail, the  # noqa: F401
 from .fixtures import session, testset
 
 from itertools import count, takewhile, chain
@@ -86,7 +86,7 @@ def runtests():
         try:
             next(g2)
         except AllOkJustTesting as err2:
-            test[err2 is exc_instance, "should be the same cached exception instance"]
+            test[the[err2 is exc_instance], "should be the same cached exception instance"]
         else:
             fail["Should have raised at the second next() call."]  # pragma: no cover
         test[total_evaluations == 2]
@@ -105,26 +105,26 @@ def runtests():
         last(some_evens(25))
         last(some_evens(25))
         last(some_evens(20))
-        test[all(v == 1 for k, v in evaluations.items())]
+        test[all(v == 1 for k, v in the[evaluations].items())]
 
         # Or use lambda for a more compact presentation:
         se = gmemoize(lambda n: (yield from drop(n, evens())))
-        test[last(se(25)) == last(se(25))]  # iterating twice!
+        test[the[last(se(25))] == the[last(se(25))]]  # iterating twice!
 
         # Using fimemoize, we can omit the "yield from" (specifying a regular
         # factory function that makes an iterable, instead of a gfunc):
         se = fimemoize(lambda n: drop(n, evens()))
-        test[last(se(25)) == last(se(25))]  # iterating twice!
+        test[the[last(se(25))] == the[last(se(25))]]  # iterating twice!
 
         # In the nonparametric case, we can memoize the iterable directly:
         se = imemoize(drop(25, evens()))
-        test[last(se()) == last(se())]  # iterating twice!
+        test[the[last(se())] == the[last(se())]]  # iterating twice!
 
         # DANGER: WRONG! Now we get a new instance of evens() also for the same n,
         # so each call to se(n) caches separately. (This is why we have fimemoize.)
         se = lambda n: call(imemoize(drop(n, evens())))  # call() invokes the gfunc
-        test[last(se(25)) == last(se(25))]
-        test[last(se(20)) == last(se(20))]
+        test[the[last(se(25))] == the[last(se(25))]]
+        test[the[last(se(20))] == the[last(se(20))]]
 
     with testset("FP sieve of Eratosthenes"):
         def primes():  # no memoization, recomputes unnecessarily, very slow
@@ -222,7 +222,7 @@ def runtests():
                 p = nextp
                 np += 1
                 lastdigits = lastdigits + ns
-        test[tuple(take(500, mprimes3())) == tuple(take(500, mprimes2()))]
+        test[the[tuple(take(500, mprimes3())) == tuple(take(500, mprimes2()))]]  # de-spam: don't capture the LHS.
 
         @gmemoize
         def memo_primes3():
@@ -248,7 +248,7 @@ def runtests():
                     np += 1
                     lastdigits += ns
             return manual_mprimes3()
-        test[tuple(take(500, memo_primes3())) == tuple(take(500, mprimes2()))]
+        test[the[tuple(take(500, memo_primes3())) == tuple(take(500, mprimes2()))]]
 
         @gmemoize
         def memo_primes4():
@@ -283,7 +283,7 @@ def runtests():
                             memo.append(n)
                             yield n
             return manual_mprimes4()
-        test[tuple(take(500, memo_primes4())) == tuple(take(500, mprimes2()))]
+        test[the[tuple(take(500, memo_primes4())) == tuple(take(500, mprimes2()))]]
         test[last(take(5000, memo_primes4())) == 48611]  # trigger the maxnp case
 
         test[tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)]

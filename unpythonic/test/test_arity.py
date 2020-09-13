@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, the  # noqa: F401
 from .fixtures import session, testset
 
 from ..arity import (arities, arity_includes,
@@ -115,7 +115,7 @@ def runtests():
             pass  # pragma: no cover, this is here just to be analyzed.
         byposition = r(f, 1)
         byname = r(f, a=1)
-        test[byposition == byname]
+        test[the[byposition] == the[byname]]
 
         def f(a=42):
             pass  # pragma: no cover
@@ -174,15 +174,15 @@ def runtests():
 
         def f(a, b, c, **kw):
             pass  # pragma: no cover
-        test[checkpre36(r(f, 1, 2, 3, d=4, e=5), (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                                  ("vararg", None), ("vararg_name", None),
-                                                  ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw")))]
+        test[checkpre36(the[r(f, 1, 2, 3, d=4, e=5)], (("args", (("a", 1), ("b", 2), ("c", 3))),
+                                                       ("vararg", None), ("vararg_name", None),
+                                                       ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw")))]
 
         def f(a, b, c, *args, **kw):
             pass  # pragma: no cover
-        test[checkpre36(r(f, 1, 2, 3, 4, 5, d=6, e=7), (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                                        ("vararg", (4, 5)), ("vararg_name", "args"),
-                                                        ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw")))]
+        test[checkpre36(the[r(f, 1, 2, 3, 4, 5, d=6, e=7)], (("args", (("a", 1), ("b", 2), ("c", 3))),
+                                                             ("vararg", (4, 5)), ("vararg_name", "args"),
+                                                             ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw")))]
 
         # TODO: On Python 3.6+, this becomes just:
         #

@@ -68,7 +68,7 @@ def runtests():
             test["c" not in the[dyn]]
 
             # subscript syntax as an alternative notation to refer to dynamic vars
-            test[dyn.a is dyn["a"]]
+            test[the[dyn.a is dyn["a"]]]
 
             test[noimplicits(dyn.items()) == (("a", 1), ("b", 2))]
         test[noimplicits(dyn.items()) == ()]
@@ -144,7 +144,7 @@ def runtests():
         for t in threads:
             t.join()
         successes = sum(slurp(comm))
-        test[successes == n]
+        test[the[successes] == the[n]]
 
     with testset("make_dynvar (default values)"):
         make_dynvar(im_always_there=True)

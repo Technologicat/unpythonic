@@ -14,7 +14,7 @@
 # for that, manual testing is sufficient (see commented-out example session in
 # `unpythonic.syntax.test.testing_testingtools`).
 
-from ..syntax import macros, test, test_raises, test_signals, fail  # noqa: F401
+from ..syntax import macros, test, test_raises, test_signals, fail, the  # noqa: F401
 from .fixtures import session, testset, catch_signals, returns_normally
 
 from ..conditions import (signal, find_restart, invoke, invoker, use_value,
@@ -249,11 +249,11 @@ def runtests():
                 # no "result << some_normal_exit_value", so here result is None if the signal is not handled.
                 with restarts(use_value=(lambda x: x)) as result:
                     signal(JustTesting())
-                test[isinstance(unbox(result), JustTesting)]
+                test[isinstance(the[unbox(result)], JustTesting)]
 
                 with restarts(use_value=(lambda x: x)) as result:
                     signal(RuntimeError())
-                test[isinstance(unbox(result), RuntimeError)]
+                test[isinstance(the[unbox(result)], RuntimeError)]
         test_multiple_signal_types()
 
     # invoker(restart_name) creates a handler callable that just invokes
@@ -303,9 +303,9 @@ def runtests():
                     # The test system defines some internal restarts/handlers,
                     # so ours are not the full list - but they are a partial list.
                     test[subset(["hello", "use_value"],
-                                [name for name, _callable in available_restarts()])]
+                                the[[name for name, _callable in available_restarts()]])]
                     test[subset([JustTesting, RuntimeError],
-                                [t for t, _callable in available_handlers()])]
+                                the[[t for t, _callable in available_handlers()]])]
         inspection()
 
     with testset("alternate syntax"):
@@ -526,7 +526,7 @@ def runtests():
             results = slurp(comm)
             test[len(results) == n]
             test[all(x == 42 for tag, x in results)]
-            test[tuple(sorted(tag for tag, x in results)) == tuple(range(n))]
+            test[the[tuple(sorted(tag for tag, x in results)) == tuple(range(n))]]  # de-spam: don't capture LHS
         multithreading()
 
 if __name__ == '__main__':  # pragma: no cover

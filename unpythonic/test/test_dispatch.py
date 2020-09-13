@@ -1,6 +1,6 @@
 # -*- coding: utf-8; -*-
 
-from ..syntax import macros, test, test_raises, fail  # noqa: F401
+from ..syntax import macros, test, test_raises, fail, the  # noqa: F401
 from .fixtures import session, testset, returns_normally
 
 import typing
@@ -219,12 +219,12 @@ def runtests():
 
     with testset("@typed integration with curry"):
         f = curry(blubnify, 2)
-        test[callable(f)]
+        test[callable(the[f])]
         test[f(21.0) == 42]
 
         # But be careful:
         f = curry(blubnify, 2.0)  # wrong argument type; error not triggered yet
-        test[callable(f)]
+        test[callable(the[f])]
         test_raises[TypeError, f(21.0) == 42]  # error will occur now, when the call is triggered
 
 if __name__ == '__main__':  # pragma: no cover

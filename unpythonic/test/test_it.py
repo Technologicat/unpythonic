@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, the  # noqa: F401
 from .fixtures import session, testset
 
 from functools import partial
@@ -180,12 +180,12 @@ def runtests():
 
     with testset("unpack (lazily)"):
         a, b, c, tl = unpack(3, range(5))
-        test[a == 0 and b == 1 and c == 2]
+        test[the[a] == 0 and the[b] == 1 and the[c] == 2]
         test[next(tl) == 3]
 
         # lazy unpack falling off the end of an iterable
         a, b, c, tl = unpack(3, range(2))
-        test[a == 0 and b == 1 and c is None]
+        test[the[a] == 0 and the[b] == 1 and the[c] is None]
         test_raises[StopIteration, next(tl)]  # the tail should be empty
 
         # unpacking of generators - careful!
@@ -218,7 +218,7 @@ def runtests():
 
         # fast-forward when k > n
         a, b, tl = unpack(2, range(5), k=3)
-        test[a == 0 and b == 1]
+        test[the[a] == 0 and the[b] == 1]
         test[next(tl) == 3]
 
     # inn: contains-check with automatic termination for monotonic divergent iterables
@@ -292,8 +292,10 @@ def runtests():
             out.append((a, b, c))
         test[out == [(0, 1, 2), (1, 2, 3), (2, 3, 4)]]
 
-        # sneaky integration test: let's window a Popper...
-        #
+        test_raises[ValueError, window(range(5), n=1)]
+        test[tuple(window(range(5), n=10)) == ()]
+
+    with testset("window integration with Popper"):
         # This works because window() iter()s the Popper, but the Popper never
         # iter()s the underlying container, so any mutations to the input container
         # performed by the loop body will be seen by the window.
@@ -308,9 +310,6 @@ def runtests():
                 inp.append(a + 10)
         test[inp == deque([])]
         test[out == [(0, 1), (1, 2), (2, 10), (10, 11), (11, 12)]]
-
-        test_raises[ValueError, window(range(5), n=1)]
-        test[tuple(window(range(5), n=10)) == ()]
 
     # chunked() - split an iterable into constant-length chunks.
     with testset("chunked"):
@@ -352,7 +351,7 @@ def runtests():
         def cos3(a, b, c):
             return cos(a), cos(b), cos(c)
         fp = 0.7390851332151607
-        test[last(take(100, iterate(cos3, 1.0, 2.0, 3.0))) == (fp, fp, fp)]
+        test[the[last(take(100, iterate(cos3, 1.0, 2.0, 3.0)))] == (the[fp], fp, fp)]
 
     # within() - terminate a Cauchy sequence after a tolerance is reached.
     # The condition is `abs(a - b) <= tol` **for the last two yielded items**.
@@ -375,7 +374,7 @@ def runtests():
     # Arithmetic fixed points.
     with testset("fixpoint (arithmetic fixed points)"):
         c = fixpoint(cos, x0=1)
-        test[c == cos(c)]  # 0.7390851332151607
+        test[the[c] == the[cos(c)]]  # 0.7390851332151607
 
         # Actually "Newton's" algorithm for the square root was already known to the
         # ancient Babylonians, ca. 2000 BCE. (Carl Boyer: History of mathematics)
@@ -386,7 +385,7 @@ def runtests():
         # different algorithm, so not necessarily equal down to the last bit
         # (caused by the fixpoint update becoming smaller than the ulp, so it
         #  stops there, even if the limit is still one ulp away).
-        test[abs(sqrt_newton(2) - sqrt(2)) <= ulp(1.414)]
+        test[abs(the[sqrt_newton(2)] - the[sqrt(2)]) <= the[ulp(1.414)]]
 
     # partition: split an iterable according to a predicate
     with testset("partition"):

@@ -81,10 +81,10 @@ def runtests():
         test[[x for x in b2] == [17]]
         test[b2 == 17]  # for convenience, a box is considered equal to the item it contains
         test[len(b2) == 1]
-        test[b2 != b]
+        test[the[b2] != the[b]]
 
         b3 = box(17)
-        test[b3 == b2]  # boxes are considered equal if their contents are
+        test[the[b3] == the[b2]]  # boxes are considered equal if their contents are
 
         # pretty API: unbox(b) is the same as reading b.x
         cat = object()
@@ -116,7 +116,7 @@ def runtests():
 
         b1 = box("abcdefghijklmnopqrstuvwxyzåäö")
         b2 = loads(dumps(b1))  # pickling
-        test[b2 == b1]
+        test[the[b2] == the[b1]]
 
     # ThreadLocalBox: like box, but with thread-local contents
     with testset("ThreadLocalBox"):
@@ -136,8 +136,8 @@ def runtests():
         test[len(tlb) == 1]
 
         tlb2 = ThreadLocalBox(42)
-        test[tlb2 is not tlb]
-        test[tlb2 == tlb]
+        test[the[tlb2 is not tlb]]  # the important thing here is it's not the same object instance.
+        test[the[tlb2] == the[tlb]]
 
         # The default object can be changed.
         tlb = ThreadLocalBox(42)
@@ -257,11 +257,11 @@ def runtests():
             d3['c'] = 42
 
         d4 = frozendict(d3, a=42)  # functional update
-        test[d4['a'] == 42 and d4['b'] == 2]
+        test[the[d4['a']] == 42 and the[d4['b']] == 2]
         test[d3['a'] == 1]  # original not mutated
 
         d5 = frozendict({'a': 1, 'b': 2}, {'a': 42})  # rightmost definition of each key wins
-        test[d5['a'] == 42 and d5['b'] == 2]
+        test[the[d5['a']] == 42 and the[d5['b']] == 2]
 
         test[frozendict() is frozendict()]  # empty-frozendict singleton property
 
@@ -295,7 +295,7 @@ def runtests():
         # Pickling tests
         d1 = frozendict({1: 2, 3: 4, "somekey": "somevalue"})
         d2 = loads(dumps(d1))
-        test[d2 == d1]
+        test[the[d2] == the[d1]]
 
         # We need a test case which has *several* frozendict instances,
         # and also an empty one, to be certain __new__ isn't just returning
@@ -306,7 +306,7 @@ def runtests():
         data = [fd1, fd2, fd3]
         s = dumps(data)
         o = loads(s)
-        test[o == data]
+        test[the[o] == the[data]]
 
     # writable live view for sequences
     # (when you want to be more imperative than Python allows)
@@ -389,7 +389,7 @@ def runtests():
         test[lst == [42, 0, 1, 2, 3, 4, 5]]
 
         tup = (1, 2, 3, 4, 5)
-        test_raises[TypeError, view(tup)]  # tuple is read-only, view is read/write
+        test_raises[TypeError, view(tup)]  # tuple is read-only, view is read/write (see roview instead)
 
         lst = list(range(5))
         v = view(lst)[2:]
@@ -419,13 +419,13 @@ def runtests():
         v1 = roview(tup)[2:]
         test[v1 == v1]
         v2 = roview(tup)[2:]
-        test[v2 is not v1]
-        test[v2 == v1]
+        test[the[v2 is not v1]]
+        test[the[v2] == the[v1]]
         v3 = roview(tup)[3:]
-        test[v3 != v1]
+        test[the[v3] != the[v1]]
         v4 = roview(tup)[0:2]
         v5 = roview(tup)[1:3]
-        test[v5 != v4]
+        test[the[v5] != the[v4]]
 
         tup = tuple(range(5))
         v1 = roview(tup)[2:]
@@ -475,18 +475,18 @@ def runtests():
         lst = [1, 2, 3]
         lst2 = mogrify(double, lst)
         test[lst2 == [2, 4, 6]]
-        test[lst2 is lst]
+        test[the[lst2 is lst]]  # here the important thing is it's the same object instance.
 
         s = {1, 2, 3}
         s2 = mogrify(double, s)
         test[s2 == {2, 4, 6}]
-        test[s2 is s]
+        test[the[s2 is s]]
 
         # mogrifying a dict mutates its values in-place, leaving keys untouched
         d = {1: 2, 3: 4, 5: 6}
         d2 = mogrify(double, d)
         test[set(d2.items()) == {(1, 4), (3, 8), (5, 12)}]
-        test[d2 is d]
+        test[the[d2 is d]]
 
         # dict keys/items/values types cannot be instantiated, and support only
         # iteration (not in-place modification), so in those cases mogrify()
@@ -505,29 +505,29 @@ def runtests():
         b = box(17)
         b2 = mogrify(double, b)
         test[b2 == 34]
-        test[b2 is b]
+        test[the[b2 is b]]
 
         test[mogrify(double, Some(21)) == Some(42)]
 
         tup = (1, 2, 3)
         tup2 = mogrify(double, tup)
         test[tup2 == (2, 4, 6)]
-        test[tup2 is not tup]  # immutable, cannot be updated in-place
+        test[the[tup2 is not tup]]  # immutable, cannot be updated in-place
 
         fs = frozenset({1, 2, 3})
         fs2 = mogrify(double, fs)
         test[fs2 == {2, 4, 6}]
-        test[fs2 is not fs]
+        test[the[fs2 is not fs]]
 
         fd = frozendict({1: 2, 3: 4})
         fd2 = mogrify(double, fd)
         test[set(fd2.items()) == {(1, 4), (3, 8)}]
-        test[fd2 is not fd]
+        test[the[fd2 is not fd]]
 
         atom = 17
         atom2 = mogrify(double, atom)
         test[atom2 == 34]
-        test[atom2 is not atom]
+        test[the[atom2 is not atom]]
 
         # mogrify a sequence through a mutable view
         lst = [1, 2, 3]

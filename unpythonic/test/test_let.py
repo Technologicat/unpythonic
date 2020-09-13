@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, the  # noqa: F401
 from .fixtures import session, testset
 
 from ..let import let, letrec, dlet, dletrec, blet, bletrec
@@ -42,13 +42,13 @@ def runtests():
 
             # Call each implementation twice to make sure that a fresh `seen`
             # is indeed created at each call.
-            test[f(L) == f(L)]
-            test[f2(L) == f2(L)]
-            test[f3(L) == f3(L)]
-            test[f4(L) == f4(L)]
-            test[f5(L) == f5(L)]
+            test[the[f(L)] == the[f(L)]]
+            test[the[f2(L)] == the[f2(L)]]
+            test[the[f3(L)] == the[f3(L)]]
+            test[the[f4(L)] == the[f4(L)]]
+            test[the[f5(L)] == the[f5(L)]]
 
-            test[f(L) == f2(L) == f3(L) == f4(L) == f5(L) == [1, 3, 2, 4]]
+            test[the[f(L)] == the[f2(L)] == the[f3(L)] == the[f4(L)] == the[f5(L)] == [1, 3, 2, 4]]
 
         uniqify_test()
 

@@ -42,11 +42,11 @@ def runtests():
                                                          ("y", 2),
                                                          ("z", 3)))]
             with env(x=1, y=2, z=3) as e2:
-                test[e2 == e]
+                test[the[e2] == the[e]]
             with env(x=1, y=2, z=4) as e2:  # at least one different value
-                test[e2 != e]
+                test[the[e2] != the[e]]
             with env(x=1, y=2) as e2:  # different length
-                test[e2 != e]
+                test[the[e2] != the[e]]
 
             # membership testing
             test["x" in the[e]]
@@ -54,7 +54,7 @@ def runtests():
 
             # modify existing binding
             test[e.set("x", 42) == 42]  # returns the new value
-            test[e << ("x", 23) is e]   # instance passthrough for chaining
+            test[the[e << ("x", 23) is e]]   # instance passthrough for chaining
 
         # delete a binding with subscript syntax
         with env(x=1) as e:

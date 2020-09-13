@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises, error, warn  # noqa: F401
+from ..syntax import macros, test, test_raises, error, warn, the  # noqa: F401
 from .fixtures import session, testset
 
 from operator import add
@@ -47,7 +47,7 @@ def runtests():
         test[result == (6, 7)]
 
         # can also be used normally
-        test[call(add, 2, 3) == add(2, 3)]
+        test[the[call(add, 2, 3)] == the[add(2, 3)]]
 
     with testset("@callwith (argument freezer), and pythonic solutions to avoid it"):
         # to pass arguments when used as decorator, use @callwith instead
@@ -273,11 +273,10 @@ def runtests():
     # Unit in the Last Place, float utility
     # https://en.wikipedia.org/wiki/Unit_in_the_last_place
     with testset("ulp (unit in the last place; float utility)"):
-        eps = float_info.epsilon
-        test[ulp(1.0) == eps]
+        test[ulp(1.0) == float_info.epsilon]
         # test also at some base-2 exponent switch points
-        test[ulp(2.0) == 2 * eps]
-        test[ulp(0.5) == 0.5 * eps]
+        test[ulp(2.0) == 2 * float_info.epsilon]
+        test[ulp(0.5) == 0.5 * float_info.epsilon]
 
     with testset("slurp (drain a queue into a list)"):
         q = Queue()
@@ -319,7 +318,7 @@ def runtests():
             test_raises[ValueError, async_raise(t, KeyboardInterrupt)]  # thread no longer running
 
     with testset("callsite_filename"):
-        test["test_misc.py" in callsite_filename()]
+        test["test_misc.py" in the[callsite_filename()]]
 
     # Like issubclass, but if `cls` is not a class, swallow the `TypeError` and return `False`.
     with testset("safeissubclass"):

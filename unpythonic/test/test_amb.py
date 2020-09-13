@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, the  # noqa: F401
 from .fixtures import session, testset
 
 from ..amb import (forall, choice, insist, deny, ok, fail,
@@ -33,7 +33,7 @@ def runtests():
         m1 = MonadicList(1, 2)
         m2 = MonadicList(3, 4, 5)
         test[m1 == m1]
-        test[m2 != m1]
+        test[the[m2] != the[m1]]
 
         m1 = MonadicList(1, 2)
         m2 = MonadicList(3, 4)
@@ -47,7 +47,7 @@ def runtests():
 
         m1 = MonadicList(1, 2, 3)
         m2 = m1.copy()
-        test[m2 is not m1 and m2 == m1]
+        test[the[m2] is not the[m1] and m2 == m1]
 
         double = lambda x: 2 * x
         m = MonadicList(1, 2, 3)

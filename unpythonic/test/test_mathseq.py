@@ -292,9 +292,9 @@ def runtests():
 
         # a long arithmetic sequence where the start value and the diff are not exactly representable
         # in IEEE-754 double precision; the final value should be within an ULP of the true value
-        test[abs(last(s(0.01, 0.02, ..., 100)) - 100.0) <= ulp(100.0)]
-        test[abs(last(s(0.01, 0.02, ..., 1000)) - 1000.0) <= ulp(1000.0)]
-        test[abs(last(s(0.01, 0.02, ..., 10000)) - 10000.0) <= ulp(10000.0)]
+        test[abs(the[last(s(0.01, 0.02, ..., 100)) - 100.0]) <= the[ulp(100.0)]]
+        test[abs(the[last(s(0.01, 0.02, ..., 1000)) - 1000.0]) <= the[ulp(1000.0)]]
+        test[abs(the[last(s(0.01, 0.02, ..., 10000)) - 10000.0]) <= the[ulp(10000.0)]]
 
     with testset("error cases"):
         # invalid specifications

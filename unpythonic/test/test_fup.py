@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises  # noqa: F401
+from ..syntax import macros, test, test_raises, the  # noqa: F401
 from .fixtures import session, testset
 
 from itertools import repeat
@@ -23,7 +23,7 @@ def runtests():
         test[tup == (1, 2, 3, 4, 5)]
         test[out == (1, 10, 3, 10, 5)]
         test[type(out) is type(tup)]
-        test[fupdate(tup) == tup]  # no indices, no bindings --> copy
+        test[the[fupdate(tup)] == the[tup]]  # no indices, no bindings --> copy
 
     with testset("namedtuple"):
         A = namedtuple("A", "p q")
@@ -31,21 +31,21 @@ def runtests():
         out = fupdate(a, 0, 42)
         test[a == A(17, 23)]
         test[out == A(42, 23)]
-        test[type(out) is type(a)]
+        test[the[type(out)] is the[type(a)]]
 
     with testset("mutable mapping"):
         d1 = {'foo': 'bar', 'fruit': 'apple'}
         d2 = fupdate(d1, foo='tavern')
         test[sorted(d1.items()) == [('foo', 'bar'), ('fruit', 'apple')]]
         test[sorted(d2.items()) == [('foo', 'tavern'), ('fruit', 'apple')]]
-        test[type(d2) is type(d1)]
+        test[the[type(d2)] is the[type(d1)]]
 
     with testset("immutable mapping (unpythonic.collections.frozendict)"):
         d3 = frozendict({'a': 1, 'b': 2})
         d4 = fupdate(d3, a=23)
-        test[d4['a'] == 23 and d4['b'] == 2]
+        test[the[d4['a']] == 23 and the[d4['b']] == 2]
         test[d3['a'] == 1]
-        test[type(d4) is type(d3)]
+        test[the[type(d4)] is the[type(d3)]]
 
     with testset("negative index"):
         lst = [1, 2, 3]

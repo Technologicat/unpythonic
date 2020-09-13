@@ -1,6 +1,6 @@
 # -*- coding: utf-8; -*-
 
-from ..syntax import macros, test  # noqa: F401
+from ..syntax import macros, test, the  # noqa: F401
 from .fixtures import session, testset
 
 from typing import NoReturn
@@ -94,7 +94,7 @@ def runtests():
         def cosser(x):
             return cosser(cos(x))
         c = cosser(1)
-        test[c == cos(c)]  # 0.7390851332151607
+        test[the[c] == the[cos(c)]]  # 0.7390851332151607
 
         # General pattern to find a fixed point with this strategy:
         from functools import partial
@@ -103,7 +103,7 @@ def runtests():
             return iterate1_rec(f, f(x))
         cosser2 = partial(iterate1_rec, cos)
         f, c = cosser2(1)  # f ends up in the return value because it's in the args of iterate1_rec.
-        test[c == cos(c)]
+        test[the[c] == the[cos(c)]]
 
     with testset("multithreading"):
         def threadtest():
@@ -132,12 +132,12 @@ def runtests():
 
             # Test that all threads finished, and each thread got the return value NoReturn.
             results = slurp(comm)
-            test[len(results) == n]
-            test[sum(results) == n]
+            test[the[len(results)] == the[n]]
+            test[the[sum(results)] == the[n]]
 
             # Test that in each thread, both a and b were called exactly 3 times.
-            len_ok = 0
-            tid_ok = 0
+            n_len_ok = 0
+            n_tid_ok = 0
             n_chunks = 0
             for call_data in (a_calls, b_calls):
                 for chunk in chunked(3, sorted(call_data)):
@@ -145,14 +145,14 @@ def runtests():
                     n_chunks += 1
                     # there should always be a whole length-3 chunk (also during the final iteration).
                     if len(tpl) == 3:
-                        len_ok += 1
+                        n_len_ok += 1
                     # all thread ids recorded in a given chunk should be from the same thread,
                     # because we sorted them.
                     tid0 = tpl[0]
                     if all(tid == tid0 for tid in tpl):
-                        tid_ok += 1
-            test[len_ok == n_chunks]
-            test[tid_ok == n_chunks]
+                        n_tid_ok += 1
+            test[the[n_len_ok] == the[n_chunks]]
+            test[the[n_tid_ok] == the[n_chunks]]
 
         threadtest()
 

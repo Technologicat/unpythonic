@@ -14,7 +14,6 @@ from ..llist import (cons, car, cdr, nil, ll, llist,
 from ..fold import foldl, foldr
 
 def runtests():
-    # TODO: extend the automatic tests for the `unpythonic.llist` module
     with testset("cons, car, cdr"):
         c = cons(1, 2)
         test[car(c) == 1]
@@ -26,9 +25,9 @@ def runtests():
         with test_raises(TypeError, "cons cells should be immutable"):
             c.car = 3
 
-        test[c == c]
-        test[cons(1, 2) == cons(1, 2)]
-        test[cons(1, 2) != cons(2, 3)]
+        test[the[c == c]]
+        test[the[cons(1, 2) == cons(1, 2)]]
+        test[the[cons(1, 2) != cons(2, 3)]]
 
     with testset("ll"):
         test[ll(1, 2, 3) == cons(1, cons(2, cons(3, nil)))]
@@ -36,7 +35,7 @@ def runtests():
         # print(cons(cons(cons(nil, 3), 2), 1))  # improper list
 
         test[ll(1, 2, 3) == ll(1, 2, 3)]
-        test[ll(1, 2) != ll(1, 2, 3)]
+        test[the[ll(1, 2)] != the[ll(1, 2, 3)]]
 
         # cons structures are immutable (because cons cells are),
         # but new instances based on existing ones are ok.
@@ -84,8 +83,8 @@ def runtests():
 
     with testset("hashability"):
         # independently constructed instances with the same data should hash the same.
-        test[hash(cons(1, 2)) == hash(cons(1, 2))]
-        test[hash(ll(1, 2, 3)) == hash(ll(1, 2, 3))]
+        test[the[hash(cons(1, 2)) == hash(cons(1, 2))]]
+        test[the[hash(ll(1, 2, 3)) == hash(ll(1, 2, 3))]]
 
         s = set()
         s.add(cons(1, 2))
@@ -134,14 +133,14 @@ def runtests():
 
     with testset("sequence unpacking syntax"):
         left, right = cons(1, 2)
-        test[left == 1 and right == 2]
+        test[the[left] == 1 and the[right] == 2]
 
         a, b, c = ll(1, 2, 3)
-        test[a == 1 and b == 2 and c == 3]
+        test[the[a] == 1 and the[b] == 2 and the[c] == 3]
 
         # unpacking a binary tree
         a, b, c, d = BinaryTreeIterator(thebinarytree)
-        test[a == 1 and b == 2 and c == 3 and d == 4]
+        test[the[a] == 1 and the[b] == 2 and the[c] == 3 and the[d] == 4]
 
     with testset("lzip"):
         test[tuple(zip(ll(1, 2, 3), ll(4, 5, 6))) == ((1, 4), (2, 5), (3, 6))]
