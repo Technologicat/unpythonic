@@ -612,3 +612,5 @@ Another important source of inspiration was [tco](https://github.com/baruchel/tc
 ## Relevant reading
 
 Links to blog posts, online articles and papers on topics relevant in the context of `unpythonic` have been collected to [a separate document](doc/readings.md).
+
+If you like both FP and numerics, we have [some examples](unpythonic/test/test_fpnumerics.py) based on various internet sources.
