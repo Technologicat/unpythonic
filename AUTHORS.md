@@ -9,6 +9,8 @@ Dynamic assignment based on [StackOverflow answer by Jason Orendorff (2010)](htt
 
 Core idea of ``lispylet`` based on [StackOverflow answer by divs1210 (2017)](https://stackoverflow.com/a/44737147), used under the MIT license.
 
+The trampoline implementation of ``unpythonic.tco`` takes its remarkably clean and simple approach from ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py). Our main improvements are a cleaner syntax for the client code, and the addition of the FP looping constructs. Another important source of inspiration was [tco](https://github.com/baruchel/tco) by Thomas Baruchel, for thinking about the possibilities of TCO in Python.
+
 Core idea of ``view`` based on [StackOverflow answer by Mathieu Caroff (2018)](https://stackoverflow.com/a/53253136), used under the MIT license. Our additions include support for sequences with changing length, write support, iteration based on ``__iter__``, in-place reverse, and the abstract base classes.
 
 Recursion cycle breaker ``fix`` based on original idea and implementation by [Matthew Might](http://matt.might.net/articles/parsing-with-derivatives/) and [Per Vognsen](https://gist.github.com/pervognsen/8dafe21038f3b513693e) (the latter linked from the [Python implementation](https://gist.github.com/pervognsen/815b208b86066f6d7a00) of the Brzozowski-derivative based language recognizer). Matthew Might's original Racket code is under [The CRAPL](http://matt.might.net/articles/crapl/); the license for Per Vognsen's Python implementation is not specified, but the file is publicly linked from Matthew Might's blog post. Our version is a redesign with kwargs support, thread safety, and TCO support.
