@@ -1808,6 +1808,8 @@ To make testing/debugging macro code more convenient, the `the[]` mechanism auto
 
 **CAUTION**: The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``macropy.core.unparse``.
 
+**CAUTION**: The name of the `the[]` construct was inspired by Common Lisp, but the semantics are completely different. Common Lisp's `THE` is a return-type declaration (pythonistas would say *return-type annotation*), meant as a hint for the compiler to produce performance-optimized compiled code (see [chapter 32 of Peter Seibel's Practical Common Lisp](http://www.gigamonkeys.com/book/conclusion-whats-next.html)), whereas our `the[]` captures a value for test reporting. The only common factors are the name, and that neither construct changes the semantics of the marked code, much. In `unpythonic.test.fixtures`, the reason behind picking this name was that it doesn't change the flow of the source code as English that much, specifically to suggest, between the lines, that it doesn't change the semantics much. The reasoning behind CL's `THE` may be similar.
+
 #### Test sessions and testsets
 
 The `with session()` in the example session above is optional. The human-readable session name is also optional, used for display purposes only. The session serves two roles: it provides an exit point for `terminate`, and defines an implicit top-level `testset`.
