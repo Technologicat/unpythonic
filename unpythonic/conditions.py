@@ -175,7 +175,7 @@ def signal(condition):
     # This only works on Python 3.7 and later, because we need to create a traceback object in pure Python code.
     try:
         # In the result, omit equip_with_traceback() and signal().
-        condition = equip_with_traceback(condition, depth=2)
+        condition = equip_with_traceback(condition, stacklevel=2)
     except NotImplementedError:  # pragma: no cover
         pass  # well, we tried!
 

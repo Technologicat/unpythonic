@@ -349,10 +349,21 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
         if finallyf is not None:
             finallyf()
 
-def equip_with_traceback(exc, depth=0):  # Python 3.7+
+def equip_with_traceback(exc, stacklevel=1):  # Python 3.7+
     """Given an exception instance exc, equip it with a traceback.
 
-    `depth` is the starting depth for `sys._getframe`.
+    `stacklevel` is the starting depth below the top of the call stack,
+    to cull useless detail:
+      - `0` means the trace includes everything, also
+            `equip_with_traceback` itself,
+      - `1` means the trace includes everything up to the caller,
+      - And so on.
+
+    So typically, for direct use of this function `stacklevel` should
+    be `1` (so it excludes `equip_with_traceback` itself, but shows
+    all stack levels from your code), and for use in a utility function
+    that itself is called from your code, it should be `2` (so it excludes
+    the utility function, too).
 
     The return value is `exc`, with its traceback set to the produced
     traceback.
@@ -361,13 +372,12 @@ def equip_with_traceback(exc, depth=0):  # Python 3.7+
 
     When not supported, raises `NotImplementedError`.
 
-    This is useful in some special cases only, mainly when `raise` cannot be
-    used for some reason, and a manually created exception instance needs a
-    traceback. (E.g. in implementing the system for conditions and restarts.)
+    This is useful mainly in special cases, where `raise` cannot be used for
+    some reason, and a manually created exception instance needs a traceback.
+    (The `signal` function in the conditions-and-restarts system uses this.)
 
-    The `sys._getframe` function exists in CPython and in PyPy3,
-    but for another arbitrary Python implementation this is not
-    guaranteed.
+    **CAUTION**: The `sys._getframe` function exists in CPython and in PyPy3,
+    but for another arbitrary Python implementation this is not guaranteed.
 
     Based on solution by StackOverflow user Zbyl:
         https://stackoverflow.com/a/54653137
@@ -379,23 +389,37 @@ def equip_with_traceback(exc, depth=0):  # Python 3.7+
     """
     if not isinstance(exc, BaseException):
         raise TypeError("exc must be an exception instance; got {} with value '{}'".format(type(exc), exc))
+    if not isinstance(stacklevel, int):
+        raise TypeError("stacklevel must be int, got {} with value '{}'".format(type(stacklevel), stacklevel))
+    if stacklevel < 0:
+        raise ValueError("stacklevel must be >= 0, got {}".format(stacklevel))
 
     try:
         getframe = sys._getframe
     except AttributeError as err:  # pragma: no cover, both CPython and PyPy3 have sys._getframe.
         raise NotImplementedError("Need a Python interpreter which has `sys._getframe`") from err
 
-    tb = None
+    frames = []
+    depth = stacklevel
     while True:
-        # Starting from given depth, get all frames up to the root of the call stack.
         try:
-            frame = getframe(depth)
+            frames.append(getframe(depth))  # 0 = top of call stack
             depth += 1
-        except ValueError:
+        except ValueError:  # beyond the root level
             break
-    # Python 3.7+ allows creating types.TracebackType objects from Python code.
+
+    # Python 3.7+ allows creating `types.TracebackType` objects in Python code.
     try:
-        tb = TracebackType(tb, frame, frame.f_lasti, frame.f_lineno)
+        tracebacks = []
+        nxt = None  # tb_next should point toward the level where the exception occurred.
+        for frame in frames:  # walk from top of call stack toward the root
+            tb = TracebackType(nxt, frame, frame.f_lasti, frame.f_lineno)
+            tracebacks.append(tb)
+            nxt = tb
+        if tracebacks:
+            tb = tracebacks[-1]  # root level
+        else:
+            tb = None
     except TypeError as err:  # Python 3.6 or earlier
         raise NotImplementedError("Need Python 3.7 or later to create traceback objects") from err
     return exc.with_traceback(tb)  # Python 3.7+
