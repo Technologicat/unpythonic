@@ -87,6 +87,8 @@ def isnewscope(tree):
     return type(tree) in (Lambda, FunctionDef, AsyncFunctionDef, ClassDef, ListComp, SetComp, GeneratorExp, DictComp)
 
 # TODO: For generality, add a possibility for the callback to use stop()?
+# TODO: See if we could use MacroPy's @Scoped @Walker instead, to reduce code duplication.
+#       As of MacroPy 1.1.0b2, it doesn't seem to support `global` and `nonlocal`.
 @Walker
 def scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ctx, stop, **kw):
     """Walk and process a tree, keeping track of which names are in scope.
