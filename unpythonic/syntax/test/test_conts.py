@@ -2,12 +2,14 @@
 """Continuations (call/cc for Python)."""
 
 from ...syntax import macros, test, test_raises, error  # noqa: F401
-from ...test.fixtures import session, testset
+from ...test.fixtures import session, testset, returns_normally
 
-from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, curry  # noqa: F401, F811
+from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, curry, let  # noqa: F401, F811
 
 from ...ec import call_ec
 from ...fploop import looped
+from ...tco import trampolined, jump
+from ...fun import withself
 
 def runtests():
     with testset("basic usage"):
@@ -102,6 +104,33 @@ def runtests():
                 x, y = call_cc[f(a, b)]
                 return None or True and f(3, 4)
             test[j1(3, 4) == (6, 12)]
+
+    with testset("let in tail position"):
+        with continuations:
+            def j2(a, b):
+                x, y = call_cc[f(a, b)]
+                return let[((c, a),  # noqa: F821
+                            (d, b)) in f(c, d)]  # noqa: F821
+            test[j2(3, 4) == (6, 12)]
+
+    with testset("if-expression in tail position"):
+        with continuations:
+            def j3(a, b):
+                x, y = call_cc[f(a, b)]
+                return f(a, b) if True else None
+            test[j3(3, 4) == (6, 12)]
+
+            def j4(a, b):
+                x, y = call_cc[f(a, b)]
+                return None if False else f(a, b)
+            test[j4(3, 4) == (6, 12)]
+
+    with testset("integration with a lambda that has TCO"):
+        with continuations:
+            fact = trampolined(withself(lambda self, n, acc=1:
+                                        acc if n == 0 else jump(self, n - 1, n * acc)))
+            test[fact(5) == 120]
+        test[returns_normally(fact(5000))]  # no crash
 
     with testset("integration with @call_ec"):
         with continuations:
