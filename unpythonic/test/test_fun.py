@@ -188,7 +188,8 @@ def runtests():
         # To disable the error, use this trick to explicitly state you want to do so:
         with test("leftover args should be allowed with manually created surrounding context"):
             with dyn.let(curry_context=["whatever"]):  # any human-readable label is fine.
-                curry(double, 2, "foo") == (4, "foo")
+                # a `with test` can optionally return a value, which becomes the asserted expr.
+                return curry(double, 2, "foo") == (4, "foo")
 
     # Methods of builtin types have uninspectable arity up to Python 3.6.
     # Python 3.7 seems to fix this at least for `list`, and PyPy3 (7.3.0; Python 3.6.9)
