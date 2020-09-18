@@ -708,10 +708,10 @@ def slurp(queue):
 # that's enough to prevent accidental misuse.
 # OTOH, having no such mechanism is the simpler design.
 def async_raise(thread_obj, exception):
-    """Raise an exception inside an arbitrary active `threading.Thread`.
+    """Raise an exception in another thread.
 
     thread_obj: `threading.Thread` object
-        The target thread to inject the exception into.
+        The target thread to inject the exception into. Must be running.
     exception: ``Exception``
         The exception to be raised. As with regular `raise`, this may be
         an exception instance or an exception class object.
@@ -733,7 +733,7 @@ def async_raise(thread_obj, exception):
     anyway, unlike CPython's `ctypes.pythonapi`).
 
     **CAUTION**: This is **potentially dangerous**. If the async raise
-    operation fails, the interpreter is left in an inconsistent state.
+    operation fails, the interpreter may be left in an inconsistent state.
 
     **NOTE**: The term `async` here has nothing to do with `async`/`await`;
     instead, it refers to an asynchronous exception such as `KeyboardInterrupt`.
@@ -761,12 +761,12 @@ def async_raise(thread_obj, exception):
     point on the call stack. All the handler needs to do is to perform a regular
     `raise`, and the exception will propagate correctly.
 
-    REPL sessions running in other threads can't use this mechanism, because
-    in CPython, OS signal handlers only run in the main thread, and even in
-    PyPy3, there is no guarantee *which* thread gets the signal even if you use
-    `with __pypy__.thread.signals_enabled` to enable OS signal trapping in some
-    of your other threads. Only one thread (including the main thread, plus any
-    currently dynamically within a `signals_enabled`) will see the signal;
+    REPL sessions running in other threads can't use the standard mechanism,
+    because in CPython, OS signal handlers only run in the main thread, and even
+    in PyPy3, there is no guarantee *which* thread gets the signal even if you
+    use `with __pypy__.thread.signals_enabled` to enable OS signal trapping in
+    some of your other threads. Only one thread (including the main thread, plus
+    any currently dynamically within a `signals_enabled`) will see the signal;
     which one, is essentially random and not even reproducible.)
 
     See also:
