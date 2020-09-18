@@ -5,9 +5,9 @@ from functools import partial
 from copy import deepcopy
 
 from ast import (Call, Name, Lambda, FunctionDef,
-                 If, Num, NameConstant, For, While, With, Try, ClassDef,
-                 withitem)
-from .astcompat import AsyncFunctionDef, AsyncFor, AsyncWith
+                 If, Num, NameConstant, With, withitem,
+                 stmt, NodeTransformer)
+from .astcompat import AsyncFunctionDef
 
 from macropy.core.walkers import Walker
 
@@ -374,34 +374,26 @@ def transform_statements(f, body):
     original lists inside the ASTs containing the statements are in-place
     replaced with the transformed ones.
 
-    The return value is the transformed ``body``. It is always a ``list`` of ASTs.
+    The return value is the transformed ``body``.
     """
-    def rec(tree):
-        # TODO: brittle, may need changes as the Python AST evolves. Better ways to do this?
-        #
-        # TODO: In the __mro__ of AST nodes, there's ast.expr for expressions
-        # TODO: and ast.stmt for statements. Could we isinstance() on that,
-        # TODO: dir() the attributes, and recurse on anything that contains
-        # TODO: further statements?
-        if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef, With, AsyncWith):
-            tree.body = rec(tree.body)
-        elif type(tree) in (If, For, While, AsyncFor):
-            tree.body = rec(tree.body)
-            tree.orelse = rec(tree.orelse)
-        elif type(tree) is Try:
-            tree.body = rec(tree.body)
-            tree.orelse = rec(tree.orelse)
-            tree.finalbody = rec(tree.finalbody)
-            for handler in tree.handlers:
-                handler.body = rec(handler.body)
-        elif type(tree) is list:  # multiple-statement body in AST
-            return [output_stmt for input_stmt in tree for output_stmt in rec(input_stmt)]
-        # A single statement. Transform it.
-        replacement = f(tree)
-        if not isinstance(replacement, list):
-            raise TypeError("`f` must return a list of statements, got {} with value '{}'".format(type(replacement), replacement))  # pragma: no cover
-        return replacement
-    return rec(body)
+    class StatementTransformer(NodeTransformer):
+        def visit(self, node):
+            if isinstance(node, list):  # multiple-statement body in AST
+                nodes = node
+                replacement = [self.visit(x) for x in nodes]
+                return [x for x in replacement if x is not None]
+            self.generic_visit(node)  # recurse into children
+            if isinstance(node, stmt):
+                replacement = f(node)
+                if not isinstance(replacement, list):
+                    raise TypeError("`f` must return a list of statements, got {} with value {}".format(type(replacement), repr(replacement)))  # pragma: no cover
+                if len(replacement) == 0:
+                    return None  # to delete the node, `NodeTransformer` expects `None`
+                elif len(replacement) == 1:
+                    return replacement[0]
+                return replacement
+            return node
+    return StatementTransformer().visit(body)
 
 def splice(tree, rep, tag):
     """Splice in a tree into another tree.
