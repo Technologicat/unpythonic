@@ -667,6 +667,7 @@ class CountingIterator:
         self.count += 1
         return x
 
+# TODO: move to a new module unpythonic.numutil in v0.15.0.
 def ulp(x):  # Unit in the Last Place
     """Given a float x, return the unit in the last place (ULP).
 
