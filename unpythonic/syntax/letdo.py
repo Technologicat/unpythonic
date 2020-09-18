@@ -138,19 +138,23 @@ def transform_name(tree, rhsnames, envname):
     # names_in_scope: according to Python's standard binding rules, see scopeanalyzer.py.
     # Variables defined in let envs are thus not listed in `names_in_scope`.
     def t(tree, names_in_scope):
-        # `e.anything` is already ok, but `x.foo` (Attribute that contains a Name "x")
-        # should transform to `e.x.foo`.
-        if type(tree) is Attribute and type(tree.value) is Name and tree.value.id == envname:
-            pass
-        # Attributes (and Subscripts) work, because we are called again for the `value`
-        # part of the `Attribute` (or `Subscript`) node, which then gets transformed
-        # if it's a `Name` matching our rules.
+        # This transformation is deceptively simple, hence requires some comment:
         #
-        # Nested lets work, because once `x` --> `e.x`, the final "x" is no
-        # longer a `Name`, but an attr="x" of an Attribute node, and the "e"
-        # (of the inner, already expanded let) is in `names_in_scope` (in the
-        # relevant part of the body), because it is a parameter to a lambda.
-        elif type(tree) is Name and tree.id in rhsnames and tree.id not in names_in_scope:
+        # - Attributes (and Subscripts) work, because we are called again for
+        #   the `value` part of the `Attribute` (or `Subscript`) node, which
+        #   then gets transformed if it's a `Name` matching our rules.
+        #
+        # - Once we have transformed `x` --> `e.x`, the final "x" is no longer
+        #   a `Name`, but an attr="x" of an `Attribute` node. Our `e`, on the
+        #   other hand, is in `names_in_scope` (in the relevant part of
+        #   bindings/body), because it is a parameter to a lambda. Thus, because
+        #   `e` is a lexical variable that is in scope, it gets left alone.
+        #
+        # - The same consideration applies to nested lets; an inner (already
+        #   expanded) let's `e` will be in scope (because parameter to a lambda)
+        #   in those parts of code where it is used, so an outer let will
+        #   leave it alone.
+        if type(tree) is Name and tree.id in rhsnames and tree.id not in names_in_scope:
             hasctx = hasattr(tree, "ctx")  # macro-created nodes might not have a ctx.
             if hasctx and type(tree.ctx) is not Load:  # let variables are rebound using `<<`, not `=`.
                 return tree
