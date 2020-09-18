@@ -523,8 +523,18 @@ def catch_signals(state):
     dynamically innermost) one wins.
     """
     _threadlocals.catch_uncaught_signals.appendleft(state)
-    yield
-    _threadlocals.catch_uncaught_signals.popleft()
+    try:
+        # Regarding exceptions in generators in general, there's a pitfall to be
+        # aware of: if the `finally` clause of a `try`/`finally` contains a
+        # `yield`, the generator must jump through a hoop to work as expected:
+        #     https://amir.rachum.com/blog/2017/03/03/generator-cleanup/
+        #
+        # In the `try` part it's always safe to `yield`, so in this particular
+        # instance this doesn't concern us. In the `finally` part it's *possible*
+        # to `yield`, but then `GeneratorExit` requires special consideration.
+        yield
+    finally:
+        _threadlocals.catch_uncaught_signals.popleft()
 
 _threadlocals.nesting_level = 0
 @contextmanager
