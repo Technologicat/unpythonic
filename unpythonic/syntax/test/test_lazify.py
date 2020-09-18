@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Automatic lazy evaluation of function arguments."""
 
-from ...syntax import macros, test, test_raises, error  # noqa: F401
+from ...syntax import macros, test, test_raises, error, the  # noqa: F401
 from ...test.fixtures import session, testset
 
 from macropy.quick_lambda import macros, lazy  # noqa: F811, F401
@@ -35,41 +35,41 @@ def runtests():
     with testset("lazyrec (lazify a container literal, recursing into sub-containers)"):
         # supported container types: tuple, list, set, frozenset, dict, frozendict
         tpl = lazyrec[(2 + 3, 2 * 21, 1 / 0)]
-        test[all(type(x) is Lazy for x in tpl)]
+        test[all(the[type(x)] is Lazy for x in tpl)]
 
         lst = lazyrec[[2 + 3, 2 * 21, 1 / 0]]
-        test[all(type(x) is Lazy for x in lst)]
+        test[all(the[type(x)] is Lazy for x in lst)]
 
         s = lazyrec[{2 + 3, 2 * 21, 1 / 0}]
-        test[all(type(x) is Lazy for x in s)]
+        test[all(the[type(x)] is Lazy for x in s)]
 
         fs = lazyrec[frozenset({2 + 3, 2 * 21, 1 / 0})]
-        test[all(type(x) is Lazy for x in fs)]
+        test[all(the[type(x)] is Lazy for x in fs)]
 
         dic = lazyrec[{'a': 2 + 3, 'b': 2 * 21, 'c': 1 / 0}]
-        test[all(type(v) is Lazy for k, v in dic.items())]
+        test[all(the[type(v)] is Lazy for k, v in dic.items())]
 
         fdic = lazyrec[frozendict({'a': 2 + 3, 'b': 2 * 21, 'c': 1 / 0})]
-        test[all(type(v) is Lazy for k, v in fdic.items())]
+        test[all(the[type(v)] is Lazy for k, v in fdic.items())]
 
         # Works also when using the constructor call syntax for the container.
         tpl = lazyrec[tuple((2 + 3, 2 * 21, 1 / 0))]
-        test[all(type(x) is Lazy for x in tpl)]
+        test[all(the[type(x)] is Lazy for x in tpl)]
 
         lst = lazyrec[list((2 + 3, 2 * 21, 1 / 0))]
-        test[all(type(x) is Lazy for x in lst)]
+        test[all(the[type(x)] is Lazy for x in lst)]
 
         s = lazyrec[set((2 + 3, 2 * 21, 1 / 0))]
-        test[all(type(x) is Lazy for x in s)]
+        test[all(the[type(x)] is Lazy for x in s)]
 
         dic = lazyrec[dict(a=2 + 3, b=2 * 21, c=1 / 0)]
-        test[all(type(v) is Lazy for k, v in dic.items())]
+        test[all(the[type(v)] is Lazy for k, v in dic.items())]
 
         dic = lazyrec[dict(a=2 + 3, b=2 * 21, **{'c': 1 / 0})]
-        test[all(type(v) is Lazy for k, v in dic.items())]
+        test[all(the[type(v)] is Lazy for k, v in dic.items())]
 
         llst = lazyrec[ll(*(1 / 0, 2 / 0, 3 / 0))]
-        test[all(type(x) is Lazy for x in llst)]
+        test[all(the[type(x)] is Lazy for x in llst)]
 
         # Works also when a constructor call is nested inside a constructor call being lazified.
         llst = lazyrec[ll(2 + 3, ll(2 * 21))]
@@ -89,9 +89,9 @@ def runtests():
         # force() recurses into containers, forcing any promises found therein
         promises = (lazy[2 + 3], lazy[2 * 21])
         test[type(force1(promises)) is tuple]
-        test[all(type(x) is Lazy for x in force1(promises))]
+        test[all(the[type(x)] is Lazy for x in force1(promises))]
         test[type(force(promises)) is tuple]
-        test[all(type(x) is int for x in force(promises))]
+        test[all(the[type(x)] is int for x in force(promises))]
 
         # so force() is the inverse of lazyrec[]
         tpl = lazyrec[(2 + 3, 2 * 21)]
@@ -106,7 +106,7 @@ def runtests():
 
         # recursion into nested containers
         tpl = lazyrec[((2 + 3, 2 * 21, (1 / 0, 2 / 1)), (4 * 5, 6 * 7))]
-        test[all(type(x) is Lazy for x in flatten(tpl))]
+        test[all(the[type(x)] is Lazy for x in flatten(tpl))]
 
         tpl = lazyrec[((1 + 2, 3 + 4), (5 + 6, 7 + 8))]
         test[force(tpl) == ((3, 7), (11, 15))]
@@ -295,7 +295,7 @@ def runtests():
 
             lst = lazyrec[[[1, 2 / 0], 3 / 0]]
             lst[0].append(lazy[4])
-            test[lst[0][0] == 1 and lst[0][2] == 4]
+            test[the[lst[0][0]] == 1 and the[lst[0][2]] == 4]
 
     with testset("passthrough of lazy args"):
         with lazify:
