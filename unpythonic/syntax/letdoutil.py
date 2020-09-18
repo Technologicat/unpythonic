@@ -237,7 +237,7 @@ class UnexpandedEnvAssignView:
         return self._tree.left.id
     def _setname(self, newname):
         if not isinstance(newname, str):
-            raise TypeError("expected str for new name, got '{}' with value '{}'".format(type(newname), newname))
+            raise TypeError("expected str for new name, got {} with value {}".format(type(newname), repr(newname)))
         self._tree.left.id = newname
     name = property(fget=_getname, fset=_setname, doc="The name of the assigned var, as an str. Writable.")
 

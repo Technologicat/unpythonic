@@ -151,7 +151,7 @@ class _Dyn(Singleton):
                 return scope
         if name in _global_dynvars:  # default value from make_dynvar
             return _global_dynvars
-        raise AttributeError("dynamic variable '{:s}' is not defined".format(name))
+        raise AttributeError("dynamic variable {} is not defined".format(repr(name)))
 
     def __getattr__(self, name):
         """Read the value of a dynamic binding."""

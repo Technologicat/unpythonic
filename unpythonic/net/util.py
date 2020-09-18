@@ -186,7 +186,7 @@ def recvall(n, sock):
 def netstringify(data):
     """Return a `bytes` object of `data` (also `bytes`), converted into a netstring."""
     if not isinstance(data, bytes):
-        raise TypeError("Data must be bytes; got {} with value '{}'".format(type(data), data))
+        raise TypeError("Data must be bytes; got {} with value {}".format(type(data), repr(data)))
     n = len(data)
     buf = BytesIO()
     header = "{}:".format(n)

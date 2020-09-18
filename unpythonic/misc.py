@@ -388,11 +388,11 @@ def equip_with_traceback(exc, stacklevel=1):  # Python 3.7+
         https://docs.python.org/3/library/sys.html#sys._getframe
     """
     if not isinstance(exc, BaseException):
-        raise TypeError("exc must be an exception instance; got {} with value '{}'".format(type(exc), exc))
+        raise TypeError("exc must be an exception instance; got {} with value {}".format(type(exc), repr(exc)))
     if not isinstance(stacklevel, int):
-        raise TypeError("stacklevel must be int, got {} with value '{}'".format(type(stacklevel), stacklevel))
+        raise TypeError("stacklevel must be int, got {} with value {}".format(type(stacklevel), repr(stacklevel)))
     if stacklevel < 0:
-        raise ValueError("stacklevel must be >= 0, got {}".format(stacklevel))
+        raise ValueError("stacklevel must be >= 0, got {}".format(repr(stacklevel)))
 
     try:
         getframe = sys._getframe

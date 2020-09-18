@@ -149,7 +149,7 @@ def forall(*lines):
         else:
             name, body = None, item
         if name and not name.isidentifier():
-            raise ValueError("name must be valid identifier, got '{}'".format(name))
+            raise ValueError("name must be valid identifier, got {}".format(repr(name)))
         bodys.append(body)
 
         freevars = names.copy()  # names from the surrounding scopes
@@ -303,7 +303,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
     def __add__(self, other):
         """Concatenation of MonadicList, for convenience."""
         if not isinstance(other, MonadicList):
-            raise TypeError("Expected a monadic list, got {} with value '{}'".format(type(other), other))
+            raise TypeError("Expected a monadic list, got {} with value {}".format(type(other), repr(other)))
         cls = self.__class__
         return cls.from_iterable(self.x + other.x)
 

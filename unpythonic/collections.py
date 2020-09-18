@@ -304,7 +304,7 @@ def unbox(b):
     If `b` is not a `box` (or `ThreadLocalBox` or `Some`), raises `TypeError`.
     """
     if not isinstance(b, (box, Some)):
-        raise TypeError("Expected box, got {} with value '{}'".format(type(b), b))
+        raise TypeError("Expected box, got {} with value {}".format(type(b), repr(b)))
     return b.get()
 
 class Shim:
@@ -353,7 +353,7 @@ class Shim:
     """
     def __init__(self, thebox, fallback=None):
         if not isinstance(thebox, box):
-            raise TypeError("Expected box, got {} with value '{}'".format(type(thebox), thebox))
+            raise TypeError("Expected box, got {} with value {}".format(type(thebox), repr(thebox)))
         self._shim_box = thebox
         self._shim_fallback = fallback
     def __getattr__(self, k):
@@ -643,7 +643,7 @@ class roview(SequenceView, _StrReprEqMixin):
                 return ctor(self.seq, k)
             return ctor(self, k)
         elif isinstance(k, tuple):
-            raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
+            raise TypeError("multidimensional subscripting not supported; got {}".format(repr(k)))
         else:
             data, r = self._update_cache()
             n = len(r)
@@ -709,7 +709,7 @@ class view(roview, MutableSequenceView):
             for j, item in zip(r[k], vs):
                 data[j] = item
         elif isinstance(k, tuple):
-            raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
+            raise TypeError("multidimensional subscripting not supported; got {}".format(repr(k)))
         else:
             n = len(r)
             if k >= n or k < -n:
@@ -767,7 +767,7 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
             ctor = tuple if hasattr(cls, "_make") else cls  # slice of namedtuple -> tuple
             return ctor(self._getone(j) for j in range(n)[k])
         elif isinstance(k, tuple):
-            raise TypeError("multidimensional subscripting not supported; got '{}'".format(k))
+            raise TypeError("multidimensional subscripting not supported; got {}".format(repr(k)))
         else:
             if k >= n or k < -n:
                 raise IndexError("ShadowedSequence index out of range")

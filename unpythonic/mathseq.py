@@ -912,7 +912,7 @@ def diagonal_reduce(a, b, *, combine, reduce, require="any"):
     contribute to it in the infinite case) cannot be formed from length-2 inputs.
     """
     if not all(hasattr(x, "__iter__") for x in (a, b)):
-        raise TypeError("Expected two iterables, got '{}', '{}'".format(type(a), type(b)))
+        raise TypeError("Expected two iterables, got {}, {}".format(type(a), type(b)))
     if require not in ("all", "any"):
         raise ValueError("require must be 'all' or 'any'; got '{}'".format(require))
     ga = imemoize(a)

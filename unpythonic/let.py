@@ -248,7 +248,7 @@ def _let(mode, body, **bindings):
         if k in env:
             # Can't happen when used via the public API, because Python itself
             # blocks passing the same argument by name twice.
-            raise AttributeError("Cannot rebind the same name '{}' in a {} initializer list".format(k, mode))  # pragma: no cover
+            raise AttributeError("Cannot rebind the same name {} in a {} initializer list".format(repr(k), mode))  # pragma: no cover
         if mode == "letrec" and callable(v):
             try:
                 if not arity_includes(v, 1):
@@ -261,7 +261,7 @@ def _let(mode, body, **bindings):
     env.finalize()
     if body:
         if not callable(body):
-            raise TypeError("Expected callable body, got '{}' with value '{}'".format(type(body), body))
+            raise TypeError("Expected callable body, got {} with value {}".format(type(body), repr(body)))
         try:
             if not arity_includes(body, 1):
                 raise TypeError("Arity mismatch; body must allow arity 1, to take in the environment.")

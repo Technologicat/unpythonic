@@ -256,7 +256,7 @@ def trampolined(function):
                 if isinstance(v, _jump):
                     f = v.target
                     if not callable(f):  # protect against jump() to inert data from call_ec or similar
-                        raise RuntimeError("Cannot jump into a non-callable value '{}'".format(f))
+                        raise RuntimeError("Cannot jump into a non-callable value {}".format(repr(f)))
                     args = v.args
                     kwargs = v.kwargs
                     v._claimed = True
@@ -290,7 +290,7 @@ def trampolined(function):
                 if isinstance(v, _jump):
                     f = v.target
                     if not callable(f):
-                        raise RuntimeError("Cannot jump into a non-callable value '{}'".format(f))
+                        raise RuntimeError("Cannot jump into a non-callable value {}".format(repr(f)))
                     args = v.args
                     kwargs = v.kwargs
                     v._claimed = True

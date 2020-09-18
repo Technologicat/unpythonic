@@ -25,7 +25,7 @@ def runtests():
         def collatz(n):
             # fail-fast sanity check
             if not isinstance(n, int):  # pragma: no cover
-                raise TypeError("Expected integer n, got {} with value '{}'".format(type(n), n))
+                raise TypeError("Expected integer n, got {} with value {}".format(type(n), repr(n)))
             if n < 1:  # pragma: no cover
                 raise ValueError("n must be >= 1, got {}".format(n))
             def collatz_gen(n):

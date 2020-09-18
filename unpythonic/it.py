@@ -628,16 +628,16 @@ def partition_int(n, lower=1, upper=None):
     """
     # sanity check the preconditions, fail-fast
     if not isinstance(n, int):
-        raise TypeError('n must be integer; got {:s}'.format(str(type(n))))
+        raise TypeError('n must be integer; got {} with value {}'.format(type(n), repr(n)))
     if not isinstance(lower, int):
-        raise TypeError('lower must be integer; got {:s}'.format(str(type(lower))))
+        raise TypeError('lower must be integer; got {} with value {}'.format(type(lower), repr(lower)))
     if upper is not None and not isinstance(upper, int):
-        raise TypeError('upper must be integer; got {:s}'.format(str(type(upper))))
+        raise TypeError('upper must be integer; got {} with value {}'.format(type(upper), repr(lower)))
     upper = upper if upper is not None else n
     if n < 1:
-        raise ValueError('n must be positive; got {:d}'.format(n))
+        raise ValueError('n must be positive; got {}'.format(n))
     if lower < 1 or upper < 1 or lower > n or upper > n or lower > upper:
-        raise ValueError('it must hold that 1 <= lower <= upper <= n; got lower={:d}, upper={:d}'.format(lower, upper))
+        raise ValueError('it must hold that 1 <= lower <= upper <= n; got lower={}, upper={}'.format(lower, upper))
 
     def _partition(n):
         for k in range(min(n, upper), lower - 1, -1):

@@ -227,7 +227,7 @@ def _let(bindings, body, *, env=None, mode="let"):
         env.finalize()
         if body:
             if not callable(body):
-                raise TypeError("Expected callable body, got '{}' with value '{}'".format(type(body), body))
+                raise TypeError("Expected callable body, got {} with value {}".format(type(body), repr(body)))
             try:
                 if not arity_includes(body, 1):
                     raise TypeError("Arity mismatch; body must allow arity 1, to take in the environment.")
@@ -238,7 +238,7 @@ def _let(bindings, body, *, env=None, mode="let"):
 
     (k, v), *more = bindings
     if k in env:
-        raise AttributeError("Cannot rebind the same name '{}' in a {} initializer list".format(k, mode))
+        raise AttributeError("Cannot rebind the same name {} in a {} initializer list".format(repr(k), mode))
     if mode == "letrec" and callable(v):
         try:
             if not arity_includes(v, 1):

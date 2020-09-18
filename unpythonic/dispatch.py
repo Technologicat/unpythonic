@@ -241,7 +241,7 @@ def generic(f):
                 first_param_name = name_of_1st_positional_parameter(f)
                 if first_param_name in self_parameter_names:
                     if len(args) < 1:  # pragma: no cover, shouldn't happen.
-                        raise TypeError("MRO lookup failed: no value provided for self-like parameter '{}' when calling generic-function OOP method {}".format(first_param_name, fullname))
+                        raise TypeError("MRO lookup failed: no value provided for self-like parameter {} when calling generic-function OOP method {}".format(repr(first_param_name), fullname))
                     first_arg_value = args[0]
                     dynamic_instance = first_arg_value  # self/cls
                     theclass = None

@@ -173,7 +173,7 @@ def signal(condition, *, cause=None):
                 return exc()  # instantiate with no args, like `raise` does
         except TypeError:  # "issubclass() arg 1 must be a class"
             pass
-        error(ControlError("Only exceptions and subclasses of Exception can {}; got {} with value '{}'.".format(err_reason, type(condition), condition)))
+        error(ControlError("Only exceptions and subclasses of Exception can {}; got {} with value {}.".format(err_reason, type(condition), repr(condition))))
 
     condition = canonize(condition, "be signaled")
     cause = canonize(cause, "act as the cause of another signal")
@@ -225,11 +225,11 @@ def invoke(name_or_restart, *args, **kwargs):
     if isinstance(name_or_restart, str):
         restart = find_restart(name_or_restart)
         if not restart:
-            error(ControlError("No such restart: '{}'; available restarts: {}".format(name_or_restart, available_restarts())))
+            error(ControlError("No such restart: {}; available restarts: {}".format(repr(name_or_restart), available_restarts())))
     elif isinstance(name_or_restart, BoundRestart):
         restart = name_or_restart
     else:
-        error(TypeError("Expected str or a return value of find_restart, got {} with value '{}'".format(type(name_or_restart), name_or_restart)))
+        error(TypeError("Expected str or a return value of find_restart, got {} with value {}".format(type(name_or_restart), repr(name_or_restart))))
     # Found it - now we are guaranteed to unwind only up to the matching "with restarts".
     raise InvokeRestart(restart, *args, **kwargs)
 

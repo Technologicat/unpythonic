@@ -90,7 +90,7 @@ def colorize(s, *colors):
         if isinstance(c, tuple):
             return "".join(get_ansi_color_sequence(elt) for elt in c)
         if not isinstance(c, TC):
-            raise TypeError("Expected a TC instance, got {} with value '{}'".format(type(c), c))  # pragma: no cover
+            raise TypeError("Expected a TC instance, got {} with value {}".format(type(c), repr(c)))  # pragma: no cover
         return c.value
     return "{}{}{}".format(get_ansi_color_sequence(colors),
                            s,
