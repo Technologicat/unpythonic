@@ -503,7 +503,7 @@ def returns_normally(expr):
     return True
 
 _threadlocals = threading.local()
-_threadlocals.catch_uncaught_signals = deque([True])  # on by default
+_threadlocals.catch_uncaught_signals = deque([True])  # on by default  # TODO: init for all threads
 @contextmanager
 def catch_signals(state):
     """Context manager.
