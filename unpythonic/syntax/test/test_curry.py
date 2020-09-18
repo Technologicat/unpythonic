@@ -7,7 +7,7 @@ from ...test.fixtures import session, testset
 from ...syntax import macros, curry  # noqa: F401, F811
 
 # Not really overriding previous `curry`; that was a macro, this is a run-time function.
-from ...fun import composerc as compose, curry  # noqa: F811
+from ...fun import composerc as compose, curry, memoize  # noqa: F811
 from ...fold import foldr
 from ...llist import cons, nil, ll
 from ...collections import frozendict
@@ -58,6 +58,20 @@ def runtests():
 
         stuffinto(lst)(5)
         test[lst == [1, 2, 3, 4, 5]]
+
+    # When other decorators, known to `unpythonic.regutil.all_decorators`,
+    # are present, the `curry` is inserted in the correct position.
+    # (Here we just test this computes what is expected, and doesn't crash.)
+    #
+    # TODO: curry is currently in the wrong position w.r.t. memoize.
+    # TODO: It should be on the outside to handle the args. How does this
+    # TODO: affect the ordering of the other decorators?
+    with testset("inserting @curry when other decorators present"):
+        with curry:
+            @memoize
+            def add2(a, b):
+                return a + b
+            test[add2(17)(23) == 40]
 
     # should not insert an extra @curry even if we curry manually
     # (convenience, for with-currying existing code)

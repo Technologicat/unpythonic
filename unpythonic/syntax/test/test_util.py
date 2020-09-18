@@ -114,14 +114,17 @@ def runtests():
 
         # find correct insertion index of a known decorator
         with q as sdi_testdata1:
-            @memoize  # noqa: F821  # pragma: no cover
+            # This set of decorators makes no sense, but we want to exercise
+            # the different branches of the analysis code.
             @curry  # noqa: F821  # pragma: no cover
+            @memoize  # noqa: F821  # pragma: no cover
+            @call  # noqa: F821  # pragma: no cover
             def purespicy(a, b, c):
                 pass  # pragma: no cover
         test[suggest_decorator_index("artdeco", sdi_testdata1[0].decorator_list) is None]  # unknown decorator
         test[suggest_decorator_index("namelambda", sdi_testdata1[0].decorator_list) == 0]  # before any of those already specified
-        test[suggest_decorator_index("trampolined", sdi_testdata1[0].decorator_list) == 1]  # in the middle of those already specified
-        test[suggest_decorator_index("passthrough_lazy_args", sdi_testdata1[0].decorator_list) == 2]  # after all of those already specified
+        test[suggest_decorator_index("trampolined", sdi_testdata1[0].decorator_list) == 2]  # in the middle of those already specified
+        test[suggest_decorator_index("passthrough_lazy_args", sdi_testdata1[0].decorator_list) == 3]  # after all of those already specified
 
         with q as sdi_testdata2:
             @artdeco  # noqa: F821  # pragma: no cover
@@ -163,7 +166,7 @@ def runtests():
             sort_lambda_decorators(testdata)
             decos, _ = destructure_decorated_lambda(testdata)
             # correct ordering according to unpythonic.regutil.decorator_registry
-            test[[node.func.id for node in decos] == ["memoize", "trampolined", "curry"]]
+            test[[node.func.id for node in decos] == ["curry", "memoize", "trampolined"]]
         # input ordering correct, no effect
         test_sort_lambda_decorators(q[memoize(trampolined(curry(lambda: 42)))])  # noqa: F821
         # input ordering wrong, let the sorter fix it

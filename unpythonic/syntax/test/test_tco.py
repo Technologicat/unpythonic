@@ -125,7 +125,7 @@ def runtests():
         def testcurrycombo():
             with tco:
                 # Currying here makes no sense, but test that it expands correctly.
-                # We should get trampolined(call_ec(curry(...))), which produces the desired result.
+                # We should get trampolined(curry(call_ec(...))), which produces the desired result.
                 test[call_ec(curry(lambda ec: ec(42))) == 42]
         testcurrycombo()
         # This version auto-inserts curry after the inner macros have expanded.

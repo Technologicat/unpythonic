@@ -86,7 +86,7 @@ def _currycall(f, *args, **kwargs):
     """
     return curry(f, *args, _curry_force_call=True, _curry_allow_uninspectable=True, **kwargs)
 
-@register_decorator(priority=90)
+@register_decorator(priority=8)
 @passthrough_lazy_args
 def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, **kwargs):
     """Decorator: curry the function f.
@@ -189,6 +189,9 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
     the positional arity.
     """
     f = force(f)  # lazify support: we need the value of f
+    # trivial case first: interaction with call_ec and other replace-def-with-value decorators
+    if not callable(f):
+        return f
     # trivial case first: prevent stacking curried wrappers
     if iscurried(f):
         if args or kwargs or _curry_force_call:

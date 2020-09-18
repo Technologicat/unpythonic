@@ -174,7 +174,7 @@ def runtests():
             with continuations:
                 from ...fun import curry  # TODO: can't rename the import, unpythonic.syntax.util.sort_lambda_decorators won't detect it
                 # Currying here makes no sense, but we test that it expands correctly.
-                # We should get trampolined(call_ec(curry(...))), which produces the desired result.
+                # We should get trampolined(curry(call_ec(...))), which produces the desired result.
                 test[call_ec(curry(lambda ec: ec(42))) == 42]
         testcurrycombo()
         # This version auto-inserts curry after the inner macros have expanded.
