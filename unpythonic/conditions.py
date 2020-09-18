@@ -86,8 +86,7 @@ class ControlError(Exception):
     when no handler handles the signal.
     """
 
-# TODO: now that signals have tracebacks (in Python 3.7+), "signal from" (like "raise from") would be nice.
-def signal(condition):
+def signal(condition, *, cause=None):
     """Signal a condition.
 
     Signaling a condition works similarly to raising an exception (pass an
@@ -119,6 +118,11 @@ def signal(condition):
     If you want to error out on unhandled conditions, see `error`, which is
     otherwise the same as `signal`, except it raises if `signal` would have
     returned normally.
+
+    The optional `cause` argument is as in `unpythonic.misc.raisef`.
+    In other words, if we pretend for a moment that `signal` is a Python
+    keyword, it essentially performs a `signal ... from ...`. The default
+    `cause=None` performs a plain `signal ...`.
 
     **Notes**
 
@@ -159,7 +163,9 @@ def signal(condition):
     #   special handling for the "class raised" case.
     #     https://docs.python.org/3/reference/simple_stmts.html#the-raise-statement
     #     https://stackoverflow.com/questions/19768515/is-there-a-difference-between-raising-exception-class-and-exception-instance/19768732
-    def canonize(exc):
+    def canonize(exc, err_reason):
+        if exc is None:
+            return None
         if isinstance(exc, BaseException):  # "signal(SomeError())"
             return exc
         try:
@@ -167,9 +173,11 @@ def signal(condition):
                 return exc()  # instantiate with no args, like `raise` does
         except TypeError:  # "issubclass() arg 1 must be a class"
             pass
-        error(ControlError("Only exceptions and subclasses of Exception can be signaled; got {} with value '{}'.".format(type(condition), condition)))
+        error(ControlError("Only exceptions and subclasses of Exception can {}; got {} with value '{}'.".format(err_reason, type(condition), condition)))
 
-    condition = canonize(condition)
+    condition = canonize(condition, "be signaled")
+    cause = canonize(cause, "act as the cause of another signal")
+    condition.__cause__ = cause
 
     # Embed a stack trace in the signal, like Python does for raised exceptions.
     # This only works on Python 3.7 and later, because we need to create a traceback object in pure Python code.
@@ -666,8 +674,9 @@ def with_restarts(**bindings):
     return call_with_restarts
 
 # Common Lisp standard error handling protocols, building on the `signal` function.
+# Pythonified to add the `cause` argument.
 
-def error(condition):
+def error(condition, *, cause=None):
     """Like `signal`, but raise `ControlError` if the condition is not handled.
 
     Note **raise**, not **signal**. Keep in mind the original Common Lisp
@@ -678,17 +687,23 @@ def error(condition):
 
     Note *handled* means that a handler must actually invoke a restart; a
     condition does not count as handled simply because a handler was triggered.
+
+    The optional `cause` argument is as in `unpythonic.misc.raisef`.
+    In other words, if we pretend for a moment that `error` is a Python
+    keyword, it essentially performs a `error ... from ...`. The default
+    `cause=None` performs a plain `error ...`.
     """
-    signal(condition)
+    signal(condition, cause=cause)
     # TODO: If we want to support the debugger at some point in the future,
     # TODO: this is the appropriate point to ask the user what to do,
     # TODO: before the call stack unwinds.
     #
     # TODO: Do we want to give one last chance to handle the ControlError?
     # TODO: And do we want to raise ControlError, or the original condition?
+    condition.__cause__ = cause  # chain the causes, since we'll add a new one next.
     raise ControlError("Unhandled error condition") from condition
 
-def cerror(condition):
+def cerror(condition, *, cause=None):
     """Like `error`, but allow a handler to instruct the caller to ignore the error.
 
     `cerror` internally establishes a restart named `proceed`, which can be
@@ -698,6 +713,11 @@ def cerror(condition):
 
     We use the name "proceed" instead of Common Lisp's "continue", because in
     Python `continue` is a reserved word.
+
+    The optional `cause` argument is as in `unpythonic.misc.raisef`.
+    In other words, if we pretend for a moment that `cerror` is a Python
+    keyword, it essentially performs a `cerror ... from ...`. The default
+    `cause=None` performs a plain `cerror ...`.
 
     Example::
 
@@ -717,9 +737,9 @@ def cerror(condition):
 
     """
     with restarts(proceed=(lambda: None)):  # just for control, no return value
-        error(condition)
+        error(condition, cause=cause)
 
-def warn(condition):
+def warn(condition, *, cause=None):
     """Like `signal`, but emit a warning if the condition is not handled.
 
     For emitting the warning, we use Python's standard `warnings.warn` mechanism.
@@ -731,6 +751,11 @@ def warn(condition):
 
     If not (i.e. some other subclass of `Exception` is being signaled), the
     generic category `Warning` is used, with the message set to `str(condition)`.
+
+    The optional `cause` argument is as in `unpythonic.misc.raisef`.
+    In other words, if we pretend for a moment that `warn` is a Python
+    keyword, it essentially performs a `warn ... from ...`. The default
+    `cause=None` performs a plain `warn ...`.
 
     Example::
 
@@ -762,7 +787,7 @@ def warn(condition):
     """
     with restarts(muffle=(lambda: None)):  # just for control, no return value
         with restarts(_proceed=(lambda: None)):  # for internal use by unpythonic.test.fixtures
-            signal(condition)
+            signal(condition, cause=cause)
         if isinstance(condition, Warning):
             warnings.warn(condition, stacklevel=2)  # 2 to ignore our lispy `warn` wrapper.
         else:

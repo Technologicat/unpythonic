@@ -375,6 +375,53 @@ def runtests():
                 test[unbox(result) == 42]
         warn_protocol()
 
+    # TODO: test the cause chain in the resulting ControlError from unhandled error(..., cause=...)
+    with testset("signal with cause (signal-from)"):
+        with handlers((JustTesting, lambda c: use_value(c))):
+            with restarts(use_value=(lambda x: x)) as result:
+                signal(JustTesting("Hullo"))  # no cause
+            test[unbox(result).__cause__ is None]
+
+            exc = JustTesting("Hello")
+            with restarts(use_value=(lambda x: x)) as result:
+                signal(JustTesting("Hullo"), cause=exc)  # cause given, like "raise ... from ..."
+            test[unbox(result).__cause__ is exc]
+
+            # The other protocols also support the cause parameter.
+            with restarts(use_value=(lambda x: x)) as result:
+                error(JustTesting("Hullo"), cause=exc)
+            test[unbox(result).__cause__ is exc]
+
+            with restarts(use_value=(lambda x: x)) as result:
+                cerror(JustTesting("Hullo"), cause=exc)
+            test[unbox(result).__cause__ is exc]
+
+            with restarts(use_value=(lambda x: x)) as result:
+                warn(JustTesting("Hullo"), cause=exc)
+            test[unbox(result).__cause__ is exc]
+
+        # An unhandled `error` or `cerror`, when it **raises** `ControlError`,
+        # sets the cause of that `ControlError` to the original unhandled signal.
+        # In Python 3.7+, this will also produce nice stack traces.
+        # In up to Python 3.6, it will at least show the chain of causes.
+        with catch_signals(False):
+            try:
+                exc1 = JustTesting("Hullo")
+                error(exc1)
+            except ControlError as err:
+                test[err.__cause__ is exc1]
+
+            # Causes can be chained, as with regular exceptions. Here's how
+            # this interacts with an unhandled signal:
+            try:
+                exc1 = JustTesting("Hello")
+                exc2 = JustTesting("Hullo")
+                error(exc2, cause=exc1)
+            except ControlError as err:
+                test[err.__cause__ is exc2]
+                test[err.__cause__.__cause__ is exc1]
+                test[err.__cause__.__cause__.__cause__ is None]
+
     # find_restart can be used to look for a restart before committing to
     # actually invoking it.
     with testset("find_restart"):
