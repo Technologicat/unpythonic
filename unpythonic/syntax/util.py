@@ -485,20 +485,20 @@ class ASTMarker(type):
     are defined on the metaclass, so e.g. ``SomeMarker.__enter__`` is valid.
     """
     def __enter__(cls):
-        pass
+        pass  # pragma: no cover
     def __exit__(cls, exctype, excvalue, traceback):
-        pass
+        pass  # pragma: no cover
 
 class ContinuationsMarker(metaclass=ASTMarker):
     """AST marker for an expanded "with continuations" block."""
-    pass
+    pass  # pragma: no cover
 
 # must be "instantiated" because we need to pass information at macro expansion time using the ctor call syntax.
 class AutorefMarker(metaclass=ASTMarker):
     """AST marker for an expanded "with autoref(o)" block."""
     def __init__(self, varname):
-        pass
+        pass  # pragma: no cover
     def __enter__(cls):
-        pass
+        pass  # pragma: no cover
     def __exit__(cls, exctype, excvalue, traceback):
-        pass
+        pass  # pragma: no cover
