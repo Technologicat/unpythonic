@@ -364,15 +364,15 @@ def isoftype(value, T):
     # Catch any `typing` meta-utilities we don't currently support.
     if hasattr(T, "__module__") and T.__module__ == "typing":  # pragma: no cover, only happens when something goes wrong.
         fullname = repr(T.__class__)
-        raise NotImplementedError("This run-time type checker doesn't currently support '{}'".format(fullname))
+        raise NotImplementedError("This run-time type checker doesn't currently support {}".format(repr(fullname)))
 
     try:
         return isinstance(value, T)  # T should be a concrete class, so delegate.
     except TypeError as err:  # pragma: no cover, for debugging when things go wrong
-        raise TypeError("Failed to understand the type, so here's some debug data: {}, {}, {}, {}".format(type(T),
-                                                                                                          repr(T.__class__),
-                                                                                                          str(T),
-                                                                                                          repr(T))) from err
+        raise NotImplementedError("Failed to understand the type, so here's some debug data: {}, {}, {}, {}".format(type(T),
+                                                                                                                    repr(T.__class__),
+                                                                                                                    str(T),
+                                                                                                                    repr(T))) from err
 
 # TODO: Add an `issubtype` function. It's needed to fully resolve callable types in `isoftype`.
 #
