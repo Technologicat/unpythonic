@@ -502,8 +502,8 @@ def namelambda(name):
         #     https://stackoverflow.com/questions/40661758/name-of-a-python-function-in-a-stack-trace
         #     https://stackoverflow.com/questions/16064409/how-to-create-a-code-object-in-python
         f.__name__ = name
-        j = f.__qualname__.rfind('.')
-        f.__qualname__ = "{}.{}".format(f.__qualname__[:j], name) if j != -1 else name
+        idx = f.__qualname__.rfind('.')
+        f.__qualname__ = "{}.{}".format(f.__qualname__[:idx], name) if idx != -1 else name
         # __code__.co_name is read-only, but there's a types.CodeType constructor
         # that we can use to re-create the code object with the new name.
         # (This is no worse than what the stdlib's Lib/modulefinder.py already does.)
