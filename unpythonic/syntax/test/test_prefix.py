@@ -3,7 +3,7 @@
 
 **CAUTION**: Experimental, **not** recommended for use in production code."""
 
-from ...syntax import macros, test, test_raises  # noqa: F401
+from ...syntax import macros, test, test_raises, the  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
 from ...syntax import macros, prefix, q, u, kw, curry, let, do  # noqa: F401, F811
@@ -45,9 +45,9 @@ def runtests():
             # Function call transformation only applies to tuples in load context
             # (i.e. NOT on the LHS of an assignment)
             a, b = (q, 100, 200)
-            test[a == 100 and b == 200]
+            test[the[a] == 100 and the[b] == 200]
             a, b = (q, b, a)  # pythonic swap in prefix syntax; must quote RHS
-            test[a == 200 and b == 100]
+            test[the[a] == 200 and the[b] == 100]
 
         with testset("kwargs"):
             # give named args with kw(...) [it's syntax, not really a function!]:
