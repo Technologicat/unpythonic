@@ -122,27 +122,37 @@ def letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
 
 def transform_envassignment(tree, lhsnames, envset):
     """x << val --> e.set('x', val)  (for names bound in this environment)"""
-    def t(tree, shadowed):
+    # names_in_scope: according to Python's standard binding rules, see scopeanalyzer.py.
+    # Variables defined in let envs are thus not listed in `names_in_scope`.
+    def t(tree, names_in_scope):
         if isenvassign(tree):
             view = UnexpandedEnvAssignView(tree)
             varname = view.name
-            if varname in lhsnames and varname not in shadowed:
+            if varname in lhsnames and varname not in names_in_scope:
                 return q[ast_literal[envset](u[varname], ast_literal[view.value])]
         return tree
     return scoped_walker.recurse(tree, callback=t)
 
 def transform_name(tree, rhsnames, envname):
     """x --> e.x  (in load context; for names bound in this environment)"""
-    def t(tree, shadowed):
-        # e.anything is already ok, but x.foo (Attribute that contains a Name "x")
-        # should transform to e.x.foo.
+    # names_in_scope: according to Python's standard binding rules, see scopeanalyzer.py.
+    # Variables defined in let envs are thus not listed in `names_in_scope`.
+    def t(tree, names_in_scope):
+        # `e.anything` is already ok, but `x.foo` (Attribute that contains a Name "x")
+        # should transform to `e.x.foo`.
         if type(tree) is Attribute and type(tree.value) is Name and tree.value.id == envname:
             pass
-        # nested lets work, because once x --> e.x, the final "x" is no longer a Name,
-        # but an attr="x" of an Attribute node.
-        elif type(tree) is Name and tree.id in rhsnames and tree.id not in shadowed:
+        # Attributes (and Subscripts) work, because we are called again for the `value`
+        # part of the `Attribute` (or `Subscript`) node, which then gets transformed
+        # if it's a `Name` matching our rules.
+        #
+        # Nested lets work, because once `x` --> `e.x`, the final "x" is no
+        # longer a `Name`, but an attr="x" of an Attribute node, and the "e"
+        # (of the inner, already expanded let) is in `names_in_scope` (in the
+        # relevant part of the body), because it is a parameter to a lambda.
+        elif type(tree) is Name and tree.id in rhsnames and tree.id not in names_in_scope:
             hasctx = hasattr(tree, "ctx")  # macro-created nodes might not have a ctx.
-            if hasctx and type(tree.ctx) is not Load:
+            if hasctx and type(tree.ctx) is not Load:  # let variables are rebound using `<<`, not `=`.
                 return tree
             ctx = tree.ctx if hasctx else None  # let MacroPy fix it if needed
             return Attribute(value=q[name[envname]], attr=tree.id, ctx=ctx)

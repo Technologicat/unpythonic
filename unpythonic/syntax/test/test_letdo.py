@@ -507,6 +507,13 @@ def runtests():
             return x
         test[quux == 1]
 
+    with testset("object instance bound to let variable"):
+        # The point is to test whether `s.a` below transforms
+        # correctly to `e.s.a`.
+        class Silly:
+            a = "Ariane 5"
+        test[let[(s, Silly()) in s.a] == "Ariane 5"]  # noqa: F821
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()
