@@ -129,7 +129,7 @@ In both cases, access control, auditing and encrypted connections (SSH) can then
 
 **As usual, [the legends](http://www.flownet.com/gat/jpl-lisp.html) are exaggerated.**
 
-Making full use of hot-patching requires foresight, adhering to a particular programming style. Some elements of this style may be considered [antipatterns](https://en.wikipedia.org/wiki/Anti-pattern) in programs that are not designed for hot-patching. An example is to save important data in global variables, so that it can later be accessed from the REPL, instead of keeping as much as possible in the locals of a function. Hot-patching and [FP](https://en.wikipedia.org/wiki/Functional_programming)-ness are opposing goals.
+Making full use of hot-patching requires foresight, adhering to a particular programming style. Some elements of this style may be considered [antipatterns](https://en.wikipedia.org/wiki/Anti-pattern) in programs that are not designed for hot-patching. An example is to save important data in global variables, so that it can later be accessed from the REPL, instead of keeping as much as possible in the locals of a function. Hot-patching and [FP](https://en.wikipedia.org/wiki/Functional_programming)-ness are opposing goals. For hot-patching (and its cousin, live programming), [*local state is poison*](https://awelonblue.wordpress.com/2012/10/21/local-state-is-poison/).
 
 - **It is possible to reload arbitrary modules.**
   - Just use `importlib.reload`.
