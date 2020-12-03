@@ -139,6 +139,8 @@ The common denominator is programming. Some relate to language design, some to c
   - [Continuations and term-rewriting calculi (2014)](https://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html).
   - Discussion of Kernel on LtU: [Decomposing lambda - the Kernel language](http://lambda-the-ultimate.org/node/1680).
 
+- [Walid Taha 2003: A Gentle Introduction to Multi-stage Programming](https://www.researchgate.net/publication/221024597_A_Gentle_Introduction_to_Multi-stage_Programming)
+
 
 ## Python-related FP resources
 
