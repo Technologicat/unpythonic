@@ -362,7 +362,7 @@ If this sounds a lot like an exception system, that's because conditions are the
 
 <details><summary>unpythonic.test.fixtures: a minimalistic test framework for macro-enabled Python.</summary>
 
-[[docs](doc/macros.md#unpythonic-test-fixtures-a-test-framework-for-macro-enabled-python)]
+[[docs](doc/macros.md#unpythonictestfixtures-a-test-framework-for-macro-enabled-python)]
 
 ```python
 from unpythonic.syntax import macros, test, test_raises, fail, error, warn, the
