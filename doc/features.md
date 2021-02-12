@@ -1224,7 +1224,7 @@ If no recursion cycle occurs, `f` returns normally. If a cycle occurs, the call 
 
 **CAUTION**: The infinitely recursive call sequence `f(0) → f(1) → ... → f(k+1) → ...` contains no cycles in the sense detected by `fix`. The `fix` function will not catch all cases of infinite recursion, but only those where a previously seen set of arguments is seen again. (If `f` is pure, the same arguments appearing again implies the call will not return, so we can terminate it.)
 
-**CAUTION**: If we have a function `g(a, b)`, the argument lists of the invocations `g(1, 2)` and `g(a=1, b=2)` are seen as different. This is because the decorator must internally accept `(*args, **kwargs)` to pass everything through, and in the first case the arguments end up in `args`, whereas in the second they end up in `kwargs` - even though as far as `g` itself sees it, both calls result in the same bindings being established. See [issue #26](https://github.com/Technologicat/unpythonic/issues/26) (and please post an idea if you have one). This is a Python gotcha that was originally noticed by the author of the `wrapt` library, and mentioned in [its documentation](https://wrapt.readthedocs.io/en/latest/decorators.html#processing-function-arguments).
+**CAUTION**: If we have a function `g(a, b)`, the argument lists of the invocations `g(1, 2)` and `g(a=1, b=2)` are in principle different. This is a Python gotcha that was originally noticed by the author of the `wrapt` library, and mentioned in [its documentation](https://wrapt.readthedocs.io/en/latest/decorators.html#processing-function-arguments). However, once arguments are bound to the formal parameters of `g`, the result is the same. We consider the *resulting bindings*, not the exact way the arguments were passed.
 
 We can use `fix` to find the (arithmetic) fixed point of `cos`:
 
@@ -1287,7 +1287,7 @@ assert c == cos(c)
 
   - `bottom` can be any non-callable value, in which case it is simply returned upon detection of a cycle.
 
-  - `bottom` can be a callable, in which case the function name and args at the point where the cycle was detected are passed to it, and its return value becomes the final return value.
+  - `bottom` can be a callable, in which case the function name and args at the point where the cycle was detected are passed to it, and its return value becomes the final return value. This is useful e.g. for debug logging.
 
   - The `memo` flag controls whether to memoize also intermediate results. It adds some additional function call layers between function entries from recursive calls; if that is a problem (due to causing Python's call stack to blow up faster), use `memo=False`. You can still memoize the final result if you want; just put `@memoize` on the outside.
 
