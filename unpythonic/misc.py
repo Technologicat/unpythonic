@@ -510,6 +510,8 @@ def namelambda(name):
         co = f.__code__
         # https://github.com/ipython/ipython/blob/master/IPython/core/interactiveshell.py
         # https://www.python.org/dev/peps/pep-0570/
+        # https://docs.python.org/3/library/types.html#types.CodeType
+        # https://docs.python.org/3/library/inspect.html#types-and-members
         if version_info > (3, 8, 0, 'alpha', 3):  # Python 3.8+
             f.__code__ = CodeType(co.co_argcount, co.co_posonlyargcount, co.co_kwonlyargcount,
                                   co.co_nlocals, co.co_stacksize, co.co_flags,
