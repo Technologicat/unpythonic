@@ -69,7 +69,7 @@ For many examples, see [the unit tests](unpythonic/test/), the docstrings of the
 
 *This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out-of-date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
 
-**This document is up-to-date for v0.14.2.**
+**This document is up-to-date for v0.14.3.**
 
 ## Bindings
 
