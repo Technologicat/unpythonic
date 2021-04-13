@@ -1,14 +1,31 @@
 # -*- coding: utf-8 -*-
 """unpythonic.syntax: Toto, I've a feeling we're not in Python anymore.
 
-Requires MacroPy (package ``macropy3`` on PyPI).
+Requires `mcpyrate`.
 """
 
-from ..dynassign import dyn, make_dynvar
+from mcpyrate import gensym, parametricmacro
+
+from ..dynassign import make_dynvar
 
 # This module contains the macro interface and docstrings; the submodules
 # contain the actual syntax transformers (regular functions that process ASTs)
 # that implement the macros.
+
+# TODO: With `mcpyrate`, we could move the macro interface functions to
+# TODO: the submodules, and have just re-exports here.
+
+# TODO: `mcpyrate` uses explicit recursion, so we need to recurse (`expander.visit(...)`)
+# TODO: in the macro interface functions.
+
+# TODO: `mcpyrate` does not use `assert` to indicate macro expansion errors.
+# TODO: Fix all those asserts to raise an appropriately typed exception instead.
+
+# TODO: Python 3.8+: ast.Constant, no ast.Str et al.
+
+# TODO: Python 3.9+: check all uses of `.slice.value` (just `.slice` too,
+# TODO: in case the `.value` is extracted later) and of `ast.Subscript`;
+# TODO: the `Index` wrapper is gone.
 
 # Syntax transformers and internal utilities
 from .autoref import autoref as _autoref
@@ -56,16 +73,16 @@ from .prefix import q, u, kw  # noqa: F401  # TODO: bad names, MacroPy uses them
 from .tailtools import call_cc  # noqa: F401
 from .testingtools import the  # noqa: F401
 
-# Initialize the macro interface
-from macropy.core.macros import Macros
-macros = Macros()
-
+# TODO: port `dbgprint_expr` to mcpyrate
 # Inject default debug printer for expressions.
 #
 # All the macro interface stuff must happen in this module, so we can't
 # decorate the original directly in the implementation module.
 dbgprint_expr = macros.expose_unhygienic(dbgprint_expr)
 
+# TODO: `mcpyrate` has a global `gensym` function, so we no longer need to
+# capture and pass a local one. Fix the receiving ends so we can delete this.
+#
 # We pass gen_sym as a dynvar so it doesn't need to appear in the
 # formal parameter lists of the underlying syntax transformers.
 #
@@ -73,23 +90,21 @@ dbgprint_expr = macros.expose_unhygienic(dbgprint_expr)
 # syntax transformer (or any syntax transformers it calls) needs gen_sym.
 # This default is here to yell if it's needed and missing; the traceback
 # will tell exactly which syntax transformer needed it.
-def nogensym(*args, **kwargs):
-    raise RuntimeError("No gen_sym function set")  # pragma: no cover
-make_dynvar(gen_sym=nogensym)
+make_dynvar(gen_sym=gensym)
 
 # -----------------------------------------------------------------------------
 
 # The "kw" we have here is the parameter from MacroPy; the "kw" we export (that
 # flake8 thinks conflicts with this) is the runtime stub for our `prefix` macro.
-@macros.block
-def autoref(tree, args, *, target, gen_sym, **kw):  # noqa: F811
+@parametricmacro
+def autoref(tree, *, syntax, args, **kw):  # noqa: F811
     """Implicitly reference attributes of an object.
 
     Example::
 
         e = env(a=1, b=2)
         c = 3
-        with autoref(e):
+        with autoref[e]:
             a
             b
             c
@@ -118,13 +133,21 @@ def autoref(tree, args, *, target, gen_sym, **kw):  # noqa: F811
     That status can also change at any time, since the lookup is dynamic, and
     attributes can be added and removed dynamically.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _autoref(block_body=tree, args=args, asname=target)
+    if syntax != "block":
+        raise SyntaxError("autoref is a block macro only")
+    if not args:
+        raise SyntaxError("autoref requires an argument, the object to be auto-referenced")
+
+    if "optional_vars" in kw:
+        target = kw["optional_vars"]
+    else:
+        target = None
+
+    return _autoref(block_body=tree, args=args, asname=target)
 
 # -----------------------------------------------------------------------------
 
-@macros.expr
-def aif(tree, *, gen_sym, **kw):  # noqa: F811
+def aif(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, expr] Anaphoric if.
 
     Usage::
@@ -144,11 +167,11 @@ def aif(tree, *, gen_sym, **kw):  # noqa: F811
     To represent a single expression that is a literal list, use extra
     brackets: ``[[1, 2, 3]]``.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _aif(tree)
+    if syntax != "expr":
+        raise SyntaxError("aif is an expr macro only")
+    return _aif(tree)
 
-@macros.expr
-def cond(tree, *, gen_sym, **kw):  # noqa: F811
+def cond(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, expr] Lispy cond; like "a if p else b", but has "elif".
 
     Usage::
@@ -169,13 +192,13 @@ def cond(tree, *, gen_sym, **kw):  # noqa: F811
     To represent a single expression that is a literal list, use extra
     brackets: ``[[1, 2, 3]]``.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _cond(tree)
+    if syntax != "expr":
+        raise SyntaxError("cond is an expr macro only")
+    return _cond(tree)
 
 # -----------------------------------------------------------------------------
 
-@macros.block
-def curry(tree, **kw):  # technically a list of trees, the body of the with block  # noqa: F811
+def curry(tree, *, syntax, **kw):  # technically a list of trees, the body of the with block  # noqa: F811
     """[syntax, block] Automatic currying.
 
     Usage::
@@ -221,20 +244,24 @@ def curry(tree, **kw):  # technically a list of trees, the body of the with bloc
         # The definition was auto-curried, so this works here too.
         assert add3(1)(2)(3) == 6
     """
+    if syntax != "block":
+        raise SyntaxError("curry is a block macro only")
     return _curry(block_body=tree)
 
 # -----------------------------------------------------------------------------
 
-@macros.expr
-def let(tree, args, *, gen_sym, **kw):  # noqa: F811
+# TODO: letdoutil needs to handle the new format (`mcpyrate` uses subscripting, not calls, as parametric macros)
+
+@parametricmacro
+def let(tree, *, syntax, args, **kw):  # noqa: F811
     """[syntax, expr] Introduce local bindings.
 
     This is sugar on top of ``unpythonic.lispylet.let``.
 
     Usage::
 
-        let((k0, v0), ...)[body]
-        let((k0, v0), ...)[[body0, ...]]
+        let[(k0, v0), ...][body]
+        let[(k0, v0), ...][[body0, ...]]
 
     where ``body`` is an expression. The names bound by ``let`` are local;
     they are available in ``body``, and do not exist outside ``body``.
@@ -281,11 +308,12 @@ def let(tree, args, *, gen_sym, **kw):  # noqa: F811
         - In the case of a multiple-expression body, the ``do`` transformation
           is applied first to ``[body0, ...]``, and the result becomes ``body``.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _destructure_and_apply_let(tree, args, _let)
+    if syntax != "expr":
+        raise SyntaxError("let is an expr macro only")
+    return _destructure_and_apply_let(tree, args, _let)
 
-@macros.expr
-def letseq(tree, args, *, gen_sym, **kw):  # noqa: F811
+@parametricmacro
+def letseq(tree, *, syntax, args, **kw):  # noqa: F811
     """[syntax, expr] Let with sequential binding (like Scheme/Racket let*).
 
     Like ``let``, but bindings take effect sequentially. Later bindings
@@ -293,11 +321,12 @@ def letseq(tree, args, *, gen_sym, **kw):  # noqa: F811
 
     Expands to nested ``let`` expressions.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _destructure_and_apply_let(tree, args, _letseq)
+    if syntax != "expr":
+        raise SyntaxError("letseq is an expr macro only")
+    return _destructure_and_apply_let(tree, args, _letseq)
 
-@macros.expr
-def letrec(tree, args, *, gen_sym, **kw):  # noqa: F811
+@parametricmacro
+def letrec(tree, *, syntax, args, **kw):  # noqa: F811
     """[syntax, expr] Let with mutually recursive binding.
 
     Like ``let``, but bindings can see other bindings in the same ``letrec``.
@@ -310,13 +339,14 @@ def letrec(tree, args, *, gen_sym, **kw):  # noqa: F811
 
     This is useful for locally defining mutually recursive functions.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _destructure_and_apply_let(tree, args, _letrec)
+    if syntax != "expr":
+        raise SyntaxError("letrec is an expr macro only")
+    return _destructure_and_apply_let(tree, args, _letrec)
 
-# NOTE: Unfortunately, at the macro interface, the invocations `let()[...]`
-# (Call, empty args) and `let[...]` (just a Name) are indistinguishable,
-# because MacroPy does too much automatically, sending us `args = ()`
-# in both cases.
+# TODO: revise this for `mcpyrate`. Now we have the `invocation` kwarg to check which it is.
+#
+# NOTE: At the macro interface, the invocations `let[][...]`
+# (empty args) and `let[...]` (no args) are indistinguishable.
 #
 # So when `args = ()`, this function assumes haskelly let syntax
 # `let[(...) in ...]` or `let[..., where(...)]`. In these cases,
@@ -335,13 +365,13 @@ def _destructure_and_apply_let(tree, args, expander, allow_call_in_name_position
 # -----------------------------------------------------------------------------
 # Decorator versions, for "let over def".
 
-@macros.decorator
-def dlet(tree, args, *, gen_sym, **kw):  # noqa: F811
+@parametricmacro
+def dlet(tree, *, syntax, args, **kw):  # noqa: F811
     """[syntax, decorator] Decorator version of let, for 'let over def'.
 
     Example::
 
-        @dlet((x, 0))
+        @dlet[(x, 0)]
         def count():
             x << x + 1
             return x
@@ -357,35 +387,37 @@ def dlet(tree, args, *, gen_sym, **kw):  # noqa: F811
     the regular syntax ``name = value`` creates a local variable in the
     lexical scope of the ``def``.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _destructure_and_apply_let(tree, args, _dlet)
+    if syntax != "decorator":
+        raise SyntaxError("dlet is a decorator macro only")
+    return _destructure_and_apply_let(tree, args, _dlet)
 
-@macros.decorator
-def dletseq(tree, args, *, gen_sym, **kw):  # noqa: F811
+@parametricmacro
+def dletseq(tree, *, syntax, args, **kw):  # noqa: F811
     """[syntax, decorator] Decorator version of letseq, for 'letseq over def'.
 
     Expands to nested function definitions, each with one ``dlet`` decorator.
 
     Example::
 
-        @dletseq((x, 1),
+        @dletseq[(x, 1),
                  (x, x+1),
-                 (x, x+2))
+                 (x, x+2)]
         def g(a):
             return a + x
         assert g(10) == 14
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _destructure_and_apply_let(tree, args, _dletseq)
+    if syntax != "decorator":
+        raise SyntaxError("dletseq is a decorator macro only")
+    return _destructure_and_apply_let(tree, args, _dletseq)
 
-@macros.decorator
-def dletrec(tree, args, *, gen_sym, **kw):  # noqa: F811
+@parametricmacro
+def dletrec(tree, *, syntax, args, **kw):  # noqa: F811
     """[syntax, decorator] Decorator version of letrec, for 'letrec over def'.
 
     Example::
 
-        @dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
-                 (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+        @dletrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),
+                 (oddp,  lambda x: (x != 0) and evenp(x - 1))]
         def f(x):
             return evenp(x)
         assert f(42) is True
@@ -393,47 +425,50 @@ def dletrec(tree, args, *, gen_sym, **kw):  # noqa: F811
 
     Same cautions apply as to ``dlet``.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _destructure_and_apply_let(tree, args, _dletrec)
+    if syntax != "decorator":
+        raise SyntaxError("dletrec is a decorator macro only")
+    return _destructure_and_apply_let(tree, args, _dletrec)
 
-@macros.decorator
-def blet(tree, args, *, gen_sym, **kw):  # noqa: F811
+@parametricmacro
+def blet(tree, *, syntax, args, **kw):  # noqa: F811
     """[syntax, decorator] def --> let block.
 
     Example::
 
-        @blet((x, 21))
+        @blet[(x, 21)]
         def result():
             return 2*x
         assert result == 42
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _destructure_and_apply_let(tree, args, _blet)
+    if syntax != "decorator":
+        raise SyntaxError("blet is a decorator macro only")
+    return _destructure_and_apply_let(tree, args, _blet)
 
-@macros.decorator
-def bletseq(tree, args, *, gen_sym, **kw):  # noqa: F811
+@parametricmacro
+def bletseq(tree, *, syntax, args, **kw):  # noqa: F811
     """[syntax, decorator] def --> letseq block.
 
     Example::
 
-        @bletseq((x, 1),
+        @bletseq[(x, 1),
                  (x, x+1),
-                 (x, x+2))
+                 (x, x+2)]
         def result():
             return x
         assert result == 4
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _destructure_and_apply_let(tree, args, _bletseq)
+    if syntax != "decorator":
+        raise SyntaxError("bletseq is a decorator macro only")
+    return _destructure_and_apply_let(tree, args, _bletseq)
 
-@macros.decorator
-def bletrec(tree, args, *, gen_sym, **kw):  # noqa: F811
+@parametricmacro
+def bletrec(tree, *, syntax, args, **kw):  # noqa: F811
     """[syntax, decorator] def --> letrec block.
 
     Example::
 
-        @bletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
-                 (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+        @bletrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),
+                 (oddp,  lambda x: (x != 0) and evenp(x - 1))]
         def result():
             return evenp(42)
         assert result is True
@@ -450,14 +485,14 @@ def bletrec(tree, args, *, gen_sym, **kw):  # noqa: F811
             return evenp(42)
         assert result is True
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _destructure_and_apply_let(tree, args, _bletrec)
+    if syntax != "decorator":
+        raise SyntaxError("bletrec is a decorator macro only")
+    return _destructure_and_apply_let(tree, args, _bletrec)
 
 # -----------------------------------------------------------------------------
 # Imperative code in expression position.
 
-@macros.expr
-def do(tree, *, gen_sym, **kw):  # noqa: F811
+def do(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, expr] Stuff imperative code into an expression position.
 
     Return value is the value of the last expression inside the ``do``.
@@ -539,14 +574,14 @@ def do(tree, *, gen_sym, **kw):  # noqa: F811
     uses, the ambiguity does not arise. The transformation inserts not only the
     word ``do``, but also the outermost brackets. For example::
 
-        let((x, 1),
-            (y, 2))[[
+        let[(x, 1),
+            (y, 2)][[
               [x, y]]]
 
     transforms to::
 
-        let((x, 1),
-            (y, 2))[do[[  # "do[" is inserted between the two opening brackets
+        let[(x, 1),
+            (y, 2)][do[[  # "do[" is inserted between the two opening brackets
               [x, y]]]]   # and its closing "]" is inserted here
 
     which already gets rid of the ambiguity.
@@ -557,21 +592,21 @@ def do(tree, *, gen_sym, **kw):  # noqa: F811
     names, if the same names appear in the ``do``::
 
         do[local[x << 17],
-           let((x, 23))[
+           let[(x, 23)][
              print(x)],  # 23, the "x" of the "let"
            print(x)]     # 17, the "x" of the "do"
 
     The reason we require local names to be declared is to allow write access
     to lexically outer environments from inside a ``do``::
 
-        let((x, 17))[
+        let[(x, 17)][
               do[x << 23,         # no "local[...]"; update the "x" of the "let"
                  local[y << 42],  # "y" is local to the "do"
                  print(x, y)]]
 
     With the extra bracket syntax, the latter example can be written as::
 
-        let((x, 17))[[
+        let[(x, 17)][[
               x << 23,
               local[y << 42],
               print(x, y)]]
@@ -585,36 +620,27 @@ def do(tree, *, gen_sym, **kw):  # noqa: F811
     The ``let`` constructs solve this problem by having the local bindings
     declared in a separate block, which plays the role of ``local``.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return _do(tree)
+    if syntax != "expr":
+        raise SyntaxError("do is an expr macro only")
+    return _do(tree)
 
-@macros.expr
-def do0(tree, *, gen_sym, **kw):  # noqa: F811
+def do0(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, expr] Like do, but return the value of the first expression."""
-    with dyn.let(gen_sym=gen_sym):
-        return _do0(tree)
+    if syntax != "expr":
+        raise SyntaxError("do0 is an expr macro only")
+    return _do0(tree)
 
 # -----------------------------------------------------------------------------
 
-@macros.expr
-def let_syntax(tree, args, *, gen_sym, **kw):  # noqa: F811
-    with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
-        return _destructure_and_apply_let(tree, args, _let_syntax_expr, allow_call_in_name_position=True)
-
-# Python has no function overloading, but expr and block macros go into
-# different parts of MacroPy's macro registry. The registration happens
-# as a side effect of the decorator.
-#
-# Normal run-time code sees only the dynamically latest definition,
-# so the docstring goes here.
-@macros.block  # noqa: F811
-def let_syntax(tree, **kw):  # noqa: F811
-    """[syntax] Introduce local **syntactic** bindings.
+# TODO: change the block() construct to block[], for syntactic consistency
+@parametricmacro
+def let_syntax(tree, *, syntax, args, **kw):  # noqa: F811
+    """[syntax, expr/block] Introduce local **syntactic** bindings.
 
     **Expression variant**::
 
-        let_syntax((lhs, rhs), ...)[body]
-        let_syntax((lhs, rhs), ...)[[body0, ...]]
+        let_syntax[(lhs, rhs), ...][body]
+        let_syntax[(lhs, rhs), ...][[body0, ...]]
 
     Alternative haskelly syntax::
 
@@ -710,21 +736,24 @@ def let_syntax(tree, **kw):  # noqa: F811
     If you need to do something complex, prefer writing a real macro directly
     in MacroPy.
     """
-    return _let_syntax_block(block_body=tree)
+    if syntax not in ("expr", "block"):
+        raise SyntaxError("let_syntax is an expr and block macro only")
 
-@macros.expr
-def abbrev(tree, args, *, gen_sym, **kw):  # noqa: F811
-    with dyn.let(gen_sym=gen_sym):  # gen_sym is only needed by the implicit do.
-        yield _destructure_and_apply_let(tree, args, _let_syntax_expr, allow_call_in_name_position=True)
+    if syntax == "expr":
+        return _destructure_and_apply_let(tree, args, _let_syntax_expr, allow_call_in_name_position=True)
+    else:  # syntax == "block":
+        return _let_syntax_block(block_body=tree)
 
-@macros.block  # noqa: F811
-def abbrev(tree, **kw):  # noqa: F811
-    """[syntax] Exactly like ``let_syntax``, but expands in the first pass, outside in.
+# TODO: no yield in `mcpyrate`, recurse at the right time instead.
+# TODO: need better example
+@parametricmacro
+def abbrev(tree, *, syntax, args, **kw):  # noqa: F811
+    """[syntax, expr/block] Exactly like ``let_syntax``, but expands in the first pass, outside in.
 
     Because this variant expands before any macros in the body, it can locally
     rename other macros, e.g.::
 
-        abbrev((a, ast_literal))[
+        abbrev[(a, ast_literal)][
                  a[tree1] if a[tree2] else a[tree3]]
 
     **CAUTION**: Because of the expansion order, nesting ``abbrev`` will not
@@ -738,12 +767,17 @@ def abbrev(tree, **kw):  # noqa: F811
     in the inner ``abbrev`` will undergo substitution when the outer
     ``abbrev`` expands.
     """
-    yield _let_syntax_block(block_body=tree)
+    if syntax not in ("expr", "block"):
+        raise SyntaxError("abbrev is an expr and block macro only")
+
+    if syntax == "expr":
+        yield _destructure_and_apply_let(tree, args, _let_syntax_expr, allow_call_in_name_position=True)
+    else:
+        yield _let_syntax_block(block_body=tree)
 
 # -----------------------------------------------------------------------------
 
-@macros.expr
-def forall(tree, **kw):  # noqa: F811
+def forall(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, expr] Nondeterministic evaluation.
 
     Fully based on AST transformation, with real lexical variables.
@@ -760,12 +794,13 @@ def forall(tree, **kw):  # noqa: F811
         assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                      (8, 15, 17), (9, 12, 15), (12, 16, 20))
     """
+    if syntax != "expr":
+        raise SyntaxError("forall is an expr macro only")
     return _forall(exprs=tree)
 
 # -----------------------------------------------------------------------------
 
-@macros.block
-def multilambda(tree, *, gen_sym, **kw):  # noqa: F811
+def multilambda(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, block] Supercharge your lambdas: multiple expressions, local variables.
 
     For all ``lambda`` lexically inside the ``with multilambda`` block,
@@ -793,14 +828,15 @@ def multilambda(tree, *, gen_sym, **kw):  # noqa: F811
 
     For local variables, see ``do``.
     """
+    if syntax != "block":
+        raise SyntaxError("multilambda is a block macro only")
+
     # two-pass macro:
     #   - yield from to first yield the first-pass output
     #   - then return to return the StopIteration final value (second-pass output if any)
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _multilambda(block_body=tree))
+    return (yield from _multilambda(block_body=tree))
 
-@macros.block
-def namedlambda(tree, **kw):  # noqa: F811
+def namedlambda(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, block] Name lambdas implicitly.
 
     Lexically inside a ``with namedlambda`` block, any literal ``lambda``
@@ -828,7 +864,7 @@ def namedlambda(tree, **kw):  # noqa: F811
         with namedlambda:
             f = lambda x: x**3        # assignment: name as "f"
 
-            let((x, 42), (g, None), (h, None))[[
+            let[(x, 42), (g, None), (h, None)][[
               g << (lambda x: x**2),  # env-assignment: name as "g"
               h << f,                 # still "f" (no literal lambda on RHS)
               (g(x), h(x))]]
@@ -838,10 +874,12 @@ def namedlambda(tree, **kw):  # noqa: F811
     The naming is performed using the function ``unpythonic.misc.namelambda``,
     which will update ``__name__``, ``__qualname__`` and ``__code__.co_name``.
     """
+    if syntax != "block":
+        raise SyntaxError("namedlambda is a block macro only")
     return (yield from _namedlambda(block_body=tree))
 
-@macros.block
-def quicklambda(tree, *, gen_sym, **kw):  # noqa: F811
+# TODO: port `macropy.quick_lambda`
+def quicklambda(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, block] Use ``macropy.quick_lambda`` with ``unpythonic.syntax``.
 
     To be able to transform correctly, the block macros in ``unpythonic.syntax``
@@ -871,11 +909,11 @@ def quicklambda(tree, *, gen_sym, **kw):  # noqa: F811
     once. If we're giving names to them, a regular ``lambda`` is shorter to write.
     The point is, this combo is now possible.)
     """
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _quicklambda(block_body=tree))
+    if syntax != "block":
+        raise SyntaxError("quicklambda is a block macro only")
+    return (yield from _quicklambda(block_body=tree))
 
-@macros.block
-def envify(tree, *, gen_sym, **kw):  # noqa: F811
+def envify(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, block] Make formal parameters live in an unpythonic env.
 
     The purpose is to allow overwriting formals using unpythonic's
@@ -895,13 +933,13 @@ def envify(tree, *, gen_sym, **kw):  # noqa: F811
             def foo(n):
                 lambda i: n << n + i
     """
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _envify(block_body=tree))
+    if syntax != "block":
+        raise SyntaxError("envify is a block macro only")
+    return (yield from _envify(block_body=tree))
 
 # -----------------------------------------------------------------------------
 
-@macros.block
-def autoreturn(tree, **kw):  # noqa: F811
+def autoreturn(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, block] Implicit "return" in tail position, like in Lisps.
 
     Each ``def`` function definition lexically within the ``with autoreturn``
@@ -958,10 +996,11 @@ def autoreturn(tree, **kw):  # noqa: F811
     The default return value is ``None`` only if the tail position contains
     a statement (because in a sense, a statement always returns ``None``).
     """
+    if syntax != "block":
+        raise SyntaxError("autoreturn is a block macro only")
     return (yield from _autoreturn(block_body=tree))
 
-@macros.block
-def tco(tree, *, gen_sym, **kw):  # noqa: F811
+def tco(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, block] Implicit tail-call optimization (TCO).
 
     Examples::
@@ -1058,11 +1097,11 @@ def tco(tree, *, gen_sym, **kw):  # noqa: F811
     ``ec``, ``brk``, ``throw`` is interpreted as invoking an escape
     continuation.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _tco(block_body=tree))
+    if syntax != "block":
+        raise SyntaxError("tco is a block macro only")
+    return (yield from _tco(block_body=tree))
 
-@macros.block
-def continuations(tree, *, gen_sym, **kw):  # noqa: F811
+def continuations(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, block] call/cc for Python.
 
     This allows saving the control state and then jumping back later
@@ -1456,18 +1495,19 @@ def continuations(tree, *, gen_sym, **kw):  # noqa: F811
 
         See the ``tco`` macro for details on the ``call_ec`` combo.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _continuations(block_body=tree))
+    if syntax != "block":
+        raise SyntaxError("continuations is a block macro only")
+    return (yield from _continuations(block_body=tree))
 
 # -----------------------------------------------------------------------------
 
-@macros.block
-def nb(tree, args, **kw):  # noqa: F811
+@parametricmacro
+def nb(tree, *, syntax, args, **kw):  # noqa: F811
     """[syntax, block] Ultralight math notebook.
 
     Auto-print top-level expressions, auto-assign last result as _.
 
-    A custom print function can be supplied as the first positional argument.
+    A custom print function can be supplied as an argument.
 
     Example::
 
@@ -1476,22 +1516,20 @@ def nb(tree, args, **kw):  # noqa: F811
             42 * _
 
         from sympy import *
-        with nb(pprint):
+        with nb[pprint]:
             x, y = symbols("x, y")
             x * y
             3 * _
     """
+    if syntax != "block":
+        raise SyntaxError("nb is a block macro only")
     return _nb(body=tree, args=args)
 
 # -----------------------------------------------------------------------------
 
-@macros.expr
-def dbg(tree, **kw):  # noqa: F811
-    return _dbg_expr(tree)
-
-@macros.block  # noqa: F811
-def dbg(tree, args, **kw):  # noqa: F811
-    """[syntax] Debug-print expressions including their source code.
+@parametricmacro
+def dbg(tree, *, syntax, args, **kw):  # noqa: F811
+    """[syntax, expr/block] Debug-print expressions including their source code.
 
     **Expression variant**:
 
@@ -1533,9 +1571,9 @@ def dbg(tree, args, **kw):  # noqa: F811
     the optional custom print function), prints both the expression source code
     and the corresponding value.
 
-    A custom print function can be supplied as the first positional argument.
-    To implement a custom print function, see the default implementation
-    ``dbgprint_block`` for the signature.
+    A custom print function can be supplied as an argument. To implement a
+    custom print function, see the default implementation ``dbgprint_block``
+    for the signature.
 
     Examples::
 
@@ -1551,26 +1589,31 @@ def dbg(tree, args, **kw):  # noqa: F811
                                     #     [file.py:100] y: 3
 
         prt = lambda *args, **kwargs: print(*args)
-        with dbg(prt):
+        with dbg[prt]:
             x = 2
             prt(x)     # --> ('x',) (2,)
             print(x)   # --> 2
 
-        with dbg(prt):
+        with dbg[prt]:
             x = 2
             y = 17
             prt(x, y, 1 + 2)  # --> ('x', 'y', '(1 + 2)'), (2, 17, 3))
 
     **CAUTION**: The source code is back-converted from the AST representation;
     hence its surface syntax may look slightly different to the original (e.g.
-    extra parentheses). See ``macropy.core.unparse``.
+    extra parentheses). See ``mcpyrate.unparse``.
     """
-    return _dbg_block(body=tree, args=args)
+    if syntax not in ("expr", "block"):
+        raise SyntaxError("dbg is an expr and block macro only")
+
+    if syntax == "expr":
+        return _dbg_expr(tree)
+    else:  # syntax == "block":
+        return _dbg_block(body=tree, args=args)
 
 # -----------------------------------------------------------------------------
 
-@macros.block
-def lazify(tree, *, gen_sym, **kw):  # noqa: F811
+def lazify(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, block] Call-by-need for Python.
 
     In a ``with lazify`` block, function arguments are evaluated only when
@@ -1902,11 +1945,11 @@ def lazify(tree, *, gen_sym, **kw):  # noqa: F811
     **CAUTION**: Argument passing by function call, and let-bindings are
     currently the only binding constructs to which auto-lazification is applied.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _lazify(body=tree))
+    if syntax != "block":
+        raise SyntaxError("lazify is a block macro only")
+    return (yield from _lazify(body=tree))
 
-@macros.expr
-def lazyrec(tree, **kw):  # noqa: F811
+def lazyrec(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, expr] Delay items in a container literal, recursively.
 
     Essentially, this distributes ``lazy[]`` into the items inside a literal
@@ -1943,12 +1986,13 @@ def lazyrec(tree, **kw):  # noqa: F811
         lazyrec[((2*21, 1/0), (1+2+3, 4+5+6))] --> ((lazy[2*21], lazy[1/0]),
                                                     (lazy[1+2+3], lazy[4+5+6]))
     """
+    if syntax != "expr":
+        raise SyntaxError("lazyrec is an expr macro only")
     return _lazyrec(tree)
 
 # -----------------------------------------------------------------------------
 
-@macros.block
-def prefix(tree, **kw):  # noqa: F811
+def prefix(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, block] Write Python like Lisp: the first item is the operator.
 
     Example::
@@ -2020,18 +2064,15 @@ def prefix(tree, **kw):  # noqa: F811
 
     **CAUTION**: This macro is experimental, not intended for production use.
     """
+    if syntax != "block":
+        raise SyntaxError("prefix is a block macro only")
     return (yield from _prefix(block_body=tree))
 
 # -----------------------------------------------------------------------------
 
-@macros.block
-def test(tree, args, *, gen_sym, **kw):  # noqa: F811
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _test_block(block_body=tree, args=args))
-
-@macros.expr  # noqa: F811
-def test(tree, *, gen_sym, **kw):  # noqa: F811
-    """[syntax] Make a test assertion. For writing automated tests.
+@parametricmacro
+def test(tree, *, syntax, args, **kw):  # noqa: F811
+    """[syntax, expr/block] Make a test assertion. For writing automated tests.
 
     **Testing overview**:
 
@@ -2183,17 +2224,17 @@ def test(tree, *, gen_sym, **kw):  # noqa: F811
     resumption; unlike with signals, the inner level of the call stack is already
     destroyed by the time the exception is caught by the test construct.
     """
-    with dyn.let(gen_sym=gen_sym):
+    if syntax not in ("expr", "block"):
+        raise SyntaxError("test is an expr and block macro only")
+
+    if syntax == "expr":
         return (yield from _test_expr(tree))
+    else:  # syntax == "block":
+        return (yield from _test_block(block_body=tree, args=args))
 
-@macros.block
-def test_signals(tree, args, *, gen_sym, **kw):  # noqa: F811
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _test_block_signals(block_body=tree, args=args))
-
-@macros.expr  # noqa: F811
-def test_signals(tree, **kw):  # noqa: F811
-    """[syntax, expr] Like `test`, but expect the expression to signal a condition.
+@parametricmacro
+def test_signals(tree, *, syntax, args, **kw):  # noqa: F811
+    """[syntax, expr/block] Like `test`, but expect the expression to signal a condition.
 
     "Signal" as in `unpythonic.conditions.signal` and its sisters.
 
@@ -2202,11 +2243,11 @@ def test_signals(tree, **kw):  # noqa: F811
         test_signals[exctype, expr]
         test_signals[exctype, expr, message]
 
-        with test_signals(exctype):
+        with test_signals[exctype]:
             body0
             ...
 
-        with test_signals(exctype, message):
+        with test_signals[exctype, message]:
             body0
             ...
 
@@ -2229,27 +2270,28 @@ def test_signals(tree, **kw):  # noqa: F811
     As the focus of this construct is on signaling vs. returning normally, the
     `the[]` mark is not supported. The block variant does not support `return`.
     """
-    return (yield from _test_expr_signals(tree))
+    if syntax not in ("expr", "block"):
+        raise SyntaxError("test_signals is an expr and block macro only")
 
-@macros.block
-def test_raises(tree, args, *, gen_sym, **kw):  # noqa: F811
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _test_block_raises(block_body=tree, args=args))
+    if syntax == "expr":
+        return (yield from _test_expr_signals(tree))
+    else:  # syntax == "block":
+        return (yield from _test_block_signals(block_body=tree, args=args))
 
-@macros.expr  # noqa: F811
-def test_raises(tree, **kw):  # noqa: F811
-    """[syntax, expr] Like `test`, but expect the expression raise an exception.
+@parametricmacro
+def test_raises(tree, *, syntax, args, **kw):  # noqa: F811
+    """[syntax, expr/block] Like `test`, but expect the expression raise an exception.
 
     Syntax::
 
         test_raises[exctype, expr]
         test_raises[exctype, expr, message]
 
-        with test_raises(exctype):
+        with test_raises[exctype]:
             body0
             ...
 
-        with test_raises(exctype, message):
+        with test_raises[exctype, message]:
             body0
             ...
 
@@ -2273,10 +2315,15 @@ def test_raises(tree, **kw):  # noqa: F811
     As the focus of this construct is on raising vs. returning normally, the
     `the[]` mark is not supported. The block variant does not support `return`.
     """
-    return (yield from _test_expr_raises(tree))
+    if syntax not in ("expr", "block"):
+        raise SyntaxError("test_raises is an expr and block macro only")
 
-@macros.expr
-def fail(tree, *, gen_sym, **kw):  # noqa: F811
+    if syntax == "expr":
+        return (yield from _test_expr_raises(tree))
+    else:  # syntax == "block":
+        return (yield from _test_block_raises(block_body=tree, args=args))
+
+def fail(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, expr] Produce a test failure, unconditionally.
 
     Useful to e.g. mark a line of code that should not be reached in automated
@@ -2291,16 +2338,16 @@ def fail(tree, *, gen_sym, **kw):  # noqa: F811
         test[False, "human-readable reason"]
 
     except in the case of `fail[]`, the error message generating machinery is
-    special-cased to omit the source code expression, because it explictly
+    special-cased to omit the source code expression, because it explicitly
     states that the intent of the "test" is not actually to perform a test.
 
     See also `error[]`, `warn[]`.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _fail_expr(tree))
+    if syntax != "expr":
+        raise SyntaxError("fail is an expr macro only")
+    return (yield from _fail_expr(tree))
 
-@macros.expr
-def error(tree, *, gen_sym, **kw):  # noqa: F811
+def error(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, expr] Produce a test error, unconditionally.
 
     Useful to e.g. indicate to the user that an optional dependency that could
@@ -2312,11 +2359,11 @@ def error(tree, *, gen_sym, **kw):  # noqa: F811
 
     See also `warn[]`, `fail[]`.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _error_expr(tree))
+    if syntax != "expr":
+        raise SyntaxError("error is an expr macro only")
+    return (yield from _error_expr(tree))
 
-@macros.expr
-def warn(tree, *, gen_sym, **kw):  # noqa: F811
+def warn(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, expr] Produce a test warning, unconditionally.
 
     Useful to e.g. indicate that the Python interpreter or version the
@@ -2332,7 +2379,8 @@ def warn(tree, *, gen_sym, **kw):  # noqa: F811
 
     See also `error[]`, `fail[]`.
     """
-    with dyn.let(gen_sym=gen_sym):
-        return (yield from _warn_expr(tree))
+    if syntax != "expr":
+        raise SyntaxError("warn is an expr macro only")
+    return (yield from _warn_expr(tree))
 
 # -----------------------------------------------------------------------------
