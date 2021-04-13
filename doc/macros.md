@@ -1,12 +1,10 @@
 # Language extensions using ``unpythonic.syntax``
 
-Our extensions to the Python language are built on [MacroPy](https://github.com/azazel75/macropy), from the PyPI package ``macropy3``.
+Our extensions to the Python language are built on [``mcpyrate``](https://github.com/Technologicat/mcpyrate), from the PyPI package [``mcpyrate``](https://pypi.org/project/mcpyrate/).
 
-Because in Python macro expansion occurs *at import time*, Python programs whose main module uses macros, such as [our unit tests that contain usage examples](../unpythonic/syntax/test/), cannot be run directly. Instead, run them via the included [generic MacroPy3 bootstrapper](../macropy3). For convenience, ``setup.py`` installs this bootstrapper.
+Because in Python macro expansion occurs *at import time*, Python programs whose main module uses macros, such as [our unit tests that contain usage examples](../unpythonic/syntax/test/), cannot be run directly. Instead, run them via `macropython`, included in `mcpyrate`.
 
 **Our macros expect a from-import style** for detecting uses of `unpythonic` constructs, *even when those constructs are regular functions*. For example, the function `curry` is detected from its bare name. So if you intend to use these macros, then, for regular imports from `unpythonic`, use `from unpythonic import ...` and avoid renaming (`as`).
-
-**The bootstrapper is moving!** *Starting with `unpythonic` v0.14.1, it is already distributed in [imacropy](https://github.com/Technologicat/imacropy) [[PyPI](https://pypi.org/project/imacropy/)], which is its new, permanent home. **It will be removed from `unpythonic` starting in v0.15.0.** The reason is the bootstrapper is a general add-on for MacroPy, not specific to `unpythonic`. The `imacropy` package also contains an IPython extension that adds macro support to IPython, as well as an embeddable macro-enabled REPL.*
 
 *This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out of date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
 
@@ -75,7 +73,6 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 - [``nb``: silly ultralight math notebook](#nb-silly-ultralight-math-notebook)
 
 [**Meta**](#meta)
-- [Using the `macropy3` bootstrapper](#using-the-macropy3-bootstrapper)
 - [The xmas tree combo](#the-xmas-tree-combo): notes on the macros working together.
 - [Emacs syntax highlighting](#emacs-syntax-highlighting) for `unpythonic.syntax` and MacroPy.
 - [This is semantics, not syntax!](#this-is-semantics-not-syntax)
@@ -1135,7 +1132,7 @@ x0, ..., *xs = call_cc[f(...) if p else g(...)]
 call_cc[f(...) if p else g(...)]
 ```
 
-*NOTE*: ``*xs`` may need to be written as ``*xs,`` in order to explicitly make the LHS into a tuple. The variant without the comma seems to work when run from a ``.py`` file with the `macropy3` bootstrapper from [imacropy](https://github.com/Technologicat/imacropy), but fails in code run interactively in the imacropy console.
+*NOTE*: ``*xs`` may need to be written as ``*xs,`` in order to explicitly make the LHS into a tuple. The variant without the comma seems to work when run from a ``.py`` file with the `macropython` bootstrapper from [`mcpyrate`](https://pypi.org/project/mcpyrate/), but fails in code run interactively in the `mcpyrate` REPL.
 
 *NOTE*: ``f()`` and ``g()`` must be **literal function calls**. Sneaky trickery (such as calling indirectly via ``unpythonic.misc.call`` or ``unpythonic.fun.curry``) is not supported. (The ``prefix`` and ``curry`` macros, however, **are** supported; just order the block macros as shown in the final section of this README.) This limitation is for simplicity; the ``call_cc[]`` needs to patch the ``cc=...`` kwarg of the call being made.
 
@@ -1639,7 +1636,7 @@ with session("simple framework demo"):
         test[2 * 2 == 4]  # not reached
 ```
 
-By default, running this script through the `macropy3` wrapper will produce an ANSI-colored test report in the terminal. To actually see how the output looks like, for actual runnable examples, see `unpythonic`'s own automated tests.
+By default, running this script through the `macropython` wrapper (from `mcpyrate`) will produce an ANSI-colored test report in the terminal. To actually see how the output looks like, for actual runnable examples, see `unpythonic`'s own automated tests.
 
 If you want to turn coloring off (e.g. for redirecting stderr to a file), see the `TestConfig` bunch of constants in `unpythonic.test.fixtures`.
 
@@ -1966,34 +1963,6 @@ Obviously not intended for production use, although is very likely to work anywh
 ## Meta
 
 Is this just a set of macros, a language extension, or a compiler for a new language that just happens to be implemented in MacroPy, à la *On Lisp*? All of the above, really.
-
-### Using the `macropy3` bootstrapper
-
-*Starting in v0.15.0, these instructions will be maintained [at the imacropy repository](https://github.com/Technologicat/imacropy#bootstrapper).*
-
-Basic usage is:
-
-```bash
-macropy3 -m some.module
-macropy3 some_script.py
-```
-
-In either case, the bootstrapper will import the module in a special mode that pretends its `__name__ == '__main__'`, to allow using the pythonic conditional main idiom also in macro-enabled code.
-
-See `macropy3 -h` for options.
-
-If you need to pass other options to `python3`, while using `macropy3` to run your program, the incantation is:
-
-```bash
-python3 <your options here> $(which macropy3) -m some.module
-python3 <your options here> $(which macropy3) some_script.py
-```
-
-Our unit tests use relative imports. If you want to run them as usage examples, invoke them from the top-level directory of ``unpythonic`` as e.g.:
-
- `macropy3 -m unpythonic.syntax.test.test_curry`
-
-This design is to allow the tests to run against the source tree without installing it. Once you have installed ``unpythonic``, feel free to use absolute imports in your own code, like those shown in this README.
 
 ### The xmas tree combo
 
