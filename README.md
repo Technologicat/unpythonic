@@ -16,9 +16,9 @@ None required.
  - [MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macro layer.
  - [imacropy](https://github.com/Technologicat/imacropy) optional, to enable the improved interactive macro REPL.
 
-The officially supported language version is **Python 3.6**, on both CPython and PyPy3.
+The officially supported language versions are **CPython 3.8** and **PyPy3 3.7**.
 
-The 0.14.x series should run on CPythons 3.4 through 3.7, and on PyPy3; the [CI](https://en.wikipedia.org/wiki/Continuous_integration) process verifies the tests pass on those platforms. Support for 3.8 is planned in one of the next few releases. Pure-Python features should already work; but macro code still needs changes to account for AST representation changes in 3.8, see issue [#16](https://github.com/Technologicat/unpythonic/issues/16).
+The 0.15.x series should run on CPythons 3.6 through 3.9, and on PyPy3; the [CI](https://en.wikipedia.org/wiki/Continuous_integration) process verifies the tests pass on those platforms. Support for 3.8 is planned in one of the next few releases. Pure-Python features should already work; but macro code still needs changes to account for AST representation changes in 3.8, see issue [#16](https://github.com/Technologicat/unpythonic/issues/16).
 
 ### Documentation
 
