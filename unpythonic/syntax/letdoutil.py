@@ -46,7 +46,7 @@ def canonize_bindings(elts, locref, allow_call_in_name_position=False):  # publi
         return [Tuple(elts=elts, lineno=locref.lineno, col_offset=locref.col_offset)]
     if all((type(b) is Tuple and len(b.elts) == 2 and iskey(b.elts[0])) for b in elts):
         return elts
-    assert False, "expected bindings to be ((k0, v0), ...) or a single (k, v)"  # pragma: no cover
+    raise SyntaxError("expected bindings to be ((k0, v0), ...) or a single (k, v)")  # pragma: no cover
 
 def isenvassign(tree):
     """Detect whether tree is an unpythonic ``env`` assignment, ``name << value``.
@@ -525,7 +525,7 @@ class ExpandedLetView:
         if not all(len(binding.elts) == 2 for binding in newbindings.elts):
             raise TypeError("Expected ast.Tuple of length-2 ast.Tuple as the new bindings of the let")  # pragma: no cover
         if len(newbindings.elts) != len(self.bindings.elts):
-            assert False, "changing the number of items currently not supported by this view (do that before the let[] expands)"  # pragma: no cover
+            raise NotImplementedError("changing the number of items currently not supported by this view (do that before the let[] expands)")  # pragma: no cover
         for newb in newbindings.elts:
             newk, newv = newb.elts
             if type(newk) is not Str:  # TODO: Python 3.8: ast.Constant, no ast.Str
@@ -660,7 +660,7 @@ class ExpandedDoView:
         if not isinstance(newbody, list):  # yes, a runtime list!
             raise TypeError("Expected list as the new body of the do, got {}".format(type(newbody)))  # pragma: no cover
         if len(newbody) != len(self.body):
-            assert False, "changing the number of items currently not supported by this view (do that before the do[] expands)"  # pragma: no cover
+            raise NotImplementedError("changing the number of items currently not supported by this view (do that before the do[] expands)")  # pragma: no cover
         #   currycall(dof, currycall(currycall(namelambda, "do_lineXXX"), curryf(lambda e: ...)), ...)
         #                                                                        ^^^^^^^^^^^^^
         #   dof((namelambda("do_lineXXX"))(lambda e: ...), ...)
