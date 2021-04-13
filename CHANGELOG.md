@@ -1,4 +1,20 @@
-**0.14.3** (in progress; updated 11 September 2020) - *Testing and all that [jazz](https://en.wikipedia.org/wiki/Take_Five)* edition:
+**0.15.0** (in progress; updated 14 April 2021)
+
+**New**:
+
+- Python 3.8 and 3.9 support added.
+
+**Breaking changes**:
+
+- Migrate to the [`mcpyrate`](https://github.com/Technologicat/mcpyrate) macro expander; MacroPy support dropped.
+  - This facilitates future development of the macro parts of `unpythonic`.
+  - Macro arguments are now passed using brackets `macroname[args]` instead of parentheses.
+- Python 3.4 and 3.5 support dropped.
+
+
+---
+
+**0.14.3** (13 April 2021) - *Testing and all that [jazz](https://en.wikipedia.org/wiki/Take_Five)* edition:
 
 **New**:
 
