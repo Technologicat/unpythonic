@@ -52,7 +52,10 @@ The exception are the features marked **[M]**, which are primarily intended as a
 [**Other**](#other)
 - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope.
 - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
-- [``raisef``: ``raise`` as a function](#raisef-raise-as-a-function), useful inside a lambda.
+- [``raisef``, ``tryf``: ``raise`` and ``try`` as functions](#raisef-tryf-raise-and-try-as-functions), useful inside a lambda.
+- [``equip_with_traceback``](#equip-with-traceback), equip a manually created exception instance with a traceback. 
+- [``callsite_filename``](#callsite-filename)
+- [``safeissubclass``](#safeissubclass), convenience function.
 - [``pack``: multi-arg constructor for tuple](#pack-multi-arg-constructor-for-tuple)
 - [``namelambda``: rename a function](#namelambda-rename-a-function)
 - [``timer``: a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
@@ -427,7 +430,7 @@ Finally, ``frozendict`` obeys the empty-immutable-container singleton invariant:
 assert frozendict() is frozendict()
 ```
 
-*Changed in 0.14.2.* [A bug in `frozendict` pickling](https://github.com/Technologicat/unpythonic/issues/55) has been fixed. Now also the empty `frozendict` pickles and unpickles correctly.
+**Changed in 0.14.2**. *[A bug in `frozendict` pickling](https://github.com/Technologicat/unpythonic/issues/55) has been fixed. Now also the empty `frozendict` pickles and unpickles correctly.*
 
 
 ### `cons` and friends: pythonic lispy linked lists
@@ -512,13 +515,13 @@ We provide a ``JackOfAllTradesIterator`` as a compromise that understands both t
 
 ### ``box``: a mutable single-item container
 
-*Changed in v0.14.2.* *The `box` container API is now `b.set(newvalue)` to rebind, returning the new value as a convenience. The equivalent syntactic sugar is `b << newvalue`. The item inside the box can be extracted with `b.get()`. The equivalent syntactic sugar is `unbox(b)`.*
+**Changed in v0.14.2**. *The `box` container API is now `b.set(newvalue)` to rebind, returning the new value as a convenience. The equivalent syntactic sugar is `b << newvalue`. The item inside the box can be extracted with `b.get()`. The equivalent syntactic sugar is `unbox(b)`.*
 
-*Added in v0.14.2.* *`ThreadLocalBox`: like `box`, but with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.*
+**Added in v0.14.2**. *`ThreadLocalBox`: like `box`, but with thread-local contents. It also holds a default object, which is used when a particular thread has not placed any object into the box.*
 
-*Added in v0.14.2.* *`Some`: like `box`, but immutable. Useful to mark an optional attribute. `Some(None)` indicates a value that is set to `None`, in contrast to a bare `None`, which can then be used indicate the absence of a value.*
+**Added in v0.14.2**. *`Some`: like `box`, but immutable. Useful to mark an optional attribute. `Some(None)` indicates a value that is set to `None`, in contrast to a bare `None`, which can then be used indicate the absence of a value.*
 
-*Changed in v0.14.2.* *Accessing the `.x` attribute of a `box` directly is now deprecated. It will continue to work with `box` at least until 0.15, but it does not and cannot work with `ThreadLocalBox`, which must handle things differently due to implementation reasons. Use the API mentioned above; it supports both kinds of boxes with the same syntax.*
+**Changed in v0.14.2**. *Accessing the `.x` attribute of a `box` directly is now deprecated. It will continue to work with `box` at least until 0.15, but it does not and cannot work with `ThreadLocalBox`, which must handle things differently due to implementation reasons. Use the API mentioned above; it supports both kinds of boxes with the same syntax.*
 
 No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
 
@@ -667,7 +670,7 @@ We also provide an **immutable** box, `Some`. This can be useful for optional da
 
 ### ``Shim``: redirect attribute accesses
 
-*Added in v0.14.2.*
+**Added in v0.14.2**.
 
 A `Shim` is an attribute access proxy. The shim holds a `box` (or a `ThreadLocalBox`), and redirects attribute accesses on the shim to whatever object happens to currently be in the box. The point is that the object in the box can be replaced with a different one later (by sending another object into the box), and the code accessing the proxied object through the shim doesn't need to be aware that anything has changed.
 
@@ -906,7 +909,7 @@ We also provide ``pipec``, which curries the functions before applying them. Use
 
 Optional **shell-like syntax**, with purely functional updates.
 
-*Changed in v0.14.2*. Both `getvalue` and `runpipe` are now known by the single unified name `exitpipe`. This is just a rename, with no functionality changes. The old names are now deprecated, and will be removed in 0.15.0.
+**Changed in v0.14.2**. *Both `getvalue` and `runpipe` are now known by the single unified name `exitpipe`. This is just a rename, with no functionality changes. The old names are now deprecated, and will be removed in 0.15.0.*
 
 ```python
 from unpythonic import piped, exitpipe
@@ -1536,7 +1539,7 @@ assert tuple(curry(clip, 5, 10, range(20)) == tuple(range(5, 15))
 
 ### Batteries for network programming
 
-*Added in v0.14.2.*
+**Added in v0.14.2**.
 
 While all other pure-Python features of `unpythonic` live in the main `unpythonic` package, the network-related features are placed in the subpackage `unpythonic.net`. This subpackage also contains the [REPL server and client](repl.md) for hot-patching live processes.
 
@@ -1869,6 +1872,8 @@ There is the read-only cousin ``roview``, which behaves the same except it has n
 
 ### ``mogrify``: update a mutable container in-place
 
+**Changed in v0.14.3.** *`mogrify` now skips `nil`, actually making it useful for processing `ll` linked lists.*
+
 Recurse on given container, apply a function to each atom. If the container is mutable, then update in-place; if not, then construct a new copy like ``map`` does.
 
 If the container is a mapping, the function is applied to the values; keys are left untouched.
@@ -2012,7 +2017,7 @@ Inspired by Haskell.
 
 ### ``sym``, ``gensym``, ``Singleton``: symbols and singletons
 
-*Added in v0.14.2.*
+**Added in v0.14.2**.
 
 We provide **lispy symbols**, an **uninterned symbol generator**, and a **pythonic singleton abstraction**. These are all pickle-aware, and instantiation is thread-safe.
 
@@ -2830,6 +2835,12 @@ The implementation is based on the List monad, and a bastardized variant of do-n
 
 **Added in v0.14.2**.
 
+**Changed in v0.14.3**. *Conditions can now inherit from `BaseException`, not only from `Exception.` `with handlers` catches also derived types, e.g. a handler for `Exception` now catches a signaled `ValueError`.* 
+
+*When an unhandled `error` or `cerror` occurs, the original unhandled error is now available in the `__cause__` attribute of the `ControlError` exception that is raised in this situation.*
+
+*Signaling a class, as in `signal(SomeExceptionClass)`, now implicitly creates an instance with no arguments, just like the `raise` statement does. On Python 3.7+, `signal` now automatically equips the condition instance with a traceback, just like the `raise` statement does for an exception.*
+
 One of the killer features of Common Lisp are *conditions*, which are essentially **resumable exceptions**.
 
 Following Peter Seibel ([Practical Common Lisp, chapter 19](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html)), we define *errors* as the consequences of [Murphy's Law](https://en.wikipedia.org/wiki/Murphy%27s_law), i.e. situations where circumstances cause interaction between the program and the outside world to fail. An error is no bug, but failing to handle an error certainly is.
@@ -2966,6 +2977,8 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 **Changed in v0.14.3**. *The multiple-dispatch decorator `@generic` no longer takes a master definition. Methods are registered directly with `@generic`; the first method definition implicitly creates the generic function.*
 
+**Changed in v0.14.3** *The `@generic` and `@typed` decorators can now decorate also instance methods, class methods and static methods (beside regular functions, as previously in 0.14.2).*
+
 The ``generic`` decorator allows creating multiple-dispatch generic functions with type annotation syntax.
 
 We also provide some friendly utilities: ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first two) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
@@ -3037,6 +3050,22 @@ assert gargle(1, 2, 3) == "int"  # as many as in the [int, float, str] case. Sti
 See [the unit tests](../unpythonic/test/test_dispatch.py) for more. For which features of the ``typing`` stdlib module are supported, see ``isoftype`` below.
 
 Inspired by the [multi-methods of CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) (the Common Lisp Object System), and the [generic functions of Julia](https://docs.julialang.org/en/v1/manual/methods/).
+
+##### ``@generic`` and OOP
+
+As of version 0.14.3, `@generic` and `@typed` can decorate instance methods, class methods and static methods (beside regular functions as in 0.14.2). 
+
+When using both `@generic` or `@typed` and OOP:
+
+ - **`self` and `cls` parameters**.
+   - The `self` and `cls` parameters do not participate in dispatching, and need no type annotation.
+   - Beside appearing as the first positional-or-keyword parameter, the self-like parameter **must be named** one of `self`, `this`, `cls`, or `klass` to be detected by the ignore mechanism. This limitation is due to implementation reasons; while a class body is being evaluated, the context needed to distinguish a method (OOP sense) from a regular function is not yet present.
+
+ - **OOP inheritance**.
+   - When `@generic` is installed on an OOP method (instance method, or `@classmethod`), then at call time, classes are tried in [MRO](https://en.wikipedia.org/wiki/C3_linearization) order. All generic-function methods of the OOP method defined in the class currently being looked up are tested for matches first, before moving on to the next class in the MRO. (This has subtle consequences, related to in which class in the hierarchy the various generic-function methods for a particular OOP method are defined.)
+   - To work with OOP inheritance, `@generic` must be the outermost decorator (except `@classmethod` or `@staticmethod`, which are essentially compiler annotations).
+   - However, when installed on a `@staticmethod`, the `@generic` decorator does not support MRO lookup, because that would make no sense. See discussions on interaction between `@staticmethod` and `super` in Python: [[1]](https://bugs.python.org/issue31118) [[2]](https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction/26807879).
+
 
 ##### Notes
 
@@ -3342,9 +3371,11 @@ assert tuple(m) == (6, 9, 3**(1/2))
 Inspired by *Function application with $* in [LYAH: Higher Order Functions](http://learnyouahaskell.com/higher-order-functions).
 
 
-### ``raisef``: ``raise`` as a function
+### ``raisef``, ``tryf``: ``raise`` and ``try`` as functions
 
-*Changed in v0.14.2.* The parameters of `raisef` now more closely match what would be passed to `raise`. See examples below. Old-style parameters are now deprecated, and support for them will be dropped in v0.15.0.
+**Changed in v0.14.3**. *Now we have also `tryf`.*
+
+**Changed in v0.14.2**. *The parameters of `raisef` now more closely match what would be passed to `raise`. See examples below. Old-style parameters are now deprecated, and support for them will be dropped in v0.15.0.*
 
 Raise an exception from an expression position:
 
@@ -3358,6 +3389,50 @@ f = lambda x: raisef(RuntimeError("I'm in ur lambda raising exceptions"))
 exc = TypeError("oof")
 g = lambda x: raisef(RuntimeError("I'm in ur lambda raising exceptions"), cause=exc)
 ```
+
+Catch an exception in an expression position:
+
+```python
+from unpythonic import raisef, tryf
+
+raise_instance = lambda: raisef(ValueError("all ok"))
+test[tryf(lambda: raise_instance(),
+         (ValueError, lambda err: "got a ValueError: '{}'".format(err.args[0]))) == "got a ValueError: 'all ok'"]
+```
+
+The exception handler is a function. It may optionally accept one argument, the exception instance.
+
+Functions can also be specified for the `else` and `finally` behavior; see the docstring of `unpythonic.misc.tryf` for details.
+
+
+### ``equip_with_traceback``
+
+**Added in v0.14.3**.
+
+Equip a manually created exception instance with a traceback. This is useful mainly in special cases, where `raise` cannot be used for some reason. (The `signal` function in the conditions-and-restarts system uses this.)
+
+```python
+e = SomeException(...)
+e = equip_with_traceback(e)
+```
+
+The traceback is automatically extracted from the call stack of the calling thread.
+
+Optionally, you can cull a number of the topmost frames by passing the optional argument `stacklevel=...`. Typically, for direct use of this function `stacklevel` should be the default `1` (so it excludes `equip_with_traceback` itself, but shows all stack levels from your code), and for use in a utility function that itself is called from your code, it should be `2` (so it excludes the utility function, too).
+
+
+### ``callsite_filename``
+
+**Added in v0.14.3**.
+
+Return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
+
+
+### ``safeissubclass``
+
+**Added in v0.14.3**.
+
+Convenience function. Like `issubclass(cls)`, but if `cls` is not a class, swallow the `TypeError` and return `False`.
 
 
 ### ``pack``: multi-arg constructor for tuple
@@ -3449,7 +3524,7 @@ assert getattrrec(w, "x") == 23
 
 ### ``arities``, ``kwargs``, ``resolve_bindings``: Function signature inspection utilities
 
-*Added in v0.14.2*: `resolve_bindings`. Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.
+**Added in v0.14.2**: `resolve_bindings`. *Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.*
 
 Convenience functions providing an easy-to-use API for inspecting a function's signature. The heavy lifting is done by ``inspect``.
 
@@ -3620,7 +3695,7 @@ For more reading, see [David Goldberg (1991): What every computer scientist shou
 
 ### ``async_raise``: inject an exception to another thread
 
-*Added in v0.14.2.*
+**Added in v0.14.2**.
 
 *Currently CPython only, because as of this writing (March 2020) PyPy3 does not expose the required functionality to the Python level, nor there seem to be any plans to do so.*
 
