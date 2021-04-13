@@ -27,7 +27,7 @@
   - However, when installed on a `@staticmethod`, the `@generic` decorator does not support MRO lookup, because that would make no sense. See discussions on interaction between `@staticmethod` and `super` in Python: [[1]](https://bugs.python.org/issue31118) [[2]](https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction/26807879).
 - To ease installation, relax version requirement of the optional MacroPy dependency to the latest released on PyPI, 1.1.0b2.
   - Once MacroPy updates, we'll upgrade; 1.1.0b2 is missing some small features we would like to use (particularly the `.transform` attribute of macros, which allows calling the underlying syntax transformer function).
-- Conditions: when an unhandled `error` or `cerror` occurs, the original unhandled error is now available in the `__cause__` attribute of the `ControlError** exception that is raised in this situation.
+- Conditions: when an unhandled `error` or `cerror` occurs, the original unhandled error is now available in the `__cause__` attribute of the `ControlError` exception that is raised in this situation.
 - Conditions: on Python 3.7+, `signal` now equips the condition instance with a traceback, for consistency with `raise`.
 - Document named-arg bug in `curry` in the docstring. See [#61](https://github.com/Technologicat/unpythonic/issues/61). Fixing this needs a better `partial`, so for now it's a known issue.
 - All of `unpythonic` itself is now tested using the new testing framework for macro-enabled code, `unpythonic.test.fixtures`. **Hence, developing `unpythonic` now requires MacroPy.** For **using** `unpythonic`, MacroPy remains strictly optional, as it will at least for the foreseeable future.
