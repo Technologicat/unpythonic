@@ -341,13 +341,7 @@ def generic(f):
                 # In Python 3.6+, `dict` preserves insertion order. Make sure
                 # the `self` parameter appears first, for clearer error messages
                 # when no matching method is found.
-                #
-                # TODO: Due to Python 3.4 compatibility, we have to do it like this:
-                type_signature_new = {params_names[0]: typing.Any}
-                type_signature_new.update(type_signature)
-                type_signature = type_signature_new
-                # In Python 3.5+, we could just:
-                # type_signature = {params_names[0]: typing.Any, **type_signature}
+                type_signature = {params_names[0]: typing.Any, **type_signature}
 
             if not all(name in type_signature for name in params_names):
                 failures = [name for name in params_names if name not in type_signature]

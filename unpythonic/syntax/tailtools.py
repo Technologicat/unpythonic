@@ -5,15 +5,14 @@ The common factor is tail-position analysis."""
 
 from functools import partial
 
-from ast import (Lambda, FunctionDef,
+from ast import (Lambda, FunctionDef, AsyncFunctionDef,
                  arguments, arg, keyword,
                  List, Tuple,
                  Subscript, Index,
                  Call, Name, Starred, NameConstant,
                  BoolOp, And, Or,
-                 With, If, IfExp, Try, Assign, Return, Expr,
+                 With, AsyncWith, If, IfExp, Try, Assign, Return, Expr,
                  copy_location)
-from .astcompat import AsyncFunctionDef, AsyncWith
 
 from macropy.core.macros import macro_stub
 from macropy.core.quotes import macros, q, u, ast_literal, name

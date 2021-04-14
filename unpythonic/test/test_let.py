@@ -141,11 +141,10 @@ def runtests():
         test[result is False]
 
     with testset("error cases"):
-        # TODO: Python 3.6+ (up to 3.5, can't guarantee argument evaluation order)
-        # test_raises[AttributeError,
-        #             letrec(a=lambda e: e.b + 1,  # error, e.b does not exist yet (simple value refers to binding below it)
-        #                    b=42,
-        #                    body=lambda e: e.a)]
+        test_raises[AttributeError,
+                    letrec(a=lambda e: e.b + 1,  # error, e.b does not exist yet (simple value refers to binding below it)
+                           b=42,
+                           body=lambda e: e.a)]
 
         test_raises[AttributeError,
                     let(x=0,

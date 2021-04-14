@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """Lambdas with multiple expressions, local variables, and a name."""
 
-from ast import (Lambda, List, Name, Assign, Subscript, Call,
-                 FunctionDef, Attribute, keyword, Dict, Str, arg,
+from ast import (Lambda, List, Name, Assign, Subscript, Call, FunctionDef,
+                 AsyncFunctionDef, Attribute, keyword, Dict, Str, arg,
                  copy_location)
-from .astcompat import AsyncFunctionDef
 from copy import deepcopy
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
@@ -134,10 +133,6 @@ def namedlambda(block_body):
                 else:
                     kw.value = rec(kw.value)
             tree.args = rec(tree.args)
-            if hasattr(tree, "starargs"):  # Python 3.4
-                tree.starargs = rec(tree.starargs)  # pragma: no cover
-            if hasattr(tree, "kwargs"):  # Python 3.4
-                tree.kwargs = rec(tree.kwargs)  # pragma: no cover
         elif type(tree) is Dict:  # {"f": lambda: ..., "g": lambda: ...}
             stop()
             lst = list(zip(tree.keys, tree.values))

@@ -6,8 +6,7 @@
 
 from copy import deepcopy
 from ast import (Name, Call, Starred, If, Num, Expr, With,
-                 FunctionDef, ClassDef, Attribute)
-from .astcompat import AsyncFunctionDef
+                 FunctionDef, AsyncFunctionDef, ClassDef, Attribute)
 
 from macropy.core.walkers import Walker
 
@@ -160,11 +159,6 @@ def _analyze_lhs(tree):
             assert False, "in template, only positional parameters supported (no *args)"  # pragma: no cover
         args = [a.id for a in tree.args]
         if tree.keywords:
-            assert False, "in template, only positional parameters supported (no named args or **kwargs)"  # pragma: no cover
-        # Python 3.4
-        if hasattr(tree, "starargs") and tree.starargs is not None:
-            assert False, "in template, only positional parameters supported (no *args)"  # pragma: no cover
-        if hasattr(tree, "kwargs") and tree.kwargs is not None:
             assert False, "in template, only positional parameters supported (no named args or **kwargs)"  # pragma: no cover
     else:
         assert False, "expected a name (e.g. x) or a template (e.g. f(x, ...)) on the LHS"  # pragma: no cover

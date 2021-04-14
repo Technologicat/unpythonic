@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """Automatic currying. Transforms both function definitions and calls."""
 
-from ast import Call, Lambda, FunctionDef, Name
-from .astcompat import AsyncFunctionDef
+from ast import Call, Lambda, FunctionDef, AsyncFunctionDef, Name
 
 from macropy.core.quotes import macros, ast_literal
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401

@@ -83,18 +83,15 @@ def runtests():
             test[d["f"].__name__ == "f"]
             test[d["g"].__name__ == "g"]
 
-            # unpacking a dictionary literal into another
-            # (makes no sense, but we support it)
-            # TODO: Enable once we bump the minimum Python to 3.5+.
-            warn["A test that requires Python 3.5 or later is currently disabled for compatibility with 3.4."]
-            # d = {"f": lambda x: x**2,
-            #      "g": lambda x: x**2,
-            #      **{"h": lambda x: x**2,
-            #         "k": lambda x: x**2}}
-            # test[d["f"].__name__ == "f"]
-            # test[d["g"].__name__ == "g"]
-            # test[d["h"].__name__ == "h"]
-            # test[d["k"].__name__ == "k"]
+            # unpacking a dictionary literal into another (makes no sense, but we support it)
+            d = {"f": lambda x: x**2,
+                 "g": lambda x: x**2,
+                 **{"h": lambda x: x**2,
+                    "k": lambda x: x**2}}
+            test[d["f"].__name__ == "f"]
+            test[d["g"].__name__ == "g"]
+            test[d["h"].__name__ == "h"]
+            test[d["k"].__name__ == "k"]
 
             # nested dictionary literals
             d = {"func": {"f": lambda x: x**2}}

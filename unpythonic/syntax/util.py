@@ -4,10 +4,9 @@
 from functools import partial
 from copy import deepcopy
 
-from ast import (Call, Name, Lambda, FunctionDef,
+from ast import (Call, Name, Lambda, FunctionDef, AsyncFunctionDef,
                  If, Num, NameConstant, With, withitem,
                  stmt, NodeTransformer)
-from .astcompat import AsyncFunctionDef
 
 from macropy.core.walkers import Walker
 

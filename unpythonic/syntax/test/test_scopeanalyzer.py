@@ -16,9 +16,6 @@ from ...syntax.scopeanalyzer import (isnewscope,
                                      scoped_walker)
 
 def runtests():
-    # TODO: Python 3.5+, enable tests that exercise analysis of async constructs.
-    warn["Some tests that require Python 3.5 or later are currently disabled due to compatibility with 3.4."]
-
     # test data
     with q as getnames_load:
         x  # noqa: F821, it's only quoted.  # pragma: no cover
@@ -36,10 +33,10 @@ def runtests():
             def f():  # pragma: no cover
                 pass
         test[isnewscope(fdef[0])]
-        # with q as afdef:  # Python 3.5+
-        #     async def g():  # pragma: no cover
-        #         pass
-        # test[isnewscope(afdef[0])]
+        with q as afdef:  # Python 3.5+
+            async def g():  # pragma: no cover
+                pass
+        test[isnewscope(afdef[0])]
         with q as cdef:
             class Cat:  # pragma: no cover
                 has_four_legs = True
@@ -79,10 +76,10 @@ def runtests():
             def f1():  # pragma: no cover
                 pass
         test[get_names_in_store_context.collect(getnames_func) == ["f1"]]
-        # with q as getnames_afunc:  # Python 3.5+
-        #     async def f2():  # pragma: no cover
-        #         pass
-        # test[get_names_in_store_context.collect(getnames_afunc) == ["f2"]]
+        with q as getnames_afunc:  # Python 3.5+
+            async def f2():  # pragma: no cover
+                pass
+        test[get_names_in_store_context.collect(getnames_afunc) == ["f2"]]
         with q as getnames_class:
             class Classy:  # pragma: no cover
                 pass
@@ -103,24 +100,24 @@ def runtests():
         test[get_names_in_store_context.collect(getnames_for_mixed) == ["j", "x", "y"]]
 
         # Async for loop target (Python 3.5+)
-        # with q as getnames_afor_simple:
-        #     async def g1():  # pragma: no cover
-        #         async for x in range(5):
-        #             pass
-        # test[get_names_in_store_context.collect(getnames_afor_simple) == ["g1"]]  # we stop at scope boundaries
-        # test[get_names_in_store_context.collect(getnames_afor_simple[0].body) == ["x"]]
-        # with q as getnames_afor_tuple:
-        #     async def g2():  # pragma: no cover
-        #         async for x, y in zip(range(5), range(5)):
-        #             pass
-        # test[get_names_in_store_context.collect(getnames_afor_tuple) == ["g2"]]
-        # test[get_names_in_store_context.collect(getnames_afor_tuple[0].body) == ["x", "y"]]
-        # with q as getnames_afor_mixed:
-        #     async def g3():  # pragma: no cover
-        #         async for j, (x, y) in enumerate(zip(range(5), range(5))):
-        #             pass
-        # test[get_names_in_store_context.collect(getnames_afor_mixed) == ["g3"]]
-        # test[get_names_in_store_context.collect(getnames_afor_mixed[0].body) == ["j", "x", "y"]]
+        with q as getnames_afor_simple:
+            async def g1():  # pragma: no cover
+                async for x in range(5):
+                    pass
+        test[get_names_in_store_context.collect(getnames_afor_simple) == ["g1"]]  # we stop at scope boundaries
+        test[get_names_in_store_context.collect(getnames_afor_simple[0].body) == ["x"]]
+        with q as getnames_afor_tuple:
+            async def g2():  # pragma: no cover
+                async for x, y in zip(range(5), range(5)):
+                    pass
+        test[get_names_in_store_context.collect(getnames_afor_tuple) == ["g2"]]
+        test[get_names_in_store_context.collect(getnames_afor_tuple[0].body) == ["x", "y"]]
+        with q as getnames_afor_mixed:
+            async def g3():  # pragma: no cover
+                async for j, (x, y) in enumerate(zip(range(5), range(5))):
+                    pass
+        test[get_names_in_store_context.collect(getnames_afor_mixed) == ["g3"]]
+        test[get_names_in_store_context.collect(getnames_afor_mixed[0].body) == ["j", "x", "y"]]
 
         # Import statement
         with q as getnames_import:
@@ -146,12 +143,12 @@ def runtests():
         test[get_names_in_store_context.collect(getnames_with) == ["boss"]]
 
         # Async with statement target (Python 3.5+)
-        # with q as getnames_awith:
-        #     async def g4():  # pragma: no cover
-        #         async with Manager() as boss:  # noqa: F821, F841
-        #             pass
-        # test[get_names_in_store_context.collect(getnames_awith) == ["g4"]]
-        # test[get_names_in_store_context.collect(getnames_awith[0].body) == ["boss"]]
+        with q as getnames_awith:
+            async def g4():  # pragma: no cover
+                async with Manager() as boss:  # noqa: F821, F841
+                    pass
+        test[get_names_in_store_context.collect(getnames_awith) == ["g4"]]
+        test[get_names_in_store_context.collect(getnames_awith[0].body) == ["boss"]]
 
     with testset("get_names_in_del_context"):
         test[get_names_in_del_context.collect(getnames_load) == []]

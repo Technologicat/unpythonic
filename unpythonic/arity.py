@@ -15,18 +15,11 @@ from inspect import signature, Parameter, ismethod
 from collections import OrderedDict
 import operator
 
-from .symbol import gensym
-
-try:  # Python 3.5+
-    from operator import matmul, imatmul
-except ImportError:  # pragma: no cover, Python 3.4 only.
-    NoSuchBuiltin = gensym("NoSuchBuiltin")
-    matmul = imatmul = NoSuchBuiltin
-
 class UnknownArity(ValueError):
     """Raised when the arity of a function cannot be inspected."""
 
 # HACK: some built-ins report incorrect arities (0, 0) at least in Python 3.4
+# TODO: re-test on 3.8 and on PyPy3, just to be sure.
 #
 # Full list of built-ins:
 #   https://docs.python.org/3/library/functions.html
@@ -127,7 +120,7 @@ _builtin_arities = {  # inspectable, but reporting incorrectly
                     operator.lshift: (2, 2),
                     operator.mod: (2, 2),
                     operator.mul: (2, 2),
-                    matmul: (2, 2),
+                    operator.matmul: (2, 2),
                     operator.neg: (1, 1),
                     operator.or_: (2, 2),
                     operator.pos: (1, 1),
@@ -154,7 +147,7 @@ _builtin_arities = {  # inspectable, but reporting incorrectly
                     operator.ilshift: (2, 2),
                     operator.imod: (2, 2),
                     operator.imul: (2, 2),
-                    imatmul: (2, 2),
+                    operator.imatmul: (2, 2),
                     operator.ior: (2, 2),
                     operator.ipow: (2, 2),
                     operator.irshift: (2, 2),
@@ -312,8 +305,7 @@ def arity_includes(f, n):
     lower, upper = arities(f)
     return lower <= n <= upper
 
-# TODO: Can we replace this by `inspect.Signature.bind`, once we bump minimum Python 3.5+?
-# TODO: Python 3.4 has `inspect.callargs` (deprecated since 3.5).
+# TODO: Can we replace this by `inspect.Signature.bind`, provided by Python 3.5+?
 def resolve_bindings(f, *args, **kwargs):
     """Resolve parameter bindings established by `f` when called with the given args and kwargs.
 

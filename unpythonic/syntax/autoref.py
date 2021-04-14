@@ -62,8 +62,9 @@ from ..lazyutil import force1, passthrough_lazy_args
 # understands that within that block, any read access to the name "p" is to be left alone.
 #
 # In ``_autoref_resolve``, we use a single args parameter to avoid dealing with ``*args``
-# when analyzing the Call node, thus avoiding much special-case code for the AST differences
-# between Python 3.4 and 3.5+.
+# when analyzing the Call node. This used to be to avoid much special-case code for the
+# AST differences between Python 3.4 and 3.5+. Now this doesn't matter any more, but
+# there's no reason to change the design, either.
 #
 # In reality, we also capture-and-assign the autoref'd expr into a gensym'd variable (instead of referring
 # to ``o`` and ``p`` directly), so that arbitrary expressions can be autoref'd without giving them

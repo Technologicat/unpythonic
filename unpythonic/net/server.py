@@ -213,11 +213,7 @@ def doc(obj):
 # TODO: detect stdout, stderr and redirect to the appropriate stream.
 def server_print(*values, **kwargs):
     """Print to the original stdout of the server process."""
-    # Python 3.4
-    options = dict(**kwargs)
-    options["file"] = _original_stdout
-    print(*values, **options)
-    # print(*values, **kwargs, file=_original_stdout)  # TODO: Python 3.5+, so when we drop Python 3.4...
+    print(*values, **kwargs, file=_original_stdout)
 
 def halt(doit=True):
     """Tell the REPL server to shut down after the last client has disconnected.

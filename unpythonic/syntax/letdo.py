@@ -18,9 +18,9 @@ from functools import partial
 from ast import (Name, Attribute,
                  Tuple, List,
                  FunctionDef, Return,
+                 AsyncFunctionDef,
                  arguments, arg,
                  Load, Subscript, Index)
-from .astcompat import AsyncFunctionDef
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401

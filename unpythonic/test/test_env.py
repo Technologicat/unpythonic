@@ -65,10 +65,8 @@ def runtests():
         with env(x=1, y=2, z=3) as e:
             test[dict(e.items()) == {"x": 1, "y": 2, "z": 3}]
 
-            # set() instead of tuple() so this works correctly on Python 3.4 and Python 3.5
-            # TODO: Python 3.6+: can change this to use tuple()
-            test[set(e.keys()) == {"x", "y", "z"}]
-            test[set(e.values()) == {1, 2, 3}]
+            test[tuple(e.keys()) == ("x", "y", "z")]
+            test[tuple(e.values()) == (1, 2, 3)]
 
             test[e.get("x") == 1]
             test[e.get("å") is None]

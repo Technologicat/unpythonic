@@ -434,10 +434,10 @@ def pack(*args):
     return values, this is the identity function, returning its args.
 
     We provide this because the default constructor `tuple(...)` requires an
-    iterable, and there are use cases (especially in Python 3.4, before PEP 448)
-    where it is useful to be able to say *pack these args into a tuple*.
+    iterable, and there are use cases where it is useful to be able to say
+    *pack these args into a tuple*.
 
-    See:
+    See also:
         https://www.python.org/dev/peps/pep-0448/
 
     Examples. If args naturally arrive separately::
@@ -814,20 +814,7 @@ def callsite_filename():
     This works also in the REPL (where `__file__` is undefined).
     """
     stack = inspect.stack()
-
-    # Python 3.5+ have named fields here.
-    #     named tuple FrameInfo(frame, filename, lineno, function, code_context, index)
-    #         https://docs.python.org/3/library/inspect.html#the-interpreter-stack
-    # But on 3.4:
-    #     When the following functions return “frame records,” each record is a
-    #     tuple of six items: the frame object, the filename, the line number of
-    #     the current line, the function name, a list of lines of context from the
-    #     source code, and the index of the current line within that list.
-    #         https://docs.python.org/3.4/library/inspect.html#the-interpreter-stack
-    # frame = stack[1].frame  # Python 3.5+
-    framerecord = stack[1]
-    frame = framerecord[0]
-
+    frame = stack[1].frame
     filename = frame.f_code.co_filename
     del frame, stack
     return filename

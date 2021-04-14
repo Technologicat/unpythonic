@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 """Automatic lazy evaluation of function arguments."""
 
-from ast import (Lambda, FunctionDef, Call, Name, Attribute,
-                 Starred, keyword, List, Tuple, Dict, Set,
-                 Subscript, Load)
-from .astcompat import AsyncFunctionDef
+from ast import (Lambda, FunctionDef, AsyncFunctionDef, Call, Name, Attribute,
+                 Starred, keyword, List, Tuple, Dict, Set, Subscript, Load)
 
 from macropy.core.quotes import macros, q, ast_literal
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
@@ -144,13 +142,6 @@ def lazyrec(tree):
                 # else do nothing
             elif keywords == "all" or is_literal_container(kw.value, maps_only=True):  # single named arg
                 kw.value = rec(kw.value)
-        # *args and **kwargs in Python 3.4
-        if hasattr(tree, "starargs"):
-            if tree.starargs is not None and is_literal_container(tree.starargs, maps_only=False):  # pragma: no cover, Python 3.4 only.
-                tree.starargs = rec(tree.starargs)
-        if hasattr(tree, "kwargs"):
-            if tree.kwargs is not None and is_literal_container(tree.kwargs, maps_only=True):  # pragma: no cover, Python 3.4 only.
-                tree.kwargs = rec(tree.kwargs)
 
     rec = transform.recurse
     return rec(tree)
@@ -314,11 +305,6 @@ def lazify(body):
                 # in the args when calling a strict function.
                 tree.args = rec(tree.args)
                 tree.keywords = rec(tree.keywords)
-                # Python 3.4
-                if hasattr(tree, "starargs"):  # pragma: no cover, Python 3.4 only.
-                    tree.starargs = rec(tree.starargs)
-                if hasattr(tree, "kwargs"):  # pragma: no cover, Python 3.4 only.
-                    tree.kwargs = rec(tree.kwargs)
             else:
                 stop()
                 ln, co = tree.lineno, tree.col_offset
@@ -346,18 +332,6 @@ def lazify(body):
                               args=[q[ast_literal[thefunc]]] + [q[ast_literal[x]] for x in adata],
                               keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, x in kwdata],
                               lineno=ln, col_offset=co)
-
-                if hasattr(tree, "starargs"):  # *args in Python 3.4  # pragma: no cover
-                    if tree.starargs is not None:
-                        mycall.starargs = transform_starred(tree.starargs)
-                    else:
-                        mycall.starargs = None
-                if hasattr(tree, "kwargs"):  # **kwargs in Python 3.4  # pragma: no cover
-                    if tree.kwargs is not None:
-                        mycall.kwargs = transform_starred(tree.kwargs, dstarred=True)
-                    else:
-                        mycall.kwargs = None
-
                 tree = mycall
 
         elif type(tree) is Subscript:  # force only accessed part of obj[...]

@@ -31,9 +31,9 @@ except AttributeError:  # Python 3.6 and earlier  # pragma: no cover
         pass
 
 try:
-    _MyCollection = typing.Collection  # Python 3.6+
-except AttributeError:  # Python 3.5 and earlier  # pragma: no cover
-    class _MyCollection:
+    _MySupportsIndex = typing.SupportsIndex
+except AttributeError:  # Python 3.7 and earlier  # pragma: no cover
+    class _MySupportsIndex:  # unused, but must be a class to support isinstance() check.
         pass
 
 from .misc import safeissubclass
@@ -129,7 +129,7 @@ def isoftype(value, T):
     #   ClassVar, Final
     #
     # Python 3.7+: OrderedDict
-    # Python 3.8+: Protocol, SupportsIndex, TypedDict, Literal
+    # Python 3.8+: Protocol, TypedDict, Literal
     #
     # TODO: Do we need to support `typing.ForwardRef`?
     # No, if `get_type_hints` already resolves that. Consider our main use case,
@@ -157,9 +157,9 @@ def isoftype(value, T):
             get_origin(List[Tuple[T, T]][int]) == list
         """
         if isinstance(tp, _MyGenericAlias):
-            return tp.__origin__  # pragma: no cover, Python 3.7+ only.
+            return tp.__origin__
         if tp is typing.Generic:
-            return typing.Generic  # pragma: no cover, Python 3.7+ only.
+            return typing.Generic
         return None
     # def get_args(tp):
     #     """Get type arguments with all substitutions performed.
@@ -205,14 +205,14 @@ def isoftype(value, T):
     for U in (typing.Iterator,    # can't non-destructively check element type
               typing.Iterable,    # can't non-destructively check element type
               typing.Container,   # can't check element type
-              _MyCollection,      # Sized Iterable Container; can't check element type
+              typing.Collection,  # Sized Iterable Container; can't check element type
               typing.Hashable,
               typing.Sized):
         if U is T:
             return isinstance(value, U)
 
     if T is typing.Reversible:  # can't non-destructively check element type
-        # We don't isinstance(), because in Python 3.5, typing.Reversible is just a protocol,
+        # We don't isinstance(), because in Python 3.5, typing.Reversible used to be just a protocol,
         # and "<class 'TypeError'>: Protocols cannot be used with isinstance()."
         # https://docs.python.org/3/library/collections.abc.html#module-collections.abc
         return hasattr(value, "__reversed__")
@@ -222,7 +222,7 @@ def isoftype(value, T):
               typing.SupportsFloat,
               typing.SupportsComplex,
               typing.SupportsBytes,
-              # typing.SupportsIndex,  # TODO: enable this once our minimum is Python 3.8
+              _MySupportsIndex,
               typing.SupportsAbs,
               typing.SupportsRound):
         if U is T:
