@@ -2047,4 +2047,4 @@ In a basic Emacs setup, the snippet goes into the `~/.emacs` startup file, or if
 
 [Strictly speaking](https://stackoverflow.com/questions/17930267/what-is-the-difference-between-syntax-and-semantics-of-programming-languages), ``True``. We just repurpose Python's existing syntax to give it new meanings. However, in [the Racket reference](https://docs.racket-lang.org/reference/), **a** *syntax* designates a macro, in contrast to a *procedure* (regular function). We provide syntaxes in this particular sense. The name ``unpythonic.syntax`` is also shorter to type than ``unpythonic.semantics``, less obscure, and close enough to convey the intended meaning.
 
-If you want custom *syntax* proper, or want to package a set of block macros as a custom language that extends Python, then you may be interested in our sister project [Pydialect](https://github.com/Technologicat/pydialect) [[PyPI](https://pypi.org/project/pydialect/)].
+If you want custom *syntax* proper, or want to package a set of block macros as a custom language that extends Python, then you may be interested in our sister project [`mcpyrate`](https://github.com/Technologicat/mcpyrate).

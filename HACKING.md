@@ -8,7 +8,7 @@
     - Some lispy features are actually imperative, not functional. This is fine. Just like Python, Lisp is a multi-paradigm language.
     - Borrowing ideas from random other languages is fine, too. The `dbg[]` macro was inspired by [Rust](https://www.rust-lang.org/). What next... [Julia](https://julialang.org/)?
   - If a feature is large, and useful by itself, a separate project may be The Right Thing.
-    - Consider [`pydialect`](https://github.com/Technologicat/pydialect) and [`imacropy`](https://github.com/Technologicat/imacropy), which are closely related to `unpythonic`, but separate.
+    - Consider [`pydialect`](https://github.com/Technologicat/pydialect) and [`imacropy`](https://github.com/Technologicat/imacropy), which are closely related to `unpythonic`, but separate. (Those features are now part of [`mcpyrate`](https://github.com/Technologicat/mcpyrate), but the point stands.)
     - The hot-patching [REPL server](doc/repl.md) (`unpythonic.net`) is a borderline case. Hot-patching live processes is a legendary Common Lisp feature (actually powered by Swank [[0]](https://common-lisp.net/project/slime/doc/html/Connecting-to-a-remote-lisp.html) [[1]](https://stackoverflow.com/questions/31377098/interact-with-a-locally-long-running-common-lisp-image-possibly-daemonized-fro) [[2]](https://github.com/LispCookbook/cl-cookbook/issues/115) [[3]](https://stackoverflow.com/questions/8874615/how-to-replace-a-running-function-in-common-lisp)), so arguably it belongs; but the machinery is large and only loosely coupled to the rest of `unpythonic`, which favors splitting it off into a separate project.
   - When in doubt, osmosis: if it feels like a particular feature is missing, chances are high that it will fit.
 
