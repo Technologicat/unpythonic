@@ -7,6 +7,7 @@ from ...test.fixtures import session, testset
 from macropy.core.quotes import macros, q, name  # noqa: F811
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 
+from ...syntax.astcompat import getconstant, Num, Str
 from ...syntax.util import (isec, detect_callec,
                             detect_lambda,
                             is_decorator, has_tco, has_curry, has_deco,
@@ -16,7 +17,7 @@ from ...syntax.util import (isec, detect_callec,
                             transform_statements, eliminate_ifones,
                             splice, wrapwith, ismarker)
 
-from ast import Call, Name, Expr, Num, Str, With, withitem
+from ast import Call, Name, Constant, Expr, With, withitem
 
 from ...ec import call_ec, throw  # just so hq[] captures them, like in real code
 
@@ -159,8 +160,8 @@ def runtests():
         test[len(decos) == 3]
         test[all(type(node) is Call and type(node.func) is Name for node in decos)]
         test[[node.func.id for node in decos] == ["memoize", "trampolined", "curry"]]
-        test[type(lam.body) is Num]  # TODO: Python 3.8+: ast.Constant, no ast.Num
-        test[lam.body.n == 42]  # TODO: Python 3.8+: ast.Constant, no ast.Num
+        test[type(lam.body) in (Constant, Num)]  # Python 3.8+: ast.Constant
+        test[getconstant(lam.body) == 42]  # Python 3.8+: ast.Constant
 
         def test_sort_lambda_decorators(testdata):
             sort_lambda_decorators(testdata)
@@ -188,16 +189,15 @@ def runtests():
                     "finally"
         collected = []
         def collectstrings(tree):
-            # TODO: Python 3.8+: ast.Constant, no ast.Str
-            if type(tree) is Expr and type(tree.value) is Str:
-                collected.append(tree.value.s)
+            if type(tree) is Expr and type(tree.value) in (Constant, Str):  # Python 3.8+: ast.Constant
+                collected.append(getconstant(tree.value))
             return [tree]
         transform_statements(collectstrings, transform_statements_testdata)
         test[set(collected) == {"function body", "try", "if body", "if else", "finally", "except"}]
 
         def ishello(tree):
-            # TODO: Python 3.8+: ast.Constant, no ast.Str
-            return type(tree) is Expr and type(tree.value) is Str and tree.value.s == "hello"
+            # Python 3.8+: ast.Constant
+            return type(tree) is Expr and type(tree.value) in (Constant, Str) and getconstant(tree.value) == "hello"
 
         # numeric
         with q as eliminate_ifones_testdata1:
@@ -285,8 +285,8 @@ def runtests():
         test[ctxmanager.id == "ExampleContextManager"]
         firststmt = thewith.body[0]
         test[type(firststmt) is Expr]
-        test[type(firststmt.value) is Num]  # TODO: Python 3.8+: ast.Constant, no ast.Num
-        test[firststmt.value.n == 42]  # TODO: Python 3.8+: ast.Constant, no ast.Num
+        test[type(firststmt.value) in (Constant, Num)]  # Python 3.8+: ast.Constant
+        test[getconstant(firststmt.value) == 42]  # Python 3.8+: ast.Constant
 
     with testset("ismarker"):
         with q as ismarker_testdata1:

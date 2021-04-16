@@ -12,10 +12,12 @@ from ...syntax import (macros, let, letrec, dlet, dletrec,  # noqa: F811, F401
                        do, local,
                        curry)
 
-from ast import Tuple, Name, Num, Lambda, BinOp, Attribute, Call
+from ast import Tuple, Name, Constant, Lambda, BinOp, Attribute, Call
+import sys
 
 from macropy.core import unparse
 
+from ...syntax.astcompat import getconstant, Num
 from ...syntax.letdoutil import (canonize_bindings,
                                  isenvassign, islet, isdo,
                                  UnexpandedEnvAssignView,
@@ -175,13 +177,13 @@ def runtests():
 
         # read
         test[view.name == "x"]
-        test[type(the[view.value]) is Num and view.value.n == 42]  # TODO: Python 3.8: ast.Constant, no ast.Num
+        test[type(the[view.value]) in (Constant, Num) and getconstant(view.value) == 42]  # Python 3.8: ast.Constant
 
         # write
         view.name = "y"
         view.value = q[23]
         test[view.name == "y"]
-        test[type(the[view.value]) is Num and view.value.n == 23]
+        test[type(the[view.value]) in (Constant, Num) and getconstant(view.value) == 23]  # Python 3.8: ast.Constant
 
         # it's a live view
         test[unparse(testdata) == "(y << 23)"]
@@ -376,7 +378,7 @@ def runtests():
                 test[the[unparse(bk)] == the["'{}'".format(k)]]
                 test[type(the[lam]) is Lambda]
                 lambody = lam.body
-                test[type(the[lambody]) is Num and lambody.n == the[v]]  # TODO: Python 3.8: ast.Constant, no ast.Num
+                test[type(the[lambody]) in (Constant, Num) and getconstant(lambody) == the[v]]  # Python 3.8: ast.Constant
 
         # read
         test[len(view.bindings.elts) == 2]
@@ -460,7 +462,11 @@ def runtests():
         view = UnexpandedDoView(testdata)
         # read
         thebody = view.body
-        test[isenvassign(the[thebody[0].slice.value])]
+        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+            thing = thebody[0].slice
+        else:
+            thing = thebody[0].slice.value
+        test[isenvassign(the[thing])]
         # write
         # This mutates the original, but we have to assign `view.body` to trigger the setter.
         thebody[0] = q[local[x << 9001]]  # noqa: F821
@@ -470,11 +476,18 @@ def runtests():
         testdata = q[definitelynotlet[[local[x << 21],  # noqa: F821
                                        2 * x]]]  # noqa: F821
         testdata.value.id = "let"
-        theimplicitdo = testdata.slice.value
+        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+            theimplicitdo = testdata.slice
+        else:
+            theimplicitdo = testdata.slice.value
         view = UnexpandedDoView(theimplicitdo)
         # read
         thebody = view.body
-        test[isenvassign(the[thebody[0].slice.value])]
+        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+            thing = thebody[0].slice
+        else:
+            thing = thebody[0].slice.value
+        test[isenvassign(the[thing])]
         # write
         thebody[0] = q[local[x << 9001]]  # noqa: F821
         view.body = thebody

@@ -5,11 +5,11 @@ from functools import partial
 from copy import deepcopy
 
 from ast import (Call, Name, Lambda, FunctionDef, AsyncFunctionDef,
-                 If, Num, NameConstant, With, withitem,
-                 stmt, NodeTransformer)
+                 If, With, withitem, stmt, NodeTransformer)
 
 from macropy.core.walkers import Walker
 
+from .astcompat import getconstant
 from .letdoutil import isdo, ExpandedDoView
 from .nameutil import isx, make_isxpred, getname
 
@@ -328,15 +328,14 @@ def eliminate_ifones(body):
     """
     def isifone(tree):
         if type(tree) is If:
-            if type(tree.test) is Num:  # TODO: Python 3.8+: ast.Constant, no ast.Num
-                if tree.test.n == 1:
+            try:
+                value = getconstant(tree.test)
+            except TypeError:
+                pass
+            else:
+                if value in (1, True):
                     return "then"
-                elif tree.test.n == 0:
-                    return "else"
-            elif type(tree.test) is NameConstant:  # TODO: Python 3.8+: ast.Constant, no ast.NameConstant
-                if tree.test.value is True:
-                    return "then"
-                elif tree.test.value in (False, None):
+                elif value in (0, False, None):
                     return "else"
         return False
 

@@ -11,6 +11,7 @@ from macropy.core.macros import macro_stub
 from macropy.core import unparse
 
 from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return, parse, Expr, AST
+import sys
 
 from ..dynassign import dyn  # for MacroPy's gen_sym
 from ..env import env
@@ -428,9 +429,13 @@ def _transform_important_subexpr(tree, *, collect, stop, envname, **kw):
         stop()
     elif _is_important_subexpr_mark(tree):
         stop()
-        collect(tree.slice.value)  # or anything really; value not used, we just count them.
+        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+            thing = tree.slice
+        else:
+            thing = tree.slice.value
+        collect(thing)  # or anything really; value not used, we just count them.
         # Handle any nested the[] subexpressions
-        subtree, collected = _transform_important_subexpr.recurse_collect(tree.slice.value, envname=envname)
+        subtree, collected = _transform_important_subexpr.recurse_collect(thing, envname=envname)
         # NOTE: If a collecting Walker recurses further to collect in a
         # branch that has already called `stop()`, the results must be
         # propagated manually.

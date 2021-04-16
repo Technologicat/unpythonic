@@ -2,9 +2,10 @@
 """Lambdas with multiple expressions, local variables, and a name."""
 
 from ast import (Lambda, List, Name, Assign, Subscript, Call, FunctionDef,
-                 AsyncFunctionDef, Attribute, keyword, Dict, Str, arg,
+                 AsyncFunctionDef, Attribute, keyword, Dict, Constant, arg,
                  copy_location)
 from copy import deepcopy
+import sys
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
@@ -16,6 +17,7 @@ from ..misc import namelambda
 from ..fun import orf
 from ..env import env
 
+from .astcompat import getconstant, Str
 from .letdo import do
 from .letdoutil import islet, isenvassign, UnexpandedLetView, UnexpandedEnvAssignView, ExpandedDoView
 from .util import (is_decorated_lambda, isx, make_isxpred, has_deco,
@@ -141,8 +143,9 @@ def namedlambda(block_body):
                 if k is None:  # {..., **d, ...}
                     tree.values[j] = rec(v)
                 else:
-                    if type(k) is Str:  # TODO: Python 3.8 ast.Constant
-                        tree.values[j], thelambda, match = nameit(k.s, v)
+                    if type(k) in (Constant, Str):  # Python 3.8+: ast.Constant
+                        thename = getconstant(k)
+                        tree.values[j], thelambda, match = nameit(thename, v)
                         if match:
                             thelambda.body = rec(thelambda.body)
                         else:
@@ -186,12 +189,16 @@ def quicklambda(block_body):
     @Walker
     def transform(tree, **kw):
         if isquicklambda(tree):
+            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+                theexpr = tree.slice
+            else:
+                theexpr = tree.slice.value
             # TODO: With MacroPy3 from azazel75/macropy/HEAD, we can call `f.transform`
             # TODO: and we don't need our own `f_transform` function. Kill the hack
             # TODO: once a new version of MacroPy3 is released.
             if hasattr(f, "transform"):
-                return f.transform(tree.slice.value)
-            return f_transform(tree.slice.value)  # pragma: no cover, fallback for MacroPy3 1.1.0b2
+                return f.transform(theexpr)
+            return f_transform(theexpr)  # pragma: no cover, fallback for MacroPy3 1.1.0b2
         return tree
     new_block_body = [transform.recurse(stmt) for stmt in block_body]
     yield new_block_body

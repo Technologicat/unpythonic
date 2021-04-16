@@ -6,8 +6,6 @@ from .fixtures import session, testset
 from collections import Counter
 import sys
 
-PYTHON36_or_older = sys.version_info < (3, 7)
-
 from ..fun import (memoize, curry, apply,
                    identity, const,
                    andf, orf, notf,
@@ -194,7 +192,7 @@ def runtests():
     # Methods of builtin types have uninspectable arity up to Python 3.6.
     # Python 3.7 seems to fix this at least for `list`, and PyPy3 (7.3.0; Python 3.6.9)
     # doesn't have this error either.
-    if PYTHON36_or_older and sys.implementation.name == "cpython":
+    if sys.version_info < (3, 7, 0) and sys.implementation.name == "cpython":
         with testset("uninspectable builtins"):
             lst = []
             test_raises[UnknownArity, curry(lst.append)]  # uninspectable method of builtin type

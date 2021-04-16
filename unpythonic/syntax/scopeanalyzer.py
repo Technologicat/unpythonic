@@ -338,7 +338,7 @@ def get_names_in_del_context(tree, *, stop, collect, **kw):
         stop()
     # We want to detect things like "del x":
     #     Delete(targets=[Name(id='x', ctx=Del()),])
-    # We don't currently care about "del myobj.x" or "del mydict['x']":
+    # We don't currently care about "del myobj.x" or "del mydict['x']" (these examples in Python 3.6):
     #     Delete(targets=[Attribute(value=Name(id='myobj', ctx=Load()), attr='x', ctx=Del()),])
     #     Delete(targets=[Subscript(value=Name(id='mydict', ctx=Load()), slice=Index(value=Str(s='x')), ctx=Del()),])
     elif type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Del:

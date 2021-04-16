@@ -4,9 +4,9 @@
 # at macro expansion time. If you're looking for regular run-time let et al. macros,
 # see letdo.py.
 
-from copy import deepcopy
-from ast import (Name, Call, Starred, If, Num, Expr, With,
+from ast import (Name, Call, Starred, If, Constant, Expr, With,
                  FunctionDef, AsyncFunctionDef, ClassDef, Attribute)
+from copy import deepcopy
 
 from macropy.core.walkers import Walker
 
@@ -95,7 +95,7 @@ def let_syntax_block(block_body):
             args = []
 
         if mode == "block":
-            value = If(test=Num(n=1),  # TODO: Python 3.8+: ast.Constant, no ast.Num
+            value = If(test=Constant(value=1),
                        body=withstmt.body,
                        orelse=[],
                        lineno=stmt.lineno, col_offset=stmt.col_offset)

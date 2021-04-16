@@ -20,7 +20,8 @@ from ast import (Name, Attribute,
                  FunctionDef, Return,
                  AsyncFunctionDef,
                  arguments, arg,
-                 Load, Subscript, Index)
+                 Load, Subscript)
+import sys
 
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
@@ -32,6 +33,7 @@ from ..seq import do as dof
 from ..dynassign import dyn
 from ..misc import namelambda
 
+from .astcompat import Index
 from .scopeanalyzer import scoped_walker
 from .letdoutil import isenvassign, UnexpandedEnvAssignView
 
@@ -316,9 +318,12 @@ def do(tree):
     @Walker
     def find_localdefs(tree, collect, **kw):
         if islocaldef(tree):
-            if type(tree.slice) is not Index:  # no slice syntax allowed
-                assert False, "local[...] takes exactly one expression of the form 'name << value'"  # pragma: no cover
-            expr = tree.slice.value
+            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+                expr = tree.slice
+            else:
+                if type(tree.slice) is not Index:  # no slice syntax allowed
+                    assert False, "local[...] takes exactly one expression of the form 'name << value'"  # pragma: no cover
+                expr = tree.slice.value
             if not isenvassign(expr):
                 assert False, "local(...) takes exactly one expression of the form 'name << value'"  # pragma: no cover
             view = UnexpandedEnvAssignView(expr)
@@ -328,9 +333,12 @@ def do(tree):
     @Walker
     def find_deletes(tree, collect, **kw):
         if isdelete(tree):
-            if type(tree.slice) is not Index:  # no slice syntax allowed
-                assert False, "delete[...] takes exactly one name"  # pragma: no cover
-            expr = tree.slice.value
+            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+                expr = tree.slice
+            else:
+                if type(tree.slice) is not Index:  # no slice syntax allowed
+                    assert False, "delete[...] takes exactly one name"  # pragma: no cover
+                expr = tree.slice.value
             if type(expr) is not Name:
                 assert False, "delete[...] takes exactly one name"  # pragma: no cover
             collect(expr.id)

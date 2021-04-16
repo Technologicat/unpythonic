@@ -8,17 +8,19 @@ from functools import partial
 from ast import (Lambda, FunctionDef, AsyncFunctionDef,
                  arguments, arg, keyword,
                  List, Tuple,
-                 Subscript, Index,
-                 Call, Name, Starred, NameConstant,
+                 Subscript,
+                 Call, Name, Starred, Constant,
                  BoolOp, And, Or,
                  With, AsyncWith, If, IfExp, Try, Assign, Return, Expr,
                  copy_location)
+import sys
 
 from macropy.core.macros import macro_stub
 from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
+from .astcompat import getconstant, NameConstant
 from .util import (isx, make_isxpred, isec,
                    detect_callec, detect_lambda,
                    has_tco, sort_lambda_decorators,
@@ -254,11 +256,7 @@ def continuations(block_body):
         if type(tree) not in (Assign, Expr):
             return False
         tree = tree.value
-        if type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "call_cc":
-            if type(tree.slice) is Index:
-                return True
-            assert False, "expected single expr, not slice in call_cc[...]"  # pragma: no cover
-        return False
+        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "call_cc"
     def split_at_callcc(body):
         if not body:
             return [], None, []
@@ -314,13 +312,16 @@ def continuations(block_body):
         # extract the function call(s)
         if type(stmt.value) is not Subscript:  # both Assign and Expr have a .value
             assert False, "expected either an assignment with a call_cc[] expr on RHS, or a bare call_cc[] expr, got {}".format(stmt.value)  # pragma: no cover
-        theexpr = stmt.value.slice.value
-        if not (type(theexpr) in (Call, IfExp) or (type(theexpr) is NameConstant and theexpr.value is None)):
+        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+            theexpr = stmt.value.slice
+        else:
+            theexpr = stmt.value.slice.value
+        if not (type(theexpr) in (Call, IfExp) or (type(theexpr) in (Constant, NameConstant) and getconstant(theexpr) is None)):
             assert False, "the bracketed expression in call_cc[...] must be a function call, an if-expression, or None"  # pragma: no cover
         def extract_call(tree):
             if type(tree) is Call:
                 return tree
-            elif type(tree) is NameConstant and tree.value is None:
+            elif type(tree) in (Constant, NameConstant) and getconstant(tree) is None:
                 return None
             else:
                 assert False, "call_cc[...]: expected a function call or None"  # pragma: no cover

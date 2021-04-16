@@ -4,7 +4,8 @@
 Experimental, not for use in production code.
 """
 
-from ast import Name, Call, Tuple, Load, Index, Subscript
+from ast import Name, Call, Tuple, Load, Subscript
+import sys
 
 from macropy.core.quotes import macros, q, u, ast_literal  # noqa: F811, F401
 from macropy.core.walkers import Walker
@@ -46,15 +47,18 @@ def prefix(block_body):
         # Integration with other macros, including the testing framework.
         # Macros may take a tuple as the top-level expr, but typically don't take slice syntax.
         #
-        # A top-level tuple is packed into an Index, not into an ExtSlice:
+        # Up to Python 3.8, a top-level tuple is packed into an Index:
         #     ast.parse("a[1, 2]").body[0].value.slice        # --> <_ast.Index at 0x7fd57505f208>
         #     ast.parse("a[1, 2]").body[0].value.slice.value  # --> <_ast.Tuple at 0x7fd590962ef0>
         # The structure is for this example is
         #     Module
         #       Expr
         #         Subscript
-        if type(tree) is Subscript and type(tree.slice) is Index:
-            body = tree.slice.value
+        if type(tree) is Subscript:
+            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+                body = tree.slice
+            else:
+                body = tree.slice.value
             if type(body) is Tuple:
                 stop()
                 # skip the transformation of the argument tuple itself, but transform its elements
