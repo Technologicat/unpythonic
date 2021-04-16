@@ -15,17 +15,43 @@ from ..dynassign import make_dynvar
 # TODO: With `mcpyrate`, we could move the macro interface functions to
 # TODO: the submodules, and have just re-exports here.
 
-# TODO: `mcpyrate` uses explicit recursion, so we need to recurse (`expander.visit(...)`)
+# TODO: `mcpyrate` uses explicit recursion, so we need to recurse (usually `expander.visit(tree)`)
 # TODO: in the macro interface functions.
+#  - Pass the `expander` argument using `dyn.let(expander=expander)`, needed to perform the recursion
+#  - Two-pass macros? (mcpyrate doesn't use `yield`)
+#    - Outside in: perform processing before recursion call
+#      - Or just omit the recursion call, since the expander will expand the result again automatically.
+#    - Inside out: perform processing after recursion call
+#  - Consider when to just return and let the expander expand again
 
 # TODO: `mcpyrate` does not use `assert` to indicate macro expansion errors.
-# TODO: Fix all those asserts to raise an appropriately typed exception instead.
+# TODO: Fix all macro expansion error asserts to raise an appropriately typed exception instead.
 
-# TODO: Python 3.8+: ast.Constant, no ast.Str et al.
+# TODO: Some macros look up others; convert lookups to mcpyrate style (accounting for as-imports)
+# TODO: or hygienic macro references, as appropriate.
 
-# TODO: Python 3.9+: check all uses of `.slice.value` (just `.slice` too,
-# TODO: in case the `.value` is extracted later) and of `ast.Subscript`;
-# TODO: the `Index` wrapper is gone.
+# TODO: `mcpyrate` does not auto-expand macros in quasiquoted code.
+#  - In test code, clean up obsolete hacks such as "definitelynotlet"
+#  - Consider when we should expand macros in quoted code and when not
+#  - Consider what changes this implies for other macros that read the partially expanded output
+#    (some things may change from expanded to unexpanded, facilitating easier analysis but requiring
+#     code changes)
+
+# TODO: Consider using run-time compiler access in macro tests, like `mcpyrate` itself does.
+
+# TODO: Implement equivalents of MacroPy's `lazy`, `quick_lambda`, since `mcpyrate` doesn't have them
+#  - Dependencies/initialization order?
+
+# TODO: `expose_unhygienic` doesn't exist, but we can store `dbgprint_expr` in `dyn` (which is cleaner anyway)
+
+# TODO: Convert macro invocations in examples, tests and docs to use [] instead of () to pass macro arguments.
+# TODO: User-visible change. Add a note about this to docs.
+
+# TODO: Convert MacroPy `Walker`s into `mcpyrate` AST walkers.
+
+# TODO: `@macro_stub` does not exist, just make a regular macro that explicitly raises an error.
+
+# TODO: Upgrade anaphoric if's `it` into a `mcpyrate` magic variable that errors out at compile time when it appears in an invalid position (i.e. outside any `aif`). Basically, take the `aif` from `mcpyrate`.
 
 # Syntax transformers and internal utilities
 from .autoref import autoref as _autoref
