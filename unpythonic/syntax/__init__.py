@@ -27,6 +27,8 @@ from ..dynassign import make_dynvar
 # TODO: `mcpyrate` does not use `assert` to indicate macro expansion errors.
 # TODO: Fix all macro expansion error asserts to raise an appropriately typed exception instead.
 
+# TODO: Python 3.6+: get rid of .format, use f-strings instead
+
 # TODO: Some macros look up others; convert lookups to mcpyrate style (accounting for as-imports)
 # TODO: or hygienic macro references, as appropriate.
 
@@ -52,6 +54,7 @@ from ..dynassign import make_dynvar
 # TODO: `@macro_stub` does not exist, just make a regular macro that explicitly raises an error.
 
 # TODO: Upgrade anaphoric if's `it` into a `mcpyrate` magic variable that errors out at compile time when it appears in an invalid position (i.e. outside any `aif`). Basically, take the `aif` from `mcpyrate`.
+# TODO: also let_syntax block, expr
 
 # Syntax transformers and internal utilities
 from .autoref import autoref as _autoref
