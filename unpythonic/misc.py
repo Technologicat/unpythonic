@@ -512,7 +512,7 @@ def namelambda(name):
         # https://www.python.org/dev/peps/pep-0570/
         # https://docs.python.org/3/library/types.html#types.CodeType
         # https://docs.python.org/3/library/inspect.html#types-and-members
-        if version_info > (3, 8, 0, 'alpha', 3):  # Python 3.8+
+        if version_info >= (3, 8, 0):  # Python 3.8+: positional-only parameters
             f.__code__ = CodeType(co.co_argcount, co.co_posonlyargcount, co.co_kwonlyargcount,
                                   co.co_nlocals, co.co_stacksize, co.co_flags,
                                   co.co_code, co.co_consts, co.co_names,
