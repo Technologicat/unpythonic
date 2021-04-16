@@ -250,7 +250,7 @@ def get_lexical_variables(tree, collect_locals=True):
                     return tree
                 targetnames.extend(extractnames.collect(g.target))
             else:  # pragma: no cover
-                assert False, "Scope analyzer: unimplemented: comprehension target of type {}".type(g.target)
+                raise SyntaxError(f"Scope analyzer: unimplemented: comprehension target of type {type(g.target)}")
 
         return list(uniqify(targetnames)), []
 
@@ -290,7 +290,7 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
     #         for x in t.elts:
     #             collect_name_or_list(x)
     #     else:
-    #         assert False, "Scope analyzer: unimplemented: collect names from type {}".format(type(t))
+    #         raise SyntaxError(f"Scope analyzer: unimplemented: collect names from type {type(t)}")
 
     # https://docs.python.org/3/reference/executionmodel.html#binding-of-names
     # Useful article: http://excess.org/article/2014/04/bar-foo/

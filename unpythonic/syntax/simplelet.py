@@ -24,7 +24,7 @@ macros = Macros()  # noqa: F811
 def _let(tree, args):
     names = [k.id for k, _ in (a.elts for a in args)]
     if len(set(names)) < len(names):
-        assert False, "binding names must be unique in the same let"  # pragma: no cover
+        raise SyntaxError("binding names must be unique in the same let")  # pragma: no cover
     values = [v for _, v in (a.elts for a in args)]
     lam = q[lambda: ast_literal[tree]]
     lam.args.args = [arg(arg=x) for x in names]  # inject args

@@ -267,7 +267,7 @@ def continuations(block_body):
                 # after is always non-empty here (has at least the explicitified "return")
                 # ...unless we're at the top level of the "with continuations" block
                 if not after:
-                    assert False, "call_cc[] cannot appear as the last statement of a 'with continuations' block (no continuation to capture)"  # pragma: no cover
+                    raise SyntaxError("call_cc[] cannot appear as the last statement of a 'with continuations' block (no continuation to capture)")  # pragma: no cover
                 # TODO: To support Python's scoping properly in assignments after the `call_cc`,
                 # TODO: we have to scan `before` for assignments to local variables (stopping at
                 # TODO: scope boundaries; use `get_names_in_store_context` from our `scoping` module),
@@ -286,45 +286,45 @@ def continuations(block_body):
                 return [expr.id]
             elif type(expr) is Starred:
                 if type(expr.value) is not Name:
-                    assert False, "call_cc[] starred assignment target must be a bare name"  # pragma: no cover
+                    raise SyntaxError("call_cc[] starred assignment target must be a bare name")  # pragma: no cover
                 starget = expr.value.id
                 return []
-            assert False, "all call_cc[] assignment targets must be bare names (last one may be starred)"  # pragma: no cover
+            raise SyntaxError("all call_cc[] assignment targets must be bare names (last one may be starred)")  # pragma: no cover
         # extract the assignment targets (args of the cont)
         if type(stmt) is Assign:
             if len(stmt.targets) != 1:
-                assert False, "expected at most one '=' in a call_cc[] statement"  # pragma: no cover
+                raise SyntaxError("expected at most one '=' in a call_cc[] statement")  # pragma: no cover
             target = stmt.targets[0]
             if type(target) in (Tuple, List):
                 rest, last = target.elts[:-1], target.elts[-1]
                 # TODO: limitation due to Python's vararg syntax - the "*args" must be after positional args.
                 if any(type(x) is Starred for x in rest):
-                    assert False, "in call_cc[], only the last assignment target may be starred"  # pragma: no cover
+                    raise SyntaxError("in call_cc[], only the last assignment target may be starred")  # pragma: no cover
                 if not all(type(x) is Name for x in rest):
-                    assert False, "all call_cc[] assignment targets must be bare names"  # pragma: no cover
+                    raise SyntaxError("all call_cc[] assignment targets must be bare names")  # pragma: no cover
                 targets = [x.id for x in rest] + maybe_starred(last)
             else:  # single target
                 targets = maybe_starred(target)
         elif type(stmt) is Expr:  # no assignment targets, cont takes no args
             targets = []
         else:
-            assert False, "call_cc[]: expected an assignment or a bare expr, got {}".format(stmt)  # pragma: no cover
+            raise SyntaxError(f"call_cc[]: expected an assignment or a bare expr, got {stmt}")  # pragma: no cover
         # extract the function call(s)
         if type(stmt.value) is not Subscript:  # both Assign and Expr have a .value
-            assert False, "expected either an assignment with a call_cc[] expr on RHS, or a bare call_cc[] expr, got {}".format(stmt.value)  # pragma: no cover
+            raise SyntaxError(f"expected either an assignment with a call_cc[] expr on RHS, or a bare call_cc[] expr, got {stmt.value}")  # pragma: no cover
         if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
             theexpr = stmt.value.slice
         else:
             theexpr = stmt.value.slice.value
         if not (type(theexpr) in (Call, IfExp) or (type(theexpr) in (Constant, NameConstant) and getconstant(theexpr) is None)):
-            assert False, "the bracketed expression in call_cc[...] must be a function call, an if-expression, or None"  # pragma: no cover
+            raise SyntaxError("the bracketed expression in call_cc[...] must be a function call, an if-expression, or None")  # pragma: no cover
         def extract_call(tree):
             if type(tree) is Call:
                 return tree
             elif type(tree) in (Constant, NameConstant) and getconstant(tree) is None:
                 return None
             else:
-                assert False, "call_cc[...]: expected a function call or None"  # pragma: no cover
+                raise SyntaxError("call_cc[...]: expected a function call or None")  # pragma: no cover
         if type(theexpr) is IfExp:
             condition = theexpr.test
             thecall = extract_call(theexpr.body)
@@ -440,11 +440,11 @@ def continuations(block_body):
     @Walker
     def check_for_strays(tree, **kw):
         if iscallcc(tree):
-            assert False, "call_cc[...] only allowed at the top level of a def or async def, or at the top level of the block; must appear as an expr or an assignment RHS"  # pragma: no cover
+            raise SyntaxError("call_cc[...] only allowed at the top level of a def or async def, or at the top level of the block; must appear as an expr or an assignment RHS")  # pragma: no cover
         if type(tree) in (Assign, Expr):
             v = tree.value
             if type(v) is Call and type(v.func) is Name and v.func.id == "call_cc":
-                assert False, "call_cc(...) should be call_cc[...] (note brackets; it's a macro)"  # pragma: no cover
+                raise SyntaxError("call_cc(...) should be call_cc[...] (note brackets; it's a macro)")  # pragma: no cover
         return tree
 
     # -------------------------------------------------------------------------
@@ -456,7 +456,7 @@ def continuations(block_body):
     # invocation. (Because call_cc[] internally creates a function and calls it.)
     for stmt in block_body:
         if type(stmt) is Return:
-            assert False, "'return' not allowed at the top level of a 'with continuations' block"  # pragma: no cover
+            raise SyntaxError("'return' not allowed at the top level of a 'with continuations' block")  # pragma: no cover
 
     # Since we transform **all** returns (even those with an inert data value)
     # into tail calls (to cc), we must insert any missing implicit "return"
@@ -539,7 +539,7 @@ def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
             return Expr(value=value)  # return ec(...) --> ec(...)
     elif isec(tree, known_ecs):  # TCO the arg of an ec(...) call
         if len(tree.args) > 1:
-            assert False, "expected exactly one argument for escape continuation"  # pragma: no cover
+            raise SyntaxError("expected exactly one argument for escape continuation")  # pragma: no cover
         tree.args[0] = transform_retexpr(tree.args[0], known_ecs)
     return tree
 
@@ -660,7 +660,7 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
                                  body=transform(tree.values[-1]),
                                  orelse=transform_data(fal))
                 else:  # cannot happen
-                    assert False, "unknown BoolOp type {}".format(tree.op)  # pragma: no cover
+                    raise SyntaxError(f"unknown BoolOp type {tree.op}")  # pragma: no cover
             else:  # optimization: BoolOp, no call or compound in tail position --> treat as single data item
                 tree = transform_data(tree)
         else:

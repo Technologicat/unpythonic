@@ -31,12 +31,12 @@ def aif(tree):
 
 def cond(tree):
     if type(tree) is not Tuple:
-        assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"  # pragma: no cover
+        raise SyntaxError("Expected cond[test1, then1, test2, then2, ..., otherwise]")  # pragma: no cover
     def build(elts):
         if len(elts) == 1:  # final "otherwise" branch
             return implicit_do(elts[0])
         if not elts:
-            assert False, "Expected cond[test1, then1, test2, then2, ..., otherwise]"  # pragma: no cover
+            raise SyntaxError("Expected cond[test1, then1, test2, then2, ..., otherwise]")  # pragma: no cover
         test, then, *more = elts
         test = implicit_do(test)
         then = implicit_do(then)

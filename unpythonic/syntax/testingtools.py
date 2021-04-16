@@ -502,7 +502,7 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
         exctype, tree = tree.elts
         message = q[None]
     else:
-        assert False, "Expected one of {stx}[exctype, expr], {stx}[exctype, expr, message]".format(stx=syntaxname)
+        raise SyntaxError(f"Expected one of {syntaxname}[exctype, expr], {syntaxname}[exctype, expr, message]")
 
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.
@@ -548,7 +548,7 @@ def test_block(block_body, args):
     elif len(args) == 0:
         message = q[None]
     else:
-        assert False, 'Expected `with test:` or `with test(message):`'
+        raise SyntaxError('Expected `with test:` or `with test(message):`')
 
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.
@@ -620,7 +620,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
         exctype = args[0]
         message = q[None]
     else:
-        assert False, 'Expected `with {stx}(exctype):` or `with {stx}(exctype, message):`'.format(stx=syntaxname)
+        raise SyntaxError(f'Expected `with {syntaxname}(exctype):` or `with {syntaxname}(exctype, message):`')
 
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.

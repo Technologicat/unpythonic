@@ -175,7 +175,7 @@ def destructure_decorated_lambda(tree):
             return get(tree.args[0], lst + [tree])
         elif type(tree) is Lambda:
             return lst, tree
-        assert False, "Expected a chain of Call nodes terminating in a Lambda node"  # pragma: no cover
+        raise SyntaxError("Expected a chain of Call nodes terminating in a Lambda node")  # pragma: no cover
     return get(tree, [])
 
 def has_tco(tree, userlambdas=[]):
@@ -238,7 +238,7 @@ def sort_lambda_decorators(tree):
                 return k
         # Only happens if called for a `tree` containing unknown (not registered) decorators.
         x = getname(tree.func) if type(tree) is Call else "<unknown>"  # pragma: no cover
-        assert False, "Only registered decorators can be auto-sorted, '{:s}' is not; see unpythonic.regutil".format(x)  # pragma: no cover
+        raise SyntaxError(f"Only registered decorators can be auto-sorted, '{x}' is not; see unpythonic.regutil")  # pragma: no cover
 
     @Walker
     def fixit(tree, *, stop, **kw):

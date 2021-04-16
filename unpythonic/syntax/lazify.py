@@ -123,7 +123,7 @@ def lazyrec(tree):
 
     def lazify_ctorcall(tree, positionals="all", keywords="all"):
         if getname(tree.func) in _ctorcalls_that_take_exactly_one_positional_arg and len(tree.args) > 1:
-            assert False, "lazyrec[]: while analyzing constructor call `{}`: there should be exactly one argument, but {} were given.".format(getname(tree.func), len(tree.args))  # pragma: no cover
+            raise SyntaxError(f"lazyrec[]: while analyzing constructor call `{getname(tree.func)}`: there should be exactly one argument, but {len(tree.args)} were given.")  # pragma: no cover
 
         newargs = []
         for a in tree.args:

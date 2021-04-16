@@ -197,7 +197,7 @@ def _dletimpl(bindings, body, mode, kind):
     assert mode in ("let", "letrec")
     assert kind in ("decorate", "call")
     if type(body) not in (FunctionDef, AsyncFunctionDef):
-        assert False, "Expected a function definition to decorate"  # pragma: no cover
+        raise SyntaxError("Expected a function definition to decorate")  # pragma: no cover
     if not bindings:
         # Similarly as above, this cannot trigger from the macro layer no
         # matter what that layer does. This is here to optimize away a `dlet`
@@ -259,7 +259,7 @@ def _dletseqimpl(bindings, body, kind):
     #
     assert kind in ("decorate", "call")
     if type(body) not in (FunctionDef, AsyncFunctionDef):
-        assert False, "Expected a function definition to decorate"  # pragma: no cover
+        raise SyntaxError("Expected a function definition to decorate")  # pragma: no cover
     if not bindings:
         # Similarly as above, this cannot trigger from the macro layer no
         # matter what that layer does. This is here to optimize away a `dletseq`
@@ -304,7 +304,7 @@ def _dletseqimpl(bindings, body, kind):
 
 def do(tree):
     if type(tree) not in (Tuple, List):
-        assert False, "do body: expected a sequence of comma-separated expressions"  # pragma: no cover, let's not test the macro expansion errors.
+        raise SyntaxError("do body: expected a sequence of comma-separated expressions")  # pragma: no cover, let's not test the macro expansion errors.
 
     gen_sym = dyn.gen_sym
     e = gen_sym("e")
@@ -322,10 +322,10 @@ def do(tree):
                 expr = tree.slice
             else:
                 if type(tree.slice) is not Index:  # no slice syntax allowed
-                    assert False, "local[...] takes exactly one expression of the form 'name << value'"  # pragma: no cover
+                    raise SyntaxError("local[...] takes exactly one expression of the form 'name << value'")  # pragma: no cover
                 expr = tree.slice.value
             if not isenvassign(expr):
-                assert False, "local(...) takes exactly one expression of the form 'name << value'"  # pragma: no cover
+                raise SyntaxError("local(...) takes exactly one expression of the form 'name << value'")  # pragma: no cover
             view = UnexpandedEnvAssignView(expr)
             collect(view.name)
             return expr  # local[...] -> ..., the "local" tag has done its job
@@ -337,10 +337,10 @@ def do(tree):
                 expr = tree.slice
             else:
                 if type(tree.slice) is not Index:  # no slice syntax allowed
-                    assert False, "delete[...] takes exactly one name"  # pragma: no cover
+                    raise SyntaxError("delete[...] takes exactly one name")  # pragma: no cover
                 expr = tree.slice.value
             if type(expr) is not Name:
-                assert False, "delete[...] takes exactly one name"  # pragma: no cover
+                raise SyntaxError("delete[...] takes exactly one name")  # pragma: no cover
             collect(expr.id)
             return q[ast_literal[envdel](u[expr.id])]  # delete[...] -> e.pop(...)
         return tree
@@ -352,10 +352,11 @@ def do(tree):
         # because do[] is a second-pass macro, so they expand from inside out.
         expr, newnames = find_localdefs.recurse_collect(expr)
         expr, deletednames = find_deletes.recurse_collect(expr)
-        assert not (newnames and deletednames), "a do-item may have only local[] or delete[], not both"
+        if newnames and deletednames:
+            raise SyntaxError("a do-item may have only local[] or delete[], not both")  # pragma: no cover
         if newnames:
             if any(x in names for x in newnames):
-                assert False, "local names must be unique in the same do"  # pragma: no cover
+                raise SyntaxError("local names must be unique in the same do")  # pragma: no cover
         # The envassignment transform (LHS) needs the updated bindings, whereas
         # the name transform (RHS) should use the previous bindings, so that any
         # changes to bindings take effect starting from the **next** do-item.
@@ -392,7 +393,7 @@ def delete(*args, **kwargs):
 
 def do0(tree):
     if type(tree) not in (Tuple, List):
-        assert False, "do0 body: expected a sequence of comma-separated expressions"  # pragma: no cover
+        raise SyntaxError("do0 body: expected a sequence of comma-separated expressions")  # pragma: no cover
     elts = tree.elts
     newelts = []
     newelts.append(q[name["local"][name["_do0_result"] << (ast_literal[elts[0]])]])

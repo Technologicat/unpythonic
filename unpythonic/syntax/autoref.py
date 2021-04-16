@@ -80,8 +80,10 @@ def _autoref_resolve(args):
     return False, None
 
 def autoref(block_body, args, asname):
-    assert len(args) == 1, "expected exactly one argument, the expr to implicitly reference"
-    assert block_body, "expected at least one statement inside the 'with autoref' block"
+    if len(args) != 1:
+        raise SyntaxError("expected exactly one argument, the expr to implicitly reference")  # pragma: no cover
+    if not block_body:
+        raise SyntaxError("expected at least one statement inside the 'with autoref' block")  # pragma: no cover
 
     gen_sym = dyn.gen_sym
     o = asname.id if asname else gen_sym("_o")  # Python itself guarantees asname to be a bare Name.

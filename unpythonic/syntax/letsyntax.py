@@ -45,7 +45,7 @@ def let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1
             key, value = line.elts
             name, args = _analyze_lhs(key)
             if name in names_seen:
-                assert False, "duplicate '{}'; names defined in the same let_syntax expr must be unique".format(name)  # pragma: no cover
+                raise SyntaxError(f"duplicate '{name}'; names defined in the same let_syntax expr must be unique")  # pragma: no cover
             names_seen.add(name)
             target = templates if args else barenames
             target.append((name, args, value, "expr"))
@@ -81,13 +81,13 @@ def let_syntax_block(block_body):
         ctxmanager = withstmt.items[0].context_expr
         optvars = withstmt.items[0].optional_vars
         if not optvars:
-            assert False, "'with {}:': expected an as-part".format(mode)  # pragma: no cover
+            raise SyntaxError(f"'with {mode}:': expected an as-part")  # pragma: no cover
         if type(optvars) is not Name:
-            assert False, "'with {}:': expected exactly one name in the as-part".format(mode)  # pragma: no cover
+            raise SyntaxError(f"'with {mode}:': expected exactly one name in the as-part")  # pragma: no cover
 
         name = optvars.id
         if name in names_seen:
-            assert False, "duplicate '{}'; as-parts in the same let_syntax block must be unique".format(name)  # pragma: no cover
+            raise SyntaxError(f"duplicate '{name}'; as-parts in the same let_syntax block must be unique")  # pragma: no cover
 
         if kind == "template":
             _, args = _analyze_lhs(ctxmanager)  # syntactic limitation, can't place formal parameter list on the as-part
@@ -101,10 +101,10 @@ def let_syntax_block(block_body):
                        lineno=stmt.lineno, col_offset=stmt.col_offset)
         else:  # mode == "expr":
             if len(withstmt.body) != 1:
-                assert False, "'with expr:' expected a one-item body (use a do[] if need more)"  # pragma: no cover
+                raise SyntaxError("'with expr:' expected a one-item body (use a do[] if need more)")  # pragma: no cover
             theexpr = withstmt.body[0]
             if type(theexpr) is not Expr:
-                assert False, "'with expr:' expected an expression body, got a statement"  # pragma: no cover
+                raise SyntaxError("'with expr:' expected an expression body, got a statement")  # pragma: no cover
             value = theexpr.value  # discard Expr wrapper in definition
         names_seen.add(name)
         target = templates if args else barenames
@@ -132,15 +132,17 @@ def let_syntax_block(block_body):
             new_block_body.append(stmt)
     new_block_body = eliminate_ifones(new_block_body)
     if not new_block_body:
-        assert False, "let_syntax: expected at least one statement beside definitions"  # pragma: no cover
+        raise SyntaxError("let_syntax: expected at least one statement beside definitions")  # pragma: no cover
     return new_block_body
 
+# TODO: convert to mcpyrate magic variable
 class block:
     """[syntax] Magic identifier for ``with block:`` inside a ``with let_syntax:``."""
     def __repr__(self):  # in case one of these ends up somewhere at runtime
         return "<let_syntax 'with block:'>"  # pragma: no cover
 block = block()
 
+# TODO: convert to mcpyrate magic variable
 class expr:
     """[syntax] Magic identifier for ``with expr:`` inside a ``with let_syntax:``."""
     def __repr__(self):  # in case one of these ends up somewhere at runtime
@@ -156,12 +158,12 @@ def _analyze_lhs(tree):
     elif type(tree) is Call and type(tree.func) is Name:  # template f(x, ...)
         name = tree.func.id
         if any(type(a) is Starred for a in tree.args):  # *args (Python 3.5+)
-            assert False, "in template, only positional parameters supported (no *args)"  # pragma: no cover
+            raise SyntaxError("in template, only positional parameters supported (no *args)")  # pragma: no cover
         args = [a.id for a in tree.args]
         if tree.keywords:
-            assert False, "in template, only positional parameters supported (no named args or **kwargs)"  # pragma: no cover
+            raise SyntaxError("in template, only positional parameters supported (no named args or **kwargs)")  # pragma: no cover
     else:
-        assert False, "expected a name (e.g. x) or a template (e.g. f(x, ...)) on the LHS"  # pragma: no cover
+        raise SyntaxError("expected a name (e.g. x) or a template (e.g. f(x, ...)) on the LHS")  # pragma: no cover
     return name, args
 
 def _substitute_barename(name, value, tree, mode):
@@ -180,7 +182,7 @@ def _substitute_barename(name, value, tree, mode):
             tree = subst()
         elif isthisname(tree):
             if mode == "block":
-                assert False, "cannot substitute a block into expression position"  # pragma: no cover
+                raise SyntaxError("cannot substitute a block into expression position")  # pragma: no cover
             tree = subst()
         return tree
 
@@ -215,9 +217,7 @@ def _substitute_templates(templates, tree):
         def subst(tree):
             theargs = tree.args
             if len(theargs) != len(formalparams):
-                assert False, "let_syntax template '{}' expected {} arguments, got {}".format(name,  # pragma: no cover
-                                                                                              len(formalparams),
-                                                                                              len(theargs))
+                raise SyntaxError(f"let_syntax template '{name}' expected {len(formalparams)} arguments, got {len(theargs)}")  # pragma: no cover
             # make a fresh deep copy of the RHS to avoid destroying the template.
             tree = deepcopy(value)  # expand the f itself in f(x, ...)
             for k, v in zip(formalparams, theargs):  # expand the x, ... in the expanded form of f
@@ -233,7 +233,7 @@ def _substitute_templates(templates, tree):
                 tree = subst(tree.value)
             elif isthisfunc(tree):
                 if mode == "block":
-                    assert False, "cannot substitute a block into expression position"  # pragma: no cover
+                    raise SyntaxError("cannot substitute a block into expression position")  # pragma: no cover
                 tree = subst(tree)
             return tree
         tree = splice.recurse(tree)

@@ -24,9 +24,6 @@ from ..dynassign import make_dynvar
 #    - Inside out: perform processing after recursion call
 #  - Consider when to just return and let the expander expand again
 
-# TODO: `mcpyrate` does not use `assert` to indicate macro expansion errors.
-# TODO: Fix all macro expansion error asserts to raise an appropriately typed exception instead.
-
 # TODO: Python 3.6+: get rid of .format, use f-strings instead
 
 # TODO: Some macros look up others; convert lookups to mcpyrate style (accounting for as-imports)

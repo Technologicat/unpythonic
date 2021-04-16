@@ -71,7 +71,7 @@ def dbg_block(body, args):
         # TODO: add support for Attribute to support using a method as a custom print function
         # (the problem is we must syntactically find matches in the AST, and AST nodes don't support comparison)
         if type(args[0]) is not Name:  # pragma: no cover, let's not test the macro expansion errors.
-            assert False, "Custom debug print function must be specified by a bare name"
+            raise SyntaxError("Custom debug print function must be specified by a bare name")
         p = args[0]
         pname = p.id  # name of the print function as it appears in the user code
     else:
