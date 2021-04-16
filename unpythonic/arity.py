@@ -19,7 +19,7 @@ class UnknownArity(ValueError):
     """Raised when the arity of a function cannot be inspected."""
 
 # HACK: some built-ins report incorrect arities (0, 0) at least in Python 3.4
-# TODO: re-test on 3.8 and on PyPy3, just to be sure.
+# TODO: re-test on 3.8 and on PyPy3 (3.7), just to be sure.
 #
 # Full list of built-ins:
 #   https://docs.python.org/3/library/functions.html
