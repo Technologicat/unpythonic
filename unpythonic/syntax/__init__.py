@@ -24,9 +24,13 @@ from ..dynassign import make_dynvar
 #    - Inside out: perform processing after recursion call
 #  - Consider when to just return and let the expander expand again
 
+# TODO: macro docs: "first pass" -> "outside in"; "second pass" -> "inside out"
 
 # TODO: Some macros look up others; convert lookups to mcpyrate style (accounting for as-imports)
 # TODO: or hygienic macro references, as appropriate.
+
+# TODO: check all uses of q[] and `with q` (e.g. use `mcpyrate.utils.rename` for lambda parameter name injections)
+# TODO: eliminate hq[], use q[h[]] as appropriate
 
 # TODO: `mcpyrate` does not auto-expand macros in quasiquoted code.
 #  - In test code, clean up obsolete hacks such as "definitelynotlet"
@@ -51,6 +55,12 @@ from ..dynassign import make_dynvar
 
 # TODO: Upgrade anaphoric if's `it` into a `mcpyrate` magic variable that errors out at compile time when it appears in an invalid position (i.e. outside any `aif`). Basically, take the `aif` from `mcpyrate`.
 # TODO: also let_syntax block, expr
+# TODO: also the[] in unpythonic.syntax.testingtools
+
+# TODO: grep codebase for "0.15", may have some pending interface changes that don't have their own GitHub issue (e.g. parameter ordering of `unpythonic.it.window`)
+
+# TODO: ansicolor: mcpyrate already depends on Colorama anyway (and has a *nix-only fallback capability).
+# TODO: So unpythonic doesn't really need to provide a colorizer; we can use the one from mcpyrate.
 
 # Syntax transformers and internal utilities
 from .autoref import autoref as _autoref
