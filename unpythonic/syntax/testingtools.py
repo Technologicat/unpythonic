@@ -4,11 +4,10 @@
 See also `unpythonic.test.fixtures` for the high-level machinery.
 """
 
-from macropy.core.quotes import macros, q, u, ast_literal, name
-from macropy.core.hquotes import macros, hq  # noqa: F811, F401
-from macropy.core.walkers import Walker
-from macropy.core.macros import macro_stub
-from macropy.core import unparse
+from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
+
+from mcpyrate import unparse
+from mcpyrate.walkers import ASTTransformer
 
 from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return, parse, Expr, AST
 import sys
@@ -342,21 +341,22 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, me
 # Syntax transformers for the macros.
 
 def _unconditional_error_expr(tree, syntaxname, marker):
-    thetuple = q[(ast_literal[marker], ast_literal[tree])]
+    thetuple = q[(a[marker], a[tree])]   # consider `test[tree, message]`
     thetuple = copy_location(thetuple, tree)
     return test_expr(thetuple)
 
+# Here `tree` is the AST for the failure message.
 def fail_expr(tree):
-    return _unconditional_error_expr(tree, "fail", hq[_fail])
+    return _unconditional_error_expr(tree, "fail", q[h[_fail]])  # TODO: stash a copy of the hygienic value?
 def error_expr(tree):
-    return _unconditional_error_expr(tree, "error", hq[_error])
+    return _unconditional_error_expr(tree, "error", q[h[_error]])
 def warn_expr(tree):
-    return _unconditional_error_expr(tree, "warn", hq[_warn])
+    return _unconditional_error_expr(tree, "warn", q[h[_warn]])
 
 # -----------------------------------------------------------------------------
 # Expr variants.
 
-@macro_stub
+# TODO: convert to mcpyrate magic variable (to raise error when in inappropriate position)
 def the(*args, **kwargs):
     """[syntax, expr] In a test, mark a subexpression as the interesting one.
 
@@ -414,41 +414,40 @@ def _record_value(envname, sourcecode, value):
     envname.captured_values.append((sourcecode, value))
     return value
 def _inject_value_recorder(envname, tree):  # wrap tree with the the[] handler
-    recorder = hq[_record_value]
-    return q[ast_literal[recorder](name[envname],
-                                   u[unparse(tree)],
-                                   ast_literal[tree])]
-@Walker
-def _transform_important_subexpr(tree, *, collect, stop, envname, **kw):
-    # The the[] mark mechanism runs in the first pass, outside in,
-    # because for reporting, it needs to capture the source AST
-    # in the form the code appears in the actual source file.
-    #
-    # Respect the boundaries of nested test constructs.
-    if isunexpandedtestmacro(tree):
-        stop()
-    elif _is_important_subexpr_mark(tree):
-        stop()
-        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-            thing = tree.slice
-        else:
-            thing = tree.slice.value
-        collect(thing)  # or anything really; value not used, we just count them.
-        # Handle any nested the[] subexpressions
-        subtree, collected = _transform_important_subexpr.recurse_collect(thing, envname=envname)
-        # NOTE: If a collecting Walker recurses further to collect in a
-        # branch that has already called `stop()`, the results must be
-        # propagated manually.
-        for item in collected:
-            collect(item)
-        return _inject_value_recorder(envname, subtree)
-    return tree
+    recorder = q[h[_record_value]]  # TODO: stash hygienic value?
+    return q[a[recorder](n[envname],
+                         u[unparse(tree)],
+                         a[tree])]
+def _transform_important_subexpr(tree, envname):
+    # The the[] mark mechanism is invoked outside-in, because for reporting,
+    # it needs to capture the source AST in the form the code appears in the
+    # actual source file.
+    class ImportantSubexprTransformer(ASTTransformer):
+        def transform(self, tree):
+            # Respect the boundaries of nested test constructs (don't recurse there).
+            if isunexpandedtestmacro(tree):
+                return tree
+            elif _is_important_subexpr_mark(tree):
+                if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+                    thing = tree.slice
+                else:
+                    thing = tree.slice.value
+                self.collect(thing)  # or anything really; value not used, we just count them.
+                # Handle any nested the[] subexpressions
+                subtree = self.visit(thing)
+                return _inject_value_recorder(envname, subtree)
+            else:
+                return self.generic_visit(tree)  # recurse
+    transformer = ImportantSubexprTransformer()
+    tree = transformer.visit(tree)
+    return tree, transformer.collected
+
 
 def test_expr(tree):
     # Note we want the line number *before macro expansion*, so we capture it now.
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
-    filename = hq[callsite_filename()]
-    asserter = hq[unpythonic_assert]
+    filename = q[h[callsite_filename]()]
+    asserter = q[h[unpythonic_assert]]
 
     # test[expr, message]  (like assert expr, message)
     if type(tree) is Tuple and len(tree.elts) == 2:
@@ -481,18 +480,18 @@ def test_expr(tree):
     #
     # Also, we need the lambda for passing in the value capture environment
     # for the `the[]` mark, anyway.
-    func_tree = q[lambda _: ast_literal[tree]]  # create the function that takes in the env
+    func_tree = q[lambda _: a[tree]]  # create the function that takes in the env
     func_tree.args.args[0] = arg(arg=envname)  # inject the gensymmed parameter name
 
-    return q[(ast_literal[asserter])(u[sourcecode],
-                                     ast_literal[func_tree],
-                                     filename=ast_literal[filename],
-                                     lineno=ast_literal[ln],
-                                     message=ast_literal[message])]
+    return q[(a[asserter])(u[sourcecode],
+                           a[func_tree],
+                           filename=a[filename],
+                           lineno=a[ln],
+                           message=a[message])]
 
 def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
-    filename = hq[callsite_filename()]
+    filename = q[h[callsite_filename]()]
 
     # test_signals[exctype, expr, message]
     if type(tree) is Tuple and len(tree.elts) == 3:
@@ -514,17 +513,17 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     # End of first pass.
     tree = yield tree
 
-    return q[(ast_literal[asserter])(ast_literal[exctype],
-                                     u[sourcecode],
-                                     lambda: ast_literal[tree],
-                                     filename=ast_literal[filename],
-                                     lineno=ast_literal[ln],
-                                     message=ast_literal[message])]
+    return q[(a[asserter])(a[exctype],
+                           u[sourcecode],
+                           lambda: a[tree],
+                           filename=a[filename],
+                           lineno=a[ln],
+                           message=a[message])]
 
 def test_expr_signals(tree):
-    return _test_expr_signals_or_raises(tree, "test_signals", hq[unpythonic_assert_signals])
+    return _test_expr_signals_or_raises(tree, "test_signals", q[h[unpythonic_assert_signals]])
 def test_expr_raises(tree):
-    return _test_expr_signals_or_raises(tree, "test_raises", hq[unpythonic_assert_raises])
+    return _test_expr_signals_or_raises(tree, "test_raises", q[h[unpythonic_assert_raises]])
 
 # -----------------------------------------------------------------------------
 # Block variants.
@@ -538,8 +537,8 @@ def test_block(block_body, args):
 
     # Note we want the line number *before macro expansion*, so we capture it now.
     ln = q[u[first_stmt.lineno]] if hasattr(first_stmt, "lineno") else q[None]
-    filename = hq[callsite_filename()]
-    asserter = hq[unpythonic_assert]
+    filename = q[h[callsite_filename]()]
+    asserter = q[h[unpythonic_assert]]
 
     # with test(message):
     if len(args) == 1:
@@ -568,15 +567,15 @@ def test_block(block_body, args):
     block_body = yield block_body
 
     testblock_function_name = gen_sym("test_block")
-    thetest = q[(ast_literal[asserter])(u[sourcecode],
-                                        name[testblock_function_name],
-                                        filename=ast_literal[filename],
-                                        lineno=ast_literal[ln],
-                                        message=ast_literal[message])]
+    thetest = q[(a[asserter])(u[sourcecode],
+                              n[testblock_function_name],
+                              filename=a[filename],
+                              lineno=a[ln],
+                              message=a[message])]
     with q as newbody:
         def _insert_funcname_here_(_insert_envname_here_):
             ...
-        ast_literal[thetest]
+        a[thetest]
     thefunc = newbody[0]
     thefunc.name = testblock_function_name
     thefunc.args.args[0] = arg(arg=envname)  # inject the gensymmed parameter name
@@ -610,7 +609,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
 
     # Note we want the line number *before macro expansion*, so we capture it now.
     ln = q[u[first_stmt.lineno]] if hasattr(first_stmt, "lineno") else q[None]
-    filename = hq[callsite_filename()]
+    filename = q[h[callsite_filename]()]
 
     # with test_raises(exctype, message):
     if len(args) == 2:
@@ -634,22 +633,22 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
 
     gen_sym = dyn.gen_sym
     testblock_function_name = gen_sym("test_block")
-    thetest = q[(ast_literal[asserter])(ast_literal[exctype],
-                                        u[sourcecode],
-                                        name[testblock_function_name],
-                                        filename=ast_literal[filename],
-                                        lineno=ast_literal[ln],
-                                        message=ast_literal[message])]
+    thetest = q[(a[asserter])(a[exctype],
+                              u[sourcecode],
+                              n[testblock_function_name],
+                              filename=a[filename],
+                              lineno=a[ln],
+                              message=a[message])]
     with q as newbody:
         def _insert_funcname_here_():  # no env needed, since `the[]` is not meaningful here.
             ...
-        ast_literal[thetest]
+        a[thetest]
     thefunc = newbody[0]
     thefunc.name = testblock_function_name
     thefunc.body = block_body
     return newbody
 
 def test_block_signals(block_body, args):
-    return _test_block_signals_or_raises(block_body, args, "test_signals", hq[unpythonic_assert_signals])
+    return _test_block_signals_or_raises(block_body, args, "test_signals", q[h[unpythonic_assert_signals]])
 def test_block_raises(block_body, args):
-    return _test_block_signals_or_raises(block_body, args, "test_raises", hq[unpythonic_assert_raises])
+    return _test_block_signals_or_raises(block_body, args, "test_raises", q[h[unpythonic_assert_raises]])
