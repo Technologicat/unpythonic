@@ -129,7 +129,7 @@ make_dynvar(gen_sym=gensym)
 
 # -----------------------------------------------------------------------------
 
-# The "kw" we have here is the parameter from MacroPy; the "kw" we export (that
+# The "kw" we have here is the parameter from mcpyrate; the "kw" we export (that
 # flake8 thinks conflicts with this) is the runtime stub for our `prefix` macro.
 @parametricmacro
 def autoref(tree, *, syntax, args, **kw):  # noqa: F811
