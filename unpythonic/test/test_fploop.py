@@ -90,13 +90,13 @@ def runtests():
         @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
         def p(loop, item, acc):
             numb, lett = item  # unpack here, in body
-            return loop(acc + ("{:d}{:s}".format(numb, lett),))
+            return loop(acc + (f"{numb:d}{lett}",))
         test[p == ('1a', '2b', '3c')]
 
         @looped_over(enumerate(zip((1, 2, 3), ('a', 'b', 'c'))), acc=())
         def q(loop, item, acc):
             idx, (numb, lett) = item
-            return loop(acc + ("Item {:d}: {:d}{:s}".format(idx, numb, lett),))
+            return loop(acc + (f"Item {idx:d}: {numb:d}{lett}",))
         test[q == ('Item 0: 1a', 'Item 1: 2b', 'Item 2: 3c')]
 
     with testset("nested FP loops over collections"):
@@ -271,7 +271,7 @@ def runtests():
                                     body=lambda e:
                                            e.cont(acc + i) if i < 10 else acc)),
                      body=lambda e:
-                            begin(print("s is {:d}".format(e.s)),
+                            begin(print(f"s is {e.s:d}"),
                                   2 * e.s))
         test[result == 90]
 
@@ -284,7 +284,7 @@ def runtests():
                 if i >= 10:
                     return acc
                 return cont(acc + i)
-            print("s is {:d}".format(s))
+            print(f"s is {s:d}")
             return 2 * s
         test[result == 90]
 
@@ -392,12 +392,12 @@ def runtests():
             def _ignored4(loop, x, acc):    # but body always takes at least these three parameters
                 return loop()
 
-        print("do-nothing loop, {:d} iterations:".format(n))
-        print("  builtin for {:g}s ({:g}s/iter)".format(ip.dt, ip.dt / n))
-        print("  @looped {:g}s ({:g}s/iter)".format(fp2.dt, fp2.dt / n))
-        print("  @looped_over {:g}s ({:g}s/iter)".format(fp3.dt, fp3.dt / n))
-        print("@looped slowdown {:g}x".format(fp2.dt / ip.dt))
-        print("@looped_over slowdown {:g}x".format(fp3.dt / ip.dt))
+        print(f"do-nothing loop, {n:d} iterations:")
+        print(f"  builtin for {ip.dt:g}s ({(ip.dt / n):g}s/iter)")
+        print(f"  @looped {fp2.dt:g}s ({(fp2.dt / n):g}s/iter)")
+        print(f"  @looped_over {fp3.dt:g}s ({(fp3.dt / n):g}s/iter)")
+        print(f"@looped slowdown {(fp2.dt / ip.dt):g}x")
+        print(f"@looped_over slowdown {(fp3.dt / ip.dt):g}x")
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

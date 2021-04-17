@@ -2337,7 +2337,7 @@ def _(loop):
     if s.lower() == 'q':
         return  # ...the implicit None. In a "while True:", "break" here.
     else:
-        print("Hello, {}!".format(s))
+        print(f"Hello, {s}!")
         return loop()
 ```
 
@@ -2395,13 +2395,13 @@ Multiple input iterables work somewhat like in Python's ``for``, except any sequ
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
 def p(loop, item, acc):
     numb, lett = item
-    return loop(acc + ("{:d}{:s}".format(numb, lett),))
+    return loop(acc + (f"{numb:d}{lett}",))
 assert p == ('1a', '2b', '3c')
 
 @looped_over(enumerate(zip((1, 2, 3), ('a', 'b', 'c'))), acc=())
 def q(loop, item, acc):
     idx, (numb, lett) = item
-    return loop(acc + ("Item {:d}: {:d}{:s}".format(idx, numb, lett),))
+    return loop(acc + (f"Item {idx:d}: {numb:d}{lett}",))
 assert q == ('Item 0: 1a', 'Item 1: 2b', 'Item 2: 3c')
 ```
 
@@ -2434,7 +2434,7 @@ Mutable sequence (Python ``list``):
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=[])
 def p(loop, item, acc):
     numb, lett = item
-    newelt = "{:d}{:s}".format(numb, lett)
+    newelt = f"{numb:d}{lett}"
     acc.append(newelt)
     return loop()
 assert p == ['1a', '2b', '3c']
@@ -2449,7 +2449,7 @@ from unpythonic import cons, nil, ll
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
 def p(loop, item, acc):
     numb, lett = item
-    newelt = "{:d}{:s}".format(numb, lett)
+    newelt = f"{numb:d}{lett}"
     return loop(cons(newelt, acc))
 assert p == ll('1a', '2b', '3c')
 ```
@@ -2464,7 +2464,7 @@ To get the output as a tuple, we can add ``tuple`` to the decorator chain:
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
 def p(loop, item, acc):
     numb, lett = item
-    newelt = "{:d}{:s}".format(numb, lett)
+    newelt = f"{numb:d}{lett}"
     return loop(cons(newelt, acc))
 assert p == ('1a', '2b', '3c')
 ```
@@ -3397,7 +3397,7 @@ from unpythonic import raisef, tryf
 
 raise_instance = lambda: raisef(ValueError("all ok"))
 test[tryf(lambda: raise_instance(),
-         (ValueError, lambda err: "got a ValueError: '{}'".format(err.args[0]))) == "got a ValueError: 'all ok'"]
+         (ValueError, lambda err: f"got a ValueError: '{err.args[0]}'")) == "got a ValueError: 'all ok'"]
 ```
 
 The exception handler is a function. It may optionally accept one argument, the exception instance.

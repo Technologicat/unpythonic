@@ -397,7 +397,7 @@ def runtests():
         n = 5000
         with timer() as tictoc:
             last(take(n, primes()))
-        print("First {:d} primes: {:g}s".format(n, tictoc.dt))
+        print(f"First {n:d} primes: {tictoc.dt:g}s")
 
         test[last(take(3379, primes())) == 31337]
 

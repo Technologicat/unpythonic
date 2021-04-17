@@ -137,7 +137,7 @@ class ThereCanBeOnlyOne(type):
             # Here we can do things like call `cls.__init__` only if `cls` was not
             # already in `_instances`... or outright refuse to create a second instance:
             if cls in _instances:
-                raise TypeError("Singleton instance of {} already exists".format(cls))
+                raise TypeError(f"Singleton instance of {cls} already exists")
             # When allowed to proceed, we mimic default behavior.
             # TODO: Maybe we should just "return super().__call__(cls, *args, **kwargs)"?
             # TODO: That doesn't work in the case where we have extra arguments,

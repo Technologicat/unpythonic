@@ -97,7 +97,7 @@ class PTYSocketProxy:
                     return
 
         self._terminated = False
-        self._thread = threading.Thread(target=forward_traffic, name="PTY on {}".format(os.ttyname(self.slave)), daemon=True)
+        self._thread = threading.Thread(target=forward_traffic, name=f"PTY on {os.ttyname(self.slave)}", daemon=True)
         self._thread.start()
 
     def stop(self):

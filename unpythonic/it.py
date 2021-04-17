@@ -264,9 +264,9 @@ def take(n, iterable):
     This is ``take`` from ``itertools`` recipes.
     """
     if not isinstance(n, int):
-        raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
+        raise TypeError(f"expected integer n, got {type(n)} with value {repr(n)}")
     if n < 0:
-        raise ValueError("expected n >= 0, got {}".format(n))
+        raise ValueError(f"expected n >= 0, got {n}")
     return islice(iter(iterable), n)
 
 def drop(n, iterable):
@@ -281,9 +281,9 @@ def drop(n, iterable):
         deque(it, maxlen=0)
         return it
     if not isinstance(n, int):
-        raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
+        raise TypeError(f"expected integer n, got {type(n)} with value {repr(n)}")
     if n < 0:
-        raise ValueError("expected n >= 0, got {}".format(n))
+        raise ValueError(f"expected n >= 0, got {n}")
     it = iter(iterable)
     next(islice(it, n, n), None)  # advance it to empty slice starting at n
     return it
@@ -306,9 +306,9 @@ def split_at(n, iterable):
         assert b == ()
     """
     if not isinstance(n, int):
-        raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
+        raise TypeError(f"expected integer n, got {type(n)} with value {repr(n)}")
     if n < 0:
-        raise ValueError("expected n >= 0, got {}".format(n))
+        raise ValueError(f"expected n >= 0, got {n}")
     ia, ib = tee(iter(iterable))
     return take(n, ia), drop(n, ib)
 
@@ -342,14 +342,14 @@ def unpack(n, iterable, *, k=None, fillvalue=None):
     the tail is formed by fast-forwarding the iterator using ``drop``.
     """
     if not isinstance(n, int):
-        raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
+        raise TypeError(f"expected integer n, got {type(n)} with value {repr(n)}")
     if n < 0:
-        raise ValueError("expected n >= 0, got {}".format(n))
+        raise ValueError(f"expected n >= 0, got {n}")
     k = k if k is not None else n  # not "k or n", since k = 0 is valid
     if not isinstance(k, int):
-        raise TypeError("expected integer k, got {} with value {}".format(type(k), k))
+        raise TypeError(f"expected integer k, got {type(k)} with value {repr(k)}")
     if k < 0:
-        raise ValueError("expected k >= 0, got {}".format(k))
+        raise ValueError(f"expected k >= 0, got {k}")
     out = []
     tl = None
     it = iter(iterable)
@@ -425,9 +425,9 @@ def nth(n, iterable, *, default=None):
     The ``default`` is returned if there are fewer than ``n + 1`` items.
     """
     if not isinstance(n, int):
-        raise TypeError("expected integer n, got {} with value {}".format(type(n), n))
+        raise TypeError(f"expected integer n, got {type(n)} with value {repr(n)}")
     if n < 0:
-        raise ValueError("expected n >= 0, got {}".format(n))
+        raise ValueError(f"expected n >= 0, got {n}")
     it = drop(n, iterable) if n else iter(iterable)
     try:
         return next(it)
@@ -628,16 +628,16 @@ def partition_int(n, lower=1, upper=None):
     """
     # sanity check the preconditions, fail-fast
     if not isinstance(n, int):
-        raise TypeError('n must be integer; got {} with value {}'.format(type(n), repr(n)))
+        raise TypeError(f"n must be integer; got {type(n)} with value {repr(n)}")
     if not isinstance(lower, int):
-        raise TypeError('lower must be integer; got {} with value {}'.format(type(lower), repr(lower)))
+        raise TypeError(f"lower must be integer; got {type(lower)} with value {repr(lower)}")
     if upper is not None and not isinstance(upper, int):
-        raise TypeError('upper must be integer; got {} with value {}'.format(type(upper), repr(lower)))
+        raise TypeError(f"upper must be integer; got {type(upper)} with value {repr(upper)}")
     upper = upper if upper is not None else n
     if n < 1:
-        raise ValueError('n must be positive; got {}'.format(n))
+        raise ValueError(f"n must be positive; got {n}")
     if lower < 1 or upper < 1 or lower > n or upper > n or lower > upper:
-        raise ValueError('it must hold that 1 <= lower <= upper <= n; got lower={}, upper={}'.format(lower, upper))
+        raise ValueError(f"it must hold that 1 <= lower <= upper <= n; got lower={lower}, upper={upper}")
 
     def _partition(n):
         for k in range(min(n, upper), lower - 1, -1):
@@ -733,7 +733,7 @@ def iindex(x, iterable):
     for j, elt in enumerate(iterable):
         if elt == x:
             return j
-    raise ValueError("{} is not in iterable".format(x))
+    raise ValueError(f"{x} is not in iterable")
 
 def find(predicate, iterable, default=None):
     """Return the first item matching `predicate` in `iterable`, or `default` if no match.
@@ -758,7 +758,7 @@ def window(iterable, n=2):
         https://opensource.com/article/18/3/loop-better-deeper-look-iteration-python
     """
     if n < 2:
-        raise ValueError("expected n >= 2, got {}".format(n))
+        raise ValueError(f"expected n >= 2, got {n}")
     it = iter(iterable)
     xs = deque()
     for _ in range(n):
@@ -802,7 +802,7 @@ def chunked(n, iterable):
         https://stackoverflow.com/questions/8991506/iterate-an-iterator-by-chunks-of-n-in-python
     """
     if n < 2:
-        raise ValueError("expected n >= 2, got {}".format(n))
+        raise ValueError(f"expected n >= 2, got {n}")
     it = iter(iterable)
     def chunker():
         try:

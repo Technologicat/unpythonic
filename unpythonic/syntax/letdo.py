@@ -84,10 +84,10 @@ def _letimpl(bindings, body, mode):
     t = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
     if mode == "letrec":
         values = [t(rhs) for rhs in values]  # RHSs of bindings
-        values = [hq[namelambda(u["letrec_binding{}_{}".format(j, lhs)])(ast_literal[rhs])]
+        values = [hq[namelambda(u[f"letrec_binding{j}_{lhs}"])(ast_literal[rhs])]
                     for j, (lhs, rhs) in enumerate(zip(names, values), start=1)]
     body = t(body)
-    body = hq[namelambda(u["{}_body".format(mode)])(ast_literal[body])]
+    body = hq[namelambda(u[f"{mode}_body"])(ast_literal[body])]
 
     # CAUTION: letdoutil.py relies on:
     #  - the literal name "letter" to detect expanded let forms
@@ -214,7 +214,7 @@ def _dletimpl(bindings, body, mode, kind):
     t2 = partial(t1, dowrap=False)
     if mode == "letrec":
         values = [t1(rhs) for rhs in values]
-        values = [hq[namelambda(u["letrec_binding{}_{}".format(j, lhs)])(ast_literal[rhs])]
+        values = [hq[namelambda(u[f"letrec_binding{j}_{lhs}"])(ast_literal[rhs])]
                     for j, (lhs, rhs) in enumerate(zip(names, values), start=1)]
     body = t2(body)
 
@@ -270,7 +270,7 @@ def _dletseqimpl(bindings, body, kind):
     fname = body.name
     noargs = arguments(args=[], kwonlyargs=[], vararg=None, kwarg=None,
                        defaults=[], kw_defaults=[])
-    iname = dyn.gen_sym("{}_inner".format(fname))
+    iname = dyn.gen_sym(f"{fname}_inner")
     body.args = noargs
     body.name = iname
 
@@ -362,7 +362,7 @@ def do(tree):
         # changes to bindings take effect starting from the **next** do-item.
         updated_names = [x for x in names + newnames if x not in deletednames]
         expr = letlike_transform(expr, e, lhsnames=updated_names, rhsnames=names, setter=envset)
-        expr = hq[namelambda(u["do_line{}".format(j)])(ast_literal[expr])]
+        expr = hq[namelambda(u[f"do_line{j}"])(ast_literal[expr])]
         names = updated_names
         lines.append(expr)
     # CAUTION: letdoutil.py depends on the literal name "dof" to detect expanded do forms.

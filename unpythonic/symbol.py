@@ -95,7 +95,7 @@ class sym(Symbol):
     def __str__(self):
         return self.name
     def __repr__(self):
-        return 'sym("{}")'.format(self.name)
+        return f'sym("{self.name}")'
 
 
 # TODO: maybe get rid of the code duplication. But maybe no point.
@@ -132,9 +132,9 @@ class gsym(Symbol):
         return (self.uid, self.label)
 
     def __str__(self):
-        return "gensym#{}:{}".format(self.label, self.uid)
+        return f"gensym#{self.label}:{self.uid}"
     def __repr__(self):
-        return 'gsym("{}", {})'.format(self.label, repr(self.uid))
+        return f'gsym("{self.label}", {repr(self.uid)})'
 
 
 def gensym(label):

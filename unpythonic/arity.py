@@ -433,9 +433,7 @@ def resolve_bindings(f, *args, **kwargs):
     # gather excess positional arguments
     if len(args) > nposparams:
         if varpos is None:
-            raise TypeError("{}() takes {} positional arguments but {} were given".format(f.__name__,
-                                                                                          nposparams,
-                                                                                          len(args)))
+            raise TypeError(f"{f.__name__}() takes {nposparams} positional arguments but {len(args)} were given")
         slots[varpos] = args[nposparams:]
 
     # fill from keyword arguments
@@ -445,13 +443,11 @@ def resolve_bindings(f, *args, **kwargs):
             if slots[slot] is unassigned:
                 slots[slot] = value
             else:
-                raise TypeError("{}() got multiple values for argument '{}'".format(f.__name__,
-                                                                                    identifier))
+                raise TypeError(f"{f.__name__}() got multiple values for argument '{identifier}'")
         elif varkw is not None:  # gather excess keyword arguments
             vkdict[identifier] = value
         else:
-            raise TypeError("{}() got an unexpected keyword argument '{}'".format(f.__name__,
-                                                                                  identifier))
+            raise TypeError(f"{f.__name__}() got an unexpected keyword argument '{identifier}'")
 
     # fill missing with defaults from function definition
     failures = []
@@ -465,16 +461,13 @@ def resolve_bindings(f, *args, **kwargs):
     if failures:
         if len(failures) == 1:
             n1 = failures[0]
-            raise TypeError("{}() missing required positional argument: '{}'".format(f.__name__, n1))
+            raise TypeError(f"{f.__name__}() missing required positional argument: '{n1}'")
         if len(failures) == 2:
             n1, n2 = failures
-            raise TypeError("{}() missing 2 required positional arguments: '{}' and '{}'".format(f.__name__, n1, n2))
-        wrapped = ["'{}'".format(x) for x in failures]
+            raise TypeError(f"{f.__name__}() missing 2 required positional arguments: '{n1}' and '{n2}'")
+        wrapped = [f"'{x}'" for x in failures]
         others = ", ".join(wrapped[:-1])
-        msg = "{}() missing {} required positional arguments: {}, and '{}'".format(f.__name__,
-                                                                                   len(failures),
-                                                                                   others,
-                                                                                   failures[-1])
+        msg = f"{f.__name__}() missing {len(failures)} required positional arguments: {others}, and '{failures[-1]}'"
         raise TypeError(msg)
 
     # build the result

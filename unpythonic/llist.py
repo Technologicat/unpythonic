@@ -63,7 +63,7 @@ class ConsIterator(metaclass=ABCMeta):
     @abstractmethod
     def __init__(self, startcell, walker):
         if not isinstance(startcell, cons):
-            raise TypeError("Expected a cons, got {} with value {}".format(type(startcell), startcell))
+            raise TypeError(f"Expected a cons, got {type(startcell)} with value {startcell}")
         self.walker = iter(walker(startcell))  # iter() needed to support gtrampolined generators
     def __iter__(self):
         return self
@@ -83,7 +83,7 @@ class LinkedListIterator(ConsIterator):
                     cell = cell.cdr
                 else:
                     if _fullerror:
-                        raise TypeError("Not a linked list: {}".format(head))
+                        raise TypeError(f"Not a linked list: {head}")
                     else:  # avoid infinite loop in cons.__repr__
                         raise TypeError("Not a linked list")
         super().__init__(head, walker)
@@ -115,7 +115,7 @@ class LinkedListOrCellIterator(ConsIterator):
                     break
                 else:
                     if _fullerror:
-                        raise TypeError("Not a linked list or a single cons cell: {}".format(head))
+                        raise TypeError(f"Not a linked list or a single cons cell: {head}")
                     else:  # avoid infinite loop in cons.__repr__ (it uses LinkedListIterator, though)  # pragma: no cover
                         raise TypeError("Not a linked list or a single cons cell")
         super().__init__(head, walker)
@@ -135,7 +135,7 @@ class TailIterator(ConsIterator):  # for member()
                 if isinstance(cell.cdr, cons) or cell.cdr is nil:
                     cell = cell.cdr
                 else:
-                    raise TypeError("Not a linked list: {}".format(head))
+                    raise TypeError(f"Not a linked list: {head}")
         super().__init__(head, walker)
 
 class BinaryTreeIterator(ConsIterator):
@@ -232,19 +232,22 @@ class cons:
         Suitable for ``eval`` if all elements are."""
         try:  # duck test linked list (true list only, no single-cell pair)
             # listcomp, not genexpr, since we want to trigger any exceptions **now**.
-            result = [repr(x) for x in LinkedListIterator(self, _fullerror=False)]
-            return "ll({})".format(", ".join(result))
+            result_list = [repr(x) for x in LinkedListIterator(self, _fullerror=False)]
+            result_str = ", ".join(result_list)
+            return f"ll({result_str})"
         except TypeError:
-            result = (repr(self.car), repr(self.cdr))
-            return "cons({})".format(", ".join(result))
+            result_list = (repr(self.car), repr(self.cdr))
+            result_str = ", ".join(result_list)
+            return f"cons({result_str})"
     def lispyrepr(self):  # TODO: maybe rename or alias this to `__str__`?
         """Representation in Lisp-like dot notation."""
         try:
-            result = [repr(x) for x in LinkedListIterator(self, _fullerror=False)]
+            result_list = [repr(x) for x in LinkedListIterator(self, _fullerror=False)]
         except TypeError:
             r = lambda obj: obj.lispyrepr() if hasattr(obj, "lispyrepr") else repr(obj)
-            result = (r(self.car), ".", r(self.cdr))
-        return "({})".format(" ".join(result))
+            result_list = (r(self.car), ".", r(self.cdr))
+        result_str = " ".join(result_list)
+        return f"({result_str})"
     def __eq__(self, other):
         if other is self:
             return True
@@ -272,7 +275,7 @@ def _cdr(x):
     return _typecheck(x).cdr
 def _typecheck(x):
     if not isinstance(x, cons):
-        raise TypeError("Expected a cons, got {} with value {}".format(type(x), x))
+        raise TypeError(f"Expected a cons, got {type(x)} with value {x}")
     return x
 def _build_accessor(name):
     spec = name[1:-1]

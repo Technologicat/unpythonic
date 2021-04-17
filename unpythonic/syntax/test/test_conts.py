@@ -440,7 +440,7 @@ def runtests():
                 out.append(x)
                 x = fail()
             test[out == pts]
-            print("combinations tested for Pythagorean triples: {:d}".format(count))
+            print(f"combinations tested for Pythagorean triples: {count:d}")
 
     with testset("integration with autoreturn"):
         with autoreturn, continuations:

@@ -151,7 +151,7 @@ class _Dyn(Singleton):
                 return scope
         if name in _global_dynvars:  # default value from make_dynvar
             return _global_dynvars
-        raise AttributeError("dynamic variable {} is not defined".format(repr(name)))
+        raise AttributeError(f"dynamic variable {repr(name)} is not defined")
 
     def __getattr__(self, name):
         """Read the value of a dynamic binding."""
@@ -260,8 +260,9 @@ class _Dyn(Singleton):
 
     # pretty-printing
     def __repr__(self):  # pragma: no cover
-        bindings = ["{:s}={}".format(k, repr(self[k])) for k in self]
-        return "<dyn object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
+        bindings_list = [f"{k}={repr(self[k])}" for k in self]
+        bindings_str = ", ".join(bindings_list)
+        return f"<dyn object at 0x{id(self):x}: {{{bindings_str}}}>"
 dyn = _Dyn()
 
 def make_dynvar(**bindings):

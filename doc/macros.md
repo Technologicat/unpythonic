@@ -1529,7 +1529,7 @@ This is mainly of interest as a point of [comparison with Racket](https://github
 from unpythonic.syntax import macros, aif
 
 aif[2*21,
-    print("it is {}".format(it)),
+    print(f"it is {it}"),
     print("it is falsey")]
 ```
 

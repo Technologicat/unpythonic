@@ -394,9 +394,9 @@ def describe_exception(exc):
 
         msg = str(instance)
         if msg:
-            snippets.append("{}: {}".format(type(instance), msg))
+            snippets.append(f"{type(instance)}: {msg}")
         else:
-            snippets.append("{}".format(type(instance)))
+            snippets.append(f"{type(instance)}")
 
         return snippets
 
@@ -448,29 +448,29 @@ def summarize(runs, fails, errors, warns):
     color = TestConfig.CS.PASS if passes else TestConfig.CS.GREYED_OUT
     snippets.extend([maybe_colorize("Pass", TC.BRIGHT, color),
                      " ",
-                     maybe_colorize("{}".format(passes), color),
+                     maybe_colorize(f"{passes}", color),
                      maybe_colorize(", ", TestConfig.CS.HEADING)])
     color = TestConfig.CS.FAIL if fails else TestConfig.CS.GREYED_OUT
     snippets.extend([maybe_colorize("Fail", TC.BRIGHT, color),
                      " ",
-                     maybe_colorize("{}".format(fails), color),
+                     maybe_colorize(f"{fails}", color),
                      maybe_colorize(", ", TestConfig.CS.HEADING)])
     color = TestConfig.CS.ERROR if errors else TestConfig.CS.GREYED_OUT
     snippets.extend([maybe_colorize("Error", TC.BRIGHT, color),
                      " ",
-                     maybe_colorize("{}".format(errors), color),
+                     maybe_colorize(f"{errors}", color),
                      maybe_colorize(", ", TestConfig.CS.HEADING)])
     color = TestConfig.CS.HEADING if runs else TestConfig.CS.GREYED_OUT
     snippets.extend([maybe_colorize("Total", TC.BRIGHT, color),
                      " ",
-                     maybe_colorize("{}".format(runs), color)])
+                     maybe_colorize(f"{runs}", color)])
     color = TestConfig.CS.SUMMARY_OK if passes == runs else TestConfig.CS.SUMMARY_NOTOK
     snippets.extend([" ",
-                     maybe_colorize("({}% pass)".format(int(pass_percentage)), TC.BRIGHT, color)])
+                     maybe_colorize(f"({int(pass_percentage)}% pass)", TC.BRIGHT, color)])
     if warns > 0:
         color = TestConfig.CS.WARNING
         snippets.extend([" ",
-                         maybe_colorize("+ {} Warn".format(warns), TC.BRIGHT, color)])
+                         maybe_colorize(f"+ {warns} Warn", TC.BRIGHT, color)])
     return "".join(snippets)
 
 class TestSessionExit(Exception):
@@ -552,8 +552,8 @@ def session(name=None):
 
     title = maybe_colorize("SESSION", TC.BRIGHT, TestConfig.CS.HEADING)
     if name is not None:
-        title += maybe_colorize(" '{}'".format(name), TC.ITALIC, TestConfig.CS.HEADING)
-    TestConfig.printer(maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
+        title += maybe_colorize(f" '{name}'", TC.ITALIC, TestConfig.CS.HEADING)
+    TestConfig.printer(maybe_colorize(f"{title} ", TestConfig.CS.HEADING) +
                        maybe_colorize("BEGIN", TC.BRIGHT, TestConfig.CS.HEADING))
 
     # We are paused when the user triggers the exception; `contextlib` detects the
@@ -569,7 +569,7 @@ def session(name=None):
     except TestSessionExit:
         pass
 
-    TestConfig.printer(maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
+    TestConfig.printer(maybe_colorize(f"{title} ", TestConfig.CS.HEADING) +
                        maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING))
 
 # We use a stack for postprocs so that the local overrides can be nested.
@@ -603,10 +603,10 @@ def testset(name=None, postproc=None):
     errmsg_indent = makeindent(_threadlocals.nesting_level + 1)
     _threadlocals.nesting_level += 1
 
-    title = "{}Testset".format(indent)
+    title = f"{indent}Testset"
     if name is not None:
-        title += maybe_colorize(" '{}'".format(name), TC.ITALIC)
-    TestConfig.printer(maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
+        title += maybe_colorize(f" '{name}'", TC.ITALIC)
+    TestConfig.printer(maybe_colorize(f"{title} ", TestConfig.CS.HEADING) +
                        maybe_colorize("BEGIN", TC.BRIGHT, TestConfig.CS.HEADING))
 
     def print_and_proceed(condition):
@@ -614,13 +614,13 @@ def testset(name=None, postproc=None):
         # the descendants of `TestingException`, no matter what happens
         # inside the test expression.
         if isinstance(condition, TestFailure):
-            msg = maybe_colorize("{}FAIL: ".format(errmsg_indent),
+            msg = maybe_colorize(f"{errmsg_indent}FAIL: ",
                                  TC.BRIGHT, TestConfig.CS.FAIL) + str(condition)
         elif isinstance(condition, TestError):
-            msg = maybe_colorize("{}ERROR: ".format(errmsg_indent),
+            msg = maybe_colorize(f"{errmsg_indent}ERROR: ",
                                  TC.BRIGHT, TestConfig.CS.ERROR) + str(condition)
         elif isinstance(condition, TestWarning):
-            msg = maybe_colorize("{}WARNING: ".format(errmsg_indent),
+            msg = maybe_colorize(f"{errmsg_indent}WARNING: ",
                                  TC.BRIGHT, TestConfig.CS.WARNING) + str(condition)
         # So any other signal must come from another source.
         else:
@@ -629,7 +629,7 @@ def testset(name=None, postproc=None):
             # To highlight the error in the summary, count it as an errored test.
             _update(tests_run, +1)
             _update(tests_errored, +1)
-            msg = maybe_colorize("{}Testset received signal outside test[]: ".format(errmsg_indent),
+            msg = maybe_colorize(f"{errmsg_indent}Testset received signal outside test[]: ",
                                  TC.BRIGHT, TestConfig.CS.ERROR) + describe_exception(condition)
         TestConfig.printer(msg)
 
@@ -669,7 +669,7 @@ def testset(name=None, postproc=None):
         # To highlight the error in the summary, count it as an errored test.
         _update(tests_run, +1)
         _update(tests_errored, +1)
-        msg = maybe_colorize("{}Testset terminated by exception outside test[]: ".format(errmsg_indent),
+        msg = maybe_colorize(f"{errmsg_indent}Testset terminated by exception outside test[]: ",
                              TC.BRIGHT, TestConfig.CS.ERROR)
         msg += describe_exception(err)
         TestConfig.printer(msg)
@@ -685,7 +685,7 @@ def testset(name=None, postproc=None):
         errors = e2 - e1
         warns = w2 - w1
 
-        msg = (maybe_colorize("{} ".format(title), TestConfig.CS.HEADING) +
+        msg = (maybe_colorize(f"{title} ", TestConfig.CS.HEADING) +
                maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING) +
                maybe_colorize(": ", TestConfig.CS.HEADING) +
                summarize(runs, fails, errors, warns))

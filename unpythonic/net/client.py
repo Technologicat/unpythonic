@@ -108,7 +108,7 @@ class ControlClient(ApplevelProtocolMixin):
                 return reply
             elif reply["status"] == "failed":
                 if "reason" in reply:
-                    print("Server command failed, reason: {}".format(reply["reason"]))
+                    print(f"Server command failed, reason: {reply['reason']}")
         except BaseException as err:
             print(type(err), err)
         return None
@@ -347,7 +347,7 @@ def connect(host, repl_port, control_port):
 # https://docs.python.org/3/library/socket.html#example
 def main():
     if len(sys.argv) < 2:
-        print("USAGE: {} host [repl_port] [control_port]".format(sys.argv[0]))
+        print(f"USAGE: {sys.argv[0]} host [repl_port] [control_port]")
         print("By default, repl_port=1337, control_port=8128.")
         sys.exit(255)
     host = sys.argv[1]

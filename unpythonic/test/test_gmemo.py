@@ -297,7 +297,7 @@ def runtests():
     # TODO: need some kind of benchmarking tools to do this properly.
     with testset("performance benchmark"):
         n = 2500
-        print("Performance for first {:d} primes:".format(n))
+        print(f"Performance for first {n:d} primes:")
         for g in (mprimes(), memo_primes(), mprimes2(), memo_primes2(), mprimes3(), memo_primes3(), memo_primes4()):
             with timer() as tictoc:
                 last(take(n, g))

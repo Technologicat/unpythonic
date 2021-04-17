@@ -10,13 +10,13 @@ from ..dispatch import generic, typed
 @generic
 def zorblify(x: int, y: int):
     return 2 * x + y
-@generic  # noqa: F811, registered as a method of the same generic function.
-def zorblify(x: str, y: int):
+@generic
+def zorblify(x: str, y: int):  # noqa: F811, registered as a method of the same generic function.
     # Because dispatching occurs on both arguments, this method is not reached by the tests.
     fail["this method should not be reached by the tests"]  # pragma: no cover
-@generic  # noqa: F811
-def zorblify(x: str, y: float):
-    return "{} {}".format(x[::-1], y)
+@generic
+def zorblify(x: str, y: float):  # noqa: F811
+    return f"{x[::-1]} {y}"
 
 # TODO: def zorblify(x: int, *args: typing.Sequence[str]):
 
@@ -30,11 +30,11 @@ def zorblify(x: str, y: float):
 @generic
 def example(stop: int):
     return _example_impl(0, 1, stop)
-@generic  # noqa: F811
-def example(start: int, stop: int):
+@generic
+def example(start: int, stop: int):  # noqa: F811
     return _example_impl(start, 1, stop)
-@generic  # noqa: F811
-def example(start: int, step: int, stop: int):
+@generic
+def example(start: int, step: int, stop: int):  # noqa: F811
     return _example_impl(start, step, stop)
 def _example_impl(start, step, stop):  # no @generic!
     return start, step, stop
@@ -43,19 +43,19 @@ def _example_impl(start, step, stop):  # no @generic!
 @generic
 def example2(start: int, stop: int):
     return example2(start, 1, stop)  # just call the method that has the implementation
-@generic  # noqa: F811
-def example2(start: int, step: int, stop: int):
+@generic
+def example2(start: int, step: int, stop: int):  # noqa: F811
     return start, step, stop
 
 # varargs are supported via `typing.Tuple`
 @generic
 def gargle(*args: typing.Tuple[int, ...]):  # any number of ints
     return "int"
-@generic  # noqa: F811
-def gargle(*args: typing.Tuple[float, ...]):  # any number of floats
+@generic
+def gargle(*args: typing.Tuple[float, ...]):  # any number of floats  # noqa: F811
     return "float"
-@generic  # noqa: F811
-def gargle(*args: typing.Tuple[int, float, str]):  # three args, matching the given types
+@generic
+def gargle(*args: typing.Tuple[int, float, str]):  # three args, matching the given types  # noqa: F811
     return "int, float, str"
 
 # One-method pony, which automatically enforces argument types.
@@ -103,28 +103,28 @@ def runtests():
             @generic
             def staticmeth(x: str):
                 return " ".join(2 * [x])
-            @staticmethod  # noqa: F811
+            @staticmethod
             @generic
-            def staticmeth(x: int):
+            def staticmeth(x: int):  # noqa: F811
                 return 2 * x
 
             # `cls` does not need a type annotation.
             @classmethod
             @generic
             def clsmeth(cls, x: str):
-                return "{} says: {}".format(cls.myname, " ".join(2 * [x]))
+                return f"{cls.myname} says: {' '.join(2 * [x])}"
             # be careful, generic can't check that all variants are a @classmethod!
-            @classmethod  # noqa: F811
+            @classmethod
             @generic
-            def clsmeth(cls, x: int):
-                return "{} computes: {}".format(cls.myname, 2 * x)
+            def clsmeth(cls, x: int):  # noqa: F811
+                return f"{cls.myname} computes: {2 * x}"
 
             # `self` does not need a type annotation.
             @generic
             def instmeth(self, x: str):
                 return " ".join(self.a * [x])
-            @generic  # noqa: F811
-            def instmeth(self, x: int):
+            @generic
+            def instmeth(self, x: int):  # noqa: F811
                 return self.a * x
 
             @typed
@@ -154,16 +154,16 @@ def runtests():
             @staticmethod
             @generic
             def staticmeth(x: float):
-                return "float {}".format(2 * x)
+                return f"float {2 * x}"
 
             @classmethod
             @generic
             def clsmeth(cls, x: float):
-                return "{} floats: {}".format(cls.myname, 2 * x)
+                return f"{cls.myname} floats: {2 * x}"
 
             @generic
             def instmeth(self, x: float):
-                return "floating with {}".format(self.a * x)
+                return f"floating with {self.a * x}"
 
         tt2 = BabyTestTarget(3)
         # the new generic-function methods become available, installed on the OOP method
@@ -208,8 +208,8 @@ def runtests():
             @typed
             def errorcase1(x: int):
                 pass  # pragma: no cover
-            @typed  # noqa: F811
-            def errorcase1(x: str):
+            @typed
+            def errorcase1(x: str):  # noqa: F811
                 pass  # pragma: no cover
 
         with test_raises(TypeError, "@generic should complain about missing type annotations"):

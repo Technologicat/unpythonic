@@ -173,7 +173,7 @@ def get_lexical_variables(tree, collect_locals=True):
     or names declared ``nonlocal`` or ``global``.
     """
     if not isnewscope(tree):
-        raise TypeError("Expected a tree representing a lexical scope, got {}".format(type(tree)))
+        raise TypeError(f"Expected a tree representing a lexical scope, got {type(tree)}")
 
     if type(tree) in (Lambda, FunctionDef, AsyncFunctionDef):
         a = tree.args

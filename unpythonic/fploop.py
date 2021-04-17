@@ -86,7 +86,7 @@ def looped(body):
             if s.lower() == 'q':
                 return  # ...the implicit None. In a "while True:", "break" here.
             else:
-                print("Hello, {}!".format(s))
+                print(f"Hello, {s}!")
                 return loop()
 
     Strictly, ``@looped`` is just sugar. Consider again the first example.

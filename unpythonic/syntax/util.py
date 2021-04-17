@@ -384,7 +384,7 @@ def transform_statements(f, body):
             if isinstance(node, stmt):
                 replacement = f(node)
                 if not isinstance(replacement, list):
-                    raise TypeError("`f` must return a list of statements, got {} with value {}".format(type(replacement), repr(replacement)))  # pragma: no cover
+                    raise TypeError(f"`f` must return a list of statements, got {type(replacement)} with value {repr(replacement)}")  # pragma: no cover
                 if len(replacement) == 0:
                     return None  # to delete the node, `NodeTransformer` expects `None`
                 elif len(replacement) == 1:

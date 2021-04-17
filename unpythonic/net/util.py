@@ -51,14 +51,14 @@ class ReceiveBuffer:
     def append(self, more_contents=b""):
         """Append `more_contents` to the buffer."""
         if not isinstance(more_contents, bytes):
-            raise TypeError("Expected a bytes object, got {}".format(type(more_contents)))
+            raise TypeError(f"Expected a bytes object, got {type(more_contents)}")
         self._buffer.write(more_contents)
         return self  # convenience
 
     def set(self, new_contents=b""):
         """Replace buffer contents with `new_contents`."""
         if not isinstance(new_contents, bytes):
-            raise TypeError("Expected a bytes object, got {}".format(type(new_contents)))
+            raise TypeError(f"Expected a bytes object, got {type(new_contents)}")
         # Use write() to supply the new contents instead of ctor arg, so the
         # stream position will be at the end, so any new writes continue from
         # wherever the initial contents leave off.
@@ -94,7 +94,7 @@ def bytessource(data, chunksize=4096):
     """
     # Package the generator in an inner function to fail-fast.
     if not isinstance(data, bytes):
-        raise TypeError("Expected a `bytes` object, got {}".format(type(data)))
+        raise TypeError(f"Expected a `bytes` object, got {type(data)}")
     def bytes_chunk_iterator():
         j = 0
         while True:
@@ -125,7 +125,7 @@ def streamsource(stream, chunksize=4096):
     See also `bytessource`, `socketsource`.
     """
     if not isinstance(stream, IOBase):
-        raise TypeError("Expected a derivative of `IOBase`, got {}".format(type(stream)))
+        raise TypeError(f"Expected a derivative of `IOBase`, got {type(stream)}")
     def stream_chunk_iterator():
         while True:
             data = stream.read(4096)
@@ -151,7 +151,7 @@ def socketsource(sock, chunksize=4096):
     See also `bytessource`, `streamsource`.
     """
     if not isinstance(sock, socket.SocketType):
-        raise TypeError("Expected a socket object, got {}".format(type(sock)))
+        raise TypeError(f"Expected a socket object, got {type(sock)}")
     def socket_chunk_iterator():
         while True:
             rs, ws, es = select.select([sock], [], [])
@@ -186,10 +186,10 @@ def recvall(n, sock):
 def netstringify(data):
     """Return a `bytes` object of `data` (also `bytes`), converted into a netstring."""
     if not isinstance(data, bytes):
-        raise TypeError("Data must be bytes; got {} with value {}".format(type(data), repr(data)))
+        raise TypeError(f"Data must be bytes; got {type(data)}")
     n = len(data)
     buf = BytesIO()
-    header = "{}:".format(n)
+    header = f"{n}:"
     footer = ","
     buf.write(header.encode("utf-8"))
     buf.write(data)

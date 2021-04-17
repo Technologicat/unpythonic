@@ -186,7 +186,7 @@ class piped1:
         cls = self.__class__
         return cls(f(self._x))  # functional update
     def __repr__(self):  # pragma: no cover
-        return "<piped1 at 0x{:x}; value {}>".format(id(self), self._x)
+        return f"<piped1 at 0x{id(self):x}; value {self._x}>"
 
 class lazy_piped1:
     """Like piped, but apply the functions later.
@@ -248,7 +248,7 @@ class lazy_piped1:
         cls = self.__class__
         return cls(x=self._x, _funcs=self._funcs + (f,))
     def __repr__(self):  # pragma: no cover
-        return "<lazy_piped1 at 0x{:x}; initial value now {}, functions {}>".format(id(self), self._x, self._funcs)
+        return f"<lazy_piped1 at 0x{id(self):x}; initial value now {self._x}, functions {self._funcs}>"
 
 def pipe(values0, *bodys):
     """Like pipe1, but with arbitrary number of inputs/outputs at each step.
@@ -271,12 +271,12 @@ def pipe(values0, *bodys):
 
         a, b, c = pipe((2, 3),
                        lambda x, y: (x + 1, 2 * y, "foo"),
-                       lambda x, y, s: (x * 2, y + 1, "got {}".format(s)))
+                       lambda x, y, s: (x * 2, y + 1, f"got {s}"))
         assert (a, b, c) == (6, 7, "got foo")
 
         a, b = pipe((2, 3),
                     lambda x, y: (x + 1, 2 * y, "foo"),
-                    lambda x, y, s: (x * 2, y + 1, "got {}".format(s)),
+                    lambda x, y, s: (x * 2, y + 1, f"got {s}"),
                     lambda x, y, s: (x + y, s))
         assert (a, b) == (13, "got foo")
     """
@@ -336,7 +336,7 @@ class piped:
             return cls(*newxs)
         return cls(newxs)
     def __repr__(self):  # pragma: no cover
-        return "<piped at 0x{:x}; values {}>".format(id(self), self._xs)
+        return f"<piped at 0x{id(self):x}; values {self._xs}>"
 
 class lazy_piped:
     """Like lazy_piped1, but for any number of inputs/outputs at each step.
@@ -345,7 +345,7 @@ class lazy_piped:
 
         p1 = lazy_piped(2, 3)
         p2 = p1 | (lambda x, y: (x + 1, 2 * y, "foo"))
-        p3 = p2 | (lambda x, y, s: (x * 2, y + 1, "got {}".format(s)))
+        p3 = p2 | (lambda x, y, s: (x * 2, y + 1, f"got {s}"))
         p4 = p3 | (lambda x, y, s: (x + y, s))
         # nothing done yet!
         assert (p4 | exitpipe) == (13, "got foo")
@@ -385,7 +385,7 @@ class lazy_piped:
         cls = self.__class__
         return cls(*self._xs, _funcs=self._funcs + (f,))
     def __repr__(self):  # pragma: no cover
-        return "<lazy_piped at 0x{:x}; initial values now {}, functions {}>".format(id(self), self._xs, self._funcs)
+        return f"<lazy_piped at 0x{id(self):x}; initial values now {self._xs}, functions {self._funcs}>"
 
 # do(): improved begin() that can name intermediate results and refer to them
 DoAssign = namedtuple("DoAssign", "name value")
@@ -411,7 +411,7 @@ def assign(**binding):
     the top level of the ``do``.
     """
     if len(binding) != 1:
-        raise ValueError("Expected exactly one binding, got {:d} with values {}".format(len(binding), binding))
+        raise ValueError(f"Expected exactly one binding, got {len(binding)} with values {binding}")
     for k, v in binding.items():
         return DoAssign(k, v)
 

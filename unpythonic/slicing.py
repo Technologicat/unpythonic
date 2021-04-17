@@ -55,7 +55,7 @@ def islice(iterable):
         """Subscript me to perform the slicing."""
         def __getitem__(self, k):
             if isinstance(k, tuple):
-                raise TypeError("multidimensional indexing not supported, got {}".format(k))
+                raise TypeError(f"multidimensional indexing not supported, got {k}")
             if isinstance(k, slice):
                 start, stop, step = k.start, k.stop, k.step
                 it = iter(iterable)
@@ -95,7 +95,7 @@ def islice(iterable):
 #         """Subscript me to perform the slicing."""
 #         def __getitem__(self, k):
 #             if isinstance(k, tuple):
-#                 raise TypeError("multidimensional indexing not supported, got {}".format(k))
+#                 raise TypeError(f"multidimensional indexing not supported, got {k}")
 #             if isinstance(k, slice):
 #                 return islicef(iterable, k.start, k.stop, k.step)
 #             return first(islicef(iterable, k, k + 1))
@@ -128,7 +128,7 @@ def fup(seq):
         """Subscript me to specify index or slice where to fupdate."""
         def __getitem__(self, k):
             if isinstance(k, tuple):
-                raise TypeError("multidimensional indexing not supported, got {}".format(k))
+                raise TypeError(f"multidimensional indexing not supported, got {k}")
             class fup2:
                 """Left-shift me with values to perform the fupdate."""
                 def __lshift__(self, v):

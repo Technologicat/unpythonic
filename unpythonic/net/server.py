@@ -204,8 +204,7 @@ def doc(obj):
             obj = obj.__wrapped__  # this is needed to make inspect.getsourcefile work with macros
         filename = inspect.getsourcefile(obj)
         source, firstlineno = inspect.getsourcelines(obj)
-        print("{filename}:{firstlineno}".format(filename=filename,
-                                                firstlineno=firstlineno))
+        print(f"{filename}:{firstlineno}")
     except (TypeError, OSError):
         pass
     print(inspect.cleandoc(obj.__doc__))
@@ -264,9 +263,9 @@ def fg(thread):
       - raised an exception: raise that exception.
     """
     if "ident" not in thread:
-        raise TypeError("Expected a Thread object, got {} with value {}.".format(type(thread), thread))
+        raise TypeError(f"Expected a Thread object, got {type(thread)} with value {repr(thread)}.")
     if thread.ident not in _bg_results:
-        raise ValueError("No result for thread {}".format(thread))
+        raise ValueError(f"No result for thread {repr(thread)}")
     # This pattern is very similar to that used by unpythonic.fun.memoize...
     status, value = _bg_results[thread.ident]
     if status is _bg_running:
@@ -299,11 +298,11 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
     def handle(self):
         # TODO: ipv6 support
         caddr, cport = self.client_address
-        client_address_str = "{}:{}".format(caddr, cport)
+        client_address_str = f"{caddr}:{cport}"
         class ClientExit(Exception):
             pass
         try:
-            server_print("Control channel for {} opened.".format(client_address_str))
+            server_print(f"Control channel for {client_address_str} opened.")
             # TODO: fancier backend? See examples in https://pymotw.com/3/readline/
             completer_backend = rlcompleter.Completer(_console_locals_namespace)
             # From the docstring of `socketserver.BaseRequestHandler`:
@@ -341,7 +340,7 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
                 # More information may be included in arbitrary other fields.
                 request = self._recv()
                 if not request:
-                    server_print("Socket for {} closed by client.".format(client_address_str))
+                    server_print(f"Socket for {client_address_str} closed by client.")
                     raise ClientExit
 
                 if "command" not in request:
@@ -360,11 +359,11 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
                         reply = {"status": "failed", "reason": "Request is missing the PairWithSession parameter 'id'."}
                     else:
                         if request["id"] not in _active_sessions:
-                            errmsg = "Pairing control session failed; there is no active REPL session with id={}.".format(request["id"])
+                            errmsg = f"Pairing control session failed; there is no active REPL session with id={request['id']}."
                             reply = {"status": "failed", "reason": errmsg}
                             server_print(errmsg)
                         else:
-                            server_print("Pairing control session for {} to REPL session {}.".format(client_address_str, request["id"]))
+                            server_print(f"Pairing control session for {client_address_str} to REPL session {request['id']}.")
                             self.paired_repl_session_id = request["id"]
                             reply = {"status": "ok"}
 
@@ -377,22 +376,22 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
                         reply = {"status": "ok", "result": completion}
 
                 elif request["command"] == "KeyboardInterrupt":
-                    server_print("Client {} sent request for remote Ctrl+C.".format(client_address_str))
+                    server_print(f"Client {client_address_str} sent request for remote Ctrl+C.")
                     if not self.paired_repl_session_id:
                         errmsg = "This control channel is not currently paired with a REPL session."
                         reply = {"status": "failed", "reason": errmsg}
                         server_print(errmsg)
                     else:
-                        server_print("Remote Ctrl+C in session {}.".format(self.paired_repl_session_id))
+                        server_print(f"Remote Ctrl+C in session {self.paired_repl_session_id}.")
                         try:
                             target_session = _active_sessions[self.paired_repl_session_id]
                             target_thread = target_session.thread
                         except KeyError:
-                            errmsg = "REPL session {} no longer active.".format(self.paired_repl_session_id)
+                            errmsg = f"REPL session {self.paired_repl_session_id} no longer active."
                             reply = {"status": "failed", "reason": errmsg}
                             server_print(errmsg)
                         except AttributeError:
-                            errmsg = "REPL session {} has no 'thread' attribute.".format(self.paired_repl_session_id)
+                            errmsg = f"REPL session {self.paired_repl_session_id} has no 'thread' attribute."
                             reply = {"status": "failed", "reason": errmsg}
                             server_print(errmsg)
                         else:
@@ -409,12 +408,13 @@ class ControlSession(socketserver.BaseRequestHandler, ApplevelProtocolMixin):
                                 reply = {"status": "ok"}
 
                 else:
-                    reply = {"status": "failed", "reason": "Command '{}' not understood by this server.".format(request["command"])}
+                    cmd = request["command"]
+                    reply = {"status": "failed", "reason": f"Command '{cmd}' not understood by this server."}
 
                 self._send(reply)
 
         except ClientExit:
-            server_print("Control channel for {} closed.".format(client_address_str))
+            server_print(f"Control channel for {client_address_str} closed.")
         except BaseException as err:
             server_print(err)
 
@@ -427,7 +427,7 @@ class ConsoleSession(socketserver.BaseRequestHandler):
     def handle(self):
         # TODO: ipv6 support
         caddr, cport = self.client_address
-        client_address_str = "{}:{}".format(caddr, cport)
+        client_address_str = f"{caddr}:{cport}"
 
         try:
             # for control/REPL pairing
@@ -439,13 +439,13 @@ class ConsoleSession(socketserver.BaseRequestHandler):
             # https://docs.python.org/3/library/socketserver.html#socketserver.StreamRequestHandler
 
             def on_socket_disconnect(adaptor):
-                server_print('PTY on {} for client {} disconnected by client.'.format(os.ttyname(adaptor.slave), client_address_str))
+                server_print(f"PTY on {os.ttyname(adaptor.slave)} for client {client_address_str} disconnected by client.")
                 os.write(adaptor.master, "quit()\n".encode("utf-8"))  # as if this text arrived from the socket
             def on_slave_disconnect(adaptor):
-                server_print('PTY on {} for client {} disconnected by PTY slave.'.format(os.ttyname(adaptor.slave), client_address_str))
+                server_print(f"PTY on {os.ttyname(adaptor.slave)} for client {client_address_str} disconnected by PTY slave.")
             adaptor = PTYSocketProxy(self.request, on_socket_disconnect, on_slave_disconnect)
             adaptor.start()
-            server_print('PTY on {} for client {} opened.'.format(os.ttyname(adaptor.slave), client_address_str))
+            server_print(f"PTY on {os.ttyname(adaptor.slave)} for client {client_address_str} opened.")
 
             # fdopen the slave side of the PTY to get file objects to work with.
             # Be sure not to close the fd when exiting, it is managed by PTYSocketProxy.
@@ -471,7 +471,7 @@ class ConsoleSession(socketserver.BaseRequestHandler):
                     #  The REPL session must give an ID for attaching the control channel, but since
                     #  we want it to remain netcat-compatible, it can't use the message protocol to
                     #  send that information.)
-                    print("REPL session {} connected.".format(self.session_id))  # ...at the client side
+                    print(f"REPL session {self.session_id} connected.")  # print at the *client* side
 
                     if _banner != "":
                         print(_banner)
@@ -480,14 +480,14 @@ class ConsoleSession(socketserver.BaseRequestHandler):
 
                     # All errors except SystemExit are caught inside interact().
                     try:
-                        server_print("Opening REPL session {} for {}.".format(self.session_id, client_address_str))
+                        server_print(f"Opening REPL session {self.session_id} for {client_address_str}.")
                         self.console.interact(banner=None, exitmsg="Bye.")
                     except SystemExit:  # Close the connection upon server process exit.
                         pass
                     finally:
-                        server_print('Closing PTY on {} for {}.'.format(os.ttyname(adaptor.slave), client_address_str))
+                        server_print(f"Closing PTY on {os.ttyname(adaptor.slave)} for {client_address_str}.")
                         adaptor.stop()
-                        server_print("Closing REPL session {} for {}.".format(self.session_id, client_address_str))
+                        server_print(f"Closing REPL session {self.session_id} for {client_address_str}.")
         except BaseException as err:  # yes, SystemExit and KeyboardInterrupt, too.
             server_print(err)
         finally:
@@ -639,7 +639,7 @@ def stop():
 def main():
     server_print("REPL server starting...")
     bind, repl_port, control_port = start(locals={})
-    server_print("Started REPL server on {}:{}.".format(bind, repl_port))
+    server_print(f"Started REPL server on {bind}:{repl_port}.")
     try:
         while True:
             time.sleep(1)

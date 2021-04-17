@@ -27,13 +27,13 @@ class assignonce(_envcls):
         if name in self._reserved_names or name not in self:
             return super().__setattr__(name, value)
         else:
-            raise AttributeError("name {} is already defined".format(repr(name)))
+            raise AttributeError(f"name {repr(name)} is already defined")
 
     def set(self, name, value):
         """Rebind an existing name to a new value."""
         env = self._env
         if name not in env:
-            raise AttributeError("name {} is not defined".format(repr(name)))
+            raise AttributeError(f"name {repr(name)} is not defined")
         # important part: bypass our own __setattr__, which would refuse the update.
         super().__setattr__(name, value)
         return value

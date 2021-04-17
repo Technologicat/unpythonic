@@ -34,13 +34,13 @@ def analyze(items, blanks=False, docstrings=False, comments=False):
                 content = f.read()
             ns.append(loc(content, blanks, docstrings, comments))
         # report
-        print("{}:".format(name))
+        print(f"{name}:")
         for fn, n in sorted(zip(files, ns), key=itemgetter(1)):
-            print("    {} {}".format(fn, n))
+            print(f"    {fn} {n}")
         grouptotal = sum(ns)
-        print("  total for {} {}".format(name, grouptotal))
+        print(f"  total for {name} {grouptotal}")
         grandtotal += grouptotal
-    print("grand total {}".format(grandtotal))
+    print(f"grand total {grandtotal}")
 
 def main():
     items = (("top level", ["."]),

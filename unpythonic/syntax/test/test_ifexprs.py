@@ -11,7 +11,7 @@ def runtests():
         # Anaphoric if: aif[test, then, otherwise]
         # Magic identifier "it" refers to the test result.
         test[aif[2 * 21,
-                 "it is {}".format(it),
+                 f"it is {it}",
                  "it is False"] == "it is 42"]
 
     with testset("cond (lispy multi-branch conditional expression)"):
@@ -26,7 +26,7 @@ def runtests():
     with testset("integration with implicit do"):
         print("Testing aif/cond with implicit do")
         test[aif[[local[x << 2 * 21], 2 * x],  # noqa: F821, the `local[]` macro defines the name on the LHS of the `<<`.
-                 [print("hi"), "it is {}".format(it)],
+                 [print("hi"), f"it is {it}"],
                  [print("ho"), "it is False"]] == "it is 84"]
 
         # each "test" and "then" branch with multiple expressions should have its own

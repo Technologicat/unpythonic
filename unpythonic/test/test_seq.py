@@ -51,13 +51,13 @@ def runtests():
         # 2-in-eventually-3-out
         a, b, c = pipe((2, 3),
                        lambda x, y: (x + 1, 2 * y, "foo"),
-                       lambda x, y, z: (x * 2, y + 1, "got {}".format(z)))
+                       lambda x, y, z: (x * 2, y + 1, f"got {z}"))
         test[(a, b, c) == (6, 7, "got foo")]
 
         # 2-in-3-in-between-2-out
         a, b = pipe((2, 3),
                     lambda x, y: (x + 1, 2 * y, "foo"),
-                    lambda x, y, s: (x * 2, y + 1, "got {}".format(s)),
+                    lambda x, y, s: (x * 2, y + 1, f"got {s}"),
                     lambda x, y, s: (x + y, s))
         test[(a, b) == (13, "got foo")]
 
@@ -114,7 +114,7 @@ def runtests():
         # multi-arg lazy pipe
         p1 = lazy_piped(2, 3)
         p2 = p1 | (lambda x, y: (x + 1, 2 * y, "foo"))
-        p3 = p2 | (lambda x, y, s: (x * 2, y + 1, "got {}".format(s)))
+        p3 = p2 | (lambda x, y, s: (x * 2, y + 1, f"got {s}"))
         p4 = p3 | (lambda x, y, s: (x + y, s))
         # nothing done yet, and all computations purely functional:
         test[(p1 | exitpipe) == (2, 3)]

@@ -313,9 +313,9 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
     for excspec, handler in handlers:
         if isinstance(excspec, tuple):  # tuple of exception types
             if not all(isexceptiontype(t) for t in excspec):
-                raise TypeError("All elements of a tuple excspec must be exception types, got {}".format(excspec))
+                raise TypeError(f"All elements of a tuple excspec must be exception types, got {excspec}")
         elif not isexceptiontype(excspec):  # single exception type
-            raise TypeError("excspec must be an exception type or tuple of exception types, got {}".format(excspec))
+            raise TypeError(f"excspec must be an exception type or tuple of exception types, got {excspec}")
 
     # run
     try:
@@ -388,11 +388,11 @@ def equip_with_traceback(exc, stacklevel=1):  # Python 3.7+
         https://docs.python.org/3/library/sys.html#sys._getframe
     """
     if not isinstance(exc, BaseException):
-        raise TypeError("exc must be an exception instance; got {} with value {}".format(type(exc), repr(exc)))
+        raise TypeError(f"exc must be an exception instance; got {type(exc)} with value {repr(exc)}")
     if not isinstance(stacklevel, int):
-        raise TypeError("stacklevel must be int, got {} with value {}".format(type(stacklevel), repr(stacklevel)))
+        raise TypeError(f"stacklevel must be int, got {type(stacklevel)} with value {repr(stacklevel)}")
     if stacklevel < 0:
-        raise ValueError("stacklevel must be >= 0, got {}".format(repr(stacklevel)))
+        raise ValueError(f"stacklevel must be >= 0, got {repr(stacklevel)}")
 
     try:
         getframe = sys._getframe
@@ -452,7 +452,7 @@ def pack(*args):
         @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
         def p(loop, item, acc):
             numb, lett = item
-            return loop(acc + pack("{:d}{:s}".format(numb, lett)))
+            return loop(acc + pack(f"{numb:d}{lett}"))
         assert p == ('1a', '2b', '3c')
     """
     return args  # pretty much like in Lisps, (define (list . args) args)
@@ -503,7 +503,7 @@ def namelambda(name):
         #     https://stackoverflow.com/questions/16064409/how-to-create-a-code-object-in-python
         f.__name__ = name
         idx = f.__qualname__.rfind('.')
-        f.__qualname__ = "{}.{}".format(f.__qualname__[:idx], name) if idx != -1 else name
+        f.__qualname__ = f"{f.__qualname__[:idx]}.{name}" if idx != -1 else name
         # __code__.co_name is read-only, but there's a types.CodeType constructor
         # that we can use to re-create the code object with the new name.
         # (This is no worse than what the stdlib's Lib/modulefinder.py already does.)
@@ -786,7 +786,7 @@ def async_raise(thread_obj, exception):
         raise NotImplementedError("async_raise not supported on this Python interpreter.")  # pragma: no cover
 
     if not hasattr(thread_obj, "ident"):
-        raise TypeError("Expected a thread object, got {} with value '{}'".format(type(thread_obj), thread_obj))
+        raise TypeError(f"Expected a thread object, got {type(thread_obj)} with value '{thread_obj}'")
 
     target_tid = thread_obj.ident
     if target_tid not in {thread.ident for thread in threading.enumerate()}:

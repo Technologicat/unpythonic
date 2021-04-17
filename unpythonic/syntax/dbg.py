@@ -60,11 +60,11 @@ def dbgprint_block(ks, vs, *, filename=None, lineno=None, sep=", ", **kwargs):
     expansion and the macro that generated it didn't bother to fill in the
     ``lineno`` attribute of the AST node.
     """
-    header = "[{}:{}] ".format(filename, lineno)
+    header = f"[{filename}:{lineno}] "
     if "\n" in sep:
-        print(sep.join("{}{}: {}".format(header, k, v) for k, v in zip(ks, vs)), **kwargs)
+        print(sep.join(f"{header}{k}: {v}" for k, v in zip(ks, vs)), **kwargs)
     else:
-        print(header + sep.join("{}: {}".format(k, v) for k, v in zip(ks, vs)), **kwargs)
+        print(header + sep.join(f"{k}: {v}" for k, v in zip(ks, vs)), **kwargs)
 
 def dbg_block(body, args):
     if args:  # custom print function hook
@@ -127,7 +127,7 @@ def dbgprint_expr(k, v, *, filename, lineno):
     from macro expansion and the macro that generated it didn't bother to
     fill in the ``lineno`` attribute of the AST node.
     """
-    print("[{}:{}] {}: {}".format(filename, lineno, k, v))
+    print(f"[{filename}:{lineno}] {k}: {v}")
     return v  # IMPORTANT!
 
 def dbg_expr(tree):

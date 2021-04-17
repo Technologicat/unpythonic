@@ -136,9 +136,9 @@ def runtests():
         test[tryf(lambda: raise_instance(),
                   (ValueError, lambda: "got a ValueError")) == "got a ValueError"]
         test[tryf(lambda: raise_instance(),
-                  (ValueError, lambda err: "got a ValueError: '{}'".format(err.args[0]))) == "got a ValueError: 'all ok'"]
+                  (ValueError, lambda err: f"got a ValueError: '{err.args[0]}'")) == "got a ValueError: 'all ok'"]
         test[tryf(lambda: raise_instance(),
-                  ((RuntimeError, ValueError), lambda err: "got a RuntimeError or ValueError: '{}'".format(err.args[0]))) == "got a RuntimeError or ValueError: 'all ok'"]
+                  ((RuntimeError, ValueError), lambda err: f"got a RuntimeError or ValueError: '{err.args[0]}'")) == "got a RuntimeError or ValueError: 'all ok'"]
         test[tryf(lambda: "hello",
                   (ValueError, lambda: "got a ValueError"),
                   elsef=lambda: "there") == "there"]

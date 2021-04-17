@@ -229,8 +229,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                         now_result = curry(now_result)
                     return now_result(*later_args)
                 if not outerctx:
-                    raise TypeError("Top-level curry context exited with {:d} arg(s) remaining: {}".format(len(later_args),
-                                                                                                           later_args))
+                    raise TypeError(f"Top-level curry context exited with {len(later_args)} arg(s) remaining: {later_args}")
                 # pass through to the curried procedure waiting in outerctx
                 # (e.g. in a curried compose chain)
                 if isinstance(now_result, tuple):
@@ -289,7 +288,7 @@ def rotate(k):
             if not n:
                 raise TypeError("Expected at least one argument")
             if not -n < k < n:  # standard semantics for negative indices
-                raise IndexError("Should have -n < k < n, but n = len(args) = {}, and k = {}".format(n, k))
+                raise IndexError(f"Should have -n < k < n, but n = len(args) = {n}, and k = {k}")
             j = -k % n
             rargs = args[-j:] + args[:-j]
             return maybe_force_args(f, *rargs, **kwargs)
@@ -596,7 +595,7 @@ def tokth(k, f):
         if not n:
             raise TypeError("Expected at least one argument")
         if not -n < k < n:  # standard semantics for negative indices
-            raise IndexError("Should have -n < k < n, but n = len(args) = {}, and k = {}".format(n, k))
+            raise IndexError(f"Should have -n < k < n, but n = len(args) = {n}, and k = {k}")
         j = k % n  # --> j ∈ {0, 1, ..., n - 1}, even if k < 0
         m = j + 1  # --> m ∈ {1, 2, ..., n}
         out = list(args[:j])

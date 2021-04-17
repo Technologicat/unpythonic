@@ -24,7 +24,6 @@ from ..dynassign import make_dynvar
 #    - Inside out: perform processing after recursion call
 #  - Consider when to just return and let the expander expand again
 
-# TODO: Python 3.6+: get rid of .format, use f-strings instead
 
 # TODO: Some macros look up others; convert lookups to mcpyrate style (accounting for as-imports)
 # TODO: or hygienic macro references, as appropriate.

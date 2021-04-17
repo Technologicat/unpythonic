@@ -356,7 +356,8 @@ def continuations(block_body):
                 if n == -1:
                     return s
                 return s[:n]
-            basename = "{}_cont".format(strip_suffix(owner.name, "_cont"))
+            stripped_ownername = strip_suffix(owner.name, '_cont')
+            basename = f"{stripped_ownername}_cont"
         else:
             basename = "cont"
         contname = gen_sym(basename)

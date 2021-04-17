@@ -33,7 +33,7 @@ class env:
         data = [(name, e[name]) for name in e]
 
         for k, v in e.items():
-            print("name {} has value {}".format(k, v))
+            print(f"name {k} has value {v}")
 
     Membership testing::
 
@@ -69,32 +69,32 @@ class env:
         if name in self._direct_write:  # hook to allow creating internal variables directly in self
             return super().__setattr__(name, value)
         if name in self._reserved_names:
-            raise AttributeError("cannot overwrite reserved name {}; complete list: {}".format(repr(name), self._reserved_names))
+            raise AttributeError(f"cannot overwrite reserved name {repr(name)}; complete list: {self._reserved_names}")
         if self._finalized and name not in self:
-            raise AttributeError("name {} is not defined; adding new bindings to a finalized environment is not allowed".format(repr(name)))
+            raise AttributeError(f"name {repr(name)} is not defined; adding new bindings to a finalized environment is not allowed")
         # Block invalid names in subscripting (which redirects here).
         if not name.isidentifier():
-            raise ValueError("'{}' is not a valid identifier".format(name))
+            raise ValueError(f"{repr(name)} is not a valid identifier")
 #        value = self._wrap(name, value)  # for "e.x << value" rebind syntax.
         self._env[name] = value  # make all other attrs else live inside _env
 
     def __getattr__(self, name):
         # Block invalid names in subscripting (which redirects here).
         if not name.isidentifier():
-            raise ValueError("{} is not a valid identifier".format(repr(name)))
+            raise ValueError(f"{repr(name)} is not a valid identifier")
         e = self._env   # __getattr__ not called if direct attr lookup succeeds, no need for hook.
         if name not in e:
-            raise AttributeError("name {} is not defined".format(repr(name)))
+            raise AttributeError(f"name {repr(name)} is not defined")
         return e[name]
 
     def __delattr__(self, name):
         if not name.isidentifier():  # Can happen through __delitem__.
-            raise ValueError("{} is not a valid identifier".format(repr(name)))
+            raise ValueError(f"{repr(name)} is not a valid identifier")
         if self._finalized:
-            raise TypeError("deleting bindings from a finalized environment not allowed; attempted to delete '{:s}'".format(name))
+            raise TypeError(f"deleting bindings from a finalized environment not allowed; attempted to delete {repr(name)}")
         e = self._env   # __getattr__ not called if direct attr lookup succeeds, no need for hook.
         if name not in e:
-            raise AttributeError("name {} is not defined".format(repr(name)))
+            raise AttributeError(f"name {repr(name)} is not defined")
         del e[name]
 
     # membership test (in, not in)
@@ -125,7 +125,7 @@ class env:
     # MutableMapping
     def pop(self, k, *default):
         if self._finalized:
-            raise TypeError("deleting bindings from a finalized environment not allowed; attempted to delete {}".format(repr(k)))
+            raise TypeError(f"deleting bindings from a finalized environment not allowed; attempted to delete {repr(k)}")
         return self._env.pop(k, *default)
     def popitem(self):
         if self._finalized:
@@ -139,7 +139,7 @@ class env:
         """See `dict.update` for the signature."""
         if mapping:
             if len(mapping) > 1:
-                raise ValueError("Expected at most one `mapping`, got {}.".format(len(mapping)))
+                raise ValueError(f"Expected at most one `mapping`, got {len(mapping)}.")
             m = mapping[0]
             if self._finalized and any(k not in self for k in m):
                 raise AttributeError("adding new bindings to a finalized environment is not allowed")
@@ -148,7 +148,7 @@ class env:
         return self._env.update(*mapping, **bindings)
     def setdefault(self, k, *default):
         if self._finalized and k not in self:
-            raise AttributeError("name {} is not defined; adding new bindings to a finalized environment is not allowed".format(repr(k)))
+            raise AttributeError(f"name {repr(k)} is not defined; adding new bindings to a finalized environment is not allowed")
         return self._env.setdefault(k, *default)
 
     # subscripting
@@ -170,8 +170,9 @@ class env:
 
     # pretty-printing
     def __repr__(self):  # pragma: no cover
-        bindings = ["{:s}={}".format(name, repr(value)) for name, value in self._env.items()]
-        return "<env object at 0x{:x}: {{{:s}}}>".format(id(self), ", ".join(bindings))
+        bindings_list = [f"{name}={repr(value)}" for name, value in self._env.items()]
+        bindings_str = ", ".join(bindings_list)
+        return f"<env object at 0x{id(self):x}: {{{bindings_str}}}>"
 
     # other
     def set(self, name, value):
@@ -182,7 +183,7 @@ class env:
         For convenience, returns the `value` argument.
         """
         if name not in self:  # allow only rebinding
-            raise AttributeError("name {} is not defined".format(repr(name)))
+            raise AttributeError(f"name {repr(name)} is not defined")
         return self._set(name, value)
 
     # for co-operation with the do[] macro: internal function with no already-defined check.
@@ -245,7 +246,7 @@ class env:
 #            for cls in obj.__class__.__mro__:
 #                if cls.__name__ != "_assignonce_wrapper":
 #                    return cls(obj)  # copy-construct obj without wrapper
-#            assert False, "wrapped value missing in {} {}".format(type(obj), obj)
+#            assert False, f"wrapped value missing in {type(obj)} with value {obj}"
 #        return _assignonce_wrapper(obj)  # copy-construct obj with wrapper
 
 # register virtual base classes

@@ -48,7 +48,7 @@ def choice(**binding):
                lambda e: e.x)
     """
     if len(binding) != 1:
-        raise ValueError("Expected exactly one name=iterable pair, got {:d} with values {}".format(len(binding), binding))
+        raise ValueError(f"Expected exactly one name=iterable pair, got {len(binding)} with values {binding}")
     for k, v in binding.items():  # just one but we don't know its name
         return Assignment(k, v)
 
@@ -149,7 +149,7 @@ def forall(*lines):
         else:
             name, body = None, item
         if name and not name.isidentifier():
-            raise ValueError("name must be valid identifier, got {}".format(repr(name)))
+            raise ValueError(f"name must be valid identifier, got {repr(name)}")
         bodys.append(body)
 
         freevars = names.copy()  # names from the surrounding scopes
@@ -166,9 +166,9 @@ def forall(*lines):
                     raise TypeError("Arity mismatch; callable body must allow arity 1, to take in the environment.")
             except UnknownArity:  # pragma: no cover
                 pass
-            code = "monadify(bodys[{j:d}](e), {flag:s})".format(flag=unpack_flag, j=j)
+            code = f"monadify(bodys[{j}](e), {unpack_flag})"
         else:  # doesn't need the environment
-            code = "monadify(bodys[{j:d}], {flag:s})".format(flag=unpack_flag, j=j)
+            code = f"monadify(bodys[{j}], {unpack_flag})"
 
         if begin_is_open:
             code += ")"
@@ -179,14 +179,14 @@ def forall(*lines):
         # even though we use an imperative stateful object to implement it)
         if not is_last:
             if name:
-                code += "{bind:s}(lambda {n:s}:\nbegin(e.close_over({fvs}), e.assign('{n:s}', {n:s}), ".format(bind=bind, n=name, fvs=freevars)
+                code += f"{bind}(lambda {name}:\nbegin(e.close_over({freevars}), e.assign('{name}', {name}), "
                 begin_is_open = True
             else:
                 if is_first:
-                    code += "{bind:s}(lambda _:\nbegin(e.close_over(set()), ".format(bind=bind)
+                    code += f"{bind}(lambda _:\nbegin(e.close_over(set()), "
                     begin_is_open = True
                 else:
-                    code += "{seq:s}(\n".format(seq=seq)
+                    code += f"{seq}(\n"
 
         allcode += code
     allcode += ")" * (len(lines) - 1)
@@ -257,7 +257,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         """
         cls = self.__class__
         if not isinstance(f, cls):
-            raise TypeError("Expected a List monad, got {} with data {}".format(type(f), f))
+            raise TypeError(f"Expected a List monad, got {type(f)} with value {repr(f)}")
         return self >> (lambda _: f)
 
     @classmethod
@@ -303,13 +303,13 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
     def __add__(self, other):
         """Concatenation of MonadicList, for convenience."""
         if not isinstance(other, MonadicList):
-            raise TypeError("Expected a monadic list, got {} with value {}".format(type(other), repr(other)))
+            raise TypeError(f"Expected a monadic list, got {type(other)} with value {repr(other)}")
         cls = self.__class__
         return cls.from_iterable(self.x + other.x)
 
     def __repr__(self):  # pragma: no cover
         clsname = self.__class__.__name__
-        return "{}{}".format(clsname, self.x)
+        return f"{clsname}{self.x}"
 
     @classmethod
     def from_iterable(cls, iterable):
@@ -355,7 +355,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         """
         cls = self.__class__
         if not all(isinstance(elt, cls) for elt in self.x):
-            raise TypeError("Expected a nested List monad, got {}".format(self.x))
+            raise TypeError(f"Expected a nested List monad, got {type(self.x)} with value {self.x}")
         # list of lists - concat them
         return cls.from_iterable(elt for sublist in self.x for elt in sublist)
 

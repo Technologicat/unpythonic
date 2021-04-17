@@ -186,7 +186,7 @@ class box:
     def __init__(self, x=None):
         self.x = x
     def __repr__(self):  # pragma: no cover
-        return "box({})".format(repr(self.x))
+        return f"box({repr(self.x)})"
     def __contains__(self, x):
         return self.x == x
     def __iter__(self):
@@ -237,7 +237,7 @@ class ThreadLocalBox(box):
         self._default = x
     def __repr__(self):  # pragma: no cover
         """**WARNING**: the repr shows only the content seen by the current thread."""
-        return "ThreadLocalBox({})".format(repr(self.get()))
+        return f"ThreadLocalBox({repr(self.get())})"
     def __contains__(self, x):
         return self.get() == x
     def __iter__(self):
@@ -280,7 +280,7 @@ class Some:
     def __init__(self, x=None):
         self.x = x
     def __repr__(self):  # pragma: no cover
-        return "Some({})".format(repr(self.x))
+        return f"Some({repr(self.x)})"
     def __contains__(self, x):
         return self.x == x
     def __iter__(self):
@@ -304,7 +304,7 @@ def unbox(b):
     If `b` is not a `box` (or `ThreadLocalBox` or `Some`), raises `TypeError`.
     """
     if not isinstance(b, (box, Some)):
-        raise TypeError("Expected box, got {} with value {}".format(type(b), repr(b)))
+        raise TypeError(f"Expected box, got {type(b)} with value {repr(b)}")
     return b.get()
 
 class Shim:
@@ -353,7 +353,7 @@ class Shim:
     """
     def __init__(self, thebox, fallback=None):
         if not isinstance(thebox, box):
-            raise TypeError("Expected box, got {} with value {}".format(type(thebox), repr(thebox)))
+            raise TypeError(f"Expected box, got {type(thebox)} with value {repr(thebox)}")
         self._shim_box = thebox
         self._shim_fallback = fallback
     def __getattr__(self, k):
@@ -456,7 +456,7 @@ class frozendict:
 
     @wraps(dict.__repr__)
     def __repr__(self):  # pragma: no cover
-        return "frozendict({})".format(self._data.__repr__())
+        return f"frozendict({self._data.__repr__()})"
 
     def __hash__(self):
         return hash(frozenset(self.items()))
@@ -547,7 +547,7 @@ class _StrReprEqMixin:
     def __str__(self):  # pragma: no cover
         return str(self._lowlevel_repr())
     def __repr__(self):  # pragma: no cover
-        return "{:s}({!r})".format(self.__class__.__name__, self._lowlevel_repr())
+        return f"{self.__class__.__name__}({self._lowlevel_repr()!r})"
 
     def __eq__(self, other):
         if other is self:
@@ -643,7 +643,7 @@ class roview(SequenceView, _StrReprEqMixin):
                 return ctor(self.seq, k)
             return ctor(self, k)
         elif isinstance(k, tuple):
-            raise TypeError("multidimensional subscripting not supported; got {}".format(repr(k)))
+            raise TypeError(f"multidimensional subscripting not supported; got {repr(k)}")
         else:
             data, r = self._update_cache()
             n = len(r)
@@ -709,7 +709,7 @@ class view(roview, MutableSequenceView):
             for j, item in zip(r[k], vs):
                 data[j] = item
         elif isinstance(k, tuple):
-            raise TypeError("multidimensional subscripting not supported; got {}".format(repr(k)))
+            raise TypeError(f"multidimensional subscripting not supported; got {repr(k)}")
         else:
             n = len(r)
             if k >= n or k < -n:
@@ -736,7 +736,7 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
     """
     def __init__(self, seq, ix=None, v=None):
         if ix is not None and not isinstance(ix, (slice, int)):
-            raise TypeError("ix: expected slice or int, got {} with value {}".format(type(ix), ix))
+            raise TypeError(f"ix: expected slice or int, got {type(ix)} with value {ix}")
         self.seq = seq
         self.ix = ix
         self.v = v
@@ -767,7 +767,7 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
             ctor = tuple if hasattr(cls, "_make") else cls  # slice of namedtuple -> tuple
             return ctor(self._getone(j) for j in range(n)[k])
         elif isinstance(k, tuple):
-            raise TypeError("multidimensional subscripting not supported; got {}".format(repr(k)))
+            raise TypeError(f"multidimensional subscripting not supported; got {repr(k)}")
         else:
             if k >= n or k < -n:
                 raise IndexError("ShadowedSequence index out of range")
@@ -782,7 +782,7 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
             # we already know k is in ix, so skip validation for speed.
             i = _index_in_slice(k, ix, n, _validate=False)
             if i >= len(self.v):
-                raise IndexError("Replacement sequence too short; attempted to access index {} with len {} (items: {})".format(i, len(self.v), self.v))
+                raise IndexError(f"Replacement sequence too short; attempted to access index {i} with len {len(self.v)} (items: {self.v})")
             return self.v[i]
         return self.seq[k]  # not in slice
 
@@ -801,9 +801,9 @@ def in_slice(i, s, l=None):
     ValueError. (A negative ``s.step`` by itself does not need ``l``.)
     """
     if not isinstance(s, (slice, int)):
-        raise TypeError("s must be slice or int, got {} with value {}".format(type(s), s))
+        raise TypeError(f"s must be slice or int, got {type(s)} with value {s}")
     if not isinstance(i, int):
-        raise TypeError("i must be int, got {} with value {}".format(type(i), i))
+        raise TypeError(f"i must be int, got {type(i)} with value {i}")
     wrap = _make_negidx_converter(l)
     i = wrap(i)
     if isinstance(s, int):
@@ -837,9 +837,9 @@ def _index_in_slice(i, s, n=None, _validate=True):  # n: length of sequence bein
 def _make_negidx_converter(n):  # n: length of sequence being indexed
     if n is not None:
         if not isinstance(n, int):
-            raise TypeError("n must be int, got {} with value {}".format(type(n), n))
+            raise TypeError(f"n must be int, got {type(n)} with value {n}")
         if n <= 0:
-            raise ValueError("n must be an int >= 1, got {}".format(n))
+            raise ValueError(f"n must be an int >= 1, got {n}")
         def apply_conversion(k):
             return k % n
     else:
@@ -852,12 +852,12 @@ def _make_negidx_converter(n):  # n: length of sequence being indexed
                 # layers protect against having to check here, but since the
                 # `convert` function is returned to the caller, let's be
                 # careful.
-                raise TypeError("k must be int, got {} with value {}".format(type(k), k))  # pragma: no cover
+                raise TypeError(f"k must be int, got {type(k)} with value {k}")  # pragma: no cover
             # Almost standard semantics for negative indices. Usually -n < k < n,
             # but here we must allow for conversion of the end position, for
             # which the last valid value is one past the end.
             if n is not None and not -n <= k <= n:
-                raise IndexError("Should have -n <= k <= n, but n = {}, and k = {}".format(n, k))
+                raise IndexError(f"Should have -n <= k <= n, but n = {n}, and k = {k}")
             return apply_conversion(k) if k < 0 else k
     return convert
 
@@ -868,7 +868,7 @@ def _canonize_slice(s, n=None, wrap=None):  # convert negatives, inject defaults
         # used elsewhere. (And, it's already possible that some internal caller
         # incorrectly uses the no-check mode of the internal implementation function
         # `_index_in_slice`.)
-        raise TypeError("s must be slice, got {} with value {}".format(type(s), s))  # pragma: no cover
+        raise TypeError(f"s must be slice, got {type(s)} with value {s}")  # pragma: no cover
 
     step = s.step if s.step is not None else +1  # no "s.step or +1"; someone may try step=0
     if step == 0:

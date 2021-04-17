@@ -351,7 +351,7 @@ def s(*spec):
                     p = (p1 + p2) / 2
                     return ("power", a0, p)
             # Most unrecognized sequences trigger this case.
-            raise SyntaxError("Specification did not match any supported formula: '{}'".format(origspec))
+            raise SyntaxError(f"Specification did not match any supported formula: '{origspec}'")
         else:  # more elements are optional but must be consistent
             data = [analyze(*triplet) for triplet in window(iterable=spec, n=3)]
             seqtypes, x0s, ks = zip(*data)
@@ -361,7 +361,7 @@ def s(*spec):
             if not isconst(seqtypes) or not isconst(ks):
                 # This case is only triggered if all triplets specify some
                 # recognized sequence, but the specifications don't agree.
-                raise SyntaxError("Inconsistent specification '{}'".format(origspec))
+                raise SyntaxError(f"Inconsistent specification '{origspec}'")
             return data[0]
 
     # final term handler for finite sequences - compute how many terms we should generate in total
@@ -411,7 +411,7 @@ def s(*spec):
         *spec, last = spec
         if last is Ellipsis:
             if not spec:
-                raise SyntaxError("Expected s(a0, a1, ...), s(a0, a1, ..., an), s([*repeats], ...), or s(*initials, [*repeats], ...); got '{}'".format(origspec))
+                raise SyntaxError(f"Expected s(a0, a1, ...), s(a0, a1, ..., an), s([*repeats], ...), or s(*initials, [*repeats], ...); got '{origspec}'")
             assert spec  # not empty
             # v0.14.3+: cyclic infinite sequences
             if iscyclic(spec):
@@ -424,14 +424,14 @@ def s(*spec):
         else:
             *spec, dots = spec
             if not (dots is Ellipsis and spec):
-                raise SyntaxError("Expected s(a0, a1, ...) or s(a0, a1, ..., an), s([*repeats], ...), or s(*initials, [*repeats], ...); got '{}'".format(origspec))
+                raise SyntaxError(f"Expected s(a0, a1, ...) or s(a0, a1, ..., an), s([*repeats], ...), or s(*initials, [*repeats], ...); got '{origspec}'")
             assert spec  # not empty
             desc = analyze(*spec)
             n = nofterms(desc, last)
             if n is False:
-                raise SyntaxError("The final element, if present, must belong to the specified sequence; got '{}'".format(origspec))
+                raise SyntaxError(f"The final element, if present, must belong to the specified sequence; got '{origspec}'")
             elif n is infty:
-                raise SyntaxError("The length of a constant sequence cannot be determined from a final element; got '{}'".format(origspec))
+                raise SyntaxError(f"The length of a constant sequence cannot be determined from a final element; got '{origspec}'")
             seqtype, x0, k = desc
 
     # generate the sequence
@@ -911,10 +911,11 @@ def diagonal_reduce(a, b, *, combine, reduce, require="any"):
     is not formed, because the terms ``a[0]*b[2]`` and ``a[2]*b[0]`` (that would
     contribute to it in the infinite case) cannot be formed from length-2 inputs.
     """
+    # TODO: Python 3.8+: test for the appropriate `typing` Protocol instead?
     if not all(hasattr(x, "__iter__") for x in (a, b)):
-        raise TypeError("Expected two iterables, got {}, {}".format(type(a), type(b)))
+        raise TypeError(f"Expected two iterables, got {type(a)}, {type(b)}")
     if require not in ("all", "any"):
-        raise ValueError("require must be 'all' or 'any'; got '{}'".format(require))
+        raise ValueError(f"require must be 'all' or 'any'; got '{require}'")
     ga = imemoize(a)
     gb = imemoize(b)
     def diagonal():
@@ -983,7 +984,7 @@ def primes(optimize="speed"):
     general ``gmemoize`` machinery in the inner loop).
     """
     if optimize not in ("memory", "speed"):
-        raise ValueError("optimize must be 'memory' or 'speed'; got '{}'".format(optimize))
+        raise ValueError(f"optimize must be 'memory' or 'speed'; got '{optimize}'")
     if optimize == "speed":
         return imathify(_fastprimes())
     else:  # optimize == "memory":

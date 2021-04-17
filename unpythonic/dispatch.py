@@ -181,7 +181,7 @@ def generic(f):
     #     https://docs.python.org/3/library/inspect.html
     def getfullname(f):
         function, _ = getfunc(f)
-        return "{}.{}".format(inspect.getmodule(f), function.__qualname__)
+        return f"{inspect.getmodule(f)}.{function.__qualname__}"
     fullname = getfullname(f)
 
     # HACK for cls/self analysis
@@ -241,7 +241,7 @@ def generic(f):
                 first_param_name = name_of_1st_positional_parameter(f)
                 if first_param_name in self_parameter_names:
                     if len(args) < 1:  # pragma: no cover, shouldn't happen.
-                        raise TypeError("MRO lookup failed: no value provided for self-like parameter {} when calling generic-function OOP method {}".format(repr(first_param_name), fullname))
+                        raise TypeError(f"MRO lookup failed: no value provided for self-like parameter {repr(first_param_name)} when calling generic-function OOP method {fullname}")
                     first_arg_value = args[0]
                     dynamic_instance = first_arg_value  # self/cls
                     theclass = None
@@ -278,21 +278,20 @@ def generic(f):
             # TODO: Compute closest candidates, like Julia does? (see methods, MethodError)
             a = [repr(a) for a in args]
             sep = ", " if kwargs else ""
-            kw = ["{}={}".format(k, str(v)) for k, v in kwargs]
+            kw = [f"{k}={str(v)}" for k, v in kwargs]
             def format_method(method):  # Taking a page from Julia and some artistic liberty here.
                 thecallable, type_signature = method
                 function, _ = getfunc(thecallable)
                 filename = inspect.getsourcefile(function)
                 source, firstlineno = inspect.getsourcelines(function)
-                return "{} from {}:{}".format(type_signature, filename, firstlineno)
-            methods_str = ["  {}".format(format_method(x)) for x in methods()]
+                return f"{type_signature} from {filename}:{firstlineno}"
+            methods_str = [f"  {format_method(x)}" for x in methods()]
             candidates = "\n".join(methods_str)
             function, _ = getfunc(f)
-            msg = ("No method found matching {}({}{}{}).\n"
-                   "Candidate signatures (in order of match attempts):\n{}").format(function.__qualname__,
-                                                                                    ", ".join(a),
-                                                                                    sep, ", ".join(kw),
-                                                                                    candidates)
+            args_str = ", ".join(a)
+            kws_str = ", ".join(kw)
+            msg = (f"No method found matching {function.__qualname__}({args_str}{sep}{kws_str}).\n"
+                   f"Candidate signatures (in order of match attempts):\n{candidates}")
             raise TypeError(msg)
 
         dispatcher._method_registry = []
@@ -345,10 +344,10 @@ def generic(f):
 
             if not all(name in type_signature for name in params_names):
                 failures = [name for name in params_names if name not in type_signature]
-                wrapped = ["'{}'".format(x) for x in failures]
                 plural = "s" if len(failures) > 1 else ""
-                msg = "Method definition missing type annotation for parameter{}: {}".format(plural,
-                                                                                             ", ".join(wrapped))
+                wrapped_list = [f"'{x}'" for x in failures]
+                wrapped_str = ", ".join(wrapped_list)
+                msg = f"Method definition missing type annotation for parameter{plural}: {wrapped_str}"
                 raise TypeError(msg)
 
             dispatcher._method_registry.append((thecallable, type_signature))

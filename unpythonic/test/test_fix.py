@@ -18,16 +18,16 @@ from ..tco import jump
 #     """Decorator. Print a message when f is entered/exited."""
 #     @wraps(f)
 #     def log_f(*args, **kwargs):
-#         print("-entry-> {}, args = {}, kwargs = {}".format(f, args, kwargs))
+#         print(f"-entry-> {f}, args = {args}, kwargs = {kwargs}")
 #         ret = f(*args, **kwargs)
-#         print("<-exit-- {}, args = {}, kwargs = {}, ret = '{}'".format(f, args, kwargs, ret))
+#         print(f"<-exit-- {f}, args = {args}, kwargs = {kwargs}, ret = '{ret}'")
 #         return ret
 #     return log_f
 _logentryexit = lambda f: f  # disabled  # noqa: E731
 
 def runtests():
     def debug(funcname, *args, **kwargs):
-        # print("bottom called, funcname = {}, args = {}".format(funcname, args))
+        # print(f"bottom called, funcname = {funcname}, args = {args}")
         # If we return something that depends on args, then fix may have to run
         # the whole chain twice, because at the point where the cycle occurs,
         # the return value of bottom (which has some args from somewhere along

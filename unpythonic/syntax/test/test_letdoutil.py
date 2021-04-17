@@ -375,7 +375,7 @@ def runtests():
                 test[len(b.elts) == 2]
                 bk, lam = b.elts
                 # outer quotes, source code; inner quotes, str within that source
-                test[the[unparse(bk)] == the["'{}'".format(k)]]
+                test[the[unparse(bk)] == the[f"'{k}'"]]
                 test[type(the[lam]) is Lambda]
                 lambody = lam.body
                 test[type(the[lambody]) in (Constant, Num) and getconstant(lambody) == the[v]]  # Python 3.8: ast.Constant

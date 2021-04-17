@@ -111,7 +111,7 @@ class _MemoizedGenerator:
         self.lock = lock
         self.j = 0  # current position in memo
     def __repr__(self):
-        return "<_MemoizedGenerator object {} at 0x{:x}>".format(self.g.__name__, id(self))
+        return f"<_MemoizedGenerator object {self.g.__name__} at 0x{id(self):x}>"
     def __iter__(self):
         return self
     def __next__(self):

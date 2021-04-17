@@ -170,10 +170,7 @@ class _jump:
         self._claimed = False  # set when the instance is caught by a trampoline
 
     def __repr__(self):
-        return "<_jump at 0x{:x}: target={}, args={}, kwargs={}>".format(id(self),
-                                                                         self.target,
-                                                                         self.args,
-                                                                         self.kwargs)
+        return f"<_jump at 0x{id(self):x}: target={self.target}, args={self.args}, kwargs={self.kwargs}>"
 
     def __del__(self):
         """Warn about bugs in client code.
@@ -224,7 +221,7 @@ class _jump:
         function, or a function entered via a tail call, may return a jump.
         """
         if not self._claimed:
-            print("WARNING: unclaimed {}".format(repr(self)), file=stderr)
+            print(f"WARNING: unclaimed {repr(self)}", file=stderr)
             # We can't raise exceptions in __del__, but at least on Linux we can terminate the process. ;)
             # Not sure if that's a good idea, though...
             # https://stackoverflow.com/questions/905189/why-does-sys-exit-not-exit-when-called-inside-a-thread-in-python
@@ -256,7 +253,7 @@ def trampolined(function):
                 if isinstance(v, _jump):
                     f = v.target
                     if not callable(f):  # protect against jump() to inert data from call_ec or similar
-                        raise RuntimeError("Cannot jump into a non-callable value {}".format(repr(f)))
+                        raise RuntimeError(f"Cannot jump into a non-callable value {repr(f)}")
                     args = v.args
                     kwargs = v.kwargs
                     v._claimed = True
@@ -290,7 +287,7 @@ def trampolined(function):
                 if isinstance(v, _jump):
                     f = v.target
                     if not callable(f):
-                        raise RuntimeError("Cannot jump into a non-callable value {}".format(repr(f)))
+                        raise RuntimeError(f"Cannot jump into a non-callable value {repr(f)}")
                     args = v.args
                     kwargs = v.kwargs
                     v._claimed = True

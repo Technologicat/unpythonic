@@ -117,10 +117,10 @@ def runtests():
                     return jump(dowork, i + 1)
             dowork()
 
-        print("do-nothing loop, {:d} iterations:".format(n))
-        print("  builtin for {:g}s ({:g}s/iter)".format(ip.dt, ip.dt / n))
-        print("  @trampolined {:g}s ({:g}s/iter)".format(fp1.dt, fp1.dt / n))
-        print("@trampolined slowdown {:g}x".format(fp1.dt / ip.dt))
+        print(f"do-nothing loop, {n:d} iterations:")
+        print(f"  builtin for {ip.dt:g}s ({(ip.dt / n):g}s/iter)")
+        print(f"  @trampolined {fp1.dt:g}s ({(fp1.dt / n):g}s/iter)")
+        print(f"@trampolined slowdown {(fp1.dt / ip.dt):g}x")
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
