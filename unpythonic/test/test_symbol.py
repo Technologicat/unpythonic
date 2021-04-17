@@ -57,8 +57,8 @@ def runtests():
     with testset("gensym (uninterned symbol, nonce value)"):
         # Gensyms are uninterned symbols, useful as nonce/sentinel values.
         #
-        # This has nothing to do with MacroPy's `gen_sym`, which picks a
-        # locally unused name for a new identifier.
+        # This has nothing to do with mcpyrate's `gensym` or MacroPy's `gen_sym`,
+        # which pick a locally unused name for a new identifier.
         tabby = gensym("cat")
         scottishfold = gensym("cat")
         test[the[tabby] is not the[scottishfold]]

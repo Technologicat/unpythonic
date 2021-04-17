@@ -8,6 +8,8 @@ from macropy.core.quotes import macros, q, u, name, ast_literal
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
+from mcpyrate import gensym
+
 from .astcompat import getconstant, Str
 from .util import wrapwith, AutorefMarker
 from .letdoutil import isdo, islet, ExpandedDoView, ExpandedLetView
@@ -85,8 +87,7 @@ def autoref(block_body, args, asname):
     if not block_body:
         raise SyntaxError("expected at least one statement inside the 'with autoref' block")  # pragma: no cover
 
-    gen_sym = dyn.gen_sym
-    o = asname.id if asname else gen_sym("_o")  # Python itself guarantees asname to be a bare Name.
+    o = asname.id if asname else gensym("_o")  # Python itself guarantees asname to be a bare Name.
 
     # with AutorefMarker("_o42"):
     def isexpandedautorefblock(tree):
@@ -116,7 +117,7 @@ def autoref(block_body, args, asname):
     def makeautoreference(tree):
         assert type(tree) is Name and (type(tree.ctx) is Load or not tree.ctx)
         newtree = hq[(lambda __ar_: __ar_[1] if __ar_[0] else ast_literal[tree])(_autoref_resolve((name[o], u[tree.id])))]
-        our_lambda_argname = gen_sym("_ar")
+        our_lambda_argname = gensym("_ar")
         @Walker
         def renametmp(tree, **kw):
             if type(tree) is Name and tree.id == "__ar_":

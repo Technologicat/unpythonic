@@ -28,6 +28,8 @@ from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 from macropy.core.macros import macro_stub
 
+from mcpyrate import gensym
+
 from ..lispylet import _let as letf, _dlet as dletf, _blet as bletf
 from ..seq import do as dof
 from ..dynassign import dyn
@@ -60,6 +62,7 @@ def _letimpl(bindings, body, mode):
         # So this check is here just to protect against use with no bindings directly
         # from other syntax transformers, which in theory could attempt anything.
         #
+        # TODO: update this comment for mcpyrate
         # The reason the macro layer never calls us with no bindings is technical.
         # In the macro interface, with no bindings, the macro's `args` are `()`
         # whether it was invoked as `let()[...]` or just `let[...]`. Thus,
@@ -78,7 +81,7 @@ def _letimpl(bindings, body, mode):
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
 
-    e = dyn.gen_sym("e")
+    e = gensym("e")
     envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
 
     t = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
@@ -207,7 +210,7 @@ def _dletimpl(bindings, body, mode, kind):
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
 
-    e = dyn.gen_sym("e")
+    e = gensym("e")
     envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
 
     t1 = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
@@ -270,7 +273,7 @@ def _dletseqimpl(bindings, body, kind):
     fname = body.name
     noargs = arguments(args=[], kwonlyargs=[], vararg=None, kwarg=None,
                        defaults=[], kw_defaults=[])
-    iname = dyn.gen_sym(f"{fname}_inner")
+    iname = gensym(f"{fname}_inner")
     body.args = noargs
     body.name = iname
 
@@ -306,8 +309,7 @@ def do(tree):
     if type(tree) not in (Tuple, List):
         raise SyntaxError("do body: expected a sequence of comma-separated expressions")  # pragma: no cover, let's not test the macro expansion errors.
 
-    gen_sym = dyn.gen_sym
-    e = gen_sym("e")
+    e = gensym("e")
     envset = Attribute(value=q[name[e]], attr="_set", ctx=Load())  # use internal _set to allow new definitions
     envdel = Attribute(value=q[name[e]], attr="pop", ctx=Load())
 

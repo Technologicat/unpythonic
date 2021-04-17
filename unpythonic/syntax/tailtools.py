@@ -20,6 +20,8 @@ from macropy.core.quotes import macros, q, u, ast_literal, name
 from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
+from mcpyrate import gensym
+
 from .astcompat import getconstant, NameConstant
 from .util import (isx, make_isxpred, isec,
                    detect_callec, detect_lambda,
@@ -333,7 +335,6 @@ def continuations(block_body):
             condition = altcall = None
             thecall = extract_call(theexpr)
         return targets, starget, condition, thecall, altcall
-    gen_sym = dyn.gen_sym
     def make_continuation(owner, callcc, contbody):
         targets, starget, condition, thecall, altcall = analyze_callcc(callcc)
 
@@ -360,7 +361,7 @@ def continuations(block_body):
             basename = f"{stripped_ownername}_cont"
         else:
             basename = "cont"
-        contname = gen_sym(basename)
+        contname = gensym(basename)
 
         # Set our captured continuation as the cc of f and g in
         #   call_cc[f(...)]

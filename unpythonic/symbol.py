@@ -174,8 +174,9 @@ def gensym(label):
 
     This is like Lisp's `gensym` and JavaScript's `Symbol`.
 
-    If you're familiar with MacroPy's `gen_sym`, that's different; its purpose
-    is to create a lexical identifier that is not in use, whereas this `gensym`
-    creates a symbol object for run-time use.
+    If you're familiar with `mcpyrate`'s `gensym` or MacroPy's `gen_sym`, those
+    mean something different. Their purpose is to create a lexical identifier
+    that is not in use, whereas this `gensym` creates a symbol object for
+    run-time use.
     """
     return gsym(uuid.uuid4(), label)

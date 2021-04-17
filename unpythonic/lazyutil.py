@@ -21,6 +21,7 @@ def _init_module():  # called by unpythonic.__init__ when otherwise done
     from .tco import jump
     _init_done = True
 
+# TODO: update this for mcpyrate once we have an equivalent for macropy.quick_lambda.Lazy.
 try:  # MacroPy is optional for unpythonic
     # This bug was REALLY hard to track down, so let's document:
     #  - In MacroPy, there's a thing called `macropy.core.macros.injected_vars`, which holds

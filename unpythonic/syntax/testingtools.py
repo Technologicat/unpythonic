@@ -6,13 +6,13 @@ See also `unpythonic.test.fixtures` for the high-level machinery.
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
-from mcpyrate import unparse
+from mcpyrate import gensym, unparse
 from mcpyrate.walkers import ASTTransformer
 
 from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return, parse, Expr, AST
 import sys
 
-from ..dynassign import dyn  # for MacroPy's gen_sym
+from ..dynassign import dyn
 from ..env import env
 from ..misc import callsite_filename
 from ..conditions import cerror, handlers, restarts, invoke
@@ -464,8 +464,7 @@ def test_expr(tree):
     # first pass.
     sourcecode = unparse(tree)
 
-    gen_sym = dyn.gen_sym
-    envname = gen_sym("e")  # for injecting the captured value
+    envname = gensym("e")  # for injecting the captured value
 
     # Handle the `the[...]` marks, if any.
     tree, the_exprs = _transform_important_subexpr.recurse_collect(tree, envname=envname)
@@ -559,8 +558,7 @@ def test_block(block_body, args):
     # first pass.
     sourcecode = unparse(block_body)
 
-    gen_sym = dyn.gen_sym
-    envname = gen_sym("e")  # for injecting the captured value
+    envname = gensym("e")  # for injecting the captured value
 
     # Handle the `the[...]` marks, if any.
     block_body, the_exprs = _transform_important_subexpr.recurse_collect(block_body, envname=envname)
@@ -569,7 +567,7 @@ def test_block(block_body, args):
     # TODO: mcpyrate: no yield, use  tree = expander.visit(tree)  to trigger inside-out expansion
     block_body = yield block_body
 
-    testblock_function_name = gen_sym("test_block")
+    testblock_function_name = gensym("test_block")
     thetest = q[(a[asserter])(u[sourcecode],
                               n[testblock_function_name],
                               filename=a[filename],
@@ -635,8 +633,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
     # TODO: mcpyrate: no yield, use  tree = expander.visit(tree)  to trigger inside-out expansion
     block_body = yield block_body
 
-    gen_sym = dyn.gen_sym
-    testblock_function_name = gen_sym("test_block")
+    testblock_function_name = gensym("test_block")
     thetest = q[(a[asserter])(a[exctype],
                               u[sourcecode],
                               n[testblock_function_name],

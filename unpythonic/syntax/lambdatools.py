@@ -12,6 +12,8 @@ from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 from macropy.quick_lambda import f, _  # _ for re-export only  # noqa: F401
 
+from mcpyrate import gensym
+
 from ..dynassign import dyn
 from ..misc import namelambda
 from ..fun import orf
@@ -169,12 +171,11 @@ def quicklambda(block_body):
     #
     # Used under the MIT license.
     # Copyright (c) 2013-2018, Li Haoyi, Justin Holmgren, Alberto Berti and all the other contributors.
-    gen_sym = dyn.gen_sym
     def f_transform(tree):  # pragma: no cover, fallback for MacroPy 1.1.0b2
         @Walker
         def underscore_search(tree, collect, **kw):
             if isinstance(tree, Name) and tree.id == "_":
-                name = gen_sym("_")
+                name = gensym("_")
                 tree.id = name
                 collect(name)
                 return tree
@@ -227,7 +228,6 @@ def envify(block_body):
     _ismakeenv = make_isxpred("_envify")
     _envify = env
 
-    gen_sym = dyn.gen_sym
     @Walker
     def transform(tree, *, bindings, enames, stop, set_ctx, **kw):
         def isourupdate(thecall):
@@ -242,7 +242,7 @@ def envify(block_body):
                 kws = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # "x" --> x
                 newbindings = bindings.copy()
                 if type(tree) in (FunctionDef, AsyncFunctionDef):
-                    ename = gen_sym("e")
+                    ename = gensym("e")
                     theenv = hq[_envify()]
                     theenv.keywords = kws
                     assignment = Assign(targets=[q[name[ename]]],
