@@ -80,7 +80,7 @@ For coverage analysis, [`coverage.py`](https://github.com/nedbat/coveragepy) wor
 
 We use a custom testing framework, which lives in the modules `unpythonic.test.fixtures` and `unpythonic.syntax.testingtools`. It uses conditions and restarts to communicate between individual tests and the testset, which acts as a reporter.
 
-In retrospect, given that the main aim was compact testing syntax for macro-enabled Python code (without installing another import hook, doing which would disable the macro expander), it might have made more sense to make the testing macros compile to [pytest](https://docs.pytest.org/en/latest/). But hey, it's short, may have applications in teaching... and now we can easily write custom test runners, since the testing framework is just a MacroPy library. It's essentially a *no-framework* (cf. "NoSQL"), which provides the essentials and lets the user define the rest.
+In retrospect, given that the main aim was compact testing syntax for macro-enabled Python code (without installing another import hook, doing which would disable the macro expander), it might have made more sense to make the testing macros compile to [pytest](https://docs.pytest.org/en/latest/). But hey, it's short, may have applications in teaching... and now we can easily write custom test runners, since the testing framework is just a `mcpyrate` library. It's essentially a *no-framework* (cf. "NoSQL"), which provides the essentials and lets the user define the rest.
 
 (The whole framework is about 1.3k SLOC, counting docstrings, comments and blanks; under 600 SLOC if counting only active code lines. Add another 800 SLOC (all) / 200 SLOC (active code lines) for the condition system.)
 
@@ -104,7 +104,7 @@ As of the first half of 2021, the main target platforms are **CPython 3.8** and 
 
 - **Use from-imports**.
   - The `unpythonic` style is `from ... import ...`.
-  - The from-import syntax is mandatory for macro imports in user code, anyway, since MacroPy (as of 1.1.0b2) supports only `from ... import macros, ...` for importing macros. We just use it also for regular imports.
+  - The from-import syntax is mandatory for macro imports in user code, anyway, since macro expanders for Python (including `mcpyrate`) support only `from ... import macros, ...` for importing macros. We just use the same style also for regular imports.
   - For imports of certain features of `unpythonic` (including, but not limited to, `curry`), our macro code depends on those features being referred to by their original bare names at the use site. This won't work if the `import ...` syntax is used. For the same reason, locally renaming `unpythonic` features with `from ... import ... as ...` should be avoided.
   - For imports of stuff from outside `unpythonic`, it's a matter of convention. Sometimes `import ...` can be clearer.
   - No star-import `from ... import *`, except in the top-level `__init__.py`, where it is allowed for re-exporting the public APIs.
@@ -122,7 +122,7 @@ As of the first half of 2021, the main target platforms are **CPython 3.8** and 
 
 - **Avoid external dependencies.**
   - Diametrically opposite to the sensible approach for most software projects, but `unpythonic` is meant as a standalone base to build on. Few dependencies makes it easy to install, and more unlikely to break.
-  - [MacroPy](https://github.com/azazel75/macropy) is fine, but keep the macro features (and the MacroPy dependency) **strictly optional**.
+  - [`mcpyrate`](https://github.com/Technologicat/mcpyrate) is fine, but keep the macro features (and the `mcpyrate` dependency) **strictly optional**.
     - `unpythonic` should be able to run, without its macro features, on a standard Python.
     - Macros can depend on regular code. `unpythonic.syntax` is a subpackage, so the parent level `__init__.py` has already finished running when it's imported.
 
@@ -149,7 +149,7 @@ As of the first half of 2021, the main target platforms are **CPython 3.8** and 
 
 - **Be functional** ([FP](https://en.wikipedia.org/wiki/Functional_programming)) when it makes sense.
   - Don't mutate input unnecessarily. Construct and/or edit a copy instead, and return that.
-    - Macros are an exception to this. Due to how MacroPy works, syntax transformers should edit the AST in-place, not build a copy.
+    - Macros are an exception to this. Syntax transformers usually edit the AST in-place, not build a copy.
   - If there is a useful value that could be returned, return it, even if the function performs a mutating operation. This allows chaining operations.
 
 - **Refactor aggressively**. Extract reusable utilities.
@@ -202,17 +202,17 @@ As of the first half of 2021, the main target platforms are **CPython 3.8** and 
     - Only make a macro when a regular function can't do what is needed.
     - Sometimes a regular code core with a thin macro layer on top, to improve the user experience, is the appropriate solution for [minimizing magic](https://macropy3.readthedocs.io/en/latest/discussion.html#minimize-macro-magic). See `do`, `let` for examples.
   - `unpythonic/syntax/__init__.py` is very long (> 2000 lines), because:
-    - For technical reasons, as of MacroPy 1.1.0b2, it's not possible to re-export macros defined in another module.
+    - For technical reasons, as of MacroPy 1.1.0b2, it's not possible to re-export macros defined in another module. (As of `unpythonic` 0.15, this is no longer relevant, since we use `mcpyrate`, which **can** re-export macros. So `unpythonic.syntax` may be revised in a future version of `unpythonic`.)
     - Therefore, all macro entry points must reside in `unpythonic/syntax/__init__.py`, so that user code can `from unpythonic.syntax import macros, something`, without caring about how the `unpythonic.syntax` package is internally organized.
     - The docstring must be placed on the macro entry point, so that the REPL will find it. This forces all macro docstrings into that one module. (That's less magic than injecting them dynamically when `unpythonic` boots up.)
     - A macro entry point can be just a thin wrapper around the relevant [*syntax transformer*](http://www.greghendershott.com/fear-of-macros/): a regular function, which takes and returns an AST.
-  - You can have an expr, block and decorator macro with the same name, in the same module, because MacroPy holds each kind in a separate registry.
+  - You can have an expr, block and decorator macro with the same name, in the same module, by making the macro interface into a dispatcher. See the `syntax` kw in `mcpyrate`.
     - If you do this, the docstring should be placed in whichever of those is defined last, because that one will be the definition left standing at run time (hence used for docstring lookup by the REPL).
   - Syntax transformers can and should be sensibly organized into modules, just like any other regular (non-macro) code.
     - But they don't need docstrings, since the macro entry point already has the docstring.
-  - If your syntax transformer (or another one it internally uses) needs `gen_sym` or other MacroPy `**kw` arguments:
-    - Declare the relevant `**kw`s as parameters for the macro entry point, therefore requesting MacroPy to provide them. Stuff them into `dyn` using `with dyn.let(...)`, and call your syntax transformer, which can then get the `**kw`s from `dyn`. See the existing macros for examples.
-    - Using `dyn` keeps the syntax transformer call signatures clean, while limiting the dynamic extent of what is effectively a global assignment. If we used only function parameters, some of the high-level syntax transformers would have to declare `gen_sym` just to pass it through, possibly through several layers, until it reaches the low-level syntax transformer that actually needs it. Avoiding such a parameter definition cascade is exactly the use case `dyn` was designed for.
+  - If your syntax transformer (or another one it internally uses) needs `mcpyrate` `**kw` arguments:
+    - Declare the relevant `**kw`s as parameters for the macro entry point, therefore requesting `mcpyrate` to provide them. Stuff them into `dyn` using `with dyn.let(...)`, and call your syntax transformer, which can then get the `**kw`s from `dyn`. See the existing macros for examples.
+    - Using `dyn` keeps the syntax transformer call signatures clean, while limiting the dynamic extent of what is effectively a global assignment. If we used only function parameters, some of the high-level syntax transformers would have to declare `expander` just to pass it through, possibly through several layers, until it reaches the low-level syntax transformer that actually needs it. Avoiding such a parameter definition cascade is exactly the use case `dyn` was designed for.
   - If a set of macros shares common utilities, but those aren't needed elsewhere, that's a prime candidate for placing all that in one module.
     - See e.g. `tailtools.py`, which implements `tco` and `continuations`. The common factor is tail-position analysis.
 
