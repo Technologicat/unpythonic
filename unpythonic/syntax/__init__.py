@@ -4,7 +4,7 @@
 Requires `mcpyrate`.
 """
 
-from mcpyrate import gensym, parametricmacro
+from mcpyrate import parametricmacro
 
 from ..dynassign import make_dynvar, dyn
 
