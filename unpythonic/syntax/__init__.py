@@ -108,7 +108,7 @@ from .prefix import q, u, kw  # noqa: F401  # TODO: bad names, MacroPy uses them
 from .tailtools import call_cc  # noqa: F401
 from .testingtools import the  # noqa: F401
 
-# TODO: port `dbgprint_expr` to mcpyrate
+# TODO: port `dbgprint_expr` to mcpyrate (store it in `dyn` so the user can override)
 # Inject default debug printer for expressions.
 #
 # All the macro interface stuff must happen in this module, so we can't
@@ -284,8 +284,6 @@ def curry(tree, *, syntax, **kw):  # technically a list of trees, the body of th
     return _curry(block_body=tree)
 
 # -----------------------------------------------------------------------------
-
-# TODO: letdoutil needs to handle the new format (`mcpyrate` uses subscripting, not calls, as parametric macros)
 
 @parametricmacro
 def let(tree, *, syntax, args, **kw):  # noqa: F811
@@ -780,7 +778,7 @@ def let_syntax(tree, *, syntax, args, **kw):  # noqa: F811
         return _let_syntax_block(block_body=tree)
 
 # TODO: no yield in `mcpyrate`, recurse at the right time instead.
-# TODO: need better example
+# TODO: need better example, since `mcpyrate`'s equivalent of `ast_literal` is already named `a`
 @parametricmacro
 def abbrev(tree, *, syntax, args, **kw):  # noqa: F811
     """[syntax, expr/block] Exactly like ``let_syntax``, but expands in the first pass, outside in.
