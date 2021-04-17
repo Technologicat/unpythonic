@@ -473,6 +473,7 @@ def test_expr(tree):
         tree.left = _inject_value_recorder(envname, tree.left)
 
     # End of first pass.
+    # TODO: mcpyrate: no yield, use  tree = expander.visit(tree)  to trigger inside-out expansion
     tree = yield tree
 
     # We delay the execution of the test expr using a lambda, so
@@ -511,6 +512,7 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     sourcecode = unparse(tree)
 
     # End of first pass.
+    # TODO: mcpyrate: no yield, use  tree = expander.visit(tree)  to trigger inside-out expansion
     tree = yield tree
 
     return q[(a[asserter])(a[exctype],
@@ -564,6 +566,7 @@ def test_block(block_body, args):
     block_body, the_exprs = _transform_important_subexpr.recurse_collect(block_body, envname=envname)
 
     # End of first pass.
+    # TODO: mcpyrate: no yield, use  tree = expander.visit(tree)  to trigger inside-out expansion
     block_body = yield block_body
 
     testblock_function_name = gen_sym("test_block")
@@ -629,6 +632,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
     sourcecode = unparse(block_body)
 
     # End of first pass.
+    # TODO: mcpyrate: no yield, use  tree = expander.visit(tree)  to trigger inside-out expansion
     block_body = yield block_body
 
     gen_sym = dyn.gen_sym
