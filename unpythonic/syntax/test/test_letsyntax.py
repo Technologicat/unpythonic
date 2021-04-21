@@ -3,10 +3,10 @@
 
 **CAUTION**: a toy macro system within the real macro system. Read the docstrings."""
 
-# Look at the various examples by surrounding them "with show_expanded:"
+# Look at the various examples by surrounding them "with step_expansion:"
 # to see the expanded code.
 #
-# from macropy.tracing import macros, show_expanded  # noqa: F401
+# from mcpyrate.debug import macros, step_expansion  # noqa: F401
 #
 # Note let_syntax completely goes away at macro expansion time; it just instructs
 # the expander to perform some substitutions in a particular section of code.

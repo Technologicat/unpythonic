@@ -67,17 +67,17 @@ def runtests():
             test[g(9001) is False]
 
             def g(x):
-                return let((y, 3 * x))[y]  # noqa: F821, `let` defines `y` here.
+                return let[(y, 3 * x)][y]  # noqa: F821, `let` defines `y` here.
             test[g(10) == 30]
 
             def h(x):
-                return let((y, 2 * x))[g(y)]  # noqa: F821
+                return let[(y, 2 * x)][g(y)]  # noqa: F821
             test[h(10) == 60]
 
             def h(x):
-                return letseq((y, x),  # noqa: F821, `letseq` defines `y` here.
+                return letseq[(y, x),  # noqa: F821, `letseq` defines `y` here.
                               (y, y + 1),  # noqa: F821
-                              (y, y + 1))[g(y)]  # noqa: F821
+                              (y, y + 1)][g(y)]  # noqa: F821
             test[h(10) == 36]
 
     with testset("integration with autoreturn"):

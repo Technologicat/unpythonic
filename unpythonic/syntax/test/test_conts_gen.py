@@ -26,7 +26,7 @@ from ...syntax import macros, continuations, call_cc, dlet, abbrev, let_syntax, 
 from ...fploop import looped
 from ...fun import identity
 
-#from macropy.tracing import macros, show_expanded  # noqa: F811, F401
+#from mcpyrate.debug import macros, step_expansion  # noqa: F811, F401
 
 def runtests():
     with testset("a basic generator"):

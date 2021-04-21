@@ -18,18 +18,18 @@ from .letdoutil import isdo, islet, ExpandedDoView, ExpandedLetView
 from ..dynassign import dyn
 from ..lazyutil import force1, passthrough_lazy_args
 
-# with autoref(o):
-# with autoref(scipy.loadmat("mydata.mat")):       # evaluate once, assign to a gensym
-# with autoref(scipy.loadmat("mydata.mat")) as o:  # evaluate once, assign to given name
+# with autoref[o]:
+# with autoref[scipy.loadmat("mydata.mat")]:       # evaluate once, assign to a gensym
+# with autoref[scipy.loadmat("mydata.mat")] as o:  # evaluate once, assign to given name
 #
 # We need something like::
 #
-#   with autoref(o):
+#   with autoref[o]:
 #       x        # --> (o.x if hasattr(o, "x") else x)
 #       x.a      # --> (o.x.a if hasattr(o, "x") else x.a)
 #       x[s]     # --> (o.x[s] if hasattr(o, "x") else x[s])
 #       o        # --> o
-#       with autoref(p):
+#       with autoref[p]:
 #          x     # --> (p.x if hasattr(p, "x") else (o.x if hasattr(o, "x") else x))
 #          x.a   # --> (p.x.a if hasattr(p, "x") else (o.x.a if hasattr(o, "x") else x.a))
 #          x[s]  # --> (p.x[s] if hasattr(p, "x") else (o.x[s] if hasattr(o, "x") else x[s]))
@@ -150,8 +150,8 @@ def autoref(block_body, args, asname):
             if thename in referents:
                 # This case is tricky to trigger, so let's document it here. This code:
                 #
-                # with autoref(e):
-                #     with autoref(e2):
+                # with autoref[e]:
+                #     with autoref[e2]:
                 #         e
                 #
                 # expands to:
@@ -166,11 +166,11 @@ def autoref(block_body, args, asname):
                 # Inside the body of the inner autoref, looking up "e" in e2 before falling
                 # back to the outer "e" is exactly what `autoref` is expected to do.
                 #
-                # Where is this used, then? The named variant `with autoref(...) as ...`:
+                # Where is this used, then? The named variant `with autoref[...] as ...`:
                 #
-                # with show_expanded:
-                #     with autoref(e) as outer:
-                #         with autoref(e2) as inner:
+                # with step_expansion:
+                #     with autoref[e] as outer:
+                #         with autoref[e2] as inner:
                 #             outer
                 #
                 # expands to:

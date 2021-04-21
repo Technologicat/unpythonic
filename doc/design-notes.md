@@ -283,7 +283,7 @@ More on type systems:
    - This is a [known issue in MacroPy](https://github.com/azazel75/macropy/issues/21). I have made a [fix](https://github.com/azazel75/macropy/pull/22), but still need to make proper test cases to get it merged.
    - If something goes wrong in the expansion of one block macro in a ``with`` statement that specifies several block macros, surprises may occur.
    - When in doubt, use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks.
-     - Test one step at a time with the ``macropy.tracing.show_expanded`` block macro to make sure the expansion looks like what you intended.
+     - Load the macro expansion debug utility `from mcpyrate.debug import macros, step_expansion`, and put a ``with step_expansion:`` around your use site. Then add your macro invocations one by one, and make sure the expansion looks like what you intended.
 
 ### Miscellaneous notes
 

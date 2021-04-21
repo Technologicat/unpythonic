@@ -88,16 +88,16 @@ Properly lexically scoped ``let`` constructs, no boilerplate:
 ```python
 from unpythonic.syntax import macros, let, letseq, letrec
 
-let((x, 17),  # parallel binding, i.e. bindings don't see each other
-    (y, 23))[
+let[(x, 17),  # parallel binding, i.e. bindings don't see each other
+    (y, 23)][
       print(x, y)]
 
-letseq((x, 1),  # sequential binding, i.e. Scheme/Racket let*
-       (y, x+1))[
+letseq[(x, 1),  # sequential binding, i.e. Scheme/Racket let*
+       (y, x+1)][
          print(x, y)]
 
-letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding, sequentially evaluated
-       (oddp,  lambda x: (x != 0) and evenp(x - 1)))[
+letrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding, sequentially evaluated
+       (oddp,  lambda x: (x != 0) and evenp(x - 1))][
          print(evenp(42))]
 ```
 
@@ -144,7 +144,7 @@ If there is only one binding, to make the syntax more pythonic, the outer parent
 - ``let_syntax``, ``abbrev``
 
 ```python
-let(x, 21)[2*x]
+let[x, 21][2*x]
 let[(x, 21) in 2*x]
 let[2*x, where(x, 21)]
 ```
@@ -158,8 +158,8 @@ This is essentially special-cased in the ``let`` expander. (If interested in the
 The `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body ([like in `multilambda`](#multilambda-supercharge-your-lambdas)):
 
 ```python
-let((x, 1),
-    (y, 2))[[  # note extra [
+let[(x, 1),
+    (y, 2)][[  # note extra [
       y << x + y,
       print(y)]]
 
@@ -179,8 +179,8 @@ The let macros implement this by inserting a ``do[...]`` (see below). In a multi
 Only the outermost set of extra brackets is interpreted as a multiple-expression body. The rest are interpreted as usual, as lists. If you need to return a literal list from a ``let`` form with only one body expression, use three sets of brackets:
 
 ```python
-let((x, 1),
-    (y, 2))[[
+let[(x, 1),
+    (y, 2)][[
       [x, y]]]
 
 let[((x, 1),      # v0.12.0+
@@ -197,8 +197,8 @@ The outermost brackets delimit the ``let`` form, the middle ones activate multip
 Only brackets are affected; parentheses are interpreted as usual, so returning a literal tuple works as expected:
 
 ```python
-let((x, 1),
-    (y, 2))[
+let[(x, 1),
+    (y, 2)][
       (x, y)]
 
 let[((x, 1),      # v0.12.0+
@@ -217,9 +217,9 @@ let[(x, y),       # v0.12.0+
 Nesting utilizes the fact that MacroPy3 (as of v1.1.0) expands macros in an inside-out order:
 
 ```python
-letrec((z, 1))[[
+letrec[(z, 1)][[
          print(z),
-         letrec((z, 2))[
+         letrec[(z, 2)][
                   print(z)]]]
 ```
 
@@ -237,42 +237,42 @@ Examples:
 ```python
 from unpythonic.syntax import macros, dlet, dletseq, dletrec, blet, bletseq, bletrec
 
-@dlet((x, 0))
+@dlet[(x, 0)]
 def count():
     x << x + 1
     return x
 assert count() == 1
 assert count() == 2
 
-@dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
-         (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+@dletrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),
+         (oddp,  lambda x: (x != 0) and evenp(x - 1))]
 def f(x):
     return evenp(x)
 assert f(42) is True
 assert f(23) is False
 
-@dletseq((x, 1),
+@dletseq[(x, 1),
          (x, x+1),
-         (x, x+2))
+         (x, x+2)]
 def g(a):
     return a + x
 assert g(10) == 14
 
 # block versions: the def takes no arguments, runs immediately, and is replaced by the return value.
-@blet((x, 21))
+@blet[(x, 21)]
 def result():
     return 2*x
 assert result == 42
 
-@bletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),
-         (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+@bletrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),
+         (oddp,  lambda x: (x != 0) and evenp(x - 1))]
 def result():
     return evenp(42)
 assert result is True
 
-@bletseq((x, 1),
+@bletseq[(x, 1),
          (x, x+1),
-         (x, x+2))
+         (x, x+2)]
 def result():
     return x
 assert result == 4
@@ -289,31 +289,31 @@ As an exception to the rule, for the purposes of the scope analysis performed by
 To clarify, here's a sampling from the unit tests:
 
 ```python
-@dlet((x, "the env x"))
+@dlet[(x, "the env x")]
 def f():
     return x
 assert f() == "the env x"
 
-@dlet((x, "the env x"))
+@dlet[(x, "the env x")]
 def f():
     x = "the local x"
     return x
 assert f() == "the local x"
 
-@dlet((x, "the env x"))
+@dlet[(x, "the env x")]
 def f():
     return x
     x = "the unused local x"
 assert f() == "the env x"
 
 x = "the global x"
-@dlet((x, "the env x"))
+@dlet[(x, "the env x")]
 def f():
     global x
     return x
 assert f() == "the global x"
 
-@dlet((x, "the env x"))
+@dlet[(x, "the env x")]
 def f():
     x = "the local x"
     del x           # deleting a local, ok!
@@ -322,7 +322,7 @@ assert f() == "the env x"
 
 try:
     x = "the global x"
-    @dlet((x, "the env x"))
+    @dlet[(x, "the env x")]
     def f():
         global x
         del x       # ignored by unpythonic's scope analysis, deletion of globals is too dynamic
@@ -348,12 +348,12 @@ def verylongfunctionname(x=1):
     return x
 
 # works as an expr macro
-y = let_syntax((f, verylongfunctionname))[[  # extra brackets: implicit do in body
+y = let_syntax[(f, verylongfunctionname)][[  # extra brackets: implicit do in body
                  print(f()),
                  f(5)]]
 assert y == 5
 
-y = let_syntax((f(a), verylongfunctionname(2*a)))[[  # template with formal parameter "a"
+y = let_syntax[(f(a), verylongfunctionname(2*a))][[  # template with formal parameter "a"
                  print(f(2)),
                  f(3)]]
 assert y == 6
@@ -440,7 +440,7 @@ When used as an expr macro, all bindings are registered first, and then the body
 The ``abbrev`` macro is otherwise exactly like ``let_syntax``, but it expands in the first pass (outside in). Hence, no lexically scoped nesting, but it has the power to locally rename also macros, because the ``abbrev`` itself expands before any macros invoked in its body. This allows things like:
 
 ```python
-abbrev((a, ast_literal))[
+abbrev[(a, ast_literal)][
          a[tree1] if a[tree2] else a[tree3]]
 
 # v0.12.0+
@@ -500,7 +500,7 @@ A ``local`` declaration comes into effect in the expression following the one wh
 
 ```python
 result = []
-let((lst, []))[[result.append(lst),       # the let "lst"
+let[(lst, [])][[result.append(lst),       # the let "lst"
                 local[lst << lst + [1]],  # LHS: do "lst", RHS: let "lst"
                 result.append(lst)]]      # the do "lst"
 assert result == [[], [1]]
@@ -540,13 +540,13 @@ with multilambda:
     echo = lambda x: [print(x), x]
     assert echo("hi there") == "hi there"
 
-    count = let((x, 0))[
+    count = let[(x, 0)][
               lambda: [x << x + 1,  # x belongs to the surrounding let
                        x]]
     assert count() == 1
     assert count() == 2
 
-    test = let((x, 0))[
+    test = let[(x, 0)][
              lambda: [x << x + 1,
                       local[y << 42],  # y is local to the implicit do
                       (x, y)]]
@@ -577,7 +577,7 @@ from unpythonic.syntax import macros, namedlambda
 with namedlambda:
     f = lambda x: x**3                       # assignment: name as "f"
     assert f.__name__ == "f"
-    gn, hn = let((x, 42), (g, None), (h, None))[[
+    gn, hn = let[(x, 42), (g, None), (h, None)][[
                    g << (lambda x: x**2),    # env-assignment: name as "g"
                    h << f,                   # still "f" (no literal lambda on RHS)
                    (g.__name__, h.__name__)]]
@@ -1906,12 +1906,12 @@ assert z == 42    # surrounding an expression with dbg[...] doesn't alter its va
 ```python
 prt = lambda *args, **kwargs: print(*args)
 
-with dbg(prt):
+with dbg[prt]:
     x = 2
     prt(x)     # --> ('x',) (2,)
     print(x)   # --> 2
 
-with dbg(prt):
+with dbg[prt]:
     x = 2
     y = 17
     prt(x, y, 1 + 2)  # --> ('x', 'y', '(1 + 2)'), (2, 17, 3)
@@ -1946,7 +1946,7 @@ with nb:
     _ * 42
     assert _ == 210
 
-with nb(pprint):
+with nb[pprint]:
     x, y = symbols("x, y")
     x * y
     assert _ == x * y

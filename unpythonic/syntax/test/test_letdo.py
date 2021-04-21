@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """Let constructs; do (imperative code in expression position)."""
 
+# TODO: Update the @dlet, @dletseq, @dletrec, @blet, @bletseq, @bletrec examples
+# TODO: to pass macro arguments using brackets once we bump to minimum Python 3.9.
+
 from ...syntax import macros, test, test_raises  # noqa: F401
 from ...test.fixtures import session, testset
 
@@ -48,75 +51,75 @@ def runtests():
     # Let macros. Lexical scoping supported.
     with testset("let, letseq, letrec basic usage"):
         # parallel binding, i.e. bindings don't see each other
-        test[let((x, 17),
-                 (y, 23))[  # noqa: F821, `let` defines `y` here.
+        test[let[(x, 17),
+                 (y, 23)][  # noqa: F821, `let` defines `y` here.
                      (x, y)] == (17, 23)]  # noqa: F821
 
         # sequential binding, i.e. Scheme/Racket let*
-        test[letseq((x, 1),
-                    (y, x + 1))[  # noqa: F821
+        test[letseq[(x, 1),
+                    (y, x + 1)][  # noqa: F821
                         (x, y)] == (1, 2)]  # noqa: F821
 
-        test[letseq((x, 1),
-                    (x, x + 1))[  # in a letseq, rebinding the same name is ok
+        test[letseq[(x, 1),
+                    (x, x + 1)][  # in a letseq, rebinding the same name is ok
                         x] == 2]
 
         # letrec sugars unpythonic.lispylet.letrec, removing the need for quotes on LHS
         # and "lambda e: ..." wrappers on RHS (these are inserted by the macro):
-        test[letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821, `letrec` defines `evenp` here.
-                    (oddp, lambda x: (x != 0) and evenp(x - 1)))[  # noqa: F821
+        test[letrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821, `letrec` defines `evenp` here.
+                    (oddp, lambda x: (x != 0) and evenp(x - 1))][  # noqa: F821
                         evenp(42)] is True]  # noqa: F821
 
         # nested letrecs work, too - each environment is internally named by a gensym
         # so that outer ones "show through":
-        test[letrec((z, 9000))[  # noqa: F821
-                 letrec((evenp, lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821
-                        (oddp, lambda x: (x != 0) and evenp(x - 1)))[  # noqa: F821
+        test[letrec[(z, 9000)][  # noqa: F821
+                 letrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821
+                        (oddp, lambda x: (x != 0) and evenp(x - 1))][  # noqa: F821
                             (evenp(42), z)]] == (True, 9000)]  # noqa: F821
 
     with testset("error cases"):
         # let is parallel binding, doesn't see the X in the same let
         test_raises[NameError,
-                    let((X, 1),  # noqa: F821
-                        (y, X + 1))[  # noqa: F821
+                    let[(X, 1),  # noqa: F821
+                        (y, X + 1)][  # noqa: F821
                             print(X, y)],  # noqa: F821
                     "should not see the X in the same let"]
 
         test_raises[NameError,
-                    letseq((X, y + 1),  # noqa: F821
-                           (y, 2))[  # noqa: F821
+                    letseq[(X, y + 1),  # noqa: F821
+                           (y, 2)][  # noqa: F821
                                (X, y)],  # noqa: F821
                     "y should not yet be defined on the first line"]
 
         test_raises[AttributeError,
-                    let((x, 1),
-                        (x, 2))[
+                    let[(x, 1),
+                        (x, 2)][
                             print(x)],
                     "should not be able to rebind the same name in the same let"]
 
     # implicit do: an extra set of brackets denotes a multi-expr body
     with testset("implicit do (extra bracket syntax for multi-expr let body)"):
-        a = let((x, 1),
-                (y, 2))[[  # noqa: F821
+        a = let[(x, 1),
+                (y, 2)][[  # noqa: F821
                     y << 1337,  # noqa: F821
                     (x, y)]]  # noqa: F821
         test[a == (1, 1337)]
 
         # only the outermost extra brackets denote a multi-expr body
-        a = let((x, 1),
-                (y, 2))[[  # noqa: F821
+        a = let[(x, 1),
+                (y, 2)][[  # noqa: F821
                     [1, 2]]]
         test[a == [1, 2]]
 
         # implicit do works also in letseq, letrec
-        a = letseq((x, 1),
-                   (y, x + 1))[[  # noqa: F821
+        a = letseq[(x, 1),
+                   (y, x + 1)][[  # noqa: F821
                        x << 1337,
                        (x, y)]]  # noqa: F821
         test[a == (1337, 2)]
 
-        a = letrec((x, 1),
-                   (y, x + 1))[[  # noqa: F821
+        a = letrec[(x, 1),
+                   (y, x + 1)][[  # noqa: F821
                        x << 1337,
                        (x, y)]]  # noqa: F821
         test[a == (1337, 2)]
@@ -126,36 +129,36 @@ def runtests():
         # macros are expanded from inside out (the z in the inner scope expands to
         # the inner environment's z, which makes the outer expansion leave it alone):
         out = []
-        letrec((z, 1))[  # noqa: F821
+        letrec[(z, 1)][  # noqa: F821
             begin(out.append(z),  # noqa: F821
-                  letrec((z, 2))[  # noqa: F821
+                  letrec[(z, 2)][  # noqa: F821
                       out.append(z)])]  # (be careful with the parentheses!)  # noqa: F821
         test[out == [1, 2]]
 
         # same using implicit do (extra brackets)
         out = []
-        letrec((z, 1))[[  # noqa: F821
+        letrec[(z, 1)][[  # noqa: F821
                  out.append(z),  # noqa: F821
-                 letrec((z, 2))[  # noqa: F821
+                 letrec[(z, 2)][  # noqa: F821
                      out.append(z)]]]  # noqa: F821
         test[out == [1, 2]]
 
         # lexical scoping: assignment updates the innermost value by that name:
         out = []
-        letrec((z, 1))[  # noqa: F821
+        letrec[(z, 1)][  # noqa: F821
             begin(out.append(z),  # outer z  # noqa: F821
                   # assignment to env is an expression, returns the new value
                   out.append(z << 5),  # noqa: F821
-                  letrec((z, 2))[  # noqa: F821
+                  letrec[(z, 2)][  # noqa: F821
                       begin(out.append(z),         # inner z  # noqa: F821
                             out.append(z << 7))],  # update inner z  # noqa: F821
                   out.append(z))]  # outer z  # noqa: F821
         test[out == [1, 5, 2, 7, 5]]
 
         out = []
-        letrec((x, 1))[
+        letrec[(x, 1)][
             begin(out.append(x),
-                  letrec((z, 2))[  # noqa: F821
+                  letrec[(z, 2)][  # noqa: F821
                       begin(out.append(z),  # noqa: F821
                             out.append(x << 7))],  # x only defined in outer letrec, updates that
                   out.append(x))]
@@ -163,23 +166,23 @@ def runtests():
 
         # same using implicit do
         out = []
-        letrec((x, 1))[[
+        letrec[(x, 1)][[
                  out.append(x),
-                 letrec((z, 2))[[  # noqa: F821
+                 letrec[(z, 2)][[  # noqa: F821
                      out.append(z),  # noqa: F821
                      out.append(x << 7)]],
                  out.append(x)]]
         test[out == [1, 2, 7, 7]]
 
         # letrec bindings are evaluated sequentially
-        test[letrec((x, 1),
-                    (y, x + 2))[  # noqa: F821
+        test[letrec[(x, 1),
+                    (y, x + 2)][  # noqa: F821
                         (x, y)] == (1, 3)]  # noqa: F821
 
         # so this is an error (just like in Racket):
         test_raises[AttributeError,
-                    letrec((x, y + 1),  # noqa: F821, `y` being undefined here is the point of this test.
-                           (y, 2))[  # noqa: F821
+                    letrec[(x, y + 1),  # noqa: F821, `y` being undefined here is the point of this test.
+                           (y, 2)][  # noqa: F821
                                print(x)],
                     "y should not be yet defined on the first line"]
 
@@ -188,33 +191,33 @@ def runtests():
         #
         # This is the whole point of having a letrec construct,
         # instead of just let, letseq.
-        test[letrec((f, lambda t: t + y + 1),  # noqa: F821
-                    (y, 2))[  # noqa: F821
+        test[letrec[(f, lambda t: t + y + 1),  # noqa: F821
+                    (y, 2)][  # noqa: F821
                         f(3)] == 6]  # noqa: F821
 
         # bindings are evaluated only once
-        a = letrec((x, 1),
-                   (y, x + 2))[[   # y computed now, using the current value of x  # noqa: F821
+        a = letrec[(x, 1),
+                   (y, x + 2)][[   # y computed now, using the current value of x  # noqa: F821
                        x << 1337,  # x updated now, no effect on y
                        (x, y)]]  # noqa: F821
         test[a == (1337, 3)]
 
         # lexical scoping: a comprehension or lambda in a let body
         # shadows names from the surrounding let, but only in that subexpr
-        test[let((x, 42))[[
+        test[let[(x, 42)][[
                    [x for x in range(10)]]] == list(range(10))]
-        test[let((x, 42))[[
+        test[let[(x, 42)][[
                    [x for x in range(10)],
                    x]] == 42]
-        test[let((x, 42))[
+        test[let[(x, 42)][
                    (lambda x: x**2)(10)] == 100]
-        test[let((x, 42))[[
+        test[let[(x, 42)][[
                    (lambda x: x**2)(10),
                    x]] == 42]
 
     # let over lambda - in Python!
     with testset("let over lambda"):
-        count = let((x, 0))[
+        count = let[(x, 0)][
                       lambda: x << x + 1]
         test[count() == 1]
         test[count() == 2]
@@ -405,22 +408,22 @@ def runtests():
         x = "the nonlocal x"  # restore the test environment
 
         # in do[] (also the implicit do), local[] takes effect from the next item
-        test[let((x, "the let x"),
-                 (y, None))[  # noqa: F821
+        test[let[(x, "the let x"),
+                 (y, None)][  # noqa: F821
                      do[y << x,                  # still the "x" of the let  # noqa: F821
                         local[x << "the do x"],  # from here on, "x" refers to the "x" of the do
                         (x, y)]] == ("the do x", "the let x")]  # noqa: F821
 
         # don't code like this! ...but the scoping mechanism should understand it
         result = []
-        let((lst, []))[do[result.append(lst),       # the let "lst"  # noqa: F821
+        let[(lst, [])][do[result.append(lst),       # the let "lst"  # noqa: F821
                           local[lst << lst + [1]],  # LHS: do "lst", RHS: let "lst"  # noqa: F821
                           result.append(lst)]]      # the do "lst"  # noqa: F821
         test[result == [[], [1]]]
 
         # same using implicit do
         result = []
-        let((lst, []))[[result.append(lst),  # noqa: F821
+        let[(lst, [])][[result.append(lst),  # noqa: F821
                         local[lst << lst + [1]],  # noqa: F821
                         result.append(lst)]]  # noqa: F821
         test[result == [[], [1]]]
@@ -470,7 +473,7 @@ def runtests():
 
     # single binding special syntax, no need for outer parentheses
     with testset("special syntax for single binding case"):
-        result = let(x, 1)[2 * x]
+        result = let[x, 1][2 * x]
         test[result == 2]
         result = let[(x, 1) in 2 * x]
         test[result == 2]

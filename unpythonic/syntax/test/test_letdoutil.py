@@ -59,7 +59,7 @@ def runtests():
         test[not islet(q[x])]  # noqa: F821
         test[not islet(q[f()])]  # noqa: F821
 
-        test[islet(the[expandrq[let((x, 21))[2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
+        test[islet(the[expandrq[let[(x, 21)][2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
         test[islet(the[expandrq[let[(x, 21) in 2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821
         test[islet(the[expandrq[let[2 * x, where(x, 21)]]]) == ("expanded_expr", "let")]  # noqa: F821
 
@@ -69,7 +69,7 @@ def runtests():
                 return 2 * x  # noqa: F821
         test[islet(the[testdata[0].decorator_list[0]]) == ("expanded_decorator", "let")]
 
-        testdata = q[let((x, 21))[2 * x]]  # noqa: F821
+        testdata = q[let[(x, 21)][2 * x]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("lispy_expr", "let")]
 
         # one binding special case for haskelly let-in
@@ -202,7 +202,7 @@ def runtests():
             test[unparse(view.body) == "(z * t)"]
 
         # lispy expr
-        testdata = q[let((x, 21), (y, 2))[y * x]]  # noqa: F821
+        testdata = q[let[(x, 21), (y, 2)][y * x]]  # noqa: F821
         testletdestructuring(testdata)
 
         # haskelly let-in
@@ -291,7 +291,7 @@ def runtests():
 
     with testset("let destructuring (expanded let)"):
         # lispy expr
-        testdata = expandrq[let((x, 21), (y, 2))[y * x]]  # noqa: F821
+        testdata = expandrq[let[(x, 21), (y, 2)][y * x]]  # noqa: F821
         testexpandedletdestructuring(testdata)
 
         # haskelly let-in

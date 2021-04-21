@@ -45,6 +45,9 @@ def letseq(bindings, body):
     if not bindings:
         return body
     first, *rest = bindings
+    # TODO: Could just return hygienic macro invocations, but that needs to be done
+    # TODO: where the macro interfaces are visible. See `unpythonic.syntax.simplelet`
+    # TODO: for how to do it.
     return let([first], letseq(rest, body))
 
 def letrec(bindings, body):

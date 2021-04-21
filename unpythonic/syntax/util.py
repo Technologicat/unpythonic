@@ -464,7 +464,7 @@ class ContinuationsMarker(metaclass=ASTMarker):
 
 # must be "instantiated" because we need to pass information at macro expansion time using the ctor call syntax.
 class AutorefMarker(metaclass=ASTMarker):
-    """AST marker for an expanded "with autoref(o)" block."""
+    """AST marker for an expanded "with autoref[o]" block."""
     def __init__(self, varname):
         pass  # pragma: no cover
     def __enter__(cls):

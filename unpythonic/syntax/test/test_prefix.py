@@ -12,8 +12,8 @@ from ...fold import foldr
 from ...fun import composerc as compose, apply
 from ...llist import cons, nil, ll
 
-# Use "with show_expanded:" to see what it did.
-#from macropy.tracing import macros, show_expanded
+# Use "with step_expansion:" to see what it did.
+#from mcpyrate.debug import macros, step_expansion
 
 def runtests():
     with prefix:
@@ -73,13 +73,13 @@ def runtests():
 
         with testset("integration with let and do"):
             # prefix leaves alone the let binding syntax ((name0, value0), ...)
-            a = let((x, 42))[x << x + 1]
+            a = let[(x, 42)][x << x + 1]
             test[a == 43]
 
             # but the RHSs of the bindings are transformed normally:
             def double(x):
                 return 2 * x
-            a = let((x, (double, 21)))[x << x + 1]
+            a = let[(x, (double, 21))][x << x + 1]
             test[a == 43]
 
             # similarly, prefix leaves the "body tuple" of a do alone
@@ -90,7 +90,7 @@ def runtests():
             test[a == 6]
 
             # the extra bracket syntax has no danger of confusion, as it's a list, not tuple
-            a = let((x, 3))[[
+            a = let[(x, 3)][[
                       1,
                       2,
                       (double, x)]]
