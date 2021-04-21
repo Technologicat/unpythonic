@@ -2,9 +2,8 @@
 """Utilities for working with syntax."""
 
 from functools import partial
-from copy import deepcopy
 
-from ast import (Call, Name, Lambda, FunctionDef, AsyncFunctionDef,
+from ast import (Call, Lambda, FunctionDef, AsyncFunctionDef,
                  If, With, withitem, stmt, NodeTransformer)
 
 from macropy.core.walkers import Walker
@@ -392,26 +391,6 @@ def transform_statements(f, body):
                 return replacement
             return node
     return StatementTransformer().visit(body)
-
-def splice(tree, rep, tag):  # TODO: obsolete, replace with `mcpyrate.splicing.splice_expression`
-    """Splice in a tree into another tree.
-
-    Walk ``tree``, replacing all occurrences of a ``Name(id=tag)`` with
-    the tree ``rep``.
-
-    This is convenient for first building a skeleton with a marker such as
-    ``q[n["_here_"]]``, and then splicing in ``rep`` later. See ``forall``
-    and ``envify`` for usage examples.
-    """
-    @Walker
-    def doit(tree, *, stop, **kw):
-        if type(tree) is Name and tree.id == tag:
-            stop()
-            # Copy just to be on the safe side. Different instances may be
-            # edited differently by other macros expanded later.
-            return deepcopy(rep)
-        return tree
-    return doit.recurse(tree)
 
 def wrapwith(item, body, locref=None):
     """Wrap ``body`` with a single-item ``with`` block, using ``item``.

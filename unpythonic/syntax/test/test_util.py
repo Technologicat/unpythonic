@@ -14,7 +14,7 @@ from ...syntax.util import (isec, detect_callec,
                             is_lambda_decorator, is_decorated_lambda,
                             destructure_decorated_lambda, sort_lambda_decorators,
                             transform_statements, eliminate_ifones,
-                            splice, wrapwith, ismarker)
+                            wrapwith, ismarker)
 
 from ast import Call, Name, Constant, Expr, With, withitem
 
@@ -257,14 +257,6 @@ def runtests():
                 "hello"
         result = eliminate_ifones(eliminate_ifones_testdata8)
         test[len(result) == 1 and ishello(result[0])]
-
-    with testset("splice"):
-        with q as splice_testdata:
-            n["_here_"]
-            n["_here_"]
-        test[all(stmt.value.id == "_here_" for stmt in splice_testdata)]
-        splice(splice_testdata, q[n["replacement"]], "_here_")
-        test[all(stmt.value.id == "replacement" for stmt in splice_testdata)]
 
     with testset("wrapwith"):
         with q as wrapwith_testdata:

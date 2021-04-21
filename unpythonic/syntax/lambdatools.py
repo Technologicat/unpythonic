@@ -13,6 +13,7 @@ from macropy.core.walkers import Walker
 from macropy.quick_lambda import f, _  # _ for re-export only  # noqa: F401
 
 from mcpyrate import gensym
+from mcpyrate.splicing import splice_expression
 
 from ..dynassign import dyn
 from ..misc import namelambda
@@ -23,7 +24,7 @@ from .astcompat import getconstant, Str
 from .letdo import do
 from .letdoutil import islet, isenvassign, UnexpandedLetView, UnexpandedEnvAssignView, ExpandedDoView
 from .util import (is_decorated_lambda, isx, make_isxpred, has_deco,
-                   destructure_decorated_lambda, detect_lambda, splice)
+                   destructure_decorated_lambda, detect_lambda)
 
 def multilambda(block_body):
     @Walker
@@ -263,7 +264,7 @@ def envify(block_body):
                     theupdate = Attribute(value=q[n[ename]], attr="update")
                     thecall = q[a[theupdate]()]
                     thecall.keywords = kws
-                    tree.body = splice(tree.body, thecall, "_here_")  # TODO: mcpyrate.splicing.splice_expression
+                    tree.body = splice_expression(thecall, tree.body, "_here_")
                 newbindings.update({k: Attribute(value=q[n[ename]], attr=k) for k in argnames})  # "x" --> e.x
                 set_ctx(enames=enames + [ename])
                 set_ctx(bindings=newbindings)

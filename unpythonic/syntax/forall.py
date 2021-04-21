@@ -5,7 +5,8 @@ from ast import Tuple, arg
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
-from .util import splice
+from mcpyrate.splicing import splice_expression
+
 from .letdoutil import isenvassign, UnexpandedEnvAssignView
 from ..amb import monadify
 from ..amb import insist, deny  # for re-export only  # noqa: F401
@@ -47,7 +48,7 @@ def forall(exprs):
         else:
             body = Mv
         if tree:
-            newtree = splice(tree, body, "_here_")
+            newtree = splice_expression(body, tree, "_here_")
         else:
             newtree = body
         return build(rest, newtree)
