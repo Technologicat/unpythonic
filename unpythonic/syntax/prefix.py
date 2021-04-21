@@ -7,7 +7,8 @@ Experimental, not for use in production code.
 from ast import Name, Call, Tuple, Load, Subscript
 import sys
 
-from macropy.core.quotes import macros, q, u, ast_literal  # noqa: F811, F401
+from mcpyrate.quotes import macros, q, u, a, t  # noqa: F811, F401
+
 from macropy.core.walkers import Walker
 
 from .letdoutil import islet, isdo, UnexpandedLetView, UnexpandedDoView
@@ -88,7 +89,7 @@ def prefix(block_body):
             quoted = [op] + data
             if any(iskwargs(x) for x in quoted):
                 assert False, "kw(...) may only appear in a prefix tuple representing a function call"  # pragma: no cover
-            return q[(ast_literal[quoted],)]
+            return q[t[quoted]]
         # (f, a1, ..., an) --> f(a1, ..., an)
         posargs = [x for x in data if not iskwargs(x)]
         # TODO: tag *args and **kwargs in a kw() as invalid, too (currently just ignored)

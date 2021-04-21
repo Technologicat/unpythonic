@@ -4,8 +4,7 @@
 from ...syntax import macros, test
 from ...test.fixtures import session, testset
 
-from macropy.core.quotes import macros, q  # noqa: F811
-from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+from mcpyrate.quotes import macros, q, h  # noqa: F401, F811
 
 from ...syntax.nameutil import isx, make_isxpred, getname
 
@@ -17,7 +16,7 @@ def runtests():
         def capture_this():
             pass  # pragma: no cover
         barename = q[ok]  # noqa: F821
-        captured = hq[capture_this()]
+        captured = q[h[capture_this]()]
         attribute = q[someobj.ok]  # noqa: F821
 
         test[isx(barename, "ok")]
@@ -29,8 +28,7 @@ def runtests():
     with testset("make_isxpred"):
         isfab = make_isxpred("fab")
         test[isx(q[fab], isfab)]  # noqa: F821
-        test[isx(q[fab4], isfab)]  # noqa: F821
-        test[isx(q[someobj.fab4], isfab)]  # noqa: F821
+        test[isx(q[someobj.fab], isfab)]  # noqa: F821
 
     with testset("getname"):
         test[getname(barename) == "ok"]

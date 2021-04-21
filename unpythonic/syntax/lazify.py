@@ -4,8 +4,8 @@
 from ast import (Lambda, FunctionDef, AsyncFunctionDef, Call, Name, Attribute,
                  Starred, keyword, List, Tuple, Dict, Set, Subscript, Load)
 
-from macropy.core.quotes import macros, q, ast_literal
-from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+from mcpyrate.quotes import macros, q, a, h  # noqa: F401
+
 from macropy.core.walkers import Walker
 
 from macropy.quick_lambda import macros, lazy  # noqa: F811, F401
@@ -99,26 +99,15 @@ def lazyrec(tree):
             stop()
             p, k = _ctor_handling_modes[getname(tree.func)]
             tree = lazify_ctorcall(tree, p, k)
-        # Lispers NOTE: in MacroPy, the quasiquote `q` (similarly hygienic
-        # quasiquote `hq`) is a macro, not a special operator; it **does not**
-        # prevent the expansion of any macros invoked in the quoted code.
-        # It just lifts source code into the corresponding AST representation.
-        #
-        # (MacroPy-technically, it's a second-pass macro, so any macros nested inside
-        #  have already expanded when the quote macro runs.)
-        #
-        # This means that lazy[] expands immediately even though quoted in our atom case,
-        # because the lazy[] is injected by this module. Because macros expand before the
-        # module runs, we will actually splice **expanded** lazy[] forms into the user code.
-        #
-        # Maybe could be worked around by not importing lazy here, but that defeats hygiene.
         elif type(tree) is Subscript and isx(tree.value, islazy):  # unexpanded
             stop()  # pragma: no cover
         elif type(tree) is Call and isx(tree.func, isLazy):  # expanded
             stop()
         else:
             stop()
-            tree = hq[lazy[ast_literal[tree]]]
+            # mcpyrate supports hygienic macro capture, so we can just splice unexpanded
+            # (but hygienically unquoted) `lazy` invocations here.
+            tree = q[h[lazy][a[tree]]]
         return tree
 
     def lazify_ctorcall(tree, positionals="all", keywords="all"):
@@ -126,14 +115,14 @@ def lazyrec(tree):
             raise SyntaxError(f"lazyrec[]: while analyzing constructor call `{getname(tree.func)}`: there should be exactly one argument, but {len(tree.args)} were given.")  # pragma: no cover
 
         newargs = []
-        for a in tree.args:
-            if type(a) is Starred:  # *args in Python 3.5+
-                if is_literal_container(a.value, maps_only=False):
-                    a.value = rec(a.value)
+        for arg in tree.args:
+            if type(arg) is Starred:  # *args in Python 3.5+
+                if is_literal_container(arg.value, maps_only=False):
+                    arg.value = rec(arg.value)
                 # else do nothing
-            elif positionals == "all" or is_literal_container(a, maps_only=False):  # single positional arg
-                a = rec(a)
-            newargs.append(a)
+            elif positionals == "all" or is_literal_container(arg, maps_only=False):  # single positional arg
+                arg = rec(arg)
+            newargs.append(arg)
         tree.args = newargs
         for kw in tree.keywords:
             if kw.arg is None:  # **kwargs in Python 3.5+
@@ -220,9 +209,9 @@ def lazify(body):
         def f(tree):
             if type(tree.ctx) is Load:
                 if forcing_mode == "full":
-                    return hq[force(ast_literal[tree])]
+                    return q[h[force](a[tree])]
                 elif forcing_mode == "flat":
-                    return hq[force1(ast_literal[tree])]
+                    return q[h[force1](a[tree])]
                 # else forcing_mode == "off"
             return tree
 
@@ -236,7 +225,7 @@ def lazify(body):
                 # to allow also strict code to call this function
                 if type(tree) is Lambda:
                     lam = tree
-                    tree = hq[passthrough_lazy_args(ast_literal[tree])]
+                    tree = q[h[passthrough_lazy_args](a[tree])]
                     # TODO: This doesn't really do anything; we don't here see the chain
                     # TODO: of Call nodes (decorators) that surround the Lambda node.
                     tree = sort_lambda_decorators(tree)
@@ -248,11 +237,11 @@ def lazify(body):
                     # TODO: could make `suggest_decorator_index` ignore a `force()` wrapper.
                     tree.decorator_list = rec(tree.decorator_list)
                     if k is not None:
-                        tree.decorator_list.insert(k, hq[passthrough_lazy_args])
+                        tree.decorator_list.insert(k, q[h[passthrough_lazy_args]])
                     else:
                         # passthrough_lazy_args should generally be as innermost as possible
                         # (so that e.g. the curry decorator will see the function as lazy)
-                        tree.decorator_list.append(hq[passthrough_lazy_args])
+                        tree.decorator_list.append(q[h[passthrough_lazy_args]])
                     tree.body = rec(tree.body)
 
         elif type(tree) is Call:
@@ -314,7 +303,7 @@ def lazify(body):
                 for x in tree.args:
                     if type(x) is Starred:  # *args in Python 3.5+
                         v = transform_starred(x.value)
-                        v = Starred(value=q[ast_literal[v]], lineno=ln, col_offset=co)
+                        v = Starred(value=q[a[v]], lineno=ln, col_offset=co)
                     else:
                         v = transform_arg(x)
                     adata.append(v)
@@ -328,9 +317,9 @@ def lazify(body):
                     kwdata.append((x.arg, v))
 
                 # Construct the call
-                mycall = Call(func=hq[maybe_force_args],
-                              args=[q[ast_literal[thefunc]]] + [q[ast_literal[x]] for x in adata],
-                              keywords=[keyword(arg=k, value=q[ast_literal[x]]) for k, x in kwdata],
+                mycall = Call(func=q[h[maybe_force_args]],
+                              args=[q[a[thefunc]]] + [q[a[x]] for x in adata],
+                              keywords=[keyword(arg=k, value=q[a[x]]) for k, x in kwdata],
                               lineno=ln, col_offset=co)
                 tree = mycall
 
@@ -412,7 +401,7 @@ def lazify(body):
     # The second strict callee may get promises instead of values, because the
     # strict trampoline does not have the maybe_force_args (that usually forces the args
     # when lazy code calls into strict code).
-    return wrapwith(item=hq[dyn.let(_build_lazy_trampoline=True)],
+    return wrapwith(item=q[h[dyn.let](_build_lazy_trampoline=True)],
                     body=newbody,
                     locref=body[0])
 

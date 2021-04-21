@@ -135,9 +135,9 @@ class _Dyn(Singleton):
     # tracks dynamic state; in a manner of speaking, it has one foot on the
     # call stack.
     #
-    # But we can't prevent pickling, because MacroPy's hygienic quasiquotes (`hq[]`)
-    # build on `pickle`. If `dyn` fails to pickle, some macros in `unpythonic.syntax`
-    # (notably `autoref` and `lazify`) crash, because they need both `dyn` and `hq[]`.
+    # But we can't prevent pickling, because mcpyrate's hygienic unquote (`h[]`)
+    # builds on `pickle`. If `dyn` fails to pickle, some macros in `unpythonic.syntax`
+    # (notably `autoref` and `lazify`) crash, because they need both `dyn` and `h[]`.
     #
     # Fortunately, no state is saved in the `dyn` singleton instance itself, so
     # it doesn't matter that the default `__setstate__` clobbers the `__dict__`

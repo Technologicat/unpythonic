@@ -15,9 +15,9 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef,
                  copy_location)
 import sys
 
+from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
+
 from macropy.core.macros import macro_stub
-from macropy.core.quotes import macros, q, u, ast_literal, name
-from macropy.core.hquotes import macros, hq  # noqa: F811, F401
 from macropy.core.walkers import Walker
 
 from mcpyrate import gensym
@@ -127,7 +127,7 @@ def call_cc(tree, **kw):
     """
     pass  # pragma: no cover
 
-# _pcc/cc chaining handler, to be exported to client code via hq[].
+# _pcc/cc chaining handler, to be exported to client code via q[h[]].
 #
 # We handle multiple-return-values like the rest of unpythonic does:
 # returning a tuple means returning multiple values. Unpack them
@@ -185,8 +185,8 @@ def continuations(block_body):
     def transform_args(tree):
         assert type(tree) in (FunctionDef, AsyncFunctionDef, Lambda)
         # Add a cc kwarg if the function has no cc arg.
-        posnames = [a.arg for a in tree.args.args]  # positional-or-keyword
-        kwonlynames = [a.arg for a in tree.args.kwonlyargs]
+        posnames = [arg.arg for arg in tree.args.args]  # positional-or-keyword
+        kwonlynames = [kw.arg for kw in tree.args.kwonlyargs]
         if "cc" not in posnames + kwonlynames:
             tree.args.kwonlyargs = tree.args.kwonlyargs + [arg(arg="cc")]
             tree.args.kw_defaults = tree.args.kw_defaults + [None]  # not set
@@ -198,11 +198,11 @@ def continuations(block_body):
             na = len(posnames)
             nd = len(tree.args.defaults)  # defaults apply to n last args
             if j == na - nd - 1:  # last one that has no default
-                tree.args.defaults.insert(0, hq[identity])
+                tree.args.defaults.insert(0, q[h[identity]])
         else:  # "cc" in kwonlynames:
             j = kwonlynames.index("cc")
             if tree.args.kw_defaults[j] is None:  # not already set
-                tree.args.kw_defaults[j] = hq[identity]
+                tree.args.kw_defaults[j] = q[h[identity]]
         # implicitly add "parent cc" arg for treating the tail of a computation
         # as one entity (only actually used in continuation definitions created by
         # call_cc; everywhere else, it's None). See callcc_topology.pdf for clarifying pictures.
@@ -238,13 +238,13 @@ def continuations(block_body):
             # chain our _pcc and the cc=... manually provided by the user
             thekw = [kw for kw in tree.keywords if kw.arg == "cc"][0]  # exactly one
             usercc = thekw.value
-            thekw.value = hq[chain_conts(name["_pcc"], ast_literal[usercc], with_star=True)]
+            thekw.value = q[h[chain_conts](n["_pcc"], a[usercc], with_star=True)]
         else:
             # chain our _pcc and the current value of cc
-            tree.keywords = [keyword(arg="cc", value=hq[chain_conts(name["_pcc"], name["cc"], with_star=True)])] + tree.keywords
+            tree.keywords = [keyword(arg="cc", value=q[h[chain_conts](n["_pcc"], n["cc"], with_star=True)])] + tree.keywords
         return tree
     def data_cb(tree):  # transform an inert-data return value into a tail-call to cc.
-        tree = hq[chain_conts(name["_pcc"], name["cc"])(ast_literal[tree])]
+        tree = q[h[chain_conts](n["_pcc"], n["cc"])(a[tree])]
         return tree
     transform_retexpr = partial(_transform_retexpr, call_cb=call_cb, data_cb=data_cb)
 
@@ -368,9 +368,9 @@ def continuations(block_body):
         #   call_cc[f(...) if p else g(...)]
         def prepare_call(tree):
             if tree:
-                tree.keywords = [keyword(arg="cc", value=q[name[contname]])] + tree.keywords
+                tree.keywords = [keyword(arg="cc", value=q[n[contname]])] + tree.keywords
             else:  # no call means proceed to cont directly, with args set to None
-                tree = q[name[contname](*([None] * u[len(targets)]), cc=name["cc"])]
+                tree = q[n[contname](*([None] * u[len(targets)]), cc=n["cc"])]
             return tree
         thecall = prepare_call(thecall)
         if condition:
@@ -386,8 +386,8 @@ def continuations(block_body):
         locref = callcc  # bad but no better source location reference node available
         non = q[None]
         non = copy_location(non, locref)
-        maybe_capture = IfExp(test=hq[name["cc"] is not identity],
-                              body=q[name["cc"]],
+        maybe_capture = IfExp(test=q[n["cc"] is not h[identity]],
+                              body=q[n["cc"]],
                               orelse=non,
                               lineno=locref.lineno, col_offset=locref.col_offset)
         funcdef = FDef(name=contname,
@@ -396,7 +396,7 @@ def continuations(block_body):
                                       vararg=(arg(arg=starget) if starget else None),
                                       kwarg=None,
                                       defaults=posargdefaults,
-                                      kw_defaults=[hq[identity], maybe_capture]),
+                                      kw_defaults=[q[h[identity]], maybe_capture]),
                        body=contbody,
                        decorator_list=[],  # patched later by transform_def
                        returns=None,  # return annotation not used here
@@ -407,22 +407,22 @@ def continuations(block_body):
         if owner:  # ...and tail-call it (if currently inside a def)
             def jumpify(tree):
                 tree.args = [tree.func] + tree.args
-                tree.func = hq[jump]
+                tree.func = q[h[jump]]
             jumpify(thecall)
             if condition:
                 jumpify(altcall)
                 newstmts.append(If(test=condition,
-                                   body=[Return(value=q[ast_literal[thecall]])],
-                                   orelse=[Return(value=q[ast_literal[altcall]])]))
+                                   body=[Return(value=q[a[thecall]])],
+                                   orelse=[Return(value=q[a[altcall]])]))
             else:
-                newstmts.append(Return(value=q[ast_literal[thecall]]))
+                newstmts.append(Return(value=q[a[thecall]]))
         else:  # ...and call it normally (if at the top level)
             if condition:
                 newstmts.append(If(test=condition,
-                                   body=[Expr(value=q[ast_literal[thecall]])],
-                                   orelse=[Expr(value=q[ast_literal[altcall]])]))
+                                   body=[Expr(value=q[a[thecall]])],
+                                   orelse=[Expr(value=q[a[altcall]])]))
             else:
-                newstmts.append(Expr(value=q[ast_literal[thecall]]))
+                newstmts.append(Expr(value=q[a[thecall]]))
         return newstmts
     @Walker  # find and transform call_cc[] statements inside function bodies
     def transform_callccs(tree, **kw):
@@ -487,7 +487,7 @@ def continuations(block_body):
 
     # set up the default continuation that just returns its args
     # (the top-level "cc" is only used for continuations created by call_cc[] at the top level of the block)
-    new_block_body = [Assign(targets=[q[name["cc"]]], value=hq[identity])]
+    new_block_body = [Assign(targets=[q[n["cc"]]], value=q[h[identity]])]
 
     # transform all defs (except the chaining handler), including those added by call_cc[].
     for stmt in block_body:
@@ -501,7 +501,7 @@ def continuations(block_body):
 
     # Leave a marker so "with tco", if applied, can ignore the expanded "with continuations" block
     # (needed to support continuations in the Lispython dialect, since it applies tco globally.)
-    return wrapwith(item=hq[ContinuationsMarker],
+    return wrapwith(item=q[h[ContinuationsMarker]],
                     body=new_block_body,
                     locref=block_body[0])
 
@@ -516,9 +516,9 @@ def _tco_transform_def(tree, *, preproc_cb, **kw):
         if not has_tco(tree):
             k = suggest_decorator_index("trampolined", tree.decorator_list)
             if k is not None:
-                tree.decorator_list.insert(k, hq[trampolined])
+                tree.decorator_list.insert(k, q[h[trampolined]])
             else:  # couldn't determine insert position; just plonk it at the start and hope for the best
-                tree.decorator_list.insert(0, hq[trampolined])
+                tree.decorator_list.insert(0, q[h[trampolined]])
     return tree
 
 # Transform return statements and calls to escape continuations (ec).
@@ -561,7 +561,7 @@ def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform
         lam = tree
         if not hastco:  # Enable TCO if not TCO'd already.
             # Just slap it on; we will sort_lambda_decorators() later.
-            tree = hq[trampolined(ast_literal[tree])]
+            tree = q[h[trampolined](a[tree])]
         # don't recurse on the lambda we just moved, but recurse inside it.
         stop()
         _tco_transform_lambda.recurse(lam.body,
@@ -627,7 +627,7 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
             #       argument is the retexpr.
             if not (isx(tree.func, _isjump) or isec(tree, known_ecs)):
                 tree.args = [tree.func] + tree.args
-                tree.func = hq[jump]
+                tree.func = q[h[jump]]
                 tree = transform_call(tree)
         elif type(tree) is IfExp:
             # Only either body or orelse runs, so both of them are in tail position.

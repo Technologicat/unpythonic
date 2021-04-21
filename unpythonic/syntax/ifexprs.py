@@ -3,8 +3,7 @@
 
 from ast import Tuple
 
-from macropy.core.quotes import macros, q, ast_literal
-from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+from mcpyrate.quotes import macros, q, a  # noqa: F811, F401
 
 from .letdo import implicit_do, let
 
@@ -25,8 +24,8 @@ it = it()
 
 def aif(tree):
     test, then, otherwise = [implicit_do(x) for x in tree.elts]
-    bindings = [q[(it, ast_literal[test])]]
-    body = q[ast_literal[then] if it else ast_literal[otherwise]]
+    bindings = [q[(it, a[test])]]
+    body = q[a[then] if it else a[otherwise]]
     return let(bindings, body)
 
 def cond(tree):
@@ -40,5 +39,5 @@ def cond(tree):
         test, then, *more = elts
         test = implicit_do(test)
         then = implicit_do(then)
-        return hq[ast_literal[then] if ast_literal[test] else ast_literal[build(more)]]
+        return q[a[then] if a[test] else a[build(more)]]
     return build(tree.elts)

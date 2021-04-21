@@ -4,13 +4,14 @@
 from ast import (Name, Assign, Load, Call, Lambda, With, Constant, arg,
                  Attribute, Subscript, Store, Del)
 
-from macropy.core.quotes import macros, q, u, name, ast_literal
-from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
+
 from macropy.core.walkers import Walker
 
 from mcpyrate import gensym
 
 from .astcompat import getconstant, Str
+from .nameutil import isx
 from .util import wrapwith, AutorefMarker
 from .letdoutil import isdo, islet, ExpandedDoView, ExpandedLetView
 
@@ -89,13 +90,16 @@ def autoref(block_body, args, asname):
 
     o = asname.id if asname else gensym("_o")  # Python itself guarantees asname to be a bare Name.
 
+    # TODO: We can't use `unpythonic.syntax.util.ismarker` here, because it
+    # TODO: doesn't currently understand markers with arguments. Extend it?
+    #
     # with AutorefMarker("_o42"):
     def isexpandedautorefblock(tree):
         if not (type(tree) is With and len(tree.items) == 1):
             return False
         ctxmanager = tree.items[0].context_expr
         return (type(ctxmanager) is Call and
-                type(ctxmanager.func) is Name and ctxmanager.func.id == "AutorefMarker" and
+                isx(ctxmanager.func, "AutorefMarker") and
                 len(ctxmanager.args) == 1 and type(ctxmanager.args[0]) in (Constant, Str))  # Python 3.8+: ast.Constant
     def getreferent(tree):
         return getconstant(tree.items[0].context_expr.args[0])
@@ -104,7 +108,7 @@ def autoref(block_body, args, asname):
     def isautoreference(tree):
         return (type(tree) is Call and
                 len(tree.args) == 1 and type(tree.args[0]) is Call and
-                type(tree.args[0].func) is Name and tree.args[0].func.id == "_autoref_resolve" and
+                isx(tree.args[0].func, "_autoref_resolve") and
                 type(tree.func) is Lambda and len(tree.func.args.args) == 1 and
                 tree.func.args.args[0].arg.startswith("_ar"))
     def get_resolver_list(tree):  # (p, o, "x")
@@ -116,7 +120,7 @@ def autoref(block_body, args, asname):
     # x --> the autoref code above.
     def makeautoreference(tree):
         assert type(tree) is Name and (type(tree.ctx) is Load or not tree.ctx)
-        newtree = hq[(lambda __ar_: __ar_[1] if __ar_[0] else ast_literal[tree])(_autoref_resolve((name[o], u[tree.id])))]
+        newtree = q[(lambda __ar_: __ar_[1] if __ar_[0] else a[tree])(h[_autoref_resolve]((n[o], u[tree.id])))]
         our_lambda_argname = gensym("_ar")
         @Walker
         def renametmp(tree, **kw):
@@ -182,10 +186,10 @@ def autoref(block_body, args, asname):
 
                 # remove autoref lookup for an outer referent, inserted early by an inner autoref block
                 # (that doesn't know that any outer block exists)
-                tree = q[name[thename]]  # (lambda ...)(_autoref_resolve((p, "o"))) --> o
+                tree = q[n[thename]]  # (lambda ...)(_autoref_resolve((p, "o"))) --> o
             else:
-                add_to_resolver_list(tree, q[name[o]])  # _autoref_resolve((p, "x")) --> _autoref_resolve((p, o, "x"))
-        elif type(tree) is Call and type(tree.func) is Name and tree.func.id == "AutorefMarker":  # nested autorefs
+                add_to_resolver_list(tree, q[n[o]])  # _autoref_resolve((p, "x")) --> _autoref_resolve((p, o, "x"))
+        elif type(tree) is Call and isx(tree.func, "AutorefMarker"):  # nested autorefs
             stop()
         elif type(tree) is Name and (type(tree.ctx) is Load or not tree.ctx) and tree.id not in referents:
             stop()
@@ -203,10 +207,10 @@ def autoref(block_body, args, asname):
                    # test framework stuff
                    'unpythonic_assert', 'unpythonic_assert_signals', 'unpythonic_assert_raises',
                    'callsite_filename', 'returns_normally']
-    newbody = [Assign(targets=[q[name[o]]], value=args[0])]
+    newbody = [Assign(targets=[q[n[o]]], value=args[0])]
     for stmt in block_body:
         newbody.append(transform.recurse(stmt, referents=always_skip + [o]))
 
-    return wrapwith(item=hq[AutorefMarker(u[o])],
+    return wrapwith(item=q[h[AutorefMarker](u[o])],
                     body=newbody,
                     locref=block_body[0])

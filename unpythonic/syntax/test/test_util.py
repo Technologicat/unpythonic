@@ -4,8 +4,7 @@
 from ...syntax import macros, do, local, test, test_raises, fail, the  # noqa: F401
 from ...test.fixtures import session, testset
 
-from macropy.core.quotes import macros, q, name  # noqa: F811
-from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+from mcpyrate.quotes import macros, q, n, h  # noqa: F401, F811
 
 from ...syntax.astcompat import getconstant, Num, Str
 from ...syntax.util import (isec, detect_callec,
@@ -27,9 +26,9 @@ def runtests():
             pass  # pragma: no cover
         known_ecs = ["ec", "brk", "throw"]  # see `fallbacks` in `detect_callec`
         test[isec(q[ec(42)], known_ecs)]
-        test[isec(hq[ec(42)], known_ecs)]
+        test[isec(q[h[ec](42)], known_ecs)]
         test[isec(q[throw(42)], known_ecs)]
-        test[isec(hq[throw(42)], known_ecs)]
+        test[isec(q[h[throw](42)], known_ecs)]
         test[not isec(q[myfunc(42)], known_ecs)]  # noqa: F821
 
         test["my_fancy_ec" in the[detect_callec(q[call_ec(lambda my_fancy_ec: None)])]]
@@ -261,10 +260,10 @@ def runtests():
 
     with testset("splice"):
         with q as splice_testdata:
-            name["_here_"]
-            name["_here_"]
+            n["_here_"]
+            n["_here_"]
         test[all(stmt.value.id == "_here_" for stmt in splice_testdata)]
-        splice(splice_testdata, q[name["replacement"]], "_here_")
+        splice(splice_testdata, q[n["replacement"]], "_here_")
         test[all(stmt.value.id == "replacement" for stmt in splice_testdata)]
 
     with testset("wrapwith"):
@@ -273,7 +272,7 @@ def runtests():
         # known fake location information so we can check it copies correctly
         wrapwith_testdata[0].lineno = 9001
         wrapwith_testdata[0].col_offset = 9
-        wrapped = wrapwith(q[name["ExampleContextManager"]], wrapwith_testdata)
+        wrapped = wrapwith(q[n["ExampleContextManager"]], wrapwith_testdata)
         test[type(wrapped) is list]
         thewith = wrapped[0]
         test[type(thewith) is With]
@@ -296,7 +295,7 @@ def runtests():
             with NotAMarker1, NotAMarker2:  # noqa: F821  # pragma: no cover
                 ...
         test[ismarker("ExampleMarker", ismarker_testdata1[0])]
-        test[not ismarker("AnotherMarker", ismarker_testdata1[0])]  # right type, different marker
+        test[not ismarker("AnotherMarker", ismarker_testdata1[0])]  # right AST node type, different marker
         test[not ismarker("NotAMarker1", ismarker_testdata2[0])]  # a marker must be the only ctxmanager in the `with`
         test[not ismarker("ExampleMarker", q["surprise!"])]  # wrong AST node type
 

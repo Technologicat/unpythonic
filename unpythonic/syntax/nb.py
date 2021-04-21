@@ -8,17 +8,15 @@ Auto-print top-level expressions, auto-assign last result as _.
 
 from ast import Expr
 
-from macropy.core.quotes import macros, q, ast_literal  # noqa: F401
+from mcpyrate.quotes import macros, q, u, a, h  # noqa: F401
 
 from .testingtools import istestmacro
 
 def nb(body, args):
-    p = args[0] if args else q[print]  # custom print function hook
-    newbody = []
-    with q as init:  # pragma: no cover, quoted only.
+    p = args[0] if args else q[h[print]]  # custom print function hook
+    with q as newbody:  # pragma: no cover, quoted only.
         _ = None
-        theprint = ast_literal[p]
-    newbody.extend(init)
+        theprint = a[p]
     for stmt in body:
         # We ignore statements (because no return value), and,
         # test[] and related expressions from our test framework.
@@ -28,7 +26,7 @@ def nb(body, args):
             newbody.append(stmt)
             continue
         with q as newstmts:  # pragma: no cover, quoted only.
-            _ = ast_literal[stmt.value]
+            _ = a[stmt.value]
             if _ is not None:
                 theprint(_)
         newbody.extend(newstmts)

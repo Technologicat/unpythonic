@@ -1801,7 +1801,7 @@ The `the[]` mechanism is smart enough to skip reporting trivialities for literal
 
 If nothing but such trivialities were captured, the failure message will instead report the value of the whole expression. (The captures still remain inspectable in the exception instance.)
 
-To make testing/debugging macro code more convenient, the `the[]` mechanism automatically unparses an AST value into its source code representation for display in the test failure message. This is meant for debugging macro utilities, to which a test case hands some quoted code (i.e. code lifted into its AST representation using MacroPy's `q[]` macro). See [`unpythonic.syntax.test.test_letdoutil`](unpythonic/syntax/test/test_letdoutil.py) for some examples. (Note the unparsing is done for display only; the raw value remains inspectable in the exception instance.)
+To make testing/debugging macro code more convenient, the `the[]` mechanism automatically unparses an AST value into its source code representation for display in the test failure message. This is meant for debugging macro utilities, to which a test case hands some quoted code (i.e. code lifted into its AST representation using mcpyrate's `q[]` macro). See [`unpythonic.syntax.test.test_letdoutil`](unpythonic/syntax/test/test_letdoutil.py) for some examples. (Note the unparsing is done for display only; the raw value remains inspectable in the exception instance.)
 
 **CAUTION**: The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``macropy.core.unparse``.
 

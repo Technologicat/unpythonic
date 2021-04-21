@@ -4,8 +4,7 @@
 from ...syntax import macros, test, test_raises, warn, the  # noqa: F401
 from ...test.fixtures import session, testset
 
-from macropy.core.quotes import macros, q, name  # noqa: F811, F401
-# from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+from mcpyrate.quotes import macros, q, n  # noqa: F401, F811
 
 from ast import Name
 
@@ -229,12 +228,12 @@ def runtests():
 
         with q as scoped_onefunc:
             def f(x):  # noqa: F811  # pragma: no cover
-                name["_apply_test_here_"]
+                n["_apply_test_here_"]
         scoped_walker.recurse(scoped_onefunc, callback=make_checker(["f", "x"]))
 
         with q as scoped_nestedfunc1:
             def f(x):  # noqa: F811  # pragma: no cover
-                name["_apply_test_here_"]
+                n["_apply_test_here_"]
                 def g(y):
                     pass
         scoped_walker.recurse(scoped_nestedfunc1, callback=make_checker(["f", "x"]))
@@ -242,33 +241,33 @@ def runtests():
         with q as scoped_nestedfunc2:
             def f(x):  # noqa: F811  # pragma: no cover
                 def g(y):
-                    name["_apply_test_here_"]
+                    n["_apply_test_here_"]
         scoped_walker.recurse(scoped_nestedfunc2, callback=make_checker(["f", "x", "g", "y"]))
 
         with q as scoped_classdef:
             class WorldClassy(Classy):  # noqa: F811  # pragma: no cover
-                name["_apply_test_here_"]
+                n["_apply_test_here_"]
         scoped_walker.recurse(scoped_classdef, callback=make_checker(["WorldClassy", "Classy"]))
 
         with q as scoped_localvar1:
             def f():  # noqa: F811  # pragma: no cover
                 x = 42  # noqa: F841
-                name["_apply_test_here_"]
+                n["_apply_test_here_"]
         scoped_walker.recurse(scoped_localvar1, callback=make_checker(["f", "x"]))
 
-        # TODO: In 0.15.0, fully lexical scope analysis; update this test at that time.
+        # TODO: In 0.15.x, fully lexical scope analysis; update this test at that time.
         with q as scoped_localvar2:
             def f():  # noqa: F811  # pragma: no cover
-                name["_apply_test_here_"]
+                n["_apply_test_here_"]
                 x = 42  # noqa: F841
         scoped_walker.recurse(scoped_localvar2, callback=make_checker(["f"]))  # x not yet created
 
-        # TODO: In 0.15.0, fully lexical scope analysis; update this test at that time.
+        # TODO: In 0.15.x, fully lexical scope analysis; update this test at that time.
         with q as scoped_localvar3:
             def f():  # noqa: F811  # pragma: no cover
                 x = 42  # noqa: F841
                 del x
-                name["_apply_test_here_"]
+                n["_apply_test_here_"]
         scoped_walker.recurse(scoped_localvar3, callback=make_checker(["f"]))  # x already deleted
 
 if __name__ == '__main__':  # pragma: no cover

@@ -23,8 +23,8 @@ from ast import (Name, Attribute,
                  Load, Subscript)
 import sys
 
-from macropy.core.quotes import macros, q, u, ast_literal, name
-from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
+
 from macropy.core.walkers import Walker
 from macropy.core.macros import macro_stub
 
@@ -32,7 +32,6 @@ from mcpyrate import gensym
 
 from ..lispylet import _let as letf, _dlet as dletf, _blet as bletf
 from ..seq import do as dof
-from ..dynassign import dyn
 from ..misc import namelambda
 
 from .astcompat import Index
@@ -82,15 +81,15 @@ def _letimpl(bindings, body, mode):
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
 
     e = gensym("e")
-    envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
+    envset = Attribute(value=q[n[e]], attr="set", ctx=Load())
 
-    t = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
+    transform = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
     if mode == "letrec":
-        values = [t(rhs) for rhs in values]  # RHSs of bindings
-        values = [hq[namelambda(u[f"letrec_binding{j}_{lhs}"])(ast_literal[rhs])]
+        values = [transform(rhs) for rhs in values]  # RHSs of bindings
+        values = [q[h[namelambda](u[f"letrec_binding{j}_{lhs}"])(a[rhs])]
                     for j, (lhs, rhs) in enumerate(zip(names, values), start=1)]
-    body = t(body)
-    body = hq[namelambda(u[f"{mode}_body"])(ast_literal[body])]
+    body = transform(body)
+    body = q[h[namelambda](u[f"{mode}_body"])(a[body])]
 
     # CAUTION: letdoutil.py relies on:
     #  - the literal name "letter" to detect expanded let forms
@@ -99,8 +98,8 @@ def _letimpl(bindings, body, mode):
     #    seeing only the Call node
     #  - the exact AST structure, for the views
     letter = letf
-    bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
-    newtree = hq[letter(ast_literal[Tuple(elts=bindings)], ast_literal[body], mode=u[mode])]
+    bindings = [q[(u[k], a[v])] for k, v in zip(names, values)]
+    newtree = q[h[letter](a[Tuple(elts=bindings)], a[body], mode=u[mode])]
     return newtree
 
 def letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
@@ -134,7 +133,7 @@ def transform_envassignment(tree, lhsnames, envset):
             view = UnexpandedEnvAssignView(tree)
             varname = view.name
             if varname in lhsnames and varname not in names_in_scope:
-                return q[ast_literal[envset](u[varname], ast_literal[view.value])]
+                return q[a[envset](u[varname], a[view.value])]
         return tree
     return scoped_walker.recurse(tree, callback=t)
 
@@ -142,7 +141,7 @@ def transform_name(tree, rhsnames, envname):
     """x --> e.x  (in load context; for names bound in this environment)"""
     # names_in_scope: according to Python's standard binding rules, see scopeanalyzer.py.
     # Variables defined in let envs are thus not listed in `names_in_scope`.
-    def t(tree, names_in_scope):
+    def transform(tree, names_in_scope):
         # This transformation is deceptively simple, hence requires some comment:
         #
         # - Attributes (and Subscripts) work, because we are called again for
@@ -163,15 +162,17 @@ def transform_name(tree, rhsnames, envname):
             hasctx = hasattr(tree, "ctx")  # macro-created nodes might not have a ctx.
             if hasctx and type(tree.ctx) is not Load:  # let variables are rebound using `<<`, not `=`.
                 return tree
-            ctx = tree.ctx if hasctx else None  # let MacroPy fix it if needed
-            return Attribute(value=q[name[envname]], attr=tree.id, ctx=ctx)
+            attr_node = q[n[f"{envname}.{tree.id}"]]
+            if hasctx:
+                attr_node.ctx = tree.ctx  # let mcpyrate fix it if needed
+            return attr_node
         return tree
-    return scoped_walker.recurse(tree, callback=t)
+    return scoped_walker.recurse(tree, callback=transform)
 
 def envwrap(tree, envname):
     """... -> lambda e: ..."""
-    lam = q[lambda: ast_literal[tree]]
-    lam.args.args = [arg(arg=envname)]  # lambda e44: ...
+    lam = q[lambda _: a[tree]]
+    lam.args.args[0] = arg(arg=envname)  # lambda e44: ...
     return lam
 
 # -----------------------------------------------------------------------------
@@ -211,28 +212,28 @@ def _dletimpl(bindings, body, mode, kind):
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
 
     e = gensym("e")
-    envset = Attribute(value=q[name[e]], attr="set", ctx=Load())
+    envset = Attribute(value=q[n[e]], attr="set", ctx=Load())
 
-    t1 = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
-    t2 = partial(t1, dowrap=False)
+    transform1 = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
+    transform2 = partial(transform1, dowrap=False)
     if mode == "letrec":
-        values = [t1(rhs) for rhs in values]
-        values = [hq[namelambda(u[f"letrec_binding{j}_{lhs}"])(ast_literal[rhs])]
+        values = [transform1(rhs) for rhs in values]
+        values = [q[h[namelambda](u[f"letrec_binding{j}_{lhs}"])(a[rhs])]
                     for j, (lhs, rhs) in enumerate(zip(names, values), start=1)]
-    body = t2(body)
+    body = transform2(body)
 
     # We place the let decorator in the innermost position. Hopefully this is ok.
     # (unpythonic.syntax.util.suggest_decorator_index can't help us here,
     #  since "let" is not one of the registered decorators)
     letter = dletf if kind == "decorate" else bletf
-    bindings = [q[(u[k], ast_literal[v])] for k, v in zip(names, values)]
+    bindings = [q[(u[k], a[v])] for k, v in zip(names, values)]
     # CAUTION: letdoutil.py relies on:
     #  - the literal name "letter" to detect expanded let forms
     #  - the "mode" kwarg to detect let/letrec mode
     #  - the presence of an "_envname" kwarg to detect this tree represents a let-decorator (vs. a let-expr),
     #    seeing only the Call node
     #  - the exact AST structure, for the views
-    body.decorator_list = body.decorator_list + [hq[letter(ast_literal[Tuple(elts=bindings)], mode=u[mode], _envname=u[e])]]
+    body.decorator_list = body.decorator_list + [q[h[letter](a[Tuple(elts=bindings)], mode=u[mode], _envname=u[e])]]
     body.args.kwonlyargs = body.args.kwonlyargs + [arg(arg=e)]
     body.args.kw_defaults = body.args.kw_defaults + [None]
     return body
@@ -240,20 +241,20 @@ def _dletimpl(bindings, body, mode, kind):
 def _dletseqimpl(bindings, body, kind):
     # What we want:
     #
-    # @dletseq((x, 1),
+    # @dletseq[(x, 1),
     #          (x, x+1),
-    #          (x, x+2))
+    #          (x, x+2)]
     # def g(*args, **kwargs):
     #     return x
     # assert g() == 4
     #
     # -->
     #
-    # @dlet((x, 1))
+    # @dlet[(x, 1)]
     # def g(*args, **kwargs, e1):  # original args from tree go to the outermost def
-    #   @dlet((x, x+1))            # on RHS, important for e1.x to be in scope
+    #   @dlet[(x, x+1)]            # on RHS, important for e1.x to be in scope
     #   def g2(*, e2):
-    #       @dlet((x, x+2))
+    #       @dlet[(x, x+2)]
     #       def g3(*, e3):         # expansion proceeds from inside out
     #           return e3.x        # original args travel here by the closure property
     #       return g3()
@@ -295,7 +296,7 @@ def _dletseqimpl(bindings, body, kind):
     # after defining it.
     # If kind=="call", then, after innerdef completes, the inner function has
     # already been replaced by its return value.
-    ret = Return(value=q[name[iname]()]) if kind == "decorate" else Return(value=q[name[iname]])
+    ret = Return(value=q[n[iname]()]) if kind == "decorate" else Return(value=q[n[iname]])
     outer = FunctionDef(name=fname, args=userargs,
                         body=[innerdef, ret],
                         decorator_list=[],
@@ -310,8 +311,10 @@ def do(tree):
         raise SyntaxError("do body: expected a sequence of comma-separated expressions")  # pragma: no cover, let's not test the macro expansion errors.
 
     e = gensym("e")
-    envset = Attribute(value=q[name[e]], attr="_set", ctx=Load())  # use internal _set to allow new definitions
-    envdel = Attribute(value=q[name[e]], attr="pop", ctx=Load())
+    envset = q[n[f"{e}._set"]]  # use internal _set to allow new definitions
+    envset.ctx = Load()
+    envdel = q[n[f"{e}.pop"]]
+    envdel.ctx = Load()
 
     def islocaldef(tree):
         return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "local"
@@ -344,7 +347,7 @@ def do(tree):
             if type(expr) is not Name:
                 raise SyntaxError("delete[...] takes exactly one name")  # pragma: no cover
             collect(expr.id)
-            return q[ast_literal[envdel](u[expr.id])]  # delete[...] -> e.pop(...)
+            return q[a[envdel](u[expr.id])]  # delete[...] -> e.pop(...)
         return tree
 
     names = []
@@ -364,12 +367,12 @@ def do(tree):
         # changes to bindings take effect starting from the **next** do-item.
         updated_names = [x for x in names + newnames if x not in deletednames]
         expr = letlike_transform(expr, e, lhsnames=updated_names, rhsnames=names, setter=envset)
-        expr = hq[namelambda(u[f"do_line{j}"])(ast_literal[expr])]
+        expr = q[h[namelambda](u[f"do_line{j}"])(a[expr])]
         names = updated_names
         lines.append(expr)
     # CAUTION: letdoutil.py depends on the literal name "dof" to detect expanded do forms.
     # Also, the views depend on the exact AST structure.
-    thecall = hq[dof()]
+    thecall = q[h[dof]()]
     thecall.args = lines
     return thecall
 
@@ -398,10 +401,10 @@ def do0(tree):
         raise SyntaxError("do0 body: expected a sequence of comma-separated expressions")  # pragma: no cover
     elts = tree.elts
     newelts = []
-    newelts.append(q[name["local"][name["_do0_result"] << (ast_literal[elts[0]])]])
+    newelts.append(q[local[_do0_result] << a[elts[0]]])  # noqa: F821, the local[] defines it inside the do[].
     newelts.extend(elts[1:])
-    newelts.append(q[name["_do0_result"]])
-#    newtree = q[(ast_literal[newelts],)]  # TODO: doesn't work, missing lineno
+    newelts.append(q[_do0_result])  # noqa: F821
+#    newtree = q[t[newelts]]  # TODO: doesn't work, missing lineno  TODO: test with mcpyrate
     newtree = Tuple(elts=newelts, lineno=tree.lineno, col_offset=tree.col_offset)
     return do(newtree)  # do0[] is also just a do[]
 

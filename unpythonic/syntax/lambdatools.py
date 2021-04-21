@@ -7,8 +7,8 @@ from ast import (Lambda, List, Name, Assign, Subscript, Call, FunctionDef,
 from copy import deepcopy
 import sys
 
-from macropy.core.quotes import macros, q, u, ast_literal, name
-from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
+
 from macropy.core.walkers import Walker
 from macropy.quick_lambda import f, _  # _ for re-export only  # noqa: F401
 
@@ -36,7 +36,7 @@ def multilambda(block_body):
         #   by the "do" we are inserting here
         #   - for each item, "do" internally inserts a lambda to delay execution,
         #     as well as to bind the environment
-        #   - we must do() instead of hq[do[...]] for pickling reasons
+        #   - we must do() instead of q[h[do][...]] for pickling reasons
         # - but recurse manually into each *do item*; these are explicit
         #   user-provided code so we should transform them
         stop()
@@ -84,7 +84,7 @@ def namedlambda(block_body):
         if isautocurrywithfinallambda(tree):  # "currycall(..., curryf(lambda ...: ...))"
             match = True
             thelambda = tree.args[-1].args[-1]
-            tree.args[-1].args[-1] = hq[namelambda(u[myname])(ast_literal[thelambda])]
+            tree.args[-1].args[-1] = q[h[namelambda](u[myname])(a[thelambda])]
         elif type(tree) is Lambda or d or c:
             match = True
             if d:
@@ -93,7 +93,7 @@ def namedlambda(block_body):
                 thelambda = tree.args[-1]
             else:
                 thelambda = tree
-            tree = hq[namelambda(u[myname])(ast_literal[tree])]  # plonk it as outermost and hope for the best
+            tree = q[h[namelambda](u[myname])(a[tree])]  # plonk it as outermost and hope for the best
         return tree, thelambda, match
 
     @Walker
@@ -180,7 +180,7 @@ def quicklambda(block_body):
                 collect(name)
                 return tree
         tree, used_names = underscore_search.recurse_collect(tree)
-        new_tree = q[lambda: ast_literal[tree]]
+        new_tree = q[lambda _: a[tree]]  # noqa: F811, it's a placeholder overwritten at the next line.
         new_tree.args.args = [arg(arg=x) for x in used_names]
         return new_tree
 
@@ -239,13 +239,13 @@ def envify(block_body):
             argnames = getargs(tree)
             if argnames:
                 # prepend env init to function body, update bindings
-                kws = [keyword(arg=k, value=q[name[k]]) for k in argnames]  # "x" --> x
+                kws = [keyword(arg=k, value=q[n[k]]) for k in argnames]  # "x" --> x
                 newbindings = bindings.copy()
                 if type(tree) in (FunctionDef, AsyncFunctionDef):
                     ename = gensym("e")
-                    theenv = hq[_envify()]
+                    theenv = q[h[_envify]()]
                     theenv.keywords = kws
-                    assignment = Assign(targets=[q[name[ename]]],
+                    assignment = Assign(targets=[q[n[ename]]],
                                         value=theenv)
                     assignment = copy_location(assignment, tree)
                     tree.body.insert(0, assignment)
@@ -256,15 +256,15 @@ def envify(block_body):
                     # the name should revert to mean the formal parameter.
                     #
                     # inject a do[] and reuse its env
-                    tree.body = do(List(elts=[q[name["_here_"]],
+                    tree.body = do(List(elts=[q[n["_here_"]],
                                               tree.body]))
                     view = ExpandedDoView(tree.body)  # view.body: [(lambda e14: ...), ...]
                     ename = view.body[0].args.args[0].arg  # do[] environment name
-                    theupdate = Attribute(value=q[name[ename]], attr="update")
-                    thecall = q[ast_literal[theupdate]()]
+                    theupdate = Attribute(value=q[n[ename]], attr="update")
+                    thecall = q[a[theupdate]()]
                     thecall.keywords = kws
-                    tree.body = splice(tree.body, thecall, "_here_")
-                newbindings.update({k: Attribute(value=q[name[ename]], attr=k) for k in argnames})  # "x" --> e.x
+                    tree.body = splice(tree.body, thecall, "_here_")  # TODO: mcpyrate.splicing.splice_expression
+                newbindings.update({k: Attribute(value=q[n[ename]], attr=k) for k in argnames})  # "x" --> e.x
                 set_ctx(enames=enames + [ename])
                 set_ctx(bindings=newbindings)
         else:
@@ -276,11 +276,11 @@ def envify(block_body):
                 view = UnexpandedEnvAssignView(tree)
                 if view.name in bindings.keys():
                     envset = Attribute(value=bindings[view.name].value, attr="set")
-                    return q[ast_literal[envset](u[view.name], ast_literal[view.value])]
+                    return q[a[envset](u[view.name], a[view.value])]
             # transform references to currently active bindings
             elif type(tree) is Name and tree.id in bindings.keys():
                 # We must be careful to preserve the Load/Store/Del context of the name.
-                # The default lets MacroPy fix it later.
+                # The default lets mcpyrate fix it later.
                 ctx = tree.ctx if hasattr(tree, "ctx") else None
                 out = deepcopy(bindings[tree.id])
                 out.ctx = ctx

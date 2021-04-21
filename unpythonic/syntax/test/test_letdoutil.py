@@ -4,9 +4,8 @@
 from ...syntax import macros, test, test_raises, warn, the  # noqa: F401
 from ...test.fixtures import session, testset
 
-from macropy.core.quotes import macros, q, name  # noqa: F811, F401
-# from macropy.core.hquotes import macros, hq  # noqa: F811, F401
-# from macropy.tracing import macros, show_expanded
+from mcpyrate.quotes import macros, q, n  # noqa: F401, F811
+from mcpyrate.metatools import macros, expandrq  # noqa: F811
 
 from ...syntax import (macros, let, letrec, dlet, dletrec,  # noqa: F811, F401
                        do, local,
@@ -15,7 +14,7 @@ from ...syntax import (macros, let, letrec, dlet, dletrec,  # noqa: F811, F401
 from ast import Tuple, Name, Constant, Lambda, BinOp, Attribute, Call
 import sys
 
-from macropy.core import unparse
+from mcpyrate import unparse
 
 from ...syntax.astcompat import getconstant, Num
 from ...syntax.letdoutil import (canonize_bindings,
@@ -23,6 +22,7 @@ from ...syntax.letdoutil import (canonize_bindings,
                                  UnexpandedEnvAssignView,
                                  UnexpandedLetView, ExpandedLetView,
                                  UnexpandedDoView, ExpandedDoView)
+from ...syntax.nameutil import isx
 
 def runtests():
     # --------------------------------------------------------------------------------
@@ -39,7 +39,7 @@ def runtests():
                     return False  # pragma: no cover, only reached if the test fails.
             return True
         # known fake location information
-        locref = q[name["here"]]
+        locref = q[n["here"]]
         locref.lineno = 9001
         locref.col_offset = 9
         test[validate(the[canonize_bindings(q[k0, v0].elts, locref)])]  # noqa: F821, it's quoted.
@@ -59,44 +59,27 @@ def runtests():
         test[not islet(q[x])]  # noqa: F821
         test[not islet(q[f()])]  # noqa: F821
 
-        # Lispers NOTE: in MacroPy, the quasiquote `q` (similarly hygienic
-        # quasiquote `hq`) is a macro, not a special operator; it **does not**
-        # prevent the expansion of any macros invoked in the quoted code.
-        # It just lifts source code into the corresponding AST representation.
-        #
-        # (MacroPy-technically, it's a second-pass macro, so any macros nested inside
-        #  have already expanded when the quote macro runs.)
-        test[islet(the[q[let((x, 21))[2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
-        test[islet(the[q[let[(x, 21) in 2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821
-        test[islet(the[q[let[2 * x, where(x, 21)]]]) == ("expanded_expr", "let")]  # noqa: F821
+        test[islet(the[expandrq[let((x, 21))[2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
+        test[islet(the[expandrq[let[(x, 21) in 2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821
+        test[islet(the[expandrq[let[2 * x, where(x, 21)]]]) == ("expanded_expr", "let")]  # noqa: F821
 
-        with q as testdata:  # pragma: no cover
+        with expandrq as testdata:  # pragma: no cover
             @dlet((x, 21))  # noqa: F821
             def f1():
                 return 2 * x  # noqa: F821
         test[islet(the[testdata[0].decorator_list[0]]) == ("expanded_decorator", "let")]
 
-        # So, to test the detector for unexpanded let forms, we cheat. We don't
-        # actually invoke the let macro here, but arrange the tree being
-        # analyzed so that it looks like an invocation for a let macro.
-        #
-        # Another way would be not to import the let macro in this module,
-        # but then we couldn't test the detector for expanded let forms.
-        testdata = q[definitelynotlet((x, 21))[2 * x]]  # noqa: F821
-        testdata.value.func.id = "let"
+        testdata = q[let((x, 21))[2 * x]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("lispy_expr", "let")]
 
         # one binding special case for haskelly let-in
-        testdata = q[definitelynotlet[(x, 21) in 2 * x]]  # noqa: F821
-        testdata.value.id = "let"
+        testdata = q[let[(x, 21) in 2 * x]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("in_expr", "let")]
 
-        testdata = q[definitelynotlet[((x, 21), (y, 2)) in y * x]]  # noqa: F821
-        testdata.value.id = "let"
+        testdata = q[let[((x, 21), (y, 2)) in y * x]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("in_expr", "let")]
 
-        testdata = q[definitelynotlet[2 * x, where(x, 21)]]  # noqa: F821
-        testdata.value.id = "let"
+        testdata = q[let[2 * x, where(x, 21)]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("where_expr", "let")]
 
         # some other macro invocation
@@ -104,15 +87,13 @@ def runtests():
         test[not islet(the[q[someothermacro[(x, 21) in 2 * x]]], expanded=False)]  # noqa: F821
 
         # invalid syntax for haskelly let-in
-        testdata = q[definitelynotlet[a in b]]  # noqa: F821
-        testdata.value.id = "let"
+        testdata = q[let[a in b]]  # noqa: F821
         test[not islet(the[testdata], expanded=False)]
 
         with q as testdata:  # pragma: no cover
-            @definitelynotdlet((x, 21))  # noqa: F821
+            @dlet((x, 21))  # noqa: F821
             def f2():
                 return 2 * x  # noqa: F821
-        testdata[0].decorator_list[0].func.id = "dlet"
         test[islet(the[testdata[0].decorator_list[0]], expanded=False) == ("decorator", "dlet")]
 
     with testset("islet integration with curry"):
@@ -121,19 +102,19 @@ def runtests():
         # The `q` must be outside the `with curry` block, because otherwise
         # `curry` will attempt to curry the AST-lifted representation, leading to
         # arguably funny but nonsensical things like `ctx=currycall(ast.Load)`.
-        with q as testdata:
+        with expandrq as testdata:
             with curry:  # pragma: no cover
                 let((x, 21))[2 * x]  # noqa: F821  # note this goes into an ast.Expr
         thelet = testdata[0].value
         test[islet(the[thelet]) == ("curried_expr", "let")]
 
-        with q as testdata:
+        with expandrq as testdata:
             with curry:  # pragma: no cover
                 let[(x, 21) in 2 * x]  # noqa: F821
         thelet = testdata[0].value
         test[islet(the[thelet]) == ("curried_expr", "let")]
 
-        with q as testdata:
+        with expandrq as testdata:
             with curry:  # pragma: no cover
                 let[2 * x, where(x, 21)]  # noqa: F821
         thelet = testdata[0].value
@@ -143,25 +124,23 @@ def runtests():
         test[not isdo(q[x])]  # noqa: F821
         test[not isdo(q[f()])]  # noqa: F821
 
-        test[isdo(the[q[do[x << 21,  # noqa: F821
-                           2 * x]]]) == "expanded"]  # noqa: F821
+        test[isdo(the[expandrq[do[x << 21,  # noqa: F821
+                                  2 * x]]]) == "expanded"]  # noqa: F821
 
-        with q as testdata:  # pragma: no cover
+        with expandrq as testdata:  # pragma: no cover
             with curry:
                 do[x << 21,  # noqa: F821
                    2 * x]  # noqa: F821
         thedo = testdata[0].value
         test[isdo(the[thedo]) == "curried"]
 
-        testdata = q[definitelynotdo[x << 21,  # noqa: F821
-                                     2 * x]]  # noqa: F821
-        testdata.value.id = "do"
+        testdata = q[do[x << 21,  # noqa: F821
+                        2 * x]]  # noqa: F821
         test[isdo(the[testdata], expanded=False) == "do"]
 
-        testdata = q[definitelynotdo[23,  # noqa: F821
-                                     x << 21,  # noqa: F821
-                                     2 * x]]  # noqa: F821
-        testdata.value.id = "do0"
+        testdata = q[do0[23,  # noqa: F821
+                         x << 21,  # noqa: F821
+                         2 * x]]  # noqa: F821
         test[isdo(the[testdata], expanded=False) == "do0"]
 
         testdata = q[someothermacro[x << 21,  # noqa: F821
@@ -223,18 +202,15 @@ def runtests():
             test[unparse(view.body) == "(z * t)"]
 
         # lispy expr
-        testdata = q[definitelynotlet((x, 21), (y, 2))[y * x]]  # noqa: F821
-        testdata.value.func.id = "let"
+        testdata = q[let((x, 21), (y, 2))[y * x]]  # noqa: F821
         testletdestructuring(testdata)
 
         # haskelly let-in
-        testdata = q[definitelynotlet[((x, 21), (y, 2)) in y * x]]  # noqa: F821
-        testdata.value.id = "let"
+        testdata = q[let[((x, 21), (y, 2)) in y * x]]  # noqa: F821
         testletdestructuring(testdata)
 
         # haskelly let-where
-        testdata = q[definitelynotlet[y * x, where((x, 21), (y, 2))]]  # noqa: F821
-        testdata.value.id = "let"
+        testdata = q[let[y * x, where((x, 21), (y, 2))]]  # noqa: F821
         testletdestructuring(testdata)
 
         # disembodied haskelly let-in (just the content, no macro invocation)
@@ -247,10 +223,9 @@ def runtests():
 
         # decorator
         with q as testdata:  # pragma: no cover
-            @definitelynotdlet((x, 21), (y, 2))  # noqa: F821
+            @dlet((x, 21), (y, 2))  # noqa: F821
             def f3():
                 return 2 * x  # noqa: F821
-        testdata[0].decorator_list[0].func.id = "dlet"
 
         # read
         view = UnexpandedLetView(testdata[0].decorator_list[0])
@@ -316,19 +291,19 @@ def runtests():
 
     with testset("let destructuring (expanded let)"):
         # lispy expr
-        testdata = q[let((x, 21), (y, 2))[y * x]]  # noqa: F821
+        testdata = expandrq[let((x, 21), (y, 2))[y * x]]  # noqa: F821
         testexpandedletdestructuring(testdata)
 
         # haskelly let-in
-        testdata = q[let[((x, 21), (y, 2)) in y * x]]  # noqa: F821
+        testdata = expandrq[let[((x, 21), (y, 2)) in y * x]]  # noqa: F821
         testexpandedletdestructuring(testdata)
 
         # haskelly let-where
-        testdata = q[let[y * x, where((x, 21), (y, 2))]]  # noqa: F821
+        testdata = expandrq[let[y * x, where((x, 21), (y, 2))]]  # noqa: F821
         testexpandedletdestructuring(testdata)
 
         # decorator
-        with q as testdata:  # pragma: no cover
+        with expandrq as testdata:  # pragma: no cover
             @dlet((x, 21), (y, 2))  # noqa: F821
             def f4():
                 return 2 * x  # noqa: F821
@@ -342,7 +317,7 @@ def runtests():
 
         # let with implicit do (extra bracket syntax)
         #
-        # with show_expanded:
+        # with step_expansion:
         #     let[((x, 21)) in [local[z << 2],
         #                       z * x]]
         #
@@ -353,8 +328,8 @@ def runtests():
         #                  namelambda('do_line2')((lambda e: (e.z * e1.x)))))),
         #          mode='let')
         #
-        testdata = q[let[((x, 21)) in [local[z << 2],  # noqa: F821
-                                       z * x]]]  # noqa: F821
+        testdata = expandrq[let[((x, 21)) in [local[z << 2],  # noqa: F821
+                                              z * x]]]  # noqa: F821
         view = ExpandedLetView(testdata)
         lam = view.body
         test[isdo(the[lam.body])]
@@ -412,19 +387,19 @@ def runtests():
 
     with testset("let destructuring (expanded letrec)"):
         # lispy expr
-        testdata = q[letrec[((x, 21), (y, 2)) in y * x]]  # noqa: F821
+        testdata = expandrq[letrec[((x, 21), (y, 2)) in y * x]]  # noqa: F821
         testexpandedletrecdestructuring(testdata)
 
         # haskelly let-in
-        testdata = q[letrec[((x, 21), (y, 2)) in y * x]]  # noqa: F821
+        testdata = expandrq[letrec[((x, 21), (y, 2)) in y * x]]  # noqa: F821
         testexpandedletrecdestructuring(testdata)
 
         # haskelly let-where
-        testdata = q[letrec[y * x, where((x, 21), (y, 2))]]  # noqa: F821
+        testdata = expandrq[letrec[y * x, where((x, 21), (y, 2))]]  # noqa: F821
         testexpandedletrecdestructuring(testdata)
 
         # decorator, letrec
-        with q as testdata:  # pragma: no cover
+        with expandrq as testdata:  # pragma: no cover
             @dletrec((x, 21), (y, 2))  # noqa: F821
             def f5():
                 return 2 * x  # noqa: F821
@@ -440,13 +415,13 @@ def runtests():
     # Destructuring - expanded let and letrec, integration with curry
 
     with testset("let destructuring (expanded) integration with curry"):
-        with q as testdata:
+        with expandrq as testdata:
             with curry:  # pragma: no cover
                 let[((x, 21), (y, 2)) in y * x]  # noqa: F821  # note this goes into an ast.Expr
         thelet = testdata[0].value
         testexpandedletdestructuring(thelet)
 
-        with q as testdata:
+        with expandrq as testdata:
             with curry:  # pragma: no cover
                 letrec[((x, 21), (y, 2)) in y * x]  # noqa: F821
         thelet = testdata[0].value
@@ -456,9 +431,8 @@ def runtests():
     # Destructuring - unexpanded do
 
     with testset("do destructuring (unexpanded)"):
-        testdata = q[definitelynotdo[local[x << 21],  # noqa: F821
-                                     2 * x]]  # noqa: F821
-        testdata.value.id = "do"
+        testdata = q[do[local[x << 21],  # noqa: F821
+                        2 * x]]  # noqa: F821
         view = UnexpandedDoView(testdata)
         # read
         thebody = view.body
@@ -473,9 +447,8 @@ def runtests():
         view.body = thebody
 
         # implicit do, a.k.a. extra bracket syntax
-        testdata = q[definitelynotlet[[local[x << 21],  # noqa: F821
-                                       2 * x]]]  # noqa: F821
-        testdata.value.id = "let"
+        testdata = q[let[[local[x << 21],  # noqa: F821
+                          2 * x]]]  # noqa: F821
         if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
             theimplicitdo = testdata.slice
         else:
@@ -500,8 +473,8 @@ def runtests():
     # Destructuring - expanded do
 
     with testset("do destructuring (expanded)"):
-        testdata = q[do[local[x << 21],  # noqa: F821
-                        2 * x]]  # noqa: F821
+        testdata = expandrq[do[local[x << 21],  # noqa: F821
+                               2 * x]]  # noqa: F821
         view = ExpandedDoView(testdata)
         test[view.envname is not None]
 
@@ -524,7 +497,7 @@ def runtests():
                     "not an expanded do form"]
 
     with testset("do destructuring (expanded) integration with curry"):
-        with q as testdata:  # pragma: no cover
+        with expandrq as testdata:  # pragma: no cover
             with curry:
                 do[local[x << 21],  # noqa: F821
                    2 * x]  # noqa: F821
@@ -537,8 +510,7 @@ def runtests():
         thebody = view.body
         lam = thebody[0]
         test[type(the[lam.body]) is Call and
-             type(lam.body.func) is Name and
-             lam.body.func.id == "currycall" and
+             isx(lam.body.func, "currycall") and
              type(lam.body.args[0]) is Attribute and
              lam.body.args[0].attr == "_set" and
              unparse(lam.body.args[1]) == "'x'"]

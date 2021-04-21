@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """Utilities for working with identifiers in macros."""
 
-import re
-
 from ast import Name, Attribute
 
-from macropy.core import Captured
+from mcpyrate.quotes import is_captured_value
 
 def isx(tree, x, accept_attr=True):
     """Test whether tree is a reference to the name ``x`` (str).
@@ -21,30 +19,64 @@ def isx(tree, x, accept_attr=True):
 
         - bare name ``x``
 
-        - ``x`` inside a ``macropy.core.Captured`` node, which may be inserted
-          during macro expansion
+        - the name ``x`` inside a `mcpyrate` hygienic capture, which may be
+          inserted during macro expansion
 
         - ``x`` as an attribute (if ``accept_attr=True``)
     """
-    # WTF, so sometimes there **is** a Captured node, while sometimes there isn't (letdoutil.islet)? At which point are these removed?
-    # Captured nodes only come from unpythonic.syntax, and we use from-imports
-    # and bare names for anything hq[]'d; but any references that appear
-    # explicitly in the user code may use either bare names or somemodule.f.
-    ismatch = x if callable(x) else lambda s: s == x
+    # Here hygienic captures only come from `unpythonic.syntax` (unless there are
+    # also user-defined macros), and we use from-imports and bare names for anything
+    # `q[h[]]`'d; but any references that appear explicitly in the user code may use
+    # either bare `somename` or `unpythonic.somename`.
+    #
+    # TODO: How about `unpythonic.somemodule.somename`? Currently not detected.
+    #
+    # Note that in `mcpyrate`, a hygienic capture can contain the value of an
+    # arbitrary expression, which does not need to be bound to a name. In that
+    # case the "name" will be the unparsed source code of the expression. See
+    # the implementation of `mcpyrate.quotes.h`. That's harmless here since
+    # an expression won't produce an exact match on the name.
+    #
+    # Here we're mainly interested in the case where we have captured the value
+    # a name had at the use site of `h[]`, and even then, we just look at the name,
+    # not the actual value.
+    #
+    # TODO: Let's look at the value, not just the name. Requires changes to use sites,
+    # TODO: because currently `isx` doesn't know about the value the caller wants to
+    # TODO: check against.
+    #
+    # TODO: For our use cases, that value is usually a syntax transformer function
+    # TODO: defined somewhere in `unpythonic.syntax`, so we can use things like
+    # TODO: `q[h[letter]]` or `q[h[dof]]` in the let/do constructs to ensure that
+    # TODO: the workhorses resolve correctly at the use site, and still be able
+    # TODO: to detect the expanded forms of those constructs in the AST.
+    #
+    # TODO: The run-time value can be obtained at this end by
+    # TODO: `value = mcpyrate.quotes.lookup_value(key)`,
+    # TODO: provided that `key and (key[1] is not None)`.
+    # TODO: If the second element of the key is `None`, it means that
+    # TODO: program execution hasn't yet reached the point where the
+    # TODO: actual value capture triggers for that particular use of `h[]`.
+    key = is_captured_value(tree)  # AST -> (name, frozen_value) or False
+    if key:
+        name, frozen_value = key
+
+    ismatch = x if callable(x) else lambda string: string == x
     return ((type(tree) is Name and ismatch(tree.id)) or
-            (type(tree) is Captured and ismatch(tree.name)) or
+            (key and ismatch(name)) or
             (accept_attr and type(tree) is Attribute and ismatch(tree.attr)))
 
+# TODO: obsolete function, remove
 def make_isxpred(x):
     """Make a predicate for isx.
 
-    Here ``x`` is an ``str``; the resulting function will match the names
-    x, x1, x2, ..., so that it works also with captured identifiers renamed
-    by MacroPy's ``hq[]``.
+    Here ``x`` is an ``str``; the resulting function will match also
+    hygienically captured identifiers.
     """
-    rematch = re.match
-    pat = re.compile(r"^{}\d*$".format(x))
-    return lambda s: rematch(pat, s)
+    # `mcpyrate` only renames captured macros; the names of captured
+    # run-time values live in the keys in the `lookup_value` calls
+    # (where the original name is preserved, with no renaming needed).
+    return lambda string: string == x
 
 def getname(tree, accept_attr=True):
     """The cousin of ``isx``.
@@ -55,8 +87,10 @@ def getname(tree, accept_attr=True):
     """
     if type(tree) is Name:
         return tree.id
-    if type(tree) is Captured:
-        return tree.name
+    key = is_captured_value(tree)  # AST -> (name, frozen_value) or False
+    if key:
+        name, frozen_value = key
+        return name
     if accept_attr and type(tree) is Attribute:
         return tree.attr
     return None

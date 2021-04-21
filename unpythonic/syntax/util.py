@@ -100,12 +100,12 @@ def is_decorator(tree, fname):
 
     ``fname`` may be ``str`` or a predicate, see ``isx``.
 
-    References of the forms ``f``, ``foo.f`` and ``hq[f]`` are supported.
+    References of the forms ``f``, ``foo.f`` and ``q[h[f]]`` are supported.
 
      We detect:
 
-        - ``Name``, ``Attribute`` or ``Captured`` matching the given ``fname``
-          (non-parametric decorator), and
+        - ``Name``, ``Attribute`` or a `mcpyrate` hygienic capture matching
+          the given ``fname`` (non-parametric decorator), and
 
         - ``Call`` whose ``.func`` matches the above rule (parametric decorator).
     """
@@ -393,14 +393,14 @@ def transform_statements(f, body):
             return node
     return StatementTransformer().visit(body)
 
-def splice(tree, rep, tag):
+def splice(tree, rep, tag):  # TODO: obsolete, replace with `mcpyrate.splicing.splice_expression`
     """Splice in a tree into another tree.
 
     Walk ``tree``, replacing all occurrences of a ``Name(id=tag)`` with
     the tree ``rep``.
 
     This is convenient for first building a skeleton with a marker such as
-    ``q[name["_here_"]]``, and then splicing in ``rep`` later. See ``forall``
+    ``q[n["_here_"]]``, and then splicing in ``rep`` later. See ``forall``
     and ``envify`` for usage examples.
     """
     @Walker
@@ -447,7 +447,7 @@ def ismarker(typename, tree):
     if type(tree) is not With or len(tree.items) != 1:
         return False
     ctxmanager = tree.items[0].context_expr
-    return type(ctxmanager) is Name and ctxmanager.id == typename
+    return isx(ctxmanager, typename)
 
 # We use a custom metaclass to make __enter__ and __exit__ callable on the class
 # instead of requiring an instance.

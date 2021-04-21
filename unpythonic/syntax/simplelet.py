@@ -8,74 +8,76 @@ variables.
 These are here mainly for documentation purposes; the other macros are designed
 to work together with the regular ``let``, ``letseq``, ``letrec`` from the module
 ``unpythonic.syntax``, not the ones defined here.
+
+This module is a copy of `demo/anaphoric_if_revisited/let.py` from `mcpyrate`.
 """
 
 # Unlike the other submodules, this module contains the macro interface;
 # these macros are not part of the top-level ``unpythonic.syntax`` interface.
 
-from macropy.core.macros import Macros
-from macropy.core.quotes import macros, q, ast_literal
+from mcpyrate.quotes import macros, q, a, t  # noqa: F811, F401
 
 from ast import arg
 
-macros = Macros()  # noqa: F811
+from mcpyrate import parametricmacro
+from mcpyrate.quotes import capture_as_macro
 
-# Syntax transformers
-def _let(tree, args):
-    names = [k.id for k, _ in (a.elts for a in args)]
-    if len(set(names)) < len(names):
-        raise SyntaxError("binding names must be unique in the same let")  # pragma: no cover
-    values = [v for _, v in (a.elts for a in args)]
-    lam = q[lambda: ast_literal[tree]]
-    lam.args.args = [arg(arg=x) for x in names]  # inject args
-    return q[ast_literal[lam](ast_literal[values])]
 
-def _letseq(tree, args):
-    if not args:
-        return tree
-    first, *rest = args
-    return _let(_letseq(tree, rest), (first,))
-
-# Macro interface
-@macros.expr
-def let(tree, args, **kw):  # args: `tuple`, each element `ast.Tuple`: (k1, v1), (k2, v2), ..., (kn, vn)
-    """[syntax, expr] Introduce local bindings, as real lexical variables.
-
-    See also ``unpythonic.syntax.let``, which uses an ``env`` to allow assignments.
+@parametricmacro
+def let(tree, *, args, syntax, **kw):
+    """[syntax, expr] Bind expression-local variables.
 
     Usage::
 
-        let(bindings)[body]
+        let[[k0, v0], ...][expr]
 
-    where ``bindings`` is a comma-separated sequence of pairs ``(name, value)``
-    and ``body`` is an expression. The names bound by ``let`` are local;
-    they are available in ``body``, and do not exist outside ``body``.
+    `let` expands into a `lambda`::
 
-    Each ``name`` in the same ``let`` must be unique.
+        let[[x, 1], [y, 2]][print(x, y)]
+        # --> (lambda x, y: print(x, y))(1, 2)
+    """
+    if syntax != "expr":
+        raise SyntaxError("`let` is an expr macro only")  # pragma: no cover
+    if not args:
+        raise SyntaxError("expected at least one binding")  # pragma: no cover
+
+    # args: `list` of `ast.List`. Each sublist is [ast.Name, expr].
+    names = [k.id for k, _ in (a.elts for a in args)]
+    values = [v for _, v in (a.elts for a in args)]
+    if len(set(names)) < len(names):
+        raise SyntaxError("binding names must be unique in the same `let`")  # pragma: no cover
+
+    lam = q[lambda: a[tree]]
+    lam.args.args = [arg(arg=x) for x in names]
+    return q[a[lam](a[values])]
+
+
+@parametricmacro
+def letseq(tree, *, args, syntax, expander, **kw):
+    """[syntax, expr] Sequential let, like `let*` in Scheme.
+
+    Usage::
+
+        letseq[[k0, v0], ...][expr]
+
+    The difference to `let` is that in `letseq`, on the RHS
+    of each new binding, the previous bindings are in scope.
+
+    Expands to a sequence of nested `let`.
 
     Example::
 
-        from unpythonic.syntax.simplelet import macros, let
-
-        let((x, 40))[print(x+2)]
-
-    ``let`` expands into a ``lambda``::
-
-        let((x, 1), (y, 2))[print(x, y)]
-        # --> (lambda x, y: print(x, y))(1, 2)
+        letseq[[x, 21], [x, 2 * x]][x]  # --> 42
     """
-    return _let(tree, args)
+    if syntax != "expr":
+        raise SyntaxError("`letseq` is an expr macro only")  # pragma: no cover
+    if not args:
+        return tree
+    first, *rest = args
+    body = q[a[our_letseq][t[rest]][a[tree]]]
+    return q[a[our_let][a[first]][a[body]]]
 
-@macros.expr
-def letseq(tree, args, **kw):
-    """[syntax, expr] Let with sequential binding (like Scheme/Racket let*).
 
-    Like ``let``, but bindings take effect sequentially. Later bindings
-    shadow earlier ones if the same name is used multiple times.
-
-    Expands to nested ``let`` expressions.
-
-    Real lexical variables. See also ``unpythonic.syntax.letseq``, which uses
-    an ``env`` to allow assignments.
-    """
-    return _letseq(tree, args)
+# for hygienic macro recursion
+our_let = capture_as_macro(let)
+our_letseq = capture_as_macro(letseq)

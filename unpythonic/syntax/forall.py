@@ -3,8 +3,7 @@
 
 from ast import Tuple, arg
 
-from macropy.core.quotes import macros, q, u, ast_literal, name
-from macropy.core.hquotes import macros, hq  # noqa: F811, F401
+from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from .util import splice
 from .letdoutil import isenvassign, UnexpandedEnvAssignView
@@ -41,9 +40,9 @@ def forall(exprs):
             k, v = "_ignored", line
         islast = not rest
         # don't unpack on last line to allow easily returning a tuple as a result item
-        Mv = hq[monadify(ast_literal[v], u[not islast])]
+        Mv = q[h[monadify](a[v], u[not islast])]
         if not islast:
-            body = q[ast_literal[Mv] >> (lambda: name["_here_"])]  # monadic bind: >>
+            body = q[a[Mv] >> (lambda: n["_here_"])]  # monadic bind: >>
             body.right.args.args = [arg(arg=k)]
         else:
             body = Mv
@@ -52,4 +51,4 @@ def forall(exprs):
         else:
             newtree = body
         return build(rest, newtree)
-    return hq[tuple(ast_literal[build(exprs.elts, None)])]
+    return q[h[tuple](a[build(exprs.elts, None)])]
