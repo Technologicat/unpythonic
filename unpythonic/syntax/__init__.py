@@ -27,9 +27,7 @@ from ..dynassign import make_dynvar, dyn
 # TODO: macro docs: "first pass" -> "outside in"; "second pass" -> "inside out"
 
 # TODO: Some macros look up others; convert lookups to mcpyrate style (accounting for as-imports)
-# TODO: or hygienic macro references, as appropriate.
-
-# TODO: let constructs: syntactic consistency: change parentheses to brackets (OUCH!)
+# TODO: or hygienic macro references (`h[...]`), as appropriate.
 
 # TODO: `isx` and `getname` from `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead
 
@@ -46,11 +44,12 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: `expose_unhygienic` doesn't exist, but we can store `dbgprint_expr` in `dyn` (which is cleaner anyway)
 
-# TODO: Convert macro invocations in examples, tests and docs to use [] instead of () to pass macro arguments.
-# TODO: User-visible change. Add a note about this to docs.
+# TODO: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9.
 
 # TODO: Convert MacroPy `Walker`s into `mcpyrate` AST walkers.
 # TODO: port scopeanalyzer
+
+# TODO: grep for any remaining mentions of "macropy"
 
 # TODO: `@macro_stub` does not exist, just make a regular macro that explicitly raises an error.
 
@@ -58,6 +57,8 @@ from ..dynassign import make_dynvar, dyn
 # TODO: also let_syntax block, expr
 # TODO: also the[] in unpythonic.syntax.testingtools
 # TODO: also kw() in unpythonic.syntax.prefix
+
+# TODO: let_syntax block, expr: syntactic consistency: change parentheses to brackets
 
 # TODO: grep codebase for "0.15", may have some pending interface changes that don't have their own GitHub issue (e.g. parameter ordering of `unpythonic.it.window`)
 
