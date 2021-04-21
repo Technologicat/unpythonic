@@ -33,8 +33,6 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: `isx` and `getname` from `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead
 
-# TODO: unpythonic.syntax.util.splice is obsolete; use `mcpyrate.splicing.splice_expression` instead
-
 # TODO: `mcpyrate` does not auto-expand macros in quasiquoted code.
 #  - Consider when we should expand macros in quoted code and when not
 #  - Consider what changes this implies for other macros that read the partially expanded output
