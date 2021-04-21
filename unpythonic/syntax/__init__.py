@@ -32,8 +32,13 @@ from ..dynassign import make_dynvar, dyn
 # TODO: check all uses of q[] and `with q` (e.g. use `mcpyrate.utils.rename` for lambda parameter name injections)
 # TODO: eliminate hq[], use q[h[]] as appropriate
 
+# TODO: let constructs: syntactic consistency: change parentheses to brackets (OUCH!)
+
+# TODO: `isx` and `getname` from `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead
+
+# TODO: unpythonic.syntax.util.splice is obsolete; use `mcpyrate.splicing.splice_expression` instead
+
 # TODO: `mcpyrate` does not auto-expand macros in quasiquoted code.
-#  - In test code, clean up obsolete hacks such as "definitelynotlet"
 #  - Consider when we should expand macros in quoted code and when not
 #  - Consider what changes this implies for other macros that read the partially expanded output
 #    (some things may change from expanded to unexpanded, facilitating easier analysis but requiring
@@ -50,17 +55,21 @@ from ..dynassign import make_dynvar, dyn
 # TODO: User-visible change. Add a note about this to docs.
 
 # TODO: Convert MacroPy `Walker`s into `mcpyrate` AST walkers.
+# TODO: port scopeanalyzer
 
 # TODO: `@macro_stub` does not exist, just make a regular macro that explicitly raises an error.
 
 # TODO: Upgrade anaphoric if's `it` into a `mcpyrate` magic variable that errors out at compile time when it appears in an invalid position (i.e. outside any `aif`). Basically, take the `aif` from `mcpyrate`.
 # TODO: also let_syntax block, expr
 # TODO: also the[] in unpythonic.syntax.testingtools
+# TODO: also kw() in unpythonic.syntax.prefix
 
 # TODO: grep codebase for "0.15", may have some pending interface changes that don't have their own GitHub issue (e.g. parameter ordering of `unpythonic.it.window`)
 
 # TODO: ansicolor: mcpyrate already depends on Colorama anyway (and has a *nix-only fallback capability).
 # TODO: So unpythonic doesn't really need to provide a colorizer; we can use the one from mcpyrate.
+
+# TODO: with mcpyrate, do we really need to set `ctx` in our macros? (does our macro code need it?)
 
 # Syntax transformers and internal utilities
 from .autoref import autoref as _autoref
