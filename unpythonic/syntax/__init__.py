@@ -29,9 +29,6 @@ from ..dynassign import make_dynvar, dyn
 # TODO: Some macros look up others; convert lookups to mcpyrate style (accounting for as-imports)
 # TODO: or hygienic macro references, as appropriate.
 
-# TODO: check all uses of q[] and `with q` (e.g. use `mcpyrate.utils.rename` for lambda parameter name injections)
-# TODO: eliminate hq[], use q[h[]] as appropriate
-
 # TODO: let constructs: syntactic consistency: change parentheses to brackets (OUCH!)
 
 # TODO: `isx` and `getname` from `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead
