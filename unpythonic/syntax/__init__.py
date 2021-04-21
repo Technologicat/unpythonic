@@ -782,13 +782,14 @@ def let_syntax(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax not in ("expr", "block"):
         raise SyntaxError("let_syntax is an expr and block macro only")
 
+    tree = expander.visit(tree)  # expand inner macro invocations first
+
     with dyn.let(_macro_expander=expander):
         if syntax == "expr":
             return _destructure_and_apply_let(tree, args, _let_syntax_expr, allow_call_in_name_position=True)
         else:  # syntax == "block":
             return _let_syntax_block(block_body=tree)
 
-# TODO: no yield in `mcpyrate`, recurse at the right time instead.
 # TODO: need better example, since `mcpyrate`'s equivalent of `ast_literal` is already named `a`
 @parametricmacro
 def abbrev(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -816,9 +817,9 @@ def abbrev(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
     with dyn.let(_macro_expander=expander):
         if syntax == "expr":
-            yield _destructure_and_apply_let(tree, args, _let_syntax_expr, allow_call_in_name_position=True)
+            return _destructure_and_apply_let(tree, args, _let_syntax_expr, allow_call_in_name_position=True)
         else:
-            yield _let_syntax_block(block_body=tree)
+            return _let_syntax_block(block_body=tree)
 
 # -----------------------------------------------------------------------------
 
