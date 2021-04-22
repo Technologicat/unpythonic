@@ -2,7 +2,7 @@
 
 This is the pure-Python API of `unpythonic`. Most features listed here need no macros, and are intended to be used directly.
 
-The exception are the features marked **[M]**, which are primarily intended as a code generation target API for macros. See the [documentation for syntactic macros](macros.md) for details. Usually the relevant macro has the same name as the underlying implementation; for example, `unpythonic.do` is the implementation, while `unpythonic.syntax.do` is the macro. The purpose of the macro layer is to improve ease of use by removing accidental complexity, thus providing a more human-readable source code representation that compiles to calls to the underlying API. If you don't want to depend on MacroPy, feel free to use also these APIs as defined below (though, this may be less convenient).
+The exception are the features marked **[M]**, which are primarily intended as a code generation target API for macros. See the [documentation for syntactic macros](macros.md) for details. Usually the relevant macro has the same name as the underlying implementation; for example, `unpythonic.do` is the implementation, while `unpythonic.syntax.do` is the macro. The purpose of the macro layer is to improve ease of use by removing accidental complexity, thus providing a more human-readable source code representation that compiles to calls to the underlying API. If you don't want to depend on `mcpyrate`, feel free to use also these APIs as defined below (though, this may be less convenient).
 
 ### Features
 

@@ -14,8 +14,8 @@ from ...syntax import (macros, lazify, lazyrec,  # noqa: F811, F401
                        continuations, call_cc)
 from ...syntax import force, force1
 
-# Doesn't really override the earlier curry import. The first one went into
-# MacroPy's macro registry, and this one is a regular run-time function.
+# Doesn't really override the earlier curry import. The first one is a macro,
+# and this one is a regular run-time function.
 from ...collections import frozendict
 from ...ec import call_ec
 from ...fun import (curry, memoize, flip, rotate, apply,  # noqa: F811

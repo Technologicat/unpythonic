@@ -45,8 +45,8 @@ def runtests():
         test_raises[TypeError, Bar(), "should have errored out, a Bar already exists"]
 
     with testset("pickling"):
-        # TODO: FIXME: This module is not the real "__main__" when running under the `macropy3` wrapper.
-        # We HACK this for now so that these pickling tests can run. Not quite sure whether `macropy3` even
+        # TODO: FIXME: This module is not the real "__main__" when running under the `macropython` wrapper.
+        # We HACK this for now so that these pickling tests can run. Not quite sure whether `macropython` even
         # should attempt to overwrite `sys.modules["__main__"]` with the "main" module it imports; doing
         # that might just break something.
         import sys

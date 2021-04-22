@@ -9,8 +9,7 @@ from ...syntax import (macros, multilambda, namedlambda, quicklambda, f, _,  # n
 
 from functools import wraps
 
-# Not really redefining "curry". The first one went into MacroPy's macro registry,
-# and this one is a regular run-time function.
+# Not really redefining "curry". The first one is a macro, and this one is a regular run-time function.
 # (Although this does mean the docstring of the macro will not be accessible from here.)
 from ...fun import withself, curry  # noqa: F811
 from ...tco import trampolined, jump

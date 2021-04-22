@@ -10,8 +10,8 @@ from ...syntax import (macros, tco, autoreturn, curry, do, let, letseq, dletrec,
 from ...ec import call_ec
 from ...fploop import looped_over
 # Can't rename `curry`, because then `unpythonic.syntax.util.sort_lambda_decorators`
-# won't detect it. It doesn't matter, though - the first imported curry went
-# into MacroPy's macro registry, whereas this one is a regular runtime function.
+# won't detect it. It doesn't matter, though - the first imported curry is a macro,
+# whereas this one is a regular runtime function.
 from ...fun import withself, curry  # noqa: F811
 
 def runtests():

@@ -8,7 +8,7 @@ rudimentary test reports for macro-enabled Python code, particularly
 `unpythonic` itself (see issue #5).
 
 This also demonstrates how to build a simple testing framework on top of the
-`test[]` macro and its sisters. (NOTE: hence MacroPy required!)
+`test[]` macro and its sisters. (NOTE: hence `mcpyrate` required!)
 
 **Why**:
 
@@ -21,10 +21,10 @@ syntax that redefines `assert`, it has to install an import hook, and in doing
 so disables the macro expander. (This is a problem shared by all macro-enabled
 Python code.)
 
-As for why a `test[]` macro, MacroPy macros only exist in expr, block and
-decorator variants, so we can't just hijack any AST node type like `pytest`'s
-custom import hook does. So we solve this the MacroPy way - by providing an
-expr macro that can be used instead of `assert` when writing test cases.
+As for why a `test[]` macro, `mcpyrate` macros only exist in expr, block, decorator
+and name variants, so we can't just hijack any AST node type like `pytest`'s
+custom import hook does. So we solve this the macropythonic way - by providing
+an expr macro that can be used instead of `assert` when writing test cases.
 
 **Usage**, a.k.a. unpythonic testing 101::
 

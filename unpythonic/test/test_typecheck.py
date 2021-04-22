@@ -10,8 +10,6 @@ from ..collections import frozendict
 from ..typecheck import isoftype
 
 def runtests():
-    warn["Some tests in this module disabled due to https://github.com/azazel75/macropy/issues/26"]  # TODO/FIXME
-
     with testset("concrete type"):
         test[isoftype(17, int)]
         test[isoftype("hello", str)]
@@ -46,7 +44,7 @@ def runtests():
         Number = typing.TypeVar("Number", int, float, complex)
         test[isoftype(31337, Number)]
         test[isoftype(3.14159, Number)]
-        # test[isoftype(1 + 2j, Number)]  # TODO/FIXME: MacroPy 1.1.0b2 breaks on complex numbers
+        test[isoftype(1 + 2j, Number)]
         test[not isoftype("blargh", Number)]
 
         Silly = typing.TypeVar("Silly", int, typing.Callable)
@@ -117,12 +115,11 @@ def runtests():
 
     with testset("typing.AnyStr"):
         test[isoftype("hi", typing.AnyStr)]
-        # test[isoftype(b"hi", typing.AnyStr)]  # TODO/FIXME: MacroPy 1.1.0b2 breaks on bytestrings
+        test[isoftype(b"hi", typing.AnyStr)]
         test[not isoftype(42, typing.AnyStr)]
 
-    # TODO: FIXME: MacroPy 1.1.0b2 breaks on bytestrings
-    # with testset("typing.ByteString (bytes, bytearray, memoryview)"):
-    #     test[isoftype(b"hi", typing.ByteString)]
+    with testset("typing.ByteString (bytes, bytearray, memoryview)"):
+        test[isoftype(b"hi", typing.ByteString)]
 
     with testset("collections.deque"):
         d = collections.deque()

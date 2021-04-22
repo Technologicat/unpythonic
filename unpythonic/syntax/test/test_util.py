@@ -5,6 +5,7 @@ from ...syntax import macros, do, local, test, test_raises, fail, the  # noqa: F
 from ...test.fixtures import session, testset
 
 from mcpyrate.quotes import macros, q, n, h  # noqa: F401, F811
+from mcpyrate.metatools import macros, expandrq  # noqa: F401, F811
 
 from ...syntax.astcompat import getconstant, Num, Str
 from ...syntax.util import (isec, detect_callec,
@@ -39,14 +40,9 @@ def runtests():
         test["my_fancy_ec" in the[detect_callec(call_ec_testdata)]]
 
     with testset("detect_lambda"):
-        # Lispers NOTE: in MacroPy, the quasiquote `q` (similarly hygienic
-        # quasiquote `hq`) is a macro, not a special operator; it **does not**
-        # prevent the expansion of any macros invoked in the quoted code.
-        # It just lifts source code into the corresponding AST representation.
-        #
-        # (MacroPy-technically, it's a second-pass macro, so any macros nested inside
-        #  have already expanded when the quote macro runs.)
-        with q as detect_lambda_testdata:
+        # We expand the `do[]` to generate an implicit lambda that should be ignored by the detector
+        # (it specifically checks for expanded `do[]` forms).
+        with expandrq as detect_lambda_testdata:
             a = lambda: None  # noqa: F841  # pragma: no cover
             b = do[local[x << 21],  # noqa: F821, F841  # pragma: no cover
                    lambda y: x * y]  # noqa: F821
@@ -103,7 +99,7 @@ def runtests():
         test[has_deco(["artdeco"], q[postmodern(artdeco(lambda: None))])]  # noqa: F821
         test[has_deco(["artdeco"], q[artdeco(postmodern(lambda: None))])]  # noqa: F821
 
-        # if more than one option, OR'd
+        # more than one option, automatically OR'd
         test[has_deco(["artdeco", "neoclassical"], has_deco_testdata1[0])]
         test[not has_deco(["artdeco", "neoclassical"], has_deco_testdata2[0])]
         test[not has_deco(["artdeco", "neoclassical"], q[lambda: None])]

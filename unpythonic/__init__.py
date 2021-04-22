@@ -3,7 +3,8 @@
 
 See ``dir(unpythonic)`` and submodule docstrings for more.
 
-If you have MacroPy installed, see also ``unpythonic.syntax``.
+If you have ``mcpyrate`` installed, see also ``unpythonic.syntax``
+for a trip down the rabbit hole.
 """
 
 __version__ = '0.14.3'

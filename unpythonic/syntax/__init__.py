@@ -171,7 +171,7 @@ from .letdoutil import where  # noqa: F401
 from .lazify import force, force1  # noqa: F401
 from .letdo import local, delete  # noqa: F401
 from .letsyntax import block, expr  # noqa: F401
-from .prefix import q, u, kw  # noqa: F401  # TODO: bad names, MacroPy uses them too.
+from .prefix import q, u, kw  # noqa: F401  # TODO: bad names, `mcpyrate` uses them too.
 from .tailtools import call_cc  # noqa: F401
 from .testingtools import the  # noqa: F401
 
@@ -880,7 +880,7 @@ def let_syntax(tree, *, args, syntax, expander, **kw):  # noqa: F811
     elimination of repetition can shorten the code and improve readability.
 
     If you need to do something complex, prefer writing a real macro directly
-    in MacroPy.
+    in `mcpyrate`.
     """
     if syntax not in ("expr", "block"):
         raise SyntaxError("let_syntax is an expr and block macro only")

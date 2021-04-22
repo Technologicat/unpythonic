@@ -17,7 +17,7 @@ Instead, what we have here is essentially a tuple comprehension that:
 The implementation is based on the List monad. This is a hack with the bare
 minimum of components to make it work, complete with a semi-usable syntax.
 
-If you use MacroPy:
+If you use `mcpyrate`:
 
   - For a friendlier syntax for this, see ``unpythonic.syntax.forall``.
 
@@ -53,7 +53,7 @@ def choice(**binding):
         return Assignment(k, v)
 
 # Hacky code generator, because Python has ``eval`` but no syntactic macros.
-# For a cleaner solution based on AST transformation with MacroPy,
+# For a cleaner solution based on AST transformation with macros,
 # see unpythonic.syntax.forall.
 def forall(*lines):
     """Nondeterministically evaluate lines.

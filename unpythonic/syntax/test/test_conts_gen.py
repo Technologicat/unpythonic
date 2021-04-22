@@ -179,12 +179,12 @@ def runtests():
                 test[out == list(range(10))]
 
         # Unfortunately, this is as far as let_syntax[] gets us; if we wanted to
-        # "librarify" this any further, we'd need to define a macro in MacroPy.
+        # "librarify" this any further, we'd need to define a macro in `mcpyrate`.
         #
         # (Suggestions: make_generator as a decorator macro; my_yield[] as a special
         # literal Subscript that make_generator understands and expands away. At the
-        # module level, define my_yield as a @macro_stub so that accidental uses
-        # outside any make_generator are caught at runtime. The actual template the
+        # module level, define my_yield as a magic variable so that accidental uses
+        # outside any make_generator are caught at compile time. The actual template the
         # make_generator macro needs to splice in is already here in the final example.)
 
 if __name__ == '__main__':  # pragma: no cover

@@ -125,9 +125,9 @@ def runtests():
         test[a == (1337, 2)]
 
     with testset("scoping, name shadowing"):
-        # also letrec supports lexical scoping, since in MacroPy 1.1.0 and later,
-        # macros are expanded from inside out (the z in the inner scope expands to
-        # the inner environment's z, which makes the outer expansion leave it alone):
+        # also letrec supports lexical scoping, since `letrec` expands inside out
+        # (so the z in the inner scope expands to the inner environment's z,
+        # which makes the outer expansion leave it alone):
         out = []
         letrec[(z, 1)][  # noqa: F821
             begin(out.append(z),  # noqa: F821

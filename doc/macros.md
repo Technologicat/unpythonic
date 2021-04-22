@@ -74,7 +74,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 
 [**Meta**](#meta)
 - [The xmas tree combo](#the-xmas-tree-combo): notes on the macros working together.
-- [Emacs syntax highlighting](#emacs-syntax-highlighting) for `unpythonic.syntax` and MacroPy.
+- [Emacs syntax highlighting](#emacs-syntax-highlighting) for `unpythonic.syntax` and `mcpyrate`.
 - [This is semantics, not syntax!](#this-is-semantics-not-syntax)
 
 ## Bindings
@@ -151,7 +151,7 @@ let[2*x, where(x, 21)]
 
 This is valid also in the *let-in* variant, because there is still one set of parentheses enclosing the bindings block.
 
-This is essentially special-cased in the ``let`` expander. (If interested in the technical details, look at ``unpythonic.syntax.letdoutil.UnexpandedLetView``, which performs the destructuring. See also ``unpythonic.syntax.__init__.let``; MacroPy itself already destructures the original lispy syntax when the macro is invoked.)
+This is essentially special-cased in the ``let`` expander. (If interested in the technical details, look at ``unpythonic.syntax.letdoutil.UnexpandedLetView``, which performs the destructuring. See also ``unpythonic.syntax.__init__.let``; the macro expander itself already destructures the original lispy syntax when the macro is invoked.)
 
 #### Multiple expressions in body
 
@@ -214,7 +214,7 @@ let[(x, y),       # v0.12.0+
 
 ``let`` and ``letrec`` expand into the ``unpythonic.lispylet`` constructs, implicitly inserting the necessary boilerplate: the ``lambda e: ...`` wrappers, quoting variable names in definitions, and transforming ``x`` to ``e.x`` for all ``x`` declared in the bindings. Assignment syntax ``x << 42`` transforms to ``e.set('x', 42)``. The implicit environment parameter ``e`` is actually named using a gensym, so lexically outer environments automatically show through. ``letseq`` expands into a chain of nested ``let`` expressions.
 
-Nesting utilizes the fact that MacroPy3 (as of v1.1.0) expands macros in an inside-out order:
+Nesting utilizes an inside-out macro expansion order:
 
 ```python
 letrec[(z, 1)][[
@@ -454,7 +454,7 @@ which can be useful when writing macros.
 
 **CAUTION**: ``let_syntax`` is essentially a toy macro system within the real macro system. The usual caveats of macro systems apply. Especially, we support absolutely no form of hygiene. Be very, very careful to avoid name conflicts.
 
-The ``let_syntax`` macro is meant for simple local substitutions where the elimination of repetition can shorten the code and improve its readability. If you need to do something complex (or indeed save a definition and reuse it somewhere else, non-locally), write a real macro directly in MacroPy.
+The ``let_syntax`` macro is meant for simple local substitutions where the elimination of repetition can shorten the code and improve its readability. If you need to do something complex (or indeed save a definition and reuse it somewhere else, non-locally), write a real macro directly in `mcpyrate`.
 
 This was inspired by Racket's [``let-syntax``](https://docs.racket-lang.org/reference/let.html) and [``with-syntax``](https://docs.racket-lang.org/reference/stx-patterns.html).
 
@@ -1087,7 +1087,7 @@ Code within a ``with continuations`` block is treated specially.
 #### Differences between ``call/cc`` and certain other language features
 
  - Unlike **generators**, ``call_cc[]`` allows resuming also multiple times from an earlier checkpoint, even after execution has already proceeded further. Generators can be easily built on top of ``call/cc``. [Python version](../unpythonic/syntax/test/test_conts_gen.py), [Racket version](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt).
-   - The Python version is a pattern that could be packaged into a macro with MacroPy; the Racket version has been packaged as a macro.
+   - The Python version is a pattern that could be packaged into a macro with `mcpyrate`; the Racket version has been packaged as a macro.
    - Both versions are just demonstrations for teaching purposes. In production code, use the language's native functionality.
      - Python's built-in generators have no restriction on where ``yield`` can be placed, and provide better performance.
      - Racket's standard library provides [generators](https://docs.racket-lang.org/reference/Generators.html).
@@ -1462,7 +1462,7 @@ If you wish to omit ``return`` in tail calls, this comboes with ``tco``; just ap
 
 ### ``forall``: nondeterministic evaluation
 
-Behaves the same as the multiple-body-expression tuple comprehension ``unpythonic.amb.forall``, but implemented purely by AST transformation, with real lexical variables. This is essentially a MacroPy implementation of Haskell's do-notation for Python, specialized to the List monad (but the code is generic and very short; see ``unpythonic.syntax.forall``).
+Behaves the same as the multiple-body-expression tuple comprehension ``unpythonic.amb.forall``, but implemented purely by AST transformation, with real lexical variables. This is essentially a macro implementation of Haskell's do-notation for Python, specialized to the List monad (but the code is generic and very short; see ``unpythonic.syntax.forall``).
 
 ```python
 from unpythonic.syntax import macros, forall, insist, deny
@@ -1585,7 +1585,7 @@ This is similar to the JavaScript [`with` construct](https://developer.mozilla.o
 
 **Added in v0.14.3.**
 
-We provide a lightweight, MacroPy-based test framework for testing macro-enabled Python:
+We provide a lightweight, `mcpyrate`-based test framework for testing macro-enabled Python:
 
 ```python
 from unpythonic.syntax import macros, test, test_raises, fail, error, warn, the
@@ -1803,7 +1803,7 @@ If nothing but such trivialities were captured, the failure message will instead
 
 To make testing/debugging macro code more convenient, the `the[]` mechanism automatically unparses an AST value into its source code representation for display in the test failure message. This is meant for debugging macro utilities, to which a test case hands some quoted code (i.e. code lifted into its AST representation using mcpyrate's `q[]` macro). See [`unpythonic.syntax.test.test_letdoutil`](unpythonic/syntax/test/test_letdoutil.py) for some examples. (Note the unparsing is done for display only; the raw value remains inspectable in the exception instance.)
 
-**CAUTION**: The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``macropy.core.unparse``.
+**CAUTION**: The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``mcpyrate.unparse``.
 
 **CAUTION**: The name of the `the[]` construct was inspired by Common Lisp, but the semantics are completely different. Common Lisp's `THE` is a return-type declaration (pythonistas would say *return-type annotation*), meant as a hint for the compiler to produce performance-optimized compiled code (see [chapter 32 of Peter Seibel's Practical Common Lisp](http://www.gigamonkeys.com/book/conclusion-whats-next.html)), whereas our `the[]` captures a value for test reporting. The only common factors are the name, and that neither construct changes the semantics of the marked code, much. In `unpythonic.test.fixtures`, the reason behind picking this name was that it doesn't change the flow of the source code as English that much, specifically to suggest, between the lines, that it doesn't change the semantics much. The reasoning behind CL's `THE` may be similar.
 
@@ -1855,7 +1855,7 @@ The standard library's [`unittest`](https://docs.python.org/3/library/unittest.h
 
 Also, in my opinion, `unittest` is overly verbose to use; automated tests are already a particularly verbose kind of program, even if the testing syntax is minimal.
 
-[Pytest](https://docs.pytest.org/en/latest/), on the other hand, provides compact syntax by hijacking the assert statement, but its import hook (to provide that syntax) can't coexist with MacroPy's macro expander. It's also fairly complex.
+[Pytest](https://docs.pytest.org/en/latest/), on the other hand, provides compact syntax by hijacking the assert statement, but its import hook (to provide that syntax) can't coexist with a macro expander, which also needs to install a different import hook. It's also fairly complex.
 
 The central functional requirement for whatever would be used for testing `unpythonic` was to be able to easily deal with macro-enabled Python. No hoops to jump through, compared to testing regular Python, in order to be able to test all of `unpythonic` (including `unpythonic.syntax`) in a uniform way.
 
@@ -1878,7 +1878,7 @@ Inspired by [Julia](https://julialang.org/)'s standard-library [`Test` package](
 
 ### ``dbg``: debug-print expressions with source code
 
-*Changed in 0.14.2.* The `dbg[]` macro now works in the REPL, too. Use your favorite macro-enabled REPL; both [`imacropy`](https://github.com/Technologicat/imacropy) and `macropy.console` work.
+*Changed in 0.14.2.* The `dbg[]` macro now works in the REPL, too. You can use `mcpyrate.repl.console` (a.k.a. `macropython -i` in the shell) or the IPython extension `mcpyrate.repl.iconsole`.
 
 [DRY](https://en.wikipedia.org/wiki/Don't_repeat_yourself) out your [qnd](https://en.wiktionary.org/wiki/quick-and-dirty) debug printing code. Both block and expression variants are provided:
 
@@ -1920,11 +1920,11 @@ with dbg[prt]:
 
 The reference to the custom print function (i.e. the argument to the ``dbg`` block) **must be a bare name**. Support for methods may or may not be added in a future version.
 
-**In the expr variant**, to customize printing, just assign another function to the name ``dbgprint_expr`` (locally or globally, as desired). A default implementation is provided and automatically injected to the namespace of the module that imports anything from ``unpythonic.syntax`` (see ``expose_unhygienic`` in MacroPy).
+**In the expr variant**, to customize printing, just assign a function to the dynvar ``dbgprint_expr`` via `with dyn.let(dbgprint_expr=...)`. If no custom printer is set, a default implementation is used.
 
 For details on implementing custom debug print functions, see the docstrings of ``unpythonic.syntax.dbgprint_block`` and ``unpythonic.syntax.dbgprint_expr``, which provide the default implementations.
 
-**CAUTION**: The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``macropy.core.unparse``.
+**CAUTION**: The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See ``mcpyrate.unparse``.
 
 Inspired by the [dbg macro in Rust](https://doc.rust-lang.org/std/macro.dbg.html).
 
@@ -1962,7 +1962,7 @@ Obviously not intended for production use, although is very likely to work anywh
 
 ## Meta
 
-Is this just a set of macros, a language extension, or a compiler for a new language that just happens to be implemented in MacroPy, à la *On Lisp*? All of the above, really.
+Is this just a set of macros, a language extension, or a compiler for a new language that just happens to be implemented in `mcpyrate`, à la *On Lisp*? All of the above, really.
 
 ### The xmas tree combo
 
@@ -2001,7 +2001,7 @@ See our [notes on macros](../doc/design-notes.md#detailed-notes-on-macros) for m
 
 ### Emacs syntax highlighting
 
-This Elisp snippet can be used to add syntax highlighting for keywords specific to `MacroPy` and `unpythonic.syntax` to your Emacs setup:
+This Elisp snippet can be used to add syntax highlighting for keywords specific to `mcpyrate` and `unpythonic.syntax` to your Emacs setup:
 
 ```elisp
   (defun my/unpythonic-syntax-highlight-setup ()
@@ -2020,10 +2020,9 @@ This Elisp snippet can be used to add syntax highlighting for keywords specific 
                           "curry" "lazify" "envify" "tco" "prefix" "autoreturn" "forall"
                           "multilambda" "namedlambda" "quicklambda"
                           "cond" "aif" "autoref" "dbg" "nb"
-                          "macros" "q" "u" "hq" "ast_literal")) ; MacroPy
+                          "macros" "dialects" "q" "u" "n" "a" "s" "t" "h")) ; mcpyrate
           (special-variables '("it"
-                               "dyn"
-                               "dbgprint_expr")))
+                               "dyn")))
       (font-lock-add-keywords 'python-mode `((,(concat "\\_<" (regexp-opt special-variables 'paren) "\\_>")
                                               1 font-lock-variable-name-face)) 'append)
       ;; "(\\s-*" maybe somewhere?

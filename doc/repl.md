@@ -17,9 +17,8 @@ It will bind to `127.0.0.1` on ports `1337` (main channel) and `8128` (control c
 Multiple clients may be connected simultaneously to the same server. Each client gets an independent REPL session. The top-level namespace is shared between all sessions.
 
 The actual REPL console you get when you connect to the server depends on what you have installed in the environment where the server is running. The following will be tried in order. The first one that imports successfully wins:
-  - If you have [`imacropy`](https://github.com/Technologicat/imacropy) installed, you will get `imacropy.console.MacroConsole`. (Recommended.)
-  - If you have MacroPy installed, you will get `macropy.core.console.MacroConsole`.
-  - As a fallback that is always available, you will get [`code.InteractiveConsole`](https://docs.python.org/3/library/code.html), and macro support will not be enabled.
+  - If you have [`mcpyrate`](https://github.com/Technologicat/mcpyrate) installed, you will get `mcpyrate.repl.console.MacroConsole`. (Recommended.)
+  - Otherwise you will get [`code.InteractiveConsole`](https://docs.python.org/3/library/code.html), and macro support will not be enabled.
 
 **In a REPL session**:
 
@@ -237,11 +236,9 @@ So right now, I'm not going to bother with SSH support. If interested, help is w
 
 ## Note on macro-enabled consoles
 
-Drop-in replacing `code.InteractiveConsole` in `unpythonic.net.server` with `macropy.core.console.MacroConsole` gave rudimentary macro support.
+Back in 0.14.x, drop-in replacing `code.InteractiveConsole` in `unpythonic.net.server` with `macropy.core.console.MacroConsole` gave rudimentary macro support. However, to have the same semantics as in the [`imacropy.iconsole`](https://github.com/Technologicat/imacropy) IPython extension, a custom console was needed. This was added to `imacropy` as `imacropy.console.MacroConsole`. An updated version of this technology (including an updated IPython extension) was then included in [`mcpyrate`](https://github.com/Technologicat/mcpyrate).
 
-However, to have the same semantics as in the [`imacropy.iconsole`](https://github.com/Technologicat/imacropy) IPython extension, a custom console was needed. This was added to `imacropy` as `imacropy.console.MacroConsole`.
-
-Why `imacropy.console.MacroConsole`:
+Why `mcpyrate.repl.console.MacroConsole`:
 
  - Catches and reports import errors when importing macros.
  - Allows importing the same macros again in the same session, to refresh their definitions.
@@ -253,4 +250,4 @@ Why `imacropy.console.MacroConsole`:
  - Can list macros imported to the session, using the command `macros?`.
 
 
-For historical interest, refer to and compare [imacropy/iconsole.py](https://github.com/Technologicat/imacropy/blob/master/imacropy/iconsole.py) and [macropy/core/console.py](https://github.com/azazel75/macropy/blob/master/macropy/core/console.py). The result is the new [imacropy/console.py](https://github.com/Technologicat/imacropy/blob/master/imacropy/console.py).
+For historical interest, refer to and compare [imacropy/iconsole.py](https://github.com/Technologicat/imacropy/blob/master/imacropy/iconsole.py) and [macropy/core/console.py](https://github.com/azazel75/macropy/blob/master/macropy/core/console.py). The result was [imacropy/console.py](https://github.com/Technologicat/imacropy/blob/master/imacropy/console.py). Now this technology lives in [mcpyrate/repl/console.py](https://github.com/Technologicat/mcpyrate/blob/master/mcpyrate/repl/console.py) and [mcpyrate/repl/iconsole.py](https://github.com/Technologicat/mcpyrate/blob/master/mcpyrate/repl/iconsole.py).

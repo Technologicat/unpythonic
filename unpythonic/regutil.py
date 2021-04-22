@@ -14,7 +14,7 @@ See ``unpythonic.syntax.tailtools``.
 """
 
 # This module is kept separate from unpythonic.syntax.util simply to make
-# the MacroPy dependency optional. If the user code doesn't use macros,
+# the `mcpyrate` dependency optional. If the user code doesn't use macros,
 # the decorator registry gets populated at startup as usual, and then sits idle.
 #
 # This module can't be inside unpythonic.syntax for dependency reasons; that
