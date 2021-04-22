@@ -8,9 +8,84 @@ from mcpyrate import parametricmacro
 
 from ..dynassign import make_dynvar, dyn
 
+# --------------------------------------------------------------------------------
 # This module contains the macro interface and docstrings; the submodules
 # contain the actual syntax transformers (regular functions that process ASTs)
 # that implement the macros.
+# --------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------
+# **Historical NOTE**:
+#
+# These macros were originally written years before `mcpyrate` even existed, and were designed to run on
+# MacroPy. It was a pioneering product, and an excellent choice at the time. Particularly, it can't have
+# been easy to be the first to implement quasiquotes for Python, up to and including hygienic captures!
+# So, my hat is off for the MacroPy team - without MacroPy, there would be no `mcpyrate`.
+#
+# Now, let's get technical:
+#
+# MacroPy 1.1.0b2 expands macros using a two-pass system: first pass outside in, then second pass inside
+# out. By default, a macro expands in the inside-out pass. By making the macro interface function into a
+# generator (instead of a regular function), it can opt in to two-pass processing. It then `yield`s the
+# first-pass (outside in) output, and optionally `return`s the second-pass (inside out) output, if any.
+# The MacroPy interface is thus similar to how `contextlib.contextmanager` treats the enter and exit code.
+#
+# Following MacroPy's default mode, most of the macros in `unpythonic.syntax` are designed to expand
+# inside-out. This seemed a good idea at the time, particularly regarding the lexical scoping of `let`
+# constructs, which were one of the first features of `unpythonic.syntax`. However, with `mcpyrate`
+# that's not such a bright idea. First, the default is outside-in (because less magic). Secondly,
+# because I followed the `mcpy` design and didn't want to use generators to define macros, this means
+# that expanding inside-out requires an explicit recursion call (very pythonic!) - but this has the
+# implication that the debug expansion stepper (see macro `mcpyrate.debug.step_expansion`) will not get
+# control back until after all the inner macros have expanded. So inside-out expansions are harder to
+# debug. As of `mcpyrate` 3.2.2, the expansion stepper has gained the `"detailed"` option, which will
+# show individual inner macro expansions, but there's no way to get an overview of the whole tree
+# before control returns to the stepper.
+#
+# (`mcpyrate`'s expansion stepper is a logical extension of the idea of MacroPy's `show_expanded`, and
+# was inspired by Racket's macro stepper. Beside the final AST, it also shows the intermediate steps of
+# the expansion, and outputs the unparsed code with syntax highlighting.)
+#
+# A better way would be to expand outside-in, because many of our macros work together; using the
+# outside-in order would reduce the need to analyze macro-expanded ASTs. Lexical scoping for `let` could
+# be achieved in this system by detecting boundaries of nested `let` (et al.) invocations, recursing
+# into that invocation first, and then processing the resulting tree normally. (So the order would be
+# outside-in except for those inner invocations that absolutely need to expand first, e.g. to respect
+# lexical scoping for lexically nested `unpythonic` envs.)
+#
+# (No sensible person works directly with macro-expanded ASTs if that can be avoided. It goes against
+# the grain of the macro abstraction. It's a bit like decompiling to see what's going on.)
+#
+# Finally, be aware that in `mcpyrate`, an inside-out expansion order is achieved by recursing explicitly:
+#
+# def mymacrointerface(tree, *, expander, *kw):
+#    # perform your outside-in processing here
+#
+#    tree = expander.visit(tree)  # recurse explicitly
+#
+#    # perform your inside-out processing here
+#
+#    return tree
+#
+# If the line `tree = expander.visit(tree)` is omitted, the macro expands outside-in.
+# Note this default is different from MacroPy's!
+#
+# There are further cleanups of the macro layer possible with `mcpyrate`. For example:
+#
+#  - Quasiquotes no longer auto-expand macros in the quoted code. `letseq` could use hygienic *macro*
+#    capture and just return an unexpanded `let` and another `letseq` (with one fewer binding),
+#    similarly to how Racket implements `let*`. See `unpythonic.syntax.simplelet` for a demo.
+#
+#  - The macro interfaces and their docstrings could live inside the implementation modules, and this
+#    module could just re-export them. (A function being a macro is a feature of its *use site* where
+#    it is imported, by `from xxx import macros, ...`; `mcpyrate` has no macro registry.)
+#
+#  - Many macros could perhaps run in the outside-in pass. Some need a redesign for their AST analysis,
+#    but much of that has been sufficiently abstracted (e.g. `unpythonic.syntax.letdoutil`) so that this
+#    is mainly a case of carefully changing the analysis mode at all appropriate use sites.
+#
+# However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
+# Cleanups can be done in a future release.
 
 # TODO: With `mcpyrate`, we could move the macro interface functions to
 # TODO: the submodules, and have just re-exports here.
