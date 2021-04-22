@@ -13,12 +13,11 @@ In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing f
 
 None required.
 
- - [MacroPy](https://github.com/azazel75/macropy) optional, to enable the syntactic macro layer.
- - [imacropy](https://github.com/Technologicat/imacropy) optional, to enable the improved interactive macro REPL.
+ - [mcpyrate](https://github.com/Technologicat/mcpyrate) optional, to enable the syntactic macro layer, and an interactive macro REPL.
 
 The officially supported language versions are **CPython 3.8** and **PyPy3 3.7**.
 
-The 0.15.x series should run on CPythons 3.6 through 3.9, and on PyPy3; the [CI](https://en.wikipedia.org/wiki/Continuous_integration) process verifies the tests pass on those platforms. Support for 3.8 is planned in one of the next few releases. Pure-Python features should already work; but macro code still needs changes to account for AST representation changes in 3.8, see issue [#16](https://github.com/Technologicat/unpythonic/issues/16).
+The 0.15.x series should run on CPython 3.6, 3.7, 3.8 and 3.9, and PyPy3 7.3.4 (language version 3.7); the [CI](https://en.wikipedia.org/wiki/Continuous_integration) process verifies the tests pass on those platforms.
 
 ### Documentation
 
@@ -126,7 +125,7 @@ This gives you a REPL, inside your live process, with all the power of Python. Y
 
 You can have multiple REPL sessions connected simultaneously. When your app exits (for any reason), the server automatically shuts down, closing all connections if any remain. But exiting the client leaves the server running, so you can connect again later - that's the whole point.
 
-Optionally, if you have MacroPy, the REPL sessions support importing and invoking macros. If you additionally have [imacropy](https://github.com/Technologicat/imacropy), the improved interactive macro REPL is used automatically.
+Optionally, if you have [mcpyrate](https://github.com/Technologicat/mcpyrate), the REPL sessions support importing, invoking and defining macros.
 </details>  
 <details><summary>Industrial-strength scan and fold.</summary>
 
