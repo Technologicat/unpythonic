@@ -121,27 +121,11 @@ import atexit
 import inspect
 from itertools import count
 
-try:  # Python 3.6+
-    MyModuleNotFoundError = ModuleNotFoundError
-except NameError:
-    MyModuleNotFoundError = ImportError
-
 try:
-    from macropy.core.macros import WrappedFunction
-except MyModuleNotFoundError:  # probably no MacroPy installed
-    WrappedFunction = None
-
-try:
-    # Improved macro-enabled console. Imacropy semantics; ?, ?? docstring/source viewing syntax;
-    # improved handling of macro import errors; can reload macros and re-establish macro bindings.
-    from imacropy.console import MacroConsole as Console
-except MyModuleNotFoundError:
-    try:
-        # MacroPy's own macro-enabled console
-        import macropy.activate  # noqa: F401, just needed to boot up MacroPy.
-        from macropy.core.console import MacroConsole as Console
-    except MyModuleNotFoundError:
-        from code import InteractiveConsole as Console
+    # Advanced macro-enabled console. Importing this also boots up `mcpyrate`.
+    from mcpyrate.repl.console import MacroConsole as Console
+except ModuleNotFoundError:
+    from code import InteractiveConsole as Console
 
 from ..collections import ThreadLocalBox, Shim
 from ..misc import async_raise, namelambda
@@ -176,9 +160,26 @@ _banner = None
 # --------------------------------------------------------------------------------
 # Exports for REPL sessions
 
-# This is a copy of `imacropy.doc` (from v0.3.0) with a slightly modified docstring.
-# We strictly need a local copy of this only if `imacropy` is not installed,
-# to allow viewing docstrings in the MacroPy or stdlib consoles.
+# These `_get_source` and `doc` functions come from `mcpyrate.repl.utils`.
+#
+# We strictly need a local copy of only if `mcpyrate` is not installed,
+# to allow viewing docstrings in the stdlib console.
+
+def _get_source(obj):
+    # `inspect.getsourcefile` accepts "a module, class, method, function,
+    # traceback, frame, or code object" (the error message says this if
+    # we try it on something invalid).
+    #
+    # So if `obj` is an instance, we need to try again with its `__class__`.
+    for x in (obj, obj.__class__):  # TODO: other places to fall back to?
+        try:
+            filename = inspect.getsourcefile(x)
+            source, firstlineno = inspect.getsourcelines(x)
+            return filename, source, firstlineno
+        except (TypeError, OSError):
+            continue
+    raise NotImplementedError
+
 def doc(obj):
     """Print an object's docstring, non-interactively.
 
@@ -192,22 +193,19 @@ def doc(obj):
     And that looking directly at `some_macro.__doc__` prints the string
     value as-is, without formatting it.
 
-    NOTE: if you have the `imacropy` package installed, you can use
+    NOTE: if you have the `mcpyrate` package installed, you can use
     the IPython-like `obj?` and `obj??` syntax instead (provided by
-    `imacropy.console.MacroConsole`).
+    `mcpyrate.repl.console.MacroConsole`).
     """
-    if not hasattr(obj, "__doc__") or not obj.__doc__:
-        print("<no docstring>")
-        return
     try:
-        if isinstance(obj, WrappedFunction):
-            obj = obj.__wrapped__  # this is needed to make inspect.getsourcefile work with macros
-        filename = inspect.getsourcefile(obj)
-        source, firstlineno = inspect.getsourcelines(obj)
-        print(f"{filename}:{firstlineno}")
-    except (TypeError, OSError):
+        filename, source, firstlineno = _get_source(obj)
+        print(f"{filename}:{firstlineno}", file=sys.stderr)
+    except NotImplementedError:
         pass
-    print(inspect.cleandoc(obj.__doc__))
+    if not hasattr(obj, "__doc__") or not obj.__doc__:
+        print("<no docstring>", file=sys.stderr)
+        return
+    print(inspect.cleandoc(obj.__doc__), file=sys.stderr)
 
 # TODO: detect stdout, stderr and redirect to the appropriate stream.
 def server_print(*values, **kwargs):
