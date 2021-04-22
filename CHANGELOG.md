@@ -1,4 +1,4 @@
-**0.15.0** (in progress; updated 14 April 2021)
+**0.15.0** (in progress; updated 23 April 2021) - *The very latest future obsolete* edition:
 
 **New**:
 
@@ -9,6 +9,7 @@
 - Migrate to the [`mcpyrate`](https://github.com/Technologicat/mcpyrate) macro expander; MacroPy support dropped.
   - This facilitates future development of the macro parts of `unpythonic`.
   - Macro arguments are now passed using brackets `macroname[args]` instead of parentheses.
+    - Parentheses are still available as alternative syntax, because up to Python 3.8, decorators cannot have subscripts (so e.g. `@dlet[(x, 42)]` is a syntax error, but `@dlet((x, 42))` is fine). This has been fixed in Python 3.9.
 - Python 3.4 and 3.5 support dropped.
 
 
