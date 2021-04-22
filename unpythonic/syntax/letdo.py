@@ -25,7 +25,8 @@ import sys
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
-from macropy.core.walkers import Walker
+from mcpyrate.walkers import ASTTransformer
+
 from macropy.core.macros import macro_stub
 
 from mcpyrate import gensym
@@ -34,8 +35,7 @@ from ..lispylet import _let as letf, _dlet as dletf, _blet as bletf
 from ..seq import do as dof
 from ..misc import namelambda
 
-from .astcompat import Index
-from .scopeanalyzer import scoped_walker
+from .scopeanalyzer import scoped_transform
 from .letdoutil import isenvassign, UnexpandedEnvAssignView
 
 def let(bindings, body):
@@ -131,14 +131,14 @@ def transform_envassignment(tree, lhsnames, envset):
     """x << val --> e.set('x', val)  (for names bound in this environment)"""
     # names_in_scope: according to Python's standard binding rules, see scopeanalyzer.py.
     # Variables defined in let envs are thus not listed in `names_in_scope`.
-    def t(tree, names_in_scope):
+    def transform(tree, names_in_scope):
         if isenvassign(tree):
             view = UnexpandedEnvAssignView(tree)
             varname = view.name
             if varname in lhsnames and varname not in names_in_scope:
                 return q[a[envset](u[varname], a[view.value])]
         return tree
-    return scoped_walker.recurse(tree, callback=t)
+    return scoped_transform(tree, callback=transform)
 
 def transform_name(tree, rhsnames, envname):
     """x --> e.x  (in load context; for names bound in this environment)"""
@@ -170,7 +170,7 @@ def transform_name(tree, rhsnames, envname):
                 attr_node.ctx = tree.ctx  # let mcpyrate fix it if needed
             return attr_node
         return tree
-    return scoped_walker.recurse(tree, callback=transform)
+    return scoped_transform(tree, callback=transform)
 
 def envwrap(tree, envname):
     """... -> lambda e: ..."""
@@ -323,35 +323,40 @@ def do(tree):
         return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "local"
     def isdelete(tree):
         return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "delete"
-    @Walker
-    def find_localdefs(tree, collect, **kw):
-        if islocaldef(tree):
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                expr = tree.slice
-            else:
-                if type(tree.slice) is not Index:  # no slice syntax allowed
-                    raise SyntaxError("local[...] takes exactly one expression of the form 'name << value'")  # pragma: no cover
-                expr = tree.slice.value
-            if not isenvassign(expr):
-                raise SyntaxError("local(...) takes exactly one expression of the form 'name << value'")  # pragma: no cover
-            view = UnexpandedEnvAssignView(expr)
-            collect(view.name)
-            return expr  # local[...] -> ..., the "local" tag has done its job
-        return tree
-    @Walker
-    def find_deletes(tree, collect, **kw):
-        if isdelete(tree):
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                expr = tree.slice
-            else:
-                if type(tree.slice) is not Index:  # no slice syntax allowed
-                    raise SyntaxError("delete[...] takes exactly one name")  # pragma: no cover
-                expr = tree.slice.value
-            if type(expr) is not Name:
-                raise SyntaxError("delete[...] takes exactly one name")  # pragma: no cover
-            collect(expr.id)
-            return q[a[envdel](u[expr.id])]  # delete[...] -> e.pop(...)
-        return tree
+
+    def find_localdefs(tree):
+        class LocaldefCollector(ASTTransformer):
+            def transform(self, tree):
+                if islocaldef(tree):
+                    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+                        expr = tree.slice
+                    else:
+                        expr = tree.slice.value
+                    if not isenvassign(expr):
+                        raise SyntaxError("local(...) takes exactly one expression of the form 'name << value'")  # pragma: no cover
+                    view = UnexpandedEnvAssignView(expr)
+                    self.collect(view.name)
+                    return expr  # local[...] -> ..., the "local" tag has done its job
+                return self.generic_visit(tree)
+        c = LocaldefCollector()
+        tree = c.visit(tree)
+        return tree, c.collected
+    def find_deletes(tree):
+        class DeleteCollector(ASTTransformer):
+            def transform(self, tree):
+                if isdelete(tree):
+                    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+                        expr = tree.slice
+                    else:
+                        expr = tree.slice.value
+                    if type(expr) is not Name:
+                        raise SyntaxError("delete[...] takes exactly one name")  # pragma: no cover
+                    self.collect(expr.id)
+                    return q[a[envdel](u[expr.id])]  # delete[...] -> e.pop(...)
+                return self.generic_visit(tree)
+        c = DeleteCollector()
+        tree = c.visit(tree)
+        return tree, c.collected
 
     names = []
     lines = []

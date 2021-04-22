@@ -50,7 +50,7 @@ def runtests():
             a = lambda: None  # noqa: F841  # pragma: no cover
             b = do[local[x << 21],  # noqa: F821, F841  # pragma: no cover
                    lambda y: x * y]  # noqa: F821
-        test[len(detect_lambda.collect(detect_lambda_testdata)) == 2]
+        test[len(detect_lambda(detect_lambda_testdata)) == 2]
 
     with testset("decorator utilities"):
         test[is_decorator(q[decorate], "decorate")]  # noqa: F821

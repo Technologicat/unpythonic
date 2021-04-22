@@ -8,7 +8,7 @@ from ast import (Name, Call, Starred, If, Constant, Expr, With,
                  FunctionDef, AsyncFunctionDef, ClassDef, Attribute)
 from copy import deepcopy
 
-from macropy.core.walkers import Walker
+from mcpyrate.walkers import ASTTransformer
 
 from .letdo import implicit_do
 from .util import eliminate_ifones
@@ -169,41 +169,47 @@ def _analyze_lhs(tree):
 def _substitute_barename(name, value, tree, mode):
     def isthisname(tree):
         return type(tree) is Name and tree.id == name
-    @Walker
-    def splice(tree, *, stop, **kw):
-        def subst():
-            # Copy just to be on the safe side. Different instances may be
-            # edited differently by other macros expanded later.
-            return deepcopy(value)
-        # discard Expr wrapper (identifying a statement position) at use site
-        # when performing a block substitution
-        if mode == "block" and type(tree) is Expr and isthisname(tree.value):
-            stop()
-            tree = subst()
-        elif isthisname(tree):
-            if mode == "block":
-                raise SyntaxError("cannot substitute a block into expression position")  # pragma: no cover
-            tree = subst()
-        return tree
+    def splice(tree):
+        class Splicer(ASTTransformer):
+            def transform(self, tree):
+                def subst():
+                    # Copy just to be on the safe side. Different instances may be
+                    # edited differently by other macros expanded later.
+                    return deepcopy(value)
+                # discard Expr wrapper (identifying a statement position) at use site
+                # when performing a block substitution
+                if mode == "block" and type(tree) is Expr and isthisname(tree.value):
+                    tree = subst()
+                    return tree
+                elif isthisname(tree):
+                    if mode == "block":
+                        raise SyntaxError("cannot substitute a block into expression position")  # pragma: no cover
+                    tree = subst()
+                    return self.generic_visit(tree)
+                return self.generic_visit(tree)
+        return Splicer().visit(tree)
 
     # if the new value is also bare name, perform the substitution (now as a string)
     # also in the name part of def and similar, to support human intuition of "renaming"
+    # TODO: use `mcpyrate.utils.rename`, it was designed for things like this?
     if type(value) is Name:
         newname = value.id
-        @Walker
-        def splice_barestring(tree, *, stop, **kw):
-            if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
-                if tree.name == name:
-                    tree.name = newname
-            elif type(tree) is Attribute:
-                if tree.attr == name:
-                    tree.attr = newname
-            return tree
-        postproc = splice_barestring.recurse
+        def splice_barestring(tree):
+            class BarestringSplicer(ASTTransformer):
+                def transform(self, tree):
+                    if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
+                        if tree.name == name:
+                            tree.name = newname
+                    elif type(tree) is Attribute:
+                        if tree.attr == name:
+                            tree.attr = newname
+                    return self.generic_visit(tree)
+            return BarestringSplicer().visit(tree)
+        postproc = splice_barestring
     else:
         postproc = lambda x: x
 
-    return postproc(splice.recurse(tree))
+    return postproc(splice(tree))
 
 def _substitute_barenames(barenames, tree):
     for name, _, value, mode in barenames:
@@ -224,17 +230,20 @@ def _substitute_templates(templates, tree):
                 # can't put statements in a Call, so always treat args as expressions.
                 tree = _substitute_barename(k, v, tree, "expr")
             return tree
-        @Walker
-        def splice(tree, *, stop, **kw):
-            # discard Expr wrapper (identifying a statement position) at use site
-            # when performing a block substitution
-            if mode == "block" and type(tree) is Expr and isthisfunc(tree.value):
-                stop()
-                tree = subst(tree.value)
-            elif isthisfunc(tree):
-                if mode == "block":
-                    raise SyntaxError("cannot substitute a block into expression position")  # pragma: no cover
-                tree = subst(tree)
-            return tree
-        tree = splice.recurse(tree)
+        def splice(tree):
+            class Splicer(ASTTransformer):
+                def transform(self, tree):
+                    # discard Expr wrapper (identifying a statement position) at use site
+                    # when performing a block substitution
+                    if mode == "block" and type(tree) is Expr and isthisfunc(tree.value):
+                        tree = subst(tree.value)
+                        return tree
+                    elif isthisfunc(tree):
+                        if mode == "block":
+                            raise SyntaxError("cannot substitute a block into expression position")  # pragma: no cover
+                        tree = subst(tree)
+                        return self.generic_visit(tree)
+                    return self.generic_visit(tree)
+            return Splicer.visit(tree)
+        tree = splice(tree)
     return tree

@@ -6,7 +6,7 @@ from functools import partial
 from ast import (Call, Lambda, FunctionDef, AsyncFunctionDef,
                  If, With, withitem, stmt, NodeTransformer)
 
-from macropy.core.walkers import Walker
+from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from .astcompat import getconstant
 from .letdoutil import isdo, ExpandedDoView
@@ -52,47 +52,53 @@ def detect_callec(tree):
     """
     fallbacks = ["ec", "brk", "throw"]
     iscallec = partial(isx, x=make_isxpred("call_ec"))
-    @Walker
-    def detect(tree, *, collect, **kw):
-        # TODO: add support for general use of call_ec as a function (difficult)
-        if type(tree) in (FunctionDef, AsyncFunctionDef) and any(iscallec(deco) for deco in tree.decorator_list):
-            fdef = tree
-            collect(fdef.args.args[0].arg)  # FunctionDef.arguments.(list of arg objects).arg
-        elif is_decorated_lambda(tree, mode="any"):
-            decorator_list, thelambda = destructure_decorated_lambda(tree)
-            if any(iscallec(decocall.func) for decocall in decorator_list):
-                collect(thelambda.args.args[0].arg)  # we assume it's the first arg, as that's what call_ec expects.
-        return tree
-    return fallbacks + detect.collect(tree)
+    def detect(tree):
+        class Detector(ASTVisitor):
+            def examine(self, tree):
+                # TODO: add support for general use of call_ec as a function (difficult)
+                if type(tree) in (FunctionDef, AsyncFunctionDef) and any(iscallec(deco) for deco in tree.decorator_list):
+                    # TODO: Python 3.8+: handle the case where the ec is a positional-only arg?
+                    fdef = tree
+                    self.collect(fdef.args.args[0].arg)  # FunctionDef.arguments.(list of arg objects).arg
+                elif is_decorated_lambda(tree, mode="any"):
+                    # TODO: should we recurse selectively in this case?
+                    decorator_list, thelambda = destructure_decorated_lambda(tree)
+                    if any(iscallec(decocall.func) for decocall in decorator_list):
+                        self.collect(thelambda.args.args[0].arg)  # we assume it's the first arg, as that's what call_ec expects.
+                self.generic_visit(tree)
+        d = Detector()
+        d.visit(tree)
+        return d.collected
+    return fallbacks + detect(tree)
 
-@Walker
-def detect_lambda(tree, *, collect, stop, **kw):
+def detect_lambda(tree):
     """Find lambdas in tree. Helper for block macros.
 
-    Run ``detect_lambda.collect(tree)`` in the first pass, before allowing any
+    Run ``detect_lambda(tree)`` in the first pass, before allowing any
     nested macros to expand. (Those may generate more lambdas that your block
-    macro is not interested in).
+    macro is not interested in.)
 
-    The return value from ``.collect`` is a ``list``of ``id(lam)``, where ``lam``
-    is a Lambda node that appears in ``tree``. This list is suitable as
-    ``userlambdas`` for the TCO macros.
+    The return value is a ``list``of ``id(lam)``, where ``lam`` is a Lambda node
+    that appears in ``tree``. This list is suitable as ``userlambdas`` for the
+    TCO macros.
 
     This ignores any "lambda e: ..." added by an already expanded ``do[]``,
     to allow other block macros to better work together with ``with multilambda``
-    (which expands in the first pass, to eliminate semantic surprises).
+    (which expands outside-in, to eliminate semantic surprises).
     """
-    if isdo(tree):
-        stop()
-        thebody = ExpandedDoView(tree).body
-        for thelambda in thebody:  # lambda e: ...
-            # NOTE: If a collecting Walker recurses further to collect in a
-            # branch that has already called `stop()`, the results must be
-            # propagated manually.
-            for theid in detect_lambda.collect(thelambda.body):
-                collect(theid)
-    if type(tree) is Lambda:
-        collect(id(tree))
-    return tree
+    class LambdaDetector(ASTVisitor):
+        def examine(self, tree):
+            if isdo(tree):
+                thebody = ExpandedDoView(tree).body
+                for thelambda in thebody:  # lambda e: ...
+                    self.visit(thelambda.body)
+                return  # don't recurse generically, we already did it selectively
+            if type(tree) is Lambda:
+                self.collect(id(tree))
+            self.generic_visit(tree)
+    d = LambdaDetector()
+    d.visit(tree)
+    return d.collected
 
 def is_decorator(tree, fname):
     """Test tree whether it is the decorator ``fname``.
@@ -236,25 +242,24 @@ def sort_lambda_decorators(tree):
             if is_lambda_decorator(tree, fname):
                 return k
         # Only happens if called for a `tree` containing unknown (not registered) decorators.
-        x = getname(tree.func) if type(tree) is Call else "<unknown>"  # pragma: no cover
-        raise SyntaxError(f"Only registered decorators can be auto-sorted, '{x}' is not; see unpythonic.regutil")  # pragma: no cover
+        x = getname(tree.func) if type(tree) is Call else tree  # pragma: no cover
+        raise SyntaxError(f"Only registered decorators can be auto-sorted, {repr(x)} is not; see unpythonic.regutil")  # pragma: no cover
 
-    @Walker
-    def fixit(tree, *, stop, **kw):
-        # we can robustly sort only decorators for which we know the correct ordering.
-        if is_decorated_lambda(tree, mode="known"):
-            decorator_list, thelambda = destructure_decorated_lambda(tree)
-            # We can just swap the func attributes of the nodes.
-            ordered_decorator_list = sorted(decorator_list, key=prioritize)
-            ordered_funcs = [x.func for x in ordered_decorator_list]
-            for thecall, newfunc in zip(decorator_list, ordered_funcs):
-                thecall.func = newfunc
-            # don't recurse on the tail of the "decorator list" (call chain),
-            # but recurse into the lambda body.
-            stop()
-            fixit.recurse(thelambda.body)
-        return tree
-    return fixit.recurse(tree)
+    class FixIt(ASTTransformer):
+        def transform(self, tree):
+            # we can robustly sort only decorators for which we know the correct ordering.
+            if is_decorated_lambda(tree, mode="known"):
+                decorator_list, thelambda = destructure_decorated_lambda(tree)
+                # We can just swap the func attributes of the nodes.
+                ordered_decorator_list = sorted(decorator_list, key=prioritize)
+                ordered_funcs = [x.func for x in ordered_decorator_list]
+                for thecall, newfunc in zip(decorator_list, ordered_funcs):
+                    thecall.func = newfunc
+                # don't recurse on the tail of the "decorator list" (call chain),
+                # but recurse into the lambda body.
+                return self.visit(thelambda.body)
+            return self.generic_visit(tree)
+    return FixIt().visit(tree)
 
 # TODO: should we just sort the decorators here, like we do for lambdas?
 # (The current solution is less magic, but less uniform.)
@@ -373,6 +378,7 @@ def transform_statements(f, body):
 
     The return value is the transformed ``body``.
     """
+    # TODO: This could be a `mcpyrate.walkers.ASTTransformer` too.
     class StatementTransformer(NodeTransformer):
         def visit(self, node):
             if isinstance(node, list):  # multiple-statement body in AST

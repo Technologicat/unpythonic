@@ -45,9 +45,9 @@ some corner cases in the usage of `let` and `do`.
 As of v0.14.3, a fully lexical mode has been added to `get_lexical_variables`
 (which, up to v0.14.2, used to be called `getshadowers`), and is enabled by default.
 
-It is disabled when `scoped_walker` calls `get_lexical_variables`, to preserve
+It is disabled when `scoped_transform` calls `get_lexical_variables`, to preserve
 old behavior until the next opportunity for a public interface change.
-In v0.15.0, we will make `scoped_walker` use the fully lexical mode.
+In v0.15.0, we will make `scoped_transform` use the fully lexical mode.
 
 
 **NOTE**:
@@ -71,7 +71,7 @@ from ast import (Name, Tuple, Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
                  Import, ImportFrom, Try, ListComp, SetComp, GeneratorExp,
                  DictComp, Store, Del, Global, Nonlocal)
 
-from macropy.core.walkers import Walker
+from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from ..it import uniqify
 
@@ -82,46 +82,69 @@ def isnewscope(tree):
     """
     return type(tree) in (Lambda, FunctionDef, AsyncFunctionDef, ClassDef, ListComp, SetComp, GeneratorExp, DictComp)
 
-# TODO: For generality, add a possibility for the callback to use stop()?
-# TODO: See if we could use MacroPy's @Scoped @Walker instead, to reduce code duplication.
-#       As of MacroPy 1.1.0b2, it doesn't seem to support `global` and `nonlocal`.
-@Walker
-def scoped_walker(tree, *, localvars=[], args=[], nonlocals=[], callback, set_ctx, stop, **kw):
+# TODO: make this fit `mcpyrate`'s `ASTTransformer` paradigm better.
+# TODO: maybe allow passing initial args, localvars, nonlocals?
+def scoped_transform(tree, *, callback):
     """Walk and process a tree, keeping track of which names are in scope.
 
-    This essentially equips a custom AST walker with scope analysis.
+    This essentially equips a custom AST transformer with scope analysis.
 
     `callback`: callable, (tree, names_in_scope) --> tree
                 Called for each AST node of the input `tree`, to perform the
                 real work. It may edit the tree in-place.
+
+    **CAUTION**: `scoped_transform` handles recursion; the `callback` should
+                 only treat the top level of the `tree` it gets.
+
+                 Also, there is currently no way for `callback` to prevent
+                 further recursion into the child nodes.
     """
-    if type(tree) in (Lambda, ListComp, SetComp, GeneratorExp, DictComp, ClassDef):
-        moreargs, _ = get_lexical_variables(tree, collect_locals=False)
-        set_ctx(args=(args + moreargs))
-    elif type(tree) in (FunctionDef, AsyncFunctionDef):
-        stop()
-        moreargs, newnonlocals = get_lexical_variables(tree, collect_locals=False)
-        args = args + moreargs
-        for expr in (tree.args, tree.decorator_list):
-            scoped_walker.recurse(expr, localvars=localvars, args=args, nonlocals=nonlocals, callback=callback)
-        nonlocals = newnonlocals
-        localvars = []
-        for stmt in tree.body:
-            scoped_walker.recurse(stmt, localvars=localvars, args=args, nonlocals=nonlocals, callback=callback)
-            # new local variables come into scope at the next statement (not yet on the RHS of the assignment).
-            newlocalvars = uniqify(get_names_in_store_context.collect(stmt))
-            newlocalvars = [x for x in newlocalvars if x not in nonlocals]
-            if newlocalvars:
-                localvars = localvars + newlocalvars
-            # deletions of local vars also take effect from the next statement
-            deletedlocalvars = uniqify(get_names_in_del_context.collect(stmt))
-            # ignore deletion of nonlocals (too dynamic for a static analysis to make sense)
-            deletedlocalvars = [x for x in deletedlocalvars if x not in nonlocals]
-            if deletedlocalvars:
-                localvars = [x for x in localvars if x not in deletedlocalvars]
-        return tree
-    names_in_scope = args + localvars + nonlocals
-    return callback(tree, names_in_scope)
+    class ScopedTransformer(ASTTransformer):
+        def transform(self, tree):
+            args = self.state.args
+            localvars = self.state.localvars
+            nonlocals = self.state.nonlocals
+            if type(tree) in (Lambda, ListComp, SetComp, GeneratorExp, DictComp, ClassDef):
+                moreargs, _ = get_lexical_variables(tree, collect_locals=False)
+                self.generic_withstate(tree, args=(args + moreargs))
+            elif type(tree) in (FunctionDef, AsyncFunctionDef):
+                # Decorator list is processed in the surrounding scope
+                tree.decorator_list = self.visit(tree.decorator_list)
+
+                moreargs, newnonlocals = get_lexical_variables(tree, collect_locals=False)
+
+                # The function parameters see each other (TODO: check if this is right)
+                self.withstate(tree.args, args=(args + moreargs))
+                tree.args = self.visit(tree.args)
+
+                # The body sees the parameters and any new nonlocals
+                args += moreargs
+                nonlocals = newnonlocals
+                newbody = []
+                for stmt in tree.body:
+                    self.withstate(stmt, args=args, localvars=localvars, nonlocals=nonlocals)
+                    stmt = self.visit(stmt)
+                    if stmt:  # allow deletions by the custom transformer
+                        newbody.append(stmt)
+                    # new local variables come into scope at the next statement (not yet on the RHS of the assignment).
+                    # TODO: Nonsense, scoping is a purely lexical thing. Fix this.
+                    newlocalvars = uniqify(get_names_in_store_context(stmt))
+                    newlocalvars = [x for x in newlocalvars if x not in nonlocals]
+                    if newlocalvars:
+                        localvars = localvars + newlocalvars
+                    # deletions of local vars also take effect from the next statement
+                    deletedlocalvars = uniqify(get_names_in_del_context(stmt))
+                    # ignore deletion of nonlocals (too dynamic for a static analysis to make sense)
+                    deletedlocalvars = [x for x in deletedlocalvars if x not in nonlocals]
+                    if deletedlocalvars:
+                        localvars = [x for x in localvars if x not in deletedlocalvars]
+                tree.body[:] = newbody  # avoid changing the id()
+                return tree
+            names_in_scope = args + localvars + nonlocals
+            tree = callback(tree, names_in_scope)
+            if tree:  # allow deletions by the custom transformer
+                return self.generic_visit(tree)
+    return ScopedTransformer(args=[], localvars=[], nonlocals=[]).visit(tree)
 
 def get_lexical_variables(tree, collect_locals=True):
     """In a tree representing a lexical scope, get names currently in scope.
@@ -151,7 +174,7 @@ def get_lexical_variables(tree, collect_locals=True):
 
               If `collect_locals` is `False`, assignment LHSs are ignored. It is then
               the caller's responsibility to perform the appropriate dynamic analysis,
-              although doing so doesn't fully make sense. See `scoped_walker` for an
+              although doing so doesn't fully make sense. See `scoped_transform` for an
               example of how to do that.
 
         - names of comprehension targets in ``ListComp``, ``SetComp``,
@@ -190,17 +213,18 @@ def get_lexical_variables(tree, collect_locals=True):
             fname = [tree.name]
 
             if collect_locals:
-                localvars = list(uniqify(get_names_in_store_context.collect(tree.body)))
+                localvars = list(uniqify(get_names_in_store_context(tree.body)))
 
-            @Walker
-            def getnonlocals(tree, *, stop, collect, **kw):
-                if isnewscope(tree):
-                    stop()
-                if type(tree) in (Global, Nonlocal):
-                    for x in tree.names:
-                        collect(x)
-                return tree
-            nonlocals = getnonlocals.collect(tree.body)
+            class NonlocalsCollector(ASTVisitor):
+                def examine(self, tree):
+                    if type(tree) in (Global, Nonlocal):
+                        for x in tree.names:
+                            self.collect(x)
+                    if not isnewscope(tree):
+                        self.generic_visit(tree)
+            nc = NonlocalsCollector()
+            nc.visit(tree.body)
+            nonlocals = nc.collected
 
         return list(uniqify(fname + argnames + localvars)), list(uniqify(nonlocals))
 
@@ -211,7 +235,7 @@ def get_lexical_variables(tree, collect_locals=True):
         # TODO: (``mymod.myclass``) or a ``Subscript`` (``my_list_of_classes[0]``).
         bases = [b.id for b in tree.bases if type(b) is Name]
         # these are referred to via self.foo, not by bare names.
-#        classattrs = _get_names_in_store_context.collect(tree.body)
+#        classattrs = get_names_in_store_context(tree.body)
 #        methods = [f.name for f in tree.body if type(f) is FunctionDef]
         return list(uniqify(cname + bases)), []
 
@@ -237,18 +261,20 @@ def get_lexical_variables(tree, collect_locals=True):
         # So, for example, if we're analyzing a `ListComp`, the
         # targets *at that level* will be in scope *for that ListComp*
         # (and any nested listcomps, which is why we provide the
-        # `scoped_walker`.)
+        # `scoped_transform`.)
         targetnames = []
         for g in tree.generators:
             if type(g.target) is Name:
                 targetnames.append(g.target.id)
             elif type(g.target) is Tuple:
-                @Walker
-                def extractnames(tree, *, collect, **kw):
-                    if type(tree) is Name:
-                        collect(tree.id)
-                    return tree
-                targetnames.extend(extractnames.collect(g.target))
+                class NamesCollector(ASTVisitor):
+                    def examine(self, tree):
+                        if type(tree) is Name:
+                            self.collect(tree.id)
+                        self.generic_visit(tree)
+                nc = NamesCollector()
+                nc.visit(g.target)
+                targetnames.extend(nc.collected)
             else:  # pragma: no cover
                 raise SyntaxError(f"Scope analyzer: unimplemented: comprehension target of type {type(g.target)}")
 
@@ -256,8 +282,7 @@ def get_lexical_variables(tree, collect_locals=True):
 
     assert False  # cannot happen  # pragma: no cover
 
-@Walker
-def get_names_in_store_context(tree, *, stop, collect, **kw):
+def get_names_in_store_context(tree):
     """In a tree representing a statement, get names bound by that statement.
 
     This includes:
@@ -283,64 +308,71 @@ def get_names_in_store_context(tree, *, stop, collect, **kw):
     by ``get_lexical_variables`` for the nearest lexically surrounding parent
     tree that represents a scope.
     """
-    # def collect_name_or_list(t):
-    #     if type(t) is Name:
-    #         collect(t.id)
-    #     elif type(t) in (Tuple, List):
-    #         for x in t.elts:
-    #             collect_name_or_list(x)
-    #     else:
-    #         raise SyntaxError(f"Scope analyzer: unimplemented: collect names from type {type(t)}")
+    class StoreNamesCollector(ASTVisitor):
+        # def _collect_name_or_list(self, t):
+        #     if type(t) is Name:
+        #         self.collect(t.id)
+        #     elif type(t) in (Tuple, List):
+        #         for x in t.elts:
+        #             _collect_name_or_list(x)
+        #     else:
+        #         raise SyntaxError(f"Scope analyzer: unimplemented: collect names from type {type(t)}")
 
-    # https://docs.python.org/3/reference/executionmodel.html#binding-of-names
-    # Useful article: http://excess.org/article/2014/04/bar-foo/
-    if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
-        collect(tree.name)
-    # We don't need to handle for loops specially; the targets are Name nodes in Store context.
-    # elif type(tree) in (For, AsyncFor):
-    #     collect_name_or_list(tree.target)
-    elif type(tree) in (Import, ImportFrom):
-        for x in tree.names:
-            collect(x.asname if x.asname is not None else x.name)
-    elif type(tree) is Try:
-        # https://docs.python.org/3/reference/compound_stmts.html#the-try-statement
-        #
-        # TODO: The `err` in  `except SomeException as err` is only bound within the `except` block,
-        # TODO: not elsewhere in the parent scope. But we don't have the machinery to make that distinction,
-        # TODO: so for now we pretend it's bound in the whole parent scope. Usually the same name is not
-        # TODO: used for anything else in the same scope, so in practice this (although wrong) is often fine.
-        #
-        # TODO: We can't cheat by handling `Try` as a new scope, because any other name bound inside the
-        # TODO: `try`, even inside the `except` blocks, will be bound in the whole parent scope.
-        for h in tree.handlers:
-            collect(h.name)
-    # Same note as for for loops.
-    # elif type(tree) in (With, AsyncWith):
-    #     for item in tree.items:
-    #         if item.optional_vars is not None:
-    #             collect_name_or_list(item.optional_vars)
-    if isnewscope(tree):
-        stop()
-    # macro-created nodes might not have a ctx, but our macros don't create lexical assignments.
-    if type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Store:
-        collect(tree.id)
-    return tree
+        def examine(self, tree):
+            # https://docs.python.org/3/reference/executionmodel.html#binding-of-names
+            # Useful article: http://excess.org/article/2014/04/bar-foo/
+            if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
+                self.collect(tree.name)
+            # We don't need to handle for loops specially; the targets are Name nodes in Store context.
+            # elif type(tree) in (For, AsyncFor):
+            #     self._collect_name_or_list(tree.target)
+            elif type(tree) in (Import, ImportFrom):
+                for x in tree.names:
+                    self.collect(x.asname if x.asname is not None else x.name)
+            elif type(tree) is Try:
+                # https://docs.python.org/3/reference/compound_stmts.html#the-try-statement
+                #
+                # TODO: The `err` in  `except SomeException as err` is only bound within the `except` block,
+                # TODO: not elsewhere in the parent scope. But we don't have the machinery to make that distinction,
+                # TODO: so for now we pretend it's bound in the whole parent scope. Usually the same name is not
+                # TODO: used for anything else in the same scope, so in practice this (although wrong) is often fine.
+                #
+                # TODO: We can't cheat by handling `Try` as a new scope, because any other name bound inside the
+                # TODO: `try`, even inside the `except` blocks, will be bound in the whole parent scope.
+                for h in tree.handlers:
+                    self.collect(h.name)
+            # Same note as for for loops.
+            # elif type(tree) in (With, AsyncWith):
+            #     for item in tree.items:
+            #         if item.optional_vars is not None:
+            #             self._collect_name_or_list(item.optional_vars)
+            # macro-created nodes might not have a ctx, but our macros don't create lexical assignments.
+            if type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Store:
+                self.collect(tree.id)
+            if not isnewscope(tree):
+                self.generic_visit(tree)
+    nc = StoreNamesCollector()
+    nc.visit(tree)
+    return nc.collected
 
-@Walker
-def get_names_in_del_context(tree, *, stop, collect, **kw):
+def get_names_in_del_context(tree):
     """In a tree representing a statement, get names in del context.
 
     **Note**: This is intended for static analysis of lexical variables.
     We detect `del x` only, ignoring `del o.x` and `del d['x']`, because
     those don't delete the lexical variables `o` and `d`.
     """
-    if isnewscope(tree):
-        stop()
-    # We want to detect things like "del x":
-    #     Delete(targets=[Name(id='x', ctx=Del()),])
-    # We don't currently care about "del myobj.x" or "del mydict['x']" (these examples in Python 3.6):
-    #     Delete(targets=[Attribute(value=Name(id='myobj', ctx=Load()), attr='x', ctx=Del()),])
-    #     Delete(targets=[Subscript(value=Name(id='mydict', ctx=Load()), slice=Index(value=Str(s='x')), ctx=Del()),])
-    elif type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Del:
-        collect(tree.id)
-    return tree
+    class DelNamesCollector(ASTVisitor):
+        def examine(self, tree):
+            # We want to detect things like "del x":
+            #     Delete(targets=[Name(id='x', ctx=Del()),])
+            # We don't currently care about "del myobj.x" or "del mydict['x']" (these examples in Python 3.6):
+            #     Delete(targets=[Attribute(value=Name(id='myobj', ctx=Load()), attr='x', ctx=Del()),])
+            #     Delete(targets=[Subscript(value=Name(id='mydict', ctx=Load()), slice=Index(value=Str(s='x')), ctx=Del()),])
+            if type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Del:
+                self.collect(tree.id)
+            if not isnewscope(tree):
+                self.generic_visit(tree)
+    nc = DelNamesCollector()
+    nc.visit(tree)
+    return nc.collected

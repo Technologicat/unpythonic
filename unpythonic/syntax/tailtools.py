@@ -18,9 +18,9 @@ import sys
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from macropy.core.macros import macro_stub
-from macropy.core.walkers import Walker
 
 from mcpyrate import gensym
+from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from .astcompat import getconstant, NameConstant
 from .util import (isx, make_isxpred, isec,
@@ -37,14 +37,14 @@ from ..tco import trampolined, jump
 from ..lazyutil import passthrough_lazy_args
 
 # -----------------------------------------------------------------------------
-# Implicit return. This performs a tail-position analysis of function bodies.
+# Implicit return statement. This performs a tail-position analysis of function bodies.
 
 def autoreturn(block_body):
-    @Walker
-    def transform_fdef(tree, **kw):
-        if type(tree) in (FunctionDef, AsyncFunctionDef):
-            tree.body[-1] = transform_tailstmt(tree.body[-1])
-        return tree
+    class AutoreturnTransformer(ASTTransformer):
+        def transform(self, tree):
+            if type(tree) in (FunctionDef, AsyncFunctionDef):
+                tree.body[-1] = transform_tailstmt(tree.body[-1])
+            return self.generic_visit(tree)
     def transform_tailstmt(tree):
         # TODO: For/AsyncFor/While?
         if type(tree) is If:
@@ -67,14 +67,14 @@ def autoreturn(block_body):
         return tree
     # This is a first-pass macro. Any nested macros should get clean standard Python,
     # not having to worry about implicit "return" statements.
-    return transform_fdef.recurse(block_body)
+    return AutoreturnTransformer().visit(block_body)
 
 # -----------------------------------------------------------------------------
 # Automatic TCO. This is the same framework as in "continuations", in its simplest form.
 
 def tco(block_body):
     # first pass, outside-in
-    userlambdas = detect_lambda.collect(block_body)
+    userlambdas = detect_lambda(block_body)
     known_ecs = list(uniqify(detect_callec(block_body)))
 
     block_body = dyn._macro_expander.visit(block_body)
@@ -89,19 +89,20 @@ def tco(block_body):
             new_block_body.append(stmt)
             continue
 
-        stmt = _tco_transform_return.recurse(stmt, known_ecs=known_ecs,
-                                             transform_retexpr=transform_retexpr)
-        stmt = _tco_transform_def.recurse(stmt, preproc_cb=None)
-        stmt = _tco_transform_lambda.recurse(stmt, preproc_cb=None,
-                                             userlambdas=userlambdas,
-                                             known_ecs=known_ecs,
-                                             transform_retexpr=transform_retexpr)
+        stmt = _tco_transform_return(stmt, known_ecs=known_ecs,
+                                     transform_retexpr=transform_retexpr)
+        stmt = _tco_transform_def(stmt, preproc_cb=None)
+        stmt = _tco_transform_lambda(stmt, preproc_cb=None,
+                                     userlambdas=userlambdas,
+                                     known_ecs=known_ecs,
+                                     transform_retexpr=transform_retexpr)
         stmt = sort_lambda_decorators(stmt)
         new_block_body.append(stmt)
     return new_block_body
 
 # -----------------------------------------------------------------------------
 
+# TODO: make call_cc a magic variable that errors out if mentioned outside a `with continuations`.
 @macro_stub
 def call_cc(tree, **kw):
     """[syntax] Only meaningful in a "with continuations" block.
@@ -172,7 +173,7 @@ def continuations(block_body):
     # to pass in varargs.
 
     # first pass, outside-in
-    userlambdas = detect_lambda.collect(block_body)
+    userlambdas = detect_lambda(block_body)
     known_ecs = list(uniqify(detect_callec(block_body)))
 
     block_body = dyn._macro_expander.visit(block_body)
@@ -426,11 +427,11 @@ def continuations(block_body):
             else:
                 newstmts.append(Expr(value=q[a[thecall]]))
         return newstmts
-    @Walker  # find and transform call_cc[] statements inside function bodies
-    def transform_callccs(tree, **kw):
-        if type(tree) in (FunctionDef, AsyncFunctionDef):
-            tree.body = transform_callcc(tree, tree.body)
-        return tree
+    class CallccTransformer(ASTTransformer):  # find and transform call_cc[] statements inside function bodies
+        def transform(self, tree):
+            if type(tree) in (FunctionDef, AsyncFunctionDef):
+                tree.body = transform_callcc(tree, tree.body)
+            return self.generic_visit(tree)
     def transform_callcc(owner, body):
         # owner: FunctionDef or AsyncFunctionDef node, or None (top level of block)
         # body: list of stmts
@@ -441,15 +442,15 @@ def continuations(block_body):
             body = before + make_continuation(owner, callcc, contbody=after)
         return body
     # TODO: improve error reporting for stray call_cc[] invocations
-    @Walker
-    def check_for_strays(tree, **kw):
-        if iscallcc(tree):
-            raise SyntaxError("call_cc[...] only allowed at the top level of a def or async def, or at the top level of the block; must appear as an expr or an assignment RHS")  # pragma: no cover
-        if type(tree) in (Assign, Expr):
-            v = tree.value
-            if type(v) is Call and type(v.func) is Name and v.func.id == "call_cc":
-                raise SyntaxError("call_cc(...) should be call_cc[...] (note brackets; it's a macro)")  # pragma: no cover
-        return tree
+    class StrayChecker(ASTVisitor):
+        def examine(self, tree):
+            if iscallcc(tree):
+                raise SyntaxError("call_cc[...] only allowed at the top level of a def or async def, or at the top level of the block; must appear as an expr or an assignment RHS")  # pragma: no cover
+            if type(tree) in (Assign, Expr):
+                v = tree.value
+                if type(v) is Call and type(v.func) is Name and v.func.id == "call_cc":
+                    raise SyntaxError("call_cc(...) should be call_cc[...] (note brackets; it's a macro)")  # pragma: no cover
+            self.generic_visit(tree)
 
     # -------------------------------------------------------------------------
     # Main processing logic begins here
@@ -463,29 +464,31 @@ def continuations(block_body):
             raise SyntaxError("'return' not allowed at the top level of a 'with continuations' block")  # pragma: no cover
 
     # Since we transform **all** returns (even those with an inert data value)
-    # into tail calls (to cc), we must insert any missing implicit "return"
+    # into tail calls (to cc), we must insert any missing implicit bare "return"
     # statements so that _tco_transform_return() sees them.
-    @Walker
-    def add_implicit_bare_return(tree, **kw):
-        if type(tree) in (FunctionDef, AsyncFunctionDef):
-            if type(tree.body[-1]) is not Return:
-                tree.body.append(Return(value=None,  # bare "return"
-                                        lineno=tree.lineno, col_offset=tree.col_offset))
-        return tree
-    block_body = [add_implicit_bare_return.recurse(stmt) for stmt in block_body]
+    #
+    # Note that a bare "return" returns `None`, but in the AST `return` looks
+    # different from `return None`.
+    class ImplicitBareReturnInjector(ASTTransformer):
+        def transform(self, tree):
+            if type(tree) in (FunctionDef, AsyncFunctionDef):
+                if type(tree.body[-1]) is not Return:
+                    tree.body.append(Return(value=None,  # bare "return"
+                                            lineno=tree.lineno, col_offset=tree.col_offset))
+            return self.generic_visit(tree)
+    block_body = ImplicitBareReturnInjector().visit(block_body)
 
     # transform "return" statements before call_cc[] invocations generate new ones.
-    block_body = [_tco_transform_return.recurse(stmt, known_ecs=known_ecs,
-                                                transform_retexpr=transform_retexpr)
+    block_body = [_tco_transform_return(stmt, known_ecs=known_ecs,
+                                        transform_retexpr=transform_retexpr)
                      for stmt in block_body]
 
     # transform call_cc[] invocations
     block_body = transform_callcc(owner=None, body=block_body)  # at top level
-    block_body = [transform_callccs.recurse(stmt) for stmt in block_body]  # inside defs
+    block_body = CallccTransformer().visit(block_body)  # inside defs
     # Validate. Each call_cc[] reached by the transformer was in a syntactically correct
     # position and has now been eliminated. Any remaining ones indicate syntax errors.
-    for stmt in block_body:
-        check_for_strays.recurse(stmt)
+    StrayChecker().visit(block_body)
 
     # set up the default continuation that just returns its args
     # (the top-level "cc" is only used for continuations created by call_cc[] at the top level of the block)
@@ -493,11 +496,11 @@ def continuations(block_body):
 
     # transform all defs (except the chaining handler), including those added by call_cc[].
     for stmt in block_body:
-        stmt = _tco_transform_def.recurse(stmt, preproc_cb=transform_args)
-        stmt = _tco_transform_lambda.recurse(stmt, preproc_cb=transform_args,
-                                             userlambdas=userlambdas,
-                                             known_ecs=known_ecs,
-                                             transform_retexpr=transform_retexpr)
+        stmt = _tco_transform_def(stmt, preproc_cb=transform_args)
+        stmt = _tco_transform_lambda(stmt, preproc_cb=transform_args,
+                                     userlambdas=userlambdas,
+                                     known_ecs=known_ecs,
+                                     transform_retexpr=transform_retexpr)
         stmt = sort_lambda_decorators(stmt)
         new_block_body.append(stmt)
 
@@ -509,73 +512,77 @@ def continuations(block_body):
 
 # -----------------------------------------------------------------------------
 
-@Walker
-def _tco_transform_def(tree, *, preproc_cb, **kw):
-    if type(tree) in (FunctionDef, AsyncFunctionDef):
-        if preproc_cb:
-            tree = preproc_cb(tree)
-        # Enable TCO if not TCO'd already.
-        if not has_tco(tree):
-            k = suggest_decorator_index("trampolined", tree.decorator_list)
-            if k is not None:
-                tree.decorator_list.insert(k, q[h[trampolined]])
-            else:  # couldn't determine insert position; just plonk it at the start and hope for the best
-                tree.decorator_list.insert(0, q[h[trampolined]])
-    return tree
+def _tco_transform_def(tree, *, preproc_cb):
+    class TcoDefTransformer(ASTTransformer):
+        def transform(self, tree):
+            if type(tree) in (FunctionDef, AsyncFunctionDef):
+                if preproc_cb:
+                    tree = preproc_cb(tree)
+                # Enable TCO if not TCO'd already.
+                if not has_tco(tree):
+                    k = suggest_decorator_index("trampolined", tree.decorator_list)
+                    if k is not None:
+                        tree.decorator_list.insert(k, q[h[trampolined]])
+                    else:  # couldn't determine insert position; just plonk it at the start and hope for the best
+                        tree.decorator_list.insert(0, q[h[trampolined]])
+            return self.generic_visit(tree)
+    return TcoDefTransformer().visit(tree)
 
 # Transform return statements and calls to escape continuations (ec).
 # known_ecs: list of names (str) of known escape continuations.
 # transform_retexpr: return-value expression transformer (for TCO and stuff).
-@Walker
-def _tco_transform_return(tree, *, known_ecs, transform_retexpr, **kw):
-    if type(tree) is Return:
-        non = q[None]
-        non = copy_location(non, tree)
-        value = tree.value or non  # return --> return None  (bare return has value=None in the AST)
-        if not isec(value, known_ecs):
-            return Return(value=transform_retexpr(value, known_ecs))
-        else:
-            # An ec call already escapes, so the return is redundant.
-            #
-            # If someone writes "return ec(...)" in a "with continuations" block,
-            # this cleans up the code, since eliminating the "return" allows us
-            # to omit a redundant "let".
-            return Expr(value=value)  # return ec(...) --> ec(...)
-    elif isec(tree, known_ecs):  # TCO the arg of an ec(...) call
-        if len(tree.args) > 1:
-            raise SyntaxError("expected exactly one argument for escape continuation")  # pragma: no cover
-        tree.args[0] = transform_retexpr(tree.args[0], known_ecs)
-    return tree
+def _tco_transform_return(tree, *, known_ecs, transform_retexpr):
+    class TcoReturnTransformer(ASTTransformer):
+        def transform(self, tree):
+            if type(tree) is Return:
+                non = q[None]
+                non = copy_location(non, tree)
+                value = tree.value or non  # return --> return None  (bare return has value=None in the AST)
+                if not isec(value, known_ecs):
+                    tree = Return(value=transform_retexpr(value, known_ecs))
+                else:
+                    # An ec call already escapes, so the return is redundant.
+                    #
+                    # If someone writes "return ec(...)" in a "with continuations" block,
+                    # this cleans up the code, since eliminating the "return" allows us
+                    # to omit a redundant "let".
+                    tree = Expr(value=value)  # return ec(...) --> ec(...)
+            elif isec(tree, known_ecs):  # TCO the arg of an ec(...) call
+                if len(tree.args) > 1:
+                    raise SyntaxError("expected exactly one argument for escape continuation")  # pragma: no cover
+                tree.args[0] = transform_retexpr(tree.args[0], known_ecs)
+            return self.generic_visit(tree)
+    return TcoReturnTransformer().visit(tree)
 
 # userlambdas: list of ids; the purpose is to avoid transforming lambdas implicitly added by macros (do, let).
-@Walker
-def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform_retexpr, stop, set_ctx, hastco=False, **kw):
-    # Detect a userlambda which already has TCO applied.
-    #
-    # Note at this point we haven't seen the lambda; at most, we're examining
-    # a Call node. The checker internally descends if tree looks promising.
-    if type(tree) is Call and has_tco(tree, userlambdas):
-        set_ctx(hastco=True)  # the lambda inside the trampolined(...) is the next Lambda node we will descend into.
-    elif type(tree) is Lambda and id(tree) in userlambdas:
-        if preproc_cb:
-            tree = preproc_cb(tree)
-        tree.body = transform_retexpr(tree.body, known_ecs)
-        lam = tree
-        if not hastco:  # Enable TCO if not TCO'd already.
-            # Just slap it on; we will sort_lambda_decorators() later.
-            tree = q[h[trampolined](a[tree])]
-        # don't recurse on the lambda we just moved, but recurse inside it.
-        stop()
-        _tco_transform_lambda.recurse(lam.body,
-                                      preproc_cb=preproc_cb,
-                                      userlambdas=userlambdas,
-                                      known_ecs=known_ecs,
-                                      transform_retexpr=transform_retexpr,
-                                      hastco=False)
-    return tree
+def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform_retexpr):
+    class TcoLambdaTransformer(ASTTransformer):
+        def transform(self, tree):
+            hastco = self.state.hastco
+            # Detect a userlambda which already has TCO applied.
+            #
+            # Note at this point we haven't seen the lambda; at most, we're examining
+            # a Call node. The checker internally descends if tree looks promising.
+            if type(tree) is Call and has_tco(tree, userlambdas):
+                self.generic_withstate(hastco=True)  # the lambda inside the trampolined(...) is the next Lambda node we will descend into.
+            elif type(tree) is Lambda and id(tree) in userlambdas:
+                if preproc_cb:
+                    tree = preproc_cb(tree)
+                tree.body = transform_retexpr(tree.body, known_ecs)
+                lam = tree
+                if not hastco:  # Enable TCO if not TCO'd already.
+                    # Just slap it on; we will sort_lambda_decorators() later.
+                    tree = q[h[trampolined](a[tree])]
+                # don't recurse on the lambda we just moved, but recurse inside it.
+                self.withstate(lam.body, hastco=False)
+                lam.body = self.visit(lam.body)
+                return tree
+            return self.generic_visit(tree)
+    return TcoLambdaTransformer(hastco=False).visit(tree)
 
 # Tail-position analysis for a return-value expression (also the body of a lambda).
-# Here we need to be very, very selective about where to recurse so this is not a Walker.
+# Here we need to be very, very selective about where to recurse so this would not
+# benefit much from being made into an ASTTransformer. Just a function is fine.
 _isjump = orf(make_isxpred("jump"), make_isxpred("loop"))
 def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
     """Analyze and TCO a return-value expression or a lambda body.

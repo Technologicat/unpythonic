@@ -12,7 +12,7 @@ from ...syntax.scopeanalyzer import (isnewscope,
                                      get_names_in_store_context,
                                      get_names_in_del_context,
                                      get_lexical_variables,
-                                     scoped_walker)
+                                     scoped_transform)
 
 def runtests():
     # test data
@@ -50,8 +50,8 @@ def runtests():
         test[isnewscope(q[{x: x**2 for x in range(10)}])]  # DictComp
 
     with testset("get_names_in_store_context"):
-        test[get_names_in_store_context.collect(getnames_load) == []]
-        test[get_names_in_store_context.collect(getnames_del) == []]
+        test[get_names_in_store_context(getnames_load) == []]
+        test[get_names_in_store_context(getnames_del) == []]
 
         # Python has surprisingly many constructs for binding names.
         # https://docs.python.org/3/reference/executionmodel.html#binding-of-names
@@ -62,68 +62,68 @@ def runtests():
         # At least up to Python 3.7, all assignments produce Name nodes in
         # Store context on their LHS, so we don't need to care what kind of
         # assignment it is.
-        test[get_names_in_store_context.collect(getnames_store_simple) == ["x"]]
+        test[get_names_in_store_context(getnames_store_simple) == ["x"]]
         with q as getnames_tuple:
             x, y = 1, 2  # noqa: F841  # pragma: no cover
-        test[get_names_in_store_context.collect(getnames_tuple) == ["x", "y"]]
+        test[get_names_in_store_context(getnames_tuple) == ["x", "y"]]
         with q as getnames_starredtuple:
             x, y, *rest = range(5)  # noqa: F841  # pragma: no cover
-        test[get_names_in_store_context.collect(getnames_starredtuple) == ["x", "y", "rest"]]
+        test[get_names_in_store_context(getnames_starredtuple) == ["x", "y", "rest"]]
 
         # Function name, async function name, class name
         with q as getnames_func:
             def f1():  # pragma: no cover
                 pass
-        test[get_names_in_store_context.collect(getnames_func) == ["f1"]]
+        test[get_names_in_store_context(getnames_func) == ["f1"]]
         with q as getnames_afunc:  # Python 3.5+
             async def f2():  # pragma: no cover
                 pass
-        test[get_names_in_store_context.collect(getnames_afunc) == ["f2"]]
+        test[get_names_in_store_context(getnames_afunc) == ["f2"]]
         with q as getnames_class:
             class Classy:  # pragma: no cover
                 pass
-        test[get_names_in_store_context.collect(getnames_class) == ["Classy"]]
+        test[get_names_in_store_context(getnames_class) == ["Classy"]]
 
         # For loop target
         with q as getnames_for_simple:
             for x in range(5):  # pragma: no cover
                 pass
-        test[get_names_in_store_context.collect(getnames_for_simple) == ["x"]]
+        test[get_names_in_store_context(getnames_for_simple) == ["x"]]
         with q as getnames_for_tuple:
             for x, y in zip(range(5), range(5)):  # pragma: no cover
                 pass
-        test[get_names_in_store_context.collect(getnames_for_tuple) == ["x", "y"]]
+        test[get_names_in_store_context(getnames_for_tuple) == ["x", "y"]]
         with q as getnames_for_mixed:
             for j, (x, y) in enumerate(zip(range(5), range(5))):  # pragma: no cover
                 pass
-        test[get_names_in_store_context.collect(getnames_for_mixed) == ["j", "x", "y"]]
+        test[get_names_in_store_context(getnames_for_mixed) == ["j", "x", "y"]]
 
         # Async for loop target (Python 3.5+)
         with q as getnames_afor_simple:
             async def g1():  # pragma: no cover
                 async for x in range(5):
                     pass
-        test[get_names_in_store_context.collect(getnames_afor_simple) == ["g1"]]  # we stop at scope boundaries
-        test[get_names_in_store_context.collect(getnames_afor_simple[0].body) == ["x"]]
+        test[get_names_in_store_context(getnames_afor_simple) == ["g1"]]  # we stop at scope boundaries
+        test[get_names_in_store_context(getnames_afor_simple[0].body) == ["x"]]
         with q as getnames_afor_tuple:
             async def g2():  # pragma: no cover
                 async for x, y in zip(range(5), range(5)):
                     pass
-        test[get_names_in_store_context.collect(getnames_afor_tuple) == ["g2"]]
-        test[get_names_in_store_context.collect(getnames_afor_tuple[0].body) == ["x", "y"]]
+        test[get_names_in_store_context(getnames_afor_tuple) == ["g2"]]
+        test[get_names_in_store_context(getnames_afor_tuple[0].body) == ["x", "y"]]
         with q as getnames_afor_mixed:
             async def g3():  # pragma: no cover
                 async for j, (x, y) in enumerate(zip(range(5), range(5))):
                     pass
-        test[get_names_in_store_context.collect(getnames_afor_mixed) == ["g3"]]
-        test[get_names_in_store_context.collect(getnames_afor_mixed[0].body) == ["j", "x", "y"]]
+        test[get_names_in_store_context(getnames_afor_mixed) == ["g3"]]
+        test[get_names_in_store_context(getnames_afor_mixed[0].body) == ["j", "x", "y"]]
 
         # Import statement
         with q as getnames_import:
             import mymod  # noqa: F401  # pragma: no cover
             import yourmod as renamedmod  # noqa: F401  # pragma: no cover
             from othermod import original as renamed, other  # noqa: F401  # pragma: no cover
-        test[get_names_in_store_context.collect(getnames_import) == ["mymod", "renamedmod", "renamed", "other"]]
+        test[get_names_in_store_context(getnames_import) == ["mymod", "renamedmod", "renamed", "other"]]
 
         # Except clause target in try statement
         with q as getnames_try:
@@ -133,45 +133,45 @@ def runtests():
                 pass
             except KeyboardInterrupt as kbi:  # noqa: F841  # pragma: no cover
                 pass
-        test[get_names_in_store_context.collect(getnames_try) == ["err", "kbi"]]
+        test[get_names_in_store_context(getnames_try) == ["err", "kbi"]]
 
         # With statement target
         with q as getnames_with:
             with Manager() as boss:  # noqa: F821, F841  # pragma: no cover
                 pass
-        test[get_names_in_store_context.collect(getnames_with) == ["boss"]]
+        test[get_names_in_store_context(getnames_with) == ["boss"]]
 
         # Async with statement target (Python 3.5+)
         with q as getnames_awith:
             async def g4():  # pragma: no cover
                 async with Manager() as boss:  # noqa: F821, F841
                     pass
-        test[get_names_in_store_context.collect(getnames_awith) == ["g4"]]
-        test[get_names_in_store_context.collect(getnames_awith[0].body) == ["boss"]]
+        test[get_names_in_store_context(getnames_awith) == ["g4"]]
+        test[get_names_in_store_context(getnames_awith[0].body) == ["boss"]]
 
     with testset("get_names_in_del_context"):
-        test[get_names_in_del_context.collect(getnames_load) == []]
-        test[get_names_in_del_context.collect(getnames_store_simple) == []]
+        test[get_names_in_del_context(getnames_load) == []]
+        test[get_names_in_del_context(getnames_store_simple) == []]
 
-        test[get_names_in_del_context.collect(getnames_del) == ["x"]]
+        test[get_names_in_del_context(getnames_del) == ["x"]]
 
         # Intended for static analysis of lexical variables.
         # We ignore `del o.x` and `del d['x']`, because these
         # don't delete the lexical variables `o` and `d`.
         with q as getnames_del_attrib:
             del o.x  # noqa: F821, F841  # pragma: no cover
-        test[get_names_in_del_context.collect(getnames_del_attrib) == []]
+        test[get_names_in_del_context(getnames_del_attrib) == []]
 
         with q as getnames_del_subscript:
             del d["x"]  # noqa: F821, F841  # pragma: no cover
-        test[get_names_in_del_context.collect(getnames_del_subscript) == []]
+        test[get_names_in_del_context(getnames_del_subscript) == []]
 
         with q as getnames_del_scope_boundary:
             del x  # noqa: F821  # pragma: no cover
             def f3():  # pragma: no cover
                 del y  # noqa: F821
-        test[get_names_in_del_context.collect(getnames_del_scope_boundary) == ["x"]]
-        test[get_names_in_del_context.collect(getnames_del_scope_boundary[1].body) == ["y"]]
+        test[get_names_in_del_context(getnames_del_scope_boundary) == ["x"]]
+        test[get_names_in_del_context(getnames_del_scope_boundary[1].body) == ["y"]]
 
     with testset("get_lexical_variables"):
         with q as getlexvars_fdef:
@@ -214,7 +214,7 @@ def runtests():
         test[get_lexical_variables(getlexvars_listcomp_tuple_in_target[0].value) == (["x", "y"],
                                                                                      [])]
 
-    with testset("scoped_walker"):
+    with testset("scoped_transform"):
         def istestlocation(tree):  # mark where to apply the test[] in the walking process
             return type(tree) is Name and tree.id == "_apply_test_here_"
         def make_checker(expected_names):
@@ -229,38 +229,38 @@ def runtests():
         with q as scoped_onefunc:
             def f(x):  # noqa: F811  # pragma: no cover
                 n["_apply_test_here_"]
-        scoped_walker.recurse(scoped_onefunc, callback=make_checker(["f", "x"]))
+        scoped_transform(scoped_onefunc, callback=make_checker(["f", "x"]))
 
         with q as scoped_nestedfunc1:
             def f(x):  # noqa: F811  # pragma: no cover
                 n["_apply_test_here_"]
                 def g(y):
                     pass
-        scoped_walker.recurse(scoped_nestedfunc1, callback=make_checker(["f", "x"]))
+        scoped_transform(scoped_nestedfunc1, callback=make_checker(["f", "x"]))
 
         with q as scoped_nestedfunc2:
             def f(x):  # noqa: F811  # pragma: no cover
                 def g(y):
                     n["_apply_test_here_"]
-        scoped_walker.recurse(scoped_nestedfunc2, callback=make_checker(["f", "x", "g", "y"]))
+        scoped_transform(scoped_nestedfunc2, callback=make_checker(["f", "x", "g", "y"]))
 
         with q as scoped_classdef:
             class WorldClassy(Classy):  # noqa: F811  # pragma: no cover
                 n["_apply_test_here_"]
-        scoped_walker.recurse(scoped_classdef, callback=make_checker(["WorldClassy", "Classy"]))
+        scoped_transform(scoped_classdef, callback=make_checker(["WorldClassy", "Classy"]))
 
         with q as scoped_localvar1:
             def f():  # noqa: F811  # pragma: no cover
                 x = 42  # noqa: F841
                 n["_apply_test_here_"]
-        scoped_walker.recurse(scoped_localvar1, callback=make_checker(["f", "x"]))
+        scoped_transform(scoped_localvar1, callback=make_checker(["f", "x"]))
 
         # TODO: In 0.15.x, fully lexical scope analysis; update this test at that time.
         with q as scoped_localvar2:
             def f():  # noqa: F811  # pragma: no cover
                 n["_apply_test_here_"]
                 x = 42  # noqa: F841
-        scoped_walker.recurse(scoped_localvar2, callback=make_checker(["f"]))  # x not yet created
+        scoped_transform(scoped_localvar2, callback=make_checker(["f"]))  # x not yet created
 
         # TODO: In 0.15.x, fully lexical scope analysis; update this test at that time.
         with q as scoped_localvar3:
@@ -268,7 +268,7 @@ def runtests():
                 x = 42  # noqa: F841
                 del x
                 n["_apply_test_here_"]
-        scoped_walker.recurse(scoped_localvar3, callback=make_checker(["f"]))  # x already deleted
+        scoped_transform(scoped_localvar3, callback=make_checker(["f"]))  # x already deleted
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

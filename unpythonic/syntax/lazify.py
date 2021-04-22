@@ -6,7 +6,7 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef, Call, Name, Attribute,
 
 from mcpyrate.quotes import macros, q, a, h  # noqa: F401
 
-from macropy.core.walkers import Walker
+from mcpyrate.walkers import ASTTransformer
 
 from macropy.quick_lambda import macros, lazy  # noqa: F811, F401
 
@@ -87,24 +87,20 @@ _ctorcalls_that_take_exactly_one_positional_arg = {"tuple", "list", "set", "dict
 islazy = make_isxpred("lazy")  # unexpanded
 isLazy = make_isxpred("Lazy")  # expanded
 def lazyrec(tree):
-    @Walker
-    def transform(tree, *, stop, **kw):
+    # This helper doesn't need to recurse, so we don't need `ASTTransformer` here.
+    def transform(tree):
         if type(tree) in (Tuple, List, Set):
-            stop()
             tree.elts = [rec(x) for x in tree.elts]
         elif type(tree) is Dict:
-            stop()
             tree.values = [rec(x) for x in tree.values]
         elif type(tree) is Call and any(isx(tree.func, ctor) for ctor in _ctorcalls_all):
-            stop()
             p, k = _ctor_handling_modes[getname(tree.func)]
             tree = lazify_ctorcall(tree, p, k)
         elif type(tree) is Subscript and isx(tree.value, islazy):  # unexpanded
-            stop()  # pragma: no cover
+            pass
         elif type(tree) is Call and isx(tree.func, isLazy):  # expanded
-            stop()
+            pass
         else:
-            stop()
             # mcpyrate supports hygienic macro capture, so we can just splice unexpanded
             # (but hygienically unquoted) `lazy` invocations here.
             tree = q[h[lazy][a[tree]]]
@@ -132,7 +128,7 @@ def lazyrec(tree):
             elif keywords == "all" or is_literal_container(kw.value, maps_only=True):  # single named arg
                 kw.value = rec(kw.value)
 
-    rec = transform.recurse
+    rec = transform
     return rec(tree)
 
 def is_literal_container(tree, maps_only=False):
@@ -177,189 +173,196 @@ def is_literal_container(tree, maps_only=False):
 
 def lazify(body):
     # first pass, outside-in
-    userlambdas = detect_lambda.collect(body)
+    userlambdas = detect_lambda(body)
 
     body = dyn._macro_expander.visit(body)
 
     # second pass, inside-out
-    @Walker
-    def transform(tree, *, forcing_mode, stop, **kw):
-        def rec(tree, forcing_mode=forcing_mode):  # shorthand that defaults to current mode
-            return transform.recurse(tree, forcing_mode=forcing_mode)
+    class LazifyTransformer(ASTTransformer):
+        def transform(self, tree):
+            forcing_mode = self.state.forcing_mode
 
-        # Forcing references (Name, Attribute, Subscript):
-        #   x -> f(x)
-        #   a.x -> f(force1(a).x)
-        #   a.b.x -> f(force1(force1(a).b).x)
-        #   a[j] -> f((force1(a))[force(j)])
-        #   a[j][k] -> f(force1(force1(a)[force(j)])[force(k)])
-        #
-        # where f is force, force1 or identity (optimized away) depending on
-        # where the term appears; j and k may be indices or slices.
-        #
-        # Whenever not in Load context, f is identity.
-        #
-        # The idea is to apply just the right level of forcing to be able to
-        # resolve the reference, and then decide what to do with the resolved
-        # reference based on where it appears.
-        #
-        # For example, when subscripting a list, force1 it to unwrap it from
-        # a promise if it happens to be inside one, but don't force its elements
-        # just for the sake of resolving the reference. Then, apply f to the
-        # whole subscript term (forcing the accessed slice of the list, if necessary).
-        def f(tree):
-            if type(tree.ctx) is Load:
-                if forcing_mode == "full":
-                    return q[h[force](a[tree])]
-                elif forcing_mode == "flat":
-                    return q[h[force1](a[tree])]
-                # else forcing_mode == "off"
-            return tree
-
-        if type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
-            if type(tree) is Lambda and id(tree) not in userlambdas:
-                pass  # ignore macro-introduced lambdas
-            else:
-                stop()
-
-                # mark this definition as lazy, and insert the interface wrapper
-                # to allow also strict code to call this function
-                if type(tree) is Lambda:
-                    lam = tree
-                    tree = q[h[passthrough_lazy_args](a[tree])]
-                    # TODO: This doesn't really do anything; we don't here see the chain
-                    # TODO: of Call nodes (decorators) that surround the Lambda node.
-                    tree = sort_lambda_decorators(tree)
-                    lam.body = rec(lam.body)
-                else:
-                    k = suggest_decorator_index("passthrough_lazy_args", tree.decorator_list)
-                    # Force the decorators only after `suggest_decorator_index`
-                    # has suggested us where to put ours.
-                    # TODO: could make `suggest_decorator_index` ignore a `force()` wrapper.
-                    tree.decorator_list = rec(tree.decorator_list)
-                    if k is not None:
-                        tree.decorator_list.insert(k, q[h[passthrough_lazy_args]])
-                    else:
-                        # passthrough_lazy_args should generally be as innermost as possible
-                        # (so that e.g. the curry decorator will see the function as lazy)
-                        tree.decorator_list.append(q[h[passthrough_lazy_args]])
-                    tree.body = rec(tree.body)
-
-        elif type(tree) is Call:
-            def transform_arg(tree):
-                # add any needed force() invocations inside the tree,
-                # but leave the top level of simple references untouched.
-                isref = type(tree) in (Name, Attribute, Subscript)
-                tree = rec(tree, forcing_mode=("off" if isref else "full"))
-                if not isref:  # (re-)thunkify expr; a reference can be passed as-is.
-                    tree = lazyrec(tree)
-                return tree
-
-            def transform_starred(tree, dstarred=False):
-                isref = type(tree) in (Name, Attribute, Subscript)
-                tree = rec(tree, forcing_mode=("off" if isref else "full"))
-                # lazify items if we have a literal container
-                # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
-                if is_literal_container(tree, maps_only=dstarred):
-                    tree = lazyrec(tree)
-                return tree
-
-            # let bindings have a role similar to function arguments, so auto-lazify there
-            # (LHSs are always new names, so no infinite loop trap for the unwary)
-            if islet(tree):
-                stop()
-                view = ExpandedLetView(tree)
-                if view.mode == "let":
-                    for b in view.bindings.elts:  # b = (name, value)
-                        b.elts[1] = transform_arg(b.elts[1])
-                else:  # view.mode == "letrec":
-                    for b in view.bindings.elts:  # b = (name, (lambda e: ...))
-                        thelambda = b.elts[1]
-                        thelambda.body = transform_arg(thelambda.body)
-                if view.body:  # let decorators have no body inside the Call node
-                    thelambda = view.body
-                    thelambda.body = rec(thelambda.body)
-            # namelambda() is used by let[] and do[]
-            # Lazy() is a strict function, takes a lambda, constructs a Lazy object
-            # _autoref_resolve doesn't need any special handling
-            elif (isdo(tree) or is_decorator(tree.func, "namelambda") or
-                  any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, isLazy) or
-                  any(isx(tree.func, s) for s in ("_autoref_resolve", "AutorefMarker"))):
-                # here we know the operator (.func) to be one of specific names;
-                # don't transform it to avoid confusing lazyrec[] (important if this
-                # is an inner call in the arglist of an outer, lazy call, since it
-                # must see any container constructor calls that appear in the args)
-                stop()
-                # TODO: correct forcing mode for `rec`? We shouldn't need to forcibly use "full",
-                # since maybe_force_args() already fully forces any remaining promises
-                # in the args when calling a strict function.
-                tree.args = rec(tree.args)
-                tree.keywords = rec(tree.keywords)
-            else:
-                stop()
-                ln, co = tree.lineno, tree.col_offset
-                thefunc = rec(tree.func)
-
-                adata = []
-                for x in tree.args:
-                    if type(x) is Starred:  # *args in Python 3.5+
-                        v = transform_starred(x.value)
-                        v = Starred(value=q[a[v]], lineno=ln, col_offset=co)
-                    else:
-                        v = transform_arg(x)
-                    adata.append(v)
-
-                kwdata = []
-                for x in tree.keywords:
-                    if x.arg is None:  # **kwargs in Python 3.5+
-                        v = transform_starred(x.value, dstarred=True)
-                    else:
-                        v = transform_arg(x.value)
-                    kwdata.append((x.arg, v))
-
-                # Construct the call
-                mycall = Call(func=q[h[maybe_force_args]],
-                              args=[q[a[thefunc]]] + [q[a[x]] for x in adata],
-                              keywords=[keyword(arg=k, value=q[a[x]]) for k, x in kwdata],
-                              lineno=ln, col_offset=co)
-                tree = mycall
-
-        elif type(tree) is Subscript:  # force only accessed part of obj[...]
-            stop()
-            tree.slice = rec(tree.slice, forcing_mode="full")
-            # resolve reference to the actual container without forcing its items.
-            tree.value = rec(tree.value, forcing_mode="flat")
-            tree = f(tree)
-
-        elif type(tree) is Attribute:
-            #   a.b.c --> f(force1(force1(a).b).c)  (Load)
-            #         -->   force1(force1(a).b).c   (Store)
-            #   attr="c", value=a.b
-            #   attr="b", value=a
-            # Note in case of assignment to a compound, only the outermost
-            # Attribute is in Store context.
+            # Forcing references (Name, Attribute, Subscript):
+            #   x -> f(x)
+            #   a.x -> f(force1(a).x)
+            #   a.b.x -> f(force1(force1(a).b).x)
+            #   a[j] -> f((force1(a))[force(j)])
+            #   a[j][k] -> f(force1(force1(a)[force(j)])[force(k)])
             #
-            # Recurse in flat mode. Consider lst = [[1, 2], 3]
-            #   lst[0] --> f(force1(lst)[0]), but
-            #   lst[0].append --> force1(force1(force1(lst)[0]).append)
-            # Hence, looking up an attribute should only force **the object**
-            # so that we can perform the attribute lookup on it, whereas
-            # looking up values should finally f() the whole slice.
-            # (In the above examples, we have omitted f() when it is identity;
-            #  in reality there is always an f() around the whole expr.)
-            stop()
-            tree.value = rec(tree.value, forcing_mode="flat")
-            tree = f(tree)
+            # where f is force, force1 or identity (optimized away) depending on
+            # where the term appears; j and k may be indices or slices.
+            #
+            # Whenever not in Load context, f is identity.
+            #
+            # The idea is to apply just the right level of forcing to be able to
+            # resolve the reference, and then decide what to do with the resolved
+            # reference based on where it appears.
+            #
+            # For example, when subscripting a list, force1 it to unwrap it from
+            # a promise if it happens to be inside one, but don't force its elements
+            # just for the sake of resolving the reference. Then, apply f to the
+            # whole subscript term (forcing the accessed slice of the list, if necessary).
+            def f(tree):
+                if type(tree.ctx) is Load:
+                    if forcing_mode == "full":
+                        return q[h[force](a[tree])]
+                    elif forcing_mode == "flat":
+                        return q[h[force1](a[tree])]
+                    # else forcing_mode == "off"
+                return tree
 
-        elif type(tree) is Name and type(tree.ctx) is Load:
-            stop()  # must not recurse when a Name changes into a Call.
-            tree = f(tree)
+            if type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
+                if type(tree) is Lambda and id(tree) not in userlambdas:
+                    return self.generic_visit(tree)  # ignore macro-introduced lambdas (but recurse inside them)
+                else:
+                    # mark this definition as lazy, and insert the interface wrapper
+                    # to allow also strict code to call this function
+                    if type(tree) is Lambda:
+                        lam = tree
+                        tree = q[h[passthrough_lazy_args](a[tree])]
+                        # TODO: This doesn't really do anything; we don't here see the chain
+                        # TODO: of Call nodes (decorators) that surround the Lambda node.
+                        tree = sort_lambda_decorators(tree)
+                        lam.body = self.visit(lam.body)
+                    else:
+                        k = suggest_decorator_index("passthrough_lazy_args", tree.decorator_list)
+                        # Force the decorators only after `suggest_decorator_index`
+                        # has suggested us where to put ours.
+                        # TODO: could make `suggest_decorator_index` ignore a `force()` wrapper.
+                        tree.decorator_list = self.visit(tree.decorator_list)
+                        if k is not None:
+                            tree.decorator_list.insert(k, q[h[passthrough_lazy_args]])
+                        else:
+                            # passthrough_lazy_args should generally be as innermost as possible
+                            # (so that e.g. the curry decorator will see the function as lazy)
+                            tree.decorator_list.append(q[h[passthrough_lazy_args]])
+                        tree.body = self.visit(tree.body)
+                    return tree
 
-        return tree
+            elif type(tree) is Call:
+                def transform_arg(tree):
+                    # add any needed force() invocations inside the tree,
+                    # but leave the top level of simple references untouched.
+                    isref = type(tree) in (Name, Attribute, Subscript)
+                    self.withstate(tree, forcing_mode=("off" if isref else "full"))
+                    tree = self.visit(tree)
+                    if not isref:  # (re-)thunkify expr; a reference can be passed as-is.
+                        tree = lazyrec(tree)
+                    return tree
+
+                def transform_starred(tree, dstarred=False):
+                    isref = type(tree) in (Name, Attribute, Subscript)
+                    self.withstate(tree, forcing_mode=("off" if isref else "full"))
+                    tree = self.visit(tree)
+                    # lazify items if we have a literal container
+                    # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
+                    if is_literal_container(tree, maps_only=dstarred):
+                        tree = lazyrec(tree)
+                    return tree
+
+                # let bindings have a role similar to function arguments, so auto-lazify there
+                # (LHSs are always new names, so no infinite loop trap for the unwary)
+                if islet(tree):
+                    view = ExpandedLetView(tree)
+                    if view.mode == "let":
+                        for b in view.bindings.elts:  # b = (name, value)
+                            b.elts[1] = transform_arg(b.elts[1])
+                    else:  # view.mode == "letrec":
+                        for b in view.bindings.elts:  # b = (name, (lambda e: ...))
+                            thelambda = b.elts[1]
+                            thelambda.body = transform_arg(thelambda.body)
+                    if view.body:  # let decorators have no body inside the Call node
+                        thelambda = view.body
+                        thelambda.body = self.visit(thelambda.body)
+                    return tree
+
+                # namelambda() is used by let[] and do[]
+                # Lazy() is a strict function, takes a lambda, constructs a Lazy object
+                # _autoref_resolve doesn't need any special handling
+                elif (isdo(tree) or is_decorator(tree.func, "namelambda") or
+                      any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, isLazy) or
+                      any(isx(tree.func, s) for s in ("_autoref_resolve", "AutorefMarker"))):
+                    # here we know the operator (.func) to be one of specific names;
+                    # don't transform it to avoid confusing lazyrec[] (important if this
+                    # is an inner call in the arglist of an outer, lazy call, since it
+                    # must see any container constructor calls that appear in the args)
+                    #
+                    # TODO: correct forcing mode for `rec`? We shouldn't need to forcibly use "full",
+                    # since maybe_force_args() already fully forces any remaining promises
+                    # in the args when calling a strict function.
+                    tree.args = self.visit(tree.args)
+                    tree.keywords = self.visit(tree.keywords)
+                    return tree
+
+                else:
+                    ln, co = tree.lineno, tree.col_offset
+                    thefunc = self.visit(tree.func)
+
+                    adata = []
+                    for x in tree.args:
+                        if type(x) is Starred:  # *args in Python 3.5+
+                            v = transform_starred(x.value)
+                            v = Starred(value=q[a[v]], lineno=ln, col_offset=co)
+                        else:
+                            v = transform_arg(x)
+                        adata.append(v)
+
+                    kwdata = []
+                    for x in tree.keywords:
+                        if x.arg is None:  # **kwargs in Python 3.5+
+                            v = transform_starred(x.value, dstarred=True)
+                        else:
+                            v = transform_arg(x.value)
+                        kwdata.append((x.arg, v))
+
+                    # Construct the call
+                    mycall = Call(func=q[h[maybe_force_args]],
+                                  args=[q[a[thefunc]]] + [q[a[x]] for x in adata],
+                                  keywords=[keyword(arg=k, value=q[a[x]]) for k, x in kwdata],
+                                  lineno=ln, col_offset=co)
+                    tree = mycall
+                    return tree
+
+            elif type(tree) is Subscript:  # force only accessed part of obj[...]
+                self.withstate(tree.slice, forcing_mode="full")
+                tree.slice = self.visit(tree.slice)
+                # resolve reference to the actual container without forcing its items.
+                self.withstate(tree.value, forcing_mode="flat")
+                tree.value = self.visit(tree.value)
+                tree = f(tree)
+                return tree
+
+            elif type(tree) is Attribute:
+                #   a.b.c --> f(force1(force1(a).b).c)  (Load)
+                #         -->   force1(force1(a).b).c   (Store)
+                #   attr="c", value=a.b
+                #   attr="b", value=a
+                # Note in case of assignment to a compound, only the outermost
+                # Attribute is in Store context.
+                #
+                # Recurse in flat mode. Consider lst = [[1, 2], 3]
+                #   lst[0] --> f(force1(lst)[0]), but
+                #   lst[0].append --> force1(force1(force1(lst)[0]).append)
+                # Hence, looking up an attribute should only force **the object**
+                # so that we can perform the attribute lookup on it, whereas
+                # looking up values should finally f() the whole slice.
+                # (In the above examples, we have omitted f() when it is identity;
+                #  in reality there is always an f() around the whole expr.)
+                self.withstate(tree.value, forcing_mode="flat")
+                tree.value = self.visit(tree.value)
+                tree = f(tree)
+                return tree
+
+            elif type(tree) is Name and type(tree.ctx) is Load:
+                tree = f(tree)
+                # must not recurse when a Name changes into a Call.
+                return tree
+
+            return self.generic_visit(tree)
 
     newbody = []
     for stmt in body:
-        newbody.append(transform.recurse(stmt, forcing_mode="full"))
+        newbody.append(LazifyTransformer(forcing_mode="full").visit(stmt))
 
     # Pay-as-you-go: to avoid a drastic performance hit (~10x) in trampolines
     # built by unpythonic.tco.trampolined for regular strict code, a special mode
