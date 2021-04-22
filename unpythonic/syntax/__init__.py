@@ -110,9 +110,6 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9.
 
-# TODO: Convert MacroPy `Walker`s into `mcpyrate` AST walkers.
-# TODO: port scopeanalyzer
-
 # TODO: grep for any remaining mentions of "macropy"
 
 # TODO: `@macro_stub` does not exist, just make a regular macro that explicitly raises an error.
@@ -121,6 +118,7 @@ from ..dynassign import make_dynvar, dyn
 # TODO: also let_syntax block, expr
 # TODO: also the[] in unpythonic.syntax.testingtools
 # TODO: also kw() in unpythonic.syntax.prefix
+# TODO: also call_cc[] in unpythonic.syntax.tailtools
 
 # TODO: let_syntax block, expr: syntactic consistency: change parentheses to brackets
 
