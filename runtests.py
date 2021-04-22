@@ -2,8 +2,8 @@
 """Run all tests for `unpythonic`.
 
 The test framework uses macros, but this top-level script does not. This can be
-run under regular `python3` (i.e. does not need the `macropy3` wrapper from the
-`imacropy` PyPI package).
+run under regular `python3` (i.e. does not need the `macropython` wrapper from
+`mcpyrate`).
 """
 
 import os
@@ -14,7 +14,7 @@ from importlib import import_module
 from unpythonic.test.fixtures import session, testset, tests_errored, tests_failed
 from unpythonic.collections import unbox
 
-import macropy.activate  # noqa: F401
+import mcpyrate.activate  # noqa: F401
 
 def listtestmodules(path):
     testfiles = listtestfiles(path)
