@@ -90,15 +90,6 @@ from ..dynassign import make_dynvar, dyn
 # TODO: With `mcpyrate`, we could move the macro interface functions to
 # TODO: the submodules, and have just re-exports here.
 
-# TODO: `mcpyrate` uses explicit recursion, so we need to recurse (usually `expander.visit(tree)`)
-# TODO: in the macro interface functions.
-#  - Pass the `expander` argument using `dyn.let(expander=expander)`, needed to perform the recursion
-#  - Two-pass macros? (mcpyrate doesn't use `yield`)
-#    - Outside in: perform processing before recursion call
-#      - Or just omit the recursion call, since the expander will expand the result again automatically.
-#    - Inside out: perform processing after recursion call
-#  - Consider when to just return and let the expander expand again
-
 # TODO: macro docs: "first pass" -> "outside in"; "second pass" -> "inside out"
 
 # TODO: Some macros look up others; convert lookups to mcpyrate style (accounting for as-imports)
@@ -116,8 +107,6 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: Implement equivalents of MacroPy's `lazy`, `quick_lambda`, since `mcpyrate` doesn't have them
 #  - Dependencies/initialization order?
-
-# TODO: `expose_unhygienic` doesn't exist, but we can store `dbgprint_expr` in `dyn` (which is cleaner anyway)
 
 # TODO: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9.
 
