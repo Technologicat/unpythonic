@@ -67,7 +67,7 @@ def autoreturn(block_body):
         return tree
     # This is a first-pass macro. Any nested macros should get clean standard Python,
     # not having to worry about implicit "return" statements.
-    yield transform_fdef.recurse(block_body)
+    return transform_fdef.recurse(block_body)
 
 # -----------------------------------------------------------------------------
 # Automatic TCO. This is the same framework as in "continuations", in its simplest form.
@@ -76,7 +76,8 @@ def tco(block_body):
     # first pass, outside-in
     userlambdas = detect_lambda.collect(block_body)
     known_ecs = list(uniqify(detect_callec(block_body)))
-    block_body = yield block_body
+
+    block_body = dyn._macro_expander.visit(block_body)
 
     # second pass, inside-out
     transform_retexpr = partial(_transform_retexpr)
@@ -173,7 +174,8 @@ def continuations(block_body):
     # first pass, outside-in
     userlambdas = detect_lambda.collect(block_body)
     known_ecs = list(uniqify(detect_callec(block_body)))
-    block_body = yield block_body
+
+    block_body = dyn._macro_expander.visit(block_body)
 
     # second pass, inside-out
 

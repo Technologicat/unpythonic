@@ -178,7 +178,8 @@ def is_literal_container(tree, maps_only=False):
 def lazify(body):
     # first pass, outside-in
     userlambdas = detect_lambda.collect(body)
-    body = yield body
+
+    body = dyn._macro_expander.visit(body)
 
     # second pass, inside-out
     @Walker

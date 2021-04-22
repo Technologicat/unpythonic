@@ -100,9 +100,10 @@ def prefix(block_body):
         kwargs = list(rev(uniqify(rev(kwargs), key=lambda x: x.arg)))  # latest wins, but keep original ordering
         thecall = Call(func=op, args=posargs, keywords=list(kwargs))
         return thecall
+
     # This is a first-pass macro. Any nested macros should get clean standard Python,
     # not having to worry about tuples possibly denoting function calls.
-    yield transform.recurse(block_body, quotelevel=0)
+    return transform.recurse(block_body, quotelevel=0)
 
 # Note the exported "q" and "u" are ours, but the "q" and "u" we use in this
 # module are macros. The "q" and "u" we define here are regular run-time objects,

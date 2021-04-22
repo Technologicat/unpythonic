@@ -7,9 +7,8 @@ from mcpyrate.quotes import macros, q, a  # noqa: F811, F401
 
 from .letdo import implicit_do, let
 
-# TODO: currently no "syntax-parameterize" (see Racket) in MacroPy. Would be
-# convenient to create a macro that expands to an error by default, and then
-# override it inside an aif.
+# TODO: `mcpyrate` has a rudimentary capability like Racket's "syntax-parameterize".
+# TODO: Make `it` a name macro that errors out unless it appears inside an `aif`.
 #
 # We could just leave "it" undefined by default, but IDEs are happier if the
 # name exists, and this also gives us a chance to provide a docstring.

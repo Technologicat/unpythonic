@@ -15,7 +15,6 @@ from .nameutil import isx
 from .util import wrapwith, AutorefMarker
 from .letdoutil import isdo, islet, ExpandedDoView, ExpandedLetView
 
-from ..dynassign import dyn
 from ..lazyutil import force1, passthrough_lazy_args
 
 # with autoref[o]:

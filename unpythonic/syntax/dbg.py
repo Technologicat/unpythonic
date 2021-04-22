@@ -13,6 +13,7 @@ from mcpyrate.quotes import macros, q, u, a, h  # noqa: F401
 from macropy.core.walkers import Walker
 from mcpyrate import unparse
 
+from ..dynassign import dyn, make_dynvar
 from ..misc import callsite_filename
 
 def dbgprint_block(ks, vs, *, filename=None, lineno=None, sep=", ", **kwargs):
@@ -76,7 +77,7 @@ def dbg_block(body, args):
         pname = p.id  # name of the print function as it appears in the user code
     else:
         p = q[h[dbgprint_block]]
-        pname = "print"
+        pname = "print"  # override standard print function within this block
 
     @Walker
     def transform(tree, **kw):
@@ -133,4 +134,8 @@ def dbgprint_expr(k, v, *, filename, lineno):
 def dbg_expr(tree):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = q[h[callsite_filename]()]
-    return q[dbgprint_expr(u[unparse(tree)], a[tree], filename=a[filename], lineno=a[ln])]
+    # Careful here! We must `h[]` the `dyn`, but not `dbgprint_expr` itself,
+    # because we want to look up that attribute dynamically.
+    return q[h[dyn].dbgprint_expr(u[unparse(tree)], a[tree], filename=a[filename], lineno=a[ln])]
+
+make_dynvar(dbgprint_expr=dbgprint_expr)
