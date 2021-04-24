@@ -87,6 +87,12 @@ from ..dynassign import make_dynvar, dyn
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
+
+# BLOCKERs - fix these first
+# TODO: update documentation of `quicklambda`
+# TODO: `@macro_stub` does not exist, just make a regular macro that explicitly raises an error.
+
+
 # TODO: With `mcpyrate`, we could move the macro interface functions to
 # TODO: the submodules, and have just re-exports here.
 
@@ -105,13 +111,9 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: Consider using run-time compiler access in macro tests, like `mcpyrate` itself does.
 
-# TODO: Implement equivalent of MacroPy's `quick_lambda`, since `mcpyrate` doesn't have it
-
 # TODO: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9.
 
 # TODO: grep for any remaining mentions of "macropy"
-
-# TODO: `@macro_stub` does not exist, just make a regular macro that explicitly raises an error.
 
 # TODO: Upgrade anaphoric if's `it` into a `mcpyrate` magic variable that errors out at compile time when it appears in an invalid position (i.e. outside any `aif`). Basically, take the `aif` from `mcpyrate`.
 # TODO: also let_syntax block, expr
@@ -165,7 +167,7 @@ from .testingtools import (test_expr as _test_expr,
 from .dbg import dbgprint_block, dbgprint_expr  # noqa: F401, re-export for re-use in a decorated variant.
 from .forall import insist, deny  # noqa: F401
 from .ifexprs import it  # noqa: F401
-from .lambdatools import f, _  # noqa: F401
+from .lambdatools import f as _f  # noqa: F401
 from .letdoutil import where  # noqa: F401
 from .lazify import force, force1  # noqa: F401
 from .letdo import local, delete  # noqa: F401
@@ -1033,26 +1035,43 @@ def namedlambda(tree, *, syntax, expander, **kw):  # noqa: F811
     with dyn.let(_macro_expander=expander):
         return _namedlambda(block_body=tree)
 
-# TODO: port `macropy.quick_lambda`
+def f(tree, *, syntax, expander, **kw):  # noqa: F811
+    """[syntax, expr] Underscore notation (quick lambdas) for Python.
+
+    The syntax ``f[...]`` creates a lambda, where each underscore in the
+    ``...`` part introduces a new parameter. The macro does not descend
+    into any nested ``f[]``.
+
+    Example::
+
+        func = f[_ * _]  # --> func = lambda x, y: x * y
+    """
+    if syntax != "expr":
+        raise SyntaxError("f is an expr macro only")
+
+    # This macro expands outside in, but needs `expander` for introspection.
+    with dyn.let(_macro_expander=expander):
+        return _f(tree)
+
 def quicklambda(tree, *, syntax, expander, **kw):  # noqa: F811
-    """[syntax, block] Use ``macropy.quick_lambda`` with ``unpythonic.syntax``.
+    """[syntax, block] Make `f` quick lambdas expand first.
 
     To be able to transform correctly, the block macros in ``unpythonic.syntax``
     that transform lambdas (e.g. ``multilambda``, ``tco``) need to see all
     ``lambda`` definitions written with Python's standard ``lambda``.
 
-    However, the highly useful ``macropy.quick_lambda`` uses the syntax
-    ``f[...]``, which (to the analyzer) does not look like a lambda definition.
-    This macro changes the expansion order, forcing any ``f[...]`` lexically
-    inside the block to expand outside in.
+    However, the ``f`` macro uses the syntax ``f[...]``, which (to the analyzer)
+    does not look like a lambda definition. This macro changes the expansion
+    order, forcing any ``f[...]`` lexically inside the block to expand before
+    any other macros do.
 
-    Any expression of the form ``f[...]`` (the ``f`` is literal) is understood
-    as a quick lambda, whether or not ``f`` and ``_`` are imported at the
-    call site.
+    Any expression of the form ``f[...]``, where ``f`` is any name bound in the
+    current macro expander to the macro `unpythonic.syntax.f`, is understood as
+    a quick lambda. (In plain English, this respects as-imports of the macro ``f``.)
 
     Example - a quick multilambda::
 
-        from unpythonic.syntax import macros, multilambda, quicklambda, f, _, local
+        from unpythonic.syntax import macros, multilambda, quicklambda, f, local
 
         with quicklambda, multilambda:
             func = f[[local[x << _],
@@ -1067,8 +1086,9 @@ def quicklambda(tree, *, syntax, expander, **kw):  # noqa: F811
     if syntax != "block":
         raise SyntaxError("quicklambda is a block macro only")
 
-    # Expand outside in.
-    return _quicklambda(block_body=tree)
+    # This macro expands outside in, but needs `expander` for introspection.
+    with dyn.let(_macro_expander=expander):
+        return _quicklambda(block_body=tree)
 
 def envify(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, block] Make formal parameters live in an unpythonic env.

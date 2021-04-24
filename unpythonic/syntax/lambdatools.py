@@ -5,14 +5,13 @@ from ast import (Lambda, List, Name, Assign, Subscript, Call, FunctionDef,
                  AsyncFunctionDef, Attribute, keyword, Dict, Constant, arg,
                  copy_location)
 from copy import deepcopy
-import sys
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
-from macropy.quick_lambda import f, _  # _ for re-export only  # noqa: F401
-
 from mcpyrate import gensym
+from mcpyrate.expander import MacroExpander
 from mcpyrate.splicing import splice_expression
+from mcpyrate.utils import extract_bindings
 from mcpyrate.walkers import ASTTransformer
 
 from ..dynassign import dyn
@@ -171,47 +170,47 @@ def namedlambda(block_body):
     # inside out: transform in expanded autocurry
     return NamedLambdaTransformer().visit(newbody)
 
-def quicklambda(block_body):
-    # The function `underscore_transform` is adapted from the `f` macro in
-    # `macropy.quick_lambda`, stripped into a bare syntax transformer,
-    # and then the `@Walker` inside converted to a `mcpyrate` `ASTTransformer`.
-    #
-    # Used under the MIT license.
-    # Copyright (c) 2013-2018, Li Haoyi, Justin Holmgren, Alberto Berti and all the other contributors.
-    def underscore_transform(tree):
-        class UnderscoreTransformer(ASTTransformer):
-            def transform(self, tree):
-                if isinstance(tree, Name) and tree.id == "_":
-                    name = gensym("_")
-                    tree.id = name
-                    self.collect(name)
-                return self.generic_visit(tree)
-        ut = UnderscoreTransformer()
-        tree = ut.visit(tree)
-        used_names = ut.collected
-        tree = q[lambda _: a[tree]]  # noqa: F811, it's a placeholder overwritten at the next line.
-        tree.args.args = [arg(arg=x) for x in used_names]
-        return tree
+# The function `f` is adapted from the `f` macro in `macropy.quick_lambda`,
+# stripped into a bare syntax transformer., and then the `@Walker` inside
+# converted to a `mcpyrate` `ASTTransformer`. We have also added the code
+# to ignore any nested `f[]`.
+#
+# Used under the MIT license.
+# Copyright (c) 2013-2018, Li Haoyi, Justin Holmgren, Alberto Berti and all the other contributors.
+def f(tree):
+    # What's my name in the current expander? (There may be several names.)
+    # https://github.com/Technologicat/mcpyrate/blob/master/doc/quasiquotes.md#hygienic-macro-recursion
+    bindings = extract_bindings(dyn._macro_expander.bindings, f)
+    mynames = list(bindings.keys())
 
-    # The rest is our code.
-    def isquicklambda(tree):
-        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "f"
-
-    class QuicklambdaTransformer(ASTTransformer):
+    class UnderscoreTransformer(ASTTransformer):
         def transform(self, tree):
-            # TODO: This essentially manually expands `f[]` macros.
-            # TODO: Maybe just define `f[]` as a macro, or even better,
-            # TODO: a `qlambda[]` macro that the user can then rename at import time?
-            # TODO: We could then use a second expander instance to selectively expand
-            # TODO: only `qlambda` inside the `with quicklambda` block.
-            if isquicklambda(tree):
-                if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                    tree = underscore_transform(tree.slice)
-                else:
-                    tree = underscore_transform(tree.slice.value)
+            # Don't recurse into nested `f[]`.
+            # TODO: This would benefit from macro destructuring in the expander.
+            # TODO: See https://github.com/Technologicat/mcpyrate/issues/3
+            if type(tree) is Subscript and type(tree.value) is Name and tree.value.id in mynames:
+                return tree
+            elif type(tree) is Name and tree.id == "_":
+                name = gensym("_")
+                tree.id = name
+                self.collect(name)
             return self.generic_visit(tree)
+    ut = UnderscoreTransformer()
+    tree = ut.visit(tree)
+    used_names = ut.collected
+    tree = q[lambda _: a[tree]]  # noqa: F811, it's a placeholder overwritten at the next line.
+    tree.args.args = [arg(arg=x) for x in used_names]
+    return tree
 
-    return QuicklambdaTransformer().visit(block_body)
+def quicklambda(block_body):
+    # In `mcpyrate`, expander instances are cheap - so we create a second expander
+    # to which we register only the `f` macro, under whatever names it appears in
+    # the original expander. Thus it leaves all other macros alone. This is the
+    # official `mcpyrate` way to immediately expand only some particular macros
+    # inside the current macro invocation.
+    expander = dyn._macro_expander
+    bindings = extract_bindings(expander.bindings, f)
+    return MacroExpander(bindings, expander.filename).visit(block_body)
 
 def envify(block_body):
     # first pass, outside-in

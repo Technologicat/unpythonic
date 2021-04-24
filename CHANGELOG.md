@@ -11,6 +11,12 @@
   - This facilitates future development of the macro parts of `unpythonic`.
   - Macro arguments are now passed using brackets `macroname[args]` instead of parentheses.
     - Parentheses are still available as alternative syntax, because up to Python 3.8, decorators cannot have subscripts (so e.g. `@dlet[(x, 42)]` is a syntax error, but `@dlet((x, 42))` is fine). This has been fixed in Python 3.9.
+- The lazy evaluation tools `lazy`, `Lazy`, and the quick lambda `f` (underscore notation for Python) are now provided by `unpythonic` as `unpythonic.syntax.lazy`, `unpythonic.lazyutil.Lazy`, and `unpythonic.syntax.f`, because they used to be provided by `macropy`, and `mcpyrate` does not provide them.
+  - Any imports of these in user code should be modified to point to the new locations.
+  - The underscore `_` is no longer a macro on its own. The `f` macro treats the underscore magically, as before, but anywhere else it is available to be used as a regular variable.
+  - `f[]` now respects nesting: an invocation of `f[]` will not descend into another nested `f[]`.
+  - The `with quicklambda` macro is still provided, and used just as before. Now it causes any `f[]` invocations lexically inside the block to expand before any other macros in that block do.
+  - Since in `mcpyrate`, macros can be as-imported, you can rename `f` at import time to have any name you want. The `quicklambda` block macro respects the as-import. Now you **must** import also the macro `f` when you import the macro `quicklambda`, because `quicklambda` internally queries the expander to determine the name(s) the macro `f` is currently bound to.
 - Python 3.4 and 3.5 support dropped.
 
 
