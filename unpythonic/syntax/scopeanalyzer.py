@@ -287,7 +287,8 @@ def get_names_in_store_context(tree):
 
     This includes:
 
-        - Any ``Name`` in store context (such as on the LHS of an `Assign` node)
+        - Any ``Name`` in store context (such as on the LHS of an `Assign`
+          or `NamedExpr` node)
 
         - The name of ``FunctionDef``, ``AsyncFunctionDef`` or``ClassDef``
 
