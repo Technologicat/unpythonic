@@ -4,10 +4,7 @@
 from ...syntax import macros, test, test_raises, error, the  # noqa: F401
 from ...test.fixtures import session, testset
 
-from macropy.quick_lambda import macros, lazy  # noqa: F811, F401
-from macropy.quick_lambda import Lazy  # usually not needed in client code; for our tests only
-
-from ...syntax import (macros, lazify, lazyrec,  # noqa: F811, F401
+from ...syntax import (macros, lazify, lazy, lazyrec,  # noqa: F811, F401
                        let, letseq, letrec, local,
                        tco,
                        curry,
@@ -25,7 +22,7 @@ from ...llist import ll
 from ...misc import raisef, call, callwith
 from ...tco import trampolined, jump
 
-from ...lazyutil import islazy
+from ...lazyutil import islazy, Lazy  # Lazy usually not needed in client code; for our tests only
 
 from sys import stderr
 import gc

@@ -13,8 +13,6 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 
 ### Features
 
-*There is no macro abbreviation for ``memoize(lambda: ...)``, because ``MacroPy`` itself already provides [``lazy``](https://macropy3.readthedocs.io/en/latest/lazy.html) and [``interned``](https://macropy3.readthedocs.io/en/latest/interned.html).*
-
 [**Bindings**](#bindings)
 - [``let``, ``letseq``, ``letrec`` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate.
 - [``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``: decorator versions](#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)
@@ -767,7 +765,7 @@ Automatic lazification uses the ``lazyrec[]`` macro (see below), which recurses 
 Note ``my_if`` in the example is a run-of-the-mill runtime function, not a macro. Only the ``with lazify`` is imbued with any magic. Essentially, the above code expands into:
 
 ```python
-from macropy.quick_lambda import macros, lazy
+from unpythonic.syntax import macros, lazy
 from unpythonic.syntax import force
 
 def my_if(p, a, b):
@@ -795,9 +793,9 @@ Comboing with other block macros in ``unpythonic.syntax`` is supported, includin
 
 For more details, see the docstring of ``unpythonic.syntax.lazify``.
 
-See also ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside container literals, recursively. This allows code like ``tpl = lazyrec[(1*2*3, 4*5*6)]``. Each item becomes wrapped with ``lazy[]``, but the container itself is left alone, to avoid interfering with unpacking. Because ``lazyrec[]`` is a macro and must work by names only, it supports a fixed set of container types: ``list``, ``tuple``, ``set``, ``dict``, ``frozenset``, ``unpythonic.collections.frozendict``, ``unpythonic.collections.box``, and ``unpythonic.llist.cons`` (specifically, the constructors ``cons``, ``ll`` and ``llist``).
+See also ``unpythonic.syntax.lazy``, which explicitly lazifies a single expression, and ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside container literals, recursively. This allows code like ``tpl = lazyrec[(1*2*3, 4*5*6)]``. Each item becomes wrapped with ``lazy[]``, but the container itself is left alone, to avoid interfering with unpacking. Because ``lazyrec[]`` is a macro and must work by names only, it supports a fixed set of container types: ``list``, ``tuple``, ``set``, ``dict``, ``frozenset``, ``unpythonic.collections.frozendict``, ``unpythonic.collections.box``, and ``unpythonic.llist.cons`` (specifically, the constructors ``cons``, ``ll`` and ``llist``).
 
-(It must work by names only, because in an eager language any lazification must be performed as a syntax transformation before the code actually runs. Lazification in an eager language is a hack, by necessity. [Fexprs](https://fexpr.blogspot.com/2011/04/fexpr.html) (along with [a new calculus to go with them](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html)) would be a much more elegant approach, but this requires redesigning the whole language from ground up. Of course, if you're fine with a language not particularly designed for extensibility, and lazy evaluation is your top requirement, just use Haskell.)
+(It must work by names only, because in an eager language any lazification must be performed as a syntax transformation before the code actually runs. Lazification in an eager language is a hack, by necessity. [Fexprs](https://fexpr.blogspot.com/2011/04/fexpr.html) (along with [a new calculus to go with them](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html)) are the clean, elegant solution, but this requires redesigning the whole language from ground up. Of course, if you're fine with a language not particularly designed for extensibility, and lazy evaluation is your top requirement, just use Haskell.)
 
 Inspired by Haskell, Racket's ``(delay)`` and ``(force)``, and [lazy/racket](https://docs.racket-lang.org/lazy/index.html).
 
@@ -807,7 +805,7 @@ Inspired by Haskell, Racket's ``(delay)`` and ``(force)``, and [lazy/racket](htt
 
 This is mainly useful if you ``lazy[]`` or ``lazyrec[]`` something explicitly, and want to compute its value outside a ``with lazify`` block.
 
-We provide the functions ``force1`` and ``force``. Using ``force1``, if ``x`` is a MacroPy ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket. The function ``force``, in addition, descends into containers (recursively). When an atom ``x`` (i.e. anything that is not a container) is encountered, it is processed using ``force1``.
+We provide the functions ``force1`` and ``force``. Using ``force1``, if ``x`` is a ``lazy[]`` promise, it will be forced, and the resulting value is returned. If ``x`` is not a promise, ``x`` itself is returned, à la Racket. The function ``force``, in addition, descends into containers (recursively). When an atom ``x`` (i.e. anything that is not a container) is encountered, it is processed using ``force1``.
 
 Mutable containers are updated in-place; for immutables, a new instance is created, but as a side effect the promise objects **in the input container** will be forced. Any container with a compatible ``collections.abc`` is supported. (See ``unpythonic.collections.mogrify`` for details.) In addition, as special cases ``unpythonic.collections.box`` and ``unpythonic.llist.cons`` are supported.
 
@@ -824,7 +822,7 @@ print(a)  # 20, right?
 If we chose to auto-lazify assignments, then assuming a ``with lazify`` around the example, it would expand to:
 
 ```python
-from macropy.quick_lambda import macros, lazy
+from unpythonic.syntax import macros, lazy
 from unpythonic.syntax import force
 
 a = lazy[10]
@@ -837,7 +835,7 @@ In the second assignment, the ``lazy[]`` sets up a promise, which will force ``a
 The fundamental issue is that ``a = 2*a`` is an imperative update. Therefore, to avoid this infinite loop trap for the unwary, assignments are not auto-lazified. Note that if we use two different names, this works just fine:
 
 ```python
-from macropy.quick_lambda import macros, lazy
+from unpythonic.syntax import macros, lazy
 from unpythonic.syntax import force
 
 a = lazy[10]

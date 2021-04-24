@@ -8,15 +8,17 @@ from mcpyrate.quotes import macros, q, a, h  # noqa: F401
 
 from mcpyrate.walkers import ASTTransformer
 
-from macropy.quick_lambda import macros, lazy  # noqa: F811, F401
-
 from .util import (suggest_decorator_index, sort_lambda_decorators, detect_lambda,
                    isx, make_isxpred, getname, is_decorator, wrapwith)
 from .letdoutil import islet, isdo, ExpandedLetView
-from ..lazyutil import passthrough_lazy_args, force, force1, maybe_force_args
+from ..lazyutil import Lazy, passthrough_lazy_args, force, force1, maybe_force_args
 from ..dynassign import dyn
 
 # -----------------------------------------------------------------------------
+
+# lazy: syntax transformer, lazify a single expression
+def lazy(tree):
+    return q[Lazy(lambda: a[tree])]
 
 # lazyrec: syntax transformer, recursively lazify elements in container literals
 #

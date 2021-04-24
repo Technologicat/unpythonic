@@ -105,8 +105,7 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: Consider using run-time compiler access in macro tests, like `mcpyrate` itself does.
 
-# TODO: Implement equivalents of MacroPy's `lazy`, `quick_lambda`, since `mcpyrate` doesn't have them
-#  - Dependencies/initialization order?
+# TODO: Implement equivalent of MacroPy's `quick_lambda`, since `mcpyrate` doesn't have it
 
 # TODO: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9.
 
@@ -139,7 +138,7 @@ from .lambdatools import (multilambda as _multilambda,
                           namedlambda as _namedlambda,
                           quicklambda as _quicklambda,
                           envify as _envify)
-from .lazify import lazify as _lazify, lazyrec as _lazyrec
+from .lazify import lazy as _lazy, lazify as _lazify, lazyrec as _lazyrec
 from .letdo import (do as _do, do0 as _do0,
                     let as _let, letseq as _letseq, letrec as _letrec,
                     dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec,
@@ -1836,7 +1835,7 @@ def lazify(tree, *, syntax, expander, **kw):  # noqa: F811
 
     Essentially, the above code expands into::
 
-        from macropy.quick_lambda import macros, lazy
+        from unpythonic.syntax import macros, lazy
         from unpythonic.syntax import force
 
         def my_if(p, a, b):
@@ -1865,7 +1864,7 @@ def lazify(tree, *, syntax, expander, **kw):  # noqa: F811
     never forced in the code path that produces the result). Essentially,
     the above code expands into::
 
-        from macropy.quick_lambda import macros, lazy
+        from unpythonic.syntax import macros, lazy
         from unpythonic.syntax import force
 
         def g(a, b):
@@ -1944,8 +1943,8 @@ def lazify(tree, *, syntax, expander, **kw):  # noqa: F811
 
     We provide the functions ``force1`` and ``force``.
 
-    Using ``force1``, if ``x`` is a MacroPy ``lazy[]`` promise, it will be
-    forced, and the resulting value is returned. If ``x`` is not a promise,
+    Using ``force1``, if ``x`` is a ``lazy[]`` promise, it will be forced,
+    and the resulting value is returned. If ``x`` is not a promise,
     ``x`` itself is returned, à la Racket.
 
     The function ``force``, in addition, descends into containers (recursively).
@@ -1971,10 +1970,9 @@ def lazify(tree, *, syntax, expander, **kw):  # noqa: F811
                 print(x)  # the implicit force(x) evaluates to x
             f(17)
 
-    If you want to manually introduce a promise, use ``lazy[]`` from MacroPy::
+    If you want to manually introduce a promise, use ``lazy[]``::
 
-        from macropy.quick_lambda import macros, lazy
-        from unpythonic.syntax import macros, lazify
+        from unpythonic.syntax import macros, lazify, lazy
 
         with lazify:
             def f(x):
@@ -2003,8 +2001,7 @@ def lazify(tree, *, syntax, expander, **kw):  # noqa: F811
     Keep in mind, though, that ``lazy[]`` will introduce a lambda, so there's
     the usual pitfall::
 
-        from macropy.quick_lambda import macros, lazy
-        from unpythonic.syntax import macros, lazify
+        from unpythonic.syntax import macros, lazify, lazy
 
         with lazify:
             lst = []
@@ -2017,8 +2014,7 @@ def lazify(tree, *, syntax, expander, **kw):  # noqa: F811
     So to capture the value instead of the name, use the usual workaround,
     the wrapper lambda (here written more readably as a let, which it really is)::
 
-        from macropy.quick_lambda import macros, lazy
-        from unpythonic.syntax import macros, lazify, let
+        from unpythonic.syntax import macros, lazify, lazy, let
 
         with lazify:
             lst = []
@@ -2130,6 +2126,21 @@ def lazify(tree, *, syntax, expander, **kw):  # noqa: F811
     with dyn.let(_macro_expander=expander):
         return _lazify(body=tree)
 
+# The `lazy` macro comes from `demo/promise.py` in `mcpyrate`.
+def lazy(tree, *, syntax, **kw):  # noqa: F811
+    """[syntax, expr] Delay an expression (lazy evaluation).
+
+    This macro injects a lambda to delay evaluation, and encapsulates
+    the result into a *promise* (an `unpythonic.lazyutil.Lazy` object).
+
+    In Racket, this operation is known as `delay`.
+    """
+    if syntax != "expr":
+        raise SyntaxError("lazy is an expr macro only")
+
+    # Expand outside in. Ordering shouldn't matter here.
+    return _lazy(tree)
+
 def lazyrec(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, expr] Delay items in a container literal, recursively.
 
@@ -2145,8 +2156,8 @@ def lazyrec(tree, *, syntax, expander, **kw):  # noqa: F811
     the lazification from interfering with unpacking. This allows things such as
     ``f(*lazyrec[(1*2*3, 4*5*6)])`` to work as expected.
 
-    See also ``macropy.quick_lambda.lazy`` (the effect on each item) and
-    ``unpythonic.syntax.force`` (the inverse of ``lazyrec[]``).
+    See also ``lazy[]`` (the effect on each item) and ``unpythonic.syntax.force``
+    (the inverse of ``lazyrec[]``).
 
     For an atom, ``lazyrec[]`` has the same effect as ``lazy[]``::
 

@@ -9,44 +9,101 @@ __all__ = ["passthrough_lazy_args", "maybe_force_args", "force1", "force"]
 
 from .regutil import register_decorator
 from .dynassign import make_dynvar
-from .symbol import gensym
+from .symbol import sym
 
 # HACK: break dependency loop llist -> fun -> lazyutil -> collections -> llist
 #from .collections import mogrify
 _init_done = False
-jump = gensym("jump")
+jump = sym("jump")  # doesn't matter what the value is, will be overwritten later
 def _init_module():  # called by unpythonic.__init__ when otherwise done
     global mogrify, jump, _init_done
     from .collections import mogrify
     from .tco import jump
     _init_done = True
 
-# TODO: update this for mcpyrate once we have an equivalent for macropy.quick_lambda.Lazy.
-try:  # MacroPy is optional for unpythonic
-    # This bug was REALLY hard to track down, so let's document:
-    #  - In MacroPy, there's a thing called `macropy.core.macros.injected_vars`, which holds
-    #    constructors for `self.file_vars` for an `ExpansionContext`.
-    #  - Constructors are registered to it using the decorator `macropy.util.register(injected_vars)`.
-    #  - Registrations occur in the order the constructor function definitions are encountered.
-    #  - Some constructors may depend on having others available via the **kw mechanism (at least
-    #    some of the **kws actually come from the `self.file_vars` of the expansion context).
-    #  - Specifically, `interned_name` (from quick_lambda) requires `gen_sym` to have been defined first.
-    #  - But if we import `quick_lambda` before other MacroPy modules, `interned_name` will get
-    #    registered before `gen_sym`, raising a mysterious error:
-    #        TypeError: interned_name() missing 1 required positional argument: 'gen_sym'
-    #  - This occurs when MacroPy tries to instantiate `interned_name` for a `ModuleExpansionContext`.
-    #  - That happens implicitly when we `import macropy.activate` (somewhere much later),
-    #    because `activate` itself imports `failure`, which uses `hquotes`, which happens to use macros.
-    #  - So to be safe, **always import macropy.activate first**, before other MacroPy modules.
-    import macropy.activate  # noqa: F401, we only import it first so MacroPy boots up correctly.
-    from macropy.quick_lambda import Lazy  # This is what we actually need here.
-except ImportError:  # pragma: no cover, only triggered if MacroPy is not installed, but running the test suite needs MacroPy.
-    class Lazy:
-        pass
-
 make_dynvar(_build_lazy_trampoline=False)  # interaction with TCO
 
-# -----------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
+# Run-time parts of lazy evaluation.
+
+# This comes from `demo/promise.py` in `mcpyrate`, with terminology changed to
+# match the existing one.
+
+_uninitialized = sym("_uninitialized")
+class Lazy:
+    """Delayed evaluation, with memoization. (A.k.a. *promise* in Racket.)"""
+
+    def __init__(self, thunk):
+        """`thunk`: 0-argument callable to be stored for delayed evaluation."""
+        if not callable(thunk):
+            raise TypeError(f"`thunk` must be a callable, got {type(thunk)} with value {repr(thunk)}")
+        self.thunk = thunk
+        self.value = _uninitialized
+        self.thunk_returned_normally = _uninitialized
+
+    def force(self):
+        """Compute and return the value of the promise.
+
+        If `self.thunk` is not already evaluated, evaluate it now, and cache
+        its return value. If it raises, cache the exception instance instead.
+
+        Then in any case, return the cached value, or raise the cached exception.
+        """
+        if self.value is _uninitialized:
+            try:
+                self.value = self.thunk()
+                self.thunk_returned_normally = True
+            except Exception as err:
+                self.value = err
+                self.thunk_returned_normally = False
+        if self.thunk_returned_normally:
+            return self.value
+        else:
+            raise self.value
+
+def force1(x):
+    """Force a ``Lazy`` promise.
+
+    For a promise ``x``, the effect of ``force1(x)`` is the same as ``x()``,
+    except that ``force1 `` first checks that ``x`` is a promise.
+
+    If ``x`` is not a promise, it is returned as-is (à la Racket).
+    """
+    return x.force() if isinstance(x, Lazy) else x
+
+def force(x):
+    """Like force1, but recurse into containers.
+
+    This recurses on any containers with the appropriate ``collections.abc``
+    abstract base classes (virtuals ok too). Mutable containers are updated
+    in-place, for immutables a new instance is created. For details, see
+    ``unpythonic.collections.mogrify``.
+    """
+    if not _init_done:
+        return x
+    return mogrify(force1, x)  # in-place update to allow lazy functions to have writable list arguments
+
+# --------------------------------------------------------------------------------
+# Helpers for the macro layer
+
+def islazy(f):
+    """Return whether the function f is marked for passthrough of lazy args.
+
+    This is mainly used internally by `unpythonic.syntax.lazify`, but is
+    provided as part of the public API, so that also user code can inspect
+    the mark if it needs to.
+    """
+    # special-case "_let" for lazify/curry combo when let[] expressions are present
+    return hasattr(f, "_passthrough_lazy_args") or (hasattr(f, "__name__") and f.__name__ == "_let")
+
+def maybe_force_args(f, *thunks, **kwthunks):
+    """Internal. Helps calling strict functions from inside a ``with lazify`` block."""
+    if f is jump:  # special case to avoid drastic performance hit in strict code
+        target, *argthunks = thunks
+        return jump(force1(target), *argthunks, **kwthunks)
+    if islazy(f):
+        return f(*thunks, **kwthunks)
+    return f(*force(thunks), **force(kwthunks))
 
 @register_decorator(priority=95)
 def passthrough_lazy_args(f):
@@ -100,45 +157,3 @@ def passthrough_lazy_args(f):
     """
     f._passthrough_lazy_args = True
     return f
-
-def islazy(f):
-    """Return whether the function f is marked for passthrough of lazy args.
-
-    This is mainly used internally by `unpythonic.syntax.lazify`, but is
-    provided as part of the public API, so that also user code can inspect
-    the mark if it needs to.
-    """
-    # special-case "_let" for lazify/curry combo when let[] expressions are present
-    return hasattr(f, "_passthrough_lazy_args") or (hasattr(f, "__name__") and f.__name__ == "_let")
-
-def maybe_force_args(f, *thunks, **kwthunks):
-    """Internal. Helps calling strict functions from inside a ``with lazify`` block."""
-    if f is jump:  # special case to avoid drastic performance hit in strict code
-        target, *argthunks = thunks
-        return jump(force1(target), *argthunks, **kwthunks)
-    if islazy(f):
-        return f(*thunks, **kwthunks)
-    return f(*force(thunks), **force(kwthunks))
-
-# Because force(x) is more explicit than x() and MacroPy itself doesn't define this.
-def force1(x):
-    """Force a MacroPy lazy[] promise.
-
-    For a promise ``x``, the effect of ``force1(x)`` is the same as ``x()``,
-    except that ``force1 `` first checks that ``x`` is a promise.
-
-    If ``x`` is not a promise, it is returned as-is (à la Racket).
-    """
-    return x() if isinstance(x, Lazy) else x
-
-def force(x):
-    """Like force1, but recurse into containers.
-
-    This recurses on any containers with the appropriate ``collections.abc``
-    abstract base classes (virtuals ok too). Mutable containers are updated
-    in-place, for immutables a new instance is created. For details, see
-    ``unpythonic.collections.mogrify``.
-    """
-    if not _init_done:
-        return x
-    return mogrify(force1, x)  # in-place update to allow lazy functions to have writable list arguments
