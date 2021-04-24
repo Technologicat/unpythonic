@@ -3,6 +3,7 @@
 **New**:
 
 - Python 3.8 and 3.9 support added.
+- `with namedlambda` now processes the walrus operator, too. In `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
 
 **Breaking changes**:
 
