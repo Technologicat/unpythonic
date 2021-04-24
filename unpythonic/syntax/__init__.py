@@ -92,6 +92,7 @@ from ..dynassign import make_dynvar, dyn
 # TODO: update documentation of `quicklambda`
 # TODO: `@macro_stub` does not exist, just make a regular macro that explicitly raises an error.
 
+# TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.
 
 # TODO: With `mcpyrate`, we could move the macro interface functions to
 # TODO: the submodules, and have just re-exports here.
