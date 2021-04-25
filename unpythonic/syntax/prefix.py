@@ -124,7 +124,9 @@ class u:  # noqa: F811
         return "<unquote>"
 u = u()
 
-# not a @macro_stub; it only raises a run-time error on foo[...], not foo(...)
+# TODO: Think of promoting this error to compile macro expansion time.
+# TODO: Difficult to do, because we shouldn't probably hijack the name "kw" (so no name macro),
+# TODO: and it can't be invoked like an expr macro, because the whole point is to pass arguments by name.
 def kw(**kwargs):
     """[syntax] Pass-named-args operator. Only meaningful in a tuple in a prefix block."""
-    raise RuntimeError("kw only meaningful inside a tuple in a prefix block")  # pragma: no cover
+    raise RuntimeError("kw(...) only meaningful inside a tuple in a prefix block")  # pragma: no cover
