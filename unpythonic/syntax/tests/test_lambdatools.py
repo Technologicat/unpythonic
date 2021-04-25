@@ -4,7 +4,7 @@
 from ...syntax import macros, test, test_raises, warn  # noqa: F401
 from ...test.fixtures import session, testset
 
-from ...syntax import (macros, multilambda, namedlambda, quicklambda, f, _,  # noqa: F401, F811
+from ...syntax import (macros, multilambda, namedlambda, quicklambda, f,  # noqa: F401, F811
                        envify, local, let, curry, autoreturn)
 
 from functools import wraps
