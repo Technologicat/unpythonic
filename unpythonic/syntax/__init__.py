@@ -89,7 +89,6 @@ from ..dynassign import make_dynvar, dyn
 
 
 # BLOCKERs - fix these first
-# TODO: update documentation of `quicklambda`
 # TODO: `@macro_stub` does not exist, just make a regular macro that explicitly raises an error.
 
 # TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.
