@@ -6,10 +6,12 @@ from ...test.fixtures import session, testset, returns_normally
 
 from ...syntax import macros, autoref, let, do, local, lazify, curry  # noqa: F401, F811
 #from mcpyrate.debug import macros, step_expansion  # noqa: F811
+#from mcpyrate.debug import macros, show_bindings  # noqa: F811
 
 from ...env import env
 
 def runtests():
+    #show_bindings
     with testset("basic usage"):
         e = env(a=1, b=2)
         c = 3
