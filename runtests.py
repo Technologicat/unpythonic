@@ -33,7 +33,9 @@ def main():
     with session():
         testsets = (("regular code", (listtestmodules(os.path.join("unpythonic", "test")) +
                                       listtestmodules(os.path.join("unpythonic", "net", "test")))),
-                    ("macros", listtestmodules(os.path.join("unpythonic", "syntax", "test"))))
+                    # This one is called "tests" to prevent a name shadowing issue;
+                    # a `test` submodule would shadow the `test` macro.
+                    ("macros", listtestmodules(os.path.join("unpythonic", "syntax", "tests"))))
         for tsname, modnames in testsets:
             with testset(tsname):
                 for m in modnames:
