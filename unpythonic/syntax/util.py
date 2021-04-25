@@ -6,6 +6,7 @@ from functools import partial
 from ast import (Call, Lambda, FunctionDef, AsyncFunctionDef,
                  If, With, withitem, stmt, NodeTransformer)
 
+import mcpyrate.markers
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from .astcompat import getconstant
@@ -410,6 +411,8 @@ def wrapwith(item, body, locref=None):
 
     Syntax transformer. Returns the wrapped body.
     """
+    if isinstance(locref, mcpyrate.markers.ASTMarker):  # unwrap contents of Done() et al.
+        locref = locref.body
     locref = locref or body[0]
     wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
                    body=body,
