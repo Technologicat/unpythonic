@@ -467,7 +467,7 @@ def test_expr(tree):
     envname = gensym("e")  # for injecting the captured value
 
     # Handle the `the[...]` marks, if any.
-    tree, the_exprs = _transform_important_subexpr.recurse_collect(tree, envname=envname)
+    tree, the_exprs = _transform_important_subexpr(tree, envname=envname)
     if not the_exprs and type(tree) is Compare:  # inject the implicit the[] on the LHS
         tree.left = _inject_value_recorder(envname, tree.left)
 
@@ -559,7 +559,7 @@ def test_block(block_body, args):
     envname = gensym("e")  # for injecting the captured value
 
     # Handle the `the[...]` marks, if any.
-    block_body, the_exprs = _transform_important_subexpr.recurse_collect(block_body, envname=envname)
+    block_body, the_exprs = _transform_important_subexpr(block_body, envname=envname)
 
     # End of first pass.
     block_body = dyn._macro_expander.visit(block_body)
@@ -594,7 +594,7 @@ def test_block(block_body, args):
         # we inject a `return True` to satisfy the test when the function returns normally.
         with q as thereturn:
             return True
-        block_body.append(thereturn)
+        block_body.extend(thereturn)
 
     thefunc.body = block_body
 

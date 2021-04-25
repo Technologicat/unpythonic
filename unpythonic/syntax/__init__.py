@@ -2572,7 +2572,9 @@ def fail(tree, *, syntax, expander, **kw):  # noqa: F811
         raise SyntaxError("fail is an expr macro only")
 
     # Expand outside in. The ordering shouldn't matter here.
-    return _fail_expr(tree)
+    # The underlying `test` machinery needs to access the expander.
+    with dyn.let(_macro_expander=expander):
+        return _fail_expr(tree)
 
 def error(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, expr] Produce a test error, unconditionally.
@@ -2590,7 +2592,9 @@ def error(tree, *, syntax, expander, **kw):  # noqa: F811
         raise SyntaxError("error is an expr macro only")
 
     # Expand outside in. The ordering shouldn't matter here.
-    return _error_expr(tree)
+    # The underlying `test` machinery needs to access the expander.
+    with dyn.let(_macro_expander=expander):
+        return _error_expr(tree)
 
 def warn(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, expr] Produce a test warning, unconditionally.
@@ -2612,6 +2616,8 @@ def warn(tree, *, syntax, expander, **kw):  # noqa: F811
         raise SyntaxError("warn is an expr macro only")
 
     # Expand outside in. The ordering shouldn't matter here.
-    return _warn_expr(tree)
+    # The underlying `test` machinery needs to access the expander.
+    with dyn.let(_macro_expander=expander):
+        return _warn_expr(tree)
 
 # -----------------------------------------------------------------------------
