@@ -8,7 +8,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 
 *This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out of date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
 
-*Changed in 0.15*. *To run macro-enabled programs, use the [`macropython`](https://github.com/Technologicat/mcpyrate/blob/master/doc/repl.md#macropython-the-universal-bootstrapper) bootstrapper from [`mcpyrate`](https://github.com/Technologicat/mcpyrate).*
+**Changed in 0.15.** *To run macro-enabled programs, use the [`macropython`](https://github.com/Technologicat/mcpyrate/blob/master/doc/repl.md#macropython-the-universal-bootstrapper) bootstrapper from [`mcpyrate`](https://github.com/Technologicat/mcpyrate).*
 
 **This document is up-to-date for v0.14.3.**
 
@@ -27,7 +27,8 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 [**Tools for lambdas**](#tools-for-lambdas)
 - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables.
 - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) by assignment.
-- [``quicklambda``: combo with ``macropy.quick_lambda``](#quicklambda-combo-with-macropyquick_lambda)
+- [``f``: underscore notation (quick lambdas) for Python](#f-underscore-notation-quick-lambdas-for-python)
+- [``quicklambda``: expand quick lambdas first](#quicklambda-expand-quick-lambdas-first)
 - [``envify``: make formal parameters live in an unpythonic ``env``](#envify-make-formal-parameters-live-in-an-unpythonic-env)
 
 [**Language features**](#language-features)
@@ -620,16 +621,32 @@ The naming is performed using the function ``unpythonic.misc.namelambda``, which
 
 Support for other forms of assignment may or may not be added in a future version.
 
-### ``quicklambda``: combo with ``macropy.quick_lambda``
+### ``f``: underscore notation (quick lambdas) for Python.
 
-To be able to transform correctly, the block macros in ``unpythonic.syntax`` that transform lambdas (e.g. ``multilambda``, ``tco``) need to see all ``lambda`` definitions written with Python's standard ``lambda``. However, the highly useful ``macropy.quick_lambda`` uses the syntax ``f[...]``, which (to the analyzer) does not look like a lambda definition.
+**Changed in 0.15.** *Up to 0.14.x, the `f[]` macro used to be provided by `macropy`, but now that we use `mcpyrate`, we provide this ourselves. The underscore `_` is no longer a macro on its own. The `f` macro treats the underscore magically, as before, but anywhere else the underscore is available to be used as a regular variable. If you use `f[]`, change your import of this macro to `from unpythonic.syntax import macros, f`.*
 
-This macro changes the expansion order, forcing any ``f[...]`` lexically inside the block to expand in the first pass. Any expression of the form ``f[...]`` (the ``f`` is literal) is understood as a quick lambda, whether or not ``f`` and ``_`` are imported at the call site.
+The syntax ``f[...]`` creates a lambda, where each underscore in the ``...`` part introduces a new parameter. The macro does not descend into any nested ``f[]``.
+
+Example:
+
+```python
+func = f[_ * _]  # --> func = lambda x, y: x * y
+```
+
+Since in `mcpyrate`, macros can be as-imported, you can rename `f` at import time to have any name you want. The `quicklambda` block macro (see below) respects the as-import. Now you **must** import also the macro `f` when you import the macro `quicklambda`, because `quicklambda` internally queries the expander to determine the name(s) the macro `f` is currently bound to.
+
+### ``quicklambda``: expand quick lambdas first
+
+To be able to transform correctly, the block macros in ``unpythonic.syntax`` that transform lambdas (e.g. ``multilambda``, ``tco``) need to see all ``lambda`` definitions written with Python's standard ``lambda``.
+
+However, the ``f`` macro uses the syntax ``f[...]``, which (to the analyzer) does not look like a lambda definition. This macro changes the expansion order, forcing any ``f[...]`` lexically inside the block to expand before any other macros do.
+
+Any expression of the form ``f[...]``, where ``f`` is any name bound in the current macro expander to the macro `unpythonic.syntax.f`, is understood as a quick lambda. (In plain English, this respects as-imports of the macro ``f``.)
 
 Example - a quick multilambda:
 
 ```python
-from unpythonic.syntax import macros, multilambda, quicklambda, f, _, local
+from unpythonic.syntax import macros, multilambda, quicklambda, f, local
 
 with quicklambda, multilambda:
     func = f[[local[x << _],
@@ -738,6 +755,8 @@ assert add3(1)(2)(3) == 6
 Manual uses of the `curry` decorator (on both `def` and `lambda`) are detected, and in such cases the macro skips adding the decorator.
 
 ### ``lazify``: call-by-need for Python
+
+**Changed in 0.15.** *Up to 0.14.x, the `lazy[]` macro, that is used together with `with lazify`, used to be provided by `macropy`, but now that we use `mcpyrate`, we provide it ourselves. If you use `lazy[]`, change your import of that macro to `from unpythonic.syntax import macros, lazy`*.
 
 Also known as *lazy functions*. Like [lazy/racket](https://docs.racket-lang.org/lazy/index.html), but for Python. Note if you want *lazy sequences* instead, Python already provides those; just use the generator facility (and decorate your gfunc with ``unpythonic.gmemoize`` if needed).
 
@@ -1878,7 +1897,7 @@ Inspired by [Julia](https://julialang.org/)'s standard-library [`Test` package](
 
 ### ``dbg``: debug-print expressions with source code
 
-*Changed in 0.14.2.* The `dbg[]` macro now works in the REPL, too. You can use `mcpyrate.repl.console` (a.k.a. `macropython -i` in the shell) or the IPython extension `mcpyrate.repl.iconsole`.
+**Changed in 0.14.2.** The `dbg[]` macro now works in the REPL, too. You can use `mcpyrate.repl.console` (a.k.a. `macropython -i` in the shell) or the IPython extension `mcpyrate.repl.iconsole`.
 
 [DRY](https://en.wikipedia.org/wiki/Don't_repeat_yourself) out your [qnd](https://en.wiktionary.org/wiki/quick-and-dirty) debug printing code. Both block and expression variants are provided:
 
