@@ -25,11 +25,8 @@ import sys
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
-from mcpyrate.walkers import ASTTransformer
-
-from macropy.core.macros import macro_stub
-
 from mcpyrate import gensym
+from mcpyrate.walkers import ASTTransformer
 
 from ..lispylet import _let as letf, _dlet as dletf, _blet as bletf
 from ..seq import do as dof
@@ -384,15 +381,13 @@ def do(tree):
     thecall.args = lines
     return thecall
 
-@macro_stub
 def local(*args, **kwargs):
     """[syntax] Declare a local name in a "do".
 
     Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
     (extra bracket syntax)."""
-    pass  # pragma: no cover, macro stub
+    raise SyntaxError("local[] is only valid within a do[] or do0[]")  # pragma: no cover, not meant to hit the expander (expanded away manually by `do[]`)
 
-@macro_stub
 def delete(*args, **kwargs):
     """[syntax] Delete a previously declared local name in a "do".
 
@@ -402,7 +397,7 @@ def delete(*args, **kwargs):
     Note ``do[]`` supports local variable deletion, but the ``let[]``
     constructs don't, by design.
     """
-    pass  # pragma: no cover, macro stub
+    raise SyntaxError("delete[] is only valid within a do[] or do0[]")  # pragma: no cover, not meant to hit the expander (expanded away manually by `do[]`)
 
 def do0(tree):
     if type(tree) not in (Tuple, List):

@@ -17,8 +17,6 @@ import sys
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
-from macropy.core.macros import macro_stub
-
 from mcpyrate import gensym
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
@@ -102,8 +100,6 @@ def tco(block_body):
 
 # -----------------------------------------------------------------------------
 
-# TODO: make call_cc a magic variable that errors out if mentioned outside a `with continuations`.
-@macro_stub
 def call_cc(tree, **kw):
     """[syntax] Only meaningful in a "with continuations" block.
 
@@ -127,7 +123,7 @@ def call_cc(tree, **kw):
 
     For more, see the docstring of ``continuations``.
     """
-    pass  # pragma: no cover
+    raise SyntaxError("call_cc[] is only meaningful in a `with continuations` block.")  # pragma: no cover, not meant to hit the expander (expanded away by `with continuations`)
 
 # _pcc/cc chaining handler, to be exported to client code via q[h[]].
 #
