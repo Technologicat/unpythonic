@@ -90,6 +90,8 @@ from ..dynassign import make_dynvar, dyn
 # TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.
 # TODO: Test the q[t[...]] implementation in do0[]
 
+# TODO: Brackets: use "with test[...]" instead of "with test(...)" in the test modules
+
 # TODO: With `mcpyrate`, we could move the macro interface functions to
 # TODO: the submodules, and have just re-exports here.
 
