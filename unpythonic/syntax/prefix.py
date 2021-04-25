@@ -4,7 +4,7 @@
 Experimental, not for use in production code.
 """
 
-from ast import Name, Call, Tuple, Load, Subscript
+from ast import Name, Call, Starred, Tuple, Load, Subscript
 import sys
 
 from mcpyrate.quotes import macros, q, u, a, t  # noqa: F811, F401
@@ -95,11 +95,13 @@ def prefix(block_body):
                 return q[t[self.visit(quoted)]]
             # (f, a1, ..., an) --> f(a1, ..., an)
             posargs = [x for x in data if not iskwargs(x)]
-            # TODO: tag *args and **kwargs in a kw() as invalid, too (currently just ignored)
-            invalids = list(flatmap(lambda x: x.args, filter(iskwargs, data)))
+            kwargs_calls = filter(iskwargs, data)
+            # In Python 3.5+, this tags *args as invalid, too, because those are Starred items inside `args`.
+            invalids = list(flatmap(lambda x: x.args, kwargs_calls))  # no positional args allowed in kw()
+            kwargs = flatmap(lambda x: x.keywords, kwargs_calls)
+            invalids += [type(x) is Starred for x in kwargs]  # reject **kwargs
             if invalids:
-                raise SyntaxError("kw(...) may only specify named args")  # pragma: no cover
-            kwargs = flatmap(lambda x: x.keywords, filter(iskwargs, data))
+                raise SyntaxError("kw(...) may only specify individual named args")  # pragma: no cover
             kwargs = list(rev(uniqify(rev(kwargs), key=lambda x: x.arg)))  # latest wins, but keep original ordering
             thecall = Call(func=op, args=posargs, keywords=list(kwargs))
             self.withstate(thecall, quotelevel=quotelevel)
