@@ -360,8 +360,8 @@ def do(tree):
     for j, expr in enumerate(tree.elts, start=1):
         # Despite the recursion, this will not trigger false positives for nested do[] expressions,
         # because do[] is a second-pass macro, so they expand from inside out.
-        expr, newnames = find_localdefs.recurse_collect(expr)
-        expr, deletednames = find_deletes.recurse_collect(expr)
+        expr, newnames = find_localdefs(expr)
+        expr, deletednames = find_deletes(expr)
         if newnames and deletednames:
             raise SyntaxError("a do-item may have only local[] or delete[], not both")  # pragma: no cover
         if newnames:
