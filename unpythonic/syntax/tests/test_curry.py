@@ -4,17 +4,16 @@
 from ...syntax import macros, test  # noqa: F401
 from ...test.fixtures import session, testset
 
-from ...syntax import macros, curry  # noqa: F401, F811
+from ...syntax import macros, autocurry  # noqa: F401, F811
 
-# Not really overriding previous `curry`; that was a macro, this is a run-time function.
-from ...fun import composerc as compose, curry, memoize  # noqa: F811
+from ...fun import composerc as compose, curry, memoize
 from ...fold import foldr
 from ...llist import cons, nil, ll
 from ...collections import frozendict
 
 def runtests():
     with testset("basic usage"):
-        with curry:
+        with autocurry:
             mymap = lambda f: foldr(compose(cons, f), nil)
             double = lambda x: 2 * x
             assert mymap(double, (1, 2, 3)) == ll(2, 4, 6)
@@ -67,24 +66,29 @@ def runtests():
     # TODO: It should be on the outside to handle the args. How does this
     # TODO: affect the ordering of the other decorators?
     with testset("inserting @curry when other decorators present"):
-        with curry:
+        with autocurry:
             @memoize
             def add2(a, b):
                 return a + b
             test[add2(17)(23) == 40]
 
     # should not insert an extra @curry even if we curry manually
-    # (convenience, for with-currying existing code)
+    # (convenience, for with-autocurrying existing code)
     with testset("extra @curry insertion avoidance logic"):
-        with curry:
+        with autocurry:
             @curry
             def add3(a, b, c):
                 return a + b + c
             test[add3(1)(2)(3) == 6]
 
-            f = curry(lambda a, b, c: a + b + c)
-            test[f(1)(2)(3) == 6]
+        with autocurry:
+            f1 = lambda a, b, c: a + b + c
+            test[f1(1)(2)(3) == 6]
 
+            f2 = curry(lambda a, b, c: a + b + c)
+            test[f2(1)(2)(3) == 6]
+
+        with autocurry:
             from unpythonic.tco import trampolined, jump
             from unpythonic.fun import withself
             fact = trampolined(withself(curry(lambda self, n, acc=1:
@@ -92,7 +96,7 @@ def runtests():
             test[fact(5) == 120]
 
     with testset("integration: dict_items handling in mogrify"):
-        with curry:
+        with autocurry:
             d1 = frozendict(foo='bar', bar='tavern')
             d2 = frozendict(d1, bar='pub')
             test[tuple(sorted(d1.items())) == (('bar', 'tavern'), ('foo', 'bar'))]

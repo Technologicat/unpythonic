@@ -9,7 +9,7 @@ from mcpyrate.metatools import macros, expandrq  # noqa: F811
 
 from ...syntax import (macros, let, letrec, dlet, dletrec,  # noqa: F811, F401
                        do, local,
-                       curry)
+                       autocurry)
 
 from ast import Tuple, Name, Constant, Lambda, BinOp, Attribute, Call
 import sys
@@ -96,26 +96,27 @@ def runtests():
                 return 2 * x  # noqa: F821
         test[islet(the[testdata[0].decorator_list[0]], expanded=False) == ("decorator", "dlet")]
 
-    with testset("islet integration with curry"):
+    with testset("islet integration with autocurry"):
         # NOTE: We have to be careful with how we set up the test data here.
         #
-        # The `q` must be outside the `with curry` block, because otherwise
-        # `curry` will attempt to curry the AST-lifted representation, leading to
-        # arguably funny but nonsensical things like `ctx=currycall(ast.Load)`.
+        # The quasiquote operator must be outside the `with autocurry` block,
+        # because otherwise `autocurry` will attempt to curry the AST-lifted
+        # representation, leading to arguably funny but nonsensical things like
+        # `ctx=currycall(ast.Load)`.
         with expandrq as testdata:
-            with curry:  # pragma: no cover
+            with autocurry:  # pragma: no cover
                 let((x, 21))[2 * x]  # noqa: F821  # note this goes into an ast.Expr
         thelet = testdata[0].value
         test[islet(the[thelet]) == ("curried_expr", "let")]
 
         with expandrq as testdata:
-            with curry:  # pragma: no cover
+            with autocurry:  # pragma: no cover
                 let[(x, 21) in 2 * x]  # noqa: F821
         thelet = testdata[0].value
         test[islet(the[thelet]) == ("curried_expr", "let")]
 
         with expandrq as testdata:
-            with curry:  # pragma: no cover
+            with autocurry:  # pragma: no cover
                 let[2 * x, where(x, 21)]  # noqa: F821
         thelet = testdata[0].value
         test[islet(the[thelet]) == ("curried_expr", "let")]
@@ -128,7 +129,7 @@ def runtests():
                                   2 * x]]]) == "expanded"]  # noqa: F821
 
         with expandrq as testdata:  # pragma: no cover
-            with curry:
+            with autocurry:
                 do[x << 21,  # noqa: F821
                    2 * x]  # noqa: F821
         thedo = testdata[0].value
@@ -412,17 +413,17 @@ def runtests():
         test[view.envname is not None]  # dletrec decorator has envname in the bindings
 
     # --------------------------------------------------------------------------------
-    # Destructuring - expanded let and letrec, integration with curry
+    # Destructuring - expanded let and letrec, integration with autocurry
 
-    with testset("let destructuring (expanded) integration with curry"):
+    with testset("let destructuring (expanded) integration with autocurry"):
         with expandrq as testdata:
-            with curry:  # pragma: no cover
+            with autocurry:  # pragma: no cover
                 let[((x, 21), (y, 2)) in y * x]  # noqa: F821  # note this goes into an ast.Expr
         thelet = testdata[0].value
         testexpandedletdestructuring(thelet)
 
         with expandrq as testdata:
-            with curry:  # pragma: no cover
+            with autocurry:  # pragma: no cover
                 letrec[((x, 21), (y, 2)) in y * x]  # noqa: F821
         thelet = testdata[0].value
         testexpandedletrecdestructuring(thelet)
@@ -496,9 +497,9 @@ def runtests():
                     ExpandedDoView(q[x]),  # noqa: F821
                     "not an expanded do form"]
 
-    with testset("do destructuring (expanded) integration with curry"):
+    with testset("do destructuring (expanded) integration with autocurry"):
         with expandrq as testdata:  # pragma: no cover
-            with curry:
+            with autocurry:
                 do[local[x << 21],  # noqa: F821
                    2 * x]  # noqa: F821
         thedo = testdata[0].value

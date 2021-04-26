@@ -6,7 +6,7 @@
 from ...syntax import macros, test, test_raises, the  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
-from ...syntax import macros, prefix, q, u, kw, curry, let, do  # noqa: F401, F811
+from ...syntax import macros, prefix, q, u, kw, autocurry, let, do  # noqa: F401, F811
 
 from ...fold import foldr
 from ...fun import composerc as compose, apply
@@ -101,7 +101,7 @@ def runtests():
     with testset("LisThEll"):
         # `prefix` is a first-pass macro, so placed on the outside, it expands first.
         with prefix:
-            with curry:
+            with autocurry:
                 mymap = lambda f: (foldr, (compose, cons, f), nil)
                 double = lambda x: 2 * x
                 (print, (mymap, double, (q, 1, 2, 3)))

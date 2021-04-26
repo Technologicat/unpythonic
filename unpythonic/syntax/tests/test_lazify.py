@@ -7,7 +7,7 @@ from ...test.fixtures import session, testset
 from ...syntax import (macros, lazify, lazy, lazyrec,  # noqa: F811, F401
                        let, letseq, letrec, local,
                        tco,
-                       curry,
+                       autocurry,
                        continuations, call_cc)
 from ...syntax import force, force1
 
@@ -15,7 +15,7 @@ from ...syntax import force, force1
 # and this one is a regular run-time function.
 from ...collections import frozendict
 from ...ec import call_ec
-from ...fun import (curry, memoize, flip, rotate, apply,  # noqa: F811
+from ...fun import (curry, memoize, flip, rotate, apply,
                     notf, andf, orf, tokth, withself)
 from ...it import flatten
 from ...llist import ll
@@ -478,9 +478,9 @@ def runtests():
             test[withec2 == 42]
 
     # Introducing the HasThon programming language.
-    # For a continuation-enabled HasThon, use "with continuations, curry, lazify".
+    # For a continuation-enabled HasThon, use "with continuations, autocurry, lazify".
     with testset("HasThon, with 100% more Thon than popular brands"):
-        with curry, lazify:
+        with autocurry, lazify:
             def add3(a, b, c):
                 return a + b + c
             test[add3(1)(2)(3) == 6]

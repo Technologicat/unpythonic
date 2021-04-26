@@ -120,7 +120,7 @@ def mogrify(func, container):
             return ctor(doit(elt) for elt in x)
         # dict_items and similar cannot be instantiated, and they support only iteration,
         # not in-place modification, so return a regular set
-        # (this turns up in "with curry" blocks using somedict.items() as a function argument,
+        # (this turns up in "with autocurry" blocks using somedict.items() as a function argument,
         #  due to the maybe_force_args() in curry)
         elif isinstance(x, MappingView):
             return {doit(elt) for elt in x}

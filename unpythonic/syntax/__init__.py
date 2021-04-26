@@ -144,7 +144,7 @@ from ..dynassign import make_dynvar, dyn
 
 # Syntax transformers and internal utilities
 from .autoref import autoref as _autoref
-from .curry import curry as _curry
+from .curry import autocurry as _autocurry
 from .dbg import dbg_block as _dbg_block, dbg_expr as _dbg_expr
 from .forall import forall as _forall
 from .ifexprs import aif as _aif, cond as _cond
@@ -308,18 +308,18 @@ def cond(tree, *, syntax, expander, **kw):  # noqa: F811
 
 # -----------------------------------------------------------------------------
 
-def curry(tree, *, syntax, expander, **kw):  # technically a list of trees, the body of the with block  # noqa: F811
+def autocurry(tree, *, syntax, expander, **kw):  # technically a list of trees, the body of the with block  # noqa: F811
     """[syntax, block] Automatic currying.
 
     Usage::
 
-        from unpythonic.syntax import macros, curry
+        from unpythonic.syntax import macros, autocurry
 
-        with curry:
+        with autocurry:
             ...
 
     All **function calls** and **function definitions** (``def``, ``lambda``)
-    *lexically* inside the ``with curry`` block are automatically curried.
+    *lexically* inside the ``with autocurry`` block are automatically curried.
 
     **CAUTION**: Some builtins are uninspectable or may report their arities
     incorrectly; in those cases, ``curry`` may fail, occasionally in mysterious
@@ -330,16 +330,16 @@ def curry(tree, *, syntax, expander, **kw):  # technically a list of trees, the 
     builtins in the top-level namespace (as of Python 3.7), but e.g. methods
     of builtin types are not handled.
 
-    Lexically inside a ``with curry`` block, the auto-curried function calls
+    Lexically inside a ``with autocurry`` block, the auto-curried function calls
     will skip the curry if the function is uninspectable, instead of raising
     ``TypeError`` as usual.
 
     Example::
 
-        from unpythonic.syntax import macros, curry
+        from unpythonic.syntax import macros, autocurry
         from unpythonic import foldr, composerc as compose, cons, nil, ll
 
-        with curry:
+        with autocurry:
             def add3(a, b, c):
                 return a + b + c
             assert add3(1)(2)(3) == 6
@@ -355,11 +355,11 @@ def curry(tree, *, syntax, expander, **kw):  # technically a list of trees, the 
         assert add3(1)(2)(3) == 6
     """
     if syntax != "block":
-        raise SyntaxError("curry is a block macro only")
+        raise SyntaxError("autocurry is a block macro only")
 
     tree = expander.visit(tree)
 
-    return _curry(block_body=tree)
+    return _autocurry(block_body=tree)
 
 # -----------------------------------------------------------------------------
 
@@ -2114,7 +2114,7 @@ def lazify(tree, *, syntax, expander, **kw):  # noqa: F811
     Introducing the *HasThon* programming language (it has 100% more Thon than
     popular brands)::
 
-        with curry, lazify:  # or continuations, curry, lazify if you want those
+        with autocurry, lazify:  # or continuations, autocurry, lazify if you want those
             def add2first(a, b, c):
                 return a + b
             assert add2first(2)(3)(1/0) == 5

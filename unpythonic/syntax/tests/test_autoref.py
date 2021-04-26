@@ -4,7 +4,7 @@
 from ...syntax import macros, test, test_raises, the  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
-from ...syntax import macros, autoref, let, do, local, lazify, curry  # noqa: F401, F811
+from ...syntax import macros, autoref, let, do, local, lazify, autocurry  # noqa: F401, F811
 #from mcpyrate.debug import macros, step_expansion  # noqa: F811
 #from mcpyrate.debug import macros, show_bindings  # noqa: F811
 
@@ -109,8 +109,8 @@ def runtests():
             with autoref[e]:
                 test[a == 1]  # noqa: F821
 
-    with testset("integration with curry"):
-        with curry:
+    with testset("integration with autocurry"):
+        with autocurry:
             e = env(a=1)
             with autoref[e]:
                 test[a == 1]  # noqa: F821

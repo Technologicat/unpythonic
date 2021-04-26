@@ -76,7 +76,7 @@ make_dynvar(curry_context=[])
 def _currycall(f, *args, **kwargs):
     """Co-operate with unpythonic.syntax.curry.
 
-    In a ``with curry`` block, need to call also when ``f()`` has transformed
+    In a ``with autocurry`` block, need to call also when ``f()`` has transformed
     to ``curry(f)``, but definitions can be curried as usual.
 
     Hence we provide this separate mode to curry-and-call even if no args.
@@ -204,7 +204,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
     except UnknownArity:  # likely a builtin
         if not _curry_allow_uninspectable:  # usual behavior
             raise
-        # co-operate with unpythonic.syntax.curry; don't crash on builtins
+        # co-operate with unpythonic.syntax.autocurry; don't crash on builtins
         if args or kwargs or _curry_force_call:
             return maybe_force_args(f, *args, **kwargs)
         return f

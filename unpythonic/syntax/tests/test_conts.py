@@ -4,7 +4,7 @@
 from ...syntax import macros, test, test_raises, error  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
-from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, curry, let  # noqa: F401, F811
+from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, autocurry, let  # noqa: F401, F811
 
 from ...ec import call_ec
 from ...fploop import looped
@@ -169,7 +169,7 @@ def runtests():
             #     return r
             # test[result == 42]
 
-    with testset("integration with curry"):
+    with testset("integration with autocurry"):
         def testcurrycombo():
             with continuations:
                 from ...fun import curry  # TODO: can't rename the import, unpythonic.syntax.util.sort_lambda_decorators won't detect it
@@ -179,7 +179,7 @@ def runtests():
         testcurrycombo()
         # This version auto-inserts curry after the inner macros have expanded.
         # This should work, too.
-        with curry:
+        with autocurry:
             with continuations:
                 test[call_ec(lambda ec: ec(42)) == 42]
 
@@ -477,8 +477,8 @@ def runtests():
                 x = fail()
             test[out == pts]
 
-    with testset("integration with autoreturn and curry simultaneously"):
-        with curry:  # major slowdown, but works; must be in a separate "with"  # TODO: why separate?  https://github.com/azazel75/macropy/issues/21
+    with testset("integration with autoreturn and autocurry simultaneously"):
+        with autocurry:  # major slowdown, but works; must be in a separate "with"  # TODO: why separate?  https://github.com/azazel75/macropy/issues/21
             with autoreturn, continuations:
                 stack = []
                 def amb(lst, cc):  # noqa: F811, the previous one is no longer used.

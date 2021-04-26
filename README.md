@@ -480,13 +480,13 @@ with tco:
 </details>  
 <details><summary>Curry automatically, à la Haskell.</summary>
 
-[[docs](doc/macros.md#curry-automatic-currying-for-python)]
+[[docs](doc/macros.md#autocurry-automatic-currying-for-python)]
 
 ```python
-from unpythonic.syntax import macros, curry
+from unpythonic.syntax import macros, autocurry
 from unpythonic import foldr, composerc as compose, cons, nil, ll
 
-with curry:
+with autocurry:
     def add3(a, b, c):
         return a + b + c
     assert add3(1)(2)(3) == 6

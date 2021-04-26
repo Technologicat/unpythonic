@@ -4,15 +4,12 @@
 from ...syntax import macros, test, test_raises, fail  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
-from ...syntax import (macros, tco, autoreturn, curry, do, let, letseq, dletrec,  # noqa: F401, F811
+from ...syntax import (macros, tco, autoreturn, autocurry, do, let, letseq, dletrec,  # noqa: F401, F811
                        quicklambda, f, _, continuations, call_cc)
 
 from ...ec import call_ec
 from ...fploop import looped_over
-# Can't rename `curry`, because then `unpythonic.syntax.util.sort_lambda_decorators`
-# won't detect it. It doesn't matter, though - the first imported curry is a macro,
-# whereas this one is a regular runtime function.
-from ...fun import withself, curry  # noqa: F811
+from ...fun import withself, curry
 
 def runtests():
     # - any explicit return statement in a function body is TCO'd
@@ -121,7 +118,7 @@ def runtests():
                 fail["This line should not be reached."]  # pragma: no cover
             test[silly == 42]
 
-    with testset("integration with curry"):
+    with testset("integration with autocurry"):
         def testcurrycombo():
             with tco:
                 # Currying here makes no sense, but test that it expands correctly.
@@ -130,7 +127,7 @@ def runtests():
         testcurrycombo()
         # This version auto-inserts curry after the inner macros have expanded.
         # This should work, too.
-        with curry:
+        with autocurry:
             with tco:
                 test[call_ec(lambda ec: ec(42)) == 42]
 

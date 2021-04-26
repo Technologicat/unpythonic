@@ -5,13 +5,11 @@ from ...syntax import macros, test, test_raises, warn  # noqa: F401
 from ...test.fixtures import session, testset
 
 from ...syntax import (macros, multilambda, namedlambda, quicklambda, f,  # noqa: F401, F811
-                       envify, local, let, curry, autoreturn)
+                       envify, local, let, autocurry, autoreturn)
 
 from functools import wraps
 
-# Not really redefining "curry". The first one is a macro, and this one is a regular run-time function.
-# (Although this does mean the docstring of the macro will not be accessible from here.)
-from ...fun import withself, curry  # noqa: F811
+from ...fun import withself, curry
 from ...tco import trampolined, jump
 from ...fploop import looped_over
 
@@ -140,14 +138,14 @@ def runtests():
     # TODO: fix MacroPy #21 properly; https://github.com/azazel75/macropy/issues/21
     with testset("namedlambda, naming an autocurried last arg"):
         with namedlambda:
-            with curry:
+            with autocurry:
                 f6 = mypardeco(2, 3, lambda x: x**2)
                 test[f6(10) == (2, 3, 100)]
                 test[f6.__name__ == "f6"]
 
         # presence of autocurry should not confuse the first-pass output
         with namedlambda:
-            with curry:
+            with autocurry:
                 foo = let[(f7, None) in f7 << (lambda x: x)]  # noqa: F821
                 test[foo.__name__ == "f7"]
 

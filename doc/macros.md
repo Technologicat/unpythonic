@@ -725,10 +725,10 @@ To boldly go where Python without macros just won't. Changing the rules by code-
 ### ``curry``: automatic currying for Python
 
 ```python
-from unpythonic.syntax import macros, curry
+from unpythonic.syntax import macros, autocurry
 from unpythonic import foldr, composerc as compose, cons, nil
 
-with curry:
+with autocurry:
     def add3(a, b, c):
         return a + b + c
     assert add3(1)(2)(3) == 6
@@ -744,7 +744,7 @@ with curry:
 assert add3(1)(2)(3) == 6
 ```
 
-*Lexically* inside a ``with curry`` block:
+*Lexically* inside a ``with autocurry`` block:
 
  - All **function calls** and **function definitions** (``def``, ``lambda``) are automatically curried, somewhat like in Haskell, or in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy).
 
@@ -810,7 +810,7 @@ Like ``with continuations``, no state or context is associated with a ``with laz
 
 Lazy code is allowed to call strict functions and vice versa, without requiring any additional effort.
 
-Comboing with other block macros in ``unpythonic.syntax`` is supported, including ``curry`` and ``continuations``. See the [meta](#meta) section of this README for the correct ordering.
+Comboing with other block macros in ``unpythonic.syntax`` is supported, including ``autocurry`` and ``continuations``. See the [meta](#meta) section of this README for the correct ordering.
 
 For more details, see the docstring of ``unpythonic.syntax.lazify``.
 
@@ -1411,13 +1411,13 @@ with prefix:
     assert (apply, g, "hi", "ho", lst) == (q, "hi" ,"ho", 1, 2, 3)
 ```
 
-This comboes with ``curry`` for an authentic *LisThEll* programming experience:
+This comboes with ``autocurry`` for an authentic *LisThEll* programming experience:
 
 ```python
-from unpythonic.syntax import macros, curry, prefix, q, u, kw
+from unpythonic.syntax import macros, autocurry, prefix, q, u, kw
 from unpythonic import foldr, composerc as compose, cons, nil
 
-with prefix, curry:  # important: apply prefix first, then curry
+with prefix, autocurry:  # important: apply prefix first, then autocurry
     mymap = lambda f: (foldr, (compose, cons, f), nil)
     double = lambda x: 2 * x
     (print, (mymap, double, (q, 1, 2, 3)))

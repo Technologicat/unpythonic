@@ -470,7 +470,7 @@ class UnexpandedDoView:
 class ExpandedLetView:
     """Like UnexpandedLetView, but for already expanded let constructs.
 
-    We support both "with curry" and bare formats.
+    We support both "with autocurry" and bare formats.
 
     This is for simple in-place modifications; changing the number of bindings
     is currently not supported. Prefer doing any extensive modifications in the
@@ -549,7 +549,7 @@ class ExpandedLetView:
         return None  # give up
 
     def _getbindings(self):
-        # Abstract away the namelambda(...). We support both "with curry" and bare formats:
+        # Abstract away the namelambda(...). We support both "with autocurry" and bare formats:
         #   currycall(letter, bindings, currycall(currycall(namelambda, "let_body"), curryf(lambda e: ...)))
         #   letter(bindings, namelambda("let_body")(lambda e: ...))
         thebindings = self._tree.args[1] if self.curried else self._tree.args[0]
@@ -583,7 +583,7 @@ class ExpandedLetView:
             newk, newv = newb.elts
             if type(newk) not in (Constant, Str):  # Python 3.8+: ast.Constant
                 raise TypeError("ExpandedLetView: let: each key must be an ast.Constant or an ast.Str")  # pragma: no cover
-        # Abstract away the namelambda(...). We support both "with curry" and bare formats:
+        # Abstract away the namelambda(...). We support both "with autocurry" and bare formats:
         #   currycall(letter, bindings, currycall(currycall(namelambda, "let_body"), curryf(lambda e: ...)))
         #   letter(bindings, namelambda("let_body")(lambda e: ...))
         thebindings = self._tree.args[1] if self.curried else self._tree.args[0]
@@ -652,7 +652,7 @@ class ExpandedLetView:
 class ExpandedDoView:
     """Like UnexpandedDoView, but for already expanded do forms.
 
-    We support both "with curry" and bare formats.
+    We support both "with autocurry" and bare formats.
 
     This is for simple in-place modifications; changing the number of do-items
     is currently not supported. Prefer doing any extensive modifications in the

@@ -57,10 +57,10 @@ def namedlambda(block_body):
             return False
         return type(tree.args[-1]) is Lambda
 
-    # Detect an autocurry from an already expanded "with curry".
-    # CAUTION: These must match what unpythonic.syntax.curry.curry uses in its output.
+    # Detect an autocurry from an already expanded "with autocurry".
+    # CAUTION: These must match what unpythonic.syntax.curry.autocurry uses in its output.
     iscurrycall = make_isxpred("currycall")
-    iscurryf = orf(make_isxpred("curryf"), make_isxpred("curry"))  # auto or manual curry in a "with curry"
+    iscurryf = orf(make_isxpred("curryf"), make_isxpred("curry"))  # auto or manual curry in a "with autocurry"
     def isautocurrywithfinallambda(tree):
         if not (type(tree) is Call and isx(tree.func, iscurrycall) and tree.args and
                 type(tree.args[-1]) is Call and isx(tree.args[-1].func, iscurryf)):
@@ -77,7 +77,7 @@ def namedlambda(block_body):
         # for decorated lambdas, match any chain of one-argument calls.
         d = is_decorated_lambda(tree, mode="any") and not has_deco(tree, "namelambda")
         c = iscurrywithfinallambda(tree)
-        # this matches only during the second pass (after "with curry" has expanded)
+        # this matches only during the second pass (after "with autocurry" has expanded)
         # so it can't have namelambda already applied
         if isautocurrywithfinallambda(tree):  # "currycall(..., curryf(lambda ...: ...))"
             match = True
