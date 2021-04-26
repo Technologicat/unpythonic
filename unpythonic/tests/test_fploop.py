@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from ..syntax import macros, test, test_raises, fail  # noqa: F401
-from .fixtures import session, testset
+from ..test.fixtures import session, testset
 
 from ..fploop import looped, looped_over, breakably_looped, breakably_looped_over
 from ..tco import trampolined, jump

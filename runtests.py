@@ -31,8 +31,8 @@ def modname(path, filename):  # some/dir/mod.py --> some.dir.mod
 
 def main():
     with session():
-        testsets = (("regular code", (listtestmodules(os.path.join("unpythonic", "test")) +
-                                      listtestmodules(os.path.join("unpythonic", "net", "test")))),
+        testsets = (("regular code", (listtestmodules(os.path.join("unpythonic", "tests")) +
+                                      listtestmodules(os.path.join("unpythonic", "net", "tests")))),
                     # This one is called "tests" to prevent a name shadowing issue;
                     # a `test` submodule would shadow the `test` macro.
                     ("macros", listtestmodules(os.path.join("unpythonic", "syntax", "tests"))))

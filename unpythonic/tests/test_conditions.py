@@ -15,7 +15,7 @@
 # `unpythonic.syntax.test.testing_testingtools`).
 
 from ..syntax import macros, test, test_raises, test_signals, fail, the  # noqa: F401
-from .fixtures import session, testset, catch_signals, returns_normally
+from ..test.fixtures import session, testset, catch_signals, returns_normally
 
 from ..conditions import (signal, find_restart, invoke, invoker, use_value,
                           restarts, with_restarts, handlers,

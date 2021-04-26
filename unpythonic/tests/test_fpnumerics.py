@@ -6,7 +6,7 @@ Based on various sources; links provided in the source code comments.
 """
 
 from ..syntax import macros, test  # noqa: F401
-from .fixtures import session, testset, returns_normally
+from ..test.fixtures import session, testset, returns_normally
 
 from operator import add, mul
 from itertools import repeat

@@ -2,7 +2,7 @@
 """Operations on sequences, with native slice syntax. Syntactic sugar, pure Python."""
 
 from ..syntax import macros, test, test_raises  # noqa: F401
-from .fixtures import session, testset
+from ..test.fixtures import session, testset
 
 from itertools import repeat
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from ..syntax import macros, test, test_raises, fail  # noqa: F401
-from .fixtures import session, testset
+from ..test.fixtures import session, testset
 
 from ..ec import catch, throw, call_ec
 from ..seq import begin

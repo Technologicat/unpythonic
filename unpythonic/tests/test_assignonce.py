@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from ..syntax import macros, test, test_raises  # noqa: F401
-from .fixtures import session
+from ..test.fixtures import session
 
 from ..assignonce import assignonce
 

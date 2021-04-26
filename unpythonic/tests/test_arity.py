@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from ..syntax import macros, test, test_raises, the  # noqa: F401
-from .fixtures import session, testset
+from ..test.fixtures import session, testset
 
 from ..arity import (arities, arity_includes,
                      required_kwargs, optional_kwargs, kwargs,

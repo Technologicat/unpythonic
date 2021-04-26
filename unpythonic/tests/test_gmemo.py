@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from ..syntax import macros, test, test_raises, fail, the  # noqa: F401
-from .fixtures import session, testset
+from ..test.fixtures import session, testset
 
 from itertools import count, takewhile, chain
 from collections import Counter
