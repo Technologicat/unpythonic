@@ -106,7 +106,11 @@ def scoped_transform(tree, *, callback):
             nonlocals = self.state.nonlocals
             if type(tree) in (Lambda, ListComp, SetComp, GeneratorExp, DictComp, ClassDef):
                 moreargs, _ = get_lexical_variables(tree, collect_locals=False)
-                self.generic_withstate(tree, args=(args + moreargs))
+                names_in_scope = args + localvars + nonlocals
+                tree = callback(tree, names_in_scope)
+                if tree:  # allow deletions by the custom transformer
+                    self.generic_withstate(tree, args=(args + moreargs))
+                    return self.generic_visit(tree)
             elif type(tree) in (FunctionDef, AsyncFunctionDef):
                 # Decorator list is processed in the surrounding scope
                 tree.decorator_list = self.visit(tree.decorator_list)
@@ -141,10 +145,11 @@ def scoped_transform(tree, *, callback):
                         localvars = [x for x in localvars if x not in deletedlocalvars]
                 tree.body[:] = newbody  # avoid changing the id()
                 return tree
-            names_in_scope = args + localvars + nonlocals
-            tree = callback(tree, names_in_scope)
-            if tree:  # allow deletions by the custom transformer
-                return self.generic_visit(tree)
+            else:
+                names_in_scope = args + localvars + nonlocals
+                tree = callback(tree, names_in_scope)
+                if tree:  # allow deletions by the custom transformer
+                    return self.generic_visit(tree)
     return ScopedTransformer(args=[], localvars=[], nonlocals=[]).visit(tree)
 
 def get_lexical_variables(tree, collect_locals=True):
