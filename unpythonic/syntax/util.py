@@ -258,7 +258,8 @@ def sort_lambda_decorators(tree):
                     thecall.func = newfunc
                 # don't recurse on the tail of the "decorator list" (call chain),
                 # but recurse into the lambda body.
-                return self.visit(thelambda.body)
+                thelambda.body = self.visit(thelambda.body)
+                return tree
             return self.generic_visit(tree)
     return FixIt().visit(tree)
 
