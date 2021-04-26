@@ -91,8 +91,6 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: Update all tree-walking macros that handle Call nodes to ignore the node (and not recurse!) if it matches `mcpyrate.quotes.is_captured_value`
 
-# TODO: Fix name shadowing: rename `with curry` to `with autocurry` so that `curry` is the function and `autocurry` is the macro. This is also a more descriptive name for the macro.
-
 # TODO: `make_isxpred` is now obsolete because `mcpyrate` does not rename hygienic captures of run-time values. Make it explicit at the use sites what they want, and remove `make_isxpred`. (E.g. `curry` wants to match both `curryf` and `currycall`, exactly. Some use sites want to match only a single thing.)
 
 # TODO: Brackets: use "with test[...]" instead of "with test(...)" in the test modules
@@ -142,7 +140,7 @@ from ..dynassign import make_dynvar, dyn
 
 # Syntax transformers and internal utilities
 from .autoref import autoref as _autoref
-from .curry import autocurry as _autocurry
+from .autocurry import autocurry as _autocurry
 from .dbg import dbg_block as _dbg_block, dbg_expr as _dbg_expr
 from .forall import forall as _forall
 from .ifexprs import aif as _aif, cond as _cond
