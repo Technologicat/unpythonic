@@ -105,7 +105,10 @@ def lazyrec(tree):
         else:
             # mcpyrate supports hygienic macro capture, so we can just splice unexpanded
             # (but hygienically unquoted) `lazy` invocations here.
-            tree = q[h[lazy][a[tree]]]
+            # TODO: Doing so renames the macro, so detection needs to be adjusted.
+            # TODO: It must also be bound in the current expander for hygienic macro capture to work.
+            # tree = q[h[lazy][a[tree]]]
+            tree = lazy(tree)
         return tree
 
     def lazify_ctorcall(tree, positionals="all", keywords="all"):
