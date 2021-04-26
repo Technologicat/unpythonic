@@ -87,7 +87,7 @@ from ..dynassign import make_dynvar, dyn
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
-# TODO: Rename remaining `test` folders to `tests`; keep only `fixtures.py` in `unpythonic.test` because the name of the framework is `unpythonic.test.fixtures`. This also neatly separates the test framework code from the unit tests (but requires a comment in `runtests.py` and maybe in `HACKING.md`).
+# TODO: Comment in `runtests.py` and in `HACKING.md`: `test` folders renamed to `tests`; only `fixtures.py` lives in `unpythonic.test`, because the name of the framework is `unpythonic.test.fixtures`. This separates the test framework code from the unit tests.
 
 # TODO: Rename `HACKING.md` to `CONTRIBUTING.md` (modern standard name).
 
