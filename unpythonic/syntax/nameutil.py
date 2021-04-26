@@ -61,7 +61,7 @@ def isx(tree, x, accept_attr=True):
     if key:
         name, frozen_value = key
 
-    ismatch = x if callable(x) else lambda string: string == x
+    ismatch = x if callable(x) else lambda name: name == x
     return ((type(tree) is Name and ismatch(tree.id)) or
             (key and ismatch(name)) or
             (accept_attr and type(tree) is Attribute and ismatch(tree.attr)))
@@ -76,7 +76,7 @@ def make_isxpred(x):
     # `mcpyrate` only renames captured macros; the names of captured
     # run-time values live in the keys in the `lookup_value` calls
     # (where the original name is preserved, with no renaming needed).
-    return lambda string: string == x
+    return lambda name: name == x
 
 def getname(tree, accept_attr=True):
     """The cousin of ``isx``.
