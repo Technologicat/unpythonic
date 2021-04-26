@@ -351,13 +351,13 @@ class UnexpandedLetView:
                 theargs = self._tree.slice
             else:
                 theargs = self._tree.slice.value
-            return canonize_bindings(theargs, self._tree)
+            return canonize_bindings(theargs.elts, self._tree)
         elif t == "lispy_expr":  # Subscript inside a Subscript, (let[...])[...]
             if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
                 theargs = self._tree.value.slice
             else:
                 theargs = self._tree.value.slice.value
-            return canonize_bindings(theargs, self._tree.value)
+            return canonize_bindings(theargs.elts, self._tree.value)
         else:  # haskelly let, let[(...) in ...], let[..., where(...)]
             theexpr = self._theexpr_ref()
             if t == "in_expr":
@@ -368,14 +368,14 @@ class UnexpandedLetView:
         t = self._type
         if t == "decorator":
             if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                self._tree.slice = newbindings
+                self._tree.slice.elts = newbindings
             else:
-                self._tree.slice.value = newbindings
+                self._tree.slice.value.elts = newbindings
         elif t == "lispy_expr":
             if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                self._tree.value.slice = newbindings
+                self._tree.value.slice.elts = newbindings
             else:
-                self._tree.value.slice.value = newbindings
+                self._tree.value.slice.value.elts = newbindings
         else:
             theexpr = self._theexpr_ref()
             if t == "in_expr":
