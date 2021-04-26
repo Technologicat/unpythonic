@@ -125,6 +125,7 @@ def scoped_transform(tree, *, callback):
                 for stmt in tree.body:
                     self.withstate(stmt, args=args, localvars=localvars, nonlocals=nonlocals)
                     stmt = self.visit(stmt)
+                    # TODO: should we allow the custom transformer to return a list of statements, too?
                     if stmt:  # allow deletions by the custom transformer
                         newbody.append(stmt)
                     # new local variables come into scope at the next statement (not yet on the RHS of the assignment).
