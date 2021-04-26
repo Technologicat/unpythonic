@@ -18,6 +18,7 @@
   - `f[]` now respects nesting: an invocation of `f[]` will not descend into another nested `f[]`.
   - The `with quicklambda` macro is still provided, and used just as before. Now it causes any `f[]` invocations lexically inside the block to expand before any other macros in that block do.
   - Since in `mcpyrate`, macros can be as-imported, you can rename `f` at import time to have any name you want. The `quicklambda` block macro respects the as-import. Now you **must** import also the macro `f` when you import the macro `quicklambda`, because `quicklambda` internally queries the expander to determine the name(s) the macro `f` is currently bound to.
+- Rename the `curry` macro to `autocurry`, to prevent name shadowing of the `curry` function. The new name is also more descriptive.
 - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name.
 - Python 3.4 and 3.5 support dropped.
 
