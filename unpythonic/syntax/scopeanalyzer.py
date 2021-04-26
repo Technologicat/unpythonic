@@ -202,7 +202,10 @@ def get_lexical_variables(tree, collect_locals=True):
 
     if type(tree) in (Lambda, FunctionDef, AsyncFunctionDef):
         a = tree.args
-        argnames = [x.arg for x in a.args + a.kwonlyargs]
+        allargs = a.args + a.kwonlyargs
+        if hasattr(a, "posonlyargs"):  # Python 3.8+: positional-only arguments
+            allargs += a.posonlyargs
+        argnames = [x.arg for x in allargs]
         if a.vararg:
             argnames.append(a.vararg.arg)
         if a.kwarg:
