@@ -87,10 +87,22 @@ from ..dynassign import make_dynvar, dyn
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
-# TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.
-# TODO: Test the q[t[...]] implementation in do0[]
+# TODO: Rename remaining `test` folders to `tests`; keep only `fixtures.py` in `unpythonic.test` because the name of the framework is `unpythonic.test.fixtures`. This also neatly separates the test framework code from the unit tests (but requires a comment in `runtests.py` and maybe in `HACKING.md`).
+
+# TODO: Rename `HACKING.md` to `CONTRIBUTING.md` (modern standard name).
+
+# TODO: Update all tree-walking macros that handle Call nodes to ignore the node (and not recurse!) if it matches `mcpyrate.quotes.is_captured_value`
+
+# TODO: Fix name shadowing: rename `with curry` to `with autocurry` so that `curry` is the function and `autocurry` is the macro. This is also a more descriptive name for the macro.
+
+# TODO: `make_isxpred` is now obsolete because `mcpyrate` does not rename hygienic captures of run-time values. Make it explicit at the use sites what they want, and remove `make_isxpred`. (E.g. `curry` wants to match both `curryf` and `currycall`, exactly. Some use sites want to match only a single thing.)
 
 # TODO: Brackets: use "with test[...]" instead of "with test(...)" in the test modules
+
+# TODO: We could also start looking at values, not names, when the aim is to detect hygienically captured `unpythonic` constructs. See `mcpyrate.quotes.is_captured_value` and `mcpyrate.quotes.lookup_value`.
+
+# TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.
+# TODO: Test the q[t[...]] implementation in do0[]
 
 # TODO: With `mcpyrate`, we could move the macro interface functions to
 # TODO: the submodules, and have just re-exports here.
@@ -108,7 +120,7 @@ from ..dynassign import make_dynvar, dyn
 #    (some things may change from expanded to unexpanded, facilitating easier analysis but requiring
 #     code changes)
 
-# TODO: Consider using run-time compiler access in macro tests, like `mcpyrate` itself does.
+# TODO: Consider using run-time compiler access in macro tests, like `mcpyrate` itself does. This compartmentalizes testing so that the whole test module won't crash on a macro-expansion error.
 
 # TODO: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9.
 
