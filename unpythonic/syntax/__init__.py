@@ -140,7 +140,8 @@ from .lambdatools import (multilambda as _multilambda,
                           quicklambda as _quicklambda,
                           envify as _envify)
 from .lazify import lazy as _lazy, lazify as _lazify, lazyrec as _lazyrec
-from .letdo import (do as _do, do0 as _do0,
+from .letdo import (local as _local, delete as _delete,
+                    do as _do, do0 as _do0,
                     let as _let, letseq as _letseq, letrec as _letrec,
                     dlet as _dlet, dletseq as _dletseq, dletrec as _dletrec,
                     blet as _blet, bletseq as _bletseq, bletrec as _bletrec)
@@ -169,7 +170,6 @@ from .ifexprs import it  # noqa: F401
 from .lambdatools import f as _f  # noqa: F401
 from .letdoutil import where  # noqa: F401
 from .lazify import force, force1  # noqa: F401
-from .letdo import local, delete  # noqa: F401
 from .letsyntax import block, expr  # noqa: F401
 from .prefix import q, u, kw  # noqa: F401  # TODO: bad names, `mcpyrate` uses them too.
 from .tailtools import call_cc  # noqa: F401
@@ -411,7 +411,7 @@ def let(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
     tree = expander.visit(tree)
 
-    return _destructure_and_apply_let(tree, args, _let)
+    return _destructure_and_apply_let(tree, args, expander, _let)
 
 @parametricmacro
 def letseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -427,7 +427,7 @@ def letseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
     tree = expander.visit(tree)
 
-    return _destructure_and_apply_let(tree, args, _letseq)
+    return _destructure_and_apply_let(tree, args, expander, _letseq)
 
 @parametricmacro
 def letrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -448,7 +448,7 @@ def letrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
     tree = expander.visit(tree)
 
-    return _destructure_and_apply_let(tree, args, _letrec)
+    return _destructure_and_apply_let(tree, args, expander, _letrec)
 
 # NOTE: At the macro interface, the invocations `let()[...]` (empty args)
 # and `let[...]` (no args) were indistinguishable in MacroPy. This was a
@@ -476,13 +476,14 @@ def letrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
 # node (so we could see the exact original syntax).
 #
 # allow_call_in_name_position: used by let_syntax to allow template definitions.
-def _destructure_and_apply_let(tree, args, let_expander_function, allow_call_in_name_position=False):
-    if args:
-        bs = _canonize_bindings(args, locref=tree, allow_call_in_name_position=allow_call_in_name_position)
-        return let_expander_function(bindings=bs, body=tree)
-    # haskelly syntax, let[(...) in ...], let[..., where(...)]
-    view = _UnexpandedLetView(tree)  # note "tree" here is only the part inside the brackets
-    return let_expander_function(bindings=view.bindings, body=view.body)
+def _destructure_and_apply_let(tree, args, macro_expander, let_expander_function, allow_call_in_name_position=False):
+    with dyn.let(_macro_expander=macro_expander):  # implicit do (extra bracket notation) needs this.
+        if args:
+            bs = _canonize_bindings(args, locref=tree, allow_call_in_name_position=allow_call_in_name_position)
+            return let_expander_function(bindings=bs, body=tree)
+        # haskelly syntax, let[(...) in ...], let[..., where(...)]
+        view = _UnexpandedLetView(tree)  # note "tree" here is only the part inside the brackets
+        return let_expander_function(bindings=view.bindings, body=view.body)
 
 # -----------------------------------------------------------------------------
 # Decorator versions, for "let over def".
@@ -514,7 +515,7 @@ def dlet(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
     tree = expander.visit(tree)
 
-    return _destructure_and_apply_let(tree, args, _dlet)
+    return _destructure_and_apply_let(tree, args, expander, _dlet)
 
 @parametricmacro
 def dletseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -536,7 +537,7 @@ def dletseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
     tree = expander.visit(tree)
 
-    return _destructure_and_apply_let(tree, args, _dletseq)
+    return _destructure_and_apply_let(tree, args, expander, _dletseq)
 
 @parametricmacro
 def dletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -558,7 +559,7 @@ def dletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
     tree = expander.visit(tree)
 
-    return _destructure_and_apply_let(tree, args, _dletrec)
+    return _destructure_and_apply_let(tree, args, expander, _dletrec)
 
 @parametricmacro
 def blet(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -576,7 +577,7 @@ def blet(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
     tree = expander.visit(tree)
 
-    return _destructure_and_apply_let(tree, args, _blet)
+    return _destructure_and_apply_let(tree, args, expander, _blet)
 
 @parametricmacro
 def bletseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -596,7 +597,7 @@ def bletseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
     tree = expander.visit(tree)
 
-    return _destructure_and_apply_let(tree, args, _bletseq)
+    return _destructure_and_apply_let(tree, args, expander, _bletseq)
 
 @parametricmacro
 def bletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -627,10 +628,32 @@ def bletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
     tree = expander.visit(tree)
 
-    return _destructure_and_apply_let(tree, args, _bletrec)
+    return _destructure_and_apply_let(tree, args, expander, _bletrec)
 
 # -----------------------------------------------------------------------------
 # Imperative code in expression position.
+
+def local(tree, *, syntax, invocation, **kw):  # noqa: F811
+    """[syntax] Declare a local name in a "do".
+
+    Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
+    (extra bracket syntax)."""
+    if syntax != "expr":
+        raise SyntaxError("local is an expr macro only")  # pragma: no cover
+    return _local(tree)
+
+def delete(tree, *, syntax, invocation, **kw):  # noqa: F811
+    """[syntax] Delete a previously declared local name in a "do".
+
+    Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
+    (extra bracket syntax).
+
+    Note ``do[]`` supports local variable deletion, but the ``let[]``
+    constructs don't, by design.
+    """
+    if syntax != "expr":
+        raise SyntaxError("local is an expr macro only")  # pragma: no cover
+    return _delete(tree)
 
 def do(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, expr] Stuff imperative code into an expression position.
@@ -762,19 +785,15 @@ def do(tree, *, syntax, expander, **kw):  # noqa: F811
     """
     if syntax != "expr":
         raise SyntaxError("do is an expr macro only")
-
-    tree = expander.visit(tree)
-
-    return _do(tree)
+    with dyn.let(_macro_expander=expander):
+        return _do(tree)
 
 def do0(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, expr] Like do, but return the value of the first expression."""
     if syntax != "expr":
         raise SyntaxError("do0 is an expr macro only")
-
-    tree = expander.visit(tree)
-
-    return _do0(tree)
+    with dyn.let(_macro_expander=expander):
+        return _do0(tree)
 
 # -----------------------------------------------------------------------------
 
@@ -888,7 +907,7 @@ def let_syntax(tree, *, args, syntax, expander, **kw):  # noqa: F811
     tree = expander.visit(tree)
 
     if syntax == "expr":
-        return _destructure_and_apply_let(tree, args, _let_syntax_expr, allow_call_in_name_position=True)
+        return _destructure_and_apply_let(tree, args, expander, _let_syntax_expr, allow_call_in_name_position=True)
     else:  # syntax == "block":
         return _let_syntax_block(block_body=tree)
 
@@ -920,7 +939,7 @@ def abbrev(tree, *, args, syntax, expander, **kw):  # noqa: F811
     # DON'T expand inner macro invocations first - outside-in ordering is the default, so we simply do nothing.
 
     if syntax == "expr":
-        return _destructure_and_apply_let(tree, args, _let_syntax_expr, allow_call_in_name_position=True)
+        return _destructure_and_apply_let(tree, args, expander, _let_syntax_expr, allow_call_in_name_position=True)
     else:
         return _let_syntax_block(block_body=tree)
 

@@ -20,14 +20,17 @@ from ast import (Name, Attribute,
                  FunctionDef, Return,
                  AsyncFunctionDef,
                  arguments, arg,
-                 Load, Subscript)
+                 Load)
 import sys
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
+from mcpyrate.markers import ASTMarker
+from mcpyrate.utils import NestingLevelTracker
 from mcpyrate.walkers import ASTTransformer
 
+from ..dynassign import dyn
 from ..lispylet import _let as letf, _dlet as dletf, _blet as bletf
 from ..seq import do as dof
 from ..misc import namelambda
@@ -308,9 +311,37 @@ def _dletseqimpl(bindings, body, kind):
 # -----------------------------------------------------------------------------
 # Imperative code in expression position. Uses the "let" machinery.
 
+_do_level = NestingLevelTracker()  # for checking validity of local[] and delete[]
+
+# Use `mcpyrate` ASTMarkers, so that the expander can do the dirty work of
+# detecting macro invocations. Our `do[]` macro then only needs to detect
+# instances of the appropriate markers.
+class UnpythonicLetDoMarker(ASTMarker):
+    """AST marker related to the let/do subsystem."""
+class UnpythonicDoLocalMarker(UnpythonicLetDoMarker):
+    """Marker for local variable definitions in a `do` context."""
+class UnpythonicDoDeleteMarker(UnpythonicLetDoMarker):
+    """Marker for local variable deletion in a `do` context."""
+
+# TODO: fail-fast: promote `local[]`/`delete[]` usage errors to compile-time errors
+# TODO: (doesn't currently work e.g. for `let` with an implicit do (extra bracket notation))
+def local(tree):  # syntax transformer
+    # if _do_level.value < 1:
+    #     raise SyntaxError("local[] is only valid within a do[] or do0[]")  # pragma: no cover
+    return UnpythonicDoLocalMarker(tree)
+
+def delete(tree):  # syntax transformer
+    # if _do_level.value < 1:
+    #     raise SyntaxError("delete[] is only valid within a do[] or do0[]")  # pragma: no cover
+    return UnpythonicDoDeleteMarker(tree)
+
 def do(tree):
     if type(tree) not in (Tuple, List):
         raise SyntaxError("do body: expected a sequence of comma-separated expressions")  # pragma: no cover, let's not test the macro expansion errors.
+
+    # Handle nested `local[]`/`delete[]`.
+    with _do_level.changed_by(+1):
+        tree = dyn._macro_expander.visit(tree)
 
     e = gensym("e")
     envset = q[n[f"{e}._set"]]  # use internal _set to allow new definitions
@@ -318,24 +349,17 @@ def do(tree):
     envdel = q[n[f"{e}.pop"]]
     envdel.ctx = Load()
 
-    def islocaldef(tree):
-        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "local"
-    def isdelete(tree):
-        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "delete"
-
     def find_localdefs(tree):
         class LocaldefCollector(ASTTransformer):
             def transform(self, tree):
-                if islocaldef(tree):
-                    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                        expr = tree.slice
-                    else:
-                        expr = tree.slice.value
+                if isinstance(tree, UnpythonicDoLocalMarker):
+                    expr = tree.body
                     if not isenvassign(expr):
-                        raise SyntaxError("local(...) takes exactly one expression of the form 'name << value'")  # pragma: no cover
+                        raise SyntaxError("local[...] takes exactly one expression of the form 'name << value'")  # pragma: no cover
                     view = UnexpandedEnvAssignView(expr)
                     self.collect(view.name)
-                    return expr  # local[...] -> ..., the "local" tag has done its job
+                    # e.g. `x << 21`; preserve the original expr to make the assignment occur.
+                    return self.visit(expr)  # handle nested local[] (e.g. from `do0[local[y << 5],]`)
                 return self.generic_visit(tree)
         c = LocaldefCollector()
         tree = c.visit(tree)
@@ -343,15 +367,12 @@ def do(tree):
     def find_deletes(tree):
         class DeleteCollector(ASTTransformer):
             def transform(self, tree):
-                if isdelete(tree):
-                    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                        expr = tree.slice
-                    else:
-                        expr = tree.slice.value
+                if isinstance(tree, UnpythonicDoDeleteMarker):
+                    expr = tree.body
                     if type(expr) is not Name:
                         raise SyntaxError("delete[...] takes exactly one name")  # pragma: no cover
                     self.collect(expr.id)
-                    return q[a[envdel](u[expr.id])]  # delete[...] -> e.pop(...)
+                    return q[a[envdel](u[expr.id])]  # -> e.pop(...)
                 return self.generic_visit(tree)
         c = DeleteCollector()
         tree = c.visit(tree)
@@ -383,34 +404,23 @@ def do(tree):
     thecall.args = lines
     return thecall
 
-def local(*args, **kwargs):
-    """[syntax] Declare a local name in a "do".
-
-    Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
-    (extra bracket syntax)."""
-    raise SyntaxError("local[] is only valid within a do[] or do0[]")  # pragma: no cover, not meant to hit the expander (expanded away manually by `do[]`)
-
-def delete(*args, **kwargs):
-    """[syntax] Delete a previously declared local name in a "do".
-
-    Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
-    (extra bracket syntax).
-
-    Note ``do[]`` supports local variable deletion, but the ``let[]``
-    constructs don't, by design.
-    """
-    raise SyntaxError("delete[] is only valid within a do[] or do0[]")  # pragma: no cover, not meant to hit the expander (expanded away manually by `do[]`)
-
 def do0(tree):
     if type(tree) not in (Tuple, List):
         raise SyntaxError("do0 body: expected a sequence of comma-separated expressions")  # pragma: no cover
     elts = tree.elts
     newelts = []
-    newelts.append(q[local[_do0_result] << a[elts[0]]])  # noqa: F821, the local[] defines it inside the do[].
+    # TODO: Would be cleaner to use `local[]` as a hygienically captured macro.
+    # Now we call the syntax transformer directly, and splice in the returned AST.
+    with _do_level.changed_by(+1):  # it's alright, `local[]`, we're inside a `do0[]`.
+        firstexpr = elts[0]
+        firstexpr = dyn._macro_expander.visit(firstexpr)
+        thelocalexpr = q[_do0_result << a[firstexpr]]  # noqa: F821, the local[] defines it inside the do[].
+        newelts.append(q[a[local(thelocalexpr)]])
     newelts.extend(elts[1:])
     newelts.append(q[_do0_result])  # noqa: F821
 #    newtree = q[t[newelts]]  # TODO: doesn't work, missing lineno  TODO: test with mcpyrate
     newtree = Tuple(elts=newelts, lineno=tree.lineno, col_offset=tree.col_offset)
+    # TODO: Would be cleaner to use `do[]` as a hygienically captured macro.
     return do(newtree)  # do0[] is also just a do[]
 
 def implicit_do(tree):
