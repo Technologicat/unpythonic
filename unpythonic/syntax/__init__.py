@@ -91,6 +91,11 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: Update all tree-walking macros to ignore the node (and not recurse!) if it matches `mcpyrate.quotes.is_captured_value`
 
+# TODO: fail-fast: promote `local[]`/`delete[]` usage errors to compile-time errors
+# TODO: (doesn't currently work e.g. for `let` with an implicit do (extra bracket notation))
+
+# TODO: fix `call_cc[]` usage error logic
+
 # TODO: `make_isxpred` is now obsolete because `mcpyrate` does not rename hygienic captures of run-time values. Make it explicit at the use sites what they want, and remove `make_isxpred`. (E.g. `curry` wants to match both `curryf` and `currycall`, exactly. Some use sites want to match only a single thing.)
 
 # TODO: Brackets: use "with test[...]" instead of "with test(...)" in the test modules
