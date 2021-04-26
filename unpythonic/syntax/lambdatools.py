@@ -277,7 +277,7 @@ def envify(block_body):
                         thecall.keywords = kws
                         tree.body = splice_expression(thecall, tree.body, "_here_")
                     newbindings.update({k: Attribute(value=q[n[ename]], attr=k) for k in argnames})  # "x" --> e.x
-                    self.generic_withstate(enames=(enames + [ename]), bindings=newbindings)
+                    self.generic_withstate(tree, enames=(enames + [ename]), bindings=newbindings)
             else:
                 # leave alone the _envify() added by us
                 if type(tree) is Call and (isx(tree.func, _ismakeenv) or isourupdate(tree)):
