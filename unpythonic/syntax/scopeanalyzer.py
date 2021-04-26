@@ -109,7 +109,8 @@ def scoped_transform(tree, *, callback):
                 self.generic_withstate(tree, args=(args + moreargs))
             elif type(tree) in (FunctionDef, AsyncFunctionDef):
                 # Decorator list is processed in the surrounding scope
-                tree.decorator_list = self.visit(tree.decorator_list)
+                new_decorator_list = self.visit(tree.decorator_list)
+                tree.decorator_list = new_decorator_list if new_decorator_list is not None else []
 
                 moreargs, newnonlocals = get_lexical_variables(tree, collect_locals=False)
 
