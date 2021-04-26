@@ -5,6 +5,7 @@ from ast import Call, Lambda, FunctionDef, AsyncFunctionDef
 
 from mcpyrate.quotes import macros, q, a, h  # noqa: F401
 
+from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
 from .util import (suggest_decorator_index, isx, has_curry, sort_lambda_decorators)
@@ -20,6 +21,11 @@ def curry(block_body):
         def transform(self, tree):
             hascurry = self.state.hascurry
             if type(tree) is Call and not isx(tree.func, "AutorefMarker"):
+                # Ignore hygienically captured values, and don't recurse in them.
+                # In `mcpyrate`, they are represented by Call nodes that match
+                # `mcpyrate.quotes.is_captured_value`.
+                if is_captured_value(tree):
+                    return tree
                 if has_curry(tree):  # detect decorated lambda with manual curry
                     # the lambda inside the curry(...) is the next Lambda node we will descend into.
                     self.generic_withstate(tree, hascurry=True)
