@@ -97,7 +97,7 @@ def lazyrec(tree):
             tree.values = [rec(x) for x in tree.values]
         elif type(tree) is Call and any(isx(tree.func, ctor) for ctor in _ctorcalls_all):
             p, k = _ctor_handling_modes[getname(tree.func)]
-            tree = lazify_ctorcall(tree, p, k)
+            lazify_ctorcall(tree, p, k)
         elif type(tree) is Subscript and isx(tree.value, islazy):  # unexpanded
             pass
         elif type(tree) is Call and isx(tree.func, isLazy):  # expanded
