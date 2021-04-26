@@ -274,6 +274,8 @@ def _dletseqimpl(bindings, body, kind):
     fname = body.name
     noargs = arguments(args=[], kwonlyargs=[], vararg=None, kwarg=None,
                        defaults=[], kw_defaults=[])
+    if sys.version_info >= (3, 8, 0):  # Python 3.8+: positional-only arguments
+        noargs.posonlyargs = []
     iname = gensym(f"{fname}_inner")
     body.args = noargs
     body.name = iname
