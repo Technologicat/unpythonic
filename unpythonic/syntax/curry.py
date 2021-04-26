@@ -7,14 +7,13 @@ from mcpyrate.quotes import macros, q, a, h  # noqa: F401
 
 from mcpyrate.walkers import ASTTransformer
 
-from .util import (suggest_decorator_index, isx, make_isxpred, has_curry,
-                   sort_lambda_decorators)
+from .util import (suggest_decorator_index, isx, has_curry, sort_lambda_decorators)
 
 # CAUTION: unpythonic.syntax.lambdatools.namedlambda depends on the exact names
 # "curryf" and "currycall" to detect an auto-curried expression with a final lambda.
 from ..fun import curry as curryf, _currycall as currycall
 
-_iscurry = make_isxpred("curry")
+_iscurry = lambda name: name in ("curry", "currycall")
 
 def curry(block_body):
     class AutoCurryTransformer(ASTTransformer):
