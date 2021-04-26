@@ -89,7 +89,7 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: Rename `HACKING.md` to `CONTRIBUTING.md` (modern standard name).
 
-# TODO: Update all tree-walking macros that handle Call nodes to ignore the node (and not recurse!) if it matches `mcpyrate.quotes.is_captured_value`
+# TODO: Update all tree-walking macros to ignore the node (and not recurse!) if it matches `mcpyrate.quotes.is_captured_value`
 
 # TODO: `make_isxpred` is now obsolete because `mcpyrate` does not rename hygienic captures of run-time values. Make it explicit at the use sites what they want, and remove `make_isxpred`. (E.g. `curry` wants to match both `curryf` and `currycall`, exactly. Some use sites want to match only a single thing.)
 
