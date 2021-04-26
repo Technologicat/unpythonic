@@ -36,10 +36,11 @@ def curry(block_body):
                         tree.decorator_list.append(q[h[curryf]])
             elif type(tree) is Lambda:
                 if not hascurry:
+                    thelambda = tree
                     tree = q[h[curryf](a[tree])]  # plonk it as innermost, we'll sort them later
                     # don't recurse on the lambda we just moved, but recurse inside it.
-                    self.withstate(tree.args[0].body, hascurry=False)
-                    tree.args[0].body = self.visit(tree.args[0].body)
+                    self.withstate(thelambda.body, hascurry=False)
+                    thelambda.body = self.visit(thelambda.body)
                     return tree
             return self.generic_visit(tree)
     newbody = AutoCurryTransformer(hascurry=False).visit(block_body)
