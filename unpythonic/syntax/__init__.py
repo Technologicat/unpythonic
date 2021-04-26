@@ -94,6 +94,8 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: fix `call_cc[]` usage error logic
 
+# TODO: Remove any unused `expander` kwargs from the macro interface
+
 # TODO: `make_isxpred` is now obsolete because `mcpyrate` does not rename hygienic captures of run-time values. Make it explicit at the use sites what they want, and remove `make_isxpred`. (E.g. `curry` wants to match both `curryf` and `currycall`, exactly. Some use sites want to match only a single thing.)
 
 # TODO: Brackets: use "with test[...]" instead of "with test(...)" in the test modules
@@ -122,6 +124,8 @@ from ..dynassign import make_dynvar, dyn
 # TODO: Consider using run-time compiler access in macro tests, like `mcpyrate` itself does. This compartmentalizes testing so that the whole test module won't crash on a macro-expansion error.
 
 # TODO: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9.
+
+# TODO: Check expansion order of several macros in the same `with` statement
 
 # TODO: grep for any remaining mentions of "macropy"
 
