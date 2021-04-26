@@ -31,10 +31,13 @@ def modname(path, filename):  # some/dir/mod.py --> some.dir.mod
 
 def main():
     with session():
+        # All folders containing unit tests are named `tests` (plural).
+        #
+        # The testing framework is called `unpythonic.test.fixtures`,
+        # so it lives in the only subfolder in the project that is named
+        # `test` (singular).
         testsets = (("regular code", (listtestmodules(os.path.join("unpythonic", "tests")) +
                                       listtestmodules(os.path.join("unpythonic", "net", "tests")))),
-                    # This one is called "tests" to prevent a name shadowing issue;
-                    # a `test` submodule would shadow the `test` macro.
                     ("macros", listtestmodules(os.path.join("unpythonic", "syntax", "tests"))))
         for tsname, modnames in testsets:
             with testset(tsname):

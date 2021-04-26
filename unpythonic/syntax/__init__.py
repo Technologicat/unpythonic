@@ -87,8 +87,6 @@ from ..dynassign import make_dynvar, dyn
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
-# TODO: Comment in `runtests.py` and in `HACKING.md`: `test` folders renamed to `tests`; only `fixtures.py` lives in `unpythonic.test`, because the name of the framework is `unpythonic.test.fixtures`. This separates the test framework code from the unit tests.
-
 # TODO: Rename `HACKING.md` to `CONTRIBUTING.md` (modern standard name).
 
 # TODO: Update all tree-walking macros that handle Call nodes to ignore the node (and not recurse!) if it matches `mcpyrate.quotes.is_captured_value`

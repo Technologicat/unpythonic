@@ -74,11 +74,11 @@
 
 In short: regular code is in `unpythonic`, macros are in `unpythonic.syntax`, and REPL server related stuff is in `unpythonic.net`.
 
-Automated tests are in `test`, under the directory whose modules they test. The test runner is, unsurprisingly, `runtests.py`, at the top level. Yes, I know many developers [prefer to separate](https://blog.ionelmc.ro/2014/05/25/python-packaging/#the-structure) the `src` and `test` hierarchies at the top level; we currently don't, mostly for historical reasons.
+Automated tests are in `tests` (note plural), under the directory whose modules they test. The test runner is, unsurprisingly, `runtests.py`, at the top level. Yes, I know many developers [prefer to separate](https://blog.ionelmc.ro/2014/05/25/python-packaging/#the-structure) the `src` and `tests` hierarchies at the top level; we currently don't, mostly for historical reasons.
 
 For coverage analysis, [`coverage.py`](https://github.com/nedbat/coveragepy) works fine for analyzing [statement coverage](https://en.wikipedia.org/wiki/Code_coverage#Basic_coverage_criteria). Block macros do cause [some false negatives](https://github.com/nedbat/coveragepy/issues/1004), but this is minor.
 
-We use a custom testing framework, which lives in the modules `unpythonic.test.fixtures` and `unpythonic.syntax.testingtools`. It uses conditions and restarts to communicate between individual tests and the testset, which acts as a reporter.
+We use a custom testing framework, which lives in the modules `unpythonic.test.fixtures` (note singular `test`, part of the framework name) and `unpythonic.syntax.testingtools`. It uses conditions and restarts to communicate between individual tests and the testset, which acts as a reporter.
 
 In retrospect, given that the main aim was compact testing syntax for macro-enabled Python code (without installing another import hook, doing which would disable the macro expander), it might have made more sense to make the testing macros compile to [pytest](https://docs.pytest.org/en/latest/). But hey, it's short, may have applications in teaching... and now we can easily write custom test runners, since the testing framework is just a `mcpyrate` library. It's essentially a *no-framework* (cf. "NoSQL"), which provides the essentials and lets the user define the rest.
 
