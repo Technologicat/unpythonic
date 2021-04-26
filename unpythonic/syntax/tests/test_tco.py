@@ -5,7 +5,7 @@ from ...syntax import macros, test, test_raises, fail  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
 from ...syntax import (macros, tco, autoreturn, autocurry, do, let, letseq, dletrec,  # noqa: F401, F811
-                       quicklambda, f, _, continuations, call_cc)
+                       quicklambda, f, continuations, call_cc)
 
 from ...ec import call_ec
 from ...fploop import looped_over
@@ -151,10 +151,10 @@ def runtests():
 
                 # TODO: Improve test to actually detect the tail call.
                 # TODO: Now we just test this runs without errors.
-                func1 = f[g(3 * _)]  # tail call
+                func1 = f[g(3 * _)]  # tail call  # noqa: F821, _ is magic.
                 test[func1(10) == 60]
 
-                func2 = f[3 * g(_)]  # no tail call
+                func2 = f[3 * g(_)]  # no tail call  # noqa: F821, _ is magic.
                 test[func2(10) == 60]
 
     with testset("integration with continuations"):
