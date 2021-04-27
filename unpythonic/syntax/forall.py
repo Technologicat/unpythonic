@@ -10,6 +10,7 @@ from mcpyrate.splicing import splice_expression
 from .letdoutil import isenvassign, UnexpandedEnvAssignView
 from ..amb import monadify
 from ..amb import insist, deny  # for re-export only  # noqa: F401
+from ..misc import namelambda
 
 def forall(exprs):
     """[syntax, expr] Nondeterministic evaluation.
@@ -30,6 +31,7 @@ def forall(exprs):
     """
     if type(exprs) is not Tuple:  # pragma: no cover, let's not test macro expansion errors.
         raise SyntaxError("forall body: expected a sequence of comma-separated expressions")
+    itemno = 0
     def build(lines, tree):
         if not lines:
             return tree
@@ -43,8 +45,15 @@ def forall(exprs):
         # don't unpack on last line to allow easily returning a tuple as a result item
         Mv = q[h[monadify](a[v], u[not islast])]
         if not islast:
-            body = q[a[Mv] >> (lambda: n["_here_"])]  # monadic bind: >>
-            body.right.args.args = [arg(arg=k)]
+            lam = q[lambda _: n["_here_"]]
+            lam.args.args = [arg(arg=k)]
+
+            nonlocal itemno
+            itemno += 1
+            label = "item{itemno}" if k == "_ignored" else k
+            namedlam = q[h[namelambda](u[f"forall_{label}"])(a[lam])]
+
+            body = q[a[Mv] >> a[namedlam]]  # monadic bind: >>
         else:
             body = Mv
         if tree:
