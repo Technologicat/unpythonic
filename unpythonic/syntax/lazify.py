@@ -18,7 +18,7 @@ from ..dynassign import dyn
 
 # lazy: syntax transformer, lazify a single expression
 def lazy(tree):
-    return q[Lazy(lambda: a[tree])]
+    return q[h[Lazy](lambda: a[tree])]
 
 # lazyrec: syntax transformer, recursively lazify elements in container literals
 #
