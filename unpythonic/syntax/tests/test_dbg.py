@@ -8,6 +8,7 @@ from functools import partial
 from ...syntax import macros, dbg  # noqa: F401, F811
 
 from ...syntax import dbgprint_block
+from ...dynassign import dyn
 from ...misc import call
 
 def runtests():
@@ -61,9 +62,9 @@ def runtests():
         # local customized dbgprint_expr.
         @call
         def just_a_scope():
-            dbgprint_expr = lambda *args, **kwargs: args  # noqa: F841, the `dbg[]` macro implicitly uses `dbgprint_expr`.
-            x = dbg[2 + 3]
-            test[x == ("(2 + 3)", 5)]
+            with dyn.let(dbgprint_expr=(lambda *args, **kwargs: args)):
+                x = dbg[2 + 3]
+                test[x == ("(2 + 3)", 5)]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
