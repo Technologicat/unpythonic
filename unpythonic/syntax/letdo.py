@@ -317,11 +317,11 @@ _do_level = NestingLevelTracker()  # for checking validity of local[] and delete
 # detecting macro invocations. Our `do[]` macro then only needs to detect
 # instances of the appropriate markers.
 class UnpythonicLetDoMarker(ASTMarker):
-    """AST marker related to the let/do subsystem."""
+    """AST marker related to unpythonic's let/do subsystem."""
 class UnpythonicDoLocalMarker(UnpythonicLetDoMarker):
-    """Marker for local variable definitions in a `do` context."""
+    """AST marker for local variable definitions in a `do` context."""
 class UnpythonicDoDeleteMarker(UnpythonicLetDoMarker):
-    """Marker for local variable deletion in a `do` context."""
+    """AST marker for local variable deletion in a `do` context."""
 
 # TODO: fail-fast: promote `local[]`/`delete[]` usage errors to compile-time errors
 # TODO: (doesn't currently work e.g. for `let` with an implicit do (extra bracket notation))
