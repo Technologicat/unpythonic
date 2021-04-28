@@ -9,6 +9,7 @@ import sys
 
 from mcpyrate.quotes import macros, q, u, a, t  # noqa: F811, F401
 
+from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
 from .letdoutil import islet, isdo, UnexpandedLetView, UnexpandedDoView
@@ -22,6 +23,9 @@ def prefix(block_body):
 
     class PrefixTransformer(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
+
             # Not tuples but syntax: leave alone the:
             #  - binding pair "tuples" of let, letseq, letrec, their d*, b* variants,
             #    and let_syntax, abbrev

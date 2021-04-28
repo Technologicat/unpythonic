@@ -7,6 +7,7 @@ from ast import (Name, Assign, Load, Call, Lambda, With, Constant, arg,
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
+from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
 from .astcompat import getconstant, Str
@@ -124,6 +125,8 @@ def autoref(block_body, args, asname):
         # TODO: could we use `mcpyrate.utils.rename` here?
         class PlaceholderRenamer(ASTTransformer):
             def transform(self, tree):
+                if is_captured_value(tree):
+                    return tree  # don't recurse!
                 if type(tree) is Name and tree.id == "__ar_":
                     tree.id = our_lambda_argname
                 elif type(tree) is arg and tree.arg == "__ar_":
@@ -133,6 +136,9 @@ def autoref(block_body, args, asname):
 
     class AutorefTransformer(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
+
             referents = self.state.referents
             if type(tree) in (Attribute, Subscript, Name) and type(tree.ctx) in (Store, Del):
                 return tree

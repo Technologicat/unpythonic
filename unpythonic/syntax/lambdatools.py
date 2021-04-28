@@ -10,6 +10,7 @@ from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
 from mcpyrate.expander import MacroExpander
+from mcpyrate.quotes import is_captured_value
 from mcpyrate.splicing import splice_expression
 from mcpyrate.utils import extract_bindings
 from mcpyrate.walkers import ASTTransformer
@@ -28,7 +29,9 @@ from .util import (is_decorated_lambda, isx, make_isxpred, has_deco,
 def multilambda(block_body):
     class MultilambdaTransformer(ASTTransformer):
         def transform(self, tree):
-            if type(tree) is not Lambda or type(tree.body) is not List:
+            if is_captured_value(tree):
+                return tree  # don't recurse!
+            if not (type(tree) is Lambda and type(tree.body) is List):
                 return self.generic_visit(tree)
             bodys = tree.body
             # bracket magic:
@@ -96,6 +99,8 @@ def namedlambda(block_body):
 
     class NamedLambdaTransformer(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
             if islet(tree, expanded=False):  # let bindings
                 view = UnexpandedLetView(tree)
                 for b in view.bindings:
@@ -185,6 +190,8 @@ def f(tree):
 
     class UnderscoreTransformer(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
             # Don't recurse into nested `f[]`.
             # TODO: This would benefit from macro destructuring in the expander.
             # TODO: See https://github.com/Technologicat/mcpyrate/issues/3
@@ -239,6 +246,9 @@ def envify(block_body):
 
     class EnvifyTransformer(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
+
             bindings = self.state.bindings
             enames = self.state.enames
 

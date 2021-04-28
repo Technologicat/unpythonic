@@ -7,6 +7,7 @@ See also `unpythonic.test.fixtures` for the high-level machinery.
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym, unparse
+from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
 from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return, parse, Expr, AST
@@ -424,6 +425,8 @@ def _transform_important_subexpr(tree, envname):
     # actual source file.
     class ImportantSubexprTransformer(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
             # Respect the boundaries of nested test constructs (don't recurse there).
             if isunexpandedtestmacro(tree):
                 return tree

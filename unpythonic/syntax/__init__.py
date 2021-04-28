@@ -87,8 +87,6 @@ from ..dynassign import make_dynvar, dyn
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
-# TODO: Update all tree-walking macros to ignore the node (and not recurse!) if it matches `mcpyrate.quotes.is_captured_value`
-
 # TODO: fail-fast: promote `local[]`/`delete[]` usage errors to compile-time errors
 # TODO: (doesn't currently work e.g. for `let` with an implicit do (extra bracket notation))
 

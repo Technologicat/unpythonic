@@ -7,6 +7,7 @@ from ast import (Call, Lambda, FunctionDef, AsyncFunctionDef,
                  If, With, withitem, stmt, NodeTransformer)
 
 import mcpyrate.markers
+from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from .astcompat import getconstant
@@ -248,6 +249,8 @@ def sort_lambda_decorators(tree):
 
     class FixIt(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
             # we can robustly sort only decorators for which we know the correct ordering.
             if is_decorated_lambda(tree, mode="known"):
                 decorator_list, thelambda = destructure_decorated_lambda(tree)

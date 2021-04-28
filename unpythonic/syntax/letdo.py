@@ -27,6 +27,7 @@ from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
 from mcpyrate.markers import ASTMarker
+from mcpyrate.quotes import is_captured_value
 from mcpyrate.utils import NestingLevelTracker
 from mcpyrate.walkers import ASTTransformer
 
@@ -352,6 +353,8 @@ def do(tree):
     def find_localdefs(tree):
         class LocaldefCollector(ASTTransformer):
             def transform(self, tree):
+                if is_captured_value(tree):
+                    return tree  # don't recurse!
                 if isinstance(tree, UnpythonicDoLocalMarker):
                     expr = tree.body
                     if not isenvassign(expr):
@@ -367,6 +370,8 @@ def do(tree):
     def find_deletes(tree):
         class DeleteCollector(ASTTransformer):
             def transform(self, tree):
+                if is_captured_value(tree):
+                    return tree  # don't recurse!
                 if isinstance(tree, UnpythonicDoDeleteMarker):
                     expr = tree.body
                     if type(expr) is not Name:

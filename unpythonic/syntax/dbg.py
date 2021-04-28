@@ -11,6 +11,7 @@ from ast import Call, Name, Tuple, keyword
 from mcpyrate.quotes import macros, q, u, a, h  # noqa: F401
 
 from mcpyrate import unparse
+from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
 from ..dynassign import dyn, make_dynvar
@@ -81,6 +82,8 @@ def dbg_block(body, args):
 
     class DbgBlockTransformer(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
             if type(tree) is Call and type(tree.func) is Name and tree.func.id == pname:
                 names = [q[u[unparse(node)]] for node in tree.args]  # x --> "x"; (1 + 2) --> "(1 + 2)"; ...
                 names = Tuple(elts=names, lineno=tree.lineno, col_offset=tree.col_offset)

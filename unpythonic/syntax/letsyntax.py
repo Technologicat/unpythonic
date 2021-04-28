@@ -8,6 +8,7 @@ from ast import (Name, Call, Starred, If, Constant, Expr, With,
                  FunctionDef, AsyncFunctionDef, ClassDef, Attribute)
 from copy import deepcopy
 
+from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
 from .letdo import implicit_do
@@ -173,6 +174,8 @@ def _substitute_barename(name, value, tree, mode):
     def splice(tree):
         class Splicer(ASTTransformer):
             def transform(self, tree):
+                if is_captured_value(tree):
+                    return tree  # don't recurse!
                 def subst():
                     # Copy just to be on the safe side. Different instances may be
                     # edited differently by other macros expanded later.
@@ -198,6 +201,8 @@ def _substitute_barename(name, value, tree, mode):
         def splice_barestring(tree):
             class BarestringSplicer(ASTTransformer):
                 def transform(self, tree):
+                    if is_captured_value(tree):
+                        return tree  # don't recurse!
                     if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
                         if tree.name == name:
                             tree.name = newname
@@ -234,6 +239,8 @@ def _substitute_templates(templates, tree):
         def splice(tree):
             class Splicer(ASTTransformer):
                 def transform(self, tree):
+                    if is_captured_value(tree):
+                        return tree  # don't recurse!
                     # discard Expr wrapper (identifying a statement position) at use site
                     # when performing a block substitution
                     if mode == "block" and type(tree) is Expr and isthisfunc(tree.value):
