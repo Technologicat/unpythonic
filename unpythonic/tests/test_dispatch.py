@@ -5,7 +5,7 @@ from ..test.fixtures import session, testset, returns_normally
 
 import typing
 from ..fun import curry
-from ..dispatch import generic, typed
+from ..dispatch import generic, generic_for, typed
 
 @generic
 def zorblify(x: int, y: int):
@@ -90,6 +90,23 @@ def runtests():
         test[gargle(2.71828, 3.14159) == "float"]
         test[gargle(42, 6.022e23, "hello") == "int, float, str"]
         test[gargle(1, 2, 3) == "int"]  # as many as in the [int, float, str] case
+
+    with testset("@generic_for"):
+        @generic
+        def f1(x: typing.Any):
+            return False
+        @generic_for(f1)
+        def f2(x: int):
+            return x
+        test[f1("hello") is False]
+        test[f1(42) == 42]
+
+        def f3(x: typing.Any):  # not @generic!
+            return False
+        with test_raises(TypeError, "should not be able to @generic_for a non-generic function"):
+            @generic_for(f3)
+            def f4(x: int):
+                return x
 
     with testset("@generic integration with OOP"):
         class TestTarget:

@@ -6,9 +6,9 @@ Somewhat like `functools.singledispatch`, but for multiple dispatch.
     https://docs.python.org/3/library/functools.html#functools.singledispatch
 """
 
-__all__ = ["generic", "typed"]
+__all__ = ["generic", "generic_for", "typed"]
 
-from functools import wraps
+from functools import partial, wraps
 from itertools import chain
 import inspect
 import typing
@@ -35,6 +35,37 @@ self_parameter_names = ["self", "this", "cls", "klass"]
 # If you use something other than the usual Python naming conventions for the self/cls
 # parameter, just append the names you use to this list.
 # """
+
+@register_decorator(priority=98)
+def generic_for(target):
+    """Parametric decorator. Add a method to function `target`.
+
+    Like `@generic`, but the target function on which the method will be
+    registered is chosen separately, so that you can extend a generic
+    function previously defined in some other `.py` source file.
+
+    Usage::
+
+        # example.py
+        from unpythonic import generic
+
+        @generic
+        def f(x: int):
+            ...
+
+
+        # main.py
+        from unpythonic import generic_for
+        import example
+
+        @generic_for(example.f)
+        def f(x: float):
+            ...
+    """
+    # TODO: maybe needs some more official way to detect if `target` has been declared `@generic`.
+    if not hasattr(target, "_method_registry"):
+        raise TypeError(f"{target} is not a generic function, cannot add methods to it.")
+    return partial(_register_generic, _getfullname(target))
 
 @register_decorator(priority=98)
 def generic(f):
@@ -169,13 +200,30 @@ def generic(f):
     At the moment, `@generic` does not work with `curry`. Adding curry support
     needs changes to the dispatch logic in `curry`.
     """
-    # The inspect stdlib module docs are useful here:
-    #     https://docs.python.org/3/library/inspect.html
-    def getfullname(f):
-        function, _ = getfunc(f)
-        return f"{inspect.getmodule(f)}.{function.__qualname__}"
-    fullname = getfullname(f)
+    return _register_generic(_getfullname(f), f)
 
+# Modeled after `mcpyrate.utils.format_macrofunction`, which does the same thing for macros.
+def _getfullname(f):
+    function, _ = getfunc(f)
+    if not function.__module__:  # At least macros defined in the REPL have `__module__=None`.
+        return function.__qualname__
+    return f"{function.__module__}.{function.__qualname__}"
+
+def _register_generic(fullname, f):
+    """Register a method for a generic function.
+
+    This is a low-level function; you'll likely want `generic` or `generic_for`.
+
+    fullname: str, fully qualified name of target function to register
+              the method on, used as key in the dispatcher registry.
+
+              Registering the first method on a given `fullname` makes
+              that function generic, and creates the dispatcher for it.
+
+    f:        callable, the new method to register.
+
+    Return value is the dispatcher that replaces the original function.
+    """
     # HACK for cls/self analysis
     def name_of_1st_positional_parameter(f):
         function, _ = getfunc(f)

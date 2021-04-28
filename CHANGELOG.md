@@ -2,6 +2,7 @@
 
 **New**:
 
+- `unpythonic.dispatch.generic_for`: add methods to a generic function defined elsewhere.
 - Python 3.8 and 3.9 support added.
 - `with namedlambda` now processes the walrus operator, too. In `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
 
