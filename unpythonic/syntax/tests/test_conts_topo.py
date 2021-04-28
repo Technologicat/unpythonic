@@ -4,7 +4,7 @@
 For pictures, see ``doc/callcc_topology.pdf`` in the source distribution.
 """
 
-from ...syntax import macros, test  # noqa: F401
+from ...syntax import macros, test, the  # noqa: F401
 from ...test.fixtures import session, testset
 
 from inspect import stack
@@ -17,6 +17,36 @@ def me():
     framerecord = callstack[1]  # ignore me() itself, get caller's record
     return framerecord.function
 
+# Continuation names are gensymmed, so `mcpyrate` adds a uuid to them.
+#
+# This makes it impossible to test that we get specifically, say, the
+# continuation function that represents the code after the nth `call_cc[]`
+# in a particular function.
+#
+# What we can do instead is map the human-readable `expected` name to the
+# actual gensymmed name the first time when a previously not seen continuation
+# name appears in the `expecteds` list. Any further appearances of the same
+# name in `expecteds` should map to the same actual gensymmed name.
+#
+def validate(results, expecteds):
+    seen_conts = {}
+    def validate_one(result, expected):
+        if "_cont" in expected:
+            if "_cont" not in result:
+                return False
+            if expected not in seen_conts:  # New expected name; this cont should be new.
+                if result in seen_conts.values():  # already seen?
+                    return False
+                seen_conts[expected] = result
+                return True  # it really was new, so assume everything is ok.
+            # Already seen expected name; should correspond to the same
+            # gensymmed name as before.
+            return seen_conts[expected] == result
+        # For anything but continuations, match the exact names.
+        return result == expected
+    return all(validate_one(result, expected) for result, expected in zip(results, expecteds))
+
+
 def runtests():
     with testset("basic case: one continuation"):
         with continuations:
@@ -28,7 +58,7 @@ def runtests():
                 call_cc[g()]
                 out.append(me())
             f()
-            test[out == ['f', 'g', 'f_cont']]
+            test[validate(the[out], ['f', 'g', 'f_cont'])]
 
     with testset("sequence of continuations"):
         with continuations:
@@ -44,7 +74,7 @@ def runtests():
                 call_cc[h()]
                 out.append(me())
             f()
-            test[out == ['f', 'g', 'f_cont1', 'h', 'f_cont2']]  # gensym -> cont1, ...
+            test[validate(the[out], ['f', 'g', 'f_cont1', 'h', 'f_cont2'])]  # gensym -> cont1, ...
 
     with testset("nested continuations, case 1"):  # left in the picture
         with continuations:
@@ -60,7 +90,7 @@ def runtests():
                 call_cc[g()]
                 out.append(me())
             f()
-            test[out == ['f', 'g', 'h', 'g_cont', 'f_cont3']]
+            test[validate(the[out], ['f', 'g', 'h', 'g_cont', 'f_cont3'])]
 
     with testset("nested continuations, case 2a, tail-call in f1"):  # right in the picture
         with continuations:
@@ -80,7 +110,7 @@ def runtests():
             def f2(dummy):
                 out.append(me())
             f1(cc=f2)
-            test[out == ['f1', 'v', 'w', 'v_cont', 'f2']]
+            test[validate(the[out], ['f1', 'v', 'w', 'v_cont', 'f2'])]
 
     with testset("nested continuations, case 2b, call_cc in f1"):
         with continuations:
@@ -98,7 +128,7 @@ def runtests():
             def f2(dummy):
                 out.append(me())
             f1(cc=f2)
-            test[out == ['f1', 'v', 'w', 'v_cont1', 'f1_cont', 'f2']]
+            test[validate(the[out], ['f1', 'v', 'w', 'v_cont1', 'f1_cont', 'f2'])]
 
     # preparation for confetti, create a saved chain
     with continuations:
@@ -126,7 +156,7 @@ def runtests():
                 call_cc[k()]
                 out.append(me())
             v()
-            test[out == ['v', 'g_cont1', 'f_cont4', 'v_cont2']]
+            test[validate(the[out], ['v', 'g_cont1', 'f_cont4', 'v_cont2'])]
 
     with testset("confetti 1b - tail-calling a saved continuation"):
         with continuations:
@@ -137,7 +167,7 @@ def runtests():
                 out.append(me())
                 return k(cc=f2)
             f1()
-            test[out == ['f1', 'g_cont1', 'f_cont4', 'f2']]
+            test[validate(the[out], ['f1', 'g_cont1', 'f_cont4', 'f2'])]
 
     # more preparation for confetti
     with continuations:
@@ -183,7 +213,7 @@ def runtests():
                 out.append(me())
                 return k3(cc=f2)
             f1()
-            test[out == ['f1', 'q_cont', 'p_cont', 's_cont', 'r_cont', 'f2']]
+            test[validate(the[out], ['f1', 'q_cont', 'p_cont', 's_cont', 'r_cont', 'f2'])]
 
     # more preparation for confetti
     with continuations:
@@ -213,7 +243,7 @@ def runtests():
                 out.append(me())
                 return k4(cc=f2)
             f1()
-            test[out == ['f1', 'y_cont', 's_cont', 'r_cont', 'x_cont', 'f2']]
+            test[validate(the[out], ['f1', 'y_cont', 's_cont', 'r_cont', 'x_cont', 'f2'])]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
