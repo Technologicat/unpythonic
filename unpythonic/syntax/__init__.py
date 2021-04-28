@@ -128,7 +128,6 @@ from ..dynassign import make_dynvar, dyn
 # TODO: Upgrade anaphoric if's `it` into a `mcpyrate` magic variable that errors out at compile time when it appears in an invalid position (i.e. outside any `aif`). Basically, take the `aif` from `mcpyrate`.
 # TODO: also let_syntax block, expr
 # TODO: also kw() in unpythonic.syntax.prefix
-# TODO: also call_cc[] in unpythonic.syntax.tailtools
 
 # TODO: let_syntax block, expr: syntactic consistency: change parentheses to brackets
 
