@@ -2977,11 +2977,15 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 **Changed in v0.14.3**. *The multiple-dispatch decorator `@generic` no longer takes a master definition. Methods are registered directly with `@generic`; the first method definition implicitly creates the generic function.*
 
-**Changed in v0.14.3** *The `@generic` and `@typed` decorators can now decorate also instance methods, class methods and static methods (beside regular functions, as previously in 0.14.2).*
+**Changed in v0.14.3**. *The `@generic` and `@typed` decorators can now decorate also instance methods, class methods and static methods (beside regular functions, as previously in 0.14.2).*
+
+**Changed in v0.15.0**. *The `dispatch` and `typecheck` modules providing this functionality are now considered stable (no longer experimental). Added the `@generic_for` parametric decorator that can register a new method on an existing generic function originally defined in another lexical scope.* 
 
 The ``generic`` decorator allows creating multiple-dispatch generic functions with type annotation syntax.
 
 We also provide some friendly utilities: ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first two) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
+
+For what kind of things can be done with this, see particularly the [*holy traits*](https://ahsmart.com/pub/holy-traits-design-patterns-and-best-practice-book/) example in [`unpythonic.test.test_dispatch`](../unpythonic/test/test_dispatch.py).
 
 #### ``generic``: multiple dispatch with type annotation syntax
 
