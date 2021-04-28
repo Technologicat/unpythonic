@@ -5,6 +5,10 @@
 - Python 3.8 and 3.9 support added.
 - `with namedlambda` now processes the walrus operator, too. In `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
 
+**Non-breaking changes**:
+
+- The modules `unpythonic.dispatch` and `unpythonic.typecheck`, which provide the `@generic` and `@typed` decorators and the `isoftype` function, are no longer considered experimental. From this release on, they receive the same semantic versioning guarantees as the rest of `unpythonic`.
+
 **Breaking changes**:
 
 - Migrate to the [`mcpyrate`](https://github.com/Technologicat/mcpyrate) macro expander; MacroPy support dropped.

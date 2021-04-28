@@ -11,14 +11,6 @@ We currently provide `isoftype` (cf. `isinstance`), but no `issubtype` (cf. `iss
 If you need a run-time type checker for serious general use, consider `typeguard`:
 
     https://github.com/agronholm/typeguard
-
-**WARNING: EXPERIMENTAL FEATURE**
-
-This experimental feature is a proof-of-concept provided for technical preview
-and teaching purposes only.
-
-Details may still change in a backwards-incompatible way, or the whole
-feature may still be removed. Do not depend on it in production!
 """
 
 import collections
