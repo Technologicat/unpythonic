@@ -139,6 +139,9 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: with mcpyrate, do we really need to set `ctx` in our macros? (does our macro code need it?)
 
+# TODO: The HasThon test (grep for it), when putting the macros in the wrong order on purpose,
+# TODO: confuses the call site filename detector of the test framework. Investigate.
+
 # Syntax transformers and internal utilities
 from .autoref import autoref as _autoref
 from .autocurry import autocurry as _autocurry
