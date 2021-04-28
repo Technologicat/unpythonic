@@ -422,9 +422,9 @@ def let(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "expr":
         raise SyntaxError("let is an expr macro only")
 
-    tree = expander.visit(tree)
-
-    return _destructure_and_apply_let(tree, args, expander, _let)
+    # The `let[]` family of macros expands inside out.
+    with dyn.let(_macro_expander=expander):
+        return _destructure_and_apply_let(tree, args, expander, _let)
 
 @parametricmacro
 def letseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -438,9 +438,8 @@ def letseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "expr":
         raise SyntaxError("letseq is an expr macro only")
 
-    tree = expander.visit(tree)
-
-    return _destructure_and_apply_let(tree, args, expander, _letseq)
+    with dyn.let(_macro_expander=expander):
+        return _destructure_and_apply_let(tree, args, expander, _letseq)
 
 @parametricmacro
 def letrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -459,9 +458,8 @@ def letrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "expr":
         raise SyntaxError("letrec is an expr macro only")
 
-    tree = expander.visit(tree)
-
-    return _destructure_and_apply_let(tree, args, expander, _letrec)
+    with dyn.let(_macro_expander=expander):
+        return _destructure_and_apply_let(tree, args, expander, _letrec)
 
 # NOTE: At the macro interface, the invocations `let()[...]` (empty args)
 # and `let[...]` (no args) were indistinguishable in MacroPy. This was a

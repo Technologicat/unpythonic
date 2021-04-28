@@ -58,7 +58,12 @@ def _letimpl(bindings, body, mode):
     """bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)"""
     assert mode in ("let", "letrec")
 
+    # The let constructs are currently inside-out macros; expand other macro
+    # invocations in both bindings and body.
+    #
+    # But apply the implicit `do` (extra bracket syntax) first.
     body = implicit_do(body)
+    body = dyn._macro_expander.visit(body)
     if not bindings:
         # Optimize out a `let` with no bindings. The macro layer cannot trigger
         # this case, because our syntaxes always require at least one binding.
@@ -81,6 +86,8 @@ def _letimpl(bindings, body, mode):
         # `let[(...) in ...]`, `let[..., where(...)]` - and in these cases,
         # both the bindings and the body reside inside the brackets.
         return body  # pragma: no cover
+    bindings = dyn._macro_expander.visit(bindings)
+
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
 
@@ -327,20 +334,24 @@ class UnpythonicDoDeleteMarker(UnpythonicLetDoMarker):
 # TODO: fail-fast: promote `local[]`/`delete[]` usage errors to compile-time errors
 # TODO: (doesn't currently work e.g. for `let` with an implicit do (extra bracket notation))
 def local(tree):  # syntax transformer
-    # if _do_level.value < 1:
-    #     raise SyntaxError("local[] is only valid within a do[] or do0[]")  # pragma: no cover
+    if _do_level.value < 1:
+        raise SyntaxError("local[] is only valid within a do[] or do0[]")  # pragma: no cover
     return UnpythonicDoLocalMarker(tree)
 
 def delete(tree):  # syntax transformer
-    # if _do_level.value < 1:
-    #     raise SyntaxError("delete[] is only valid within a do[] or do0[]")  # pragma: no cover
+    if _do_level.value < 1:
+        raise SyntaxError("delete[] is only valid within a do[] or do0[]")  # pragma: no cover
     return UnpythonicDoDeleteMarker(tree)
 
 def do(tree):
     if type(tree) not in (Tuple, List):
         raise SyntaxError("do body: expected a sequence of comma-separated expressions")  # pragma: no cover, let's not test the macro expansion errors.
 
-    # Handle nested `local[]`/`delete[]`.
+    # Handle nested `local[]`/`delete[]`. This will also expand any other nested macro invocations.
+    # TODO: If we want to make `do` an outside-in macro, instantiate another expander here and register
+    # TODO: only the `local` and `delete` transformers to it - grabbing them from the current expander's
+    # TODO: bindings to respect as-imports. (Expander instances are cheap in `mcpyrate`.)
+    # TODO: Grep the `unpythonic` codebase (and `mcpyrate` demos) for `MacroExpander` to see how.
     with _do_level.changed_by(+1):
         tree = dyn._macro_expander.visit(tree)
 
