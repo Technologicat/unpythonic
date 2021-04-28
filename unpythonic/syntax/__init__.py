@@ -272,7 +272,9 @@ def aif(tree, *, syntax, expander, **kw):  # noqa: F811
 
     This expands into a ``let`` and an expression-form ``if``.
 
-    Each part may consist of multiple expressions by using brackets around it.
+    Each part may consist of multiple expressions by using brackets around it;
+    those brackets create a `do` environment (see `unpythonic.syntax.do`).
+
     To represent a single expression that is a literal list, use extra
     brackets: ``[[1, 2, 3]]``.
     """
@@ -298,9 +300,11 @@ def cond(tree, *, syntax, expander, **kw):  # noqa: F811
              ...
              [postn, ..., otherwise]]
 
-    This allows human-readable multi-branch conditionals in a lambda.
+    This allows human-readable multi-branch conditionals in an expression position.
 
-    Each part may consist of multiple expressions by using brackets around it.
+    Each part may consist of multiple expressions by using brackets around it;
+    those brackets create a `do` environment (see `unpythonic.syntax.do`).
+
     To represent a single expression that is a literal list, use extra
     brackets: ``[[1, 2, 3]]``.
     """
@@ -370,7 +374,7 @@ def autocurry(tree, *, syntax, expander, **kw):  # technically a list of trees, 
 
 @parametricmacro
 def let(tree, *, args, syntax, expander, **kw):  # noqa: F811
-    """[syntax, expr] Introduce local bindings.
+    """[syntax, expr] Introduce expression-local variables.
 
     This is sugar on top of ``unpythonic.lispylet.let``.
 
@@ -658,8 +662,26 @@ def bletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
 def local(tree, *, syntax, invocation, **kw):  # noqa: F811
     """[syntax] Declare a local name in a "do".
 
+    Usage::
+
+        local[name << value]
+
     Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
-    (extra bracket syntax)."""
+    (extra bracket syntax).
+
+    The declaration takes effect starting from next item in the ``do``, i.e.
+    the item that comes after the ``local[]``. It will not shadow nonlocal
+    variables of the same name in any earlier items of the same ``do``, and
+    in the item making the definition, the old bindings are still in effect
+    on the RHS.
+
+    This means that if you want, you can declare a local ``x`` that takes its
+    initial value from a nonlocal ``x``, by ``local[x << x]``. Here the ``x``
+    on the RHS is the nonlocal one (since the declaration has not yet taken
+    effect), and the ``x`` on the LHS is the name given to the new local variable
+    that only exists inside the ``do``. Any references to ``x`` in any further
+    items in the same ``do`` will point to the local ``x``.
+    """
     if syntax != "expr":
         raise SyntaxError("local is an expr macro only")  # pragma: no cover
     return _local(tree)
@@ -667,14 +689,22 @@ def local(tree, *, syntax, invocation, **kw):  # noqa: F811
 def delete(tree, *, syntax, invocation, **kw):  # noqa: F811
     """[syntax] Delete a previously declared local name in a "do".
 
+    Usage::
+
+        delete[name]
+
     Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
     (extra bracket syntax).
+
+    The deletion takes effect starting from the next item; hence, the
+    deleted local variable will no longer shadow nonlocal variables of
+    the same name in any later items of the same `do`.
 
     Note ``do[]`` supports local variable deletion, but the ``let[]``
     constructs don't, by design.
     """
     if syntax != "expr":
-        raise SyntaxError("local is an expr macro only")  # pragma: no cover
+        raise SyntaxError("delete is an expr macro only")  # pragma: no cover
     return _delete(tree)
 
 def do(tree, *, syntax, expander, **kw):  # noqa: F811
@@ -699,7 +729,10 @@ def do(tree, *, syntax, expander, **kw):  # noqa: F811
         - To declare and initialize a local name, use ``local[name << value]``.
 
           The operator ``local`` is syntax, not really a function, and it
-          only exists inside a ``do``.
+          only exists inside a ``do``. There is also an operator ``delete``
+          to delete a previously declared local name in the ``do``.
+
+          Both ``local`` and ``delete``, if used, should be imported as macros.
 
         - By design, there is no way to create an uninitialized variable;
           a value must be given at declaration time. Just use ``None``
@@ -933,7 +966,6 @@ def let_syntax(tree, *, args, syntax, expander, **kw):  # noqa: F811
     else:  # syntax == "block":
         return _let_syntax_block(block_body=tree)
 
-# TODO: need better example, since `mcpyrate`'s equivalent of `ast_literal` is already named `a`
 @parametricmacro
 def abbrev(tree, *, args, syntax, expander, **kw):  # noqa: F811
     """[syntax, expr/block] Exactly like ``let_syntax``, but expands outside in.
@@ -941,13 +973,13 @@ def abbrev(tree, *, args, syntax, expander, **kw):  # noqa: F811
     Because this variant expands before any macros in the body, it can locally
     rename other macros, e.g.::
 
-        abbrev[(a, ast_literal)][
-                 a[tree1] if a[tree2] else a[tree3]]
+        abbrev[(m, macrowithverylongname)][
+                 m[tree1] if m[tree2] else m[tree3]]
 
-    **CAUTION**: Because of the expansion order, nesting ``abbrev`` will not
-    lexically scope the substitutions. Instead, the outermost ``abbrev`` expands
-    first, and then any inner ones expand with whatever substitutions they have
-    remaining.
+    **CAUTION**: Because ``abbrev`` expands outside-in, and does not respect
+    boundaries of any nested ``abbrev`` invocations, it will not lexically scope
+    the substitutions. Instead, the outermost ``abbrev`` expands first, and then
+    any inner ones expand with whatever substitutions they have remaining.
 
     If the same name is used on the LHS in two or more nested ``abbrev``,
     any inner ones will likely raise an error (unless the outer substitution
@@ -1010,7 +1042,7 @@ def multilambda(tree, *, syntax, expander, **kw):  # noqa: F811
             echo = lambda x: [print(x), x]
             assert echo("hi there") == "hi there"
 
-            count = let((x, 0))[
+            count = let[(x, 0)][
                       lambda: [x << x + 1,
                                x]]
             assert count() == 1
@@ -1044,6 +1076,9 @@ def namedlambda(tree, *, syntax, expander, **kw):  # noqa: F811
     We support:
 
         - Single-item assignments to a local name, ``f = lambda ...: ...``
+
+        - Named expressions (a.k.a. walrus operator, Python 3.8+),
+          ``f := lambda ...: ...``
 
         - Assignments to unpythonic environments, ``f << (lambda ...: ...)``
 
@@ -1079,13 +1114,26 @@ def namedlambda(tree, *, syntax, expander, **kw):  # noqa: F811
 def f(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, expr] Underscore notation (quick lambdas) for Python.
 
-    The syntax ``f[...]`` creates a lambda, where each underscore in the
-    ``...`` part introduces a new parameter. The macro does not descend
-    into any nested ``f[]``.
+    Usage::
+
+        f[body]
+
+    The ``f[]`` macro creates a lambda. Each underscore in ``body``
+    introduces a new parameter.
 
     Example::
 
-        func = f[_ * _]  # --> func = lambda x, y: x * y
+        func = f[_ * _]
+
+    expands to::
+
+        func = lambda a0, a1: a0 * a1
+
+    The underscore is interpreted magically by ``f[]``; but ``_`` itself
+    is not a macro, and has no special meaning outside ``f[]``. The underscore
+    does **not** need to be imported for ``f[]`` to recognize it.
+
+    The macro does not descend into any nested ``f[]``.
     """
     if syntax != "expr":
         raise SyntaxError("f is an expr macro only")
@@ -1095,7 +1143,7 @@ def f(tree, *, syntax, expander, **kw):  # noqa: F811
         return _f(tree)
 
 def quicklambda(tree, *, syntax, expander, **kw):  # noqa: F811
-    """[syntax, block] Make `f` quick lambdas expand first.
+    """[syntax, block] Make ``f`` quick lambdas expand first.
 
     To be able to transform correctly, the block macros in ``unpythonic.syntax``
     that transform lambdas (e.g. ``multilambda``, ``tco``) need to see all
@@ -1145,7 +1193,7 @@ def envify(tree, *, syntax, expander, **kw):  # noqa: F811
             def foo(n):
                 return lambda i: n << n + i
 
-    Of course, now we can::
+    Or even shorter::
 
         with autoreturn, envify:
             def foo(n):
@@ -1339,7 +1387,7 @@ def continuations(tree, *, syntax, expander, **kw):  # noqa: F811
 
       - McCarthy's amb operator.
 
-      - Generators. (Though of course, Python already has them.)
+      - Generators. (Python already has those, so only for teaching.)
 
     This is a very loose pythonification of Paul Graham's continuation-passing
     macros, which implement continuations by chaining closures and passing the
@@ -1383,7 +1431,7 @@ def continuations(tree, *, syntax, expander, **kw):  # noqa: F811
 
                     f = lambda cc: ...
 
-        Then the continuation machinery will automaticlly set the default value
+        Then the continuation machinery will automatically set the default value
         of ``cc`` to the default continuation (``identity``), which just returns
         its arguments.
 
@@ -2391,7 +2439,9 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
     evaluation order of user code.
 
     The `the[]` mark can be imported as a macro from this module, so that
-    its appearance in your source code won't confuse `flake8`.
+    its appearance in your source code won't confuse `flake8`, and you'll
+    get a nice macro-expansion-time error if it accidentally appears outside
+    a `test[]` or `with test:`.
 
     **Block variant**:
 
@@ -2418,15 +2468,15 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
     If there is no `return`, the test asserts that the block completes normally,
     just like a `test[returns_normally(...)]` does for an expression.
 
-    (The asymmetry in syntax reflects the asymmetry between expressions and
+    The asymmetry in syntax reflects the asymmetry between expressions and
     statements in Python. Likewise, the fact that `with test` requires `return`
     to return a value, but `test[...]` doesn't, is similar to the difference
-    between `def` and `lambda`.)
+    between `def` and `lambda`.
 
     In the block variant, the "result" capture rules apply to the return value
     designated by `return`. To override, the `the[]` mark can be used for
-    capturing the value of any one expression inside the block. (It doesn't
-    have to be in the `return`.)
+    capturing the value of any one expression inside the block. The mark
+    doesn't have to be in the `return`.
 
     At most one `the[]` may appear in the same `with test` block.
 
@@ -2546,7 +2596,7 @@ def test_signals(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
 @parametricmacro
 def test_raises(tree, *, args, syntax, expander, **kw):  # noqa: F811
-    """[syntax, expr/block] Like `test`, but expect the expression raise an exception.
+    """[syntax, expr/block] Like `test`, but expect the expression to raise an exception.
 
     Syntax::
 
