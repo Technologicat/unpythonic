@@ -160,10 +160,12 @@ _banner = None
 # --------------------------------------------------------------------------------
 # Exports for REPL sessions
 
-# These `_get_source` and `doc` functions come from `mcpyrate.repl.utils`.
+# These `_get_source` and `doc` functions come from `mcpyrate.repl.utils`,
+# with the coloring code removed.
 #
 # We strictly need a local copy of only if `mcpyrate` is not installed,
-# to allow viewing docstrings in the stdlib console.
+# to allow viewing docstrings in the stdlib console (which does not use
+# colored output anyway).
 
 def _get_source(obj):
     # `inspect.getsourcefile` accepts "a module, class, method, function,
