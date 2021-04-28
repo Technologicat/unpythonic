@@ -6,7 +6,7 @@ from functools import partial
 from ast import (Call, Lambda, FunctionDef, AsyncFunctionDef,
                  If, With, withitem, stmt, NodeTransformer)
 
-import mcpyrate.markers
+from mcpyrate.markers import ASTMarker
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
@@ -415,7 +415,7 @@ def wrapwith(item, body, locref=None):
 
     Syntax transformer. Returns the wrapped body.
     """
-    if isinstance(locref, mcpyrate.markers.ASTMarker):  # unwrap contents of Done() et al.
+    if isinstance(locref, ASTMarker):  # unwrap contents of Done() et al.
         locref = locref.body
     locref = locref or body[0]
     wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
@@ -449,13 +449,18 @@ def ismarker(typename, tree):
 # itself. Hence, to make method lookup succeed when we have no instance, the
 # method should be defined on the class of the class, i.e. *on the metaclass*.
 # https://stackoverflow.com/questions/20247841/using-delitem-with-a-class-object-rather-than-an-instance-in-python
-class ASTMarker(type):
+class UnpythonicExpandedMacroMarker(type):
     """Metaclass for AST markers used by block macros.
 
     This can be used by block macros to tell other block macros that a section
     of the AST is an already-expanded block of a given kind (so that others can
     tune their processing or skip it, as appropriate). At run time a marker
     does nothing.
+
+    The difference to `mcpyrate.markers.ASTMarker` is that `mcpyrate`'s is a
+    compile-time thing only (and must be deleted from the AST before the AST
+    is handed over to Python's `compile`), whereas this one remains in the
+    AST at run time.
 
     Usage::
 
@@ -471,15 +476,16 @@ class ASTMarker(type):
     def __exit__(cls, exctype, excvalue, traceback):
         pass  # pragma: no cover
 
-class ContinuationsMarker(metaclass=ASTMarker):
+class ContinuationsMarker(metaclass=UnpythonicExpandedMacroMarker):
     """AST marker for an expanded "with continuations" block."""
     pass  # pragma: no cover
 
-# must be "instantiated" because we need to pass information at macro expansion time using the ctor call syntax.
-class AutorefMarker(metaclass=ASTMarker):
+# This one must be "instantiated", because we need to pass information at
+# macro expansion time using the ctor call syntax, e.g. `AutorefMarker("o")`.
+class AutorefMarker(metaclass=UnpythonicExpandedMacroMarker):
     """AST marker for an expanded "with autoref[o]" block."""
     def __init__(self, varname):
-        pass  # pragma: no cover
+        self.varname = varname  # not needed, but doesn't hurt either.
     def __enter__(cls):
         pass  # pragma: no cover
     def __exit__(cls, exctype, excvalue, traceback):
