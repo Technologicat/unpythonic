@@ -166,7 +166,7 @@ def runtests():
             test[result == 45]
 
     with testset("integration: quicklambda, multilambda"):
-        # First-pass macros, so in azazel75/macropy/HEAD, approximately the same thing as "with quicklambda, multilambda".
+        # Outside-in macros.
         with quicklambda:
             with multilambda:
                 func = f[[local[x << _],  # noqa: F821, F823, `quicklambda` implicitly defines `f[]` to mean `lambda`.
@@ -201,9 +201,9 @@ def runtests():
         with envify:
             def foo(n):
                 return lambda i: n << n + i
-            f = foo(10)
-            test[f(1) == 11]
-            test[f(1) == 12]
+            g = foo(10)
+            test[g(1) == 11]
+            test[g(1) == 12]
 
         # *starargs and **kwargs are also supported
         with envify:
@@ -228,16 +228,16 @@ def runtests():
         with autoreturn, envify:
             def foo(n):
                 lambda i: n << n + i
-            f = foo(10)
-            test[f(1) == 11]
-            test[f(1) == 12]
+            g = foo(10)
+            test[g(1) == 11]
+            test[g(1) == 12]
 
         # or as a one-liner
         with autoreturn, envify:
             foo = lambda n: lambda i: n << n + i
-            f = foo(10)
-            test[f(1) == 11]
-            test[f(1) == 12]
+            g = foo(10)
+            test[g(1) == 11]
+            test[g(1) == 12]
 
         # pythonic solution with optimal bytecode (doesn't need an extra location to store the accumulator)
         def foo(n):

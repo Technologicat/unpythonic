@@ -9,7 +9,6 @@ from copy import deepcopy
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
-from mcpyrate.expander import MacroExpander
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.splicing import splice_expression
 from mcpyrate.utils import extract_bindings
@@ -185,6 +184,7 @@ def namedlambda(block_body):
 def f(tree):
     # What's my name in the current expander? (There may be several names.)
     # https://github.com/Technologicat/mcpyrate/blob/master/doc/quasiquotes.md#hygienic-macro-recursion
+    # TODO: doesn't currently work because this `f` is the syntax transformer, not the `f[]` macro.
     bindings = extract_bindings(dyn._macro_expander.bindings, f)
     mynames = list(bindings.keys())
 
@@ -209,16 +209,6 @@ def f(tree):
     tree.args.args = [arg(arg=x) for x in used_names]
     return tree
 
-def quicklambda(block_body):
-    # In `mcpyrate`, expander instances are cheap - so we create a second expander
-    # to which we register only the `f` macro, under whatever names it appears in
-    # the original expander. Thus it leaves all other macros alone. This is the
-    # official `mcpyrate` way to immediately expand only some particular macros
-    # inside the current macro invocation.
-    expander = dyn._macro_expander
-    bindings = extract_bindings(expander.bindings, f)
-    return MacroExpander(bindings, expander.filename).visit(block_body)
-
 def envify(block_body):
     # first pass, outside-in
     userlambdas = detect_lambda(block_body)
@@ -228,7 +218,11 @@ def envify(block_body):
     # second pass, inside-out
     def getargs(tree):  # tree: FunctionDef, AsyncFunctionDef, Lambda
         a = tree.args
-        argnames = [x.arg for x in a.args + a.kwonlyargs]
+        if hasattr(a, "posonlyargs"):  # Python 3.8+: positional-only parameters
+            allargs = a.posonlyargs + a.args + a.kwonlyargs
+        else:
+            allargs = a.args + a.kwonlyargs
+        argnames = [x.arg for x in allargs]
         if a.vararg:
             argnames.append(a.vararg.arg)
         if a.kwarg:
@@ -298,7 +292,8 @@ def envify(block_body):
                     view = UnexpandedEnvAssignView(tree)
                     if view.name in bindings.keys():
                         envset = Attribute(value=bindings[view.name].value, attr="set")
-                        return q[a[envset](u[view.name], a[view.value])]
+                        newvalue = self.visit(view.value)
+                        return q[a[envset](u[view.name], a[newvalue])]
                 # transform references to currently active bindings
                 elif type(tree) is Name and tree.id in bindings.keys():
                     # We must be careful to preserve the Load/Store/Del context of the name.

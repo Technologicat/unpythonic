@@ -5,6 +5,8 @@ Requires `mcpyrate`.
 """
 
 from mcpyrate import parametricmacro
+from mcpyrate.expander import MacroExpander
+from mcpyrate.utils import extract_bindings
 
 from ..dynassign import make_dynvar, dyn
 
@@ -156,7 +158,6 @@ from .ifexprs import aif as _aif, cond as _cond
 from .lambdatools import (multilambda as _multilambda,
                           namedlambda as _namedlambda,
                           f as _f,
-                          quicklambda as _quicklambda,
                           envify as _envify)
 from .lazify import lazy as _lazy, lazify as _lazify, lazyrec as _lazyrec
 from .letdo import (local as _local, delete as _delete,
@@ -499,7 +500,7 @@ def letrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
 def _destructure_and_apply_let(tree, args, macro_expander, let_expander_function, allow_call_in_name_position=False):
     with dyn.let(_macro_expander=macro_expander):  # implicit do (extra bracket notation) needs this.
         if args:
-            bs = _canonize_bindings(args, locref=tree, allow_call_in_name_position=allow_call_in_name_position)
+            bs = _canonize_bindings(args, allow_call_in_name_position=allow_call_in_name_position)
             return let_expander_function(bindings=bs, body=tree)
         # haskelly syntax, let[(...) in ...], let[..., where(...)]
         view = _UnexpandedLetView(tree)  # note "tree" here is only the part inside the brackets
@@ -1175,9 +1176,15 @@ def quicklambda(tree, *, syntax, expander, **kw):  # noqa: F811
     if syntax != "block":
         raise SyntaxError("quicklambda is a block macro only")
 
-    # This macro expands outside in, but needs `expander` for introspection.
-    with dyn.let(_macro_expander=expander):
-        return _quicklambda(block_body=tree)
+    # This macro expands outside in.
+    #
+    # In `mcpyrate`, expander instances are cheap - so we create a second expander
+    # to which we register only the `f` macro, under whatever names it appears in
+    # the original expander. Thus it leaves all other macros alone. This is the
+    # official `mcpyrate` way to immediately expand only some particular macros
+    # inside the current macro invocation.
+    bindings = extract_bindings(expander.bindings, f)
+    return MacroExpander(bindings, expander.filename).visit(tree)
 
 def envify(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, block] Make formal parameters live in an unpythonic env.

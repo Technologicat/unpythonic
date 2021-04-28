@@ -21,7 +21,7 @@ _isdof = make_isxpred("dof")      # name must match what ``unpythonic.syntax.let
 _iscurrycall = make_isxpred("currycall")  # output of ``unpythonic.syntax.curry``
 
 # TODO: switch from call to subscript in name position for let_syntax templates.
-def canonize_bindings(elts, locref, allow_call_in_name_position=False):  # public as of v0.14.3+
+def canonize_bindings(elts, allow_call_in_name_position=False):  # public as of v0.14.3+
     """Wrap a single binding without container into a length-1 `list`.
 
     Pass through multiple bindings as-is.
@@ -35,9 +35,6 @@ def canonize_bindings(elts, locref, allow_call_in_name_position=False):  # publi
 
     where the ks and vs are AST nodes.
 
-    locref: AST node to copy location information from, in case we need to
-    make a wrapper for a single binding.
-
     allow_call_in_name_position: used by let_syntax to allow template definitions;
     in the call, the "function" is the template name, and the positional "parameters"
     are the template parameters (which may then appear in the template body).
@@ -46,7 +43,7 @@ def canonize_bindings(elts, locref, allow_call_in_name_position=False):  # publi
         return ((type(x) is Name) or
                 (allow_call_in_name_position and type(x) is Call and type(x.func) is Name))
     if len(elts) == 2 and iskey(elts[0]):
-        return [Tuple(elts=elts, lineno=locref.lineno, col_offset=locref.col_offset)]
+        return [Tuple(elts=elts)]  # TODO: `mcpyrate`: just `q[t[elts]]`?
     if all((type(b) is Tuple and len(b.elts) == 2 and iskey(b.elts[0])) for b in elts):
         return elts
     raise SyntaxError("expected bindings to be ((k0, v0), ...) or a single (k, v)")  # pragma: no cover
@@ -352,30 +349,31 @@ class UnexpandedLetView:
         t = self._type
         if t == "decorator":  # bare Subscript, dlet[...], blet[...]
             if type(self._tree) is Call:  # up to Python 3.8: parenthesis syntax for decorator macros
-                return canonize_bindings(self._tree.args, self._tree)
+                return canonize_bindings(self._tree.args)
             # Subscript as decorator (Python 3.9+)
             if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
                 theargs = self._tree.slice
             else:
                 theargs = self._tree.slice.value
-            return canonize_bindings(theargs.elts, self._tree)
+            return canonize_bindings(theargs.elts)
         elif t == "lispy_expr":  # Subscript inside a Subscript, (let[...])[...]
             if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
                 theargs = self._tree.value.slice
             else:
                 theargs = self._tree.value.slice.value
-            return canonize_bindings(theargs.elts, self._tree.value)
+            return canonize_bindings(theargs.elts)
         else:  # haskelly let, let[(...) in ...], let[..., where(...)]
             theexpr = self._theexpr_ref()
             if t == "in_expr":
-                return canonize_bindings(theexpr.left.elts, theexpr.left)
+                return canonize_bindings(theexpr.left.elts)
             elif t == "where_expr":
-                return canonize_bindings(theexpr.elts[1].args, theexpr.elts[1])
+                return canonize_bindings(theexpr.elts[1].args)
     def _setbindings(self, newbindings):
         t = self._type
         if t == "decorator":
             if type(self._tree) is Call:  # up to Python 3.8: parenthesis syntax for decorator macros
                 self._tree.args = newbindings
+                return
             # Subscript as decorator (Python 3.9+)
             if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
                 self._tree.slice.elts = newbindings

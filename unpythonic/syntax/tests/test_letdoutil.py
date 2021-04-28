@@ -38,13 +38,9 @@ def runtests():
                 if type(k) is not Name:
                     return False  # pragma: no cover, only reached if the test fails.
             return True
-        # known fake location information
-        locref = q[n["here"]]
-        locref.lineno = 9001
-        locref.col_offset = 9
-        test[validate(the[canonize_bindings(q[k0, v0].elts, locref)])]  # noqa: F821, it's quoted.
-        test[validate(the[canonize_bindings(q[((k0, v0),)].elts, locref)])]  # noqa: F821
-        test[validate(the[canonize_bindings(q[(k0, v0), (k1, v1)].elts, locref)])]  # noqa: F821
+        test[validate(the[canonize_bindings(q[k0, v0].elts)])]  # noqa: F821, it's quoted.
+        test[validate(the[canonize_bindings(q[((k0, v0),)].elts)])]  # noqa: F821
+        test[validate(the[canonize_bindings(q[(k0, v0), (k1, v1)].elts)])]  # noqa: F821
 
     # --------------------------------------------------------------------------------
     # AST structure matching
