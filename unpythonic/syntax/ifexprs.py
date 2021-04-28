@@ -25,6 +25,7 @@ def aif(tree):
     test, then, otherwise = [implicit_do(x) for x in tree.elts]
     bindings = [q[(it, a[test])]]
     body = q[a[then] if it else a[otherwise]]
+    # TODO: we should use a hygienically captured macro here.
     return let(bindings, body)
 
 def cond(tree):
