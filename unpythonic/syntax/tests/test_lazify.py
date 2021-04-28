@@ -478,9 +478,9 @@ def runtests():
             test[withec2 == 42]
 
     # Introducing the HasThon programming language.
-    # For a continuation-enabled HasThon, use "with continuations, autocurry, lazify".
+    # For a continuation-enabled HasThon, use "with lazify, autocurry, continuations".
     with testset("HasThon, with 100% more Thon than popular brands"):
-        with autocurry, lazify:
+        with lazify, autocurry:
             def add3(a, b, c):
                 return a + b + c
             test[add3(1)(2)(3) == 6]
@@ -503,7 +503,7 @@ def runtests():
     #    the continuations chained by it to decide whether to force their args.
     #  - the default cont ``identity`` is strict, so it will force return values
     with testset("integration with continuations"):
-        with continuations, lazify:
+        with lazify, continuations:
             k = None
             def setk(*args, cc):
                 nonlocal k
