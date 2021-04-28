@@ -524,6 +524,7 @@ def dlet(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("dlet is a decorator macro only")
 
+    args = expander.visit(args)
     tree = expander.visit(tree)
 
     return _destructure_and_apply_let(tree, args, expander, _dlet)
@@ -546,6 +547,7 @@ def dletseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("dletseq is a decorator macro only")
 
+    args = expander.visit(args)
     tree = expander.visit(tree)
 
     return _destructure_and_apply_let(tree, args, expander, _dletseq)
@@ -568,6 +570,7 @@ def dletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("dletrec is a decorator macro only")
 
+    args = expander.visit(args)
     tree = expander.visit(tree)
 
     return _destructure_and_apply_let(tree, args, expander, _dletrec)
@@ -586,6 +589,7 @@ def blet(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("blet is a decorator macro only")
 
+    args = expander.visit(args)
     tree = expander.visit(tree)
 
     return _destructure_and_apply_let(tree, args, expander, _blet)
@@ -606,6 +610,7 @@ def bletseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("bletseq is a decorator macro only")
 
+    args = expander.visit(args)
     tree = expander.visit(tree)
 
     return _destructure_and_apply_let(tree, args, expander, _bletseq)
@@ -637,6 +642,7 @@ def bletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("bletrec is a decorator macro only")
 
+    args = expander.visit(args)
     tree = expander.visit(tree)
 
     return _destructure_and_apply_let(tree, args, expander, _bletrec)
