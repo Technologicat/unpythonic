@@ -4,7 +4,7 @@
 from functools import partial
 
 from ast import (Call, Lambda, FunctionDef, AsyncFunctionDef,
-                 If, With, withitem, stmt, NodeTransformer)
+                 If, With, withitem, stmt)
 
 from mcpyrate.markers import ASTMarker
 from mcpyrate.quotes import is_captured_value
@@ -353,7 +353,7 @@ def eliminate_ifones(body):
         if t:
             branch = tree.body if t == "then" else tree.orelse
             return branch
-        return [tree]
+        return tree
 
     return transform_statements(optimize, body)
 
@@ -383,24 +383,12 @@ def transform_statements(f, body):
 
     The return value is the transformed ``body``.
     """
-    # TODO: This could be a `mcpyrate.walkers.ASTTransformer` too.
-    class StatementTransformer(NodeTransformer):
-        def visit(self, node):
-            if isinstance(node, list):  # multiple-statement body in AST
-                nodes = node
-                replacement = [self.visit(x) for x in nodes]
-                return [x for x in replacement if x is not None]
-            self.generic_visit(node)  # recurse into children
-            if isinstance(node, stmt):
-                replacement = f(node)
-                if not isinstance(replacement, list):
-                    raise TypeError(f"`f` must return a list of statements, got {type(replacement)} with value {repr(replacement)}")  # pragma: no cover
-                if len(replacement) == 0:
-                    return None  # to delete the node, `NodeTransformer` expects `None`
-                elif len(replacement) == 1:
-                    return replacement[0]
-                return replacement
-            return node
+    class StatementTransformer(ASTTransformer):
+        def transform(self, tree):
+            tree = self.generic_visit(tree)
+            if isinstance(tree, stmt):
+                return f(tree)
+            return tree
     return StatementTransformer().visit(body)
 
 def wrapwith(item, body, locref=None):
