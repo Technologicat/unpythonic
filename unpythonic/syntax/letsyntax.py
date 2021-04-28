@@ -142,6 +142,8 @@ class block:
     """[syntax] Magic identifier for ``with block:`` inside a ``with let_syntax:``."""
     def __repr__(self):  # in case one of these ends up somewhere at runtime
         return "<let_syntax 'with block:'>"  # pragma: no cover
+    def __call__(self, tree, **kw):  # make `block` look like a macro
+        pass
 block = block()
 
 # TODO: convert to mcpyrate magic variable
@@ -149,6 +151,8 @@ class expr:
     """[syntax] Magic identifier for ``with expr:`` inside a ``with let_syntax:``."""
     def __repr__(self):  # in case one of these ends up somewhere at runtime
         return "<let syntax 'with expr:'>"  # pragma: no cover
+    def __call__(self, tree, **kw):  # make `expr` look like a macro
+        pass
 expr = expr()
 
 # -----------------------------------------------------------------------------
@@ -252,6 +256,6 @@ def _substitute_templates(templates, tree):
                         tree = subst(tree)
                         return self.generic_visit(tree)
                     return self.generic_visit(tree)
-            return Splicer.visit(tree)
+            return Splicer().visit(tree)
         tree = splice(tree)
     return tree
