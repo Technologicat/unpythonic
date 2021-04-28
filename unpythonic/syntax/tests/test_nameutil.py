@@ -10,11 +10,12 @@ from ...syntax.nameutil import isx, make_isxpred, getname
 
 from ast import Call
 
+# test data
+def capture_this():  # the function must be defined at top level so h[] can pickle the object
+    pass  # pragma: no cover
+
 def runtests():
     with testset("isx"):
-        # test data
-        def capture_this():
-            pass  # pragma: no cover
         barename = q[ok]  # noqa: F821
         captured = q[h[capture_this]()]
         attribute = q[someobj.ok]  # noqa: F821
