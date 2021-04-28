@@ -244,6 +244,72 @@ def runtests():
         test[callable(the[f])]
         test_raises[TypeError, f(21.0) == 42]  # error will occur now, when the call is triggered
 
+    with testset("holy traits in Python with @generic"):
+        # Note we won't get the performance benefits of Julia, because this is a
+        # purely run-time implementation.
+        #
+        # For what this is about, see:
+        # https://ahsmart.com/pub/holy-traits-design-patterns-and-best-practice-book/
+        # https://www.juliabloggers.com/the-emergent-features-of-julialang-part-ii-traits/
+
+        # The traits, orthogonal to the type hierarchy of the actual data.
+        # Here we have just one.
+        class FlippabilityTrait:
+            pass
+        class IsFlippable(FlippabilityTrait):
+            pass
+        class IsNotFlippable(FlippabilityTrait):
+            pass
+
+        # Mapping of concrete types to traits. This is the extensible part.
+        @generic
+        def flippable(x: typing.Any):  # default
+            raise NotImplementedError(f"`flippable` trait not registered for any type specification matching {type(x)}")
+
+        # Since these are in the same lexical scope as the original definition of the
+        # generic function `flippable`, we could do this using `@generic`, but
+        # later extensions (which are the whole point of traits) will need to specify
+        # on which function the new methods are to be registered, using `@generic_for`.
+        # So let's do that to show how it's done.
+        @generic_for(flippable)
+        def flippable(x: str):  # noqa: F811
+            return IsFlippable()
+        @generic_for(flippable)
+        def flippable(x: int):  # noqa: F811
+            return IsNotFlippable()
+
+        # Trait-based dispatcher for the operation `flip`, implemented as a
+        # generic function. The dispatcher maps the concrete type of `x` to
+        # the desired trait (relevant to that particular operation), while
+        # passing the value `x` itself along.
+        #
+        # The "flip" operation is just a silly example of something that is
+        # applicable to "flippable" objects but not to "nonflippable" ones.
+        @generic
+        def flip(x: typing.Any):
+            return flip(flippable(x), x)
+
+        # Implementation of `flip`. Same comment about `@generic_for` as above.
+        #
+        # Here we provide one implementation for "flippable" objects and another one
+        # for "nonflippable" objects. Note this dispatches regardless of the actual
+        # data type of `x`, and particularly, does not care which class hierarchy
+        # `type(x)` belongs to, as long as it has been registered to the relevant trait.
+        #
+        # We could also add methods for specific types if needed. Note this is not
+        # Julia, so the first matching definition wins, instead of the most specific
+        # one.
+        @generic_for(flip)
+        def flip(traitvalue: IsFlippable, x: typing.Any):  # noqa: F811
+            return x[::-1]
+        @generic_for(flip)
+        def flip(traitvalue: IsNotFlippable, x: typing.Any):  # noqa: F811
+            raise TypeError(f"{repr(x)} is IsNotFlippable")
+
+        test[flip("abc") == "cba"]
+        test_raises[TypeError, flip(42), "int should not be flippable"]
+        test_raises[NotImplementedError, flip(2.0), "float should not be registered for the flippable trait"]
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()
