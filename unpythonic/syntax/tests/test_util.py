@@ -21,10 +21,12 @@ from ast import Call, Name, Constant, Expr, With, withitem
 
 from ...ec import call_ec, throw  # just so hq[] captures them, like in real code
 
+# test data
+def ec():  # the function must be defined at top level so h[] can pickle the object
+    pass  # pragma: no cover
+
 def runtests():
     with testset("escape continuation (ec) utilities"):
-        def ec():
-            pass  # pragma: no cover
         known_ecs = ["ec", "brk", "throw"]  # see `fallbacks` in `detect_callec`
         test[isec(q[ec(42)], known_ecs)]
         test[isec(q[h[ec](42)], known_ecs)]
