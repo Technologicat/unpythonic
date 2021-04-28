@@ -423,7 +423,7 @@ def wrapwith(item, body, locref=None):
                    lineno=locref.lineno, col_offset=locref.col_offset)
     return [wrapped]
 
-def ismarker(typename, tree):
+def isexpandedmacromarker(typename, tree):
     """Return whether tree is a specific expanded macro AST marker. Used by block macros.
 
     That is, whether ``tree`` is a ``with`` block with a single context manager,
@@ -434,7 +434,7 @@ def ismarker(typename, tree):
         with ContinuationsMarker:
             ...
 
-    then ``ismarker("ContinuationsMarker", tree)`` returns ``True``.
+    then ``isexpandedmacromarker("ContinuationsMarker", tree)`` returns ``True``.
 
     **NOTE**: The markers this function detects remain in the AST at run time;
     they inherit from `unpythonic.syntax.util.UnpythonicExpandedMacroMarker`.

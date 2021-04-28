@@ -15,7 +15,7 @@ from ...syntax.util import (isec, detect_callec,
                             is_lambda_decorator, is_decorated_lambda,
                             destructure_decorated_lambda, sort_lambda_decorators,
                             transform_statements, eliminate_ifones,
-                            wrapwith, ismarker)
+                            wrapwith, isexpandedmacromarker)
 
 from ast import Call, Name, Constant, Expr, With, withitem
 
@@ -277,17 +277,17 @@ def runtests():
         test[type(firststmt.value) in (Constant, Num)]  # Python 3.8+: ast.Constant
         test[getconstant(firststmt.value) == 42]  # Python 3.8+: ast.Constant
 
-    with testset("ismarker"):
+    with testset("isexpandedmacromarker"):
         with q as ismarker_testdata1:
             with ExampleMarker:  # noqa: F821  # pragma: no cover
                 ...
         with q as ismarker_testdata2:
             with NotAMarker1, NotAMarker2:  # noqa: F821  # pragma: no cover
                 ...
-        test[ismarker("ExampleMarker", ismarker_testdata1[0])]
-        test[not ismarker("AnotherMarker", ismarker_testdata1[0])]  # right AST node type, different marker
-        test[not ismarker("NotAMarker1", ismarker_testdata2[0])]  # a marker must be the only ctxmanager in the `with`
-        test[not ismarker("ExampleMarker", q["surprise!"])]  # wrong AST node type
+        test[isexpandedmacromarker("ExampleMarker", ismarker_testdata1[0])]
+        test[not isexpandedmacromarker("AnotherMarker", ismarker_testdata1[0])]  # right AST node type, different marker
+        test[not isexpandedmacromarker("NotAMarker1", ismarker_testdata2[0])]  # a marker must be the only ctxmanager in the `with`
+        test[not isexpandedmacromarker("ExampleMarker", q["surprise!"])]  # wrong AST node type
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

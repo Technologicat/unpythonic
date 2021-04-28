@@ -89,7 +89,7 @@ def autoref(block_body, args, asname):
 
     o = asname.id if asname else gensym("_o")  # Python itself guarantees asname to be a bare Name.
 
-    # TODO: We can't use `unpythonic.syntax.util.ismarker` here, because it
+    # TODO: We can't use `unpythonic.syntax.util.isexpandedmacromarker` here, because it
     # TODO: doesn't currently understand markers with arguments. Extend it?
     #
     # with AutorefMarker("_o42"):
