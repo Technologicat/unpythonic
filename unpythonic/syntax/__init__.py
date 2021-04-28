@@ -150,6 +150,7 @@ from .forall import forall as _forall
 from .ifexprs import aif as _aif, cond as _cond
 from .lambdatools import (multilambda as _multilambda,
                           namedlambda as _namedlambda,
+                          f as _f,
                           quicklambda as _quicklambda,
                           envify as _envify)
 from .lazify import lazy as _lazy, lazify as _lazify, lazyrec as _lazyrec
@@ -180,7 +181,6 @@ from .testingtools import (test_expr as _test_expr,
 from .dbg import dbgprint_block, dbgprint_expr  # noqa: F401, re-export for re-use in a decorated variant.
 from .forall import insist, deny  # noqa: F401
 from .ifexprs import it  # noqa: F401
-from .lambdatools import f as _f  # noqa: F401
 from .letdoutil import where  # noqa: F401
 from .lazify import force, force1  # noqa: F401
 from .letsyntax import block, expr  # noqa: F401
