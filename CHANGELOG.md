@@ -1,10 +1,15 @@
 **0.15.0** (in progress; updated 23 April 2021) - *The very latest future obsolete* edition:
 
+This edition concentrates on upgrading our dependencies, namely the macro expander, and the Python language itself, to ensure `unpythonic` keeps working for the next few years. This unfortunately introduces some breaking changes; see below. While at it, we have also taken the opportunity to make also any previously scheduled breaking changes.
+
+**Minimum Python version is now 3.6**. For future plans, see our [Python language version support status](https://github.com/Technologicat/unpythonic/issues/1).
+
 **New**:
 
+- `with namedlambda` now understands the walrus operator, too. In `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
+- Robustness: several auxiliary syntactic constructs such as `local[]`/`delete[]` (for `do[]`), and `call_cc[]` (for `with continuations`) now detect *at macro expansion time* if they appear outside any valid lexical context, and raise `SyntaxError` (with a descriptive message) if so. That is, the error is now raised *at compile time*. Previously these constructs could only raise an error at run time, and not all of them could detect the error even then.
 - `unpythonic.dispatch.generic_for`: add methods to a generic function defined elsewhere.
 - Python 3.8 and 3.9 support added.
-- `with namedlambda` now processes the walrus operator, too. In `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
 
 **Non-breaking changes**:
 
@@ -16,7 +21,8 @@
   - This facilitates future development of the macro parts of `unpythonic`.
   - Macro arguments are now passed using brackets `macroname[args]` instead of parentheses.
     - Parentheses are still available as alternative syntax, because up to Python 3.8, decorators cannot have subscripts (so e.g. `@dlet[(x, 42)]` is a syntax error, but `@dlet((x, 42))` is fine). This has been fixed in Python 3.9.
-  - As a result of the change, macro test coverage should now be reported correctly.
+    - If you already only need to run on Python 3.9 and later, please use brackets. We currently plan to eventually drop support for parentheses to pass macro arguments, when Python 3.9 becomes the minimum supported language version.
+  - As a result of the new macro expander, macro test coverage should now be reported correctly.
 - The lazy evaluation tools `lazy`, `Lazy`, and the quick lambda `f` (underscore notation for Python) are now provided by `unpythonic` as `unpythonic.syntax.lazy`, `unpythonic.lazyutil.Lazy`, and `unpythonic.syntax.f`, because they used to be provided by `macropy`, and `mcpyrate` does not provide them.
   - Any imports of these in user code should be modified to point to the new locations.
   - The underscore `_` is no longer a macro on its own. The `f` macro treats the underscore magically, as before, but anywhere else it is available to be used as a regular variable.
@@ -24,8 +30,9 @@
   - The `with quicklambda` macro is still provided, and used just as before. Now it causes any `f[]` invocations lexically inside the block to expand before any other macros in that block do.
   - Since in `mcpyrate`, macros can be as-imported, you can rename `f` at import time to have any name you want. The `quicklambda` block macro respects the as-import. Now you **must** import also the macro `f` when you import the macro `quicklambda`, because `quicklambda` internally queries the expander to determine the name(s) the macro `f` is currently bound to.
 - Rename the `curry` macro to `autocurry`, to prevent name shadowing of the `curry` function. The new name is also more descriptive.
+- The internal utility class `unpythonic.syntax.util.ASTMarker` has been renamed to `UnpythonicExpandedMacroMarker` to explicitly have a class name different from `mcpyrate.markers.ASTMarker`, because these represent semantically different things.
 - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name.
-- Python 3.4 and 3.5 support dropped.
+- Python 3.4 and 3.5 support dropped, as these language versions have reached end-of-life.
 
 
 ---
