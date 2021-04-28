@@ -8,7 +8,6 @@ from functools import partial
 from ast import (Lambda, FunctionDef, AsyncFunctionDef,
                  arguments, arg, keyword,
                  List, Tuple,
-                 Subscript,
                  Call, Name, Starred, Constant,
                  BoolOp, And, Or,
                  With, AsyncWith, If, IfExp, Try, Assign, Return, Expr,
@@ -18,6 +17,9 @@ import sys
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
+from mcpyrate.markers import ASTMarker
+from mcpyrate.quotes import is_captured_value
+from mcpyrate.utils import NestingLevelTracker
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from .astcompat import getconstant, NameConstant
@@ -40,6 +42,8 @@ from ..lazyutil import passthrough_lazy_args
 def autoreturn(block_body):
     class AutoreturnTransformer(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
             if type(tree) in (FunctionDef, AsyncFunctionDef):
                 tree.body[-1] = transform_tailstmt(tree.body[-1])
             return self.generic_visit(tree)
@@ -100,6 +104,13 @@ def tco(block_body):
 
 # -----------------------------------------------------------------------------
 
+_continuations_level = NestingLevelTracker()  # for checking validity of call_cc[]
+
+class UnpythonicContinuationsMarker(ASTMarker):
+    """AST marker related to the unpythonic's continuations (call_cc) subsystem."""
+class UnpythonicCallCcMarker(UnpythonicContinuationsMarker):
+    """AST marker denoting a `call_cc[]` invocation."""
+
 def call_cc(tree, **kw):
     """[syntax] Only meaningful in a "with continuations" block.
 
@@ -123,7 +134,9 @@ def call_cc(tree, **kw):
 
     For more, see the docstring of ``continuations``.
     """
-    raise SyntaxError("call_cc[] is only meaningful in a `with continuations` block.")  # pragma: no cover, not meant to hit the expander (expanded away by `with continuations`)
+    if _continuations_level.value < 1:
+        raise SyntaxError("call_cc[] is only meaningful in a `with continuations` block.")  # pragma: no cover, not meant to hit the expander (expanded away by `with continuations`)
+    return UnpythonicCallCcMarker(tree)
 
 # _pcc/cc chaining handler, to be exported to client code via q[h[]].
 #
@@ -172,7 +185,8 @@ def continuations(block_body):
     userlambdas = detect_lambda(block_body)
     known_ecs = list(uniqify(detect_callec(block_body)))
 
-    block_body = dyn._macro_expander.visit(block_body)
+    with _continuations_level.changed_by(+1):
+        block_body = dyn._macro_expander.visit(block_body)
 
     # second pass, inside-out
 
@@ -256,8 +270,7 @@ def continuations(block_body):
     def iscallcc(tree):
         if type(tree) not in (Assign, Expr):
             return False
-        tree = tree.value
-        return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "call_cc"
+        return isinstance(tree.value, UnpythonicCallCcMarker)
     def split_at_callcc(body):
         if not body:
             return [], None, []
@@ -271,7 +284,7 @@ def continuations(block_body):
                     raise SyntaxError("call_cc[] cannot appear as the last statement of a 'with continuations' block (no continuation to capture)")  # pragma: no cover
                 # TODO: To support Python's scoping properly in assignments after the `call_cc`,
                 # TODO: we have to scan `before` for assignments to local variables (stopping at
-                # TODO: scope boundaries; use `get_names_in_store_context` from our `scoping` module),
+                # TODO: scope boundaries; use `unpythonic.syntax.scoping.get_names_in_store_context`,
                 # TODO: and declare those variables `nonlocal` in `after`. This way the binding
                 # TODO: will be shared between the original context and the continuation.
                 # See Politz et al 2013 (the "full monty" paper), section 4.2.
@@ -311,12 +324,9 @@ def continuations(block_body):
         else:
             raise SyntaxError(f"call_cc[]: expected an assignment or a bare expr, got {stmt}")  # pragma: no cover
         # extract the function call(s)
-        if type(stmt.value) is not Subscript:  # both Assign and Expr have a .value
-            raise SyntaxError(f"expected either an assignment with a call_cc[] expr on RHS, or a bare call_cc[] expr, got {stmt.value}")  # pragma: no cover
-        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-            theexpr = stmt.value.slice
-        else:
-            theexpr = stmt.value.slice.value
+        if not isinstance(stmt.value, UnpythonicCallCcMarker):  # both Assign and Expr have a .value
+            assert False  # we should get only valid call_cc[] invocations that pass the `iscallcc` test  # pragma: no cover
+        theexpr = stmt.value.body  # discard the AST marker
         if not (type(theexpr) in (Call, IfExp) or (type(theexpr) in (Constant, NameConstant) and getconstant(theexpr) is None)):
             raise SyntaxError("the bracketed expression in call_cc[...] must be a function call, an if-expression, or None")  # pragma: no cover
         def extract_call(tree):
@@ -381,6 +391,11 @@ def continuations(block_body):
         # because they appear literally in the code at the use site,
         # and our main processing logic runs the return statement transformer
         # before transforming call_cc[].
+        #
+        # TODO: Fix async/await support. See https://github.com/Technologicat/unpythonic/issues/4
+        # TODO: We should at least `await` the continuation when calling it. Maybe something else
+        # TODO: needs to be modified, too.
+        #
         FDef = type(owner) if owner else FunctionDef  # use same type (regular/async) as parent function
         locref = callcc  # bad but no better source location reference node available
         non = q[None]
@@ -389,13 +404,16 @@ def continuations(block_body):
                               body=q[n["cc"]],
                               orelse=non,
                               lineno=locref.lineno, col_offset=locref.col_offset)
+        contarguments = arguments(args=[arg(arg=x) for x in targets],
+                                  kwonlyargs=[arg(arg="cc"), arg(arg="_pcc")],
+                                  vararg=(arg(arg=starget) if starget else None),
+                                  kwarg=None,
+                                  defaults=posargdefaults,
+                                  kw_defaults=[q[h[identity]], maybe_capture])
+        if sys.version_info >= (3, 8, 0):  # Python 3.8+: positional-only arguments
+            contarguments.posonlyargs = []
         funcdef = FDef(name=contname,
-                       args=arguments(args=[arg(arg=x) for x in targets],
-                                      kwonlyargs=[arg(arg="cc"), arg(arg="_pcc")],
-                                      vararg=(arg(arg=starget) if starget else None),
-                                      kwarg=None,
-                                      defaults=posargdefaults,
-                                      kw_defaults=[q[h[identity]], maybe_capture]),
+                       args=contarguments,
                        body=contbody,
                        decorator_list=[],  # patched later by transform_def
                        returns=None,  # return annotation not used here
@@ -425,6 +443,8 @@ def continuations(block_body):
         return newstmts
     class CallccTransformer(ASTTransformer):  # find and transform call_cc[] statements inside function bodies
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
             if type(tree) in (FunctionDef, AsyncFunctionDef):
                 tree.body = transform_callcc(tree, tree.body)
             return self.generic_visit(tree)
@@ -467,6 +487,8 @@ def continuations(block_body):
     # different from `return None`.
     class ImplicitBareReturnInjector(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
             if type(tree) in (FunctionDef, AsyncFunctionDef):
                 if type(tree.body[-1]) is not Return:
                     tree.body.append(Return(value=None,  # bare "return"
@@ -511,6 +533,8 @@ def continuations(block_body):
 def _tco_transform_def(tree, *, preproc_cb):
     class TcoDefTransformer(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
             if type(tree) in (FunctionDef, AsyncFunctionDef):
                 if preproc_cb:
                     tree = preproc_cb(tree)
@@ -530,6 +554,8 @@ def _tco_transform_def(tree, *, preproc_cb):
 def _tco_transform_return(tree, *, known_ecs, transform_retexpr):
     class TcoReturnTransformer(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
             if type(tree) is Return:
                 non = q[None]
                 non = copy_location(non, tree)
@@ -554,6 +580,8 @@ def _tco_transform_return(tree, *, known_ecs, transform_retexpr):
 def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform_retexpr):
     class TcoLambdaTransformer(ASTTransformer):
         def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
             hastco = self.state.hastco
             # Detect a userlambda which already has TCO applied.
             #
