@@ -15,7 +15,7 @@ import sys
 
 from ..dynassign import dyn
 from ..env import env
-from ..misc import callsite_filename
+from ..misc import callsite_filename, namelambda
 from ..conditions import cerror, handlers, restarts, invoke
 from ..collections import unbox
 from ..symbol import sym
@@ -146,7 +146,8 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
     # we send to `func` as its argument. A `the[]` is also implicitly injected
     # by the comparison destructuring mechanism.
     e = env(captured_values=[])
-    mode, test_result = _observe(lambda: func(e))  # <-- run the actual expr being asserted
+    testexpr = func  # descriptive name for stack trace; if you change this, change also in `test_expr`.
+    mode, test_result = _observe(thunk=(lambda: testexpr(e)))  # <-- run the actual expr being asserted
     if e.captured_values:
         # Convenience for testing/debugging macro code:
         #
@@ -481,8 +482,12 @@ def test_expr(tree):
     #
     # Also, we need the lambda for passing in the value capture environment
     # for the `the[]` mark, anyway.
-    func_tree = q[lambda _: a[tree]]  # create the function that takes in the env
-    func_tree.args.args[0] = arg(arg=envname)  # inject the gensymmed parameter name
+    #
+    # We name it `testexpr` to make the stack trace more understandable.
+    # If you change the name, change it also in `unpythonic_assert`.
+    thelambda = q[lambda _: a[tree]]
+    thelambda.args.args[0] = arg(arg=envname)  # inject the gensymmed parameter name
+    func_tree = q[h[namelambda]("testexpr")(a[thelambda])]  # create the function that takes in the env
 
     return q[(a[asserter])(u[sourcecode],
                            a[func_tree],
