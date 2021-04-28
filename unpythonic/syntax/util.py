@@ -424,7 +424,7 @@ def wrapwith(item, body, locref=None):
     return [wrapped]
 
 def ismarker(typename, tree):
-    """Return whether tree is a specific AST marker. Used by block macros.
+    """Return whether tree is a specific expanded macro AST marker. Used by block macros.
 
     That is, whether ``tree`` is a ``with`` block with a single context manager,
     which is represented by a ``Name`` whose ``id`` matches the given ``typename``.
@@ -435,6 +435,12 @@ def ismarker(typename, tree):
             ...
 
     then ``ismarker("ContinuationsMarker", tree)`` returns ``True``.
+
+    **NOTE**: The markers this function detects remain in the AST at run time;
+    they inherit from `unpythonic.syntax.util.UnpythonicExpandedMacroMarker`.
+    They are semantically different from `mcpyrate.markers.ASTMarker`, which
+    are compiled away (and must all be deleted before handing the AST over to
+    Python's `compile`).
     """
     if type(tree) is not With or len(tree.items) != 1:
         return False
