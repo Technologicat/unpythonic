@@ -15,7 +15,8 @@
 from ...syntax import macros, test, test_raises  # noqa: F401
 from ...test.fixtures import session, testset
 
-from ...syntax import macros, let_syntax, abbrev, block, expr, where  # noqa: F401, F811
+from ...syntax import macros, let_syntax, abbrev  # noqa: F401, F811
+from ...syntax import block, expr, where
 
 def runtests():
     with testset("expression variant"):

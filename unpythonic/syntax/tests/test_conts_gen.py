@@ -21,7 +21,8 @@ See also the Racket version of this:
 from ...syntax import macros, test  # noqa: F401
 from ...test.fixtures import session, testset
 
-from ...syntax import macros, continuations, call_cc, dlet, abbrev, let_syntax, block  # noqa: F401, F811
+from ...syntax import macros, continuations, call_cc, dlet, abbrev, let_syntax  # noqa: F401, F811
+from ...syntax import block
 
 from ...fploop import looped
 from ...fun import identity
