@@ -6,7 +6,8 @@
 from ...syntax import macros, test, test_raises, the  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
-from ...syntax import macros, prefix, q, u, kw, autocurry, let, do  # noqa: F401, F811
+from ...syntax import macros, prefix, autocurry, let, do  # noqa: F401, F811
+from ...syntax import q, u, kw
 
 from ...fold import foldr
 from ...fun import composerc as compose, apply
@@ -20,7 +21,8 @@ def runtests():
         (print, "hello world")
         x = 42  # can write any regular Python, too
 
-        with testset("quote operator"):
+    with testset("quote operator"):
+        with prefix:
             # quote operator q locally turns off the function-call transformation:
             t1 = (q, 1, 2, (3, 4), 5)  # q takes effect recursively
             t2 = (q, 17, 23, x)  # unlike in Lisps, x refers to its value even in a quote
@@ -34,7 +36,8 @@ def runtests():
             t4 = (q, (print, 42), (q, (u, u, print, 42)), "foo", "bar")
             test[t4 == (q, (print, 42), (None,), "foo", "bar")]
 
-        with testset("tuple in load context denotes a call"):
+    with testset("tuple in load context denotes a call"):
+        with prefix:
             # Be careful:
             test_raises[TypeError,
                         (x,),  # in a prefix block, this 1-element tuple means "call the 0-arg function x"
@@ -49,7 +52,8 @@ def runtests():
             a, b = (q, b, a)  # pythonic swap in prefix syntax; must quote RHS
             test[the[a] == 200 and the[b] == 100]
 
-        with testset("kwargs"):
+    with testset("kwargs"):
+        with prefix:
             # give named args with kw(...) [it's syntax, not really a function!]:
             def f(*, a, b):
                 return (q, a, b)
@@ -60,7 +64,8 @@ def runtests():
             # in case of duplicate name across kws, rightmost wins
             test[(f, kw(a="hi there"), kw(b="foo"), kw(b="bar")) == (q, "hi there", "bar")]
 
-        with testset("starargs"):
+    with testset("starargs"):
+        with prefix:
             # give *args with unpythonic.fun.apply, like in Lisps:
             lst = [1, 2, 3]
             def g(*args, **kwargs):
@@ -71,7 +76,8 @@ def runtests():
             # named args in apply are also fine
             test[(apply, g, "hi", "ho", lst, kw(myarg=4)) == (q, "hi", "ho", 1, 2, 3, ('myarg', 4))]
 
-        with testset("integration with let and do"):
+    with testset("integration with let and do"):
+        with prefix:
             # prefix leaves alone the let binding syntax ((name0, value0), ...)
             a = let[(x, 42)][x << x + 1]
             test[a == 43]
