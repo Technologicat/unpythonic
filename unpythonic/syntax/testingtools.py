@@ -357,8 +357,7 @@ def warn_expr(tree):
 # -----------------------------------------------------------------------------
 # Expr variants.
 
-# TODO: convert to mcpyrate magic variable (to raise error when in inappropriate position)
-def the(*args, **kwargs):
+def the(tree, **kw):
     """[syntax, expr] In a test, mark a subexpression as the interesting one.
 
     Only meaningful inside a `test[]`, or inside a `with test` block.
@@ -403,7 +402,7 @@ def the(*args, **kwargs):
 
     For `test_raises` and `test_signals`, the `the[...]` mark is not supported.
     """
-    pass  # pragma: no cover, macro stub
+    raise SyntaxError("the[] is only meaningful inside a `test[]` or in a `with test` block")  # pragma: no cover, not meant to hit the expander
 
 # Destructuring utilities for marking a custom part of the expr
 # to be displayed upon test failure, using `the[...]`:
