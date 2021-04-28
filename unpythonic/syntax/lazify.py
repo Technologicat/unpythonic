@@ -6,6 +6,7 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef, Call, Name, Attribute,
 
 from mcpyrate.quotes import macros, q, a, h  # noqa: F401
 
+from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
 from .util import (suggest_decorator_index, sort_lambda_decorators, detect_lambda,
@@ -216,7 +217,14 @@ def lazify(body):
                     # else forcing_mode == "off"
                 return tree
 
-            if type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
+            # Hygienic captures must be treated separately:
+            if is_captured_value(tree):
+                if forcing_mode in ("full", "flat"):
+                    return q[h[force](a[tree])]
+                # else forcing_mode == "off"
+                return tree
+
+            elif type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
                 if type(tree) is Lambda and id(tree) not in userlambdas:
                     return self.generic_visit(tree)  # ignore macro-introduced lambdas (but recurse inside them)
                 else:
