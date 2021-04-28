@@ -87,19 +87,20 @@ from ..dynassign import make_dynvar, dyn
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
-# TODO: fail-fast: promote `local[]`/`delete[]` usage errors to compile-time errors
-# TODO: (doesn't currently work e.g. for `let` with an implicit do (extra bracket notation))
-
-# TODO: Remove any unused `expander` kwargs from the macro interface
+# TODO: Fix remaining failures and errors detected by test suite.
 
 # TODO: `make_isxpred` is now obsolete because `mcpyrate` does not rename hygienic captures of run-time values. Make it explicit at the use sites what they want, and remove `make_isxpred`. (E.g. `curry` wants to match both `curryf` and `currycall`, exactly. Some use sites want to match only a single thing.)
 
+# TODO: locref could be an ASTMarker anywhere that needs a source location reference; extract `.body` if so.
+
 # TODO: Brackets: use "with test[...]" instead of "with test(...)" in the test modules
 
-# TODO: We could also start looking at values, not names, when the aim is to detect hygienically captured `unpythonic` constructs. See `mcpyrate.quotes.is_captured_value` and `mcpyrate.quotes.lookup_value`.
+# TODO: Remove any unused `expander` kwargs from the macro interface
 
 # TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.
 # TODO: Test the q[t[...]] implementation in do0[]
+
+# TODO: With `mcpyrate` we could start looking at values, not names, when the aim is to detect hygienically captured `unpythonic` constructs. See use sites of `isx`; refer to `mcpyrate.quotes.is_captured_value` and `mcpyrate.quotes.lookup_value`.
 
 # TODO: With `mcpyrate`, we could move the macro interface functions to
 # TODO: the submodules, and have just re-exports here.
@@ -141,6 +142,10 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: The HasThon test (grep for it), when putting the macros in the wrong order on purpose,
 # TODO: confuses the call site filename detector of the test framework. Investigate.
+
+# TODO: Move dialect examples from `pydialect` into a new package, `unpythonic.dialects`.
+# TODO: `mcpyrate` now provides the necessary infrastructure, while `unpythonic` has the macros
+# TODO: needed to make interesting things happen. Update docs accordingly for both projects.
 
 # Syntax transformers and internal utilities
 from .autoref import autoref as _autoref
