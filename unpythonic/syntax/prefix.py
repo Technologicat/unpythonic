@@ -69,7 +69,8 @@ def prefix(block_body):
                     # This skips the transformation of the macro argument tuple, too, because
                     # that's a nested Subscript (`(macro[a0, ...])[expr]`).
                     body.elts = self.visit(body.elts)
-                    return self.generic_visit(tree.value)
+                    tree.value = self.visit(tree.value)
+                    return tree
                 # in any other case, continue processing normally
 
             # general case
@@ -99,11 +100,11 @@ def prefix(block_body):
                 return q[t[self.visit(quoted)]]
             # (f, a1, ..., an) --> f(a1, ..., an)
             posargs = [x for x in data if not iskwargs(x)]
-            kwargs_calls = filter(iskwargs, data)
+            kwargs_calls = [x for x in data if iskwargs(x)]
             # In Python 3.5+, this tags *args as invalid, too, because those are Starred items inside `args`.
-            invalids = list(flatmap(lambda x: x.args, kwargs_calls))  # no positional args allowed in kw()
-            kwargs = flatmap(lambda x: x.keywords, kwargs_calls)
-            invalids += [type(x) is Starred for x in kwargs]  # reject **kwargs
+            invalids = list(flatmap(lambda tree: tree.args, kwargs_calls))  # no positional args allowed in kw()
+            kwargs = list(flatmap(lambda x: x.keywords, kwargs_calls))
+            invalids += [x for x in kwargs if type(x) is Starred]  # reject **kwargs
             if invalids:
                 raise SyntaxError("kw(...) may only specify individual named args")  # pragma: no cover
             kwargs = list(rev(uniqify(rev(kwargs), key=lambda x: x.arg)))  # latest wins, but keep original ordering
