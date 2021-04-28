@@ -45,11 +45,12 @@ def analyze(items, blanks=False, docstrings=False, comments=False):
 def main():
     items = (("top level", ["."]),
              ("regular code", ["unpythonic"]),
-             ("regular code tests", ["unpythonic", "test"]),
+             ("regular code tests", ["unpythonic", "tests"]),
+             ("testing framework (not counting macros)", ["unpythonic", "test"]),
              ("REPL/networking code", ["unpythonic", "net"]),
-             ("REPL/networking tests", ["unpythonic", "net", "test"]),
+             ("REPL/networking tests", ["unpythonic", "net", "tests"]),
              ("macros", ["unpythonic", "syntax"]),
-             ("macro tests", ["unpythonic", "syntax", "test"]))
+             ("macro tests", ["unpythonic", "syntax", "tests"]))
     print("Raw (with blanks, docstrings and comments)")
     analyze(items, blanks=True, docstrings=True, comments=True)
     print("\nFiltered (non-blank code lines only)")
