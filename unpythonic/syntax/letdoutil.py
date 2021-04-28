@@ -116,8 +116,12 @@ def islet(tree, expanded=True):
     # dlet[(k0, v0), ...]  (usually in a decorator list)
     deconames = ("dlet", "dletseq", "dletrec",
                  "blet", "bletseq", "bletrec")
-    if type(tree) is Subscript and type(tree.value) is Name:
+    if type(tree) is Subscript and type(tree.value) is Name:  # could be a Subscript decorator (Python 3.9+)
         s = tree.value.id
+        if any(s == x for x in deconames):
+            return ("decorator", s)
+    if type(tree) is Call and type(tree.func) is Name:  # up to Python 3.8: parenthesis syntax for decorator macros
+        s = tree.func.id
         if any(s == x for x in deconames):
             return ("decorator", s)
     # otherwise we should have an expr macro invocation
@@ -347,6 +351,9 @@ class UnexpandedLetView:
     def _getbindings(self):
         t = self._type
         if t == "decorator":  # bare Subscript, dlet[...], blet[...]
+            if type(self._tree) is Call:  # up to Python 3.8: parenthesis syntax for decorator macros
+                return canonize_bindings(self._tree.args, self._tree)
+            # Subscript as decorator (Python 3.9+)
             if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
                 theargs = self._tree.slice
             else:
@@ -367,6 +374,9 @@ class UnexpandedLetView:
     def _setbindings(self, newbindings):
         t = self._type
         if t == "decorator":
+            if type(self._tree) is Call:  # up to Python 3.8: parenthesis syntax for decorator macros
+                self._tree.args = newbindings
+            # Subscript as decorator (Python 3.9+)
             if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
                 self._tree.slice.elts = newbindings
             else:
