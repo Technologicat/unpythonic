@@ -282,9 +282,9 @@ def aif(tree, *, syntax, expander, **kw):  # noqa: F811
     if syntax != "expr":
         raise SyntaxError("aif is an expr macro only")
 
-    tree = expander.visit(tree)
-
-    return _aif(tree)
+    # Expand outside-in, but the implicit do[] needs the expander.
+    with dyn.let(_macro_expander=expander):
+        return _aif(tree)
 
 def cond(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, expr] Lispy cond; like "a if p else b", but has "elif".
@@ -312,9 +312,9 @@ def cond(tree, *, syntax, expander, **kw):  # noqa: F811
     if syntax != "expr":
         raise SyntaxError("cond is an expr macro only")
 
-    tree = expander.visit(tree)
-
-    return _cond(tree)
+    # Expand outside-in, but the implicit do[] needs the expander.
+    with dyn.let(_macro_expander=expander):
+        return _cond(tree)
 
 # -----------------------------------------------------------------------------
 
