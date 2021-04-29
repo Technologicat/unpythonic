@@ -9,15 +9,31 @@ In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing f
 *Some hypertext features of this README, such as local links to detailed documentation, and expandable example highlights, are not supported when viewed on PyPI; [view on GitHub](https://github.com/Technologicat/unpythonic) to have those work properly.*
 
 
+### New version soon!
+
+**As of April 2021, `unpythonic` 0.15 is Coming Soon™.**
+
+As of [7bb1198](https://github.com/Technologicat/unpythonic/commit/7bb1198605087f1dd7ca292e33afd53e5aa9721d), the initial porting effort of `unpythonic` to Python 3.8 and the new [`mcpyrate`](https://github.com/Technologicat/mcpyrate) macro expander is complete. In fact, if you want to play around with 0.15-pre, the code is already in `master`.
+
+The codebase already fully works on 3.8 and `mcpyrate`, and passes all automated tests. However, I plan to take the opportunity to polish certain parts before release, and this may take a while. A living TODO list can be found at the beginning of [`unpythonic/syntax/__init__.py`](unpythonic/syntax/__init__.py). Be aware that the plan is tentative, and items might not be listed in a reasonable order. Some of the planned changes might not make the cut for 0.15.
+
+Beside internal changes related to the macro system, the major goal is full compatibility with Python 3.9, including the `unpythonic.typecheck` module, which is currently the last one failing tests on 3.9.
+
+For details, see [the 0.15 milestone](https://github.com/Technologicat/unpythonic/milestone/1).
+
+I'm also considering renaming 0.15 to 1.0, since the codebase is mostly stable at this point, and we have already adhered to [semantic versioning](https://semver.org/) since 2019, anyway (albeit with a leading zero).
+
+
 ### Dependencies
 
 None required.
 
  - [mcpyrate](https://github.com/Technologicat/mcpyrate) optional, to enable the syntactic macro layer, and an interactive macro REPL.
 
-The officially supported language versions are **CPython 3.8** and **PyPy3 3.7**.
+The officially supported language versions are **CPython 3.8** and **PyPy3 3.7**. [Long-term support roadmap](https://github.com/Technologicat/unpythonic/issues/1).
 
 The 0.15.x series should run on CPython 3.6, 3.7, 3.8 and 3.9, and PyPy3 7.3.4 (language version 3.7); the [CI](https://en.wikipedia.org/wiki/Continuous_integration) process verifies the tests pass on those platforms.
+
 
 ### Documentation
 
