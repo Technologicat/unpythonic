@@ -3413,7 +3413,7 @@ Functions can also be specified for the `else` and `finally` behavior; see the d
 
 **Added in v0.14.3**.
 
-Equip a manually created exception instance with a traceback. This is useful mainly in special cases, where `raise` cannot be used for some reason. (The `signal` function in the conditions-and-restarts system uses this.)
+In Python 3.7 and later, equip a manually created exception instance with a traceback. This is useful mainly in special cases, where `raise` cannot be used for some reason. (The `signal` function in the conditions-and-restarts system uses this.)
 
 ```python
 e = SomeException(...)
