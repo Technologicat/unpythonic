@@ -244,10 +244,7 @@ def autoref(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if not args:
         raise SyntaxError("autoref requires an argument, the object to be auto-referenced")
 
-    if "optional_vars" in kw:
-        target = kw["optional_vars"]
-    else:
-        target = None
+    target = kw.get("optional_vars", None)
 
     tree = expander.visit(tree)
 
