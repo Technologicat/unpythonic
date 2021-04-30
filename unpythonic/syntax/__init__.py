@@ -93,6 +93,8 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: locref could be an ASTMarker anywhere that needs a source location reference; extract `.body` if so.
 
+# TODO: `let` constructs: document difference to Python 3.8 walrus operator (`let` creates a scope, `:=` doesn't)
+
 # TODO: Brackets: use "with test[...]" instead of "with test(...)" in the test modules
 
 # TODO: Remove any unused `expander` kwargs from the macro interface
