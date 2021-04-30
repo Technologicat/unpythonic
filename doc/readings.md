@@ -61,7 +61,7 @@ The common denominator is programming. Some relate to language design, some to c
 - [Clean Code for Python](https://github.com/zedr/clean-code-python)
   - *Software engineering principles, from Robert C. Martin's book [Clean Code](https://www.amazon.com/Clean-Code-Handbook-Software-Craftsmanship/dp/0132350882), adapted for Python.*
 
-- [PyPy3](http://pypy.org/), fast, JIT-ing Python 3 that's mostly a drop-in replacement for CPython 3.6. Macro expanders (`macropy`, `mcpyrate`) work, too.
+- [PyPy3](http://pypy.org/), fast, JIT-ing Python 3 that's mostly a drop-in replacement for CPythons 3.6 and 3.7. As of April 2021, support for 3.8 is in the works. Macro expanders (`macropy`, `mcpyrate`) work, too.
 
 - [Brython](https://brython.info/): Python 3 in the browser, as a replacement for JavaScript.
   - No separate compile step - the compiler is implemented in JS. Including a script tag of type text/python invokes it.
