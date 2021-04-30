@@ -23,7 +23,7 @@ except AttributeError:  # Python 3.6 and earlier  # pragma: no cover
         pass
 
 try:
-    _MySupportsIndex = typing.SupportsIndex
+    _MySupportsIndex = typing.SupportsIndex  # Python 3.8+
 except AttributeError:  # Python 3.7 and earlier  # pragma: no cover
     class _MySupportsIndex:  # unused, but must be a class to support isinstance() check.
         pass
@@ -230,7 +230,8 @@ def isoftype(value, T):
         if not isinstance(value, tuple):
             return False
         # bare `typing.Tuple`, no restrictions on length or element type.
-        if not T.__args__:
+        # Python 3.9: if a generic has no args, it has no `__args__` attribute.
+        if not hasattr(T, "__args__") or not T.__args__:
             return True
         # homogeneous element type, arbitrary length
         if len(T.__args__) == 2 and T.__args__[1] is Ellipsis:
@@ -249,7 +250,8 @@ def isoftype(value, T):
     def ismapping(statictype, runtimetype):
         if not isinstance(value, runtimetype):
             return False
-        if T.__args__ is None:  # Python 3.6: consistent behavior with 3.7+, which use unconstrained TypeVar KT, VT.
+        # Python 3.9: if a generic has no args, it has no `__args__` attribute.
+        if not hasattr(T, "__args__") or T.__args__ is None:  # Python 3.6: consistent behavior with 3.7+, which use unconstrained TypeVar KT, VT.
             args = (typing.TypeVar("KT"), typing.TypeVar("VT"))
         else:
             args = T.__args__
@@ -269,7 +271,8 @@ def isoftype(value, T):
     if safeissubclass(T, typing.ItemsView) or get_origin(T) is collections.abc.ItemsView:
         if not isinstance(value, collections.abc.ItemsView):
             return False
-        if T.__args__ is None:  # Python 3.6: consistent behavior with 3.7+, which use unconstrained TypeVar KT, VT.
+        # Python 3.9: if a generic has no args, it has no `__args__` attribute.
+        if not hasattr(T, "__args__") or T.__args__ is None:  # Python 3.6: consistent behavior with 3.7+, which use unconstrained TypeVar KT, VT.
             args = (typing.TypeVar("KT"), typing.TypeVar("VT"))
         else:
             args = T.__args__
@@ -293,8 +296,11 @@ def isoftype(value, T):
                 # At run time, the `__args__` are actually empty - it looks
                 # like a bare Sequence, which is invalid. HACK the special case.
                 typeargs = (int,)
-            else:
+            # Python 3.9: if a generic has no args, it has no `__args__` attribute.
+            elif hasattr(T, "__args__"):
                 typeargs = T.__args__
+            else:
+                typeargs = None
             # Python 3.6: consistent behavior with 3.7+, which use an unconstrained TypeVar T.
             if typeargs is None:
                 typeargs = (typing.TypeVar("T"),)
