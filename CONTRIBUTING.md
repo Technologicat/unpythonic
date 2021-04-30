@@ -200,7 +200,7 @@ As of the first half of 2021, the main target platforms are **CPython 3.8** and 
 - **Macros.**
   - *Macros are the nuclear option of software engineering.*
     - Only make a macro when a regular function can't do what is needed.
-    - Sometimes a regular code core with a thin macro layer on top, to improve the user experience, is the appropriate solution for [minimizing magic](https://macropy3.readthedocs.io/en/latest/discussion.html#minimize-macro-magic). See `do`, `let` for examples.
+    - Sometimes a regular code core with a thin macro layer on top, to improve the user experience, is the appropriate solution for [minimizing magic](https://macropy3.readthedocs.io/en/latest/discussion.html#minimize-macro-magic). See `do`, `let`, `autocurry`, `forall` for examples.
   - `unpythonic/syntax/__init__.py` is very long (> 2000 lines), because:
     - For technical reasons, as of MacroPy 1.1.0b2, it's not possible to re-export macros defined in another module. (As of `unpythonic` 0.15, this is no longer relevant, since we use `mcpyrate`, which **can** re-export macros. So `unpythonic.syntax` may be revised in a future version of `unpythonic`.)
     - Therefore, all macro entry points must reside in `unpythonic/syntax/__init__.py`, so that user code can `from unpythonic.syntax import macros, something`, without caring about how the `unpythonic.syntax` package is internally organized.
