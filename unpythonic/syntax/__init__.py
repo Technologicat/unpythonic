@@ -648,7 +648,7 @@ def bletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
 # -----------------------------------------------------------------------------
 # Imperative code in expression position.
 
-def local(tree, *, syntax, invocation, **kw):  # noqa: F811
+def local(tree, *, syntax, **kw):  # noqa: F811
     """[syntax] Declare a local name in a "do".
 
     Usage::
@@ -675,7 +675,7 @@ def local(tree, *, syntax, invocation, **kw):  # noqa: F811
         raise SyntaxError("local is an expr macro only")  # pragma: no cover
     return _local(tree)
 
-def delete(tree, *, syntax, invocation, **kw):  # noqa: F811
+def delete(tree, *, syntax, **kw):  # noqa: F811
     """[syntax] Delete a previously declared local name in a "do".
 
     Usage::
@@ -1203,7 +1203,7 @@ def envify(tree, *, syntax, expander, **kw):  # noqa: F811
 
 # -----------------------------------------------------------------------------
 
-def autoreturn(tree, *, syntax, expander, **kw):  # noqa: F811
+def autoreturn(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, block] Implicit "return" in tail position, like in Lisps.
 
     Each ``def`` function definition lexically within the ``with autoreturn``
@@ -1775,7 +1775,7 @@ def continuations(tree, *, syntax, expander, **kw):  # noqa: F811
 # -----------------------------------------------------------------------------
 
 @parametricmacro
-def nb(tree, *, args, syntax, expander, **kw):  # noqa: F811
+def nb(tree, *, args, syntax, **kw):  # noqa: F811
     """[syntax, block] Ultralight math notebook.
 
     Auto-print top-level expressions, auto-assign last result as _.
@@ -2245,7 +2245,7 @@ def lazy(tree, *, syntax, **kw):  # noqa: F811
     # Expand outside in. Ordering shouldn't matter here.
     return _lazy(tree)
 
-def lazyrec(tree, *, syntax, expander, **kw):  # noqa: F811
+def lazyrec(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, expr] Delay items in a container literal, recursively.
 
     Essentially, this distributes ``lazy[]`` into the items inside a literal
@@ -2290,7 +2290,7 @@ def lazyrec(tree, *, syntax, expander, **kw):  # noqa: F811
 
 # -----------------------------------------------------------------------------
 
-def prefix(tree, *, syntax, expander, **kw):  # noqa: F811
+def prefix(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, block] Write Python like Lisp: the first item is the operator.
 
     Example::
