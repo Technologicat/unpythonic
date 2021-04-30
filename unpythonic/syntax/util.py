@@ -6,7 +6,6 @@ from functools import partial
 from ast import (Call, Lambda, FunctionDef, AsyncFunctionDef,
                  If, With, withitem, stmt)
 
-from mcpyrate.markers import ASTMarker
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
