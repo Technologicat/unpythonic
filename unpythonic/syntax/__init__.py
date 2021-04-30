@@ -497,14 +497,14 @@ def letrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
 # node (so we could see the exact original syntax).
 #
 # allow_call_in_name_position: used by let_syntax to allow template definitions.
-def _destructure_and_apply_let(tree, args, macro_expander, let_expander_function, allow_call_in_name_position=False):
+def _destructure_and_apply_let(tree, args, macro_expander, let_transformer, allow_call_in_name_position=False):
     with dyn.let(_macro_expander=macro_expander):  # implicit do (extra bracket notation) needs this.
         if args:
             bs = _canonize_bindings(args, allow_call_in_name_position=allow_call_in_name_position)
-            return let_expander_function(bindings=bs, body=tree)
+            return let_transformer(bindings=bs, body=tree)
         # haskelly syntax, let[(...) in ...], let[..., where(...)]
         view = _UnexpandedLetView(tree)  # note "tree" here is only the part inside the brackets
-        return let_expander_function(bindings=view.bindings, body=view.body)
+        return let_transformer(bindings=view.bindings, body=view.body)
 
 # -----------------------------------------------------------------------------
 # Decorator versions, for "let over def".
