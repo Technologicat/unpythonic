@@ -419,7 +419,6 @@ def lazify(body):
     # strict trampoline does not have the maybe_force_args (that usually forces the args
     # when lazy code calls into strict code).
     return wrapwith(item=q[h[dyn.let](_build_lazy_trampoline=True)],
-                    body=newbody,
-                    locref=body[0])
+                    body=newbody)
 
 # -----------------------------------------------------------------------------

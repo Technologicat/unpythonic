@@ -266,8 +266,6 @@ def runtests():
         test[type(wrapped) is list]
         thewith = wrapped[0]
         test[type(thewith) is With]
-        test[thewith.lineno == 9001]
-        test[thewith.col_offset == 9]
         test[type(thewith.items[0]) is withitem]
         ctxmanager = thewith.items[0].context_expr
         test[type(ctxmanager) is Name]

@@ -219,5 +219,4 @@ def autoref(block_body, args, asname):
         newbody.append(AutorefTransformer(referents=always_skip + [o]).visit(stmt))
 
     return wrapwith(item=q[h[AutorefMarker](u[o])],
-                    body=newbody,
-                    locref=block_body[0])
+                    body=newbody)

@@ -397,13 +397,10 @@ def continuations(block_body):
         # TODO: needs to be modified, too.
         #
         FDef = type(owner) if owner else FunctionDef  # use same type (regular/async) as parent function
-        locref = callcc  # bad but no better source location reference node available
         non = q[None]
-        non = copy_location(non, locref)
         maybe_capture = IfExp(test=q[n["cc"] is not h[identity]],
                               body=q[n["cc"]],
-                              orelse=non,
-                              lineno=locref.lineno, col_offset=locref.col_offset)
+                              orelse=non)
         contarguments = arguments(args=[arg(arg=x) for x in targets],
                                   kwonlyargs=[arg(arg="cc"), arg(arg="_pcc")],
                                   vararg=(arg(arg=starget) if starget else None),
@@ -416,8 +413,7 @@ def continuations(block_body):
                        args=contarguments,
                        body=contbody,
                        decorator_list=[],  # patched later by transform_def
-                       returns=None,  # return annotation not used here
-                       lineno=locref.lineno, col_offset=locref.col_offset)
+                       returns=None)  # return annotation not used here
 
         # in the output stmts, define the continuation function...
         newstmts = [funcdef]
@@ -525,8 +521,7 @@ def continuations(block_body):
     # Leave a marker so "with tco", if applied, can ignore the expanded "with continuations" block
     # (needed to support continuations in the Lispython dialect, since it applies tco globally.)
     return wrapwith(item=q[h[ContinuationsMarker]],
-                    body=new_block_body,
-                    locref=block_body[0])
+                    body=new_block_body)
 
 # -----------------------------------------------------------------------------
 

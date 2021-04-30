@@ -91,8 +91,6 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: `make_isxpred` is now obsolete because `mcpyrate` does not rename hygienic captures of run-time values. Make it explicit at the use sites what they want, and remove `make_isxpred`. (E.g. `curry` wants to match both `curryf` and `currycall`, exactly. Some use sites want to match only a single thing.)
 
-# TODO: locref could be an ASTMarker anywhere that needs a source location reference; extract `.body` if so.
-
 # TODO: `let` constructs: document difference to Python 3.8 walrus operator (`let` creates a scope, `:=` doesn't)
 
 # TODO: Brackets: use "with test[...]" instead of "with test(...)" in the test modules

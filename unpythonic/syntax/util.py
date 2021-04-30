@@ -391,24 +391,20 @@ def transform_statements(f, body):
             return tree
     return StatementTransformer().visit(body)
 
-def wrapwith(item, body, locref=None):
+def wrapwith(item, body):
     """Wrap ``body`` with a single-item ``with`` block, using ``item``.
 
     ``item`` must be an expr, used as ``context_expr`` of the ``withitem`` node.
 
     ``body`` must be a ``list`` of AST nodes.
 
-    ``locref`` is an optional AST node to copy source location info from.
-    If not supplied, ``body[0]`` is used.
-
     Syntax transformer. Returns the wrapped body.
+
+    This function is intended to be called from macro implementations. We leave out
+    the source location information, so that the macro expander can auto-fill it.
     """
-    if isinstance(locref, ASTMarker):  # unwrap contents of Done() et al.
-        locref = locref.body
-    locref = locref or body[0]
     wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
-                   body=body,
-                   lineno=locref.lineno, col_offset=locref.col_offset)
+                   body=body)
     return [wrapped]
 
 def isexpandedmacromarker(typename, tree):
