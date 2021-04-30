@@ -207,7 +207,6 @@ As of the first half of 2021, the main target platforms are **CPython 3.8** and 
     - The docstring must be placed on the macro entry point, so that the REPL will find it. This forces all macro docstrings into that one module. (That's less magic than injecting them dynamically when `unpythonic` boots up.)
     - A macro entry point can be just a thin wrapper around the relevant [*syntax transformer*](http://www.greghendershott.com/fear-of-macros/): a regular function, which takes and returns an AST.
   - You can have an expr, block and decorator macro with the same name, in the same module, by making the macro interface into a dispatcher. See the `syntax` kw in `mcpyrate`.
-    - If you do this, the docstring should be placed in whichever of those is defined last, because that one will be the definition left standing at run time (hence used for docstring lookup by the REPL).
   - Syntax transformers can and should be sensibly organized into modules, just like any other regular (non-macro) code.
     - But they don't need docstrings, since the macro entry point already has the docstring.
   - If your syntax transformer (or another one it internally uses) needs `mcpyrate` `**kw` arguments:
