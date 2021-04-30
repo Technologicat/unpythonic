@@ -91,7 +91,7 @@ def runtests():
                 # When the "proceed" restart is invoked, it causes the `cerror()` call in
                 # the low-level code to return normally. So execution resumes from where it
                 # left off, never mind that a condition occurred.
-                with test("basic usage proceed"):  # barrier against stray exceptions/signals
+                with test["basic usage proceed"]:  # barrier against stray exceptions/signals
                     with handlers((OddNumberError, proceed)):
                         # We would like to:
                         #     `test[lowlevel() == list(range(10))]`
@@ -116,22 +116,22 @@ def runtests():
 
                 # The restart name "use_value" is commonly used for the use case "resume with this value",
                 # so the library has a eponymous function to invoke it.
-                with test("basic usage use_value"):
+                with test["basic usage use_value"]:
                     with handlers((OddNumberError, lambda c: use_value(c.x))):
                         result = lowlevel()
                         test[result == list(range(10))]
 
-                with test("basic usage double"):
+                with test["basic usage double"]:
                     with handlers((OddNumberError, lambda c: invoke("double", c.x))):
                         result = lowlevel()
                         test[result == [0, 2 * 1, 2, 2 * 3, 4, 2 * 5, 6, 2 * 7, 8, 2 * 9]]
 
-                with test("basic usage drop"):
+                with test["basic usage drop"]:
                     with handlers((OddNumberError, lambda c: invoke("drop", c.x))):
                         result = lowlevel()
                         test[result == [0, 2, 4, 6, 8]]
 
-                with test("basic usage bail"):
+                with test["basic usage bail"]:
                     try:
                         with handlers((OddNumberError, lambda c: invoke("bail", c.x))):
                             lowlevel()
@@ -161,7 +161,7 @@ def runtests():
                         out.append(k)
                 return out
             def highlevel():
-                with test("basic usage use_value 2"):
+                with test["basic usage use_value 2"]:
                     with handlers((OddNumberError, lambda c: use_value(42))):
                         result = lowlevel()
                         test[result == [0, 42, 2, 42, 4, 42, 6, 42, 8, 42]]
@@ -222,7 +222,7 @@ def runtests():
             # Use case where we want to resume at the low level (in a real-world application, repairing the error).
             # Note we need new code only at the high level; the mid and low levels remain as-is.
             def highlevel2():
-                with test("resume at low level"):
+                with test["resume at low level"]:
                     with handlers((TellMeHowToRecover, lambda c: invoke("resume_low", "resumed at low level"))):
                         result = midlevel()
                         test[result == "resumed at low level > normal exit from low level > normal exit from mid level"]
@@ -230,7 +230,7 @@ def runtests():
 
             # Use case where we want to resume at the mid level (in a real-world application, skipping the failed part).
             def highlevel3():
-                with test("resume at mid level"):
+                with test["resume at mid level"]:
                     with handlers((TellMeHowToRecover, lambda c: invoke("resume_mid", "resumed at mid level"))):
                         result = midlevel()
                         test[result == "resumed at mid level > normal exit from mid level"]
@@ -449,7 +449,7 @@ def runtests():
             #
             # Note we place the `test_raises` construct on the outside, to avoid intercepting
             # the `signal(JustACondition)`.
-            with test_raises(NoItDidntExist, "nonexistent restart"):
+            with test_raises[NoItDidntExist, "nonexistent restart"]:
                 with handlers((JustACondition, lambda: invoke_if_exists("myrestart"))):
                     signal(JustACondition())
         finding()
@@ -470,7 +470,7 @@ def runtests():
                 test_raises[ControlError, invoke("woo")]
 
             # error case: invoke an undefined restart
-            with test_signals(ControlError, "should yell when trying to invoke a nonexistent restart"):
+            with test_signals[ControlError, "should yell when trying to invoke a nonexistent restart"]:
                 with restarts(foo=(lambda x: x)):
                     invoke("bar")
 
@@ -482,10 +482,10 @@ def runtests():
             test_signals[TypeError, invoke(42)]
 
             # invalid bindings
-            with test_signals(TypeError):
+            with test_signals[TypeError]:
                 with restarts(myrestart=42):  # name=callable, ...
                     pass  # pragma: no cover
-            with test_signals(TypeError):
+            with test_signals[TypeError]:
                 with handlers(("ha ha ha", 42)):  # (excspec, callable), ...
                     pass  # pragma: no cover
         errorcases()

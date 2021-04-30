@@ -81,7 +81,7 @@ def runtests():
         print("*** These error cases SHOULD PRINT A WARNING:", file=stderr)
 
         print("** Attempted jump into an inert data value:", file=stderr)
-        with test_raises(RuntimeError):
+        with test_raises[RuntimeError]:
             @trampolined
             def errorcase1():
                 return jump(42)

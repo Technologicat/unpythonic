@@ -550,14 +550,14 @@ def test_block(block_body, args):
     filename = q[h[callsite_filename]()]
     asserter = q[h[unpythonic_assert]]
 
-    # with test(message):
+    # with test[message]:
     if len(args) == 1:
         message = args[0]
     # with test:
     elif len(args) == 0:
         message = q[None]
     else:
-        raise SyntaxError('Expected `with test:` or `with test(message):`')
+        raise SyntaxError('Expected `with test:` or `with test[message]:`')
 
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.
@@ -620,10 +620,10 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
     ln = q[u[first_stmt.lineno]] if hasattr(first_stmt, "lineno") else q[None]
     filename = q[h[callsite_filename]()]
 
-    # with test_raises(exctype, message):
+    # with test_raises[exctype, message]:
     if len(args) == 2:
         exctype, message = args
-    # with test_raises(exctype):
+    # with test_raises[exctype]:
     elif len(args) == 1:
         exctype = args[0]
         message = q[None]

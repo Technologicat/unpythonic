@@ -67,7 +67,7 @@ def runtests():
                      lambda x, y: (x * 2, y + 1))
         test[(a, b) == (4, 3)]
 
-        with test_raises(TypeError, "should error when the curry context exits with args remaining"):
+        with test_raises[TypeError, "should error when the curry context exits with args remaining"]:
             a, b = pipec((1, 2),
                          lambda x: x + 1,
                          lambda x: x * 2)

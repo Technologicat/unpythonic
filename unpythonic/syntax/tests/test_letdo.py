@@ -397,7 +397,7 @@ def runtests():
             x = "the unused local x"  # noqa: F841, this `x` being unused is the point of this test.  # pragma: no cover
         test[test13() == "the env x"]
 
-        with test_raises(NameError, "should have tried to access the deleted nonlocal x"):
+        with test_raises[NameError, "should have tried to access the deleted nonlocal x"]:
             x = "the nonlocal x"
             @dlet((x, "the env x"))
             def test14():

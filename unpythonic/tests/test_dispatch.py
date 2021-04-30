@@ -103,7 +103,7 @@ def runtests():
 
         def f3(x: typing.Any):  # not @generic!
             return False
-        with test_raises(TypeError, "should not be able to @generic_for a non-generic function"):
+        with test_raises[TypeError, "should not be able to @generic_for a non-generic function"]:
             @generic_for(f3)
             def f4(x: int):
                 return x
@@ -221,7 +221,7 @@ def runtests():
         test_raises[TypeError, jack(3.14)]  # jack only accepts int or str
 
     with testset("error cases"):
-        with test_raises(TypeError, "@typed should only accept a single method"):
+        with test_raises[TypeError, "@typed should only accept a single method"]:
             @typed
             def errorcase1(x: int):
                 pass  # pragma: no cover
@@ -229,7 +229,7 @@ def runtests():
             def errorcase1(x: str):  # noqa: F811
                 pass  # pragma: no cover
 
-        with test_raises(TypeError, "@generic should complain about missing type annotations"):
+        with test_raises[TypeError, "@generic should complain about missing type annotations"]:
             @generic
             def errorcase2(x):
                 pass  # pragma: no cover

@@ -81,7 +81,7 @@ def runtests():
         test[result == 42]
 
     with testset("error case"):
-        with test_raises(RuntimeError, "should not be able to call an ec instance outside its dynamic extent"):
+        with test_raises[RuntimeError, "should not be able to call an ec instance outside its dynamic extent"]:
             @call_ec
             def erroneous(ec):
                 return ec

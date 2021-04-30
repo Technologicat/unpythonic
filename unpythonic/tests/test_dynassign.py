@@ -81,7 +81,7 @@ def runtests():
                 test[noimplicits(dyn.items()) == (("a", 1), ("b", 2), ("c", 23), ("d", 4))]
                 dyn.a = 42  # update occurs in the nearest enclosing dynamic scope that has the name bound
                 test[noimplicits(dyn.items()) == (("a", 42), ("b", 2), ("c", 23), ("d", 4))]
-                with test_raises(AttributeError, "should not be able to update unbound dynamic variable"):
+                with test_raises[AttributeError, "should not be able to update unbound dynamic variable"]:
                     dyn.e = 5
 
                 # subscript notation also works for updating

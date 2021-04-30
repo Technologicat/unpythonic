@@ -22,7 +22,7 @@ def runtests():
         test_raises[TypeError, car("sedan")]
         test_raises[TypeError, cdr("disc")]
 
-        with test_raises(TypeError, "cons cells should be immutable"):
+        with test_raises[TypeError, "cons cells should be immutable"]:
             c.car = 3
 
         test[the[c == c]]

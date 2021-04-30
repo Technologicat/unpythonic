@@ -168,7 +168,7 @@ def runtests():
         test_raises[TypeError,
                     UnexpandedEnvAssignView(q[x]),  # noqa: F821
                     "not an env assignment"]
-        with test_raises(TypeError, "name must be str"):
+        with test_raises[TypeError, "name must be str"]:
             view.name = 1234
 
     # --------------------------------------------------------------------------------
@@ -239,7 +239,7 @@ def runtests():
         test[len(view.bindings) == 2]
         test[unparse(view.bindings[0]) == "(z, 21)"]
         test[unparse(view.bindings[1]) == "(t, 2)"]
-        with test_raises(TypeError, "decorator let does not have an accessible body"):
+        with test_raises[TypeError, "decorator let does not have an accessible body"]:
             view.body = q[x]  # noqa: F821
 
         test_raises[TypeError,
@@ -308,7 +308,7 @@ def runtests():
         test_raises[TypeError,
                     view.body,
                     "decorator let does not have an accessible body"]
-        with test_raises(TypeError, "decorator let does not have an accessible body"):
+        with test_raises[TypeError, "decorator let does not have an accessible body"]:
             view.body = q[x]  # noqa: F821
         test[view.envname is None]  # dlet decorator doesn't have an envname, either
 
@@ -404,7 +404,7 @@ def runtests():
         test_raises[TypeError,
                     view.body,
                     "decorator let does not have an accessible body"]
-        with test_raises(TypeError, "decorator let does not have an accessible body"):
+        with test_raises[TypeError, "decorator let does not have an accessible body"]:
             view.body = q[x]  # noqa: F821
         test[view.envname is not None]  # dletrec decorator has envname in the bindings
 

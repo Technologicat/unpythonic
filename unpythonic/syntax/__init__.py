@@ -2462,7 +2462,7 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
             ...
             return expr  # optional
 
-        with test(message):
+        with test[message]:
             body0
             ...
             return expr  # optional

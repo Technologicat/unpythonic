@@ -214,17 +214,17 @@ def runtests():
     #             return a + a == 4
     #
     #         # A test block can have a failure message:
-    #         with test("should be three, no?"):
+    #         with test["should be three, no?"]:
     #             a = 2
     #             return a + a == 3
     #
     #         # Similarly, there are also `with test_raises` and `with test_signals` blocks,
     #         # though they don't support `return` - they always assert that the block
     #         # raises or signals, respectively.
-    #         with test_raises(RuntimeError):
+    #         with test_raises[RuntimeError]:
     #             raise RuntimeError()
     #
-    #         with test_raises(RuntimeError, "should have raised"):
+    #         with test_raises[RuntimeError, "should have raised"]:
     #             raise RuntimeError()
     #
     #     # By default, for test failure reporting, `test[]` captures as "result":
@@ -272,7 +272,7 @@ def runtests():
     #     with testset("normal return, don't care about value"):
     #         # There's also a block variant that asserts the block completes normally
     #         # (no exception or signal).
-    #         with test("block variant"):
+    #         with test["block variant"]:
     #             print("hello world")
     #
     #         # To get that effect in the expression variant, call `returns_normally`:

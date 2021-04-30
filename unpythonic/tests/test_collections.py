@@ -104,7 +104,7 @@ def runtests():
         b4 << cat  # same as b4.set(cat)
         test[unbox(b4) is cat]
 
-        with test_raises(TypeError, "box is mutable, should not be hashable"):
+        with test_raises[TypeError, "box is mutable, should not be hashable"]:
             d = {}
             d[b] = "foo"
 
@@ -253,7 +253,7 @@ def runtests():
     with testset("frozendict"):
         d3 = frozendict({'a': 1, 'b': 2})
         test[d3['a'] == 1]
-        with test_raises(TypeError, "frozendict is immutable, should not be writable"):
+        with test_raises[TypeError, "frozendict is immutable, should not be writable"]:
             d3['c'] = 42
 
         d4 = frozendict(d3, a=42)  # functional update
@@ -393,11 +393,11 @@ def runtests():
 
         lst = list(range(5))
         v = view(lst)[2:]
-        with test_raises(TypeError):
+        with test_raises[TypeError]:
             v[2, 3] = 42  # multidimensional indexing not supported
-        with test_raises(IndexError):
+        with test_raises[IndexError]:
             v[9001] = 42
-        with test_raises(IndexError):
+        with test_raises[IndexError]:
             v[-9001] = 42
 
     # read-only live view for sequences
@@ -411,7 +411,7 @@ def runtests():
         test[type(v[1:]) is roview]  # slicing a read-only view gives another read-only view
         test[v[1:] == [3, 4, 5]]
         test_raises[TypeError, view(v[1:])]  # cannot create a writable view into a read-only view
-        with test_raises(TypeError, "read-only view should not support item assignment"):
+        with test_raises[TypeError, "read-only view should not support item assignment"]:
             v[2] = 3
         test_raises[AttributeError, v.reverse()]  # read-only view does not support in-place reverse
 
@@ -459,7 +459,7 @@ def runtests():
         test[s2 == (1, 2, 23, 42, 5)]
         test[tpl == (1, 2, 3, 4, 5)]
 
-        with test_raises(TypeError):
+        with test_raises[TypeError]:
             ShadowedSequence(s4, "la la la", "new value")  # not a valid index specification
 
         # no-op ShadowedSequence is allowed

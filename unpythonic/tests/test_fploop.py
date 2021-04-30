@@ -61,27 +61,27 @@ def runtests():
         test[s == 35]
 
     with testset("error cases"):
-        with test_raises(ValueError, "@looped: should detect invalid definition, no loop parameter"):
+        with test_raises[ValueError, "@looped: should detect invalid definition, no loop parameter"]:
             @looped
             def s():
                 fail["Should not be reached because the definition is faulty."]  # pragma: no cover
 
-        with test_raises(ValueError, "@looped: should detect invalid definition, extra parameter not initialized"):
+        with test_raises[ValueError, "@looped: should detect invalid definition, extra parameter not initialized"]:
             @looped
             def s(loop, myextra):
                 fail["Should not be reached because the definition is faulty."]  # pragma: no cover
 
-        with test_raises(ValueError, "@looped_over: should detect invalid definition, no (loop, x, acc) parameters for loop body"):
+        with test_raises[ValueError, "@looped_over: should detect invalid definition, no (loop, x, acc) parameters for loop body"]:
             @looped_over(range(10), acc=())
             def s():
                 fail["Should not be reached because the definition is faulty."]  # pragma: no cover
 
-        with test_raises(ValueError, "@looped_over: should detect invalid definition, no acc parameter for loop body"):
+        with test_raises[ValueError, "@looped_over: should detect invalid definition, no acc parameter for loop body"]:
             @looped_over(range(10), acc=())
             def s(loop, x):
                 fail["Should not be reached because the definition is faulty."]  # pragma: no cover
 
-        with test_raises(ValueError, "@looped_over: should detect invalid definition, extra parameter not initialized"):
+        with test_raises[ValueError, "@looped_over: should detect invalid definition, extra parameter not initialized"]:
             @looped_over(range(10), acc=())
             def s(loop, x, acc, myextra):
                 fail["Should not be reached because the definition is faulty."]  # pragma: no cover
@@ -327,7 +327,7 @@ def runtests():
             return loop(acc + i, i + 1)  # provide the additional parameters
         test[result == 45]
 
-        with test_raises(ValueError):
+        with test_raises[ValueError]:
             @breakably_looped
             def result(loop):  # missing `brk` parameter
                 pass  # pragma: no cover
@@ -363,12 +363,12 @@ def runtests():
             return loop(acc + x)  # pragma: no cover
         test[s == 0]
 
-        with test_raises(ValueError):
+        with test_raises[ValueError]:
             @breakably_looped_over(range(10), acc=0)
             def s(loop, x, acc):  # missing `cnt` and `brk` parameters
                 return loop(acc + x)  # pragma: no cover
 
-        with test_raises(ValueError):
+        with test_raises[ValueError]:
             @breakably_looped_over(range(10), acc=0)
             def s(loop, x, acc, cnt):  # missing `brk` parameter
                 return loop(acc + x)  # pragma: no cover

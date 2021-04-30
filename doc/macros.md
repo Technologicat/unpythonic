@@ -1671,7 +1671,7 @@ We provide the low-level syntactic constructs `test[]`, `test_raises[]` and `tes
 
 By default, the `test[expr]` macro asserts that the value of `expr` is truthy. If you want to assert only that `expr` runs to completion normally, use `test[returns_normally(expr)]`.
 
-The test macros also come in block variants, `with test`, `with test_raises(exctype)`, `with test_signals(exctype)`.
+The test macros also come in block variants, `with test`, `with test_raises[exctype]`, `with test_signals[exctype]`.
 
 As usual in test frameworks, the test constructs behave somewhat like `assert`, with the difference that a failure or error will not abort the whole unit (unless explicitly asked to do so). There is no return value; upon success, the test constructs return `None`. Upon failure (test assertion not satisfied) or error (unexpected exception or signal), the failure or error is reported, and further tests continue running.
 
@@ -1761,23 +1761,23 @@ with test:
     body
     ...
     return expr
-with test(message):
+with test[message]:
     body
     ...
-with test(message):
+with test[message]:
     body
     ...
     return expr
-with test_raises(exctype):
+with test_raises[exctype]:
     body
     ...
-with test_raises(exctype, message):
+with test_raises[exctype, message]:
     body
     ...
-with test_signals(exctype):
+with test_signals[exctype]:
     body
     ...
-with test_signals(exctype, message):
+with test_signals[exctype, message]:
     body
     ...
 ```
@@ -1798,7 +1798,7 @@ By default, a `with test` block asserts just that it completes normally. If you 
 
 (Another way to view the default behavior is that the `with test` macro injects a `return True` at the end of the block, if there is no `return`. This is actually how the default behavior is implemented.)
 
-The `with test_raises(exctype)` and `with test_signals(exctype)` blocks assert that the block raises (respectively, signals) the declared exception (condition) type. These blocks are implicitly lifted into functions, too, but they do not check the return value. For them, **not** raising/signaling the declared exception/condition type is considered a test failure. Raising/signaling some other (hence unexpected) exception/condition type is considered an error.
+The `with test_raises[exctype]` and `with test_signals[exctype]` blocks assert that the block raises (respectively, signals) the declared exception (condition) type. These blocks are implicitly lifted into functions, too, but they do not check the return value. For them, **not** raising/signaling the declared exception/condition type is considered a test failure. Raising/signaling some other (hence unexpected) exception/condition type is considered an error.
 
 #### `the`: capture the value of interesting subexpressions
 

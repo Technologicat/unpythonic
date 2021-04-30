@@ -142,7 +142,7 @@ def runtests():
                           e.set('y', 3)),
                     "e.y should not be defined"]
 
-        with test_raises(AttributeError, "let environment should be final (should not be able to create new bindings in it inside the let body)"):
+        with test_raises[AttributeError, "let environment should be final (should not be able to create new bindings in it inside the let body)"]:
             @blet((('x', 1),))
             def error1(*, env):
                 env.y = 2  # error, cannot introduce new bindings into a let environment

@@ -456,7 +456,7 @@ def runtests():
             test[func1(21) == 42]
 
             print("*** This error case SHOULD PRINT A WARNING:", file=stderr)
-            with test_raises(RuntimeError):
+            with test_raises[RuntimeError]:
                 @trampolined
                 def func3():
                     return jump(42)
