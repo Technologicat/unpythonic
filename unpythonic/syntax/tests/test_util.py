@@ -259,9 +259,6 @@ def runtests():
     with testset("wrapwith"):
         with q as wrapwith_testdata:
             42  # pragma: no cover
-        # known fake location information so we can check it copies correctly
-        wrapwith_testdata[0].lineno = 9001
-        wrapwith_testdata[0].col_offset = 9
         wrapped = wrapwith(q[n["ExampleContextManager"]], wrapwith_testdata)
         test[type(wrapped) is list]
         thewith = wrapped[0]
