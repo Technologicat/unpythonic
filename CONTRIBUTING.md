@@ -67,7 +67,7 @@
   - *Having no docstring is better than having a placeholder docstring.*
     - If a function is not documented, make that fact explicit, to help [static analyzers](https://pypi.org/project/pyflakes/) flag it as needing documentation.
   - To help discoverability, the full documentation `doc/features.md` (or `doc/macros.md`, as appropriate) should contain at least a mention of each public feature. Examples are nice, too.
-  - Features that have non-obvious uses (e.g. `@call`), as well as those that cannot be assumed to be familiar to Python developers (e.g. Common Lisp style *conditions and restarts*) should get a more detailed explanation.
+  - Features that have non-obvious uses (e.g. `@call`), as well as those that cannot be assumed to be familiar to developers mostly working in Python (e.g. Common Lisp style *conditions and restarts*) should get a more detailed explanation.
 
 
 ## Technical overview
