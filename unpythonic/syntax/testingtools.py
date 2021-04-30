@@ -36,6 +36,7 @@ from ..test import fixtures  # unpythonic.test.fixtures, regular (non-macro) cod
 # Note the unexpanded `error[]` macro is distinguishable from a call to
 # the function `unpythonic.conditions.error`, because a macro invocation
 # is an `ast.Subscript`, whereas a function call is an `ast.Call`.
+# TODO: Maybe these lists should be public, autoref already uses the list of functions.
 _test_asserter_names = ["test", "test_signals", "test_raises", "error", "fail", "warn"]
 _test_function_names = ["unpythonic_assert",
                         "unpythonic_assert_signals",
