@@ -95,8 +95,6 @@ from ..dynassign import make_dynvar, dyn
 
 # TODO: `make_dynvar` needs to be better advertised in the docs. A workflow example would also be nice.
 
-# TODO: Brackets: use "with test[...]" instead of "with test(...)" in the test modules
-
 # TODO: Remove any unused `expander` kwargs from the macro interface
 
 # TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.
