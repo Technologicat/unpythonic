@@ -32,14 +32,14 @@ to the machine via SSH first (or have physical local console access).
 With that out of the way, to enable the server in your app::
 
     from unpythonic.net import server
-    server.start(locals=globals())
+    server.start(locals={})
 
 The `locals=...` argument sets the top-level namespace for variables for use by
 the REPL. It is shared between REPL sessions.
 
 Using `locals=globals()` makes the REPL directly use the calling module's
 top-level scope. If you want a clean environment, where you must access any
-modules through `sys.modules`, use `locals={}`.
+modules through `sys.modules`, use `locals={}` (recommended).
 
 
 To connect to a running REPL server (with tab completion and Ctrl+C support)::
