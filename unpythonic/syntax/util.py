@@ -280,7 +280,7 @@ def sort_lambda_decorators(tree):
     return FixIt().visit(tree)
 
 # TODO: should we just sort the decorators here, like we do for lambdas?
-# (The current solution is less magic, but less uniform.)
+# (The current solution is less magic, but also less uniform.)
 def suggest_decorator_index(deco_name, decorator_list):
     """Suggest insertion index for decorator deco_name in given decorator_list.
 
