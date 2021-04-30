@@ -30,7 +30,7 @@ from .astcompat import getconstant, NameConstant
 from .util import (isx, isec,
                    detect_callec, detect_lambda,
                    has_tco, sort_lambda_decorators,
-                   suggest_decorator_index, ContinuationsMarker, wrapwith, isexpandedmacromarker)
+                   suggest_decorator_index, ExpandedContinuationsMarker, wrapwith, isexpandedmacromarker)
 from .letdoutil import isdo, islet, ExpandedLetView, ExpandedDoView
 from .ifexprs import aif
 
@@ -91,7 +91,7 @@ def tco(block_body):
     for stmt in block_body:
         # skip nested, already expanded "with continuations" blocks
         # (needed to support continuations in the Lispython dialect, which applies tco globally)
-        if isexpandedmacromarker("ContinuationsMarker", stmt):
+        if isexpandedmacromarker("ExpandedContinuationsMarker", stmt):
             new_block_body.append(stmt)
             continue
 
@@ -523,7 +523,7 @@ def continuations(block_body):
 
     # Leave a marker so "with tco", if applied, can ignore the expanded "with continuations" block
     # (needed to support continuations in the Lispython dialect, since it applies tco globally.)
-    return wrapwith(item=q[h[ContinuationsMarker]],
+    return wrapwith(item=q[h[ExpandedContinuationsMarker]],
                     body=new_block_body)
 
 # -----------------------------------------------------------------------------

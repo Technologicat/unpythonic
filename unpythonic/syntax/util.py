@@ -428,10 +428,10 @@ def isexpandedmacromarker(typename, tree):
 
     Example. If ``tree`` is the AST for the following code::
 
-        with ContinuationsMarker:
+        with ExpandedContinuationsMarker:
             ...
 
-    then ``isexpandedmacromarker("ContinuationsMarker", tree)`` returns ``True``.
+    then ``isexpandedmacromarker("ExpandedContinuationsMarker", tree)`` returns ``True``.
 
     **NOTE**: The markers this function detects remain in the AST at run time;
     they inherit from `unpythonic.syntax.util.UnpythonicExpandedMacroMarker`.
@@ -479,13 +479,13 @@ class UnpythonicExpandedMacroMarker(type):
     def __exit__(cls, exctype, excvalue, traceback):
         pass  # pragma: no cover
 
-class ContinuationsMarker(metaclass=UnpythonicExpandedMacroMarker):
+class ExpandedContinuationsMarker(metaclass=UnpythonicExpandedMacroMarker):
     """AST marker for an expanded "with continuations" block."""
     pass  # pragma: no cover
 
 # This one must be "instantiated", because we need to pass information at
-# macro expansion time using the ctor call syntax, e.g. `AutorefMarker("o")`.
-class AutorefMarker(metaclass=UnpythonicExpandedMacroMarker):
+# macro expansion time using the ctor call syntax, e.g. `ExpandedAutorefMarker("o")`.
+class ExpandedAutorefMarker(metaclass=UnpythonicExpandedMacroMarker):
     """AST marker for an expanded "with autoref[o]" block."""
     def __init__(self, varname):
         self.varname = varname  # not needed, but doesn't hurt either.

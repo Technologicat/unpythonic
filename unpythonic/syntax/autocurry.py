@@ -28,7 +28,7 @@ def autocurry(block_body):
                 return tree
 
             hascurry = self.state.hascurry
-            if type(tree) is Call and not isx(tree.func, "AutorefMarker"):
+            if type(tree) is Call and not isx(tree.func, "ExpandedAutorefMarker"):
                 if has_curry(tree):  # detect decorated lambda with manual curry
                     # the lambda inside the curry(...) is the next Lambda node we will descend into.
                     hascurry = True

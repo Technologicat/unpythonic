@@ -14,7 +14,7 @@ from mcpyrate.walkers import ASTTransformer
 
 from .astcompat import getconstant, Str
 from .nameutil import isx
-from .util import wrapwith, AutorefMarker
+from .util import wrapwith, ExpandedAutorefMarker
 from .letdoutil import isdo, islet, ExpandedDoView, ExpandedLetView
 
 from ..lazyutil import force1, passthrough_lazy_args
@@ -40,12 +40,12 @@ from ..lazyutil import force1, passthrough_lazy_args
 #
 # One possible clean-ish implementation is::
 #
-#   with AutorefMarker("o"):  # no-op at runtime
+#   with ExpandedAutorefMarker("o"):  # no-op at runtime
 #       x        # --> (lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x")))
 #       x.a      # --> ((lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x")))).a
 #       x[s]     # --> ((lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x"))))[s]
 #       o        # --> o   (can only occur if an asname is supplied)
-#       with AutorefMarker("p"):
+#       with ExpandedAutorefMarker("p"):
 #          x     # --> (lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))
 #          x.a   # --> ((lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x"))).a
 #          x[s]  # --> ((lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))[s]
@@ -94,13 +94,13 @@ def autoref(block_body, args, asname):
     # TODO: We can't use `unpythonic.syntax.util.isexpandedmacromarker` here, because it
     # TODO: doesn't currently understand markers with arguments. Extend it?
     #
-    # with AutorefMarker("_o42"):
+    # with ExpandedAutorefMarker("_o42"):
     def isexpandedautorefblock(tree):
         if not (type(tree) is With and len(tree.items) == 1):
             return False
         ctxmanager = tree.items[0].context_expr
         return (type(ctxmanager) is Call and
-                isx(ctxmanager.func, "AutorefMarker") and
+                isx(ctxmanager.func, "ExpandedAutorefMarker") and
                 len(ctxmanager.args) == 1 and type(ctxmanager.args[0]) in (Constant, Str))  # Python 3.8+: ast.Constant
     def getreferent(tree):
         return getconstant(tree.items[0].context_expr.args[0])
@@ -164,9 +164,9 @@ def autoref(block_body, args, asname):
                     #
                     # expands to:
                     #
-                    # with AutorefMarker('_o5'):
+                    # with ExpandedAutorefMarker('_o5'):
                     #     _o5 = e
-                    #     with AutorefMarker('_o4'):
+                    #     with ExpandedAutorefMarker('_o4'):
                     #         _o4 = (lambda _ar13: (_ar13[1] if _ar13[0] else e2))(_autoref_resolve((_o5, 'e2')))
                     #         (lambda _ar9: (_ar9[1] if _ar9[0] else e))(_autoref_resolve((_o4, _o5, 'e')))
                     #
@@ -183,9 +183,9 @@ def autoref(block_body, args, asname):
                     #
                     # expands to:
                     #
-                    # with AutorefMarker('outer'):
+                    # with ExpandedAutorefMarker('outer'):
                     #     outer = e
-                    #     with AutorefMarker('inner'):
+                    #     with ExpandedAutorefMarker('inner'):
                     #         inner = (lambda _ar17: (_ar17[1] if _ar17[0] else e2))(_autoref_resolve((outer, 'e2')))
                     #         outer  # <-- !!!
                     #
@@ -198,7 +198,7 @@ def autoref(block_body, args, asname):
                 else:
                     add_to_resolver_list(tree, q[n[o]])  # _autoref_resolve((p, "x")) --> _autoref_resolve((p, o, "x"))
                 return tree
-            elif type(tree) is Call and isx(tree.func, "AutorefMarker"):  # nested autorefs
+            elif type(tree) is Call and isx(tree.func, "ExpandedAutorefMarker"):  # nested autorefs
                 return tree
             elif type(tree) is Name and (type(tree.ctx) is Load or not tree.ctx) and tree.id not in referents:
                 tree = makeautoreference(tree)
@@ -220,5 +220,5 @@ def autoref(block_body, args, asname):
     for stmt in block_body:
         newbody.append(AutorefTransformer(referents=always_skip + [o]).visit(stmt))
 
-    return wrapwith(item=q[h[AutorefMarker](u[o])],
+    return wrapwith(item=q[h[ExpandedAutorefMarker](u[o])],
                     body=newbody)
