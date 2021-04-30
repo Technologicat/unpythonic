@@ -51,7 +51,7 @@ This depends on the purpose of each feature, as well as ease-of-use consideratio
 
 ### Examples
 
-Small, limited-space overview of the overall flavor. There's a lot more that doesn't fit here, especially in the pure-Python feature set. See the [full documentation](doc/features.md) and [unit tests](unpythonic/test/) for more examples.
+Small, limited-space overview of the overall flavor. There's a lot more that doesn't fit here, especially in the pure-Python feature set. See the [full documentation](doc/features.md) and [unit tests](unpythonic/tests/) for more examples.
 
 #### Unpythonic in 30 seconds: Pure Python
 
@@ -622,4 +622,4 @@ Thanks to [TUT](http://www.tut.fi/en/home) for letting me teach [RAK-19006 in sp
 
 Links to blog posts, online articles and papers on topics relevant in the context of `unpythonic` have been collected to [a separate document](doc/readings.md).
 
-If you like both FP and numerics, we have [some examples](unpythonic/test/test_fpnumerics.py) based on various internet sources.
+If you like both FP and numerics, we have [some examples](unpythonic/tests/test_fpnumerics.py) based on various internet sources.

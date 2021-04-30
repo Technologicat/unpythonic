@@ -65,7 +65,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``ulp``: unit in last place](#ulp-unit-in-last-place)
 - [``async_raise``: inject an exception to another thread](#async_raise-inject-an-exception-to-another-thread) *(CPython only)*
 
-For many examples, see [the unit tests](unpythonic/test/), the docstrings of the individual features, and this guide.
+For many examples, see [the unit tests](unpythonic/tests/), the docstrings of the individual features, and this guide.
 
 *This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out-of-date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
 
@@ -334,7 +334,7 @@ print(tuple((k, dyn[k]) for k in dyn))
 
 Finally, ``dyn`` supports membership testing as ``"x" in dyn``, ``"y" not in dyn``, where the string is the name of the dynvar whose presence is being tested.
 
-For some more details, see [the unit tests](../unpythonic/test/test_dynassign.py).
+For some more details, see [the unit tests](../unpythonic/tests/test_dynassign.py).
 
 ### Relation to similar features in Lisps
 
@@ -2105,7 +2105,7 @@ Another question arises due to Python having builtin support for object persiste
 
 (Scenario: during second and later runs, a program first initializes, which causes the singleton instance to be created, just like during the first run of that program. Then the program loads state from a pickle file, containing (among other data) the state the singleton instance was in when the program previously shut down. In this scenario, considering the singleton, the data in the file is more relevant than the defaults the program initialization feeds in. Hence the default should be to replace the state of the existing singleton instance with the data from the pickle file.)
 
-Our `Singleton` abstraction is the result of these pythonifications applied to the classic pattern. For more documentation and examples, see the unit tests in [`unpythonic/test/test_singleton.py`](../unpythonic/test/test_singleton.py).
+Our `Singleton` abstraction is the result of these pythonifications applied to the classic pattern. For more documentation and examples, see the unit tests in [`unpythonic/tests/test_singleton.py`](../unpythonic/tests/test_singleton.py).
 
 **NOTE**: A related pattern is the *[Borg](http://code.activestate.com/recipes/66531-singleton-we-dont-need-no-stinkin-singleton-the-bo/)*, a.k.a. *Monostate*. [After considering the matter](https://github.com/Technologicat/unpythonic/issues/22), it was felt that in the context of Python, it offers no advantages over the singleton abstraction, while eliminating a useful feature: the singleton abstraction allows using the object identity check (`is`) to check if a name refers to the singleton instance. For this reason, `unpythonic` provides `Singleton`, but no `Borg`. If you feel this is unjust, please let me know - this decision can be revisited, if a situation in which a `Borg` is more appropriate than a `Singleton` comes up.
 
@@ -2985,7 +2985,7 @@ The ``generic`` decorator allows creating multiple-dispatch generic functions wi
 
 We also provide some friendly utilities: ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first two) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
 
-For what kind of things can be done with this, see particularly the [*holy traits*](https://ahsmart.com/pub/holy-traits-design-patterns-and-best-practice-book/) example in [`unpythonic.test.test_dispatch`](../unpythonic/test/test_dispatch.py).
+For what kind of things can be done with this, see particularly the [*holy traits*](https://ahsmart.com/pub/holy-traits-design-patterns-and-best-practice-book/) example in [`unpythonic.tests.test_dispatch`](../unpythonic/tests/test_dispatch.py).
 
 #### ``generic``: multiple dispatch with type annotation syntax
 
@@ -3051,7 +3051,7 @@ assert gargle(42, 6.022e23, "hello") == "int, float, str"
 assert gargle(1, 2, 3) == "int"  # as many as in the [int, float, str] case. Still resolves correctly.
 ```
 
-See [the unit tests](../unpythonic/test/test_dispatch.py) for more. For which features of the ``typing`` stdlib module are supported, see ``isoftype`` below.
+See [the unit tests](../unpythonic/tests/test_dispatch.py) for more. For which features of the ``typing`` stdlib module are supported, see ``isoftype`` below.
 
 Inspired by the [multi-methods of CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) (the Common Lisp Object System), and the [generic functions of Julia](https://docs.julialang.org/en/v1/manual/methods/).
 
@@ -3173,7 +3173,7 @@ assert isoftype(3.14, typing.SupportsRound)
 assert isoftype([1, 2, 3], typing.Sized)
 ```
 
-See [the unit tests](../unpythonic/test/test_typecheck.py) for more.
+See [the unit tests](../unpythonic/tests/test_typecheck.py) for more.
 
 **CAUTION**: Callables are just checked for being callable; no further analysis is done. Type-checking callables properly requires a much more complex type checker.
 

@@ -1661,9 +1661,9 @@ If you want to turn coloring off (e.g. for redirecting stderr to a file), see th
 
 The following is an overview of the framework. For details, look at the docstrings of the various constructs in `unpythonic.test.fixtures` (which provides much of this), those of the test macros, and finally, the automated tests of `unpythonic` itself.
 
-How to test code using conditions and restarts can be found in [`unpythonic.test.test_conditions`](../unpythonic/test/test_conditions.py).
+How to test code using conditions and restarts can be found in [`unpythonic.tests.test_conditions`](../unpythonic/tests/test_conditions.py).
 
-How to test macro utilities (e.g. syntax transformer functions that operate on ASTs) can be found in [`unpythonic.syntax.test.test_letdoutil`](../unpythonic/syntax/test/test_letdoutil.py).
+How to test macro utilities (e.g. syntax transformer functions that operate on ASTs) can be found in [`unpythonic.syntax.tests.test_letdoutil`](../unpythonic/syntax/tests/test_letdoutil.py).
 
 #### Overview
 
@@ -1721,7 +1721,7 @@ Additional tools for code using **conditions and restarts**:
 
 The `catch_signals` context manager controls the signal barrier of `with testset` and the `test` family of syntactic constructs. It is provided for writing tests for code that uses conditions and restarts.
 
-Used as `with catch_signals(False)`, it disables the signal barrier. Within the dynamic extent of the block, an uncaught signal (in the sense of `unpythonic.conditions.signal` and its sisters) is not considered an error. This can be useful, because sometimes leaving a signal uncaught is the right thing to do. See [`unpythonic.test.test_conditions`](../unpythonic/test/test_conditions.py) for examples.
+Used as `with catch_signals(False)`, it disables the signal barrier. Within the dynamic extent of the block, an uncaught signal (in the sense of `unpythonic.conditions.signal` and its sisters) is not considered an error. This can be useful, because sometimes leaving a signal uncaught is the right thing to do. See [`unpythonic.tests.test_conditions`](../unpythonic/tests/test_conditions.py) for examples.
 
 It can be nested. Used as `with catch_signals(True)`, it re-enables the barrier, if currently disabled.
 
