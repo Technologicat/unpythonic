@@ -36,7 +36,7 @@ from .ifexprs import aif
 
 from ..dynassign import dyn
 from ..it import uniqify
-from ..fun import identity, orf
+from ..fun import identity
 from ..tco import trampolined, jump
 from ..lazyutil import passthrough_lazy_args
 
