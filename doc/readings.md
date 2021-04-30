@@ -141,6 +141,13 @@ The common denominator is programming. Some relate to language design, some to c
 
 - [Walid Taha 2003: A Gentle Introduction to Multi-stage Programming](https://www.researchgate.net/publication/221024597_A_Gentle_Introduction_to_Multi-stage_Programming)
 
+- *Holy traits*:
+  - [Tom Kwong 2020: Holy Traits Pattern](https://ahsmart.com/pub/holy-traits-design-patterns-and-best-practice-book/) (book excerpt)
+  - [Lyndon White 2019: Emergent features of Julialang: Part II - Traits](https://www.juliabloggers.com/the-emergent-features-of-julialang-part-ii-traits/)
+  - [Harrison Grodin 2019: Multiple inheritance, sans inheritance](https://github.com/HarrisonGrodin/radical-julia/tree/master/traits)
+  - [Types vs. traits for dispatch](https://discourse.julialang.org/t/types-vs-traits-for-dispatch/46296) (discussion)
+  - We have a demonstration in [unpythonic.tests.test_dispatch](../unpythonic/tests/test_dispatch.py).
+
 
 ## Python-related FP resources
 
