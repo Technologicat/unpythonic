@@ -28,13 +28,10 @@ from ..symbol import sym
 
 from .util import isx
 
-from ..test import fixtures
+from ..test import fixtures  # unpythonic.test.fixtures, regular (non-macro) code belonging to the framework
 
 # -----------------------------------------------------------------------------
 # Helper for other macros to detect uses of the ones we define here.
-
-# TODO: Detect asserters only? Now this breaks the handling of the[] in a prefix block.
-# TODO: It should be handled like any expr, but currently it's skipped because it's listed here.
 
 # Note the unexpanded `error[]` macro is distinguishable from a call to
 # the function `unpythonic.conditions.error`, because a macro invocation
