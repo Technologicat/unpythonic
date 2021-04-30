@@ -74,6 +74,12 @@ from ..lazyutil import force1, passthrough_lazy_args
 # In reality, we also capture-and-assign the autoref'd expr into a gensym'd variable (instead of referring
 # to ``o`` and ``p`` directly), so that arbitrary expressions can be autoref'd without giving them
 # a name in user code.
+#
+# TODO: Consider whether we could use a `mcpyrate.markers.ASTMarker` (which could
+# TODO: be deleted before the code reaches run time, instead of leaving it in like
+# TODO: `UnpythonicExpandedMacroMarker`s are). May need a postprocess hook in the
+# TODO: expander, so that we could register a function that deletes autoref markers
+# TODO: at the expander's global postprocess pass.
 
 @passthrough_lazy_args
 def _autoref_resolve(args):
