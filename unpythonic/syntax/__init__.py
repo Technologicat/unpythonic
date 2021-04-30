@@ -1835,9 +1835,9 @@ def dbg(tree, *, args, syntax, expander, **kw):  # noqa: F811
 
     ``xxx`` is the original line number before macro expansion, if available
     in the AST node of the expression, otherwise ``None``. (Some macros might
-    not care about inserting line numbers, because MacroPy fixes any missing
-    line numbers at the end; this is why it might be missing at some locations
-    in any specific macro-enabled program.)
+    not care about inserting line numbers, because `mcpyrate` fixes any missing
+    line numbers in a postprocess step; this is why it might be missing at some
+    locations in any specific macro-enabled program.)
 
     A default implementation of the debug printer is provided and automatically
     assigned as the default value for `dyn.dbgprint_expr`.

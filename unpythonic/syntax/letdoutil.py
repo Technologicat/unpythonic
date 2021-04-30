@@ -625,7 +625,7 @@ class ExpandedLetView:
                     # update name in the namelambda(...)
                     thev.func.args[0] = Constant(value=f"letrec_binding_{newk_string}")  # Python 3.8+: ast.Constant
                 # Macro-generated nodes may be missing source location information,
-                # in which case we let MacroPy fix it later.
+                # in which case we let `mcpyrate` fix it later.
                 # This is mainly an issue for the unit tests of this module, which macro-generate the "old" data.
                 if hasattr(oldb, "lineno") and hasattr(oldb, "col_offset"):
                     newelts.append(Tuple(elts=[newk, thev], lineno=oldb.lineno, col_offset=oldb.col_offset))

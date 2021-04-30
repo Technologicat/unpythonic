@@ -140,7 +140,6 @@ def runtests():
             test[f5.__name__ == "f5"]
 
     # also autocurry with a lambda as the last argument is recognized
-    # TODO: fix MacroPy #21 properly; https://github.com/azazel75/macropy/issues/21
     with testset("namedlambda, naming an autocurried last arg"):
         with namedlambda:
             with autocurry:

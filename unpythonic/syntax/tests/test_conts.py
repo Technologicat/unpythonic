@@ -478,7 +478,7 @@ def runtests():
             test[out == pts]
 
     with testset("integration with autoreturn and autocurry simultaneously"):
-        with autocurry:  # major slowdown, but works; must be in a separate "with"  # TODO: why separate?  https://github.com/azazel75/macropy/issues/21
+        with autocurry:  # major slowdown, but works
             with autoreturn, continuations:
                 stack = []
                 def amb(lst, cc):  # noqa: F811, the previous one is no longer used.

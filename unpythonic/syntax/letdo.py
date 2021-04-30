@@ -75,22 +75,6 @@ def _letimpl(bindings, body, mode):
         # this case, because our syntaxes always require at least one binding.
         # So this check is here just to protect against use with no bindings directly
         # from other syntax transformers, which in theory could attempt anything.
-        #
-        # TODO: update this comment for mcpyrate
-        # The reason the macro layer never calls us with no bindings is technical.
-        # In the macro interface, with no bindings, the macro's `args` are `()`
-        # whether it was invoked as `let()[...]` or just `let[...]`. Thus,
-        # there is no way to distinguish, in the macro layer, between these
-        # two. We can't use `UnexpandedLetView` to do the dirty work of AST
-        # analysis, because MacroPy does too much automatically: in the macro
-        # layer, `tree` is only the part inside the brackets. So we really
-        # can't see whether the part outside the brackets was a Call with no
-        # arguments, or just a Name - both cases get treated exactly the same,
-        # as a macro invocation with empty `args`.
-        #
-        # The latter form, `let[...]`, is used by the haskelly syntax
-        # `let[(...) in ...]`, `let[..., where(...)]` - and in these cases,
-        # both the bindings and the body reside inside the brackets.
         return body  # pragma: no cover
     bindings = dyn._macro_expander.visit(bindings)
 
