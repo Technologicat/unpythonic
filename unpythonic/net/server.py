@@ -104,6 +104,11 @@ considered somewhat that. Refer to https://megatokyo.com/strip/9.
 The `socketserverREPL` package uses the same default, and actually its
 `repl_tool.py` can talk to this server (but doesn't currently feature
 remote tab completion).
+
+The default port for the control channel is 8128, because it's for
+*completing* things, and https://en.wikipedia.org/wiki/Perfect_number
+This is the first one above 1024, and was already known to Nicomachus
+around 100 CE.
 """
 
 # TODO: use logging module instead of server-side print
