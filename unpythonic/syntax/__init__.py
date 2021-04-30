@@ -89,8 +89,11 @@ from ..dynassign import make_dynvar, dyn
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
+# TODO: have a common base class for all `unpythonic` `ASTMarker`s?
 
 # TODO: `let` constructs: document difference to Python 3.8 walrus operator (`let` creates a scope, `:=` doesn't)
+
+# TODO: `make_dynvar` needs to be better advertised in the docs. A workflow example would also be nice.
 
 # TODO: Brackets: use "with test[...]" instead of "with test(...)" in the test modules
 
@@ -145,6 +148,8 @@ from ..dynassign import make_dynvar, dyn
 # TODO: Move dialect examples from `pydialect` into a new package, `unpythonic.dialects`.
 # TODO: `mcpyrate` now provides the necessary infrastructure, while `unpythonic` has the macros
 # TODO: needed to make interesting things happen. Update docs accordingly for both projects.
+
+# TODO: AST pattern matching for `mcpyrate`? Would make destructuring easier. A writable representation (auto-viewify) is a pain to build, though...
 
 # Syntax transformers and internal utilities
 from .autoref import autoref as _autoref
