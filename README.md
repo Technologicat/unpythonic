@@ -15,7 +15,7 @@ In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing f
 
 As of [7bb1198](https://github.com/Technologicat/unpythonic/commit/7bb1198605087f1dd7ca292e33afd53e5aa9721d), the initial porting effort of `unpythonic` to Python 3.8 and the new [`mcpyrate`](https://github.com/Technologicat/mcpyrate) macro expander is complete. In fact, if you want to play around with 0.15-pre, the code is already in `master`.
 
-The codebase already fully works on 3.8 and `mcpyrate`, and passes all automated tests. However, I plan to take the opportunity to polish certain parts before release, and this may take a while. A living TODO list can be found at the beginning of [`unpythonic/syntax/__init__.py`](unpythonic/syntax/__init__.py). Be aware that the plan is tentative, and items might not be listed in a reasonable order. Some of the planned changes might not make the cut for 0.15.
+The codebase already fully works, and passes all automated tests. However, I plan to take the opportunity to polish certain parts before release, and this may take a while. A living TODO list can be found at the beginning of [`unpythonic/syntax/__init__.py`](unpythonic/syntax/__init__.py). Be aware that the plan is tentative, and items might not be listed in a reasonable order. Some of the planned changes might not make the cut for 0.15.
 
 For details, see [the 0.15 milestone](https://github.com/Technologicat/unpythonic/milestone/1).
 
