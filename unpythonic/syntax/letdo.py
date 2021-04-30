@@ -23,7 +23,7 @@ from ast import (Name, Attribute,
                  Load)
 import sys
 
-from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
+from mcpyrate.quotes import macros, q, u, n, a, t, h  # noqa: F401
 
 from mcpyrate import gensym
 from mcpyrate.markers import ASTMarker
@@ -110,7 +110,7 @@ def _letimpl(bindings, body, mode):
     #  - the exact AST structure, for the views
     letter = letf
     bindings = [q[(u[k], a[v])] for k, v in zip(names, values)]
-    newtree = q[h[letter](a[Tuple(elts=bindings)], a[body], mode=u[mode])]
+    newtree = q[h[letter](t[bindings], a[body], mode=u[mode])]
     return newtree
 
 def letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
@@ -434,8 +434,7 @@ def do0(tree):
         newelts.append(q[a[local(thelocalexpr)]])
     newelts.extend(elts[1:])
     newelts.append(q[_do0_result])  # noqa: F821
-#    newtree = q[t[newelts]]  # TODO: doesn't work, missing lineno  TODO: test with mcpyrate
-    newtree = Tuple(elts=newelts, lineno=tree.lineno, col_offset=tree.col_offset)
+    newtree = q[t[newelts]]
     # TODO: Would be cleaner to use `do[]` as a hygienically captured macro.
     return do(newtree)  # do0[] is also just a do[]
 

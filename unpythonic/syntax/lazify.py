@@ -308,14 +308,13 @@ def lazify(body):
                     return tree
 
                 else:
-                    ln, co = tree.lineno, tree.col_offset
                     thefunc = self.visit(tree.func)
 
                     adata = []
                     for x in tree.args:
                         if type(x) is Starred:  # *args in Python 3.5+
                             v = transform_starred(x.value)
-                            v = Starred(value=q[a[v]], lineno=ln, col_offset=co)
+                            v = Starred(value=q[a[v]])
                         else:
                             v = transform_arg(x)
                         adata.append(v)
@@ -331,8 +330,7 @@ def lazify(body):
                     # Construct the call
                     mycall = Call(func=q[h[maybe_force_args]],
                                   args=[q[a[thefunc]]] + [q[a[x]] for x in adata],
-                                  keywords=[keyword(arg=k, value=q[a[x]]) for k, x in kwdata],
-                                  lineno=ln, col_offset=co)
+                                  keywords=[keyword(arg=k, value=q[a[x]]) for k, x in kwdata])
                     tree = mycall
                     return tree
 

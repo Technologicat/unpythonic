@@ -4,7 +4,9 @@
 # at macro expansion time. If you're looking for regular run-time let et al. macros,
 # see letdo.py.
 
-from ast import (Name, Call, Starred, If, Constant, Expr, With,
+from mcpyrate.quotes import macros, q, a  # noqa: F401
+
+from ast import (Name, Call, Starred, Expr, With,
                  FunctionDef, AsyncFunctionDef, ClassDef, Attribute)
 from copy import deepcopy
 
@@ -97,10 +99,10 @@ def let_syntax_block(block_body):
             args = []
 
         if mode == "block":
-            value = If(test=Constant(value=1),
-                       body=withstmt.body,
-                       orelse=[],
-                       lineno=stmt.lineno, col_offset=stmt.col_offset)
+            with q as value:
+                if 1:
+                    with a:
+                        withstmt.body
         else:  # mode == "expr":
             if len(withstmt.body) != 1:
                 raise SyntaxError("'with expr:' expected a one-item body (use a do[] if need more)")  # pragma: no cover

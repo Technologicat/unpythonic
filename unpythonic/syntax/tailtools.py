@@ -487,8 +487,7 @@ def continuations(block_body):
                 return tree  # don't recurse!
             if type(tree) in (FunctionDef, AsyncFunctionDef):
                 if type(tree.body[-1]) is not Return:
-                    tree.body.append(Return(value=None,  # bare "return"
-                                            lineno=tree.lineno, col_offset=tree.col_offset))
+                    tree.body.append(Return(value=None))  # bare "return"
             return self.generic_visit(tree)
     block_body = ImplicitBareReturnInjector().visit(block_body)
 
@@ -670,18 +669,14 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
             if type(tree.values[-1]) in (Call, IfExp, BoolOp):  # must match above handlers
                 # other items: not in tail position, compute normally
                 if len(tree.values) > 2:
-                    op_of_others = BoolOp(op=tree.op, values=tree.values[:-1],
-                                          lineno=tree.lineno, col_offset=tree.col_offset)
+                    op_of_others = BoolOp(op=tree.op, values=tree.values[:-1])
                 else:
                     op_of_others = tree.values[0]
                 if type(tree.op) is Or:
                     # or(data1, ..., datan, tail) --> it if any(others) else tail
                     tree = aif(Tuple(elts=[op_of_others,
-                                           transform_data(Name(id="it",
-                                                               lineno=tree.lineno,
-                                                               col_offset=tree.col_offset)),
-                                           transform(tree.values[-1])],
-                                     lineno=tree.lineno, col_offset=tree.col_offset))  # tail-call item
+                                           transform_data(Name(id="it")),
+                                           transform(tree.values[-1])]))  # tail-call item
                 elif type(tree.op) is And:
                     # and(data1, ..., datan, tail) --> tail if all(others) else False
                     fal = q[False]

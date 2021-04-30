@@ -6,9 +6,9 @@ Both block and expression variants are provided.
 The printing can be customized; see ``dbgprint_block`` and ``dbgprint_expr``.
 """
 
-from ast import Call, Name, Tuple, keyword
+from ast import Call, Name, keyword
 
-from mcpyrate.quotes import macros, q, u, a, h  # noqa: F401
+from mcpyrate.quotes import macros, q, u, a, t, h  # noqa: F401
 
 from mcpyrate import unparse
 from mcpyrate.quotes import is_captured_value
@@ -74,10 +74,10 @@ def dbg_block(body, args):
         # (the problem is we must syntactically find matches in the AST, and AST nodes don't support comparison)
         if type(args[0]) is not Name:  # pragma: no cover, let's not test the macro expansion errors.
             raise SyntaxError("Custom debug print function must be specified by a bare name")
-        p = args[0]
-        pname = p.id  # name of the print function as it appears in the user code
+        pfunc = args[0]
+        pname = pfunc.id  # name of the print function as it appears in the user code
     else:
-        p = q[h[dbgprint_block]]
+        pfunc = q[h[dbgprint_block]]
         pname = "print"  # override standard print function within this block
 
     class DbgBlockTransformer(ASTTransformer):
@@ -86,13 +86,14 @@ def dbg_block(body, args):
                 return tree  # don't recurse!
             if type(tree) is Call and type(tree.func) is Name and tree.func.id == pname:
                 names = [q[u[unparse(node)]] for node in tree.args]  # x --> "x"; (1 + 2) --> "(1 + 2)"; ...
-                names = Tuple(elts=names, lineno=tree.lineno, col_offset=tree.col_offset)
-                values = Tuple(elts=tree.args, lineno=tree.lineno, col_offset=tree.col_offset)
+                names = q[t[names]]
+                values = q[t[tree.args]]
                 tree.args = [names, values]
                 # can't use inspect.stack in the printer itself because we want the line number *before macro expansion*.
+                lineno = tree.lineno if hasattr(tree, "lineno") else None
                 tree.keywords += [keyword(arg="filename", value=q[h[callsite_filename]()]),
-                                  keyword(arg="lineno", value=(q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]))]
-                tree.func = q[a[p]]
+                                  keyword(arg="lineno", value=q[u[lineno]])]
+                tree.func = pfunc
             return self.generic_visit(tree)
     return DbgBlockTransformer().visit(body)
 
