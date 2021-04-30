@@ -11,7 +11,7 @@ from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from .astcompat import getconstant
 from .letdoutil import isdo, ExpandedDoView
-from .nameutil import isx, make_isxpred, getname
+from .nameutil import isx, getname
 
 from ..regutil import all_decorators, tco_decorators, decorator_registry
 
@@ -52,7 +52,7 @@ def detect_callec(tree):
     and `throw` covers the use of `unpythonic.ec.throw`.)
     """
     fallbacks = ["ec", "brk", "throw"]
-    iscallec = partial(isx, x=make_isxpred("call_ec"))
+    iscallec = partial(isx, x="call_ec")
     def detect(tree):
         class Detector(ASTVisitor):
             def examine(self, tree):

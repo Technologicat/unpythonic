@@ -66,18 +66,6 @@ def isx(tree, x, accept_attr=True):
             (key and ismatch(name)) or
             (accept_attr and type(tree) is Attribute and ismatch(tree.attr)))
 
-# TODO: obsolete function, remove
-def make_isxpred(x):
-    """Make a predicate for isx.
-
-    Here ``x`` is an ``str``; the resulting function will match also
-    hygienically captured identifiers.
-    """
-    # `mcpyrate` only renames captured macros; the names of captured
-    # run-time values live in the keys in the `lookup_value` calls
-    # (where the original name is preserved, with no renaming needed).
-    return lambda name: name == x
-
 def getname(tree, accept_attr=True):
     """The cousin of ``isx``.
 

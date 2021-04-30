@@ -10,7 +10,7 @@ from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
 from .util import (suggest_decorator_index, sort_lambda_decorators, detect_lambda,
-                   isx, make_isxpred, getname, is_decorator, wrapwith)
+                   isx, getname, is_decorator, wrapwith)
 from .letdoutil import islet, isdo, ExpandedLetView
 from ..lazyutil import Lazy, passthrough_lazy_args, force, force1, maybe_force_args
 from ..dynassign import dyn
@@ -87,8 +87,8 @@ _ctorcalls_all = _ctorcalls_map + _ctorcalls_seq
 # variant `frozendict(mapping1, mapping2, ...)`.
 _ctorcalls_that_take_exactly_one_positional_arg = {"tuple", "list", "set", "dict", "frozenset", "llist"}
 
-islazy = make_isxpred("lazy")  # unexpanded
-isLazy = make_isxpred("Lazy")  # expanded
+unexpanded_lazy_name = "lazy"
+expanded_lazy_name = "Lazy"
 def lazyrec(tree):
     # This helper doesn't need to recurse, so we don't need `ASTTransformer` here.
     def transform(tree):
@@ -99,9 +99,9 @@ def lazyrec(tree):
         elif type(tree) is Call and any(isx(tree.func, ctor) for ctor in _ctorcalls_all):
             p, k = _ctor_handling_modes[getname(tree.func)]
             lazify_ctorcall(tree, p, k)
-        elif type(tree) is Subscript and isx(tree.value, islazy):  # unexpanded
+        elif type(tree) is Subscript and isx(tree.value, unexpanded_lazy_name):
             pass
-        elif type(tree) is Call and isx(tree.func, isLazy):  # expanded
+        elif type(tree) is Call and isx(tree.func, expanded_lazy_name):
             pass
         else:
             # mcpyrate supports hygienic macro capture, so we can just splice unexpanded
@@ -293,7 +293,7 @@ def lazify(body):
                 # Lazy() is a strict function, takes a lambda, constructs a Lazy object
                 # _autoref_resolve doesn't need any special handling
                 elif (isdo(tree) or is_decorator(tree.func, "namelambda") or
-                      any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, isLazy) or
+                      any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, expanded_lazy_name) or
                       any(isx(tree.func, s) for s in ("_autoref_resolve", "AutorefMarker"))):
                     # here we know the operator (.func) to be one of specific names;
                     # don't transform it to avoid confusing lazyrec[] (important if this

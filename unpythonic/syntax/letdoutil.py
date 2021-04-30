@@ -10,15 +10,15 @@ from ast import (Call, Name, Subscript, Index, Compare, In,
 import sys
 
 from .astcompat import getconstant, Str
-from .nameutil import isx, make_isxpred
+from .nameutil import isx
 
 def where(*bindings):
     """[syntax] Only meaningful in a let[body, where((k0, v0), ...)]."""
     raise RuntimeError("where() is only meaningful in a let[body, where((k0, v0), ...)]")  # pragma: no cover
 
-_isletf = make_isxpred("letter")  # name must match what ``unpythonic.syntax.letdo._letimpl`` uses in its output.
-_isdof = make_isxpred("dof")      # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
-_iscurrycall = make_isxpred("currycall")  # output of ``unpythonic.syntax.curry``
+letf_name = "letter"  # must match what ``unpythonic.syntax.letdo._letimpl`` uses in its output.
+dof_name = "dof"      # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
+currycall_name = "currycall"  # output of ``unpythonic.syntax.curry``
 
 # TODO: switch from call to subscript in name position for let_syntax templates.
 def canonize_bindings(elts, allow_call_in_name_position=False):  # public as of v0.14.3+
@@ -98,9 +98,9 @@ def islet(tree, expanded=True):
         if type(tree) is not Call:
             return False
         kind = "expanded"
-        if isx(tree.func, _iscurrycall) and isx(tree.args[0], _isletf):
+        if isx(tree.func, currycall_name) and isx(tree.args[0], letf_name):
             kind = "curried"
-        elif not isx(tree.func, _isletf):
+        elif not isx(tree.func, letf_name):
             return False
         mode = [kw.value for kw in tree.keywords if kw.arg == "mode"]
         assert len(mode) == 1 and type(mode[0]) in (Constant, Str)
@@ -203,9 +203,9 @@ def isdo(tree, expanded=True):
         if type(tree) is not Call:
             return False
         kind = "expanded"
-        if isx(tree.func, _iscurrycall) and isx(tree.args[0], _isdof):
+        if isx(tree.func, currycall_name) and isx(tree.args[0], dof_name):
             kind = "curried"
-        elif not isx(tree.func, _isdof):
+        elif not isx(tree.func, dof_name):
             return False
         return kind
 

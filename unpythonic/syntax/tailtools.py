@@ -23,7 +23,7 @@ from mcpyrate.utils import NestingLevelTracker
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from .astcompat import getconstant, NameConstant
-from .util import (isx, make_isxpred, isec,
+from .util import (isx, isec,
                    detect_callec, detect_lambda,
                    has_tco, sort_lambda_decorators,
                    suggest_decorator_index, ContinuationsMarker, wrapwith, isexpandedmacromarker)
@@ -601,7 +601,7 @@ def _tco_transform_lambda(tree, *, preproc_cb, userlambdas, known_ecs, transform
 # Tail-position analysis for a return-value expression (also the body of a lambda).
 # Here we need to be very, very selective about where to recurse so this would not
 # benefit much from being made into an ASTTransformer. Just a function is fine.
-_isjump = orf(make_isxpred("jump"), make_isxpred("loop"))
+_isjump = lambda name: name in ("jump", "loop")
 def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
     """Analyze and TCO a return-value expression or a lambda body.
 

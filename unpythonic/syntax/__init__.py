@@ -89,7 +89,6 @@ from ..dynassign import make_dynvar, dyn
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
-# TODO: `make_isxpred` is now obsolete because `mcpyrate` does not rename hygienic captures of run-time values. Make it explicit at the use sites what they want, and remove `make_isxpred`. (E.g. `curry` wants to match both `curryf` and `currycall`, exactly. Some use sites want to match only a single thing.)
 
 # TODO: `let` constructs: document difference to Python 3.8 walrus operator (`let` creates a scope, `:=` doesn't)
 

@@ -16,13 +16,12 @@ from mcpyrate.walkers import ASTTransformer
 
 from ..dynassign import dyn
 from ..misc import namelambda
-from ..fun import orf
 from ..env import env
 
 from .astcompat import getconstant, Str, NamedExpr
 from .letdo import do
 from .letdoutil import islet, isenvassign, UnexpandedLetView, UnexpandedEnvAssignView, ExpandedDoView
-from .util import (is_decorated_lambda, isx, make_isxpred, has_deco,
+from .util import (is_decorated_lambda, isx, has_deco,
                    destructure_decorated_lambda, detect_lambda)
 
 def multilambda(block_body):
@@ -53,18 +52,17 @@ def namedlambda(block_body):
         return type(tree) is Assign and len(tree.targets) == 1 and type(tree.targets[0]) is Name
 
     # detect a manual curry
-    iscurry = make_isxpred("curry")
     def iscurrywithfinallambda(tree):
-        if not (type(tree) is Call and isx(tree.func, iscurry) and tree.args):
+        if not (type(tree) is Call and isx(tree.func, "curry") and tree.args):
             return False
         return type(tree.args[-1]) is Lambda
 
     # Detect an autocurry from an already expanded "with autocurry".
     # CAUTION: These must match what unpythonic.syntax.curry.autocurry uses in its output.
-    iscurrycall = make_isxpred("currycall")
-    iscurryf = orf(make_isxpred("curryf"), make_isxpred("curry"))  # auto or manual curry in a "with autocurry"
+    currycall_name = "currycall"
+    iscurryf = lambda name: name in ("curryf", "curry")  # auto or manual curry in a "with autocurry"
     def isautocurrywithfinallambda(tree):
-        if not (type(tree) is Call and isx(tree.func, iscurrycall) and tree.args and
+        if not (type(tree) is Call and isx(tree.func, currycall_name) and tree.args and
                 type(tree.args[-1]) is Call and isx(tree.args[-1].func, iscurryf)):
             return False
         return type(tree.args[-1].args[-1]) is Lambda
@@ -235,7 +233,6 @@ def envify(block_body):
 
     # Create a renamed reference to the env() constructor to be sure the Call
     # nodes added by us have a unique .func (not used by other macros or user code)
-    _ismakeenv = make_isxpred("_envify")
     _envify = env
 
     class EnvifyTransformer(ASTTransformer):
@@ -284,7 +281,7 @@ def envify(block_body):
                     self.generic_withstate(tree, enames=(enames + [ename]), bindings=newbindings)
             else:
                 # leave alone the _envify() added by us
-                if type(tree) is Call and (isx(tree.func, _ismakeenv) or isourupdate(tree)):
+                if type(tree) is Call and (isx(tree.func, "_envify") or isourupdate(tree)):
                     # don't recurse
                     return tree
                 # transform env-assignments into our envs
