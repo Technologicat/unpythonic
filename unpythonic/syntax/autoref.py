@@ -16,6 +16,7 @@ from .astcompat import getconstant, Str
 from .nameutil import isx
 from .util import wrapwith, ExpandedAutorefMarker
 from .letdoutil import isdo, islet, ExpandedDoView, ExpandedLetView
+from .testingtools import _test_function_names
 
 from ..lazyutil import force1, passthrough_lazy_args
 
@@ -218,10 +219,12 @@ def autoref(block_body, args, asname):
     # We are a second-pass macro (inside out), so any first-pass macro invocations,
     # as well as any second-pass macro invocations inside the `with autoref` block,
     # have already expanded by the time we run our transformer.
-    always_skip = ['letter', 'dof', 'namelambda', 'curry', 'currycall', 'lazy', 'lazyrec', 'maybe_force_args',
-                   # test framework stuff
-                   'unpythonic_assert', 'unpythonic_assert_signals', 'unpythonic_assert_raises',
-                   'callsite_filename', 'returns_normally']
+    always_skip = ['letter', 'dof',  # let/do subsystem
+                   'namelambda',  # lambdatools subsystem
+                   'curry', 'curryf' 'currycall',  # autocurry subsystem
+                   'lazy', 'lazyrec', 'maybe_force_args',  # lazify subsystem
+                   # the test framework subsystem
+                   'callsite_filename', 'returns_normally'] + _test_function_names
     newbody = [Assign(targets=[q[n[o]]], value=args[0])]
     for stmt in block_body:
         newbody.append(AutorefTransformer(referents=always_skip + [o]).visit(stmt))
