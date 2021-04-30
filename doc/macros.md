@@ -2024,7 +2024,7 @@ This Elisp snippet can be used to add syntax highlighting for keywords specific 
 
 ```elisp
   (defun my/unpythonic-syntax-highlight-setup ()
-    "Set up additional syntax highlighting for `unpythonic.syntax' and MacroPy in Python mode."
+    "Set up additional syntax highlighting for `unpythonic.syntax' and `mcpyrate` in Python mode."
     ;; adapted from code in dash.el
     (let ((new-keywords '("test" "test_raises" "test_signals" "fail" "the"
                           "error" "warn"  ; both testing macros and condition signaling protocols
