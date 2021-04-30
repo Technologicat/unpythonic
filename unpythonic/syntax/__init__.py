@@ -534,10 +534,8 @@ def dlet(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("dlet is a decorator macro only")
 
-    args = expander.visit(args)
-    tree = expander.visit(tree)
-
-    return _destructure_and_apply_let(tree, args, expander, _dlet)
+    with dyn.let(_macro_expander=expander):
+        return _destructure_and_apply_let(tree, args, expander, _dlet)
 
 @parametricmacro
 def dletseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -557,10 +555,8 @@ def dletseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("dletseq is a decorator macro only")
 
-    args = expander.visit(args)
-    tree = expander.visit(tree)
-
-    return _destructure_and_apply_let(tree, args, expander, _dletseq)
+    with dyn.let(_macro_expander=expander):
+        return _destructure_and_apply_let(tree, args, expander, _dletseq)
 
 @parametricmacro
 def dletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -580,10 +576,8 @@ def dletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("dletrec is a decorator macro only")
 
-    args = expander.visit(args)
-    tree = expander.visit(tree)
-
-    return _destructure_and_apply_let(tree, args, expander, _dletrec)
+    with dyn.let(_macro_expander=expander):
+        return _destructure_and_apply_let(tree, args, expander, _dletrec)
 
 @parametricmacro
 def blet(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -599,10 +593,8 @@ def blet(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("blet is a decorator macro only")
 
-    args = expander.visit(args)
-    tree = expander.visit(tree)
-
-    return _destructure_and_apply_let(tree, args, expander, _blet)
+    with dyn.let(_macro_expander=expander):
+        return _destructure_and_apply_let(tree, args, expander, _blet)
 
 @parametricmacro
 def bletseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -620,10 +612,8 @@ def bletseq(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("bletseq is a decorator macro only")
 
-    args = expander.visit(args)
-    tree = expander.visit(tree)
-
-    return _destructure_and_apply_let(tree, args, expander, _bletseq)
+    with dyn.let(_macro_expander=expander):
+        return _destructure_and_apply_let(tree, args, expander, _bletseq)
 
 @parametricmacro
 def bletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -652,10 +642,8 @@ def bletrec(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax != "decorator":
         raise SyntaxError("bletrec is a decorator macro only")
 
-    args = expander.visit(args)
-    tree = expander.visit(tree)
-
-    return _destructure_and_apply_let(tree, args, expander, _bletrec)
+    with dyn.let(_macro_expander=expander):
+        return _destructure_and_apply_let(tree, args, expander, _bletrec)
 
 # -----------------------------------------------------------------------------
 # Imperative code in expression position.

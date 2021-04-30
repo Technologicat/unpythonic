@@ -203,11 +203,13 @@ def _dletimpl(bindings, body, mode, kind):
     assert kind in ("decorate", "call")
     if type(body) not in (FunctionDef, AsyncFunctionDef):
         raise SyntaxError("Expected a function definition to decorate")  # pragma: no cover
+    body = dyn._macro_expander.visit(body)
     if not bindings:
         # Similarly as above, this cannot trigger from the macro layer no
         # matter what that layer does. This is here to optimize away a `dlet`
         # with no bindings, when used directly from other syntax transformers.
         return body  # pragma: no cover
+    bindings = dyn._macro_expander.visit(bindings)
 
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [k.id for k in names]  # any duplicates will be caught by env at run-time
