@@ -6,6 +6,9 @@ Both block and expression variants are provided.
 The printing can be customized; see ``dbgprint_block`` and ``dbgprint_expr``.
 """
 
+__all__ = ["dbgprint_block", "dbg_block",
+           "dbgprint_expr", "dbg_expr"]
+
 from ast import Call, Name, keyword
 
 from mcpyrate.quotes import macros, q, u, a, t, h  # noqa: F401

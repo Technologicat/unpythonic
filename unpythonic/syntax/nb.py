@@ -4,6 +4,8 @@
 Auto-print top-level expressions, auto-assign last result as _.
 """
 
+__all__ = ["nb"]
+
 # This is the kind of thing thinking with macros does to your program. ;)
 
 from ast import Expr

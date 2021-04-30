@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Implicitly reference attributes of an object."""
 
+__all__ = ["autoref"]
+
 from ast import (Name, Assign, Load, Call, Lambda, With, Constant, arg,
                  Attribute, Subscript, Store, Del)
 

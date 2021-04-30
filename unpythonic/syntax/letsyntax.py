@@ -4,6 +4,8 @@
 # at macro expansion time. If you're looking for regular run-time let et al. macros,
 # see letdo.py.
 
+__all__ = ["let_syntax_expr", "let_syntax_block"]
+
 from mcpyrate.quotes import macros, q, a  # noqa: F401
 
 from ast import (Name, Call, Starred, Expr, With,

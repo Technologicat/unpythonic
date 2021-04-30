@@ -5,6 +5,12 @@ Separate from letdo.py for dependency reasons.
 Separate from util.py due to the length.
 """
 
+__all__ = ["where",
+           "canonize_bindings",  # used by the macro interface layer
+           "isenvassign", "islet", "isdo",
+           "UnexpandedEnvAssignView", "UnexpandedLetView", "UnexpandedDoView",
+           "ExpandedLetView", "ExpandedDoView"]
+
 from ast import (Call, Name, Subscript, Index, Compare, In,
                  Tuple, List, Constant, BinOp, LShift, Lambda)
 import sys

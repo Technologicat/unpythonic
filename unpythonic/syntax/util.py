@@ -1,5 +1,19 @@
 # -*- coding: utf-8 -*-
-"""Utilities for working with syntax."""
+"""Utilities for working with syntax.
+
+This module also contains the definitions for working with "decorated lambdas".
+"""
+
+__all__ = ["isec", "detect_callec",
+           "detect_lambda",
+           "is_decorator",
+           "is_lambda_decorator", "is_decorated_lambda", "destructure_decorated_lambda",
+           "has_tco", "has_curry", "has_deco",
+           "sort_lambda_decorators", "suggest_decorator_index",
+           "eliminate_ifones", "transform_statements",
+           "wrapwith",
+           "isexpandedmacromarker", "UnpythonicExpandedMacroMarker",
+           "ExpandedContinuationsMarker", "ExpandedAutorefMarker"]
 
 from functools import partial
 

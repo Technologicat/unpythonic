@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Nondeterministic evaluation (a tuple comprehension with a multi-expr body)."""
 
+__all__ = ["forall", "insist", "deny"]
+
 from ast import Tuple, arg
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
@@ -9,8 +11,9 @@ from mcpyrate.splicing import splice_expression
 
 from .letdoutil import isenvassign, UnexpandedEnvAssignView
 from ..amb import monadify
-from ..amb import insist, deny  # for re-export only  # noqa: F401
 from ..misc import namelambda
+
+from ..amb import insist, deny  # for re-export only  # noqa: F401
 
 def forall(exprs):
     """[syntax, expr] Nondeterministic evaluation.

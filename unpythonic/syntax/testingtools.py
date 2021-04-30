@@ -4,6 +4,12 @@
 See also `unpythonic.test.fixtures` for the high-level machinery.
 """
 
+__all__ = ["isunexpandedtestmacro", "isexpandedtestmacro", "istestmacro",
+           "fail_expr", "error_expr", "warn_expr",
+           "the",
+           "test_expr", "test_expr_signals", "test_expr_raises",
+           "test_block", "test_block_signals", "test_block_raises"]
+
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym, unparse

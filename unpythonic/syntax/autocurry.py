@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Automatic currying. Transforms both function definitions and calls."""
 
+__all__ = ["autocurry"]
+
 from ast import Call, Lambda, FunctionDef, AsyncFunctionDef
 
 from mcpyrate.quotes import macros, q, a, h  # noqa: F401

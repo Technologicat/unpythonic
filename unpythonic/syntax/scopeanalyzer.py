@@ -67,6 +67,12 @@ point, and on the need for an "uninitialized" special value (called ☠), see:
     OOPSLA '13. http://dx.doi.org/10.1145/2509136.2509536
 """
 
+__all__ = ["isnewscope",
+           "scoped_transform",
+           "get_lexical_variables",
+           "get_names_in_store_context",
+           "get_names_in_del_context"]
+
 from ast import (Name, Tuple, Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
                  Import, ImportFrom, Try, ListComp, SetComp, GeneratorExp,
                  DictComp, Store, Del, Global, Nonlocal)

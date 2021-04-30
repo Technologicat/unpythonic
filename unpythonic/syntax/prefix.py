@@ -4,6 +4,8 @@
 Experimental, not for use in production code.
 """
 
+__all__ = ["prefix", "q", "u", "kw"]
+
 from ast import Name, Call, Starred, Tuple, Load, Subscript
 import sys
 

@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Utilities for working with identifiers in macros."""
+"""Utilities for working with identifiers in macros.
+
+Main purpose is to be able to query both direct and hygienically captured names
+with a unified API.
+"""
+
+__all__ = ["isx", "getname"]
 
 from ast import Name, Attribute
 

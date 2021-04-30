@@ -1,11 +1,21 @@
 # -*- coding: utf-8 -*-
 """Anaphoric if."""
 
+__all__ = ["aif", "it",
+           "cond"]
+
 from ast import Tuple
 
 from mcpyrate.quotes import macros, q, a  # noqa: F811, F401
 
 from .letdo import implicit_do, let
+
+def aif(tree):
+    test, then, otherwise = [implicit_do(x) for x in tree.elts]
+    bindings = [q[(it, a[test])]]
+    body = q[a[then] if it else a[otherwise]]
+    # TODO: we should use a hygienically captured macro here.
+    return let(bindings, body)
 
 # TODO: `mcpyrate` has a rudimentary capability like Racket's "syntax-parameterize".
 # TODO: Make `it` a name macro that errors out unless it appears inside an `aif`.
@@ -20,13 +30,6 @@ class it:
     def __repr__(self):  # pragma: no cover, we have a repr just in case one of these ends up somewhere at runtime.
         return "<aif it>"
 it = it()
-
-def aif(tree):
-    test, then, otherwise = [implicit_do(x) for x in tree.elts]
-    bindings = [q[(it, a[test])]]
-    body = q[a[then] if it else a[otherwise]]
-    # TODO: we should use a hygienically captured macro here.
-    return let(bindings, body)
 
 def cond(tree):
     if type(tree) is not Tuple:

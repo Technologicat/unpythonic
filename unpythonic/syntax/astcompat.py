@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """Conditionally import AST node types only supported by recent enough Python versions (3.7+)."""
 
-# This is an internal module and does not have an officially defined `__all__`.
-# Any names defined here are fair game to use anywhere inside `unpythonic.syntax`.
+__all__ = ["NamedExpr",
+           "Num", "Str", "Bytes", "NameConstant", "Ellipsis",
+           "Index", "ExtSlice",
+           "getconstant"]
 
 import ast
 

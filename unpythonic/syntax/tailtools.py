@@ -3,6 +3,10 @@
 
 The common factor is tail-position analysis."""
 
+__all__ = ["autoreturn",
+           "tco",
+           "call_cc", "continuations"]
+
 from functools import partial
 
 from ast import (Lambda, FunctionDef, AsyncFunctionDef,

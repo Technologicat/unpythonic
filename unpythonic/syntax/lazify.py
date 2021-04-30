@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Automatic lazy evaluation of function arguments."""
 
+__all__ = ["lazy", "lazyrec", "lazify"]
+
 from ast import (Lambda, FunctionDef, AsyncFunctionDef, Call, Name, Attribute,
                  Starred, keyword, List, Tuple, Dict, Set, Subscript, Load)
 

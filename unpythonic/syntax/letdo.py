@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 """Local bindings (let), imperative code in expression position (do)."""
 
+__all__ = ["let", "letseq", "letrec",
+           "dlet", "dletseq", "dletrec",
+           "blet", "bletseq", "bletrec",
+           "local", "delete", "do", "do0",
+           "implicit_do"]  # used by some other unpythonic.syntax constructs
+
 # Let constructs are implemented as sugar around unpythonic.lispylet.
 #
 # We take this approach because letrec needs assignment (must create

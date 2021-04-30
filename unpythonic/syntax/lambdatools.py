@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 """Lambdas with multiple expressions, local variables, and a name."""
 
+__all__ = ["multilambda",
+           "namedlambda",
+           "f",  # for quicklambda
+           "envify"]
+
 from ast import (Lambda, List, Name, Assign, Subscript, Call, FunctionDef,
                  AsyncFunctionDef, Attribute, keyword, Dict, Constant, arg,
                  copy_location)

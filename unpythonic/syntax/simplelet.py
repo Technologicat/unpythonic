@@ -15,6 +15,8 @@ This module is a copy of `demo/anaphoric_if_revisited/let.py` from `mcpyrate`.
 # Unlike the other submodules, this module contains the macro interface;
 # these macros are not part of the top-level ``unpythonic.syntax`` interface.
 
+__all__ = ["let", "letseq"]
+
 from mcpyrate.quotes import macros, q, a, t  # noqa: F811, F401
 
 from ast import arg
