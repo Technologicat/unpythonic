@@ -10,7 +10,7 @@ from unpythonic.dialects import dialects, Lispython  # noqa: F401
 def factorial(n):
     def f(k, acc):
         if k == 1:
-            return acc
+            return acc  # `return` is available to cause an early return
         f(k - 1, k * acc)
     f(n, acc=1)
 assert factorial(4) == 24
