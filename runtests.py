@@ -38,7 +38,8 @@ def main():
         # `test` (singular).
         testsets = (("regular code", (listtestmodules(os.path.join("unpythonic", "tests")) +
                                       listtestmodules(os.path.join("unpythonic", "net", "tests")))),
-                    ("macros", listtestmodules(os.path.join("unpythonic", "syntax", "tests"))))
+                    ("macros", listtestmodules(os.path.join("unpythonic", "syntax", "tests"))),
+                    ("dialects", listtestmodules(os.path.join("unpythonic", "dialects", "tests"))))
         for tsname, modnames in testsets:
             with testset(tsname):
                 for m in modnames:
