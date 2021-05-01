@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Test the LisThEll dialect."""
+"""Test the Listhell dialect."""
 
 # from mcpyrate.debug import dialects, StepExpansion
 from ...dialects import dialects, Listhell  # noqa: F401
@@ -38,7 +38,7 @@ def runtests():
 
         # Be careful:
         #
-        # In LisThEll, `(x,)` means "call the 0-arg function `x`".
+        # In Listhell, `(x,)` means "call the 0-arg function `x`".
         # But if `x` is not callable, `currycall` will return
         # the value as-is (needed for interaction with `call_ec`
         # and some other replace-def-with-value decorators).

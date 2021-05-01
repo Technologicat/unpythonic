@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""LisThEll: it's not Lisp, it's not Python, it's not Haskell.
+"""Listhell: it's not Lisp, it's not Python, it's not Haskell.
 
 Powered by `mcpyrate` and `unpythonic`.
 """

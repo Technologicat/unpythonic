@@ -102,9 +102,10 @@ def runtests():
                       (double, x)]]
             test[a == 6]
 
-    # Introducing the LisThEll programming language: an all-in-one solution with
+    # Introducing the Listhell programming language: an all-in-one solution with
     # the prefix syntax of Lisp, the speed of Python, and the readability of Haskell!
-    with testset("LisThEll"):
+    # If you want to play around with this idea, see `unpythonic.dialects.listhell`.
+    with testset("Listhell"):
         # `prefix` is a first-pass macro, so placed on the outside, it expands first.
         with prefix:
             with autocurry:
