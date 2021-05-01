@@ -1,8 +1,10 @@
 ## Lispython: The love child of Python and Scheme
 
-![mascot](lis.png)
+Python with automatic tail-call optimization, an implicit return statement, and automatically named, multi-expression lambdas.
 
 Powered by [`mcpyrate`](https://github.com/Technologicat/mcpyrate/) and `unpythonic`.
+
+![mascot](lis.png)
 
 ```python
 from unpythonic.dialects import dialects, Lispython  # noqa: F401
@@ -11,7 +13,7 @@ def factorial(n):
     def f(k, acc):
         if k == 1:
             return acc
-        f(k - 1, k*acc)
+        f(k - 1, k * acc)
     f(n, acc=1)
 assert factorial(4) == 24
 factorial(5000)  # no crash
@@ -25,7 +27,7 @@ square = lambda x: x**2
 assert square(3) == 9
 assert square.__name__ == "square"
 
-g = lambda x: [local[y << 2*x],
+g = lambda x: [local[y << 2 * x],
                y + 1]
 assert g(10) == 21
 

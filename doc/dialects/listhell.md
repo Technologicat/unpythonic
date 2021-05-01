@@ -1,5 +1,7 @@
 ## Listhell: It's not Lisp, it's not Python, it's not Haskell
 
+Python with prefix syntax for function calls, and automatic currying.
+
 Powered by [`mcpyrate`](https://github.com/Technologicat/mcpyrate/) and `unpythonic`.
 
 ```python
