@@ -201,14 +201,10 @@ As of the first half of 2021, the main target platforms are **CPython 3.8** and 
   - *Macros are the nuclear option of software engineering.*
     - Only make a macro when a regular function can't do what is needed.
     - Sometimes a regular code core with a thin macro layer on top, to improve the user experience, is the appropriate solution for [minimizing magic](https://macropy3.readthedocs.io/en/latest/discussion.html#minimize-macro-magic). See `do`, `let`, `autocurry`, `forall` for examples.
-  - `unpythonic/syntax/__init__.py` is very long (> 2000 lines), because:
-    - For technical reasons, as of MacroPy 1.1.0b2, it's not possible to re-export macros defined in another module. (As of `unpythonic` 0.15, this is no longer relevant, since we use `mcpyrate`, which **can** re-export macros. So `unpythonic.syntax` may be revised in a future version of `unpythonic`.)
-    - Therefore, all macro entry points must reside in `unpythonic/syntax/__init__.py`, so that user code can `from unpythonic.syntax import macros, something`, without caring about how the `unpythonic.syntax` package is internally organized.
-    - The docstring must be placed on the macro entry point, so that the REPL will find it. This forces all macro docstrings into that one module. (That's less magic than injecting them dynamically when `unpythonic` boots up.)
     - A macro entry point can be just a thin wrapper around the relevant [*syntax transformer*](http://www.greghendershott.com/fear-of-macros/): a regular function, which takes and returns an AST.
-  - You can have an expr, block and decorator macro with the same name, in the same module, by making the macro interface into a dispatcher. See the `syntax` kw in `mcpyrate`.
-  - Syntax transformers can and should be sensibly organized into modules, just like any other regular (non-macro) code.
-    - But they don't need docstrings, since the macro entry point already has the docstring.
+  - You can have an expr, block and decorator macro with the same name, in the same module, by making the macro interface into a dispatcher. See the `syntax` kwarg in `mcpyrate`.
+  - Macros and syntax transformers should be sensibly organized into modules, just like any other regular (non-macro) code.
+    - The docstring should usually be placed on the macro entry point, so the syntax transformer typically does not need one.
   - If your syntax transformer (or another one it internally uses) needs `mcpyrate` `**kw` arguments:
     - Declare the relevant `**kw`s as parameters for the macro entry point, therefore requesting `mcpyrate` to provide them. Stuff them into `dyn` using `with dyn.let(...)`, and call your syntax transformer, which can then get the `**kw`s from `dyn`. See the existing macros for examples.
     - Using `dyn` keeps the syntax transformer call signatures clean, while limiting the dynamic extent of what is effectively a global assignment. If we used only function parameters, some of the high-level syntax transformers would have to declare `expander` just to pass it through, possibly through several layers, until it reaches the low-level syntax transformer that actually needs it. Avoiding such a parameter definition cascade is exactly the use case `dyn` was designed for.
