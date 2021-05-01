@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
 """Test the Lispython dialect."""
 
-# See the `mcpyrate` dialects user manual:
-# https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md
-
 from ...dialects import dialects, Lispython  # noqa: F401
 
-# Can use macros, too.
 from ...syntax import macros, continuations, call_cc  # noqa: F401
 
 # `unpythonic` is effectively `lispython`'s stdlib; not everything gets imported by default.
@@ -21,7 +17,9 @@ from operator import mul
 
 # TODO: use the test framework
 
-def main():
+def runtests():
+    print(f"Hello from {__lang__}!")  # noqa: F821, the dialect template defines it.
+
     assert prod((2, 3, 4)) == 24  # noqa: F821, bye missing battery, hello new dialect builtin
     assert foldl(mul, 1, (2, 3, 4)) == 24
 
@@ -131,4 +129,4 @@ def main():
     print("All tests PASSED")
 
 if __name__ == '__main__':
-    main()
+    runtests()

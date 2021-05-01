@@ -26,6 +26,7 @@ class Lispython(Dialect):
 
     def transform_ast(self, tree):  # tree is an ast.Module
         with q as template:
+            __lang__ = "Lispython"  # noqa: F841, just provide it to user code.
             from unpythonic.syntax import (macros, tco, autoreturn,  # noqa: F401, F811
                                            multilambda, quicklambda, namedlambda, f,
                                            let, letseq, letrec,
