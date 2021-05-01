@@ -568,6 +568,31 @@ with continuations:  # enables also TCO automatically
 </details>
 
 
+#### Unpythonic in 30 seconds: Language extensions with dialects
+
+<details><summary>Lispython: The love child of Python and Scheme.</summary>
+
+[[docs](doc/dialects.md)]
+
+The [dialects subsystem of `mcpyrate`](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) makes Python into a language platform, à la [Racket](https://racket-lang.org/). We provide some example dialects based on `unpythonic`'s macro layer.
+
+For example, what if Python had automatic tail-call optimization and an implicit return statement? Look no further:
+
+```python
+from unpythonic.dialects import dialects, Lispython  # noqa: F401
+
+def factorial(n):
+    def f(k, acc):
+        if k == 1:
+            return acc
+        f(k - 1, k * acc)
+    f(n, acc=1)
+assert factorial(4) == 24
+factorial(5000)  # no crash
+```
+</details>
+
+
 ## Installation
 
 **PyPI**
