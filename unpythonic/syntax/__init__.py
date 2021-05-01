@@ -134,9 +134,7 @@ from ..dynassign import make_dynvar
 
 # TODO: with mcpyrate, do we really need to set `ctx` in our macros? (does our macro code need it?)
 
-# TODO: Move dialect examples from `pydialect` into a new package, `unpythonic.dialects`.
-# TODO: `mcpyrate` now provides the necessary infrastructure, while `unpythonic` has the macros
-# TODO: needed to make interesting things happen. Update docs accordingly for both projects.
+# TODO: Now that `unpythonic` provides dialects, update `mcpyrate` docs.
 
 # TODO: AST pattern matching for `mcpyrate`? Would make destructuring easier. A writable representation (auto-viewify) is a pain to build, though...
 
