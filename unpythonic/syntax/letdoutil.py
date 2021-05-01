@@ -131,10 +131,12 @@ def islet(tree, expanded=True):
     if not type(tree) is Subscript:
         return False
     # let[(k0, v0), ...][body]
+    # let((k0, v0), ...)[body]
     # ^^^^^^^^^^^^^^^^^^
     macro = tree.value
     # let[(k0, v0), ...][body]
-    #                    ^^^^^
+    # let((k0, v0), ...)[body]
+    #                    ^^^^
     if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
         expr = tree.slice
     else:
@@ -142,6 +144,10 @@ def islet(tree, expanded=True):
     exprnames = ("let", "letseq", "letrec", "let_syntax", "abbrev")
     if type(macro) is Subscript and type(macro.value) is Name:
         s = macro.value.id
+        if any(s == x for x in exprnames):
+            return ("lispy_expr", s)
+    elif type(macro) is Call and type(macro.func) is Name:  # alternative parenthesis syntax to pass macro arguments
+        s = macro.func.id
         if any(s == x for x in exprnames):
             return ("lispy_expr", s)
     # The haskelly syntaxes are only available as a let expression (no decorator form).
@@ -288,6 +294,11 @@ class UnexpandedLetView:
         let[((k0, v0), ...) in body]     # haskelly expression
         let[body, where((k0, v0), ...)]  # haskelly expression, inverted
 
+    Lispy expressions are supported also using the old parenthesis syntax
+    to pass macro parameters::
+
+        let((k0, v0), ...)[body]         # lispy expression
+
     In addition, we also support *just the bracketed part* of the haskelly
     formats. This is to make it easier for the macro interface to destructure
     these forms (for sending into the ``let`` syntax transformer). So these
@@ -365,12 +376,17 @@ class UnexpandedLetView:
             else:
                 theargs = self._tree.slice.value
             return canonize_bindings(theargs.elts)
-        elif t == "lispy_expr":  # Subscript inside a Subscript, (let[...])[...]
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                theargs = self._tree.value.slice
-            else:
-                theargs = self._tree.value.slice.value
-            return canonize_bindings(theargs.elts)
+        elif t == "lispy_expr":
+            # Subscript inside a Subscript, (let[...])[...]
+            if type(self._tree.value) is Subscript:
+                if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+                    theargs = self._tree.value.slice.elts
+                else:
+                    theargs = self._tree.value.slice.value.elts
+            # Call inside a Subscript, (let(...))[...], parenthesis syntax to pass macro arguments
+            else:  # type(self._tree.value) is Call:
+                theargs = self._tree.value.args
+            return canonize_bindings(theargs)
         else:  # haskelly let, let[(...) in ...], let[..., where(...)]
             theexpr = self._theexpr_ref()
             if t == "in_expr":
@@ -389,10 +405,15 @@ class UnexpandedLetView:
             else:
                 self._tree.slice.value.elts = newbindings
         elif t == "lispy_expr":
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                self._tree.value.slice.elts = newbindings
-            else:
-                self._tree.value.slice.value.elts = newbindings
+            # Subscript inside a Subscript, (let[...])[...]
+            if type(self._tree.value) is Subscript:
+                if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+                    self._tree.value.slice.elts = newbindings
+                else:
+                    self._tree.value.slice.value.elts = newbindings
+            # Call inside a Subscript, (let(...))[...], parenthesis syntax to pass macro arguments
+            else:  # type(self._tree.value) is Call:
+                self._tree.value.args = newbindings
         else:
             theexpr = self._theexpr_ref()
             if t == "in_expr":
