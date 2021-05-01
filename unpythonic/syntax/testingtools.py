@@ -5,14 +5,13 @@ See also `unpythonic.test.fixtures` for the high-level machinery.
 """
 
 __all__ = ["isunexpandedtestmacro", "isexpandedtestmacro", "istestmacro",
-           "fail_expr", "error_expr", "warn_expr",
-           "the",
-           "test_expr", "test_expr_signals", "test_expr_raises",
-           "test_block", "test_block_signals", "test_block_raises"]
+           "the", "test",
+           "test_signals", "test_raises",
+           "fail", "error", "warn"]
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
-from mcpyrate import gensym, unparse
+from mcpyrate import gensym, parametricmacro, unparse
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
@@ -30,8 +29,396 @@ from .util import isx
 
 from ..test import fixtures  # unpythonic.test.fixtures, regular (non-macro) code belonging to the framework
 
+# --------------------------------------------------------------------------------
+# Macro interface
+
+def the(tree, **kw):
+    """[syntax, expr] In a test, mark a subexpression as the interesting one.
+
+    Only meaningful inside a `test[]`, or inside a `with test` block.
+
+    What `test[expr]` captures for reporting for human inspection upon
+    test failure:
+
+      - If any `the[...]` are present, the subexpressions marked as `the[...]`.
+
+      - Else if `expr` is a comparison, the LHS (leftmost term in case of
+        a chained comparison). So e.g. `test[x < 3]` needs no annotation
+        to do the right thing. This is a common use case, hence automatic.
+
+      - Else nothing is captured; the value of the whole `expr` is reported.
+
+    So the `the[...]` mark is useful in tests involving comparisons::
+
+        test[lower_limit < the[computeitem(...)]]
+        test[lower_limit < the[computeitem(...)] < upper_limit]
+        test[myconstant in the[computeset(...)]]
+
+    especially if you need to capture several subexpressions::
+
+        test[the[counter()] < the[counter()]]
+
+    Note the above rules mean that if there is just one interesting
+    subexpression, and it is the leftmost term of a comparison, `the[...]`
+    is optional, although allowed (to explicitly document intent).
+    These have the same effect::
+
+        test[the[computeitem(...)] in myitems]
+        test[computeitem(...) in myitems]
+
+    The `the[...]` mark passes the value through, and does not affect the
+    evaluation order of user code.
+
+    A `test[...]` may have multiple `the[...]`; the captured values are
+    gathered in a list that is shown upon test failure.
+
+    In case of nested tests, each `the[...]` is understood as belonging to
+    the lexically innermost surrounding test.
+
+    For `test_raises` and `test_signals`, the `the[...]` mark is not supported.
+    """
+    raise SyntaxError("the[] is only meaningful inside a `test[]` or in a `with test` block")  # pragma: no cover, not meant to hit the expander
+
+@parametricmacro
+def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
+    """[syntax, expr/block] Make a test assertion. For writing automated tests.
+
+    **Testing overview**:
+
+    Use the `test[]`, `test_raises[]`, `test_signals[]`, `fail[]`, `error[]`
+    and `warn[]` macros inside a `with testset()`, as appropriate.
+
+    See `testset` and `session` in the module `unpythonic.test.fixtures`,
+    as well as the docstrings of any constructs exported from that module.
+
+    See below for tips and tricks.
+
+    Finally, see the unit tests of `unpythonic` itself for examples.
+
+    **Expression variant**:
+
+    Syntax::
+
+        test[expr]
+        test[expr, message]
+
+    The test succeeds if `expr` evaluates to truthy. The `message`
+    is used in forming the error message if the test fails or errors.
+
+    If you want to assert just that an expression runs to completion
+    normally, and don't care about the return value::
+
+        from unpythonic.test.fixtures import returns_normally
+
+        test[returns_normally(expr)]
+        test[returns_normally(expr), message]
+
+    This can be useful for testing functions with side effects; sometimes
+    what is important is that the function completes normally.
+
+    What `test[expr]` captures for reporting as "result" in the failure
+    message, if the test fails:
+
+      - If a `the[...]` mark is present, the subexpression marked as `the[...]`.
+        At most one `the[]` may appear in a single `test[...]`.
+      - Else if `expr` is a comparison, the LHS (leftmost term in case of
+        a chained comparison). So e.g. `test[x < 3]` needs no annotation
+        to do the right thing. This is a common use case, hence automatic.
+      - Else the whole `expr`.
+
+    The `the[...]` mark is useful in tests involving comparisons::
+
+        test[lower_limit < the[computeitem(...)]]
+        test[lower_limit < the[computeitem(...)] < upper_limit]
+        test[myconstant in the[computeset(...)]]
+
+    If your interesting part is on the LHS, `the[]` is optional, although
+    allowed (to explicitly document intent). These have the same effect::
+
+        test[the[computeitem(...)] in myitems]
+        test[computeitem(...) in myitems]
+
+    The `the[...]` mark passes the value through, and does not affect the
+    evaluation order of user code.
+
+    The `the[]` mark can be imported as a macro from this module, so that
+    its appearance in your source code won't confuse `flake8`, and you'll
+    get a nice macro-expansion-time error if it accidentally appears outside
+    a `test[]` or `with test:`.
+
+    **Block variant**:
+
+    A test that requires statements (e.g. assignments) can be written as a
+    `with test` block::
+
+        with test:
+            body0
+            ...
+            return expr  # optional
+
+        with test[message]:
+            body0
+            ...
+            return expr  # optional
+
+    The test block is automatically lifted into a function, so it introduces
+    **a local scope**. Use the `nonlocal` or `global` declarations if you need
+    to mutate something defined on the outside.
+
+    If there is a `return` at the top level of the block, that is the return
+    value from the test; it is what will be asserted.
+
+    If there is no `return`, the test asserts that the block completes normally,
+    just like a `test[returns_normally(...)]` does for an expression.
+
+    The asymmetry in syntax reflects the asymmetry between expressions and
+    statements in Python. Likewise, the fact that `with test` requires `return`
+    to return a value, but `test[...]` doesn't, is similar to the difference
+    between `def` and `lambda`.
+
+    In the block variant, the "result" capture rules apply to the return value
+    designated by `return`. To override, the `the[]` mark can be used for
+    capturing the value of any one expression inside the block. The mark
+    doesn't have to be in the `return`.
+
+    At most one `the[]` may appear in the same `with test` block.
+
+    **Failure and error signaling**:
+
+    Upon a test failure, `test[]` will *signal* a `TestFailure` using the
+    *cerror* (correctable error) protocol, via unpythonic's condition
+    system, which is a pythonification of Common Lisp's condition system.
+    See `unpythonic.conditions`.
+
+    If a test fails to run to completion due to an uncaught exception or an
+    unhandled signal (e.g. an `error` or `cerror` condition), `TestError`
+    is signaled instead, so the caller can easily tell apart which case
+    occurred.
+
+    Finally, when a `warn[]` runs, `TestWarning` is signaled.
+
+    These condition types are defined in `unpythonic.test.fixtures`.
+    They inherit from `TestingException`, defined in the same module.
+    Beside the human-readable message, these exception types contain
+    attributes with programmatically inspectable information about
+    what happened. See the docstring of `TestingException`.
+
+    *Signaling* a condition, instead of *raising* an exception, allows the
+    surrounding code (inside the test framework) to install a handler that
+    invokes the `proceed` restart (if there is such in scope), so upon a test
+    failure or error, the test suite resumes.
+
+    **Disabling the signal barrier**:
+
+    As implied above, `test[]` (likewise `with test:`) forms a barrier that
+    alerts the user about uncaught signals, and stops those signals from
+    propagating further. If your `with handlers` block that needs to see
+    the signal is outside the `test` invocation, or if allowing a signal to
+    go uncaught is part of normal operation (e.g. `warn` signals are often
+    not caught, because the only reason to do so is to muffle the warning),
+    use a `with catch_signals(False):` block (from the module
+    `unpythonic.test.fixtures`) to disable the signal barrier::
+
+        from unpythonic.test.fixtures import catch_signals
+
+        with catch_signals(False):
+            test[...]
+
+    Another way to avoid catching signals that should not be caught by the
+    test framework is to rearrange the `test[]` so that the expression being
+    asserted cannot result in an uncaught signal. For example, save the result
+    of a computation into a variable first, and then use it in the `test[]`,
+    instead of invoking that computation inside the `test[]`. See
+    `unpythonic.test.test_conditions` for examples.
+
+    Exceptions are always caught by `test[]`, because exceptions do not support
+    resumption; unlike with signals, the inner level of the call stack is already
+    destroyed by the time the exception is caught by the test construct.
+    """
+    if syntax not in ("expr", "block"):
+        raise SyntaxError("test is an expr and block macro only")
+
+    # Two-pass macros.
+    with dyn.let(_macro_expander=expander):
+        if syntax == "expr":
+            if args:
+                raise SyntaxError("test[] in expression mode does not take macro arguments")
+            return test_expr(tree)
+        else:  # syntax == "block":
+            return test_block(block_body=tree, args=args)
+
+@parametricmacro
+def test_signals(tree, *, args, syntax, expander, **kw):  # noqa: F811
+    """[syntax, expr/block] Like `test`, but expect the expression to signal a condition.
+
+    "Signal" as in `unpythonic.conditions.signal` and its sisters.
+
+    Syntax::
+
+        test_signals[exctype, expr]
+        test_signals[exctype, expr, message]
+
+        with test_signals[exctype]:
+            body0
+            ...
+
+        with test_signals[exctype, message]:
+            body0
+            ...
+
+    Example::
+
+        test_signals[ValueError, myfunc()]
+        test_signals[ValueError, myfunc(), "failure message"]
+
+    The test succeeds, if `expr` signals a condition of type `exctype`, and the
+    signal propagates into the (implicit) handler inside the `test_signals[]`
+    construct.
+
+    If `expr` returns normally, the test fails.
+
+    If `expr` signals some other type of condition, or raises an exception, the
+    test errors.
+
+    **Differences to `test[]`, `with test`**:
+
+    As the focus of this construct is on signaling vs. returning normally, the
+    `the[]` mark is not supported. The block variant does not support `return`.
+    """
+    if syntax not in ("expr", "block"):
+        raise SyntaxError("test_signals is an expr and block macro only")
+
+    # Two-pass macros.
+    with dyn.let(_macro_expander=expander):
+        if syntax == "expr":
+            if args:
+                raise SyntaxError("test_signals[] in expression mode does not take macro arguments")
+            return test_expr_signals(tree)
+        else:  # syntax == "block":
+            return test_block_signals(block_body=tree, args=args)
+
+@parametricmacro
+def test_raises(tree, *, args, syntax, expander, **kw):  # noqa: F811
+    """[syntax, expr/block] Like `test`, but expect the expression to raise an exception.
+
+    Syntax::
+
+        test_raises[exctype, expr]
+        test_raises[exctype, expr, message]
+
+        with test_raises[exctype]:
+            body0
+            ...
+
+        with test_raises[exctype, message]:
+            body0
+            ...
+
+    Example::
+
+        test_raises[TypeError, issubclass(1, int)]
+        test_raises[ValueError, myfunc()]
+        test_raises[ValueError, myfunc(), "failure message"]
+
+    The test succeeds, if `expr` raises an exception of type `exctype`, and the
+    exception propagates into the (implicit) handler inside the `test_raises[]`
+    construct.
+
+    If `expr` returns normally, the test fails.
+
+    If `expr` signals a condition, or raises some other type of exception, the
+    test errors.
+
+    **Differences to `test[]`, `with test`**:
+
+    As the focus of this construct is on raising vs. returning normally, the
+    `the[]` mark is not supported. The block variant does not support `return`.
+    """
+    if syntax not in ("expr", "block"):
+        raise SyntaxError("test_raises is an expr and block macro only")
+
+    with dyn.let(_macro_expander=expander):
+        if syntax == "expr":
+            if args:
+                raise SyntaxError("test_raises[] in expression mode does not take macro arguments")
+            return test_expr_raises(tree)
+        else:  # syntax == "block":
+            return test_block_raises(block_body=tree, args=args)
+
+def fail(tree, *, syntax, expander, **kw):  # noqa: F811
+    """[syntax, expr] Produce a test failure, unconditionally.
+
+    Useful to e.g. mark a line of code that should not be reached in automated
+    tests, reaching which is therefore a test failure.
+
+    Usage::
+
+        fail["human-readable reason"]
+
+    which has the same effect as::
+
+        test[False, "human-readable reason"]
+
+    except in the case of `fail[]`, the error message generating machinery is
+    special-cased to omit the source code expression, because it explicitly
+    states that the intent of the "test" is not actually to perform a test.
+
+    See also `error[]`, `warn[]`.
+    """
+    if syntax != "expr":
+        raise SyntaxError("fail is an expr macro only")
+
+    # Expand outside in. The ordering shouldn't matter here.
+    # The underlying `test` machinery needs to access the expander.
+    with dyn.let(_macro_expander=expander):
+        return fail_expr(tree)
+
+def error(tree, *, syntax, expander, **kw):  # noqa: F811
+    """[syntax, expr] Produce a test error, unconditionally.
+
+    Useful to e.g. indicate to the user that an optional dependency that could
+    be used to run some integration test is not installed.
+
+    Usage::
+
+        error["human-readable reason"]
+
+    See also `warn[]`, `fail[]`.
+    """
+    if syntax != "expr":
+        raise SyntaxError("error is an expr macro only")
+
+    # Expand outside in. The ordering shouldn't matter here.
+    # The underlying `test` machinery needs to access the expander.
+    with dyn.let(_macro_expander=expander):
+        return error_expr(tree)
+
+def warn(tree, *, syntax, expander, **kw):  # noqa: F811
+    """[syntax, expr] Produce a test warning, unconditionally.
+
+    Useful to e.g. indicate that the Python interpreter or version the
+    tests are running on does not support a particular test, or to alert
+    about a non-essential TODO.
+
+    A warning does not increase the failure count, so it will not cause
+    your CI workflow to break.
+
+    Usage::
+
+        warn["human-readable reason"]
+
+    See also `error[]`, `fail[]`.
+    """
+    if syntax != "expr":
+        raise SyntaxError("warn is an expr macro only")
+
+    # Expand outside in. The ordering shouldn't matter here.
+    # The underlying `test` machinery needs to access the expander.
+    with dyn.let(_macro_expander=expander):
+        return warn_expr(tree)
+
 # -----------------------------------------------------------------------------
-# Helper for other macros to detect uses of the ones we define here.
+# Helpers for other macros to detect uses of the ones we defined here.
 
 # Note the unexpanded `error[]` macro is distinguishable from a call to
 # the function `unpythonic.conditions.error`, because a macro invocation
@@ -59,7 +446,7 @@ def istestmacro(tree):
     return isunexpandedtestmacro(tree) or isexpandedtestmacro(tree)
 
 # -----------------------------------------------------------------------------
-# Regular code, no macros yet.
+# Run-time helpers.
 
 _fail = sym("_fail")  # used by the fail[] macro
 _error = sym("_error")  # used by the error[] macro
@@ -344,8 +731,9 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, me
 
 
 # -----------------------------------------------------------------------------
-# Syntax transformers for the macros.
+# Syntax transformers
 
+# fail/error/warn
 def _unconditional_error_expr(tree, syntaxname, marker):
     thetuple = q[(a[marker], a[tree])]   # consider `test[tree, message]`
     thetuple = copy_location(thetuple, tree)
@@ -359,96 +747,8 @@ def error_expr(tree):
 def warn_expr(tree):
     return _unconditional_error_expr(tree, "warn", q[h[_warn]])
 
-# -----------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
 # Expr variants.
-
-def the(tree, **kw):
-    """[syntax, expr] In a test, mark a subexpression as the interesting one.
-
-    Only meaningful inside a `test[]`, or inside a `with test` block.
-
-    What `test[expr]` captures for reporting for human inspection upon
-    test failure:
-
-      - If any `the[...]` are present, the subexpressions marked as `the[...]`.
-
-      - Else if `expr` is a comparison, the LHS (leftmost term in case of
-        a chained comparison). So e.g. `test[x < 3]` needs no annotation
-        to do the right thing. This is a common use case, hence automatic.
-
-      - Else nothing is captured; the value of the whole `expr` is reported.
-
-    So the `the[...]` mark is useful in tests involving comparisons::
-
-        test[lower_limit < the[computeitem(...)]]
-        test[lower_limit < the[computeitem(...)] < upper_limit]
-        test[myconstant in the[computeset(...)]]
-
-    especially if you need to capture several subexpressions::
-
-        test[the[counter()] < the[counter()]]
-
-    Note the above rules mean that if there is just one interesting
-    subexpression, and it is the leftmost term of a comparison, `the[...]`
-    is optional, although allowed (to explicitly document intent).
-    These have the same effect::
-
-        test[the[computeitem(...)] in myitems]
-        test[computeitem(...) in myitems]
-
-    The `the[...]` mark passes the value through, and does not affect the
-    evaluation order of user code.
-
-    A `test[...]` may have multiple `the[...]`; the captured values are
-    gathered in a list that is shown upon test failure.
-
-    In case of nested tests, each `the[...]` is understood as belonging to
-    the lexically innermost surrounding test.
-
-    For `test_raises` and `test_signals`, the `the[...]` mark is not supported.
-    """
-    raise SyntaxError("the[] is only meaningful inside a `test[]` or in a `with test` block")  # pragma: no cover, not meant to hit the expander
-
-# Destructuring utilities for marking a custom part of the expr
-# to be displayed upon test failure, using `the[...]`:
-#   test[myconstant in the[computeset(...)]]
-#   test[the[computeitem(...)] in expected_results_plus_uninteresting_items]
-def _is_important_subexpr_mark(tree):
-    return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "the"
-def _record_value(envname, sourcecode, value):
-    envname.captured_values.append((sourcecode, value))
-    return value
-def _inject_value_recorder(envname, tree):  # wrap tree with the the[] handler
-    recorder = q[h[_record_value]]  # TODO: stash hygienic value?
-    return q[a[recorder](n[envname],
-                         u[unparse(tree)],
-                         a[tree])]
-def _transform_important_subexpr(tree, envname):
-    # The the[] mark mechanism is invoked outside-in, because for reporting,
-    # it needs to capture the source AST in the form the code appears in the
-    # actual source file.
-    class ImportantSubexprTransformer(ASTTransformer):
-        def transform(self, tree):
-            if is_captured_value(tree):
-                return tree  # don't recurse!
-            # Respect the boundaries of nested test constructs (don't recurse there).
-            if isunexpandedtestmacro(tree):
-                return tree
-            elif _is_important_subexpr_mark(tree):
-                if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                    thing = tree.slice
-                else:
-                    thing = tree.slice.value
-                self.collect(thing)  # or anything really; value not used, we just count them.
-                # Handle any nested the[] subexpressions
-                subtree = self.visit(thing)
-                return _inject_value_recorder(envname, subtree)
-            else:
-                return self.generic_visit(tree)  # recurse
-    transformer = ImportantSubexprTransformer()
-    tree = transformer.visit(tree)
-    return tree, transformer.collected
-
 
 def test_expr(tree):
     # Note we want the line number *before macro expansion*, so we capture it now.
@@ -499,6 +799,53 @@ def test_expr(tree):
                            lineno=a[ln],
                            message=a[message])]
 
+# Destructuring utilities for marking a custom part of the expr
+# to be displayed upon test failure, using `the[...]`:
+#   test[myconstant in the[computeset(...)]]
+#   test[the[computeitem(...)] in expected_results_plus_uninteresting_items]
+# These are used by `test_expr` and `test_block`.
+def _is_important_subexpr_mark(tree):
+    return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "the"
+def _record_value(envname, sourcecode, value):
+    envname.captured_values.append((sourcecode, value))
+    return value
+def _inject_value_recorder(envname, tree):  # wrap tree with the the[] handler
+    recorder = q[h[_record_value]]  # TODO: stash hygienic value?
+    return q[a[recorder](n[envname],
+                         u[unparse(tree)],
+                         a[tree])]
+def _transform_important_subexpr(tree, envname):
+    # The the[] mark mechanism is invoked outside-in, because for reporting,
+    # it needs to capture the source AST in the form the code appears in the
+    # actual source file.
+    class ImportantSubexprTransformer(ASTTransformer):
+        def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
+            # Respect the boundaries of nested test constructs (don't recurse there).
+            if isunexpandedtestmacro(tree):
+                return tree
+            elif _is_important_subexpr_mark(tree):
+                if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+                    thing = tree.slice
+                else:
+                    thing = tree.slice.value
+                self.collect(thing)  # or anything really; value not used, we just count them.
+                # Handle any nested the[] subexpressions
+                subtree = self.visit(thing)
+                return _inject_value_recorder(envname, subtree)
+            else:
+                return self.generic_visit(tree)  # recurse
+    transformer = ImportantSubexprTransformer()
+    tree = transformer.visit(tree)
+    return tree, transformer.collected
+
+
+def test_expr_signals(tree):
+    return _test_expr_signals_or_raises(tree, "test_signals", q[h[unpythonic_assert_signals]])
+def test_expr_raises(tree):
+    return _test_expr_signals_or_raises(tree, "test_raises", q[h[unpythonic_assert_raises]])
+
 def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = q[h[callsite_filename]()]
@@ -529,11 +876,6 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
                            filename=a[filename],
                            lineno=a[ln],
                            message=a[message])]
-
-def test_expr_signals(tree):
-    return _test_expr_signals_or_raises(tree, "test_signals", q[h[unpythonic_assert_signals]])
-def test_expr_raises(tree):
-    return _test_expr_signals_or_raises(tree, "test_raises", q[h[unpythonic_assert_raises]])
 
 # -----------------------------------------------------------------------------
 # Block variants.
@@ -583,8 +925,8 @@ def test_block(block_body, args):
                               message=a[message])]
     with q as newbody:
         def _insert_funcname_here_(_insert_envname_here_):
-            ...
-        a[thetest]
+            ...  # to be filled in below
+        a[thetest]  # call the asserter
     thefunc = newbody[0]
     thefunc.name = testblock_function_name
     thefunc.args.args[0] = arg(arg=envname)  # inject the gensymmed parameter name
@@ -610,6 +952,12 @@ def test_block(block_body, args):
     thefunc.body = block_body
 
     return newbody
+
+
+def test_block_signals(block_body, args):
+    return _test_block_signals_or_raises(block_body, args, "test_signals", q[h[unpythonic_assert_signals]])
+def test_block_raises(block_body, args):
+    return _test_block_signals_or_raises(block_body, args, "test_raises", q[h[unpythonic_assert_raises]])
 
 def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
     if not block_body:
@@ -655,8 +1003,3 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
     thefunc.name = testblock_function_name
     thefunc.body = block_body
     return newbody
-
-def test_block_signals(block_body, args):
-    return _test_block_signals_or_raises(block_body, args, "test_signals", q[h[unpythonic_assert_signals]])
-def test_block_raises(block_body, args):
-    return _test_block_signals_or_raises(block_body, args, "test_raises", q[h[unpythonic_assert_raises]])

@@ -4,7 +4,7 @@
 # at macro expansion time. If you're looking for regular run-time let et al. macros,
 # see letdo.py.
 
-__all__ = ["let_syntax_expr", "let_syntax_block"]
+__all__ = ["let_syntax", "abbrev"]
 
 from mcpyrate.quotes import macros, q, a  # noqa: F401
 
@@ -12,11 +12,163 @@ from ast import (Name, Call, Starred, Expr, With,
                  FunctionDef, AsyncFunctionDef, ClassDef, Attribute)
 from copy import deepcopy
 
+from mcpyrate import parametricmacro
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
-from .letdo import implicit_do
+from .letdo import implicit_do, _destructure_and_apply_let
 from .util import eliminate_ifones
+
+# --------------------------------------------------------------------------------
+# Macro interface
+
+# TODO: change the block() construct to block[], for syntactic consistency
+@parametricmacro
+def let_syntax(tree, *, args, syntax, expander, **kw):
+    """[syntax, expr/block] Introduce local **syntactic** bindings.
+
+    **Expression variant**::
+
+        let_syntax[(lhs, rhs), ...][body]
+        let_syntax[(lhs, rhs), ...][[body0, ...]]
+
+    Alternative haskelly syntax::
+
+        let_syntax[((lhs, rhs), ...) in body]
+        let_syntax[((lhs, rhs), ...) in [body0, ...]]
+
+        let_syntax[body, where((lhs, rhs), ...)]
+        let_syntax[[body0, ...], where((lhs, rhs), ...)]
+
+    **Block variant**::
+
+        with let_syntax:
+            with block as xs:          # capture a block of statements - bare name
+                ...
+            with block(a, ...) as xs:  # capture a block of statements - template
+                ...
+            with expr as x:            # capture a single expression - bare name
+                ...
+            with expr(a, ...) as x:    # capture a single expression - template
+                ...
+            body0
+            ...
+
+    A single expression can be a ``do[]`` if multiple expressions are needed.
+
+    The bindings are applied **at macro expansion time**, substituting
+    the expression on the RHS for each instance of the corresponding LHS.
+    Each substitution gets a fresh copy.
+
+    This is useful to e.g. locally abbreviate long function names at macro
+    expansion time (with zero run-time overhead), or to splice in several
+    (possibly parametric) instances of a common pattern.
+
+    In the expression variant, ``lhs`` may be:
+
+      - A bare name (e.g. ``x``), or
+
+      - A simple template of the form ``f(x, ...)``. The names inside the
+        parentheses declare the formal parameters of the template (that can
+        then be used in the body).
+
+    In the block variant:
+
+      - The **as-part** specifies the name of the LHS.
+
+      - If a template, the formal parameters are declared on the ``block``
+        or ``expr``, not on the as-part (due to syntactic limitations).
+
+    **Templates**
+
+    To make parametric substitutions, use templates.
+
+    Templates support only positional arguments, with no default values.
+
+    Even in block templates, parameters are always expressions (because they
+    use the function-call syntax at the use site).
+
+    In the body of the ``let_syntax``, a template is used like a function call.
+    Just like in an actual function call, when the template is substituted,
+    any instances of its formal parameters on its RHS get replaced by the
+    argument values from the "call" site; but ``let_syntax`` performs this
+    at macro-expansion time.
+
+    Note each instance of the same formal parameter gets a fresh copy of the
+    corresponding argument value.
+
+    **Substitution order**
+
+    This is a two-step process. In the first step, we apply template substitutions.
+    In the second step, we apply bare name substitutions to the result of the
+    first step. (So RHSs of templates may use any of the bare-name definitions.)
+
+    Within each step, the substitutions are applied **in the order specified**.
+    So if the bindings are ``((x, y), (y, z))``, then ``x`` transforms to ``z``.
+    But if the bindings are ``((y, z), (x, y))``, then ``x`` transforms to ``y``,
+    and only an explicit ``y`` at the use site transforms to ``z``.
+
+    **Notes**
+
+    Inspired by Racket's ``let-syntax`` and ``with-syntax``, see:
+        https://docs.racket-lang.org/reference/let.html
+        https://docs.racket-lang.org/reference/stx-patterns.html
+
+    **CAUTION**: This is essentially a toy macro system inside the real
+    macro system, implemented with the real macro system.
+
+    The usual caveats of macro systems apply. Especially, we support absolutely
+    no form of hygiene. Be very, very careful to avoid name conflicts.
+
+    ``let_syntax`` is meant only for simple local substitutions where the
+    elimination of repetition can shorten the code and improve readability.
+
+    If you need to do something complex, prefer writing a real macro directly
+    in `mcpyrate`.
+    """
+    if syntax not in ("expr", "block"):
+        raise SyntaxError("let_syntax is an expr and block macro only")
+
+    tree = expander.visit(tree)
+
+    if syntax == "expr":
+        return _destructure_and_apply_let(tree, args, expander, let_syntax_expr, allow_call_in_name_position=True)
+    else:  # syntax == "block":
+        return let_syntax_block(block_body=tree)
+
+@parametricmacro
+def abbrev(tree, *, args, syntax, expander, **kw):
+    """[syntax, expr/block] Exactly like ``let_syntax``, but expands outside in.
+
+    Because this variant expands before any macros in the body, it can locally
+    rename other macros, e.g.::
+
+        abbrev[(m, macrowithverylongname)][
+                 m[tree1] if m[tree2] else m[tree3]]
+
+    **CAUTION**: Because ``abbrev`` expands outside-in, and does not respect
+    boundaries of any nested ``abbrev`` invocations, it will not lexically scope
+    the substitutions. Instead, the outermost ``abbrev`` expands first, and then
+    any inner ones expand with whatever substitutions they have remaining.
+
+    If the same name is used on the LHS in two or more nested ``abbrev``,
+    any inner ones will likely raise an error (unless the outer substitution
+    just replaces a name with another), because also the names on the LHS
+    in the inner ``abbrev`` will undergo substitution when the outer
+    ``abbrev`` expands.
+    """
+    if syntax not in ("expr", "block"):
+        raise SyntaxError("abbrev is an expr and block macro only")
+
+    # DON'T expand inner macro invocations first - outside-in ordering is the default, so we simply do nothing.
+
+    if syntax == "expr":
+        return _destructure_and_apply_let(tree, args, expander, let_syntax_expr, allow_call_in_name_position=True)
+    else:
+        return let_syntax_block(block_body=tree)
+
+# --------------------------------------------------------------------------------
+# Syntax transformers
 
 def let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     body = implicit_do(body)  # support the extra bracket syntax
@@ -60,8 +212,6 @@ def let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1
     body = _substitute_templates(templates, body)
     body = _substitute_barenames(barenames, body)
     return body
-
-# -----------------------------------------------------------------------------
 
 # block version:
 #

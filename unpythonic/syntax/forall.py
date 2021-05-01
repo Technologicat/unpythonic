@@ -15,7 +15,7 @@ from ..misc import namelambda
 
 from ..amb import insist, deny  # for re-export only  # noqa: F401
 
-def forall(exprs):
+def forall(tree, *, syntax, expander, **kw):
     """[syntax, expr] Nondeterministic evaluation.
 
     Fully based on AST transformation, with real lexical variables.
@@ -32,6 +32,14 @@ def forall(exprs):
         assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                      (8, 15, 17), (9, 12, 15), (12, 16, 20))
     """
+    if syntax != "expr":
+        raise SyntaxError("forall is an expr macro only")
+
+    tree = expander.visit(tree)
+
+    return _forall(exprs=tree)
+
+def _forall(exprs):
     if type(exprs) is not Tuple:  # pragma: no cover, let's not test macro expansion errors.
         raise SyntaxError("forall body: expected a sequence of comma-separated expressions")
     itemno = 0

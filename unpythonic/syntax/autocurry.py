@@ -16,9 +16,64 @@ from .util import (suggest_decorator_index, isx, has_curry, sort_lambda_decorato
 # "curryf" and "currycall" to detect an auto-curried expression with a final lambda.
 from ..fun import curry as curryf, _currycall as currycall
 
+
+def autocurry(tree, *, syntax, expander, **kw):  # technically a list of trees, the body of the with block
+    """[syntax, block] Automatic currying.
+
+    Usage::
+
+        from unpythonic.syntax import macros, autocurry
+
+        with autocurry:
+            ...
+
+    All **function calls** and **function definitions** (``def``, ``lambda``)
+    *lexically* inside the ``with autocurry`` block are automatically curried.
+
+    **CAUTION**: Some builtins are uninspectable or may report their arities
+    incorrectly; in those cases, ``curry`` may fail, occasionally in mysterious
+    ways.
+
+    The function ``unpythonic.arity.arities``, which ``unpythonic.fun.curry``
+    internally uses, has a workaround for the inspectability problems of all
+    builtins in the top-level namespace (as of Python 3.7), but e.g. methods
+    of builtin types are not handled.
+
+    Lexically inside a ``with autocurry`` block, the auto-curried function calls
+    will skip the curry if the function is uninspectable, instead of raising
+    ``TypeError`` as usual.
+
+    Example::
+
+        from unpythonic.syntax import macros, autocurry
+        from unpythonic import foldr, composerc as compose, cons, nil, ll
+
+        with autocurry:
+            def add3(a, b, c):
+                return a + b + c
+            assert add3(1)(2)(3) == 6
+            assert add3(1, 2)(3) == 6
+            assert add3(1)(2, 3) == 6
+            assert add3(1, 2, 3) == 6
+
+            mymap = lambda f: foldr(compose(cons, f), nil)
+            double = lambda x: 2 * x
+            assert mymap(double, ll(1, 2, 3)) == ll(2, 4, 6)
+
+        # The definition was auto-curried, so this works here too.
+        assert add3(1)(2)(3) == 6
+    """
+    if syntax != "block":
+        raise SyntaxError("autocurry is a block macro only")
+
+    tree = expander.visit(tree)
+
+    return _autocurry(block_body=tree)
+
+
 _iscurry = lambda name: name in ("curry", "currycall")
 
-def autocurry(block_body):
+def _autocurry(block_body):
     class AutoCurryTransformer(ASTTransformer):
         def transform(self, tree):
             # Ignore hygienically captured values, and don't recurse in them.

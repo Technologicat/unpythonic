@@ -8,7 +8,7 @@ from ast import (Name, Assign, Load, Call, Lambda, With, Constant, arg,
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
-from mcpyrate import gensym
+from mcpyrate import gensym, parametricmacro
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
@@ -82,6 +82,56 @@ from ..lazyutil import force1, passthrough_lazy_args
 # TODO: expander, so that we could register a function that deletes autoref markers
 # TODO: at the expander's global postprocess pass.
 
+@parametricmacro
+def autoref(tree, *, args, syntax, expander, **kw):
+    """Implicitly reference attributes of an object.
+
+    Example::
+
+        e = env(a=1, b=2)
+        c = 3
+        with autoref[e]:
+            a
+            b
+            c
+
+    The transformation is applied in ``Load`` context only. ``Store`` and ``Del``
+    are not redirected.
+
+    Useful e.g. with the ``.mat`` file loader of SciPy.
+
+    **CAUTION**: `autoref` is essentially the `with` construct of JavaScript
+    (which is completely different from Python's meaning of `with`), which is
+    nowadays deprecated. See:
+
+        https://www.ecma-international.org/ecma-262/6.0/#sec-with-statement
+        https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/with
+        https://2ality.com/2011/06/with-statement.html
+
+    **CAUTION**: The auto-reference `with` construct was deprecated in JavaScript
+    **for security reasons**. Since the autoref'd object **will hijack all name
+    lookups**, use `with autoref` only with an object you trust!
+
+    **CAUTION**: `with autoref` also complicates static code analysis or makes it
+    outright infeasible, for the same reason. It is impossible to statically know
+    whether something that looks like a bare name in the source code is actually
+    a true bare name, or a reference to an attribute of the autoref'd object.
+    That status can also change at any time, since the lookup is dynamic, and
+    attributes can be added and removed dynamically.
+    """
+    if syntax != "block":
+        raise SyntaxError("autoref is a block macro only")
+    if not args:
+        raise SyntaxError("autoref requires an argument, the object to be auto-referenced")
+
+    target = kw.get("optional_vars", None)
+
+    tree = expander.visit(tree)
+
+    return _autoref(block_body=tree, args=args, asname=target)
+
+# --------------------------------------------------------------------------------
+
 @passthrough_lazy_args
 def _autoref_resolve(args):
     *objs, s = [force1(x) for x in args]
@@ -90,7 +140,7 @@ def _autoref_resolve(args):
             return True, force1(getattr(o, s))
     return False, None
 
-def autoref(block_body, args, asname):
+def _autoref(block_body, args, asname):
     if len(args) != 1:
         raise SyntaxError("expected exactly one argument, the expr to implicitly reference")  # pragma: no cover
     if not block_body:
