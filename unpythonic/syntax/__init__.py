@@ -85,7 +85,9 @@ from ..dynassign import make_dynvar
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
-# TODO: have a common base class for all `unpythonic` `ASTMarker`s?
+# TODO: Consistent naming for syntax transformers? `_macroname_transform`? `_macroname_stx`?
+
+# TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
 
 # TODO: `let` constructs: document difference to Python 3.8 walrus operator (`let` creates a scope, `:=` doesn't)
 
