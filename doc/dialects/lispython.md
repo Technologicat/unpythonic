@@ -25,6 +25,10 @@ square = lambda x: x**2
 assert square(3) == 9
 assert square.__name__ == "square"
 
+# - brackets denote a multiple-expression lambda body
+#   (if you want to have one expression that is a literal list,
+#    double the brackets: `lambda x: [[5 * x]]`)
+# - local[name << value] makes an expression-local variable
 g = lambda x: [local[y << 2 * x],
                y + 1]
 assert g(10) == 21

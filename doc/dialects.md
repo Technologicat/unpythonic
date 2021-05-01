@@ -1,6 +1,6 @@
 # Examples of creating dialects using `mcpyrate`
 
-What if Python had automatic tail-call optimization, an implicit return statement, and automatically named, multi-expression lambdas? Look no further:
+What if Python had automatic tail-call optimization and an implicit return statement? Look no further:
 
 ```python
 from unpythonic.dialects import dialects, Lispython  # noqa: F401
@@ -13,20 +13,6 @@ def factorial(n):
     f(n, acc=1)
 assert factorial(4) == 24
 factorial(5000)  # no crash
-
-# - brackets denote a multiple-expression lambda body
-#   (if you want to have one expression that is a literal list,
-#    double the brackets: `lambda x: [[5 * x]]`)
-# - local[name << value] makes an expression-local variable
-lam = lambda x: [local[y << 2 * x],
-                 y + 1]
-assert lam(10) == 21
-
-t = letrec[((evenp, lambda x: (x == 0) or oddp(x - 1)),
-            (oddp, lambda x:(x != 0) and evenp(x - 1))) in
-           [local[x << evenp(100)],
-            (x, evenp.__name__, oddp.__name__)]]
-assert t == (True, "evenp", "oddp")
 ```
 
 The [dialects subsystem of `mcpyrate`](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) makes Python into a language platform, à la [Racket](https://racket-lang.org/).

@@ -1411,7 +1411,7 @@ with prefix:
     assert (apply, g, "hi", "ho", lst) == (q, "hi" ,"ho", 1, 2, 3)
 ```
 
-This comboes with ``autocurry`` for an authentic *LisThEll* programming experience:
+This comboes with ``autocurry`` for an authentic *Listhell* programming experience:
 
 ```python
 from unpythonic.syntax import macros, autocurry, prefix, q, u, kw
