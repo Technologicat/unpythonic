@@ -21,8 +21,9 @@ This edition concentrates on upgrading our dependencies, namely the macro expand
 
 - Migrate to the [`mcpyrate`](https://github.com/Technologicat/mcpyrate) macro expander; **MacroPy support dropped**. This change facilitates future development of the macro parts of `unpythonic`.
   - **Macro arguments are now passed using brackets** `macroname[args]` instead of parentheses.
-    - Parentheses are still available as alternative syntax, because up to Python 3.8, decorators cannot have subscripts (so e.g. `@dlet[(x, 42)]` is a syntax error, but `@dlet((x, 42))` is fine). This has been fixed in Python 3.9.
+    - Parentheses are still available **for decorator macros only** as alternative syntax, because up to Python 3.8, decorators cannot have subscripts (so e.g. `@dlet[(x, 42)]` is a syntax error, but `@dlet((x, 42))` is fine). This has been fixed in Python 3.9.
     - If you already only run on Python 3.9 and later, please use brackets, that is the preferred syntax. We currently plan to eventually drop support for parentheses to pass macro arguments in the future, when Python 3.9 becomes the minimum supported language version for `unpythonic`.
+    - Other macro kinds do not support parentheses to pass arguments; particularly, the `let` constructs will be confused if you attempt to pass macro arguments using parentheses.
   - As a result of the new macro expander, macro test coverage should now be reported correctly.
 - The lazy evaluation tools `lazy`, `Lazy`, and the quick lambda `f` (underscore notation for Python) are now provided by `unpythonic` as `unpythonic.syntax.lazy`, `unpythonic.lazyutil.Lazy`, and `unpythonic.syntax.f`, because they used to be provided by `macropy`, and `mcpyrate` does not provide them.
   - **Any imports of these constructs in user code should be modified to point to the new locations.**
