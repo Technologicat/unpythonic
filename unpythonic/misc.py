@@ -8,15 +8,16 @@ __all__ = ["call", "callwith", "raisef", "tryf", "equip_with_traceback",
            "ulp",
            "slurp", "async_raise", "callsite_filename", "safeissubclass"]
 
-from types import LambdaType, FunctionType, CodeType, TracebackType
-from time import monotonic
 from copy import copy
 from functools import partial
-from sys import version_info, float_info
+from itertools import count
+import inspect
 from math import floor, log2
 from queue import Empty
+from sys import float_info, version_info
 import threading
-import inspect
+from time import monotonic
+from types import CodeType, FunctionType, LambdaType, TracebackType
 
 # For async_raise only. Note `ctypes.pythonapi` is not an actual module;
 # you'll get a `ModuleNotFoundError` if you try to import it.
@@ -814,10 +815,15 @@ def callsite_filename():
     This works also in the REPL (where `__file__` is undefined).
     """
     stack = inspect.stack()
-    frame = stack[1].frame
-    filename = frame.f_code.co_filename
-    del frame, stack
-    return filename
+    for k in count(start=1):  # ignore callsite_filename() itself
+        framerecord = stack[k]
+        # ignore our call-helpers
+        if framerecord.function not in ("maybe_force_args",  # lazify
+                                        "curried", "curry", "_currycall",  # autocurry
+                                        "call", "callwith"):  # manual use of misc utils
+            frame = framerecord.frame
+            filename = frame.f_code.co_filename
+            return filename
 
 def safeissubclass(cls, cls_or_tuple):
     """Like issubclass, but if `cls` is not a class, swallow the `TypeError` and return `False`."""

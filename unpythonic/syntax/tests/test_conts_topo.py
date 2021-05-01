@@ -7,14 +7,14 @@ For pictures, see ``doc/callcc_topology.pdf`` in the source distribution.
 from ...syntax import macros, test, the  # noqa: F401
 from ...test.fixtures import session, testset
 
-from inspect import stack
+import inspect
 
 from ...syntax import macros, continuations, call_cc  # noqa: F401, F811
 
 def me():
     """Return the caller's function name."""
-    callstack = stack()
-    framerecord = callstack[1]  # ignore me() itself, get caller's record
+    stack = inspect.stack()
+    framerecord = stack[1]  # ignore me() itself, get caller's record
     return framerecord.function
 
 # Continuation names are gensymmed, so `mcpyrate` adds a uuid to them.

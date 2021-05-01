@@ -39,6 +39,10 @@ This edition concentrates on upgrading our dependencies, namely the macro expand
   - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name. Old name was `HACKING.md`, which was correct, but nowadays obscure.
 - Python 3.4 and 3.5 support dropped, as these language versions have officially reached end-of-life. If you still need `unpythonic` for Python 3.4 or 3.5, use version 0.14.3, which is the final version of `unpythonic` that supports those language versions.
 
+**Fixed**:
+
+- Make `callsite_filename` ignore our call helpers. This allows the testing framework report the source code filename correctly when testing code using macros that make use of these helpers (e.g. `autocurry`, `lazify`).
+
 
 ---
 

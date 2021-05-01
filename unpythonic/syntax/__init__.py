@@ -82,10 +82,6 @@ from ..dynassign import make_dynvar
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
-# TODO: debugging:
-#   TODO: The HasThon test (grep for it), when putting the macros in the wrong order on purpose,
-#   TODO: confuses the call site filename detector of the test framework. Investigate.
-
 # TODO: Consistent naming for syntax transformers? `_macroname_transform`? `_macroname_stx`?
 
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
