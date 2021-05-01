@@ -1,4 +1,4 @@
-## Lispython: the love child of Python and Scheme
+## Lispython: The love child of Python and Scheme
 
 ![mascot](lis.png)
 
@@ -67,7 +67,9 @@ If you need more stuff, `unpythonic` is effectively the standard library of Lisp
 
 Lispython is a dialect of Python implemented via macros and a thin whole-module AST transformation. The dialect definition lives in [`unpythonic.dialects.lispython`](../../unpythonic/dialects/lispython.py). Usage examples can be found in [the unit tests](../../unpythonic/dialects/tests/test_lispython.py).
 
-The goal of the Lispython dialect is to fix some glaring issues that hamper Python when viewed from a Lisp/Scheme perspective, as well as make the popular almost-Lisp, Python, feel slightly more lispy.
+Lispython essentially makes Python feel slightly more lispy, in parts where that makes sense.
+
+It's also a minimal example of how to make an AST-transforming dialect.
 
 We take the approach of a relatively thin layer of macros (and underlying functions that implement the actual functionality), minimizing magic as far as reasonably possible.
 

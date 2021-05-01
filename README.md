@@ -26,7 +26,7 @@ I'm also considering renaming 0.15 to 1.0, since the codebase is mostly stable a
 
 None required.
 
- - [mcpyrate](https://github.com/Technologicat/mcpyrate) optional, to enable the syntactic macro layer, and an interactive macro REPL.
+ - [mcpyrate](https://github.com/Technologicat/mcpyrate) optional, to enable the syntactic macro layer, an interactive macro REPL, and some example dialects.
 
 The officially supported language versions are **CPython 3.8** and **PyPy3 3.7**. [Long-term support roadmap](https://github.com/Technologicat/unpythonic/issues/1).
 
@@ -37,6 +37,7 @@ The 0.15.x series should run on CPython 3.6, 3.7, 3.8 and 3.9, and PyPy3 (langua
 
 [Pure-Python feature set](doc/features.md)  
 [Syntactic macro feature set](doc/macros.md)  
+[Examples of creating dialects using `mcpyrate`](doc/dialects.md): Python the way you want it.  
 [REPL server](doc/repl.md): interactively hot-patch your running Python program.  
 [Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.
 
@@ -45,6 +46,7 @@ The features of `unpythonic` are built out of, in increasing order of [magic](ht
  - Pure Python (e.g. batteries for `itertools`),
  - Macros driving a pure-Python core (`do`, `let`),
  - Pure macros (e.g. `continuations`, `lazify`, `dbg`).
+ - Whole-module AST transformations (dialects).
 
 This depends on the purpose of each feature, as well as ease-of-use considerations. See the design notes for more information.
 

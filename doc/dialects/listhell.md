@@ -1,4 +1,4 @@
-## Listhell: it's not Lisp, it's not Python, it's not Haskell
+## Listhell: It's not Lisp, it's not Python, it's not Haskell
 
 Powered by [`mcpyrate`](https://github.com/Technologicat/mcpyrate/) and `unpythonic`.
 

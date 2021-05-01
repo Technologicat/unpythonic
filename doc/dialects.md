@@ -1,4 +1,4 @@
-# Python dialect examples in ``unpythonic.dialects``
+# Examples of creating dialects using `mcpyrate`
 
 What if Python had automatic tail-call optimization, an implicit return statement, and automatically named, multi-expression lambdas? Look no further:
 
@@ -37,9 +37,9 @@ Hence *dialects*.
 
 As examples of what can be done with a dialects system together with a kitchen-sink language extension macro package such as `unpythonic`, we currently provide the following dialects:
 
-  - [**Lispython**: Python with tail-call optimization (TCO), implicit return, multi-expression lambdas](dialects/lispython.md)
-  - [**Pytkell**: Python with automatic currying and lazy functions](dialects/pytkell.md)
-  - [**Listhell**: Python with prefix syntax and automatic currying](dialects/listhell.md)
+  - [**Lispython**: The love child of Python and Scheme](dialects/lispython.md)
+  - [**Pytkell**: Because it's good to have a kell](dialects/pytkell.md)
+  - [**Listhell**: It's not Lisp, it's not Python, it's not Haskell](dialects/listhell.md)
 
 All three dialects support `unpythonic`'s ``continuations`` block macro, to add ``call/cc`` to the language; but it is not enabled automatically.
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Listhell: it's not Lisp, it's not Python, it's not Haskell.
+"""Listhell: It's not Lisp, it's not Python, it's not Haskell.
 
 Powered by `mcpyrate` and `unpythonic`.
 """
@@ -18,7 +18,7 @@ class Listhell(Dialect):
         with q as template:
             __lang__ = "Listhell"  # noqa: F841, just provide it to user code.
             from unpythonic.syntax import macros, prefix, autocurry  # noqa: F401, F811
-            # auxiliary syntax elements for the macros
+            # Auxiliary syntax elements for the macros
             from unpythonic.syntax import q, u, kw  # noqa: F401
             from unpythonic import apply  # noqa: F401
             from unpythonic import composerc as compose  # compose from Right, Currying  # noqa: F401

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Lispython: the love child of Python and Scheme.
+"""Lispython: The love child of Python and Scheme.
 
 Powered by `mcpyrate` and `unpythonic`.
 """
@@ -35,7 +35,7 @@ class Lispython(Dialect):
                                            local, delete, do, do0,
                                            let_syntax, abbrev,
                                            cond)
-            # auxiliary syntax elements for the macros
+            # Auxiliary syntax elements for the macros.
             from unpythonic.syntax import where, block, expr  # noqa: F401, F811
             from unpythonic import cons, car, cdr, ll, llist, nil, prod, dyn  # noqa: F401, F811
             with namedlambda, autoreturn, quicklambda, multilambda, tco:

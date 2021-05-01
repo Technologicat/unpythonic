@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Pytkell: Python with automatic currying and lazy functions.
+"""Pytkell: Because it's good to have a kell.
 
 Powered by `mcpyrate` and `unpythonic`.
 """
@@ -23,9 +23,9 @@ class Pytkell(Dialect):
                                            blet, bletseq, bletrec,
                                            local, delete, do, do0,
                                            cond, forall)
-            # auxiliary syntax elements for the macros
+            # Auxiliary syntax elements for the macros.
             from unpythonic.syntax import where, insist, deny  # noqa: F401
-            # functions that have a haskelly feel to them
+            # Functions that have a haskelly feel to them.
             from unpythonic import (foldl, foldr, scanl, scanr,  # noqa: F401
                                     s, imathify, gmathify, frozendict,
                                     memoize, fupdate, fup,
@@ -33,7 +33,7 @@ class Pytkell(Dialect):
                                     islice, take, drop, split_at, first, second, nth, last,
                                     flip, rotate)
             from unpythonic import composerc as compose  # compose from Right, Currying (Haskell's . operator)  # noqa: F401
-            # this is a bit lispy, but we're not going out of our way to provide
+            # This is a bit lispy, but we're not going out of our way to provide
             # a haskelly surface syntax for these.
             from unpythonic import cons, car, cdr, ll, llist, nil  # noqa: F401
             with lazify, autocurry:
