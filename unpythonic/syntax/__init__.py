@@ -83,8 +83,6 @@ from ..dynassign import make_dynvar
 # Cleanups can be done in a future release.
 
 # TODO: debugging:
-#   TODO: investigate error in pytkell test when run by the runner (works fine when run as a single module)
-#
 #   TODO: The HasThon test (grep for it), when putting the macros in the wrong order on purpose,
 #   TODO: confuses the call site filename detector of the test framework. Investigate.
 
