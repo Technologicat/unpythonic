@@ -130,13 +130,16 @@ def islet(tree, expanded=True):
     # otherwise we should have an expr macro invocation
     if not type(tree) is Subscript:
         return False
+    # let[(k0, v0), ...][body]
+    # ^^^^^^^^^^^^^^^^^^
     macro = tree.value
+    # let[(k0, v0), ...][body]
+    #                    ^^^^^
     if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
         expr = tree.slice
     else:
         expr = tree.slice.value
     exprnames = ("let", "letseq", "letrec", "let_syntax", "abbrev")
-    # let[(k0, v0), ...][body]
     if type(macro) is Subscript and type(macro.value) is Name:
         s = macro.value.id
         if any(s == x for x in exprnames):
