@@ -4,8 +4,6 @@ Python with automatic tail-call optimization, an implicit return statement, and 
 
 Powered by [`mcpyrate`](https://github.com/Technologicat/mcpyrate/) and `unpythonic`.
 
-![mascot](lis.png)
-
 ```python
 from unpythonic.dialects import dialects, Lispython  # noqa: F401
 
@@ -186,3 +184,5 @@ No instrumentation exists (or is even planned) for the Lispython layer; you'll h
 ### Etymology?
 
 *Lispython* is obviously made of two parts: Python, and...
+
+![mascot](lis.png)
