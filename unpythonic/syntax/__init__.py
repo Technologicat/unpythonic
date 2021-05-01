@@ -82,6 +82,12 @@ from ..dynassign import make_dynvar
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
+# TODO: debugging:
+#   TODO: investigate error in pytkell test when run by the runner (works fine when run as a single module)
+#
+#   TODO: The HasThon test (grep for it), when putting the macros in the wrong order on purpose,
+#   TODO: confuses the call site filename detector of the test framework. Investigate.
+
 # TODO: Consistent naming for syntax transformers? `_macroname_transform`? `_macroname_stx`?
 
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
@@ -129,9 +135,6 @@ from ..dynassign import make_dynvar
 # TODO: to provide our own colorizer; we can use the one from `mcpyrate`. (It would be different if regular code needed it.)
 
 # TODO: with mcpyrate, do we really need to set `ctx` in our macros? (does our macro code need it?)
-
-# TODO: The HasThon test (grep for it), when putting the macros in the wrong order on purpose,
-# TODO: confuses the call site filename detector of the test framework. Investigate.
 
 # TODO: Move dialect examples from `pydialect` into a new package, `unpythonic.dialects`.
 # TODO: `mcpyrate` now provides the necessary infrastructure, while `unpythonic` has the macros
