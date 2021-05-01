@@ -7,9 +7,10 @@ Requires `mcpyrate`.
 from ..dynassign import make_dynvar
 
 # --------------------------------------------------------------------------------
-# This module contains the macro interface and docstrings; the submodules
-# contain the actual syntax transformers (regular functions that process ASTs)
-# that implement the macros.
+# This module only re-exports the macro interfaces so the macros can be imported
+# by `from unpythonic.syntax import macros, ...`. The submodules contain the actual
+# macro interfaces (and their docstrings), as well as the syntax transformers
+# (i.e. regular functions that process ASTs) that implement the macros.
 # --------------------------------------------------------------------------------
 
 # --------------------------------------------------------------------------------
@@ -73,10 +74,6 @@ from ..dynassign import make_dynvar
 #  - Quasiquotes no longer auto-expand macros in the quoted code. `letseq` could use hygienic *macro*
 #    capture and just return an unexpanded `let` and another `letseq` (with one fewer binding),
 #    similarly to how Racket implements `let*`. See `unpythonic.syntax.simplelet` for a demo.
-#
-#  - The macro interfaces and their docstrings could live inside the implementation modules, and this
-#    module could just re-export them. (A function being a macro is a feature of its *use site* where
-#    it is imported, by `from xxx import macros, ...`; `mcpyrate` has no macro registry.)
 #
 #  - Many macros could perhaps run in the outside-in pass. Some need a redesign for their AST analysis,
 #    but much of that has been sufficiently abstracted (e.g. `unpythonic.syntax.letdoutil`) so that this
