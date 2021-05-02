@@ -46,7 +46,7 @@ The features of `unpythonic` are built out of, in increasing order of [magic](ht
  - Pure Python (e.g. batteries for `itertools`),
  - Macros driving a pure-Python core (`do`, `let`),
  - Pure macros (e.g. `continuations`, `lazify`, `dbg`).
- - Whole-module AST transformations (dialects).
+ - Whole-module transformations a.k.a. dialects.
 
 This depends on the purpose of each feature, as well as ease-of-use considerations. See the design notes for more information.
 
@@ -570,9 +570,7 @@ with continuations:  # enables also TCO automatically
 
 #### Unpythonic in 30 seconds: Language extensions with dialects
 
-[[docs](doc/dialects.md)]
-
-The [dialects subsystem of `mcpyrate`](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) makes Python into a language platform, à la [Racket](https://racket-lang.org/). We provide some example dialects based on `unpythonic`'s macro layer.
+The [dialects subsystem of `mcpyrate`](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) makes Python into a language platform, à la [Racket](https://racket-lang.org/). We provide some example dialects based on `unpythonic`'s macro layer. See [documentation](doc/dialects.md).
 
 <details><summary>Lispython: The love child of Python and Scheme.</summary>
 
@@ -595,6 +593,14 @@ factorial(5000)  # no crash
 square = lambda x: x**2
 assert square(3) == 9
 assert square.__name__ == "square"
+
+# - brackets denote a multiple-expression lambda body
+#   (if you want to have one expression that is a literal list,
+#    double the brackets: `lambda x: [[5 * x]]`)
+# - local[name << value] makes an expression-local variable
+g = lambda x: [local[y << 2 * x],
+               y + 1]
+assert g(10) == 21
 ```
 </details>  
 <details><summary>Pytkell: Because it's good to have a kell.</summary>
