@@ -36,7 +36,7 @@ This edition concentrates on upgrading our dependencies, namely the macro expand
 - Rename the internal utility class `unpythonic.syntax.util.ASTMarker` to `UnpythonicExpandedMacroMarker`, to explicitly have a class name different from `mcpyrate.markers.ASTMarker`, because these represent semantically different things.
   - `mcpyrate`'s `ASTMarker`s are a macro-expansion-time data-driven communication feature to allow macros to easily work together, and are deleted from the AST before handing the AST to Python's `compile` function. (If you're curious, `unpythonic` uses some of those markers itself; grep the codebase for `ASTMarker`.)
   - `unpythonic`'s `UnpythonicExpandedMacroMarker`s remain in the AST at run time.
-  - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name. Old name was `HACKING.md`, which was correct, but nowadays obscure.
+- Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name. Old name was `HACKING.md`, which was correct, but nowadays obscure.
 - Python 3.4 and 3.5 support dropped, as these language versions have officially reached end-of-life. If you still need `unpythonic` for Python 3.4 or 3.5, use version 0.14.3, which is the final version of `unpythonic` that supports those language versions.
 
 **Fixed**:
