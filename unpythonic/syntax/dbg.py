@@ -108,8 +108,6 @@ def dbg(tree, *, args, syntax, expander, **kw):
     else:  # syntax == "block":
         return _dbg_block(body=tree, args=args)
 
-# --------------------------------------------------------------------------------
-
 def dbgprint_block(ks, vs, *, filename=None, lineno=None, sep=", ", **kwargs):
     """Default debug printer for the ``dbg`` macro, block variant.
 
@@ -161,37 +159,6 @@ def dbgprint_block(ks, vs, *, filename=None, lineno=None, sep=", ", **kwargs):
     else:
         print(header + sep.join(f"{k}: {v}" for k, v in zip(ks, vs)), **kwargs)
 
-def _dbg_block(body, args):
-    if args:  # custom print function hook
-        # TODO: add support for Attribute to support using a method as a custom print function
-        # (the problem is we must syntactically find matches in the AST, and AST nodes don't support comparison)
-        if type(args[0]) is not Name:  # pragma: no cover, let's not test the macro expansion errors.
-            raise SyntaxError("Custom debug print function must be specified by a bare name")
-        pfunc = args[0]
-        pname = pfunc.id  # name of the print function as it appears in the user code
-    else:
-        pfunc = q[h[dbgprint_block]]
-        pname = "print"  # override standard print function within this block
-
-    class DbgBlockTransformer(ASTTransformer):
-        def transform(self, tree):
-            if is_captured_value(tree):
-                return tree  # don't recurse!
-            if type(tree) is Call and type(tree.func) is Name and tree.func.id == pname:
-                names = [q[u[unparse(node)]] for node in tree.args]  # x --> "x"; (1 + 2) --> "(1 + 2)"; ...
-                names = q[t[names]]
-                values = q[t[tree.args]]
-                tree.args = [names, values]
-                # can't use inspect.stack in the printer itself because we want the line number *before macro expansion*.
-                lineno = tree.lineno if hasattr(tree, "lineno") else None
-                tree.keywords += [keyword(arg="filename", value=q[h[callsite_filename]()]),
-                                  keyword(arg="lineno", value=q[u[lineno]])]
-                tree.func = pfunc
-            return self.generic_visit(tree)
-    return DbgBlockTransformer().visit(body)
-
-# --------------------------------------------------------------------------------
-
 def dbgprint_expr(k, v, *, filename, lineno):
     """Default debug printer for the ``dbg`` macro, expression variant.
 
@@ -228,6 +195,38 @@ def dbgprint_expr(k, v, *, filename, lineno):
     """
     print(f"[{filename}:{lineno}] {k}: {v}")
     return v  # IMPORTANT! (passthrough; debug printing is a side effect)
+
+# --------------------------------------------------------------------------------
+# Syntax transformers
+
+def _dbg_block(body, args):
+    if args:  # custom print function hook
+        # TODO: add support for Attribute to support using a method as a custom print function
+        # (the problem is we must syntactically find matches in the AST, and AST nodes don't support comparison)
+        if type(args[0]) is not Name:  # pragma: no cover, let's not test the macro expansion errors.
+            raise SyntaxError("Custom debug print function must be specified by a bare name")
+        pfunc = args[0]
+        pname = pfunc.id  # name of the print function as it appears in the user code
+    else:
+        pfunc = q[h[dbgprint_block]]
+        pname = "print"  # override standard print function within this block
+
+    class DbgBlockTransformer(ASTTransformer):
+        def transform(self, tree):
+            if is_captured_value(tree):
+                return tree  # don't recurse!
+            if type(tree) is Call and type(tree.func) is Name and tree.func.id == pname:
+                names = [q[u[unparse(node)]] for node in tree.args]  # x --> "x"; (1 + 2) --> "(1 + 2)"; ...
+                names = q[t[names]]
+                values = q[t[tree.args]]
+                tree.args = [names, values]
+                # can't use inspect.stack in the printer itself because we want the line number *before macro expansion*.
+                lineno = tree.lineno if hasattr(tree, "lineno") else None
+                tree.keywords += [keyword(arg="filename", value=q[h[callsite_filename]()]),
+                                  keyword(arg="lineno", value=q[u[lineno]])]
+                tree.func = pfunc
+            return self.generic_visit(tree)
+    return DbgBlockTransformer().visit(body)
 
 def _dbg_expr(tree):
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]

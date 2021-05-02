@@ -4,10 +4,10 @@
 See also `unpythonic.test.fixtures` for the high-level machinery.
 """
 
-__all__ = ["isunexpandedtestmacro", "isexpandedtestmacro", "istestmacro",
-           "the", "test",
+__all__ = ["the", "test",
            "test_signals", "test_raises",
-           "fail", "error", "warn"]
+           "fail", "error", "warn",
+           "isunexpandedtestmacro", "isexpandedtestmacro", "istestmacro"]
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
@@ -243,9 +243,9 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
         if syntax == "expr":
             if args:
                 raise SyntaxError("test[] in expression mode does not take macro arguments")
-            return test_expr(tree)
+            return _test_expr(tree)
         else:  # syntax == "block":
-            return test_block(block_body=tree, args=args)
+            return _test_block(block_body=tree, args=args)
 
 @parametricmacro
 def test_signals(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -293,9 +293,9 @@ def test_signals(tree, *, args, syntax, expander, **kw):  # noqa: F811
         if syntax == "expr":
             if args:
                 raise SyntaxError("test_signals[] in expression mode does not take macro arguments")
-            return test_expr_signals(tree)
+            return _test_expr_signals(tree)
         else:  # syntax == "block":
-            return test_block_signals(block_body=tree, args=args)
+            return _test_block_signals(block_body=tree, args=args)
 
 @parametricmacro
 def test_raises(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -341,9 +341,9 @@ def test_raises(tree, *, args, syntax, expander, **kw):  # noqa: F811
         if syntax == "expr":
             if args:
                 raise SyntaxError("test_raises[] in expression mode does not take macro arguments")
-            return test_expr_raises(tree)
+            return _test_expr_raises(tree)
         else:  # syntax == "block":
-            return test_block_raises(block_body=tree, args=args)
+            return _test_block_raises(block_body=tree, args=args)
 
 def fail(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, expr] Produce a test failure, unconditionally.
@@ -371,7 +371,7 @@ def fail(tree, *, syntax, expander, **kw):  # noqa: F811
     # Expand outside in. The ordering shouldn't matter here.
     # The underlying `test` machinery needs to access the expander.
     with dyn.let(_macro_expander=expander):
-        return fail_expr(tree)
+        return _fail_expr(tree)
 
 def error(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, expr] Produce a test error, unconditionally.
@@ -391,7 +391,7 @@ def error(tree, *, syntax, expander, **kw):  # noqa: F811
     # Expand outside in. The ordering shouldn't matter here.
     # The underlying `test` machinery needs to access the expander.
     with dyn.let(_macro_expander=expander):
-        return error_expr(tree)
+        return _error_expr(tree)
 
 def warn(tree, *, syntax, expander, **kw):  # noqa: F811
     """[syntax, expr] Produce a test warning, unconditionally.
@@ -415,7 +415,7 @@ def warn(tree, *, syntax, expander, **kw):  # noqa: F811
     # Expand outside in. The ordering shouldn't matter here.
     # The underlying `test` machinery needs to access the expander.
     with dyn.let(_macro_expander=expander):
-        return warn_expr(tree)
+        return _warn_expr(tree)
 
 # -----------------------------------------------------------------------------
 # Helpers for other macros to detect uses of the ones we defined here.
@@ -537,7 +537,7 @@ def unpythonic_assert(sourcecode, func, *, filename, lineno, message=None):
     # we send to `func` as its argument. A `the[]` is also implicitly injected
     # by the comparison destructuring mechanism.
     e = env(captured_values=[])
-    testexpr = func  # descriptive name for stack trace; if you change this, change also in `test_expr`.
+    testexpr = func  # descriptive name for stack trace; if you change this, change also in `_test_expr`.
     mode, test_result = _observe(thunk=(lambda: testexpr(e)))  # <-- run the actual expr being asserted
     if e.captured_values:
         # Convenience for testing/debugging macro code:
@@ -737,20 +737,20 @@ def unpythonic_assert_raises(exctype, sourcecode, thunk, *, filename, lineno, me
 def _unconditional_error_expr(tree, syntaxname, marker):
     thetuple = q[(a[marker], a[tree])]   # consider `test[tree, message]`
     thetuple = copy_location(thetuple, tree)
-    return test_expr(thetuple)
+    return _test_expr(thetuple)
 
 # Here `tree` is the AST for the failure message.
-def fail_expr(tree):
+def _fail_expr(tree):
     return _unconditional_error_expr(tree, "fail", q[h[_fail]])  # TODO: stash a copy of the hygienic value?
-def error_expr(tree):
+def _error_expr(tree):
     return _unconditional_error_expr(tree, "error", q[h[_error]])
-def warn_expr(tree):
+def _warn_expr(tree):
     return _unconditional_error_expr(tree, "warn", q[h[_warn]])
 
 # --------------------------------------------------------------------------------
 # Expr variants.
 
-def test_expr(tree):
+def _test_expr(tree):
     # Note we want the line number *before macro expansion*, so we capture it now.
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = q[h[callsite_filename]()]
@@ -803,7 +803,7 @@ def test_expr(tree):
 # to be displayed upon test failure, using `the[...]`:
 #   test[myconstant in the[computeset(...)]]
 #   test[the[computeitem(...)] in expected_results_plus_uninteresting_items]
-# These are used by `test_expr` and `test_block`.
+# These are used by `_test_expr` and `_test_block`.
 def _is_important_subexpr_mark(tree):
     return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "the"
 def _record_value(envname, sourcecode, value):
@@ -841,9 +841,9 @@ def _transform_important_subexpr(tree, envname):
     return tree, transformer.collected
 
 
-def test_expr_signals(tree):
+def _test_expr_signals(tree):
     return _test_expr_signals_or_raises(tree, "test_signals", q[h[unpythonic_assert_signals]])
-def test_expr_raises(tree):
+def _test_expr_raises(tree):
     return _test_expr_signals_or_raises(tree, "test_raises", q[h[unpythonic_assert_raises]])
 
 def _test_expr_signals_or_raises(tree, syntaxname, asserter):
@@ -882,7 +882,7 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
 
 # The strategy is we capture the block body into a new function definition,
 # and then `unpythonic_assert` on that function.
-def test_block(block_body, args):
+def _test_block(block_body, args):
     if not block_body:
         return []  # pragma: no cover, cannot happen through the public API.
     first_stmt = block_body[0]
@@ -917,7 +917,7 @@ def test_block(block_body, args):
     # End of first pass.
     block_body = dyn._macro_expander.visit(block_body)
 
-    testblock_function_name = gensym("test_block")
+    testblock_function_name = gensym("_test_block")
     thetest = q[(a[asserter])(u[sourcecode],
                               n[testblock_function_name],
                               filename=a[filename],
@@ -954,9 +954,9 @@ def test_block(block_body, args):
     return newbody
 
 
-def test_block_signals(block_body, args):
+def _test_block_signals(block_body, args):
     return _test_block_signals_or_raises(block_body, args, "test_signals", q[h[unpythonic_assert_signals]])
-def test_block_raises(block_body, args):
+def _test_block_raises(block_body, args):
     return _test_block_signals_or_raises(block_body, args, "test_raises", q[h[unpythonic_assert_raises]])
 
 def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
@@ -988,7 +988,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
     # End of first pass.
     block_body = dyn._macro_expander.visit(block_body)
 
-    testblock_function_name = gensym("test_block")
+    testblock_function_name = gensym("_test_block")
     thetest = q[(a[asserter])(a[exctype],
                               u[sourcecode],
                               n[testblock_function_name],

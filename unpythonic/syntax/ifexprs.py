@@ -8,7 +8,7 @@ from ast import Tuple
 
 from mcpyrate.quotes import macros, q, a  # noqa: F811, F401
 
-from .letdo import implicit_do, _let
+from .letdo import _implicit_do, _let
 
 from ..dynassign import dyn
 
@@ -44,7 +44,7 @@ def aif(tree, *, syntax, expander, **kw):
         return _aif(tree)
 
 def _aif(tree):
-    test, then, otherwise = [implicit_do(x) for x in tree.elts]
+    test, then, otherwise = [_implicit_do(x) for x in tree.elts]
     bindings = [q[(it, a[test])]]
     body = q[a[then] if it else a[otherwise]]
     # TODO: we should use a hygienically captured macro here.
@@ -101,11 +101,11 @@ def _cond(tree):
         raise SyntaxError("Expected cond[test1, then1, test2, then2, ..., otherwise]")  # pragma: no cover
     def build(elts):
         if len(elts) == 1:  # final "otherwise" branch
-            return implicit_do(elts[0])
+            return _implicit_do(elts[0])
         if not elts:
             raise SyntaxError("Expected cond[test1, then1, test2, then2, ..., otherwise]")  # pragma: no cover
         test, then, *more = elts
-        test = implicit_do(test)
-        then = implicit_do(then)
+        test = _implicit_do(test)
+        then = _implicit_do(then)
         return q[a[then] if a[test] else a[build(more)]]
     return build(tree.elts)

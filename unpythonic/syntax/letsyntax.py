@@ -4,7 +4,7 @@
 # at macro expansion time. If you're looking for regular run-time let et al. macros,
 # see letdo.py.
 
-__all__ = ["let_syntax", "abbrev"]
+__all__ = ["let_syntax", "abbrev", "expr", "block"]
 
 from mcpyrate.quotes import macros, q, a  # noqa: F401
 
@@ -16,7 +16,7 @@ from mcpyrate import parametricmacro
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
-from .letdo import implicit_do, _destructure_and_apply_let
+from .letdo import _implicit_do, _destructure_and_apply_let
 from .util import eliminate_ifones
 
 # --------------------------------------------------------------------------------
@@ -132,9 +132,9 @@ def let_syntax(tree, *, args, syntax, expander, **kw):
     tree = expander.visit(tree)
 
     if syntax == "expr":
-        return _destructure_and_apply_let(tree, args, expander, let_syntax_expr, allow_call_in_name_position=True)
+        return _destructure_and_apply_let(tree, args, expander, _let_syntax_expr, allow_call_in_name_position=True)
     else:  # syntax == "block":
-        return let_syntax_block(block_body=tree)
+        return _let_syntax_block(block_body=tree)
 
 @parametricmacro
 def abbrev(tree, *, args, syntax, expander, **kw):
@@ -163,15 +163,33 @@ def abbrev(tree, *, args, syntax, expander, **kw):
     # DON'T expand inner macro invocations first - outside-in ordering is the default, so we simply do nothing.
 
     if syntax == "expr":
-        return _destructure_and_apply_let(tree, args, expander, let_syntax_expr, allow_call_in_name_position=True)
+        return _destructure_and_apply_let(tree, args, expander, _let_syntax_expr, allow_call_in_name_position=True)
     else:
-        return let_syntax_block(block_body=tree)
+        return _let_syntax_block(block_body=tree)
+
+# TODO: convert to mcpyrate magic variable
+class expr:
+    """[syntax] Magic identifier for ``with expr:`` inside a ``with let_syntax:``."""
+    def __repr__(self):  # in case one of these ends up somewhere at runtime
+        return "<let syntax 'with expr:'>"  # pragma: no cover
+    def __call__(self, tree, **kw):  # make `expr` look like a macro
+        pass
+expr = expr()
+
+# TODO: convert to mcpyrate magic variable
+class block:
+    """[syntax] Magic identifier for ``with block:`` inside a ``with let_syntax:``."""
+    def __repr__(self):  # in case one of these ends up somewhere at runtime
+        return "<let_syntax 'with block:'>"  # pragma: no cover
+    def __call__(self, tree, **kw):  # make `block` look like a macro
+        pass
+block = block()
 
 # --------------------------------------------------------------------------------
 # Syntax transformers
 
-def let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
-    body = implicit_do(body)  # support the extra bracket syntax
+def _let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
+    body = _implicit_do(body)  # support the extra bracket syntax
     if not bindings:
         # Optimize out a `let_syntax` with no bindings. The macro layer cannot trigger
         # this case, because our syntaxes always require at least one binding.
@@ -227,7 +245,7 @@ def let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1
 #     body0
 #     ...
 #
-def let_syntax_block(block_body):
+def _let_syntax_block(block_body):
     names_seen = set()
     templates = []
     barenames = []
@@ -290,24 +308,6 @@ def let_syntax_block(block_body):
     if not new_block_body:
         raise SyntaxError("let_syntax: expected at least one statement beside definitions")  # pragma: no cover
     return new_block_body
-
-# TODO: convert to mcpyrate magic variable
-class block:
-    """[syntax] Magic identifier for ``with block:`` inside a ``with let_syntax:``."""
-    def __repr__(self):  # in case one of these ends up somewhere at runtime
-        return "<let_syntax 'with block:'>"  # pragma: no cover
-    def __call__(self, tree, **kw):  # make `block` look like a macro
-        pass
-block = block()
-
-# TODO: convert to mcpyrate magic variable
-class expr:
-    """[syntax] Magic identifier for ``with expr:`` inside a ``with let_syntax:``."""
-    def __repr__(self):  # in case one of these ends up somewhere at runtime
-        return "<let syntax 'with expr:'>"  # pragma: no cover
-    def __call__(self, tree, **kw):  # make `expr` look like a macro
-        pass
-expr = expr()
 
 # -----------------------------------------------------------------------------
 

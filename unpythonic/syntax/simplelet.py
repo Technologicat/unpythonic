@@ -76,10 +76,10 @@ def letseq(tree, *, args, syntax, expander, **kw):
     if not args:
         return tree
     first, *rest = args
-    body = q[a[our_letseq][t[rest]][a[tree]]]
-    return q[a[our_let][a[first]][a[body]]]
+    body = q[a[_our_letseq][t[rest]][a[tree]]]
+    return q[a[_our_let][a[first]][a[body]]]
 
 
 # for hygienic macro recursion
-our_let = capture_as_macro(let)
-our_letseq = capture_as_macro(letseq)
+_our_let = capture_as_macro(let)
+_our_letseq = capture_as_macro(letseq)

@@ -485,8 +485,8 @@ _ctorcalls_all = _ctorcalls_map + _ctorcalls_seq
 # variant `frozendict(mapping1, mapping2, ...)`.
 _ctorcalls_that_take_exactly_one_positional_arg = {"tuple", "list", "set", "dict", "frozenset", "llist"}
 
-unexpanded_lazy_name = "lazy"
-expanded_lazy_name = "Lazy"
+_unexpanded_lazy_name = "lazy"
+_expanded_lazy_name = "Lazy"
 def _lazyrec(tree):
     # This helper doesn't need to recurse, so we don't need `ASTTransformer` here.
     def transform(tree):
@@ -497,9 +497,9 @@ def _lazyrec(tree):
         elif type(tree) is Call and any(isx(tree.func, ctor) for ctor in _ctorcalls_all):
             p, k = _ctor_handling_modes[getname(tree.func)]
             lazify_ctorcall(tree, p, k)
-        elif type(tree) is Subscript and isx(tree.value, unexpanded_lazy_name):
+        elif type(tree) is Subscript and isx(tree.value, _unexpanded_lazy_name):
             pass
-        elif type(tree) is Call and isx(tree.func, expanded_lazy_name):
+        elif type(tree) is Call and isx(tree.func, _expanded_lazy_name):
             pass
         else:
             # mcpyrate supports hygienic macro capture, so we can just splice unexpanded
@@ -517,25 +517,25 @@ def _lazyrec(tree):
         newargs = []
         for arg in tree.args:
             if type(arg) is Starred:  # *args in Python 3.5+
-                if is_literal_container(arg.value, maps_only=False):
+                if _is_literal_container(arg.value, maps_only=False):
                     arg.value = rec(arg.value)
                 # else do nothing
-            elif positionals == "all" or is_literal_container(arg, maps_only=False):  # single positional arg
+            elif positionals == "all" or _is_literal_container(arg, maps_only=False):  # single positional arg
                 arg = rec(arg)
             newargs.append(arg)
         tree.args = newargs
         for kw in tree.keywords:
             if kw.arg is None:  # **kwargs in Python 3.5+
-                if is_literal_container(kw.value, maps_only=True):
+                if _is_literal_container(kw.value, maps_only=True):
                     kw.value = rec(kw.value)
                 # else do nothing
-            elif keywords == "all" or is_literal_container(kw.value, maps_only=True):  # single named arg
+            elif keywords == "all" or _is_literal_container(kw.value, maps_only=True):  # single named arg
                 kw.value = rec(kw.value)
 
     rec = transform
     return rec(tree)
 
-def is_literal_container(tree, maps_only=False):
+def _is_literal_container(tree, maps_only=False):
     """Test whether tree is a container literal understood by lazyrec[]."""
     if not maps_only:
         if type(tree) in (List, Tuple, Set):
@@ -667,7 +667,7 @@ def _lazify(body):
                     tree = self.visit(tree)
                     # lazify items if we have a literal container
                     # we must avoid lazifying any other exprs, since a Lazy cannot be unpacked.
-                    if is_literal_container(tree, maps_only=dstarred):
+                    if _is_literal_container(tree, maps_only=dstarred):
                         tree = _lazyrec(tree)
                     return tree
 
@@ -691,7 +691,7 @@ def _lazify(body):
                 # Lazy() is a strict function, takes a lambda, constructs a Lazy object
                 # _autoref_resolve doesn't need any special handling
                 elif (isdo(tree) or is_decorator(tree.func, "namelambda") or
-                      any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, expanded_lazy_name) or
+                      any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, _expanded_lazy_name) or
                       any(isx(tree.func, s) for s in ("_autoref_resolve", "ExpandedAutorefMarker"))):
                     # here we know the operator (.func) to be one of specific names;
                     # don't transform it to avoid confusing lazyrec[] (important if this

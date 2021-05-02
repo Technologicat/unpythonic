@@ -4,8 +4,7 @@
 __all__ = ["let", "letseq", "letrec",
            "dlet", "dletseq", "dletrec",
            "blet", "bletseq", "bletrec",
-           "local", "delete", "do", "do0",
-           "implicit_do"]  # used by some other unpythonic.syntax constructs
+           "local", "delete", "do", "do0"]
 
 # Let constructs are implemented as sugar around unpythonic.lispylet.
 #
@@ -328,7 +327,7 @@ def bletrec(tree, *, args, syntax, expander, **kw):
 # Syntax transformers
 
 def _let(bindings, body):
-    return _letimpl(bindings, body, "let")
+    return _let_expr_impl(bindings, body, "let")
 
 def _letseq(bindings, body):
     if not bindings:
@@ -339,9 +338,9 @@ def _letseq(bindings, body):
     return _let([first], _letseq(rest, body))
 
 def _letrec(bindings, body):
-    return _letimpl(bindings, body, "letrec")
+    return _let_expr_impl(bindings, body, "letrec")
 
-def _letimpl(bindings, body, mode):
+def _let_expr_impl(bindings, body, mode):
     """bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)"""
     assert mode in ("let", "letrec")
 
@@ -349,7 +348,7 @@ def _letimpl(bindings, body, mode):
     # invocations in both bindings and body.
     #
     # But apply the implicit `do` (extra bracket syntax) first.
-    body = implicit_do(body)
+    body = _implicit_do(body)
     body = dyn._macro_expander.visit(body)
     if not bindings:
         # Optimize out a `let` with no bindings. The macro layer cannot trigger
@@ -365,7 +364,7 @@ def _letimpl(bindings, body, mode):
     e = gensym("e")
     envset = Attribute(value=q[n[e]], attr="set", ctx=Load())
 
-    transform = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
+    transform = partial(_letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
     if mode == "letrec":
         values = [transform(rhs) for rhs in values]  # RHSs of bindings
         values = [q[h[namelambda](u[f"letrec_binding{j}_{lhs}"])(a[rhs])]
@@ -384,7 +383,7 @@ def _letimpl(bindings, body, mode):
     newtree = q[h[letter](t[bindings], a[body], mode=u[mode])]
     return newtree
 
-def letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
+def _letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
     """Common transformations for let-like operations.
 
     Namely::
@@ -400,13 +399,13 @@ def letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
 
     setter: function, (k, v) --> v, side effect to set e.k to v
     """
-    tree = transform_envassignment(tree, lhsnames, setter)
-    tree = transform_name(tree, rhsnames, envname)
+    tree = _transform_envassignment(tree, lhsnames, setter)
+    tree = _transform_name(tree, rhsnames, envname)
     if dowrap:
-        tree = envwrap(tree, envname)
+        tree = _envwrap(tree, envname)
     return tree
 
-def transform_envassignment(tree, lhsnames, envset):
+def _transform_envassignment(tree, lhsnames, envset):
     """x << val --> e.set('x', val)  (for names bound in this environment)"""
     # names_in_scope: according to Python's standard binding rules, see scopeanalyzer.py.
     # Variables defined in let envs are thus not listed in `names_in_scope`.
@@ -419,7 +418,7 @@ def transform_envassignment(tree, lhsnames, envset):
         return tree
     return scoped_transform(tree, callback=transform)
 
-def transform_name(tree, rhsnames, envname):
+def _transform_name(tree, rhsnames, envname):
     """x --> e.x  (in load context; for names bound in this environment)"""
     # names_in_scope: according to Python's standard binding rules, see scopeanalyzer.py.
     # Variables defined in let envs are thus not listed in `names_in_scope`.
@@ -451,7 +450,7 @@ def transform_name(tree, rhsnames, envname):
         return tree
     return scoped_transform(tree, callback=transform)
 
-def envwrap(tree, envname):
+def _envwrap(tree, envname):
     """... -> lambda e: ..."""
     lam = q[lambda _: a[tree]]
     lam.args.args[0] = arg(arg=envname)  # lambda e44: ...
@@ -461,25 +460,25 @@ def envwrap(tree, envname):
 # Syntax transformers for decorator versions, for "let over def".
 
 def _dlet(bindings, body):
-    return _dletimpl(bindings, body, "let", "decorate")
+    return _let_decorator_impl(bindings, body, "let", "decorate")
 
 def _dletseq(bindings, body):
-    return _dletseqimpl(bindings, body, "decorate")
+    return _dletseq_impl(bindings, body, "decorate")
 
 def _dletrec(bindings, body):
-    return _dletimpl(bindings, body, "letrec", "decorate")
+    return _let_decorator_impl(bindings, body, "letrec", "decorate")
 
 def _blet(bindings, body):
-    return _dletimpl(bindings, body, "let", "call")
+    return _let_decorator_impl(bindings, body, "let", "call")
 
 def _bletseq(bindings, body):
-    return _dletseqimpl(bindings, body, "call")
+    return _dletseq_impl(bindings, body, "call")
 
 def _bletrec(bindings, body):
-    return _dletimpl(bindings, body, "letrec", "call")
+    return _let_decorator_impl(bindings, body, "letrec", "call")
 
-# Very similar to _letimpl, but perhaps more readable to keep these separate.
-def _dletimpl(bindings, body, mode, kind):
+# Very similar to _let_expr_impl, but perhaps more readable to keep these separate.
+def _let_decorator_impl(bindings, body, mode, kind):
     assert mode in ("let", "letrec")
     assert kind in ("decorate", "call")
     if type(body) not in (FunctionDef, AsyncFunctionDef):
@@ -498,7 +497,7 @@ def _dletimpl(bindings, body, mode, kind):
     e = gensym("e")
     envset = Attribute(value=q[n[e]], attr="set", ctx=Load())
 
-    transform1 = partial(letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
+    transform1 = partial(_letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
     transform2 = partial(transform1, dowrap=False)
     if mode == "letrec":
         values = [transform1(rhs) for rhs in values]
@@ -522,7 +521,7 @@ def _dletimpl(bindings, body, mode, kind):
     body.args.kw_defaults = body.args.kw_defaults + [None]
     return body
 
-def _dletseqimpl(bindings, body, kind):
+def _dletseq_impl(bindings, body, kind):
     # What we want:
     #
     # @dletseq[(x, 1),
@@ -587,7 +586,7 @@ def _dletseqimpl(bindings, body, kind):
                         body=[innerdef, ret],
                         decorator_list=[],
                         returns=None)  # no return type annotation
-    return _dletseqimpl(rest, outer, kind)
+    return _dletseq_impl(rest, outer, kind)
 
 # -----------------------------------------------------------------------------
 # Imperative code in expression position. Uses the "let" machinery.
@@ -879,7 +878,7 @@ def _do(tree):
         # the name transform (RHS) should use the previous bindings, so that any
         # changes to bindings take effect starting from the **next** do-item.
         updated_names = [x for x in names + newnames if x not in deletednames]
-        expr = letlike_transform(expr, e, lhsnames=updated_names, rhsnames=names, setter=envset)
+        expr = _letlike_transform(expr, e, lhsnames=updated_names, rhsnames=names, setter=envset)
         expr = q[h[namelambda](u[f"do_line{j}"])(a[expr])]
         names = updated_names
         lines.append(expr)
@@ -907,7 +906,7 @@ def _do0(tree):
     # TODO: Would be cleaner to use `do[]` as a hygienically captured macro.
     return _do(newtree)  # do0[] is also just a do[]
 
-def implicit_do(tree):
+def _implicit_do(tree):
     """Allow a sequence of expressions in expression position.
 
     Apply ``do[]`` if ``tree`` is a ``List``, otherwise return ``tree`` as-is.
@@ -916,7 +915,7 @@ def implicit_do(tree):
 
         [expr0, ...]
 
-    To represent a single literal list where ``implicit_do`` is in use, use an
+    To represent a single literal list where ``_implicit_do`` is in use, use an
     extra set of brackets::
 
         [[1, 2, 3]]
