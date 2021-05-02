@@ -830,6 +830,8 @@ def _do(tree):
     #
     # TODO: We have to be careful with nested `do`, though - some local definitions may belong to
     # TODO: nested invocations. So perhaps we need to expand `do`, `do0`, `local` and `delete` here.
+    # TODO: Even that doesn't help, e.g.:  do[..., let[...][[local[x << 42], ...]]]
+    # TODO: Here the `let` has an implicit `do`, which should be treated separately.
     with _do_level.changed_by(+1):
         tree = dyn._macro_expander.visit(tree)
 
