@@ -5,16 +5,18 @@ __all__ = ["lazy", "lazyrec", "lazify"]
 
 from ast import (Lambda, FunctionDef, AsyncFunctionDef, Call, Name, Attribute,
                  Starred, keyword, List, Tuple, Dict, Set, Subscript, Load)
+from functools import partial
 
 from mcpyrate.quotes import macros, q, a, h  # noqa: F401
 
 from mcpyrate.astfixers import fix_ctx
-from mcpyrate.quotes import capture_as_macro, is_captured_macro, is_captured_value, lookup_macro
+from mcpyrate.quotes import capture_as_macro, is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
 from .util import (suggest_decorator_index, sort_lambda_decorators, detect_lambda,
                    isx, getname, is_decorator, wrapwith)
 from .letdoutil import islet, isdo, ExpandedLetView
+from .nameutil import is_unexpanded_expr_macro
 from ..lazyutil import Lazy, passthrough_lazy_args, force, force1, maybe_force_args
 from ..dynassign import dyn
 
@@ -490,24 +492,7 @@ _unexpanded_lazy_name = "lazy"
 _expanded_lazy_name = "Lazy"
 _our_lazy = capture_as_macro(lazy)
 def _lazyrec(tree):
-    def is_unexpanded_lazy(tree):
-        if not type(tree) is Subscript:
-            return False
-        if isx(tree.value, _unexpanded_lazy_name):
-            return True
-
-        # hygienic captures and as-imports
-        key = is_captured_macro(tree)
-        if key:
-            name_node = lookup_macro(key)
-        elif type(tree) is Name:
-            name_node = tree
-        else:
-            return False
-        macrofunction = dyn._macro_expander.isbound(name_node.id)
-        if macrofunction is lazy:  # does the macro binding (in the current expander) point to our macro definition?
-            return True
-        return False
+    is_unexpanded_lazy = partial(is_unexpanded_expr_macro, lazy, dyn._macro_expander)
 
     # This helper doesn't need to recurse, so we don't need `ASTTransformer` here.
     def transform(tree):

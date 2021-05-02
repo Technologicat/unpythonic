@@ -5,12 +5,13 @@ Main purpose is to be able to query both direct and hygienically captured names
 with a unified API.
 """
 
-__all__ = ["isx", "getname"]
+__all__ = ["isx", "getname", "is_unexpanded_expr_macro"]
 
-from ast import Name, Attribute
+from ast import Name, Attribute, Subscript
+import sys
 
 from mcpyrate.core import Done
-from mcpyrate.quotes import is_captured_value
+from mcpyrate.quotes import is_captured_macro, is_captured_value, lookup_macro
 
 def isx(tree, x, accept_attr=True):
     """Test whether tree is a reference to the name ``x`` (str).
@@ -96,3 +97,36 @@ def getname(tree, accept_attr=True):
     if accept_attr and type(tree) is Attribute:
         return tree.attr
     return None
+
+# TODO: This utility really wants to live in `mcpyrate`, as part of a macro destructuring subsystem.
+# TODO: It needs to be made more general, to detect also macro invocations with args.
+def is_unexpanded_expr_macro(macrofunction, expander, tree):
+    """Check whether `tree` is an expr macro invocation bound to `macrofunction` in `expander`.
+
+    This accounts for hygienic macro captures and as-imports.
+
+    If there is a match, return the subscript slice, i.e. the tree that would be passed
+    to the macro function by the expander if the macro was expanded normally.
+
+    **CAUTION**: This function doesn't currently support detecting macros that
+    take macro arguments.
+    """
+    if not type(tree) is Subscript:
+        return False
+
+    # hygienic captures and as-imports
+    key = is_captured_macro(tree.value)
+    if key:
+        name_node = lookup_macro(key)
+    elif type(tree.value) is Name:
+        name_node = tree.value
+    else:
+        return False
+
+    macro = expander.isbound(name_node.id)
+    if macro is macrofunction:
+        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+            return tree.slice
+        else:
+            return tree.slice.value
+    return False
