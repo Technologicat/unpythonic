@@ -82,11 +82,19 @@ from ..dynassign import make_dynvar
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
-# TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
+# TODO: Upgrade anaphoric if's `it` into a `mcpyrate` magic variable that errors out at compile time when it appears in an invalid position (i.e. outside any `aif`). Basically, take the `aif` from `mcpyrate`.
+# TODO: also let_syntax block, expr
+# TODO: also kw() in unpythonic.syntax.prefix
+
+# TODO: let_syntax block, expr: syntactic consistency: change parentheses to brackets
+
+# TODO: Now that `unpythonic` provides dialects, update `mcpyrate` docs.
 
 # TODO: `let` constructs: document difference to Python 3.8 walrus operator (`let` creates a scope, `:=` doesn't)
 
 # TODO: `make_dynvar` needs to be better advertised in the docs. A workflow example would also be nice.
+
+# TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
 
 # TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.
 # TODO: Test the q[t[...]] implementation in do0[]
@@ -112,14 +120,6 @@ from ..dynassign import make_dynvar
 
 # TODO: Check expansion order of several macros in the same `with` statement
 
-# TODO: grep for any remaining mentions of "macropy"
-
-# TODO: Upgrade anaphoric if's `it` into a `mcpyrate` magic variable that errors out at compile time when it appears in an invalid position (i.e. outside any `aif`). Basically, take the `aif` from `mcpyrate`.
-# TODO: also let_syntax block, expr
-# TODO: also kw() in unpythonic.syntax.prefix
-
-# TODO: let_syntax block, expr: syntactic consistency: change parentheses to brackets
-
 # TODO: grep codebase for "0.15", may have some pending interface changes that don't have their own GitHub issue (e.g. parameter ordering of `unpythonic.it.window`)
 
 # TODO: ansicolor: `mcpyrate` already depends on Colorama anyway (and has a *nix-only fallback capability).
@@ -127,8 +127,8 @@ from ..dynassign import make_dynvar
 # TODO: to provide our own colorizer; we can use the one from `mcpyrate`. (It would be different if regular code needed it.)
 
 # TODO: with mcpyrate, do we really need to set `ctx` in our macros? (does our macro code need it?)
-
-# TODO: Now that `unpythonic` provides dialects, update `mcpyrate` docs.
+#  - At least `lazify` and `autoref` need it. Consider calling `mcpyrate.astfixers.fix_ctx` in macros
+#    to generate that information when needed, and not filling `ctx` manually anywhere.
 
 # TODO: AST pattern matching for `mcpyrate`? Would make destructuring easier. A writable representation (auto-viewify) is a pain to build, though...
 
