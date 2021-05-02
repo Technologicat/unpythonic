@@ -4,7 +4,7 @@ In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing f
 
 ![100% Python](https://img.shields.io/github/languages/top/Technologicat/unpythonic) ![supported language versions](https://img.shields.io/pypi/pyversions/unpythonic) ![supported implementations](https://img.shields.io/pypi/implementation/unpythonic) ![CI status](https://img.shields.io/github/workflow/status/Technologicat/unpythonic/Python%20package) [![codecov](https://codecov.io/gh/Technologicat/unpythonic/branch/master/graph/badge.svg)](https://codecov.io/gh/Technologicat/unpythonic)  
 ![version on PyPI](https://img.shields.io/pypi/v/unpythonic) ![PyPI package format](https://img.shields.io/pypi/format/unpythonic) ![dependency status](https://img.shields.io/librariesio/github/Technologicat/unpythonic)  
-![license: BSD](https://img.shields.io/pypi/l/unpythonic) ![open issues](https://img.shields.io/github/issues/Technologicat/unpythonic) [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
+![license: BSD](https://img.shields.io/pypi/l/unpythonic) ![open issues](https://img.shields.io/github/issues/Technologicat/unpythonic) [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](http://makeapullrequest.com/)
 
 *Some hypertext features of this README, such as local links to detailed documentation, and expandable example highlights, are not supported when viewed on PyPI; [view on GitHub](https://github.com/Technologicat/unpythonic) to have those work properly.*
 
@@ -39,7 +39,8 @@ The 0.15.x series should run on CPython 3.6, 3.7, 3.8 and 3.9, and PyPy3 (langua
 [Syntactic macro feature set](doc/macros.md)  
 [Examples of creating dialects using `mcpyrate`](doc/dialects.md): Python the way you want it.  
 [REPL server](doc/repl.md): interactively hot-patch your running Python program.  
-[Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.
+[Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.  
+[Contribution guidelines](CONTRIBUTING.md): for understanding the codebase, or if you're interested in making a code or documentation PR.
 
 The features of `unpythonic` are built out of, in increasing order of [magic](https://macropy3.readthedocs.io/en/latest/discussion.html#levels-of-magic):
 
