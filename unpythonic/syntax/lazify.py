@@ -8,7 +8,7 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef, Call, Name, Attribute,
 
 from mcpyrate.quotes import macros, q, a, h  # noqa: F401
 
-from mcpyrate.quotes import is_captured_value
+from mcpyrate.quotes import capture_as_macro, is_captured_macro, is_captured_value, lookup_macro
 from mcpyrate.walkers import ASTTransformer
 
 from .util import (suggest_decorator_index, sort_lambda_decorators, detect_lambda,
@@ -487,7 +487,27 @@ _ctorcalls_that_take_exactly_one_positional_arg = {"tuple", "list", "set", "dict
 
 _unexpanded_lazy_name = "lazy"
 _expanded_lazy_name = "Lazy"
+_our_lazy = capture_as_macro(lazy)
 def _lazyrec(tree):
+    def is_unexpanded_lazy(tree):
+        if not type(tree) is Subscript:
+            return False
+        if isx(tree.value, _unexpanded_lazy_name):
+            return True
+
+        # hygienic captures and as-imports
+        key = is_captured_macro(tree)
+        if key:
+            name_node = lookup_macro(key)
+        elif type(tree) is Name:
+            name_node = tree
+        else:
+            return False
+        macrofunction = dyn._macro_expander.isbound(name_node.id)
+        if macrofunction is lazy:  # does the macro binding (in the current expander) point to our macro definition?
+            return True
+        return False
+
     # This helper doesn't need to recurse, so we don't need `ASTTransformer` here.
     def transform(tree):
         if type(tree) in (Tuple, List, Set):
@@ -497,17 +517,14 @@ def _lazyrec(tree):
         elif type(tree) is Call and any(isx(tree.func, ctor) for ctor in _ctorcalls_all):
             p, k = _ctor_handling_modes[getname(tree.func)]
             lazify_ctorcall(tree, p, k)
-        elif type(tree) is Subscript and isx(tree.value, _unexpanded_lazy_name):
+        elif is_unexpanded_lazy(tree):
             pass
         elif type(tree) is Call and isx(tree.func, _expanded_lazy_name):
             pass
         else:
-            # mcpyrate supports hygienic macro capture, so we can just splice unexpanded
-            # (but hygienically unquoted) `lazy` invocations here.
-            # TODO: Doing so renames the macro, so detection needs to be adjusted.
-            # TODO: It must also be bound in the current expander for hygienic macro capture to work.
-            # tree = q[h[lazy][a[tree]]]
-            tree = _lazy(tree)
+            # `mcpyrate` supports hygienic macro capture, so we can just splice
+            # hygienic `lazy` invocations here.
+            tree = q[a[_our_lazy][a[tree]]]
         return tree
 
     def lazify_ctorcall(tree, positionals="all", keywords="all"):
@@ -579,6 +596,9 @@ def _lazify(body):
     # first pass, outside-in
     userlambdas = detect_lambda(body)
 
+    # Expand any inner macro invocations. Particularly, this expands away any `lazyrec[]` and `lazy[]`
+    # so they become easier to work with. We also know that after this, any `Subscript` is really a
+    # subscripting operation and not a macro invocation.
     body = dyn._macro_expander.visit(body)
 
     # second pass, inside-out
@@ -732,6 +752,8 @@ def _lazify(body):
                     tree = mycall
                     return tree
 
+            # NOTE: We must expand all inner macro invocations before we hit this, or we'll produce nonsense.
+            # Hence it is easiest to have `lazify` expand inside-out.
             elif type(tree) is Subscript:  # force only accessed part of obj[...]
                 self.withstate(tree.slice, forcing_mode="full")
                 tree.slice = self.visit(tree.slice)
