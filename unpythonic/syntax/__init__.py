@@ -86,7 +86,6 @@ from ..dynassign import make_dynvar
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
 
 # TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.
-# TODO: Test the q[t[...]] implementation in do0[]
 
 # TODO: With `mcpyrate` we could start looking at values, not names, when the aim is to detect hygienically captured `unpythonic` constructs. See use sites of `isx`; refer to `mcpyrate.quotes.is_captured_value` and `mcpyrate.quotes.lookup_value`.
 
