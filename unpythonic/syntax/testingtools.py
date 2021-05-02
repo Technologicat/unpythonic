@@ -424,6 +424,8 @@ def warn(tree, *, syntax, expander, **kw):  # noqa: F811
 # the function `unpythonic.conditions.error`, because a macro invocation
 # is an `ast.Subscript`, whereas a function call is an `ast.Call`.
 # TODO: Maybe these lists should be public, autoref already uses the list of functions.
+# TODO: We should use `unpythonic.syntax.nameutil.is_unexpanded_expr_macro` to detect
+# TODO: macro invocations, to respect as-imports. But it needs some bells and whistles first.
 _test_asserter_names = ["test", "test_signals", "test_raises", "error", "fail", "warn"]
 _test_function_names = ["unpythonic_assert",
                         "unpythonic_assert_signals",
