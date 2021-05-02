@@ -675,6 +675,10 @@ def _lazify(body):
                     return tree
 
             elif type(tree) is Call:
+                # We don't need to expand in the output of `_lazyrec`,
+                # because we don't recurse further into the args of the call,
+                # so the `lazify` transformer never sees the confusing `Subscript`
+                # instances that are actually macro invocations for `lazy[]`.
                 def transform_arg(tree):
                     # add any needed force() invocations inside the tree,
                     # but leave the top level of simple references untouched.
@@ -722,7 +726,7 @@ def _lazify(body):
                     # is an inner call in the arglist of an outer, lazy call, since it
                     # must see any container constructor calls that appear in the args)
                     #
-                    # TODO: correct forcing mode for `rec`? We shouldn't need to forcibly use "full",
+                    # TODO: correct forcing mode for recursion? We shouldn't need to forcibly use "full",
                     # since maybe_force_args() already fully forces any remaining promises
                     # in the args when calling a strict function.
                     tree.args = self.visit(tree.args)
