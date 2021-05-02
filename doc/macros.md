@@ -1545,14 +1545,14 @@ To denote a single expression that is a literal list, use an extra set of bracke
 This is mainly of interest as a point of [comparison with Racket](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/aif.rkt); ``aif`` is about the simplest macro that relies on either the lack of hygiene or breaking thereof.
 
 ```python
-from unpythonic.syntax import macros, aif
+from unpythonic.syntax import macros, aif, it
 
 aif[2*21,
     print(f"it is {it}"),
     print("it is falsey")]
 ```
 
-Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` refers to the test result while (lexically) inside the ``aif``, and does not exist outside the ``aif``.
+Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` (which **must** be imported as a macro, if used) refers to the test result while (lexically) inside the ``aif``, and does not exist outside the ``aif``.
 
 Any part of ``aif`` may have multiple expressions by surrounding it with brackets (implicit ``do[]``):
 
