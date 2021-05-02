@@ -284,14 +284,17 @@ Like global variables, but better-behaved. Useful for sending some configuration
 There's a singleton, `dyn`:
 
 ```python
-from unpythonic import dyn
+from unpythonic import dyn, make_dynvar
+
+make_dynvar(c=17)  # top-level default value
 
 def f():  # no "a" in lexical scope here
     assert dyn.a == 2
 
 def g():
-    with dyn.let(a=2, b="foo"):
+    with dyn.let(a=2, b="foo", c=42):
         assert dyn.a == 2
+        assert dyn.c == 42
 
         f()
 
@@ -301,17 +304,24 @@ def g():
         # now "a" has reverted to its previous value
         assert dyn.a == 2
 
+    assert dyn.c == 17  # "c" has reverted to its default value
     print(dyn.b)  # AttributeError, dyn.b no longer exists
 g()
 ```
 
-Dynamic variables are set using `with dyn.let(...)`. There is no `set`, `<<`, unlike in the other `unpythonic` environments.
+Dynamic variables (a.k.a. *dynvars*) are created using `with dyn.let(k0=v0, ...)`. The syntax is in line with the nature of the assignment, which is in effect *for the dynamic extent* of the `with`. Exiting the `with` block pops the dynamic environment stack. Inner dynamic environments shadow outer ones.
 
-**Changed in v0.14.2.** *To bring this in line with [SRFI-39](https://srfi.schemers.org/srfi-39/srfi-39.html), `dyn` now supports rebinding, using assignment syntax such as `dyn.x = 42`. For an atomic mass-update, see `dyn.update`. Rebinding occurs in the closest enclosing dynamic environment that has the target name bound. If the name is not bound in any dynamic environment, ``AttributeError`` is raised.*
+The point of dynamic assignment is that dynvars are seen also by code that is outside the lexical scope where the `with dyn.let` resides. The use case is to avoid a function parameter definition cascade, when you need to pass some information through several layers that don't care about it. This is especially useful for passing "background" information, such as plotter settings in scientific visualization, or the macro expander instance in metaprogramming.
 
-**CAUTION**: Use rebinding of dynamic variables carefully, if at all. Stealth updates of dynamic variables defined in an enclosing dynamic extent can destroy any chance of statically reasoning about the code.
+To give a dynvar a top-level default value, use ``make_dynvar(k0=v0, ...)``. Usually this is done at the top-level scope of the module for which that dynvar is meaningful. Each dynvar, of the same name, should only have one default set; the (dynamically) latest definition always overwrites. However, we do not prevent overwrites, because in some codebases the same module may run its top-level initialization code multiple times (e.g. if a module has a ``main()`` for tests, and the file gets loaded both as a module and as the main program).
 
-The values of dynamic variables remain bound for the dynamic extent of the `with` block. Exiting the `with` block then pops the stack. Inner dynamic scopes shadow outer ones. Dynamic variables are seen also by code that is outside the lexical scope where the `with dyn.let` resides.
+To rebind existing dynvars, use `dyn.k = v`, or `dyn.update(k0=v0, ...)`. Rebinding occurs in the closest enclosing dynamic environment that has the target name bound. If the name is not bound in any dynamic environment (including the top-level one), ``AttributeError`` is raised.
+
+**CAUTION**: Use rebinding of dynvars carefully, if at all. Stealth updates of dynvars defined in an enclosing dynamic extent can destroy any chance of statically reasoning about the code.
+
+There is no `set` function or `<<` operator, unlike in the other `unpythonic` environments.
+
+**Changed in v0.14.2.** *To bring this in line with [SRFI-39](https://srfi.schemers.org/srfi-39/srfi-39.html), `dyn` now supports rebinding, using assignment syntax such as `dyn.x = 42`, and the function `dyn.update(x=42, y=17, ...)`.*
 
 <details>
 <summary>Each thread has its own dynamic scope stack. There is also a global dynamic scope for default values, shared between threads. </summary>
@@ -322,9 +332,7 @@ The source of the copy is always the main thread mainly because Python's `thread
 Finally, there is one global dynamic scope shared between all threads, where the default values of dynvars live. The default value is used when ``dyn`` is queried for the value outside the dynamic extent of any ``with dyn.let()`` blocks. Having a default value is convenient for eliminating the need for ``if "x" in dyn`` checks, since the variable will always exist (after the global definition has been executed).
 </details>
 
-To create a dynvar and set its default value, use ``make_dynvar``. Each dynamic variable, of the same name, should only have one default set; the (dynamically) latest definition always overwrites. However, we do not prevent overwrites, because in some codebases the same module may run its top-level initialization code multiple times (e.g. if a module has a ``main()`` for tests, and the file gets loaded both as a module and as the main program).
-
-See also the methods of ``dyn``; particularly noteworthy are ``asdict`` and ``items``, which give access to a live view to dyn's contents in a dictionary format (intended for reading only!). The ``asdict`` method essentially creates a ``collections.ChainMap`` instance, while ``items`` is an abbreviation for ``asdict().items()``. The ``dyn`` object itself can also be iterated over; this creates a ``ChainMap`` instance and redirects to iterate over it. ``dyn`` also provides the ``collections.abc.Mapping`` API.
+For more details, see the methods of ``dyn``; particularly noteworthy are ``asdict`` and ``items``, which give access to a *live view* to dyn's contents in a dictionary format (intended for reading only!). The ``asdict`` method essentially creates a ``collections.ChainMap`` instance, while ``items`` is an abbreviation for ``asdict().items()``. The ``dyn`` object itself can also be iterated over; this creates a ``ChainMap`` instance and redirects to iterate over it. ``dyn`` also provides the ``collections.abc.Mapping`` API.
 
 To support dictionary-like idioms in iteration, dynvars can alternatively be accessed by subscripting; ``dyn["x"]`` has the same meaning as ``dyn.x``, so you can do things like:
 
@@ -345,6 +353,7 @@ This is essentially [SRFI-39: Parameter objects](https://srfi.schemers.org/srfi-
 On Common Lisp's special variables, see [Practical Common Lisp by Peter Seibel](http://www.gigamonkeys.com/book/variables.html), especially footnote 10 in the linked chapter, for a definition of terms. Similarly, dynamic variables in our `dyn` have *indefinite scope* (because `dyn` is implemented as a module-level global, accessible from anywhere), but *dynamic extent*.
 
 So what we have in `dyn` is almost exactly like Common Lisp's special variables, except we are missing convenience features such as `setf` and a smart `let` that auto-detects whether a variable is lexical or dynamic (if the name being bound is already in scope).
+
 
 ## Containers
 

@@ -85,8 +85,6 @@ from ..dynassign import make_dynvar
 
 # TODO: Now that `unpythonic` provides dialects, update `mcpyrate` docs.
 
-# TODO: `make_dynvar` needs to be better advertised in the docs. A workflow example would also be nice.
-
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
 
 # TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.
