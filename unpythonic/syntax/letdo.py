@@ -897,23 +897,18 @@ def _do(tree):
     thecall.args = lines
     return thecall
 
+_our_local = capture_as_macro(local)
+_our_do = capture_as_macro(do)
 def _do0(tree):
     if type(tree) not in (Tuple, List):
         raise SyntaxError("do0 body: expected a sequence of comma-separated expressions")  # pragma: no cover
     elts = tree.elts
-    newelts = []
-    # TODO: Would be cleaner to use `local[]` as a hygienically captured macro.
-    # Now we call the syntax transformer directly, and splice in the returned AST.
-    with _do_level.changed_by(+1):  # it's alright, `local[]`, we're inside a `do0[]`.
-        firstexpr = elts[0]
-        firstexpr = dyn._macro_expander.visit(firstexpr)
-        thelocalexpr = q[_do0_result << a[firstexpr]]  # noqa: F821, the local[] defines it inside the do[].
-        newelts.append(q[a[_local(thelocalexpr)]])
-    newelts.extend(elts[1:])
-    newelts.append(q[_do0_result])  # noqa: F821
-    newtree = q[t[newelts]]
-    # TODO: Would be cleaner to use `do[]` as a hygienically captured macro.
-    return _do(newtree)  # do0[] is also just a do[]
+    # Use `local[]` as a hygienically captured macro.
+    newelts = [q[a[_our_local][_do0_result << a[elts[0]]]],  # noqa: F821, local[] defines it inside the do[].
+               *elts[1:],
+               q[_do0_result]]  # noqa: F821
+    # Use `do[]` as a hygienically captured macro.
+    return q[a[_our_do][t[newelts]]]  # do0[] is also just a do[]
 
 def _implicit_do(tree):
     """Allow a sequence of expressions in expression position.
