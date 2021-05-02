@@ -7,12 +7,12 @@ __all__ = ["aif", "it",
 from ast import Tuple
 
 from mcpyrate.quotes import macros, q, n, a, h  # noqa: F811, F401
+from .letdo import macros, let  # noqa: F811, F401
 
 from mcpyrate import namemacro
 from mcpyrate.expander import MacroExpander
 from mcpyrate.utils import extract_bindings, NestingLevelTracker
 
-from .letdo import macros, let  # noqa: F811, F401
 from .letdo import _implicit_do
 
 from ..dynassign import dyn

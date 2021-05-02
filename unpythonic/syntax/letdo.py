@@ -32,7 +32,7 @@ from mcpyrate.quotes import macros, q, u, n, a, t, h  # noqa: F401
 
 from mcpyrate import gensym, parametricmacro
 from mcpyrate.markers import ASTMarker
-from mcpyrate.quotes import is_captured_value
+from mcpyrate.quotes import capture_as_macro, is_captured_value
 from mcpyrate.utils import NestingLevelTracker
 from mcpyrate.walkers import ASTTransformer
 
@@ -330,13 +330,21 @@ def bletrec(tree, *, args, syntax, expander, **kw):
 def _let(bindings, body):
     return _let_expr_impl(bindings, body, "let")
 
+_our_let = capture_as_macro(let)
+_our_letseq = capture_as_macro(letseq)
 def _letseq(bindings, body):
     if not bindings:
         return body
     first, *rest = bindings
-    # TODO: Could just return hygienic macro invocations.
-    # TODO: See `unpythonic.syntax.simplelet` for how to do it.
-    return _let([first], _letseq(rest, body))
+    # We use hygienic macro references in the output,
+    # so that the expander can expand them later.
+    if rest:
+        nested_letseq = q[a[_our_letseq][t[rest]][a[body]]]
+        return q[a[_our_let][a[first]][a[nested_letseq]]]
+    else:
+        # We must do this optimization (no letseq with empty bindings)
+        # because empty bindings confuse `_destructure_and_apply_let`.
+        return q[a[_our_let][a[first]][a[body]]]
 
 def _letrec(bindings, body):
     return _let_expr_impl(bindings, body, "letrec")
