@@ -42,6 +42,7 @@ This edition concentrates on upgrading our dependencies, namely the macro expand
 **Fixed**:
 
 - Make `callsite_filename` ignore our call helpers. This allows the testing framework report the source code filename correctly when testing code using macros that make use of these helpers (e.g. `autocurry`, `lazify`).
+- In `aif`, `it` is now only valid in the `then` and `otherwise` parts, as it should.
 
 
 ---

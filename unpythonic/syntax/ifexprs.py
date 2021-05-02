@@ -56,22 +56,25 @@ def aif(tree, *, syntax, expander, **kw):
 _aif_level = NestingLevelTracker()
 
 def _aif(tree, bindings_of_it):
-    with _aif_level.changed_by(+1):
-        # expand any `it` inside the `aif` (thus confirming those uses are valid)
-        def expand_it(tree):
-            return MacroExpander(bindings_of_it, dyn._macro_expander.filename).visit(tree)
+    # expand any `it` inside the `aif` (thus confirming those uses are valid)
+    def expand_it(tree):
+        return MacroExpander(bindings_of_it, dyn._macro_expander.filename).visit(tree)
 
+    # careful here: `it` is only valid in the `then` and `otherwise` parts.
+    test, then, otherwise = tree.elts
+    test = _implicit_do(test)
+    with _aif_level.changed_by(+1):
         name_of_it = list(bindings_of_it.keys())[0]
         expanded_it = expand_it(q[n[name_of_it]])
 
-        tree = expand_it(tree)
+        then = _implicit_do(expand_it(then))
+        otherwise = _implicit_do(expand_it(otherwise))
 
-        test, then, otherwise = [_implicit_do(x) for x in tree.elts]
-        let_bindings = q[(a[expanded_it], a[test])]
-        let_body = q[a[then] if a[expanded_it] else a[otherwise]]
-        # We use a hygienic macro reference to `let[]` in the output,
-        # so that the expander can expand it later.
-        return q[h[let][a[let_bindings]][a[let_body]]]
+    let_bindings = q[(a[expanded_it], a[test])]
+    let_body = q[a[then] if a[expanded_it] else a[otherwise]]
+    # We use a hygienic macro reference to `let[]` in the output,
+    # so that the expander can expand it later.
+    return q[h[let][a[let_bindings]][a[let_body]]]
 
 @namemacro
 def it(tree, *, syntax, **kw):
