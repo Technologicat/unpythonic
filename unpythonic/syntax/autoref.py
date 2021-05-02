@@ -177,6 +177,8 @@ def _autoref(block_body, args, asname):
 
     # x --> the autoref code above.
     def makeautoreference(tree):
+        # We don't need to care about `Done` markers from expanded `@namemacro`s
+        # because the transformer that calls this function recurses into them.
         assert type(tree) is Name and (type(tree.ctx) is Load or not tree.ctx)
         newtree = q[(lambda __ar_: __ar_[1] if __ar_[0] else a[tree])(h[_autoref_resolve]((n[o], u[tree.id])))]
         our_lambda_argname = gensym("_ar")
