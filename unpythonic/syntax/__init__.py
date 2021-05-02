@@ -94,7 +94,7 @@ from ..dynassign import make_dynvar
 
 # TODO: macro docs: "first pass" -> "outside in"; "second pass" -> "inside out"
 
-# TODO: `isx` and `getname` from `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead
+# TODO: something like `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead
 
 # TODO: `mcpyrate` does not auto-expand macros in quasiquoted code.
 #  - Consider when we should expand macros in quoted code and when not
