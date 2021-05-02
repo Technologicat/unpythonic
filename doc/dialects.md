@@ -17,7 +17,7 @@ factorial(5000)  # no crash
 
 The [dialects subsystem of `mcpyrate`](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) makes Python into a language platform, à la [Racket](https://racket-lang.org/).
 It provides the plumbing that allows to create, in Python, dialects that compile into Python
-at import time. It is geared toward creating languages that extend Python
+at macro expansion time. It is geared toward creating languages that extend Python
 and look almost like Python, but extend or modify its syntax and/or semantics.
 Hence *dialects*.
 

@@ -2069,7 +2069,7 @@ Our `sym` is like a Lisp/Scheme/Racket symbol, which is essentially an [interned
 
 Our `gensym` is like the [Lisp `gensym`](http://clhs.lisp.se/Body/f_gensym.htm), and the [JavaScript `Symbol`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol).
 
-If you're familiar with `mcpyrate`'s `gensym` or MacroPy's `gen_sym`, those mean something different. Their purpose is to create, at import time, a lexical identifier that is not already in use in the source code being compiled, whereas our `gensym` creates an uninterned symbol object for run-time use. Lisp macros use symbols to represent identifiers, hence the potential for confusion in Python, where that is not the case. (The symbols of `unpythonic` are a purely run-time abstraction.)
+If you're familiar with `mcpyrate`'s `gensym` or MacroPy's `gen_sym`, those mean something different. Their purpose is to create, in a macro, a lexical identifier that is not already in use in the source code being compiled, whereas our `gensym` creates an uninterned symbol object for run-time use. Lisp macros use symbols to represent identifiers, hence the potential for confusion in Python, where that is not the case. (The symbols of `unpythonic` are a purely run-time abstraction.)
 
 If your background is in C++ or Java, you may notice the symbol abstraction is a kind of a parametric [singleton](https://en.wikipedia.org/wiki/Singleton_pattern); each symbol with the same name is a singleton (as is any gensym with the same UUID).
 
