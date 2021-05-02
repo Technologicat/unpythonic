@@ -808,8 +808,6 @@ class UnpythonicDoLocalMarker(UnpythonicLetDoMarker):
 class UnpythonicDoDeleteMarker(UnpythonicLetDoMarker):
     """AST marker for local variable deletion in a `do` context."""
 
-# TODO: fail-fast: promote `local[]`/`delete[]` usage errors to compile-time errors
-# TODO: (doesn't currently work e.g. for `let` with an implicit do (extra bracket notation))
 def _local(tree):  # syntax transformer
     if _do_level.value < 1:
         raise SyntaxError("local[] is only valid within a do[] or do0[]")  # pragma: no cover
