@@ -213,6 +213,8 @@ let[(x, y),       # v0.12.0+
 
 #### Notes
 
+The main difference of the `let` family to Python's own named expressions (a.k.a. walrus operator, added in Python 3.8) is that `x := 42` does not create a scope, but `let[(x, 42)][...]` does. The walrus operator assigns to the name `x` in the scope it appears in, whereas in the `let` expression, the `x` only exists in that expression.
+
 ``let`` and ``letrec`` expand into the ``unpythonic.lispylet`` constructs, implicitly inserting the necessary boilerplate: the ``lambda e: ...`` wrappers, quoting variable names in definitions, and transforming ``x`` to ``e.x`` for all ``x`` declared in the bindings. Assignment syntax ``x << 42`` transforms to ``e.set('x', 42)``. The implicit environment parameter ``e`` is actually named using a gensym, so lexically outer environments automatically show through. ``letseq`` expands into a chain of nested ``let`` expressions.
 
 Nesting utilizes an inside-out macro expansion order:

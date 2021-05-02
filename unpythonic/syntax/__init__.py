@@ -85,8 +85,6 @@ from ..dynassign import make_dynvar
 
 # TODO: Now that `unpythonic` provides dialects, update `mcpyrate` docs.
 
-# TODO: `let` constructs: document difference to Python 3.8 walrus operator (`let` creates a scope, `:=` doesn't)
-
 # TODO: `make_dynvar` needs to be better advertised in the docs. A workflow example would also be nice.
 
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
