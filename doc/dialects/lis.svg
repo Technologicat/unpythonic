@@ -15,9 +15,9 @@
    viewBox="0 0 68.218434 134.69327"
    id="svg4188"
    version="1.1"
-   inkscape:version="0.92.3 (2405546, 2018-03-11)"
+   inkscape:version="0.92.5 (2060ec1f9f, 2020-04-08)"
    sodipodi:docname="lis.svg"
-   inkscape:export-filename="/home/jje/Documents/koodit/pydialect/lispython/lis.png"
+   inkscape:export-filename="/home/jje/Documents/koodit/unpythonic/doc/dialects/lis.png"
    inkscape:export-xdpi="206"
    inkscape:export-ydpi="206">
   <sodipodi:namedview
@@ -28,7 +28,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="5.7074119"
-     inkscape:cx="36.383165"
+     inkscape:cx="4.5824113"
      inkscape:cy="71.836413"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -40,7 +40,7 @@
      inkscape:snap-smooth-nodes="false"
      inkscape:snap-center="true"
      inkscape:window-width="1920"
-     inkscape:window-height="1019"
+     inkscape:window-height="1015"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
@@ -72,11 +72,11 @@
        inkscape:collect="always"
        id="linearGradient1157">
       <stop
-         style="stop-color:#94a8e9;stop-opacity:1"
+         style="stop-color:#e2bb71;stop-opacity:1"
          offset="0"
          id="stop1153" />
       <stop
-         style="stop-color:#f6f6f6;stop-opacity:1"
+         style="stop-color:#fcf2c6;stop-opacity:1"
          offset="1"
          id="stop1155" />
     </linearGradient>
@@ -135,10 +135,10 @@
        inkscape:collect="always"
        xlink:href="#linearGradient1157"
        id="linearGradient1159"
-       x1="103.25241"
-       y1="162.52734"
+       x1="96.024963"
+       y1="163.18439"
        x2="96.445732"
-       y2="116.77643"
+       y2="120.55441"
        gradientUnits="userSpaceOnUse" />
     <linearGradient
        inkscape:collect="always"
@@ -158,7 +158,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -265,7 +265,7 @@
     </g>
     <text
        xml:space="preserve"
-       style="font-style:normal;font-weight:normal;font-size:14.0625px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#939cbc;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
+       style="font-style:normal;font-weight:normal;font-size:14.0625px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#c5a83a;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
        x="83.096405"
        y="136.18008"
        id="text1121"><tspan
@@ -273,14 +273,14 @@
          id="tspan1119"
          x="83.096405"
          y="136.18008"
-         style="font-style:italic;fill:#939cbc;fill-opacity:1;stroke-width:0.9375px;">λ</tspan></text>
+         style="font-style:italic;fill:#c5a83a;fill-opacity:1;stroke-width:0.9375px;">λ</tspan></text>
     <text
        id="text1125"
        y="158.57564"
        x="91.734695"
-       style="font-style:normal;font-weight:normal;font-size:14.0625px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#939cbc;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
+       style="font-style:normal;font-weight:normal;font-size:14.0625px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#c5a83a;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
        xml:space="preserve"><tspan
-         style="font-style:italic;fill:#939cbc;fill-opacity:1;stroke-width:0.9375px;"
+         style="font-style:italic;fill:#c5a83a;fill-opacity:1;stroke-width:0.9375px;"
          y="158.57564"
          x="91.734695"
          id="tspan1123"
@@ -289,9 +289,9 @@
        id="text1133"
        y="144.33846"
        x="63.580284"
-       style="font-style:normal;font-weight:normal;font-size:14.0625px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#939cbc;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
+       style="font-style:normal;font-weight:normal;font-size:14.0625px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#c5a83a;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
        xml:space="preserve"><tspan
-         style="font-style:italic;fill:#939cbc;fill-opacity:1;stroke-width:0.9375px;"
+         style="font-style:italic;fill:#c5a83a;fill-opacity:1;stroke-width:0.9375px;"
          y="144.33846"
          x="63.580284"
          id="tspan1131"
@@ -643,7 +643,7 @@
     </g>
     <text
        xml:space="preserve"
-       style="font-style:normal;font-weight:normal;font-size:14.0625px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#939cbc;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
+       style="font-style:normal;font-weight:normal;font-size:14.0625px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#c5a83a;fill-opacity:1;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
        x="38.465263"
        y="133.46062"
        id="text1129"><tspan
@@ -651,10 +651,10 @@
          id="tspan1127"
          x="38.465263"
          y="133.46062"
-         style="font-style:italic;fill:#939cbc;fill-opacity:1;stroke-width:0.9375px;">λ</tspan></text>
+         style="font-style:italic;fill:#c5a83a;fill-opacity:1;stroke-width:0.9375px;">λ</tspan></text>
     <text
        xml:space="preserve"
-       style="font-style:normal;font-weight:normal;font-size:14.06249905px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;display:inline;fill:#939cbc;fill-opacity:1;stroke:none;stroke-width:0.93749994px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
+       style="font-style:normal;font-weight:normal;font-size:14.06249905px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;display:inline;fill:#c5a83a;fill-opacity:1;stroke:none;stroke-width:0.93749994px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
        x="45.25906"
        y="155.5994"
        id="text1121-3"><tspan
@@ -662,7 +662,7 @@
          id="tspan1119-6"
          x="45.25906"
          y="155.5994"
-         style="font-style:italic;fill:#939cbc;fill-opacity:1;stroke-width:0.93749994px;">λ</tspan></text>
+         style="font-style:italic;fill:#c5a83a;fill-opacity:1;stroke-width:0.93749994px;">λ</tspan></text>
     <path
        style="fill:#000000;fill-rule:evenodd;stroke:none;stroke-width:0.9375px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;fill-opacity:0.09803922"
        d="m 52.283986,83.738584 -1.067691,6.734664 -0.41065,5.913364 5.749104,0.08213 c 0,0 -0.574911,-1.06769 -0.985561,-4.681413 -0.41065,-3.613722 -0.16426,-4.763542 -0.16426,-4.763542 0,0 -0.65704,0.08213 -1.396211,-0.574911 -0.73917,-0.65704 -1.724731,-2.710291 -1.724731,-2.710292 z"
