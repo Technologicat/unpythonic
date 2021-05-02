@@ -904,11 +904,10 @@ def _do0(tree):
     if type(tree) not in (Tuple, List):
         raise SyntaxError("do0 body: expected a sequence of comma-separated expressions")  # pragma: no cover
     elts = tree.elts
-    # Use `local[]` as a hygienically captured macro.
+    # Use `local[]` and `do[]` as hygienically captured macros.
     newelts = [q[a[_our_local][_do0_result << a[elts[0]]]],  # noqa: F821, local[] defines it inside the do[].
                *elts[1:],
                q[_do0_result]]  # noqa: F821
-    # Use `do[]` as a hygienically captured macro.
     return q[a[_our_do][t[newelts]]]  # do0[] is also just a do[]
 
 def _implicit_do(tree):
