@@ -83,8 +83,6 @@ from ..dynassign import make_dynvar
 
 # TODO: let_syntax block, expr: syntactic consistency: change parentheses to brackets
 
-# TODO: Now that `unpythonic` provides dialects, update `mcpyrate` docs.
-
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
 
 # TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.
