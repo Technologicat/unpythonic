@@ -71,10 +71,6 @@ from ..dynassign import make_dynvar
 #
 # There are further cleanups of the macro layer possible with `mcpyrate`. For example:
 #
-#  - Quasiquotes no longer auto-expand macros in the quoted code. `letseq` could use hygienic *macro*
-#    capture and just return an unexpanded `let` and another `letseq` (with one fewer binding),
-#    similarly to how Racket implements `let*`. See `unpythonic.syntax.simplelet` for a demo.
-#
 #  - Many macros could perhaps run in the outside-in pass. Some need a redesign for their AST analysis,
 #    but much of that has been sufficiently abstracted (e.g. `unpythonic.syntax.letdoutil`) so that this
 #    is mainly a case of carefully changing the analysis mode at all appropriate use sites.
@@ -101,9 +97,6 @@ from ..dynassign import make_dynvar
 # TODO: With `mcpyrate` we could start looking at values, not names, when the aim is to detect hygienically captured `unpythonic` constructs. See use sites of `isx`; refer to `mcpyrate.quotes.is_captured_value` and `mcpyrate.quotes.lookup_value`.
 
 # TODO: macro docs: "first pass" -> "outside in"; "second pass" -> "inside out"
-
-# TODO: Some macros look up others; convert lookups to mcpyrate style (accounting for as-imports)
-# TODO: or hygienic macro references (`h[...]`), as appropriate.
 
 # TODO: `isx` and `getname` from `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead
 
