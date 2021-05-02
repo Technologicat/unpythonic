@@ -31,9 +31,7 @@ import sys
 from mcpyrate.quotes import macros, q, u, n, a, t, h  # noqa: F401
 
 from mcpyrate import gensym, parametricmacro
-from mcpyrate.markers import ASTMarker
 from mcpyrate.quotes import capture_as_macro, is_captured_value
-from mcpyrate.utils import NestingLevelTracker
 from mcpyrate.walkers import ASTTransformer
 
 from ..dynassign import dyn
@@ -43,7 +41,7 @@ from ..seq import do as dof
 
 from .letdoutil import (isenvassign, UnexpandedEnvAssignView,
                         UnexpandedLetView, canonize_bindings)
-from .nameutil import getname
+from .nameutil import getname, is_unexpanded_expr_macro
 from .scopeanalyzer import scoped_transform
 
 # --------------------------------------------------------------------------------
@@ -627,7 +625,7 @@ def local(tree, *, syntax, **kw):
     """
     if syntax != "expr":
         raise SyntaxError("local is an expr macro only")  # pragma: no cover
-    return _local(tree)
+    raise SyntaxError("local[] is only valid at the top level of a do[] or do0[]")  # pragma: no cover, not meant to hit the expander
 
 def delete(tree, *, syntax, **kw):
     """[syntax] Delete a previously declared local name in a "do".
@@ -648,7 +646,7 @@ def delete(tree, *, syntax, **kw):
     """
     if syntax != "expr":
         raise SyntaxError("delete is an expr macro only")  # pragma: no cover
-    return _delete(tree)
+    raise SyntaxError("delete[] is only valid at the top level of a do[] or do0[]")  # pragma: no cover, not meant to hit the expander
 
 def do(tree, *, syntax, expander, **kw):
     """[syntax, expr] Stuff imperative code into an expression position.
@@ -796,63 +794,31 @@ def do0(tree, *, syntax, expander, **kw):
 # --------------------------------------------------------------------------------
 # Syntax transformers
 
-_do_level = NestingLevelTracker()  # for checking validity of local[] and delete[]
-
-# Use `mcpyrate` ASTMarkers, so that the expander can do the dirty work of
-# detecting macro invocations. Our `do[]` macro then only needs to detect
-# instances of the appropriate markers.
-class UnpythonicLetDoMarker(ASTMarker):
-    """AST marker related to unpythonic's let/do subsystem."""
-class UnpythonicDoLocalMarker(UnpythonicLetDoMarker):
-    """AST marker for local variable definitions in a `do` context."""
-class UnpythonicDoDeleteMarker(UnpythonicLetDoMarker):
-    """AST marker for local variable deletion in a `do` context."""
-
-def _local(tree):  # syntax transformer
-    if _do_level.value < 1:
-        raise SyntaxError("local[] is only valid within a do[] or do0[]")  # pragma: no cover
-    return UnpythonicDoLocalMarker(tree)
-
-def _delete(tree):  # syntax transformer
-    if _do_level.value < 1:
-        raise SyntaxError("delete[] is only valid within a do[] or do0[]")  # pragma: no cover
-    return UnpythonicDoDeleteMarker(tree)
-
 def _do(tree):
     if type(tree) not in (Tuple, List):
         raise SyntaxError("do body: expected a sequence of comma-separated expressions")  # pragma: no cover, let's not test the macro expansion errors.
 
-    # Handle nested `local[]`/`delete[]`. This will also expand any other nested macro invocations.
-    # TODO: If we want to make `do` an outside-in macro, instantiate another expander here and register
-    # TODO: only the `local` and `delete` transformers to it - grabbing them from the current expander's
-    # TODO: bindings to respect as-imports. (Expander instances are cheap in `mcpyrate`.)
-    # TODO: Grep the `unpythonic` codebase (and `mcpyrate` demos) for `MacroExpander` to see how.
-    #
-    # TODO: We have to be careful with nested `do`, though - some local definitions may belong to
-    # TODO: nested invocations. So perhaps we need to expand `do`, `do0`, `local` and `delete` here.
-    # TODO: Even that doesn't help, e.g.:  do[..., let[...][[local[x << 42], ...]]]
-    # TODO: Here the `let` has an implicit `do`, which should be treated separately.
-    with _do_level.changed_by(+1):
-        tree = dyn._macro_expander.visit(tree)
-
     e = gensym("e")
     envset = q[n[f"{e}._set"]]  # use internal _set to allow new definitions
     envdel = q[n[f"{e}.pop"]]
+
+    islocaldef = partial(is_unexpanded_expr_macro, local, dyn._macro_expander)
+    isdelete = partial(is_unexpanded_expr_macro, delete, dyn._macro_expander)
 
     def find_localdefs(tree):
         class LocaldefCollector(ASTTransformer):
             def transform(self, tree):
                 if is_captured_value(tree):
                     return tree  # don't recurse!
-                if isinstance(tree, UnpythonicDoLocalMarker):
-                    expr = tree.body
+                expr = islocaldef(tree)
+                if expr:
                     if not isenvassign(expr):
                         raise SyntaxError("local[...] takes exactly one expression of the form 'name << value'")  # pragma: no cover
                     view = UnexpandedEnvAssignView(expr)
                     self.collect(view.name)
-                    # e.g. `x << 21`; preserve the original expr to make the assignment occur.
-                    return self.visit(expr)  # handle nested local[] (e.g. from `do0[local[y << 5],]`)
-                return self.generic_visit(tree)
+                    view.value = self.visit(view.value)  # nested local[] (e.g. from `do0[local[y << 5],]`)
+                    return expr  # e.g. `x << 21`; preserve the original expr to make the assignment occur.
+                return tree  # don't recurse!
         c = LocaldefCollector()
         tree = c.visit(tree)
         return tree, c.collected
@@ -861,13 +827,13 @@ def _do(tree):
             def transform(self, tree):
                 if is_captured_value(tree):
                     return tree  # don't recurse!
-                if isinstance(tree, UnpythonicDoDeleteMarker):
-                    expr = tree.body
+                expr = isdelete(tree)
+                if expr:
                     if type(expr) is not Name:
                         raise SyntaxError("delete[...] takes exactly one name")  # pragma: no cover
                     self.collect(expr.id)
                     return q[a[envdel](u[expr.id])]  # -> e.pop(...)
-                return self.generic_visit(tree)
+                return tree  # don't recurse!
         c = DeleteCollector()
         tree = c.visit(tree)
         return tree, c.collected
