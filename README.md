@@ -570,13 +570,15 @@ with continuations:  # enables also TCO automatically
 
 #### Unpythonic in 30 seconds: Language extensions with dialects
 
-<details><summary>Lispython: The love child of Python and Scheme.</summary>
-
 [[docs](doc/dialects.md)]
 
 The [dialects subsystem of `mcpyrate`](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) makes Python into a language platform, à la [Racket](https://racket-lang.org/). We provide some example dialects based on `unpythonic`'s macro layer.
 
-For example, what if Python had automatic tail-call optimization and an implicit return statement? Look no further:
+<details><summary>Lispython: The love child of Python and Scheme.</summary>
+
+[[docs](doc/dialects/lispython.md)]
+
+Python with automatic tail-call optimization, an implicit return statement, and automatically named, multi-expression lambdas.
 
 ```python
 from unpythonic.dialects import dialects, Lispython  # noqa: F401
@@ -589,9 +591,56 @@ def factorial(n):
     f(n, acc=1)
 assert factorial(4) == 24
 factorial(5000)  # no crash
+
+square = lambda x: x**2
+assert square(3) == 9
+assert square.__name__ == "square"
+```
+</details>  
+<details><summary>Pytkell: Because it's good to have a kell.</summary>
+
+[[docs](doc/dialects/pytkell.md)]
+
+Python with automatic currying and implicitly lazy functions.
+
+```python
+from unpythonic.dialects import dialects, Pytkell  # noqa: F401
+
+from operator import add, mul
+
+def addfirst2(a, b, c):
+    return a + b
+assert addfirst2(1)(2)(1 / 0) == 3
+
+assert tuple(scanl(add, 0, (1, 2, 3))) == (0, 1, 3, 6)
+assert tuple(scanr(add, 0, (1, 2, 3))) == (0, 3, 5, 6)
+
+my_sum = foldl(add, 0)
+my_prod = foldl(mul, 1)
+my_map = lambda f: foldr(compose(cons, f), nil)
+assert my_sum(range(1, 5)) == 10
+assert my_prod(range(1, 5)) == 24
+assert tuple(my_map((lambda x: 2 * x), (1, 2, 3))) == (2, 4, 6)
+```
+</details>  
+<details><summary>Listhell: It's not Lisp, it's not Python, it's not Haskell.</summary>
+
+[[docs](doc/dialects/listhell.md)]
+
+Python with prefix syntax for function calls, and automatic currying.
+
+```python
+from unpythonic.dialects import dialects, Listhell  # noqa: F401
+
+from unpythonic import foldr, cons, nil, ll
+
+(print, "hello from Listhell")
+
+double = lambda x: 2 * x
+my_map = lambda f: (foldr, (compose, cons, f), nil)
+assert (my_map, double, (q, 1, 2, 3)) == (ll, 2, 4, 6)
 ```
 </details>
-
 
 ## Installation
 
