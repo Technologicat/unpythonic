@@ -492,7 +492,7 @@ def _envify(block_body):
                 # transform references to currently active bindings
                 elif type(tree) is Name and tree.id in bindings.keys():
                     # We must be careful to preserve the Load/Store/Del context of the name.
-                    # The default lets mcpyrate fix it later.
+                    # The default lets `mcpyrate` fix it later.
                     ctx = tree.ctx if hasattr(tree, "ctx") else None
                     out = deepcopy(bindings[tree.id])
                     out.ctx = ctx
