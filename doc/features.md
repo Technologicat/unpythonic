@@ -181,7 +181,7 @@ This has been fixed in Python 3.6, see [PEP 468](https://www.python.org/dev/peps
 
 **NOTE**: This is primarily a code generation target API for the ``let[]`` family of [macros](macros.md), which make the constructs easier to use. Below is the documentation for the raw API.
 
-If you need **guaranteed left-to-right initialization** of `letrec` bindings in Pythons older than 3.6, there is also an alternative implementation for all the `let` constructs, with positional syntax and more parentheses. The only difference is the syntax; the behavior is identical with the default implementation.
+The `lispylet` module was originally created to allow guaranteed left-to-right initialization of `letrec` bindings in Pythons older than 3.6, hence the positional syntax and more parentheses. The only difference is the syntax; the behavior is identical with the other implementation. As of 0.15, the main role of `lispylet` is to act as the run-time backend for the `let` family of macros.
 
 These constructs are available in the top-level `unpythonic` namespace, with the ``ordered_`` prefix: ``ordered_let``, ``ordered_letrec``, ``ordered_dlet``, ``ordered_dletrec``, ``ordered_blet``, ``ordered_bletrec``.
 
@@ -192,7 +192,7 @@ from unpythonic.lispylet import *  # override the default "let" implementation
 
 letrec((('a', 1),
         ('b', lambda e:
-                e.a + 1)),  # may refer to any bindings above it in the same letrec, also in Python < 3.6
+                e.a + 1)),  # may refer to any bindings above it in the same letrec
        lambda e:
          e.b)  # --> 2
 
@@ -207,8 +207,6 @@ letrec((("evenp", lambda e:
 ```
 
 The syntax is `let(bindings, body)` (respectively `letrec(bindings, body)`), where `bindings` is `((name, value), ...)`, and `body` is like in the default variants. The same rules concerning `name` and `value` apply.
-
-The let macros internally use this *lispylet* implementation.
 
 
 ### ``env``: the environment
