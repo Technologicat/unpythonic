@@ -120,6 +120,8 @@ from ..dynassign import make_dynvar
 
 # TODO: AST pattern matching for `mcpyrate`? Would make destructuring easier. A writable representation (auto-viewify) is a pain to build, though...
 
+# TODO: 0.16: move `scoped_transform` to `mcpyrate` as `ScopedASTTransformer` and `ScopedASTVisitor`.
+
 # Re-exports - macro interfaces
 from .autocurry import autocurry  # noqa: F401
 from .autoref import autoref  # noqa: F401
