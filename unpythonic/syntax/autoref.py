@@ -9,6 +9,7 @@ from ast import (Name, Assign, Load, Call, Lambda, With, Constant, arg,
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym, parametricmacro
+from mcpyrate.astfixers import fix_ctx
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
@@ -18,6 +19,7 @@ from .util import wrapwith, ExpandedAutorefMarker
 from .letdoutil import isdo, islet, ExpandedDoView, ExpandedLetView
 from .testingtools import _test_function_names
 
+from ..dynassign import dyn
 from ..lazyutil import force1, passthrough_lazy_args
 
 # with autoref[o]:
@@ -126,9 +128,8 @@ def autoref(tree, *, args, syntax, expander, **kw):
 
     target = kw.get("optional_vars", None)
 
-    tree = expander.visit(tree)
-
-    return _autoref(block_body=tree, args=args, asname=target)
+    with dyn.let(_macro_expander=expander):
+        return _autoref(block_body=tree, args=args, asname=target)
 
 # --------------------------------------------------------------------------------
 
@@ -145,6 +146,11 @@ def _autoref(block_body, args, asname):
         raise SyntaxError("expected exactly one argument, the expr to implicitly reference")  # pragma: no cover
     if not block_body:
         raise SyntaxError("expected at least one statement inside the 'with autoref' block")  # pragma: no cover
+
+    block_body = dyn._macro_expander.visit(block_body)
+
+    # `autoref`'s analyzer needs the `ctx` attributes in `tree` to be filled in correctly.
+    block_body = fix_ctx(block_body, copy_seen_nodes=False)  # TODO: or maybe copy seen nodes?
 
     o = asname.id if asname else gensym("_o")  # Python itself guarantees asname to be a bare Name.
 

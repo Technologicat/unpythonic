@@ -118,10 +118,6 @@ from ..dynassign import make_dynvar
 # TODO: `unpythonic` only needs the colorizer in the *macro-enabled* test framework; so we don't really need
 # TODO: to provide our own colorizer; we can use the one from `mcpyrate`. (It would be different if regular code needed it.)
 
-# TODO: with mcpyrate, do we really need to set `ctx` in our macros? (does our macro code need it?)
-#  - At least `lazify` and `autoref` need it. Consider calling `mcpyrate.astfixers.fix_ctx` in macros
-#    to generate that information when needed, and not filling `ctx` manually anywhere.
-
 # TODO: AST pattern matching for `mcpyrate`? Would make destructuring easier. A writable representation (auto-viewify) is a pain to build, though...
 
 # Re-exports - macro interfaces

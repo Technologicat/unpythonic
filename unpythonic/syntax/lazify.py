@@ -8,6 +8,7 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef, Call, Name, Attribute,
 
 from mcpyrate.quotes import macros, q, a, h  # noqa: F401
 
+from mcpyrate.astfixers import fix_ctx
 from mcpyrate.quotes import capture_as_macro, is_captured_macro, is_captured_value, lookup_macro
 from mcpyrate.walkers import ASTTransformer
 
@@ -600,6 +601,9 @@ def _lazify(body):
     # so they become easier to work with. We also know that after this, any `Subscript` is really a
     # subscripting operation and not a macro invocation.
     body = dyn._macro_expander.visit(body)
+
+    # `lazify`'s analyzer needs the `ctx` attributes in `tree` to be filled in correctly.
+    body = fix_ctx(body, copy_seen_nodes=False)  # TODO: or maybe copy seen nodes?
 
     # second pass, inside-out
     class LazifyTransformer(ASTTransformer):

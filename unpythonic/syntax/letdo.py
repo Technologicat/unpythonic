@@ -20,7 +20,7 @@ __all__ = ["let", "letseq", "letrec",
 
 from functools import partial
 
-from ast import (Name, Attribute,
+from ast import (Name,
                  Tuple, List,
                  FunctionDef, Return,
                  AsyncFunctionDef,
@@ -371,7 +371,7 @@ def _let_expr_impl(bindings, body, mode):
     names = [getname(k, accept_attr=False) for k in names]  # any duplicates will be caught by env at run-time
 
     e = gensym("e")
-    envset = Attribute(value=q[n[e]], attr="set", ctx=Load())
+    envset = q[n[f"{e}.set"]]
 
     transform = partial(_letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
     if mode == "letrec":
@@ -454,7 +454,7 @@ def _transform_name(tree, rhsnames, envname):
                 return tree
             attr_node = q[n[f"{envname}.{tree.id}"]]
             if hasctx:
-                attr_node.ctx = tree.ctx  # let mcpyrate fix it if needed
+                attr_node.ctx = tree.ctx
             return attr_node
         return tree
     return scoped_transform(tree, callback=transform)
@@ -504,7 +504,7 @@ def _let_decorator_impl(bindings, body, mode, kind):
     names = [getname(k, accept_attr=False) for k in names]  # any duplicates will be caught by env at run-time
 
     e = gensym("e")
-    envset = Attribute(value=q[n[e]], attr="set", ctx=Load())
+    envset = q[n[f"{e}.set"]]
 
     transform1 = partial(_letlike_transform, envname=e, lhsnames=names, rhsnames=names, setter=envset)
     transform2 = partial(transform1, dowrap=False)
@@ -835,9 +835,7 @@ def _do(tree):
 
     e = gensym("e")
     envset = q[n[f"{e}._set"]]  # use internal _set to allow new definitions
-    envset.ctx = Load()
     envdel = q[n[f"{e}.pop"]]
-    envdel.ctx = Load()
 
     def find_localdefs(tree):
         class LocaldefCollector(ASTTransformer):
