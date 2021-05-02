@@ -32,7 +32,7 @@ from .util import (isx, isec,
                    has_tco, sort_lambda_decorators,
                    suggest_decorator_index, ExpandedContinuationsMarker, wrapwith, isexpandedmacromarker)
 from .letdoutil import isdo, islet, ExpandedLetView, ExpandedDoView
-from .ifexprs import _aif
+from .ifexprs import _aif, it as aif_it
 
 from ..dynassign import dyn
 from ..it import uniqify
@@ -1257,7 +1257,8 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
                     # or(data1, ..., datan, tail) --> it if any(others) else tail
                     tree = _aif(Tuple(elts=[op_of_others,
                                             transform_data(Name(id="it")),
-                                            transform(tree.values[-1])]))  # tail-call item
+                                            transform(tree.values[-1])]),  # tail-call item
+                                {'it': aif_it})
                 elif type(tree.op) is And:
                     # and(data1, ..., datan, tail) --> tail if all(others) else False
                     fal = q[False]

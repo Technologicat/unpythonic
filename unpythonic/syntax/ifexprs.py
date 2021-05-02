@@ -6,9 +6,14 @@ __all__ = ["aif", "it",
 
 from ast import Tuple
 
-from mcpyrate.quotes import macros, q, a  # noqa: F811, F401
+from mcpyrate.quotes import macros, q, n, a, h  # noqa: F811, F401
 
-from .letdo import _implicit_do, _let
+from mcpyrate import namemacro
+from mcpyrate.expander import MacroExpander
+from mcpyrate.utils import extract_bindings, NestingLevelTracker
+
+from .letdo import macros, let  # noqa: F811, F401
+from .letdo import _implicit_do
 
 from ..dynassign import dyn
 
@@ -39,30 +44,47 @@ def aif(tree, *, syntax, expander, **kw):
     if syntax != "expr":
         raise SyntaxError("aif is an expr macro only")
 
+    # Detect the name(s) of `it` at the use site (this accounts for as-imports)
+    macro_bindings = extract_bindings(dyn._macro_expander.bindings, it)
+    if not macro_bindings:
+        raise SyntaxError("The use site of `aif` must macro-import `it`, too.")
+
     # Expand outside-in, but the implicit do[] needs the expander.
     with dyn.let(_macro_expander=expander):
-        return _aif(tree)
+        return _aif(tree, macro_bindings)
 
-def _aif(tree):
-    test, then, otherwise = [_implicit_do(x) for x in tree.elts]
-    bindings = [q[(it, a[test])]]
-    body = q[a[then] if it else a[otherwise]]
-    # TODO: we should use a hygienically captured macro here.
-    return _let(bindings, body)
+_aif_level = NestingLevelTracker()
 
-# TODO: `mcpyrate` has a rudimentary capability like Racket's "syntax-parameterize".
-# TODO: Make `it` a name macro that errors out unless it appears inside an `aif`.
-#
-# We could just leave "it" undefined by default, but IDEs are happier if the
-# name exists, and this also gives us a chance to provide a docstring.
-class it:
-    """[syntax] The result of the test in an aif.
+def _aif(tree, bindings_of_it):
+    with _aif_level.changed_by(+1):
+        # expand any `it` inside the `aif` (thus confirming those uses are valid)
+        def expand_it(tree):
+            return MacroExpander(bindings_of_it, dyn._macro_expander.filename).visit(tree)
 
-    Only meaningful inside the ``then`` and ``otherwise`` branches of an aif.
+        name_of_it = list(bindings_of_it.keys())[0]
+        expanded_it = expand_it(q[n[name_of_it]])
+
+        tree = expand_it(tree)
+
+        test, then, otherwise = [_implicit_do(x) for x in tree.elts]
+        let_bindings = q[(a[expanded_it], a[test])]
+        let_body = q[a[then] if a[expanded_it] else a[otherwise]]
+        # We use a hygienic macro reference to `let[]` in the output,
+        # so that the expander can expand it later.
+        return q[h[let][a[let_bindings]][a[let_body]]]
+
+@namemacro
+def it(tree, *, syntax, **kw):
+    """[syntax, name] The `it` of an anaphoric if.
+
+    Inside an `aif` body, evaluates to the value of the test result.
+    Anywhere else, is considered a syntax error.
     """
-    def __repr__(self):  # pragma: no cover, we have a repr just in case one of these ends up somewhere at runtime.
-        return "<aif it>"
-it = it()
+    if syntax != "name":
+        raise SyntaxError("`it` is a name macro only")
+    if _aif_level.value < 1:
+        raise SyntaxError("`it` may only appear within an `aif[...]`")
+    return tree
 
 # --------------------------------------------------------------------------------
 

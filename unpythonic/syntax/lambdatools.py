@@ -28,6 +28,7 @@ from ..env import env
 from .astcompat import getconstant, Str, NamedExpr
 from .letdo import _do
 from .letdoutil import islet, isenvassign, UnexpandedLetView, UnexpandedEnvAssignView, ExpandedDoView
+from .nameutil import getname
 from .util import (is_decorated_lambda, isx, has_deco,
                    destructure_decorated_lambda, detect_lambda)
 
@@ -304,7 +305,7 @@ def _namedlambda(block_body):
             if islet(tree, expanded=False):  # let bindings
                 view = UnexpandedLetView(tree)
                 for b in view.bindings:
-                    b.elts[1], thelambda, match = nameit(b.elts[0].id, b.elts[1])
+                    b.elts[1], thelambda, match = nameit(getname(b.elts[0]), b.elts[1])
                     if match:
                         thelambda.body = self.visit(thelambda.body)
                     else:
@@ -321,14 +322,14 @@ def _namedlambda(block_body):
                     view.value = self.visit(view.value)
                 return tree
             elif issingleassign(tree):  # f = lambda ...: ...
-                tree.value, thelambda, match = nameit(tree.targets[0].id, tree.value)
+                tree.value, thelambda, match = nameit(getname(tree.targets[0]), tree.value)
                 if match:
                     thelambda.body = self.visit(thelambda.body)
                 else:
                     tree.value = self.visit(tree.value)
                 return tree
             elif type(tree) is NamedExpr:  # f := lambda ...: ...  (Python 3.8+, added in unpythonic 0.15)
-                tree.value, thelambda, match = nameit(tree.target.id, tree.value)
+                tree.value, thelambda, match = nameit(getname(tree.target), tree.value)
                 if match:
                     thelambda.body = self.visit(thelambda.body)
                 else:

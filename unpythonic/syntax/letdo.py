@@ -43,6 +43,7 @@ from ..seq import do as dof
 
 from .letdoutil import (isenvassign, UnexpandedEnvAssignView,
                         UnexpandedLetView, canonize_bindings)
+from .nameutil import getname
 from .scopeanalyzer import scoped_transform
 
 # --------------------------------------------------------------------------------
@@ -359,7 +360,7 @@ def _let_expr_impl(bindings, body, mode):
     bindings = dyn._macro_expander.visit(bindings)
 
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
-    names = [k.id for k in names]  # any duplicates will be caught by env at run-time
+    names = [getname(k, accept_attr=False) for k in names]  # any duplicates will be caught by env at run-time
 
     e = gensym("e")
     envset = Attribute(value=q[n[e]], attr="set", ctx=Load())
@@ -492,7 +493,7 @@ def _let_decorator_impl(bindings, body, mode, kind):
     bindings = dyn._macro_expander.visit(bindings)
 
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
-    names = [k.id for k in names]  # any duplicates will be caught by env at run-time
+    names = [getname(k, accept_attr=False) for k in names]  # any duplicates will be caught by env at run-time
 
     e = gensym("e")
     envset = Attribute(value=q[n[e]], attr="set", ctx=Load())

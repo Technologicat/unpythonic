@@ -11,8 +11,10 @@ from ast import (Call, Name, Subscript, Index, Compare, In,
                  Tuple, List, Constant, BinOp, LShift, Lambda)
 import sys
 
+from mcpyrate.core import Done
+
 from .astcompat import getconstant, Str
-from .nameutil import isx
+from .nameutil import isx, getname
 
 def where(*bindings):
     """[syntax] Only meaningful in a let[body, where((k0, v0), ...)]."""
@@ -41,9 +43,12 @@ def canonize_bindings(elts, allow_call_in_name_position=False):  # public as of 
     in the call, the "function" is the template name, and the positional "parameters"
     are the template parameters (which may then appear in the template body).
     """
+    def isname(x):
+        # The `Done` may be produced by expanded `@namemacro`s.
+        return type(x) is Name or (isinstance(x, Done) and isname(x.body))
     def iskey(x):
-        return ((type(x) is Name) or
-                (allow_call_in_name_position and type(x) is Call and type(x.func) is Name))
+        return (isname(x) or
+                (allow_call_in_name_position and type(x) is Call and isname(x.func)))
     if len(elts) == 2 and iskey(elts[0]):
         return [Tuple(elts=elts)]  # TODO: `mcpyrate`: just `q[t[elts]]`?
     if all((type(b) is Tuple and len(b.elts) == 2 and iskey(b.elts[0])) for b in elts):
@@ -56,7 +61,10 @@ def isenvassign(tree):
     The only way this differs from a general left-shift is that the LHS must be
     an ``ast.Name``.
     """
-    return type(tree) is BinOp and type(tree.op) is LShift and type(tree.left) is Name
+    if not (type(tree) is BinOp and type(tree.op) is LShift):
+        return False
+    # The `Done` may be produced by expanded `@namemacro`s.
+    return type(tree.left) is Name or (isinstance(tree.left, Done) and type(tree.body) is Name)
 
 def islet(tree, expanded=True):
     """Test whether tree is a ``let[]``, ``letseq[]``, ``letrec[]``,
@@ -260,11 +268,15 @@ class UnexpandedEnvAssignView:
         self._tree = tree
 
     def _getname(self):
-        return self._tree.left.id
+        return getname(self._tree.left, accept_attr=False)
     def _setname(self, newname):
         if not isinstance(newname, str):
             raise TypeError(f"expected str for new name, got {type(newname)} with value {repr(newname)}")
-        self._tree.left.id = newname
+        # The `Done` may be produced by expanded `@namemacro`s.
+        if isinstance(self._tree.left, Done):
+            self._tree.left.body.id = newname
+        else:
+            self._tree.left.id = newname
     name = property(fget=_getname, fset=_setname, doc="The name of the assigned var, as an str. Writable.")
 
     def _getvalue(self):

@@ -82,8 +82,7 @@ from ..dynassign import make_dynvar
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
-# TODO: Upgrade anaphoric if's `it` into a `mcpyrate` magic variable that errors out at compile time when it appears in an invalid position (i.e. outside any `aif`). Basically, take the `aif` from `mcpyrate`.
-# TODO: also let_syntax block, expr
+# TODO: upgrade let_syntax block, expr into `mcpyrate` magic variables
 # TODO: also kw() in unpythonic.syntax.prefix
 
 # TODO: let_syntax block, expr: syntactic consistency: change parentheses to brackets
@@ -137,7 +136,7 @@ from .autocurry import autocurry  # noqa: F401
 from .autoref import autoref  # noqa: F401
 from .dbg import dbg  # noqa: F401
 from .forall import forall  # noqa: F401
-from .ifexprs import aif, cond  # noqa: F401
+from .ifexprs import aif, it, cond  # noqa: F401
 from .lambdatools import multilambda, namedlambda, f, quicklambda, envify  # noqa: F401
 from .lazify import lazy, lazyrec, lazify  # noqa: F401
 from .letdo import (let, letseq, letrec,  # noqa: F401
@@ -157,7 +156,6 @@ from .testingtools import (the, test,  # noqa: F401
 # Re-exports - regular code
 from .dbg import dbgprint_block, dbgprint_expr  # noqa: F401, re-export for re-use in a decorated variant.
 from .forall import insist, deny  # noqa: F401
-from .ifexprs import it  # noqa: F401
 from .letdoutil import where  # noqa: F401
 from .lazify import force, force1  # noqa: F401
 from .letsyntax import block, expr  # noqa: F401

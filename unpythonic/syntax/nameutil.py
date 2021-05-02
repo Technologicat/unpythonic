@@ -9,6 +9,7 @@ __all__ = ["isx", "getname"]
 
 from ast import Name, Attribute
 
+from mcpyrate.core import Done
 from mcpyrate.quotes import is_captured_value
 
 def isx(tree, x, accept_attr=True):
@@ -25,11 +26,16 @@ def isx(tree, x, accept_attr=True):
 
         - bare name ``x``
 
+        - the name ``x`` inside a `mcpyrate.core.Done`, which may be produced
+          by expanded `@namemacro`s
+
         - the name ``x`` inside a `mcpyrate` hygienic capture, which may be
           inserted during macro expansion
 
         - ``x`` as an attribute (if ``accept_attr=True``)
     """
+    if isinstance(tree, Done):
+        return isx(tree.body, x, accept_attr=accept_attr)
     # Here hygienic captures only come from `unpythonic.syntax` (unless there are
     # also user-defined macros), and we use from-imports and bare names for anything
     # `q[h[]]`'d; but any references that appear explicitly in the user code may use
@@ -79,6 +85,8 @@ def getname(tree, accept_attr=True):
 
     If no match on ``tree``, return ``None``.
     """
+    if isinstance(tree, Done):
+        return getname(tree.body, accept_attr=accept_attr)
     if type(tree) is Name:
         return tree.id
     key = is_captured_value(tree)  # AST -> (name, frozen_value) or False

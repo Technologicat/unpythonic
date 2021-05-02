@@ -4,8 +4,7 @@
 from ...syntax import macros, test  # noqa: F401
 from ...test.fixtures import session, testset
 
-from ...syntax import macros, aif, cond, local  # noqa: F401, F811
-from ...syntax import it
+from ...syntax import macros, aif, it, cond, local  # noqa: F401, F811
 
 def runtests():
     with testset("aif (anaphoric if, you're `it`!)"):

@@ -15,6 +15,7 @@ from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
 from .letdoutil import islet, isdo, UnexpandedLetView, UnexpandedDoView
+from .nameutil import getname
 
 from ..it import flatmap, rev, uniqify
 
@@ -124,9 +125,9 @@ def kw(**kwargs):
 # --------------------------------------------------------------------------------
 
 def _prefix(block_body):
-    isquote = lambda tree: type(tree) is Name and tree.id == "q"
-    isunquote = lambda tree: type(tree) is Name and tree.id == "u"
-    iskwargs = lambda tree: type(tree) is Call and type(tree.func) is Name and tree.func.id == "kw"
+    isquote = lambda tree: getname(tree, accept_attr=False) == "q"
+    isunquote = lambda tree: getname(tree, accept_attr=False) == "u"
+    iskwargs = lambda tree: type(tree) is Call and getname(tree.func, accept_attr=False) == "kw"
 
     class PrefixTransformer(ASTTransformer):
         def transform(self, tree):

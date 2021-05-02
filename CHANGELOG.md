@@ -8,7 +8,7 @@ This edition concentrates on upgrading our dependencies, namely the macro expand
 
 - **Dialects!** New module `unpythonic.dialects`, providing [some example dialects](doc/dialects.md) that demonstrate what can be done with a [dialects system](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) together with a kitchen-sink language extension macro package such as `unpythonic`.
 - `with namedlambda` now understands the walrus operator, too. In the construct `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
-- Robustness: several auxiliary syntactic constructs such as `local[]`/`delete[]` (for `do[]`), and `call_cc[]` (for `with continuations`) now detect *at macro expansion time* if they appear outside any valid lexical context, and raise `SyntaxError` (with a descriptive message) if so. That is, the error is now raised *at compile time*. Previously these constructs could only raise an error at run time, and not all of them could detect the error even then.
+- Robustness: several auxiliary syntactic constructs such as `local[]`/`delete[]` (for `do[]`), `call_cc[]` (for `with continuations`), and `it` (for `aif[]`) now detect *at macro expansion time* if they appear outside any valid lexical context, and raise `SyntaxError` (with a descriptive message) if so. That is, the error is now raised *at compile time*. Previously these constructs could only raise an error at run time, and not all of them could detect the error even then.
 - `unpythonic.dispatch.generic_for`: add methods to a generic function defined elsewhere.
 - Python 3.8 and 3.9 support added.
 

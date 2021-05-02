@@ -77,6 +77,7 @@ from ast import (Name, Tuple, Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
                  Import, ImportFrom, Try, ListComp, SetComp, GeneratorExp,
                  DictComp, Store, Del, Global, Nonlocal)
 
+from mcpyrate.core import Done
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from ..it import uniqify
@@ -281,6 +282,9 @@ def get_lexical_variables(tree, collect_locals=True):
         for g in tree.generators:
             if type(g.target) is Name:
                 targetnames.append(g.target.id)
+            # The `Done` may be produced by expanded `@namemacro`s.
+            elif isinstance(g.target, Done) and type(g.target.body) is Name:
+                targetnames.append(g.target.body.id)
             elif type(g.target) is Tuple:
                 class NamesCollector(ASTVisitor):
                     def examine(self, tree):
