@@ -827,6 +827,9 @@ def _do(tree):
     # TODO: only the `local` and `delete` transformers to it - grabbing them from the current expander's
     # TODO: bindings to respect as-imports. (Expander instances are cheap in `mcpyrate`.)
     # TODO: Grep the `unpythonic` codebase (and `mcpyrate` demos) for `MacroExpander` to see how.
+    #
+    # TODO: We have to be careful with nested `do`, though - some local definitions may belong to
+    # TODO: nested invocations. So perhaps we need to expand `do`, `do0`, `local` and `delete` here.
     with _do_level.changed_by(+1):
         tree = dyn._macro_expander.visit(tree)
 
