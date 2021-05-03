@@ -62,12 +62,19 @@ def runtests():
                 test[c == 17]
 
         # # Explicit asname optimizes lookups also in nested autoref blocks.
-        # # TODO: how to test? For now, just "with step_expansion" this and eyeball the result.
+        # # TODO: To test this, we need to use run-time compiler access and look at the AST.
+        # # TODO: See how `mcpyrate` does its tests.
+        # # TODO: For now, just "with step_expansion" this and eyeball the result.
         # with autoref[env(a=1, b=2)] as e1:
         #     e1  # just e1, no autoref lookup
-        #     with autoref[env(c=3, d=4)] as e2:
+        #     with autoref[env(c=3, d=4, e1=None)] as e2:
         #         e2  # just e2
         #         e1  # just e1 (special handling; already inserted lookup is removed by the outer block when it expands)
+        # But this special case we can test easily:
+        with autoref[env(a=1, b=2)] as e1:
+            # Place a key "e1" into our second env so that a spurious lookup for that triggers an error.
+            with autoref[env(c=3, d=4, e1=None)] as e2:
+                test[isinstance(e1, env)]  # just e1, no lookup
 
     with testset("attributes and subscripts"):
         e2 = env(x=e, s=[1, 2, 3])
