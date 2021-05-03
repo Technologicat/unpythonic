@@ -17,7 +17,8 @@ This edition concentrates on upgrading our dependencies, namely the macro expand
 - The modules `unpythonic.dispatch` and `unpythonic.typecheck`, which provide the `@generic` and `@typed` decorators and the `isoftype` function, are no longer considered experimental. From this release on, they receive the same semantic versioning guarantees as the rest of `unpythonic`.
 - CI: Automated tests now run on Python 3.6, 3.7, 3.8, 3.9, and PyPy3 (language versions 3.6, 3.7).
 - CI: Test coverage improved to 94%.
-- Some macros, notably `letseq`, `do0`, and `lazyrec`, now expand into hygienic macro captures of other macros. This allows `mcpyrate.debug.step_expansion` to show the intermediate result, as well as brings the implementation closer to the natural explanation of how these macros are defined. (Zen of Python: if the implementation is easy to explain, it *might* be a good idea.)
+- Some macros, notably `letseq`, `do0`, and `lazyrec`, now expand into hygienic macro captures of other macros. The `continuations` macro also outputs a hygienically captured `aif` when transforming an `or` expression that occurs in tail position.
+  - This allows `mcpyrate.debug.step_expansion` to show the intermediate result, as well as brings the implementation closer to the natural explanation of how these macros are defined. (Zen of Python: if the implementation is easy to explain, it *might* be a good idea.)
 
 **Breaking changes**:
 
