@@ -32,14 +32,14 @@ from mcpyrate.quotes import macros, q, u, n, a, t, h  # noqa: F401
 
 from mcpyrate import gensym, parametricmacro
 from mcpyrate.quotes import capture_as_macro, is_captured_value
-from mcpyrate.walkers import ASTTransformer
+from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from ..dynassign import dyn
 from ..lispylet import _let as letf, _dlet as dletf, _blet as bletf
 from ..misc import namelambda
 from ..seq import do as dof
 
-from .letdoutil import (isenvassign, UnexpandedEnvAssignView,
+from .letdoutil import (isdo, isenvassign, UnexpandedEnvAssignView,
                         UnexpandedLetView, canonize_bindings)
 from .nameutil import getname, is_unexpanded_expr_macro
 from .scopeanalyzer import scoped_transform
@@ -625,7 +625,7 @@ def local(tree, *, syntax, **kw):
     """
     if syntax != "expr":
         raise SyntaxError("local is an expr macro only")  # pragma: no cover
-    raise SyntaxError("local[] is only valid at the top level of a do[] or do0[]")  # pragma: no cover, not meant to hit the expander
+    raise SyntaxError("local[] is only valid at the top level of a do[] or do0[]")  # pragma: no cover
 
 def delete(tree, *, syntax, **kw):
     """[syntax] Delete a previously declared local name in a "do".
@@ -646,7 +646,7 @@ def delete(tree, *, syntax, **kw):
     """
     if syntax != "expr":
         raise SyntaxError("delete is an expr macro only")  # pragma: no cover
-    raise SyntaxError("delete[] is only valid at the top level of a do[] or do0[]")  # pragma: no cover, not meant to hit the expander
+    raise SyntaxError("delete[] is only valid at the top level of a do[] or do0[]")  # pragma: no cover
 
 def do(tree, *, syntax, expander, **kw):
     """[syntax, expr] Stuff imperative code into an expression position.
@@ -805,7 +805,7 @@ def _do(tree):
     islocaldef = partial(is_unexpanded_expr_macro, local, dyn._macro_expander)
     isdelete = partial(is_unexpanded_expr_macro, delete, dyn._macro_expander)
 
-    def find_localdefs(tree):
+    def transform_localdefs(tree):
         class LocaldefCollector(ASTTransformer):
             def transform(self, tree):
                 if is_captured_value(tree):
@@ -817,12 +817,12 @@ def _do(tree):
                     view = UnexpandedEnvAssignView(expr)
                     self.collect(view.name)
                     view.value = self.visit(view.value)  # nested local[] (e.g. from `do0[local[y << 5],]`)
-                    return expr  # e.g. `x << 21`; preserve the original expr to make the assignment occur.
+                    return expr  # `local[x << 21]` --> `x << 21`; compiling *that* makes the env-assignment occur.
                 return tree  # don't recurse!
         c = LocaldefCollector()
         tree = c.visit(tree)
         return tree, c.collected
-    def find_deletes(tree):
+    def transform_deletes(tree):
         class DeleteCollector(ASTTransformer):
             def transform(self, tree):
                 if is_captured_value(tree):
@@ -832,24 +832,50 @@ def _do(tree):
                     if type(expr) is not Name:
                         raise SyntaxError("delete[...] takes exactly one name")  # pragma: no cover
                     self.collect(expr.id)
-                    return q[a[envdel](u[expr.id])]  # -> e.pop(...)
+                    return q[a[envdel](u[expr.id])]  # `delete[x]` --> `e.pop('x')`
                 return tree  # don't recurse!
         c = DeleteCollector()
         tree = c.visit(tree)
         return tree, c.collected
+
+    def check_strays(ismatch, tree):
+        class StrayHelperMacroChecker(ASTVisitor):
+            def examine(self, tree):
+                if is_captured_value(tree):
+                    return  # don't recurse!
+                elif isdo(tree, expanded=False):
+                    return  # don't recurse!
+                elif ismatch(tree):
+                    # Expand the stray helper macro invocation, to trigger its `SyntaxError`
+                    # with a useful message, and *make the expander generate a use site traceback*.
+                    #
+                    # (If we just `raise` here directly, the expander won't see the use site
+                    #  of the `local[]` or `delete[]`, but just that of the `do[]`.)
+                    dyn._macro_expander.visit(tree)
+                self.generic_visit(tree)
+        StrayHelperMacroChecker().visit(tree)
+    check_stray_localdefs = partial(check_strays, islocaldef)
+    check_stray_deletes = partial(check_strays, isdelete)
 
     names = []
     lines = []
     for j, expr in enumerate(tree.elts, start=1):
         # Despite the recursion, this will not trigger false positives for nested do[] expressions,
         # because do[] is a second-pass macro, so they expand from inside out.
-        expr, newnames = find_localdefs(expr)
-        expr, deletednames = find_deletes(expr)
+        expr, newnames = transform_localdefs(expr)
+        expr, deletednames = transform_deletes(expr)
         if newnames and deletednames:
             raise SyntaxError("a do-item may have only local[] or delete[], not both")  # pragma: no cover
         if newnames:
             if any(x in names for x in newnames):
                 raise SyntaxError("local names must be unique in the same do")  # pragma: no cover
+
+        # Before transforming any further, check that there are no local[] or delete[] further in, where
+        # they don't belong. This allows the error message to show the *untransformed* source code for
+        # the erroneous invocation.
+        check_stray_localdefs(expr)
+        check_stray_deletes(expr)
+
         # The envassignment transform (LHS) needs the updated bindings, whereas
         # the name transform (RHS) should use the previous bindings, so that any
         # changes to bindings take effect starting from the **next** do-item.
