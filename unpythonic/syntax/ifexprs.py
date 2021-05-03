@@ -45,6 +45,8 @@ def aif(tree, *, syntax, expander, **kw):
         raise SyntaxError("aif is an expr macro only")
 
     # Detect the name(s) of `it` at the use site (this accounts for as-imports)
+    # TODO: We don't know which binding this particular use site uses.
+    # TODO: For now, we hack this by making `it` always rename itself to literal `it`.
     macro_bindings = extract_bindings(expander.bindings, it)
     if not macro_bindings:
         raise SyntaxError("The use site of `aif` must macro-import `it`, too.")
@@ -64,6 +66,8 @@ def _aif(tree, bindings_of_it):
     test, then, otherwise = tree.elts
     test = _implicit_do(test)
     with _aif_level.changed_by(+1):
+        # TODO: We don't know which binding this particular use site uses.
+        # TODO: For now, we hack this by making `it` always rename itself to literal `it`.
         name_of_it = list(bindings_of_it.keys())[0]
         expanded_it = expand_it(q[n[name_of_it]])
 
@@ -82,12 +86,15 @@ def it(tree, *, syntax, **kw):
 
     Inside an `aif` body, evaluates to the value of the test result.
     Anywhere else, is considered a syntax error.
+
+    **CAUTION**: Currently cannot be as-imported; must be imported
+    without renaming.
     """
     if syntax != "name":
         raise SyntaxError("`it` is a name macro only")
     if _aif_level.value < 1:
         raise SyntaxError("`it` may only appear in the 'then' and 'otherwise' parts of an `aif[...]`")
-    return tree
+    return q[it]  # always rename to literal `it`
 
 # --------------------------------------------------------------------------------
 
