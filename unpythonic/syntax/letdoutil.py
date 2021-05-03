@@ -254,6 +254,9 @@ class UnexpandedEnvAssignView:
     the env-assignment is expanded away (so, before the ``let[]`` or ``do[]``
     containing it is expanded away).
 
+    This handles `mcpyrate.core.Done` `ASTMarker`s in the name position transparently,
+    to accommodate for expanded `mcpyrate.namemacro`s.
+
     **Attributes**:
 
         ``name``: the name of the variable, as a str.

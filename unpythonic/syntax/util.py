@@ -124,8 +124,8 @@ def is_decorator(tree, fname):
 
      We detect:
 
-        - ``Name``, ``Attribute`` or a `mcpyrate` hygienic capture matching
-          the given ``fname`` (non-parametric decorator), and
+        - ``Name``, ``Attribute``, a `mcpyrate.core.Done`, or a `mcpyrate`
+          hygienic capture matching the given ``fname`` (non-parametric decorator), and
 
         - ``Call`` whose ``.func`` matches the above rule (parametric decorator).
     """
