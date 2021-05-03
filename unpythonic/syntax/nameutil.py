@@ -13,6 +13,40 @@ import sys
 from mcpyrate.core import Done
 from mcpyrate.quotes import is_captured_macro, is_captured_value, lookup_macro
 
+# Here hygienic captures only come from `unpythonic.syntax` (unless there are
+# also user-defined macros), and we use from-imports and bare names for anything
+# `q[h[]]`'d; but any references that appear explicitly in the user code may use
+# either bare `somename` or `unpythonic.somename`.
+#
+# TODO: How about `unpythonic.somemodule.somename`? Currently not detected.
+#
+# Note that in `mcpyrate`, a hygienic capture can contain the value of an
+# arbitrary expression, which does not need to be bound to a name. In that
+# case the "name" will be the unparsed source code of the expression. See
+# the implementation of `mcpyrate.quotes.h`. That's harmless here since
+# an expression won't produce an exact match on the name.
+#
+# Here we're mainly interested in the case where we have captured the value
+# a name had at the use site of `h[]`, and even then, we just look at the name,
+# not the actual value.
+#
+# TODO: Let's look at the value, not just the name. Requires changes to use sites,
+# TODO: because currently `isx` doesn't know about the value the caller wants to
+# TODO: check against.
+#
+# TODO: For our use cases, that value is usually a syntax transformer function
+# TODO: defined somewhere in `unpythonic.syntax`, so we can use things like
+# TODO: `q[h[letter]]` or `q[h[dof]]` in the let/do constructs to ensure that
+# TODO: the workhorses resolve correctly at the use site, and still be able
+# TODO: to detect the expanded forms of those constructs in the AST.
+#
+# TODO: The run-time value can be obtained at this end by
+# TODO: `value = mcpyrate.quotes.lookup_value(key)`,
+# TODO: provided that `key and (key[1] is not None)`.
+# TODO: If the second element of the key is `None`, it means that
+# TODO: program execution hasn't yet reached the point where the
+# TODO: actual value capture triggers for that particular use of `h[]`.
+
 def isx(tree, x, accept_attr=True):
     """Test whether tree is a reference to the name ``x`` (str).
 
@@ -37,39 +71,6 @@ def isx(tree, x, accept_attr=True):
     """
     if isinstance(tree, Done):
         return isx(tree.body, x, accept_attr=accept_attr)
-    # Here hygienic captures only come from `unpythonic.syntax` (unless there are
-    # also user-defined macros), and we use from-imports and bare names for anything
-    # `q[h[]]`'d; but any references that appear explicitly in the user code may use
-    # either bare `somename` or `unpythonic.somename`.
-    #
-    # TODO: How about `unpythonic.somemodule.somename`? Currently not detected.
-    #
-    # Note that in `mcpyrate`, a hygienic capture can contain the value of an
-    # arbitrary expression, which does not need to be bound to a name. In that
-    # case the "name" will be the unparsed source code of the expression. See
-    # the implementation of `mcpyrate.quotes.h`. That's harmless here since
-    # an expression won't produce an exact match on the name.
-    #
-    # Here we're mainly interested in the case where we have captured the value
-    # a name had at the use site of `h[]`, and even then, we just look at the name,
-    # not the actual value.
-    #
-    # TODO: Let's look at the value, not just the name. Requires changes to use sites,
-    # TODO: because currently `isx` doesn't know about the value the caller wants to
-    # TODO: check against.
-    #
-    # TODO: For our use cases, that value is usually a syntax transformer function
-    # TODO: defined somewhere in `unpythonic.syntax`, so we can use things like
-    # TODO: `q[h[letter]]` or `q[h[dof]]` in the let/do constructs to ensure that
-    # TODO: the workhorses resolve correctly at the use site, and still be able
-    # TODO: to detect the expanded forms of those constructs in the AST.
-    #
-    # TODO: The run-time value can be obtained at this end by
-    # TODO: `value = mcpyrate.quotes.lookup_value(key)`,
-    # TODO: provided that `key and (key[1] is not None)`.
-    # TODO: If the second element of the key is `None`, it means that
-    # TODO: program execution hasn't yet reached the point where the
-    # TODO: actual value capture triggers for that particular use of `h[]`.
     key = is_captured_value(tree)  # AST -> (name, frozen_value) or False
     if key:
         name, frozen_value = key
