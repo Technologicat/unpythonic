@@ -860,8 +860,9 @@ def _do(tree):
         lines.append(expr)
     # CAUTION: letdoutil.py depends on the literal name "dof" to detect expanded do forms.
     # Also, the views depend on the exact AST structure.
-    thecall = q[h[dof]()]
-    thecall.args = lines
+    # AST-unquoting a `list` of ASTs in the arguments position of a quasiquoted call
+    # unpacks it into positional arguments.
+    thecall = q[h[dof](a[lines])]
     return thecall
 
 _our_local = capture_as_macro(local)
