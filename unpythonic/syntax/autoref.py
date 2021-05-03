@@ -97,6 +97,22 @@ def autoref(tree, *, args, syntax, expander, **kw):
             b
             c
 
+    The macro argument of `with autoref[...]` is an arbitrary expression that,
+    at run time, evaluates to the object instance to be autoreferenced.
+
+    At the beginning of the block, the expression given as the macro argument
+    is implicitly assigned to a gensymmed variable, and then always used from
+    there, to ensure that the expression is evaluated only once. If you want to
+    explicitly name the variable instead of allowing `autoref` to gensym it,
+    use `with autoref[...] as ...`::
+
+        with autoref[e] as the_e:
+            a
+            b
+            c
+
+    (Explicit naming can be useful for debugging.)
+
     The transformation is applied in ``Load`` context only. ``Store`` and ``Del``
     are not redirected.
 
