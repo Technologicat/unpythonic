@@ -303,7 +303,7 @@ class UnexpandedLetView:
         let[body, where((k0, v0), ...)]  # haskelly expression, inverted
 
     Lispy expressions are supported also using the old parenthesis syntax
-    to pass macro parameters::
+    to pass macro arguments::
 
         let((k0, v0), ...)[body]         # lispy expression
 
