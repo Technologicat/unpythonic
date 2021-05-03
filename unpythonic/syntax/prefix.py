@@ -6,7 +6,7 @@ Experimental, not for use in production code.
 
 __all__ = ["prefix", "q", "u", "kw"]
 
-from ast import Name, Call, Starred, Tuple, Load, Subscript
+from ast import Call, Starred, Tuple, Load, Subscript
 import sys
 
 from mcpyrate.quotes import macros, q, u, a, t  # noqa: F811, F401
