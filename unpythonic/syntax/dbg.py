@@ -101,7 +101,7 @@ def dbg(tree, *, args, syntax, expander, **kw):
     if syntax not in ("expr", "block"):
         raise SyntaxError("dbg is an expr and block macro only")
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("dbg (block mode) does not take an asname")
+        raise SyntaxError("dbg (block mode) does not take an as-part")
 
     tree = expander.visit(tree)
 

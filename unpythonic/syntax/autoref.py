@@ -47,7 +47,7 @@ from ..lazyutil import force1, passthrough_lazy_args
 #       x        # --> (lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x")))
 #       x.a      # --> ((lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x")))).a
 #       x[s]     # --> ((lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x"))))[s]
-#       o        # --> o   (can only occur if an asname is supplied)
+#       o        # --> o   (can only occur if an as-part is supplied)
 #       with ExpandedAutorefMarker("p"):
 #          x     # --> (lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))
 #          x.a   # --> ((lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x"))).a
@@ -144,7 +144,7 @@ def autoref(tree, *, args, syntax, expander, **kw):
 
     target = kw.get("optional_vars", None)
     if target and type(target) is not Name:  # tuples not accepted
-        raise SyntaxError("with autoref[...] as ... takes at most one asname")
+        raise SyntaxError("with autoref[...] as ... takes at most one name in the as-part")
 
     with dyn.let(_macro_expander=expander):
         return _autoref(block_body=tree, args=args, asname=target)

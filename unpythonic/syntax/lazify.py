@@ -412,7 +412,7 @@ def lazify(tree, *, syntax, expander, **kw):
     if syntax != "block":
         raise SyntaxError("lazify is a block macro only")
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("lazify does not take an asname")
+        raise SyntaxError("lazify does not take an as-part")
 
     # Two-pass macro.
     with dyn.let(_macro_expander=expander):

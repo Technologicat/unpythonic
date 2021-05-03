@@ -241,7 +241,7 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax not in ("expr", "block"):
         raise SyntaxError("test is an expr and block macro only")
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("test (block mode) does not take an asname")
+        raise SyntaxError("test (block mode) does not take an as-part")
 
     # Two-pass macros.
     with dyn.let(_macro_expander=expander):
@@ -293,7 +293,7 @@ def test_signals(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax not in ("expr", "block"):
         raise SyntaxError("test_signals is an expr and block macro only")
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("test_signals (block mode) does not take an asname")
+        raise SyntaxError("test_signals (block mode) does not take an as-part")
 
     # Two-pass macros.
     with dyn.let(_macro_expander=expander):
@@ -344,7 +344,7 @@ def test_raises(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax not in ("expr", "block"):
         raise SyntaxError("test_raises is an expr and block macro only")
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("test_raises (block mode) does not take an asname")
+        raise SyntaxError("test_raises (block mode) does not take an as-part")
 
     with dyn.let(_macro_expander=expander):
         if syntax == "expr":
@@ -464,7 +464,7 @@ def expand_testing_macros_first(tree, *, syntax, expander, **kw):
     if syntax != "block":
         raise SyntaxError("expand_testing_macros_first is a block macro only")
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("expand_testing_macros_first does not take an asname")
+        raise SyntaxError("expand_testing_macros_first does not take an as-part")
 
     testing_macros = [test, test_signals, test_raises, error, fail, warn]
     macro_bindings = extract_bindings(expander.bindings, *testing_macros)

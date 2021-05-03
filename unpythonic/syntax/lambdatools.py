@@ -66,7 +66,7 @@ def multilambda(tree, *, syntax, expander, **kw):
     if syntax != "block":
         raise SyntaxError("multilambda is a block macro only")
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("multilambda does not take an asname")
+        raise SyntaxError("multilambda does not take an as-part")
 
     # Expand outside in.
     # multilambda should expand first before any let[], do[] et al. that happen
@@ -119,7 +119,7 @@ def namedlambda(tree, *, syntax, expander, **kw):
     if syntax != "block":
         raise SyntaxError("namedlambda is a block macro only")
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("namedlambda does not take an asname")
+        raise SyntaxError("namedlambda does not take an as-part")
 
     # Two-pass macro. We pass in the expander to allow the macro to decide when to recurse.
     with dyn.let(_macro_expander=expander):
@@ -192,7 +192,7 @@ def quicklambda(tree, *, syntax, expander, **kw):
     if syntax != "block":
         raise SyntaxError("quicklambda is a block macro only")
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("quicklambda does not take an asname")
+        raise SyntaxError("quicklambda does not take an as-part")
 
     # This macro expands outside in.
     #
@@ -227,7 +227,7 @@ def envify(tree, *, syntax, expander, **kw):
     if syntax != "block":
         raise SyntaxError("envify is a block macro only")
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("envify does not take an asname")
+        raise SyntaxError("envify does not take an as-part")
 
     # Two-pass macro.
     with dyn.let(_macro_expander=expander):
