@@ -127,7 +127,7 @@ def islet(tree, expanded=True):
         s = tree.value.id
         if any(s == x for x in deconames):
             return ("decorator", s)
-    if type(tree) is Call and type(tree.func) is Name:  # up to Python 3.8: parenthesis syntax for decorator macros
+    if type(tree) is Call and type(tree.func) is Name:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
         s = tree.func.id
         if any(s == x for x in deconames):
             return ("decorator", s)
@@ -150,7 +150,7 @@ def islet(tree, expanded=True):
         s = macro.value.id
         if any(s == x for x in exprnames):
             return ("lispy_expr", s)
-    elif type(macro) is Call and type(macro.func) is Name:  # alternative parenthesis syntax to pass macro arguments
+    elif type(macro) is Call and type(macro.func) is Name:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
         s = macro.func.id
         if any(s == x for x in exprnames):
             return ("lispy_expr", s)
@@ -376,7 +376,7 @@ class UnexpandedLetView:
     def _getbindings(self):
         t = self._type
         if t == "decorator":  # bare Subscript, dlet[...], blet[...]
-            if type(self._tree) is Call:  # up to Python 3.8: parenthesis syntax for decorator macros
+            if type(self._tree) is Call:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
                 return canonize_bindings(self._tree.args)
             # Subscript as decorator (Python 3.9+)
             if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
@@ -391,7 +391,8 @@ class UnexpandedLetView:
                     theargs = self._tree.value.slice.elts
                 else:
                     theargs = self._tree.value.slice.value.elts
-            # Call inside a Subscript, (let(...))[...], parenthesis syntax to pass macro arguments
+            # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+            # Call inside a Subscript, (let(...))[...]
             else:  # type(self._tree.value) is Call:
                 theargs = self._tree.value.args
             return canonize_bindings(theargs)
@@ -404,7 +405,7 @@ class UnexpandedLetView:
     def _setbindings(self, newbindings):
         t = self._type
         if t == "decorator":
-            if type(self._tree) is Call:  # up to Python 3.8: parenthesis syntax for decorator macros
+            if type(self._tree) is Call:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
                 self._tree.args = newbindings
                 return
             # Subscript as decorator (Python 3.9+)
@@ -419,7 +420,8 @@ class UnexpandedLetView:
                     self._tree.value.slice.elts = newbindings
                 else:
                     self._tree.value.slice.value.elts = newbindings
-            # Call inside a Subscript, (let(...))[...], parenthesis syntax to pass macro arguments
+            # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+            # Call inside a Subscript, (let(...))[...]
             else:  # type(self._tree.value) is Call:
                 self._tree.value.args = newbindings
         else:
