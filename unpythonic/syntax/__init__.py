@@ -147,6 +147,6 @@ from .prefix import q, u, kw  # noqa: F401  # TODO: bad names, `mcpyrate` uses t
 
 # We use `dyn` to pass the `expander` parameter to the macro implementations.
 class _NoExpander:
-    def visit(self, tree):
+    def __getattr__(self, k):  # Make the dummy error out whenever we attempt to do anything with it.
         raise NotImplementedError("Macro expander instance has not been set in `dyn`.")
 make_dynvar(_macro_expander=_NoExpander())
