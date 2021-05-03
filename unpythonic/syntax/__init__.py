@@ -135,7 +135,8 @@ from .tailtools import (autoreturn,  # noqa: F401
                         continuations, call_cc)
 from .testingtools import (the, test,  # noqa: F401
                            test_signals, test_raises,
-                           fail, error, warn)
+                           fail, error, warn,
+                           expand_testing_macros_first)
 
 # Re-exports - regular code
 from .dbg import dbgprint_block, dbgprint_expr  # noqa: F401, re-export for re-use in a decorated variant.

@@ -7,12 +7,15 @@ See also `unpythonic.test.fixtures` for the high-level machinery.
 __all__ = ["the", "test",
            "test_signals", "test_raises",
            "fail", "error", "warn",
+           "expand_testing_macros_first",
            "isunexpandedtestmacro", "isexpandedtestmacro", "istestmacro"]
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym, parametricmacro, unparse
+from mcpyrate.expander import MacroExpander
 from mcpyrate.quotes import is_captured_value
+from mcpyrate.utils import extract_bindings
 from mcpyrate.walkers import ASTTransformer
 
 from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return, parse, Expr, AST
@@ -416,6 +419,50 @@ def warn(tree, *, syntax, expander, **kw):  # noqa: F811
     # The underlying `test` machinery needs to access the expander.
     with dyn.let(_macro_expander=expander):
         return _warn_expr(tree)
+
+# TODO: There's also `quicklambda`. Maybe add a general utility for this kind of thing to `mcpyrate.metatools`?
+def expand_testing_macros_first(tree, *, syntax, expander, **kw):
+    """[syntax, block] Force testing framework macros to expand first.
+
+    Usage::
+
+        with expand_testing_macros_first:
+            ...
+
+    This is useful if you have your own block macro that expands outside in and
+    does some code-walking transformations, and some tests inside such a block.
+    Expanding the test macros first allows the test framework to capture the
+    unexpanded source code for error reporting.
+
+    As an example, consider::
+
+        with your_block_macro:
+            test[expr]
+
+    In this case, if `your_block_macro` expands outside-in, it will transform the
+    `expr` inside the `test[expr] before `test` even sees the AST. If the test
+    fails or errors, the error message will contain the expanded version of `expr`,
+    not the original one. Now, if we change the example to::
+
+        with expand_testing_macros_first:
+            with your_block_macro:
+                test[expr]
+
+    In this case, `expand_testing_macros_first` arranges things so that `test[expr]`
+    expands first (even if `your_block_macro` expands outside-in), so it will see
+    the original, unexpanded AST.
+
+    This does imply that `your_block_macro` will then receive the expanded form of
+    `test[expr]` as input, but that's macros for you. Macros don't compose, after all.
+    """
+    if syntax != "block":
+        raise SyntaxError("expand_testing_macros_first is a block macro only")
+    if syntax == "block" and kw['optional_vars'] is not None:
+        raise SyntaxError("expand_testing_macros_first does not take an asname")
+
+    testing_macros = [test, test_signals, test_raises, error, fail, warn]
+    macro_bindings = extract_bindings(expander.bindings, *testing_macros)
+    return MacroExpander(macro_bindings, filename=expander.filename).visit(tree)
 
 # -----------------------------------------------------------------------------
 # Helpers for other macros to detect uses of the ones we defined here.
