@@ -86,7 +86,7 @@ def it(tree, *, syntax, **kw):
     if syntax != "name":
         raise SyntaxError("`it` is a name macro only")
     if _aif_level.value < 1:
-        raise SyntaxError("`it` may only appear within an `aif[...]`")
+        raise SyntaxError("`it` may only appear in the 'then' and 'otherwise' parts of an `aif[...]`")
     return tree
 
 # --------------------------------------------------------------------------------
