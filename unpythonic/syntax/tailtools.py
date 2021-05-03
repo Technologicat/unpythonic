@@ -22,23 +22,33 @@ from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
 from mcpyrate.markers import ASTMarker
-from mcpyrate.quotes import is_captured_value
+from mcpyrate.quotes import capture_as_macro, is_captured_value
 from mcpyrate.utils import NestingLevelTracker
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from .astcompat import getconstant, NameConstant
+from .ifexprs import aif, it
 from .util import (isx, isec,
                    detect_callec, detect_lambda,
                    has_tco, sort_lambda_decorators,
                    suggest_decorator_index, ExpandedContinuationsMarker, wrapwith, isexpandedmacromarker)
 from .letdoutil import isdo, islet, ExpandedLetView, ExpandedDoView
-from .ifexprs import _aif, it as aif_it
 
 from ..dynassign import dyn
 from ..it import uniqify
 from ..fun import identity
 from ..tco import trampolined, jump
 from ..lazyutil import passthrough_lazy_args
+
+# In `continuations`, we use `aif` and `it` as hygienically captured macros.
+# Note the difference between `aif[..., it, ...]` and `q[a[_our_aif][..., a[_our_it], ...]]`.
+#
+# If `it` is bound in the current expander, even *mentioning* it outside an `aif` is a syntax error, by design.
+#
+# When constructing a quasiquoted tree that invokes `aif[]`, we can splice in a hygienic reference to `it`
+# as `a[_our_it]` without even having the macro bound in the expander that expands *this* module.
+_our_aif = capture_as_macro(aif)
+_our_it = capture_as_macro(it)
 
 # --------------------------------------------------------------------------------
 # Macro interface
@@ -1254,18 +1264,15 @@ def _transform_retexpr(tree, known_ecs, call_cb=None, data_cb=None):
                 else:
                     op_of_others = tree.values[0]
                 if type(tree.op) is Or:
-                    # or(data1, ..., datan, tail) --> it if any(others) else tail
-                    tree = _aif(Tuple(elts=[op_of_others,
-                                            transform_data(Name(id="it")),
-                                            transform(tree.values[-1])]),  # tail-call item
-                                {'it': aif_it})
+                    # or(data1, ..., datan, tail) --> aif[any(others), it, tail]
+                    tree = q[a[_our_aif][a[op_of_others],
+                                         a[transform_data(_our_it)],
+                                         a[transform(tree.values[-1])]]]  # tail-call item
                 elif type(tree.op) is And:
                     # and(data1, ..., datan, tail) --> tail if all(others) else False
-                    fal = q[False]
-                    fal = copy_location(fal, tree)
-                    tree = IfExp(test=op_of_others,
-                                 body=transform(tree.values[-1]),
-                                 orelse=transform_data(fal))
+                    tree = q[a[transform(tree.values[-1])]
+                             if a[op_of_others]
+                             else a[transform_data(q[False])]]
                 else:  # cannot happen
                     raise SyntaxError(f"unknown BoolOp type {tree.op}")  # pragma: no cover
             else:  # optimization: BoolOp, no call or compound in tail position --> treat as single data item
