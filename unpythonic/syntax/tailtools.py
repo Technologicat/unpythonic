@@ -112,6 +112,8 @@ def autoreturn(tree, *, syntax, **kw):
     """
     if syntax != "block":
         raise SyntaxError("autoreturn is a block macro only")
+    if syntax == "block" and kw['optional_vars'] is not None:
+        raise SyntaxError("autoreturn does not take an asname")
 
     # Expand outside in. Any nested macros should get clean standard Python,
     # not having to worry about implicit "return" statements.
@@ -216,6 +218,8 @@ def tco(tree, *, syntax, expander, **kw):
     """
     if syntax != "block":
         raise SyntaxError("tco is a block macro only")
+    if syntax == "block" and kw['optional_vars'] is not None:
+        raise SyntaxError("tco does not take an asname")
 
     # Two-pass macro.
     with dyn.let(_macro_expander=expander):
@@ -617,6 +621,8 @@ def continuations(tree, *, syntax, expander, **kw):
     """
     if syntax != "block":
         raise SyntaxError("continuations is a block macro only")
+    if syntax == "block" and kw['optional_vars'] is not None:
+        raise SyntaxError("continuations does not take an asname")
 
     # Two-pass macro.
     with dyn.let(_macro_expander=expander):

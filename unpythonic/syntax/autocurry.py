@@ -65,6 +65,8 @@ def autocurry(tree, *, syntax, expander, **kw):  # technically a list of trees, 
     """
     if syntax != "block":
         raise SyntaxError("autocurry is a block macro only")
+    if syntax == "block" and kw['optional_vars'] is not None:
+        raise SyntaxError("autocurry does not take an asname")
 
     tree = expander.visit(tree)
 

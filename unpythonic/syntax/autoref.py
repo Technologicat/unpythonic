@@ -127,6 +127,8 @@ def autoref(tree, *, args, syntax, expander, **kw):
         raise SyntaxError("autoref requires an argument, the object to be auto-referenced")
 
     target = kw.get("optional_vars", None)
+    if target and type(target) is not Name:  # tuples not accepted
+        raise SyntaxError("with autoref[...] as ... takes at most one asname")
 
     with dyn.let(_macro_expander=expander):
         return _autoref(block_body=tree, args=args, asname=target)

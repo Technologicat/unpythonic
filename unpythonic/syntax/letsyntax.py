@@ -128,6 +128,8 @@ def let_syntax(tree, *, args, syntax, expander, **kw):
     """
     if syntax not in ("expr", "block"):
         raise SyntaxError("let_syntax is an expr and block macro only")
+    if syntax == "block" and kw['optional_vars'] is not None:
+        raise SyntaxError("let_syntax (block mode) does not take an asname")
 
     tree = expander.visit(tree)
 
@@ -159,6 +161,8 @@ def abbrev(tree, *, args, syntax, expander, **kw):
     """
     if syntax not in ("expr", "block"):
         raise SyntaxError("abbrev is an expr and block macro only")
+    if syntax == "block" and kw['optional_vars'] is not None:
+        raise SyntaxError("abbrev (block mode) does not take an asname")
 
     # DON'T expand inner macro invocations first - outside-in ordering is the default, so we simply do nothing.
 

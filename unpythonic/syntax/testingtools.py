@@ -240,6 +240,8 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
     """
     if syntax not in ("expr", "block"):
         raise SyntaxError("test is an expr and block macro only")
+    if syntax == "block" and kw['optional_vars'] is not None:
+        raise SyntaxError("test (block mode) does not take an asname")
 
     # Two-pass macros.
     with dyn.let(_macro_expander=expander):
@@ -290,6 +292,8 @@ def test_signals(tree, *, args, syntax, expander, **kw):  # noqa: F811
     """
     if syntax not in ("expr", "block"):
         raise SyntaxError("test_signals is an expr and block macro only")
+    if syntax == "block" and kw['optional_vars'] is not None:
+        raise SyntaxError("test_signals (block mode) does not take an asname")
 
     # Two-pass macros.
     with dyn.let(_macro_expander=expander):
@@ -339,6 +343,8 @@ def test_raises(tree, *, args, syntax, expander, **kw):  # noqa: F811
     """
     if syntax not in ("expr", "block"):
         raise SyntaxError("test_raises is an expr and block macro only")
+    if syntax == "block" and kw['optional_vars'] is not None:
+        raise SyntaxError("test_raises (block mode) does not take an asname")
 
     with dyn.let(_macro_expander=expander):
         if syntax == "expr":

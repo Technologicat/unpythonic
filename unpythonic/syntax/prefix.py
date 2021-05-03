@@ -95,6 +95,8 @@ def prefix(tree, *, syntax, **kw):  # noqa: F811
     """
     if syntax != "block":
         raise SyntaxError("prefix is a block macro only")
+    if syntax == "block" and kw['optional_vars'] is not None:
+        raise SyntaxError("prefix does not take an asname")
 
     # Expand outside in. Any nested macros should get clean standard Python,
     # not having to worry about tuples possibly denoting function calls.
