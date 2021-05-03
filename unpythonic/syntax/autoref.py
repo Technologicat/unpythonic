@@ -3,7 +3,7 @@
 
 __all__ = ["autoref"]
 
-from ast import (Name, Assign, Load, Call, Lambda, With, Constant, arg,
+from ast import (Name, Load, Call, Lambda, With, Constant, arg,
                  Attribute, Subscript, Store, Del)
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
@@ -301,7 +301,8 @@ def _autoref(block_body, args, asname):
                    'lazy', 'lazyrec', 'maybe_force_args',  # lazify subsystem
                    # the test framework subsystem
                    'callsite_filename', 'returns_normally'] + _test_function_names
-    newbody = [Assign(targets=[q[n[o]]], value=args[0])]
+    with q as newbody:
+        n[o] = a[args[0]]
     for stmt in block_body:
         newbody.append(AutorefTransformer(referents=always_skip + [o]).visit(stmt))
 
