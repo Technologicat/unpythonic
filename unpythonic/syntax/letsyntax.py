@@ -192,6 +192,9 @@ block = block()
 # --------------------------------------------------------------------------------
 # Syntax transformers
 
+# let_syntax[...][...]
+# let_syntax[(...) in ...]
+# let_syntax[..., where(...)]
 def _let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
     body = _implicit_do(body)  # support the extra bracket syntax
     if not bindings:  # Optimize out a `let_syntax` with no bindings.
