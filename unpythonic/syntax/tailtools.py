@@ -1051,7 +1051,7 @@ def _continuations(block_body):
             body = before + make_continuation(owner, callcc, contbody=after)
         return body
     # TODO: improve error reporting for stray call_cc[] invocations
-    class StrayChecker(ASTVisitor):
+    class StrayCallccChecker(ASTVisitor):
         def examine(self, tree):
             if iscallcc(tree):
                 raise SyntaxError("call_cc[...] only allowed at the top level of a def or async def, or at the top level of the block; must appear as an expr or an assignment RHS")  # pragma: no cover
@@ -1098,7 +1098,7 @@ def _continuations(block_body):
     block_body = CallccTransformer().visit(block_body)  # inside defs
     # Validate. Each call_cc[] reached by the transformer was in a syntactically correct
     # position and has now been eliminated. Any remaining ones indicate syntax errors.
-    StrayChecker().visit(block_body)
+    StrayCallccChecker().visit(block_body)
 
     # set up the default continuation that just returns its args
     # (the top-level "cc" is only used for continuations created by call_cc[] at the top level of the block)
