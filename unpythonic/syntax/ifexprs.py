@@ -45,7 +45,7 @@ def aif(tree, *, syntax, expander, **kw):
         raise SyntaxError("aif is an expr macro only")
 
     # Detect the name(s) of `it` at the use site (this accounts for as-imports)
-    macro_bindings = extract_bindings(dyn._macro_expander.bindings, it)
+    macro_bindings = extract_bindings(expander.bindings, it)
     if not macro_bindings:
         raise SyntaxError("The use site of `aif` must macro-import `it`, too.")
 
