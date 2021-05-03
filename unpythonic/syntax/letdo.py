@@ -355,6 +355,8 @@ def _let_expr_impl(bindings, body, mode):
     # invocations in both bindings and body.
     #
     # But apply the implicit `do` (extra bracket syntax) first.
+    # (It is important we expand at least that immediately after, to resolve its local variables,
+    #  because those may have the same lexical names as some of the let-bindings.)
     body = _implicit_do(body)
     body = dyn._macro_expander.visit(body)
     if not bindings:
@@ -920,4 +922,4 @@ def _implicit_do(tree):
     The outer brackets enable multiple-expression mode, and the inner brackets
     are then interpreted as a list.
     """
-    return _do(tree) if type(tree) is List else tree
+    return q[a[_our_do][t[tree.elts]]] if type(tree) is List else tree
