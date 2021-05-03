@@ -69,16 +69,9 @@ def isx(tree, x, accept_attr=True):
 
         - ``x`` as an attribute (if ``accept_attr=True``)
     """
-    if isinstance(tree, Done):
-        return isx(tree.body, x, accept_attr=accept_attr)
-    key = is_captured_value(tree)  # AST -> (name, frozen_value) or False
-    if key:
-        name, frozen_value = key
-
     ismatch = x if callable(x) else lambda name: name == x
-    return ((type(tree) is Name and ismatch(tree.id)) or
-            (key and ismatch(name)) or
-            (accept_attr and type(tree) is Attribute and ismatch(tree.attr)))
+    thename = getname(tree, accept_attr=accept_attr)
+    return thename is not None and ismatch(thename)
 
 def getname(tree, accept_attr=True):
     """The cousin of ``isx``.
