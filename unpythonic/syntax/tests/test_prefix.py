@@ -6,8 +6,7 @@
 from ...syntax import macros, test, test_raises, the  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
-from ...syntax import macros, prefix, autocurry, let, do  # noqa: F401, F811
-from ...syntax import q, u, kw
+from ...syntax import macros, prefix, q, u, kw, autocurry, let, do  # noqa: F401, F811
 
 from ...fold import foldr
 from ...fun import composerc as compose, apply

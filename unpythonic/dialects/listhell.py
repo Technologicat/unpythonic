@@ -17,9 +17,8 @@ class Listhell(Dialect):
     def transform_ast(self, tree):  # tree is an ast.Module
         with q as template:
             __lang__ = "Listhell"  # noqa: F841, just provide it to user code.
-            from unpythonic.syntax import macros, prefix, autocurry  # noqa: F401, F811
+            from unpythonic.syntax import macros, prefix, q, u, kw, autocurry  # noqa: F401, F811
             # Auxiliary syntax elements for the macros
-            from unpythonic.syntax import q, u, kw  # noqa: F401
             from unpythonic import apply  # noqa: F401
             from unpythonic import composerc as compose  # compose from Right, Currying  # noqa: F401
             with prefix, autocurry:

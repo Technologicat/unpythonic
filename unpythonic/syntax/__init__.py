@@ -78,8 +78,6 @@ from ..dynassign import make_dynvar
 # However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
 # Cleanups can be done in a future release.
 
-# TODO: upgrade kw() in unpythonic.syntax.prefix into `mcpyrate` magic variable?
-
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
 
 # TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.

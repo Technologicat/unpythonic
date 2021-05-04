@@ -11,6 +11,7 @@ import sys
 
 from mcpyrate.quotes import macros, q, u, a, t  # noqa: F811, F401
 
+from mcpyrate import namemacro
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
@@ -103,27 +104,35 @@ def prefix(tree, *, syntax, **kw):  # noqa: F811
     # not having to worry about tuples possibly denoting function calls.
     return _prefix(block_body=tree)
 
-# Note the exported "q" and "u" are ours, but the "q" and "u" we use in this
-# module are macros. The "q" and "u" we define here are regular run-time objects,
-# namely the stubs for the "q" and "u" markers used within a `prefix` block.
-class q:  # noqa: F811
-    """[syntax] Quote operator. Only meaningful in a tuple in a prefix block."""
-    def __repr__(self):  # in case one of these ends up somewhere at runtime  # pragma: no cover
-        return "<quote>"
-q = q()
+# Note the exported "q" and "u" are ours (namely the stubs for the "q" and "u"
+# operators compiled away by `prefix`), but the "q[]" we use as a macro in
+# this module is the quasiquote operator from `mcpyrate.quotes`.
+#
+# This `def` doesn't overwrite the macro `q`, because the `def` runs at run time.
+# The expander does not try to expand this `q` as a macro, because `def q(...)`
+# is not a valid macro invocation even when the name `q` has been imported as a macro.
+@namemacro
+def q(tree, *, syntax, **kw):  # noqa: F811
+    """[syntax, name] Quote operator. Only meaningful in a tuple inside a prefix block."""
+    if syntax != "name":
+        raise SyntaxError("q (unpythonic.syntax.prefix.q) is a name macro only")
+    raise SyntaxError("q (unpythonic.syntax.prefix.q) is only valid in a tuple inside a `with prefix` block")  # pragma: no cover, not meant to hit the expander
 
-class u:  # noqa: F811
-    """[syntax] Unquote operator. Only meaningful in a tuple in a prefix block."""
-    def __repr__(self):  # in case one of these ends up somewhere at runtime  # pragma: no cover
-        return "<unquote>"
-u = u()
+@namemacro
+def u(tree, *, syntax, **kw):  # noqa: F811
+    """[syntax, name] Unquote operator. Only meaningful in a tuple inside a prefix block."""
+    if syntax != "name":
+        raise SyntaxError("q (unpythonic.syntax.prefix.q) is a name macro only")
+    raise SyntaxError("q (unpythonic.syntax.prefix.q) is only valid in a tuple inside a `with prefix` block")  # pragma: no cover, not meant to hit the expander
 
-# TODO: Think of promoting this error to compile macro expansion time.
-# TODO: Difficult to do, because we shouldn't probably hijack the name "kw" (so no name macro),
-# TODO: and it can't be invoked like an expr macro, because the whole point is to pass arguments by name.
-def kw(**kwargs):
-    """[syntax] Pass-named-args operator. Only meaningful in a tuple in a prefix block."""
-    raise RuntimeError("kw(...) only meaningful inside a tuple in a prefix block")  # pragma: no cover
+# TODO: This isn't a perfect solution, because there is no "call" macro kind.
+# TODO: We currently trigger the error on any appearance of the name `kw` outside a valid context.
+@namemacro
+def kw(tree, *, syntax, **kw):  # noqa: F811
+    """[syntax] Pass-named-args operator. Only meaningful in a tuple inside a prefix block."""
+    if syntax != "name":
+        raise SyntaxError("kw (unpythonic.syntax.prefix.kw) is a name macro only")
+    raise SyntaxError("kw (unpythonic.syntax.prefix.kw) is only valid in a tuple inside a `with prefix` block")  # pragma: no cover, not meant to hit the expander
 
 # --------------------------------------------------------------------------------
 
