@@ -76,11 +76,12 @@ def prefix(tree, *, syntax, **kw):  # noqa: F811
           specified by multiple ``kw`` operators, the rightmost definition wins.
 
           **Note**: Python itself prohibits having repeated named args in the **same**
-          ``kw`` operator, because it uses the function call syntax. If you get a
-          `SyntaxError: keyword argument repeated` with no useful traceback,
-          check any recent ``kw`` operators you have added in prefix blocks.
+          ``kw`` operator, because it uses the function call syntax. If you try to pass
+          the same named arg multiple times, as of 0.15, you should get a
+          `SyntaxError: keyword argument repeated` with a traceback.
 
-          A ``kw(...)`` operator in a quoted tuple (not a function call) is an error.
+          A ``kw(...)`` operator in a quoted tuple (i.e. a tuple that does not not
+          represent a function call) is an error.
 
     Current limitations:
 
@@ -222,6 +223,6 @@ def _prefix(block_body):
             self.withstate(thecall, quotelevel=quotelevel)
             return self.visit(thecall)
 
-    # This is a first-pass macro. Any nested macros should get clean standard Python,
+    # This is a outside-in macro. Any nested macros should get clean standard Python,
     # not having to worry about tuples possibly denoting function calls.
     return PrefixTransformer(quotelevel=0).visit(block_body)
