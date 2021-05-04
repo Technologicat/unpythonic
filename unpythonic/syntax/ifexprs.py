@@ -42,14 +42,14 @@ def aif(tree, *, syntax, expander, **kw):
     brackets: ``[[1, 2, 3]]``.
     """
     if syntax != "expr":
-        raise SyntaxError("aif is an expr macro only")
+        raise SyntaxError("aif is an expr macro only")  # pragma: no cover
 
     # Detect the name(s) of `it` at the use site (this accounts for as-imports)
     # TODO: We don't know which binding this particular use site uses.
     # TODO: For now, we hack this by making `it` always rename itself to literal `it`.
     macro_bindings = extract_bindings(expander.bindings, it)
     if not macro_bindings:
-        raise SyntaxError("The use site of `aif` must macro-import `it`, too.")
+        raise SyntaxError("The use site of `aif` must macro-import `it`, too.")  # pragma: no cover
 
     # Expand outside-in, but the implicit do[] needs the expander.
     with dyn.let(_macro_expander=expander):
@@ -91,9 +91,9 @@ def it(tree, *, syntax, **kw):
     without renaming.
     """
     if syntax != "name":
-        raise SyntaxError("`it` is a name macro only")
+        raise SyntaxError("`it` is a name macro only")  # pragma: no cover
     if _aif_level.value < 1:
-        raise SyntaxError("`it` may only appear in the 'then' and 'otherwise' parts of an `aif[...]`")
+        raise SyntaxError("`it` may only appear in the 'then' and 'otherwise' parts of an `aif[...]`")  # pragma: no cover
     return q[it]  # always rename to literal `it`
 
 # --------------------------------------------------------------------------------
@@ -122,7 +122,7 @@ def cond(tree, *, syntax, expander, **kw):
     brackets: ``[[1, 2, 3]]``.
     """
     if syntax != "expr":
-        raise SyntaxError("cond is an expr macro only")
+        raise SyntaxError("cond is an expr macro only")  # pragma: no cover
 
     # Expand outside-in, but the implicit do[] needs the expander.
     with dyn.let(_macro_expander=expander):

@@ -130,9 +130,9 @@ def let_syntax(tree, *, args, syntax, expander, **kw):
     in `mcpyrate`.
     """
     if syntax not in ("expr", "block"):
-        raise SyntaxError("let_syntax is an expr and block macro only")
+        raise SyntaxError("let_syntax is an expr and block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("let_syntax (block mode) does not take an as-part")
+        raise SyntaxError("let_syntax (block mode) does not take an as-part")  # pragma: no cover
 
     if syntax == "expr":
         _let_syntax_expr_inside_out = partial(_let_syntax_expr, expand_inside=True)
@@ -164,9 +164,9 @@ def abbrev(tree, *, args, syntax, expander, **kw):
     ``abbrev`` expands.
     """
     if syntax not in ("expr", "block"):
-        raise SyntaxError("abbrev is an expr and block macro only")
+        raise SyntaxError("abbrev is an expr and block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("abbrev (block mode) does not take an as-part")
+        raise SyntaxError("abbrev (block mode) does not take an as-part")  # pragma: no cover
 
     # DON'T expand inner macro invocations first - outside-in ordering is the default, so we simply do nothing.
 
@@ -182,14 +182,14 @@ def abbrev(tree, *, args, syntax, expander, **kw):
 def expr(tree, *, syntax, **kw):
     """[syntax, block] ``with expr:`` inside a ``with let_syntax:``."""
     if syntax != "block":
-        raise SyntaxError("`expr` is a block macro only")
+        raise SyntaxError("`expr` is a block macro only")  # pragma: no cover
     raise SyntaxError("`expr` is only valid at the top level of a block-mode `let_syntax` or `abbrev`")  # pragma: no cover, not intended to hit the expander
 
 @parametricmacro
 def block(tree, *, syntax, **kw):
     """[syntax, block] ``with block:`` inside a ``with let_syntax:``."""
     if syntax != "block":
-        raise SyntaxError("`block` is a block macro only")
+        raise SyntaxError("`block` is a block macro only")  # pragma: no cover
     raise SyntaxError("`block` is only valid at the top level of a block-mode `let_syntax` or `abbrev`")  # pragma: no cover, not intended to hit the expander
 
 # --------------------------------------------------------------------------------

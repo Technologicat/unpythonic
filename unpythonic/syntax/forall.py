@@ -33,7 +33,7 @@ def forall(tree, *, syntax, expander, **kw):
                                      (8, 15, 17), (9, 12, 15), (12, 16, 20))
     """
     if syntax != "expr":
-        raise SyntaxError("forall is an expr macro only")
+        raise SyntaxError("forall is an expr macro only")  # pragma: no cover
 
     tree = expander.visit(tree)
 
@@ -41,7 +41,7 @@ def forall(tree, *, syntax, expander, **kw):
 
 def _forall(exprs):
     if type(exprs) is not Tuple:  # pragma: no cover, let's not test macro expansion errors.
-        raise SyntaxError("forall body: expected a sequence of comma-separated expressions")
+        raise SyntaxError("forall body: expected a sequence of comma-separated expressions")  # pragma: no cover
     itemno = 0
     def build(lines, tree):
         if not lines:

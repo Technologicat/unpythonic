@@ -32,7 +32,7 @@ def lazy(tree, *, syntax, **kw):
     In Racket, this operation is known as `delay`.
     """
     if syntax != "expr":
-        raise SyntaxError("lazy is an expr macro only")
+        raise SyntaxError("lazy is an expr macro only")  # pragma: no cover
 
     # Expand outside in. Ordering shouldn't matter here.
     return _lazy(tree)
@@ -75,7 +75,7 @@ def lazyrec(tree, *, syntax, **kw):
                                                     (lazy[1+2+3], lazy[4+5+6]))
     """
     if syntax != "expr":
-        raise SyntaxError("lazyrec is an expr macro only")
+        raise SyntaxError("lazyrec is an expr macro only")  # pragma: no cover
 
     # Expand outside in. Ordering shouldn't matter here.
     return _lazyrec(tree)
@@ -410,9 +410,9 @@ def lazify(tree, *, syntax, expander, **kw):
     currently the only binding constructs to which auto-lazification is applied.
     """
     if syntax != "block":
-        raise SyntaxError("lazify is a block macro only")
+        raise SyntaxError("lazify is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("lazify does not take an as-part")
+        raise SyntaxError("lazify does not take an as-part")  # pragma: no cover
 
     # Two-pass macro.
     with dyn.let(_macro_expander=expander):

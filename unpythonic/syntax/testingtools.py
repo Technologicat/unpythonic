@@ -239,15 +239,15 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
     destroyed by the time the exception is caught by the test construct.
     """
     if syntax not in ("expr", "block"):
-        raise SyntaxError("test is an expr and block macro only")
+        raise SyntaxError("test is an expr and block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("test (block mode) does not take an as-part")
+        raise SyntaxError("test (block mode) does not take an as-part")  # pragma: no cover
 
     # Two-pass macros.
     with dyn.let(_macro_expander=expander):
         if syntax == "expr":
             if args:
-                raise SyntaxError("test[] in expression mode does not take macro arguments")
+                raise SyntaxError("test[] in expression mode does not take macro arguments")  # pragma: no cover
             return _test_expr(tree)
         else:  # syntax == "block":
             return _test_block(block_body=tree, args=args)
@@ -291,15 +291,15 @@ def test_signals(tree, *, args, syntax, expander, **kw):  # noqa: F811
     `the[]` mark is not supported. The block variant does not support `return`.
     """
     if syntax not in ("expr", "block"):
-        raise SyntaxError("test_signals is an expr and block macro only")
+        raise SyntaxError("test_signals is an expr and block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("test_signals (block mode) does not take an as-part")
+        raise SyntaxError("test_signals (block mode) does not take an as-part")  # pragma: no cover
 
     # Two-pass macros.
     with dyn.let(_macro_expander=expander):
         if syntax == "expr":
             if args:
-                raise SyntaxError("test_signals[] in expression mode does not take macro arguments")
+                raise SyntaxError("test_signals[] in expression mode does not take macro arguments")  # pragma: no cover
             return _test_expr_signals(tree)
         else:  # syntax == "block":
             return _test_block_signals(block_body=tree, args=args)
@@ -342,14 +342,14 @@ def test_raises(tree, *, args, syntax, expander, **kw):  # noqa: F811
     `the[]` mark is not supported. The block variant does not support `return`.
     """
     if syntax not in ("expr", "block"):
-        raise SyntaxError("test_raises is an expr and block macro only")
+        raise SyntaxError("test_raises is an expr and block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("test_raises (block mode) does not take an as-part")
+        raise SyntaxError("test_raises (block mode) does not take an as-part")  # pragma: no cover
 
     with dyn.let(_macro_expander=expander):
         if syntax == "expr":
             if args:
-                raise SyntaxError("test_raises[] in expression mode does not take macro arguments")
+                raise SyntaxError("test_raises[] in expression mode does not take macro arguments")  # pragma: no cover
             return _test_expr_raises(tree)
         else:  # syntax == "block":
             return _test_block_raises(block_body=tree, args=args)
@@ -375,7 +375,7 @@ def fail(tree, *, syntax, expander, **kw):  # noqa: F811
     See also `error[]`, `warn[]`.
     """
     if syntax != "expr":
-        raise SyntaxError("fail is an expr macro only")
+        raise SyntaxError("fail is an expr macro only")  # pragma: no cover
 
     # Expand outside in. The ordering shouldn't matter here.
     # The underlying `test` machinery needs to access the expander.
@@ -395,7 +395,7 @@ def error(tree, *, syntax, expander, **kw):  # noqa: F811
     See also `warn[]`, `fail[]`.
     """
     if syntax != "expr":
-        raise SyntaxError("error is an expr macro only")
+        raise SyntaxError("error is an expr macro only")  # pragma: no cover
 
     # Expand outside in. The ordering shouldn't matter here.
     # The underlying `test` machinery needs to access the expander.
@@ -419,7 +419,7 @@ def warn(tree, *, syntax, expander, **kw):  # noqa: F811
     See also `error[]`, `fail[]`.
     """
     if syntax != "expr":
-        raise SyntaxError("warn is an expr macro only")
+        raise SyntaxError("warn is an expr macro only")  # pragma: no cover
 
     # Expand outside in. The ordering shouldn't matter here.
     # The underlying `test` machinery needs to access the expander.
@@ -462,9 +462,9 @@ def expand_testing_macros_first(tree, *, syntax, expander, **kw):
     `test[expr]` as input, but that's macros for you. Macros don't compose, after all.
     """
     if syntax != "block":
-        raise SyntaxError("expand_testing_macros_first is a block macro only")
+        raise SyntaxError("expand_testing_macros_first is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("expand_testing_macros_first does not take an as-part")
+        raise SyntaxError("expand_testing_macros_first does not take an as-part")  # pragma: no cover
 
     testing_macros = [test, test_signals, test_raises, error, fail, warn]
     macro_bindings = extract_bindings(expander.bindings, *testing_macros)
@@ -913,7 +913,7 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
         exctype, tree = tree.elts
         message = q[None]
     else:
-        raise SyntaxError(f"Expected one of {syntaxname}[exctype, expr], {syntaxname}[exctype, expr, message]")
+        raise SyntaxError(f"Expected one of {syntaxname}[exctype, expr], {syntaxname}[exctype, expr, message]")  # pragma: no cover
 
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.
@@ -954,7 +954,7 @@ def _test_block(block_body, args):
     elif len(args) == 0:
         message = q[None]
     else:
-        raise SyntaxError('Expected `with test:` or `with test[message]:`')
+        raise SyntaxError('Expected `with test:` or `with test[message]:`')  # pragma: no cover
 
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.
@@ -1031,7 +1031,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
         exctype = args[0]
         message = q[None]
     else:
-        raise SyntaxError(f'Expected `with {syntaxname}(exctype):` or `with {syntaxname}(exctype, message):`')
+        raise SyntaxError(f'Expected `with {syntaxname}(exctype):` or `with {syntaxname}(exctype, message):`')  # pragma: no cover
 
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.

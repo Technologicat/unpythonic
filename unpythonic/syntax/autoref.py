@@ -138,13 +138,13 @@ def autoref(tree, *, args, syntax, expander, **kw):
     attributes can be added and removed dynamically.
     """
     if syntax != "block":
-        raise SyntaxError("autoref is a block macro only")
+        raise SyntaxError("autoref is a block macro only")  # pragma: no cover
     if not args:
-        raise SyntaxError("autoref requires an argument, the object to be auto-referenced")
+        raise SyntaxError("autoref requires an argument, the object to be auto-referenced")  # pragma: no cover
 
     target = kw.get("optional_vars", None)
     if target and type(target) is not Name:  # tuples not accepted
-        raise SyntaxError("with autoref[...] as ... takes at most one name in the as-part")
+        raise SyntaxError("with autoref[...] as ... takes at most one name in the as-part")  # pragma: no cover
 
     with dyn.let(_macro_expander=expander):
         return _autoref(block_body=tree, args=args, asname=target)

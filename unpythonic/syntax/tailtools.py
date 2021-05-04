@@ -111,9 +111,9 @@ def autoreturn(tree, *, syntax, **kw):
     a statement (because in a sense, a statement always returns ``None``).
     """
     if syntax != "block":
-        raise SyntaxError("autoreturn is a block macro only")
+        raise SyntaxError("autoreturn is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("autoreturn does not take an as-part")
+        raise SyntaxError("autoreturn does not take an as-part")  # pragma: no cover
 
     # Expand outside in. Any nested macros should get clean standard Python,
     # not having to worry about implicit "return" statements.
@@ -217,9 +217,9 @@ def tco(tree, *, syntax, expander, **kw):
     continuation.
     """
     if syntax != "block":
-        raise SyntaxError("tco is a block macro only")
+        raise SyntaxError("tco is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("tco does not take an as-part")
+        raise SyntaxError("tco does not take an as-part")  # pragma: no cover
 
     # Two-pass macro.
     with dyn.let(_macro_expander=expander):
@@ -620,9 +620,9 @@ def continuations(tree, *, syntax, expander, **kw):
         See the ``tco`` macro for details on the ``call_ec`` combo.
     """
     if syntax != "block":
-        raise SyntaxError("continuations is a block macro only")
+        raise SyntaxError("continuations is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("continuations does not take an as-part")
+        raise SyntaxError("continuations does not take an as-part")  # pragma: no cover
 
     # Two-pass macro.
     with dyn.let(_macro_expander=expander):

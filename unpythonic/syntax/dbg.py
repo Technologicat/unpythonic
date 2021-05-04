@@ -99,9 +99,9 @@ def dbg(tree, *, args, syntax, expander, **kw):
     extra parentheses). See ``mcpyrate.unparse``.
     """
     if syntax not in ("expr", "block"):
-        raise SyntaxError("dbg is an expr and block macro only")
+        raise SyntaxError("dbg is an expr and block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("dbg (block mode) does not take an as-part")
+        raise SyntaxError("dbg (block mode) does not take an as-part")  # pragma: no cover
 
     tree = expander.visit(tree)
 
@@ -206,7 +206,7 @@ def _dbg_block(body, args):
         # TODO: add support for Attribute to support using a method as a custom print function
         # (the problem is we must syntactically find matches in the AST, and AST nodes don't support comparison)
         if type(args[0]) is not Name:  # pragma: no cover, let's not test the macro expansion errors.
-            raise SyntaxError("Custom debug print function must be specified by a bare name")
+            raise SyntaxError("Custom debug print function must be specified by a bare name")  # pragma: no cover
         pfunc = args[0]
         pname = pfunc.id  # name of the print function as it appears in the user code
     else:

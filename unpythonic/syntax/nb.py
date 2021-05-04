@@ -37,9 +37,9 @@ def nb(tree, *, args, syntax, **kw):
             3 * _
     """
     if syntax != "block":
-        raise SyntaxError("nb is a block macro only")
+        raise SyntaxError("nb is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("nb does not take an as-part")
+        raise SyntaxError("nb does not take an as-part")  # pragma: no cover
 
     # Expand outside in. This macro is so simple and orthogonal the
     # ordering doesn't matter. This is cleaner.

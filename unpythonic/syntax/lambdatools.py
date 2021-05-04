@@ -64,9 +64,9 @@ def multilambda(tree, *, syntax, expander, **kw):
     For local variables, see ``do``.
     """
     if syntax != "block":
-        raise SyntaxError("multilambda is a block macro only")
+        raise SyntaxError("multilambda is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("multilambda does not take an as-part")
+        raise SyntaxError("multilambda does not take an as-part")  # pragma: no cover
 
     # Expand outside in.
     # multilambda should expand first before any let[], do[] et al. that happen
@@ -117,9 +117,9 @@ def namedlambda(tree, *, syntax, expander, **kw):
     which will update ``__name__``, ``__qualname__`` and ``__code__.co_name``.
     """
     if syntax != "block":
-        raise SyntaxError("namedlambda is a block macro only")
+        raise SyntaxError("namedlambda is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("namedlambda does not take an as-part")
+        raise SyntaxError("namedlambda does not take an as-part")  # pragma: no cover
 
     # Two-pass macro. We pass in the expander to allow the macro to decide when to recurse.
     with dyn.let(_macro_expander=expander):
@@ -150,7 +150,7 @@ def f(tree, *, syntax, expander, **kw):
     The macro does not descend into any nested ``f[]``.
     """
     if syntax != "expr":
-        raise SyntaxError("f is an expr macro only")
+        raise SyntaxError("f is an expr macro only")  # pragma: no cover
 
     # What's my name in the current expander? (There may be several names.)
     # https://github.com/Technologicat/mcpyrate/blob/master/doc/quasiquotes.md#hygienic-macro-recursion
@@ -190,9 +190,9 @@ def quicklambda(tree, *, syntax, expander, **kw):
     The point is, this combo is now possible.)
     """
     if syntax != "block":
-        raise SyntaxError("quicklambda is a block macro only")
+        raise SyntaxError("quicklambda is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("quicklambda does not take an as-part")
+        raise SyntaxError("quicklambda does not take an as-part")  # pragma: no cover
 
     # This macro expands outside in.
     #
@@ -225,9 +225,9 @@ def envify(tree, *, syntax, expander, **kw):
                 lambda i: n << n + i
     """
     if syntax != "block":
-        raise SyntaxError("envify is a block macro only")
+        raise SyntaxError("envify is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("envify does not take an as-part")
+        raise SyntaxError("envify does not take an as-part")  # pragma: no cover
 
     # Two-pass macro.
     with dyn.let(_macro_expander=expander):

@@ -96,9 +96,9 @@ def prefix(tree, *, syntax, **kw):  # noqa: F811
     **CAUTION**: This macro is experimental, not intended for production use.
     """
     if syntax != "block":
-        raise SyntaxError("prefix is a block macro only")
+        raise SyntaxError("prefix is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("prefix does not take an as-part")
+        raise SyntaxError("prefix does not take an as-part")  # pragma: no cover
 
     # Expand outside in. Any nested macros should get clean standard Python,
     # not having to worry about tuples possibly denoting function calls.
@@ -115,14 +115,14 @@ def prefix(tree, *, syntax, **kw):  # noqa: F811
 def q(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, name] Quote operator. Only meaningful in a tuple inside a prefix block."""
     if syntax != "name":
-        raise SyntaxError("q (unpythonic.syntax.prefix.q) is a name macro only")
+        raise SyntaxError("q (unpythonic.syntax.prefix.q) is a name macro only")  # pragma: no cover
     raise SyntaxError("q (unpythonic.syntax.prefix.q) is only valid in a tuple inside a `with prefix` block")  # pragma: no cover, not meant to hit the expander
 
 @namemacro
 def u(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, name] Unquote operator. Only meaningful in a tuple inside a prefix block."""
     if syntax != "name":
-        raise SyntaxError("q (unpythonic.syntax.prefix.q) is a name macro only")
+        raise SyntaxError("q (unpythonic.syntax.prefix.q) is a name macro only")  # pragma: no cover
     raise SyntaxError("q (unpythonic.syntax.prefix.q) is only valid in a tuple inside a `with prefix` block")  # pragma: no cover, not meant to hit the expander
 
 # TODO: This isn't a perfect solution, because there is no "call" macro kind.
@@ -131,7 +131,7 @@ def u(tree, *, syntax, **kw):  # noqa: F811
 def kw(tree, *, syntax, **kw):  # noqa: F811
     """[syntax] Pass-named-args operator. Only meaningful in a tuple inside a prefix block."""
     if syntax != "name":
-        raise SyntaxError("kw (unpythonic.syntax.prefix.kw) is a name macro only")
+        raise SyntaxError("kw (unpythonic.syntax.prefix.kw) is a name macro only")  # pragma: no cover
     raise SyntaxError("kw (unpythonic.syntax.prefix.kw) is only valid in a tuple inside a `with prefix` block")  # pragma: no cover, not meant to hit the expander
 
 # --------------------------------------------------------------------------------

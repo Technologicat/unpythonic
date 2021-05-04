@@ -142,7 +142,7 @@ def let(tree, *, args, syntax, expander, **kw):
           is applied first to ``[body0, ...]``, and the result becomes ``body``.
     """
     if syntax != "expr":
-        raise SyntaxError("let is an expr macro only")
+        raise SyntaxError("let is an expr macro only")  # pragma: no cover
 
     # The `let[]` family of macros expands inside out.
     with dyn.let(_macro_expander=expander):
@@ -158,7 +158,7 @@ def letseq(tree, *, args, syntax, expander, **kw):
     Expands to nested ``let`` expressions.
     """
     if syntax != "expr":
-        raise SyntaxError("letseq is an expr macro only")
+        raise SyntaxError("letseq is an expr macro only")  # pragma: no cover
 
     with dyn.let(_macro_expander=expander):
         return _destructure_and_apply_let(tree, args, expander, _letseq)
@@ -178,7 +178,7 @@ def letrec(tree, *, args, syntax, expander, **kw):
     This is useful for locally defining mutually recursive functions.
     """
     if syntax != "expr":
-        raise SyntaxError("letrec is an expr macro only")
+        raise SyntaxError("letrec is an expr macro only")  # pragma: no cover
 
     with dyn.let(_macro_expander=expander):
         return _destructure_and_apply_let(tree, args, expander, _letrec)
@@ -209,7 +209,7 @@ def dlet(tree, *, args, syntax, expander, **kw):
     lexical scope of the ``def``.
     """
     if syntax != "decorator":
-        raise SyntaxError("dlet is a decorator macro only")
+        raise SyntaxError("dlet is a decorator macro only")  # pragma: no cover
 
     with dyn.let(_macro_expander=expander):
         return _destructure_and_apply_let(tree, args, expander, _dlet)
@@ -230,7 +230,7 @@ def dletseq(tree, *, args, syntax, expander, **kw):
         assert g(10) == 14
     """
     if syntax != "decorator":
-        raise SyntaxError("dletseq is a decorator macro only")
+        raise SyntaxError("dletseq is a decorator macro only")  # pragma: no cover
 
     with dyn.let(_macro_expander=expander):
         return _destructure_and_apply_let(tree, args, expander, _dletseq)
@@ -251,7 +251,7 @@ def dletrec(tree, *, args, syntax, expander, **kw):
     Same cautions apply as to ``dlet``.
     """
     if syntax != "decorator":
-        raise SyntaxError("dletrec is a decorator macro only")
+        raise SyntaxError("dletrec is a decorator macro only")  # pragma: no cover
 
     with dyn.let(_macro_expander=expander):
         return _destructure_and_apply_let(tree, args, expander, _dletrec)
@@ -268,7 +268,7 @@ def blet(tree, *, args, syntax, expander, **kw):
         assert result == 42
     """
     if syntax != "decorator":
-        raise SyntaxError("blet is a decorator macro only")
+        raise SyntaxError("blet is a decorator macro only")  # pragma: no cover
 
     with dyn.let(_macro_expander=expander):
         return _destructure_and_apply_let(tree, args, expander, _blet)
@@ -287,7 +287,7 @@ def bletseq(tree, *, args, syntax, expander, **kw):
         assert result == 4
     """
     if syntax != "decorator":
-        raise SyntaxError("bletseq is a decorator macro only")
+        raise SyntaxError("bletseq is a decorator macro only")  # pragma: no cover
 
     with dyn.let(_macro_expander=expander):
         return _destructure_and_apply_let(tree, args, expander, _bletseq)
@@ -317,7 +317,7 @@ def bletrec(tree, *, args, syntax, expander, **kw):
         assert result is True
     """
     if syntax != "decorator":
-        raise SyntaxError("bletrec is a decorator macro only")
+        raise SyntaxError("bletrec is a decorator macro only")  # pragma: no cover
 
     with dyn.let(_macro_expander=expander):
         return _destructure_and_apply_let(tree, args, expander, _bletrec)
@@ -782,14 +782,14 @@ def do(tree, *, syntax, expander, **kw):
     declared in a separate block, which plays the role of ``local``.
     """
     if syntax != "expr":
-        raise SyntaxError("do is an expr macro only")
+        raise SyntaxError("do is an expr macro only")  # pragma: no cover
     with dyn.let(_macro_expander=expander):
         return _do(tree)
 
 def do0(tree, *, syntax, expander, **kw):
     """[syntax, expr] Like do, but return the value of the first expression."""
     if syntax != "expr":
-        raise SyntaxError("do0 is an expr macro only")
+        raise SyntaxError("do0 is an expr macro only")  # pragma: no cover
     with dyn.let(_macro_expander=expander):
         return _do0(tree)
 

@@ -64,9 +64,9 @@ def autocurry(tree, *, syntax, expander, **kw):  # technically a list of trees, 
         assert add3(1)(2)(3) == 6
     """
     if syntax != "block":
-        raise SyntaxError("autocurry is a block macro only")
+        raise SyntaxError("autocurry is a block macro only")  # pragma: no cover
     if syntax == "block" and kw['optional_vars'] is not None:
-        raise SyntaxError("autocurry does not take an as-part")
+        raise SyntaxError("autocurry does not take an as-part")  # pragma: no cover
 
     tree = expander.visit(tree)
 
