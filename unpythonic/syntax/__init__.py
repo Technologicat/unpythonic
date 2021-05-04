@@ -88,12 +88,6 @@ from ..dynassign import make_dynvar
 
 # TODO: something like `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead
 
-# TODO: `mcpyrate` does not auto-expand macros in quasiquoted code.
-#  - Consider when we should expand macros in quoted code and when not
-#  - Consider what changes this implies for other macros that read the partially expanded output
-#    (some things may change from expanded to unexpanded, facilitating easier analysis but requiring
-#     code changes)
-
 # TODO: Consider using run-time compiler access in macro tests, like `mcpyrate` itself does. This compartmentalizes testing so that the whole test module won't crash on a macro-expansion error.
 
 # TODO: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9.
