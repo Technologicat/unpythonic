@@ -58,12 +58,12 @@ def getconstant(tree):
     if type(tree) is ast.Constant:  # Python 3.8+
         return tree.value
     # up to Python 3.7
-    elif type(tree) is ast.NameConstant:  # up to Python 3.7
+    elif type(tree) is ast.NameConstant:  # up to Python 3.7  # pragma: no cover
         return tree.value
-    elif type(tree) is ast.Num:
+    elif type(tree) is ast.Num:  # pragma: no cover
         return tree.n
-    elif type(tree) in (ast.Str, ast.Bytes):
+    elif type(tree) in (ast.Str, ast.Bytes):  # pragma: no cover
         return tree.s
-    elif type(tree) is ast.Ellipsis:  # `ast.Ellipsis` is the AST node type, `builtins.Ellipsis` is `...`.
+    elif type(tree) is ast.Ellipsis:  # `ast.Ellipsis` is the AST node type, `builtins.Ellipsis` is `...`.  # pragma: no cover
         return ...
-    raise TypeError(f"Not an AST node representing a constant: {type(tree)} with value {repr(tree)}")
+    raise TypeError(f"Not an AST node representing a constant: {type(tree)} with value {repr(tree)}")  # pragma: no cover
