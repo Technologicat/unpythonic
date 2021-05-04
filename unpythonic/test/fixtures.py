@@ -116,11 +116,21 @@ from traceback import format_tb
 import threading
 import sys
 
+# The testing framework depends on `mcpyrate` anyway, because the test
+# constructs are macros.
+#
+# This regular-code module depends on `mcpyrate`'s colorizer, but since
+# `unpythonic.test` is not auto-loaded, it's fine.
+#
+# Using `Bunch` is debatable, since we have `env`, and `Bunch` is essentially
+# just a stripped-down version of that. But `mcpyrate` uses `Bunch` for storing
+# config constants, so meh - let's just use the same approach here for consistency.
+from mcpyrate.bunch import Bunch
+from mcpyrate.colorizer import Fore, Style, colorize
+
 from ..conditions import handlers, find_restart, invoke
 from ..collections import box, unbox
 from ..symbol import sym
-
-from .ansicolor import TC, colorize
 
 __all__ = ["session", "testset",
            "terminate",
@@ -297,13 +307,46 @@ def maybe_colorize(s, *colors):
     If color is disabled (`TestConfig.use_color` is falsey), then no-op, i.e.
     return the original `s` as-is.
 
-    See `unpythonic.test.ansicolor.colorize` for details.
+    See `mcpyrate.colorizer.colorize` for details.
     """
     if not TestConfig.use_color:
         return s
     return colorize(s, *colors)
 
-class TestConfig:
+# We instantiate this later, since the instance lives inside `TestConfig` anyway.
+class ColorScheme(Bunch):
+    """The color scheme for terminal output in `unpythonic`'s testing framework.
+
+    This is just a bunch of constants. To change the colors, simply assign new
+    values to them. Changes take effect immediately for any new output.
+
+    To replace the whole color scheme at once, fill in a suitable `Bunch`, and
+    then use the `replace` method. If you need to get the names of all settings
+    programmatically, call the `keys` method.
+
+    Don't replace the color scheme object itself.
+
+    See `Fore`, `Back` and `Style` in `mcpyrate.colorizer` for valid values.
+    To make a compound style, place the values into a tuple.
+
+    The defaults are designed to fit the "Solarized" (Zenburn-like) theme
+    of `gnome-terminal`, with "Show bold text in bright colors" set to OFF.
+    But they work also with "Tango", and indeed with most themes.
+    """
+    def __init__(self):
+        super().__init__()
+
+        self.HEADING = Fore.LIGHTBLUE_EX
+        self.PASS = Fore.GREEN
+        self.FAIL = Fore.LIGHTRED_EX
+        self.ERROR = Fore.YELLOW
+        self.WARNING = Fore.YELLOW
+        self.GREYED_OUT = (Style.DIM, self.HEADING)
+        # These colors are used for the pass percentage.
+        self.SUMMARY_OK = Fore.GREEN
+        self.SUMMARY_NOTOK = Fore.YELLOW  # more readable than red on a dark background, yet stands out.
+
+class TestConfig(Bunch):
     """Global settings for the testing utilities.
 
     This is just a bunch of constants.
@@ -318,7 +361,7 @@ class TestConfig:
                         Default is `True`.
     `postproc`:         Exception -> None; optional. Default None (no postproc).
     `indent_per_level`: How many indent to indent per nesting level of `testset`.
-    `CS`:               The color scheme.
+    `ColorScheme`:      The color scheme.
 
     The optional `postproc` is a custom callback for examining failures and
     errors. `TestConfig.postproc` sets the default that is used when no other
@@ -334,45 +377,30 @@ class TestConfig:
     If you want a failure in a particular testset to abort the whole unit, you
     can use `terminate` as your `postproc`.
     """
-    # It is overwhelmingly common that tests are invoked from a single thread,
-    # so by default, all threads share the same printer. (It is not worth
-    # complicating the common use case here to cater for the rare use case.)
-    #
-    # However, if you want different printers in different threads, that can
-    # be done. As `printer`, use a `Shim` that contains a `ThreadLocalBox`.
-    # In each thread, place in that box a custom object that has a `__call__`
-    # method that takes the same args `print` does. Because `Shim` redirects
-    # all attribute accesses, it will redirect the lookup of `__call__`
-    # (it doesn't have its own `__call__`, so it assumes the client wants to
-    # call the thing that is inside the box), and hence that method will then
-    # be used for printing.
-    #
-    # TODO: This is subject to change later if I figure out a better design
-    # TODO: that conveniently caters for *both* the common and rare use cases.
-    printer = partial(print, file=sys.stderr)
-    use_color = True
-    postproc = None
-    indent_per_level = 2
+    def __init__(self):
+        super().__init__()
 
-    class CS:
-        """The color scheme.
-
-        See the `unpythonic.test.ansicolor.TC` enum for valid values. To make a
-        compound style, place the values into a tuple.
-
-        The defaults are designed to fit the "Solarized" (Zenburn-like) theme
-        of `gnome-terminal`, with "Show bold text in bright colors" set to OFF.
-        But they should work with most color schemes.
-        """
-        HEADING = TC.LIGHTBLUE
-        PASS = TC.GREEN
-        FAIL = TC.LIGHTRED
-        ERROR = TC.YELLOW
-        WARNING = TC.YELLOW
-        GREYED_OUT = (TC.DIM, HEADING)
-        # These colors are used for the pass percentage.
-        SUMMARY_OK = TC.GREEN
-        SUMMARY_NOTOK = TC.YELLOW  # more readable than red on a dark background, yet stands out.
+        # It is overwhelmingly common that tests are invoked from a single thread,
+        # so by default, all threads share the same printer. (It is not worth
+        # complicating the common use case here to cater for the rare use case.)
+        #
+        # However, if you want different printers in different threads, that can
+        # be done. As `printer`, use a `Shim` that contains a `ThreadLocalBox`.
+        # In each thread, place in that box a custom object that has a `__call__`
+        # method that takes the same args `print` does. Because `Shim` redirects
+        # all attribute accesses, it will redirect the lookup of `__call__`
+        # (it doesn't have its own `__call__`, so it assumes the client wants to
+        # call the thing that is inside the box), and hence that method will then
+        # be used for printing.
+        #
+        # TODO: This is subject to change later if I figure out a better design
+        # TODO: that conveniently caters for *both* the common and rare use cases.
+        self.printer = partial(print, file=sys.stderr)
+        self.use_color = True
+        self.postproc = None
+        self.indent_per_level = 2
+        self.ColorScheme = ColorScheme()
+TestConfig = TestConfig()  # type: ignore[assignment, misc]
 
 def describe_exception(exc):
     """Return a human-readable (possibly multi-line) description of exception `exc`.
@@ -390,7 +418,7 @@ def describe_exception(exc):
 
         if instance.__traceback__ is not None:
             snippets.append(maybe_colorize("\nTraceback (most recent call last):\n" +
-                                           "".join(format_tb(instance.__traceback__)), TC.DIM))
+                                           "".join(format_tb(instance.__traceback__)), Style.DIM))
 
         msg = str(instance)
         if msg:
@@ -445,32 +473,32 @@ def summarize(runs, fails, errors, warns):
 
     # In techni... ANSI color:
     snippets = []
-    color = TestConfig.CS.PASS if passes else TestConfig.CS.GREYED_OUT
-    snippets.extend([maybe_colorize("Pass", TC.BRIGHT, color),
+    color = TestConfig.ColorScheme.PASS if passes else TestConfig.ColorScheme.GREYED_OUT
+    snippets.extend([maybe_colorize("Pass", Style.BRIGHT, color),
                      " ",
                      maybe_colorize(f"{passes}", color),
-                     maybe_colorize(", ", TestConfig.CS.HEADING)])
-    color = TestConfig.CS.FAIL if fails else TestConfig.CS.GREYED_OUT
-    snippets.extend([maybe_colorize("Fail", TC.BRIGHT, color),
+                     maybe_colorize(", ", TestConfig.ColorScheme.HEADING)])
+    color = TestConfig.ColorScheme.FAIL if fails else TestConfig.ColorScheme.GREYED_OUT
+    snippets.extend([maybe_colorize("Fail", Style.BRIGHT, color),
                      " ",
                      maybe_colorize(f"{fails}", color),
-                     maybe_colorize(", ", TestConfig.CS.HEADING)])
-    color = TestConfig.CS.ERROR if errors else TestConfig.CS.GREYED_OUT
-    snippets.extend([maybe_colorize("Error", TC.BRIGHT, color),
+                     maybe_colorize(", ", TestConfig.ColorScheme.HEADING)])
+    color = TestConfig.ColorScheme.ERROR if errors else TestConfig.ColorScheme.GREYED_OUT
+    snippets.extend([maybe_colorize("Error", Style.BRIGHT, color),
                      " ",
                      maybe_colorize(f"{errors}", color),
-                     maybe_colorize(", ", TestConfig.CS.HEADING)])
-    color = TestConfig.CS.HEADING if runs else TestConfig.CS.GREYED_OUT
-    snippets.extend([maybe_colorize("Total", TC.BRIGHT, color),
+                     maybe_colorize(", ", TestConfig.ColorScheme.HEADING)])
+    color = TestConfig.ColorScheme.HEADING if runs else TestConfig.ColorScheme.GREYED_OUT
+    snippets.extend([maybe_colorize("Total", Style.BRIGHT, color),
                      " ",
                      maybe_colorize(f"{runs}", color)])
-    color = TestConfig.CS.SUMMARY_OK if passes == runs else TestConfig.CS.SUMMARY_NOTOK
+    color = TestConfig.ColorScheme.SUMMARY_OK if passes == runs else TestConfig.ColorScheme.SUMMARY_NOTOK
     snippets.extend([" ",
-                     maybe_colorize(f"({int(pass_percentage)}% pass)", TC.BRIGHT, color)])
+                     maybe_colorize(f"({int(pass_percentage)}% pass)", Style.BRIGHT, color)])
     if warns > 0:
-        color = TestConfig.CS.WARNING
+        color = TestConfig.ColorScheme.WARNING
         snippets.extend([" ",
-                         maybe_colorize(f"+ {warns} Warn", TC.BRIGHT, color)])
+                         maybe_colorize(f"+ {warns} Warn", Style.BRIGHT, color)])
     return "".join(snippets)
 
 class TestSessionExit(Exception):
@@ -482,7 +510,7 @@ def terminate(exc=None):  # the parameter is ignored
     this can be used as a `postproc`, if you want a failure in a particular
     testset to abort the session.
     """
-    TestConfig.printer(maybe_colorize("** TERMINATING SESSION", TC.BRIGHT, TestConfig.CS.HEADING))
+    TestConfig.printer(maybe_colorize("** TERMINATING SESSION", Style.BRIGHT, TestConfig.ColorScheme.HEADING))
     raise TestSessionExit
 
 def returns_normally(expr):
@@ -550,11 +578,11 @@ def session(name=None):
     if _threadlocals.nesting_level > 0:
         raise RuntimeError("A test `session` cannot be nested inside a `testset`.")
 
-    title = maybe_colorize("SESSION", TC.BRIGHT, TestConfig.CS.HEADING)
+    title = maybe_colorize("SESSION", Style.BRIGHT, TestConfig.ColorScheme.HEADING)
     if name is not None:
-        title += maybe_colorize(f" '{name}'", TC.ITALIC, TestConfig.CS.HEADING)
-    TestConfig.printer(maybe_colorize(f"{title} ", TestConfig.CS.HEADING) +
-                       maybe_colorize("BEGIN", TC.BRIGHT, TestConfig.CS.HEADING))
+        title += maybe_colorize(f" '{name}'", Style.ITALIC, TestConfig.ColorScheme.HEADING)
+    TestConfig.printer(maybe_colorize(f"{title} ", TestConfig.ColorScheme.HEADING) +
+                       maybe_colorize("BEGIN", Style.BRIGHT, TestConfig.ColorScheme.HEADING))
 
     # We are paused when the user triggers the exception; `contextlib` detects the
     # exception and re-raises it into us.
@@ -569,8 +597,8 @@ def session(name=None):
     except TestSessionExit:
         pass
 
-    TestConfig.printer(maybe_colorize(f"{title} ", TestConfig.CS.HEADING) +
-                       maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING))
+    TestConfig.printer(maybe_colorize(f"{title} ", TestConfig.ColorScheme.HEADING) +
+                       maybe_colorize("END", Style.BRIGHT, TestConfig.ColorScheme.HEADING))
 
 # We use a stack for postprocs so that the local overrides can be nested.
 _threadlocals.postproc_stack = deque()
@@ -605,9 +633,9 @@ def testset(name=None, postproc=None):
 
     title = f"{indent}Testset"
     if name is not None:
-        title += maybe_colorize(f" '{name}'", TC.ITALIC)
-    TestConfig.printer(maybe_colorize(f"{title} ", TestConfig.CS.HEADING) +
-                       maybe_colorize("BEGIN", TC.BRIGHT, TestConfig.CS.HEADING))
+        title += maybe_colorize(f" '{name}'", Style.ITALIC)
+    TestConfig.printer(maybe_colorize(f"{title} ", TestConfig.ColorScheme.HEADING) +
+                       maybe_colorize("BEGIN", Style.BRIGHT, TestConfig.ColorScheme.HEADING))
 
     def print_and_proceed(condition):
         # The assert helpers in `unpythonic.syntax.testingtools` signal only
@@ -615,13 +643,13 @@ def testset(name=None, postproc=None):
         # inside the test expression.
         if isinstance(condition, TestFailure):
             msg = maybe_colorize(f"{errmsg_indent}FAIL: ",
-                                 TC.BRIGHT, TestConfig.CS.FAIL) + str(condition)
+                                 Style.BRIGHT, TestConfig.ColorScheme.FAIL) + str(condition)
         elif isinstance(condition, TestError):
             msg = maybe_colorize(f"{errmsg_indent}ERROR: ",
-                                 TC.BRIGHT, TestConfig.CS.ERROR) + str(condition)
+                                 Style.BRIGHT, TestConfig.ColorScheme.ERROR) + str(condition)
         elif isinstance(condition, TestWarning):
             msg = maybe_colorize(f"{errmsg_indent}WARNING: ",
-                                 TC.BRIGHT, TestConfig.CS.WARNING) + str(condition)
+                                 Style.BRIGHT, TestConfig.ColorScheme.WARNING) + str(condition)
         # So any other signal must come from another source.
         else:
             if not _threadlocals.catch_uncaught_signals[0]:
@@ -630,7 +658,7 @@ def testset(name=None, postproc=None):
             _update(tests_run, +1)
             _update(tests_errored, +1)
             msg = maybe_colorize(f"{errmsg_indent}Testset received signal outside test[]: ",
-                                 TC.BRIGHT, TestConfig.CS.ERROR) + describe_exception(condition)
+                                 Style.BRIGHT, TestConfig.ColorScheme.ERROR) + describe_exception(condition)
         TestConfig.printer(msg)
 
         # the custom callback
@@ -670,7 +698,7 @@ def testset(name=None, postproc=None):
         _update(tests_run, +1)
         _update(tests_errored, +1)
         msg = maybe_colorize(f"{errmsg_indent}Testset terminated by exception outside test[]: ",
-                             TC.BRIGHT, TestConfig.CS.ERROR)
+                             Style.BRIGHT, TestConfig.ColorScheme.ERROR)
         msg += describe_exception(err)
         TestConfig.printer(msg)
     finally:
@@ -685,8 +713,8 @@ def testset(name=None, postproc=None):
         errors = e2 - e1
         warns = w2 - w1
 
-        msg = (maybe_colorize(f"{title} ", TestConfig.CS.HEADING) +
-               maybe_colorize("END", TC.BRIGHT, TestConfig.CS.HEADING) +
-               maybe_colorize(": ", TestConfig.CS.HEADING) +
+        msg = (maybe_colorize(f"{title} ", TestConfig.ColorScheme.HEADING) +
+               maybe_colorize("END", Style.BRIGHT, TestConfig.ColorScheme.HEADING) +
+               maybe_colorize(": ", TestConfig.ColorScheme.HEADING) +
                summarize(runs, fails, errors, warns))
         TestConfig.printer(msg)

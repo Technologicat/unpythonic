@@ -104,10 +104,6 @@ from ..dynassign import make_dynvar
 
 # TODO: grep codebase for "0.15", may have some pending interface changes that don't have their own GitHub issue (e.g. parameter ordering of `unpythonic.it.window`)
 
-# TODO: ansicolor: `mcpyrate` already depends on Colorama anyway (and has a *nix-only fallback capability).
-# TODO: `unpythonic` only needs the colorizer in the *macro-enabled* test framework; so we don't really need
-# TODO: to provide our own colorizer; we can use the one from `mcpyrate`. (It would be different if regular code needed it.)
-
 # TODO: AST pattern matching for `mcpyrate`? Would make destructuring easier. A writable representation (auto-viewify) is a pain to build, though...
 
 # TODO: 0.16: move `scoped_transform` to `mcpyrate` as `ScopedASTTransformer` and `ScopedASTVisitor`.
