@@ -14,13 +14,15 @@ from functools import partial
 import sys
 
 from mcpyrate import parametricmacro
-from mcpyrate.expander import MacroExpander
 from mcpyrate.quotes import is_captured_value
-from mcpyrate.utils import rename, extract_bindings
-from mcpyrate.walkers import ASTTransformer
+from mcpyrate.utils import rename
+from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
 from .letdo import _implicit_do, _destructure_and_apply_let
+from .nameutil import is_unexpanded_block_macro
 from .util import eliminate_ifones
+
+from ..dynassign import dyn
 
 # --------------------------------------------------------------------------------
 # Macro interface
@@ -132,22 +134,13 @@ def let_syntax(tree, *, args, syntax, expander, **kw):
     if syntax == "block" and kw['optional_vars'] is not None:
         raise SyntaxError("let_syntax (block mode) does not take an as-part")
 
-    # Expand other inner macros now, but not `with expr` or `with block`;
-    # we'll transform those away manually.
-    expr_and_block_bindings = extract_bindings(expander.bindings, expr, block)
-    other_bindings = {k: v for k, v in expander.bindings.items() if k not in expr_and_block_bindings}
-    tree = MacroExpander(other_bindings, filename=expander.filename).visit(tree)
-
     if syntax == "expr":
-        tree = _destructure_and_apply_let(tree, args, expander, _let_syntax_expr,
+        _let_syntax_expr_inside_out = partial(_let_syntax_expr, expand_inside=True)
+        return _destructure_and_apply_let(tree, args, expander, _let_syntax_expr_inside_out,
                                           allow_call_in_name_position=True)
     else:  # syntax == "block":
-        tree = _let_syntax_block(block_body=tree)
-
-    # Now, we can make incorrectly placed `with expr` and `with block` error out.
-    # (With nested `with let_syntax` invocations only the outermost one will do this,
-    #  but that should be fine.)
-    return MacroExpander(expr_and_block_bindings, filename=expander.filename).visit(tree)
+        with dyn.let(_macro_expander=expander):
+            return _let_syntax_block(block_body=tree, expand_inside=True)
 
 @parametricmacro
 def abbrev(tree, *, args, syntax, expander, **kw):
@@ -178,9 +171,12 @@ def abbrev(tree, *, args, syntax, expander, **kw):
     # DON'T expand inner macro invocations first - outside-in ordering is the default, so we simply do nothing.
 
     if syntax == "expr":
-        return _destructure_and_apply_let(tree, args, expander, _let_syntax_expr, allow_call_in_name_position=True)
+        _let_syntax_expr_outside_in = partial(_let_syntax_expr, expand_inside=False)
+        return _destructure_and_apply_let(tree, args, expander, _let_syntax_expr_outside_in,
+                                          allow_call_in_name_position=True)
     else:
-        return _let_syntax_block(block_body=tree)
+        with dyn.let(_macro_expander=expander):
+            return _let_syntax_block(block_body=tree, expand_inside=False)
 
 @parametricmacro
 def expr(tree, *, syntax, **kw):
@@ -199,10 +195,19 @@ def block(tree, *, syntax, **kw):
 # --------------------------------------------------------------------------------
 # Syntax transformers
 
-# let_syntax[...][...]
-# let_syntax[(...) in ...]
-# let_syntax[..., where(...)]
-def _let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
+# let_syntax[(lhs, rhs), ...][body]
+# let_syntax[(lhs, rhs), ...][[body0, ...]]
+# let_syntax[((lhs, rhs), ...) in body]
+# let_syntax[((lhs, rhs), ...) in [body0, ...]]
+# let_syntax[body, where((lhs, rhs), ...)]
+# let_syntax[[body0, ...], where((lhs, rhs), ...)]
+#
+# This transformer takes destructured input, with the bindings subform
+# and the body already extracted, and supplied separately.
+#
+# bindings: sequence of ast.Tuple: (k1, v1), (k2, v2), ..., (kn, vn)
+# expand_inside: if True, expand inside-out. If False, expand outside-in.
+def _let_syntax_expr(bindings, body, *, expand_inside):
     body = _implicit_do(body)  # support the extra bracket syntax
     if not bindings:  # Optimize out a `let_syntax` with no bindings.
         return body  # pragma: no cover
@@ -220,6 +225,9 @@ def _let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v
             target = templates if args else barenames
             target.append((name, args, value, "expr"))
 
+    if expand_inside:
+        bindings = dyn._macro_expander.visit(bindings)
+        body = dyn._macro_expander.visit(body)
     register_bindings()
     body = _substitute_templates(templates, body)
     body = _substitute_barenames(barenames, body)
@@ -239,11 +247,33 @@ def _let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v
 #     body0
 #     ...
 #
-def _let_syntax_block(block_body):
+# expand_inside: if True, expand inside-out. If False, expand outside-in.
+def _let_syntax_block(block_body, *, expand_inside):
+    is_let_syntax = partial(is_unexpanded_block_macro, let_syntax, dyn._macro_expander)
+    is_abbrev = partial(is_unexpanded_block_macro, abbrev, dyn._macro_expander)
+    is_expr_declaration = partial(is_unexpanded_block_macro, expr, dyn._macro_expander)
+    is_block_declaration = partial(is_unexpanded_block_macro, block, dyn._macro_expander)
+    is_helper_macro = lambda tree: is_expr_declaration(tree) or is_block_declaration(tree)
+    def check_strays(ismatch, tree):
+        class StrayHelperMacroChecker(ASTVisitor):  # TODO: refactor this?
+            def examine(self, tree):
+                if is_captured_value(tree):
+                    return  # don't recurse!
+                elif is_let_syntax(tree) or is_abbrev(tree):
+                    return  # don't recurse!
+                elif ismatch(tree):
+                    # Expand the stray helper macro invocation, to trigger its `SyntaxError`
+                    # with a useful message, and *make the expander generate a use site traceback*.
+                    #
+                    # (If we just `raise` here directly, the expander won't see the use site
+                    #  of the `with expr` or `with block`, but just that of the `do[]`.)
+                    dyn._macro_expander.visit(tree)
+                self.generic_visit(tree)
+        StrayHelperMacroChecker().visit(tree)
+    check_stray_blocks_and_exprs = partial(check_strays, is_helper_macro)
+
     names_seen = set()
-    templates = []
-    barenames = []
-    def register_binding(withstmt, mode, kind):
+    def destructure_binding(withstmt, mode, kind):
         assert mode in ("block", "expr")
         assert kind in ("barename", "template")
         ctxmanager = withstmt.items[0].context_expr
@@ -275,8 +305,8 @@ def _let_syntax_block(block_body):
                 raise SyntaxError("'with expr:' expected an expression body, got a statement")  # pragma: no cover
             value = theexpr.value  # discard Expr wrapper in definition
         names_seen.add(name)
-        target = templates if args else barenames
-        target.append((name, args, value, mode))
+
+        return name, args, value, mode
 
     def isbinding(tree):
         for mode in ("block", "expr"):
@@ -294,14 +324,33 @@ def _let_syntax_block(block_body):
                 return mode, "template"
         return False
 
+    templates = []
+    barenames = []
     new_block_body = []
     for stmt in block_body:
+        # `let_syntax` mode (expand_inside): respect lexical scoping of nested `let_syntax`/`abbrev`
+        expanded = False
+        if expand_inside and (is_let_syntax(stmt) or is_abbrev(stmt)):
+            stmt = dyn._macro_expander.visit(stmt)
+            expanded = True
+
         stmt = _substitute_templates(templates, stmt)
         stmt = _substitute_barenames(barenames, stmt)
         binding_data = isbinding(stmt)
         if binding_data:
-            register_binding(stmt, *binding_data)
+            name, args, value, mode = destructure_binding(stmt, *binding_data)
+
+            check_stray_blocks_and_exprs(value)  # before expanding it!
+            if expand_inside and not expanded:
+                value = dyn._macro_expander.visit(value)
+
+            target = templates if args else barenames
+            target.append((name, args, value, mode))
         else:
+            check_stray_blocks_and_exprs(stmt)  # before expanding it!
+            if expand_inside and not expanded:
+                stmt = dyn._macro_expander.visit(stmt)
+
             new_block_body.append(stmt)
     new_block_body = eliminate_ifones(new_block_body)
     if not new_block_body:
@@ -362,7 +411,7 @@ def _substitute_barename(name, value, tree, mode):
                     return tree
                 elif isthisname(tree):
                     if mode == "block":
-                        raise SyntaxError("cannot substitute a block into expression position")  # pragma: no cover
+                        raise SyntaxError(f"cannot substitute block '{name}' into expression position")  # pragma: no cover
                     tree = subst()
                     return self.generic_visit(tree)
                 return self.generic_visit(tree)
@@ -418,7 +467,7 @@ def _substitute_templates(templates, tree):
                         return tree
                     elif isthisfunc(tree):
                         if mode == "block":
-                            raise SyntaxError("cannot substitute a block into expression position")  # pragma: no cover
+                            raise SyntaxError(f"cannot substitute block '{name}' into expression position")  # pragma: no cover
                         tree = subst(tree)
                         return self.generic_visit(tree)
                     return self.generic_visit(tree)

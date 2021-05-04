@@ -841,7 +841,7 @@ def _do(tree):
         return tree, c.collected
 
     def check_strays(ismatch, tree):
-        class StrayHelperMacroChecker(ASTVisitor):
+        class StrayHelperMacroChecker(ASTVisitor):  # TODO: refactor this?
             def examine(self, tree):
                 if is_captured_value(tree):
                     return  # don't recurse!
