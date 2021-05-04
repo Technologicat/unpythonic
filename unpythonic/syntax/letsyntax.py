@@ -14,9 +14,9 @@ from functools import partial
 import sys
 
 from mcpyrate import parametricmacro
-from mcpyrate.markers import ASTMarker
+from mcpyrate.expander import MacroExpander
 from mcpyrate.quotes import is_captured_value
-from mcpyrate.utils import rename
+from mcpyrate.utils import rename, extract_bindings
 from mcpyrate.walkers import ASTTransformer
 
 from .letdo import _implicit_do, _destructure_and_apply_let
@@ -132,12 +132,22 @@ def let_syntax(tree, *, args, syntax, expander, **kw):
     if syntax == "block" and kw['optional_vars'] is not None:
         raise SyntaxError("let_syntax (block mode) does not take an as-part")
 
-    tree = expander.visit(tree)
+    # Expand other inner macros now, but not `with expr` or `with block`;
+    # we'll transform those away manually.
+    expr_and_block_bindings = extract_bindings(expander.bindings, expr, block)
+    other_bindings = {k: v for k, v in expander.bindings.items() if k not in expr_and_block_bindings}
+    tree = MacroExpander(other_bindings, filename=expander.filename).visit(tree)
 
     if syntax == "expr":
-        return _destructure_and_apply_let(tree, args, expander, _let_syntax_expr, allow_call_in_name_position=True)
+        tree = _destructure_and_apply_let(tree, args, expander, _let_syntax_expr,
+                                          allow_call_in_name_position=True)
     else:  # syntax == "block":
-        return _let_syntax_block(block_body=tree)
+        tree = _let_syntax_block(block_body=tree)
+
+    # Now, we can make incorrectly placed `with expr` and `with block` error out.
+    # (With nested `with let_syntax` invocations only the outermost one will do this,
+    #  but that should be fine.)
+    return MacroExpander(expr_and_block_bindings, filename=expander.filename).visit(tree)
 
 @parametricmacro
 def abbrev(tree, *, args, syntax, expander, **kw):
@@ -172,23 +182,19 @@ def abbrev(tree, *, args, syntax, expander, **kw):
     else:
         return _let_syntax_block(block_body=tree)
 
-# TODO: convert to mcpyrate magic variable
-class expr:
-    """[syntax] Magic identifier for ``with expr:`` inside a ``with let_syntax:``."""
-    def __repr__(self):  # in case one of these ends up somewhere at runtime
-        return "<let syntax 'with expr:'>"  # pragma: no cover
-    def __call__(self, tree, **kw):  # make `expr` look like a macro
-        pass
-expr = expr()
+@parametricmacro
+def expr(tree, *, syntax, **kw):
+    """[syntax, block] ``with expr:`` inside a ``with let_syntax:``."""
+    if syntax != "block":
+        raise SyntaxError("`expr` is a block macro only")
+    raise SyntaxError("`expr` is only valid at the top level of a block-mode `let_syntax` or `abbrev`")  # pragma: no cover, not intended to hit the expander
 
-# TODO: convert to mcpyrate magic variable
-class block:
-    """[syntax] Magic identifier for ``with block:`` inside a ``with let_syntax:``."""
-    def __repr__(self):  # in case one of these ends up somewhere at runtime
-        return "<let_syntax 'with block:'>"  # pragma: no cover
-    def __call__(self, tree, **kw):  # make `block` look like a macro
-        pass
-block = block()
+@parametricmacro
+def block(tree, *, syntax, **kw):
+    """[syntax, block] ``with block:`` inside a ``with let_syntax:``."""
+    if syntax != "block":
+        raise SyntaxError("`block` is a block macro only")
+    raise SyntaxError("`block` is only valid at the top level of a block-mode `let_syntax` or `abbrev`")  # pragma: no cover, not intended to hit the expander
 
 # --------------------------------------------------------------------------------
 # Syntax transformers
