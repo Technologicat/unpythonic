@@ -1031,7 +1031,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
         exctype = args[0]
         message = q[None]
     else:
-        raise SyntaxError(f'Expected `with {syntaxname}(exctype):` or `with {syntaxname}(exctype, message):`')  # pragma: no cover
+        raise SyntaxError(f'Expected `with {syntaxname}(exctype):` or `with {syntaxname}[exctype, message]:`')  # pragma: no cover
 
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.
