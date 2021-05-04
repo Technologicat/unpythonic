@@ -40,7 +40,7 @@ try:
     with open(init_py_path) as f:
         for line in f:
             if line.startswith("__version__"):
-                module = ast.parse(line)
+                module = ast.parse(line, filename=init_py_path)
                 expr = module.body[0]
                 assert isinstance(expr, ast.Assign)
                 v = expr.value
