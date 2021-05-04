@@ -67,6 +67,8 @@ def isenvassign(tree):
     # The `Done` may be produced by expanded `@namemacro`s.
     return type(tree.left) is Name or (isinstance(tree.left, Done) and type(tree.body) is Name)
 
+# TODO: This would benefit from macro destructuring in the expander.
+# TODO: See https://github.com/Technologicat/mcpyrate/issues/3
 def islet(tree, expanded=True):
     """Test whether tree is a ``let[]``, ``letseq[]``, ``letrec[]``,
     ``let_syntax[]``, or ``abbrev[]``.
@@ -202,6 +204,8 @@ def _ishaskellylet(tree):
             return "where_expr"
     return False  # invalid syntax for haskelly let
 
+# TODO: This would benefit from macro destructuring in the expander.
+# TODO: See https://github.com/Technologicat/mcpyrate/issues/3
 def isdo(tree, expanded=True):
     """Detect whether tree is a ``do[]`` or ``do0[]``.
 
