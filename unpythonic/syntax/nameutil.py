@@ -8,7 +8,7 @@ with a unified API.
 __all__ = ["isx", "getname",
            "is_unexpanded_expr_macro", "is_unexpanded_block_macro"]
 
-from ast import Name, Attribute, Subscript, Call
+from ast import Name, Attribute, Subscript, Call, With
 import sys
 
 from mcpyrate.core import Done
@@ -94,7 +94,9 @@ def getname(tree, accept_attr=True):
     return None
 
 # TODO: This utility really wants to live in `mcpyrate`, as part of a macro destructuring subsystem.
-# TODO: It needs to be made more general, to detect also macro invocations with args.
+# TODO: It needs to be made more general:
+#  - detect also macro invocations that have macro arguments
+#  - destructure macro arguments, if any
 def is_unexpanded_expr_macro(macrofunction, expander, tree):
     """Check whether `tree` is an expr macro invocation bound to `macrofunction` in `expander`.
 
@@ -119,31 +121,35 @@ def is_unexpanded_expr_macro(macrofunction, expander, tree):
     else:
         return False
 
+    # extract the expr
     macro = expander.isbound(name_node.id)
     if macro is macrofunction:
         if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-            return tree.slice
+            body = tree.slice
         else:
-            return tree.slice.value
+            body = tree.slice.value
+        return body
     return False
 
 
 # TODO: This utility really wants to live in `mcpyrate`, as part of a macro destructuring subsystem.
-# TODO: It needs to be made more general, to detect if there are several macros in the same `with`.
+# TODO: It needs to be made more general:
+#  - detect if there are several macros in the same `with`
+#  - destructure macro arguments, if any
+#  - destructure as-part, if any
 def is_unexpanded_block_macro(macrofunction, expander, tree):
     """Check whether `tree` is an expr macro invocation bound to `macrofunction` in `expander`.
 
     This accounts for hygienic macro captures and as-imports.
 
-    If there is a match, return the subscript slice, i.e. the tree that would be passed
-    to the macro function by the expander if the macro was expanded normally.
-
-    **CAUTION**: This function doesn't currently support detecting macros that
-    take macro arguments.
+    **CAUTION**: This function doesn't currently support several macros in the same `with`.
     """
-    if not type(tree) is Subscript:
+    if not type(tree) is With:
         return False
-    maybemacro = tree.value
+    ctxmanager = tree.items[0].context_expr
+    # optvars = tree.items[0].optional_vars  # as-part
+    # body = tree.body
+    maybemacro = ctxmanager
 
     # discard args if any
     if type(maybemacro) is Subscript:
@@ -163,3 +169,5 @@ def is_unexpanded_block_macro(macrofunction, expander, tree):
 
     macro = expander.isbound(name_node.id)
     return macro is macrofunction
+
+# TODO: We might also need a utility to detect decorator macros.
