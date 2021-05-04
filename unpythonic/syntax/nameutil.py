@@ -5,9 +5,10 @@ Main purpose is to be able to query both direct and hygienically captured names
 with a unified API.
 """
 
-__all__ = ["isx", "getname", "is_unexpanded_expr_macro"]
+__all__ = ["isx", "getname",
+           "is_unexpanded_expr_macro", "is_unexpanded_block_macro"]
 
-from ast import Name, Attribute, Subscript
+from ast import Name, Attribute, Subscript, Call
 import sys
 
 from mcpyrate.core import Done
@@ -107,13 +108,14 @@ def is_unexpanded_expr_macro(macrofunction, expander, tree):
     """
     if not type(tree) is Subscript:
         return False
+    maybemacro = tree.value
 
     # hygienic captures and as-imports
-    key = is_captured_macro(tree.value)
+    key = is_captured_macro(maybemacro)
     if key:
         name_node = lookup_macro(key)
-    elif type(tree.value) is Name:
-        name_node = tree.value
+    elif type(maybemacro) is Name:
+        name_node = maybemacro
     else:
         return False
 
@@ -124,3 +126,40 @@ def is_unexpanded_expr_macro(macrofunction, expander, tree):
         else:
             return tree.slice.value
     return False
+
+
+# TODO: This utility really wants to live in `mcpyrate`, as part of a macro destructuring subsystem.
+# TODO: It needs to be made more general, to detect if there are several macros in the same `with`.
+def is_unexpanded_block_macro(macrofunction, expander, tree):
+    """Check whether `tree` is an expr macro invocation bound to `macrofunction` in `expander`.
+
+    This accounts for hygienic macro captures and as-imports.
+
+    If there is a match, return the subscript slice, i.e. the tree that would be passed
+    to the macro function by the expander if the macro was expanded normally.
+
+    **CAUTION**: This function doesn't currently support detecting macros that
+    take macro arguments.
+    """
+    if not type(tree) is Subscript:
+        return False
+    maybemacro = tree.value
+
+    # discard args if any
+    if type(maybemacro) is Subscript:
+        maybemacro = maybemacro.value
+    # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+    elif type(maybemacro) is Call:
+        maybemacro = maybemacro.func
+
+    # hygienic captures and as-imports
+    key = is_captured_macro(maybemacro)
+    if key:
+        name_node = lookup_macro(key)
+    elif type(maybemacro) is Name:
+        name_node = maybemacro
+    else:
+        return False
+
+    macro = expander.isbound(name_node.id)
+    return macro is macrofunction
