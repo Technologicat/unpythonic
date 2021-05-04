@@ -377,19 +377,19 @@ y = let_syntax[[print(f(2)),
 
 # works as a block macro
 with let_syntax:
-    with block(a, b, c) as makeabc:  # capture a block of statements
+    with block[a, b, c] as makeabc:  # capture a block of statements
         lst = [a, b, c]
     makeabc(3 + 4, 2**3, 3 * 3)
     assert lst == [7, 8, 9]
-    with expr(n) as nth:             # capture a single expression
+    with expr[n] as nth:             # capture a single expression
         lst[n]
     assert nth(2) == 9
 
 with let_syntax:
-    with block(a) as twice:
+    with block[a] as twice:
         a
         a
-    with block(x, y, z) as appendxyz:
+    with block[x, y, z] as appendxyz:
         lst += [x, y, z]
     lst = []
     twice(appendxyz(7, 8, 9))
@@ -443,14 +443,14 @@ When used as an expr macro, all bindings are registered first, and then the body
 The ``abbrev`` macro is otherwise exactly like ``let_syntax``, but it expands in the first pass (outside in). Hence, no lexically scoped nesting, but it has the power to locally rename also macros, because the ``abbrev`` itself expands before any macros invoked in its body. This allows things like:
 
 ```python
-abbrev[(a, ast_literal)][
-         a[tree1] if a[tree2] else a[tree3]]
+abbrev[(m, macrowithverylongname)][
+    m[tree1] if m[tree2] else m[tree3]]
 
 # v0.12.0+
-abbrev[((a, ast_literal)) in
-       a[tree1] if a[tree2] else a[tree3]]
-abbrev[a[tree1] if a[tree2] else a[tree3],
-       where((a, ast_literal))]
+abbrev[((m, macrowithverylongname)) in
+       m[tree1] if m[tree2] else m[tree3]]
+abbrev[m[tree1] if m[tree2] else m[tree3],
+       where((m, macrowithverylongname))]
 ```
 
 which can be useful when writing macros.
