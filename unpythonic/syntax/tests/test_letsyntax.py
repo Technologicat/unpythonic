@@ -86,11 +86,11 @@ def runtests():
             test[snd == 5]
 
         with let_syntax:
-            with block(a, b, c) as makeabc:  # block template - parameters are expressions  # noqa: F821, `let_syntax` defines `a`, `b`, `c` when we call `makeabc`.
+            with block[a, b, c] as makeabc:  # block template - parameters are expressions  # noqa: F821, `let_syntax` defines `a`, `b`, `c` when we call `makeabc`.
                 lst = [a, b, c]  # noqa: F821
             makeabc(3 + 4, 2**3, 3 * 3)
             test[lst == [7, 8, 9]]
-            with expr(n) as nth:  # single-expression template  # noqa: F821, `let_syntax` defines `n` when we call `nth`.
+            with expr[n] as nth:  # single-expression template  # noqa: F821, `let_syntax` defines `n` when we call `nth`.
                 lst[n]  # noqa: F821
             test[nth(2) == 9]
 
@@ -160,10 +160,10 @@ def runtests():
         with let_syntax:
             # in this example, both substitutions are templates, so they must be
             # defined in the same order they are meant to be applied.
-            with block(a) as twice:  # noqa: F821
+            with block[a] as twice:  # noqa: F821
                 a  # noqa: F821
                 a  # noqa: F821
-            with block(x, y, z) as appendxyz:  # noqa: F821
+            with block[x, y, z] as appendxyz:  # noqa: F821
                 lst += [x, y, z]  # noqa: F821
             lst = []
             # template substitution invoked in a parameter

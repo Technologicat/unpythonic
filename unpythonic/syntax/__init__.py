@@ -81,8 +81,6 @@ from ..dynassign import make_dynvar
 # TODO: upgrade let_syntax block, expr into `mcpyrate` magic variables
 # TODO: also kw() in unpythonic.syntax.prefix
 
-# TODO: let_syntax block, expr: syntactic consistency: change parentheses to brackets
-
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
 
 # TODO: Drop `# pragma: no cover` from macro tests as appropriate, since `mcpyrate` reports coverage correctly.

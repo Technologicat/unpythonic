@@ -8,12 +8,15 @@ __all__ = ["let_syntax", "abbrev", "expr", "block"]
 
 from mcpyrate.quotes import macros, q, a  # noqa: F401
 
-from ast import (Name, Call, Starred, Expr, With,
-                 FunctionDef, AsyncFunctionDef, ClassDef, Attribute)
+from ast import Name, Call, Subscript, Tuple, Starred, Expr, With
 from copy import deepcopy
+from functools import partial
+import sys
 
 from mcpyrate import parametricmacro
+from mcpyrate.markers import ASTMarker
 from mcpyrate.quotes import is_captured_value
+from mcpyrate.utils import rename
 from mcpyrate.walkers import ASTTransformer
 
 from .letdo import _implicit_do, _destructure_and_apply_let
@@ -22,7 +25,6 @@ from .util import eliminate_ifones
 # --------------------------------------------------------------------------------
 # Macro interface
 
-# TODO: change the block() construct to block[], for syntactic consistency
 @parametricmacro
 def let_syntax(tree, *, args, syntax, expander, **kw):
     """[syntax, expr/block] Introduce local **syntactic** bindings.
@@ -45,11 +47,11 @@ def let_syntax(tree, *, args, syntax, expander, **kw):
         with let_syntax:
             with block as xs:          # capture a block of statements - bare name
                 ...
-            with block(a, ...) as xs:  # capture a block of statements - template
+            with block[a, ...] as xs:  # capture a block of statements - template
                 ...
             with expr as x:            # capture a single expression - bare name
                 ...
-            with expr(a, ...) as x:    # capture a single expression - template
+            with expr[a, ...] as x:    # capture a single expression - template
                 ...
             body0
             ...
@@ -86,13 +88,12 @@ def let_syntax(tree, *, args, syntax, expander, **kw):
     Templates support only positional arguments, with no default values.
 
     Even in block templates, parameters are always expressions (because they
-    use the function-call syntax at the use site).
+    use the subscript syntax at the use site).
 
-    In the body of the ``let_syntax``, a template is used like a function call.
-    Just like in an actual function call, when the template is substituted,
+    In the body of the ``let_syntax``, a template is used like an expr macro.
+    Just like in an actual macro invocation, when the template is substituted,
     any instances of its formal parameters on its RHS get replaced by the
-    argument values from the "call" site; but ``let_syntax`` performs this
-    at macro-expansion time.
+    argument values from the invocation site.
 
     Note each instance of the same formal parameter gets a fresh copy of the
     corresponding argument value.
@@ -223,11 +224,11 @@ def _let_syntax_expr(bindings, body):  # bindings: sequence of ast.Tuple: (k1, v
 # with let_syntax:
 #     with block as xs:
 #         ...
-#     with block(a, ...) as xs:
+#     with block[a, ...] as xs:
 #         ...
 #     with expr as x:
 #         ...
-#     with expr(a, ...) as x:
+#     with expr[a, ...] as x:
 #         ...
 #     body0
 #     ...
@@ -278,6 +279,11 @@ def _let_syntax_block(block_body):
             ctxmanager = tree.items[0].context_expr
             if type(ctxmanager) is Name and ctxmanager.id == mode:
                 return mode, "barename"
+            # expr[...], block[...]
+            if type(ctxmanager) is Subscript and type(ctxmanager.value) is Name and ctxmanager.value.id == mode:
+                return mode, "template"
+            # expr(...), block(...)
+            # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
             if type(ctxmanager) is Call and type(ctxmanager.func) is Name and ctxmanager.func.id == mode:
                 return mode, "template"
         return False
@@ -298,10 +304,30 @@ def _let_syntax_block(block_body):
 
 # -----------------------------------------------------------------------------
 
+def _get_subscript_args(tree):
+    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+        theslice = tree.slice
+    else:
+        theslice = tree.slice.value
+    if type(theslice) not in (Tuple, Name):
+        raise SyntaxError("expected [a0, ...]")
+    if type(theslice) is Name:
+        args = [theslice.id]
+    else:  # Tuple
+        args = [a.id for a in theslice.elts]
+    return args
+
+# x --> "x", []
+# f[a, b, c] --> "f", ["a", "b", "c"]
+# f(a, b, c) --> "f", ["a", "b", "c"]
 def _analyze_lhs(tree):
     if type(tree) is Name:  # bare name
         name = tree.id
         args = []
+    elif type(tree) is Subscript and type(tree.value) is Name:  # template f[x, ...]
+        name = tree.value.id
+        args = _get_subscript_args(tree)
+    # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
     elif type(tree) is Call and type(tree.func) is Name:  # template f(x, ...)
         name = tree.func.id
         if any(type(a) is Starred for a in tree.args):  # *args (Python 3.5+)
@@ -338,47 +364,42 @@ def _substitute_barename(name, value, tree, mode):
                 return self.generic_visit(tree)
         return Splicer().visit(tree)
 
-    # if the new value is also bare name, perform the substitution (now as a string)
-    # also in the name part of def and similar, to support human intuition of "renaming"
-    # TODO: use `mcpyrate.utils.rename`, it was designed for things like this?
+    # If the new value is also bare name, perform the substitution (now as a string)
+    # also in the name part of def and similar, to support human intuition of "renaming".
     if type(value) is Name:
-        newname = value.id
-        def splice_barestring(tree):
-            class BarestringSplicer(ASTTransformer):
-                def transform(self, tree):
-                    if is_captured_value(tree):
-                        return tree  # don't recurse!
-                    if type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):
-                        if tree.name == name:
-                            tree.name = newname
-                    elif type(tree) is Attribute:
-                        if tree.attr == name:
-                            tree.attr = newname
-                    return self.generic_visit(tree)
-            return BarestringSplicer().visit(tree)
-        postproc = splice_barestring
+        postproc = partial(rename, name, value.id)
     else:
         postproc = lambda x: x
 
     return postproc(splice(tree))
 
 def _substitute_barenames(barenames, tree):
-    for name, _, value, mode in barenames:
+    for name, _noformalparams, value, mode in barenames:
         tree = _substitute_barename(name, value, tree, mode)
     return tree
 
 def _substitute_templates(templates, tree):
     for name, formalparams, value, mode in templates:
         def isthisfunc(tree):
-            return type(tree) is Call and type(tree.func) is Name and tree.func.id == name
+            if type(tree) is Subscript and type(tree.value) is Name and tree.value.id == name:
+                return True
+            # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+            if type(tree) is Call and type(tree.func) is Name and tree.func.id == name:
+                return True
+            return False
         def subst(tree):
-            theargs = tree.args
+            if type(tree) is Subscript:
+                theargs = _get_subscript_args(tree)
+            elif type(tree) is Call:
+                theargs = tree.args
+            else:
+                assert False
             if len(theargs) != len(formalparams):
                 raise SyntaxError(f"let_syntax template '{name}' expected {len(formalparams)} arguments, got {len(theargs)}")  # pragma: no cover
             # make a fresh deep copy of the RHS to avoid destroying the template.
-            tree = deepcopy(value)  # expand the f itself in f(x, ...)
+            tree = deepcopy(value)  # expand the f itself in f[x, ...] or f(x, ...)
             for k, v in zip(formalparams, theargs):  # expand the x, ... in the expanded form of f
-                # can't put statements in a Call, so always treat args as expressions.
+                # can't put statements in a Subscript or in a Call, so always treat args as expressions.
                 tree = _substitute_barename(k, v, tree, "expr")
             return tree
         def splice(tree):
