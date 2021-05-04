@@ -309,12 +309,10 @@ def _get_subscript_args(tree):
         theslice = tree.slice
     else:
         theslice = tree.slice.value
-    if type(theslice) not in (Tuple, Name):
-        raise SyntaxError("expected [a0, ...]")
-    if type(theslice) is Name:
-        args = [theslice.id]
-    else:  # Tuple
-        args = [a.id for a in theslice.elts]
+    if type(theslice) is Tuple:
+        args = theslice.elts
+    else:
+        args = [theslice]
     return args
 
 # x --> "x", []
@@ -326,7 +324,7 @@ def _analyze_lhs(tree):
         args = []
     elif type(tree) is Subscript and type(tree.value) is Name:  # template f[x, ...]
         name = tree.value.id
-        args = _get_subscript_args(tree)
+        args = [a.id for a in _get_subscript_args(tree)]
     # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
     elif type(tree) is Call and type(tree.func) is Name:  # template f(x, ...)
         name = tree.func.id

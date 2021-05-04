@@ -24,7 +24,6 @@ letf_name = "letter"  # must match what ``unpythonic.syntax.letdo._let_expr_impl
 dof_name = "dof"      # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
 currycall_name = "currycall"  # output of ``unpythonic.syntax.curry``
 
-# TODO: switch from call to subscript in name position for let_syntax templates.
 def canonize_bindings(elts, allow_call_in_name_position=False):  # public as of v0.14.3+
     """Wrap a single binding without container into a length-1 `list`.
 
@@ -42,13 +41,15 @@ def canonize_bindings(elts, allow_call_in_name_position=False):  # public as of 
     allow_call_in_name_position: used by let_syntax to allow template definitions;
     in the call, the "function" is the template name, and the positional "parameters"
     are the template parameters (which may then appear in the template body).
+    (Despite the name, this recognizes `Subscript` too, to support brackets.)
     """
     def isname(x):
         # The `Done` may be produced by expanded `@namemacro`s.
         return type(x) is Name or (isinstance(x, Done) and isname(x.body))
     def iskey(x):
         return (isname(x) or
-                (allow_call_in_name_position and type(x) is Call and isname(x.func)))
+                (allow_call_in_name_position and ((type(x) is Call and isname(x.func)) or
+                                                  (type(x) is Subscript and isname(x.value)))))
     if len(elts) == 2 and iskey(elts[0]):
         return [Tuple(elts=elts)]  # TODO: `mcpyrate`: just `q[t[elts]]`?
     if all((type(b) is Tuple and len(b.elts) == 2 and iskey(b.elts[0])) for b in elts):

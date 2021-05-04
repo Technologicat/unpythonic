@@ -47,9 +47,9 @@ def runtests():
         # templates
         #   - positional parameters only, no default values
         # TODO: updating this to use bracket syntax requires changes to `_destructure_and_apply_let`.
-        y = let_syntax((f(a), verylongfunctionname(2 * a)))[[  # noqa: F821
-                         f(2),  # noqa: F821
-                         f(3)]]  # noqa: F821
+        y = let_syntax((f[a], verylongfunctionname(2 * a)))[[  # noqa: F821
+                         f[2],  # noqa: F821
+                         f[3]]]  # noqa: F821
         test[evaluations == 8]
         test[y == 6]
 

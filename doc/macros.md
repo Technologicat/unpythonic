@@ -356,9 +356,9 @@ y = let_syntax[(f, verylongfunctionname)][[  # extra brackets: implicit do in bo
                  f(5)]]
 assert y == 5
 
-y = let_syntax[(f(a), verylongfunctionname(2*a))][[  # template with formal parameter "a"
-                 print(f(2)),
-                 f(3)]]
+y = let_syntax[(f[a], verylongfunctionname(2*a))][[  # template with formal parameter "a"
+                 print(f[2]),
+                 f[3]]]
 assert y == 6
 
 # v0.12.0+
@@ -368,12 +368,12 @@ y = let_syntax[((f, verylongfunctionname)) in
 y = let_syntax[[print(f()),
                 f(5)],
                where((f, verylongfunctionname))]
-y = let_syntax[((f(a), verylongfunctionname(2*a))) in
-               [print(f(2)),
-                f(3)]]
-y = let_syntax[[print(f(2)),
-                f(3)],
-               where((f(a), verylongfunctionname(2*a)))]
+y = let_syntax[((f[a], verylongfunctionname(2*a))) in
+               [print(f[2]),
+                f[3]]]
+y = let_syntax[[print(f[2]),
+                f[3]],
+               where((f[a], verylongfunctionname(2*a)))]
 
 # works as a block macro
 with let_syntax:
@@ -401,13 +401,13 @@ After macro expansion completes, ``let_syntax`` has zero runtime overhead; it co
 <details>
 <summary> There are two kinds of substitutions: </summary>
 
->*Bare name* and *template*. A bare name substitution has no parameters. A template substitution has positional parameters. (Named parameters, ``*args``, ``**kwargs`` and default values are currently **not** supported.)
+>*Bare name* and *template*. A bare name substitution has no parameters. A template substitution has positional parameters. (Named parameters, ``*args``, ``**kwargs`` and default values are **not** supported.)
 >
->When used as an expr macro, the formal parameter declaration is placed where it belongs; on the name side (LHS) of the binding. In the above example, ``f(a)`` is a template with a formal parameter ``a``. But when used as a block macro, the formal parameters are declared on the ``block`` or ``expr`` "context manager" due to syntactic limitations of Python. To define a bare name substitution, just use ``with block as ...:`` or ``with expr as ...:`` with no arguments.
+>When used as an expr macro, the formal parameter declaration is placed where it belongs; on the name side (LHS) of the binding. In the above example, ``f[a]`` is a template with a formal parameter ``a``. But when used as a block macro, the formal parameters are declared on the ``block`` or ``expr`` "context manager" due to syntactic limitations of Python. To define a bare name substitution, just use ``with block as ...:`` or ``with expr as ...:`` with no macro arguments.
 >
->In the body of ``let_syntax``, a bare name substitution is invoked by name (just like a variable). A template substitution is invoked like a function call. Just like in an actual function call, when the template is substituted, any instances of its formal parameters in the definition get replaced by the argument values from the "call" site; but ``let_syntax`` performs this at macro-expansion time, and the "value" is a snippet of code.
+>In the body of ``let_syntax``, a bare name substitution is invoked by name (just like a variable). A template substitution is invoked like an expr macro. Any instances of the formal parameters of the template get replaced by the argument values from the use site, at macro expansion time.
 >
->Note each instance of the same formal parameter (in the definition) gets a fresh copy of the corresponding argument value. In other words, in the example above, each ``a`` in the body of ``twice`` separately expands to a copy of whatever code was given as the positional argument ``a``.
+>Note each instance of the same formal parameter (in the definition) gets a fresh copy of the corresponding argument value. In other words, in the example above, each ``a`` in the body of ``twice`` separately expands to a copy of whatever code was given as the macro argument ``a``.
 >
 >When used as a block macro, there are furthermore two capture modes: *block of statements*, and *single expression*. (The single expression can be an explicit ``do[]`` if multiple expressions are needed.) When invoking substitutions, keep in mind Python's usual rules regarding where statements or expressions may appear.
 >
@@ -430,7 +430,7 @@ After macro expansion completes, ``let_syntax`` has zero runtime overhead; it co
 >  - If the bindings are ``((x, y), (y, z))``, then an ``x`` at the use site transforms to ``z``. So does a ``y`` at the use site.
 >  - But if the bindings are ``((y, z), (x, y))``, then an ``x`` at the use site transforms to ``y``, and only an explicit ``y`` at the use site transforms to ``z``.
 >
->Even in block templates, arguments are always expressions, because invoking a template uses the function-call syntax. But names and calls are expressions, so a previously defined substitution (whether bare name or an invocation of a template) can be passed as an argument just fine. Definition order is then important; consult the rules above.
+>Even in block templates, arguments are always expressions, because invoking a template uses the subscript syntax. But names and calls are expressions, so a previously defined substitution (whether bare name or an invocation of a template) can be passed as an argument just fine. Definition order is then important; consult the rules above.
 </details>
 <p>
 
