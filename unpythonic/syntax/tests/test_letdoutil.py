@@ -59,7 +59,7 @@ def runtests():
         test[islet(the[expandrq[let[(x, 21) in 2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821
         test[islet(the[expandrq[let[2 * x, where(x, 21)]]]) == ("expanded_expr", "let")]  # noqa: F821
 
-        with expandrq as testdata:  # pragma: no cover
+        with expandrq as testdata:
             @dlet((x, 21))  # noqa: F821
             def f1():
                 return 2 * x  # noqa: F821
@@ -86,7 +86,7 @@ def runtests():
         testdata = q[let[a in b]]  # noqa: F821
         test[not islet(the[testdata], expanded=False)]
 
-        with q as testdata:  # pragma: no cover
+        with q as testdata:
             @dlet((x, 21))  # noqa: F821
             def f2():
                 return 2 * x  # noqa: F821
@@ -100,19 +100,19 @@ def runtests():
         # representation, leading to arguably funny but nonsensical things like
         # `ctx=currycall(ast.Load)`.
         with expandrq as testdata:
-            with autocurry:  # pragma: no cover
+            with autocurry:
                 let((x, 21))[2 * x]  # noqa: F821  # note this goes into an ast.Expr
         thelet = testdata[0].value
         test[islet(the[thelet]) == ("curried_expr", "let")]
 
         with expandrq as testdata:
-            with autocurry:  # pragma: no cover
+            with autocurry:
                 let[(x, 21) in 2 * x]  # noqa: F821
         thelet = testdata[0].value
         test[islet(the[thelet]) == ("curried_expr", "let")]
 
         with expandrq as testdata:
-            with autocurry:  # pragma: no cover
+            with autocurry:
                 let[2 * x, where(x, 21)]  # noqa: F821
         thelet = testdata[0].value
         test[islet(the[thelet]) == ("curried_expr", "let")]
@@ -124,7 +124,7 @@ def runtests():
         test[isdo(the[expandrq[do[x << 21,  # noqa: F821
                                   2 * x]]]) == "expanded"]  # noqa: F821
 
-        with expandrq as testdata:  # pragma: no cover
+        with expandrq as testdata:
             with autocurry:
                 do[x << 21,  # noqa: F821
                    2 * x]  # noqa: F821
@@ -219,7 +219,7 @@ def runtests():
         testletdestructuring(testdata)
 
         # decorator
-        with q as testdata:  # pragma: no cover
+        with q as testdata:
             @dlet((x, 21), (y, 2))  # noqa: F821
             def f3():
                 return 2 * x  # noqa: F821
@@ -300,7 +300,7 @@ def runtests():
         testexpandedletdestructuring(testdata)
 
         # decorator
-        with expandrq as testdata:  # pragma: no cover
+        with expandrq as testdata:
             @dlet((x, 21), (y, 2))  # noqa: F821
             def f4():
                 return 2 * x  # noqa: F821
@@ -396,7 +396,7 @@ def runtests():
         testexpandedletrecdestructuring(testdata)
 
         # decorator, letrec
-        with expandrq as testdata:  # pragma: no cover
+        with expandrq as testdata:
             @dletrec((x, 21), (y, 2))  # noqa: F821
             def f5():
                 return 2 * x  # noqa: F821
@@ -413,13 +413,13 @@ def runtests():
 
     with testset("let destructuring (expanded) integration with autocurry"):
         with expandrq as testdata:
-            with autocurry:  # pragma: no cover
+            with autocurry:
                 let[((x, 21), (y, 2)) in y * x]  # noqa: F821  # note this goes into an ast.Expr
         thelet = testdata[0].value
         testexpandedletdestructuring(thelet)
 
         with expandrq as testdata:
-            with autocurry:  # pragma: no cover
+            with autocurry:
                 letrec[((x, 21), (y, 2)) in y * x]  # noqa: F821
         thelet = testdata[0].value
         testexpandedletrecdestructuring(thelet)
@@ -494,7 +494,7 @@ def runtests():
                     "not an expanded do form"]
 
     with testset("do destructuring (expanded) integration with autocurry"):
-        with expandrq as testdata:  # pragma: no cover
+        with expandrq as testdata:
             with autocurry:
                 do[local[x << 21],  # noqa: F821
                    2 * x]  # noqa: F821
