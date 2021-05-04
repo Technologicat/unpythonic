@@ -46,6 +46,7 @@ def runtests():
 
         # templates
         #   - positional parameters only, no default values
+        # TODO: updating this to use bracket syntax requires changes to `_destructure_and_apply_let`.
         y = let_syntax((f(a), verylongfunctionname(2 * a)))[[  # noqa: F821
                          f(2),  # noqa: F821
                          f(3)]]  # noqa: F821
@@ -147,7 +148,7 @@ def runtests():
             with block as append456:
                 lst += [4, 5, 6]
             # template - applied before any barenames
-            with block(a) as twice:  # noqa: F821
+            with block[a] as twice:  # noqa: F821
                 a  # noqa: F821
                 a  # noqa: F821
             lst = []
