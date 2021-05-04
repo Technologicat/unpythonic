@@ -19,6 +19,7 @@ This edition concentrates on upgrading our dependencies, namely the macro expand
 - CI: Test coverage improved to 94%.
 - Some macros, notably `letseq`, `do0`, and `lazyrec`, now expand into hygienic macro captures of other macros. The `continuations` macro also outputs a hygienically captured `aif` when transforming an `or` expression that occurs in tail position.
   - This allows `mcpyrate.debug.step_expansion` to show the intermediate result, as well as brings the implementation closer to the natural explanation of how these macros are defined. (Zen of Python: if the implementation is easy to explain, it *might* be a good idea.)
+  - The implicit do (extra bracket syntax) also expands as a hygienically captured `do`, but e.g. in `let[]` it will then expand immediately (due to `let`'s inside-out expansion order) before control returns to the macro stepper. If you want to see the implicit `do[]` invocation, use the `"detailed"` mode of the stepper, which shows individual macro invocations even when expanding inside-out: `step_expansion["detailed"][...]`, `with step_expansion["detailed"]:`.
 
 **Breaking changes**:
 
