@@ -28,7 +28,7 @@ None required.
 
  - [mcpyrate](https://github.com/Technologicat/mcpyrate) optional, to enable the syntactic macro layer, an interactive macro REPL, and some example dialects.
 
-The officially supported language versions are **CPython 3.8** and **PyPy3 3.7**. [Long-term support roadmap](https://github.com/Technologicat/unpythonic/issues/1).
+The officially supported language versions are **CPython 3.8** and **PyPy3** (language version 3.7). [Long-term support roadmap](https://github.com/Technologicat/unpythonic/issues/1).
 
 The 0.15.x series should run on CPython 3.6, 3.7, 3.8 and 3.9, and PyPy3 (language versions 3.6 and 3.7); the [CI](https://en.wikipedia.org/wiki/Continuous_integration) process verifies the tests pass on those platforms.
 
