@@ -633,7 +633,7 @@ def testset(name=None, postproc=None):
 
     title = f"{indent}Testset"
     if name is not None:
-        title += maybe_colorize(f" '{name}'", Style.ITALIC)
+        title += maybe_colorize(f" '{name}'", Style.ITALIC, TestConfig.ColorScheme.HEADING)
     TestConfig.printer(maybe_colorize(f"{title} ", TestConfig.ColorScheme.HEADING) +
                        maybe_colorize("BEGIN", Style.BRIGHT, TestConfig.ColorScheme.HEADING))
 
