@@ -68,15 +68,6 @@ from ..dynassign import make_dynvar
 #
 # If the line `tree = expander.visit(tree)` is omitted, the macro expands outside-in.
 # Note this default is different from MacroPy's!
-#
-# There are further cleanups of the macro layer possible with `mcpyrate`. For example:
-#
-#  - Many macros could perhaps run in the outside-in pass. Some need a redesign for their AST analysis,
-#    but much of that has been sufficiently abstracted (e.g. `unpythonic.syntax.letdoutil`) so that this
-#    is mainly a case of carefully changing the analysis mode at all appropriate use sites.
-#
-# However, 0.15.0 is the initial version that runs on `mcpyrate`, and the focus is to just get this running.
-# Cleanups can be done in a future release.
 
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
 
