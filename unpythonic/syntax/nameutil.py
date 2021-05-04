@@ -86,7 +86,7 @@ def getname(tree, accept_attr=True):
     if type(tree) is Name:
         return tree.id
     key = is_captured_value(tree)  # AST -> (name, frozen_value) or False
-    if key:
+    if key:  # TODO: Python 3.8+: use walrus assignment here
         name, frozen_value = key
         return name
     if accept_attr and type(tree) is Attribute:
@@ -112,7 +112,7 @@ def is_unexpanded_expr_macro(macrofunction, expander, tree):
 
     # hygienic captures and as-imports
     key = is_captured_macro(maybemacro)
-    if key:
+    if key:  # TODO: Python 3.8+: use walrus assignment here
         name_node = lookup_macro(key)
     elif type(maybemacro) is Name:
         name_node = maybemacro
@@ -154,7 +154,7 @@ def is_unexpanded_block_macro(macrofunction, expander, tree):
 
     # hygienic captures and as-imports
     key = is_captured_macro(maybemacro)
-    if key:
+    if key:  # TODO: Python 3.8+: use walrus assignment here
         name_node = lookup_macro(key)
     elif type(maybemacro) is Name:
         name_node = maybemacro
