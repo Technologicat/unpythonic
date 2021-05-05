@@ -842,7 +842,10 @@ def _test_expr(tree):
     # Also, we need the lambda for passing in the value capture environment
     # for the `the[]` mark, anyway.
     #
-    # We name it `testexpr` to make the stack trace more understandable.
+    # We can't inject `lazy[]` here (to be more explicit this is a delay operation),
+    # because we need to pass the environment.
+    #
+    # We name the lambda `testexpr` to make the stack trace more understandable.
     # If you change the name, change it also in `unpythonic_assert`.
     thelambda = q[lambda _: a[tree]]
     thelambda.args.args[0] = arg(arg=envname)  # inject the gensymmed parameter name
