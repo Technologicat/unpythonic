@@ -255,14 +255,14 @@ def runtests():
                 n["_apply_test_here_"]
         scoped_transform(scoped_localvar1, callback=make_checker(["f", "x"]))
 
-        # TODO: In 0.15.x, fully lexical scope analysis; update this test at that time.
+        # TODO: In 0.16.x, fully lexical scope analysis; update this test at that time.
         with q as scoped_localvar2:
             def f():  # noqa: F811
                 n["_apply_test_here_"]
                 x = 42  # noqa: F841
         scoped_transform(scoped_localvar2, callback=make_checker(["f"]))  # x not yet created
 
-        # TODO: In 0.15.x, fully lexical scope analysis; update this test at that time.
+        # TODO: In 0.16.x, fully lexical scope analysis; update this test at that time.
         with q as scoped_localvar3:
             def f():  # noqa: F811
                 x = 42  # noqa: F841

@@ -24,7 +24,7 @@ for static analysis to make sense.
 
 **CAUTION**:
 
-What we do currently (before v0.15.0) doesn't fully make sense.
+What we do currently (before v0.16.0) doesn't fully make sense.
 
 Scope - in the sense of controlling lexical name resolution - is a static
 (purely lexical) concept, but whether a particular name (once lexically
@@ -37,7 +37,7 @@ Consider deleting a name in one branch of an `if`/`else`. After that
 exceptional trivial cases such as `if 1`, this depends on the condition
 part of the `if` at run time, and thus can't be statically determined.
 
-In order to make more sense, in v0.15.0, we will migrate to a fully static analysis.
+In order to make more sense, in v0.16.0, we will migrate to a fully static analysis.
 This will make the analyzer consistent with how Python itself handles scoping,
 at the cost of slightly (but backward-incompatibly) changing the semantics of
 some corner cases in the usage of `let` and `do`.
@@ -47,7 +47,7 @@ As of v0.14.3, a fully lexical mode has been added to `get_lexical_variables`
 
 It is disabled when `scoped_transform` calls `get_lexical_variables`, to preserve
 old behavior until the next opportunity for a public interface change.
-In v0.15.0, we will make `scoped_transform` use the fully lexical mode.
+In v0.16.0, we will make `scoped_transform` use the fully lexical mode.
 
 
 **NOTE**:
