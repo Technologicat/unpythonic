@@ -47,3 +47,4 @@ from .typecheck import *  # noqa: F401, F403
 from .lazyutil import _init_module
 _init_module()
 del _init_module
+from .lazyutil import Lazy, force1, force  # noqa: F401
