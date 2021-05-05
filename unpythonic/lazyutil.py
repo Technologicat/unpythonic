@@ -5,7 +5,8 @@ This is a separate module for dependency reasons; this is regular code,
 upon which other regular code is allowed to depend.
 """
 
-__all__ = ["passthrough_lazy_args", "maybe_force_args", "force1", "force"]
+__all__ = ["Lazy", "force1", "force",  # intended also for end-users
+           "islazy", "maybe_force_args", "passthrough_lazy_args"]  # mostly for use inside `unpythonic`
 
 from .regutil import register_decorator
 from .dynassign import make_dynvar
