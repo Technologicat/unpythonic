@@ -65,6 +65,8 @@ For future plans, see our [Python language version support status](https://githu
   - `mcpyrate`'s `ASTMarker`s are a macro-expansion-time data-driven communication feature to allow macros to easily work together, and are deleted from the AST before handing the AST to Python's `compile` function. (If you're curious, `unpythonic` uses some of those markers itself; grep the codebase for `ASTMarker`.)
   - `unpythonic`'s `UnpythonicExpandedMacroMarker`s remain in the AST at run time.
 
+- The functions `almosteq` and `ulp` now live in `unpythonic.numutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
+
 - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name. Old name was `HACKING.md`, which was correct, but nowadays obscure.
 
 - Python 3.4 and 3.5 support dropped, as these language versions have officially reached end-of-life.
