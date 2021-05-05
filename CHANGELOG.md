@@ -2,32 +2,51 @@
 
 This edition concentrates on upgrading our dependencies, namely the macro expander, and the Python language itself, to ensure `unpythonic` keeps working for the next few years. This unfortunately introduces some breaking changes; see below. While at it, we have also taken the opportunity to make also any previously scheduled breaking changes.
 
-**Minimum Python language version is now 3.6**. For future plans, see our [Python language version support status](https://github.com/Technologicat/unpythonic/issues/1).
+**Minimum Python language version is now 3.6**.
+
+The optional **macro expander is now [`mcpyrate`](https://github.com/Technologicat/mcpyrate)**.
+
+If you still need `unpythonic` for Python 3.4 or 3.5, use version 0.14.3, which is the final version of `unpythonic` that supports those language versions.
+
+The same applies if you need the macro parts of `unpythonic` in your own project that uses MacroPy. Version 0.14.3 of `unpythonic` works up to Python 3.7.
+
+For future plans, see our [Python language version support status](https://github.com/Technologicat/unpythonic/issues/1).
+
 
 **New**:
 
 - **Dialects!** New module `unpythonic.dialects`, providing [some example dialects](doc/dialects.md) that demonstrate what can be done with a [dialects system](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) together with a kitchen-sink language extension macro package such as `unpythonic`.
+
 - `with namedlambda` now understands the walrus operator, too. In the construct `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
+
 - Robustness: several auxiliary syntactic constructs such as `local[]`/`delete[]` (for `do[]`), `call_cc[]` (for `with continuations`), `it` (for `aif[]`), `with expr`/`with block` (for `let_syntax`/`abbrev`), and `q`/`u`/`kw` (for `prefix`) now detect *at macro expansion time* if they appear outside any valid lexical context, and raise `SyntaxError` (with a descriptive message) if so. That is, the error is now raised *at compile time*. Previously these constructs could only raise an error at run time, and not all of them could detect the error even then.
+
 - `unpythonic.dispatch.generic_for`: add methods to a generic function defined elsewhere.
+
 - Python 3.8 and 3.9 support added.
+
 
 **Non-breaking changes**:
 
 - The modules `unpythonic.dispatch` and `unpythonic.typecheck`, which provide the `@generic` and `@typed` decorators and the `isoftype` function, are no longer considered experimental. From this release on, they receive the same semantic versioning guarantees as the rest of `unpythonic`.
-- CI: Automated tests now run on Python 3.6, 3.7, 3.8, 3.9, and PyPy3 (language versions 3.6, 3.7).
-- CI: Test coverage improved to 94%.
+
 - Some macros, notably `letseq`, `do0`, and `lazyrec`, now expand into hygienic macro captures of other macros. The `continuations` macro also outputs a hygienically captured `aif` when transforming an `or` expression that occurs in tail position.
   - This allows `mcpyrate.debug.step_expansion` to show the intermediate result, as well as brings the implementation closer to the natural explanation of how these macros are defined. (Zen of Python: if the implementation is easy to explain, it *might* be a good idea.)
   - The implicit do (extra bracket syntax) also expands as a hygienically captured `do`, but e.g. in `let[]` it will then expand immediately (due to `let`'s inside-out expansion order) before control returns to the macro stepper. If you want to see the implicit `do[]` invocation, use the `"detailed"` mode of the stepper, which shows individual macro invocations even when expanding inside-out: `step_expansion["detailed"][...]`, `with step_expansion["detailed"]:`.
 
+- CI: Automated tests now run on Python 3.6, 3.7, 3.8, 3.9, and PyPy3 (language versions 3.6, 3.7).
+
+- CI: Test coverage improved to 94%.
+
+
 **Breaking changes**:
 
-- Migrate to the [`mcpyrate`](https://github.com/Technologicat/mcpyrate) macro expander; **MacroPy support dropped**. This change facilitates future development of the macro parts of `unpythonic`.
+- Migrate to the `mcpyrate` macro expander; **MacroPy support dropped**.
   - **Macro arguments are now passed using brackets** `macroname[args]` instead of parentheses.
     - Parentheses are still available as alternative syntax, because up to Python 3.8, decorators cannot have subscripts (so e.g. `@dlet[(x, 42)]` is a syntax error, but `@dlet((x, 42))` is fine). This has been fixed in Python 3.9.
     - If you already only run on Python 3.9 and later, please use brackets, that is the preferred syntax. We currently plan to eventually drop support for parentheses to pass macro arguments in the future, when Python 3.9 becomes the minimum supported language version for `unpythonic`.
-  - As a result of the new macro expander, macro test coverage should now be reported correctly.
+  - `mcpyrate` should report test coverage for macro-using code correctly; no need for `# pragma: no cover` in block macro invocations or in quasiquoted code.
+
 - The lazy evaluation tools `lazy`, `Lazy`, and the quick lambda `f` (underscore notation for Python) are now provided by `unpythonic` as `unpythonic.syntax.lazy`, `unpythonic.lazyutil.Lazy`, and `unpythonic.syntax.f`, because they used to be provided by `macropy`, and `mcpyrate` does not provide them.
   - **Any imports of these constructs in user code should be modified to point to the new locations.**
   - Unlike `macropy`'s `Lazy`, our `Lazy` does not define `__call__`; instead, it defines the method `force`, which has the same effect (it computes if necessary, and then returns the value of the promise).
@@ -35,20 +54,27 @@ This edition concentrates on upgrading our dependencies, namely the macro expand
   - `f[]` now respects nesting: an invocation of `f[]` will not descend into another nested `f[]`.
   - The `with quicklambda` macro is still provided, and used just as before. Now it causes any `f[]` invocations lexically inside the block to expand before any other macros in that block do.
   - Since in `mcpyrate`, macros can be as-imported, you can rename `f` at import time to have any name you want. The `quicklambda` block macro respects the as-import. Now you **must** import also the macro `f` when you import the macro `quicklambda`, because `quicklambda` internally queries the expander to determine the name(s) the macro `f` is currently bound to.
+
 - **Rename the `curry` macro** to `autocurry`, to prevent name shadowing of the `curry` function. The new name is also more descriptive.
+
 - The `do[]` and `do0[]` macros now expand outside-in. The main differences from a user perspective are:
   - Any source code captures (such as those performed by `test[]`) show the expanded output of `do` and `do0`, because that's what they receive.
   - `mcpyrate.debug.step_expansion` is able to show the intermediate result after the `do` or `do0` has expanded, but before anything else has been done to the tree.
+
 - Rename the internal utility class `unpythonic.syntax.util.ASTMarker` to `UnpythonicExpandedMacroMarker`, to explicitly have a class name different from `mcpyrate.markers.ASTMarker`, because these represent semantically different things.
   - `mcpyrate`'s `ASTMarker`s are a macro-expansion-time data-driven communication feature to allow macros to easily work together, and are deleted from the AST before handing the AST to Python's `compile` function. (If you're curious, `unpythonic` uses some of those markers itself; grep the codebase for `ASTMarker`.)
   - `unpythonic`'s `UnpythonicExpandedMacroMarker`s remain in the AST at run time.
+
 - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name. Old name was `HACKING.md`, which was correct, but nowadays obscure.
-- Python 3.4 and 3.5 support dropped, as these language versions have officially reached end-of-life. If you still need `unpythonic` for Python 3.4 or 3.5, use version 0.14.3, which is the final version of `unpythonic` that supports those language versions.
+
+- Python 3.4 and 3.5 support dropped, as these language versions have officially reached end-of-life.
+
 
 **Fixed**:
 
-- Make `callsite_filename` ignore our call helpers. This allows the testing framework report the source code filename correctly when testing code using macros that make use of these helpers (e.g. `autocurry`, `lazify`).
-- In `aif`, `it` is now only valid in the `then` and `otherwise` parts, as it should.
+- Make `unpythonic.misc.callsite_filename` ignore our call helpers. This allows the testing framework report the source code filename correctly when testing code using macros that make use of these helpers (e.g. `autocurry`, `lazify`).
+
+- In `aif`, `it` is now only valid in the `then` and `otherwise` parts, as it should always have been.
 
 
 ---
