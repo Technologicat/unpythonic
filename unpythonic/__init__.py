@@ -35,6 +35,7 @@ from .lispylet import (let as ordered_let, letrec as ordered_letrec,  # noqa: F4
 from .llist import *  # noqa: F401, F403
 from .mathseq import *  # noqa: F401, F403
 from .misc import *  # noqa: F401, F403
+from .numutil import *  # noqa: F401, F403
 from .seq import *  # noqa: F401, F403
 from .singleton import *  # noqa: F401, F403
 from .slicing import *  # noqa: F401, F403

@@ -6,7 +6,6 @@ from ..test.fixtures import session, testset
 from operator import add
 from functools import partial
 from collections import deque
-from sys import float_info
 from queue import Queue
 from time import sleep
 import threading
@@ -14,7 +13,7 @@ import sys
 
 from ..misc import (call, callwith, raisef, tryf, equip_with_traceback,
                     pack, namelambda, timer,
-                    getattrrec, setattrrec, Popper, CountingIterator, ulp, slurp,
+                    getattrrec, setattrrec, Popper, CountingIterator, slurp,
                     async_raise, callsite_filename, safeissubclass)
 from ..fun import withself
 from ..env import env
@@ -269,14 +268,6 @@ def runtests():
         for k, _ in enumerate(it, start=1):
             test[it.count == k]
         test[it.count == 5]
-
-    # Unit in the Last Place, float utility
-    # https://en.wikipedia.org/wiki/Unit_in_the_last_place
-    with testset("ulp (unit in the last place; float utility)"):
-        test[ulp(1.0) == float_info.epsilon]
-        # test also at some base-2 exponent switch points
-        test[ulp(2.0) == 2 * float_info.epsilon]
-        test[ulp(0.5) == 0.5 * float_info.epsilon]
 
     with testset("slurp (drain a queue into a list)"):
         q = Queue()

@@ -20,7 +20,6 @@ Finally, we provide ready-made generators that yield some common sequences
 
 __all__ = ["s", "imathify", "gmathify",
            "m", "mg",  # old names, pre-0.14.3, will go away in 0.15.0
-           "almosteq",
            "sadd", "ssub", "sabs", "spos", "sneg", "sinvert", "smul", "spow",
            "struediv", "sfloordiv", "smod", "sdivmod",
            "sround", "strunc", "sfloor", "sceil",
@@ -45,13 +44,13 @@ from operator import (add as primitive_add, mul as primitive_mul,
 
 from .it import take, rev, window
 from .gmemo import imemoize, gmemoize
+from .numutil import almosteq
 
 class _NoSuchType:
     pass
 
 # stuff to support float, mpf and SymPy expressions transparently
 #
-from sys import float_info
 from math import log as math_log, copysign, trunc, floor, ceil
 try:
     from mpmath import mpf, almosteq as mpf_almosteq
@@ -98,44 +97,6 @@ except ImportError:  # pragma: no cover, optional at runtime, but installed at d
     sign = _numsign
     _symExpr = _NoSuchType
 
-# TODO: Overhaul `almosteq` in v0.15.0, should work like mpf for consistency.
-# TODO: Also move it to `unpythonic.misc`, where `ulp` already is. Or make a `numutil`.
-def almosteq(a, b, tol=1e-8):
-    """Almost-equality that supports several formats.
-
-    The tolerance ``tol`` is used for the builtin ``float`` and ``mpmath.mpf``.
-
-    For ``mpmath.mpf``, we just delegate to ``mpmath.almosteq``, with the given
-    ``tol``. For ``float``, we use the strategy suggested in:
-
-        https://floating-point-gui.de/errors/comparison/
-
-    Anything else, for example SymPy expressions, strings, and containers
-    (regardless of content), is tested for exact equality.
-
-    **CAUTION**: Although placed in ``unpythonic.mathseq``, this function
-    **does not** support iterables; rather, it is a low-level tool that is
-    exposed in the public API in the hope it may be useful elsewhere.
-    """
-    if a == b:  # infinities and such, plus any non-float type
-        return True
-
-    if isinstance(a, mpf) and isinstance(b, mpf):
-        return mpf_almosteq(a, b, tol)
-    # compare as native float if only one is an mpf
-    elif isinstance(a, mpf) and isinstance(b, (float, int)):
-        a = float(a)
-    elif isinstance(a, (float, int)) and isinstance(b, mpf):
-        b = float(b)
-
-    if not all(isinstance(x, (float, int)) for x in (a, b)):
-        return False  # non-float type, already determined that a != b
-    min_normal = float_info.min
-    max_float = float_info.max
-    d = abs(a - b)
-    if a == 0 or b == 0 or d < min_normal:
-        return d < tol * min_normal
-    return d / min(abs(a) + abs(b), max_float) < tol
 
 def s(*spec):
     """Create a lazy mathematical sequence.

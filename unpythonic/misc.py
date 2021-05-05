@@ -5,16 +5,14 @@ __all__ = ["call", "callwith", "raisef", "tryf", "equip_with_traceback",
            "pack", "namelambda", "timer",
            "getattrrec", "setattrrec",
            "Popper", "CountingIterator",
-           "ulp",
            "slurp", "async_raise", "callsite_filename", "safeissubclass"]
 
 from copy import copy
 from functools import partial
 from itertools import count
 import inspect
-from math import floor, log2
 from queue import Empty
-from sys import float_info, version_info
+from sys import version_info
 import threading
 from time import monotonic
 from types import CodeType, FunctionType, LambdaType, TracebackType
@@ -653,21 +651,6 @@ class CountingIterator:
         x = next(self._it)  # let StopIteration propagate
         self.count += 1
         return x
-
-# TODO: move to a new module unpythonic.numutil in v0.15.0.
-def ulp(x):  # Unit in the Last Place
-    """Given a float x, return the unit in the last place (ULP).
-
-    This is the numerical value of the least-significant bit, as a float.
-    For x = 1.0, the ULP is the machine epsilon (by definition of machine epsilon).
-
-    See:
-        https://en.wikipedia.org/wiki/Unit_in_the_last_place
-    """
-    eps = float_info.epsilon
-    # m_min = abs. value represented by a mantissa of 1.0, with the same exponent as x has
-    m_min = 2**floor(log2(abs(x)))
-    return m_min * eps
 
 def slurp(queue):
     """Slurp all items currently on a queue.Queue into a list.

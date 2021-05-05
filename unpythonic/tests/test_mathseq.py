@@ -5,12 +5,11 @@ from ..test.fixtures import session, testset
 
 from operator import mul
 from math import exp, trunc, floor, ceil
-from sys import float_info
 
 from ..mathseq import (s, imathify, gmathify,
                        sadd, smul, spow, cauchyprod,
                        primes, fibonacci,
-                       sign, log, almosteq)
+                       sign, log)
 from ..it import take, last
 from ..fold import scanl
 from ..gmemo import imemoize
@@ -45,31 +44,6 @@ def runtests():
             test[log(NeperE**2) == 2]
             x = symbols("x", positive=True)
             test[log(symbolicExp(x)) == x]
-
-    with testset("almosteq"):
-        # For anything but floating-point inputs, it's exact equality.
-        test[almosteq("abc", "abc")]
-        test[not almosteq("ab", "abc")]
-
-        test[almosteq(1.0, 1.0 + ulp(1.0))]
-
-        # TODO: counterintuitively, need a large tolerance here, because when one operand is zero,
-        # TODO: the final tolerance is actually tol*min_normal.
-        min_normal = float_info.min
-        test[almosteq(min_normal / 2, 0, tol=1.0)]
-
-        too_large = 2**int(1e6)
-        test_raises[OverflowError, float(too_large), "UPDATE THIS, need a float overflow here."]
-        test[almosteq(too_large, too_large + 1)]  # works, because 1/too_large is very small.
-
-        try:
-            from mpmath import mpf
-        except ImportError:  # pragma: no cover
-            error["mpmath not installed in this Python, cannot test arbitrary precision input for mathseq."]
-        else:
-            test[almosteq(mpf(1.0), mpf(1.0 + ulp(1.0)))]
-            test[almosteq(1.0, mpf(1.0 + ulp(1.0)))]
-            test[almosteq(mpf(1.0), 1.0 + ulp(1.0))]
 
     # explicitly listed elements, same as a genexpr using tuple input (but supports infix math)
     with testset("s, convenience"):
