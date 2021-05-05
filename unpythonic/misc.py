@@ -214,7 +214,7 @@ def callwith(*args, **kwargs):
         return maybe_force_args(force(f), *args, **kwargs)
     return applyfrozenargsto
 
-def raisef(exc, *args, cause=None, **kwargs):
+def raisef(exc, *, cause=None):
     """``raise`` as a function, to make it possible for lambdas to raise exceptions.
 
     Example::
@@ -235,23 +235,7 @@ def raisef(exc, *args, cause=None, **kwargs):
             If `exc` was triggered as a direct consequence of another exception,
             and you would like to `raise ... from ...`, pass that other exception
             instance as `cause`. The default `None` performs a plain `raise ...`.
-
-    *Changed in v0.14.2.* The parameters have changed to match `raise` itself as closely
-    as possible. Old-style parameters are still supported, but are now deprecated. Support
-    for them will be dropped in v0.15.0. The old-style parameters are:
-
-        exc: type
-            The object type to raise as an exception.
-
-        *args: anything
-            Passed on to the constructor of exc.
-
-        **kwargs: anything
-            Passed on to the constructor of exc.
     """
-    if args or kwargs:  # old-style parameters
-        raise exc(*args, **kwargs)
-
     if cause:
         raise exc from cause
     else:
