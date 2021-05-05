@@ -67,6 +67,15 @@ For future plans, see our [Python language version support status](https://githu
 
 - The functions `almosteq` and `ulp` now live in `unpythonic.numutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
 
+- As promised, names deprecated during 0.14.x have been removed. Old name on the left, new name on the right:
+  - `m` → `imathify`
+  - `mg` → `gmathify`
+  - `setescape` → `catch`
+  - `escape` → `throw`
+  - `getvalue`, `runpipe` → `exitpipe` (combined into one)
+
+- Drop support for deprecated argument format for `raisef`. Now the usage is `raisef(exc)` or `raisef(exc, cause=...)`. These correspond exactly to `raise exc` and `raise exc from ...`, respectively.
+
 - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name. Old name was `HACKING.md`, which was correct, but nowadays obscure.
 
 - Python 3.4 and 3.5 support dropped, as these language versions have officially reached end-of-life.
