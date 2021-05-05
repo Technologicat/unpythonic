@@ -56,7 +56,7 @@ We also import some macros and functions to serve as dialect builtins:
   - Memoization ``memoize``, ``gmemoize``, ``imemoize``, ``fimemoize``
   - Functional updates ``fup`` and ``fupdate``
   - Immutable dict ``frozendict``
-  - Mathematical sequences ``s``, ``m``, ``mg``
+  - Mathematical sequences ``s``, ``imathify``, ``gmathify``
   - Iterable utilities ``islice`` (`unpythonic`'s version), ``take``, ``drop``, ``split_at``, ``first``, ``second``, ``nth``, ``last``
   - Function arglist reordering utilities ``flip``, ``rotate``
 

@@ -19,7 +19,6 @@ Finally, we provide ready-made generators that yield some common sequences
 """
 
 __all__ = ["s", "imathify", "gmathify",
-           "m", "mg",  # old names, pre-0.14.3, will go away in 0.15.0
            "sadd", "ssub", "sabs", "spos", "sneg", "sinvert", "smul", "spow",
            "struediv", "sfloordiv", "smod", "sdivmod",
            "sround", "strunc", "sfloor", "sceil",
@@ -27,7 +26,6 @@ __all__ = ["s", "imathify", "gmathify",
            "cauchyprod", "diagonal_reduce",
            "fibonacci", "primes"]
 
-from warnings import warn
 from itertools import repeat, takewhile, count
 from functools import wraps
 from operator import (add as primitive_add, mul as primitive_mul,
@@ -595,14 +593,6 @@ class imathify:
     def __gt__(self, other):
         return sgt(self, other)
 
-class m(imathify):  # pragma: no cover
-    """Alias for `imathify`, for backward compatibility.
-
-    Will be removed in 0.15.0."""
-    def __init__(self, iterable):
-        warn("`m` has been renamed `imathify`, which is more descriptive; this alias will be removed in 0.15.0.", FutureWarning)
-        super().__init__(iterable)
-
 def gmathify(gfunc):
     """Decorator: make gfunc imathify() the returned generator instances.
 
@@ -619,14 +609,6 @@ def gmathify(gfunc):
     def mathify(*args, **kwargs):
         return imathify(gfunc(*args, **kwargs))
     return mathify
-
-def mg(gfunc):  # pragma: no cover
-    """Alias for `gmathify`, for backward compatibility.
-
-    Will be removed in 0.15.0.
-    """
-    warn("`mg` has been renamed `gmathify`, which is more descriptive; this alias will be removed in 0.15.0.", FutureWarning)
-    return gmathify(gfunc)
 
 # -----------------------------------------------------------------------------
 # We expose the full set of "imathify" operators also as functions à la the ``operator`` module.
