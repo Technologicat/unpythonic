@@ -38,7 +38,7 @@ class Lispython(Dialect):
             # Auxiliary syntax elements for the macros.
             from unpythonic.syntax import where, block, expr  # noqa: F401, F811
             from unpythonic import cons, car, cdr, ll, llist, nil, prod, dyn  # noqa: F401, F811
-            with namedlambda, autoreturn, quicklambda, multilambda, tco:
+            with autoreturn, quicklambda, multilambda, tco, namedlambda:
                 __paste_here__  # noqa: F821, just a splicing marker.
         tree.body = splice_dialect(tree.body, template, "__paste_here__")
         return tree
