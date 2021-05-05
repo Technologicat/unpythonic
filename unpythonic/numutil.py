@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover, optional at runtime, but installed at d
     mpf_almosteq = None
 
 
-# TODO: Overhaul `almosteq` in v0.15.0, should work like mpf for consistency.
+# TODO: Overhaul `almosteq` in v0.16.0, should work like mpf for consistency.
 def almosteq(a, b, tol=1e-8):
     """Almost-equality that supports several formats.
 
