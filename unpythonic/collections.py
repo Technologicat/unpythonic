@@ -786,65 +786,63 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
             return self.v[i]
         return self.seq[k]  # not in slice
 
-# TODO: fix flake8 E741 ambiguous variable name "l". Here it's part of the public API, so we'll have to wait until 15.0 to change the name.
-def in_slice(i, s, l=None):
+def in_slice(i, s, length=None):
     """Return whether the int i is in the slice s.
 
     For convenience, ``s`` may be int instead of slice; then return
     whether ``i == s``.
 
-    The optional ``l`` is the length of the sequence being indexed, used for
+    The optional ``length`` is the length of the sequence being indexed, used for
     interpreting any negative indices, and default start and stop values
     (if ``s.start`` or ``s.stop`` is ``None``).
 
-    If ``l is None``, negative or missing ``s.start`` or ``s.stop`` may raise
+    If ``length is None``, negative or missing ``s.start`` or ``s.stop`` may raise
     ValueError. (A negative ``s.step`` by itself does not need ``l``.)
     """
     if not isinstance(s, (slice, int)):
         raise TypeError(f"s must be slice or int, got {type(s)} with value {s}")
     if not isinstance(i, int):
         raise TypeError(f"i must be int, got {type(i)} with value {i}")
-    wrap = _make_negidx_converter(l)
+    wrap = _make_negidx_converter(length)
     i = wrap(i)
     if isinstance(s, int):
         s = wrap(s)
         return i == s
-    start, stop, step = _canonize_slice(s, l, wrap)
+    start, stop, step = _canonize_slice(s, length, wrap)
     cmp_start, cmp_end = (ge, lt) if step > 0 else (le, gt)
     at_or_after_start = cmp_start(i, start)
     before_stop = cmp_end(i, stop)
     on_grid = (i - start) % step == 0
     return at_or_after_start and on_grid and before_stop
 
-# TODO: fix flake8 E741 ambiguous variable name "l". Here it's part of the public API, so we'll have to wait until 15.0 to change the name.
-def index_in_slice(i, s, l=None):
+def index_in_slice(i, s, length=None):
     """Return the index of the int i in the slice s, or None if i is not in s.
 
     (I.e. how-manyth item of the slice the index i is.)
 
-    The optional sequence length ``l`` works the same as in ``in_slice``.
+    The optional sequence length ``length`` works the same as in ``in_slice``.
     """
-    return _index_in_slice(i, s, l)
+    return _index_in_slice(i, s, length)
 
 # efficiency: allow skipping the validation check for call sites
 # that have already checked with in_slice().
-def _index_in_slice(i, s, n=None, _validate=True):  # n: length of sequence being indexed
-    if (not _validate) or in_slice(i, s, n):
-        wrap = _make_negidx_converter(n)
-        start, _, step = _canonize_slice(s, n, wrap)
+def _index_in_slice(i, s, length=None, _validate=True):
+    if (not _validate) or in_slice(i, s, length):
+        wrap = _make_negidx_converter(length)
+        start, _, step = _canonize_slice(s, length, wrap)
         return (wrap(i) - start) // step
 
-def _make_negidx_converter(n):  # n: length of sequence being indexed
-    if n is not None:
-        if not isinstance(n, int):
-            raise TypeError(f"n must be int, got {type(n)} with value {n}")
-        if n <= 0:
-            raise ValueError(f"n must be an int >= 1, got {n}")
+def _make_negidx_converter(length):
+    if length is not None:
+        if not isinstance(length, int):
+            raise TypeError(f"length must be int, got {type(length)} with value {length}")
+        if length <= 0:
+            raise ValueError(f"length must be an int >= 1, got {length}")
         def apply_conversion(k):
-            return k % n
+            return k % length
     else:
         def apply_conversion(k):
-            raise ValueError("Need n to interpret negative indices")
+            raise ValueError("Need length to interpret negative indices")
     def convert(k):
         if k is not None:
             if not isinstance(k, int):
@@ -856,12 +854,12 @@ def _make_negidx_converter(n):  # n: length of sequence being indexed
             # Almost standard semantics for negative indices. Usually -n < k < n,
             # but here we must allow for conversion of the end position, for
             # which the last valid value is one past the end.
-            if n is not None and not -n <= k <= n:
-                raise IndexError(f"Should have -n <= k <= n, but n = {n}, and k = {k}")
+            if length is not None and not -length <= k <= length:
+                raise IndexError(f"Should have -length <= k <= length, but length = {length}, and k = {k}")
             return apply_conversion(k) if k < 0 else k
     return convert
 
-def _canonize_slice(s, n=None, wrap=None):  # convert negatives, inject defaults.
+def _canonize_slice(s, length=None, wrap=None):  # convert negatives, inject defaults.
     if not isinstance(s, slice):
         # Not triggered in the current code, because this is an internal function
         # and `in_slice` already checks; but let's be careful in case this is later
@@ -874,23 +872,23 @@ def _canonize_slice(s, n=None, wrap=None):  # convert negatives, inject defaults
     if step == 0:
         raise ValueError("slice step cannot be zero")  # message copied from range(5)[0:4:0]
 
-    wrap = wrap or _make_negidx_converter(n)
+    wrap = wrap or _make_negidx_converter(length)
 
     start = wrap(s.start)
     if start is None:
         if step > 0:
             start = 0
         else:
-            if n is None:
-                raise ValueError("Need n to determine default start for step < 0")
+            if length is None:
+                raise ValueError("Need length to determine default start for step < 0")
             start = wrap(-1)
 
     stop = wrap(s.stop)
     if stop is None:
         if step > 0:
-            if n is None:
-                raise ValueError("Need n to determine default stop for step > 0")
-            stop = n
+            if length is None:
+                raise ValueError("Need length to determine default stop for step > 0")
+            stop = length
         else:
             stop = -1  # yes, really -1 to have index 0 inside the slice
 
