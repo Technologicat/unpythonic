@@ -34,6 +34,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 [**Language features**](#language-features)
 - [``curry``: automatic currying for Python](#curry-automatic-currying-for-python)
 - [``lazify``: call-by-need for Python](#lazify-call-by-need-for-python)
+  - [``lazy[]`` and ``lazyrec[]`` macros](#lazy-and-lazyrec-macros)
   - [Forcing promises manually](#forcing-promises-manually)
   - [Binding constructs and auto-lazification](#binding-constructs-and-auto-lazification)
   - [Note about TCO](#note-about-tco)
@@ -781,11 +782,11 @@ with lazify:
     assert f(21, 1/0) == 42
 ```
 
-In a ``with lazify`` block, function arguments are evaluated only when actually used, at most once each, and in the order in which they are actually used. Promises are automatically forced on access. Automatic lazification applies to arguments in function calls and to let-bindings, since they play a similar role. **No other binding forms are auto-lazified.**
+In a ``with lazify`` block, function arguments are evaluated only when actually used, at most once each, and in the order in which they are actually used (regardless of the ordering of the formal parameters that receive them). Delayed values (*promises*) are automatically evaluated (*forced*) on access. Automatic lazification applies to arguments in function calls and to let-bindings, since they play a similar role. **No other binding forms are auto-lazified.**
 
 Automatic lazification uses the ``lazyrec[]`` macro (see below), which recurses into certain types of container literals, so that the lazification will not interfere with unpacking.
 
-Note ``my_if`` in the example is a run-of-the-mill runtime function, not a macro. Only the ``with lazify`` is imbued with any magic. Essentially, the above code expands into:
+Note ``my_if`` in the example is a regular function, not a macro. Only the ``with lazify`` is imbued with any magic. Essentially, the above code expands into:
 
 ```python
 from unpythonic.syntax import macros, lazy
@@ -806,7 +807,7 @@ def f(a, b):
 assert f(lazy[21], lazy[1/0]) == 42
 ```
 
-plus some clerical details to allow mixing lazy and strict code. This second example relies on the magic of closures to capture f's ``a`` and ``b`` into the promises.
+plus some clerical details to allow mixing lazy and strict code. This second example relies on the magic of closures to capture f's ``a`` and ``b`` into the ``lazy[]`` promises.
 
 Like ``with continuations``, no state or context is associated with a ``with lazify`` block, so lazy functions defined in one block may call those defined in another.
 
@@ -816,13 +817,25 @@ Comboing with other block macros in ``unpythonic.syntax`` is supported, includin
 
 For more details, see the docstring of ``unpythonic.syntax.lazify``.
 
-See also ``unpythonic.syntax.lazy``, which explicitly lazifies a single expression, and ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside container literals, recursively. This allows code like ``tpl = lazyrec[(1*2*3, 4*5*6)]``. Each item becomes wrapped with ``lazy[]``, but the container itself is left alone, to avoid interfering with unpacking. Because ``lazyrec[]`` is a macro and must work by names only, it supports a fixed set of container types: ``list``, ``tuple``, ``set``, ``dict``, ``frozenset``, ``unpythonic.collections.frozendict``, ``unpythonic.collections.box``, and ``unpythonic.llist.cons`` (specifically, the constructors ``cons``, ``ll`` and ``llist``).
-
-(It must work by names only, because in an eager language any lazification must be performed as a syntax transformation before the code actually runs. Lazification in an eager language is a hack, by necessity. [Fexprs](https://fexpr.blogspot.com/2011/04/fexpr.html) (along with [a new calculus to go with them](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html)) are the clean, elegant solution, but this requires redesigning the whole language from ground up. Of course, if you're fine with a language not particularly designed for extensibility, and lazy evaluation is your top requirement, just use Haskell.)
-
 Inspired by Haskell, Racket's ``(delay)`` and ``(force)``, and [lazy/racket](https://docs.racket-lang.org/lazy/index.html).
 
 **CAUTION**: The functions in ``unpythonic.fun`` are lazify-aware (so that e.g. ``curry`` and ``compose`` work with lazy functions), as are ``call`` and ``callwith`` in ``unpythonic.misc``, but a large part of ``unpythonic`` is not. Keep in mind that any call to a strict (regular Python) function will evaluate all of its arguments.
+
+#### ``lazy[]`` and ``lazyrec[]`` macros
+
+We provide the macros ``unpythonic.syntax.lazy``, which explicitly lazifies a single expression, and ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside container literals, recursively.
+
+Essentially, ``lazy[...]`` achieves the same result as ``memoize(lambda: ...)``, with the practical difference that a ``lazy[]`` promise ``p`` is evaluated by calling ``unpythonic.lazyutil.force(p)`` or ``p.force()``. In ``unpythonic``, the promise datatype (``unpythonic.lazyutil.Lazy``) does not have a ``__call__`` method, because the word ``force`` better conveys the intent.
+
+It is preferable to use the ``force`` function instead of the ``.force`` method, because the function will also pass through any non-promise value, whereas (obviously) a non-promise value will not have a ``.force`` method. Using the function, you can ``force`` a value just to be sure, without caring whether that value was a promise. The ``force`` function is available in the top-level namespace of ``unpythonic``.
+
+The ``lazify`` subsystem expects the ``lazy[...]`` notation in its analyzer, and will not recognize ``memoize(lambda: ...)`` as a delayed value.
+
+The ``lazyrec[]`` macro allows code like ``tpl = lazyrec[(1*2*3, 4*5*6)]``. Each item becomes wrapped with ``lazy[]``, but the container itself is left alone, to avoid interfering with unpacking. Because ``lazyrec[]`` is a macro and must work by names only, it supports a fixed set of container types: ``list``, ``tuple``, ``set``, ``dict``, ``frozenset``, ``unpythonic.collections.frozendict``, ``unpythonic.collections.box``, and ``unpythonic.llist.cons`` (specifically, the constructors ``cons``, ``ll`` and ``llist``).
+
+The `unpythonic` containers **must be from-imported** for ``lazyrec[]`` to recognize them. Either use ``from unpythonic import xxx`` (**recommended**), where ``xxx`` is a container type, or import the ``containers`` subpackage by ``from unpythonic import containers``, and then use ``containers.xxx``. (The analyzer only looks inside at most one level of attributes. This may change in the future.)
+
+(The analysis in ``lazyrec[]`` must work by names only, because in an eager language any lazification must be performed as a syntax transformation before the code actually runs, so the analysis must be performed statically - and locally, because ``lazyrec[]`` is an expr macro. [Fexprs](https://fexpr.blogspot.com/2011/04/fexpr.html) (along with [a new calculus to go with them](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html)) are the clean, elegant solution, but this requires redesigning the whole language from ground up. Of course, if you're fine with a language not particularly designed for extensibility, and lazy evaluation is your top requirement, you could just use Haskell.)
 
 #### Forcing promises manually
 
