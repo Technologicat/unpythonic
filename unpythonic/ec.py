@@ -24,30 +24,12 @@ See Peter Seibel: Practical Common Lisp, chapter 20:
     http://www.gigamonkeys.com/book/the-special-operators.html
 """
 
-__all__ = ["throw", "catch", "call_ec",
-           "setescape", "escape"]  # old names, pre-0.14.2, will go away in 0.15.0
+__all__ = ["throw", "catch", "call_ec"]
 
-from warnings import warn
 from functools import wraps
 
 from .regutil import register_decorator
 # from .symbol import gensym
-
-def escape(value, tag=None, allow_catchall=True):  # pragma: no cover
-    """Alias for `throw`, for backward compatibility.
-
-    Will be removed in 0.15.0.
-    """
-    warn("`escape` has been renamed `throw` as in Common Lisp; this alias will be removed in 0.15.0.", FutureWarning)
-    return throw(value, tag, allow_catchall)
-
-def setescape(tags=None, catch_untagged=True):  # pragma: no cover
-    """Alias for `catch`, for backward compatibility.
-
-    Will be removed in 0.15.0.
-    """
-    warn("`setescape` has been renamed `catch` as in Common Lisp; this alias will be removed in 0.15.0.", FutureWarning)
-    return catch(tags, catch_untagged)
 
 def throw(value, tag=None, allow_catchall=True):
     """Escape to a dynamically surrounding ``@catch``.
