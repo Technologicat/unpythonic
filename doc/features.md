@@ -1361,7 +1361,7 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
    - `mapr`, `zipr`, `mapr_longest`, `zipr_longest`: map/zip, then reverse the result. For multiple inputs, syncs the **left** ends.
    - `map`: curry-friendly wrapper for the builtin, making it mandatory to specify at least one iterable. **Added in v0.14.2.**
  - *windowing, chunking, and similar*:
-   - `window`: sliding length-n window iterator for general iterables. Acts like the well-known [n-gram zip trick](http://www.locallyoptimal.com/blog/2013/01/20/elegant-n-gram-generation-in-python/), but the input can be any iterable.
+   - `window`: sliding length-n window iterator for general iterables. Acts like the well-known [n-gram zip trick](http://www.locallyoptimal.com/blog/2013/01/20/elegant-n-gram-generation-in-python/), but the input can be any iterable. **Changed in v0.15.0.** *Parameter ordering is now `window(n, iterable)`, to make it curry-friendly.*
    - `chunked`: split an iterable into constant-length chunks. **Added in v0.14.2.**
    - `pad`: extend an iterable to length at least `n` with a `fillvalue`. **Added in v0.14.2.**
    - `interleave`: interleave items from several iterables: `interleave(a, b, c)` → `a0, b0, c0, a1, b1, c1, ...` until the next item does not exist. **Added in v0.14.2.**
