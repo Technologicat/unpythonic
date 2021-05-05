@@ -2986,7 +2986,7 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 **Changed in v0.14.3**. *The `@generic` and `@typed` decorators can now decorate also instance methods, class methods and static methods (beside regular functions, as previously in 0.14.2).*
 
-**Changed in v0.15.0**. *The `dispatch` and `typecheck` modules providing this functionality are now considered stable (no longer experimental). Added the `@generic_for` parametric decorator that can register a new method on an existing generic function originally defined in another lexical scope.* 
+**Changed in v0.15.0**. *The `dispatch` and `typecheck` modules providing this functionality are now considered stable (no longer experimental). Added the `@generic_addmethod` parametric decorator that can register a new method on an existing generic function originally defined in another lexical scope.* 
 
 The ``generic`` decorator allows creating multiple-dispatch generic functions with type annotation syntax.
 

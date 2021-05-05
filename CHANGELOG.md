@@ -21,7 +21,7 @@ For future plans, see our [Python language version support status](https://githu
 
 - Robustness: several auxiliary syntactic constructs such as `local[]`/`delete[]` (for `do[]`), `call_cc[]` (for `with continuations`), `it` (for `aif[]`), `with expr`/`with block` (for `let_syntax`/`abbrev`), and `q`/`u`/`kw` (for `prefix`) now detect *at macro expansion time* if they appear outside any valid lexical context, and raise `SyntaxError` (with a descriptive message) if so. That is, the error is now raised *at compile time*. Previously these constructs could only raise an error at run time, and not all of them could detect the error even then.
 
-- `unpythonic.dispatch.generic_for`: add methods to a generic function defined elsewhere.
+- `unpythonic.dispatch.generic_addmethod`: add methods to a generic function defined elsewhere.
 
 - Python 3.8 and 3.9 support added.
 

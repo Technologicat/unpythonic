@@ -6,7 +6,7 @@ Somewhat like `functools.singledispatch`, but for multiple dispatch.
     https://docs.python.org/3/library/functools.html#functools.singledispatch
 """
 
-__all__ = ["generic", "generic_for", "typed"]
+__all__ = ["generic", "generic_addmethod", "typed"]
 
 from functools import partial, wraps
 from itertools import chain
@@ -37,7 +37,7 @@ self_parameter_names = ["self", "this", "cls", "klass"]
 # """
 
 @register_decorator(priority=98)
-def generic_for(target):
+def generic_addmethod(target):
     """Parametric decorator. Add a method to function `target`.
 
     Like `@generic`, but the target function on which the method will be
@@ -55,10 +55,10 @@ def generic_for(target):
 
 
         # main.py
-        from unpythonic import generic_for
+        from unpythonic import generic_addmethod
         import example
 
-        @generic_for(example.f)
+        @generic_addmethod(example.f)
         def f(x: float):
             ...
     """
@@ -212,7 +212,7 @@ def _getfullname(f):
 def _register_generic(fullname, f):
     """Register a method for a generic function.
 
-    This is a low-level function; you'll likely want `generic` or `generic_for`.
+    This is a low-level function; you'll likely want `generic` or `generic_addmethod`.
 
     fullname: str, fully qualified name of target function to register
               the method on, used as key in the dispatcher registry.
