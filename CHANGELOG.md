@@ -1,4 +1,4 @@
-**0.15.0** (in progress; updated 23 April 2021) - *The very latest future obsolete* edition:
+**0.15.0** (in progress; updated 5 May 2021) - *The very latest future obsolete* edition:
 
 This edition concentrates on upgrading our dependencies, namely the macro expander, and the Python language itself, to ensure `unpythonic` keeps working for the next few years. This unfortunately introduces some breaking changes; see below. While at it, we have also taken the opportunity to make also any previously scheduled breaking changes.
 
@@ -42,7 +42,7 @@ For future plans, see our [Python language version support status](https://githu
 **Breaking changes**:
 
 - Migrate to the `mcpyrate` macro expander; **MacroPy support dropped**.
-  - **Macro arguments are now passed using brackets** `macroname[args]` instead of parentheses.
+  - **Macro arguments are now passed using brackets**, `macroname[args]`, instead of parentheses.
     - Parentheses are still available as alternative syntax, because up to Python 3.8, decorators cannot have subscripts (so e.g. `@dlet[(x, 42)]` is a syntax error, but `@dlet((x, 42))` is fine). This has been fixed in Python 3.9.
     - If you already only run on Python 3.9 and later, please use brackets, that is the preferred syntax. We currently plan to eventually drop support for parentheses to pass macro arguments in the future, when Python 3.9 becomes the minimum supported language version for `unpythonic`.
   - `mcpyrate` should report test coverage for macro-using code correctly; no need for `# pragma: no cover` in block macro invocations or in quasiquoted code.
@@ -78,7 +78,7 @@ For future plans, see our [Python language version support status](https://githu
 
 - Change parameter ordering of `unpythonic.it.window` to make it curry-friendly. Usage is now `window(n, iterable)`.
 
-- Change parameter name from `l` to `length` in the functions `in_slice` and `index_in_slice` (in the `unpythonic.collections` module).
+- Change parameter name from `l` to `length` in the functions `in_slice` and `index_in_slice` (in the `unpythonic.collections` module). This fixes a `flake8` E741 warning, and is more descriptive.
 
 - Move the functions `force1` and `force` from `unpythonic.syntax` to `unpythonic`. Make the `Lazy` class (promise implementation) public. (They actually come from `unpythonic.lazyutil`.)
 
