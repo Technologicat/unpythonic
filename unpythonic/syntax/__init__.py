@@ -71,8 +71,6 @@ from ..dynassign import make_dynvar
 
 # TODO: Move `where` from letdoutil to letdo, make it a @namemacro, and declare it public.
 
-# TODO: Emit a `do[]` in `multilambda`.
-
 # TODO: Consider reversing the MRO of @generic (to latest first), since the point is to be extensible.
 
 # TODO: Add docs navigation to all documentation files, like `mcpyrate` has.
