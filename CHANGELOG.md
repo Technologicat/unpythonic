@@ -1,29 +1,30 @@
-**0.15.0** (in progress; updated 5 May 2021) - *The very latest future obsolete* edition:
+**0.15.0** (in progress; updated 5 May 2021) - *"We say 'howdy' around these parts"* edition:
 
 This edition concentrates on upgrading our dependencies, namely the macro expander, and the Python language itself, to ensure `unpythonic` keeps working for the next few years. This unfortunately introduces some breaking changes; see below. While at it, we have also taken the opportunity to make also any previously scheduled breaking changes.
 
-**Minimum Python language version is now 3.6**.
+**IMPORTANT**:
 
-The optional **macro expander is now [`mcpyrate`](https://github.com/Technologicat/mcpyrate)**.
+- **Minimum Python language version is now 3.6**.
+- The optional **macro expander is now [`mcpyrate`](https://github.com/Technologicat/mcpyrate)**.
+- For future plans, see our [Python language version support status](https://github.com/Technologicat/unpythonic/issues/1).
 
 If you still need `unpythonic` for Python 3.4 or 3.5, use version 0.14.3, which is the final version of `unpythonic` that supports those language versions.
 
-The same applies if you need the macro parts of `unpythonic` in your own project that uses MacroPy. Version 0.14.3 of `unpythonic` works up to Python 3.7.
-
-For future plans, see our [Python language version support status](https://github.com/Technologicat/unpythonic/issues/1).
+The same applies if you need the macro parts of `unpythonic` (i.e. import anything from `unpythonic.syntax`) in your own project that uses MacroPy. Version 0.14.3 of `unpythonic` works up to Python 3.7.
 
 
 **New**:
 
-- **Dialects!** New module `unpythonic.dialects`, providing [some example dialects](doc/dialects.md) that demonstrate what can be done with a [dialects system](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) together with a kitchen-sink language extension macro package such as `unpythonic`.
+- **Dialects!** New module `unpythonic.dialects`, providing [some example dialects](doc/dialects.md) that demonstrate what can be done with a [dialects system](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) (i.e. full-module code transformer) together with a kitchen-sink language extension macro package such as `unpythonic`.
+  - These dialects have been moved from the now-obsolete [`pydialect`](https://github.com/Technologicat/pydialect) project and ported to use [`mcpyrate`](https://github.com/Technologicat/mcpyrate).
+
+- **Python 3.8 and 3.9 support added.**
+
+- Robustness: several auxiliary syntactic constructs such as `local[]`/`delete[]` (for `do[]`), `call_cc[]` (for `with continuations`), `it` (for `aif[]`), `with expr`/`with block` (for `with let_syntax`/`with abbrev`), and `q`/`u`/`kw` (for `with prefix`) now detect *at macro expansion time* if they appear outside any valid lexical context, and raise `SyntaxError` (with a descriptive message) if so. Previously these constructs could only raise an error at run time, and not all of them could detect the error even then.
 
 - `with namedlambda` now understands the walrus operator, too. In the construct `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
 
-- Robustness: several auxiliary syntactic constructs such as `local[]`/`delete[]` (for `do[]`), `call_cc[]` (for `with continuations`), `it` (for `aif[]`), `with expr`/`with block` (for `let_syntax`/`abbrev`), and `q`/`u`/`kw` (for `prefix`) now detect *at macro expansion time* if they appear outside any valid lexical context, and raise `SyntaxError` (with a descriptive message) if so. That is, the error is now raised *at compile time*. Previously these constructs could only raise an error at run time, and not all of them could detect the error even then.
-
-- `unpythonic.dispatch.generic_addmethod`: add methods to a generic function defined elsewhere.
-
-- Python 3.8 and 3.9 support added.
+- Add `unpythonic.dispatch.generic_addmethod`: add methods to a generic function defined elsewhere.
 
 
 **Non-breaking changes**:
@@ -57,16 +58,6 @@ For future plans, see our [Python language version support status](https://githu
 
 - **Rename the `curry` macro** to `autocurry`, to prevent name shadowing of the `curry` function. The new name is also more descriptive.
 
-- The `do[]` and `do0[]` macros now expand outside-in. The main differences from a user perspective are:
-  - Any source code captures (such as those performed by `test[]`) show the expanded output of `do` and `do0`, because that's what they receive.
-  - `mcpyrate.debug.step_expansion` is able to show the intermediate result after the `do` or `do0` has expanded, but before anything else has been done to the tree.
-
-- Rename the internal utility class `unpythonic.syntax.util.ASTMarker` to `UnpythonicExpandedMacroMarker`, to explicitly have a class name different from `mcpyrate.markers.ASTMarker`, because these represent semantically different things.
-  - `mcpyrate`'s `ASTMarker`s are a macro-expansion-time data-driven communication feature to allow macros to easily work together, and are deleted from the AST before handing the AST to Python's `compile` function. (If you're curious, `unpythonic` uses some of those markers itself; grep the codebase for `ASTMarker`.)
-  - `unpythonic`'s `UnpythonicExpandedMacroMarker`s remain in the AST at run time.
-
-- The functions `almosteq` and `ulp` now live in `unpythonic.numutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
-
 - As promised, names deprecated during 0.14.x have been removed. Old name on the left, new name on the right:
   - `m` → `imathify`
   - `mg` → `gmathify`
@@ -78,9 +69,19 @@ For future plans, see our [Python language version support status](https://githu
 
 - Change parameter ordering of `unpythonic.it.window` to make it curry-friendly. Usage is now `window(n, iterable)`.
 
-- Change parameter name from `l` to `length` in the functions `in_slice` and `index_in_slice` (in the `unpythonic.collections` module). This fixes a `flake8` E741 warning, and is more descriptive.
+- Change parameter name from `l` to `length` in the functions `in_slice` and `index_in_slice` (in the `unpythonic.collections` module). This fixes a `flake8` E741 warning, as well as is more descriptive.
 
 - Move the functions `force1` and `force` from `unpythonic.syntax` to `unpythonic`. Make the `Lazy` class (promise implementation) public. (They actually come from `unpythonic.lazyutil`.)
+
+- The `do[]` and `do0[]` macros now expand outside-in. The main differences from a user perspective are:
+  - Any source code captures (such as those performed by `test[]`) show the expanded output of `do` and `do0`, because that's what they receive.
+  - `mcpyrate.debug.step_expansion` is able to show the intermediate result after the `do` or `do0` has expanded, but before anything else has been done to the tree.
+
+- The functions `almosteq` and `ulp` now live in `unpythonic.numutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
+
+- Rename the internal utility class `unpythonic.syntax.util.ASTMarker` to `UnpythonicExpandedMacroMarker`, to explicitly have a class name different from `mcpyrate.markers.ASTMarker`, because these represent semantically different things.
+  - `mcpyrate`'s `ASTMarker`s are a macro-expansion-time data-driven communication feature to allow macros to easily work together, and are deleted from the AST before handing the AST to Python's `compile` function. (If you're curious, `unpythonic` uses some of those markers itself; grep the codebase for `ASTMarker`.)
+  - `unpythonic`'s `UnpythonicExpandedMacroMarker`s remain in the AST at run time.
 
 - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name. Old name was `HACKING.md`, which was correct, but nowadays obscure.
 
