@@ -275,26 +275,26 @@ def runtests():
     with testset("window"):
         lst = list(range(5))
         out = []
-        for a, b, c in window(lst, n=3):
+        for a, b, c in window(3, lst):
             out.append((a, b, c))
         test[lst == list(range(5))]
         test[out == [(0, 1, 2), (1, 2, 3), (2, 3, 4)]]
 
         lst = range(5)
         out = []
-        for a, b, c in window(lst, n=3):
+        for a, b, c in window(3, lst):
             out.append((a, b, c))
         test[lst == range(5)]
         test[out == [(0, 1, 2), (1, 2, 3), (2, 3, 4)]]
 
         lst = (x for x in range(5))
         out = []
-        for a, b, c in window(lst, n=3):
+        for a, b, c in window(3, lst):
             out.append((a, b, c))
         test[out == [(0, 1, 2), (1, 2, 3), (2, 3, 4)]]
 
-        test_raises[ValueError, window(range(5), n=1)]
-        test[tuple(window(range(5), n=10)) == ()]
+        test_raises[ValueError, window(1, range(5))]  # n must be at least 2
+        test[tuple(window(10, range(5))) == ()]  # iterable shorter than window length
 
     with testset("window integration with Popper"):
         # This works because window() iter()s the Popper, but the Popper never
@@ -305,7 +305,7 @@ def runtests():
         #  because the window needs them to initialize itself.)
         inp = deque(range(3))
         out = []
-        for a, b in window(Popper(inp)):
+        for a, b in window(2, Popper(inp)):
             out.append((a, b))
             if a < 10:
                 inp.append(a + 10)

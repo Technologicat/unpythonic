@@ -1481,7 +1481,7 @@ assert find(lambda x: x >= 3, gen) == 4  # if consumable, consumed as usual
 # window: length-n sliding window iterator for general iterables
 lst = (x for x in range(5))
 out = []
-for a, b, c in window(lst, n=3):
+for a, b, c in window(3, lst):
     out.append((a, b, c))
 assert out == [(0, 1, 2), (1, 2, 3), (2, 3, 4)]
 
@@ -3650,7 +3650,7 @@ from unpythonic import Popper, window
 
 inp = deque(range(3))
 out = []
-for a, b in window(Popper(inp)):
+for a, b in window(2, Popper(inp)):
     out.append((a, b))
     if a < 10:
         inp.append(a + 10)

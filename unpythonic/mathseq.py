@@ -312,7 +312,7 @@ def s(*spec):
             # Most unrecognized sequences trigger this case.
             raise SyntaxError(f"Specification did not match any supported formula: '{origspec}'")
         else:  # more elements are optional but must be consistent
-            data = [analyze(*triplet) for triplet in window(iterable=spec, n=3)]
+            data = [analyze(*triplet) for triplet in window(3, spec)]
             seqtypes, x0s, ks = zip(*data)
             def isconst(xs):
                 first, *rest = xs

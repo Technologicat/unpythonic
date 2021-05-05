@@ -743,8 +743,7 @@ def find(predicate, iterable, default=None):
     """
     return next(filter(predicate, iterable), default)
 
-# TODO: in 0.15.0, maybe switch the argument order of window() for curry-friendliness?
-def window(iterable, n=2):
+def window(n, iterable):
     """Sliding length-n window iterator for a general iterable.
 
     Acts like ``zip(s, s[1:], ..., s[n-1:])`` for a sequence ``s``, but the input
@@ -828,7 +827,7 @@ def within(tol, iterable):
     (infinite output, or terminating the output early if a part of it looks
     like a converging sequence; think a local maximum of `cos(x)`).
     """
-    for a, b in window(iterable, n=2):
+    for a, b in window(2, iterable):
         yield a
         if abs(a - b) <= tol:
             yield b
