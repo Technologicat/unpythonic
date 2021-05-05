@@ -262,6 +262,11 @@ class UnexpandedEnvAssignView:
     This handles `mcpyrate.core.Done` `ASTMarker`s in the name position transparently,
     to accommodate for expanded `mcpyrate.namemacro`s.
 
+    In other words, if the AST for the LHS is `Name(id=...)`, reading/writing the `name`
+    property will access `lhs.id`. If the AST for the LHS is `Done(body=Name(id=...))`,
+    reading/writing the `name` property will access `lhs.body.id`. This means you don't
+    need to care about whether there is a `Done` or not.
+
     **Attributes**:
 
         ``name``: the name of the variable, as a str.
