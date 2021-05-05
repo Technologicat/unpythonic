@@ -87,36 +87,20 @@ from ..dynassign import make_dynvar
 
 # TODO: 0.16: move `scoped_transform` to `mcpyrate` as `ScopedASTTransformer` and `ScopedASTVisitor`.
 
-# Re-exports - macro interfaces
-from .autocurry import autocurry  # noqa: F401
-from .autoref import autoref  # noqa: F401
-from .dbg import dbg  # noqa: F401
-from .forall import forall  # noqa: F401
-from .ifexprs import aif, it, cond  # noqa: F401
-from .lambdatools import multilambda, namedlambda, f, quicklambda, envify  # noqa: F401
-from .lazify import lazy, lazyrec, lazify  # noqa: F401
-from .letdo import (let, letseq, letrec,  # noqa: F401
-                    dlet, dletseq, dletrec,
-                    blet, bletseq, bletrec,
-                    local, delete, do, do0)
-from .letsyntax import let_syntax, abbrev  # noqa: F401
-from .nb import nb  # noqa: F401
-from .prefix import prefix  # noqa: F401
-from .tailtools import (autoreturn,  # noqa: F401
-                        tco,
-                        continuations, call_cc)
-from .testingtools import (the, test,  # noqa: F401
-                           test_signals, test_raises,
-                           fail, error, warn,
-                           expand_testing_macros_first)
-
-# Re-exports - regular code
-from .dbg import dbgprint_block, dbgprint_expr  # noqa: F401, re-export for re-use in a decorated variant.
-from .forall import insist, deny  # noqa: F401
+from .autocurry import *  # noqa: F401, F403
+from .autoref import *  # noqa: F401, F403
+from .dbg import *  # noqa: F401, F403
+from .forall import *  # noqa: F401, F403
+from .ifexprs import *  # noqa: F401, F403
+from .lambdatools import *  # noqa: F401, F403
+from .lazify import *  # noqa: F401, F403
+from .letdo import *  # noqa: F401, F403
 from .letdoutil import where  # noqa: F401
-from .lazify import force, force1  # noqa: F401
-from .letsyntax import block, expr  # noqa: F401
-from .prefix import q, u, kw  # noqa: F401  # TODO: bad names, `mcpyrate` uses them too.
+from .letsyntax import *  # noqa: F401, F403
+from .nb import *  # noqa: F401, F403
+from .prefix import *  # noqa: F401, F403
+from .tailtools import *  # noqa: F401, F403
+from .testingtools import *  # noqa: F401, F403
 
 # We use `dyn` to pass the `expander` parameter to the macro implementations.
 class _NoExpander:

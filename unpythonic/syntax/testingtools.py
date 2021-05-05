@@ -8,6 +8,7 @@ __all__ = ["the", "test",
            "test_signals", "test_raises",
            "fail", "error", "warn",
            "expand_testing_macros_first",
+           # these are mostly for use in other parts of `unpythonic`
            "isunexpandedtestmacro", "isexpandedtestmacro", "istestmacro"]
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401

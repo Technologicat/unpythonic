@@ -9,7 +9,6 @@ from ...syntax import (macros, lazify, lazy, lazyrec,  # noqa: F811, F401
                        tco,
                        autocurry,
                        continuations, call_cc)
-from ...syntax import force, force1
 
 # Doesn't really override the earlier curry import. The first one is a macro,
 # and this one is a regular run-time function.
@@ -22,7 +21,7 @@ from ...llist import ll
 from ...misc import raisef, call, callwith
 from ...tco import trampolined, jump
 
-from ...lazyutil import islazy, Lazy  # Lazy usually not needed in client code; for our tests only
+from ...lazyutil import islazy, Lazy, force1, force  # Lazy usually not needed in client code; for our tests only
 
 from sys import stderr
 import gc
