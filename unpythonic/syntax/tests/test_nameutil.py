@@ -40,9 +40,11 @@ def runtests():
             return tree
         m = MacroExpander({"dummy": dummymacro}, filename="<fake filename for tests in test_nameutil.py>")
 
-        # we need a macro that is bound in the expander we pass to the analyzer.
-        test[is_unexpanded_expr_macro(dummymacro, m, q[dummy[blah]])]  # noqa: F821, only quoted
-        test[not is_unexpanded_expr_macro(dummymacro, m, q[notdummy[blah]])]  # noqa: F821, only quoted
+        # The tree being tested needs to invoke a macro that is bound in the expander we pass to the analyzer.
+        # Note we detect whether the invocation is bound to the macro function we expect,
+        # and we don't care about the name (because in `mcpyrate`, macros can be as-imported).
+        test[is_unexpanded_expr_macro(dummymacro, m, q[dummy[...]])]  # noqa: F821, only quoted
+        test[not is_unexpanded_expr_macro(dummymacro, m, q[notdummy[...]])]  # noqa: F821, only quoted
         test[not is_unexpanded_expr_macro(dummymacro, m, q[42])]
 
     with testset("is_unexpanded_block_macro"):
