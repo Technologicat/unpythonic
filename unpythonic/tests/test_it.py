@@ -33,7 +33,8 @@ from ..it import (map, mapr, rmap, zipr, rzip,
 from ..fun import composel, identity, curry
 from ..gmemo import imemoize, gmemoize
 from ..mathseq import s
-from ..misc import Popper, ulp
+from ..misc import Popper
+from ..numutil import ulp
 
 def runtests():
     with testset("mapping and zipping"):

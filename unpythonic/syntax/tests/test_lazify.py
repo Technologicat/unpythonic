@@ -124,8 +124,8 @@ def runtests():
 
             # test the laziness
             # note the raisef() calls; in regular Python, they'd run anyway before my_if() gets control.
-            test[my_if(True, 23, raisef(RuntimeError, "I was evaluated!")) == 23]
-            test[my_if(False, raisef(RuntimeError, "I was evaluated!"), 42) == 42]
+            test[my_if(True, 23, raisef(RuntimeError("I was evaluated!"))) == 23]
+            test[my_if(False, raisef(RuntimeError("I was evaluated!")), 42) == 42]
 
             # In this example, the divisions by zero are never performed.
             test[my_if(True, 23, 1 / 0) == 23]

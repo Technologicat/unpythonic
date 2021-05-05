@@ -117,10 +117,6 @@ def runtests():
         except ValueError as err:
             test[err.__cause__ is exc]  # cause specified, like `raise ... from ...`
 
-        # raisef with old-style parameters (as of v0.14.2, deprecated, will be dropped in v0.15.0)
-        raise_instance = lambda: raisef(ValueError, "all ok")
-        test_raises[ValueError, raise_instance()]
-
         # can also raise an exception class (no instance)
         test_raises[StopIteration, raisef(StopIteration)]
 

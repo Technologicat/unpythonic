@@ -48,7 +48,7 @@ def runtests():
                     with restarts(use_value=(lambda x: x),
                                   double=(lambda x: 2 * x),
                                   drop=(lambda x: _drop),
-                                  bail=(lambda x: raisef(ValueError, x))) as result:
+                                  bail=(lambda x: raisef(ValueError(x)))) as result:
                         # Let's pretend we only want to deal with even numbers.
                         # Realistic errors would be something like nonexistent file, disk full, network down, ...
                         if k % 2 == 1:

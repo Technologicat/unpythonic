@@ -13,7 +13,8 @@ from ..mathseq import (s, imathify, gmathify,
 from ..it import take, last
 from ..fold import scanl
 from ..gmemo import imemoize
-from ..misc import timer, ulp
+from ..misc import timer
+from ..numutil import ulp
 
 def runtests():
     with testset("sign (adapter, numeric and symbolic)"):
