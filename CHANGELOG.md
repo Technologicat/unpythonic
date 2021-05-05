@@ -80,6 +80,8 @@ For future plans, see our [Python language version support status](https://githu
 
 - Change parameter name from `l` to `length` in the functions `in_slice` and `index_in_slice` (in the `unpythonic.collections` module).
 
+- Move the functions `force1` and `force` from `unpythonic.syntax` to `unpythonic`. Make the `Lazy` class (promise implementation) public. (They actually come from `unpythonic.lazyutil`.)
+
 - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name. Old name was `HACKING.md`, which was correct, but nowadays obscure.
 
 - Python 3.4 and 3.5 support dropped, as these language versions have officially reached end-of-life.
