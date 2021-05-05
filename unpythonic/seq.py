@@ -3,7 +3,7 @@
 
 __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
            "pipe1", "piped1", "lazy_piped1",
-           "pipe", "piped", "getvalue", "lazy_piped", "runpipe", "exitpipe",
+           "pipe", "piped", "lazy_piped", "exitpipe",
            "pipec",  # w/ curry
            "do", "do0", "assign"]
 
@@ -12,7 +12,7 @@ from .env import env
 from .fun import curry, iscurried
 from .dynassign import dyn
 from .arity import arity_includes, UnknownArity
-from .singleton import Singleton
+from .symbol import sym
 
 # sequence side effects in a lambda
 def begin(*vals):
@@ -143,16 +143,7 @@ def pipe1(value0, *bodys):
         x = update(x)
     return x
 
-class Getvalue(Singleton):  # singleton sentinel with a nice repr
-    """Sentinel; pipe into this to exit a shell-like pipe and return the current value."""
-    def __repr__(self):  # pragma: no cover
-        return "<sentinel for pipe exit>"
-getvalue = Getvalue()
-runpipe = getvalue  # same thing as getvalue, but semantically better name for lazy pipes
-
-# New unified name for v0.15.0; deprecating the separate "getvalue" and "runpipe" as of v0.14.2.
-# TODO: Now that we have symbols, in v0.15.0, change this to `sym("exitpipe")` and delete the `Getvalue` class.
-exitpipe = getvalue
+exitpipe = sym("exitpipe")
 
 class piped1:
     """Shell-like piping syntax.
