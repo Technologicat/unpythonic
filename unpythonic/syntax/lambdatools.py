@@ -7,9 +7,8 @@ __all__ = ["multilambda",
            "quicklambda",
            "envify"]
 
-from ast import (Lambda, List, Name, Assign, Subscript, Call, FunctionDef,
-                 AsyncFunctionDef, Attribute, keyword, Dict, Constant, arg,
-                 copy_location)
+from ast import (Lambda, Name, Assign, Subscript, Call, FunctionDef,
+                 AsyncFunctionDef, Attribute, keyword, Dict, Constant, arg)
 from copy import deepcopy
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
@@ -454,9 +453,9 @@ def _envify(block_body):
                         ename = gensym("e")
                         theenv = q[h[_envify]()]
                         theenv.keywords = kws
-                        assignment = Assign(targets=[q[n[ename]]],
-                                            value=theenv)
-                        assignment = copy_location(assignment, tree)
+                        with q as quoted:
+                            n[ename] = a[theenv]
+                        assignment = quoted[0]
                         tree.body.insert(0, assignment)
                     elif type(tree) is Lambda and id(tree) in userlambdas:
                         # We must in general inject a new do[] even if one is already there,
@@ -465,15 +464,15 @@ def _envify(block_body):
                         # the name should revert to mean the formal parameter.
                         #
                         # inject a do[] and reuse its env
-                        tree.body = _do(List(elts=[q[n["_here_"]],
-                                                   tree.body]))
+                        tree.body = _do(q[n["_here_"],
+                                          a[tree.body]])
                         view = ExpandedDoView(tree.body)  # view.body: [(lambda e14: ...), ...]
                         ename = view.body[0].args.args[0].arg  # do[] environment name
-                        theupdate = Attribute(value=q[n[ename]], attr="update")
+                        theupdate = q[n[f"{ename}.update"]]
                         thecall = q[a[theupdate]()]
                         thecall.keywords = kws
                         tree.body = splice_expression(thecall, tree.body, "_here_")
-                    newbindings.update({k: Attribute(value=q[n[ename]], attr=k) for k in argnames})  # "x" --> e.x
+                    newbindings.update({k: q[n[f"{ename}.{k}"]] for k in argnames})  # "x" --> e.x
                     self.generic_withstate(tree, enames=(enames + [ename]), bindings=newbindings)
             else:
                 # leave alone the _envify() added by us
@@ -484,7 +483,9 @@ def _envify(block_body):
                 elif isenvassign(tree):
                     view = UnexpandedEnvAssignView(tree)
                     if view.name in bindings.keys():
-                        envset = Attribute(value=bindings[view.name].value, attr="set")
+                        # Grab the envname from the actual binding of "varname", of the form `e.varname`
+                        # (so it's the `id` of a `Name` that is the `value` of an `Attribute`).
+                        envset = q[n[f"{bindings[view.name].value.id}.set"]]
                         newvalue = self.visit(view.value)
                         return q[a[envset](u[view.name], a[newvalue])]
                 # transform references to currently active bindings
