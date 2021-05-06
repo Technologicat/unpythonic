@@ -97,7 +97,7 @@ def runtests():
             # not part of the template (since we splice in stuff that is intended to
             # refer to the "k" in the @dlet env). So use abbrev[] instead of let_syntax[].
             with abbrev:
-                with block(value) as my_yield:  # noqa: F821, here `abbrev` defines the name `value` when we call `my_yield`.
+                with block[value] as my_yield:  # noqa: F821, here `abbrev` defines the name `value` when we call `my_yield`.
                     call_cc[my_yieldf(value)]  # for this to work, abbrev[] must eliminate its "if 1" blocks.  # noqa: F821, my_yieldf will be defined below and this is a macro.
                 with block as begin_generator_body:
                     # logic to resume after the last executed my_yield, if any
@@ -129,9 +129,9 @@ def runtests():
             # and the user code (generator body) doesn't refer to k directly.
             # (So "k" can be resolved lexically *in the input source code that goes to dlet[]*.)
             with let_syntax:
-                with block(value) as my_yield:  # noqa: F821
+                with block[value] as my_yield:  # noqa: F821
                     call_cc[my_yieldf(value)]  # for this to work, let_syntax[] must eliminate its "if 1" blocks.  # noqa: F821
-                with block(myname, body) as make_generator:  # noqa: F821, `let_syntax` defines `myname` and `body` when we call `make_generator`.
+                with block[myname, body] as make_generator:  # noqa: F821, `let_syntax` defines `myname` and `body` when we call `make_generator`.
                     @dlet((k, None))  # noqa: F821
                     def myname():  # replaced by the user-supplied name, since "myname" is a template parameter.
                         # logic to resume after the last executed my_yield, if any
