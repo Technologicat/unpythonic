@@ -69,23 +69,27 @@ from ..dynassign import make_dynvar
 # If the line `tree = expander.visit(tree)` is omitted, the macro expands outside-in.
 # Note this default is different from MacroPy's!
 
+# TODO: Macro docs: "first pass" -> "outside in"; "second pass" -> "inside out"
+
+# TODO: Check expansion order of several macros in the same `with` statement
+
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
 
 # TODO: With `mcpyrate` we could start looking at values, not names, when the aim is to detect hygienically captured `unpythonic` constructs. See use sites of `isx`; refer to `mcpyrate.quotes.is_captured_value` and `mcpyrate.quotes.lookup_value`.
 
-# TODO: macro docs: "first pass" -> "outside in"; "second pass" -> "inside out"
-
-# TODO: something like `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead
+# TODO: Get rid of `UnpythonicExpandedMacroMarker`, use `ASTMarker`. We don't really need to keep markers
+# TODO: until run time. This requires a hook in the expander for custom postprocessors, so we can auto-remove
+# TODO: our AST markers when macro expansion of a module is complete.
 
 # TODO: Consider using run-time compiler access in macro tests, like `mcpyrate` itself does. This compartmentalizes testing so that the whole test module won't crash on a macro-expansion error.
 
-# TODO: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9.
+# TODO: 0.16: move `scoped_transform` to `mcpyrate` as `ScopedASTTransformer` and `ScopedASTVisitor`.
 
-# TODO: Check expansion order of several macros in the same `with` statement
+# TODO: Something like `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead.
 
 # TODO: AST pattern matching for `mcpyrate`? Would make destructuring easier. A writable representation (auto-viewify) is a pain to build, though...
 
-# TODO: 0.16: move `scoped_transform` to `mcpyrate` as `ScopedASTTransformer` and `ScopedASTVisitor`.
+# TODO: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9.
 
 from .autocurry import *  # noqa: F401, F403
 from .autoref import *  # noqa: F401, F403
