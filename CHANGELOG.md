@@ -72,6 +72,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
   - `setescape` → `catch`
   - `escape` → `throw`
   - `getvalue`, `runpipe` → `exitpipe` (combined into one)
+    - **CAUTION**: Now `exitpipe` is an `unpythonic.symbol.sym` (like a Lisp symbol). This is not compatible with existing, pickled `exitpipe` instances; it used to be an instance of the class `Getvalue`, which has been removed. (There's not much reason to pickle an `exitpipe` instance, but we're mentioning this for the sake of completeness.)
 
 - Drop support for deprecated argument format for `raisef`. Now the usage is `raisef(exc)` or `raisef(exc, cause=...)`. These correspond exactly to `raise exc` and `raise exc from ...`, respectively.
 
