@@ -73,6 +73,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 - [``unpythonic.test.fixtures``: a test framework for macro-enabled Python](#unpythonic-test-fixtures-a-test-framework-for-macro-enabled-python)
   - [Overview](#overview)
   - [Testing syntax quick reference](#testing-syntax-quick-reference)
+  - [Expansion order](#expansion-order)
   - [`with test`: test blocks](#with-test-test-blocks)
   - [`the`: capture the value of interesting subexpressions](#the-capture-the-value-of-interesting-subexpressions)
   - [Test sessions and testsets](#test-sessions-and-testsets)
@@ -1707,16 +1708,38 @@ Because `unpythonic.test.fixtures` is, by design, a minimalistic *no-framework* 
 
 #### Testing syntax quick reference
 
-**Imports**:
+**Imports** - complete list:
 
 ```python
 from unpythonic.syntax import (macros, test, test_raises, test_signals,
-                               fail, error, warn, the)
+                               fail, error, warn, the, expand_testing_macros_first)
 from unpythonic.test.fixtures import (session, testset, returns_normally,
                                       catch_signals, terminate)
 ```
 
-**Overall structure** - session and testsets:
+**Overall structure** of typical unit test module:
+
+```python
+from unpythonic.syntax import macros, test, test_raises, the
+from unpythonic.test.fixtures import session, testset
+
+def runtests():
+    with testset("something 1"):
+        ...
+    with testset("something 2"):
+        ...
+    ...
+
+if __name__ == '__main__':  # pragma: no cover
+    with session(__file__):
+        runtests()
+```
+
+The if-main idiom allows running this test module individually, but it is tagged with `# pragma: no cover`, so that the coverage reporter won't yell about it when the module is run by the test runner as part of the complete test suite (which, incidentally, is also a good opportunity to measure coverage).
+
+If you want to ensure that testing macros expand before anything else - including your own code-walking block macros (when you have tests inside the body) - import the macro `expand_testing_macros_first`, and put a `with expand_testing_macros_first` around the affected code. (See [Expansion order](#expansion-order), below.)
+
+**Sessions and testsets**:
 
 ```python
 with session(name):
@@ -1814,11 +1837,38 @@ The constructs `with test_raises`, `with test_signals` do **not** support `the[]
 
 Tests can be nested; this is sometimes useful as an explicit signal barrier.
 
+#### Expansion order
+
+**Changed in v0.15.0**. *The testing macros now expand outside-in; this allows `mcpyrate.debug.step_expansion` to treat them as a separate step. In v0.14.3, which introduced the test framework, they used to be two-pass macros.*
+
+Your test macro invocations may get partially expanded code, if those invocations reside in the body of an invocation of a block macro that also expands outside-in:
+
+```python
+with yourblockmacro:  # outside-in
+    test[...]
+```
+
+Here the `...` may be edited by `yourblockmacro` before `test[]` sees it. (It likely **will** be edited, since this pattern will commonly appear in the tests for `yourblockmacro`, where the whole point is to have the `...` depend on what `yourblockmacro` outputs.)
+
+If you need testing macros to expand before anything else even in this scenario (so you can more clearly see where in the unexpanded source code a particular expression came from), you can do this:
+
+```python
+from unpythonic.syntax import macros, expand_testing_macros_first
+
+with expand_testing_macros_first:
+    with yourblockmacro:
+        test[...]
+```
+
+The `expand_testing_macros_first` macro is itself a code-walking block macro that does as it says on the tin. The testing macros are identified by scanning the bindings of the current macro expander; names don't matter, so it respects as-imports.
+
+This does imply that `your_block_macro` will then receive the expanded form of `test[...]` as input, but that's macros for you. You'll have to choose which is more important: seeing the unexpanded code in error messages, or receiving unexpanded `test[]` expressions in `yourblockmacro`.
+
 #### `with test`: test blocks
 
 Test blocks are meant for testing code that requires Python statements; i.e. does not fit into Python's expression sublanguage.
 
-In `unpythonic.test.fixtures`, a test block is implicitly lifted into a function. Hence, any local variables assigned to inside the block remain local to the implicit function. Use Python's `nonlocal` and `global` keywords, if needed.
+In `unpythonic.test.fixtures`, **a test block is implicitly lifted into a function**. Hence, any local variables assigned to inside the block remain local to the implicit function. Use Python's `nonlocal` and `global` keywords, if needed.
 
 By default, a `with test` block asserts just that it completes normally. If you instead want to assert that an expression is truthy, use `return expr` to terminate the implicit function and return the value of the desired `expr`. The return value is passed to the test asserter for checking that it is truthy.
 
@@ -1830,7 +1880,9 @@ The `with test_raises[exctype]` and `with test_signals[exctype]` blocks assert t
 
 The point of `unpythonic.test.fixtures` is to make testing macro-enabled Python as frictionless as reasonably possible.
 
-Inside a `test[]` expression, or anywhere within the code in a `with test` block, the `the[]` macro can be used to declare any number of subexpressions as interesting, for capturing the source code and value into the test failure message, which is shown if the test fails. Source code is captured in the outside-in pass, before any nested inside-out macros expand. (Many macros defined by `unpythonic` expand inside-out.) The value is captured at run time as a side effect just after the value has been evaluated.
+Inside a `test[]` expression, or anywhere within the code in a `with test` block, the `the[]` macro can be used to declare any number of subexpressions as interesting, for capturing the source code and value into the test failure message, which is shown if the test fails. Each `the[]` captures one subexpression (as many times as it is evaluated, in the order evaluated).
+
+Because test macros expand outside-in, the source code is captured before any nested inside-out macros expand. (Many macros defined by `unpythonic` expand inside-out.) The value is captured at run time as a side effect just after the value has been evaluated.
 
 By default (if no explicit `the[]` is present), `test[]` implicitly inserts a `the[]` for the leftmost term if the top-level expression is a comparison (common use case), and otherwise does not capture anything.
 
@@ -1858,7 +1910,7 @@ The `with session()` in the example session above is optional. The human-readabl
 
 Tests can optionally be grouped into testsets. Each `testset` tallies passed, failed and errored tests within it, and displays the totals when it exits. Testsets can be named and nested.
 
-It is useful to have at least one `testset` (e.g. the implicit top-level one established by `with session`), because the `testset` mechanism forms one half of the test framework. It is possible to use the test macros without a `testset`, but that is only intended for building alternative test frameworks.
+It is useful to have at least one `testset` (the implicit top-level one established by `with session` is sufficient), because the `testset` mechanism forms one half of the test framework. It is possible to use the test macros without a `testset`, but that is only intended for building alternative test frameworks.
 
 Testsets also provide an option to locally install a `postproc` handler that gets a copy of each failure or error in that testset (and by default, any of its inner testsets), after the failure or error has been printed. In nested testsets, the dynamically innermost `postproc` wins. A failure is an instance of `unpythonic.test.fixtures.TestFailure`, an error is an instance of `unpythonic.test.fixtures.TestError`, and a warning is an instance of `unpythonic.test.fixtures.TestWarning`. All three inherit from `unpythonic.test.fixtures.TestingException`. Beside the human-readable message, these exception types contain attributes with programmatically inspectable information about what happened.
 
