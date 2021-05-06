@@ -452,7 +452,7 @@ When used as an expr macro, all bindings are registered first, and then the body
 
 #### `abbrev`
 
-The ``abbrev`` macro is otherwise exactly like ``let_syntax``, but it expands in the first pass (outside in). Hence, no lexically scoped nesting, but it has the power to locally rename also macros, because the ``abbrev`` itself expands before any macros invoked in its body. This allows things like:
+The ``abbrev`` macro is otherwise exactly like ``let_syntax``, but it expands outside-in. Hence, no lexically scoped nesting, but it has the power to locally rename also macros, because the ``abbrev`` itself expands before any macros invoked in its body. This allows things like:
 
 ```python
 abbrev[(m, macrowithverylongname)][
@@ -1830,7 +1830,7 @@ The `with test_raises[exctype]` and `with test_signals[exctype]` blocks assert t
 
 The point of `unpythonic.test.fixtures` is to make testing macro-enabled Python as frictionless as reasonably possible.
 
-Inside a `test[]` expression, or anywhere within the code in a `with test` block, the `the[]` macro can be used to declare any number of subexpressions as interesting, for capturing the source code and value into the test failure message, which is shown if the test fails. Source code is captured in the first pass (outside in), before any nested second-pass (inside out) macros expand. (Most of the macros defined by `unpythonic` expand in the second pass.) The value is captured at run time as a side effect just after the value has been evaluated.
+Inside a `test[]` expression, or anywhere within the code in a `with test` block, the `the[]` macro can be used to declare any number of subexpressions as interesting, for capturing the source code and value into the test failure message, which is shown if the test fails. Source code is captured in the outside-in pass, before any nested inside-out macros expand. (Many macros defined by `unpythonic` expand inside-out.) The value is captured at run time as a side effect just after the value has been evaluated.
 
 By default (if no explicit `the[]` is present), `test[]` implicitly inserts a `the[]` for the leftmost term if the top-level expression is a comparison (common use case), and otherwise does not capture anything.
 

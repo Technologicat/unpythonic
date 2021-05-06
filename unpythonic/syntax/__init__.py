@@ -69,8 +69,6 @@ from ..dynassign import make_dynvar
 # If the line `tree = expander.visit(tree)` is omitted, the macro expands outside-in.
 # Note this default is different from MacroPy's!
 
-# TODO: Macro docs: "first pass" -> "outside in"; "second pass" -> "inside out"
-
 # TODO: Check expansion order of several macros in the same `with` statement
 
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?

@@ -688,7 +688,7 @@ def _autoreturn(block_body):
         elif type(tree) is Expr:
             tree = Return(value=tree.value)
         return tree
-    # This is a first-pass macro. Any nested macros should get clean standard Python,
+    # This macro expands outside-in. Any nested macros should get clean standard Python,
     # not having to worry about implicit "return" statements.
     return AutoreturnTransformer().visit(block_body)
 

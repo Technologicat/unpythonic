@@ -160,12 +160,15 @@ def _autoref_resolve(args):
     return False, None
 
 def _autoref(block_body, args, asname):
+    # first pass, outside-in
     if len(args) != 1:
         raise SyntaxError("expected exactly one argument, the expr to implicitly reference")  # pragma: no cover
     if not block_body:
         raise SyntaxError("expected at least one statement inside the 'with autoref' block")  # pragma: no cover
 
     block_body = dyn._macro_expander.visit(block_body)
+
+    # second pass, inside-out
 
     # `autoref`'s analyzer needs the `ctx` attributes in `tree` to be filled in correctly.
     block_body = fix_ctx(block_body, copy_seen_nodes=False)  # TODO: or maybe copy seen nodes?
@@ -292,9 +295,9 @@ def _autoref(block_body, args, asname):
 
     # Skip (by name) some common references inserted by other macros.
     #
-    # We are a second-pass macro (inside out), so any first-pass macro invocations,
-    # as well as any second-pass macro invocations inside the `with autoref` block,
-    # have already expanded by the time we run our transformer.
+    # This part runs in the inside-out pass, so any outside-in macro invocations,
+    # as well as any inside-out macro invocations inside the `with autoref`
+    # block, have already expanded by the time we run our transformer.
     always_skip = ['letter', 'dof',  # let/do subsystem
                    'namelambda',  # lambdatools subsystem
                    'curry', 'curryf' 'currycall',  # autocurry subsystem

@@ -93,7 +93,7 @@ def runtests():
     # A basic generator template using abbrev[].
     with testset("integration with abbrev"):
         with continuations:
-            # We must expand abbreviations in the first pass, before the @dlet that's
+            # We must expand abbreviations in the outside-in pass, before the @dlet that's
             # not part of the template (since we splice in stuff that is intended to
             # refer to the "k" in the @dlet env). So use abbrev[] instead of let_syntax[].
             with abbrev:

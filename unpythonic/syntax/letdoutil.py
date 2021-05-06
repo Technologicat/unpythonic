@@ -529,8 +529,8 @@ class ExpandedLetView:
     We support both "with autocurry" and bare formats.
 
     This is for simple in-place modifications; changing the number of bindings
-    is currently not supported. Prefer doing any extensive modifications in the
-    first pass, before the ``let[]`` expands.
+    is currently not supported. Prefer doing any extensive modifications
+    **before** the ``let[]`` expands.
 
     The bindings are contained in an `ast.Tuple`. Each binding is also an `ast.Tuple`.
 
@@ -711,8 +711,8 @@ class ExpandedDoView:
     We support both "with autocurry" and bare formats.
 
     This is for simple in-place modifications; changing the number of do-items
-    is currently not supported. Prefer doing any extensive modifications in the
-    first pass, before the ``do[]`` expands.
+    is currently not supported. Prefer doing any extensive modifications
+    **before** the ``do[]`` expands.
 
     ``body`` is a ``list``, where each item is of the form ``lambda e: ...``.
 

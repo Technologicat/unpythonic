@@ -254,7 +254,7 @@ More on type systems:
  - ``continuations`` and ``tco`` are mutually exclusive, since ``continuations`` already implies TCO.
    - However, the ``tco`` macro skips any ``with continuations`` blocks inside it, **for the specific reason** of allowing modules written in the [Lispython dialect](https://github.com/Technologicat/pydialect) (which implies TCO for the whole module) to use ``with continuations``.
 
- - ``prefix``, ``autoreturn``, ``quicklambda`` and ``multilambda`` are first-pass macros (expand from outside in), because they change the semantics:
+ - ``prefix``, ``autoreturn``, ``quicklambda`` and ``multilambda`` expand outside-in, because they change the semantics:
    - ``prefix`` transforms things-that-look-like-tuples into function calls,
    - ``autoreturn`` adds ``return`` statements where there weren't any,
    - ``quicklambda`` transforms things-that-look-like-list-lookups into ``lambda`` function definitions,
@@ -272,7 +272,7 @@ More on type systems:
    - This allows ``with tco`` to work together with the functions in ``unpythonic.fploop``, which imply TCO.
 
  - Macros that transform lambdas (notably ``continuations`` and ``tco``):
-   - Perform a first pass to take note of all lambdas that appear in the code *before the expansion of any inner macros*. Then in the second pass, *after the expansion of all inner macros*, only the recorded lambdas are transformed.
+   - Perform an outside-in pass to take note of all lambdas that appear in the code *before the expansion of any inner macros*. Then in an inside-out pass, *after the expansion of all inner macros*, only the recorded lambdas are transformed.
      - This mechanism distinguishes between explicit lambdas in the client code, and internal implicit lambdas automatically inserted by a macro. The latter are a technical detail that should not undergo the same transformations as user-written explicit lambdas.
      - The identification is based on the ``id`` of the AST node instance. Hence, if you plan to write your own macros that work together with those in ``unpythonic.syntax``, avoid going overboard with FP. Modifying the tree in-place, preserving the original AST node instances as far as sensible, is just fine.
      - For the interested reader, grep the source code for ``userlambdas``.
@@ -285,7 +285,7 @@ More on type systems:
        - ``unpythonic.fploop.breakably_looped`` internally inserts the ``call_ec`` at the right step, and gives you the ec as ``brk``.
      - For the interested reader, look at ``unpythonic.syntax.util``.
 
- - ``namedlambda`` is a two-pass macro. In the first pass (outside-in), it names lambdas inside ``let[]`` expressions before they are expanded away. The second pass (inside-out) of ``namedlambda`` must run after ``autocurry`` to analyze and transform the auto-curried code produced by ``with autocurry``. In most cases, placing ``namedlambda`` in a separate outer ``with`` block runs both operations in the correct order.
+ - ``namedlambda`` is a two-pass macro. In the outside-in pass, it names lambdas inside ``let[]`` expressions before they are expanded away. The inside-out pass of ``namedlambda`` must run after ``autocurry`` to analyze and transform the auto-curried code produced by ``with autocurry``. In most cases, placing ``namedlambda`` in a separate outer ``with`` block runs both operations in the correct order.
 
  - ``autoref`` does not need in its output to be curried (hence after ``curry`` to gain some performance), but needs to run before ``lazify``, so that both branches of each transformed reference get the implicit forcing. Its transformation is orthogonal to what ``namedlambda`` does, so it does not matter in which exact order these two run.
 

@@ -105,7 +105,7 @@ def runtests():
     # the prefix syntax of Lisp, the speed of Python, and the readability of Haskell!
     # If you want to play around with this idea, see `unpythonic.dialects.listhell`.
     with testset("Listhell"):
-        # `prefix` is a first-pass macro, so placed on the outside, it expands first.
+        # `prefix` expands outside-in, so placed on the outside, it expands first.
         with prefix:
             with autocurry:
                 mymap = lambda f: (foldr, (compose, cons, f), nil)

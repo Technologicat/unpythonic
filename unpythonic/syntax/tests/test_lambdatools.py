@@ -147,7 +147,7 @@ def runtests():
                 test[f6(10) == (2, 3, 100)]
                 test[f6.__name__ == "f6"]
 
-        # presence of autocurry should not confuse the first-pass output
+        # presence of autocurry should not break the output of the outside-in pass
         with namedlambda:
             with autocurry:
                 foo = let[(f7, None) in f7 << (lambda x: x)]  # noqa: F821

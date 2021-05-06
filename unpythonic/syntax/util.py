@@ -87,11 +87,15 @@ def detect_callec(tree):
     return fallbacks + detect(tree)
 
 def detect_lambda(tree):
-    """Find lambdas in tree. Helper for block macros.
+    """Find lambdas in tree. Helper for two-pass block macros.
 
-    Run ``detect_lambda(tree)`` in the first pass, before allowing any
-    nested macros to expand. (Those may generate more lambdas that your block
-    macro is not interested in.)
+    A two-pass block macro first performs some processing outside-in, then calls
+    `expander.visit(tree)` to make any nested macro invocations expand, and then
+    performs some processing inside-out.
+
+    Run ``detect_lambda(tree)`` in the outside-in pass, before calling
+    `expander.visit(tree)`, because nested macro invocations may generate
+    more lambdas that your block macro is not interested in.
 
     The return value is a ``list``of ``id(lam)``, where ``lam`` is a Lambda node
     that appears in ``tree``. This list is suitable as ``userlambdas`` for the
@@ -103,7 +107,7 @@ def detect_lambda(tree):
     """
     class LambdaDetector(ASTVisitor):
         def examine(self, tree):
-            if isdo(tree):
+            if isdo(tree, expanded=True):
                 thebody = ExpandedDoView(tree).body
                 for thelambda in thebody:  # lambda e: ...
                     self.visit(thelambda.body)

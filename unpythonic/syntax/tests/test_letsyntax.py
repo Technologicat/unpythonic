@@ -171,8 +171,8 @@ def runtests():
             twice(appendxyz(7, 8, 9))  # a call is an expression, so as long as not yet expanded, this is ok
             test[lst == [7, 8, 9] * 2]
 
-    with testset("abbrev (first-pass let_syntax)"):
-        # abbrev: like let_syntax, but expands in the first pass, outside in
+    with testset("abbrev (outside-in let_syntax)"):
+        # abbrev: like let_syntax, but expands outside-in
         #   - no lexically scoped nesting
         #   - but can locally rename also macros (since abbrev itself expands before its body)
         y = abbrev((f, verylongfunctionname))[[  # noqa: F821

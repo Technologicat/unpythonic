@@ -78,7 +78,7 @@ def runtests():
             test[h(10) == 36]
 
     with testset("integration with autoreturn"):
-        # note: apply autoreturn first (first pass, so must be on the outside to run first)
+        # note: apply autoreturn first (outside-in, so must be on the outside to run first)
         with autoreturn:
             with tco:
                 def evenp(x):
@@ -143,7 +143,7 @@ def runtests():
 
     with testset("integration with quicklambda"):
         # f[] must expand first so that tco sees it as a lambda.
-        # `quicklambda` is a first-pass macro, so placed on the outside, it expands first.
+        # `quicklambda` is an outside-in macro, so placed on the outside, it expands first.
         with quicklambda:
             with tco:
                 def g(x):

@@ -807,6 +807,8 @@ def _warn_expr(tree):
 # Expr variants.
 
 def _test_expr(tree):
+    # first pass, outside-in
+
     # Note we want the line number *before macro expansion*, so we capture it now.
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = q[h[callsite_filename]()]
@@ -822,9 +824,15 @@ def _test_expr(tree):
     # Before we edit the tree, get the source code in its pre-transformation
     # state, so we can include that into the test failure message.
     #
-    # We capture the source in the first pass, so that no macros in tree are
-    # expanded yet. For the same reason, we process the `the[]` marks in the
-    # first pass.
+    # We capture the source in the outside-in pass, so that no macros inside `tree`
+    # are expanded yet. For the same reason, we process the `the[]` marks in the
+    # outside-in pass.
+    #
+    # (Note, however, that if the `test[]` is nested within the invocation of
+    #  a code-walking block macro, that macro may have performed edits already.
+    #  For this reason, we provide `with expand_testing_macros_first`, which
+    #  in itself is a code-walking block macro, whose only purpose is to force
+    #  `test[]` and its sisters to expand first.)
     sourcecode = unparse(tree)
 
     envname = gensym("e")  # for injecting the captured value
@@ -834,8 +842,9 @@ def _test_expr(tree):
     if not the_exprs and type(tree) is Compare:  # inject the implicit the[] on the LHS
         tree.left = _inject_value_recorder(envname, tree.left)
 
-    # End of first pass.
     tree = dyn._macro_expander.visit(tree)
+
+    # second pass, inside-out
 
     # We delay the execution of the test expr using a lambda, so
     # `unpythonic_assert` can get control first before the expr runs.
@@ -906,6 +915,8 @@ def _test_expr_raises(tree):
     return _test_expr_signals_or_raises(tree, "test_raises", q[h[unpythonic_assert_raises]])
 
 def _test_expr_signals_or_raises(tree, syntaxname, asserter):
+    # first pass, outside-in
+
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = q[h[callsite_filename]()]
 
@@ -919,15 +930,12 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     else:
         raise SyntaxError(f"Expected one of {syntaxname}[exctype, expr], {syntaxname}[exctype, expr, message]")  # pragma: no cover
 
-    # Before we edit the tree, get the source code in its pre-transformation
-    # state, so we can include that into the test failure message.
-    #
-    # We capture the source in the first pass, so that no macros in tree are
-    # expanded yet.
+    # Same remark about outside-in source code capture as in `_test_expr`.
     sourcecode = unparse(tree)
 
-    # End of first pass.
     tree = dyn._macro_expander.visit(tree)
+
+    # second pass, inside-out
 
     return q[(a[asserter])(a[exctype],
                            u[sourcecode],
@@ -942,6 +950,7 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
 # The strategy is we capture the block body into a new function definition,
 # and then `unpythonic_assert` on that function.
 def _test_block(block_body, args):
+    # first pass, outside-in
     if not block_body:
         return []  # pragma: no cover, cannot happen through the public API.
     first_stmt = block_body[0]
@@ -960,12 +969,7 @@ def _test_block(block_body, args):
     else:
         raise SyntaxError('Expected `with test:` or `with test[message]:`')  # pragma: no cover
 
-    # Before we edit the tree, get the source code in its pre-transformation
-    # state, so we can include that into the test failure message.
-    #
-    # We capture the source in the first pass, so that no macros in tree are
-    # expanded yet. For the same reason, we process the `the[]` marks in the
-    # first pass.
+    # Same remark about outside-in source code capture as in `_test_expr`.
     sourcecode = unparse(block_body)
 
     envname = gensym("e")  # for injecting the captured value
@@ -973,9 +977,12 @@ def _test_block(block_body, args):
     # Handle the `the[...]` marks, if any.
     block_body, the_exprs = _transform_important_subexpr(block_body, envname=envname)
 
-    # End of first pass.
     block_body = dyn._macro_expander.visit(block_body)
 
+    # second pass, inside-out
+
+    # Prepare the function template to be injected, and splice the contents
+    # of the `with test` block as the function body.
     testblock_function_name = gensym("_test_block")
     thetest = q[(a[asserter])(u[sourcecode],
                               n[testblock_function_name],
@@ -989,13 +996,14 @@ def _test_block(block_body, args):
     thefunc = newbody[0]
     thefunc.name = testblock_function_name
     thefunc.args.args[0] = arg(arg=envname)  # inject the gensymmed parameter name
+    thefunc.body = block_body
 
     # Handle the return statement.
     #
     # We just check if there is at least one; if so, we don't need to do
     # anything; the returned value is what the test should return to the
     # asserter.
-    for stmt in block_body:
+    for stmt in thefunc.body:
         if type(stmt) is Return:
             retval = stmt.value
             if not the_exprs and type(retval) is Compare:
@@ -1003,12 +1011,11 @@ def _test_block(block_body, args):
                 retval.left = _inject_value_recorder(envname, retval.left)
     else:
         # When there is no return statement at the top level of the `with test` block,
-        # we inject a `return True` to satisfy the test when the function returns normally.
+        # we inject a `return True` to satisfy the test when the injected function
+        # returns normally.
         with q as thereturn:
             return True
-        block_body.extend(thereturn)
-
-    thefunc.body = block_body
+        thefunc.body.extend(thereturn)
 
     return newbody
 
@@ -1019,6 +1026,7 @@ def _test_block_raises(block_body, args):
     return _test_block_signals_or_raises(block_body, args, "test_raises", q[h[unpythonic_assert_raises]])
 
 def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
+    # first pass, outside-in
     if not block_body:
         return []  # pragma: no cover, cannot happen through the public API.
     first_stmt = block_body[0]
@@ -1037,15 +1045,12 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
     else:
         raise SyntaxError(f'Expected `with {syntaxname}(exctype):` or `with {syntaxname}[exctype, message]:`')  # pragma: no cover
 
-    # Before we edit the tree, get the source code in its pre-transformation
-    # state, so we can include that into the test failure message.
-    #
-    # We capture the source in the first pass, so that no macros in tree are
-    # expanded yet.
+    # Same remark about outside-in source code capture as in `_test_expr`.
     sourcecode = unparse(block_body)
 
-    # End of first pass.
     block_body = dyn._macro_expander.visit(block_body)
+
+    # second pass, inside-out
 
     testblock_function_name = gensym("_test_block")
     thetest = q[(a[asserter])(a[exctype],
