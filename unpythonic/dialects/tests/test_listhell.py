@@ -7,8 +7,7 @@ from ...dialects import dialects, Listhell  # noqa: F401
 from ...syntax import macros, test  # noqa: F401
 from ...test.fixtures import session, testset
 
-from ...syntax import macros, let, local, delete, do  # noqa: F401, F811
-from ...syntax import where   # for let-where  # noqa: F401
+from ...syntax import macros, let, where, local, delete, do  # noqa: F401, F811
 from unpythonic import foldr, cons, nil, ll
 
 def runtests():

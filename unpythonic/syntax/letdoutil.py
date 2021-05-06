@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """Detect let and do forms, and destructure them writably."""
 
-__all__ = ["where",
-           "canonize_bindings",  # used by the macro interface layer
+__all__ = ["canonize_bindings",  # used by the macro interface layer
            "isenvassign", "islet", "isdo",
            "UnexpandedEnvAssignView", "UnexpandedLetView", "UnexpandedDoView",
            "ExpandedLetView", "ExpandedDoView"]
@@ -15,10 +14,6 @@ from mcpyrate.core import Done
 
 from .astcompat import getconstant, Str
 from .nameutil import isx, getname
-
-def where(*bindings):
-    """[syntax] Only meaningful in a let[body, where((k0, v0), ...)]."""
-    raise RuntimeError("where() is only meaningful in a let[body, where((k0, v0), ...)]")  # pragma: no cover
 
 letf_name = "letter"  # must match what ``unpythonic.syntax.letdo._let_expr_impl`` uses in its output.
 dof_name = "dof"      # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.

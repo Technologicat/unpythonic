@@ -69,8 +69,6 @@ from ..dynassign import make_dynvar
 # If the line `tree = expander.visit(tree)` is omitted, the macro expands outside-in.
 # Note this default is different from MacroPy's!
 
-# TODO: Move `where` from letdoutil to letdo, make it a @namemacro, and declare it public.
-
 # TODO: Consider reversing the MRO of @generic (to latest first), since the point is to be extensible.
 
 # TODO: Add docs navigation to all documentation files, like `mcpyrate` has.
@@ -101,7 +99,6 @@ from .ifexprs import *  # noqa: F401, F403
 from .lambdatools import *  # noqa: F401, F403
 from .lazify import *  # noqa: F401, F403
 from .letdo import *  # noqa: F401, F403
-from .letdoutil import where  # noqa: F401
 from .letsyntax import *  # noqa: F401, F403
 from .nb import *  # noqa: F401, F403
 from .prefix import *  # noqa: F401, F403

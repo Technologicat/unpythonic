@@ -20,7 +20,15 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
 
 - **Python 3.8 and 3.9 support added.**
 
-- Robustness: several auxiliary syntactic constructs such as `local[]`/`delete[]` (for `do[]`), `call_cc[]` (for `with continuations`), `it` (for `aif[]`), `with expr`/`with block` (for `with let_syntax`/`with abbrev`), and `q`/`u`/`kw` (for `with prefix`) now detect *at macro expansion time* if they appear outside any valid lexical context, and raise `SyntaxError` (with a descriptive message) if so. Previously these constructs could only raise an error at run time, and not all of them could detect the error even then.
+- Robustness: several auxiliary syntactic constructs now detect *at macro expansion time* if they appear outside any valid lexical context, and raise `SyntaxError` (with a descriptive message) if so.
+  - The full list is:
+    - `call_cc[]`, for `with continuations`
+    - `it`, for `aif[]`
+    - `local[]`/`delete[]`, for `do[]`
+    - `q`/`u`/`kw`, for `with prefix`
+    - `where`, for `let[body, where(k0=v0, ...)]` (also for `letseq`, `letrec`, `let_syntax`, `abbrev`)
+    - `with expr`/`with block`, for `with let_syntax`/`with abbrev`
+  - Previously these constructs could only raise an error at run time, and not all of them could detect the error even then.
 
 - `with namedlambda` now understands the walrus operator, too. In the construct `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
 

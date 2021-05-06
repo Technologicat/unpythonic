@@ -18,13 +18,14 @@ class Pytkell(Dialect):
         with q as template:
             __lang__ = "Pytkell"  # noqa: F841, just provide it to user code.
             from unpythonic.syntax import (macros, lazy, lazyrec, lazify, autocurry,  # noqa: F401, F811
+                                           where,
                                            let, letseq, letrec,
                                            dlet, dletseq, dletrec,
                                            blet, bletseq, bletrec,
                                            local, delete, do, do0,
                                            cond, forall)
             # Auxiliary syntax elements for the macros.
-            from unpythonic.syntax import where, insist, deny  # noqa: F401
+            from unpythonic.syntax import insist, deny  # noqa: F401
             # Functions that have a haskelly feel to them.
             from unpythonic import (foldl, foldr, scanl, scanr,  # noqa: F401
                                     s, imathify, gmathify, frozendict,

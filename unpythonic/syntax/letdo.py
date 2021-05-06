@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Local bindings (let), imperative code in expression position (do)."""
 
-__all__ = ["let", "letseq", "letrec",
+__all__ = ["where",
+           "let", "letseq", "letrec",
            "dlet", "dletseq", "dletrec",
            "blet", "bletseq", "bletrec",
            "local", "delete", "do", "do0"]
@@ -30,7 +31,7 @@ import sys
 
 from mcpyrate.quotes import macros, q, u, n, a, t, h  # noqa: F401
 
-from mcpyrate import gensym, parametricmacro
+from mcpyrate import gensym, namemacro, parametricmacro
 from mcpyrate.quotes import capture_as_macro, is_captured_value
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
@@ -84,6 +85,22 @@ def _destructure_and_apply_let(tree, args, macro_expander, let_transformer, allo
 
 # --------------------------------------------------------------------------------
 # Macro interface - expr macros
+
+@namemacro
+def where(tree, *, syntax, **kw):
+    """[syntax, special] `where` operator for let.
+
+    Usage::
+
+        let[body, where((k0, v0), ...)]
+
+    Only meaningful for declaring the bindings in a let-where, for all
+    expression-form let constructs: `let`, `letseq`, `letrec`, `let_syntax`,
+    `abbrev`.
+    """
+    if syntax != "name":
+        raise SyntaxError("where (unpythonic.syntax.letdo.where) is a name macro only")  # pragma: no cover
+    raise SyntaxError("where() is only meaningful in a let[body, where((k0, v0), ...)]")  # pragma: no cover
 
 @parametricmacro
 def let(tree, *, args, syntax, expander, **kw):

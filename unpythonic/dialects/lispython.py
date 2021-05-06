@@ -29,6 +29,7 @@ class Lispython(Dialect):
             __lang__ = "Lispython"  # noqa: F841, just provide it to user code.
             from unpythonic.syntax import (macros, tco, autoreturn,  # noqa: F401, F811
                                            multilambda, quicklambda, namedlambda, f,
+                                           where,
                                            let, letseq, letrec,
                                            dlet, dletseq, dletrec,
                                            blet, bletseq, bletrec,
@@ -36,7 +37,7 @@ class Lispython(Dialect):
                                            let_syntax, abbrev,
                                            cond)
             # Auxiliary syntax elements for the macros.
-            from unpythonic.syntax import where, block, expr  # noqa: F401, F811
+            from unpythonic.syntax import block, expr  # noqa: F401, F811
             from unpythonic import cons, car, cdr, ll, llist, nil, prod, dyn  # noqa: F401, F811
             with autoreturn, quicklambda, multilambda, tco, namedlambda:
                 __paste_here__  # noqa: F821, just a splicing marker.
