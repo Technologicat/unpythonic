@@ -129,7 +129,14 @@ def u(tree, *, syntax, **kw):  # noqa: F811
 # TODO: We currently trigger the error on any appearance of the name `kw` outside a valid context.
 @namemacro
 def kw(tree, *, syntax, **kw):  # noqa: F811
-    """[syntax] Pass-named-args operator. Only meaningful in a tuple inside a prefix block."""
+    """[syntax, special] Pass-named-args operator for `with prefix`.
+
+    Usage::
+
+        (f, a0, ..., kw(k0=v0, ...))
+
+    Only meaningful in a tuple inside a prefix block.
+    """
     if syntax != "name":
         raise SyntaxError("kw (unpythonic.syntax.prefix.kw) is a name macro only")  # pragma: no cover
     raise SyntaxError("kw (unpythonic.syntax.prefix.kw) is only valid in a tuple inside a `with prefix` block")  # pragma: no cover, not meant to hit the expander
