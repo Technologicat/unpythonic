@@ -8,6 +8,7 @@
   - [Listhell](listhell.md)
   - **Pytkell**
 - [REPL server](../repl.md)
+- [Troubleshooting](../troubleshooting.md)
 - [Design notes](../design-notes.md)
 - [Additional reading](../readings.md)
 - [Contribution guidelines](../../CONTRIBUTING.md)

@@ -5,6 +5,7 @@
 - **Syntactic macro feature set**
 - [Examples of creating dialects using `mcpyrate`](dialects.md)
 - [REPL server](repl.md)
+- [Troubleshooting](troubleshooting.md)
 - [Design notes](design-notes.md)
 - [Additional reading](readings.md)
 - [Contribution guidelines](../CONTRIBUTING.md)
