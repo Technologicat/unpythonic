@@ -123,8 +123,8 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
     What `test[expr]` captures for reporting as "result" in the failure
     message, if the test fails:
 
-      - If a `the[...]` mark is present, the subexpression marked as `the[...]`.
-        At most one `the[]` may appear in a single `test[...]`.
+      - If any `the[...]` marks are present, the subexpressions marked
+        as `the[...]`.
       - Else if `expr` is a comparison, the LHS (leftmost term in case of
         a chained comparison). So e.g. `test[x < 3]` needs no annotation
         to do the right thing. This is a common use case, hence automatic.
@@ -181,11 +181,9 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
     between `def` and `lambda`.
 
     In the block variant, the "result" capture rules apply to the return value
-    designated by `return`. To override, the `the[]` mark can be used for
-    capturing the value of any one expression inside the block. The mark
-    doesn't have to be in the `return`.
-
-    At most one `the[]` may appear in the same `with test` block.
+    designated by `return`. To override, `the[]` marks can be used for capturing
+    the value of any expressions inside the block. The marks don't have to be
+    in the `return`; they can appear anywhere.
 
     **Failure and error signaling**:
 
