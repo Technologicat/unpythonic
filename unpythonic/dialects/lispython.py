@@ -34,10 +34,8 @@ class Lispython(Dialect):
                                            dlet, dletseq, dletrec,
                                            blet, bletseq, bletrec,
                                            local, delete, do, do0,
-                                           let_syntax, abbrev,
+                                           let_syntax, abbrev, block, expr,
                                            cond)
-            # Auxiliary syntax elements for the macros.
-            from unpythonic.syntax import block, expr  # noqa: F401, F811
             from unpythonic import cons, car, cdr, ll, llist, nil, prod, dyn  # noqa: F401, F811
             with autoreturn, quicklambda, multilambda, tco, namedlambda:
                 __paste_here__  # noqa: F821, just a splicing marker.
