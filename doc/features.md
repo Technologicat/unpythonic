@@ -2998,6 +2998,8 @@ For what kind of things can be done with this, see particularly the [*holy trait
 
 The ``generic`` decorator essentially allows replacing the `if`/`elif` dynamic type checking boilerplate of polymorphic functions with type annotations on the function parameters, with support for features from the `typing` stdlib module.
 
+If several methods of the same generic function match the arguments given, the most recently registered method wins. (**CAUTION**: This is different from Julia, where the most specific method wins. Doing that requires a more careful type analysis than what we have here.)
+
 The details are best explained by example:
 
 ```python

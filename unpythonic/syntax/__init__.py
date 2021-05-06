@@ -69,8 +69,6 @@ from ..dynassign import make_dynvar
 # If the line `tree = expander.visit(tree)` is omitted, the macro expands outside-in.
 # Note this default is different from MacroPy's!
 
-# TODO: Consider reversing the MRO of @generic (to latest first), since the point is to be extensible.
-
 # TODO: Add docs navigation to all documentation files, like `mcpyrate` has.
 
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
