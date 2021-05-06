@@ -1,3 +1,14 @@
+**Navigation**
+
+- [README](../README.md)
+- [Pure-Python feature set](features.md)
+- **Syntactic macro feature set**
+- [Examples of creating dialects using `mcpyrate`](dialects.md)
+- [REPL server](repl.md)
+- [Design notes](design-notes.md)
+- [Additional reading](readings.md)
+- [Contribution guidelines](../CONTRIBUTING.md)
+
 # Language extensions using ``unpythonic.syntax``
 
 Our extensions to the Python language are built on [``mcpyrate``](https://github.com/Technologicat/mcpyrate), from the PyPI package [``mcpyrate``](https://pypi.org/project/mcpyrate/).

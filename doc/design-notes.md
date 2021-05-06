@@ -1,21 +1,35 @@
-# Design Notes
+**Navigation**
+
+- [README](../README.md)
+- [Pure-Python feature set](features.md)
+- [Syntactic macro feature set](macros.md)
+- [Examples of creating dialects using `mcpyrate`](dialects.md)
+- [REPL server](repl.md)
+- **Design notes**
+- [Additional reading](readings.md)
+- [Contribution guidelines](../CONTRIBUTING.md)
+
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
 
 - [Design Philosophy](#design-philosophy)
-- [Macros do not Compose](#macros-do-not-compose)
-- [Language Discontinuities](#language-discontinuities)
-- [What Belongs in Python?](#what-belongs-in-python)
-- [Killer features of Common Lisp](#killer-features-of-common-lisp)
-- [Common Lisp, Python, and productivity](#common-lisp-python-and-productivity)
-- [Python is not a Lisp](#python-is-not-a-lisp)
-- [On ``let`` and Python](#on-let-and-python)
-- [Assignment Syntax](#assignment-syntax)
-- [TCO Syntax and Speed](#tco-syntax-and-speed)
-- [No Monads?](#no-monads)
-- [No Types?](#no-types)
-- [Detailed Notes on Macros](#detailed-notes-on-macros)
-- [Miscellaneous notes](#miscellaneous-notes)
+    - [Macros do not Compose](#macros-do-not-compose)
+    - [Language Discontinuities](#language-discontinuities)
+    - [What Belongs in Python?](#what-belongs-in-python)
+    - [Killer features of Common Lisp](#killer-features-of-common-lisp)
+    - [Common Lisp, Python, and productivity](#common-lisp-python-and-productivity)
+    - [Python is not a Lisp](#python-is-not-a-lisp)
+    - [On ``let`` and Python](#on-let-and-python)
+    - [Assignment syntax](#assignment-syntax)
+    - [TCO syntax and speed](#tco-syntax-and-speed)
+    - [No Monads?](#no-monads)
+    - [No Types?](#no-types)
+    - [Detailed Notes on Macros](#detailed-notes-on-macros)
+    - [Miscellaneous notes](#miscellaneous-notes)
 
-## Design Philosophy
+<!-- markdown-toc end -->
+
+# Design Philosophy
 
 The main design considerations of `unpythonic` are simplicity, robustness, and minimal dependencies. Some complexity is tolerated, if it is essential to make features interact better, or to provide a better user experience.
 
@@ -37,7 +51,7 @@ Finally, when the whole purpose of the feature is to automatically transform a p
 
 When to implement your own feature as a syntactic macro, see the discussion in Chapter 8 of [Paul Graham: On Lisp](http://paulgraham.com/onlisp.html). MacroPy's documentation also provides [some advice on the topic](https://macropy3.readthedocs.io/en/latest/discussion.html).
 
-### Macros do not Compose
+## Macros do not Compose
 
 Making macros work together is nontrivial, essentially because *macros don't compose*. [As pointed out by John Shutt](https://fexpr.blogspot.com/2013/12/abstractive-power.html), in a multilayered language extension implemented with macros, the second layer of macros needs to understand all of the first layer. The issue is that the macro abstraction leaks the details of its expansion. Contrast with functions, which operate on values: the process that was used to arrive at a value doesn't matter. It's always possible for a function to take this value and transform it into another value, which can then be used as input for the next layer of functions. That's composability at its finest.
 
@@ -49,7 +63,7 @@ Some aspects in the design of `unpythonic` could be simplified by expanding macr
 
 The lack of composability is a problem mainly when using macros to create a language extension, because the features of the extended language often interact. Macros can also be used in a much more everyday way, where composability is mostly a non-issue - to abstract and name common patterns that just happen to be of a nature that cannot be extracted as a regular function. See [Peter Seibel: Practical Common Lisp, chapter 3](http://www.gigamonkeys.com/book/practical-a-simple-database.html) for an example.
 
-### Language Discontinuities
+## Language Discontinuities
 
 The very act of extending a language creates points of discontinuity between the extended language and the original. This can become a particularly bad source of extra complexity, if the extension can be enabled locally for a piece of code - as is the case with block macros. Then the design of the extended language must consider how to treat interactions between pieces of code that use the extension and those that don't. Then exponentiate those design considerations by the number of extensions that can be enabled independently. This issue is simply absent when designing a new language from scratch.
 
@@ -59,7 +73,7 @@ For another example, it's likely that e.g. `continuations` still doesn't integra
 
 For a third example, consider *decorated lambdas*. This is an `unpythonic` extension - essentially, a compiler feature implemented (by calling some common utility code) by each of the transformers of the pure-macro features - that understands a lambda enclosed in a nested sequence of single-argument function calls *as a decorated function definition*. This is painful, because the Python AST has no place to store the decorator list for a lambda; Python sees it just as a nested sequence of function calls, terminating in a lambda. This has to be papered over by the transformers. We also introduce a related complication, the decorator registry (see `regutil`), so that we can automatically sort decorator invocations - so that pure-macro features know at which index to inject a particular decorator (so it works properly) when they need to do that. Needing such a registry is already a complication, but the *decorated lambda* machinery feels the pain more acutely.
 
-### What Belongs in Python?
+## What Belongs in Python?
 
 If you feel [my hovercraft is full of eels](http://stupidpythonideas.blogspot.com/2015/05/spam-spam-spam-gouda-spam-and-tulips.html), it is because they come with the territory.
 
@@ -71,7 +85,7 @@ On a point raised [here](https://www.artima.com/weblogs/viewpost.jsp?thread=1473
 
 It would be nice to be able to use indentation to structure expressions to improve their readability, like one can do in Racket with [sweet](https://docs.racket-lang.org/sweet/), but I suppose ``lambda x: [expr0, expr1, ...]`` will have to do for a multiple-expression lambda. Unless I decide at some point to make a source filter for [`mcpyrate`](https://github.com/Technologicat/mcpyrate) to auto-convert between indentation and parentheses; but for Python this is somewhat difficult to do, because statements **must** use indentation whereas expressions **must** use parentheses, and this must be done before we can invoke the standard parser to produce an AST. (And I don't want to maintain a [Pyparsing](https://github.com/pyparsing/pyparsing) grammar to parse a modified version of Python.)
 
-### Killer features of Common Lisp
+## Killer features of Common Lisp
 
 In my opinion, Common Lisp has three legendary killer features:
 
@@ -101,7 +115,7 @@ But for those of us that [don't like parentheses](https://srfi.schemers.org/srfi
       - PyPy (the JIT-enabled Python interpreter) itself is not the full story; the [RPython](https://rpython.readthedocs.io/en/latest/) toolchain from the PyPy project can *automatically produce a JIT for an interpreter for any new dynamic language implemented in the RPython language* (which is essentially a restricted dialect of Python 2.7). Now **that's** higher-order magic if anything is.
     - For the use case of numerics specifically, instead of Python, [Julia](https://docs.julialang.org/en/v1/manual/methods/) may be a better fit for writing high-level, yet performant code. It's a spiritual heir of Common Lisp, Fortran, *and Python*. Compilation to efficient machine code, with the help of gradual typing and automatic type inference, is a design goal.
 
-### Common Lisp, Python, and productivity
+## Common Lisp, Python, and productivity
 
 The various essays by Paul Graham, especially [Revenge of the Nerds (2002)](http://paulgraham.com/icad.html), have given the initial impulse to many programmers for studying Lisp. The essays are well written and have provided a lot of exposure for Lisp. So how does the programming world look in that light now, 20 years later?
 
@@ -121,7 +135,7 @@ Haskell aims at code-data equivalence from a third angle (memoized pure function
 
 Image-based programming (live programming) is a common factor between Pharo and Common Lisp + Swank. This is another productivity booster that much of the programming world isn't that familiar with. It eliminates not only the edit/compile/restart cycle, but the edit/restart cycle as well, making the workflow a concurrent *edit/run* instead (without restarting the whole app at each change). Julia has [Revise.jl](https://github.com/timholy/Revise.jl) for something similar.
 
-### Python is not a Lisp
+## Python is not a Lisp
 
 The point behind providing `let` and `begin` (and the ``let[]`` and ``do[]`` [macros](macros.md)) is to make Python lambdas slightly more useful - which was really the starting point for the whole `unpythonic` experiment.
 
@@ -139,7 +153,7 @@ The oft-quoted single-expression limitation of the Python ``lambda`` is ultimate
 
 Still, ultimately one must keep in mind that Python is not a Lisp. Not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful, even though it does have a side effect.
 
-### On ``let`` and Python
+## On ``let`` and Python
 
 Why no `let*`, as a function? In Python, name lookup always occurs at runtime. Python gives us no compile-time guarantees that no binding refers to a later one - in [Racket](http://racket-lang.org/), this guarantee is the main difference between `let*` and `letrec`.
 
@@ -155,7 +169,7 @@ The [macro versions](macros.md) of the `let` constructs **are** lexically scoped
 
 Inspiration: [[1]](https://nvbn.github.io/2014/09/25/let-statement-in-python/) [[2]](https://stackoverflow.com/questions/12219465/is-there-a-python-equivalent-of-the-haskell-let) [[3]](http://sigusr2.net/more-about-let-in-python.html).
 
-### Assignment syntax
+## Assignment syntax
 
 Why the clunky `e.set("foo", newval)` or `e << ("foo", newval)`, which do not directly mention `e.foo`? This is mainly because in Python, the language itself is not customizable. If we could define a new operator `e.foo <op> newval` to transform to `e.set("foo", newval)`, this would be easily solved.
 
@@ -174,7 +188,7 @@ If we later choose go this route nevertheless, `<<` is a better choice for the s
 
 The current solution for the assignment syntax issue is to use macros, to have both clean syntax at the use site and a relatively hackfree implementation.
 
-### TCO syntax and speed
+## TCO syntax and speed
 
 Benefits and costs of ``return jump(...)``:
 
@@ -198,7 +212,7 @@ For other libraries bringing TCO to Python, see:
  - ``recur.tco`` in [fn.py](https://github.com/fnpy/fn.py), the original source of the approach used here.
  - [MacroPy](https://github.com/azazel75/macropy) uses an approach similar to ``fn.py``.
 
-### No Monads?
+## No Monads?
 
 (Beside List inside ``forall``.)
 
@@ -206,7 +220,7 @@ Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done else
 
 If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
 
-### No Types?
+## No Types?
 
 The `unpythonic` project will likely remain untyped indefinitely, since I don't want to enter that particular marshland with things like `curry` and `with continuations`. It may be possible to gradually type some carefully selected parts - but that's currently not on [the roadmap](https://github.com/Technologicat/unpythonic/milestones). I'm not against it, if someone wants to contribute.
 
@@ -235,7 +249,7 @@ More on type systems:
 - In physics, units as used for dimension analysis are essentially a form of static typing.
   - This has been discussed on LtU, see e.g. [[1]](http://lambda-the-ultimate.org/node/33) [[2]](http://lambda-the-ultimate.org/classic/message11877.html).
 
-### Detailed Notes on Macros
+## Detailed Notes on Macros
 
  - ``continuations`` and ``tco`` are mutually exclusive, since ``continuations`` already implies TCO.
    - However, the ``tco`` macro skips any ``with continuations`` blocks inside it, **for the specific reason** of allowing modules written in the [Lispython dialect](https://github.com/Technologicat/pydialect) (which implies TCO for the whole module) to use ``with continuations``.
@@ -285,7 +299,7 @@ More on type systems:
    - When in doubt, use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks.
      - Load the macro expansion debug utility `from mcpyrate.debug import macros, step_expansion`, and put a ``with step_expansion:`` around your use site. Then add your macro invocations one by one, and make sure the expansion looks like what you intended.
 
-### Miscellaneous notes
+## Miscellaneous notes
 
 - [Nick Coghlan (2011): Traps for the unwary in Python's import system](http://python-notes.curiousefficiency.org/en/latest/python_concepts/import_traps.html).
 

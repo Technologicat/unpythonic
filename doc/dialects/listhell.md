@@ -1,4 +1,31 @@
-## Listhell: It's not Lisp, it's not Python, it's not Haskell
+**Navigation**
+
+- [README](../../README.md)
+- [Pure-Python feature set](../features.md)
+- [Syntactic macro feature set](../macros.md)
+- [Examples of creating dialects using `mcpyrate`](../dialects.md)
+  - [Lispython](lispython.md)
+  - **Listhell**
+  - [Pytkell](pytkell.md)
+- [REPL server](../repl.md)
+- [Design notes](../design-notes.md)
+- [Additional reading](../readings.md)
+- [Contribution guidelines](../../CONTRIBUTING.md)
+
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [Listhell: It's not Lisp, it's not Python, it's not Haskell](#listhell-its-not-lisp-its-not-python-its-not-haskell)
+    - [Features](#features)
+    - [What Listhell is](#what-listhell-is)
+    - [Comboability](#comboability)
+    - [Notes](#notes)
+    - [CAUTION](#caution)
+    - [Etymology?](#etymology)
+
+<!-- markdown-toc end -->
+
+# Listhell: It's not Lisp, it's not Python, it's not Haskell
 
 Python with prefix syntax for function calls, and automatic currying.
 
@@ -16,7 +43,7 @@ my_map = lambda f: (foldr, (compose, cons, f), nil)
 assert (my_map, double, (q, 1, 2, 3)) == (ll, 2, 4, 6)
 ```
 
-### Features
+## Features
 
 In terms of ``unpythonic.syntax``, we implicitly enable ``prefix`` and ``curry`` for the whole module.
 
@@ -32,7 +59,7 @@ For detailed documentation of the language features, see [``unpythonic.syntax``]
 If you need more stuff, `unpythonic` is effectively the standard library of Listhell, on top of what Python itself already provides.
 
 
-### What Listhell is
+## What Listhell is
 
 Listhell is a dialect of Python implemented via macros and a thin whole-module AST transformation. The dialect definition lives in [`unpythonic.dialects.listhell`](../../unpythonic/dialects/listhell.py). Usage examples can be found in [the unit tests](../../unpythonic/dialects/tests/test_listhell.py).
 
@@ -41,20 +68,20 @@ Listhell is essentially a demonstration of how Python could look, if it had Lisp
 It's also a minimal example of how to make an AST-transforming dialect.
 
 
-### Comboability
+## Comboability
 
 Only outside-in macros that should expand after ``curry`` (currently, `unpythonic` provides no such macros) and inside-out macros that should expand before ``curry`` (there are two, namely ``tco`` and ``continuations``) can be used in programs written in the Listhell dialect.
 
 
-### Notes
+## Notes
 
 If you like the idea and want autocurry for a Lisp, try
 [spicy](https://github.com/Technologicat/spicy) for [Racket](https://racket-lang.org/).
 
-### CAUTION
+## CAUTION
 
 Not intended for serious use.
 
-### Etymology?
+## Etymology?
 
 Prefix syntax of **Lis**p, speed of Py**th**on, and readability of Hask**ell**, all in one.

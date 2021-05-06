@@ -1,4 +1,30 @@
-## Pytkell: Because it's good to have a kell
+**Navigation**
+
+- [README](../../README.md)
+- [Pure-Python feature set](../features.md)
+- [Syntactic macro feature set](../macros.md)
+- [Examples of creating dialects using `mcpyrate`](../dialects.md)
+  - [Lispython](lispython.md)
+  - [Listhell](listhell.md)
+  - **Pytkell**
+- [REPL server](../repl.md)
+- [Design notes](../design-notes.md)
+- [Additional reading](../readings.md)
+- [Contribution guidelines](../../CONTRIBUTING.md)
+
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [Pytkell: Because it's good to have a kell](#pytkell-because-its-good-to-have-a-kell)
+    - [Features](#features)
+    - [What Pytkell is](#what-pytkell-is)
+    - [Comboability](#comboability)
+    - [CAUTION](#caution)
+    - [Etymology?](#etymology)
+
+<!-- markdown-toc end -->
+
+# Pytkell: Because it's good to have a kell
 
 Python with automatic currying and implicitly lazy functions.
 
@@ -40,7 +66,7 @@ x = let[2 * a, where(a, 21)]
 assert x == 42
 ```
 
-### Features
+## Features
 
 In terms of ``unpythonic.syntax``, we implicitly enable ``curry`` and ``lazify`` for the whole module.
 
@@ -69,7 +95,7 @@ The builtin ``do[]`` constructs are ``do`` and ``do0``.
 If you need more stuff, `unpythonic` is effectively the standard library of Pytkell, on top of what Python itself already provides.
 
 
-### What Pytkell is
+## What Pytkell is
 
 Pytkell is a dialect of Python implemented via macros and a thin whole-module AST transformation. The dialect definition lives in [`unpythonic.dialects.pytkell`](../../unpythonic/dialects/lispython.py). Usage examples can be found in [the unit tests](../../unpythonic/dialects/tests/test_pytkell.py).
 
@@ -78,20 +104,20 @@ Pytkell essentially makes Python feel slightly more haskelly.
 It's also a minimal example of how to make an AST-transforming dialect.
 
 
-### Comboability
+## Comboability
 
 **Not** comboable with most of the block macros in ``unpythonic.syntax``, because ``curry`` and ``lazify`` appear in the dialect template, hence at the lexically outermost position.
 
 Only outside-in macros that should expand after ``lazify`` has recorded its userlambdas (currently, `unpythonic` provides no such macros) and inside-out macros that should expand before ``curry`` (there are two, namely ``tco`` and ``continuations``) can be used in programs written in the Pytkell dialect.
 
 
-### CAUTION
+## CAUTION
 
 No instrumentation exists (or is even planned) for the Pytkell layer; you'll have to use regular Python tooling to profile, debug, and such.
 
 This layer is not quite as thin as Lispython's, but the dialect is not intended for serious use, either.
 
 
-### Etymology?
+## Etymology?
 
 The other obvious contraction, *Pyskell*, sounds like a serious programming language - or possibly the name of a fantasy airship - whereas *Pytkell* is obviously something quickly thrown together for system testing.

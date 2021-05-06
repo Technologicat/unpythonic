@@ -1,3 +1,25 @@
+**Navigation**
+
+- [README](../README.md)
+- [Pure-Python feature set](features.md)
+- [Syntactic macro feature set](macros.md)
+- **Examples of creating dialects using `mcpyrate`**
+  - [Lispython](dialects/lispython.md)
+  - [Listhell](dialects/listhell.md)
+  - [Pytkell](dialects/pytkell.md)
+- [REPL server](repl.md)
+- [Design notes](design-notes.md)
+- [Additional reading](readings.md)
+- [Contribution guidelines](../CONTRIBUTING.md)
+
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [Examples of creating dialects using `mcpyrate`](#examples-of-creating-dialects-using-mcpyrate)
+
+<!-- markdown-toc end -->
+
+
 # Examples of creating dialects using `mcpyrate`
 
 What if Python had automatic tail-call optimization and an implicit return statement? Look no further:

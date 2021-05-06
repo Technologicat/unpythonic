@@ -1,3 +1,14 @@
+**Navigation**
+
+- [README](../README.md)
+- **Pure-Python feature set**
+- [Syntactic macro feature set](macros.md)
+- [Examples of creating dialects using `mcpyrate`](dialects.md)
+- [REPL server](repl.md)
+- [Design notes](design-notes.md)
+- [Additional reading](readings.md)
+- [Contribution guidelines](../CONTRIBUTING.md)
+
 # Unpythonic: Python meets Lisp and Haskell
 
 This is the pure-Python API of `unpythonic`. Most features listed here need no macros, and are intended to be used directly.

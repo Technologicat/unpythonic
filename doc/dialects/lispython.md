@@ -1,4 +1,33 @@
-## Lispython: The love child of Python and Scheme
+**Navigation**
+
+- [README](../../README.md)
+- [Pure-Python feature set](../features.md)
+- [Syntactic macro feature set](../macros.md)
+- [Examples of creating dialects using `mcpyrate`](../dialects.md)
+  - **Lispython**
+  - [Listhell](listhell.md)
+  - [Pytkell](pytkell.md)
+- [REPL server](../repl.md)
+- [Design notes](../design-notes.md)
+- [Additional reading](../readings.md)
+- [Contribution guidelines](../../CONTRIBUTING.md)
+
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [Lispython: The love child of Python and Scheme](#lispython-the-love-child-of-python-and-scheme)
+    - [Features](#features)
+    - [What Lispython is](#what-lispython-is)
+    - [Comboability](#comboability)
+    - [Lispython and continuations (call/cc)](#lispython-and-continuations-callcc)
+    - [Why extend Python?](#why-extend-python)
+    - [PG's accumulator-generator puzzle](#pgs-accumulator-generator-puzzle)
+    - [CAUTION](#caution)
+    - [Etymology?](#etymology)
+
+<!-- markdown-toc end -->
+
+# Lispython: The love child of Python and Scheme
 
 Python with automatic tail-call optimization, an implicit return statement, and automatically named, multi-expression lambdas.
 
@@ -40,7 +69,7 @@ assert cdr(c) == 2
 assert ll(1, 2, 3) == llist((1, 2, 3))
 ```
 
-### Features
+## Features
 
 In terms of ``unpythonic.syntax``, we implicitly enable ``tco``, ``autoreturn``, ``multilambda``, ``namedlambda``, and ``quicklambda`` for the whole module:
 
@@ -67,7 +96,7 @@ The builtin ``do[]`` constructs are ``do`` and ``do0``.
 If you need more stuff, `unpythonic` is effectively the standard library of Lispython, on top of what Python itself already provides.
 
 
-### What Lispython is
+## What Lispython is
 
 Lispython is a dialect of Python implemented via macros and a thin whole-module AST transformation. The dialect definition lives in [`unpythonic.dialects.lispython`](../../unpythonic/dialects/lispython.py). Usage examples can be found in [the unit tests](../../unpythonic/dialects/tests/test_lispython.py).
 
@@ -80,7 +109,7 @@ We take the approach of a relatively thin layer of macros (and underlying functi
 Performance is only a secondary concern; performance-critical parts fare better at the other end of [the wide spectrum](https://en.wikipedia.org/wiki/Wide-spectrum_language), with [Cython](http://cython.org/). Lispython is for [the remaining 80%](https://en.wikipedia.org/wiki/Pareto_principle), where the bottleneck is human developer time.
 
 
-### Comboability
+## Comboability
 
 The aforementioned block macros are enabled implicitly for the whole module; this is the essence of the Lispython dialect. Other block macros can still be invoked manually in the user code.
 
@@ -97,7 +126,7 @@ Basically, any block macro that can be invoked *lexically inside* a ``with tco``
 If you need e.g. a lazy Lispython, the way to do that is to make a copy of the dialect module, change the dialect template to import the ``lazify`` macro, and then include a ``with lazify`` in the appropriate position, outside the ``with namedlambda`` block. Other customizations can be made similarly.
 
 
-### Lispython and continuations (call/cc)
+## Lispython and continuations (call/cc)
 
 Just use ``with continuations`` from ``unpythonic.syntax`` where needed. See its documentation for usage.
 
@@ -114,7 +143,7 @@ Lispython works with ``with continuations``, because:
 Be aware, though, that the combination of the ``autoreturn`` implicit in the dialect and ``with continuations`` might have usability issues, because ``continuations`` handles tail calls specially (the target of a tail-call in a ``continuations`` block must be continuation-enabled; see the documentation of ``continuations``), and ``autoreturn`` makes it visually slightly less clear which positions are in factorial tail calls (since no explicit ``return``). Also, the top level of a ``with continuations`` block may not use ``return`` - while Lispython happily auto-injects a ``return`` to whatever is the last statement in any particular function.
 
 
-### Why extend Python?
+## Why extend Python?
 
 [Racket](https://racket-lang.org/) is an excellent Lisp, especially with [sweet](https://docs.racket-lang.org/sweet/), sweet expressions [[1]](https://sourceforge.net/projects/readable/) [[2]](https://srfi.schemers.org/srfi-110/srfi-110.html) [[3]](https://srfi.schemers.org/srfi-105/srfi-105.html), not to mention extremely pythonic. The word is *rackety*; the syntax of the language comes with an air of Zen minimalism (as perhaps expected of a descendant of Scheme), but the focus on *batteries included* and understandability are remarkably similar to the pythonic ideal. Racket even has an IDE (DrRacket) and an equivalent of PyPI, and the documentation is simply stellar.
 
@@ -125,7 +154,7 @@ In certain other respects, Python the base language leaves something to be desir
 Practicality beats purity ([ZoP §9](https://www.python.org/dev/peps/pep-0020/)): hence, fix the minor annoyances that would otherwise quickly add up, and reap the benefits of both worlds. If Python is software glue, Lispython is an additive that makes it flow better.
 
 
-### PG's accumulator-generator puzzle
+## PG's accumulator-generator puzzle
 
 The puzzle was posted by Paul Graham in 2002, in the essay [Revenge of the Nerds](http://paulgraham.com/icad.html). It asks to implement, in the shortest code possible, an accumulator-generator. The desired behavior is:
 
@@ -180,12 +209,12 @@ with envify:
 ``envify`` is not part of the Lispython dialect definition, because this particular, perhaps rarely used, feature is not really worth a global performance hit whenever a function is entered.
 
 
-### CAUTION
+## CAUTION
 
 No instrumentation exists (or is even planned) for the Lispython layer; you'll have to use regular Python tooling to profile, debug, and such. The Lispython layer should be thin enough for this not to be a major problem in practice.
 
 
-### Etymology?
+## Etymology?
 
 *Lispython* is obviously made of two parts: Python, and...
 

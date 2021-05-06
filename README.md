@@ -35,19 +35,21 @@ The 0.15.x series should run on CPython 3.6, 3.7, 3.8 and 3.9, and PyPy3 (langua
 
 ### Documentation
 
-[Pure-Python feature set](doc/features.md)  
-[Syntactic macro feature set](doc/macros.md)  
-[Examples of creating dialects using `mcpyrate`](doc/dialects.md): Python the way you want it.  
-[REPL server](doc/repl.md): interactively hot-patch your running Python program.  
-[Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.  
-[Contribution guidelines](CONTRIBUTING.md): for understanding the codebase, or if you're interested in making a code or documentation PR.
+- **README**: you are here.
+- [Pure-Python feature set](doc/features.md)
+- [Syntactic macro feature set](doc/macros.md)
+- [Examples of creating dialects using `mcpyrate`](doc/dialects.md): Python the way you want it.
+- [REPL server](doc/repl.md): interactively hot-patch your running Python program.
+- [Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.
+- [Additional reading](doc/readings.md): links to material relevant in the context of ``unpythonic``.
+- [Contribution guidelines](CONTRIBUTING.md): for understanding the codebase, or if you're interested in making a code or documentation PR.
 
 The features of `unpythonic` are built out of, in increasing order of [magic](https://macropy3.readthedocs.io/en/latest/discussion.html#levels-of-magic):
 
  - Pure Python (e.g. batteries for `itertools`),
  - Macros driving a pure-Python core (`do`, `let`),
  - Pure macros (e.g. `continuations`, `lazify`, `dbg`).
- - Whole-module transformations a.k.a. dialects.
+ - Whole-module transformations, a.k.a. dialects.
 
 This depends on the purpose of each feature, as well as ease-of-use considerations. See the design notes for more information.
 

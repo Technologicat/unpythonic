@@ -1,3 +1,22 @@
+**Navigation**
+
+- [README](../README.md)
+- [Pure-Python feature set](features.md)
+- [Syntactic macro feature set](macros.md)
+- [Examples of creating dialects using `mcpyrate`](dialects.md)
+- [REPL server](repl.md)
+- [Design notes](design-notes.md)
+- **Additional reading**
+- [Contribution guidelines](../CONTRIBUTING.md)
+
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [Links to relevant reading](#links-to-relevant-reading)
+- [Python-related FP resources](#python-related-fp-resources)
+
+<!-- markdown-toc end -->
+
 # Links to relevant reading
 
 This document collects links to blog posts, online articles and actual scientific papers on topics at least somewhat relevant in the context of `unpythonic`.
@@ -149,7 +168,7 @@ The common denominator is programming. Some relate to language design, some to c
   - We have a demonstration in [unpythonic.tests.test_dispatch](../unpythonic/tests/test_dispatch.py).
 
 
-## Python-related FP resources
+# Python-related FP resources
 
 Python clearly wants to be an impure-FP language. A decorator with arguments *is a curried closure* - how much more FP can you get?
 

@@ -1,3 +1,24 @@
+**Navigation**
+
+- [README](README.md)
+- [Pure-Python feature set](doc/features.md)
+- [Syntactic macro feature set](doc/macros.md)
+- [Examples of creating dialects using `mcpyrate`](doc/dialects.md)
+- [REPL server](doc/repl.md)
+- [Design notes](doc/design-notes.md)
+- [Additional reading](doc/readings.md)
+- **Contribution guidelines**
+
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [Hacking unpythonic, a.k.a. contribution guidelines](#hacking-unpythonic-aka-contribution-guidelines)
+    - [Most importantly](#most-importantly)
+    - [Technical overview](#technical-overview)
+    - [Style guide](#style-guide)
+
+<!-- markdown-toc end -->
+
 # Hacking unpythonic, a.k.a. contribution guidelines
 
 **Rule #1**: Code and/or documentation contributions are welcome!

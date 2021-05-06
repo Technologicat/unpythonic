@@ -1,3 +1,32 @@
+**Navigation**
+
+- [README](../README.md)
+- [Pure-Python feature set](features.md)
+- [Syntactic macro feature set](macros.md)
+- [Examples of creating dialects using `mcpyrate`](dialects.md)
+- **REPL server**
+- [Design notes](design-notes.md)
+- [Additional reading](readings.md)
+- [Contribution guidelines](../CONTRIBUTING.md)
+
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [The Unpythonic REPL server](#the-unpythonic-repl-server)
+    - [Try the server](#try-the-server)
+    - [Connect with the client](#connect-with-the-client)
+        - [Netcat compatibility](#netcat-compatibility)
+    - [Embed the server in your Python app](#embed-the-server-in-your-python-app)
+    - [SECURITY WARNING!](#security-warning)
+    - [Design for hot-patching](#design-for-hot-patching)
+        - [ZODB in 5 minutes](#zodb-in-5-minutes)
+    - [Why a custom REPL server/client](#why-a-custom-repl-serverclient)
+    - [Future directions](#future-directions)
+        - [Authentication and encryption](#authentication-and-encryption)
+    - [Note on macro-enabled consoles](#note-on-macro-enabled-consoles)
+
+<!-- markdown-toc end -->
+
 # The Unpythonic REPL server
 
 Hot-patch a running Python process! With **syntactic macros** in the [REPL](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop)!
