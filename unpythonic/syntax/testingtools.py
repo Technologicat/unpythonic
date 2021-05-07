@@ -242,7 +242,6 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax == "block" and kw['optional_vars'] is not None:
         raise SyntaxError("test (block mode) does not take an as-part")  # pragma: no cover
 
-    # Two-pass macros.
     with dyn.let(_macro_expander=expander):
         if syntax == "expr":
             if args:
@@ -294,7 +293,6 @@ def test_signals(tree, *, args, syntax, expander, **kw):  # noqa: F811
     if syntax == "block" and kw['optional_vars'] is not None:
         raise SyntaxError("test_signals (block mode) does not take an as-part")  # pragma: no cover
 
-    # Two-pass macros.
     with dyn.let(_macro_expander=expander):
         if syntax == "expr":
             if args:
@@ -396,8 +394,6 @@ def error(tree, *, syntax, expander, **kw):  # noqa: F811
     if syntax != "expr":
         raise SyntaxError("error is an expr macro only")  # pragma: no cover
 
-    # Expand outside in. The ordering shouldn't matter here.
-    # The underlying `test` machinery needs to access the expander.
     with dyn.let(_macro_expander=expander):
         return _error_expr(tree)
 
@@ -420,8 +416,6 @@ def warn(tree, *, syntax, expander, **kw):  # noqa: F811
     if syntax != "expr":
         raise SyntaxError("warn is an expr macro only")  # pragma: no cover
 
-    # Expand outside in. The ordering shouldn't matter here.
-    # The underlying `test` machinery needs to access the expander.
     with dyn.let(_macro_expander=expander):
         return _warn_expr(tree)
 
