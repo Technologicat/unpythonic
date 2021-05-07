@@ -260,7 +260,7 @@ More on type systems:
    - ``autoreturn`` adds ``return`` statements where there weren't any,
    - ``quicklambda`` transforms things-that-look-like-list-lookups into ``lambda`` function definitions,
    - ``multilambda`` transforms things-that-look-like-lists (in the body of a ``lambda``) into sequences of multiple expressions, using ``do[]``.
-   - Hence, a lexically outer block of one of these types *will expand first*, before any macros inside it are expanded, in contrast to the default *from inside out* expansion order.
+   - Hence, a lexically outer block of one of these types *will expand first*, before any macros inside it are expanded.
    - This yields clean, standard-ish Python for the rest of the macros, which then don't need to worry about their input meaning something completely different from what it looks like.
 
  - An already expanded ``do[]`` (including that inserted by `multilambda`) is accounted for by all ``unpythonic.syntax`` macros when handling expressions.
@@ -295,7 +295,7 @@ More on type systems:
  - ``envify`` needs to see the output of ``lazify`` in order to shunt function args into an unpythonic ``env`` without triggering the implicit forcing.
 
  - Some of the block macros can be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``autocurry`` and ``namedlambda``) require their own ``with`` statement.
-   - This is a [known issue in MacroPy](https://github.com/azazel75/macropy/issues/21). I have made a [fix](https://github.com/azazel75/macropy/pull/22), but still need to make proper test cases to get it merged.
+   - This was the case with MacroPy [[issue report](https://github.com/azazel75/macropy/issues/21)] [[PR](https://github.com/azazel75/macropy/pull/22)]. Should work in `mcpyrate`, but needs testing.
    - If something goes wrong in the expansion of one block macro in a ``with`` statement that specifies several block macros, surprises may occur.
    - When in doubt, use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks.
      - Load the macro expansion debug utility `from mcpyrate.debug import macros, step_expansion`, and put a ``with step_expansion:`` around your use site. Then add your macro invocations one by one, and make sure the expansion looks like what you intended.
