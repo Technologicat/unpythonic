@@ -34,6 +34,8 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
 
 - Add `unpythonic.dispatch.generic_addmethod`: add methods to a generic function defined elsewhere.
 
+- All documentation files now have a quick navigation section to skip to another part of the docs. (For all except the README, it's at the top.)
+
 
 **Non-breaking changes**:
 
