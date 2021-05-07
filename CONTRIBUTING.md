@@ -104,7 +104,7 @@ We use a custom testing framework, which lives in the modules `unpythonic.test.f
 
 In retrospect, given that the main aim was compact testing syntax for macro-enabled Python code (without installing another import hook, doing which would disable the macro expander), it might have made more sense to make the testing macros compile to [pytest](https://docs.pytest.org/en/latest/). But hey, it's short, may have applications in teaching... and now we can easily write custom test runners, since the testing framework is just a `mcpyrate` library. It's essentially a *no-framework* (cf. "NoSQL"), which provides the essentials and lets the user define the rest.
 
-(The whole framework is about 1.3k SLOC, counting docstrings, comments and blanks; under 600 SLOC if counting only active code lines. Add another 800 SLOC (all) / 200 SLOC (active code lines) for the condition system.)
+(The whole framework is about 1.8k SLOC, counting docstrings, comments and blanks; under 700 SLOC if counting only active code lines. Add another 800 SLOC (all) / 200 SLOC (active code lines) for the condition system.)
 
 Since `unpythonic` is a relatively loose collection of language extensions and utilities, that's about it for the 30 000 ft (9 144 m) view.
 

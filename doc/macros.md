@@ -1957,13 +1957,13 @@ Also, in my opinion, `unittest` is overly verbose to use; automated tests are al
 
 The central functional requirement for whatever would be used for testing `unpythonic` was to be able to easily deal with macro-enabled Python. No hoops to jump through, compared to testing regular Python, in order to be able to test all of `unpythonic` (including `unpythonic.syntax`) in a uniform way.
 
-Simple and minimalistic would be a bonus. As of v0.14.3, the whole test framework is about 1.3k SLOC, counting docstrings, comments and blanks; under 600 SLOC if counting only active code lines. Add another 800 SLOC (all) / 200 SLOC (active code lines) for the machinery that implements conditions and restarts.
+Simple and minimalistic would be a bonus. As of v0.14.3, the whole test framework is about 1.8k SLOC, counting docstrings, comments and blanks; under 700 SLOC if counting only active code lines. Add another 800 SLOC (all) / 200 SLOC (active code lines) for the machinery that implements conditions and restarts.
 
 The framework will likely still evolve a bit as I find more holes in the [UX](https://en.wikipedia.org/wiki/User_experience) - which so far has led to features such as `the[]` and AST value auto-unparsing - but most of the desired functionality is already there. For example, I consider pytest-style implicit fixtures and a central test discovery system as outside the scope of this system.
 
 It's clear that `unpythonic.test.fixtures` is not going to replace `pytest`, nor does it aim to do so - [any more than Chuck Moore's Forth-based VLSI tools](https://yosefk.com/blog/my-history-with-forth-stack-machines.html) were intended to replace the commercial [VLSI](https://en.wikipedia.org/wiki/Very_Large_Scale_Integration) offerings.
 
-What we have is small, simple, custom-built for its purpose (works well with macro-enabled Python; integrates with conditions and restarts), arguably somewhat pedagogic (demonstrates how to build a test framework in under 1k SLOC), and importantly, works just fine.
+What we have is small, simple, custom-built for its purpose (works well with macro-enabled Python; integrates with conditions and restarts), arguably somewhat pedagogic (demonstrates how to build a test framework in under 700 active SLOC), and importantly, works just fine.
 
 #### Etymology and roots
 
