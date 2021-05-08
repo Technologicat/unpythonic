@@ -67,21 +67,21 @@ Requires `mcpyrate`.
 # If the line `tree = expander.visit(tree)` is omitted, the macro expands outside-in.
 # Note this default is different from MacroPy's!
 
-# TODO: With `mcpyrate` we could start looking at values, not names, when the aim is to detect hygienically captured `unpythonic` constructs. See use sites of `isx`; refer to `mcpyrate.quotes.is_captured_value` and `mcpyrate.quotes.lookup_value`.
+# TODO: 0.16: With `mcpyrate` we could start looking at values, not names, when the aim is to detect hygienically captured `unpythonic` constructs. See use sites of `isx`; refer to `mcpyrate.quotes.is_captured_value` and `mcpyrate.quotes.lookup_value`.
 
-# TODO: Consider using run-time compiler access in macro tests, like `mcpyrate` itself does. This compartmentalizes testing so that the whole test module won't crash on a macro-expansion error.
+# TODO: 0.16: Consider using run-time compiler access in macro tests, like `mcpyrate` itself does. This compartmentalizes testing so that the whole test module won't crash on a macro-expansion error.
 
-# TODO: Return a compile-time marker from all block macros?
+# TODO: 0.16: Return a compile-time marker from all block macros? Currently only macros that need to emit a marker for a specific reason (for working together with some specific macro) do so, namely `autoref` and `continuations`.
 
 # TODO: 0.16: move `scoped_transform` to `mcpyrate` as `ScopedASTTransformer` and `ScopedASTVisitor`.
 
 # TODO: 0.16: Add call-macros to `mcpyrate`. This allows the whole expression of `kw()`/`where()` to be detected as a macro invocation. (First, think whether this is a good idea.)
 
-# TODO: Something like `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead.
+# TODO: 0.16: Something like `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead.
 
-# TODO: AST pattern matching for `mcpyrate`? Would make destructuring easier. A writable representation (auto-viewify) is a pain to build, though...
+# TODO: 0.16: AST pattern matching for `mcpyrate`? Would make destructuring easier. A writable representation (auto-viewify) is a pain to build, though...
 
-# TODO: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9.
+# TODO: Far future: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9, so the earliest time to do this is when 3.9 becomes the minimum Python version for `unpythonic`.
 
 from .autocurry import *  # noqa: F401, F403
 from .autoref import *  # noqa: F401, F403
