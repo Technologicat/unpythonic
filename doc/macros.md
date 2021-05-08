@@ -399,7 +399,13 @@ else:
 
 ### ``let_syntax``, ``abbrev``: syntactic local bindings
 
-Locally splice code at macro expansion time (it's almost like inlining functions):
+**Note v0.15.0.** *Now that we use `mcpyrate` as the macro expander, `let_syntax` and `abbrev` are not really needed. We are keeping them mostly for backwards compatibility, and because they exercise a different feature set in the macro expander, making the existence of these constructs particularly useful for system testing.*
+
+*To define macros in the same module that uses them, see [multi-phase compilation](https://github.com/Technologicat/mcpyrate/blob/master/doc/compiler.md#multi-phase-compilation) in the [compiler documentation](https://github.com/Technologicat/mcpyrate/blob/master/doc/compiler.md). Using [run-time compiler access](https://github.com/Technologicat/mcpyrate/blob/master/doc/compiler.md#invoking-the-compiler-at-run-time), you can even create a macro definition module at run time (e.g. from a [quasiquoted](https://github.com/Technologicat/mcpyrate/blob/master/doc/quasiquotes.md) block) and inject it to `sys.modules`, allowing other code to import and use those macros. See the [compiler tests](https://github.com/Technologicat/mcpyrate/blob/master/mcpyrate/test/test_compiler.py) for examples.*
+
+*To rename existing macros, you can as-import them. As of `unpythonic` v0.15.0, doing so for `unpythonic.syntax` constructs is not recommended, though, because there is still a lot of old analysis code in the macro implementations that may scan for the original name. This may or may not be fixed in a future release.*
+
+These constructs allow to locally splice code at macro expansion time (it's almost like inlining functions):
 
 #### ``let_syntax``
 
@@ -435,10 +441,14 @@ y = let_syntax[[print(f[2]),
 
 # works as a block macro
 with let_syntax:
+    # with block as name:
+    # with block[a0, ...] as name:
     with block[a, b, c] as makeabc:  # capture a block of statements
         lst = [a, b, c]
     makeabc(3 + 4, 2**3, 3 * 3)
     assert lst == [7, 8, 9]
+    # with expr as name:
+    # with expr[a0, ...] as name:
     with expr[n] as nth:             # capture a single expression
         lst[n]
     assert nth(2) == 9
@@ -511,9 +521,9 @@ abbrev[m[tree1] if m[tree2] else m[tree3],
 
 which can be useful when writing macros.
 
-**CAUTION**: ``let_syntax`` is essentially a toy macro system within the real macro system. The usual caveats of macro systems apply. Especially, we support absolutely no form of hygiene. Be very, very careful to avoid name conflicts.
+**CAUTION**: ``let_syntax`` is essentially a toy macro system within the real macro system. The usual caveats of macro systems apply. Especially, ``let_syntax`` and ``abbrev`` support absolutely no form of hygiene. Be very, very careful to avoid name conflicts.
 
-The ``let_syntax`` macro is meant for simple local substitutions where the elimination of repetition can shorten the code and improve its readability. If you need to do something complex (or indeed save a definition and reuse it somewhere else, non-locally), write a real macro directly in `mcpyrate`.
+The ``let_syntax`` macro is meant for simple local substitutions where the elimination of repetition can shorten the code and improve its readability, in cases where the final "unrolled" code should be written out at compile time. If you need to do something complex (or indeed save a definition and reuse it somewhere else, non-locally), write a real macro directly in `mcpyrate`.
 
 This was inspired by Racket's [``let-syntax``](https://docs.racket-lang.org/reference/let.html) and [``with-syntax``](https://docs.racket-lang.org/reference/stx-patterns.html).
 
