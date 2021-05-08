@@ -69,15 +69,11 @@ from ..dynassign import make_dynvar
 # If the line `tree = expander.visit(tree)` is omitted, the macro expands outside-in.
 # Note this default is different from MacroPy's!
 
-# TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
-
 # TODO: With `mcpyrate` we could start looking at values, not names, when the aim is to detect hygienically captured `unpythonic` constructs. See use sites of `isx`; refer to `mcpyrate.quotes.is_captured_value` and `mcpyrate.quotes.lookup_value`.
 
-# TODO: Get rid of `UnpythonicExpandedMacroMarker`, use `ASTMarker`. We don't really need to keep markers
-# TODO: until run time. This requires a hook in the expander for custom postprocessors, so we can auto-remove
-# TODO: our AST markers when macro expansion of a module is complete.
-
 # TODO: Consider using run-time compiler access in macro tests, like `mcpyrate` itself does. This compartmentalizes testing so that the whole test module won't crash on a macro-expansion error.
+
+# TODO: Return a compile-time marker from all block macros?
 
 # TODO: 0.16: move `scoped_transform` to `mcpyrate` as `ScopedASTTransformer` and `ScopedASTVisitor`.
 
