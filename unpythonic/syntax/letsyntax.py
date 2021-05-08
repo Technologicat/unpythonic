@@ -33,16 +33,16 @@ def let_syntax(tree, *, args, syntax, expander, **kw):
 
     **Expression variant**::
 
-        let_syntax[(lhs, rhs), ...][body]
-        let_syntax[(lhs, rhs), ...][[body0, ...]]
+        let_syntax[lhs << rhs, ...][body]
+        let_syntax[lhs << rhs, ...][[body0, ...]]
 
     Alternative haskelly syntax::
 
-        let_syntax[((lhs, rhs), ...) in body]
-        let_syntax[((lhs, rhs), ...) in [body0, ...]]
+        let_syntax[[lhs << rhs, ...] in body]
+        let_syntax[[lhs << rhs, ...] in [body0, ...]]
 
-        let_syntax[body, where((lhs, rhs), ...)]
-        let_syntax[[body0, ...], where((lhs, rhs), ...)]
+        let_syntax[body, where[lhs << rhs, ...]]
+        let_syntax[[body0, ...], where[lhs << rhs, ...]]
 
     **Block variant**::
 
@@ -148,7 +148,7 @@ def abbrev(tree, *, args, syntax, expander, **kw):
     Because this variant expands before any macros in the body, it can locally
     rename other macros, e.g.::
 
-        abbrev[(m, macrowithverylongname)][
+        abbrev[m << macrowithverylongname][
                  m[tree1] if m[tree2] else m[tree3]]
 
     **CAUTION**: Because ``abbrev`` expands outside-in, and does not respect
@@ -194,12 +194,12 @@ def block(tree, *, syntax, **kw):
 # --------------------------------------------------------------------------------
 # Syntax transformers
 
-# let_syntax[(lhs, rhs), ...][body]
-# let_syntax[(lhs, rhs), ...][[body0, ...]]
-# let_syntax[((lhs, rhs), ...) in body]
-# let_syntax[((lhs, rhs), ...) in [body0, ...]]
-# let_syntax[body, where((lhs, rhs), ...)]
-# let_syntax[[body0, ...], where((lhs, rhs), ...)]
+# let_syntax[lhs << rhs, ...][body]
+# let_syntax[lhs << rhs, ...][[body0, ...]]
+# let_syntax[[lhs << rhs, ...] in body]
+# let_syntax[[lhs << rhs, ...] in [body0, ...]]
+# let_syntax[body, where[lhs << rhs, ...]]
+# let_syntax[[body0, ...], where[lhs << rhs, ...]]
 #
 # This transformer takes destructured input, with the bindings subform
 # and the body already extracted, and supplied separately.

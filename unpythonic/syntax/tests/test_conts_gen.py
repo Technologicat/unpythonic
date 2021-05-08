@@ -32,7 +32,7 @@ def runtests():
     with testset("a basic generator"):
         with continuations:
             # logic to resume after the last executed my_yield, if any
-            @dlet((k, None))  # noqa: F821, dlet defines the name.
+            @dlet(k << None)  # noqa: F821, dlet defines the name.
             def g():
                 if k:  # noqa: F821
                     return k()  # noqa: F821
@@ -57,7 +57,7 @@ def runtests():
     with testset("FP loop based generator"):
         with continuations:
             # logic to resume after the last executed my_yield, if any
-            @dlet((k, None))  # noqa: F821
+            @dlet(k << None)  # noqa: F821
             def g():
                 if k:  # noqa: F821
                     return k()  # noqa: F821
@@ -108,7 +108,7 @@ def runtests():
                         cc = identity
                         return value
 
-                @dlet((k, None))  # <-- we must still remember this line  # noqa: F821
+                @dlet(k << None)  # <-- we must still remember this line  # noqa: F821
                 def g():
                     begin_generator_body
                     my_yield(1)
@@ -132,7 +132,7 @@ def runtests():
                 with block[value] as my_yield:  # noqa: F821
                     call_cc[my_yieldf(value)]  # for this to work, let_syntax[] must eliminate its "if 1" blocks.  # noqa: F821
                 with block[myname, body] as make_generator:  # noqa: F821, `let_syntax` defines `myname` and `body` when we call `make_generator`.
-                    @dlet((k, None))  # noqa: F821
+                    @dlet(k << None)  # noqa: F821
                     def myname():  # replaced by the user-supplied name, since "myname" is a template parameter.
                         # logic to resume after the last executed my_yield, if any
                         if k:  # noqa: F821

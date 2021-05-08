@@ -25,14 +25,14 @@ def runtests():
             nonlocal evaluations
             evaluations += 1
             return x
-        y = let_syntax((f, verylongfunctionname))[[  # extra brackets: implicit do  # noqa: F821, `let_syntax` defines `f` here.
+        y = let_syntax(f << verylongfunctionname)[[  # extra brackets: implicit do  # noqa: F821, `let_syntax` defines `f` here.
                          f(),  # noqa: F821
                          f(5)]]  # noqa: F821
         test[evaluations == 2]
         test[y == 5]
 
         # haskelly syntax
-        y = let_syntax[((f, verylongfunctionname))  # noqa: F821
+        y = let_syntax[[f << verylongfunctionname]  # noqa: F821
                        in [f(),  # noqa: F821
                            f(17)]]  # noqa: F821
         test[evaluations == 4]
@@ -40,14 +40,14 @@ def runtests():
 
         y = let_syntax[[f(),  # noqa: F821
                         f(23)],  # noqa: F821
-                       where((f, verylongfunctionname))]  # noqa: F821
+                       where[f << verylongfunctionname]]  # noqa: F821
         test[evaluations == 6]
         test[y == 23]
 
         # templates
         #   - positional parameters only, no default values
         # TODO: updating this to use bracket syntax requires changes to `_destructure_and_apply_let`.
-        y = let_syntax((f[a], verylongfunctionname(2 * a)))[[  # noqa: F821
+        y = let_syntax(f[a] << verylongfunctionname(2 * a))[[  # noqa: F821
                          f[2],  # noqa: F821
                          f[3]]]  # noqa: F821
         test[evaluations == 8]
@@ -57,7 +57,7 @@ def runtests():
         class Silly:
             realthing = 42
         # This test will either pass, or error out with an AttributeError.
-        test[let_syntax[((alias, realthing)) in Silly.alias] == 42]  # noqa: F821
+        test[let_syntax[[alias << realthing] in Silly.alias] == 42]  # noqa: F821
 
     with testset("block variant"):
         with let_syntax:
@@ -181,14 +181,14 @@ def runtests():
         test[y == 5]
 
         # haskelly syntax
-        y = abbrev[((f, verylongfunctionname))  # noqa: F821
+        y = abbrev[[f << verylongfunctionname]  # noqa: F821
                    in [f(),  # noqa: F821
                        f(17)]]  # noqa: F821
         test[y == 17]
 
         y = abbrev[[f(),  # noqa: F821
                     f(23)],  # noqa: F821
-                   where((f, verylongfunctionname))]  # noqa: F821
+                   where[f << verylongfunctionname]]  # noqa: F821
         test[y == 23]
 
         # in abbrev, outer expands first, so in the test,
