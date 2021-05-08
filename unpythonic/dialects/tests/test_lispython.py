@@ -32,14 +32,14 @@ def runtests():
         test[cdr(c) == 2]  # noqa: F821
         test[ll(1, 2, 3) == llist((1, 2, 3))]  # noqa: F821
 
-        # all unpythonic.syntax let[], letseq[], letrec[] constructs are builtins
+        # all unpythonic.syntax let[], letseq[], letrec[] constructs are considered dialect builtins
         # (including the decorator versions, let_syntax and abbrev)
-        x = let[(a, 21) in 2 * a]  # noqa: F821
+        x = let[[a << 21] in 2 * a]  # noqa: F821
         test[x == 42]
 
-        x = letseq[((a, 1),  # noqa: F821
-                    (a, 2 * a),  # noqa: F821
-                    (a, 2 * a)) in  # noqa: F821
+        x = letseq[[a << 1,  # noqa: F821
+                    a << 2 * a,  # noqa: F821
+                    a << 2 * a] in  # noqa: F821
                    a]  # noqa: F821
         test[x == 4]
 
@@ -62,8 +62,8 @@ def runtests():
         test[fact(4) == 24]
         fact(5000)  # no crash (and correct result, since Python uses bignums transparently)
 
-        t = letrec[((evenp, lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821
-                    (oddp, lambda x:(x != 0) and evenp(x - 1))) in  # noqa: F821
+        t = letrec[[evenp << (lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821
+                    oddp << (lambda x:(x != 0) and evenp(x - 1))] in  # noqa: F821
                    evenp(10000)]  # no crash  # noqa: F821
         test[t is True]
 

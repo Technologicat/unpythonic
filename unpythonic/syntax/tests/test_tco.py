@@ -57,24 +57,24 @@ def runtests():
 
         # works with let constructs
         with testset("basic usage in let constructs"):
-            @dletrec((evenp, lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821, `dletrec` defines `evenp` here.
-                     (oddp, lambda x: (x != 0) and evenp(x - 1)))  # noqa: F821
+            @dletrec(evenp << (lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821, `dletrec` defines `evenp` here.
+                     oddp << (lambda x: (x != 0) and evenp(x - 1)))  # noqa: F821
             def g(x):
                 return evenp(x)
             test[g(9001) is False]
 
             def g(x):
-                return let[(y, 3 * x)][y]  # noqa: F821, `let` defines `y` here.
+                return let[y << 3 * x][y]  # noqa: F821, `let` defines `y` here.
             test[g(10) == 30]
 
             def h(x):
-                return let[(y, 2 * x)][g(y)]  # noqa: F821
+                return let[y << 2 * x][g(y)]  # noqa: F821
             test[h(10) == 60]
 
             def h(x):
-                return letseq[(y, x),  # noqa: F821, `letseq` defines `y` here.
-                              (y, y + 1),  # noqa: F821
-                              (y, y + 1)][g(y)]  # noqa: F821
+                return letseq[y << x,  # noqa: F821, `letseq` defines `y` here.
+                              y << y + 1,  # noqa: F821
+                              y << y + 1][g(y)]  # noqa: F821
             test[h(10) == 36]
 
     with testset("integration with autoreturn"):

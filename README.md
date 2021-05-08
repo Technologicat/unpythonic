@@ -445,13 +445,13 @@ As usual in test frameworks, the testing constructs behave somewhat like `assert
 ```python
 from unpythonic.syntax import macros, let, letseq, letrec
 
-x = let[((a, 1), (b, 2)) in a + b]
-y = letseq[((c, 1),  # LET SEQuential, like Scheme's let*
-            (c, 2 * c),
-            (c, 2 * c)) in
+x = let[[a << 1, b << 2] in a + b]
+y = letseq[[c << 1,  # LET SEQuential, like Scheme's let*
+            c << 2 * c,
+            c << 2 * c] in
            c]
-z = letrec[((evenp, lambda x: (x == 0) or oddp(x - 1)),  # LET mutually RECursive, like in Scheme
-            (oddp,  lambda x: (x != 0) and evenp(x - 1)))
+z = letrec[[evenp << (lambda x: (x == 0) or oddp(x - 1)),  # LET mutually RECursive, like in Scheme
+            oddp << (lambda x: (x != 0) and evenp(x - 1))]
            in evenp(42)]
 ```
 </details>  
@@ -462,7 +462,8 @@ z = letrec[((evenp, lambda x: (x == 0) or oddp(x - 1)),  # LET mutually RECursiv
 ```python
 from unpythonic.syntax import macros, dlet
 
-@dlet((x, 0))  # let-over-lambda for Python
+# Up to Python 3.8, use `@dlet(x << 0)` instead
+@dlet[x << 0]  # let-over-lambda for Python
 def count():
     return x << x + 1  # `name << value` rebinds in the let env
 assert count() == 1

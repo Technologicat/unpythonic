@@ -57,9 +57,19 @@ def runtests():
         test[not islet(q[x])]  # noqa: F821
         test[not islet(q[f()])]  # noqa: F821
 
+        test[islet(the[expandrq[let[x << 21][2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
+        test[islet(the[expandrq[let[[x << 21] in 2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821
+        test[islet(the[expandrq[let[2 * x, where[x << 21]]]]) == ("expanded_expr", "let")]  # noqa: F821
+
         test[islet(the[expandrq[let[(x, 21)][2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
         test[islet(the[expandrq[let[(x, 21) in 2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821
         test[islet(the[expandrq[let[2 * x, where(x, 21)]]]) == ("expanded_expr", "let")]  # noqa: F821
+
+        with expandrq as testdata:
+            @dlet(x << 21)  # noqa: F821
+            def f2():
+                return 2 * x  # noqa: F821
+        test[islet(the[testdata[0].decorator_list[0]]) == ("expanded_decorator", "let")]
 
         with expandrq as testdata:
             @dlet((x, 21))  # noqa: F821
@@ -67,30 +77,44 @@ def runtests():
                 return 2 * x  # noqa: F821
         test[islet(the[testdata[0].decorator_list[0]]) == ("expanded_decorator", "let")]
 
+        testdata = q[let[x << 21][2 * x]]  # noqa: F821
+        test[islet(the[testdata], expanded=False) == ("lispy_expr", "let")]
+
         testdata = q[let[(x, 21)][2 * x]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("lispy_expr", "let")]
 
         # one binding special case for haskelly let-in
+        testdata = q[let[[x, 21] in 2 * x]]  # noqa: F821
+        test[islet(the[testdata], expanded=False) == ("in_expr", "let")]
         testdata = q[let[(x, 21) in 2 * x]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("in_expr", "let")]
-
-        testdata = q[let[((x, 21), (y, 2)) in y * x]]  # noqa: F821
-        test[islet(the[testdata], expanded=False) == ("in_expr", "let")]
-
+        testdata = q[let[2 * x, where[x, 21]]]  # noqa: F821
+        test[islet(the[testdata], expanded=False) == ("where_expr", "let")]
         testdata = q[let[2 * x, where(x, 21)]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("where_expr", "let")]
+
+        testdata = q[let[[x << 21, y << 2] in y * x]]  # noqa: F821
+        test[islet(the[testdata], expanded=False) == ("in_expr", "let")]
+        testdata = q[let[((x, 21), (y, 2)) in y * x]]  # noqa: F821
+        test[islet(the[testdata], expanded=False) == ("in_expr", "let")]
 
         # some other macro invocation
         test[not islet(the[q[someothermacro((x, 21))[2 * x]]], expanded=False)]  # noqa: F821
         test[not islet(the[q[someothermacro[(x, 21) in 2 * x]]], expanded=False)]  # noqa: F821
 
-        # invalid syntax for haskelly let-in
+        # invalid syntax for haskelly let-in (no delimiters around bindings subform)
         testdata = q[let[a in b]]  # noqa: F821
         test[not islet(the[testdata], expanded=False)]
 
         with q as testdata:
             @dlet((x, 21))  # noqa: F821
-            def f2():
+            def f3():
+                return 2 * x  # noqa: F821
+        test[islet(the[testdata[0].decorator_list[0]], expanded=False) == ("decorator", "dlet")]
+
+        with q as testdata:
+            @dlet(x << 21)  # noqa: F821
+            def f4():
                 return 2 * x  # noqa: F821
         test[islet(the[testdata[0].decorator_list[0]], expanded=False) == ("decorator", "dlet")]
 
@@ -101,6 +125,24 @@ def runtests():
         # because otherwise `autocurry` will attempt to curry the AST-lifted
         # representation, leading to arguably funny but nonsensical things like
         # `ctx=currycall(ast.Load)`.
+        with expandrq as testdata:
+            with autocurry:
+                let[x << 21][2 * x]  # noqa: F821  # note this goes into an ast.Expr
+        thelet = testdata[0].value
+        test[islet(the[thelet]) == ("curried_expr", "let")]
+
+        with expandrq as testdata:
+            with autocurry:
+                let[[x << 21] in 2 * x]  # noqa: F821
+        thelet = testdata[0].value
+        test[islet(the[thelet]) == ("curried_expr", "let")]
+
+        with expandrq as testdata:
+            with autocurry:
+                let[2 * x, where[x << 21]]  # noqa: F821
+        thelet = testdata[0].value
+        test[islet(the[thelet]) == ("curried_expr", "let")]
+
         with expandrq as testdata:
             with autocurry:
                 let((x, 21))[2 * x]  # noqa: F821  # note this goes into an ast.Expr
@@ -267,7 +309,7 @@ def runtests():
         # decorator
         with q as testdata:
             @dlet((x, 21), (y, 2))  # noqa: F821
-            def f3():
+            def f5():
                 return 2 * x  # noqa: F821
 
         # read
@@ -348,7 +390,7 @@ def runtests():
         # decorator
         with expandrq as testdata:
             @dlet((x, 21), (y, 2))  # noqa: F821
-            def f4():
+            def f6():
                 return 2 * x  # noqa: F821
         view = ExpandedLetView(testdata[0].decorator_list[0])
         test_raises[TypeError,
@@ -444,7 +486,7 @@ def runtests():
         # decorator, letrec
         with expandrq as testdata:
             @dletrec((x, 21), (y, 2))  # noqa: F821
-            def f5():
+            def f7():
                 return 2 * x  # noqa: F821
         view = ExpandedLetView(testdata[0].decorator_list[0])
         test_raises[TypeError,

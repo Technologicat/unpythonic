@@ -171,7 +171,7 @@ assert f(5) == 17
 Even Lispython can do no better than this let-over-lambda (here using the haskelly let-in syntax to establish let-bindings):
 
 ```python
-foo = lambda n0: let[(n, n0) in
+foo = lambda n0: let[[n << n0] in
                      (lambda i: n << n + i)]
 ```
 

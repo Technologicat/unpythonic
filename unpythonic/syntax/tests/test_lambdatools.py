@@ -20,13 +20,13 @@ def runtests():
             echo = lambda x: [print(x), x]
             test[echo("hi there") == "hi there"]
 
-            count = let[(x, 0)][  # noqa: F821, the `let` macro defines `x` here.
+            count = let[x << 0][  # noqa: F821, the `let` macro defines `x` here.
                       lambda: [x << x + 1,  # noqa: F821
                                x]]  # redundant, but demonstrating multi-expr body.  # noqa: F821
             test[count() == 1]
             test[count() == 2]
 
-            test1 = let[(x, 0)][  # noqa: F821
+            test1 = let[x << 0][  # noqa: F821
                       lambda: [x << x + 1,      # x belongs to the surrounding let  # noqa: F821
                                local[y << 42],  # y is local to the implicit do  # noqa: F821
                                (x, y)]]  # noqa: F821
@@ -47,14 +47,14 @@ def runtests():
         with namedlambda:
             f1 = lambda x: x**3                      # assignment: name as "f1"
             test[f1.__name__ == "f1"]
-            gn, hn = let[(x, 42), (g, None), (h, None)][[  # noqa: F821
+            gn, hn = let[x << 42, g << None, h << None][[  # noqa: F821
                            g << (lambda x: x**2),               # env-assignment: name as "g"  # noqa: F821
                            h << f1,                        # still "f1" (RHS is not a literal lambda)  # noqa: F821
                            (g.__name__, h.__name__)]]      # noqa: F821
             test[gn == "g"]
             test[hn == "f1"]
 
-            foo = let[(f7, lambda x: x) in f7]       # let-binding: name as "f7"  # noqa: F821
+            foo = let[[f7 << (lambda x: x)] in f7]       # let-binding: name as "f7"  # noqa: F821
             test[foo.__name__ == "f7"]
 
             warn["NamedExpr test currently disabled for syntactic compatibility with Python 3.6 and 3.7."]
@@ -150,7 +150,7 @@ def runtests():
         # presence of autocurry should not break the output of the outside-in pass
         with namedlambda:
             with autocurry:
-                foo = let[(f7, None) in f7 << (lambda x: x)]  # noqa: F821
+                foo = let[[f7 << None] in f7 << (lambda x: x)]  # noqa: F821
                 test[foo.__name__ == "f7"]
 
                 f6 = mypardeco(2, 3, lambda x: x**2)

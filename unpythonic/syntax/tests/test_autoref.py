@@ -105,9 +105,9 @@ def runtests():
         with autoref[e]:
             x = do[local[a << 2], 2 * a]  # noqa: F821
             test[x == 4]
-            y = let[(x, 21) in 2 * x]
+            y = let[[x << 21] in 2 * x]
             test[y == 42]
-            z = let[(x, 21) in 2 * a]  # e.a  # noqa: F821
+            z = let[[x << 21] in 2 * a]  # e.a  # noqa: F821
             test[z == 2]
 
     with testset("integration with lazify"):

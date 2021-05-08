@@ -309,7 +309,7 @@ def lazify(tree, *, syntax, expander, **kw):
         with lazify:
             lst = []
             for x in range(3):
-                lst.append(let[(y, x) in lazy[y]])
+                lst.append(let[[y << x] in lazy[y]])
             print(lst[0])  # 0
             print(lst[1])  # 1
             print(lst[2])  # 2
@@ -359,15 +359,15 @@ def lazify(tree, *, syntax, expander, **kw):
 
             def f(a, b):
                 return a
-            assert let[((c, 42),
-                        (d, 1/0)) in f(c)(d)] == 42
-            assert letrec[((c, 42),
-                           (d, 1/0),
-                           (e, 2*c)) in f(e)(d)] == 84
+            assert let[[c << 42,
+                        d << 1/0] in f(c)(d)] == 42
+            assert letrec[[c << 42,
+                           d << 1/0,
+                           e << 2*c] in f(e)(d)] == 84
 
-            assert letrec[((c, 42),
-                           (d, 1/0),
-                           (e, 2*c)) in [local[x << f(e)(d)],
+            assert letrec[[c << 42,
+                           d << 1/0,
+                           e << 2*c] in [local[x << f(e)(d)],
                                          x/4]] == 21
 
     Works also with continuations. Rules:

@@ -62,7 +62,7 @@ from .scopeanalyzer import scoped_transform
 # for the macro arguments part.
 #
 # So when `args` is empty, this function assumes haskelly let syntax
-# `let[(...) in ...]` or `let[..., where(...)]`. In these cases,
+# `let[[...] in ...]` or `let[..., where[...]]`. In these cases,
 # both the bindings and the body reside inside the brackets (i.e.,
 # in the AST contained in the `tree` argument).
 #
@@ -79,7 +79,7 @@ def _destructure_and_apply_let(tree, args, macro_expander, let_transformer, lets
         if args:
             bs = canonize_bindings(args, letsyntax_mode=letsyntax_mode)
             return let_transformer(bindings=bs, body=tree)
-        # haskelly syntax, let[(...) in ...], let[..., where(...)]
+        # haskelly syntax, let[[...] in ...], let[..., where[...]]
         view = UnexpandedLetView(tree)  # note "tree" here is only the part inside the brackets
         return let_transformer(bindings=view.bindings, body=view.body)
 
@@ -100,7 +100,7 @@ def where(tree, *, syntax, **kw):
     """
     if syntax != "name":
         raise SyntaxError("where (unpythonic.syntax.letdo.where) is a name macro only")  # pragma: no cover
-    raise SyntaxError("where() is only meaningful in a let[body, where((k0, v0), ...)]")  # pragma: no cover
+    raise SyntaxError("where (unpythonic.syntax.letdo.where) is only meaningful in a let[body, where[k0 << v0, ...]]")  # pragma: no cover
 
 @parametricmacro
 def let(tree, *, args, syntax, expander, **kw):

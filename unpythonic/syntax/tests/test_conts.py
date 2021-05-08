@@ -109,8 +109,8 @@ def runtests():
         with continuations:
             def j2(a, b):
                 x, y = call_cc[f(a, b)]
-                return let[((c, a),  # noqa: F821
-                            (d, b)) in f(c, d)]  # noqa: F821
+                return let[[c << a,  # noqa: F821
+                            d << b] in f(c, d)]  # noqa: F821
             test[j2(3, 4) == (6, 12)]
 
     with testset("if-expression in tail position"):

@@ -51,7 +51,7 @@ def multilambda(tree, *, syntax, expander, **kw):
             echo = lambda x: [print(x), x]
             assert echo("hi there") == "hi there"
 
-            count = let[(x, 0)][
+            count = let[x << 0][
                       lambda: [x << x + 1,
                                x]]
             assert count() == 1
@@ -93,7 +93,7 @@ def namedlambda(tree, *, syntax, expander, **kw):
 
         - Assignments to unpythonic environments, ``f << (lambda ...: ...)``
 
-        - Let bindings, ``let[(f, (lambda ...: ...)) in ...]``, using any
+        - Let bindings, ``let[[f << (lambda ...: ...)] in ...]``, using any
           let syntax supported by unpythonic (here using the haskelly let-in
           just as an example).
 
@@ -105,12 +105,12 @@ def namedlambda(tree, *, syntax, expander, **kw):
         with namedlambda:
             f = lambda x: x**3        # assignment: name as "f"
 
-            let[(x, 42), (g, None), (h, None)][[
+            let[x << 42, g << None, h << None][[
               g << (lambda x: x**2),  # env-assignment: name as "g"
               h << f,                 # still "f" (no literal lambda on RHS)
               (g(x), h(x))]]
 
-            foo = let[(f7, lambda x: x) in f7]  # let-binding: name as "f7"
+            foo = let[[f7 << (lambda x: x)] in f7]  # let-binding: name as "f7"
 
     The naming is performed using the function ``unpythonic.misc.namelambda``,
     which will update ``__name__``, ``__qualname__`` and ``__code__.co_name``.

@@ -77,7 +77,7 @@ def runtests():
         test[a == 200 and b == 100]
 
     with testset("transform of let bindings"):
-        # the prefix syntax leaves alone the let binding syntax ((name0, value0), ...)
+        # the prefix syntax leaves alone the let binding syntax even when using tuples, ((name0, value0), ...)
         a = let[(x, 42)][x << x + 1]
         test[a == 43]
 
@@ -85,6 +85,14 @@ def runtests():
         def double(x):
             return 2 * x
         a = let[(x, (double, 21))][x << x + 1]
+        test[a == 43]
+
+        # As of v0.15.0, the preferred let bindings syntax is env-assignment,
+        # so these examples become:
+        a = let[x << 42][x << x + 1]
+        test[a == 43]
+
+        a = let[x << (double, 21)][x << x + 1]
         test[a == 43]
 
     # similarly, the prefix syntax leaves the "body tuple" of a do alone
@@ -96,7 +104,7 @@ def runtests():
         test[a == 6]
 
         # the extra bracket syntax (implicit do) has no danger of confusion, as it's a list, not tuple
-        a = let[(x, 3)][[
+        a = let[x << 3][[
                   1,
                   2,
                   (double, x)]]

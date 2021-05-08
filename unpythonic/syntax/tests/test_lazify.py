@@ -352,26 +352,26 @@ def runtests():
         with lazify:
             def f(a, b):
                 return a
-            test[let[((c, 42), (d, 1 / 0)) in f(c, d)] == 42]
+            test[let[[c << 42, d << 1 / 0] in f(c, d)] == 42]
 
             # a reference on a let binding RHS works like a reference in a function call: just pass it through
             e = lazy[1 / 0]
-            test[let[((c, 42), (d, e)) in f(c, d)] == 42]
+            test[let[[c << 42, d << e] in f(c, d)] == 42]
 
             # nested lets
-            test[letseq[((c, 42), (d, e)) in f(c, d)] == 42]
-            test[letseq[((a, 2), (a, 2 * a), (a, 2 * a)) in a] == 8]  # name shadowing, no infinite loop  # noqa: F821, `letseq` defines `a` here.
+            test[letseq[[c << 42, d << e] in f(c, d)] == 42]
+            test[letseq[[a << 2, a << 2 * a, a << 2 * a] in a] == 8]  # name shadowing, no infinite loop  # noqa: F821, `letseq` defines `a` here.
 
             b = 2  # let[] should already have taken care of resolving references when lazify expands
-            test[letseq[((b, 2 * b), (b, 2 * b)) in b] == 8]
+            test[letseq[[b << 2 * b, b << 2 * b] in b] == 8]
             test[b == 2]
 
             b = lazy[2]  # should work also for lazy input
-            test[letseq[((b, 2 * b), (b, 2 * b)) in b] == 8]
+            test[letseq[[b << 2 * b, b << 2 * b] in b] == 8]
             test[b == 2]
 
             # letrec injects lambdas into its bindings, so test it too.
-            test[letrec[((c, 42), (d, e)) in f(c, d)] == 42]
+            test[letrec[[c << 42, d << e] in f(c, d)] == 42]
 
     # various higher-order functions, mostly from unpythonic.fun
     with testset("interaction with higher-order functions"):
@@ -491,10 +491,10 @@ def runtests():
 
             def f(a, b):
                 return a
-            test[let[((c, 42), (d, 1 / 0)) in f(c)(d)] == 42]
-            test[letrec[((c, 42), (d, 1 / 0), (e, 2 * c)) in f(e)(d)] == 84]
+            test[let[[c << 42, d << 1 / 0] in f(c)(d)] == 42]
+            test[letrec[[c << 42, d << 1 / 0, e << 2 * c] in f(e)(d)] == 84]
 
-            test[letrec[((c, 42), (d, 1 / 0), (e, 2 * c)) in [local[x << f(e)(d)],  # noqa: F821, `letrec` defines `x` here.
+            test[letrec[[c << 42, d << 1 / 0, e << 2 * c] in [local[x << f(e)(d)],  # noqa: F821, `letrec` defines `x` here.
                                                               x / 2]] == 42]  # noqa: F821
 
     # works also with continuations

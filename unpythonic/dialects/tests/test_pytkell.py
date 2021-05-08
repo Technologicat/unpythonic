@@ -44,8 +44,8 @@ def runtests():
 
         # let-bindings are auto-lazified
         with test["y is unused, so it should not be evaluated"]:
-            x = let[((x, 42),  # noqa: F821
-                     (y, 1 / 0)) in x]  # noqa: F821
+            x = let[[x << 42,  # noqa: F821
+                     y << 1 / 0] in x]  # noqa: F821
             return x == 42  # access `x`, to force the promise
 
         # assignments are not (because they can imperatively update existing names)
@@ -91,21 +91,21 @@ def runtests():
 
     with testset("let constructs"):
         # let-in
-        x = let[(a, 21) in 2 * a]  # noqa: F821
+        x = let[[a << 21] in 2 * a]  # noqa: F821
         test[x == 42]
 
-        x = let[((a, 21),  # noqa: F821
-                 (b, 17)) in  # noqa: F821
+        x = let[[a << 21,  # noqa: F821
+                 b << 17] in  # noqa: F821
                 2 * a + b]  # noqa: F821
         test[x == 59]
 
         # let-where
-        x = let[2 * a, where(a, 21)]  # noqa: F821
+        x = let[2 * a, where[a << 21]]  # noqa: F821
         test[x == 42]
 
         x = let[2 * a + b,  # noqa: F821
-                where((a, 21),  # noqa: F821
-                      (b, 17))]  # noqa: F821
+                where[a << 21,  # noqa: F821
+                      b << 17]]  # noqa: F821
         test[x == 59]
 
     # nondeterministic evaluation (essentially do-notation in the List monad)
