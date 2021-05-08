@@ -477,7 +477,6 @@ def runtests():
             test[withec2 == 42]
 
     # Introducing the HasThon programming language.
-    # For a continuation-enabled HasThon, use "with lazify, autocurry, continuations".
     # If you want to play around with this idea, see `unpythonic.dialects.pytkell`.
     with testset("HasThon, with 100% more Thon than popular brands"):
         with lazify, autocurry:

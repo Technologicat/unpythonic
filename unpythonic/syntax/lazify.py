@@ -352,7 +352,7 @@ def lazify(tree, *, syntax, expander, **kw):
     Introducing the *HasThon* programming language (it has 100% more Thon than
     popular brands)::
 
-        with autocurry, lazify:  # or continuations, autocurry, lazify if you want those
+        with lazify, autocurry:
             def add2first(a, b, c):
                 return a + b
             assert add2first(2)(3)(1/0) == 5
@@ -383,7 +383,7 @@ def lazify(tree, *, syntax, expander, **kw):
 
     Example::
 
-        with continuations, lazify:
+        with lazify, continuations:
             k = None
             def setk(*args, cc):
                 nonlocal k
