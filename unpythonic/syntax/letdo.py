@@ -92,7 +92,7 @@ def where(tree, *, syntax, **kw):
 
     Usage::
 
-        let[body, where((k0, v0), ...)]
+        let[body, where[k0 << v0, ...]]
 
     Only meaningful for declaring the bindings in a let-where, for all
     expression-form let constructs: `let`, `letseq`, `letrec`, `let_syntax`,
@@ -110,18 +110,18 @@ def let(tree, *, args, syntax, expander, **kw):
 
     Usage::
 
-        let[(k0, v0), ...][body]
-        let[(k0, v0), ...][[body0, ...]]
+        let[k0 << v0, ...][body]
+        let[k0 << v0, ...][[body0, ...]]
 
     where ``body`` is an expression. The names bound by ``let`` are local;
     they are available in ``body``, and do not exist outside ``body``.
 
     Alternative haskelly syntax is also available::
 
-        let[((k0, v0), ...) in body]
-        let[((k0, v0), ...) in [body0, ...]]
-        let[body, where((k0, v0), ...)]
-        let[[body0, ...], where((k0, v0), ...)]
+        let[[k0 << v0, ...] in body]
+        let[[k0 << v0, ...] in [body0, ...]]
+        let[body, where[k0 << v0, ...]]
+        let[[body0, ...], where[k0 << v0, ...]]
 
     For a body with multiple expressions, use an extra set of brackets,
     as shown above. This inserts a ``do``. Only the outermost extra brackets
@@ -133,8 +133,9 @@ def let(tree, *, args, syntax, expander, **kw):
 
     Each ``name`` in the same ``let`` must be unique.
 
-    Assignment to let-bound variables is supported with syntax such as ``x << 42``.
-    This is an expression, performing the assignment, and returning the new value.
+    Rebinding of let-bound variables inside `body` is supported with `unpythonic`
+    env-assignment syntax, ``x << 42``. This is an expression, performing the
+    assignment, and returning the new value.
 
     In a multiple-expression body, also an internal definition context exists
     for local variables that are not part of the ``let``; see ``do`` for details.
@@ -209,7 +210,7 @@ def dlet(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @dlet[(x, 0)]
+        @dlet[x << 0]
         def count():
             x << x + 1
             return x
@@ -239,9 +240,9 @@ def dletseq(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @dletseq[(x, 1),
-                 (x, x+1),
-                 (x, x+2)]
+        @dletseq[x << 1,
+                 x << x + 1,
+                 x << x + 2]
         def g(a):
             return a + x
         assert g(10) == 14
@@ -258,8 +259,8 @@ def dletrec(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @dletrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),
-                 (oddp,  lambda x: (x != 0) and evenp(x - 1))]
+        @dletrec[evenp << (lambda x: (x == 0) or oddp(x - 1)),
+                 oddp << (lambda x: (x != 0) and evenp(x - 1))]
         def f(x):
             return evenp(x)
         assert f(42) is True
@@ -279,9 +280,9 @@ def blet(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @blet[(x, 21)]
+        @blet[x << 21]
         def result():
-            return 2*x
+            return 2 * x
         assert result == 42
     """
     if syntax != "decorator":
@@ -296,9 +297,9 @@ def bletseq(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @bletseq[(x, 1),
-                 (x, x+1),
-                 (x, x+2)]
+        @bletseq[x << 1,
+                 x << x + 1,
+                 x << x + 2]
         def result():
             return x
         assert result == 4
@@ -315,8 +316,8 @@ def bletrec(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @bletrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),
-                 (oddp,  lambda x: (x != 0) and evenp(x - 1))]
+        @bletrec[evenp << (lambda x: (x == 0) or oddp(x - 1)),
+                 oddp << (lambda x: (x != 0) and evenp(x - 1))]
         def result():
             return evenp(42)
         assert result is True
@@ -550,20 +551,20 @@ def _let_decorator_impl(bindings, body, mode, kind):
 def _dletseq_impl(bindings, body, kind):
     # What we want:
     #
-    # @dletseq[(x, 1),
-    #          (x, x+1),
-    #          (x, x+2)]
+    # @dletseq[x << 1,
+    #          x << x + 1,
+    #          x << x + 2]
     # def g(*args, **kwargs):
     #     return x
     # assert g() == 4
     #
     # -->
     #
-    # @dlet[(x, 1)]
+    # @dlet[x << 1]
     # def g(*args, **kwargs, e1):  # original args from tree go to the outermost def
-    #   @dlet[(x, x+1)]            # on RHS, important for e1.x to be in scope
+    #   @dlet[x << x + 1]          # on RHS, important for e1.x to be in scope
     #   def g2(*, e2):
-    #       @dlet[(x, x+2)]
+    #       @dlet[x << x + 2]
     #       def g3(*, e3):         # expansion proceeds from inside out
     #           return e3.x        # original args travel here by the closure property
     #       return g3()
@@ -752,14 +753,14 @@ def do(tree, *, syntax, expander, **kw):
     uses, the ambiguity does not arise. The transformation inserts not only the
     word ``do``, but also the outermost brackets. For example::
 
-        let[(x, 1),
-            (y, 2)][[
+        let[x << 1,
+            y << 2][[
               [x, y]]]
 
     transforms to::
 
-        let[(x, 1),
-            (y, 2)][do[[  # "do[" is inserted between the two opening brackets
+        let[x << 1,
+            y << 2][do[[  # "do[" is inserted between the two opening brackets
               [x, y]]]]   # and its closing "]" is inserted here
 
     which already gets rid of the ambiguity.
@@ -770,21 +771,21 @@ def do(tree, *, syntax, expander, **kw):
     names, if the same names appear in the ``do``::
 
         do[local[x << 17],
-           let[(x, 23)][
+           let[x << 23][
              print(x)],  # 23, the "x" of the "let"
            print(x)]     # 17, the "x" of the "do"
 
     The reason we require local names to be declared is to allow write access
     to lexically outer environments from inside a ``do``::
 
-        let[(x, 17)][
+        let[x << 17][
               do[x << 23,         # no "local[...]"; update the "x" of the "let"
                  local[y << 42],  # "y" is local to the "do"
                  print(x, y)]]
 
     With the extra bracket syntax, the latter example can be written as::
 
-        let[(x, 17)][[
+        let[x << 17][[
               x << 23,
               local[y << 42],
               print(x, y)]]
@@ -880,7 +881,7 @@ def _do(tree):
     lines = []
     for j, expr in enumerate(tree.elts, start=1):
         # Despite the recursion, this will not trigger false positives for nested do[] expressions,
-        # because do[] is a second-pass macro, so they expand from inside out.
+        # because the transformers only operate at the top level of this do[].
         expr, newnames = transform_localdefs(expr)
         expr, deletednames = transform_deletes(expr)
         if newnames and deletednames:
@@ -891,7 +892,7 @@ def _do(tree):
 
         # Before transforming any further, check that there are no local[] or delete[] further in, where
         # they don't belong. This allows the error message to show the *untransformed* source code for
-        # the erroneous invocation.
+        # the erroneous invocation. These checkers respect the boundaries of any nested do[].
         check_stray_localdefs(expr)
         check_stray_deletes(expr)
 
@@ -925,7 +926,7 @@ def _do0(tree):
 def _implicit_do(tree):
     """Allow a sequence of expressions in expression position.
 
-    Apply ``do[]`` if ``tree`` is a ``List``, otherwise return ``tree`` as-is.
+    Insert a ``do[]`` if ``tree`` is a ``List``, otherwise return ``tree`` as-is.
 
     Hence, in user code, to represent a sequence of expressions, use brackets::
 
