@@ -101,8 +101,8 @@ def runtests():
     #
     # With `mcpyrate` this shouldn't matter, but we're keeping the example.
     with testset("autonamed letrec lambdas, multiple-expression let body"):
-        t = letrec[((evenp, lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821
-                    (oddp, lambda x:(x != 0) and evenp(x - 1))) in  # noqa: F821
+        t = letrec[[evenp << (lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821
+                    oddp << (lambda x:(x != 0) and evenp(x - 1))] in  # noqa: F821
                    [local[x << evenp(100)],  # noqa: F821, multi-expression let body is a do[] environment
                     (x, evenp.__name__, oddp.__name__)]]  # noqa: F821
         test[t == (True, "evenp", "oddp")]

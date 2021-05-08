@@ -46,8 +46,8 @@ def factorial(n):
 assert factorial(4) == 24
 factorial(5000)  # no crash
 
-t = letrec[((evenp, lambda x: (x == 0) or oddp(x - 1)),
-            (oddp, lambda x: (x != 0) and evenp(x - 1))) in
+t = letrec[[evenp << (lambda x: (x == 0) or oddp(x - 1)),
+            oddp << (lambda x: (x != 0) and evenp(x - 1))] in
            evenp(10000)]
 assert t is True
 
