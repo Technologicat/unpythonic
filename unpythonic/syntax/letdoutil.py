@@ -6,10 +6,11 @@ __all__ = ["canonize_bindings",  # used by the macro interface layer
            "UnexpandedEnvAssignView", "UnexpandedLetView", "UnexpandedDoView",
            "ExpandedLetView", "ExpandedDoView"]
 
-from ast import (Call, Name, Subscript, Index, Compare, In,
+from ast import (Call, Name, Subscript, Compare, In,
                  Tuple, List, Constant, BinOp, LShift, Lambda)
 import sys
 
+from mcpyrate import unparse
 from mcpyrate.core import Done
 
 from .astcompat import getconstant, Str
@@ -19,37 +20,71 @@ letf_name = "letter"  # must match what ``unpythonic.syntax.letdo._let_expr_impl
 dof_name = "dof"      # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
 currycall_name = "currycall"  # output of ``unpythonic.syntax.curry``
 
-def canonize_bindings(elts, allow_call_in_name_position=False):  # public as of v0.14.3+
+def _get_subscript_slice(tree):
+    assert type(tree) is Subscript
+    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+        return tree.slice
+    return tree.slice.value
+def _set_subscript_slice(tree, newslice):  # newslice: AST
+    assert type(tree) is Subscript
+    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+        tree.slice = newslice
+    tree.slice.value = newslice
+def _normalize_macroargs_node(macroargs):
+    # We do this like `mcpyrate.expander.destructure_candidate` does,
+    # except that we also destructure a list.
+    if type(macroargs) in (List, Tuple):  # [a0, a1, ...]
+        return macroargs.elts
+    return [macroargs]  # anything that doesn't have at least one comma at the top level
+
+def canonize_bindings(elts, letsyntax_mode=False):  # public as of v0.14.3+
     """Wrap a single binding without container into a length-1 `list`.
 
     Pass through multiple bindings as-is.
 
     Yell if the input format is invalid.
 
-    elts: `list` of bindings, either::
-        [(k0, v0), ...]   # multiple bindings contained in a tuple
-        [(k, v),]         # single binding contained in a tuple also ok
-        [k, v]            # special single binding format, missing tuple container
+    elts: `list` of bindings, one of::
+        [(k0, v0), ...]    # multiple bindings contained in a tuple
+        [(k, v),]          # single binding contained in a tuple also ok
+        [k, v]             # special single binding format, missing tuple container
+        [[k0, v0], ...]    # v0.15.0+: accept also brackets (for consistency)
+        [[k, v]]           # v0.15.0+
+        [k0 << v0, ...]    # v0.15.0+: accept also env-assignment syntax
+        [k << v]           # v0.15.0+
 
     where the ks and vs are AST nodes.
 
-    allow_call_in_name_position: used by let_syntax to allow template definitions;
-    in the call, the "function" is the template name, and the positional "parameters"
-    are the template parameters (which may then appear in the template body).
-    (Despite the name, this recognizes `Subscript` too, to support brackets.)
+    letsyntax_mode: used by let_syntax to allow template definitions.
+    This allows, beside a bare name `k`, the formats `k(a0, ...)` and `k[a0, ...]`
+    to appear in the variable-name position.
     """
-    def isname(x):
+    def isname(tree):
+        # Note we don't accept hygienic captures.
         # The `Done` may be produced by expanded `@namemacro`s.
-        return type(x) is Name or (isinstance(x, Done) and isname(x.body))
-    def iskey(x):
-        return (isname(x) or
-                (allow_call_in_name_position and ((type(x) is Call and isname(x.func)) or
-                                                  (type(x) is Subscript and isname(x.value)))))
-    if len(elts) == 2 and iskey(elts[0]):
+        return type(tree) is Name or (isinstance(tree, Done) and isname(tree.body))
+    def isbindingtarget(tree):
+        return (isname(tree) or
+                (letsyntax_mode and ((type(tree) is Call and isname(tree.func)) or
+                                                  (type(tree) is Subscript and isname(tree.value)))))
+    def iskvpairbinding(lst):
+        return len(lst) == 2 and isbindingtarget(lst[0])
+    def isenvassignbinding(tree):
+        if not (type(tree) is BinOp and type(tree.op) is LShift):
+            return False
+        return isbindingtarget(tree.left)
+
+    if len(elts) == 1 and isenvassignbinding(elts[0]):  # [k << v]
+        return [Tuple(elts=[elts[0].left, elts[0].right])]
+    if len(elts) == 2 and iskvpairbinding(elts):  # [k, v]
         return [Tuple(elts=elts)]  # TODO: `mcpyrate`: just `q[t[elts]]`?
-    if all((type(b) is Tuple and len(b.elts) == 2 and iskey(b.elts[0])) for b in elts):
+    if all((type(b) is Tuple and iskvpairbinding(b.elts)) for b in elts):  # [(k0, v0), ...]
         return elts
-    raise SyntaxError("expected bindings to be ((k0, v0), ...) or a single (k, v)")  # pragma: no cover
+    if all((type(b) is List and iskvpairbinding(b.elts)) for b in elts):  # [[k0, v0], ...]
+        return [Tuple(elts=b.elts) for b in elts]
+    if all((isenvassign(b) and isbindingtarget(b.left)) for b in elts):  # [k0 << v0, ...]
+        return [Tuple(elts=[b.left, b.right]) for b in elts]
+    raise SyntaxError("expected bindings to be `(k0, v0), ...`, `[k0, v0], ...`, or `k0 << v0, ...`, or a single `k, v`, or `k << v`")  # pragma: no cover
 
 def isenvassign(tree):
     """Detect whether tree is an unpythonic ``env`` assignment, ``name << value``.
@@ -132,17 +167,11 @@ def islet(tree, expanded=True):
     # otherwise we should have an expr macro invocation
     if not type(tree) is Subscript:
         return False
+    # Note we don't care about the bindings format here.
     # let[(k0, v0), ...][body]
     # let((k0, v0), ...)[body]
     # ^^^^^^^^^^^^^^^^^^
     macro = tree.value
-    # let[(k0, v0), ...][body]
-    # let((k0, v0), ...)[body]
-    #                    ^^^^
-    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-        expr = tree.slice
-    else:
-        expr = tree.slice.value
     exprnames = ("let", "letseq", "letrec", "let_syntax", "abbrev")
     if type(macro) is Subscript and type(macro.value) is Name:
         s = macro.value.id
@@ -156,6 +185,10 @@ def islet(tree, expanded=True):
     elif type(macro) is Name:
         s = macro.id
         if any(s == x for x in exprnames):
+            # let[(k0, v0), ...][body]
+            # let((k0, v0), ...)[body]
+            #                    ^^^^
+            expr = _get_subscript_slice(tree)
             h = _ishaskellylet(expr)
             if h:
                 return (h, s)
@@ -174,29 +207,34 @@ def _ishaskellylet(tree):
     To detect the full expression including the ``let[]``, use ``islet`` instead.
     """
     # let[((k0, v0), ...) in body]
+    # let[[(k0, v0), ...] in body]
     def maybeiscontentofletin(tree):
         return (type(tree) is Compare and
                 len(tree.ops) == 1 and type(tree.ops[0]) is In and
-                type(tree.left) is Tuple)
+                type(tree.left) in (List, Tuple))
     # let[body, where((k0, v0), ...)]
+    # let[body, where[(k0, v0), ...]]
     def maybeiscontentofletwhere(tree):
-        return type(tree) is Tuple and len(tree.elts) == 2 and type(tree.elts[1]) is Call
+        return type(tree) is Tuple and len(tree.elts) == 2 and type(tree.elts[1]) in (Call, Subscript)
 
     if maybeiscontentofletin(tree):
         bindings = tree.left
-        if all((type(b) is Tuple and len(b.elts) == 2 and type(b.elts[0]) is Name)
-                   for b in bindings.elts):
+        try:
+            # This could be a `let_syntax` or `abbrev` using the haskelly let-in syntax.
+            # We don't want to care about that, so we always use `letsyntax_mode=True`.
+            _ = canonize_bindings(_normalize_macroargs_node(bindings), letsyntax_mode=True)
             return "in_expr"
-        # Single binding special case: let's not require a trailing comma.
-        # In this case, the wrapper tuple containing the bindings is missing.
-        # (For consistency of surface syntax with the other variants that don't
-        #  require it, because they look like function calls in the AST.)
-        if len(bindings.elts) == 2 and type(bindings.elts[0]) is Name:
-            return "in_expr"
+        except SyntaxError:
+            pass
     elif maybeiscontentofletwhere(tree):
-        thecall = tree.elts[1]
-        if type(thecall.func) is Name and thecall.func.id == "where":
-            return "where_expr"
+        # TODO: account for as-imports here? (use isx())
+        thewhere = tree.elts[1]
+        if type(thewhere) is Call:
+            if type(thewhere.func) is Name and thewhere.func.id == "where":
+                return "where_expr"
+        elif type(thewhere) is Subscript:
+            if type(thewhere.value) is Name and thewhere.value.id == "where":
+                return "where_expr"
     return False  # invalid syntax for haskelly let
 
 # TODO: This would benefit from macro destructuring in the expander.
@@ -228,17 +266,14 @@ def isdo(tree, expanded=True):
             return False
         return kind
 
+    # TODO: account for as-imports here? (use isx())
     if not (type(tree) is Subscript and
             type(tree.value) is Name and any(tree.value.id == x for x in ("do", "do0"))):
         return False
 
     # TODO: detect also do[] with a single expression inside? (now requires a comma)
-    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-        if not type(tree.slice) is Tuple:
-            return False
-    else:
-        if not type(tree.slice) is Index and type(tree.slice.value) is Tuple:
-            return False
+    if not type(_get_subscript_slice(tree)) is Tuple:
+        return False
 
     return tree.value.id
 
@@ -272,7 +307,7 @@ class UnexpandedEnvAssignView:
     """
     def __init__(self, tree):
         if not isenvassign(tree):
-            raise TypeError(f"expected a tree representing an unexpanded env-assignment, got {tree}")
+            raise TypeError(f"expected a tree representing an unexpanded env-assignment, got {unparse(tree)}")
         self._tree = tree
 
     def _getname(self):
@@ -293,7 +328,6 @@ class UnexpandedEnvAssignView:
         self._tree.right = newvalue
     value = property(fget=_getvalue, fset=_setvalue, doc="The value of the assigned var, as an AST. Writable.")
 
-# TODO: kwargs support for let(x=42)[...] if implemented later
 class UnexpandedLetView:
     """Destructure a let form, writably.
 
@@ -323,8 +357,19 @@ class UnexpandedLetView:
         ((k0, v0), ...) in body
         (body, where((k0, v0), ...))
 
+    Finally, in any of these, the bindings subform can be in any of the formats:
+
+        ((k0, v0), ...)
+        ([k0, v0], ...)
+        [(k0, v0), ...]
+        [[k0, v0], ...]
+        (k0 << v0, ...)
+        [k0 << v0, ...]
+        k, v
+        k << v
+
     This is a data abstraction that hides the detailed structure of the AST,
-    since there are three alternate syntaxes that can be used for a ``let``
+    since there are many alternate syntaxes that can be used for a ``let``
     expression.
 
     For the decorator forms, ``tree`` should be the decorator call. In this case
@@ -336,6 +381,9 @@ class UnexpandedLetView:
         ``bindings`` is a ``list`` of ``ast.Tuple``, where each item is of the form
         ``(k, v)``, where ``k`` is an ``ast.Name``. Writing to ``bindings`` updates
         the original.
+
+        The bindings are always presented in this format, regardless of the actual
+        syntax used in the `let` form.
 
         ``body`` (when available) is an AST representing a single expression.
         If it is an ``ast.List``, it means an implicit ``do[]`` (handled by the
@@ -363,7 +411,7 @@ class UnexpandedLetView:
             # from the given tree, to send them to the let transformer).
             h = _ishaskellylet(tree)
             if not h:
-                raise TypeError(f"expected a tree representing an unexpanded let, got {tree}")
+                raise TypeError(f"expected a tree representing an unexpanded let, got {unparse(tree)}")
             data = (h, None)  # cannot detect mode, because no access to the surrounding Subscript AST node
             self._has_subscript_container = False
         self._tree = tree
@@ -373,71 +421,66 @@ class UnexpandedLetView:
 
     # Resolve the "content" node in the haskelly format.
     def _theexpr_ref(self):
-        if self._has_subscript_container:
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                return self._tree.slice
-            else:
-                return self._tree.slice.value
-        else:
-            return self._tree
+        if self._has_subscript_container:  # `let[(...) in ...]`, `let[..., where(...)]`
+            return _get_subscript_slice(self._tree)
+        return self._tree  # `(...) in ...`, `..., where(...)`
 
     def _getbindings(self):
         t = self._type
-        if t == "decorator":  # bare Subscript, dlet[...], blet[...]
-            if type(self._tree) is Call:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
-                return canonize_bindings(self._tree.args)
-            # Subscript as decorator (Python 3.9+)
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                theargs = self._tree.slice
-            else:
-                theargs = self._tree.slice.value
-            return canonize_bindings(theargs.elts)
-        elif t == "lispy_expr":
-            # Subscript inside a Subscript, (let[...])[...]
-            if type(self._tree.value) is Subscript:
-                if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                    theargs = self._tree.value.slice.elts
-                else:
-                    theargs = self._tree.value.slice.value.elts
-            # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
-            # Call inside a Subscript, (let(...))[...]
-            else:  # type(self._tree.value) is Call:
-                theargs = self._tree.value.args
-            return canonize_bindings(theargs)
-        else:  # haskelly let, let[(...) in ...], let[..., where(...)]
-            theexpr = self._theexpr_ref()
+        if t in ("decorator", "lispy_expr"):
+            if t == "decorator":
+                # dlet[...], blet[...]
+                # dlet(...), blet(...)
+                thetree = self._tree
+            else:  # "lispy_expr"
+                # (let[...])[...]
+                # (let(...))[...]
+                # ^^^^^^^^^^
+                thetree = self._tree.value
+
+            if type(thetree) is Call:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+                return canonize_bindings(thetree.args)
+            # Subscript
+            theargs = _get_subscript_slice(thetree)
+            return canonize_bindings(_normalize_macroargs_node(theargs))
+        else:  # haskelly let, `let[(...) in ...]`, `let[..., where(...)]`
+            theexpr = self._theexpr_ref()  # `(...) in ...`, `..., where(...)`
             if t == "in_expr":
-                return canonize_bindings(theexpr.left.elts)
+                return canonize_bindings(_normalize_macroargs_node(theexpr.left))
             elif t == "where_expr":
-                return canonize_bindings(theexpr.elts[1].args)
+                thewhere = theexpr.elts[1]
+                if type(thewhere) is Call:
+                    return canonize_bindings(thewhere.args)
+                else:  # Subscript
+                    return canonize_bindings(_normalize_macroargs_node(_get_subscript_slice(thewhere)))
+            assert False
     def _setbindings(self, newbindings):
         t = self._type
-        if t == "decorator":
-            if type(self._tree) is Call:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
-                self._tree.args = newbindings
+        if t in ("decorator", "lispy_expr"):
+            if t == "decorator":
+                # dlet[...], blet[...]
+                # dlet(...), blet(...)
+                thetree = self._tree
+            else:  # "lispy_expr"
+                # (let[...])[...]
+                # (let(...))[...]
+                # ^^^^^^^^^^
+                thetree = self._tree.value
+
+            if type(thetree) is Call:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+                thetree.args = newbindings
                 return
-            # Subscript as decorator (Python 3.9+)
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                self._tree.slice.elts = newbindings
-            else:
-                self._tree.slice.value.elts = newbindings
-        elif t == "lispy_expr":
-            # Subscript inside a Subscript, (let[...])[...]
-            if type(self._tree.value) is Subscript:
-                if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                    self._tree.value.slice.elts = newbindings
-                else:
-                    self._tree.value.slice.value.elts = newbindings
-            # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
-            # Call inside a Subscript, (let(...))[...]
-            else:  # type(self._tree.value) is Call:
-                self._tree.value.args = newbindings
+            _set_subscript_slice(thetree, Tuple(elts=newbindings))
         else:
             theexpr = self._theexpr_ref()
             if t == "in_expr":
-                theexpr.left.elts = newbindings
+                theexpr.left = Tuple(elts=newbindings)
             elif t == "where_expr":
-                theexpr.elts[1].args = newbindings
+                thewhere = theexpr.elts[1]
+                if type(thewhere) is Call:
+                    thewhere.args = newbindings
+                else:  # Subscript
+                    _set_subscript_slice(thewhere, Tuple(elts=newbindings))
     bindings = property(fget=_getbindings, fset=_setbindings, doc="The bindings subform of the let. Writable.")
 
     def _getbody(self):
@@ -445,10 +488,7 @@ class UnexpandedLetView:
         if t == "decorator":
             raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
         elif t == "lispy_expr":
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                return self._tree.slice
-            else:
-                return self._tree.slice.value
+            return _get_subscript_slice(self._tree)
         else:
             theexpr = self._theexpr_ref()
             if t == "in_expr":
@@ -460,10 +500,7 @@ class UnexpandedLetView:
         if t == "decorator":
             raise TypeError("the body of a decorator let form is the body of decorated function, not a subform of the let.")
         elif t == "lispy_expr":
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                self._tree.slice = newbody
-            else:
-                self._tree.slice.value = newbody
+            _set_subscript_slice(self._tree, newbody)
         else:
             theexpr = self._theexpr_ref()
             if t == "in_expr":
@@ -499,24 +536,18 @@ class UnexpandedDoView:
         self._implicit = False
         if not isdo(tree, expanded=False):
             if type(tree) is not List:  # for implicit do[]
-                raise TypeError(f"expected a tree representing an unexpanded do, got {tree}")
+                raise TypeError(f"expected a tree representing an unexpanded do, got {unparse(tree)}")
             self._implicit = True
         self._tree = tree
 
     def _getbody(self):
         if not self._implicit:
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                return self._tree.slice.elts
-            else:
-                return self._tree.slice.value.elts
+            return _get_subscript_slice(self._tree).elts
         else:
             return self._tree.elts
     def _setbody(self, newbody):
         if not self._implicit:
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                self._tree.slice.elts = newbody
-            else:
-                self._tree.slice.value.elts = newbody
+            _set_subscript_slice(self._tree, Tuple(elts=newbody))
         else:
             self._tree.elts = newbody
     body = property(fget=_getbody, fset=_setbody, doc="The body of the do. Writable.")
@@ -569,7 +600,7 @@ class ExpandedLetView:
     def __init__(self, tree):
         data = islet(tree, expanded=True)
         if not data:
-            raise TypeError(f"expected a tree representing an expanded let, got {tree}")
+            raise TypeError(f"expected a tree representing an expanded let, got {unparse(tree)}")
         self._tree = tree
         self._type, self.mode = data
         if self._type not in ("expanded_decorator", "expanded_expr", "curried_decorator", "curried_expr"):
@@ -737,7 +768,7 @@ class ExpandedDoView:
     def __init__(self, tree):
         t = isdo(tree, expanded=True)
         if not t:
-            raise TypeError(f"expected a tree representing an expanded do, got {tree}")
+            raise TypeError(f"expected a tree representing an expanded do, got {unparse(tree)}")
         self.curried = t.startswith("curried")
         self._tree = tree
         self.envname = self._deduce_envname()  # stash at init time to prevent corruption by user mutations.

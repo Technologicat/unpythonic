@@ -73,11 +73,11 @@ from .scopeanalyzer import scoped_transform
 # in the macro interface that gives a copy of the whole macro invocation
 # node (so we could see the exact original syntax).
 #
-# allow_call_in_name_position: used by let_syntax to allow template definitions.
-def _destructure_and_apply_let(tree, args, macro_expander, let_transformer, allow_call_in_name_position=False):
+# letsyntax_mode: used by let_syntax to allow template definitions.
+def _destructure_and_apply_let(tree, args, macro_expander, let_transformer, letsyntax_mode=False):
     with dyn.let(_macro_expander=macro_expander):  # implicit do (extra bracket notation) needs this.
         if args:
-            bs = canonize_bindings(args, allow_call_in_name_position=allow_call_in_name_position)
+            bs = canonize_bindings(args, letsyntax_mode=letsyntax_mode)
             return let_transformer(bindings=bs, body=tree)
         # haskelly syntax, let[(...) in ...], let[..., where(...)]
         view = UnexpandedLetView(tree)  # note "tree" here is only the part inside the brackets

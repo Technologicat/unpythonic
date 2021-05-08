@@ -136,8 +136,7 @@ def let_syntax(tree, *, args, syntax, expander, **kw):
 
     if syntax == "expr":
         _let_syntax_expr_inside_out = partial(_let_syntax_expr, expand_inside=True)
-        return _destructure_and_apply_let(tree, args, expander, _let_syntax_expr_inside_out,
-                                          allow_call_in_name_position=True)
+        return _destructure_and_apply_let(tree, args, expander, _let_syntax_expr_inside_out, letsyntax_mode=True)
     else:  # syntax == "block":
         with dyn.let(_macro_expander=expander):
             return _let_syntax_block(block_body=tree, expand_inside=True)
@@ -173,7 +172,7 @@ def abbrev(tree, *, args, syntax, expander, **kw):
     if syntax == "expr":
         _let_syntax_expr_outside_in = partial(_let_syntax_expr, expand_inside=False)
         return _destructure_and_apply_let(tree, args, expander, _let_syntax_expr_outside_in,
-                                          allow_call_in_name_position=True)
+                                          letsyntax_mode=True)
     else:
         with dyn.let(_macro_expander=expander):
             return _let_syntax_block(block_body=tree, expand_inside=False)

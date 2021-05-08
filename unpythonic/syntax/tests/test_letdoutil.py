@@ -41,6 +41,8 @@ def runtests():
         test[validate(the[canonize_bindings(q[k0, v0].elts)])]  # noqa: F821, it's quoted.
         test[validate(the[canonize_bindings(q[((k0, v0),)].elts)])]  # noqa: F821
         test[validate(the[canonize_bindings(q[(k0, v0), (k1, v1)].elts)])]  # noqa: F821
+        test[validate(the[canonize_bindings([q[k0 << v0]])])]  # noqa: F821, it's quoted.
+        test[validate(the[canonize_bindings(q[k0 << v0, k1 << v1].elts)])]  # noqa: F821, it's quoted.
 
     # --------------------------------------------------------------------------------
     # AST structure matching
@@ -199,22 +201,66 @@ def runtests():
             test[unparse(view.body) == "(z * t)"]
 
         # lispy expr
+        testdata = q[let[x << 21, y << 2][y * x]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[let[[x, 21], [y, 2]][y * x]]  # noqa: F821
+        testletdestructuring(testdata)
         testdata = q[let[(x, 21), (y, 2)][y * x]]  # noqa: F821
         testletdestructuring(testdata)
 
         # haskelly let-in
+        testdata = q[let[[x << 21, y << 2] in y * x]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[let[(x << 21, y << 2) in y * x]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[let[[[x, 21], [y, 2]] in y * x]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[let[[(x, 21), (y, 2)] in y * x]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[let[([x, 21], [y, 2]) in y * x]]  # noqa: F821
+        testletdestructuring(testdata)
         testdata = q[let[((x, 21), (y, 2)) in y * x]]  # noqa: F821
         testletdestructuring(testdata)
 
         # haskelly let-where
+        testdata = q[let[y * x, where[x << 21, y << 2]]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[let[y * x, where(x << 21, y << 2)]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[let[y * x, where[[x, 21], [y, 2]]]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[let[y * x, where[(x, 21), (y, 2)]]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[let[y * x, where([x, 21], [y, 2])]]  # noqa: F821
+        testletdestructuring(testdata)
         testdata = q[let[y * x, where((x, 21), (y, 2))]]  # noqa: F821
         testletdestructuring(testdata)
 
         # disembodied haskelly let-in (just the content, no macro invocation)
+        testdata = q[[x << 21, y << 2] in y * x]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[(x << 21, y << 2) in y * x]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[[[x, 21], [y, 2]] in y * x]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[[(x, 21), (y, 2)] in y * x]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[([x, 21], [y, 2]) in y * x]  # noqa: F821
+        testletdestructuring(testdata)
         testdata = q[((x, 21), (y, 2)) in y * x]  # noqa: F821
         testletdestructuring(testdata)
 
         # disembodied haskelly let-where (just the content, no macro invocation)
+        testdata = q[y * x, where[x << 21, y << 2]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[y * x, where(x << 21, y << 2)]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[y * x, where[[x, 21], [y, 2]]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[y * x, where[(x, 21), (y, 2)]]  # noqa: F821
+        testletdestructuring(testdata)
+        testdata = q[y * x, where([x, 21], [y, 2])]  # noqa: F821
+        testletdestructuring(testdata)
         testdata = q[y * x, where((x, 21), (y, 2))]  # noqa: F821
         testletdestructuring(testdata)
 

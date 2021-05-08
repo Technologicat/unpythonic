@@ -30,6 +30,47 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
     - `with expr`/`with block`, for `with let_syntax`/`with abbrev`
   - Previously these constructs could only raise an error at run time, and not all of them could detect the error even then.
 
+- For syntactic consistency, allow env-assignment notation and brackets to declare bindings in the `let` family of macros. The preferred syntaxes for the `let` macro are now:
+
+  ```python
+  let[x << 42, y << 9001][...]         # lispy expr
+  let[[x << 42, y << 9001] in ...]     # haskelly let-in
+  let[..., where[x << 42, y << 9001]]  # haskelly let-where
+  ```
+  If there is just one binding, these become:
+  ```python
+  let[x << 42][...]
+  let[[x << 42] in ...]
+  let[..., where[x << 42]]
+  ```
+  Similarly for `letseq`, `letrec`, and the decorator versions; and for the expr forms of `let_syntax`, `abbrev`. The reason for preferring this notation is that it is consistent with both `unpythonic`'s env-assignments (`let` bindings live in an `env`) and the use of brackets to denote macro invocations.
+
+  However, all the following are also accepted, with the meaning exactly the same:
+  ```python
+  let[(x << 42, y << 9001) in ...]
+  let[..., where(x << 42, y << 9001)]
+  let[[x, 42], [y, 9001]][...]
+  let[(x, 42), (y, 9001)][...]
+  let[[[x, 42], [y, 9001]] in ...]
+  let[[(x, 42), (y, 9001)] in ...]
+  let[([x, 42], [y, 9001]) in ...]
+  let[((x, 42), (y, 9001)) in ...]
+  let[..., where[[x, 42], [y, 9001]]]
+  let[..., where[(x, 42), (y, 9001)]]
+  let[..., where([x, 42], [y, 9001])]
+  let[..., where((x, 42), (y, 9001))]
+  ```
+  For a single binding, these are also accepted:
+  ```python
+  let[x, 42][...]
+  let[(x << 42) in ...]
+  let[[x, 42] in ...]
+  let[(x, 42) in ...]
+  let[..., where(x << 42)]
+  let[..., where[x, 42]]
+  let[..., where(x, 42)]
+  ```
+
 - `with namedlambda` now understands the walrus operator, too. In the construct `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
 
 - Add `unpythonic.dispatch.generic_addmethod`: add methods to a generic function defined elsewhere.
