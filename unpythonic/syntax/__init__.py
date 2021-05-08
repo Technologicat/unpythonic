@@ -69,8 +69,6 @@ from ..dynassign import make_dynvar
 # If the line `tree = expander.visit(tree)` is omitted, the macro expands outside-in.
 # Note this default is different from MacroPy's!
 
-# TODO: Check expansion order of several macros in the same `with` statement
-
 # TODO: Have a common base class for all `unpythonic` `ASTMarker`s?
 
 # TODO: With `mcpyrate` we could start looking at values, not names, when the aim is to detect hygienically captured `unpythonic` constructs. See use sites of `isx`; refer to `mcpyrate.quotes.is_captured_value` and `mcpyrate.quotes.lookup_value`.
