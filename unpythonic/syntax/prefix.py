@@ -162,11 +162,14 @@ def _prefix(block_body):
             # let and do have not expanded yet when prefix runs (better that way!).
             if islet(tree, expanded=False):
                 view = UnexpandedLetView(tree)
+                newbindings = []
                 for binding in view.bindings:
                     if type(binding) is not Tuple:
                         raise SyntaxError("prefix: expected a tuple in let binding position")  # pragma: no cover
                     _, value = binding.elts  # leave name alone, recurse into value
                     binding.elts[1] = self.visit(value)
+                    newbindings.append(binding)
+                view.bindings = newbindings  # write the new bindings (important!)
                 if view.body:
                     view.body = self.visit(view.body)
                 return tree

@@ -301,12 +301,15 @@ def _namedlambda(block_body):
                 return tree  # don't recurse!
             if islet(tree, expanded=False):  # let bindings
                 view = UnexpandedLetView(tree)
+                newbindings = []
                 for b in view.bindings:
                     b.elts[1], thelambda, match = nameit(getname(b.elts[0]), b.elts[1])
                     if match:
                         thelambda.body = self.visit(thelambda.body)
                     else:
                         b.elts[1] = self.visit(b.elts[1])
+                    newbindings.append(b)
+                view.bindings = newbindings  # write the new bindings (important!)
                 view.body = self.visit(view.body)
                 return tree
             # assumption: no one left-shifts by a literal lambda :)

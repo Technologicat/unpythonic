@@ -383,7 +383,18 @@ class UnexpandedLetView:
         the original.
 
         The bindings are always presented in this format, regardless of the actual
-        syntax used in the `let` form.
+        syntax used in the `let` form. Updates must also be done in this format.
+
+        **CAUTION**: The bindings are only written to the AST when you assign to
+        the ``bindings`` attribute; in-place updates might not have any effect,
+        depending on the actual syntax in the original AST (i.e. whether what you
+        got was actually a reformatted copy). You'll likely want something like this::
+
+            newbindings = []
+            for b in view.bindings:
+                b.elts[1] = ...  # modify it
+                newbindings.append(b)
+            view.bindings = newbindings  # write the updated bindings to the AST
 
         ``body`` (when available) is an AST representing a single expression.
         If it is an ``ast.List``, it means an implicit ``do[]`` (handled by the
