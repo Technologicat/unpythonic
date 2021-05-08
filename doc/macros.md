@@ -532,9 +532,16 @@ This was inspired by Racket's [``let-syntax``](https://docs.racket-lang.org/refe
 
 As a bonus, we provide classical simple ``let`` and ``letseq``, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, this version of ``letseq`` (Scheme/Racket ``let*``) expands into a chain of nested ``let`` expressions, which expand to lambdas.
 
-These are provided in the separate module ``unpythonic.syntax.simplelet``, import them with the line:
+These are provided in the separate module ``unpythonic.syntax.simplelet``, and are not part of the `unpythonic.syntax` macro API. For simplicity, they support only the lispy list syntax in the bindings subform (using brackets, specifically!), and no haskelly syntax at all:
 
-``from unpythonic.syntax.simplelet import macros, let, letseq``.
+```python
+from unpythonic.syntax.simplelet import macros, let, letseq
+
+let[[x, 42], [y, 23]][...]
+let[[x, 42]][...]
+letseq[[x, 1], [x, x + 1]][...]
+letseq[[x, 1]][...]
+```
 
 ## Sequencing
 
