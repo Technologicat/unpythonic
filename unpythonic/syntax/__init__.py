@@ -83,6 +83,8 @@ from ..dynassign import make_dynvar
 
 # TODO: 0.16: move `scoped_transform` to `mcpyrate` as `ScopedASTTransformer` and `ScopedASTVisitor`.
 
+# TODO: 0.16: Add call-macros to `mcpyrate`. This allows the whole expression of `kw()`/`where()` to be detected as a macro invocation. (First, think whether this is a good idea.)
+
 # TODO: Something like `unpythonic.syntax.nameutil` should probably live in `mcpyrate` instead.
 
 # TODO: AST pattern matching for `mcpyrate`? Would make destructuring easier. A writable representation (auto-viewify) is a pain to build, though...
