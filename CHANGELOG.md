@@ -1,6 +1,6 @@
 **0.15.0** (in progress; updated 5 May 2021) - *"We say 'howdy' around these parts"* edition:
 
-This edition concentrates on upgrading our dependencies, namely the macro expander, and the Python language itself, to ensure `unpythonic` keeps working for the next few years. This unfortunately introduces some breaking changes; see below. While at it, we have also taken the opportunity to make also any previously scheduled breaking changes.
+Beside introducing **dialects** (a.k.a. whole-module code transforms), this edition concentrates on upgrading our dependencies, namely the macro expander, and the Python language itself, to ensure `unpythonic` keeps working for the next few years. This unfortunately introduces some breaking changes; see below. While at it, we have also taken the opportunity to make also any previously scheduled breaking changes.
 
 **IMPORTANT**:
 
