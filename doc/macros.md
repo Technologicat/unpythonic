@@ -98,95 +98,140 @@ Macros that introduce new ways to bind identifiers.
 
 ### ``let``, ``letseq``, ``letrec`` as macros
 
+**Changed in v0.15.0.** *Added support for env-assignment syntax in the bindings subform. For consistency with other env-assignments, this is now the preferred syntax to establish let bindings. Additionally, the old lispy syntax now accepts also brackets, for consistency with the use of brackets for macro invocations.*
+
 Properly lexically scoped ``let`` constructs, no boilerplate:
 
 ```python
 from unpythonic.syntax import macros, let, letseq, letrec
 
-let[(x, 17),  # parallel binding, i.e. bindings don't see each other
-    (y, 23)][
+let[x << 17,  # parallel binding, i.e. bindings don't see each other
+    y << 23][
       print(x, y)]
 
-letseq[(x, 1),  # sequential binding, i.e. Scheme/Racket let*
-       (y, x+1)][
+letseq[x << 1,  # sequential binding, i.e. Scheme/Racket let*
+       y << x+1][
          print(x, y)]
 
-letrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding, sequentially evaluated
-       (oddp,  lambda x: (x != 0) and evenp(x - 1))][
+letrec[evenp << (lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding, sequentially evaluated
+       oddp << (lambda x: (x != 0) and evenp(x - 1))][
          print(evenp(42))]
 ```
 
-As seen in the examples, the syntax is similar to [``unpythonic.lispylet``](../doc/features.md#lispylet-alternative-syntax). Assignment to variables in the environment is supported via the left-shift syntax ``x << 42``.
+Even with just one binding, the syntax remains the same:
 
-The bindings are given as macro arguments as ``((name, value), ...)``, the body goes into the ``[...]``.
+```python
+let[x << 21][2 * x]
+```
 
-#### Alternate syntaxes
+There must be at least one binding; `let[][...]` is a syntax error, since Python's parser rejects an empty subscript slice.
+
+Bindings are established using the `unpythonic` *env-assignment* syntax, ``name << value``. The let bindings can be rebound in the body with the same env-assignment syntax, e.g. ``x << 42``.
+
+The same syntax for the bindings subform is used by:
+
+- ``let``, ``letseq``, ``letrec`` (expressions)
+- ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec`` (decorators)
+- ``let_syntax``, ``abbrev`` (expression mode)
+
+
+#### Haskelly let-in, let-where
 
 The following Haskell-inspired, perhaps more pythonic alternate syntaxes are also available:
 
 ```python
-let[((x, 21),
-     (y, 17),
-     (z, 4)) in
+let[[x << 21,
+     y << 17,
+     z << 4] in
     x + y + z]
 
 let[x + y + z,
-    where((x, 21),
-          (y, 17),
-          (z, 4))]
+    where[x << 21,
+          y << 17,
+          z << 4]]
+
+let[[x << 21] in 2 * x]
+let[2 * x, where[x << 21]]
 ```
 
-These syntaxes take no macro arguments; both the let-body and the bindings are placed inside the same ``[...]``.
+These syntaxes take no macro arguments; both the let-body and the bindings are placed inside the ``...`` in `let[...]`.
+
+Note the bindings subform is always enclosed by brackets.
 
 <details>
 <summary>Semantically, these do the exact same thing as the original lispy syntax: </summary>
 
 >The bindings are evaluated first, and then the body is evaluated with the bindings in place. The purpose of the second variant (the *let-where*) is just readability; sometimes it looks clearer to place the body expression first, and only then explain what the symbols in it mean.
 >
->These syntaxes are valid for all **expression forms** of ``let``, namely: ``let[]``, ``letseq[]``, ``letrec[]``, ``let_syntax[]`` and ``abbrev[]``. The decorator variants (``dlet`` et al., ``blet`` et al.) and the block variants (``with let_syntax``, ``with abbrev``) support only the original lispy syntax, because there the body is in any case placed differently.
+>These syntaxes are valid for all **expression forms** of ``let``, namely: ``let[]``, ``letseq[]``, ``letrec[]``, ``let_syntax[]`` and ``abbrev[]``. The decorator variants (``dlet`` et al., ``blet`` et al.) and the block variants (``with let_syntax``, ``with abbrev``) support only the formats where the bindings subform is given in the macro arguments part, because there the body is in any case placed differently (it's the body of the function being decorated).
 >
->In the first variant above (the *let-in*), note the bindings block still needs the outer parentheses. This is due to Python's precedence rules; ``in`` binds more strongly than the comma (which makes sense almost everywhere else), so to make it refer to all of the bindings, the bindings block must be parenthesized. If the ``let`` expander complains your code does not look like a ``let`` form and you have used *let-in*, check your parentheses.
+>In the first variant above (the *let-in*), note that even there, the bindings block needs the brackets. This is due to Python's precedence rules; ``in`` binds more strongly than the comma (which makes sense almost everywhere else), so to make the ``in`` refer to all of the bindings, the bindings block must be bracketed. If the ``let`` expander complains your code does not look like a ``let`` form and you have used *let-in*, check your brackets.
 >
->In the second variant (the *let-where*), note the comma between the body and ``where``; it is compulsory to make the expression into syntactically valid Python. (It's however semi-easyish to remember, since also English requires the comma for a where-expression.)
+>In the second variant (the *let-where*), note the comma between the body and ``where``; it is compulsory to make the expression into syntactically valid Python. (It's however semi-easyish to remember, since also English requires the comma for a where-expression. It's not only syntactically valid Python, it's also syntactically valid English (at least for mathematicians).)
 </details>
 
-#### Special syntax for one binding
+#### Alternate syntaxes for the bindings subform
 
-If there is only one binding, to make the syntax more pythonic, the outer parentheses may be omitted in the bindings block of the **expr forms** of:
+**Changed in v0.15.0.**
 
-- ``let``, ``letseq``, ``letrec``
-- ``dlet``, ``dletseq``, ``dletrec``, ``blet``, ``bletseq``, ``bletrec``
-- ``let_syntax``, ``abbrev``
+Beginning with v0.15.0, the env-assignment syntax presented above is the preferred syntax to establish let bindings, for consistency with other env-assignments. (Let variables live in an `env`, which is created by the `let`.)
+
+There is also an alternate, lispy notation for the bindings subform, where each name-value pair is given using brackets:
 
 ```python
-let[x, 21][2*x]
-let[(x, 21) in 2*x]
-let[2*x, where(x, 21)]
+let[[x, 42], [y, 9001]][...]
+let[[[x, 42], [y, 9001]] in ...]
+let[..., where[[x, 42], [y, 9001]]]
+
+# one-binding special case: outer brackets not needed
+let[x, 42][...]
+let[[x, 42] in ...]
+let[..., where[x, 42]]
 ```
 
-This is valid also in the *let-in* variant, because there is still one set of parentheses enclosing the bindings block.
+This is similar in spirit to the notation used in v0.14.3 and earlier.
 
-This is essentially special-cased in the ``let`` expander. (If interested in the technical details, look at ``unpythonic.syntax.letdoutil.UnexpandedLetView``, which performs the destructuring. See also ``unpythonic.syntax.__init__.let``; the macro expander itself already destructures the original lispy syntax when the macro is invoked.)
+Actually, for backwards compatibility, we still support some use of parentheses instead of brackets in the bindings subform. The following formats, used in versions of `unpythonic` up to v0.14.3, are still accepted:
+
+```python
+let((x, 42), (y, 9001))[...]
+let[((x, 42), (y, 9001)) in ...]
+let[..., where((x, 42), (y, 9001))]
+
+# one-binding special case: outer parentheses not needed
+let(x, 42)[...]
+let[(x, 42) in ...]
+let[..., where(x, 42)]
+```
+
+Even though an expr macro invocation itself is always denoted using brackets, as of `unpythonic` v0.15.0 parentheses can still be used *to pass macro arguments*, hence ``let(...)[...]`` is still accepted. The code that interprets the AST for the let bindings accepts both lists and tuples for each key-value pair, and the top-level container for the bindings subform in a let-in or let-where can be either list or tuple, so whether brackets or parentheses are used does not matter there, either.
+
+Still, brackets are now the preferred delimiter, for consistency between the bindings and body subforms.
+
+We plan to drop support for parentheses to pass macro arguments in the future, when Python 3.9 becomes the minimum Python version supported. The reason we will wait that long is that up to Python 3.8, decorators cannot be subscripted. Up to Python 3.8, `@dlet[x, 42]` is rejected by Python's parser, whereas `@dlet(x, 42)` is accepted.
+
+The issue has been fixed in Python 3.9. If you already only use 3.9 and later, please prefer brackets to pass macro arguments.
+
 
 #### Multiple expressions in body
 
 The `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body ([like in `multilambda`](#multilambda-supercharge-your-lambdas)):
 
 ```python
-let[(x, 1),
-    (y, 2)][[  # note extra [
+let[x << 1,
+    y << 2][[  # note extra [
       y << x + y,
       print(y)]]
 
-let[((x, 1),      # v0.12.0+
-     (y, 2)) in
+let[[x << 1,
+     y << 2] in
     [y << x + y,  # body starts here
      print(y)]]
 
-let[[y << x + y,  # v0.12.0+
+let[[y << x + y,
      print(y)],   # body ends here
-    where((x, 1),
-          (y, 2))]
+    where[x << 1,
+          y << 2]]
 ```
 
 The let macros implement this by inserting a ``do[...]`` (see below). In a multiple-expression body, also an internal definition context exists for local variables that are not part of the ``let``; see [``do`` for details](#do-as-a-macro-stuff-imperative-code-into-an-expression-with-style).
@@ -194,17 +239,17 @@ The let macros implement this by inserting a ``do[...]`` (see below). In a multi
 Only the outermost set of extra brackets is interpreted as a multiple-expression body. The rest are interpreted as usual, as lists. If you need to return a literal list from a ``let`` form with only one body expression, use three sets of brackets:
 
 ```python
-let[(x, 1),
-    (y, 2)][[
+let[x << 1,
+    y << 2][[
       [x, y]]]
 
-let[((x, 1),      # v0.12.0+
-     (y, 2)) in
+let[[x << 1,
+     y << 2] in
     [[x, y]]]
 
-let[[[x, y]],     # v0.12.0+
-    where((x, 1),
-          (y, 2))]
+let[[[x, y]],
+    where[x << 1,
+          y << 2]]
 ```
 
 The outermost brackets delimit the ``let`` form, the middle ones activate multiple-expression mode, and the innermost ones denote a list.
@@ -212,17 +257,17 @@ The outermost brackets delimit the ``let`` form, the middle ones activate multip
 Only brackets are affected; parentheses are interpreted as usual, so returning a literal tuple works as expected:
 
 ```python
-let[(x, 1),
-    (y, 2)][
+let[x << 1,
+    y << 2][
       (x, y)]
 
-let[((x, 1),      # v0.12.0+
-     (y, 2)) in
+let[[x << 1,
+     y << 2] in
     (x, y)]
 
-let[(x, y),       # v0.12.0+
-    where((x, 1),
-          (y, 2))]
+let[(x, y),
+    where[x << 1,
+          y << 2]]
 ```
 
 #### Notes
@@ -234,9 +279,9 @@ The main difference of the `let` family to Python's own named expressions (a.k.a
 Nesting utilizes an inside-out macro expansion order:
 
 ```python
-letrec[(z, 1)][[
+letrec[z << 1][[
          print(z),
-         letrec[(z, 2)][
+         letrec[z << 2][
                   print(z)]]]
 ```
 
@@ -254,42 +299,42 @@ Examples:
 ```python
 from unpythonic.syntax import macros, dlet, dletseq, dletrec, blet, bletseq, bletrec
 
-@dlet[(x, 0)]
+@dlet[x << 0]  # up to Python 3.8, use `@dlet(x << 0)` instead
 def count():
     x << x + 1
     return x
 assert count() == 1
 assert count() == 2
 
-@dletrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),
-         (oddp,  lambda x: (x != 0) and evenp(x - 1))]
+@dletrec[evenp << (lambda x: (x == 0) or oddp(x - 1)),
+         oddp << (lambda x: (x != 0) and evenp(x - 1))]
 def f(x):
     return evenp(x)
 assert f(42) is True
 assert f(23) is False
 
-@dletseq[(x, 1),
-         (x, x+1),
-         (x, x+2)]
+@dletseq[x << 1,
+         x << x + 1,
+         x << x + 2]
 def g(a):
     return a + x
 assert g(10) == 14
 
 # block versions: the def takes no arguments, runs immediately, and is replaced by the return value.
-@blet[(x, 21)]
+@blet[x << 21]
 def result():
     return 2*x
 assert result == 42
 
-@bletrec[(evenp, lambda x: (x == 0) or oddp(x - 1)),
-         (oddp,  lambda x: (x != 0) and evenp(x - 1))]
+@bletrec[evenp << (lambda x: (x == 0) or oddp(x - 1)),
+         oddp << (lambda x: (x != 0) and evenp(x - 1))]
 def result():
     return evenp(42)
 assert result is True
 
-@bletseq[(x, 1),
-         (x, x+1),
-         (x, x+2)]
+@bletseq[x << 1,
+         x << x + 1,
+         x << x + 2]
 def result():
     return x
 assert result == 4
@@ -306,31 +351,31 @@ As an exception to the rule, for the purposes of the scope analysis performed by
 To clarify, here's a sampling from the unit tests:
 
 ```python
-@dlet[(x, "the env x")]
+@dlet[x << "the env x"]
 def f():
     return x
 assert f() == "the env x"
 
-@dlet[(x, "the env x")]
+@dlet[x << "the env x"]
 def f():
     x = "the local x"
     return x
 assert f() == "the local x"
 
-@dlet[(x, "the env x")]
+@dlet[x << "the env x"]
 def f():
     return x
     x = "the unused local x"
 assert f() == "the env x"
 
 x = "the global x"
-@dlet[(x, "the env x")]
+@dlet[x << "the env x"]
 def f():
     global x
     return x
 assert f() == "the global x"
 
-@dlet[(x, "the env x")]
+@dlet[x << "the env x"]
 def f():
     x = "the local x"
     del x           # deleting a local, ok!
@@ -339,7 +384,7 @@ assert f() == "the env x"
 
 try:
     x = "the global x"
-    @dlet[(x, "the env x")]
+    @dlet[x << "the env x"]
     def f():
         global x
         del x       # ignored by unpythonic's scope analysis, deletion of globals is too dynamic
@@ -365,29 +410,28 @@ def verylongfunctionname(x=1):
     return x
 
 # works as an expr macro
-y = let_syntax[(f, verylongfunctionname)][[  # extra brackets: implicit do in body
+y = let_syntax[f << verylongfunctionname][[  # extra brackets: implicit do in body
                  print(f()),
                  f(5)]]
 assert y == 5
 
-y = let_syntax[(f[a], verylongfunctionname(2*a))][[  # template with formal parameter "a"
+y = let_syntax[f[a] << verylongfunctionname(2*a)][[  # template with formal parameter "a"
                  print(f[2]),
                  f[3]]]
 assert y == 6
 
-# v0.12.0+
-y = let_syntax[((f, verylongfunctionname)) in
+y = let_syntax[[f << verylongfunctionname] in
                [print(f()),
                 f(5)]]
 y = let_syntax[[print(f()),
                 f(5)],
-               where((f, verylongfunctionname))]
-y = let_syntax[((f[a], verylongfunctionname(2*a))) in
+               where[f << verylongfunctionname]]
+y = let_syntax[[f[a] << verylongfunctionname(2*a)] in
                [print(f[2]),
                 f[3]]]
 y = let_syntax[[print(f[2]),
                 f[3]],
-               where((f[a], verylongfunctionname(2*a)))]
+               where[f[a] << verylongfunctionname(2*a)]]
 
 # works as a block macro
 with let_syntax:
@@ -441,8 +485,8 @@ After macro expansion completes, ``let_syntax`` has zero runtime overhead; it co
 >
 >Within each step, the substitutions are applied **in definition order**:
 >
->  - If the bindings are ``((x, y), (y, z))``, then an ``x`` at the use site transforms to ``z``. So does a ``y`` at the use site.
->  - But if the bindings are ``((y, z), (x, y))``, then an ``x`` at the use site transforms to ``y``, and only an explicit ``y`` at the use site transforms to ``z``.
+>  - If the bindings are ``[x << y, y << z]``, then an ``x`` at the use site transforms to ``z``. So does a ``y`` at the use site.
+>  - But if the bindings are ``[y << z, x << y]``, then an ``x`` at the use site transforms to ``y``, and only an explicit ``y`` at the use site transforms to ``z``.
 >
 >Even in block templates, arguments are always expressions, because invoking a template uses the subscript syntax. But names and calls are expressions, so a previously defined substitution (whether bare name or an invocation of a template) can be passed as an argument just fine. Definition order is then important; consult the rules above.
 </details>
@@ -457,14 +501,12 @@ When used as an expr macro, all bindings are registered first, and then the body
 The ``abbrev`` macro is otherwise exactly like ``let_syntax``, but it expands outside-in. Hence, no lexically scoped nesting, but it has the power to locally rename also macros, because the ``abbrev`` itself expands before any macros invoked in its body. This allows things like:
 
 ```python
-abbrev[(m, macrowithverylongname)][
+abbrev[m << macrowithverylongname][
     m[tree1] if m[tree2] else m[tree3]]
-
-# v0.12.0+
-abbrev[((m, macrowithverylongname)) in
+abbrev[[m << macrowithverylongname] in
        m[tree1] if m[tree2] else m[tree3]]
 abbrev[m[tree1] if m[tree2] else m[tree3],
-       where((m, macrowithverylongname))]
+       where[m << macrowithverylongname]]
 ```
 
 which can be useful when writing macros.
@@ -517,7 +559,7 @@ A ``local`` declaration comes into effect in the expression following the one wh
 
 ```python
 result = []
-let[(lst, [])][[result.append(lst),       # the let "lst"
+let[lst << []][[result.append(lst),       # the let "lst"
                 local[lst << lst + [1]],  # LHS: do "lst", RHS: let "lst"
                 result.append(lst)]]      # the do "lst"
 assert result == [[], [1]]
@@ -557,13 +599,13 @@ with multilambda:
     echo = lambda x: [print(x), x]
     assert echo("hi there") == "hi there"
 
-    count = let[(x, 0)][
+    count = let[x << 0][
               lambda: [x << x + 1,  # x belongs to the surrounding let
                        x]]
     assert count() == 1
     assert count() == 2
 
-    test = let[(x, 0)][
+    test = let[x << 0][
              lambda: [x << x + 1,
                       local[y << 42],  # y is local to the implicit do
                       (x, y)]]
@@ -594,14 +636,14 @@ from unpythonic.syntax import macros, namedlambda
 with namedlambda:
     f = lambda x: x**3                       # assignment: name as "f"
     assert f.__name__ == "f"
-    gn, hn = let[(x, 42), (g, None), (h, None)][[
+    gn, hn = let[x << 42, g << None, h << None][[
                    g << (lambda x: x**2),    # env-assignment: name as "g"
                    h << f,                   # still "f" (no literal lambda on RHS)
                    (g.__name__, h.__name__)]]
     assert gn == "g"
     assert hn == "f"
 
-    foo = let[(f7, lambda x: x) in f7]       # let-binding: name as "f7"
+    foo = let[[f7 << (lambda x: x)] in f7]       # let-binding: name as "f7"
 
     def foo(func1, func2):
         assert func1.__name__ == "func1"
@@ -626,10 +668,12 @@ The naming is performed using the function ``unpythonic.misc.namelambda``, which
 
  - Single-item assignment to a local name, ``f = lambda ...: ...``
 
+ - **Added in v0.15.0**: Named expressions (a.k.a. walrus operator, Python 3.8+), ``f := lambda ...: ...``
+
  - Expression-assignment to an unpythonic environment, ``f << (lambda ...: ...)``
    - Env-assignments are processed lexically, just like regular assignments.
 
- - Let bindings, ``let[(f, (lambda ...: ...)) in ...]``, using any let syntax supported by unpythonic (here using the haskelly let-in just as an example).
+ - Let bindings, ``let[[f << (lambda ...: ...)] in ...]``, using any let syntax supported by unpythonic (here using the haskelly let-in just as an example).
 
  - **Added in v0.14.2**: Named argument in a function call, as in ``foo(f=lambda ...: ...)``.
 
@@ -710,7 +754,7 @@ So if we want to use a lambda, we have to create an ``env``, so that we can writ
 
 ```python
 def foo(n0):
-    return let[(n, n0) in
+    return let[[n << n0] in
                (lambda i: n << n + i)]
 ```
 
@@ -1580,7 +1624,7 @@ aif[2*21,
     print("it is falsey")]
 ```
 
-Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` (which **must** be imported as a macro, if used) refers to the test result while (lexically) inside the ``aif``, and does not exist outside the ``aif``.
+Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` (which **must** be imported as a macro, if used) refers to the test result while (lexically) inside the ``then`` and ``otherwise`` parts of ``aif``, and anywhere else raises a syntax error at macro expansion time.
 
 Any part of ``aif`` may have multiple expressions by surrounding it with brackets (implicit ``do[]``):
 
