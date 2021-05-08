@@ -14,10 +14,9 @@ from ...syntax.util import (isec, detect_callec,
                             suggest_decorator_index,
                             is_lambda_decorator, is_decorated_lambda,
                             destructure_decorated_lambda, sort_lambda_decorators,
-                            transform_statements, eliminate_ifones,
-                            wrapwith, isexpandedmacromarker)
+                            transform_statements, eliminate_ifones)
 
-from ast import Call, Name, Constant, Expr, With, withitem
+from ast import Call, Name, Constant, Expr
 
 from ...ec import call_ec, throw  # just so hq[] captures them, like in real code
 
@@ -255,34 +254,6 @@ def runtests():
                 "hello"
         result = eliminate_ifones(eliminate_ifones_testdata8)
         test[len(result) == 1 and ishello(result[0])]
-
-    with testset("wrapwith"):
-        with q as wrapwith_testdata:
-            42
-        wrapped = wrapwith(q[n["ExampleContextManager"]], wrapwith_testdata)
-        test[type(wrapped) is list]
-        thewith = wrapped[0]
-        test[type(thewith) is With]
-        test[type(thewith.items[0]) is withitem]
-        ctxmanager = thewith.items[0].context_expr
-        test[type(ctxmanager) is Name]
-        test[ctxmanager.id == "ExampleContextManager"]
-        firststmt = thewith.body[0]
-        test[type(firststmt) is Expr]
-        test[type(firststmt.value) in (Constant, Num)]  # Python 3.8+: ast.Constant
-        test[getconstant(firststmt.value) == 42]  # Python 3.8+: ast.Constant
-
-    with testset("isexpandedmacromarker"):
-        with q as ismarker_testdata1:
-            with ExampleMarker:  # noqa: F821
-                ...
-        with q as ismarker_testdata2:
-            with NotAMarker1, NotAMarker2:  # noqa: F821
-                ...
-        test[isexpandedmacromarker("ExampleMarker", ismarker_testdata1[0])]
-        test[not isexpandedmacromarker("AnotherMarker", ismarker_testdata1[0])]  # right AST node type, different marker
-        test[not isexpandedmacromarker("NotAMarker1", ismarker_testdata2[0])]  # a marker must be the only ctxmanager in the `with`
-        test[not isexpandedmacromarker("ExampleMarker", q["surprise!"])]  # wrong AST node type
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

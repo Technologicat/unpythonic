@@ -3,7 +3,7 @@
 
 __all__ = ["autoref"]
 
-from ast import (Name, Load, Call, Lambda, With, Constant, arg,
+from ast import (Name, Load, Call, Lambda, arg,
                  Attribute, Subscript, Store, Del)
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
@@ -13,9 +13,9 @@ from mcpyrate.astfixers import fix_ctx
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
-from .astcompat import getconstant, Str
+from .astcompat import getconstant
 from .nameutil import isx
-from .util import wrapwith, ExpandedAutorefMarker
+from .util import ExpandedAutorefMarker
 from .letdoutil import isdo, islet, ExpandedDoView, ExpandedLetView
 from .testingtools import _test_function_names
 
@@ -43,21 +43,25 @@ from ..lazyutil import force1, passthrough_lazy_args
 #
 # One possible clean-ish implementation is::
 #
-#   with ExpandedAutorefMarker("o"):  # no-op at runtime
-#       x        # --> (lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x")))
-#       x.a      # --> ((lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x")))).a
-#       x[s]     # --> ((lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x"))))[s]
-#       o        # --> o   (can only occur if an as-part is supplied)
-#       with ExpandedAutorefMarker("p"):
-#          x     # --> (lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))
-#          x.a   # --> ((lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x"))).a
-#          x[s]  # --> ((lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))[s]
-#          # when the inner autoref expands, it doesn't know about the outer one, so we will get this:
-#          o     # --> (lambda _ar314: _ar314[1] if _ar314[0] else o)(_autoref_resolve((p, "o")))
-#          o.x   # --> ((lambda _ar314: _ar314[1] if _ar314[0] else o)(_autoref_resolve((p, "o")))).x
-#          o[s]  # --> ((lambda _ar314: _ar314[1] if _ar314[0] else o)(_autoref_resolve((p, "o"))))[s]
-#          # the outer autoref needs the marker to know to skip this (instead of looking up o.p):
-#          p     # --> p
+#   $ASTMarker<ExpandedAutorefMarker>:
+#       varname: 'o'
+#       body:
+#           x        # --> (lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x")))
+#           x.a      # --> ((lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x")))).a
+#           x[s]     # --> ((lambda _ar271: _ar271[1] if _ar271[0] else x)(_autoref_resolve((o, "x"))))[s]
+#           o        # --> o   (can only occur if an as-part is supplied)
+#           $ASTMarker<ExpandedAutorefMarker>:
+#               varname: 'p'
+#               body:
+#                   x     # --> (lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))
+#                   x.a   # --> ((lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x"))).a
+#                   x[s]  # --> ((lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))[s]
+#                   # when the inner autoref expands, it doesn't know about the outer one, so we will get this:
+#                   o     # --> (lambda _ar314: _ar314[1] if _ar314[0] else o)(_autoref_resolve((p, "o")))
+#                   o.x   # --> ((lambda _ar314: _ar314[1] if _ar314[0] else o)(_autoref_resolve((p, "o")))).x
+#                   o[s]  # --> ((lambda _ar314: _ar314[1] if _ar314[0] else o)(_autoref_resolve((p, "o"))))[s]
+#                   # the outer autoref needs the marker to know to skip this (instead of looking up o.p):
+#                   p     # --> p
 #
 # The lambda is needed, because the lexical-variable lookup for ``x`` must occur at the use site,
 # and it can only be performed by Python itself. We could modify ``_autoref_resolve`` to take
@@ -77,12 +81,6 @@ from ..lazyutil import force1, passthrough_lazy_args
 # In reality, we also capture-and-assign the autoref'd expr into a gensym'd variable (instead of referring
 # to ``o`` and ``p`` directly), so that arbitrary expressions can be autoref'd without giving them
 # a name in user code.
-#
-# TODO: Consider whether we could use a `mcpyrate.markers.ASTMarker` (which could
-# TODO: be deleted before the code reaches run time, instead of leaving it in like
-# TODO: `UnpythonicExpandedMacroMarker`s are). May need a postprocess hook in the
-# TODO: expander, so that we could register a function that deletes autoref markers
-# TODO: at the expander's global postprocess pass.
 
 @parametricmacro
 def autoref(tree, *, args, syntax, expander, **kw):
@@ -175,20 +173,6 @@ def _autoref(block_body, args, asname):
 
     o = asname.id if asname else gensym("_o")  # Python itself guarantees asname to be a bare Name.
 
-    # TODO: We can't use `unpythonic.syntax.util.isexpandedmacromarker` here, because it
-    # TODO: doesn't currently understand markers with arguments. Extend it?
-    #
-    # with ExpandedAutorefMarker("_o42"):
-    def isexpandedautorefblock(tree):
-        if not (type(tree) is With and len(tree.items) == 1):
-            return False
-        ctxmanager = tree.items[0].context_expr
-        return (type(ctxmanager) is Call and
-                isx(ctxmanager.func, "ExpandedAutorefMarker") and
-                len(ctxmanager.args) == 1 and type(ctxmanager.args[0]) in (Constant, Str))  # Python 3.8+: ast.Constant
-    def getreferent(tree):
-        return getconstant(tree.items[0].context_expr.args[0])
-
     # (lambda _ar314: _ar314[1] if _ar314[0] else x)(_autoref_resolve((p, o, "x")))
     def isautoreference(tree):
         return (type(tree) is Call and
@@ -237,8 +221,8 @@ def _autoref(block_body, args, asname):
             elif isdo(tree):
                 view = ExpandedDoView(tree)
                 self.generic_withstate(tree, referents=referents + [view.body[0].args.args[0].arg])  # lambda e14: ...
-            elif isexpandedautorefblock(tree):
-                self.generic_withstate(tree, referents=referents + [getreferent(tree)])
+            elif isinstance(tree, ExpandedAutorefMarker):
+                self.generic_withstate(tree, referents=referents + [tree.varname])
             elif isautoreference(tree):  # generated by an inner already expanded autoref block
                 thename = getconstant(get_resolver_list(tree)[-1])
                 if thename in referents:
@@ -250,11 +234,15 @@ def _autoref(block_body, args, asname):
                     #
                     # expands to:
                     #
-                    # with ExpandedAutorefMarker('_o5'):
-                    #     _o5 = e
-                    #     with ExpandedAutorefMarker('_o4'):
-                    #         _o4 = (lambda _ar13: (_ar13[1] if _ar13[0] else e2))(_autoref_resolve((_o5, 'e2')))
-                    #         (lambda _ar9: (_ar9[1] if _ar9[0] else e))(_autoref_resolve((_o4, _o5, 'e')))
+                    # $ASTMarker<ExpandedAutorefMarker>:
+                    #     varname: '_o5'
+                    #     body:
+                    #         _o5 = e
+                    #         $ASTMarker<ExpandedAutorefMarker>:
+                    #             varname: '_o4'
+                    #             body:
+                    #                 _o4 = (lambda _ar13: (_ar13[1] if _ar13[0] else e2))(_autoref_resolve((_o5, 'e2')))
+                    #                 (lambda _ar9: (_ar9[1] if _ar9[0] else e))(_autoref_resolve((_o4, _o5, 'e')))
                     #
                     # so there's no "e" as referent; the actual referent has a gensymmed name.
                     # Inside the body of the inner autoref, looking up "e" in e2 before falling
@@ -269,11 +257,15 @@ def _autoref(block_body, args, asname):
                     #
                     # expands to:
                     #
-                    # with ExpandedAutorefMarker('outer'):
-                    #     outer = e
-                    #     with ExpandedAutorefMarker('inner'):
-                    #         inner = (lambda _ar17: (_ar17[1] if _ar17[0] else e2))(_autoref_resolve((outer, 'e2')))
-                    #         outer  # <-- !!!
+                    # $ASTMarker<ExpandedAutorefMarker>:
+                    #     varname: 'outer'
+                    #     body:
+                    #         outer = e
+                    #         $ASTMarker<ExpandedAutorefMarker>:
+                    #             varname: 'inner'
+                    #             body:
+                    #                 inner = (lambda _ar17: (_ar17[1] if _ar17[0] else e2))(_autoref_resolve((outer, 'e2')))
+                    #                 outer  # <-- !!!
                     #
                     # Now this case is triggered; we get a bare `outer` inside the inner body.
                     # TODO: Whether this wart is a good idea is another question...
@@ -284,7 +276,7 @@ def _autoref(block_body, args, asname):
                 else:
                     add_to_resolver_list(tree, q[n[o]])  # _autoref_resolve((p, "x")) --> _autoref_resolve((p, o, "x"))
                 return tree
-            elif type(tree) is Call and isx(tree.func, "ExpandedAutorefMarker"):  # nested autorefs
+            elif isinstance(tree, ExpandedAutorefMarker):  # nested autorefs
                 return tree
             elif type(tree) is Name and (type(tree.ctx) is Load or not tree.ctx) and tree.id not in referents:
                 tree = makeautoreference(tree)
@@ -309,5 +301,4 @@ def _autoref(block_body, args, asname):
     for stmt in block_body:
         newbody.append(AutorefTransformer(referents=always_skip + [o]).visit(stmt))
 
-    return wrapwith(item=q[h[ExpandedAutorefMarker](u[o])],
-                    body=newbody)
+    return ExpandedAutorefMarker(body=newbody, varname=o)

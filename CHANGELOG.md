@@ -131,9 +131,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
 
 - The functions `almosteq` and `ulp` now live in `unpythonic.numutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
 
-- Rename the internal utility class `unpythonic.syntax.util.ASTMarker` to `UnpythonicExpandedMacroMarker`, to explicitly have a class name different from `mcpyrate.markers.ASTMarker`, because these represent semantically different things.
-  - `mcpyrate`'s `ASTMarker`s are a macro-expansion-time data-driven communication feature to allow macros to easily work together, and are deleted from the AST before handing the AST to Python's `compile` function. (If you're curious, `unpythonic` uses some of those markers itself; grep the codebase for `ASTMarker`.)
-  - `unpythonic`'s `UnpythonicExpandedMacroMarker`s remain in the AST at run time.
+- Remove the internal utility class `unpythonic.syntax.util.ASTMarker`. We now have `mcpyrate.markers.ASTMarker`, which is designed for data-driven communication between macros that work together. As a bonus, no markers are left in the AST at run time.
 
 - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name. Old name was `HACKING.md`, which was correct, but nowadays obscure.
 

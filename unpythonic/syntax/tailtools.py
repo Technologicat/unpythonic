@@ -21,7 +21,6 @@ import sys
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
-from mcpyrate.markers import ASTMarker
 from mcpyrate.quotes import capture_as_macro, is_captured_value
 from mcpyrate.utils import NestingLevelTracker
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
@@ -31,7 +30,8 @@ from .ifexprs import aif, it
 from .util import (isx, isec,
                    detect_callec, detect_lambda,
                    has_tco, sort_lambda_decorators,
-                   suggest_decorator_index, ExpandedContinuationsMarker, wrapwith, isexpandedmacromarker)
+                   suggest_decorator_index,
+                   UnpythonicASTMarker, ExpandedContinuationsMarker)
 from .letdoutil import isdo, islet, ExpandedLetView, ExpandedDoView
 
 from ..dynassign import dyn
@@ -653,7 +653,7 @@ def call_cc(tree, **kw):
     """
     if _continuations_level.value < 1:
         raise SyntaxError("call_cc[] is only meaningful in a `with continuations` block.")  # pragma: no cover, not meant to hit the expander (expanded away by `with continuations`)
-    return UnpythonicCallCcMarker(tree)
+    return CallCcMarker(body=tree)
 
 
 # --------------------------------------------------------------------------------
@@ -707,7 +707,7 @@ def _tco(block_body):
     for stmt in block_body:
         # skip nested, already expanded "with continuations" blocks
         # (needed to support continuations in the Lispython dialect, which applies tco globally)
-        if isexpandedmacromarker("ExpandedContinuationsMarker", stmt):
+        if isinstance(stmt, ExpandedContinuationsMarker):
             new_block_body.append(stmt)
             continue
 
@@ -765,9 +765,9 @@ def chain_conts(cc1, cc2, with_star=False):  # cc1=_pcc, cc2=cc
 
 _continuations_level = NestingLevelTracker()  # for checking validity of call_cc[]
 
-class UnpythonicContinuationsMarker(ASTMarker):
+class ContinuationsMarker(UnpythonicASTMarker):
     """AST marker related to the unpythonic's continuations (call_cc) subsystem."""
-class UnpythonicCallCcMarker(UnpythonicContinuationsMarker):
+class CallCcMarker(ContinuationsMarker):
     """AST marker denoting a `call_cc[]` invocation."""
 
 
@@ -867,7 +867,7 @@ def _continuations(block_body):
     def iscallcc(tree):
         if type(tree) not in (Assign, Expr):
             return False
-        return isinstance(tree.value, UnpythonicCallCcMarker)
+        return isinstance(tree.value, CallCcMarker)
     def split_at_callcc(body):
         if not body:
             return [], None, []
@@ -921,7 +921,7 @@ def _continuations(block_body):
         else:
             raise SyntaxError(f"call_cc[]: expected an assignment or a bare expr, got {stmt}")  # pragma: no cover
         # extract the function call(s)
-        if not isinstance(stmt.value, UnpythonicCallCcMarker):  # both Assign and Expr have a .value
+        if not isinstance(stmt.value, CallCcMarker):  # both Assign and Expr have a .value
             assert False  # we should get only valid call_cc[] invocations that pass the `iscallcc` test  # pragma: no cover
         theexpr = stmt.value.body  # discard the AST marker
         if not (type(theexpr) in (Call, IfExp) or (type(theexpr) in (Constant, NameConstant) and getconstant(theexpr) is None)):
@@ -1102,7 +1102,8 @@ def _continuations(block_body):
 
     # set up the default continuation that just returns its args
     # (the top-level "cc" is only used for continuations created by call_cc[] at the top level of the block)
-    new_block_body = [Assign(targets=[q[n["cc"]]], value=q[h[identity]])]
+    with q as new_block_body:
+        cc = h[identity]  # noqa: F841, only quoted
 
     # transform all defs (except the chaining handler), including those added by call_cc[].
     for stmt in block_body:
@@ -1116,8 +1117,7 @@ def _continuations(block_body):
 
     # Leave a marker so "with tco", if applied, can ignore the expanded "with continuations" block
     # (needed to support continuations in the Lispython dialect, since it applies tco globally.)
-    return wrapwith(item=q[h[ExpandedContinuationsMarker]],
-                    body=new_block_body)
+    return ExpandedContinuationsMarker(body=new_block_body)
 
 # -----------------------------------------------------------------------------
 

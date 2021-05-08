@@ -4,8 +4,6 @@
 Requires `mcpyrate`.
 """
 
-from ..dynassign import make_dynvar
-
 # --------------------------------------------------------------------------------
 # This module only re-exports the macro interfaces so the macros can be imported
 # by `from unpythonic.syntax import macros, ...`. The submodules contain the actual
@@ -99,8 +97,18 @@ from .prefix import *  # noqa: F401, F403
 from .tailtools import *  # noqa: F401, F403
 from .testingtools import *  # noqa: F401, F403
 
+# --------------------------------------------------------------------------------
+# Initialization code, not really meant for export.
+
+from ..dynassign import make_dynvar as _make_dynvar
+
 # We use `dyn` to pass the `expander` parameter to the macro implementations.
 class _NoExpander:
     def __getattr__(self, k):  # Make the dummy error out whenever we attempt to do anything with it.
         raise NotImplementedError("Macro expander instance has not been set in `dyn`.")
-make_dynvar(_macro_expander=_NoExpander())
+_make_dynvar(_macro_expander=_NoExpander())
+
+# Set up `unpythonic`'s AST markers to be deleted by the macro expander's global postprocessor.
+# This way we can use AST markers for data-driven internal communication between macros.
+from . import util
+util.register_postprocessor_hook()

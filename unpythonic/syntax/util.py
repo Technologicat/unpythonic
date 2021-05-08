@@ -11,15 +11,15 @@ __all__ = ["isec", "detect_callec",
            "has_tco", "has_curry", "has_deco",
            "sort_lambda_decorators", "suggest_decorator_index",
            "eliminate_ifones", "transform_statements",
-           "wrapwith",
-           "isexpandedmacromarker", "UnpythonicExpandedMacroMarker",
+           "UnpythonicASTMarker", "UnpythonicExpandedMacroMarker",
            "ExpandedContinuationsMarker", "ExpandedAutorefMarker"]
 
 from functools import partial
 
-from ast import (Call, Lambda, FunctionDef, AsyncFunctionDef,
-                 If, With, withitem, stmt)
+from ast import Call, Lambda, FunctionDef, AsyncFunctionDef, If, stmt
 
+from mcpyrate.core import add_postprocessor
+from mcpyrate.markers import ASTMarker, delete_markers
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
@@ -408,92 +408,36 @@ def transform_statements(f, body):
             return tree
     return StatementTransformer().visit(body)
 
-def wrapwith(item, body):
-    """Wrap ``body`` with a single-item ``with`` block, using ``item``.
+# --------------------------------------------------------------------------------
+# AST markers.
 
-    ``item`` must be an expr, used as ``context_expr`` of the ``withitem`` node.
+class UnpythonicASTMarker(ASTMarker):
+    """Base class for all AST markers used by `unpythonic`."""
+class UnpythonicExpandedMacroMarker(UnpythonicASTMarker):
+    """AST marker base class for expanded `unpythonic.syntax` macros."""
 
-    ``body`` must be a ``list`` of AST nodes.
-
-    Syntax transformer. Returns the wrapped body.
-
-    This function is intended to be called from macro implementations. We leave out
-    the source location information, so that the macro expander can auto-fill it.
-    """
-    wrapped = With(items=[withitem(context_expr=item, optional_vars=None)],
-                   body=body)
-    return [wrapped]
-
-def isexpandedmacromarker(typename, tree):
-    """Return whether tree is a specific expanded macro AST marker. Used by block macros.
-
-    That is, whether ``tree`` is a ``with`` block with a single context manager,
-    which is represented by a ``Name`` whose ``id`` matches the given ``typename``.
-
-    Example. If ``tree`` is the AST for the following code::
-
-        with ExpandedContinuationsMarker:
-            ...
-
-    then ``isexpandedmacromarker("ExpandedContinuationsMarker", tree)`` returns ``True``.
-
-    **NOTE**: The markers this function detects remain in the AST at run time;
-    they inherit from `unpythonic.syntax.util.UnpythonicExpandedMacroMarker`.
-    They are semantically different from `mcpyrate.markers.ASTMarker`, which
-    are compiled away (and must all be deleted before handing the AST over to
-    Python's `compile`).
-    """
-    if type(tree) is not With or len(tree.items) != 1:
-        return False
-    ctxmanager = tree.items[0].context_expr
-    return isx(ctxmanager, typename)
-
-# We use a custom metaclass to make __enter__ and __exit__ callable on the class
-# instead of requiring an instance.
-#
-# Note ``thing.dostuff(...)`` means ``Thing.dostuff(thing, ...)``; the method
-# is looked up *on the class* of the instance ``thing``, not on the instance
-# itself. Hence, to make method lookup succeed when we have no instance, the
-# method should be defined on the class of the class, i.e. *on the metaclass*.
-# https://stackoverflow.com/questions/20247841/using-delitem-with-a-class-object-rather-than-an-instance-in-python
-class UnpythonicExpandedMacroMarker(type):
-    """Metaclass for AST markers used by block macros.
-
-    This can be used by block macros to tell other block macros that a section
-    of the AST is an already-expanded block of a given kind (so that others can
-    tune their processing or skip it, as appropriate). At run time a marker
-    does nothing.
-
-    The difference to `mcpyrate.markers.ASTMarker` is that `mcpyrate`'s is a
-    compile-time thing only (and must be deleted from the AST before the AST
-    is handed over to Python's `compile`), whereas this one remains in the
-    AST at run time.
-
-    Usage::
-
-        with SomeMarker:
-            ... # expanded code goes here
-
-    We provide a custom metaclass so that there is no need to instantiate
-    ``SomeMarker``; suitable no-op ``__enter__`` and ``__exit__`` methods
-    are defined on the metaclass, so e.g. ``SomeMarker.__enter__`` is valid.
-    """
-    def __enter__(cls):
-        pass  # pragma: no cover
-    def __exit__(cls, exctype, excvalue, traceback):
-        pass  # pragma: no cover
-
-class ExpandedContinuationsMarker(metaclass=UnpythonicExpandedMacroMarker):
+class ExpandedContinuationsMarker(UnpythonicExpandedMacroMarker):
     """AST marker for an expanded "with continuations" block."""
-    pass  # pragma: no cover
 
-# This one must be "instantiated", because we need to pass information at
-# macro expansion time using the ctor call syntax, e.g. `ExpandedAutorefMarker("o")`.
-class ExpandedAutorefMarker(metaclass=UnpythonicExpandedMacroMarker):
+class ExpandedAutorefMarker(UnpythonicExpandedMacroMarker):
     """AST marker for an expanded "with autoref[o]" block."""
-    def __init__(self, varname):
-        self.varname = varname  # not needed, but doesn't hurt either.
-    def __enter__(cls):
-        pass  # pragma: no cover
-    def __exit__(cls, exctype, excvalue, traceback):
-        pass  # pragma: no cover
+    def __init__(self, body, varname):
+        super().__init__(body)
+        self.varname = varname
+        self._fields += ["varname"]
+
+# The point of having these two functions is:
+#   - `__init__` must explicitly enable the hook, thus making its existence
+#     obvious, since the entry-point source file for the macro layer has an
+#     obvious function call, instead of having the hook secretly registered
+#     by an innocuous-looking utility module.
+#
+#   - We could register `partial(delete_markers, cls=UnpythonicASTMarker)`,
+#     but then we would be unable to `remove_postprocessor` it later, because
+#     the function object itself is the key used for unregistering. Currently
+#     we don't need to do that, but it's nice to have the possibility.
+def register_postprocessor_hook():
+    """Set up global postprocessor hook for `mcpyrate` to nuke `unpythonic`'s AST markers from the final tree."""
+    add_postprocessor(_delete_unpythonic_ast_markers)
+def _delete_unpythonic_ast_markers(tree):
+    return delete_markers(tree, cls=UnpythonicASTMarker)

@@ -14,7 +14,7 @@ from mcpyrate.quotes import capture_as_macro, is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
 from .util import (suggest_decorator_index, sort_lambda_decorators, detect_lambda,
-                   isx, getname, is_decorator, wrapwith)
+                   isx, getname, is_decorator)
 from .letdoutil import islet, isdo, ExpandedLetView
 from .nameutil import is_unexpanded_expr_macro
 from ..lazyutil import Lazy, passthrough_lazy_args, force, force1, maybe_force_args
@@ -707,7 +707,7 @@ def _lazify(body):
                 # _autoref_resolve doesn't need any special handling
                 elif (isdo(tree) or is_decorator(tree.func, "namelambda") or
                       any(isx(tree.func, s) for s in _ctorcalls_all) or isx(tree.func, _expanded_lazy_name) or
-                      any(isx(tree.func, s) for s in ("_autoref_resolve", "ExpandedAutorefMarker"))):
+                      isx(tree.func, "_autoref_resolve")):
                     # here we know the operator (.func) to be one of specific names;
                     # don't transform it to avoid confusing lazyrec[] (important if this
                     # is an inner call in the arglist of an outer, lazy call, since it
@@ -831,7 +831,10 @@ def _lazify(body):
     # The second strict callee may get promises instead of values, because the
     # strict trampoline does not have the maybe_force_args (that usually forces the args
     # when lazy code calls into strict code).
-    return wrapwith(item=q[h[dyn.let](_build_lazy_trampoline=True)],
-                    body=newbody)
+    with q as quoted:
+        with h[dyn.let](_build_lazy_trampoline=True):
+            with a:
+                newbody
+    return quoted
 
 # -----------------------------------------------------------------------------
