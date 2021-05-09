@@ -279,26 +279,25 @@ More on type systems:
      - For the interested reader, grep the source code for ``userlambdas``.
    - Support a limited form of *decorated lambdas*, i.e. trees of the form ``f(g(h(lambda ...: ...)))``.
      - The macros will reorder a chain of lambda decorators (i.e. nested calls) to use the correct ordering, when only known decorators are used on a literal lambda.
-       - This allows some combos such as ``tco``, ``unpythonic.fploop.looped``, ``curry``.
+       - This allows some combos such as ``tco``, ``unpythonic.fploop.looped``, ``autocurry``.
      - Only decorators provided by ``unpythonic`` are recognized, and only some of them are supported. For details, see ``unpythonic.regutil``.
      - If you need to combo ``unpythonic.fploop.looped`` and ``unpythonic.ec.call_ec``, use ``unpythonic.fploop.breakably_looped``, which does exactly that.
        - The problem with a direct combo is that the required ordering is the trampoline (inside ``looped``) outermost, then ``call_ec``, and then the actual loop, but because an escape continuation is only valid for the dynamic extent of the ``call_ec``, the whole loop must be run inside the dynamic extent of the ``call_ec``.
        - ``unpythonic.fploop.breakably_looped`` internally inserts the ``call_ec`` at the right step, and gives you the ec as ``brk``.
      - For the interested reader, look at ``unpythonic.syntax.util``.
 
- - ``namedlambda`` is a two-pass macro. In the outside-in pass, it names lambdas inside ``let[]`` expressions before they are expanded away. The inside-out pass of ``namedlambda`` must run after ``autocurry`` to analyze and transform the auto-curried code produced by ``with autocurry``. In most cases, placing ``namedlambda`` in a separate outer ``with`` block runs both operations in the correct order.
+ - ``namedlambda`` is a two-pass macro. In the outside-in pass, it names lambdas inside ``let[]`` expressions before they are expanded away. The inside-out pass of ``namedlambda`` must run after ``autocurry`` to analyze and transform the auto-curried code produced by ``with autocurry``.
 
- - ``autoref`` does not need in its output to be curried (hence after ``curry`` to gain some performance), but needs to run before ``lazify``, so that both branches of each transformed reference get the implicit forcing. Its transformation is orthogonal to what ``namedlambda`` does, so it does not matter in which exact order these two run.
+ - ``autoref`` does not need in its output to be curried (hence after ``autocurry`` to gain some performance), but needs to run before ``lazify``, so that both branches of each transformed reference get the implicit forcing. Its transformation is orthogonal to what ``namedlambda`` does, so it does not matter in which exact order these two run.
 
  - ``lazify`` is a rather invasive rewrite that needs to see the output from most of the other macros.
 
  - ``envify`` needs to see the output of ``lazify`` in order to shunt function args into an unpythonic ``env`` without triggering the implicit forcing.
 
- - Some of the block macros can be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``autocurry`` and ``namedlambda``) require their own ``with`` statement.
-   - This was the case with MacroPy [[issue report](https://github.com/azazel75/macropy/issues/21)] [[PR](https://github.com/azazel75/macropy/pull/22)]. Should work in `mcpyrate`, but needs testing.
-   - If something goes wrong in the expansion of one block macro in a ``with`` statement that specifies several block macros, surprises may occur.
-   - When in doubt, use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks.
-     - Load the macro expansion debug utility `from mcpyrate.debug import macros, step_expansion`, and put a ``with step_expansion:`` around your use site. Then add your macro invocations one by one, and make sure the expansion looks like what you intended.
+ - With MacroPy, it used to be so that some of the block macros could be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``autocurry`` and ``namedlambda``) required their own ``with`` statement. In `mcpyrate`, block macros can be comboed in the same ``with`` statement (and expansion order is *left-to-right*).
+   - See the relevant [[issue report](https://github.com/azazel75/macropy/issues/21)] and [[PR](https://github.com/azazel75/macropy/pull/22)].
+   - When in doubt, you can use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks. In ``mcpyrate``, this is almost equivalent to having the macros invoked in a single ``with`` statement, in the same order.
+     - Load the macro expansion debug utility `from mcpyrate.debug import macros, step_expansion`, and put a ``with step_expansion:`` around your use site. Then add your macro invocations one by one, and make sure the expansion looks like what you intended. (And of course, while testing, try to keep the input as simple as possible.)
 
 ## Miscellaneous notes
 
