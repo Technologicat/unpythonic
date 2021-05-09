@@ -295,7 +295,7 @@ More on type systems:
  - ``envify`` needs to see the output of ``lazify`` in order to shunt function args into an unpythonic ``env`` without triggering the implicit forcing.
 
  - With MacroPy, it used to be so that some of the block macros could be comboed as multiple context managers in the same ``with`` statement (expansion order is then *left-to-right*), whereas some (notably ``autocurry`` and ``namedlambda``) required their own ``with`` statement. In `mcpyrate`, block macros can be comboed in the same ``with`` statement (and expansion order is *left-to-right*).
-   - See the relevant [[issue report](https://github.com/azazel75/macropy/issues/21)] and [[PR](https://github.com/azazel75/macropy/pull/22)].
+ - See the relevant [issue report](https://github.com/azazel75/macropy/issues/21) and [PR](https://github.com/azazel75/macropy/pull/22).
    - When in doubt, you can use a separate ``with`` statement for each block macro that applies to the same section of code, and nest the blocks. In ``mcpyrate``, this is almost equivalent to having the macros invoked in a single ``with`` statement, in the same order.
      - Load the macro expansion debug utility `from mcpyrate.debug import macros, step_expansion`, and put a ``with step_expansion:`` around your use site. Then add your macro invocations one by one, and make sure the expansion looks like what you intended. (And of course, while testing, try to keep the input as simple as possible.)
 
