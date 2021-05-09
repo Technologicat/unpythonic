@@ -24,7 +24,7 @@ The release will be numbered **0.15.0**, even though the codebase is mostly stab
 
 None required.
 
- - [mcpyrate](https://github.com/Technologicat/mcpyrate) optional, to enable the syntactic macro layer, an interactive macro REPL, and some example dialects.
+ - [`mcpyrate`](https://github.com/Technologicat/mcpyrate) optional, to enable the syntactic macro layer, an interactive macro REPL, and some example dialects.
 
 The 0.15.x series should run on CPython 3.6, 3.7, 3.8 and 3.9, and PyPy3 (language versions 3.6 and 3.7); the [CI](https://en.wikipedia.org/wiki/Continuous_integration) process verifies the tests pass on those platforms. [Long-term support roadmap](https://github.com/Technologicat/unpythonic/issues/1).
 
