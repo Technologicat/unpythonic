@@ -11,7 +11,7 @@ In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing f
 
 ### New version soon!
 
-**As of April 2021, `unpythonic` 0.15 is Coming Soon™.**
+**As of May 2021, `unpythonic` 0.15 is Coming Soon™.**
 
 As of [3b5e5af](https://github.com/Technologicat/unpythonic/commit/3b5e5aff3ba3bd758151b7bf5aa5f2abb07cd82f), the code itself is in a releasable state, and it is already in `master`. All that remains is an extensive documentation review. The changelog is known to be up to date, but something may still need an update in all the other parts of documentation.
 
