@@ -36,8 +36,6 @@ The main design considerations of `unpythonic` are simplicity, robustness, and m
 
 The whole library is pure Python. No foreign extensions are required. We also try to avoid depending on anything beyond "the Python standard", to help `unpythonic` run on any conforming Python implementation. (Provided its AST representation is sufficiently similar to CPython's, to allow the macros to work.)
 
-As of this writing (0.14.2), we test on CPython 3.6, and consider it as the primary target platform. However, if anything fails to work on another 3.6-compliant Python 3 such as [PyPy3](https://doc.pypy.org/en/latest/index.html) ([version 2.3.1 or later](http://pypy.org/compat.html)), issue reports and pull requests are welcome.
-
 The library is split into **two layers**, providing **three kinds of features**:
 
  - Pure Python (e.g. batteries for `itertools`),
