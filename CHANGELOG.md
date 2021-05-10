@@ -156,6 +156,8 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
 
 - Fix docstring of `test`: multiple `the[]` marks were already supported in 0.14.3, as the macro documentation already said, but the docstring claimed otherwise.
 
+- Fix bug in `with namedlambda`. Due to incorrect function arguments in the analyzer, already named lambdas were not detected correctly.
+
 
 ---
 
