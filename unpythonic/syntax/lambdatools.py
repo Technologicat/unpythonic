@@ -275,8 +275,9 @@ def _namedlambda(block_body):
     # it as `myname` (str); else return `tree` as-is.
     def nameit(myname, tree):
         match, thelambda = False, None
-        # for decorated lambdas, match any chain of one-argument calls.
-        d = is_decorated_lambda(tree, mode="any") and not has_deco(tree, "namelambda")
+        # For decorated lambdas, match any chain of one-argument calls.
+        # The `has_deco` check ignores any already named lambdas.
+        d = is_decorated_lambda(tree, mode="any") and not has_deco(["namelambda"], tree)
         c = iscurrywithfinallambda(tree)
         # this matches only during the second pass (after "with autocurry" has expanded)
         # so it can't have namelambda already applied
