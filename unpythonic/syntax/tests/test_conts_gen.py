@@ -18,7 +18,7 @@ See also the Racket version of this:
     https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt
 """
 
-from ...syntax import macros, test  # noqa: F401
+from ...syntax import macros, test, test_raises  # noqa: F401
 from ...test.fixtures import session, testset
 
 from ...syntax import macros, continuations, call_cc, dlet, abbrev, let_syntax, block  # noqa: F401, F811
@@ -177,6 +177,61 @@ def runtests():
                     out.append(x)
                     x = g2()  # noqa: F821
                 test[out == list(range(10))]
+
+    with testset("multi-shot generators"):
+        with continuations:
+            with let_syntax:
+                with block[value] as my_yield:  # noqa: F821
+                    call_cc[my_yieldf(value)]  # noqa: F821
+                with block[myname, body] as make_multishot_generator:  # noqa: F821
+                    def myname(k=None):  # "myname" is replaced by the user-supplied name
+                        if k:  # noqa: F821
+                            return k()  # noqa: F821
+                        def my_yieldf(value=None, *, cc):
+                            k = cc  # noqa: F821
+                            cc = identity
+                            if value is None:
+                                return k
+                            return k, value
+                        body  # noqa: F821
+                        # If we wanted a mechanism to `return` a final value,
+                        # this would be the place to send it.
+                        raise StopIteration
+
+                # We must define the body as an abbrev block to give it a name,
+                # because template arguments must be expressions (and a name is,
+                # but a literal block of code isn't).
+                #
+                # This user-defined body gets spliced in after the make_generator
+                # template itself has expanded.
+                with block as mybody:
+                    my_yield(1)
+                    my_yield(2)
+                    my_yield(3)
+                make_multishot_generator(g, mybody)
+
+                # basic test
+                out = []
+                k, x = g()
+                try:
+                    while True:
+                        out.append(x)
+                        k, x = g(k)
+                except StopIteration:
+                    pass
+                test[out == [1, 2, 3]]
+
+                # multi-shot test
+                k1, x1 = g()    # no argument: start from the beginning
+                k2, x2 = g(k1)  # continue execution from k1 (after the first `my_yield`)
+                k3, x3 = g(k2)
+                k, x = g(k1)  # multi-shot: continue *again* from k1
+                test[x1 == 1]
+                test[x2 == x == 2]
+                test[x3 == 3]
+                test[k.__qualname__ == k2.__qualname__]  # same bookmarked position...
+                test[k is not k2]  # ...but different function object instance
+                test_raises[StopIteration, g(k3)]
 
         # Unfortunately, this is as far as let_syntax[] gets us; if we wanted to
         # "librarify" this any further, we'd need to define a macro in `mcpyrate`.
