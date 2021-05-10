@@ -158,6 +158,8 @@ These syntaxes take no macro arguments; both the let-body and the bindings are p
 
 Note the bindings subform is always enclosed by brackets.
 
+The `where` operator, if used, must be macro-imported. It may only appear at the top level of the let-where form, separating the body and the bindings subforms. In any invalid position, `where` is considered a syntax error at macro expansion time.
+
 <details>
 <summary>Semantically, these do the exact same thing as the original lispy syntax: </summary>
 
@@ -466,6 +468,8 @@ with let_syntax:
 
 After macro expansion completes, ``let_syntax`` has zero runtime overhead; it completely disappears in macro expansion.
 
+The `expr` and `block` operators, if used, must be macro-imported. They may only appear in `with expr` and `with block` subforms at the top level of a `with let_syntax` or `with abbrev`. In any invalid position, `expr` and `block` are both considered a syntax error at macro expansion time.
+
 <details>
 <summary> There are two kinds of substitutions: </summary>
 
@@ -571,6 +575,8 @@ y = do[local[a << 17],
 ```
 
 Local variables are declared and initialized with ``local[var << value]``, where ``var`` is a bare name. To explicitly denote "no value", just use ``None``.  ``delete[...]`` allows deleting a ``local[...]`` binding. This uses ``env.pop()`` internally, so a ``delete[...]`` returns the value the deleted local variable had at the time of deletion. (So if you manually use the ``do()`` function in some code without macros, feel free to ``env.pop()`` in a do-item if needed.)
+
+The `local[]` and `delete[]` declarations may only appear at the top level of a `do[]`, `do0[]`, or implicit `do` (extra bracket syntax, e.g. for the body of a `let` form). In any invalid position, `local[]` and `delete[]` are considered a syntax error at macro expansion time.
 
 A ``local`` declaration comes into effect in the expression following the one where it appears, capturing the declared name as a local variable for the **lexically** remaining part of the ``do``. In a ``local``, the RHS still sees the previous bindings, so this is valid (although maybe not readable):
 
@@ -1222,6 +1228,8 @@ If you need to place ``call_cc[]`` inside a loop, use ``@looped`` et al. from ``
 
 Multiple ``call_cc[]`` statements in the same function body are allowed. These essentially create nested closures.
 
+In any invalid position, `call_cc[]` is considered a syntax error at macro expansion time.
+
 **Syntax**:
 
 In ``unpythonic``, ``call_cc`` is a **statement**, with the following syntaxes:
@@ -1500,6 +1508,8 @@ with prefix:
     assert (apply, g, "hi", "ho", lst) == (q, "hi" ,"ho", 1, 2, 3)
 ```
 
+If you use the `q`, `u` and `kw()` operators, they must be macro-imported. The `q`, `u` and `kw()` operators may only appear in a tuple inside a prefix block. In any invalid position, any of them is considered a syntax error at macro expansion time.
+
 This comboes with ``autocurry`` for an authentic *Listhell* programming experience:
 
 ```python
@@ -1641,7 +1651,7 @@ aif[2*21,
     print("it is falsey")]
 ```
 
-Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` (which **must** be imported as a macro, if used) refers to the test result while (lexically) inside the ``then`` and ``otherwise`` parts of ``aif``, and anywhere else raises a syntax error at macro expansion time.
+Syntax is ``aif[test, then, otherwise]``. The magic identifier ``it`` (which **must** be imported as a macro, if used) refers to the test result while (lexically) inside the ``then`` and ``otherwise`` parts of ``aif``, and anywhere else is considered a syntax error at macro expansion time.
 
 Any part of ``aif`` may have multiple expressions by surrounding it with brackets (implicit ``do[]``):
 
