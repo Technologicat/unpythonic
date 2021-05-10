@@ -78,6 +78,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
 
 - **Miscellaneous.**
   - `with namedlambda` now understands the walrus operator, too. In the construct `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
+  - `with namedlambda` now auto-names lambdas that don't have a name candidate using their source location info, if present. This makes it easy to see in a stack trace where some particular lambda was defined.
   - Add `unpythonic.dispatch.generic_addmethod`: add methods to a generic function defined elsewhere.
   - All documentation files now have a quick navigation section to skip to another part of the docs. (For all except the README, it's at the top.)
   - Python 3.8 and 3.9 support added.

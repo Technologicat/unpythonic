@@ -70,12 +70,12 @@ def runtests():
                 func2=lambda x: x**2)  # function call with named arg: name as "func2"
 
             def bar(func1, func2):
-                test[func1.__name__ == "<lambda>"]
-                test[func2.__name__ == "<lambda>"]
-            bar(lambda x: x**2, lambda x: x**2)  # no naming when passed positionally
+                test[func1.__name__.startswith("<lambda at")]
+                test[func2.__name__.startswith("<lambda at")]
+            bar(lambda x: x**2, lambda x: x**2)  # name by source location info only when passed positionally
 
             def baz(func1, func2):
-                test[func1.__name__ == "<lambda>"]
+                test[func1.__name__.startswith("<lambda at")]
                 test[func2.__name__ == "func2"]
             baz(lambda x: x**2, func2=lambda x: x**2)
 

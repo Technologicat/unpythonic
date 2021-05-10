@@ -263,10 +263,13 @@ def _namedlambda(block_body):
     currycall_name = "currycall"
     iscurryf = lambda name: name in ("curryf", "curry")  # auto or manual curry in a "with autocurry"
     def isautocurrywithfinallambda(tree):
+        # "currycall(..., curryf(lambda ...: ...))"
         if not (type(tree) is Call and isx(tree.func, currycall_name) and tree.args and
                 type(tree.args[-1]) is Call and isx(tree.args[-1].func, iscurryf)):
             return False
-        return type(tree.args[-1].args[-1]) is Lambda
+        curryf_callnode = tree.args[-1]
+        lastarg = curryf_callnode.args[-1]
+        return type(lastarg) is Lambda
 
     def iscallwithnamedargs(tree):
         return type(tree) is Call and tree.keywords
@@ -279,11 +282,12 @@ def _namedlambda(block_body):
         # The `has_deco` check ignores any already named lambdas.
         d = is_decorated_lambda(tree, mode="any") and not has_deco(["namelambda"], tree)
         c = iscurrywithfinallambda(tree)
-        # this matches only during the second pass (after "with autocurry" has expanded)
+        # This matches only during the second pass (after "with autocurry" has expanded)
         # so it can't have namelambda already applied
         if isautocurrywithfinallambda(tree):  # "currycall(..., curryf(lambda ...: ...))"
             match = True
             thelambda = tree.args[-1].args[-1]
+            # --> "currycall(..., (namelambda(myname))(curryf(lambda ...: ...)))"
             tree.args[-1].args[-1] = q[h[namelambda](u[myname])(a[thelambda])]
         elif type(tree) is Lambda or d or c:
             match = True
@@ -375,7 +379,30 @@ def _namedlambda(block_body):
     newbody = dyn._macro_expander.visit(newbody)
 
     # inside out: transform in expanded autocurry
-    return NamedLambdaTransformer().visit(newbody)
+    newbody = NamedLambdaTransformer().visit(newbody)
+
+    # v0.15.0+: Finally, auto-name any still anonymous `lambda` with source location info.
+    # We must perform this in a separate pass so that expanded autocurry invocations
+    # are transformed correctly first.
+    class NamedLambdaFinalizationTransformer(ASTTransformer):
+        def transform(self, tree):
+            # Recurse into the lambda body in already named lambdas.
+            if is_decorated_lambda(tree, mode="any") and has_deco(["namelambda"], tree):
+                decorator_list, thelambda = destructure_decorated_lambda(tree)
+                thelambda.body = self.visit(thelambda.body)
+                return tree
+            elif type(tree) is Lambda:
+                if hasattr(tree, "lineno"):
+                    thename = f"<lambda at {dyn._macro_expander.filename}:{tree.lineno}>"
+                    tree, thelambda, match = nameit(thename, tree)
+                    if match:
+                        thelambda.body = self.visit(thelambda.body)
+                    else:
+                        tree = self.visit(tree)
+                return tree
+            return self.generic_visit(tree)
+    return NamedLambdaFinalizationTransformer().visit(newbody)
+
 
 # The function `f` is adapted from the `f` macro in `macropy.quick_lambda`,
 # stripped into a bare syntax transformer., and then the `@Walker` inside
