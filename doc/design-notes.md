@@ -36,11 +36,12 @@ The main design considerations of `unpythonic` are simplicity, robustness, and m
 
 The whole library is pure Python. No foreign extensions are required. We also try to avoid depending on anything beyond "the Python standard", to help `unpythonic` run on any conforming Python implementation. (Provided its AST representation is sufficiently similar to CPython's, to allow the macros to work.)
 
-The library is split into **two layers**, providing **three kinds of features**:
+The library is split into **three layers**, providing **four kinds of features**:
 
  - Pure Python (e.g. batteries for `itertools`),
  - Macros driving a pure-Python core (e.g. `do`, `let`),
  - Pure macros (e.g. `continuations`, `lazify`, `dbg`).
+ - Whole-module transformations, a.k.a. dialects.
 
 We believe syntactic macros are [*the nuclear option of software engineering*](https://www.factual.com/blog/thinking-in-clojure-for-java-programmers-part-2/). Accordingly, we aim to [minimize macro magic](https://macropy3.readthedocs.io/en/latest/discussion.html#minimize-macro-magic). If a feature can be implemented - *with a level of usability on par with pythonic standards* - without resorting to macros, then it belongs in the pure-Python layer. (The one exception is when building the feature as a macro is the *simpler* solution. Consider `unpythonic.amb.forall` (overly complicated, to avoid macros) vs. `unpythonic.syntax.forall` (a clean macro-based design of the same feature) as an example. Keep in mind [ZoP](https://www.python.org/dev/peps/pep-0020/) §17 and §18.)
 
