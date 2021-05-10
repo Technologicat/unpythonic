@@ -22,7 +22,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 
 **Changed in v0.15.0.** *To run macro-enabled programs, use the [`macropython`](https://github.com/Technologicat/mcpyrate/blob/master/doc/repl.md#macropython-the-universal-bootstrapper) bootstrapper from [`mcpyrate`](https://github.com/Technologicat/mcpyrate).*
 
-**This document is up-to-date for v0.14.3.**
+**This document is up-to-date for v0.15.0.**
 
 
 ### Features
