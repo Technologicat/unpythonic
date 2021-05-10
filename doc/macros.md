@@ -44,7 +44,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 - [``envify``: make formal parameters live in an unpythonic ``env``](#envify-make-formal-parameters-live-in-an-unpythonic-env)
 
 [**Language features**](#language-features)
-- [``curry``: automatic currying for Python](#curry-automatic-currying-for-python)
+- [``autocurry``: automatic currying for Python](#autocurry-automatic-currying-for-python)
 - [``lazify``: call-by-need for Python](#lazify-call-by-need-for-python)
   - [``lazy[]`` and ``lazyrec[]`` macros](#lazy-and-lazyrec-macros)
   - [Forcing promises manually](#forcing-promises-manually)
@@ -805,7 +805,9 @@ The ``with`` block adds a few elements, but if desired, it can be refactored int
 
 To boldly go where Python without macros just won't. Changing the rules by code-walking and making significant rewrites.
 
-### ``curry``: automatic currying for Python
+### ``autocurry``: automatic currying for Python
+
+**Changed in v0.15.0.** *The macro is now named `autocurry`, to avoid shadowing the `curry` function.*
 
 ```python
 from unpythonic.syntax import macros, autocurry
@@ -903,6 +905,8 @@ Inspired by Haskell, Racket's ``(delay)`` and ``(force)``, and [lazy/racket](htt
 
 #### ``lazy[]`` and ``lazyrec[]`` macros
 
+**Changed in v0.15.0.** *Previously, the `lazy[]` macro was provided by MacroPy. Now that we use `mcpyrate`, which doesn't provide it, we provide it ourselves, in `unpythonic.syntax`. Note that a lazy value now no longer has a `__call__` operator; instead, it has a `force()` method. The utility `unpythonic.lazyutil.force` (available in the top-level namespace of `unpythonic`) abstracts away this detail.*
+
 We provide the macros ``unpythonic.syntax.lazy``, which explicitly lazifies a single expression, and ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside container literals, recursively.
 
 Essentially, ``lazy[...]`` achieves the same result as ``memoize(lambda: ...)``, with the practical difference that a ``lazy[]`` promise ``p`` is evaluated by calling ``unpythonic.lazyutil.force(p)`` or ``p.force()``. In ``unpythonic``, the promise datatype (``unpythonic.lazyutil.Lazy``) does not have a ``__call__`` method, because the word ``force`` better conveys the intent.
@@ -918,6 +922,8 @@ The `unpythonic` containers **must be from-imported** for ``lazyrec[]`` to recog
 (The analysis in ``lazyrec[]`` must work by names only, because in an eager language any lazification must be performed as a syntax transformation before the code actually runs, so the analysis must be performed statically - and locally, because ``lazyrec[]`` is an expr macro. [Fexprs](https://fexpr.blogspot.com/2011/04/fexpr.html) (along with [a new calculus to go with them](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html)) are the clean, elegant solution, but this requires redesigning the whole language from ground up. Of course, if you're fine with a language not particularly designed for extensibility, and lazy evaluation is your top requirement, you could just use Haskell.)
 
 #### Forcing promises manually
+
+**Changed in v0.15.0.** *The functions `force1` and `force` now live in the top-level namespace of `unpythonic`, no longer in `unpythonic.syntax`.*
 
 This is mainly useful if you ``lazy[]`` or ``lazyrec[]`` something explicitly, and want to compute its value outside a ``with lazify`` block.
 
