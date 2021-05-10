@@ -38,7 +38,7 @@ The whole library is pure Python. No foreign extensions are required. We also tr
 
 The library is split into **three layers**, providing **four kinds of features**:
 
- - `unpythonic`
+ - `unpythonic`, `unpythonic.net`
    - Pure Python (e.g. batteries for `itertools`),
  - `unpythonic.syntax`
    - Macros driving a pure-Python core (e.g. `do`, `let`),
