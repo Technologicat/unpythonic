@@ -23,21 +23,6 @@
 
 # Examples of creating dialects using `mcpyrate`
 
-What if Python had automatic tail-call optimization and an implicit return statement? Look no further:
-
-```python
-from unpythonic.dialects import dialects, Lispython  # noqa: F401
-
-def factorial(n):
-    def f(k, acc):
-        if k == 1:
-            return acc
-        f(k - 1, k * acc)
-    f(n, acc=1)
-assert factorial(4) == 24
-factorial(5000)  # no crash
-```
-
 The [dialects subsystem of `mcpyrate`](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) makes Python into a language platform, à la [Racket](https://racket-lang.org/).
 It provides the plumbing that allows to create, in Python, dialects that compile into Python
 at macro expansion time. It is geared toward creating languages that extend Python
