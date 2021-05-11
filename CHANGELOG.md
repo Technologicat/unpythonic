@@ -80,7 +80,8 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
   - `with namedlambda` now understands the walrus operator, too. In the construct `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
   - `with namedlambda` now auto-names lambdas that don't have a name candidate using their source location info, if present. This makes it easy to see in a stack trace where some particular lambda was defined.
   - Add `unpythonic.dispatch.generic_addmethod`: add methods to a generic function defined elsewhere.
-  - Add `unpythonic.excutil.remap_in`, `unpythonic.excutil.remap`, and the condition variants `unpythonic.conditions.resignal_in`, `unpythonic.conditions.resignal`: conveniently remap library exception types to application exception types. Idea from [Alexis King (2016): Four months with Haskell](https://lexi-lambda.github.io/blog/2016/06/12/four-months-with-haskell/).
+  - Add `unpythonic.excutil.reraise_in` (expr form), `unpythonic.excutil.reraise` (block form): conveniently remap library exception types to application exception types. Idea from [Alexis King (2016): Four months with Haskell](https://lexi-lambda.github.io/blog/2016/06/12/four-months-with-haskell/).
+  - Add variants of the above for the conditions-and-restarts system: `unpythonic.conditions.resignal_in`, `unpythonic.conditions.resignal`. The new signal is sent using the same error-handling protocol as the original signal, so that e.g. an `error` remains an `error` even if re-signaling changes its type.
   - All documentation files now have a quick navigation section to skip to another part of the docs. (For all except the README, it's at the top.)
   - Python 3.8 and 3.9 support added.
 
@@ -97,6 +98,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
     - `mcpyrate.debug.step_expansion` is able to show the intermediate result after the `do` or `do0` has expanded, but before anything else has been done to the tree.
 
 - **Miscellaneous.**
+  - `unpythonic.conditions.signal`, when the signal goes unhandled, now returns the canonized input `condition`, with a nice traceback attached. This feature is intended for implementing custom error protocols on top of `signal`; `error` already uses it to produce a nice-looking error report.
   - The modules `unpythonic.dispatch` and `unpythonic.typecheck`, which provide the `@generic` and `@typed` decorators and the `isoftype` function, are no longer considered experimental. From this release on, they receive the same semantic versioning guarantees as the rest of `unpythonic`.
   - CI: Automated tests now run on Python 3.6, 3.7, 3.8, 3.9, and PyPy3 (language versions 3.6, 3.7).
   - CI: Test coverage improved to 94%.
