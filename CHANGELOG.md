@@ -80,6 +80,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
   - `with namedlambda` now understands the walrus operator, too. In the construct `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
   - `with namedlambda` now auto-names lambdas that don't have a name candidate using their source location info, if present. This makes it easy to see in a stack trace where some particular lambda was defined.
   - Add `unpythonic.dispatch.generic_addmethod`: add methods to a generic function defined elsewhere.
+  - Add `unpythonic.excutil.remap_in`, `unpythonic.excutil.remap`, and the condition variants `unpythonic.conditions.resignal_in`, `unpythonic.conditions.resignal`: conveniently remap library exception types to application exception types. Idea from [Alexis King (2016): Four months with Haskell](https://lexi-lambda.github.io/blog/2016/06/12/four-months-with-haskell/).
   - All documentation files now have a quick navigation section to skip to another part of the docs. (For all except the README, it's at the top.)
   - Python 3.8 and 3.9 support added.
 
@@ -143,6 +144,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
 
 - **Miscellaneous.**
   - The functions `almosteq` and `ulp` now live in `unpythonic.numutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
+  - The functions `raisef`, `tryf`, `equip_with_traceback`, and `async_raise` now live in `unpythonic.excutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
   - Remove the internal utility class `unpythonic.syntax.util.ASTMarker`. We now have `mcpyrate.markers.ASTMarker`, which is designed for data-driven communication between macros that work together. As a bonus, no markers are left in the AST at run time.
   - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name. Old name was `HACKING.md`, which was correct, but nowadays obscure.
   - Python 3.4 and 3.5 support dropped, as these language versions have officially reached end-of-life.
