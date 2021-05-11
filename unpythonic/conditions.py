@@ -760,13 +760,13 @@ def cerror(condition, *, cause=None):
             def __init__(self, value):
                 self.value = value
 
-        with handlers=((OddNumberError, proceed)):
+        with handlers((OddNumberError, proceed)):
             out = []
             for x in range(10):
                 if x % 2 == 1:
                     cerror(OddNumberError(x))  # if unhandled, raises ControlError
                 out.append(x)
-        assert out == [0, 2, 4, 6, 8]
+        assert out == list(range(10))
 
     """
     with restarts(proceed=(lambda: None)):  # just for control, no return value
