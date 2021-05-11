@@ -30,7 +30,7 @@ def _set_subscript_slice(tree, newslice):  # newslice: AST
     if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
         tree.slice = newslice
     tree.slice.value = newslice
-def _normalize_macroargs_node(macroargs):
+def _canonize_macroargs_node(macroargs):
     # We do this like `mcpyrate.expander.destructure_candidate` does,
     # except that we also destructure a list.
     if type(macroargs) in (List, Tuple):  # [a0, a1, ...]
@@ -222,7 +222,7 @@ def _ishaskellylet(tree):
         try:
             # This could be a `let_syntax` or `abbrev` using the haskelly let-in syntax.
             # We don't want to care about that, so we always use `letsyntax_mode=True`.
-            _ = canonize_bindings(_normalize_macroargs_node(bindings), letsyntax_mode=True)
+            _ = canonize_bindings(_canonize_macroargs_node(bindings), letsyntax_mode=True)
             return "in_expr"
         except SyntaxError:
             pass
@@ -449,17 +449,17 @@ class UnexpandedLetView:
                 return canonize_bindings(thetree.args)
             # Subscript
             theargs = _get_subscript_slice(thetree)
-            return canonize_bindings(_normalize_macroargs_node(theargs))
+            return canonize_bindings(_canonize_macroargs_node(theargs))
         else:  # haskelly let, `let[[...] in ...]`, `let[..., where[...]]`
             theexpr = self._theexpr_ref()  # `[...] in ...`, `..., where[...]`
             if t == "in_expr":
-                return canonize_bindings(_normalize_macroargs_node(theexpr.left))
+                return canonize_bindings(_canonize_macroargs_node(theexpr.left))
             elif t == "where_expr":
                 thewhere = theexpr.elts[1]
                 if type(thewhere) is Call:
                     return canonize_bindings(thewhere.args)
                 else:  # Subscript
-                    return canonize_bindings(_normalize_macroargs_node(_get_subscript_slice(thewhere)))
+                    return canonize_bindings(_canonize_macroargs_node(_get_subscript_slice(thewhere)))
             assert False
     def _setbindings(self, newbindings):
         t = self._type
