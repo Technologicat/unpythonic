@@ -282,23 +282,23 @@ Known as the `USE-VALUE` restart function in Common Lisp.
 A handler that just invokes the `use_value` restart is such a common use case
 that it is useful to have an abbreviation for it. This::
 
-    with handlers((OhNoes, lambda c: invoke("use_value", 42))):
+    with handlers((OhNoes, lambda: invoke("use_value", 42))):
         ...
 
 can be abbreviated to::
 
-    with handlers((OhNoes, lambda c: use_value(42))):
+    with handlers((OhNoes, lambda: use_value(42))):
         ...
 
-The `lambda c:` is still required, for consistency with Common Lisp, as well as
-to allow the user code to access the condition instance if needed.
-
-(A common use case is to embed, in the condition instance, the data needed
+A common use case is to embed, in the condition instance, the data needed
 for constructing the actual value to be sent to the `use_value` restart. In
 Seibel's log file parser example, when the parser sees a corrupt log entry,
 it embeds that data into the condition instance, and sends it to the handler,
 which then can in principle repair the log entry, and then invoke `use_value`
-with the repaired log entry.)
+with the repaired log entry. Then you can do something like::
+
+    with handlers((OhNoes, lambda c: use_value(produce_fixed_entry_from(c)))):
+        ...
 
 **Notes**:
 
@@ -311,26 +311,27 @@ The `use_value` function is essentially just shorthand::
 This pattern can be useful for defining similar shorthands for your own
 restarts.
 
-(Note that restarts are looked up by name, so a single module-level definition
+Note that restarts are looked up by name, so a single module-level definition
 of a shorthand for each uniquely named restart is enough. You can re-use the
 same shorthand for any restart that has the same name - just like there is
 just one `use_value` function, even though the `use_value` restart itself is
 defined separately at each `with restarts` site that provides it (since only
-each site itself knows how to "use a value").)
+each site itself knows how to "use a value").
 
 If you want a version for use cases where the condition instance argument is
 not needed, so you could in those cases omit the `lambda c:`, you can write
 that as::
 
-    use_constant = partial(invoker, "use_value")
-    with handlers((OhNoes, use_constant(42))):
+    make_use_constant = partial(invoker, "use_value")
+    use_42 = make_use_constant(42)
+    with handlers((OhNoes, use_42)):
         ...
 
 Note `invoker`, not `invoke`, and we are still left with a factory (since
 `invoker` itself is a factory and `partial` defers the call until it gets
 more arguments). You then call the factory function with your desired
 constant args/kwargs, to instantiate a handler that sends that specific
-set of args/kwargs.
+set of constant args/kwargs.
 """
 
 def invoker(restart_name, *args, **kwargs):
@@ -390,8 +391,21 @@ def invoker(restart_name, *args, **kwargs):
         with handlers((OhNoes, lambda c: use_value(42))):
             ...  # calling some code that may cerror(OhNoes("ouch"))
 
-    (The `use_value` function is convenient especially when the value being sent
-    is not a constant, but depends on data in the condition instance `c`.)
+    The `use_value` function is convenient especially when the value being sent
+    is not a constant, but depends on data in the condition instance `c`.
+    To do the same for your own restart, use this pattern (see `invoke`)::
+
+        frobnicate = partial(invoke, "frobnicate")
+        with handlers((OhNoes, frobnicate)):
+            ...
+
+    In this case, the `frobnicate` restart - if it accepts one positional
+    argument - will receive the condition instance. To send something else,
+    you can also do something like this::
+
+        frobnicate = partial(invoke, "frobnicate")
+        with handlers((OhNoes, lambda c: frobnicate(c.args[0] * 42))):
+            ...
 
     **Notes**
 
