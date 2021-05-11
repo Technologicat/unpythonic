@@ -88,7 +88,7 @@ class ControlError(Exception):
     when no handler handles the signal.
     """
 
-def signal(condition, *, cause=None):
+def signal(condition, *, cause=None, protocol=None):
     """Signal a condition.
 
     Signaling a condition works similarly to raising an exception (pass an
@@ -115,7 +115,18 @@ def signal(condition, *, cause=None):
     perform the restart and continue.
 
     If none of the matching handlers invokes a restart, `signal` returns
-    normally. There is no meaningful return value, it is always `None`.
+    normally.
+
+    For most use cases, the return value is not needed. But for defining
+    custom error-handling protocols on top of `signal`, it can be very useful.
+
+    The return value is the input `condition`, canonized to an instance
+    (even if originally, an exception *type* was passed to `signal`),
+    with its `__cause__` and `__protocol__` attributes filled in,
+    and with a traceback attached (on Python 3.7+). For example, the
+    `error` protocol uses the return value to chain the unhandled signal
+    properly into a `ControlError` exception; as a result, the error report
+    looks like a standard exception chain, with nice-looking tracebacks.
 
     If you want to error out on unhandled conditions, see `error`, which is
     otherwise the same as `signal`, except it raises if `signal` would have
@@ -125,6 +136,16 @@ def signal(condition, *, cause=None):
     In other words, if we pretend for a moment that `signal` is a Python
     keyword, it essentially performs a `signal ... from ...`. The default
     `cause=None` performs a plain `signal ...`.
+
+    The optional `protocol` argument is a low-level detail, meant for use by
+    error-handling protocols (including custom ones).
+
+    The `protocol` is stored into the `__protocol__` attribute of the condition
+    instance. It is the callable that was used to perform the signaling. If not
+    given, it defaults to the `signal` function itself. The main use case is for
+    `resignal` (for signal type conversion); using this information, it can
+    automatically emit the new signal using the same protocol that was used
+    for the original signal (so that e.g. an `error` remains an `error`).
 
     **Notes**
 
@@ -151,6 +172,16 @@ def signal(condition, *, cause=None):
     # The unwinding, when it occurs, is performed when `invoke` is
     # called from inside the condition handler in the user code.
 
+    # stacklevel: in the traceback, omit equip_with_traceback(), _prepare_signal_instance(), and signal().
+    #
+    # We can't have signal() there, because it would look like the call to `_prepare_signal_instance`
+    # was the cause of the signal, which is nonsense.
+    #
+    # Nicely, the resulting stack trace happens to be similar to how Python handles `raise` - the use site
+    # of `raise` (of an uncaught exception) is shown, but the internals of `raise` are not.
+    protocol = protocol or signal
+    condition = _prepare_signal_instance(condition, cause=cause, protocol=protocol, stacklevel=3)
+
     def accepts_arg(f):
         try:
             if arity_includes(f, 1):
@@ -159,6 +190,18 @@ def signal(condition, *, cause=None):
             return True  # just assume it
         return False
 
+    for handler in _find_handlers(type(condition)):
+        if accepts_arg(handler):
+            handler(condition)
+        else:
+            handler()
+
+    # When unhandled, return the condition instance.
+    # `error()` uses this return value; this allows us to provide a unified format for tracebacks.
+    return condition
+
+def _prepare_signal_instance(condition, *, cause, protocol, stacklevel):
+    """Canonize a condition, and populate its technical data."""
     # Consistency with behavior of exceptions in Python:
     #   Even if a class is raised, as in `raise StopIteration`, the `raise` statement
     #   converts it into an instance by instantiating with no args. So we need no
@@ -180,20 +223,16 @@ def signal(condition, *, cause=None):
     condition = canonize(condition, "be signaled")
     cause = canonize(cause, "act as the cause of another signal")
     condition.__cause__ = cause
+    condition.__protocol__ = protocol
 
     # Embed a stack trace in the signal, like Python does for raised exceptions.
     # This only works on Python 3.7 and later, because we need to create a traceback object in pure Python code.
     try:
-        # In the result, omit equip_with_traceback() and signal().
-        condition = equip_with_traceback(condition, stacklevel=2)
+        condition = equip_with_traceback(condition, stacklevel=stacklevel)
     except NotImplementedError:  # pragma: no cover
         pass  # well, we tried!
 
-    for handler in _find_handlers(type(condition)):
-        if accepts_arg(handler):
-            handler(condition)
-        else:
-            handler()
+    return condition
 
 def invoke(name_or_restart, *args, **kwargs):
     """Invoke a restart currently in scope. Known as `INVOKE-RESTART` in Common Lisp.
@@ -695,15 +734,7 @@ def error(condition, *, cause=None):
     keyword, it essentially performs a `error ... from ...`. The default
     `cause=None` performs a plain `error ...`.
     """
-    signal(condition, cause=cause)
-    # TODO: If we want to support the debugger at some point in the future,
-    # TODO: this is the appropriate point to ask the user what to do,
-    # TODO: before the call stack unwinds.
-    #
-    # TODO: Do we want to give one last chance to handle the ControlError?
-    # TODO: And do we want to raise ControlError, or the original condition?
-    condition.__cause__ = cause  # chain the causes, since we'll add a new one next.
-    raise ControlError("Unhandled error condition") from condition
+    _error(condition, cause=cause, protocol=error)
 
 def cerror(condition, *, cause=None):
     """Like `error`, but allow a handler to instruct the caller to ignore the error.
@@ -739,7 +770,21 @@ def cerror(condition, *, cause=None):
 
     """
     with restarts(proceed=(lambda: None)):  # just for control, no return value
-        error(condition, cause=cause)
+        _error(condition, cause=cause, protocol=cerror)
+
+def _error(condition, *, cause, protocol):
+    # The return value is canonized to an instance (even if `condition` was an exception *type*),
+    # and importantly, it has a nice-looking traceback that points to this line here.
+    # If the signal goes unhandled, Python's exception system will want to show that traceback
+    # when our `ControlError` *exception* goes uncaught.
+    condition = signal(condition, cause=cause, protocol=protocol)
+    # TODO: If we want to support the debugger at some point in the future,
+    # TODO: this is the appropriate point to ask the user what to do,
+    # TODO: before the call stack unwinds.
+    #
+    # TODO: Do we want to give one last chance to handle the ControlError?
+    # TODO: And do we want to raise ControlError, or the original condition?
+    raise ControlError("Unhandled error condition") from condition
 
 def warn(condition, *, cause=None):
     """Like `signal`, but emit a warning if the condition is not handled.
@@ -789,7 +834,7 @@ def warn(condition, *, cause=None):
     """
     with restarts(muffle=(lambda: None)):  # just for control, no return value
         with restarts(_proceed=(lambda: None)):  # for internal use by unpythonic.test.fixtures
-            signal(condition, cause=cause)
+            signal(condition, cause=cause, protocol=warn)
         if isinstance(condition, Warning):
             warnings.warn(condition, stacklevel=2)  # 2 to ignore our lispy `warn` wrapper.
         else:
@@ -805,16 +850,16 @@ muffle.__doc__ = "Invoke the 'muffle' restart. Restart function for use with `wa
 
 # Library to application signal type auto-conversion
 
-def _resignal(mapping, condition):
-    """Remap an signal instance to another signal type.
+def _resignal_handler(mapping, condition):
+    """Remap a condition instance to another condition type.
 
     `mapping`: dict-like, `{LibraryExc0: ApplicationExc0, ...}`
 
         Each `LibraryExc` must be a signal type.
 
-        Each `ApplicationExc` can be a signal type or an instance.
+        Each `ApplicationExc` can be a condition type or an instance.
         If an instance, then that exact instance is signaled as the
-        converted signal.
+        converted condition.
 
     `libraryexc`: the signal instance to convert. It is
                   automatically chained into `ApplicationExc`.
@@ -824,13 +869,16 @@ def _resignal(mapping, condition):
     """
     for LibraryExc, ApplicationExc in mapping.items():
         if isinstance(condition, LibraryExc):
-            # TODO: Would be nice to use the same protocol as the original.
-            # TODO: For this, we need to store that information in the signal instance.
-            signal(ApplicationExc, cause=condition)
+            # Resignal using the same error-handling protocol as the original signal
+            # (so that e.g. an `error(...)` resignals into an `error(...)` of the new type).
+            if not hasattr(condition, "__protocol__"):
+                error(f"Cannot resignal: protocol information missing in condition instance {condition}")
+            resignaler = condition.__protocol__
+            resignaler(ApplicationExc, cause=condition)
     # cancel and delegate to the next outer handler
 
 def resignal_in(body, mapping):
-    """Remap signal types in an expression.
+    """Remap condition types in an expression.
 
     Like `unpythonic.excutil.reraise_in` (which see), but for conditions.
 
@@ -861,12 +909,12 @@ def resignal_in(body, mapping):
 
     See also `resignal` for a block form.
     """
-    with handlers((BaseException, partial(_resignal, mapping))):
+    with handlers((BaseException, partial(_resignal_handler, mapping))):
         return body()
 
 @contextlib.contextmanager
 def resignal(mapping):
-    """Remap signal types. Context manager.
+    """Remap condition types. Context manager.
 
     Like `unpythonic.excutil.reraise` (which see), but for conditions.
 
@@ -895,5 +943,5 @@ def resignal(mapping):
 
     See also `resignal_in` for an expression form.
     """
-    with handlers((BaseException, partial(_resignal, mapping))):
+    with handlers((BaseException, partial(_resignal_handler, mapping))):
         yield

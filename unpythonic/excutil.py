@@ -360,7 +360,7 @@ def reraise_in(body, mapping):
     try:
         return body()
     except BaseException as libraryexc:
-        _reraise(mapping, libraryexc)
+        _reraise_handler(mapping, libraryexc)
 
 @contextmanager
 def reraise(mapping):
@@ -398,9 +398,9 @@ def reraise(mapping):
     try:
         yield
     except BaseException as libraryexc:
-        _reraise(mapping, libraryexc)
+        _reraise_handler(mapping, libraryexc)
 
-def _reraise(mapping, libraryexc):
+def _reraise_handler(mapping, libraryexc):
     """Remap an exception instance to another exception type.
 
     `mapping`: dict-like, `{LibraryExc0: ApplicationExc0, ...}`
