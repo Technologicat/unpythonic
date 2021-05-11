@@ -2998,9 +2998,9 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 **Changed in v0.14.3**. *The `@generic` and `@typed` decorators can now decorate also instance methods, class methods and static methods (beside regular functions, as previously in 0.14.2).*
 
-**Changed in v0.15.0**. *The `dispatch` and `typecheck` modules providing this functionality are now considered stable (no longer experimental). Added the `@generic_addmethod` parametric decorator that can register a new method on an existing generic function originally defined in another lexical scope.* 
+**Changed in v0.15.0**. *The `dispatch` and `typecheck` modules providing this functionality are now considered stable (no longer experimental). Added the `@generic_addmethod` parametric decorator that can register a new method on an existing generic function originally defined in another lexical scope. (Be careful of [type piracy](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy) when you use it.)* 
 
-The ``generic`` decorator allows creating multiple-dispatch generic functions with type annotation syntax.
+The ``generic`` decorator allows creating multiple-dispatch generic functions (a.k.a. multimethods) with type annotation syntax.
 
 We also provide some friendly utilities: ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first two) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
 
@@ -3097,6 +3097,8 @@ When using both `@generic` or `@typed` and OOP:
 *Terminology*: in both CLOS and in Julia, *function* is the generic entity, while *method* refers to its specialization to a particular combination of argument types. Note that *no object instance or class is needed*. Contrast with the classical OOP sense of *method*, i.e. a function that is associated with an object instance or class, with single dispatch based on the class (or in exotic cases, such as monkey-patched instances, on the instance).
 
 Based on my own initial experiments with this feature, the machinery itself works well enough, but to really shine - just like resumable exceptions - multiple dispatch needs to be used everywhere, throughout the language's ecosystem. Python obviously doesn't do that.
+
+**CAUTION**: Multiple dispatch can be dangerous. Particularly, `@generic_addmethod` can be dangerous to the readability of your codebase. If methods are added for a generic function defined elsewhere, for types defined elsewhere, this may lead to [*spooky action at a distance*](https://lexi-lambda.github.io/blog/2016/02/18/simple-safe-multimethods-in-racket/). In the Julia community, this is known as [*type piracy*](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy). Keep in mind that the method table is global state!
 
 
 #### ``typed``: add run-time type checks with type annotation syntax
