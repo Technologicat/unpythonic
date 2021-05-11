@@ -68,7 +68,7 @@ def runtests():
                 return out
 
             # High-level logic. Choose here which action the low-level logic should take
-            # for each named signal. Here we only have one signal, named "odd_number".
+            # for each condition type. Here we only have one signal, `OddNumberError`.
             def highlevel():
                 # When using error() or cerror() to signal, not handling the condition
                 # is a fatal error (like an uncaught exception). The `error` function
@@ -278,8 +278,11 @@ def runtests():
                     fail["This line should not be reached in the tests."]  # pragma: no cover
                 test[unbox(result) == 42]
 
-            # can be shortened using the predefined `use_value` function, which immediately
+            # This can be shortened using the predefined `use_value` function, which immediately
             # invokes the eponymous restart with the args and kwargs given.
+            #
+            # If you need to do the same for your own restart, use `functools.partial(invoke, restart_name)`.
+            # That will give you a function that you can use in a handler, and pass in args at that time.
             with handlers((JustTesting, lambda c: use_value(42))):
                 with restarts(use_value=(lambda x: x)) as result:
                     signal(JustTesting())
