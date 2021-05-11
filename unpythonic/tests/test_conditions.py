@@ -22,8 +22,10 @@ from ..conditions import (signal, find_restart, invoke, invoker, use_value,
                           available_restarts, available_handlers,
                           error, cerror, proceed,
                           warn, muffle,
-                          ControlError)
-from ..misc import raisef, slurp
+                          ControlError,
+                          resignal_in, resignal)
+from ..excutil import raisef
+from ..misc import slurp
 from ..collections import box, unbox
 from ..it import subset
 
@@ -575,6 +577,42 @@ def runtests():
             test[all(x == 42 for tag, x in results)]
             test[the[tuple(sorted(tag for tag, x in results)) == tuple(range(n))]]  # de-spam: don't capture LHS
         multithreading()
+
+    with testset("resignal_in, resignal"):
+        def resignal_tests():
+            class LibraryException(Exception):
+                pass
+            class MoreSophisticatedLibraryException(LibraryException):
+                pass
+            class UnrelatedException(Exception):
+                pass
+            class ApplicationException(Exception):
+                pass
+            test_signals[ApplicationException, resignal_in(lambda: signal(LibraryException),
+                                                           {LibraryException: ApplicationException})]
+            # subclasses
+            test_signals[ApplicationException, resignal_in(lambda: signal(MoreSophisticatedLibraryException),
+                                                           {LibraryException: ApplicationException})]
+            # tuple of types as input
+            test_signals[ApplicationException, resignal_in(lambda: signal(UnrelatedException),
+                                                           {(LibraryException, UnrelatedException):
+                                                                 ApplicationException})]
+            test[returns_normally(resignal_in(lambda: 42,
+                                              {LibraryException: ApplicationException}))]
+
+            with test_signals[ApplicationException]:
+                with resignal({LibraryException: ApplicationException}):
+                    signal(LibraryException)
+            with test_signals[ApplicationException]:
+                with resignal({LibraryException: ApplicationException}):
+                    signal(MoreSophisticatedLibraryException)
+            with test_signals[ApplicationException]:
+                with resignal({(LibraryException, UnrelatedException): ApplicationException}):
+                    signal(LibraryException)
+            with test["should return normally"]:
+                with resignal({LibraryException: ApplicationException}):
+                    42
+        resignal_tests()
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

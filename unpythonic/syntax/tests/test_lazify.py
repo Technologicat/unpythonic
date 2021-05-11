@@ -14,11 +14,12 @@ from ...syntax import (macros, lazify, lazy, lazyrec,  # noqa: F811, F401
 # and this one is a regular run-time function.
 from ...collections import frozendict
 from ...ec import call_ec
+from ...excutil import raisef
 from ...fun import (curry, memoize, flip, rotate, apply,
                     notf, andf, orf, tokth, withself)
 from ...it import flatten
 from ...llist import ll
-from ...misc import raisef, call, callwith
+from ...misc import call, callwith
 from ...tco import trampolined, jump
 
 from ...lazyutil import islazy, Lazy, force1, force  # Lazy usually not needed in client code; for our tests only

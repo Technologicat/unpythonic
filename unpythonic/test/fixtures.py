@@ -47,7 +47,7 @@ an expr macro that can be used instead of `assert` when writing test cases.
             test[2 + 2 == 5]
 
         # Testsets can be named. The name is printed in the output.
-        from unpythonic.misc import raisef
+        from unpythonic.excutil import raisef
         from unpythonic.conditions import cerror
         with testset("my fancy tests"):
             test[2 + 2 == 4]

@@ -57,7 +57,8 @@ __all__ = ["signal", "error",
            "available_restarts", "available_handlers",
            "restarts", "with_restarts",
            "handlers",
-           "ControlError"]
+           "ControlError",
+           "resignal_in", "resignal"]
 
 import threading
 from collections import deque, namedtuple
@@ -68,7 +69,8 @@ import warnings
 
 from .collections import box, unbox
 from .arity import arity_includes, UnknownArity
-from .misc import namelambda, equip_with_traceback, safeissubclass
+from .excutil import equip_with_traceback
+from .misc import namelambda, safeissubclass
 
 _stacks = threading.local()
 def _ensure_stacks():  # per-thread init
@@ -800,3 +802,98 @@ proceed.__doc__ = "Invoke the 'proceed' restart. Restart function for use with `
 
 muffle = invoker("muffle")
 muffle.__doc__ = "Invoke the 'muffle' restart. Restart function for use with `warn`."
+
+# Library to application signal type auto-conversion
+
+def _resignal(mapping, condition):
+    """Remap an signal instance to another signal type.
+
+    `mapping`: dict-like, `{LibraryExc0: ApplicationExc0, ...}`
+
+        Each `LibraryExc` must be a signal type.
+
+        Each `ApplicationExc` can be a signal type or an instance.
+        If an instance, then that exact instance is signaled as the
+        converted signal.
+
+    `libraryexc`: the signal instance to convert. It is
+                  automatically chained into `ApplicationExc`.
+
+    This function never returns normally. If no key in the mapping
+    matches, this delegates to the next outer handler.
+    """
+    for LibraryExc, ApplicationExc in mapping.items():
+        if isinstance(condition, LibraryExc):
+            # TODO: Would be nice to use the same protocol as the original.
+            # TODO: For this, we need to store that information in the signal instance.
+            signal(ApplicationExc, cause=condition)
+    # cancel and delegate to the next outer handler
+
+def resignal_in(body, mapping):
+    """Remap signal types in an expression.
+
+    Like `unpythonic.excutil.reraise_in` (which see), but for conditions.
+
+    Usage::
+
+        resignal_in(body,
+                    {LibraryExc: ApplicationExc,
+                    ...})
+
+    Whenever `body` signals an `exc` for which it holds that
+    `isinstance(exc, LibraryExc)`, that signal will be transparently
+    chained into an `ApplicationExc` signal. The automatic conversion
+    is in effect for the dynamic extent of `body`.
+
+    ``body`` is a thunk (0-argument function).
+
+    ``mapping`` is dict-like, ``{input0: output0, ...}``, where each
+                 ``input``  is either an exception type,
+                            or a tuple of exception types.
+                            It will be matched using `isinstance`.
+                 ``output`` is an exception type or an exception
+                            instance. If an instance, then that exact
+                            instance is signaled as the converted
+                            signal.
+
+    Conversions are tried in the order specified; hence, just like in
+    `with handlers`, place more specific types first.
+
+    See also `resignal` for a block form.
+    """
+    with handlers((BaseException, partial(_resignal, mapping))):
+        return body()
+
+@contextlib.contextmanager
+def resignal(mapping):
+    """Remap signal types. Context manager.
+
+    Like `unpythonic.excutil.reraise` (which see), but for conditions.
+
+    Usage::
+
+        with resignal({LibraryExc: ApplicationExc, ...}):
+            body0
+            ...
+
+    Whenever the body signals an `exc` for which it holds that
+    `isinstance(exc, LibraryExc)`, that signal will be transparently
+    chained into an `ApplicationExc` signal. The automatic conversion
+    is in effect for the dynamic extent of the `with` block.
+
+    ``mapping`` is dict-like, ``{input0: output0, ...}``, where each
+                 ``input``  is either an exception type,
+                            or a tuple of exception types.
+                            It will be matched using `isinstance`.
+                 ``output`` is an exception type or an exception
+                            instance. If an instance, then that exact
+                            instance is signaled as the converted
+                            signal.
+
+    Conversions are tried in the order specified; hence, just like in
+    `with handlers`, place more specific types first.
+
+    See also `resignal_in` for an expression form.
+    """
+    with handlers((BaseException, partial(_resignal, mapping))):
+        yield

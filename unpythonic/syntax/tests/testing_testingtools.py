@@ -23,7 +23,7 @@ from ...test.fixtures import (session, testset, terminate, returns_normally,  # 
                               TestFailure, TestError)
 
 from ...conditions import invoke, handlers, restarts, cerror  # noqa: F401
-from ...misc import raisef
+from ...excutil import raisef
 
 def runtests():
     # Low-level machinery.
