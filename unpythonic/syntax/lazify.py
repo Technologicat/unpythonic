@@ -761,11 +761,14 @@ def _lazify(body):
             # NOTE: We must expand all inner macro invocations before we hit this, or we'll produce nonsense.
             # Hence it is easiest to have `lazify` expand inside-out.
             elif type(tree) is Subscript:  # force only accessed part of obj[...]
+                # force the slice expression; it is needed to extract the relevant items.
                 self.withstate(tree.slice, forcing_mode="full")
                 tree.slice = self.visit(tree.slice)
                 # resolve reference to the actual container without forcing its items.
                 self.withstate(tree.value, forcing_mode="flat")
                 tree.value = self.visit(tree.value)
+                # using the currently active forcing mode, force the value returned
+                # by the subscript expression.
                 tree = f(tree)
                 return tree
 
@@ -787,10 +790,13 @@ def _lazify(body):
                 #  in reality there is always an f() around the whole expr.)
                 self.withstate(tree.value, forcing_mode="flat")
                 tree.value = self.visit(tree.value)
+                # using the currently active forcing mode, force the value returned
+                # by the attribute expression.
                 tree = f(tree)
                 return tree
 
             elif type(tree) is Name and type(tree.ctx) is Load:
+                # using the currently active forcing mode, force the value.
                 tree = f(tree)
                 # must not recurse when a Name changes into a Call.
                 return tree
