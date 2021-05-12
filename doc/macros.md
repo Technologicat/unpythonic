@@ -905,7 +905,7 @@ Inspired by Haskell, Racket's ``(delay)`` and ``(force)``, and [lazy/racket](htt
 
 #### ``lazy[]`` and ``lazyrec[]`` macros
 
-**Changed in v0.15.0.** *Previously, the `lazy[]` macro was provided by MacroPy. Now that we use `mcpyrate`, which doesn't provide it, we provide it ourselves, in `unpythonic.syntax`. Note that a lazy value now no longer has a `__call__` operator; instead, it has a `force()` method. The utility `unpythonic.lazyutil.force` (available in the top-level namespace of `unpythonic`) abstracts away this detail.*
+**Changed in v0.15.0.** *Previously, the `lazy[]` macro was provided by MacroPy. Now that we use `mcpyrate`, which doesn't provide it, we provide it ourselves, in `unpythonic.syntax`. Note that a lazy value now no longer has a `__call__` operator; instead, it has a `force()` method. The utility `unpythonic.lazyutil.force` (previously exported in `unpythonic.syntax`; now moved to the top-level namespace of `unpythonic`) abstracts away this detail.*
 
 We provide the macros ``unpythonic.syntax.lazy``, which explicitly lazifies a single expression, and ``unpythonic.syntax.lazyrec``, which can be used to lazify expressions inside container literals, recursively.
 
@@ -933,7 +933,7 @@ Mutable containers are updated in-place; for immutables, a new instance is creat
 
 #### Binding constructs and auto-lazification
 
-Why do we auto-lazify in certain kinds of binding constructs, but not in others? Function calls and let-bindings have one feature in common: both are guaranteed to bind only new names. Auto-lazification of all assignments, on the other hand, in a language that allows mutation is dangerous, because then this superficially innocuous code will fail:
+Why do we auto-lazify in certain kinds of binding constructs, but not in others? Function calls and let-bindings have one feature in common: both are guaranteed to bind only new names (even if that name is already in scope, they are distinct; the new binding will shadow the old one). Auto-lazification of all assignments, on the other hand, in a language that allows mutation is dangerous, because then this superficially innocuous code will fail:
 
 ```python
 a = 10
@@ -1103,7 +1103,7 @@ For various possible program topologies that continuations may introduce, see [t
 
 For full documentation, see the docstring of ``unpythonic.syntax.continuations``. The unit tests [[1]](../unpythonic/syntax/test/test_conts.py) [[2]](../unpythonic/syntax/test/test_conts_escape.py) [[3]](../unpythonic/syntax/test/test_conts_gen.py) [[4]](../unpythonic/syntax/test/test_conts_topo.py) may also be useful as usage examples.
 
-**Note on debugging**: If a function containing a ``call_cc[]`` crashes below the ``call_cc[]``, the stack trace will usually have the continuation function somewhere in it, containing the line number information, so you can pinpoint the source code line where the error occurred. (For a function ``f``, it is named ``f_cont``, ``f_cont1``, ...) But be aware that especially in complex macro combos (e.g. ``continuations, curry, lazify``), the other block macros may spit out many internal function calls *after* the relevant stack frame that points to the actual user program. So check the stack trace as usual, but check further up than usual.
+**Note on debugging**: If a function containing a ``call_cc[]`` crashes below the ``call_cc[]``, the stack trace will usually have the continuation function somewhere in it, containing the line number information, so you can pinpoint the source code line where the error occurred. (For a function ``f``, it is named ``f_cont_<some_uuid>``) But be aware that especially in complex macro combos (e.g. ``continuations, curry, lazify``), the other block macros may spit out many internal function calls *after* the relevant stack frame that points to the actual user program. So check the stack trace as usual, but check further up than usual.
 
 **Note on exceptions**: Raising an exception, or [signaling and restarting](features.md#handlers-restarts-conditions-and-restarts), will partly unwind the call stack, so the continuation *from the level that raised the exception* will be cancelled. This is arguably exactly the expected behavior.
 
@@ -2147,30 +2147,50 @@ The block macros are designed to run **in the following order (leftmost first)**
 
 ```
 prefix > autoreturn, quicklambda > multilambda > continuations or tco > ...
-                                                    ... > curry > namedlambda, autoref > lazify > envify
+                                                ... > autocurry > namedlambda, autoref > lazify > envify
 ```
 
 The ``let_syntax`` (and ``abbrev``) block may be placed anywhere in the chain; just keep in mind what it does.
 
-The ``dbg`` block can be run at any position after ``prefix`` and before ``tco`` (or ``continuations``). (It must be able to see regular function calls.)
+The ``dbg`` block can be run at any position after ``prefix`` and before ``tco`` (or ``continuations``). (It must be able to see function calls in Python's standard format, for detecting calls to the print function.)
 
 For simplicity, **the block macros make no attempt to prevent invalid combos** (unless there is a specific technical reason to do that for some particular combination). Be careful; e.g. don't nest several ``with tco`` blocks (lexically), that won't work.
+
+The correct ordering for block macro invocations is somewhat complicated by the fact that some of the above are two-pass macros. Consider this artificial example, where `mac` is a two-pass macro:
+
+```python
+with mac:
+    with cheese:
+        ...
+```
+
+The invocation `with mac` is *lexically on the outside*, thus the macro expander sees it first. The expansion order is then:
+
+ 1. First pass (outside in) of `with mac`.
+ 2. Explicit recursion by `with mac`. This expands the `with cheese`.
+ 3. Second pass (inside out) of `with mac`.
+
+So for example, even though `lazify` must *perform its AST editing* after `autocurry`, it is actually a two-pass macro. The first pass (outside in) only performs some preliminary analysis; the actual lazification happens in the second pass (inside out). So the correct invocation comboing these two is `with lazify, autocurry`. See [the dialect examples](../unpythonic/dialects/) for combo invocations that are known to work.
 
 Example combo in the single-line format:
 
 ```python
-with autoreturn, tco, lazify:
+with autoreturn, lazify, tco:
     ...
 ```
 
 In the multiline format:
 
 ```python
-with lazify:
-  with tco:
-    with autoreturn:
+with autoreturn:
+  with lazify:
+    with tco:
       ...
 ```
+
+Of these, `autoreturn` expands outside-in, while `lazify` and `tco` are both two-pass macros.
+
+To see if something is a two-pass macro, for now, grep the codebase for `expander.visit`; that is the *explicit recursion* mentioned above, and means that within that function, anything below that line will run in the inside-out pass. See [the `mcpyrate` manual](https://github.com/Technologicat/mcpyrate/blob/master/doc/main.md#expand-macros-inside-out).
 
 See our [notes on macros](../doc/design-notes.md#detailed-notes-on-macros) for more information.
 
