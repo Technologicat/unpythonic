@@ -3107,7 +3107,7 @@ When using both `@generic` or `@typed` and OOP:
 
 Based on my own initial experiments with this feature, the machinery itself works well enough, but to really shine - just like resumable exceptions - multiple dispatch needs to be used everywhere, throughout the language's ecosystem. Python obviously doesn't do that.
 
-**CAUTION**: Multiple dispatch can be dangerous. Particularly, `@generic_addmethod` can be dangerous to the readability of your codebase. If methods are added for a generic function defined elsewhere, for types defined elsewhere, this may lead to [*spooky action at a distance*](https://lexi-lambda.github.io/blog/2016/02/18/simple-safe-multimethods-in-racket/). In the Julia community, this is known as [*type piracy*](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy). Keep in mind that the method table is global state!
+**CAUTION**: Multiple dispatch can be dangerous. Particularly, `@generic_addmethod` can be dangerous to the readability of your codebase. If methods are added for a generic function defined elsewhere, for types defined elsewhere, this may lead to [*spooky action at a distance*](https://lexi-lambda.github.io/blog/2016/02/18/simple-safe-multimethods-in-racket/) (as in [action at a distance](https://en.wikipedia.org/wiki/Action_at_a_distance_(computer_programming))). In the Julia community, this is known as [*type piracy*](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy). Keep in mind that the method table is global state!
 
 
 #### ``typed``: add run-time type checks with type annotation syntax
