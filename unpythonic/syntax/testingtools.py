@@ -917,9 +917,12 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
     # Same remark about outside-in source code capture as in `_test_expr`.
     sourcecode = unparse(tree)
 
+    # Name our lambda to make the stack trace more understandable.
+    # For consistency, the name matches that used by `_test_expr`.
+    func_tree = q[h[namelambda]("testexpr")(lambda: a[tree])]
     return q[(a[asserter])(a[exctype],
                            u[sourcecode],
-                           lambda: a[tree],
+                           a[func_tree],
                            filename=a[filename],
                            lineno=a[ln],
                            message=a[message])]
