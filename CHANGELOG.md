@@ -80,6 +80,8 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
   - `with namedlambda` now understands the walrus operator, too. In the construct `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
   - `with namedlambda` now auto-names lambdas that don't have a name candidate using their source location info, if present. This makes it easy to see in a stack trace where some particular lambda was defined.
   - Add `unpythonic.dispatch.generic_addmethod`: add methods to a generic function defined elsewhere.
+  - Add `unpythonic.dispatch.isgeneric` to detect whether a callable has been declared `@generic`.
+  - `@generic` et al.: it is now possible to dispatch on a homogeneous type of contents collected by a `**kwargs` parameter.
   - Add `unpythonic.excutil.reraise_in` (expr form), `unpythonic.excutil.reraise` (block form): conveniently remap library exception types to application exception types. Idea from [Alexis King (2016): Four months with Haskell](https://lexi-lambda.github.io/blog/2016/06/12/four-months-with-haskell/).
   - Add variants of the above for the conditions-and-restarts system: `unpythonic.conditions.resignal_in`, `unpythonic.conditions.resignal`. The new signal is sent using the same error-handling protocol as the original signal, so that e.g. an `error` remains an `error` even if re-signaling changes its type.
   - All documentation files now have a quick navigation section to skip to another part of the docs. (For all except the README, it's at the top.)
@@ -140,6 +142,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
   - Move the functions `force1` and `force` from `unpythonic.syntax` to `unpythonic`. Make the `Lazy` class (promise implementation) public. (They actually come from `unpythonic.lazyutil`.)
   - Change parameter ordering of `unpythonic.it.window` to make it curry-friendly. Usage is now `window(n, iterable)`.
     - This was an oversight when this function was added; most other functions in `unpythonic.it` have been curry-friendly from the beginning.
+  - Change output format of `resolve_bindings` to return an `inspect.BoundArguments` instead of the previous `OrderedDict` that had a custom format. Change the input format of `tuplify_bindings` to match.
   - Change parameter name from `l` to `length` in the functions `in_slice` and `index_in_slice` (in the `unpythonic.collections` module).
     - These are mostly used internally, but technically a part of the public API.
     - This change fixes a `flake8` [E741](https://pycodestyle.pycqa.org/en/latest/intro.html#error-codes) warning, and the new name for the parameter is more descriptive.

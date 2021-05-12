@@ -58,6 +58,14 @@ def gargle(*args: typing.Tuple[float, ...]):  # any number of floats  # noqa: F8
 def gargle(*args: typing.Tuple[int, float, str]):  # three args, matching the given types  # noqa: F811
     return "int, float, str"
 
+# v0.15.0: dispatching on a homogeneous type inside **kwargs is also supported, via `typing.Dict`
+@generic
+def kittify(**kwargs: typing.Dict[str, int]):
+    return "int"
+@generic
+def kittify(**kwargs: typing.Dict[str, float]):  # noqa: F811
+    return "float"
+
 # One-method pony, which automatically enforces argument types.
 # The type specification may use features from the `typing` stdlib module.
 @typed
@@ -90,6 +98,10 @@ def runtests():
         test[gargle(2.71828, 3.14159) == "float"]
         test[gargle(42, 6.022e23, "hello") == "int, float, str"]
         test[gargle(1, 2, 3) == "int"]  # as many as in the [int, float, str] case
+
+        test[kittify(x=1, y=2) == "int"]
+        test[kittify(x=1.0, y=2.0) == "float"]
+        test_raises[TypeError, kittify(x=1, y=2.0)]
 
     with testset("@generic_addmethod"):
         @generic

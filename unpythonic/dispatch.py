@@ -6,7 +6,7 @@ Somewhat like `functools.singledispatch`, but for multiple dispatch.
     https://docs.python.org/3/library/functools.html#functools.singledispatch
 """
 
-__all__ = ["generic", "generic_addmethod", "typed"]
+__all__ = ["isgeneric", "generic", "generic_addmethod", "typed"]
 
 from functools import partial, wraps
 from itertools import chain
@@ -36,36 +36,9 @@ self_parameter_names = ["self", "this", "cls", "klass"]
 # parameter, just append the names you use to this list.
 # """
 
-@register_decorator(priority=98)
-def generic_addmethod(target):
-    """Parametric decorator. Add a method to function `target`.
-
-    Like `@generic`, but the target function on which the method will be
-    registered is chosen separately, so that you can extend a generic
-    function previously defined in some other `.py` source file.
-
-    Usage::
-
-        # example.py
-        from unpythonic import generic
-
-        @generic
-        def f(x: int):
-            ...
-
-
-        # main.py
-        from unpythonic import generic_addmethod
-        import example
-
-        @generic_addmethod(example.f)
-        def f(x: float):
-            ...
-    """
-    # TODO: maybe needs some more official way to detect if `target` has been declared `@generic`.
-    if not hasattr(target, "_method_registry"):
-        raise TypeError(f"{target} is not a generic function, cannot add methods to it.")
-    return partial(_register_generic, _getfullname(target))
+def isgeneric(f):
+    """Return whether the callable `f` has been declared `@generic` (which see)."""
+    return hasattr(f, "_method_registry")
 
 @register_decorator(priority=98)
 def generic(f):
@@ -191,9 +164,6 @@ def generic(f):
     annotate it as `typing.Any`; don't just omit the type annotation.
     Explicit is better than implicit; **this is a feature**.
 
-    Dispatching by the contents of the `**kwargs` dictionary is not (yet)
-    supported.
-
     See the limitations in `unpythonic.typecheck` for which features of the
     `typing` module are supported and which are not.
 
@@ -201,6 +171,51 @@ def generic(f):
     needs changes to the dispatch logic in `curry`.
     """
     return _register_generic(_getfullname(f), f)
+
+@register_decorator(priority=98)
+def generic_addmethod(target):
+    """Parametric decorator. Add a method to function `target`.
+
+    Like `@generic`, but the target function on which the method will be
+    registered is chosen separately, so that you can extend a generic
+    function previously defined in some other `.py` source file.
+
+    Usage::
+
+        # example.py
+        from unpythonic import generic
+
+        @generic
+        def f(x: int):
+            ...
+
+
+        # main.py
+        from unpythonic import generic_addmethod
+        import example
+
+        class MyOwnType:
+            ...
+
+        @generic_addmethod(example.f)
+        def f(x: MyOwnType):
+            ...
+
+    **CAUTION**: Beware of type piracy when you use this. That is:
+
+        1. For arbitrary input types you don't own, extend only a function you own, OR
+        2. Extend a function defined somewhere else only for input types you own.
+
+    Satisfying **one** of these conditions is sufficient to avoid type piracy.
+
+    See:
+        https://lexi-lambda.github.io/blog/2016/02/18/simple-safe-multimethods-in-racket/
+        https://en.wikipedia.org/wiki/Action_at_a_distance_(computer_programming)
+        https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy
+    """
+    if not isgeneric(target):
+        raise TypeError(f"{target} is not a generic function, cannot add methods to it.")
+    return partial(_register_generic, _getfullname(target))
 
 # Modeled after `mcpyrate.utils.format_macrofunction`, which does the same thing for macros.
 def _getfullname(f):
@@ -240,17 +255,9 @@ def _register_generic(fullname, f):
         @wraps(f)
         def dispatcher(*args, **kwargs):
             # `signature` comes from typing.get_type_hints.
-            # `bindings` is populated in the surrounding scope below.
+            # `bound_arguments` is populated in the surrounding scope below.
             def match_argument_types(type_signature):
-                # TODO: handle **kwargs (bindings["kwarg"], bindings["kwarg_name"])
-                args_items = bindings["args"].items()
-                if bindings["vararg_name"]:
-                    vararg_item = (bindings["vararg_name"], bindings["vararg"])  # *args
-                    all_items = tuple(chain(args_items, (vararg_item,)))
-                else:
-                    all_items = args_items
-
-                for parameter, value in all_items:
+                for parameter, value in bound_arguments.arguments.items():
                     assert parameter in type_signature  # resolve_bindings should already TypeError when not.
                     expected_type = type_signature[parameter]
                     if not isoftype(value, expected_type):
@@ -271,7 +278,7 @@ def _register_generic(fullname, f):
                 #
                 # See discussions on interaction between `@staticmethod` and `super` in Python:
                 #   https://bugs.python.org/issue31118
-                #    https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction/26807879
+                #   https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction/26807879
                 #
                 # TODO/FIXME: Not possible to detect self/cls parameters correctly.
                 # Here we're operating at the wrong abstraction level for that,
@@ -294,17 +301,17 @@ def _register_generic(fullname, f):
                             if hasattr(base, f.__name__):  # does this particular super have f?
                                 base_oop_method = getattr(base, f.__name__)
                                 base_raw_function, _ = getfunc(base_oop_method)
-                                if hasattr(base_raw_function, "_method_registry"):  # it's @generic
+                                if isgeneric(base_raw_function):  # it's @generic
                                     base_registry = getattr(base_raw_function, "_method_registry")
                                     relevant_registries.append(reversed(base_registry))
 
                 return chain.from_iterable(relevant_registries)
-            for method, signature in methods():
+            for method, type_signature in methods():
                 try:
-                    bindings = resolve_bindings(method, *args, **kwargs)
+                    bound_arguments = resolve_bindings(method, *args, **kwargs)
                 except TypeError:  # arity mismatch, so this method can't be the one the call is looking for.
                     continue
-                if match_argument_types(signature):
+                if match_argument_types(type_signature):
                     return method(*args, **kwargs)
 
             # No match, report error.
@@ -321,17 +328,21 @@ def _register_generic(fullname, f):
             kw = [f"{k}={repr(v)}" for k, v in kwargs.items()]
             def format_method(method):  # Taking a page from Julia and some artistic liberty here.
                 thecallable, type_signature = method
+                # Our `type_signature` is based on `typing.get_type_hints`,
+                # but for the error message, we need something that formats
+                # like source code. Hence use `inspect.signature`.
+                thesignature = inspect.signature(thecallable)
                 function, _ = getfunc(thecallable)
                 filename = inspect.getsourcefile(function)
                 source, firstlineno = inspect.getsourcelines(function)
-                return f"{type_signature} from {filename}:{firstlineno}"
+                return f"{thecallable.__qualname__}{str(thesignature)} from {filename}:{firstlineno}"
             methods_str = [f"  {format_method(x)}" for x in methods()]
             candidates = "\n".join(methods_str)
             function, _ = getfunc(f)
             args_str = ", ".join(a)
             kws_str = ", ".join(kw)
-            msg = (f"No method found matching {function.__qualname__}({args_str}{sep}{kws_str}).\n"
-                   f"Candidate signatures (in order of match attempts):\n{candidates}")
+            msg = (f"No multiple-dispatch match for the call {function.__qualname__}({args_str}{sep}{kws_str}).\n"
+                   f"Multimethods for {repr(function.__qualname__)} (most recent match attempt last):\n{candidates}")
             raise TypeError(msg)
 
         dispatcher._method_registry = []
@@ -399,7 +410,6 @@ def _register_generic(fullname, f):
     if hasattr(dispatcher, "_register"):  # co-operation with @typed, below
         return dispatcher._register(f)
     raise TypeError("@typed: cannot register additional methods.")
-
 
 @register_decorator(priority=98)
 def typed(f):

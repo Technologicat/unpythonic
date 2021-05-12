@@ -11,8 +11,8 @@ __all__ = ["getfunc",
            "resolve_bindings", "tuplify_bindings",
            "UnknownArity"]
 
+import copy
 from inspect import signature, Parameter, ismethod
-from collections import OrderedDict
 import operator
 
 class UnknownArity(ValueError):
@@ -305,13 +305,25 @@ def arity_includes(f, n):
     lower, upper = arities(f)
     return lower <= n <= upper
 
-# TODO: Can we replace this by `inspect.Signature.bind`, provided by Python 3.5+?
 def resolve_bindings(f, *args, **kwargs):
     """Resolve parameter bindings established by `f` when called with the given args and kwargs.
 
     This is an inspection tool, which does not actually call `f`. This is useful for memoizers
     and other similar decorators that need a canonical representation of `f`'s parameter bindings.
-    If you want a hashable result, postprocess the return value with `tuplify_bindings(result)`.
+
+    **NOTE**: As of v0.15.0, this is a thin wrapper on top of `inspect.Signature.bind`,
+    which was added in Python 3.5. In `unpythonic` 0.14.2 and 0.14.3, we used to have
+    our own implementation of the parameter binding algorithm (that ran also on Python 3.4),
+    but it is no longer needed, since now we support only Python 3.6 and later.
+
+    The only things we do beside call `inspect.Signature.bind` are:
+
+      - If `f` is a method, we extract the raw function first, and analyze the bindings of that.
+
+      - We apply default values (from the definition of `f`) automatically.
+
+    The return value is an `inspect.BoundArguments`. If you want a hashable result,
+    postprocess the return value with `tuplify_bindings(result)`.
 
     For illustration, consider a simplistic memoizer::
 
@@ -358,152 +370,48 @@ def resolve_bindings(f, *args, **kwargs):
 
         f(42)
         f(a=42)  # now the cache hits
-
-    The return value of `resolve_bindings` is an `OrderedDict` with five keys:
-        args: `OrderedDict` of bindings made for regular parameters
-              (positional only, positional or keyword, keyword only).
-        vararg: `tuple` of arguments gathered by the vararg (`*args`) parameter
-                if the function definition has one; otherwise `None`.
-        vararg_name: `str`, the name of the vararg parameter; or `None`.
-        kwarg: `OrderedDict` of bindings gathered by `**kwargs` if the
-               function definition has one; otherwise `None`.
-        kwarg_name: `str`, the name of the kwarg parameter; or `None`.
-
-    **NOTE**:
-
-    We attempt to implement the exact same algorithm Python itself uses for
-    resolving argument bindings. The process is explained in the language
-    reference, although not in a step-by-step algorithmic form.
-
-        https://docs.python.org/3/reference/compound_stmts.html#function-definitions
-        https://docs.python.org/3/reference/expressions.html#calls
-
-    This function should report exactly those bindings that would actually be
-    established if `f` was actually called with the given `args` and `kwargs`.
-
-    If you encounter a case with any difference between what the result claims and
-    how Python itself assigns the bindings, that is a bug in our code. In such a
-    case, please report the issue, so it can be fixed, and then added to the unit
-    tests to ensure it won't come back.
     """
     f, _ = getfunc(f)
-    params = signature(f).parameters
+    bound_arguments = signature(f).bind(*args, **kwargs)
+    bound_arguments.apply_defaults()
+    return bound_arguments
 
-    # https://docs.python.org/3/library/inspect.html#inspect.Signature
-    # https://docs.python.org/3/library/inspect.html#inspect.Parameter
-    poskinds = set((Parameter.POSITIONAL_ONLY,
-                    Parameter.POSITIONAL_OR_KEYWORD))
-    kwkinds = set((Parameter.POSITIONAL_OR_KEYWORD,
-                   Parameter.KEYWORD_ONLY))
-    varkinds = set((Parameter.VAR_POSITIONAL,
-                    Parameter.VAR_KEYWORD))
-
-    index = {}
-    nposparams = 0
-    varpos = varkw = None
-    for slot, param in enumerate(params.values()):
-        if param.kind in poskinds:
-            nposparams += 1
-        if param.kind in kwkinds:
-            index[param.name] = slot
-        if param.kind == Parameter.VAR_POSITIONAL:
-            varpos = slot
-            varpos_name = param.name
-        elif param.kind == Parameter.VAR_KEYWORD:
-            varkw = slot
-            varkw_name = param.name
-
-    # https://docs.python.org/3/reference/compound_stmts.html#function-definitions
-    # https://docs.python.org/3/reference/expressions.html#calls
-    unassigned = object()  # gensym("unassigned"), but object() is much faster, and we don't need a label, or pickle support.
-    slots = [unassigned for _ in range(len(params))]  # yes, varparams too
-
-    # fill from positional arguments
-    for slot, (param, value) in enumerate(zip(params.values(), args)):
-        if param.kind in varkinds:  # these are always last in the function def
-            break
-        slots[slot] = value
-
-    if varpos is not None:
-        slots[varpos] = []
-    if varkw is not None:
-        slots[varkw] = OrderedDict()
-        vkdict = slots[varkw]
-
-    # gather excess positional arguments
-    if len(args) > nposparams:
-        if varpos is None:
-            raise TypeError(f"{f.__name__}() takes {nposparams} positional arguments but {len(args)} were given")
-        slots[varpos] = args[nposparams:]
-
-    # fill from keyword arguments
-    for identifier, value in kwargs.items():
-        if identifier in index:
-            slot = index[identifier]
-            if slots[slot] is unassigned:
-                slots[slot] = value
-            else:
-                raise TypeError(f"{f.__name__}() got multiple values for argument '{identifier}'")
-        elif varkw is not None:  # gather excess keyword arguments
-            vkdict[identifier] = value
-        else:
-            raise TypeError(f"{f.__name__}() got an unexpected keyword argument '{identifier}'")
-
-    # fill missing with defaults from function definition
-    failures = []
-    for slot, param in enumerate(params.values()):
-        if slots[slot] is unassigned:
-            if param.default is Parameter.empty:
-                failures.append(param.name)
-            slots[slot] = param.default
-    # Python 3.6 goes so far to make this particular error message into proper
-    # English, that aping the standard error message takes the most effort here...
-    if failures:
-        if len(failures) == 1:
-            n1 = failures[0]
-            raise TypeError(f"{f.__name__}() missing required positional argument: '{n1}'")
-        if len(failures) == 2:
-            n1, n2 = failures
-            raise TypeError(f"{f.__name__}() missing 2 required positional arguments: '{n1}' and '{n2}'")
-        wrapped = [f"'{x}'" for x in failures]
-        others = ", ".join(wrapped[:-1])
-        msg = f"{f.__name__}() missing {len(failures)} required positional arguments: {others}, and '{failures[-1]}'"
-        raise TypeError(msg)
-
-    # build the result
-    regularargs = OrderedDict()
-    for param, value in zip(params.values(), slots):
-        if param.kind in varkinds:  # skip varpos, varkw
-            continue
-        regularargs[param.name] = value
-
-    # Naming of the fields matches `ast.arguments`
-    # https://greentreesnakes.readthedocs.io/en/latest/nodes.html#arguments
-    bindings = OrderedDict()
-    bindings["args"] = regularargs
-    bindings["vararg"] = slots[varpos] if varpos is not None else None
-    bindings["vararg_name"] = varpos_name if varpos is not None else None  # for introspection
-    bindings["kwarg"] = slots[varkw] if varkw is not None else None
-    bindings["kwarg_name"] = varkw_name if varkw is not None else None  # for introspection
-
-    return bindings
-
-def tuplify_bindings(bindings):
+def tuplify_bindings(bound_arguments):
     """Convert the return value of `resolve_bindings` into a hashable form.
 
     This is useful for memoizers and similar use cases, which need to use a
     representation of the bindings as a dictionary key.
 
-    The values stored in the `"args"` and `"kwarg"` keys, as well as `bindings`
-    itself, are converted from `OrderedDict` to `tuple` using `tuple(od.items())`.
-    The result is hashable, if all the arguments passed in the bindings are.
+    `bound_arguments` is an `inspect.BoundArguments` object.
+
+    In our return value, `bound_arguments.arguments` itself, as well as the value of
+    the `**kwargs` parameter contained in it, if any, are converted from `OrderedDict`
+    to `tuple` using `tuple(od.items())`.
+
+    The result is hashable, if all the passed arguments are.
+
+    See `resolve_bindings` for an example.
     """
-    def tuplify(od):
-        return tuple(od.items())
-    result = OrderedDict()
-    result["args"] = tuplify(bindings["args"])
-    result["vararg"] = bindings["vararg"]
-    result["vararg_name"] = bindings["vararg_name"]
-    result["kwarg"] = tuplify(bindings["kwarg"]) if bindings["kwarg"] is not None else None
-    result["kwarg_name"] = bindings["kwarg_name"]
-    return tuplify(result)
+    def tuplify(ordereddict):
+        return tuple(ordereddict.items())
+
+    # Tuplify the **kwargs dict.
+    #
+    # The information of which parameter it is, if any, is not contained in the
+    # `arguments` attribute of the `BoundArguments` instance; we need to scan
+    # the signature (stored in the `signature` attribute) against which the
+    # bindings were made.
+    for parameter in bound_arguments.signature.parameters.values():
+        if parameter.kind == Parameter.VAR_KEYWORD:
+            kwargs_param = parameter.name
+            break
+    else:
+        kwargs_param = None
+
+    if kwargs_param:
+        thearguments = copy.copy(bound_arguments.arguments)  # avoid mutating our input
+        thearguments[kwargs_param] = tuplify(thearguments[kwargs_param])
+    else:
+        thearguments = bound_arguments.arguments
+
+    return tuplify(thearguments)

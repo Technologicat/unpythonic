@@ -3007,7 +3007,11 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 **Changed in v0.14.3**. *The `@generic` and `@typed` decorators can now decorate also instance methods, class methods and static methods (beside regular functions, as previously in 0.14.2).*
 
-**Changed in v0.15.0**. *The `dispatch` and `typecheck` modules providing this functionality are now considered stable (no longer experimental). Added the `@generic_addmethod` parametric decorator that can register a new method on an existing generic function originally defined in another lexical scope. (Be careful of [type piracy](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy) when you use it.)* 
+**Changed in v0.15.0**. *The `dispatch` and `typecheck` modules providing this functionality are now considered stable (no longer experimental). Starting with this release, they receive the same semantic-versioning guarantees as the rest of `unpythonic`.*
+
+*Added the `@generic_addmethod` parametric decorator that can register a new method on an existing generic function originally defined in another lexical scope. Be careful of [type piracy](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy) when you use it.* 
+
+*It is now possible to dispatch also on a homogeneous type of contents collected by a `**kwargs` parameter. In the type signature, use `typing.Dict[str, mytype]`. Note that in this use, the key type is always `str`.*
 
 The ``generic`` decorator allows creating multiple-dispatch generic functions (a.k.a. multimethods) with type annotation syntax.
 
@@ -3690,6 +3694,10 @@ assert getattrrec(w, "x") == 23
 
 **Added in v0.14.2**: `resolve_bindings`. *Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.*
 
+**Changed in v0.15.0.** *Now `resolve_bindings` is a thin wrapper on top of `inspect.Signature.bind`, which was added in Python 3.5. In `unpythonic` 0.14.2 and 0.14.3, we used to have our own implementation of the parameter binding algorithm (that ran also on Python 3.4), but it is no longer needed, since now we support only Python 3.6 and later. Now `resolve_bindings` returns an `inspect.BoundArguments` object.*
+
+*Now `tuplify_bindings` accepts an `inspect.BoundArguments` object instead of its previous input format. The function is only ever intended to be used to postprocess the output of `resolve_bindings`, so this change shouldn't affect your own code.*
+
 Convenience functions providing an easy-to-use API for inspecting a function's signature. The heavy lifting is done by ``inspect``.
 
 Methods on objects and classes are treated specially, so that the reported arity matches what the programmer actually needs to supply when calling the method (i.e., implicit ``self`` and ``cls`` are ignored).
@@ -3751,7 +3759,7 @@ We special-case the builtin functions that either fail to return any arity (are 
 
 If the arity cannot be inspected, and the function is not one of the special-cased builtins, the ``UnknownArity`` exception is raised.
 
-These functions are internally used in various places in unpythonic, particularly ``curry``. The ``let`` and FP looping constructs also use these to emit a meaningful error message if the signature of user-provided function does not match what is expected.
+These functions are internally used in various places in unpythonic, particularly ``curry``, ``fix``, and ``@generic``. The ``let`` and FP looping constructs also use these to emit a meaningful error message if the signature of user-provided function does not match what is expected.
 
 Inspired by various Racket functions such as ``(arity-includes?)`` and ``(procedure-keywords)``.
 

@@ -119,84 +119,33 @@ def runtests():
 
         def f(a=42):
             pass  # pragma: no cover
-        test[r(f) == (("args", (("a", 42),)),
-                      ("vararg", None), ("vararg_name", None),
-                      ("kwarg", None), ("kwarg_name", None))]
-        test[r(f, 17) == (("args", (("a", 17),)),
-                          ("vararg", None), ("vararg_name", None),
-                          ("kwarg", None), ("kwarg_name", None))]
-        test[r(f, a=23) == (("args", (("a", 23),)),
-                            ("vararg", None), ("vararg_name", None),
-                            ("kwarg", None), ("kwarg_name", None))]
+        test[r(f) == (("a", 42),)]
+        test[r(f, 17) == (("a", 17),)]
+        test[r(f, a=23) == (("a", 23),)]
 
         def f(a, b, c):
             pass  # pragma: no cover
-        test[r(f, 1, 2, 3) == (("args", (("a", 1), ("b", 2), ("c", 3))),
-                               ("vararg", None), ("vararg_name", None),
-                               ("kwarg", None), ("kwarg_name", None))]
-        test[r(f, a=1, b=2, c=3) == (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                     ("vararg", None), ("vararg_name", None),
-                                     ("kwarg", None), ("kwarg_name", None))]
-        test[r(f, 1, 2, c=3) == (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                 ("vararg", None), ("vararg_name", None),
-                                 ("kwarg", None), ("kwarg_name", None))]
-        test[r(f, 1, c=3, b=2) == (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                   ("vararg", None), ("vararg_name", None),
-                                   ("kwarg", None), ("kwarg_name", None))]
-        test[r(f, c=3, b=2, a=1) == (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                     ("vararg", None), ("vararg_name", None),
-                                     ("kwarg", None), ("kwarg_name", None))]
+        test[r(f, 1, 2, 3) == (("a", 1), ("b", 2), ("c", 3))]
+        test[r(f, a=1, b=2, c=3) == (("a", 1), ("b", 2), ("c", 3))]
+        test[r(f, 1, 2, c=3) == (("a", 1), ("b", 2), ("c", 3))]
+        test[r(f, 1, c=3, b=2) == (("a", 1), ("b", 2), ("c", 3))]
+        test[r(f, c=3, b=2, a=1) == (("a", 1), ("b", 2), ("c", 3))]
 
         def f(a, b, c, *args):
             pass  # pragma: no cover
-        test[r(f, 1, 2, 3, 4, 5) == (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                     ("vararg", (4, 5)), ("vararg_name", "args"),
-                                     ("kwarg", None), ("kwarg_name", None))]
-
-        # On Pythons < 3.6, there's no guarantee about the ordering of the kwargs.
-        # Our analysis machinery preserves the order it gets, but the *input*
-        # may already differ from how the invocation of `r` is written in the
-        # source code here.
-        #
-        # So we must allow for arbitrary ordering of the kwargs when checking
-        # the result.
-        #
-        def checkpre36(result, truth):
-            args_r, vararg_r, vararg_name_r, kwarg_r, kwarg_name_r = result
-            args_t, vararg_t, vararg_name_t, kwarg_t, kwarg_name_t = truth
-            couldbe = (args_r == args_t and vararg_r == vararg_t and
-                       vararg_name_r == vararg_name_t and kwarg_name_r == kwarg_name_t)
-            if not couldbe:
-                return False  # pragma: no cover, should only happen if the tests fail.
-            name_r, contents_r = kwarg_r
-            name_t, contents_t = kwarg_t
-            return name_r == name_t and set(contents_r) == set(contents_t)
+        test[r(f, 1, 2, 3, 4, 5) == (('a', 1), ('b', 2), ('c', 3),
+                                     ('args', (4, 5)))]
 
         def f(a, b, c, **kw):
-            pass  # pragma: no cover
-        test[checkpre36(the[r(f, 1, 2, 3, d=4, e=5)], (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                                       ("vararg", None), ("vararg_name", None),
-                                                       ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw")))]
+            pass
+        test[r(f, 1, 2, 3, d=4, e=5) == (('a', 1), ('b', 2), ('c', 3),
+                                         ('kw', (('d', 4), ('e', 5))))]
 
         def f(a, b, c, *args, **kw):
-            pass  # pragma: no cover
-        test[checkpre36(the[r(f, 1, 2, 3, 4, 5, d=6, e=7)], (("args", (("a", 1), ("b", 2), ("c", 3))),
-                                                             ("vararg", (4, 5)), ("vararg_name", "args"),
-                                                             ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw")))]
-
-        # TODO: On Python 3.6+, this becomes just:
-        #
-        # def f(a, b, c, **kw):
-        #     pass
-        # test[r(f, 1, 2, 3, d=4, e=5) == (("args", (("a", 1), ("b", 2), ("c", 3))),
-        #                                  ("vararg", None), ("vararg_name", None),
-        #                                  ("kwarg", (("d", 4), ("e", 5))), ("kwarg_name", "kw"))]
-        #
-        # def f(a, b, c, *args, **kw):
-        #     pass
-        # test[r(f, 1, 2, 3, 4, 5, d=6, e=7) == (("args", (("a", 1), ("b", 2), ("c", 3))),
-        #                                        ("vararg", (4, 5)), ("vararg_name", "args"),
-        #                                        ("kwarg", (("d", 6), ("e", 7))), ("kwarg_name", "kw"))]
+            pass
+        test[r(f, 1, 2, 3, 4, 5, d=6, e=7) == (('a', 1), ('b', 2), ('c', 3),
+                                               ('args', (4, 5)),
+                                               ('kw', (('d', 6), ('e', 7))))]
 
     with testset("resolve_bindings error cases"):
         def f(a):
@@ -204,16 +153,6 @@ def runtests():
         test_raises[TypeError, resolve_bindings(f, 1, 2)]  # too many args
         test_raises[TypeError, resolve_bindings(f, 1, a=2)]  # same arg assigned twice
         test_raises[TypeError, resolve_bindings(f, 1, b=2)]  # unexpected kwarg
-
-        # The number of missing required positional args affects the error message
-        # à la Python 3.6, so let's exercise that part of the code, too.
-        test_raises[TypeError, resolve_bindings(f)]  # missing 1 required positional arg
-        def g(a, b):
-            pass  # pragma: no cover
-        test_raises[TypeError, resolve_bindings(g)]  # missing 2 required positional args
-        def h(a, b, c):
-            pass  # pragma: no cover
-        test_raises[TypeError, resolve_bindings(h)]  # missing 3 required positional args
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
