@@ -381,6 +381,17 @@ def lazify(tree, *, syntax, expander, **kw):
       - The default continuation ``identity`` is strict, so that return values
         from a continuation-enabled computation will be forced.
 
+        If you need a lazy ``identity`` (so that you can obtain those delicious
+        promises), use::
+
+            from unpythonic import identity
+            from unpythonic.lazyutil import passthrough_lazy_args
+            lazy_identity = passthrough_lazy_args(identity)
+
+        and then explicitly set the kwarg `cc=lazy_identity` when invoking the
+        continuation-enabled computation (e.g. in the example below, we could
+        `ourpromises = doit(cc=lazy_identity)`).
+
     Example::
 
         with lazify, continuations:
