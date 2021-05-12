@@ -317,8 +317,8 @@ def _register_generic(fullname, f):
             #
             # TODO: Compute closest candidates, like Julia does? (see methods, MethodError)
             a = [repr(a) for a in args]
-            sep = ", " if kwargs else ""
-            kw = [f"{k}={str(v)}" for k, v in kwargs]
+            sep = ", " if args and kwargs else ""
+            kw = [f"{k}={repr(v)}" for k, v in kwargs.items()]
             def format_method(method):  # Taking a page from Julia and some artistic liberty here.
                 thecallable, type_signature = method
                 function, _ = getfunc(thecallable)
