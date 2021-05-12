@@ -2212,7 +2212,7 @@ This Elisp snippet can be used to add syntax highlighting for keywords specific 
                           "where"
                           "do" "local" "delete"
                           "continuations" "call_cc"
-                          "curry" "lazify" "envify" "tco" "prefix" "autoreturn" "forall"
+                          "autocurry" "lazify" "envify" "tco" "prefix" "autoreturn" "forall"
                           "multilambda" "namedlambda" "quicklambda"
                           "cond" "aif" "autoref" "dbg" "nb"
                           "macros" "dialects" "q" "u" "n" "a" "s" "t" "h")) ; mcpyrate
