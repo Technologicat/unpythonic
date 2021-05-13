@@ -6,7 +6,7 @@ Somewhat like `functools.singledispatch`, but for multiple dispatch.
     https://docs.python.org/3/library/functools.html#functools.singledispatch
 """
 
-__all__ = ["isgeneric", "generic", "generic_addmethod", "typed"]
+__all__ = ["isgeneric", "generic", "augment", "typed"]
 
 from functools import partial, wraps
 from itertools import chain
@@ -182,7 +182,7 @@ def generic(f):
     return _register_generic(_getfullname(f), f)
 
 @register_decorator(priority=98)
-def generic_addmethod(target):
+def augment(target):
     """Parametric decorator. Add a method to function `target`.
 
     Like `@generic`, but the target function on which the method will be
@@ -200,20 +200,20 @@ def generic_addmethod(target):
 
 
         # main.py
-        from unpythonic import generic_addmethod
+        from unpythonic import augment
         import example
 
         class MyOwnType:
             ...
 
-        @generic_addmethod(example.f)
+        @augment(example.f)
         def f(x: MyOwnType):
             ...
 
     **CAUTION**: Beware of type piracy when you use this. That is:
 
-        1. For arbitrary input types you don't own, extend only a function you own, OR
-        2. Extend a function defined somewhere else only for input types you own.
+        1. For arbitrary input types you don't own, augment only a function you own, OR
+        2. Augment a function defined somewhere else only for input types you own.
 
     Satisfying **one** of these conditions is sufficient to avoid type piracy.
 
@@ -236,7 +236,7 @@ def _getfullname(f):
 def _register_generic(fullname, f):
     """Register a method for a generic function.
 
-    This is a low-level function; you'll likely want `generic` or `generic_addmethod`.
+    This is a low-level function; you'll likely want `generic` or `augment`.
 
     fullname: str, fully qualified name of target function to register
               the method on, used as key in the dispatcher registry.

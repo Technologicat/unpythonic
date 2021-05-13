@@ -79,7 +79,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
 - **Miscellaneous.**
   - `with namedlambda` now understands the walrus operator, too. In the construct `f := lambda ...: ...`, the lambda will get the name `f`. (Python 3.8 and later.)
   - `with namedlambda` now auto-names lambdas that don't have a name candidate using their source location info, if present. This makes it easy to see in a stack trace where some particular lambda was defined.
-  - Add `unpythonic.dispatch.generic_addmethod`: add methods to a generic function defined elsewhere.
+  - Add `unpythonic.dispatch.augment`: add methods to a generic function defined elsewhere.
   - Add `unpythonic.dispatch.isgeneric` to detect whether a callable has been declared `@generic`.
   - `@generic` et al.: it is now possible to dispatch on a homogeneous type of contents collected by a `**kwargs` parameter.
   - Add `unpythonic.excutil.reraise_in` (expr form), `unpythonic.excutil.reraise` (block form): conveniently remap library exception types to application exception types. Idea from [Alexis King (2016): Four months with Haskell](https://lexi-lambda.github.io/blog/2016/06/12/four-months-with-haskell/).

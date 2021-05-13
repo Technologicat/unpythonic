@@ -5,7 +5,7 @@ from ..test.fixtures import session, testset, returns_normally
 
 import typing
 from ..fun import curry
-from ..dispatch import generic, generic_addmethod, typed
+from ..dispatch import generic, augment, typed
 
 @generic
 def zorblify(x: int, y: int):
@@ -103,11 +103,11 @@ def runtests():
         test[kittify(x=1.0, y=2.0) == "float"]
         test_raises[TypeError, kittify(x=1, y=2.0)]
 
-    with testset("@generic_addmethod"):
+    with testset("@augment"):
         @generic
         def f1(x: typing.Any):
             return False
-        @generic_addmethod(f1)
+        @augment(f1)
         def f2(x: int):
             return x
         test[f1("hello") is False]
@@ -115,8 +115,8 @@ def runtests():
 
         def f3(x: typing.Any):  # not @generic!
             return False
-        with test_raises[TypeError, "should not be able to @generic_addmethod a non-generic function"]:
-            @generic_addmethod(f3)
+        with test_raises[TypeError, "should not be able to @augment a non-generic function"]:
+            @augment(f3)
             def f4(x: int):
                 return x
 
@@ -281,12 +281,12 @@ def runtests():
         # Since these are in the same lexical scope as the original definition of the
         # generic function `flippable`, we could do this using `@generic`, but
         # later extensions (which are the whole point of traits) will need to specify
-        # on which function the new methods are to be registered, using `@generic_addmethod`.
+        # on which function the new methods are to be registered, using `@augment`.
         # So let's do that to show how it's done.
-        @generic_addmethod(flippable)
+        @augment(flippable)
         def flippable(x: str):  # noqa: F811
             return IsFlippable()
-        @generic_addmethod(flippable)
+        @augment(flippable)
         def flippable(x: int):  # noqa: F811
             return IsNotFlippable()
 
@@ -301,7 +301,7 @@ def runtests():
         def flip(x: typing.Any):
             return flip(flippable(x), x)
 
-        # Implementation of `flip`. Same comment about `@generic_addmethod` as above.
+        # Implementation of `flip`. Same comment about `@augment` as above.
         #
         # Here we provide one implementation for "flippable" objects and another one
         # for "nonflippable" objects. Note this dispatches regardless of the actual
@@ -311,10 +311,10 @@ def runtests():
         # We could also add methods for specific types if needed. Note this is not
         # Julia, so the first matching definition wins, instead of the most specific
         # one.
-        @generic_addmethod(flip)
+        @augment(flip)
         def flip(traitvalue: IsFlippable, x: typing.Any):  # noqa: F811
             return x[::-1]
-        @generic_addmethod(flip)
+        @augment(flip)
         def flip(traitvalue: IsNotFlippable, x: typing.Any):  # noqa: F811
             raise TypeError(f"{repr(x)} is IsNotFlippable")
 
