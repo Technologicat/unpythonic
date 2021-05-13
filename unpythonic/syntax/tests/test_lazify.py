@@ -502,6 +502,16 @@ def runtests():
     #  - cc built by chain_conts is treated as lazy, **itself**; then it's up to
     #    the continuations chained by it to decide whether to force their args.
     #  - the default cont ``identity`` is strict, so it will force return values
+    #    - if you want a non-strict identity for use at the entry point to your
+    #      continuation-enabled computation, do this:
+    #
+    #          from unpythonic import identity
+    #          from unpythonic.lazyutil import passthrough_lazy_args
+    #          lazy_identity = passthrough_lazy_args(identity)
+    #
+    #      and then explicitly set the kwarg `cc=lazy_identity` when invoking the
+    #      continuation-enabled computation (e.g. in the example below, we could
+    #      `ourpromises = doit(cc=lazy_identity)`).
     with testset("integration with continuations"):
         with lazify, continuations:
             k = None

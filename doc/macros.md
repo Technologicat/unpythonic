@@ -2141,7 +2141,7 @@ Is this just a set of macros, a language extension, or a compiler for a new lang
 
 ### The xmas tree combo
 
-The macros in ``unpythonic.syntax`` are designed to work together, but some care needs to be taken regarding the order in which they expand.
+The macros in ``unpythonic.syntax`` are designed to work together, but some care needs to be taken regarding the order in which they expand. This complexity unfortunately comes with any pick-and-mix-your-own-language kit, because some features inevitably interact. For example, it is possible to lazify [continuation-enabled](https://en.wikipedia.org/wiki/Continuation-passing_style) code, but running the transformations the other way around produces nonsense.
 
 For simplicity, **the block macros make no attempt to prevent invalid combos** (unless there is a specific technical reason to do that for some particular combination). Be careful; e.g. don't nest several ``with tco`` blocks (lexically), that won't work.
 
@@ -2170,7 +2170,7 @@ The invocation `with mac` is *lexically on the outside*, thus the macro expander
  2. Explicit recursion by `with mac`. This expands the `with cheese`.
  3. Second pass (inside out) of `with mac`.
 
-So, for example, even though `lazify` must *perform its AST editing* after `autocurry`, it is actually a two-pass macro. The first pass (outside in) only performs some preliminary analysis; the actual lazification happens in the second pass (inside out). So the correct invocation comboing these two is `with lazify, autocurry`. See [the dialect examples](../unpythonic/dialects/) for combo invocations that are known to work.
+So, for example, even though `lazify` must *perform its AST editing* after `autocurry`, it is actually a two-pass macro. The first pass (outside in) only performs some preliminary analysis; the actual lazification happens in the second pass (inside out). So the correct invocation comboing these two is `with lazify, autocurry`. Similarly, `with lazify, continuations` is correct, though the CPS transformation must occur first; these are both two-pass macros that perform their edits in the inside-out pass. See [the dialect examples](../unpythonic/dialects/) for combo invocations that are known to work.
 
 Example combo in the single-line format:
 
