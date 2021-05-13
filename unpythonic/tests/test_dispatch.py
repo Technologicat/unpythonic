@@ -60,10 +60,10 @@ def gargle(*args: typing.Tuple[int, float, str]):  # three args, matching the gi
 
 # v0.15.0: dispatching on a homogeneous type inside **kwargs is also supported, via `typing.Dict`
 @generic
-def kittify(**kwargs: typing.Dict[str, int]):
+def kittify(**kwargs: typing.Dict[str, int]):  # all kwargs are ints
     return "int"
 @generic
-def kittify(**kwargs: typing.Dict[str, float]):  # noqa: F811
+def kittify(**kwargs: typing.Dict[str, float]):  # all kwargs are floats  # noqa: F811
     return "float"
 
 # One-method pony, which automatically enforces argument types.
