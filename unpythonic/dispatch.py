@@ -37,8 +37,17 @@ self_parameter_names = ["self", "this", "cls", "klass"]
 # """
 
 def isgeneric(f):
-    """Return whether the callable `f` has been declared `@generic` (which see)."""
-    return hasattr(f, "_method_registry")
+    """Return whether the callable `f` is a multiple-dispatch generic function.
+
+    If `f` was declared `@generic`, return the string `"generic"`.
+    If `f` was declared `@typed`, return the string `"typed"`.
+    Otherwise, return `False`.
+    """
+    if not hasattr(f, "_method_registry"):
+        return False
+    if hasattr(f, "_register"):
+        return "generic"
+    return "typed"
 
 @register_decorator(priority=98)
 def generic(f):
@@ -407,9 +416,9 @@ def _register_generic(fullname, f):
         dispatcher._register = register  # save it for use by us later
         _dispatcher_registry[fullname] = dispatcher
     dispatcher = _dispatcher_registry[fullname]
-    if hasattr(dispatcher, "_register"):  # co-operation with @typed, below
-        return dispatcher._register(f)
-    raise TypeError("@typed: cannot register additional methods.")
+    if isgeneric(dispatcher) == "typed":  # co-operation with @typed, below
+        raise TypeError("@typed: cannot register additional methods.")
+    return dispatcher._register(f)
 
 @register_decorator(priority=98)
 def typed(f):
