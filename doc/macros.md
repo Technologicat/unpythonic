@@ -2170,7 +2170,7 @@ The invocation `with mac` is *lexically on the outside*, thus the macro expander
  2. Explicit recursion by `with mac`. This expands the `with cheese`.
  3. Second pass (inside out) of `with mac`.
 
-So, for example, even though `lazify` must *perform its AST editing* after `autocurry`, it is actually a two-pass macro. The first pass (outside in) only performs some preliminary analysis; the actual lazification happens in the second pass (inside out). So the correct invocation comboing these two is `with lazify, autocurry`. Similarly, `with lazify, continuations` is correct, though the CPS transformation must occur first; these are both two-pass macros that perform their edits in the inside-out pass. See [the dialect examples](../unpythonic/dialects/) for combo invocations that are known to work.
+So, for example, even though `lazify` must *perform its AST editing* after `autocurry`, it is actually a two-pass macro. The first pass (outside in) only performs some preliminary analysis; the actual lazification happens in the second pass (inside out). So the correct invocation comboing these two is `with lazify, autocurry`. Similarly, `with lazify, continuations` is correct, even though the CPS transformation must occur first; these are both two-pass macros that perform their edits in the inside-out pass. See [the dialect examples](../unpythonic/dialects/) for combo invocations that are known to work.
 
 Example combo in the single-line format:
 
