@@ -64,6 +64,9 @@ def generic(f):
     Julia). All of the definitions, including the first one, become registered
     as *methods* of the *generic function*.
 
+    The return value of `generic` is the multiple-dispatch dispatcher
+    for the generic function that was created or modified.
+
     A generic function is identified by its *fullname*, defined as
     "{f.__module__}.{f.__qualname__}". The fullname is computed
     automatically when the `@generic` decorator runs. For example:
@@ -188,6 +191,9 @@ def augment(target):
     Like `@generic`, but the target function on which the method will be
     registered is chosen separately, so that you can extend a generic
     function previously defined in some other `.py` source file.
+
+    The return value of `augment` is the multiple-dispatch dispatcher
+    for the generic function that was modified.
 
     Usage::
 
