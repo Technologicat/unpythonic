@@ -2143,7 +2143,9 @@ Is this just a set of macros, a language extension, or a compiler for a new lang
 
 The macros in ``unpythonic.syntax`` are designed to work together, but some care needs to be taken regarding the order in which they expand.
 
-The block macros are designed to run **in the following order (leftmost first)**:
+For simplicity, **the block macros make no attempt to prevent invalid combos** (unless there is a specific technical reason to do that for some particular combination). Be careful; e.g. don't nest several ``with tco`` blocks (lexically), that won't work.
+
+The **AST edits** performed by the block macros are designed to run **in the following order (leftmost first)**:
 
 ```
 prefix > autoreturn, quicklambda > multilambda > continuations or tco > ...
@@ -2154,9 +2156,7 @@ The ``let_syntax`` (and ``abbrev``) block may be placed anywhere in the chain; j
 
 The ``dbg`` block can be run at any position after ``prefix`` and before ``tco`` (or ``continuations``). (It must be able to see function calls in Python's standard format, for detecting calls to the print function.)
 
-For simplicity, **the block macros make no attempt to prevent invalid combos** (unless there is a specific technical reason to do that for some particular combination). Be careful; e.g. don't nest several ``with tco`` blocks (lexically), that won't work.
-
-The correct ordering for block macro invocations is somewhat complicated by the fact that some of the above are two-pass macros. Consider this artificial example, where `mac` is a two-pass macro:
+The correct ordering for **block macro invocations** - which is the actual user-facing part - is somewhat complicated by the fact that some of the above are two-pass macros. Consider this artificial example, where `mac` is a two-pass macro:
 
 ```python
 with mac:
@@ -2170,7 +2170,7 @@ The invocation `with mac` is *lexically on the outside*, thus the macro expander
  2. Explicit recursion by `with mac`. This expands the `with cheese`.
  3. Second pass (inside out) of `with mac`.
 
-So for example, even though `lazify` must *perform its AST editing* after `autocurry`, it is actually a two-pass macro. The first pass (outside in) only performs some preliminary analysis; the actual lazification happens in the second pass (inside out). So the correct invocation comboing these two is `with lazify, autocurry`. See [the dialect examples](../unpythonic/dialects/) for combo invocations that are known to work.
+So, for example, even though `lazify` must *perform its AST editing* after `autocurry`, it is actually a two-pass macro. The first pass (outside in) only performs some preliminary analysis; the actual lazification happens in the second pass (inside out). So the correct invocation comboing these two is `with lazify, autocurry`. See [the dialect examples](../unpythonic/dialects/) for combo invocations that are known to work.
 
 Example combo in the single-line format:
 
@@ -2190,7 +2190,7 @@ with autoreturn:
 
 Of these, `autoreturn` expands outside-in, while `lazify` and `tco` are both two-pass macros.
 
-To see if something is a two-pass macro, for now, grep the codebase for `expander.visit`; that is the *explicit recursion* mentioned above, and means that within that function, anything below that line will run in the inside-out pass. See [the `mcpyrate` manual](https://github.com/Technologicat/mcpyrate/blob/master/doc/main.md#expand-macros-inside-out).
+We aim to improve the macro docs in the future. For now, to see if something is a two-pass macro, grep the codebase for `expander.visit`; that is the *explicit recursion* mentioned above, and means that within that function, anything below that line will run in the inside-out pass. See [the `mcpyrate` manual](https://github.com/Technologicat/mcpyrate/blob/master/doc/main.md#expand-macros-inside-out).
 
 See our [notes on macros](../doc/design-notes.md#detailed-notes-on-macros) for more information.
 
