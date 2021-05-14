@@ -5,7 +5,7 @@ from ..test.fixtures import session, testset, returns_normally
 
 import typing
 from ..fun import curry
-from ..dispatch import generic, augment, typed
+from ..dispatch import generic, augment, typed, format_methods
 
 @generic
 def zorblify(x: int, y: int):
@@ -237,6 +237,23 @@ def runtests():
         test[jack(42) == 42]
         test[jack("foo") == "foo"]
         test_raises[TypeError, jack(3.14)]  # jack only accepts int or str
+
+    with testset("list_methods"):
+        def check_formatted_multimethods(result, expected):
+            result_list = result.split("\n")
+            human_readable_header, *multimethod_descriptions = result_list
+            multimethod_descriptions = [x.strip() for x in multimethod_descriptions]
+            test[the[len(multimethod_descriptions)] == the[len(expected)]]
+            for r, e in zip(multimethod_descriptions, expected):
+                test[the[r].startswith(the[e])]
+        # @generic
+        check_formatted_multimethods(format_methods(example2),
+                                     ["example2(start: int, step: int, stop: int)",
+                                      "example2(start: int, stop: int)",
+                                      "example2(stop: int)"])
+        # @typed
+        check_formatted_multimethods(format_methods(blubnify),
+                                     ["blubnify(x: int, y: float)"])
 
     with testset("error cases"):
         with test_raises[TypeError, "@typed should only accept a single method"]:
