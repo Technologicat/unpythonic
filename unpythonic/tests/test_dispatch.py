@@ -232,7 +232,10 @@ def runtests():
     with testset("@typed"):
         test[blubnify(2, 21.0) == 42]
         test_raises[TypeError, blubnify(2, 3)]  # blubnify only accepts (int, float)
-        test[not hasattr(blubnify, "register")]  # and no more methods can be registered on it
+        with test_raises[TypeError, "should not be able to add more multimethods to a @typed function"]:
+            @augment(blubnify)
+            def blubnify2(x: float, y: float):
+                pass
 
         test[jack(42) == 42]
         test[jack("foo") == "foo"]
