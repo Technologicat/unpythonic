@@ -3003,29 +3003,38 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 **Added in v0.14.2**.
 
-**Changed in v0.14.3**. *The multiple-dispatch decorator `@generic` no longer takes a master definition. Methods are registered directly with `@generic`; the first method definition implicitly creates the generic function.*
+**Changed in v0.14.3**. *The multiple-dispatch decorator `@generic` no longer takes a master definition. Multimethods are registered directly with `@generic`; the first method definition implicitly creates the generic function.*
 
 **Changed in v0.14.3**. *The `@generic` and `@typed` decorators can now decorate also instance methods, class methods and static methods (beside regular functions, as previously in 0.14.2).*
 
 **Changed in v0.15.0**. *The `dispatch` and `typecheck` modules providing this functionality are now considered stable (no longer experimental). Starting with this release, they receive the same semantic-versioning guarantees as the rest of `unpythonic`.*
 
-*Added the `@augment` parametric decorator that can register a new method on an existing generic function originally defined in another lexical scope. Be careful of [type piracy](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy) when you use it.* 
+*Added the `@augment` parametric decorator that can register a new multimethod on an existing generic function originally defined in another lexical scope. Be careful of [type piracy](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy) when you use it.* 
 
-*Added the function `methods`, which displays a list of methods of a generic function.*
+*Added the function `methods`, which displays a list of multimethods of a generic function.*
 
 *It is now possible to dispatch also on a homogeneous type of contents collected by a `**kwargs` parameter. In the type signature, use `typing.Dict[str, mytype]`. Note that in this use, the key type is always `str`.*
 
-The ``generic`` decorator allows creating multiple-dispatch generic functions (a.k.a. multimethods) with type annotation syntax.
-
-We also provide some friendly utilities: ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first two) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
+The ``generic`` decorator allows creating multiple-dispatch generic functions with type annotation syntax. We also provide some friendly utilities: ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first two) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
 
 For what kind of things can be done with this, see particularly the [*holy traits*](https://ahsmart.com/pub/holy-traits-design-patterns-and-best-practice-book/) example in [`unpythonic.tests.test_dispatch`](../unpythonic/tests/test_dispatch.py).
 
+**NOTE**: This was inspired by the [multi-methods of CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) (the Common Lisp Object System), and the [generic functions of Julia](https://docs.julialang.org/en/v1/manual/methods/).
+
+In `unpythonic`, we define the terms as follows:
+
+ - The function that supports multiple call signatures is a *generic function*.
+ - Its individual implementations are *multimethods*.
+
 #### ``generic``: multiple dispatch with type annotation syntax
 
-The ``generic`` decorator essentially allows replacing the `if`/`elif` dynamic type checking boilerplate of polymorphic functions with type annotations on the function parameters, with support for features from the `typing` stdlib module.
+The ``generic`` decorator essentially allows replacing the `if`/`elif` dynamic type checking boilerplate of polymorphic functions with type annotations on the function parameters, with support for features from the `typing` stdlib module. This not only kills boilerplate, but makes the dispatch extensible, since the dispatcher lives outside the original function definition. There is no need to monkey-patch the original to add a new case.
 
-If several methods of the same generic function match the arguments given, the most recently registered method wins. (**CAUTION**: This is different from Julia, where the most specific method wins. Doing that requires a more careful type analysis than what we have here.)
+If several multimethods of the same generic function match the arguments given, the most recently registered multimethod wins.
+
+**CAUTION**: The winning multimethod is chosen differently from Julia, where the most specific multimethod wins. Doing that requires a more careful type analysis than what we have here.
+
+**CAUTION**: `@generic` does not currently work with `curry`. Adding support requires changes to the already complex logic in `curry`; it is not high on the priority list.
 
 The details are best explained by example:
 
@@ -3033,10 +3042,10 @@ The details are best explained by example:
 import typing
 from unpythonic import generic
 
-@generic  # The first definition creates the generic function, and registers the first method.
+@generic  # The first definition creates the generic function, and registers the first multimethod.
 def zorblify(x: int, y: int):
     return "int, int"
-@generic  # noqa: F811, registered as a method of the same generic function.
+@generic  # noqa: F811, registered as a multimethod of the same generic function.
 def zorblify(x: str, y: int):
     return "str, int"
 @generic  # noqa: F811
@@ -3044,7 +3053,7 @@ def zorblify(x: str, y: float):
     return "str, float"
 
 # Then we just call our function as usual.
-# Note all arguments participate in dispatching (i.e. in choosing which method gets called).
+# Note all arguments participate in dispatching (i.e. in choosing which multimethod gets called).
 assert zorblify(2, 3) == "int, int"
 assert zorblify("cat", 3) == "str, int"
 assert zorblify("cat", 3.14) == "str, float"
@@ -3085,11 +3094,20 @@ assert gargle(1, 2, 3, 4, 5) == "int"
 assert gargle(2.71828, 3.14159) == "float"
 assert gargle(42, 6.022e23, "hello") == "int, float, str"
 assert gargle(1, 2, 3) == "int"  # as many as in the [int, float, str] case. Still resolves correctly.
+
+# v0.15.0: dispatching on a homogeneous type inside **kwargs is also supported, via `typing.Dict`
+@generic
+def kittify(**kwargs: typing.Dict[str, int]):  # all kwargs are ints
+    return "int"
+@generic
+def kittify(**kwargs: typing.Dict[str, float]):  # all kwargs are floats  # noqa: F811
+    return "float"
+
+assert kittify(x=1, y=2) == "int"
+assert kittify(x=1.0, y=2.0) == "float"
 ```
 
 See [the unit tests](../unpythonic/tests/test_dispatch.py) for more. For which features of the ``typing`` stdlib module are supported, see ``isoftype`` below.
-
-Inspired by the [multi-methods of CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) (the Common Lisp Object System), and the [generic functions of Julia](https://docs.julialang.org/en/v1/manual/methods/).
 
 ##### ``@generic`` and OOP
 
@@ -3102,23 +3120,25 @@ When using both `@generic` or `@typed` and OOP:
    - Beside appearing as the first positional-or-keyword parameter, the self-like parameter **must be named** one of `self`, `this`, `cls`, or `klass` to be detected by the ignore mechanism. This limitation is due to implementation reasons; while a class body is being evaluated, the context needed to distinguish a method (OOP sense) from a regular function is not yet present.
 
  - **OOP inheritance**.
-   - When `@generic` is installed on an OOP method (instance method, or `@classmethod`), then at call time, classes are tried in [MRO](https://en.wikipedia.org/wiki/C3_linearization) order. All generic-function methods of the OOP method defined in the class currently being looked up are tested for matches first, before moving on to the next class in the MRO. (This has subtle consequences, related to in which class in the hierarchy the various generic-function methods for a particular OOP method are defined.)
+   - When `@generic` is installed on a method (instance method, or `@classmethod`), then at call time, classes are tried in [MRO](https://en.wikipedia.org/wiki/C3_linearization) order. All multimethods of the method defined in the class currently being looked up are tested for matches first, before moving on to the next class in the MRO. This has subtle consequences, related to in which class in the hierarchy the various multimethods for a particular method are defined.
    - To work with OOP inheritance, `@generic` must be the outermost decorator (except `@classmethod` or `@staticmethod`, which are essentially compiler annotations).
    - However, when installed on a `@staticmethod`, the `@generic` decorator does not support MRO lookup, because that would make no sense. See discussions on interaction between `@staticmethod` and `super` in Python: [[1]](https://bugs.python.org/issue31118) [[2]](https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction/26807879).
 
 
 ##### Notes
 
-*Terminology*: in both CLOS and in Julia, *function* is the generic entity, while *method* refers to its specialization to a particular combination of argument types. Note that *no object instance or class is needed*. Contrast with the classical OOP sense of *method*, i.e. a function that is associated with an object instance or class, with single dispatch based on the class (or in exotic cases, such as monkey-patched instances, on the instance).
+In both CLOS and in Julia, *function* is the generic entity, while *method* refers to its specialization to a particular combination of argument types. Note that *no object instance or class is needed*. Contrast with the classical OOP sense of *method*, i.e. a function that is associated with an object instance or class, with single dispatch based on the class (or in exotic cases, such as monkey-patched instances, on the instance).
 
 Based on my own initial experiments with this feature, the machinery itself works well enough, but to really shine - just like resumable exceptions - multiple dispatch needs to be used everywhere, throughout the language's ecosystem. Python obviously doesn't do that.
 
-**CAUTION**: Multiple dispatch can be dangerous. Particularly, `@augment` can be dangerous to the readability of your codebase. If methods are added for a generic function defined elsewhere, for types defined elsewhere, this may lead to [*spooky action at a distance*](https://lexi-lambda.github.io/blog/2016/02/18/simple-safe-multimethods-in-racket/) (as in [action at a distance](https://en.wikipedia.org/wiki/Action_at_a_distance_(computer_programming))). In the Julia community, this is known as [*type piracy*](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy). Keep in mind that the method table is global state!
+The machinery itself is also missing some advanced features, such as matching the most specific multimethod candidate instead of the most recently defined one; an `issubclass` equivalent that understands `typing` type specifications; and a mechanism to remove previously declared multimethods.
+
+**CAUTION**: Multiple dispatch can be dangerous. Particularly, `@augment` can be dangerous to the readability of your codebase. If methods are added for a generic function defined elsewhere, for types defined elsewhere, this may lead to [*spooky action at a distance*](https://lexi-lambda.github.io/blog/2016/02/18/simple-safe-multimethods-in-racket/) (as in [action at a distance](https://en.wikipedia.org/wiki/Action_at_a_distance_(computer_programming))). In the Julia community, this is known as [*type piracy*](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy). Keep in mind that the multiple-dispatch table is global state!
 
 
 #### ``typed``: add run-time type checks with type annotation syntax
 
-The ``typed`` decorator creates a one-method pony, which automatically enforces its argument types. Just like with ``generic``, the type specification may use features from the `typing` stdlib module.
+The ``typed`` decorator creates a one-multimethod pony, which automatically enforces its argument types. Just like with ``generic``, the type specification may use features from the `typing` stdlib module.
 
 ```python
 import typing
@@ -3134,7 +3154,7 @@ def jack(x: typing.Union[int, str]):
 
 assert blubnify(2, 21.0) == 42
 blubnify(2, 3)  # TypeError
-assert not hasattr(blubnify, "register")  # no more methods can be registered on this function
+assert not hasattr(blubnify, "register")  # no more multimethods can be registered on this function
 
 assert jack(42) == 42
 assert jack("foo") == "foo"
@@ -3215,9 +3235,9 @@ See [the unit tests](../unpythonic/tests/test_typecheck.py) for more.
 
 **CAUTION**: Callables are just checked for being callable; no further analysis is done. Type-checking callables properly requires a much more complex type checker.
 
-**CAUTION**: The `isoftype` function is one big hack. As of Python 3.6, there is no consistent way to handle a type specification at run time. We must access some private attributes of the ``typing`` meta-utilities, because that seems to be the only way to get what we need to do this.
+**CAUTION**: The `isoftype` function is one big hack. In Python 3.6 through 3.9, there is no consistent way to handle a type specification at run time. We must access some private attributes of the ``typing`` meta-utilities, because that seems to be the only way to get what we need to do this.
 
-If you need a run-time type checker for serious general use, consider the [`typeguard`](https://github.com/agronholm/typeguard) library, which focuses on that.
+For a similar tool for run-time type-checking, see also the [`typeguard`](https://github.com/agronholm/typeguard) library.
 
 
 ## Exception tools
