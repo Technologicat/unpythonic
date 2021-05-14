@@ -322,7 +322,7 @@ The point is usability: in a function composition using pipe syntax, data flows 
 from unpythonic import generic
 
 @generic
-def my_range(stop: int):  # first registration creates the generic function and the first multimethod
+def my_range(stop: int):  # create the generic function and the first multimethod
     return my_range(0, 1, stop)
 @generic
 def my_range(start: int, stop: int):  # further registrations add more multimethods
@@ -332,7 +332,9 @@ def my_range(start: int, step: int, stop: int):
     return start, step, stop
 ```
 
-This is a purely run-time implementation, so it doesn't give performance benefits, but it can make code more readable, and easily allows adding support for new input types to an existing function without monkey-patching the original. *Holy traits* are also a possibility:
+This is a purely run-time implementation, so it doesn't give performance benefits, but it can make code more readable, and easily allows adding support for new input types to an existing function without monkey-patching the original.
+
+*Holy traits* are also a possibility:
 
 ```python
 import typing
@@ -347,7 +349,7 @@ class IsNotFunny(FunninessTrait):
 
 @generic
 def funny(x: typing.Any):  # default
-    raise NotImplementedError(f"`funny` trait not registered for any type specification matching {type(x)}")
+    raise NotImplementedError(f"`funny` trait not registered for anything matching {type(x)}")
 
 @augment(funny)
 def funny(x: str):  # noqa: F811
