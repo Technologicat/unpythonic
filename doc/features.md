@@ -3365,6 +3365,7 @@ class ApplicationException(Exception):
     pass
 
 # reraise_in: expr form
+# The mapping is {in0: out0, ...}
 try:
     # reraise_in(thunk, mapping)
     reraise_in(lambda: raisef(LibraryException),
@@ -3388,6 +3389,7 @@ except ApplicationException:
     print("all ok!")
 
 # reraise: block form
+# The mapping is {in0: out0, ...}
 try:
     with reraise({LibraryException: ApplicationException}):
         raise LibraryException
