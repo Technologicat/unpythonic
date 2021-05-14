@@ -3011,6 +3011,8 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 *Added the `@augment` parametric decorator that can register a new method on an existing generic function originally defined in another lexical scope. Be careful of [type piracy](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy) when you use it.* 
 
+*Added the function `methods`, which displays a list of methods of a generic function.*
+
 *It is now possible to dispatch also on a homogeneous type of contents collected by a `**kwargs` parameter. In the type signature, use `typing.Dict[str, mytype]`. Note that in this use, the key type is always `str`.*
 
 The ``generic`` decorator allows creating multiple-dispatch generic functions (a.k.a. multimethods) with type annotation syntax.
