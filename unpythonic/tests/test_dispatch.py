@@ -17,8 +17,9 @@ def zorblify(x: str, y: int):  # noqa: F811, registered as a method of the same 
 @generic
 def zorblify(x: str, y: float):  # noqa: F811
     return f"{x[::-1]} {y}"
-
-# TODO: def zorblify(x: int, *args: typing.Sequence[str]):
+@generic
+def zorblify(x: int, *args: typing.Sequence[str]):  # noqa: F811
+    return f"{x}, {', '.join(args)}"
 
 # @generic can also be used to simplify argument handling code in functions
 # where the role of an argument in a particular position changes depending on
@@ -83,6 +84,7 @@ def runtests():
         test[zorblify(y=8, x=17) == 42]
         test[zorblify("tac", 1.0) == "cat 1.0"]
         test[zorblify(y=1.0, x="tac") == "cat 1.0"]
+        test[zorblify(23, "cat", "meow") == "23, cat, meow"]
 
         test_raises[TypeError, zorblify(1.0, 2.0)]  # there's no zorblify(float, float)
 
