@@ -314,6 +314,63 @@ assert x == 85
 
 The point is usability: in a function composition using pipe syntax, data flows from left to right.
 </details>  
+<details><summary>Multiple-dispatch generic functions, like in CLOS or Julia.</summary>
+
+[[docs](doc/features.md#generic-typed-isoftype-multiple-dispatch)]
+
+```python
+from unpythonic import generic
+
+@generic
+def my_range(stop: int):  # first registration creates the generic function and the first multimethod
+    return my_range(0, 1, stop)
+@generic
+def my_range(start: int, stop: int):  # further registrations add more multimethods
+    return my_range(start, 1, stop)
+@generic
+def my_range(start: int, step: int, stop: int):
+    return start, step, stop
+```
+
+This is a purely run-time implementation, so it doesn't give performance benefits, but it can make code more readable, and easily allows adding support for new input types to an existing function without monkey-patching the original. *Holy traits* are also a possibility:
+
+```python
+import typing
+from unpythonic import generic, augment
+
+class FunninessTrait:
+    pass
+class IsFunny(FunninessTrait):
+    pass
+class IsNotFunny(FunninessTrait):
+    pass
+
+@generic
+def funny(x: typing.Any):  # default
+    raise NotImplementedError(f"`funny` trait not registered for any type specification matching {type(x)}")
+
+@augment(funny)
+def funny(x: str):  # noqa: F811
+    return IsFunny()
+@augment(funny)
+def funny(x: int):  # noqa: F811
+    return IsNotFunny()
+
+@generic
+def laugh(x: typing.Any):
+    return laugh(funny(x), x)
+
+@augment(laugh)
+def laugh(traitvalue: IsFunny, x: typing.Any):
+    return f"Ha ha ha, {x} is funny!"
+@augment(laugh)
+def laugh(traitvalue: IsNotFunny, x: typing.Any):
+    return f"{x} is not funny."
+
+assert laugh("that") == "Ha ha ha, that is funny!"
+assert laugh(42) == "42 is not funny."
+```
+</details>  
 <details><summary>Conditions: resumable, modular error handling, like in Common Lisp.</summary>
 
 [[docs](doc/features.md#handlers-restarts-conditions-and-restarts)]
