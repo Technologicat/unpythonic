@@ -601,6 +601,18 @@ def _register_generic(fullname, multimethod):
                 raise TypeError(msg)
 
             dispatcher._method_registry.append((multimethod, type_signature))
+
+            # Update entry point docstring to include docs for the new multimethod,
+            # and its call signature.
+            our_doc = _format_method((multimethod, type_signature))
+            if multimethod.__doc__:
+                our_doc += "\n" + multimethod.__doc__
+            if dispatcher.__doc__:
+                dispatcher.__doc__ += "\n\n" + ("-" * 80) + "\n"
+                dispatcher.__doc__ += our_doc
+            else:
+                dispatcher.__doc__ = our_doc
+
             return dispatcher  # Replace the callable with this generic function's dispatcher.
 
         dispatcher._register = register
