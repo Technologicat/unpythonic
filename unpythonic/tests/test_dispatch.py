@@ -219,7 +219,7 @@ def runtests():
         #
         # See discussions on interaction between `@staticmethod` and `super` in Python:
         #   https://bugs.python.org/issue31118
-        #    https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction/26807879
+        #   https://stackoverflow.com/questions/26788214/super-and-staticmethod-interaction/26807879
         test[tt2.staticmeth(3.14) == "float 6.28"]  # this is available on `tt2`
         test_raises[TypeError, tt2.staticmeth("hi")]  # but this is not (no MRO)
         test_raises[TypeError, tt2.staticmeth(21)]
