@@ -2865,7 +2865,7 @@ The implementation is based on the List monad, and a bastardized variant of do-n
 
 **Changed in v0.15.0.** *Functions `resignal_in` and `resignal` added; these perform the same job for conditions as `reraise_in` and `reraise` do for exceptions, that is, they allow you to map library exception types to semantically appropriate application exception types, with minimum boilerplate.*
 
-*Upon an unhandled signal, `signal` now returns the canonized input `condition`, with a nice traceback attached. This feature is intended for implementing custom error protocols on top of `signal`; `error` already uses it to produce a nice-looking error report.* 
+*Upon an unhandled signal, `signal` now returns the canonized input `condition`, with a nice traceback attached. This feature is intended for implementing custom error protocols on top of `signal`; `error` already uses it to produce a nice-looking error report.*
 
 *The error-handling protocol that was used to send a signal is now available for inspection in the `__protocol__` attribute of the condition instance. It is the callable that sent the signal, such as `signal`, `error`, `cerror` or `warn`. It is the responsibility of each error-handling protocol (except the fundamental `signal` itself) to pass its own function to `signal` as the `protocol` argument; if not given, `protocol` defaults to `signal`. The protocol information is used by the `resignal` mechanism.*
 
