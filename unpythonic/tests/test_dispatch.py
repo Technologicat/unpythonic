@@ -42,8 +42,11 @@ def _example_impl(start, step, stop):  # no @generic!
 
 # shorter, same effect
 @generic
-def example2(start: int, stop: int):
-    return example2(start, 1, stop)  # just call the method that has the implementation
+def example2(stop: int):
+    return example2(0, 1, stop)  # just call the method that has the implementation
+@generic
+def example2(start: int, stop: int):  # noqa: F811
+    return example2(start, 1, stop)
 @generic
 def example2(start: int, step: int, stop: int):  # noqa: F811
     return start, step, stop
@@ -92,6 +95,7 @@ def runtests():
         test[example(2, 10) == (2, 1, 10)]
         test[example(2, 3, 10) == (2, 3, 10)]
 
+        test[example2(5) == (0, 1, 5)]
         test[example2(1, 5) == (1, 1, 5)]
         test[example2(1, 1, 5) == (1, 1, 5)]
         test[example2(1, 2, 5) == (1, 2, 5)]
