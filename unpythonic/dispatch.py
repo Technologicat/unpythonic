@@ -284,9 +284,13 @@ def format_methods(f):
     This calls `list_methods`, which see.
     """
     function, _ = getfunc(f)
-    methods_str = [f"  {_format_method(x)}" for x in list_methods(f)]
-    methods = "\n".join(methods_str)
-    return f"Multimethods for @{isgeneric(f)} {repr(function.__qualname__)}:\n{methods}"
+    multimethods = list_methods(f)
+    if multimethods:
+        methods_list = [f"  {_format_method(x)}" for x in multimethods]
+        methods_str = "\n".join(methods_list)
+    else:  # pragma: no cover, in practice should always have one method.
+        methods_str = "  <no multimethods registered>"
+    return f"Multimethods for @{isgeneric(f)} {repr(function.__qualname__)}:\n{methods_str}"
 
 def list_methods(f):
     """Return a list of the multimethods currently registered to `f`.
