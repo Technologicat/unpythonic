@@ -11,7 +11,7 @@ from ..dispatch import generic, augment, typed, format_methods
 def zorblify(x: int, y: int):
     return 2 * x + y
 @generic
-def zorblify(x: str, y: int):  # noqa: F811, registered as a method of the same generic function.
+def zorblify(x: str, y: int):  # noqa: F811, registered as a multimethod of the same generic function.
     # Because dispatching occurs on both arguments, this method is not reached by the tests.
     fail["this method should not be reached by the tests"]  # pragma: no cover
 @generic
@@ -43,7 +43,7 @@ def _example_impl(start, step, stop):  # no @generic!
 # shorter, same effect
 @generic
 def example2(stop: int):
-    return example2(0, 1, stop)  # just call the method that has the implementation
+    return example2(0, 1, stop)  # just call the multimethod that has the implementation
 @generic
 def example2(start: int, stop: int):  # noqa: F811
     return example2(start, 1, stop)
