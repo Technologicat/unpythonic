@@ -3013,6 +3013,8 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 *Added the function `methods`, which displays a list of multimethods of a generic function.*
 
+*Docstrings of the multimethods are now automatically concatenated to make up the docstring of the generic function, so you can document each multimethod separately.*
+
 *It is now possible to dispatch also on a homogeneous type of contents collected by a `**kwargs` parameter. In the type signature, use `typing.Dict[str, mytype]`. Note that in this use, the key type is always `str`.*
 
 The ``generic`` decorator allows creating multiple-dispatch generic functions with type annotation syntax. We also provide some friendly utilities: ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first two) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
