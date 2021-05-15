@@ -472,7 +472,8 @@ def _format_method(method):  # Taking a page from Julia and some artistic libert
     source, firstlineno = inspect.getsourcelines(function)
     return f"{thecallable.__qualname__}{str(thesignature)} from {filename}:{firstlineno}"
 
-def _find_matching_multimethod(dispatcher, args, kwargs):
+# Find the first matching multimethod that is registered on `dispatcher`.
+def _resolve_multimethod(dispatcher, args, kwargs):
     multimethods = _list_multimethods(dispatcher, _extract_self_or_cls(dispatcher, args))
     for thecallable, type_signature in multimethods:
         try:
@@ -554,7 +555,7 @@ def _setup(fullname, multimethod):
         # Create the dispatcher. This will replace the original function.
         @wraps(multimethod)
         def dispatcher(*args, **kwargs):
-            thecallable = _find_matching_multimethod(dispatcher, args, kwargs)
+            thecallable = _resolve_multimethod(dispatcher, args, kwargs)
             if thecallable:
                 return thecallable(*args, **kwargs)
             _raise_multiple_dispatch_error(dispatcher, args, kwargs,

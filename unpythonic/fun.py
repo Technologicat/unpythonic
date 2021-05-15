@@ -21,7 +21,7 @@ from functools import wraps, partial
 
 from .arity import arities, resolve_bindings, tuplify_bindings, UnknownArity
 from .fold import reducel
-from .dispatch import isgeneric, _find_matching_multimethod
+from .dispatch import isgeneric, _resolve_multimethod
 from .dynassign import dyn, make_dynvar
 from .regutil import register_decorator
 from .symbol import sym
@@ -223,7 +223,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             nargs = len(args)
             if (nargs < min_arity or
                     (isgeneric(f) == "generic" and min_arity <= nargs <= max_arity and
-                     not _find_matching_multimethod(f, args, kwargs))):
+                     not _resolve_multimethod(f, args, kwargs))):
                 p = partial(f, *args, **kwargs)
                 if islazy(f):
                     p = passthrough_lazy_args(p)
