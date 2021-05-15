@@ -507,10 +507,6 @@ def _register_generic(fullname, multimethod):
     if fullname not in _dispatcher_registry:
         # Create the dispatcher. This will replace the original function.
         #
-        # We want @wraps to preserve docstrings, so the decorator must be a function, not a class.
-        # https://stackoverflow.com/questions/6394511/python-functools-wraps-equivalent-for-classes
-        # https://stackoverflow.com/questions/25973376/functools-update-wrapper-doesnt-work-properly#25973438
-        #
         # TODO/FIXME: Not possible to detect `self`/`cls` parameters correctly.
         #
         # Here we're operating at the wrong abstraction level for that,
