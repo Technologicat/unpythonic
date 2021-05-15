@@ -403,12 +403,14 @@ def list_methods(f):
 
 # Modeled after `mcpyrate.utils.format_macrofunction`, which does the same thing for macros.
 def _function_fullname(f):
+    """Return the full name of the callable `f`, including also its module name."""
     function, _ = getfunc(f)  # get the raw function also for OOP methods
     if not function.__module__:  # At least macros defined in the REPL have `__module__=None`.
         return function.__qualname__
     return f"{function.__module__}.{function.__qualname__}"
 
 def _name_of_1st_positional_parameter(f):
+    """Return the name, as a string, of the first positional parameter of the callable `f`."""
     function, _ = getfunc(f)  # get the raw function also for OOP methods
     parameters = inspect.signature(function).parameters
     poskinds = set((inspect.Parameter.POSITIONAL_ONLY,
@@ -460,9 +462,16 @@ def _list_multimethods(dispatcher, self_or_cls=None):
 
     return list(chain.from_iterable(relevant_registries))
 
-# input format is an item returned by `_list_multimethods`
-def _format_method(method):  # Taking a page from Julia and some artistic liberty here.
-    thecallable, type_signature = method
+def _format_method(multimethod):
+    """Format, as a string, a human-readable description of a multimethod.
+
+    Input format is an item returned by `_list_multimethods`.
+
+    The returned string includes the call signature, and the source filename
+    and starting line number. This output format takes a page from Julia,
+    with some artistic liberty.
+    """
+    thecallable, type_signature = multimethod
     # Our `type_signature` is based on `typing.get_type_hints`,
     # but for the error message, we need something that formats
     # like source code. Hence we use `inspect.signature`.
@@ -472,21 +481,26 @@ def _format_method(method):  # Taking a page from Julia and some artistic libert
     source, firstlineno = inspect.getsourcelines(function)
     return f"{thecallable.__qualname__}{str(thesignature)} from {filename}:{firstlineno}"
 
-# Find the first matching multimethod that is registered on `dispatcher`.
 def _resolve_multimethod(dispatcher, args, kwargs):
+    """Find the first matching multimethod on `dispatcher` for the given `args` and `kwargs`."""
     multimethods = _list_multimethods(dispatcher, _extract_self_or_cls(dispatcher, args))
     for thecallable, type_signature in multimethods:
         try:
             bound_arguments = resolve_bindings(thecallable, *args, **kwargs)
-        except TypeError:  # arity mismatch, so this method can't be the one the call is looking for.
+        except TypeError:  # arity mismatch, so this multimethod is not acceptable for the given args/kwargs.
             continue
         if _match_argument_types(type_signature, bound_arguments):
             return thecallable
     return None
 
-# `type_signature`: in the format returned by `typing.get_type_hints`.
-# `bound_arguments`: see `unpythonic.arity.resolve_bindings`.
 def _match_argument_types(type_signature, bound_arguments):
+    """Match bound arguments against the given type signature.
+
+    Return whether the arguments match the signature.
+
+    type_signature`: in the format returned by `typing.get_type_hints`.
+    `bound_arguments`: see `unpythonic.arity.resolve_bindings`.
+    """
     for parameter, value in bound_arguments.arguments.items():
         assert parameter in type_signature  # resolve_bindings should already TypeError when not.
         expected_type = type_signature[parameter]
@@ -494,8 +508,12 @@ def _match_argument_types(type_signature, bound_arguments):
             return False
     return True
 
-# Given a callable and a tuple of positional arguments, extract the value of `self`/`cls` argument, if any.
 def _extract_self_or_cls(thecallable, args):
+    """From `thecallable` and positional arguments `args`, extract the value of `self`/`cls`, if any.
+
+    Return value is either the value bound that would be bound to `self`/`cls`
+    (the first positional parameter), or `None`.
+    """
     # TODO/FIXME: Not possible to detect `self`/`cls` parameters correctly.
     #
     # Here we're operating at the wrong abstraction level for that,
@@ -517,6 +535,10 @@ def _extract_self_or_cls(thecallable, args):
     return self_or_cls
 
 def _raise_multiple_dispatch_error(dispatcher, args, kwargs, *, candidates):
+    """Raise a `TypeError` regarding a failed multiple dispatch (no matching multimethod).
+
+    `candidates`: a list of multimethods that were attempted, but did not match.
+    """
     # TODO: It would be nice to show the type signature of the args actually given,
     # TODO: but in the general case this is difficult. We can't just `type(x)`, since
     # TODO: the signature may specify something like `Sequence[int]`. Knowing a `list`
