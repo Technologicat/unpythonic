@@ -6,6 +6,7 @@ from ..test.fixtures import session, testset
 from collections import Counter
 import sys
 
+from ..dispatch import generic
 from ..fun import (memoize, curry, apply,
                    identity, const,
                    andf, orf, notf,
@@ -209,6 +210,21 @@ def runtests():
             m1 = lst.append
             m2 = curry(m1, _curry_allow_uninspectable=True)
             test[m2 is m1]
+
+    with testset("curry integration with @generic"):  # v0.15.0+
+        @generic
+        def f(x: int):
+            return "int"
+        @generic
+        def f(x: float, y: str):  # noqa: F811, new multimethod for the same generic function.
+            return "float, str"
+        test[callable(curry(f))]
+        test[curry(f, 42) == "int"]
+        # Although `f` has a multimethod that takes one argument, if that argument is a float,
+        # the call signature does not match, so in that case `curry` waits for more arguments
+        # (because it knows `f` has also a multimethod that accepts two arguments).
+        test[callable(curry(f, 3.14))]
+        test[curry(f, 3.14, "cat") == "float, str"]
 
     with testset("compose"):
         double = lambda x: 2 * x

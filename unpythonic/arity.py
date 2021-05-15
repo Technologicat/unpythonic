@@ -217,6 +217,9 @@ def arities(f):
      does not implicitly provide a `self`, because there is none to be had. This
      behavior is reflected in the return value of `arities`.)
 
+    If `f` is `@generic` (see `unpythonic.dispatch`), we scan its multimethods,
+    and return the smallest `min_arity` and the largest `max_arity`.
+
     Parameters:
         `f`: function
             The function to inspect.
@@ -238,6 +241,20 @@ def arities(f):
             return _builtin_arities[f]
     except TypeError:  # f is of an unhashable type
         pass
+
+    # Integration with the multiple-dispatch system (multimethods).
+    from .dispatch import isgeneric, list_methods  # circular import
+    if isgeneric(f):
+        min_lower = _infty
+        max_upper = 0
+        for (thecallable, type_signature) in list_methods(f):
+            lower, upper = arities(thecallable)  # let UnknownArity propagate
+            if lower < min_lower:
+                min_lower = lower
+            if upper > max_upper:
+                max_upper = upper
+        return min_lower, max_upper
+
     try:
         lower = 0
         upper = 0
@@ -258,25 +275,40 @@ def arities(f):
         raise UnknownArity(*e.args)
 
 def required_kwargs(f):
-    """Return a set containing the names of required name-only arguments of f.
+    """Return a set containing the names of required name-only arguments of `f`.
 
-    "Required": has no default.
+    *Required* means the parameter has no default.
 
-    Raises UnknownArity if inspection failed.
+    If `f` is `@generic` (see `unpythonic.dispatch`), we scan its multimethods,
+    and return the names of required kwargs accepted by *any* of its multimethods.
+
+    Raises `UnknownArity` if inspection failed.
     """
     return _kwargs(f, optionals=False)
 
 def optional_kwargs(f):
-    """Return a set containing the names of optional name-only arguments of f.
+    """Return a set containing the names of optional name-only arguments of `f`.
 
-    "Optional": has a default.
+    *Optional* means the parameter has a default.
 
-    Raises UnknownArity if inspection failed.
+    If `f` is `@generic` (see `unpythonic.dispatch`), we scan its multimethods,
+    and return the names of optional kwargs accepted by *any* of its multimethods.
+
+    Raises `UnknownArity` if inspection failed.
     """
     return _kwargs(f, optionals=True)
 
 def _kwargs(f, optionals=True):
     f, _ = getfunc(f)
+
+    # Integration with the multiple-dispatch system (multimethods).
+    from .dispatch import isgeneric, list_methods  # circular import
+    if isgeneric(f):
+        thekwargs = {}
+        for (thecallable, type_signature) in list_methods(f):
+            thekwargs.update(_kwargs(thecallable, optionals=optionals))
+        return thekwargs
+
     try:
         if optionals:
             pred = lambda v: v.default is not Parameter.empty  # optionals

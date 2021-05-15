@@ -3015,6 +3015,10 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 *Docstrings of the multimethods are now automatically concatenated to make up the docstring of the generic function, so you can document each multimethod separately.*
 
+*`curry` now supports `@generic`. In the case where the **number** of positional arguments supplied so far matches at least one multimethod, but there is no match for the given combination of argument **types**, `curry` waits for more arguments (returning the curried function).*
+
+**CAUTION**: *Determining whether there **could** be a match for a `@generic` is the only type checking performed by ``curry``. When using ``curry`` with ``@generic`` or ``@typed``, argument type errors are only detected when the actual call triggers - just like in code using ``curry`` and traditional run-time ``isinstance`` checks. This may make it hard to debug.*
+
 *It is now possible to dispatch also on a homogeneous type of contents collected by a `**kwargs` parameter. In the type signature, use `typing.Dict[str, mytype]`. Note that in this use, the key type is always `str`.*
 
 The ``generic`` decorator allows creating multiple-dispatch generic functions with type annotation syntax. We also provide some friendly utilities: ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first two) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
@@ -3035,8 +3039,6 @@ The ``generic`` decorator essentially allows replacing the `if`/`elif` dynamic t
 If several multimethods of the same generic function match the arguments given, the most recently registered multimethod wins.
 
 **CAUTION**: The winning multimethod is chosen differently from Julia, where the most specific multimethod wins. Doing that requires a more careful type analysis than what we have here.
-
-**CAUTION**: `@generic` does not currently work with `curry`. Adding support requires changes to the already complex logic in `curry`; it is not high on the priority list.
 
 The details are best explained by example:
 
@@ -3164,8 +3166,6 @@ jack(3.14)  # TypeError
 ```
 
 For which features of the ``typing`` stdlib module are supported, see ``isoftype`` below.
-
-**CAUTION**: When using ``typed`` with ``curry``, the type checking (and hence ``TypeError``, if any) only occurs when the actual call triggers. Code using that combination may be hard to debug.
 
 
 #### ``isoftype``: the big sister of ``isinstance``

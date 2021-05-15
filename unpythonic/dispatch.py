@@ -210,6 +210,13 @@ def generic(f):
     To work with OOP inheritance, in the decorator list, `@generic` must be
     on inside of (i.e. run before) `@classmethod` or `@staticmethod`.
 
+    **Interaction with `curry`**:
+
+    Starting with v0.15.0, `curry` supports `@generic`. In the case where the
+    *number* of positional arguments supplied so far matches at least one
+    multimethod, but there is no match for the given combination of argument
+    *types*, `curry` waits for more arguments (returning the curried function).
+
     **CAUTION**:
 
     To declare a parameter of a multimethod as dynamically typed, explicitly
@@ -218,12 +225,8 @@ def generic(f):
 
     See the limitations in `unpythonic.typecheck` for which features of the
     `typing` module are supported and which are not.
-
-    At the moment, `@generic` does not work with `curry`. Adding curry support
-    needs changes to the dispatch logic in `curry`.
-
     """
-    return _register_generic(_function_fullname(f), f)
+    return _setup(_function_fullname(f), f)
 
 @register_decorator(priority=98)
 def augment(target):
@@ -271,8 +274,8 @@ def augment(target):
         https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy
     """
     if not isgeneric(target):
-        raise TypeError(f"{target} is not a generic function, cannot add multimethods to it.")
-    return partial(_register_generic, _function_fullname(target))
+        raise TypeError(f"{_function_fullname(target)} is not a generic function, cannot add multimethods to it.")
+    return partial(_setup, _function_fullname(target))
 
 @register_decorator(priority=98)
 def typed(f):
@@ -287,16 +290,6 @@ def typed(f):
 
     Once a `@typed` function has been created, no more multimethods can be
     attached to it.
-
-    `@typed` works with `curry`, because the function has only one call
-    signature, as usual.
-
-    **CAUTION**:
-
-    If used with `curry`, argument type errors will only be detected when
-    `curry` triggers the actual call. To fix this, `curry` would need to
-    perform some more introspection on the callable, and to actually know
-    about this dispatch system. It's not high on the priority list.
     """
     # TODO: Fix the epic fail at fail-fast, and update the corresponding test.
     s = generic(f)
@@ -307,6 +300,26 @@ def methods(f):
     """Print, to stdout, a human-readable list of multimethods currently registered to `f`.
 
     For introspection in the REPL. This works by calling `list_methods`, which see.
+
+    Example - entering this in an IPython session::
+
+        from unpythonic import generic, methods
+
+        @generic
+        def f(x: int):
+            return "int"
+
+        @generic
+        def f(x: float):
+            return "float"
+
+        methods(f)
+
+    the result is:
+
+        Multimethods for @generic __main__.f:
+          f(x: float) from <ipython-input-3-16b8c86cf15d>:1
+          f(x: int) from <ipython-input-2-f723dd86dcd6>:1
 
     This is like the `methods` function of Julia.
     """
@@ -325,9 +338,9 @@ def format_methods(f):
     if multimethods:
         methods_list = [f"  {_format_method(x)}" for x in multimethods]
         methods_str = "\n".join(methods_list)
-    else:  # pragma: no cover, in practice should always have one method.
+    else:  # pragma: no cover, in practice a generic should always have at least one method.
         methods_str = "  <no multimethods registered>"
-    return f"Multimethods for @{isgeneric(f)} {repr(function.__qualname__)}:\n{methods_str}"
+    return f"Multimethods for @{isgeneric(f)} {_function_fullname(function)}:\n{methods_str}"
 
 def list_methods(f):
     """Return a list of the multimethods currently registered to `f`.
@@ -375,7 +388,7 @@ def list_methods(f):
     """
     function, _ = getfunc(f)
     if not isgeneric(function):
-        raise TypeError(f"{repr(function.__qualname__)} is not a generic function, it does not have multimethods.")
+        raise TypeError(f"{_function_fullname(function)} is not a generic function, it does not have multimethods.")
 
     # In case of a bound method (either `Foo.classmeth` or `foo.instmeth`),
     # we can get the value for `self`/`cls` argument from its `__self__` attribute.
@@ -459,6 +472,17 @@ def _format_method(method):  # Taking a page from Julia and some artistic libert
     source, firstlineno = inspect.getsourcelines(function)
     return f"{thecallable.__qualname__}{str(thesignature)} from {filename}:{firstlineno}"
 
+def _find_matching_multimethod(dispatcher, args, kwargs):
+    multimethods = _list_multimethods(dispatcher, _extract_self_or_cls(dispatcher, args))
+    for thecallable, type_signature in multimethods:
+        try:
+            bound_arguments = resolve_bindings(thecallable, *args, **kwargs)
+        except TypeError:  # arity mismatch, so this method can't be the one the call is looking for.
+            continue
+        if _match_argument_types(type_signature, bound_arguments):
+            return thecallable
+    return None
+
 # `type_signature`: in the format returned by `typing.get_type_hints`.
 # `bound_arguments`: see `unpythonic.arity.resolve_bindings`.
 def _match_argument_types(type_signature, bound_arguments):
@@ -468,6 +492,28 @@ def _match_argument_types(type_signature, bound_arguments):
         if not isoftype(value, expected_type):
             return False
     return True
+
+# Given a callable and a tuple of positional arguments, extract the value of `self`/`cls` argument, if any.
+def _extract_self_or_cls(thecallable, args):
+    # TODO/FIXME: Not possible to detect `self`/`cls` parameters correctly.
+    #
+    # Here we're operating at the wrong abstraction level for that,
+    # since we see just bare functions. In the OOP case, the dispatcher
+    # is installed on the raw function before it becomes a bound method.
+    # (That in itself is just as it should be.)
+    first_param_name = _name_of_1st_positional_parameter(thecallable)
+    most_likely_an_oop_method = first_param_name in self_parameter_names
+
+    # Let's see if we might have been passed a `self`/`cls` parameter,
+    # and if so, get its value. (Recall that in Python, it is always
+    # the first positional parameter.)
+    if most_likely_an_oop_method:
+        if len(args) < 1:  # pragma: no cover, shouldn't happen.
+            raise TypeError(f"MRO lookup failed: no value provided for self-like parameter {repr(first_param_name)} for OOP method-like generic function {_function_fullname(thecallable)}")
+        self_or_cls = args[0]
+    else:
+        self_or_cls = None
+    return self_or_cls
 
 def _raise_multiple_dispatch_error(dispatcher, args, kwargs, *, candidates):
     # TODO: It would be nice to show the type signature of the args actually given,
@@ -483,11 +529,11 @@ def _raise_multiple_dispatch_error(dispatcher, args, kwargs, *, candidates):
     methods_list = [f"  {_format_method(x)}" for x in candidates]
     methods_str = "\n".join(methods_list)
     msg = (f"No multiple-dispatch match for the call {dispatcher.__qualname__}({args_str}{sep}{kws_str}).\n"
-           f"Multimethods for @{isgeneric(dispatcher)} {repr(dispatcher.__qualname__)} (most recent match attempt last):\n{methods_str}")
+           f"Multimethods for @{isgeneric(dispatcher)} {_function_fullname(dispatcher)} (most recent match attempt last):\n{methods_str}")
     raise TypeError(msg)
 
-def _register_generic(fullname, multimethod):
-    """Register a multimethod for a generic function.
+def _setup(fullname, multimethod):
+    """Register a multimethod for a generic function, creating the generic function if necessary.
 
     This is a low-level function; you'll likely want `@generic` or `@augment`.
 
@@ -506,121 +552,100 @@ def _register_generic(fullname, multimethod):
     """
     if fullname not in _dispatcher_registry:
         # Create the dispatcher. This will replace the original function.
-        #
-        # TODO/FIXME: Not possible to detect `self`/`cls` parameters correctly.
-        #
-        # Here we're operating at the wrong abstraction level for that,
-        # since we see just bare functions. In the OOP case, the dispatcher
-        # is installed on the raw function before it becomes a bound method.
-        # (That in itself is just as it should be.)
-        first_param_name = _name_of_1st_positional_parameter(multimethod)
-        most_likely_an_oop_method = first_param_name in self_parameter_names
         @wraps(multimethod)
         def dispatcher(*args, **kwargs):
-            # Let's see if we might have been passed a `self`/`cls` parameter,
-            # and if so, get its value. (Recall that in Python, it is always
-            # the first positional parameter.)
-            if most_likely_an_oop_method:
-                if len(args) < 1:  # pragma: no cover, shouldn't happen.
-                    raise TypeError(f"MRO lookup failed: no value provided for self-like parameter {repr(first_param_name)} when calling OOP method-like generic function {fullname}")
-                self_or_cls = args[0]
-            else:
-                self_or_cls = None
-
-            # Dispatch.
-            multimethods = _list_multimethods(dispatcher, self_or_cls)
-            for thecallable, type_signature in multimethods:
-                try:
-                    bound_arguments = resolve_bindings(thecallable, *args, **kwargs)
-                except TypeError:  # arity mismatch, so this method can't be the one the call is looking for.
-                    continue
-                if _match_argument_types(type_signature, bound_arguments):
-                    return thecallable(*args, **kwargs)
-
-            # No match, report error.
-            _raise_multiple_dispatch_error(dispatcher, args, kwargs, candidates=multimethods)
+            thecallable = _find_matching_multimethod(dispatcher, args, kwargs)
+            if thecallable:
+                return thecallable(*args, **kwargs)
+            _raise_multiple_dispatch_error(dispatcher, args, kwargs,
+                                           candidates=_list_multimethods(dispatcher,
+                                                                         _extract_self_or_cls(dispatcher, args)))
 
         dispatcher._method_registry = []
-        def register(multimethod):
-            """Decorator. Register a new multimethod for this generic function.
-
-            The multimethod must have type annotations for all of its parameters;
-            these are used for dispatching.
-
-            An exception is the `self` or `cls` parameter of an OOP instance
-            method or class method; that does not participate in dispatching,
-            and does not need a type annotation.
-            """
-            # Using `inspect.signature` et al., we could auto-`Any` parameters
-            # that have no type annotation, but that would likely be a footgun.
-            # So we require a type annotation for each parameter.
-            #
-            # One exception: the `self`/`cls` parameter of OOP instance methods and
-            # class methods is not meaningful for dispatching, and we don't
-            # have a runtime value to auto-populate its expected type when the
-            # definition runs. So we set it to `typing.Any` in the multimethod's
-            # expected type signature, which makes the dispatcher ignore it.
-
-            function, _ = getfunc(multimethod)
-            parameters = inspect.signature(function).parameters
-            parameter_names = [p.name for p in parameters.values()]
-            type_signature = typing.get_type_hints(function)
-
-            # In the type signature, auto-`Any` the `self`/`cls` parameter, if any.
-            #
-            # TODO/FIXME: Not possible to detect `self`/`cls` parameters correctly.
-            #
-            # The `@generic` decorator runs while the class body is being
-            # evaluated. In that context, an instance method looks just like a
-            # regular function.
-            #
-            # Also if `@generic` runs before `@classmethod` (to place Python's
-            # implicit `cls` handling outermost), also a class method looks
-            # just like a regular function to us.
-            #
-            # So we HACK, and special-case some suggestive *parameter names*
-            # when they appear the first position, though **Python itself
-            # doesn't do that**. For any crazy person not following Python
-            # naming conventions, our approach won't work.
-            if len(parameter_names) >= 1 and parameter_names[0] in self_parameter_names:
-                # In Python 3.6+, `dict` preserves insertion order. Make sure
-                # the `self` parameter appears first, for clearer error messages
-                # when no matching method is found.
-                type_signature = {parameter_names[0]: typing.Any, **type_signature}
-
-            if not all(name in type_signature for name in parameter_names):
-                failures = [name for name in parameter_names if name not in type_signature]
-                plural = "s" if len(failures) > 1 else ""
-                repr_list = [repr(x) for x in failures]
-                repr_str = ", ".join(repr_list)
-                msg = f"Multimethod definition missing type annotation for parameter{plural}: {repr_str}"
-                raise TypeError(msg)
-
-            dispatcher._method_registry.append((multimethod, type_signature))
-
-            # Update entry point docstring to include docs for the new multimethod,
-            # and its call signature.
-            call_signature_desc = _format_method((multimethod, type_signature))
-            our_doc = call_signature_desc
-            if multimethod.__doc__:
-                our_doc += "\n" + multimethod.__doc__
-
-            isfirstmultimethod = len(dispatcher._method_registry) == 1
-            if isfirstmultimethod or not dispatcher.__doc__:
-                # Override the original doc of the function that was converted
-                # into the dispatcher; this adds the call signature to the top.
-                dispatcher.__doc__ = our_doc
-            else:
-                # Add the call signature and doc for the new multimethod.
-                dispatcher.__doc__ += "\n\n" + ("-" * 80) + "\n"
-                dispatcher.__doc__ += our_doc
-
-            return dispatcher  # Replace the multimethod callable with this generic function's dispatcher.
-
-        dispatcher._register = register
+        dispatcher._register = partial(_register_to, dispatcher)
         _dispatcher_registry[fullname] = dispatcher
 
     dispatcher = _dispatcher_registry[fullname]
     if isgeneric(dispatcher) == "typed":
         raise TypeError("@typed: cannot register additional multimethods.")
-    return dispatcher._register(multimethod)
+    return dispatcher._register(multimethod)  # this returns the *dispatcher*
+
+def _register_to(dispatcher, multimethod):
+    """Decorator. Register a new `multimethod` to `dispatcher`.
+
+    This is a low-level function used by `_setup`.
+
+    The multimethod must have type annotations for all of its parameters;
+    these are used for dispatching.
+
+    An exception is the `self` or `cls` parameter of an OOP instance
+    method or class method; that does not participate in dispatching,
+    and does not need a type annotation.
+
+    After registering, this returns `dispatcher`.
+    """
+    # Using `inspect.signature` et al., we could auto-`Any` parameters
+    # that have no type annotation, but that would likely be a footgun.
+    # So we require a type annotation for each parameter.
+    #
+    # One exception: the `self`/`cls` parameter of OOP instance methods and
+    # class methods is not meaningful for dispatching, and we don't
+    # have a runtime value to auto-populate its expected type when the
+    # definition runs. So we set it to `typing.Any` in the multimethod's
+    # expected type signature, which makes the dispatcher ignore it.
+
+    function, _ = getfunc(multimethod)
+    parameters = inspect.signature(function).parameters
+    parameter_names = [p.name for p in parameters.values()]
+    type_signature = typing.get_type_hints(function)
+
+    # In the type signature, auto-`Any` the `self`/`cls` parameter, if any.
+    #
+    # TODO/FIXME: Not possible to detect `self`/`cls` parameters correctly.
+    #
+    # The `@generic` decorator runs while the class body is being
+    # evaluated. In that context, an instance method looks just like a
+    # regular function.
+    #
+    # Also if `@generic` runs before `@classmethod` (to place Python's
+    # implicit `cls` handling outermost), also a class method looks
+    # just like a regular function to us.
+    #
+    # So we HACK, and special-case some suggestive *parameter names*
+    # when they appear the first position, though **Python itself
+    # doesn't do that**. For any crazy person not following Python
+    # naming conventions, our approach won't work.
+    if len(parameter_names) >= 1 and parameter_names[0] in self_parameter_names:
+        # In Python 3.6+, `dict` preserves insertion order. Make sure
+        # the `self` parameter appears first, for clearer error messages
+        # when no matching method is found.
+        type_signature = {parameter_names[0]: typing.Any, **type_signature}
+
+    if not all(name in type_signature for name in parameter_names):
+        failures = [name for name in parameter_names if name not in type_signature]
+        plural = "s" if len(failures) > 1 else ""
+        repr_list = [repr(x) for x in failures]
+        repr_str = ", ".join(repr_list)
+        msg = f"Multimethod definition missing type annotation for parameter{plural}: {repr_str}"
+        raise TypeError(msg)
+
+    dispatcher._method_registry.append((multimethod, type_signature))
+
+    # Update entry point docstring to include docs for the new multimethod,
+    # and its call signature.
+    call_signature_desc = _format_method((multimethod, type_signature))
+    our_doc = call_signature_desc
+    if multimethod.__doc__:
+        our_doc += "\n" + multimethod.__doc__
+
+    isfirstmultimethod = len(dispatcher._method_registry) == 1
+    if isfirstmultimethod or not dispatcher.__doc__:
+        # Override the original doc of the function that was converted
+        # into the dispatcher; this adds the call signature to the top.
+        dispatcher.__doc__ = our_doc
+    else:
+        # Add the call signature and doc for the new multimethod.
+        dispatcher.__doc__ += "\n\n" + ("-" * 80) + "\n"
+        dispatcher.__doc__ += our_doc
+
+    return dispatcher  # Replace the multimethod callable with this generic function's dispatcher.

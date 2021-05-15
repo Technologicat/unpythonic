@@ -21,6 +21,7 @@ from functools import wraps, partial
 
 from .arity import arities, resolve_bindings, tuplify_bindings, UnknownArity
 from .fold import reducel
+from .dispatch import isgeneric, _find_matching_multimethod
 from .dynassign import dyn, make_dynvar
 from .regutil import register_decorator
 from .symbol import sym
@@ -76,12 +77,12 @@ make_dynvar(curry_context=[])
 def _currycall(f, *args, **kwargs):
     """Co-operate with unpythonic.syntax.curry.
 
-    In a ``with autocurry`` block, need to call also when ``f()`` has transformed
-    to ``curry(f)``, but definitions can be curried as usual.
+    In a ``with autocurry`` block, we need to call `f` also when ``f()`` has
+    transformed to ``curry(f)``, but definitions can be curried as usual.
 
     Hence we provide this separate mode to curry-and-call even if no args.
 
-    This mode also no-ops when ``f`` is not inspectable, instead of raising
+    This mode no-ops when ``f`` is not inspectable, instead of raising
     an ``unpythonic.arity.UnknownArity`` exception.
     """
     return curry(f, *args, _curry_force_call=True, _curry_allow_uninspectable=True, **kwargs)
@@ -212,13 +213,23 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
     def curried(*args, **kwargs):
         outerctx = dyn.curry_context
         with dyn.let(curry_context=(outerctx + [f])):
-            if len(args) < min_arity:
+            # If `f` is `@generic` (see `unpythonic.dispatch`), and `min_arity <= len(args) <= max_arity`,
+            # we need to check for a multimethod match. If there is no match, it means that the arguments
+            # provided so far don't satisfy any registered multimethod call signature, but more arguments
+            # can still be accepted by the other call signatures. In that case, there are effectively
+            # too few arguments.
+            #
+            # For `@typed`, there is only one call signature, so the arity is the only important factor.
+            nargs = len(args)
+            if (nargs < min_arity or
+                    (isgeneric(f) == "generic" and min_arity <= nargs <= max_arity and
+                     not _find_matching_multimethod(f, args, kwargs))):
                 p = partial(f, *args, **kwargs)
                 if islazy(f):
                     p = passthrough_lazy_args(p)
                 return curry(p)
             # passthrough on right, like https://github.com/Technologicat/spicy
-            if len(args) > max_arity:
+            if nargs > max_arity:
                 now_args, later_args = args[:max_arity], args[max_arity:]
                 now_result = maybe_force_args(f, *now_args, **kwargs)  # use up all kwargs now
                 now_result = force(now_result) if not isinstance(now_result, tuple) else force1(now_result)
@@ -259,7 +270,7 @@ def iscurried(f):
 
 def flip(f):
     """Decorator: flip (reverse) the positional arguments of f."""
-    @wraps(f)
+    @ wraps(f)
     def flipped(*args, **kwargs):
         return maybe_force_args(f, *reversed(args), **kwargs)
     if islazy(f):
@@ -282,7 +293,7 @@ def rotate(k):
         assert (rotate(1)(identity))(1, 2, 3) == (2, 3, 1)
     """
     def rotate_k(f):
-        @wraps(f)
+        @ wraps(f)
         def rotated(*args, **kwargs):
             n = len(args)
             if not n:
@@ -297,7 +308,7 @@ def rotate(k):
         return rotated
     return rotate_k
 
-@passthrough_lazy_args
+@ passthrough_lazy_args
 def apply(f, arg0, *more, **kwargs):
     """Scheme/Racket-like apply.
 
@@ -646,7 +657,7 @@ def to(*specs):
     """
     return composeli(tokth(k, f) for k, f in specs)
 
-@register_decorator(priority=80)
+@ register_decorator(priority=80)
 def withself(f):
     """Decorator. Allow a lambda to refer to itself.
 
@@ -671,7 +682,7 @@ def withself(f):
         assert fact(5) == 120
         fact(5000)  # no crash
     """
-    @wraps(f)
+    @ wraps(f)
     def fwithself(*args, **kwargs):
         #return f(fwithself, *args, **kwargs)
         return maybe_force_args(f, fwithself, *args, **kwargs)  # support unpythonic.syntax.lazify
