@@ -604,16 +604,22 @@ def _register_generic(fullname, multimethod):
 
             # Update entry point docstring to include docs for the new multimethod,
             # and its call signature.
-            our_doc = _format_method((multimethod, type_signature))
+            call_signature_desc = _format_method((multimethod, type_signature))
+            our_doc = call_signature_desc
             if multimethod.__doc__:
                 our_doc += "\n" + multimethod.__doc__
-            if dispatcher.__doc__:
+
+            isfirstmultimethod = len(dispatcher._method_registry) == 1
+            if isfirstmultimethod or not dispatcher.__doc__:
+                # Override the original doc of the function that was converted
+                # into the dispatcher; this adds the call signature to the top.
+                dispatcher.__doc__ = our_doc
+            else:
+                # Add the call signature and doc for the new multimethod.
                 dispatcher.__doc__ += "\n\n" + ("-" * 80) + "\n"
                 dispatcher.__doc__ += our_doc
-            else:
-                dispatcher.__doc__ = our_doc
 
-            return dispatcher  # Replace the callable with this generic function's dispatcher.
+            return dispatcher  # Replace the multimethod callable with this generic function's dispatcher.
 
         dispatcher._register = register
         _dispatcher_registry[fullname] = dispatcher
