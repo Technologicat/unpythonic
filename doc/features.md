@@ -3135,7 +3135,7 @@ Based on my own initial experiments with this feature, the machinery itself work
 
 The machinery itself is also missing some advanced features, such as matching the most specific multimethod candidate instead of the most recently defined one; an `issubclass` equivalent that understands `typing` type specifications; and a mechanism to remove previously declared multimethods.
 
-**CAUTION**: Multiple dispatch can be dangerous. Particularly, `@augment` can be dangerous to the readability of your codebase. If methods are added for a generic function defined elsewhere, for types defined elsewhere, this may lead to [*spooky action at a distance*](https://lexi-lambda.github.io/blog/2016/02/18/simple-safe-multimethods-in-racket/) (as in [action at a distance](https://en.wikipedia.org/wiki/Action_at_a_distance_(computer_programming))). In the Julia community, this is known as [*type piracy*](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy). Keep in mind that the multiple-dispatch table is global state!
+**CAUTION**: Multiple dispatch can be dangerous. Particularly, `@augment` can be dangerous to the readability of your codebase. If a new multimethod is added for a generic function defined elsewhere, for types defined elsewhere, this may lead to [*spooky action at a distance*](https://lexi-lambda.github.io/blog/2016/02/18/simple-safe-multimethods-in-racket/) (as in [action at a distance](https://en.wikipedia.org/wiki/Action_at_a_distance_(computer_programming))). In the Julia community, this is known as [*type piracy*](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy). Keep in mind that the multiple-dispatch table is global state!
 
 
 #### ``typed``: add run-time type checks with type annotation syntax

@@ -201,9 +201,9 @@ def runtests():
                 return f"floating with {self.a * x}"
 
         tt2 = BabyTestTarget(3)
-        # the new generic-function methods become available, installed on the OOP method
+        # the new multimethods become available, installed on the OOP method
         test[tt2.instmeth(3.14) == "floating with 9.42"]
-        # old generic-function methods registered by the ancestor remain available
+        # old multimethods registered by the ancestor remain available
         test[tt2.instmeth("hi") == "hi hi hi"]
         test[tt2.instmeth(21) == 63]
         test[tt2.clsmeth(3.14) == "Test target floats: 6.28"]

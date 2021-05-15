@@ -420,7 +420,7 @@ def _list_multimethods(dispatcher, self_or_cls=None):
     relevant_registries = [reversed(dispatcher._method_registry)]
 
     # But if this dispatcher is installed on a method, we must
-    # look up generic function methods also in the class's MRO.
+    # look up multimethods also in the class's MRO.
     #
     # For *static methods* MRO is not supported. Basically, one of
     # the roles of `cls` or `self` is to define the MRO; a static
