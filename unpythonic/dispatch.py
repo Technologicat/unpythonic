@@ -413,8 +413,8 @@ def _list_multimethods(dispatcher, self_or_cls=None):
                    lookups to find linked dispatchers.
     """
     # TODO: Compute closest candidates, like Julia does? (see `methods`, `MethodError` in Julia)
-    # TODO: (If we do that, we need to look at the attempted call. When no call (just listing
-    # TODO: multimethods in the REPL), the current ordering is probably fine.)
+    # TODO: (If we do that, we need to look at the bound arguments. When just listing multimethods
+    # TODO: in the REPL, the current ordering is probably fine.)
 
     # For regular functions, ours is the only registry we need to look at:
     relevant_registries = [reversed(dispatcher._method_registry)]
