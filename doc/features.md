@@ -3021,16 +3021,18 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 *It is now possible to dispatch also on a homogeneous type of contents collected by a `**kwargs` parameter. In the type signature, use `typing.Dict[str, mytype]`. Note that in this use, the key type is always `str`.*
 
-The ``generic`` decorator allows creating multiple-dispatch generic functions with type annotation syntax. We also provide some friendly utilities: ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first two) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
+The ``generic`` decorator allows creating multiple-dispatch generic functions with type annotation syntax. We also provide some friendly utilities: ``augment`` adds a new multimethod to an existing generic function, ``typed`` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type checking code), and ``isoftype`` (which powers the first three) is the big sister of ``isinstance``, with support for many (but unfortunately not all) features of the ``typing`` standard library module.
 
 For what kind of things can be done with this, see particularly the [*holy traits*](https://ahsmart.com/pub/holy-traits-design-patterns-and-best-practice-book/) example in [`unpythonic.tests.test_dispatch`](../unpythonic/tests/test_dispatch.py).
 
 **NOTE**: This was inspired by the [multi-methods of CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) (the Common Lisp Object System), and the [generic functions of Julia](https://docs.julialang.org/en/v1/manual/methods/).
 
-In `unpythonic`, we define the terms as follows:
+In `unpythonic`, the terminology is as follows:
 
  - The function that supports multiple call signatures is a *generic function*.
- - Its individual implementations are *multimethods*.
+ - Each of its individual implementations is a *multimethod*.
+
+The term *multimethod* distinguishes them from the OOP sense of *method*, already established in Python, as well as reminds that multiple arguments participate in dispatching.
 
 #### ``generic``: multiple dispatch with type annotation syntax
 
