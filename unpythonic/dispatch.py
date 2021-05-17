@@ -19,6 +19,10 @@ Here the implementations are given in the multimethod bodies.
     https://docs.python.org/3/library/typing.html#typing.overload
 """
 
+# TODO: Reimplement in the same spirit as `functools.singledispatch`?
+# TODO: The complication is, we support `typing` type specifications, not only concrete types.
+# TODO: OTOH, `singledispatch` does handle the specific case of ABCs, via the subtype hooks.
+
 __all__ = ["isgeneric", "generic", "augment", "typed",
            "methods", "format_methods", "list_methods"]
 
