@@ -89,6 +89,8 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
     - It is now possible to dispatch on a homogeneous type of contents collected by a `**kwargs` parameter.
     - `curry` now supports `@generic` functions.
     - The utilities `arities`, `required_kwargs`, and `optional_kwargs` now support `@generic` functions.
+  - `curry` now errors out immediately on argument type mismatch.
+  - Add `partial`, a type-checking wrapper for `functools.partial`.
   - Add `unpythonic.excutil.reraise_in` (expr form), `unpythonic.excutil.reraise` (block form): conveniently remap library exception types to application exception types. Idea from [Alexis King (2016): Four months with Haskell](https://lexi-lambda.github.io/blog/2016/06/12/four-months-with-haskell/).
   - Add variants of the above for the conditions-and-restarts system: `unpythonic.conditions.resignal_in`, `unpythonic.conditions.resignal`. The new signal is sent using the same error-handling protocol as the original signal, so that e.g. an `error` remains an `error` even if re-signaling changes its type.
   - All documentation files now have a quick navigation section to skip to another part of the docs. (For all except the README, it's at the top.)
