@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises, fail  # noqa: F401
-from ..test.fixtures import session, testset
+from ..syntax import macros, test, test_raises, fail, the  # noqa: F401
+from ..test.fixtures import session, testset, returns_normally
 
 from collections import Counter
 import sys
 
 from ..dispatch import generic
-from ..fun import (memoize, curry, apply,
+from ..fun import (memoize, partial, curry, apply,
                    identity, const,
                    andf, orf, notf,
                    flip, rotate,
@@ -134,6 +134,14 @@ def runtests():
                 fail["memoize should not prevent exception propagation."]  # pragma: no cover
         test[evaluations == 1]
 
+    with testset("partial (type-checking wrapper)"):
+        def nottypedfunc(x):
+            return "ok"
+        def typedfunc(x: int):
+            return "ok"
+        test[returns_normally(partial(typedfunc, 42))]
+        test_raises[TypeError, partial(typedfunc, "abc")]
+
     with testset("@curry"):
         @curry
         def add3(a, b, c):
@@ -143,6 +151,15 @@ def runtests():
         test[add3(1, 2)(3) == 6]
         test[add3(1)(2, 3) == 6]
         test[add3(1, 2, 3) == 6]
+
+        # curry uses the type-checking `partial`
+        @curry
+        def add3ints(a: int, b: int, c: int):
+            return a + b + c
+        test[add3ints(1)(2)(3) == 6]
+        test[callable(the[add3ints(1)])]
+        test_raises[TypeError, add3ints(1.0)]
+        test_raises[TypeError, add3ints(1)(2.0)]
 
         @curry
         def lispyadd(*args):
@@ -221,8 +238,9 @@ def runtests():
         test[callable(curry(f))]
         test[curry(f, 42) == "int"]
         # Although `f` has a multimethod that takes one argument, if that argument is a float,
-        # the call signature does not match, so in that case `curry` waits for more arguments
-        # (because it knows `f` has also a multimethod that accepts two arguments).
+        # the call signature does not match fully. But it does match partially, so in that case
+        # `curry` waits for more arguments (because there is at least one multimethod that matches
+        # the partial arguments given so far).
         test[callable(curry(f, 3.14))]
         test[curry(f, 3.14, "cat") == "float, str"]
 

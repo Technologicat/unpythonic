@@ -109,6 +109,31 @@ def runtests():
         test[kittify(x=1.0, y=2.0) == "float"]
         test_raises[TypeError, kittify(x=1, y=2.0)]
 
+    with testset("@generic integration with curry"):
+        @generic
+        def curryable(x: int, y: int):
+            return "int"
+        @generic
+        def curryable(x: float, y: float):  # noqa: F811
+            return "float"
+        f = curry(curryable, 1)
+        test[callable(the[f])]
+        test[f(2) == "int"]
+
+        # When the final set of arguments does not match any multimethod, it is a type error.
+        test_raises[TypeError, f(2.0)]
+
+        # CAUTION: Partially applying by name starts keyword-only processing in `inspect.signature`,
+        # which is used by `unpythonic.arity.arities`, which in turn is used by `unpythonic.fun.curry`.
+        # Hence, if we pass `x=1` by name here, the remaining positional arity becomes 0...
+        f = curry(curryable, x=1)
+        test[callable(the[f])]
+        # ...so, we must pass `y` by name here.
+        test[f(y=2) == "int"]
+
+        # When no multimethod can match the given partial signature, it is a type error.
+        test_raises[TypeError, curry(curryable, "abc")]
+
     with testset("@augment"):
         @generic
         def f1(x: typing.Any):
@@ -281,10 +306,8 @@ def runtests():
         test[callable(the[f])]
         test[f(21.0) == 42]
 
-        # But be careful:
-        f = curry(blubnify, 2.0)  # wrong argument type; error not triggered yet
-        test[callable(the[f])]
-        test_raises[TypeError, f(21.0) == 42]  # error will occur now, when the call is triggered
+        # Wrong argument type during partial application of @typed function - error reported immediately.
+        test_raises[TypeError, curry(blubnify, 2.0)]
 
     with testset("holy traits in Python with @generic"):
         # Note we won't get the performance benefits of Julia, because this is a

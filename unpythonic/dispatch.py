@@ -31,7 +31,7 @@ from itertools import chain
 import inspect
 import typing
 
-from .arity import resolve_bindings, getfunc
+from .arity import getfunc, resolve_bindings, resolve_bindings_partial
 from .typecheck import isoftype
 from .regutil import register_decorator
 
@@ -217,9 +217,14 @@ def generic(f):
     **Interaction with `curry`**:
 
     Starting with v0.15.0, `curry` supports `@generic`. In the case where the
-    *number* of positional arguments supplied so far matches at least one
-    multimethod, but there is no match for the given combination of argument
-    *types*, `curry` waits for more arguments (returning the curried function).
+    *number* of positional arguments supplied so far is acceptable for *some*
+    registered multimethod, but some parameters of that multimethod are still
+    missing bindings (i.e. it is not a full match), `curry` waits for more
+    arguments (returning the curried function).
+
+    Passing an argument of an invalid type at any step of currying immediately
+    raises `TypeError`. Here "invalid type" means that for the partial application
+    constructed so far, no registered multimethod accepts the new argument(s).
 
     **CAUTION**:
 
@@ -295,7 +300,6 @@ def typed(f):
     Once a `@typed` function has been created, no more multimethods can be
     attached to it.
     """
-    # TODO: Fix the epic fail at fail-fast, and update the corresponding test.
     s = generic(f)
     del s._register  # remove the ability to register more methods
     return s
@@ -340,7 +344,8 @@ def format_methods(f):
     function, _ = getfunc(f)
     multimethods = list_methods(f)
     if multimethods:
-        methods_list = [f"  {_format_method(x)}" for x in multimethods]
+        thecallables = [thecallable for thecallable, type_signature in multimethods]
+        methods_list = [f"  {_format_callable(x)}" for x in thecallables]
         methods_str = "\n".join(methods_list)
     else:  # pragma: no cover, in practice a generic should always have at least one method.
         methods_str = "  <no multimethods registered>"
@@ -466,51 +471,80 @@ def _list_multimethods(dispatcher, self_or_cls=None):
 
     return list(chain.from_iterable(relevant_registries))
 
-def _format_method(multimethod):
-    """Format, as a string, a human-readable description of a multimethod.
-
-    Input format is an item returned by `_list_multimethods`.
+# TODO: move this utility to `unpythonic.fun`? Belongs there, but doing so introduces a circular dependency.
+def _format_callable(thecallable):
+    """Format, as a string, a human-readable description of a callable.
 
     The returned string includes the call signature, and the source filename
     and starting line number. This output format takes a page from Julia,
     with some artistic liberty.
     """
-    thecallable, type_signature = multimethod
     # Our `type_signature` is based on `typing.get_type_hints`,
     # but for the error message, we need something that formats
     # like source code. Hence we use `inspect.signature`.
     thesignature = inspect.signature(thecallable)
-    function, _ = getfunc(thecallable)
+    function, _ = getfunc(thecallable)  # raw function for OOP methods, too
+    # TODO: Python 3.8: filename sometimes detected incorrectly
+    #  - This is because `inspect.getsourcefile` uses `inspect.getfile`, which looks at
+    #    the `co_filename` of the code object. If the function is decorated, then it sees
+    #    the source file where the decorator was defined, not the original function.
     filename = inspect.getsourcefile(function)
     source, firstlineno = inspect.getsourcelines(function)
     return f"{thecallable.__qualname__}{str(thesignature)} from {filename}:{firstlineno}"
 
-def _resolve_multimethod(dispatcher, args, kwargs):
-    """Find the first matching multimethod on `dispatcher` for the given `args` and `kwargs`."""
+def _resolve_multimethod(dispatcher, args, kwargs, *, _partial=False):
+    """Return the first matching multimethod on `dispatcher` for the given `args` and `kwargs`.
+
+    If `partial` is `True`, allow leaving some parameters of the function unbound,
+    and return the first multimethod that matches the given partial `args` and `kwargs`.
+
+    The partial mode is useful for type-checking arguments for partial application of a generic
+    function. If any multimethod matches (this function returns something other than `None`),
+    then the generic function can accept those partial arguments.
+
+    Note we can only dispatch, i.e. determine which multimethod is the one to be called,
+    only once we have full (non-partial) `args` and `kwargs`, because in general the
+    remaining not-yet-passed `args` or `kwargs` may cause the search to match a different
+    multimethod.
+    """
     multimethods = _list_multimethods(dispatcher, _extract_self_or_cls(dispatcher, args))
     for thecallable, type_signature in multimethods:
         try:
-            bound_arguments = resolve_bindings(thecallable, *args, **kwargs)
+            if _partial:
+                bound_arguments = resolve_bindings_partial(thecallable, *args, **kwargs)
+            else:
+                bound_arguments = resolve_bindings(thecallable, *args, **kwargs)
         except TypeError:  # arity mismatch, so this multimethod is not acceptable for the given args/kwargs.
             continue
-        if _match_argument_types(type_signature, bound_arguments):
+        if not _get_argument_type_mismatches(type_signature, bound_arguments):
             return thecallable
     return None
 
-def _match_argument_types(type_signature, bound_arguments):
+def _get_argument_type_mismatches(type_signature, bound_arguments):
     """Match bound arguments against the given type signature.
 
-    Return whether the arguments match the signature.
+    Return a list of type mismatches. If it is empty, everything is ok.
+    When not, each item is of the form `(parameter, value, expected_type)`.
 
-    type_signature`: in the format returned by `typing.get_type_hints`.
+    `type_signature`: in the format returned by `typing.get_type_hints`.
+
+                      Is allowed to contain additional items not present
+                      in `bound_arguments`, useful for type-checking during
+                      partial application.
+
     `bound_arguments`: see `unpythonic.arity.resolve_bindings`.
+
+                       `type_signature` must contain a corresponding parameter
+                       for each argument in `bound_arguments`. (This is already
+                       checked by `resolve_bindings`.)
     """
+    mismatches = []
     for parameter, value in bound_arguments.arguments.items():
         assert parameter in type_signature  # resolve_bindings should already TypeError when not.
         expected_type = type_signature[parameter]
         if not isoftype(value, expected_type):
-            return False
-    return True
+            mismatches.append((parameter, value, expected_type))
+    return mismatches
 
 def _extract_self_or_cls(thecallable, args):
     """From `thecallable` and positional arguments `args`, extract the value of `self`/`cls`, if any.
@@ -538,11 +572,30 @@ def _extract_self_or_cls(thecallable, args):
         self_or_cls = None
     return self_or_cls
 
-def _raise_multiple_dispatch_error(dispatcher, args, kwargs, *, candidates):
+def _raise_multiple_dispatch_error(dispatcher, args, kwargs, *, candidates, _partial=False):
     """Raise a `TypeError` regarding a failed multiple dispatch (no matching multimethod).
 
-    `candidates`: a list of multimethods that were attempted, but did not match.
+    `candidates`: list of `(thecallable, type_signature)` that were attempted, but did not match.
+    `_partial`: if `True`, report a failure in a *partial application*.
+                if `False`, report a failure in a *call*.
     """
+    # For `@typed` functions, which have just one valid call signature, we can easily
+    # report which args or kwargs failed to match.
+    if len(candidates) == 1:
+        # TODO: There's some repeated error-reporting code in `unpythonic.fun`.
+        thecallable, type_signature = candidates[0]
+        if _partial:
+            bound_arguments = resolve_bindings_partial(thecallable, *args, **kwargs)
+        else:
+            bound_arguments = resolve_bindings(thecallable, *args, **kwargs)
+        mismatches = _get_argument_type_mismatches(type_signature, bound_arguments)
+        mismatches_list = [f"{parameter}={repr(value)}, expected {expected_type}"
+                           for parameter, value, expected_type in mismatches]
+        mismatches_str = "; ".join(mismatches_list)
+        one_multimethod_msg_str = f"\nParameter binding(s) do not match type specification: {mismatches_str}"
+    else:
+        one_multimethod_msg_str = ""
+
     # TODO: It would be nice to show the type signature of the args actually given,
     # TODO: but in the general case this is difficult. We can't just `type(x)`, since
     # TODO: the signature may specify something like `Sequence[int]`. Knowing a `list`
@@ -550,13 +603,22 @@ def _raise_multiple_dispatch_error(dispatcher, args, kwargs, *, candidates):
     # TODO: was expected. The actual value at least implicitly contains the type information.
     args_list = [repr(x) for x in args]
     args_str = ", ".join(args_list)
+    if _partial and args_str:
+        args_str += ", ..."
     sep = ", " if args and kwargs else ""
     kws_list = [f"{k}={repr(v)}" for k, v in kwargs.items()]
     kws_str = ", ".join(kws_list)
-    methods_list = [f"  {_format_method(x)}" for x in candidates]
+    if _partial and kws_str:
+        kws_str += ", ..."
+    if _partial and not args_str and not kws_str:
+        args_str = "..."
+    thecallables = [thecallable for thecallable, type_signature in candidates]
+    methods_list = [f"  {_format_callable(x)}" for x in thecallables]
     methods_str = "\n".join(methods_list)
-    msg = (f"No multiple-dispatch match for the call {dispatcher.__qualname__}({args_str}{sep}{kws_str}).\n"
-           f"Multimethods for @{isgeneric(dispatcher)} {_function_fullname(dispatcher)} (most recent match attempt last):\n{methods_str}")
+    op = "partial application" if _partial else "call"
+    msg = (f"No multiple-dispatch match for the {op} {dispatcher.__qualname__}({args_str}{sep}{kws_str}).\n"
+           f"Multimethods for @{isgeneric(dispatcher)} {_function_fullname(dispatcher)} (most recent match attempt last):\n{methods_str}"
+           f"{one_multimethod_msg_str}")
     raise TypeError(msg)
 
 def _setup(fullname, multimethod):
@@ -564,16 +626,16 @@ def _setup(fullname, multimethod):
 
     This is a low-level function; you'll likely want `@generic` or `@augment`.
 
-    fullname: str, fully qualified name of function to register the multimethod
-              on, used as key in the dispatcher registry.
+    `fullname`: str, fully qualified name of function to register the multimethod
+                on, used as key in the dispatcher registry.
 
-              Registering the first multimethod on a given `fullname` makes
-              that function generic, and creates the dispatcher for it.
+                Registering the first multimethod on a given `fullname` makes
+                that function generic, and creates the dispatcher for it.
 
-              Second and further registrations using the same `fullname` add
-              the new multimethod to the existing dispatcher.
+                Second and further registrations using the same `fullname` add
+                the new multimethod to the existing dispatcher.
 
-    multimethod: callable, the new multimethod to register.
+    `multimethod`: callable, the new multimethod to register.
 
     Return value is the dispatcher.
     """
@@ -660,7 +722,7 @@ def _register_to(dispatcher, multimethod):
 
     # Update entry point docstring to include docs for the new multimethod,
     # and its call signature.
-    call_signature_desc = _format_method((multimethod, type_signature))
+    call_signature_desc = _format_callable(multimethod)
     our_doc = call_signature_desc
     if multimethod.__doc__:
         our_doc += "\n" + multimethod.__doc__

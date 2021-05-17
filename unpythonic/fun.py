@@ -17,11 +17,15 @@ __all__ = ["memoize", "curry", "iscurried",
            "to1st", "to2nd", "tokth", "tolast", "to",
            "withself"]
 
-from functools import wraps, partial
+from functools import wraps, partial as functools_partial
+from typing import get_type_hints
 
-from .arity import arities, resolve_bindings, tuplify_bindings, UnknownArity
+from .arity import (arities, resolve_bindings, resolve_bindings_partial,
+                    tuplify_bindings, UnknownArity)
 from .fold import reducel
-from .dispatch import isgeneric, _resolve_multimethod
+from .dispatch import (isgeneric, _resolve_multimethod, _format_callable,
+                       _get_argument_type_mismatches, _raise_multiple_dispatch_error,
+                       _list_multimethods, _extract_self_or_cls)
 from .dynassign import dyn, make_dynvar
 from .regutil import register_decorator
 from .symbol import sym
@@ -72,6 +76,66 @@ def memoize(f):
 #        return memo[k]
 #    return memoized
 
+# Parameter naming is consistent with `functools.partial`.
+#
+# Note standard behavior of `functools.partial`: `kwargs` do not disappear from the call
+# signature even if partially applied. The same kwarg can be sent multiple times, with the
+# latest application winning. We must resist the temptation to override that behavior here,
+# because there are other places in the stdlib, particularly `inspect._signature_get_partial`
+# (as of Python 3.8), that expect the standard semantics.
+def partial(func, *args, **kwargs):
+    """Wrapper over `functools.partial` that type-checks the arguments against the type annotations on `func`.
+
+    The type annotations may use features from the `typing` stdlib module.
+    See `unpythonic.typecheck.isoftype` for details.
+
+    Trying to pass an argument of a type that does not match the corresponding
+    parameter's type specification raises `TypeError` immediately.
+
+    Note the check still occurs at run time, but at the use site of `partial`,
+    when the partially applied function is constructed. This makes it fail-faster
+    than an `isinstance` check inside the function.
+
+    To conveniently make regular calls of the function type-check arguments, too,
+    see the decorator `unpythonic.dispatch.typed`.
+    """
+    # HACK: As of Python 3.8, `typing.get_type_hints` does not know about `functools.partial` objects,
+    # HACK: but those objects have `args` and `keywords` attributes, so we can extract what we need.
+    # TODO: Remove this hack if `typing.get_type_hints` gets support for `functools.partial` at some point.
+    if isinstance(func, functools_partial):
+        thecallable = func.func
+        collected_args = func.args + args
+        collected_kwargs = {**func.keywords, **kwargs}
+    else:
+        thecallable = func
+        collected_args = args
+        collected_kwargs = kwargs
+
+    if isgeneric(thecallable):  # multiple dispatch
+        # For generic functions, at least one multimethod must match the partial signature
+        # for the partial application to be valid.
+        if not _resolve_multimethod(thecallable, collected_args, collected_kwargs, _partial=True):
+            _raise_multiple_dispatch_error(thecallable, collected_args, collected_kwargs,
+                                           candidates=_list_multimethods(thecallable,
+                                                                         _extract_self_or_cls(thecallable,
+                                                                                              args)),
+                                           _partial=True)
+    else:  # not `@generic` or `@typed`; just a function that has type annotations.
+        # TODO: There's some repeated error-reporting code in `unpythonic.dispatch`.
+        type_signature = get_type_hints(thecallable)
+        if type_signature:  # TODO: Python 3.8+: use walrus assignment here
+            bound_arguments = resolve_bindings_partial(func, *collected_args, **collected_kwargs)
+            mismatches = _get_argument_type_mismatches(type_signature, bound_arguments)
+            if mismatches:
+                description = _format_callable(func)
+                mismatches_list = [f"{parameter}={repr(value)}, expected {expected_type}"
+                                       for parameter, value, expected_type in mismatches]
+                mismatches_str = "; ".join(mismatches_list)
+                raise TypeError(f"When partially applying {description}:\nParameter binding(s) do not match type specification: {mismatches_str}")
+
+    # `functools.partial` already handles chaining partial applications, so send only the new args/kwargs to it.
+    return functools_partial(func, *args, **kwargs)
+
 make_dynvar(curry_context=[])
 @passthrough_lazy_args
 def _currycall(f, *args, **kwargs):
@@ -100,9 +164,11 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
     decision when the function is called.
 
     For a callable to be curryable, it must be possible to inpect its signature
-    to determine its minimum and maximum positional arities; builtin functions
-    such as ``operator.add`` won't work. In such cases ``UnknownArity`` will
-    be raised.
+    to determine its minimum and maximum positional arities. In some versions
+    of Python, builtin functions or methods such as ``operator.add`` or
+    ``list.append`` might not report that information. We work around some of
+    the most common cases (see the module `unpythonic.arity`), but when the
+    inspection fails and no workaround is available, we raise ``UnknownArity``.
 
     **Examples**::
 
@@ -199,7 +265,8 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             return maybe_force_args(f, *args, **kwargs)
         return f
     # TODO: improve: all required name-only args should be present before calling f.
-    # Difficult, partial() doesn't remove an already-set kwarg from the signature.
+    # TODO: `functools.partial()` doesn't remove an already-set kwarg from the signature, but
+    # TODO: `functools.partial` objects have a `keywords` attribute, which contains what we want.
     try:
         min_arity, max_arity = arities(f)
     except UnknownArity:  # likely a builtin
@@ -215,15 +282,18 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
         with dyn.let(curry_context=(outerctx + [f])):
             # If `f` is `@generic` (see `unpythonic.dispatch`), and `min_arity <= len(args) <= max_arity`,
             # we need to check for a multimethod match. If there is no match, it means that the arguments
-            # provided so far don't satisfy any registered multimethod call signature, but more arguments
-            # can still be accepted by the other call signatures. In that case, there are effectively
-            # too few arguments.
+            # provided so far don't satisfy any registered multimethod call signature (fully), but more
+            # arguments can still be accepted by the other call signatures. In that case, there are
+            # effectively too few arguments.
             #
             # For `@typed`, there is only one call signature, so the arity is the only important factor.
             nargs = len(args)
             if (nargs < min_arity or
                     (isgeneric(f) == "generic" and min_arity <= nargs <= max_arity and
                      not _resolve_multimethod(f, args, kwargs))):
+                # Fail-fast: use our `partial` wrapper to type-check the partial call signature
+                # when we build the curried function. It delegates to `functools.partial` if the
+                # type check passes.
                 p = partial(f, *args, **kwargs)
                 if islazy(f):
                     p = passthrough_lazy_args(p)

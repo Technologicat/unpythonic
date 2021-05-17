@@ -1004,6 +1004,7 @@ Things missing from the standard library.
    - Can be used both as a decorator and as a regular function.
      - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
    - **Caution**: If the positional arities of ``f`` cannot be inspected, currying fails, raising ``UnknownArity``. This may happen with builtins such as ``list.append``.
+ - `partial` with run-time type checking, which helps a lot with fail-fast in code that uses partial application. Type-checks arguments against type annotations, then delegates to `functools.partial`. Supports `unpythonic`'s `@generic` and `@typed` functions. Our `curry` uses this type-checking `partial` instead of the standard one, so currying supports fail-fast, too. **Added in v0.15.0.**
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - Any number of positional arguments is supported, with the same rules as in the pipe system. Multiple return values packed into a tuple are unpacked to the argument list of the next function in the chain.
    - `composelc`, `composerc`: curry each function before composing them. Useful with passthrough.
@@ -3016,8 +3017,6 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 *Docstrings of the multimethods are now automatically concatenated to make up the docstring of the generic function, so you can document each multimethod separately.*
 
 *`curry` now supports `@generic`. In the case where the **number** of positional arguments supplied so far matches at least one multimethod, but there is no match for the given combination of argument **types**, `curry` waits for more arguments (returning the curried function).*
-
-**CAUTION**: *Determining whether there **could** be a match for a `@generic` is the only type checking performed by ``curry``. When using ``curry`` with ``@generic`` or ``@typed``, argument type errors are only detected when the actual call triggers - just like in code using ``curry`` and traditional run-time ``isinstance`` checks. This may make it hard to debug.*
 
 *It is now possible to dispatch also on a homogeneous type of contents collected by a `**kwargs` parameter. In the type signature, use `typing.Dict[str, mytype]`. Note that in this use, the key type is always `str`.*
 

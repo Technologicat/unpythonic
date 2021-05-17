@@ -8,7 +8,7 @@ like Racket's (arity-includes?).
 __all__ = ["getfunc",
            "arities", "arity_includes",
            "required_kwargs", "optional_kwargs", "kwargs",
-           "resolve_bindings", "tuplify_bindings",
+           "resolve_bindings", "resolve_bindings_partial", "tuplify_bindings",
            "UnknownArity"]
 
 import copy
@@ -337,6 +337,13 @@ def arity_includes(f, n):
     lower, upper = arities(f)
     return lower <= n <= upper
 
+def resolve_bindings_partial(f, *args, **kwargs):
+    """Like `resolve_bindings`, but use `inspect.Signature.bind_partial`.
+
+    That is, it is acceptable for some parameters of `f` not to have a binding.
+    """
+    return _resolve_bindings(f, args, kwargs, _partial=True)
+
 def resolve_bindings(f, *args, **kwargs):
     """Resolve parameter bindings established by `f` when called with the given args and kwargs.
 
@@ -403,8 +410,15 @@ def resolve_bindings(f, *args, **kwargs):
         f(42)
         f(a=42)  # now the cache hits
     """
+    return _resolve_bindings(f, args, kwargs, _partial=False)
+
+def _resolve_bindings(f, args, kwargs, *, _partial):
     f, _ = getfunc(f)
-    bound_arguments = signature(f).bind(*args, **kwargs)
+    thesignature = signature(f)
+    if _partial:
+        bound_arguments = thesignature.bind_partial(*args, **kwargs)
+    else:
+        bound_arguments = thesignature.bind(*args, **kwargs)
     bound_arguments.apply_defaults()
     return bound_arguments
 
