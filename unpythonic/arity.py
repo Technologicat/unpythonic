@@ -355,11 +355,8 @@ def resolve_bindings(f, *args, **kwargs):
     our own implementation of the parameter binding algorithm (that ran also on Python 3.4),
     but it is no longer needed, since now we support only Python 3.6 and later.
 
-    The only things we do beside call `inspect.Signature.bind` are:
-
-      - If `f` is a method, we extract the raw function first, and analyze the bindings of that.
-
-      - We apply default values (from the definition of `f`) automatically.
+    The only thing we do beside call `inspect.Signature.bind` is that we apply default values
+    (from the definition of `f`) automatically.
 
     The return value is an `inspect.BoundArguments`. If you want a hashable result,
     postprocess the return value with `tuplify_bindings(result)`.
@@ -413,7 +410,6 @@ def resolve_bindings(f, *args, **kwargs):
     return _resolve_bindings(f, args, kwargs, _partial=False)
 
 def _resolve_bindings(f, args, kwargs, *, _partial):
-    f, _ = getfunc(f)
     thesignature = signature(f)
     if _partial:
         bound_arguments = thesignature.bind_partial(*args, **kwargs)
