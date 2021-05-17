@@ -31,7 +31,7 @@ from itertools import chain
 import inspect
 import typing
 
-from .arity import getfunc, resolve_bindings, resolve_bindings_partial
+from .arity import getfunc, _resolve_bindings
 from .typecheck import isoftype
 from .regutil import register_decorator
 
@@ -492,6 +492,23 @@ def _format_callable(thecallable):
     source, firstlineno = inspect.getsourcelines(function)
     return f"{thecallable.__qualname__}{str(thesignature)} from {filename}:{firstlineno}"
 
+def _bind_and_check_arity(thecallable, args, kwargs, *, _partial=False):
+    try:
+        bound_arguments = _resolve_bindings(thecallable, args, kwargs, _partial=_partial)
+    except TypeError as err:
+        # TODO: searching the error message for particular text is a big HACK.
+        # But `curry` needs to know why the match failed.
+        msg = err.args[0]
+        if "too many" in msg:  # too many positional args supplied
+            return "too many args"
+        elif "unexpected" in msg:  # unexpected named arg supplied
+            return "unexpected kwarg"
+        elif "missing" in msg:  # at least one parameter not bound
+            return "unbound parameter"
+        else:
+            raise NotImplementedError from err
+    return bound_arguments
+
 def _resolve_multimethod(dispatcher, args, kwargs, *, _partial=False):
     """Return the first matching multimethod on `dispatcher` for the given `args` and `kwargs`.
 
@@ -502,21 +519,16 @@ def _resolve_multimethod(dispatcher, args, kwargs, *, _partial=False):
     function. If any multimethod matches (this function returns something other than `None`),
     then the generic function can accept those partial arguments.
 
-    Note we can only dispatch, i.e. determine which multimethod is the one to be called,
-    only once we have full (non-partial) `args` and `kwargs`, because in general the
-    remaining not-yet-passed `args` or `kwargs` may cause the search to match a different
-    multimethod.
+    Note it is only possible to dispatch, i.e. determine which multimethod is the one to be
+    called, only once we have full (non-partial) `args` and `kwargs`, because in general
+    the remaining not-yet-passed `args` or `kwargs` may cause the search to match a
+    different multimethod.
     """
     multimethods = _list_multimethods(dispatcher, _extract_self_or_cls(dispatcher, args))
     for thecallable, type_signature in multimethods:
-        try:
-            if _partial:
-                bound_arguments = resolve_bindings_partial(thecallable, *args, **kwargs)
-            else:
-                bound_arguments = resolve_bindings(thecallable, *args, **kwargs)
-        except TypeError:  # arity mismatch, so this multimethod is not acceptable for the given args/kwargs.
-            continue
-        if not _get_argument_type_mismatches(type_signature, bound_arguments):
+        bound_arguments = _bind_and_check_arity(thecallable, args, kwargs, _partial=_partial)
+        if (isinstance(bound_arguments, inspect.BoundArguments) and
+                not _get_argument_type_mismatches(type_signature, bound_arguments)):
             return thecallable
     return None
 
@@ -527,6 +539,8 @@ def _get_argument_type_mismatches(type_signature, bound_arguments):
     When not, each item is of the form `(parameter, value, expected_type)`.
 
     `type_signature`: in the format returned by `typing.get_type_hints`.
+
+                      Must contain an item for each key of `bound_arguments`.
 
                       Is allowed to contain additional items not present
                       in `bound_arguments`, useful for type-checking during
@@ -584,10 +598,7 @@ def _raise_multiple_dispatch_error(dispatcher, args, kwargs, *, candidates, _par
     if len(candidates) == 1:
         # TODO: There's some repeated error-reporting code in `unpythonic.fun`.
         thecallable, type_signature = candidates[0]
-        if _partial:
-            bound_arguments = resolve_bindings_partial(thecallable, *args, **kwargs)
-        else:
-            bound_arguments = resolve_bindings(thecallable, *args, **kwargs)
+        bound_arguments = _resolve_bindings(thecallable, args, kwargs, _partial=_partial)
         mismatches = _get_argument_type_mismatches(type_signature, bound_arguments)
         mismatches_list = [f"{parameter}={repr(value)}, expected {expected_type}"
                            for parameter, value, expected_type in mismatches]

@@ -131,6 +131,10 @@ def runtests():
         # ...so, we must pass `y` by name here.
         test[f(y=2) == "int"]
 
+        f = curry(curryable, 1)
+        test[callable(the[f])]
+        test[f(y=2) == "int"]
+
         # When no multimethod can match the given partial signature, it is a type error.
         test_raises[TypeError, curry(curryable, "abc")]
 

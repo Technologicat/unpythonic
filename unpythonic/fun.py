@@ -18,14 +18,16 @@ __all__ = ["memoize", "curry", "iscurried",
            "withself"]
 
 from functools import wraps, partial as functools_partial
+import inspect
 from typing import get_type_hints
 
-from .arity import (arities, resolve_bindings, resolve_bindings_partial,
-                    tuplify_bindings, UnknownArity)
+from .arity import (arities, _resolve_bindings, tuplify_bindings,
+                    UnknownArity)
 from .fold import reducel
 from .dispatch import (isgeneric, _resolve_multimethod, _format_callable,
                        _get_argument_type_mismatches, _raise_multiple_dispatch_error,
-                       _list_multimethods, _extract_self_or_cls)
+                       _list_multimethods, _extract_self_or_cls,
+                       _bind_and_check_arity)
 from .dynassign import dyn, make_dynvar
 from .regutil import register_decorator
 from .symbol import sym
@@ -51,7 +53,7 @@ def memoize(f):
     memo = {}
     @wraps(f)
     def memoized(*args, **kwargs):
-        k = tuplify_bindings(resolve_bindings(f, *args, **kwargs))
+        k = tuplify_bindings(_resolve_bindings(f, args, kwargs, _partial=False))
         if k not in memo:
             try:
                 result = (_success, maybe_force_args(f, *args, **kwargs))
@@ -124,7 +126,8 @@ def partial(func, *args, **kwargs):
         # TODO: There's some repeated error-reporting code in `unpythonic.dispatch`.
         type_signature = get_type_hints(thecallable)
         if type_signature:  # TODO: Python 3.8+: use walrus assignment here
-            bound_arguments = resolve_bindings_partial(func, *collected_args, **collected_kwargs)
+            bound_arguments = _resolve_bindings(func, collected_args, collected_kwargs, _partial=True)
+            # TODO: allow having some parameters without type annotations.
             mismatches = _get_argument_type_mismatches(type_signature, bound_arguments)
             if mismatches:
                 description = _format_callable(func)
@@ -264,9 +267,6 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
         if args or kwargs or _curry_force_call:
             return maybe_force_args(f, *args, **kwargs)
         return f
-    # TODO: improve: all required name-only args should be present before calling f.
-    # TODO: `functools.partial()` doesn't remove an already-set kwarg from the signature, but
-    # TODO: `functools.partial` objects have a `keywords` attribute, which contains what we want.
     try:
         min_arity, max_arity = arities(f)
     except UnknownArity:  # likely a builtin
@@ -280,17 +280,65 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
     def curried(*args, **kwargs):
         outerctx = dyn.curry_context
         with dyn.let(curry_context=(outerctx + [f])):
-            # If `f` is `@generic` (see `unpythonic.dispatch`), and `min_arity <= len(args) <= max_arity`,
-            # we need to check for a multimethod match. If there is no match, it means that the arguments
-            # provided so far don't satisfy any registered multimethod call signature (fully), but more
-            # arguments can still be accepted by the other call signatures. In that case, there are
-            # effectively too few arguments.
+            # All of `f`'s parameters should be bound (whether by position or by name) before calling `f`.
             #
-            # For `@typed`, there is only one call signature, so the arity is the only important factor.
-            nargs = len(args)
-            if (nargs < min_arity or
-                    (isgeneric(f) == "generic" and min_arity <= nargs <= max_arity and
-                     not _resolve_multimethod(f, args, kwargs))):
+            # `functools.partial()` doesn't remove an already-set kwarg from the signature (as seen by
+            # `inspect.signature`, used by `unpythonic.arity.arities`), but `functools.partial` objects
+            # have a `keywords` attribute, which contains what we want.
+            #
+            # Now that we must test argument bindings anyway (to support kwargs properly), we also use
+            # the `func` and `args` attributes. This allows us to test the bindings on the underlying function.
+            if isinstance(f, functools_partial):
+                function = f.func
+                collected_args = f.args + args
+                collected_kwargs = {**f.keywords, **kwargs}
+            else:
+                function = f
+                collected_args = args
+                collected_kwargs = kwargs
+
+            # The `type_signature` is used for `@generic` and `@typed` functions.
+            def match_arguments(thecallable, type_signature=None):
+                bound_arguments = _bind_and_check_arity(thecallable, collected_args,
+                                                        collected_kwargs, _partial=False)
+                if isinstance(bound_arguments, inspect.BoundArguments):  # success
+                    # The parameter types in the call signature affect multiple-dispatching,
+                    # so we must type-check, too.
+                    if not type_signature or not _get_argument_type_mismatches(type_signature, bound_arguments):
+                        return "ok"
+                    return "argument type mismatch"
+                return bound_arguments  # error code
+
+            if not isgeneric(function):
+                status = match_arguments(function)
+            else:
+                results = set()
+                multimethods = _list_multimethods(function,
+                                                  _extract_self_or_cls(function,
+                                                                       collected_args))
+                for thecallable, type_signature in multimethods:
+                    result = match_arguments(thecallable, type_signature)
+                    results.add(result)
+                    if result == "ok":
+                        break
+                # Any multimethod that can bind all args and kwargs (without type errors) is a match;
+                # prefer that first.
+                if "ok" in results:
+                    status = "ok"
+                # No match. Figure out if we have too few or too many args/kwargs.
+                # At least one multimethod can accept more args or kwargs. Prefer that next.
+                elif "unbound parameter" in results:
+                    status = "unbound parameter"
+                # Then prefer the case with too many positionals (and hope there aren't unexpected kwargs, too).
+                elif "too many args" in results:
+                    status = "too many args"
+                elif "unexpected kwarg" in results or "argument type mismatch" in results:
+                    _raise_multiple_dispatch_error(function, collected_args, collected_kwargs,
+                                                   candidates=multimethods, _partial=True)
+                else:  # all cases should be accounted for  # pragma: no cover
+                    assert False
+
+            if status == "unbound parameter":  # at least one parameter not bound yet; wait for more args/kwargs
                 # Fail-fast: use our `partial` wrapper to type-check the partial call signature
                 # when we build the curried function. It delegates to `functools.partial` if the
                 # type check passes.
@@ -298,8 +346,9 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                 if islazy(f):
                     p = passthrough_lazy_args(p)
                 return curry(p)
-            # passthrough on right, like https://github.com/Technologicat/spicy
-            if nargs > max_arity:
+
+            # Too many positional args; passthrough on right, like https://github.com/Technologicat/spicy
+            elif status == "too many args":
                 now_args, later_args = args[:max_arity], args[max_arity:]
                 now_result = maybe_force_args(f, *now_args, **kwargs)  # use up all kwargs now
                 now_result = force(now_result) if not isinstance(now_result, tuple) else force1(now_result)
@@ -316,6 +365,14 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                 if isinstance(now_result, tuple):
                     return now_result + later_args
                 return (now_result,) + later_args
+
+            # Unexpected kwarg, could not be bound to any parameter
+            elif status == "unexpected kwarg":
+                # TODO: report the unexpected kwarg(s)
+                raise NotImplementedError("curry: cannot pass-through unexpected named args")
+
+            # All parameters bound to some arg or kwarg
+            assert status == "ok"
             return maybe_force_args(f, *args, **kwargs)
     if islazy(f):
         curried = passthrough_lazy_args(curried)
