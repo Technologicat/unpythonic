@@ -488,26 +488,10 @@ def _format_callable(thecallable):
     #  - This is because `inspect.getsourcefile` uses `inspect.getfile`, which looks at
     #    the `co_filename` of the code object. If the function is decorated, then it sees
     #    the source file where the decorator was defined, not the original function.
+#    function = inspect.unwrap(function)  # maybe this helps?
     filename = inspect.getsourcefile(function)
     source, firstlineno = inspect.getsourcelines(function)
     return f"{thecallable.__qualname__}{str(thesignature)} from {filename}:{firstlineno}"
-
-def _bind_and_check_arity(thecallable, args, kwargs, *, _partial=False):
-    try:
-        bound_arguments = _resolve_bindings(thecallable, args, kwargs, _partial=_partial)
-    except TypeError as err:
-        # TODO: searching the error message for particular text is a big HACK.
-        # But `curry` needs to know why the match failed.
-        msg = err.args[0]
-        if "too many" in msg:  # too many positional args supplied
-            return "too many args"
-        elif "unexpected" in msg:  # unexpected named arg supplied
-            return "unexpected kwarg"
-        elif "missing" in msg:  # at least one parameter not bound
-            return "unbound parameter"
-        else:
-            raise NotImplementedError from err
-    return bound_arguments
 
 def _resolve_multimethod(dispatcher, args, kwargs, *, _partial=False):
     """Return the first matching multimethod on `dispatcher` for the given `args` and `kwargs`.
@@ -526,10 +510,12 @@ def _resolve_multimethod(dispatcher, args, kwargs, *, _partial=False):
     """
     multimethods = _list_multimethods(dispatcher, _extract_self_or_cls(dispatcher, args))
     for thecallable, type_signature in multimethods:
-        bound_arguments = _bind_and_check_arity(thecallable, args, kwargs, _partial=_partial)
-        if (isinstance(bound_arguments, inspect.BoundArguments) and
-                not _get_argument_type_mismatches(type_signature, bound_arguments)):
-            return thecallable
+        try:
+            bound_arguments = _resolve_bindings(thecallable, args, kwargs, _partial=_partial)
+            if not _get_argument_type_mismatches(type_signature, bound_arguments):
+                return thecallable
+        except TypeError:  # could not accept the given arguments; this isn't the multimethod we're looking for.
+            continue
     return None
 
 def _get_argument_type_mismatches(type_signature, bound_arguments):
