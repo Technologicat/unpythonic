@@ -120,12 +120,18 @@ def partial(func, *args, **kwargs):
                                                                          _extract_self_or_cls(thecallable,
                                                                                               args)),
                                            _partial=True)
-    else:  # not `@generic` or `@typed`; just a function that has type annotations.
+    else:  # Not `@generic` or `@typed`; just a function that has type annotations.
+        # It's not very unpythonic-ic to provide this since we already have `@typed` for this use case,
+        # but it's much more pythonic, if the type-checking `partial` works properly for code that does
+        # not opt in to `unpythonic`'s multiple-dispatch subsystem.
         # TODO: There's some repeated error-reporting code in `unpythonic.dispatch`.
         type_signature = get_type_hints(thecallable)
         if type_signature:  # TODO: Python 3.8+: use walrus assignment here
             bound_arguments = _resolve_bindings(func, collected_args, collected_kwargs, _partial=True)
-            # TODO: allow having some parameters without type annotations.
+            # TODO: Allow having some parameters without type annotations. Requiring them for all
+            # TODO: parameters is a `@generic`-ism (because it uses them for dispatching).
+            # TODO: Alternatively, generalize `@generic` to ignore types for arguments whose parameters
+            # TODO: have no type annotation. But as said in the comments, that could be a footgun.
             mismatches = _get_argument_type_mismatches(type_signature, bound_arguments)
             if mismatches:
                 description = _format_callable(func)
