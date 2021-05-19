@@ -443,13 +443,13 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                     if not iscurried(now_result):
                         now_result = curry(now_result)
                     return now_result(*later_args, **later_kwargs)
-                if not outerctx:
-                    raise TypeError(f"Top-level curry context exited with {len(later_args) + len(later_kwargs)} arg(s) remaining. Positional: {later_args}, named: {later_kwargs}")
-                # Pass through to the curried procedure waiting in outerctx (e.g. in a curried compose chain).
                 # TODO: To handle later_kwargs here, we need named return values. See issue #32.
                 #   https://github.com/Technologicat/unpythonic/issues/32
                 if later_kwargs:
                     raise NotImplementedError(f"Passing through named arguments to an outer curry context not implemented; got {later_kwargs}")
+                if not outerctx:
+                    raise TypeError(f"Top-level curry context exited with {len(later_args) + len(later_kwargs)} arg(s) remaining. Positional: {later_args}, named: {later_kwargs}")
+                # Pass through to the curried procedure waiting in outerctx (e.g. in a curried compose chain).
                 if isinstance(now_result, tuple):
                     return now_result + later_args
                 return (now_result,) + later_args
