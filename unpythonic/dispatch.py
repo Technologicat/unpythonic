@@ -488,7 +488,7 @@ def _format_callable(thecallable):
     #  - This is because `inspect.getsourcefile` uses `inspect.getfile`, which looks at
     #    the `co_filename` of the code object. If the function is decorated, then it sees
     #    the source file where the decorator was defined, not the original function.
-#    function = inspect.unwrap(function)  # maybe this helps?
+    # function = inspect.unwrap(function)  # maybe this helps? But now I can't reproduce the bug to test it.
     filename = inspect.getsourcefile(function)
     source, firstlineno = inspect.getsourcelines(function)
     return f"{thecallable.__qualname__}{str(thesignature)} from {filename}:{firstlineno}"
@@ -496,7 +496,7 @@ def _format_callable(thecallable):
 def _resolve_multimethod(dispatcher, args, kwargs, *, _partial=False):
     """Return the first matching multimethod on `dispatcher` for the given `args` and `kwargs`.
 
-    If `partial` is `True`, allow leaving some parameters of the function unbound,
+    If `_partial` is `True`, allow leaving some parameters of the function unbound,
     and return the first multimethod that matches the given partial `args` and `kwargs`.
 
     The partial mode is useful for type-checking arguments for partial application of a generic
@@ -506,7 +506,8 @@ def _resolve_multimethod(dispatcher, args, kwargs, *, _partial=False):
     Note it is only possible to dispatch, i.e. determine which multimethod is the one to be
     called, only once we have full (non-partial) `args` and `kwargs`, because in general
     the remaining not-yet-passed `args` or `kwargs` may cause the search to match a
-    different multimethod.
+    different multimethod. In partial mode, this function says only that there is
+    *at least one* match when given those partial arguments.
     """
     multimethods = _list_multimethods(dispatcher, _extract_self_or_cls(dispatcher, args))
     for thecallable, type_signature in multimethods:
@@ -573,7 +574,7 @@ def _extract_self_or_cls(thecallable, args):
     return self_or_cls
 
 def _raise_multiple_dispatch_error(dispatcher, args, kwargs, *, candidates, _partial=False):
-    """Raise a `TypeError` regarding a failed multiple dispatch (no matching multimethod).
+    """Raise a nicely formatted `TypeError` regarding a failed multiple dispatch (no matching multimethod).
 
     `candidates`: list of `(thecallable, type_signature)` that were attempted, but did not match.
     `_partial`: if `True`, report a failure in a *partial application*.
