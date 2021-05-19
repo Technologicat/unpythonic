@@ -147,6 +147,8 @@ Optionally, if you have [mcpyrate](https://github.com/Technologicat/mcpyrate), t
 
 [[docs](doc/features.md#batteries-for-itertools)]
 
+Scan and fold accept multiple iterables, like in Racket.
+
 ```python
 from operator import add
 from unpythonic import scanl, foldl, unfold, take
@@ -155,7 +157,7 @@ assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
 
 def op(e1, e2, acc):
     return acc + e1 * e2
-assert foldl(op, 0, (1, 2), (3, 4)) == 11  # we accept multiple input sequences, like Racket
+assert foldl(op, 0, (1, 2), (3, 4)) == 11
 
 def nextfibo(a, b):       # *oldstates
     return (a, b, a + b)  # value, *newstates
