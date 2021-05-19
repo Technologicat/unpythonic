@@ -1,6 +1,8 @@
-**0.15.0** (in progress; updated 10 May 2021) - *"We say 'howdy' around these parts"* edition:
+**0.15.0** (in progress; updated 19 May 2021) - *"We say 'howdy' around these parts"* edition:
 
 Beside introducing **dialects** (a.k.a. whole-module code transforms), this edition concentrates on upgrading our dependencies, namely the macro expander, and the Python language itself, to ensure `unpythonic` keeps working for the next few years. This introduces some breaking changes, so we have also taken the opportunity to apply any such that were previously scheduled.
+
+We have sneaked in some upgrades for other subsystems, too. Particularly `curry`, the multiple dispatch system (`@generic`), and the integration between these two have been improved significantly. 
 
 **IMPORTANT**:
 
@@ -90,9 +92,10 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
     - `curry` now supports `@generic` functions. **This feature is experimental. Semantics may still change.**
     - The utilities `arities`, `required_kwargs`, and `optional_kwargs` now support `@generic` functions. **This feature is experimental. Semantics may still change.**
   - `curry` now errors out immediately on argument type mismatch.
-  - Add `partial`, a type-checking wrapper for `functools.partial`.
+  - Add `partial`, a type-checking wrapper for `functools.partial`, that errors out immediately on argument type mismatch.
   - Add `unpythonic.excutil.reraise_in` (expr form), `unpythonic.excutil.reraise` (block form): conveniently remap library exception types to application exception types. Idea from [Alexis King (2016): Four months with Haskell](https://lexi-lambda.github.io/blog/2016/06/12/four-months-with-haskell/).
   - Add variants of the above for the conditions-and-restarts system: `unpythonic.conditions.resignal_in`, `unpythonic.conditions.resignal`. The new signal is sent using the same error-handling protocol as the original signal, so that e.g. an `error` remains an `error` even if re-signaling changes its type.
+  - Add `resolve_bindings_partial`, useful for analyzing partial application.
   - All documentation files now have a quick navigation section to skip to another part of the docs. (For all except the README, it's at the top.)
   - Python 3.8 and 3.9 support added.
 
@@ -109,6 +112,11 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
     - `mcpyrate.debug.step_expansion` is able to show the intermediate result after the `do` or `do0` has expanded, but before anything else has been done to the tree.
 
 - **Miscellaneous.**
+  - Resolve issue [#61](https://github.com/Technologicat/unpythonic/issues/61): `curry` now supports kwargs properly.
+    - We now analyze parameter bindings like Python itself does, so it should no longer matter whether arguments are passed by position or by name.
+    - Positional passthrough works as before.
+    - Now any remaining named arguments (that cannot be accepted by the initial call) are passed through to a callable intermediate result.
+    - However, passing named arguments to an outer curry context is not supported, because the clean solution for that requires support for named return values (see issue [#32](https://github.com/Technologicat/unpythonic/issues/32)).
   - `unpythonic.conditions.signal`, when the signal goes unhandled, now returns the canonized input `condition`, with a nice traceback attached. This feature is intended for implementing custom error protocols on top of `signal`; `error` already uses it to produce a nice-looking error report.
   - The modules `unpythonic.dispatch` and `unpythonic.typecheck`, which provide the `@generic` and `@typed` decorators and the `isoftype` function, are no longer considered experimental. From this release on, they receive the same semantic versioning guarantees as the rest of `unpythonic`.
   - CI: Automated tests now run on Python 3.6, 3.7, 3.8, 3.9, and PyPy3 (language versions 3.6, 3.7).
