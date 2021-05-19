@@ -164,6 +164,60 @@ def nextfibo(a, b):       # *oldstates
 assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 ```
 </details>  
+<details><summary>Industrial-strength curry.</summary>
+
+[[docs](doc/features.md#batteries-for-functools)]
+
+We bind arguments to parameters like Python itself does, so it does not matter whether arguments are passed by position or by name during currying. We support `@generic` multiple-dispatch functions.
+
+```python
+from unpythonic import curry, generic
+
+@curry
+def f(x, y):
+    return x, y
+
+assert f(1, 2) == (1, 2)
+assert f(1)(2) == (1, 2)
+assert f(1)(y=2) == (1, 2)
+assert f(y=2)(x=1) == (1, 2)
+
+@curry
+def add3(x, y, z):
+    return x + y + z
+
+# actually uses partial application so these work, too
+assert add3(1)(2)(3) == 6
+assert add3(1, 2)(3) == 6
+assert add3(1)(2, 3) == 6
+assert add3(1, 2, 3) == 6
+
+@curry
+def lispyadd(*args):
+    return sum(args)
+assert lispyadd() == 0  # no args is a valid arity here
+
+@generic
+def g(x: int, y: int):
+    return "int"
+@generic
+def g(x: float, y: float):
+    return "float"
+@generic
+def g(s: str):
+    return "str"
+g = curry(g)
+
+assert callable(g(1))
+assert g(1)(2) == "int"
+
+assert callable(g(1.0))
+assert g(1.0)(2.0) == "float"
+
+assert g("cat") == "str"
+assert g(s="cat") == "str"
+```
+</details>
 <details><summary>Allow a lambda to call itself. Name a lambda.</summary>
 
 [[docs for `withself`](doc/features.md#batteries-for-functools)] [[docs for `namelambda`](doc/features.md#namelambda-rename-a-function)]
