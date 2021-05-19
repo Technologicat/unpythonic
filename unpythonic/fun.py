@@ -430,7 +430,10 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                 later_args = analysis.extra_args
                 later_kwargs = analysis.extra_kwargs
                 # Hence, we should avoid passing **now** any args/kwargs that should be passed later:
-                now_args = args[:-len(later_args)]
+                if later_args:
+                    now_args = args[:-len(later_args)]
+                else:
+                    now_args = args
                 now_kwargs = {k: v for k, v in kwargs.items() if k not in later_kwargs}
 
                 now_result = maybe_force_args(f, *now_args, **now_kwargs)
