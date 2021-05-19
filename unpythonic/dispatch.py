@@ -519,7 +519,7 @@ def _resolve_multimethod(dispatcher, args, kwargs, *, _partial=False):
             continue
     return None
 
-def _get_argument_type_mismatches(type_signature, bound_arguments):
+def _get_argument_type_mismatches(type_signature, bound_arguments, *, skip_unannotated=False):
     """Match bound arguments against the given type signature.
 
     Return a list of type mismatches. If it is empty, everything is ok.
@@ -527,21 +527,33 @@ def _get_argument_type_mismatches(type_signature, bound_arguments):
 
     `type_signature`: in the format returned by `typing.get_type_hints`.
 
-                      Must contain an item for each key of `bound_arguments`.
-
                       Is allowed to contain additional items not present
                       in `bound_arguments`, useful for type-checking during
                       partial application.
 
-    `bound_arguments`: see `unpythonic.arity.resolve_bindings`.
+                      If `skip_unannotated=False` (default), `type_signature`
+                      **must** contain an item for each key of `bound_arguments`.
 
-                       `type_signature` must contain a corresponding parameter
-                       for each argument in `bound_arguments`. (This is already
-                       checked by `resolve_bindings`.)
+                      If `skip_unannotated=True`, then any binding whose key
+                      is not in `type_signature` will not be type-checked.
+
+                      In plain English, the function can have some unannotated
+                      parameters, to denote those parameters should not be
+                      type-checked.
+
+                      `unpythonic`'s multiple-dispatch subsystem requires
+                      explicitly annotating `typing.Any` instead of omitting
+                      the type annotation, but this function can be used
+                      by other parts of `unpythonic`.
+
+    `bound_arguments`: see `unpythonic.arity.resolve_bindings`.
     """
     mismatches = []
     for parameter, value in bound_arguments.arguments.items():
-        assert parameter in type_signature  # resolve_bindings should already TypeError when not.
+        if parameter not in type_signature:
+            if skip_unannotated:
+                continue
+            raise ValueError(f"type_signature has no item for parameter {parameter}, which was supplied in `bound_arguments`. If that was intended, please use `skip_unannotated=True`.")
         expected_type = type_signature[parameter]
         if not isoftype(value, expected_type):
             mismatches.append((parameter, value, expected_type))
