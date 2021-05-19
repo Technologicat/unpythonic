@@ -312,6 +312,39 @@ assert s == (10, 2, 10, 4, 10)
 assert t == (1, 2, 3, 4, 5)
 ```
 </details>  
+<details><summary>Lispy symbol type.</summary>
+
+[[docs](doc/features.md#sym-gensym-Singleton-symbols-and-singletons)]
+
+Roughly, a [symbol](https://stackoverflow.com/questions/8846628/what-exactly-is-a-symbol-in-lisp-scheme) is a guaranteed-[interned](https://en.wikipedia.org/wiki/String_interning) string.
+
+A [gensym](http://clhs.lisp.se/Body/f_gensym.htm) is a guaranteed-unique string, which is useful as a nonce value. It's similar to the pythonic idiom `nonce = object()`, but with a nice repr, and object-identity-preserving pickle support.
+
+```python
+from unpythonic import sym  # lispy symbol
+sandwich = sym("sandwich")
+hamburger = sym("sandwich")  # symbol's identity is determined by its name, only
+assert hamburger is sandwich
+
+assert str(sandwich) == "sandwich"  # symbols have a nice str()
+assert repr(sandwich) == 'sym("sandwich")'  # and eval-able repr()
+assert eval(repr(sandwich)) is sandwich
+
+from pickle import dumps, loads
+pickled_sandwich = dumps(sandwich)
+unpickled_sandwich = loads(pickled_sandwich)
+assert unpickled_sandwich is sandwich  # symbols survive a pickle roundtrip
+
+from unpythonic import gensym  # gensym: make new uninterned symbol
+tabby = gensym("cat")
+scottishfold = gensym("cat")
+assert tabby is not scottishfold
+
+pickled_tabby = dumps(tabby)
+unpickled_tabby = loads(pickled_tabby)
+assert unpickled_tabby is tabby  # also gensyms survive a pickle roundtrip
+```
+</details>
 <details><summary>Lispy data structures.</summary>
 
 [[docs for `box`](doc/features.md#box-a-mutable-single-item-container)] [[docs for `cons`](doc/features.md#cons-and-friends-pythonic-lispy-linked-lists)] [[docs for `frozendict`](doc/features.md#frozendict-an-immutable-dictionary)]
