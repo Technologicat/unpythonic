@@ -995,16 +995,19 @@ Things missing from the standard library.
      - Hence it doesn't matter that the memo lives in the ``memoized`` closure on the class object (type), where the method is, and not directly on the instances. The memo itself is shared between instances, but calls with a different value of ``self`` will create unique entries in it.
      - For a solution that performs memoization at the instance level, see [this ActiveState recipe](https://github.com/ActiveState/code/tree/master/recipes/Python/577452_memoize_decorator_instance) (and to demystify the magic contained therein, be sure you understand [descriptors](https://docs.python.org/3/howto/descriptor.html)).
  - `curry`, with some extra features:
-   - Passthrough on the right when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket)
-     - If the intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining positional args. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
-     - For simplicity, all remaining keyword args are fed in at the first step that has too many positional args.
+   - **Changed in v0.15.0.** `curry` supports both positional and named arguments, and binds arguments to function parameters like Python itself does. The call triggers when all parameters are bound, regardless of whether they were passed by position or by name, and at which step of the currying process they were passed.
+   - **Changed in v0.15.0.** `unpythonic`'s multiple-dispatch system (`@generic`, `@typed`) is supported. `curry` looks for an exact match first, then a match with extra args/kwargs, and finally a partial match. If there is still no match, this implies that at least one parameter would get a binding that fails the type check. In such a case `TypeError` regarding failed multiple dispatch is raised.
+   - **Changed in v0.15.0.** If the function being curried is `@generic` or `@typed`, or has type annotations on its parameters, the parameters being passed in are type-checked. A type mismatch immediately raises `TypeError`. This helps support [fail-fast](https://en.wikipedia.org/wiki/Fail-fast) in code using `curry`.
+   - Passthrough when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket). Positional args are passed through **on the right**.
+     - If the intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining args and kwargs. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
      - If more positional args are still remaining when the top-level curry context exits, by default ``TypeError`` is raised.
      - To override, set the dynvar ``curry_context``. It is a list representing the stack of currently active curry contexts. A context is any object, a human-readable label is fine. See below for an example.
        - To set the dynvar, `from unpythonic import dyn`, and then `with dyn.let(curry_context=...):`.
+     - Even with the upgrades in v0.15.0, passing through *named* args to an outer curry context is not supported. This may or may not change in the future; fixing this requires support for named return values. See issue [#32](https://github.com/Technologicat/unpythonic/issues/32).
    - Can be used both as a decorator and as a regular function.
      - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
-   - **Caution**: If the positional arities of ``f`` cannot be inspected, currying fails, raising ``UnknownArity``. This may happen with builtins such as ``list.append``.
- - `partial` with run-time type checking, which helps a lot with fail-fast in code that uses partial application. Type-checks arguments against type annotations, then delegates to `functools.partial`. Supports `unpythonic`'s `@generic` and `@typed` functions. Our `curry` uses this type-checking `partial` instead of the standard one, so currying supports fail-fast, too. **Added in v0.15.0.**
+   - **Caution**: If the signature of ``f`` cannot be inspected, currying fails, raising ``ValueError``, like ``inspect.signature`` does. This may happen with builtins such as ``list.append``, ``operator.add``, ``print`` or ``range``.
+ - **Added in v0.15.0.** `partial` with run-time type checking, which helps a lot with fail-fast in code that uses partial application. This function type-checks arguments against type annotations, then delegates to `functools.partial`. Supports `unpythonic`'s `@generic` and `@typed` functions, too.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - Any number of positional arguments is supported, with the same rules as in the pipe system. Multiple return values packed into a tuple are unpacked to the argument list of the next function in the chain.
    - `composelc`, `composerc`: curry each function before composing them. Useful with passthrough.
@@ -1150,7 +1153,9 @@ Finally, keep in mind this exercise is intended as a feature demonstration. In p
 
 #### ``curry`` and reduction rules
 
-The provided variant of ``curry``, beside what it says on the tin, is effectively an explicit local modifier to Python's reduction rules, which allows some Haskell-like idioms. When we say:
+**Changed in v0.15.0.** *`curry` now supports kwargs, too, and binds parameters like Python itself does. Also, `@generic` and `@typed` functions are supported.*
+
+Our ``curry``, beside what it says on the tin, is effectively an explicit local modifier to Python's reduction rules, which allows some Haskell-like idioms. Let's consider a simple example with positional arguments only. When we say:
 
 ```python
 curry(f, a0, a1, ..., a[n-1])
@@ -1167,7 +1172,26 @@ it means the following. Let ``m1`` and ``m2`` be the minimum and maximum positio
  - If ``n < m1``, partially apply ``f`` to the given arguments, yielding a new function with smaller ``m1``, ``m2``. Then curry the result and return it.
    - Internally we stack ``functools.partial`` applications, but there will be only one ``curried`` wrapper no matter how many invocations are used to build up arguments before ``f`` eventually gets called.
 
-In the above example:
+As of v0.15.0, the actual algorithm by which `curry` decides what to do, in the presence of kwargs and `@generic` functions, is:
+
+ - If `f` is **not** `@generic` or `@typed`:
+   - Compute parameter bindings of the args and kwargs collected so far, against the call signature of `f`.
+     - Note we keep track of which arguments were passed positionally and which by name. To avoid subtle errors, they are eventually passed to `f` the same way they were passed to `curry`. (Positional args are passed positionally, and kwargs are passed by name.)
+   - If there are no unbound parameters, and no args/kwargs are left over, we have an exact match. Call `f` and return its result, like a normal function call.
+     - Any sequence of curried calls that ends up binding all parameters of `f` triggers the call.
+     - As before, beware when working with variadic functions. Particularly, keep in mind that `*args` matches **zero or more** positional arguments (as the [Kleene star](https://en.wikipedia.org/wiki/Kleene_star)-ish notation indeed suggests).
+   - If there are no unbound parameters, but there are args/kwargs left over, arrange passthrough for the leftover args/kwargs (that were rejected by the call signature of `f`), and call `f`. If the result is a callable, curry it, and recurse. Else form a tuple... (as above).
+   - If neither of the above match, we know there is at least one unbound parameter, i.e. we have a partial match. Keep currying.
+ - If `f` is `@generic` or `@typed`:
+   - Iterate over multimethods registered on `f`, **up to three times**.
+   - First, try for an exact match that passes the type check. **If any such match is found**, pick that multimethod. Call it and return its result (as above).
+   - Then, try for a match that passes the type check, but has extra args/kwargs. **If any such match is found**, pick that multimethod. Arrange passthrough... (as above).
+   - Then, try for a partial match that passes the type check. **If any such match is found**, keep currying.
+   - If none of the above match, it implies that no matter which multimethod we pick, at least one parameter would get a binding that fails the type check. Raise `TypeError`.
+
+(If *really* interested in the gritty details, look at the source code of `unpythonic.fun.curry`. It calls some functions from `unpythonic.dispatch` for its `@generic` support, but otherwise it's pretty much self-contained.)
+
+Getting back to the simple case, in the above example:
 
 ```python
 curry(mapl_one, double, ll(1, 2, 3))
