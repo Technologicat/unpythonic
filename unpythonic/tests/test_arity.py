@@ -107,7 +107,7 @@ def runtests():
     # Methods of builtin types have uninspectable arity up to Python 3.6.
     # Python 3.7 seems to fix this at least for `list`, and PyPy3 (7.3.0; Python 3.6.9)
     # doesn't have this error either.
-    if sys.version_info < (3, 7, 0) and sys.implementation.name == "cpython":
+    if sys.version_info < (3, 7, 0) and sys.implementation.name == "cpython":  # pragma: no cover
         with testset("uninspectable builtin methods"):
             lst = []
             test_raises[UnknownArity, arities(lst.append)]

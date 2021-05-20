@@ -4,6 +4,7 @@ from ..syntax import macros, test, test_raises, fail, the  # noqa: F401
 from ..test.fixtures import session, testset, returns_normally
 
 from collections import Counter
+import sys
 
 from ..dispatch import generic
 from ..fun import (memoize, partial, curry, apply,
@@ -205,14 +206,16 @@ def runtests():
                 # a `with test` can optionally return a value, which becomes the asserted expr.
                 return curry(double, 2, "foo") == (4, "foo")
 
-    with testset("uninspectable builtin functions"):
-        test_raises[ValueError, curry(print)]  # builtin function that fails `inspect.signature`
+    # This doesn't occur on PyPy3.
+    if sys.implementation.name == "cpython":  # pragma: no cover
+        with testset("uninspectable builtin functions"):
+            test_raises[ValueError, curry(print)]  # builtin function that fails `inspect.signature`
 
-        # Internal feature, used by curry macro. If uninspectables are said to be ok,
-        # then attempting to curry an uninspectable simply returns the original function.
-        m1 = print
-        m2 = curry(print, _curry_allow_uninspectable=True)
-        test[the[m2] is the[m1]]
+            # Internal feature, used by curry macro. If uninspectables are said to be ok,
+            # then attempting to curry an uninspectable simply returns the original function.
+            m1 = print
+            m2 = curry(print, _curry_allow_uninspectable=True)
+            test[the[m2] is the[m1]]
 
     with testset("curry integration with @generic"):  # v0.15.0+
         @generic
