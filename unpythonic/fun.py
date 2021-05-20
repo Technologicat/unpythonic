@@ -292,7 +292,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             return maybe_force_args(f, *args, **kwargs)
         return f
 
-    def fallback():
+    def fallback():  # what to do when inspection fails
         if not _curry_allow_uninspectable:  # usual behavior
             raise
         # co-operate with unpythonic.syntax.autocurry; don't crash on builtins
