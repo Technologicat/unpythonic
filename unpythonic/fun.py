@@ -292,6 +292,23 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             return maybe_force_args(f, *args, **kwargs)
         return f
 
+    def fallback():
+        if not _curry_allow_uninspectable:  # usual behavior
+            raise
+        # co-operate with unpythonic.syntax.autocurry; don't crash on builtins
+        if args or kwargs or _curry_force_call:
+            return maybe_force_args(f, *args, **kwargs)
+        return f
+
+    # Try to fail-fast with uninspectable builtins.
+    try:
+        signature(f)
+    except ValueError as err:  # inspection failed in inspect.signature()?
+        msg = err.args[0]
+        if "no signature found" in msg:
+            return fallback()
+        raise
+
     # TODO: To make `curry` pay-as-you-go, look for opportunities to speed this up
     # for non-`@generic` functions. Currently this more general `curry` for v0.15.0
     # (that handles kwargs correctly) can be even 50% slower than the more limited one
@@ -407,12 +424,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             except ValueError as err:  # inspection failed in inspect.signature()?
                 msg = err.args[0]
                 if "no signature found" in msg:
-                    if not _curry_allow_uninspectable:  # usual behavior
-                        raise
-                    # co-operate with unpythonic.syntax.autocurry; don't crash on builtins
-                    if args or kwargs or _curry_force_call:
-                        return maybe_force_args(f, *args, **kwargs)
-                    return f
+                    return fallback()
                 raise
 
             if action is _call:
