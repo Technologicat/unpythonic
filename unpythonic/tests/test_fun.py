@@ -217,6 +217,15 @@ def runtests():
             m2 = curry(print, _curry_allow_uninspectable=True)
             test[the[m2] is the[m1]]
 
+    with testset("curry kwargs support"):
+        @curry
+        def testing12(x, y):
+            return (x, y)
+        test[testing12(1)(2) == (1, 2)]
+        test[testing12(1)(y=2) == (1, 2)]
+        test[testing12(x=1)(y=2) == (1, 2)]
+        test[testing12(y=2)(x=1) == (1, 2)]
+
     with testset("curry integration with @generic"):  # v0.15.0+
         @generic
         def f(x: int):
