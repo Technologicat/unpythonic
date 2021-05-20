@@ -4,7 +4,6 @@ from ..syntax import macros, test, test_raises, fail, the  # noqa: F401
 from ..test.fixtures import session, testset, returns_normally
 
 from collections import Counter
-import sys
 
 from ..dispatch import generic
 from ..fun import (memoize, partial, curry, apply,
@@ -17,7 +16,6 @@ from ..fun import (memoize, partial, curry, apply,
                    withself)
 
 from ..dynassign import dyn
-from ..arity import UnknownArity
 
 def runtests():
     with testset("identity function"):
@@ -207,26 +205,14 @@ def runtests():
                 # a `with test` can optionally return a value, which becomes the asserted expr.
                 return curry(double, 2, "foo") == (4, "foo")
 
-    # Methods of builtin types have uninspectable arity up to Python 3.6.
-    # Python 3.7 seems to fix this at least for `list`, and PyPy3 (7.3.0; Python 3.6.9)
-    # doesn't have this error either.
-    if sys.version_info < (3, 7, 0) and sys.implementation.name == "cpython":
-        with testset("uninspectable builtins"):
-            lst = []
-            test_raises[UnknownArity, curry(lst.append)]  # uninspectable method of builtin type
+    with testset("uninspectable builtin functions"):
+        test_raises[ValueError, curry(print)]  # builtin function that fails `inspect.signature`
 
-            # Internal feature, used by curry macro. If uninspectables are said to be ok,
-            # then attempting to curry an uninspectable simply returns the original function.
-            #
-            # Due to Python's method binding machinery re-triggering the descriptor on each lookup,
-            # each lookup of `lst.append` will produce a *new* instance of the object that
-            # represents the bound method (builtin method, in this case). They print the same,
-            # they look the same... but they `is not` the same.
-            #
-            # To avoid this pitfall, we do the lookup exactly once - and then reuse the result.
-            m1 = lst.append
-            m2 = curry(m1, _curry_allow_uninspectable=True)
-            test[m2 is m1]
+        # Internal feature, used by curry macro. If uninspectables are said to be ok,
+        # then attempting to curry an uninspectable simply returns the original function.
+        m1 = print
+        m2 = curry(print, _curry_allow_uninspectable=True)
+        test[the[m2] is the[m1]]
 
     with testset("curry integration with @generic"):  # v0.15.0+
         @generic
