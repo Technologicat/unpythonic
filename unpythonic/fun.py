@@ -748,9 +748,10 @@ def _make_compose(direction):  # "left", "right"
                 bindings = {"curry_context": dyn.curry_context + [composed]}
             with dyn.let(**bindings):
                 a = maybe_force_args(g, *args)
-            # we could duck-test, but this is more predictable for the user
-            # (consider chaining functions that manipulate a generator), and
-            # tuple specifically is the pythonic multiple-return-values thing.
+            # we could duck-test for an iterable, but this is more predictable
+            # for the user (consider chaining functions that manipulate a
+            # generator), and tuple specifically is the pythonic
+            # multiple-return-values thing.
             if isinstance(a, tuple):
                 return maybe_force_args(f, *a)
             return maybe_force_args(f, a)
