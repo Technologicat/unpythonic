@@ -276,6 +276,123 @@ def laugh(traitvalue: IsNotFunny, x: typing.Any):
 assert laugh("that") == "Ha ha ha, that is funny!"
 assert laugh(42) == "42 is not funny."
 ```
+</details>  
+<details><summary>Conditions: resumable, modular error handling, like in Common Lisp.</summary>
+
+[[docs](doc/features.md#handlers-restarts-conditions-and-restarts)]
+
+Contrived example:
+
+```python
+from unpythonic import error, restarts, handlers, invoke, use_value, unbox
+
+class MyError(ValueError):
+    def __init__(self, value):  # We want to act on the value, so save it.
+        self.value = value
+
+def lowlevel(lst):
+    _drop = object()  # gensym/nonce
+    out = []
+    for k in lst:
+        # Provide several different error recovery strategies.
+        with restarts(use_value=(lambda x: x),
+                      halve=(lambda x: x // 2),
+                      drop=(lambda: _drop)) as result:
+            if k > 9000:
+                error(MyError(k))
+            # This is reached when no error occurs.
+            # `result` is a box, send k into it.
+            result << k
+        # Now the result box contains either k,
+        # or the return value of one of the restarts.
+        r = unbox(result)  # get the value from the box
+        if r is not _drop:
+            out.append(r)
+    return out
+
+def highlevel():
+    # Choose which error recovery strategy to use...
+    with handlers((MyError, lambda c: use_value(c.value))):
+        assert lowlevel([17, 10000, 23, 42]) == [17, 10000, 23, 42]
+
+    # ...on a per-use-site basis...
+    with handlers((MyError, lambda c: invoke("halve", c.value))):
+        assert lowlevel([17, 10000, 23, 42]) == [17, 5000, 23, 42]
+
+    # ...without changing the low-level code.
+    with handlers((MyError, lambda: invoke("drop"))):
+        assert lowlevel([17, 10000, 23, 42]) == [17, 23, 42]
+
+highlevel()
+```
+
+Conditions only shine in larger systems, with restarts set up at multiple levels of the call stack; this example is too small to demonstrate that. The single-level case here could be implemented as a error-handling mode parameter for the example's only low-level function.
+
+With multiple levels, it becomes apparent that this mode parameter must be threaded through the API at each level, unless it is stored as a dynamic variable (see [`unpythonic.dyn`](doc/features.md#dyn-dynamic-assignment)). But then, there can be several types of errors, and the error-handling mode parameters - one for each error type - have to be shepherded in an intricate manner. A stack is needed, so that an inner level may temporarily override the handler for a particular error type...
+
+The condition system is the clean, general solution to this problem. It automatically scopes handlers to their dynamic extent, and manages the handler stack automatically. In other words, it dynamically binds error-handling modes (for several types of errors, if desired) in a controlled, easily understood manner. The local programmability (i.e. the fact that a handler is not just a restart name, but an arbitrary function) is a bonus for additional flexibility.
+
+If this sounds a lot like an exception system, that's because conditions are the supercharged sister of exceptions. The condition model cleanly separates mechanism from policy, while otherwise remaining similar to the exception model.
+</details>  
+<details><summary>Lispy symbol type.</summary>
+
+[[docs](doc/features.md#sym-gensym-Singleton-symbols-and-singletons)]
+
+Roughly, a [symbol](https://stackoverflow.com/questions/8846628/what-exactly-is-a-symbol-in-lisp-scheme) is a guaranteed-[interned](https://en.wikipedia.org/wiki/String_interning) string.
+
+A [gensym](http://clhs.lisp.se/Body/f_gensym.htm) is a guaranteed-unique string, which is useful as a nonce value. It's similar to the pythonic idiom `nonce = object()`, but with a nice repr, and object-identity-preserving pickle support.
+
+```python
+from unpythonic import sym  # lispy symbol
+sandwich = sym("sandwich")
+hamburger = sym("sandwich")  # symbol's identity is determined by its name, only
+assert hamburger is sandwich
+
+assert str(sandwich) == "sandwich"  # symbols have a nice str()
+assert repr(sandwich) == 'sym("sandwich")'  # and eval-able repr()
+assert eval(repr(sandwich)) is sandwich
+
+from pickle import dumps, loads
+pickled_sandwich = dumps(sandwich)
+unpickled_sandwich = loads(pickled_sandwich)
+assert unpickled_sandwich is sandwich  # symbols survive a pickle roundtrip
+
+from unpythonic import gensym  # gensym: make new uninterned symbol
+tabby = gensym("cat")
+scottishfold = gensym("cat")
+assert tabby is not scottishfold
+
+pickled_tabby = dumps(tabby)
+unpickled_tabby = loads(pickled_tabby)
+assert unpickled_tabby is tabby  # also gensyms survive a pickle roundtrip
+```
+</details>  
+<details><summary>Lispy data structures.</summary>
+
+[[docs for `box`](doc/features.md#box-a-mutable-single-item-container)] [[docs for `cons`](doc/features.md#cons-and-friends-pythonic-lispy-linked-lists)] [[docs for `frozendict`](doc/features.md#frozendict-an-immutable-dictionary)]
+
+```python
+from unpythonic import box, unbox  # mutable single-item container
+cat = object()
+cardboardbox = box(cat)
+assert cardboardbox is not cat  # the box is not the cat
+assert unbox(cardboardbox) is cat  # but the cat is inside the box
+assert cat in cardboardbox  # ...also syntactically
+dog = object()
+cardboardbox << dog  # hey, it's my box! (replace contents)
+assert unbox(cardboardbox) is dog
+
+from unpythonic import cons, nil, ll, llist  # lispy linked lists
+lst = cons(1, cons(2, cons(3, nil)))
+assert ll(1, 2, 3) == lst  # make linked list out of elements
+assert llist([1, 2, 3]) == lst  # convert iterable to linked list
+
+from unpythonic import frozendict  # immutable dictionary
+d1 = frozendict({'a': 1, 'b': 2})
+d2 = frozendict(d1, c=3, a=4)
+assert d1 == frozendict({'a': 1, 'b': 2})
+assert d2 == frozendict({'a': 4, 'b': 2, 'c': 3})
+```
 </details>
 <details><summary>Allow a lambda to call itself. Name a lambda.</summary>
 
@@ -371,66 +488,6 @@ assert s == (10, 2, 10, 4, 10)
 assert t == (1, 2, 3, 4, 5)
 ```
 </details>  
-<details><summary>Lispy symbol type.</summary>
-
-[[docs](doc/features.md#sym-gensym-Singleton-symbols-and-singletons)]
-
-Roughly, a [symbol](https://stackoverflow.com/questions/8846628/what-exactly-is-a-symbol-in-lisp-scheme) is a guaranteed-[interned](https://en.wikipedia.org/wiki/String_interning) string.
-
-A [gensym](http://clhs.lisp.se/Body/f_gensym.htm) is a guaranteed-unique string, which is useful as a nonce value. It's similar to the pythonic idiom `nonce = object()`, but with a nice repr, and object-identity-preserving pickle support.
-
-```python
-from unpythonic import sym  # lispy symbol
-sandwich = sym("sandwich")
-hamburger = sym("sandwich")  # symbol's identity is determined by its name, only
-assert hamburger is sandwich
-
-assert str(sandwich) == "sandwich"  # symbols have a nice str()
-assert repr(sandwich) == 'sym("sandwich")'  # and eval-able repr()
-assert eval(repr(sandwich)) is sandwich
-
-from pickle import dumps, loads
-pickled_sandwich = dumps(sandwich)
-unpickled_sandwich = loads(pickled_sandwich)
-assert unpickled_sandwich is sandwich  # symbols survive a pickle roundtrip
-
-from unpythonic import gensym  # gensym: make new uninterned symbol
-tabby = gensym("cat")
-scottishfold = gensym("cat")
-assert tabby is not scottishfold
-
-pickled_tabby = dumps(tabby)
-unpickled_tabby = loads(pickled_tabby)
-assert unpickled_tabby is tabby  # also gensyms survive a pickle roundtrip
-```
-</details>
-<details><summary>Lispy data structures.</summary>
-
-[[docs for `box`](doc/features.md#box-a-mutable-single-item-container)] [[docs for `cons`](doc/features.md#cons-and-friends-pythonic-lispy-linked-lists)] [[docs for `frozendict`](doc/features.md#frozendict-an-immutable-dictionary)]
-
-```python
-from unpythonic import box, unbox  # mutable single-item container
-cat = object()
-cardboardbox = box(cat)
-assert cardboardbox is not cat  # the box is not the cat
-assert unbox(cardboardbox) is cat  # but the cat is inside the box
-assert cat in cardboardbox  # ...also syntactically
-dog = object()
-cardboardbox << dog  # hey, it's my box! (replace contents)
-assert unbox(cardboardbox) is dog
-
-from unpythonic import cons, nil, ll, llist  # lispy linked lists
-lst = cons(1, cons(2, cons(3, nil)))
-assert ll(1, 2, 3) == lst  # make linked list out of elements
-assert llist([1, 2, 3]) == lst  # convert iterable to linked list
-
-from unpythonic import frozendict  # immutable dictionary
-d1 = frozendict({'a': 1, 'b': 2})
-d2 = frozendict(d1, c=3, a=4)
-assert d1 == frozendict({'a': 1, 'b': 2})
-assert d2 == frozendict({'a': 4, 'b': 2, 'c': 3})
-```
-</details>  
 <details><summary>Live list slices.</summary>
 
 [[docs](doc/features.md#view-writable-sliceable-view-into-a-sequence)]
@@ -461,63 +518,6 @@ assert x == 85
 ```
 
 The point is usability: in a function composition using pipe syntax, data flows from left to right.
-</details>  
-<details><summary>Conditions: resumable, modular error handling, like in Common Lisp.</summary>
-
-[[docs](doc/features.md#handlers-restarts-conditions-and-restarts)]
-
-Contrived example:
-
-```python
-from unpythonic import error, restarts, handlers, invoke, use_value, unbox
-
-class MyError(ValueError):
-    def __init__(self, value):  # We want to act on the value, so save it.
-        self.value = value
-
-def lowlevel(lst):
-    _drop = object()  # gensym/nonce
-    out = []
-    for k in lst:
-        # Provide several different error recovery strategies.
-        with restarts(use_value=(lambda x: x),
-                      halve=(lambda x: x // 2),
-                      drop=(lambda: _drop)) as result:
-            if k > 9000:
-                error(MyError(k))
-            # This is reached when no error occurs.
-            # `result` is a box, send k into it.
-            result << k
-        # Now the result box contains either k,
-        # or the return value of one of the restarts. 
-        r = unbox(result)  # get the value from the box
-        if r is not _drop:
-            out.append(r)
-    return out
-
-def highlevel():
-    # Choose which error recovery strategy to use...
-    with handlers((MyError, lambda c: use_value(c.value))):
-        assert lowlevel([17, 10000, 23, 42]) == [17, 10000, 23, 42]
-
-    # ...on a per-use-site basis...
-    with handlers((MyError, lambda c: invoke("halve", c.value))):
-        assert lowlevel([17, 10000, 23, 42]) == [17, 5000, 23, 42]
-
-    # ...without changing the low-level code.
-    with handlers((MyError, lambda: invoke("drop"))):
-        assert lowlevel([17, 10000, 23, 42]) == [17, 23, 42]
-
-highlevel()
-```
-
-Conditions only shine in larger systems, with restarts set up at multiple levels of the call stack; this example is too small to demonstrate that. The single-level case here could be implemented as a error-handling mode parameter for the example's only low-level function.
-
-With multiple levels, it becomes apparent that this mode parameter must be threaded through the API at each level, unless it is stored as a dynamic variable (see [`unpythonic.dyn`](doc/features.md#dyn-dynamic-assignment)). But then, there can be several types of errors, and the error-handling mode parameters - one for each error type - have to be shepherded in an intricate manner. A stack is needed, so that an inner level may temporarily override the handler for a particular error type...
-
-The condition system is the clean, general solution to this problem. It automatically scopes handlers to their dynamic extent, and manages the handler stack automatically. In other words, it dynamically binds error-handling modes (for several types of errors, if desired) in a controlled, easily understood manner. The local programmability (i.e. the fact that a handler is not just a restart name, but an arbitrary function) is a bonus for additional flexibility.
-
-If this sounds a lot like an exception system, that's because conditions are the supercharged sister of exceptions. The condition model cleanly separates mechanism from policy, while otherwise remaining similar to the exception model.
 </details>
 
 
