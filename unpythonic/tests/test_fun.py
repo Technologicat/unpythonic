@@ -220,11 +220,23 @@ def runtests():
     with testset("curry kwargs support"):
         @curry
         def testing12(x, y):
-            return (x, y)
+            return x, y
         test[testing12(1)(2) == (1, 2)]
         test[testing12(1)(y=2) == (1, 2)]
         test[testing12(x=1)(y=2) == (1, 2)]
         test[testing12(y=2)(x=1) == (1, 2)]
+
+        @curry
+        def makemul(x):
+            def mymul(y):
+                return x * y
+            return mymul
+        test[callable(makemul())]  # not enough args/kwargs yet
+        test[makemul(2)(3) == 6]  # just enough args
+        test[makemul(2, 3) == 6]  # extra args
+        test[makemul(2, y=3) == 6]  # extra kwargs, fine if callable intermediate result can accept them
+        test[makemul(x=2, y=3) == 6]
+        test[makemul(y=3, x=2) == 6]
 
     with testset("curry integration with @generic"):  # v0.15.0+
         @generic
@@ -239,8 +251,29 @@ def runtests():
         # the call signature does not match fully. But it does match partially, so in that case
         # `curry` waits for more arguments (because there is at least one multimethod that matches
         # the partial arguments given so far).
-        test[callable(curry(f, 3.14))]
-        test[curry(f, 3.14, "cat") == "float, str"]
+        test[callable(curry(f, 3.14))]  # partial match
+        test[curry(f, 3.14, "cat") == "float, str"]  # exact match
+
+        # Partial match, but let's use the return value of `curry` (does it chain correctly?).
+        tmp = curry(f, 3.14)
+        test[tmp("cat") == "float, str"]
+
+        @curry
+        @generic
+        def makemul_typed(x: int):
+            @generic
+            def mymul_typed(y: int):
+                return x * y
+            return mymul_typed
+        test[callable(makemul_typed())]  # not enough args/kwargs yet
+        test[makemul_typed(2)(3) == 6]  # just enough args
+        test[makemul_typed(2, 3) == 6]  # extra args
+        test[makemul_typed(2, y=3) == 6]  # extra kwargs, fine if callable intermediate result can accept them
+        test[makemul_typed(x=2, y=3) == 6]
+        test[makemul_typed(y=3, x=2) == 6]
+        test_raises[TypeError, makemul_typed(2.0)]  # only defined for int
+        test_raises[TypeError, makemul_typed(2.0, 3)]  # should notice it even with extra args
+        test_raises[TypeError, makemul_typed(2, 3.0)]
 
     with testset("compose"):
         double = lambda x: 2 * x
