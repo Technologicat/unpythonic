@@ -492,7 +492,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                 if callable(leftmost):
                     if not iscurried(leftmost):
                         leftmost = curry(leftmost)
-                    return leftmost(*later_args, **later_kwargs)
+                    return maybe_force_args(leftmost, *later_args, **later_kwargs)
 
                 # The first positional return value is not a callable. Pass the return value(s) through
                 # to the curried procedure waiting in outerctx (e.g. in a curried compose chain).
