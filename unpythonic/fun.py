@@ -726,18 +726,42 @@ def orf(*fs):  # Racket: disjoin
         disjoined = passthrough_lazy_args(disjoined)
     return disjoined
 
-def _make_compose1(direction):  # "left", "right"
+def _make_compose1(direction):
+    """Make a function that composes functions from an iterable.
+
+    Return value is a function `compose1(fs)` -> `composed(x)`.
+
+    `direction`: str, one of "left", "right". Which way to compose.
+
+                 For example, let `fs = (f1, f2, f3)`.
+
+                 If `direction == "left"`, `composed` computes f3(f2(f1(x)));
+                 the functions apply leftmost first.
+
+                 If `direction == "right"`, `composed` computes f1(f2(f3(x)));
+                 the functions apply rightmost first.
+
+    Standard mathematical function composition notation f1 ∘ f2 ∘ f3 takes rightmost first,
+    but we refuse the temptation to guess. We provide only explicit `l` and `r` variants
+    of all the `compose1` utilities.
+    """
     def compose1_two(f, g):
         # return lambda x: f(g(x))
         return lambda x: maybe_force_args(f, maybe_force_args(g, x))
     if direction == "right":
         compose1_two = flip(compose1_two)
     def compose1(fs):
-        # direction == "left" (leftmost is innermost):
+        """Compose one-argument functions from iterable `fs`.
+
+        **CAUTION**: This is a closure. Which way to compose (left or right)
+        was chosen when this closure instance was created. Please use the
+        public API functions whose names explicitly state the direction.
+        """
+        # If `direction == "left"` leftmost is innermost:
         #   input: a b c
         #   elt = b -> f, acc = a(x) -> g --> b(a(x))
         #   elt = c -> f, acc = b(a(x)) -> g --> c(b(a(x)))
-        # direction == "right" (rightmost is innermost):
+        # If `direction == "right"`, rightmost is innermost:
         #   input: a b c
         #   elt = b -> g, acc = a(x) -> f --> a(b(x))
         #   elt = c -> g, acc = a(b(x)) -> f --> a(b(c(x)))
