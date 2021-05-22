@@ -375,6 +375,9 @@ def runtests():
                     return fail()
                 first, *rest = tuple(lst)
                 if rest:
+                    # Note even the `lambda` below has an implicit `cc` parameter;
+                    # hence we must name the current `cc` to something else to be
+                    # able to use the value inside the `lambda`.
                     ourcc = cc
                     stack.append(lambda: amb(rest, cc=ourcc))
                 return first
@@ -429,8 +432,9 @@ def runtests():
             count = 0
             def pt(maxn):
                 # This generates 1540 combinations, with several nested tail-calls each,
-                # so we really need TCO here. (Without TCO, nothing would return until
-                # the whole computation is done; it would blow the call stack very quickly.)
+                # so we really need TCO here. Without TCO, nothing would return until
+                # the whole computation is done; it would blow the call stack very quickly.
+                # With TCO, it's just a case of "lambda, the ultimate goto".
                 z = call_cc[amb(range(1, maxn + 1))]
                 y = call_cc[amb(range(1, z + 1))]
                 x = call_cc[amb(range(1, y + 1))]
