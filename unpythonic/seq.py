@@ -241,9 +241,9 @@ class lazy_piped1:
         Examples::
 
             lst = [1]
-            def append_succ(l):
-                l.append(l[-1] + 1)
-                return l  # important, handed to the next function in the pipe
+            def append_succ(lis):
+                lis.append(lis[-1] + 1)
+                return lis  # important, handed to the next function in the pipe
             p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
             assert lst == [1]        # nothing done yet
             p | exitpipe              # run the computation

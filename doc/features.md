@@ -952,9 +952,9 @@ Set up a pipe by calling ``piped`` for the initial value. Pipe into the sentinel
 from unpythonic import lazy_piped1, exitpipe
 
 lst = [1]
-def append_succ(l):
-    l.append(l[-1] + 1)
-    return l  # this return value is handed to the next function in the pipe
+def append_succ(lis):
+    lis.append(lis[-1] + 1)
+    return lis  # this return value is handed to the next function in the pipe
 p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
 assert lst == [1]        # nothing done yet
 p | exitpipe             # run the computation
