@@ -188,10 +188,10 @@ class piped1:
         Return a ``piped`` object, for chainability.
 
         As the only exception, if ``f`` is the sentinel ``exitpipe``,
-        return the current value (useful for exiting the pipe).
+        return the current value (thus exiting the pipe).
 
-        A new ``piped`` object is created at each step of piping; the "update"
-        is purely functional, nothing is overwritten.
+        A new ``piped`` object is created at each step of piping;
+        the "update" is purely functional, nothing is overwritten.
 
         Examples::
 
