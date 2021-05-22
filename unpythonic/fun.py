@@ -451,7 +451,6 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                 now_kwargs = {k: v for k, v in kwargs.items() if k not in later_kwargs}
 
                 now_result = maybe_force_args(f, *now_args, **now_kwargs)
-                now_result = force1(now_result)  # just in case it's a `Lazy`
 
                 # Inspect the return value(s).
                 #  - Inject the appropriate items to `later_args` and `later_kwargs`.
@@ -730,7 +729,7 @@ def orf(*fs):  # Racket: disjoin
 def _make_compose1(direction):  # "left", "right"
     def compose1_two(f, g):
         # return lambda x: f(g(x))
-        return lambda x: maybe_force_args(f, force1(maybe_force_args(g, x)))
+        return lambda x: maybe_force_args(f, maybe_force_args(g, x))
     if direction == "right":
         compose1_two = flip(compose1_two)
     def compose1(fs):
@@ -820,8 +819,6 @@ def _make_compose(direction):
                 bindings = {"curry_context": dyn.curry_context + [composed]}
             with dyn.let(**bindings):
                 a = maybe_force_args(g, *args, **kwargs)
-                a = force1(a)  # just in case it's a `Lazy`
-            # We could duck-test for an iterable, but this is more predictable.
             if isinstance(a, Values):
                 return maybe_force_args(f, *a.rets, **a.kwrets)
             return maybe_force_args(f, a)

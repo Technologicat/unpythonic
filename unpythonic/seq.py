@@ -265,7 +265,6 @@ class lazy_piped1:
         if f is exitpipe:  # compute now
             v = self._x
             for g in self._funcs:
-                v = force1(v)
                 v = maybe_force_args(g, v)
             return v
         # just pass on the reference to the original x.
@@ -334,12 +333,10 @@ def pipe(values0, *bodys):
             # (except the last one, since it exits the curry context).
             bindings = {"curry_context": dyn.curry_context + [update]}
         with dyn.let(**bindings):
-            xs = force1(xs)
             if isinstance(xs, Values):
                 xs = maybe_force_args(update, *xs.rets, **xs.kwrets)
             else:
                 xs = maybe_force_args(update, xs)
-    xs = force1(xs)
     if isinstance(xs, Values):
         return xs if xs.kwrets or len(xs.rets) > 1 else xs[0]
     return xs
@@ -397,7 +394,6 @@ class piped:
             return xs if xs.kwrets or len(xs.rets) > 1 else xs[0]
         cls = self.__class__
         newxs = maybe_force_args(f, *xs.rets, **xs.kwrets)
-        newxs = force1(newxs)
         if isinstance(newxs, Values):
             return cls(*newxs.rets, **newxs.kwrets)
         return cls(newxs)
@@ -458,12 +454,10 @@ class lazy_piped:
         if f is exitpipe:  # compute now
             vs = self._xs
             for g in self._funcs:
-                vs = force1(vs)
                 if isinstance(vs, Values):
                     vs = g(*vs.rets, **vs.kwrets)
                 else:
                     vs = g(vs)
-            vs = force1(vs)
             if isinstance(vs, Values):
                 return vs if vs.kwrets or len(vs.rets) > 1 else vs[0]
             else:
