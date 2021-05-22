@@ -98,7 +98,11 @@ def islazy(f):
     return hasattr(f, "_passthrough_lazy_args") or (hasattr(f, "__name__") and f.__name__ == "_let")
 
 def maybe_force_args(f, *thunks, **kwthunks):
-    """Internal. Helps calling strict functions from inside a ``with lazify`` block."""
+    """Internal. Helps calling strict functions from inside a ``with lazify`` block.
+
+    If `not islazy(f)`, forces the given args and kwargs, and then calls `f` with them.
+    If `islazy(f)`, calls `f` without forcing the args/kwargs.
+    """
     if f is jump:  # special case to avoid drastic performance hit in strict code
         target, *argthunks = thunks
         return jump(force1(target), *argthunks, **kwthunks)
