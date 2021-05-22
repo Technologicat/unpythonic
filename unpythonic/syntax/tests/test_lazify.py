@@ -10,9 +10,7 @@ from ...syntax import (macros, lazify, lazy, lazyrec,  # noqa: F811, F401
                        autocurry,
                        continuations, call_cc)
 
-# Doesn't really override the earlier curry import. The first one is a macro,
-# and this one is a regular run-time function.
-from ...collections import frozendict
+from ...collections import frozendict, Values
 from ...ec import call_ec
 from ...excutil import raisef
 from ...fun import (curry, memoize, flip, rotate, apply,
@@ -439,7 +437,8 @@ def runtests():
             test[islazy(h2)]
             # args 0 and 2 never *used* by h2, so we need to force()
             # to get their values to compare the reference answer to.
-            test[force(h2(1, 2, 3)) == (1, 84, 3)]
+            # Also, h2 uses tokth, which wraps its multiple-return-values in a Values.
+            test[force(h2(1, 2, 3)) == Values(1, 84, 3)]
 
             fact = withself(lambda self, n, acc=1: self(n - 1, acc * n) if n > 1 else acc)  # linear process
             test[islazy(fact)]

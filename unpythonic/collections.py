@@ -5,7 +5,8 @@ __all__ = ["box", "ThreadLocalBox", "unbox", "Some", "Shim",
            "frozendict", "roview", "view", "ShadowedSequence",
            "mogrify",
            "get_abcs", "in_slice", "index_in_slice",
-           "SequenceView", "MutableSequenceView"]  # ABCs
+           "SequenceView", "MutableSequenceView",  # ABCs
+           "Values", "valuify"]
 
 from functools import wraps
 from itertools import repeat
@@ -19,10 +20,12 @@ from inspect import isclass
 from operator import lt, le, ge, gt
 import threading
 
-from .llist import cons, Nil
-from .misc import getattrrec
 from .env import env
 from .dynassign import _Dyn
+from .lazyutil import passthrough_lazy_args
+from .llist import cons, Nil
+from .misc import getattrrec
+from .regutil import register_decorator
 
 def get_abcs(cls):
     """Return a set of the collections.abc superclasses of cls (virtuals too)."""
@@ -75,8 +78,12 @@ def mogrify(func, container):
     just like in ``map``.
     """
     def doit(x):
+        if isinstance(x, Values):
+            new_rets = doit(x.rets)
+            new_kwrets = doit(x.kwrets)
+            return Values(*new_rets, **new_kwrets)
         # mutable containers
-        if isinstance(x, MutableSequence):
+        elif isinstance(x, MutableSequence):
             y = [doit(elt) for elt in x]
             if hasattr(x, "clear"):
                 x.clear()  # list has this, but not guaranteed by MutableSequence
@@ -142,6 +149,9 @@ def mogrify(func, container):
 
 # -----------------------------------------------------------------------------
 
+# TODO: Make `box` support pickle with per-use-site uuids, to keep a shared box shared across a pickle roundtrip?
+# TODO: See the `gsym` implementation in `unpythonic.symbol` for how to do this in a thread-safe manner.
+# TODO: Think how those semantics should work with `ThreadLocalBox`.
 class box:
     """Minimalistic, mutable single-item container à la Racket.
 
@@ -893,3 +903,208 @@ def _canonize_slice(s, length=None, wrap=None):  # convert negatives, inject def
             stop = -1  # yes, really -1 to have index 0 inside the slice
 
     return start, stop, step
+
+# -----------------------------------------------------------------------------
+
+@passthrough_lazy_args
+class Values:
+    """Structured multiple-return-values.
+
+    That is, return multiple values positionally and by name. This completes
+    the symmetry between passing function arguments and returning values
+    from a function: Python itself allows passing arguments by name, but has
+    no concept of returning values by name. This class adds that concept.
+
+    Having a `Values` type separate from `tuple` also helps with semantic
+    accuracy. In `unpythonic` 0.15.0 and later, a `tuple` return value now
+    means just that - one value that is a `tuple`. It is different from a
+    `Values` that contains several positional return values (that are meant
+    to be treated separately).
+
+    **When to use**:
+
+    Most of the time, returning a tuple to denote multiple-return-values
+    and unpacking it is just fine, and that is exactly what `unpythonic`
+    does internally in many places.
+
+    But the distinction is critically important for function composition,
+    so that positional return values can be automatically mapped into
+    positional arguments to the next function in the chain, and named
+    return values into named arguments.
+
+    Accordingly, various parts of `unpythonic` that deal with function
+    composition use the `Values` abstraction; particularly `curry`, and
+    the `compose` and `pipe` families.
+
+    **Behavior**:
+
+    `Values` is a duck-type with some features of both sequences and mappings,
+    but not the full `collections.abc` API of either.
+
+    Each operation that obviously and without ambiguity makes sense only
+    for the positional or named part, accesses that part.
+
+    The only exception is `__getitem__` (subscripting), which makes sense
+    for both parts, unambiguously, because the key types differ. If the index
+    expression is an `int` or a `slice`, it is an index/slice for the
+    positional part. If it is an `str`, it is a key for the named part.
+
+    If you need to explicitly access either part (and its full API),
+    use the `rets` and `kwrets` attributes. The names are in analogy
+    with `args` and `kwargs`.
+
+    `rets` is a `tuple`, and `kwrets` is a `frozendict`.
+
+    `Values` objects can be compared for equality. Two `Values` objects
+    are equal if both their `rets` and `kwrets` (respectively) are.
+
+    Examples::
+
+        def f():
+            return Values(1, 2, 3)
+        result = f()
+        assert isinstance(result, Values)
+        assert result.rets == (1, 2, 3)
+        assert not result.kwrets
+        assert result[0] == 1
+        assert result[:-1] == (1, 2)
+        a, b, c = result  # if no kwrets, can be unpacked like a tuple
+        a, b, c = f()
+
+        def g():
+            return Values(x=3)  # named return value
+        result = g()
+        assert isinstance(result, Values)
+        assert not result.rets
+        assert result.kwrets == {"x": 3}  # actually a `frozendict`
+        assert "x" in result  # `in` looks in the named part
+        assert result["x"] == 3
+        assert result.get("x", None) == 3
+        assert result.get("y", None) == None
+        assert tuple(results.keys()) == ("x",)  # also `values()`, `items()`
+
+        def h():
+            return Values(1, 2, x=3)
+        result = h()
+        assert isinstance(result, Values)
+        assert result.rets == (1, 2)
+        assert result.kwrets == {"x": 3}
+        a, b = result.rets  # positionals can always be unpacked explicitly
+        assert result[0] == 1
+        assert "x" in result
+        assert result["x"] == 3
+
+        def silly_but_legal():
+            return Values(42)
+        result = silly_but_legal()
+        assert result.rets[0] == 42
+        assert result.ret == 42  # shorthand for single-value case
+
+    The last example is silly, but legal, because it is preferable to just omit
+    the `Values` if it is known that there is only one return value. (This also
+    applies when that value is a `tuple`, when the intent is to return it as a
+    single `tuple`, in contexts where this distinction matters.)
+    """
+    def __init__(self, *rets, **kwrets):
+        """Create a `Values` object.
+
+        `rets`: positional return values
+        `kwrets`: named return values
+        """
+        self.rets = rets
+        self.kwrets = frozendict(kwrets)
+
+    # Shorthand for one-value case
+    def _ret(self):
+        return self.rets[0]
+    ret = property(fget=_ret, doc="Shorthand for `self.rets[0]`. Read-only.")
+
+    # Iterable
+    def __iter__(self):
+        """Values is iterable when there are no `kwrets`; this then iterates over `rets`.
+
+        This is meant to minimize impact on existing code that receives a `tuple`
+        as a pythonic multiple-return-values idiom. Changing the `return` to
+        return a `Values` instead requires no changes at the receiving end
+        (unless you change the sending end to return some named values;
+        if you do, then it *should* yell, to avoid silently discarding
+        those named values).
+
+        Note that you can iterate over `rets` or `kwrets` to explicitly state
+        which you mean; that always works.
+        """
+        if self.kwrets:
+            raise ValueError(f"Named values present, cannot iterate over all values. Got: {self.kwrets}")
+        return iter(self.rets)
+
+    # Sequence (no full support: no `__len__`, `__reversed__`, `index`, `count`)
+    def __getitem__(self, idx):
+        """Subscripting.
+
+        Indexing by an `int` or `slice` indexes the positional part.
+        Indexing by an `str` indexes the named part.
+
+        Indexing by any other type raises `TypeError`.
+        """
+        # multi-headed hydra
+        if isinstance(idx, (int, slice)):
+            return self.rets[idx]
+        elif isinstance(idx, str):
+            return self.kwrets[idx]
+        raise TypeError(f"Expected either int, slice or str subscript, got {type(idx)} with value {repr(idx)}")
+
+    # Container
+    def __contains__(self, k):
+        """The `in` operator, looks in the named part."""
+        return k in self.kwrets
+
+    # Mapping (no full support: no `__len__`)
+    def items(self):
+        """Items of the named part."""
+        return self.kwrets.items()
+    def keys(self):
+        """Keys of the named part."""
+        return self.kwrets.keys()
+    def values(self):
+        """Values of the named part."""
+        return self.kwrets.values()
+    def get(self, k, default=None):
+        """Dict-like `get` for the named part."""
+        return self[k] if k in self else default
+
+    # comparison
+    def __eq__(self, other):
+        """Equality comparison.
+
+        Two `Values` objects are equal if both their `rets` and `kwrets`
+        (respectively) are.
+        """
+        if not isinstance(other, Values):
+            return False
+        return other.rets == self.rets and other.kwrets == self.kwrets
+    def __ne__(self, other):
+        """Inequality comparison."""
+        return not (self == other)
+
+    # no `__len__`, because we have two candidates
+
+    # pretty-printing
+    def __repr__(self):  # pragma: no cover
+        """Pretty-printing. Eval-able if the contents are."""
+        rets_list = [repr(x) for x in self.rets]
+        rets_str = ", ".join(rets_list)
+        kwrets_list = [f"{name}={repr(value)}" for name, value in self.kwrets.items()]
+        kwrets_str = ", ".join(kwrets_list)
+        sep = ", " if self.rets and self.kwrets else ""
+        return f"Values({rets_str}{sep}{kwrets_str})"
+
+@register_decorator(priority=30)
+def valuify(f):
+    """Decorator. If `f` returns `tuple` (exactly, no subclass), convert into `Values`, else pass through."""
+    @wraps(f)
+    def valuified(*args, **kwargs):
+        result = f(*args, **kwargs)
+        if type(result) is tuple:  # yes, exactly tuple
+            result = Values(*result)
+        return result
+    return valuified

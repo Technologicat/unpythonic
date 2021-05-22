@@ -8,10 +8,13 @@ __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
            "do", "do0", "assign"]
 
 from collections import namedtuple
+
+from .arity import arity_includes, UnknownArity
+from .collections import Values
+from .dynassign import dyn
 from .env import env
 from .fun import curry, iscurried
-from .dynassign import dyn
-from .arity import arity_includes, UnknownArity
+from .lazyutil import force1, force, maybe_force_args, passthrough_lazy_args
 from .symbol import sym
 
 # sequence side effects in a lambda
@@ -23,6 +26,10 @@ def begin(*vals):
         f = lambda x: begin(print("hi"),
                             42*x)
         print(f(1))  # 42
+
+    **CAUTION**: For regular code only. If you use macros, prefer `do[]`;
+    the macro layer of `unpythonic` recognizes only the `do` constructs
+    as a sequencing abstraction.
     """
     return vals[-1] if len(vals) else None
 
@@ -34,6 +41,10 @@ def begin0(*vals):  # eager, bodys already evaluated when this is called
         g = lambda x: begin0(23*x,
                              print("hi"))
         print(g(1))  # 23
+
+    **CAUTION**: For regular code only. If you use macros, prefer `do0[]`;
+    the macro layer of `unpythonic` recognizes only the `do` constructs
+    as a sequencing abstraction.
     """
     return vals[0] if len(vals) else None
 
@@ -46,6 +57,10 @@ def lazy_begin(*bodys):
         f = lambda x: lazy_begin(lambda: print("hi"),
                                  lambda: 42*x)
         print(f(1))  # 42
+
+    **CAUTION**: For regular code only. If you use macros, prefer `do[]`;
+    the macro layer of `unpythonic` recognizes only the `do` constructs
+    as a sequencing abstraction.
     """
     n = len(bodys)
     if not n:
@@ -67,6 +82,10 @@ def lazy_begin0(*bodys):
         g = lambda x: lazy_begin0(lambda: 23*x,
                                   lambda: print("hi"))
         print(g(1))  # 23
+
+    **CAUTION**: For regular code only. If you use macros, prefer `do0[]`;
+    the macro layer of `unpythonic` recognizes only the `do` constructs
+    as a sequencing abstraction.
     """
     n = len(bodys)
     if not n:
@@ -80,7 +99,15 @@ def lazy_begin0(*bodys):
         body()
     return out
 
+# TODO: check use of maybe_force_args and force1 in all function composition utilities
+# TODO: finish the Values upgrade (grep: "multiple return values", "isinstance tuple")
+# TODO: test the new lazify support in piping constructs
+# TODO: test multiple-return-values support in all function composition utilities
+# TODO: expand tests of `continuations` to cases with named return values
+# TODO: update code examples
+
 # sequence one-input, one-output functions
+@passthrough_lazy_args
 def pipe1(value0, *bodys):
     """Perform a sequence of operations on an initial value.
 
@@ -140,11 +167,14 @@ def pipe1(value0, *bodys):
     # return x
     x = value0
     for update in bodys:
-        x = update(x)
+        update = force1(update)
+        x = maybe_force_args(update, x)
     return x
 
+# Singleton value for exiting the pipe abstraction.
 exitpipe = sym("exitpipe")
 
+@passthrough_lazy_args
 class piped1:
     """Shell-like piping syntax.
 
@@ -172,13 +202,15 @@ class piped1:
             assert y | inc | exitpipe == 85
             assert y | exitpipe == 84  # y is not modified
         """
+        f = force1(f)
         if f is exitpipe:
             return self._x
         cls = self.__class__
-        return cls(f(self._x))  # functional update
+        return cls(maybe_force_args(f, self._x))  # functional update
     def __repr__(self):  # pragma: no cover
         return f"<piped1 at 0x{id(self):x}; value {self._x}>"
 
+@passthrough_lazy_args
 class lazy_piped1:
     """Like piped, but apply the functions later.
 
@@ -201,7 +233,7 @@ class lazy_piped1:
         The ``_funcs`` parameter is for internal use.
         """
         self._x = x
-        self._funcs = _funcs or ()
+        self._funcs = force(_funcs or ())
     def __or__(self, f):
         """Pipe the value into f; but just plan to do so, don't perform it yet.
 
@@ -230,45 +262,55 @@ class lazy_piped1:
             p | exitpipe
             print(fibos)
         """
+        f = force1(f)
         if f is exitpipe:  # compute now
             v = self._x
             for g in self._funcs:
-                v = g(v)
+                v = force1(v)
+                v = maybe_force_args(g, v)
             return v
         # just pass on the reference to the original x.
         cls = self.__class__
-        return cls(x=self._x, _funcs=self._funcs + (f,))
+        return cls(x=self._x, _funcs=self._funcs + (force1(f),))
     def __repr__(self):  # pragma: no cover
         return f"<lazy_piped1 at 0x{id(self):x}; initial value now {self._x}, functions {self._funcs}>"
 
+@passthrough_lazy_args
 def pipe(values0, *bodys):
     """Like pipe1, but with arbitrary number of inputs/outputs at each step.
 
-    The only restriction is that each function must take as many positional
-    arguments as the previous one returns.
+    The only restriction is that the call and return signatures must match:
+    each function must take those positional/named arguments the previous one
+    returns.
 
-    At each step, if the output from a function is a tuple,
-    it is unpacked to the argument list of the next function. Otherwise,
-    we assume the output is intended to be fed to the next function as-is.
+    At each step, if the output from a function is a `Values`, it is unpacked
+    to the args and kwargs of the next function. Otherwise, we feed the output
+    to the next function as a single positional argument.
+
+    At the beginning of the pipe, `values0` is treated the same way; so to
+    feed multiple args/kwargs to the first function, use a `Values`.
+
+    If the final return value is a `Values`, and contains only one positional
+    return value, we unwrap it. Otherwise the `Values` object is returned as-is.
 
     If you only need a one-in-one-out chain, ``pipe1`` is faster.
 
     Examples::
 
-        a, b = pipe((2, 3),
-                    lambda x, y: (x + 1, 2 * y),
-                    lambda x, y: (x * 2, y + 1))
+        a, b = pipe(Values(2, 3),
+                    lambda x, y: Values(x + 1, 2 * y),
+                    lambda x, y: Values(x * 2, y + 1))
         assert (a, b) == (6, 7)
 
-        a, b, c = pipe((2, 3),
-                       lambda x, y: (x + 1, 2 * y, "foo"),
-                       lambda x, y, s: (x * 2, y + 1, f"got {s}"))
+        a, b, c = pipe(Values(2, 3),
+                       lambda x, y: Values(x + 1, 2 * y, "foo"),
+                       lambda x, y, s: Values(x * 2, y + 1, f"got {s}"))
         assert (a, b, c) == (6, 7, "got foo")
 
-        a, b = pipe((2, 3),
-                    lambda x, y: (x + 1, 2 * y, "foo"),
-                    lambda x, y, s: (x * 2, y + 1, f"got {s}"),
-                    lambda x, y, s: (x + y, s))
+        a, b = pipe(Values(2, 3),
+                    lambda x, y: Values(x + 1, 2 * y, "foo"),
+                    lambda x, y, s: Values(x * 2, y + 1, f"got {s}"),
+                    lambda x, y, s: Values(x + y, s))
         assert (a, b) == (13, "got foo")
     """
     xs = values0
@@ -276,105 +318,131 @@ def pipe(values0, *bodys):
     for k, update in enumerate(bodys):
         islast = (k == n - 1)
         bindings = {}
+        update = force1(update)
         if iscurried(update) and not islast:
             # co-operate with curry: provide a top-level curry context
             # to allow passthrough from a pipelined function to the next
             # (except the last one, since it exits the curry context).
             bindings = {"curry_context": dyn.curry_context + [update]}
         with dyn.let(**bindings):
-            if isinstance(xs, tuple):
-                xs = update(*xs)
+            xs = force1(xs)
+            if isinstance(xs, Values):
+                xs = maybe_force_args(update, *xs.rets, **xs.kwrets)
             else:
-                xs = update(xs)
-    if isinstance(xs, tuple):
-        return xs if len(xs) > 1 else xs[0]
+                xs = maybe_force_args(update, xs)
+    xs = force1(xs)
+    if isinstance(xs, Values):
+        return xs if xs.kwrets or len(xs.rets) > 1 else xs[0]
     return xs
 
+@passthrough_lazy_args
 def pipec(values0, *bodys):
     """Like pipe, but curry each function before piping.
 
     Useful with the passthrough in ``curry``. Each function only needs to
     declare as many of the (leftmost) arguments as it needs to access or modify::
 
-        a, b = pipec((1, 2),
-                     lambda x: x + 1,  # extra args passed through on the right
-                     lambda x, y: (x * 2, y + 1))
+        a, b = pipec(Values(1, 2),
+                     # extra values passed through by curry, positionals on the right
+                     lambda x: x + 1,
+                     lambda x, y: Values(x * 2, y + 1))
         assert (a, b) == (4, 3)
     """
     return pipe(values0, *map(curry, bodys))
 
+@passthrough_lazy_args
 class piped:
     """Like piped1, but for any number of inputs/outputs at each step."""
-    def __init__(self, *xs):
-        """Set up a pipe and load the initial values xs into it."""
-        self._xs = xs
+    def __init__(self, *xs, **kws):
+        """Set up a pipe and load the initial values xs and kws into it.
+
+        The inputs are automatically packed into a `Values`.
+        """
+        self._xs = Values(*xs, **kws)
     def __or__(self, f):
         """Pipe the values through the function f.
 
         Example::
 
-            f = lambda x, y: (2*x, y+1)
-            g = lambda x, y: (x+1, 2*y)
-            x = piped(2, 3) | f | g | exitpipe  # --> (5, 8)
+            f = lambda x, y: Values(2*x, y+1)
+            g = lambda x, y: Values(x+1, 2*y)
+            x = piped(2, 3) | f | g | exitpipe  # --> Values(5, 8)
+
+        If the final return value is a `Values`, and contains only one positional
+        return value, we unwrap it. Otherwise the `Values` object is returned as-is.
         """
+        f = force1(f)
         xs = self._xs
+        assert isinstance(xs, Values)  # __init__ ensures this
         if f is exitpipe:
-            return xs if len(xs) > 1 else xs[0]
+            return xs if xs.kwrets or len(xs.rets) > 1 else xs[0]
         cls = self.__class__
-        assert isinstance(xs, tuple)  # __init__ ensures this
-        newxs = f(*xs)
-        if isinstance(newxs, tuple):
-            return cls(*newxs)
+        newxs = maybe_force_args(f, *xs.rets, **xs.kwrets)
+        newxs = force1(newxs)
+        if isinstance(newxs, Values):
+            return cls(*newxs.rets, **newxs.kwrets)
         return cls(newxs)
     def __repr__(self):  # pragma: no cover
         return f"<piped at 0x{id(self):x}; values {self._xs}>"
 
+@passthrough_lazy_args
 class lazy_piped:
     """Like lazy_piped1, but for any number of inputs/outputs at each step.
 
     Examples::
 
         p1 = lazy_piped(2, 3)
-        p2 = p1 | (lambda x, y: (x + 1, 2 * y, "foo"))
-        p3 = p2 | (lambda x, y, s: (x * 2, y + 1, f"got {s}"))
-        p4 = p3 | (lambda x, y, s: (x + y, s))
+        p2 = p1 | (lambda x, y: Values(x + 1, 2 * y, "foo"))
+        p3 = p2 | (lambda x, y, s: Values(x * 2, y + 1, f"got {s}"))
+        p4 = p3 | (lambda x, y, s: Values(x + y, s))
         # nothing done yet!
-        assert (p4 | exitpipe) == (13, "got foo")
+        assert (p4 | exitpipe) == Values(13, "got foo")
 
         # lazy pipe as an unfold
         fibos = []
         def nextfibo(a, b):    # now two arguments
             fibos.append(a)
-            return (b, a + b)  # two return values, still expressed as a tuple
+            return Values(a=b, b=(a + b))  # can return by name too
         p = lazy_piped(1, 1)
         for _ in range(10):
             p = p | nextfibo
-        p | exitpipe
-        print(fibos)
+        assert p | exitpipe == Values(a=89, b=144)  # final state
+        assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
     """
-    def __init__(self, *xs, _funcs=None):
-        """Set up a lazy pipe and load the initial values xs into it.
+    def __init__(self, *xs, _funcs=None, **kws):
+        """Set up a lazy pipe and load the initial values xs and kws into it.
+
+        The inputs are automatically packed into a `Values`.
 
         The ``_funcs`` parameter is for internal use.
         """
-        self._xs = xs
-        self._funcs = _funcs or ()
+        self._xs = Values(*xs, **kws)
+        self._funcs = force(_funcs or ())
     def __or__(self, f):
-        """Pipe the values into f; but just plan to do so, don't perform it yet."""
+        """Pipe the values into f; but just plan to do so, don't perform it yet.
+
+        When f is `exitpipe`, perform the planned computation.
+
+        If the final return value is a `Values`, and contains only one positional
+        return value, we unwrap it. Otherwise the `Values` object is returned as-is.
+        """
+        f = force1(f)
         if f is exitpipe:  # compute now
             vs = self._xs
             for g in self._funcs:
-                if isinstance(vs, tuple):
-                    vs = g(*vs)
+                vs = force1(vs)
+                if isinstance(vs, Values):
+                    vs = g(*vs.rets, **vs.kwrets)
                 else:
                     vs = g(vs)
-            if isinstance(vs, tuple):
-                return vs if len(vs) > 1 else vs[0]
+            vs = force1(vs)
+            if isinstance(vs, Values):
+                return vs if vs.kwrets or len(vs.rets) > 1 else vs[0]
             else:
                 return vs
         # just pass on the references to the original xs.
         cls = self.__class__
-        return cls(*self._xs, _funcs=self._funcs + (f,))
+        return cls(*self._xs.rets, _funcs=self._funcs + (force1(f),), **self._xs.kwrets)
     def __repr__(self):  # pragma: no cover
         return f"<lazy_piped at 0x{id(self):x}; initial values now {self._xs}, functions {self._funcs}>"
 

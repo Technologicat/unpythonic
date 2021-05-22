@@ -3,6 +3,7 @@
 from ..syntax import macros, test, test_raises, fail  # noqa: F401
 from ..test.fixtures import session, testset
 
+from ..collections import Values
 from ..seq import (begin, begin0, lazy_begin, lazy_begin0,
                    pipe1, pipe, pipec,
                    piped1, piped, exitpipe,
@@ -43,32 +44,45 @@ def runtests():
         test[pipe(42, inc, double) == 86]
 
         # 2-in-2-out
-        a, b = pipe((2, 3),
-                    lambda x, y: (x + 1, 2 * y),
-                    lambda x, y: (x * 2, y + 1))
+        a, b = pipe(Values(2, 3),
+                    lambda x, y: Values(x + 1, 2 * y),
+                    lambda x, y: Values(x * 2, y + 1))
         test[(a, b) == (6, 7)]
 
+        # 2-in-2-out, pass intermediate result by name
+        a, b = pipe(Values(2, 3),
+                    lambda x, y: Values(x=(x + 1), y=(2 * y)),
+                    lambda x, y: Values(x * 2, y + 1))
+        test[(a, b) == (6, 7)]
+
+        # 2-in-2-out, also return final result by name
+        v = pipe(Values(2, 3),
+                 lambda x, y: Values(x=(x + 1), y=(2 * y)),
+                 lambda x, y: Values(a=(x * 2), b=(y + 1)))
+        test[v == Values(a=6, b=7)]
+        test[v["a"] == 6 and v["b"] == 7]  # can access them via subscripting too
+
         # 2-in-eventually-3-out
-        a, b, c = pipe((2, 3),
-                       lambda x, y: (x + 1, 2 * y, "foo"),
-                       lambda x, y, z: (x * 2, y + 1, f"got {z}"))
+        a, b, c = pipe(Values(2, 3),
+                       lambda x, y: Values(x + 1, 2 * y, "foo"),
+                       lambda x, y, z: Values(x * 2, y + 1, f"got {z}"))
         test[(a, b, c) == (6, 7, "got foo")]
 
         # 2-in-3-in-between-2-out
-        a, b = pipe((2, 3),
-                    lambda x, y: (x + 1, 2 * y, "foo"),
-                    lambda x, y, s: (x * 2, y + 1, f"got {s}"),
-                    lambda x, y, s: (x + y, s))
+        a, b = pipe(Values(2, 3),
+                    lambda x, y: Values(x + 1, 2 * y, "foo"),
+                    lambda x, y, s: Values(x * 2, y + 1, f"got {s}"),
+                    lambda x, y, s: Values(x + y, s))
         test[(a, b) == (13, "got foo")]
 
         # pipec: curry the functions before running the pipeline
-        a, b = pipec((1, 2),
-                     lambda x: x + 1,  # extra args passed through on the right
-                     lambda x, y: (x * 2, y + 1))
+        a, b = pipec(Values(1, 2),
+                     lambda x: x + 1,  # extra values passed through by curry (positionals on the right)
+                     lambda x, y: Values(x * 2, y + 1))
         test[(a, b) == (4, 3)]
 
         with test_raises[TypeError, "should error when the curry context exits with args remaining"]:
-            a, b = pipec((1, 2),
+            a, b = pipec(Values(1, 2),
                          lambda x: x + 1,
                          lambda x: x * 2)
 
@@ -80,10 +94,10 @@ def runtests():
         test[y | exitpipe == 84]  # y is never modified by the pipe system
 
         # multi-arg version
-        f = lambda x, y: (2 * x, y + 1)
-        g = lambda x, y: (x + 1, 2 * y)
+        f = lambda x, y: Values(2 * x, y + 1)
+        g = lambda x, y: Values(x + 1, 2 * y)
         x = piped(2, 3) | f | g | exitpipe  # --> (5, 8)
-        test[x == (5, 8)]
+        test[x == Values(5, 8)]
 
         # abuse multi-arg version for single-arg case
         test[piped(42) | double | inc | exitpipe == 85]
@@ -91,9 +105,9 @@ def runtests():
     with testset("lazy pipe (plan computations)"):
         # lazy pipe: compute later
         lst = [1]
-        def append_succ(l):
-            l.append(l[-1] + 1)
-            return l  # important, handed to the next function in the pipe
+        def append_succ(lis):
+            lis.append(lis[-1] + 1)
+            return lis  # important, handed to the next function in the pipe
         p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
         test[lst == [1]]        # nothing done yet
         p | exitpipe              # run the computation
@@ -113,24 +127,24 @@ def runtests():
 
         # multi-arg lazy pipe
         p1 = lazy_piped(2, 3)
-        p2 = p1 | (lambda x, y: (x + 1, 2 * y, "foo"))
-        p3 = p2 | (lambda x, y, s: (x * 2, y + 1, f"got {s}"))
-        p4 = p3 | (lambda x, y, s: (x + y, s))
+        p2 = p1 | (lambda x, y: Values(x + 1, 2 * y, "foo"))
+        p3 = p2 | (lambda x, y, s: Values(x * 2, y + 1, f"got {s}"))
+        p4 = p3 | (lambda x, y, s: Values(x + y, s))
         # nothing done yet, and all computations purely functional:
-        test[(p1 | exitpipe) == (2, 3)]
-        test[(p2 | exitpipe) == (3, 6, "foo")]      # runs the chain up to p2
-        test[(p3 | exitpipe) == (6, 7, "got foo")]  # runs the chain up to p3
-        test[(p4 | exitpipe) == (13, "got foo")]
+        test[(p1 | exitpipe) == Values(2, 3)]
+        test[(p2 | exitpipe) == Values(3, 6, "foo")]      # runs the chain up to p2
+        test[(p3 | exitpipe) == Values(6, 7, "got foo")]  # runs the chain up to p3
+        test[(p4 | exitpipe) == Values(13, "got foo")]
 
         # multi-arg lazy pipe as an unfold
         fibos = []
         def nextfibo(a, b):    # now two arguments
             fibos.append(a)
-            return (b, a + b)  # two return values, still expressed as a tuple
+            return Values(a=b, b=(a + b))  # can return by name too
         p = lazy_piped(1, 1)
         for _ in range(10):
             p = p | nextfibo
-        p | exitpipe
+        test[p | exitpipe == Values(a=89, b=144)]  # final state
         test[fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]]
 
         # abuse multi-arg version for single-arg case

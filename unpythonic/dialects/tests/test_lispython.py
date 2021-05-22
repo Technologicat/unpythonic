@@ -125,7 +125,7 @@ def runtests():
             def setk(*args, cc):
                 nonlocal k
                 k = cc  # current continuation, i.e. where to go after setk() finishes
-                args  # tuple means multiple-return-values
+                Values(*args)  # multiple-return-values  # noqa: F821, Lispython imports Values by default.
             def doit():
                 lst = ['the call returned']
                 *more, = call_cc[setk('A')]

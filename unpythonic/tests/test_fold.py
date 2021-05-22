@@ -93,9 +93,11 @@ def runtests():
         doubler = mymap_one4(double)
         test[doubler(ll(1, 2, 3)) == ll(2, 4, 6)]
 
-        # curry supports passing through on the right any args over the max arity.
-        # If an intermediate result is a callable, it is invoked on the remaining
-        # positional args:
+        # curry supports passthrough for any args/kwargs that can't be accepted by
+        # the function's call signature (too many positionals or unknown named args).
+        # Positionals are passed through on the right.
+        # If the first positional return value of an intermediate result is a callable,
+        # it is curried, and invoked on the remaining args/kwargs:
         test[curry(mymap_one4, double, ll(1, 2, 3)) == ll(2, 4, 6)]
 
         # But having any args remaining when the top-level curry context exits
@@ -118,7 +120,7 @@ def runtests():
         #
         # The iterables are taken by the processing function. acc, being the last
         # argument, is passed through on the right. The output from the processing
-        # function - one new item - and acc then become a two-tuple, which gets
+        # function - one new item - and acc then become two arguments, which get
         # passed into cons.
         myadd = lambda x, y: x + y  # can't inspect signature of builtin add
         test[curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)]

@@ -998,15 +998,17 @@ Things missing from the standard library.
    - **Changed in v0.15.0.** `curry` supports both positional and named arguments, and binds arguments to function parameters like Python itself does. The call triggers when all parameters are bound, regardless of whether they were passed by position or by name, and at which step of the currying process they were passed.
    - **Changed in v0.15.0.** `unpythonic`'s multiple-dispatch system (`@generic`, `@typed`) is supported. `curry` looks for an exact match first, then a match with extra args/kwargs, and finally a partial match. If there is still no match, this implies that at least one parameter would get a binding that fails the type check. In such a case `TypeError` regarding failed multiple dispatch is raised.
    - **Changed in v0.15.0.** If the function being curried is `@generic` or `@typed`, or has type annotations on its parameters, the parameters being passed in are type-checked. A type mismatch immediately raises `TypeError`. This helps support [fail-fast](https://en.wikipedia.org/wiki/Fail-fast) in code using `curry`.
-   - Passthrough when too many args (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket). Positional args are passed through **on the right**.
-     - If the intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining args and kwargs. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
-     - If more positional args are still remaining when the top-level curry context exits, by default ``TypeError`` is raised.
+   - Passthrough for args/kwargs that are incompatible with the target function's call signature (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket).
+     - Here *incompatible* means too many positional args, or named args that have no corresponding parameter. (Note that if the function has a `**kwargs` parameter, then all named args are considered compatible, because it absorbs anything.)
+     - Multiple return values (both positional and named) are denoted using `Values` (which see). A standard return value is considered to consist of one positional return value only.
+     - Positional args are passed through **on the right**. Any positional return values of the curried function are prepended, on the left.
+     - If the first positional return value of an intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining args and kwargs, after merging the rest of the return values into the args and kwargs. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
+     - If more args/kwargs are still remaining when the top-level curry context exits, by default ``TypeError`` is raised.
      - To override, set the dynvar ``curry_context``. It is a list representing the stack of currently active curry contexts. A context is any object, a human-readable label is fine. See below for an example.
        - To set the dynvar, `from unpythonic import dyn`, and then `with dyn.let(curry_context=...):`.
-     - Even with the upgrades in v0.15.0, passing through *named* args to an outer curry context is not supported. This may or may not change in the future; fixing this requires support for named return values. See issue [#32](https://github.com/Technologicat/unpythonic/issues/32).
    - Can be used both as a decorator and as a regular function.
      - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
-   - **Caution**: If the signature of ``f`` cannot be inspected, currying fails, raising ``ValueError``, like ``inspect.signature`` does. This may happen with builtins such as ``list.append``, ``operator.add``, ``print`` or ``range``.
+   - **Caution**: If the signature of ``f`` cannot be inspected, currying fails, raising ``ValueError``, like ``inspect.signature`` does. This may happen with builtins such as ``list.append``, ``operator.add``, ``print``, or ``range``, depending on which version of Python you have (and whether CPython or PyPy3).
  - **Added in v0.15.0.** `partial` with run-time type checking, which helps a lot with fail-fast in code that uses partial application. This function type-checks arguments against type annotations, then delegates to `functools.partial`. Supports `unpythonic`'s `@generic` and `@typed` functions, too.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - Any number of positional arguments is supported, with the same rules as in the pipe system. Multiple return values packed into a tuple are unpacked to the argument list of the next function in the chain.
@@ -1090,7 +1092,7 @@ assert myzipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
 assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((2, 5, 8), (1, 4, 7))  # zip first
 assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))  # reverse first
 
-# curry with passthrough on the right
+# curry with passthrough (positionals passed through on the right)
 # final result is a tuple of the result(s) and the leftover args
 double = lambda x: 2 * x
 with dyn.let(curry_context=["whatever"]):  # set a context to allow passthrough to the top level
@@ -1134,7 +1136,7 @@ Yet another way to write ``map_one`` is:
 mymap = lambda f: curry(foldr, composer(cons, curry(f)), nil)
 ```
 
-The curried ``f`` uses up one argument (provided it is a one-argument function!), and the second argument is passed through on the right; this two-tuple then ends up as the arguments to ``cons``.
+The curried ``f`` uses up one argument (provided it is a one-argument function!), and the second argument is passed through on the right; these two values then end up as the arguments to ``cons``.
 
 Using a currying compose function (name suffixed with ``c``), the inner curry can be dropped:
 
@@ -1146,9 +1148,11 @@ assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 
 This is as close to ```(define (map f) (foldr (compose cons f) empty)``` (in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy)) as we're gonna get in Python.
 
-Notice how the last two versions accept multiple input iterables; this is thanks to currying ``f`` inside the composition. An element from each of the iterables is taken by the processing function ``f``. Being the last argument, ``acc`` is passed through on the right. The output from the processing function - one new item - and ``acc`` then become a two-tuple, passed into cons.
+Notice how the last two versions accept multiple input iterables; this is thanks to currying ``f`` inside the composition. An element from each of the iterables is taken by the processing function ``f``. Being the last argument, ``acc`` is passed through on the right. The output from the processing function - one new item - and ``acc`` then become two arguments, passed into cons.
 
-Finally, keep in mind this exercise is intended as a feature demonstration. In production code, the builtin ``map`` is much better.
+Finally, keep in mind this exercise is intended as a feature demonstration. In production code, the builtin ``map`` is much better. It produces a lazy iterable, and does not care which kind of actual data structure the items will be stored in (once computed).
+
+The example we have here evaluates all items immediately, and specifically produces a linked list. It's just a nice example of function composition involving incompatible arities, thus demonstrating the kind of situation where the passthrough feature of `curry` is useful. It is taken from a paper by [John Hughes (1984)](https://www.cse.chalmers.se/~rjmh/Papers/whyfp.html).
 
 
 #### ``curry`` and reduction rules
@@ -1172,7 +1176,7 @@ it means the following. Let ``m1`` and ``m2`` be the minimum and maximum positio
  - If ``n < m1``, partially apply ``f`` to the given arguments, yielding a new function with smaller ``m1``, ``m2``. Then curry the result and return it.
    - Internally we stack ``functools.partial`` applications, but there will be only one ``curried`` wrapper no matter how many invocations are used to build up arguments before ``f`` eventually gets called.
 
-As of v0.15.0, the actual algorithm by which `curry` decides what to do, in the presence of kwargs and `@generic` functions, is:
+As of v0.15.0, the actual algorithm by which `curry` decides what to do, in the presence of kwargs, `@generic` functions, and `Values` multiple-return-values, is:
 
  - If `f` is **not** `@generic` or `@typed`:
    - Compute parameter bindings of the args and kwargs collected so far, against the call signature of `f`.
@@ -1180,7 +1184,12 @@ As of v0.15.0, the actual algorithm by which `curry` decides what to do, in the 
    - If there are no unbound parameters, and no args/kwargs are left over, we have an exact match. Call `f` and return its result, like a normal function call.
      - Any sequence of curried calls that ends up binding all parameters of `f` triggers the call.
      - As before, beware when working with variadic functions. Particularly, keep in mind that `*args` matches **zero or more** positional arguments (as the [Kleene star](https://en.wikipedia.org/wiki/Kleene_star)-ish notation indeed suggests).
-   - If there are no unbound parameters, but there are args/kwargs left over, arrange passthrough for the leftover args/kwargs (that were rejected by the call signature of `f`), and call `f`. If the result is a callable, curry it, and recurse. Else form a tuple... (as above).
+   - If there are no unbound parameters, but there are args/kwargs left over, arrange passthrough for the leftover args/kwargs (that were rejected by the call signature of `f`), and call `f`. Any leftover positional arguments are passed through **on the right**.
+     - Merge the return value of `f` with the leftover args/kwargs, thus forming updated leftover args/kwargs.
+       - If the return value of `f` is a `Values`: prepend positional return values into the leftover args (i.e. insert them **on the left**), and update the leftover kwargs with the named return values. (I.e. a key name conflict causes an overwrite in the leftover kwargs.)
+       - Else: there is just one positional return value. Prepend it to the leftover args.
+     - If the first positional return value is a callable: remove it from the leftover args, curry it, and recurse with the (updated) leftover args/kwargs.
+     - Else: form a `Values` from the leftover args/kwargs, and return it. (This return goes to the next outer curry context, or at the top level, to the original caller.)
    - If neither of the above match, we know there is at least one unbound parameter, i.e. we have a partial match. Keep currying.
  - If `f` is `@generic` or `@typed`:
    - Iterate over multimethods registered on `f`, **up to three times**.

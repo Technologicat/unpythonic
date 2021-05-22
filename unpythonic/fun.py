@@ -282,6 +282,8 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
     return named outputs. See:
         https://github.com/Technologicat/unpythonic/issues/32
     """
+    from .collections import Values  # circular import
+
     f = force(f)  # lazify support: we need the value of f
     # trivial case first: interaction with call_ec and other replace-def-with-value decorators
     if not callable(f):
@@ -449,22 +451,66 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                 now_kwargs = {k: v for k, v in kwargs.items() if k not in later_kwargs}
 
                 now_result = maybe_force_args(f, *now_args, **now_kwargs)
-                now_result = force(now_result) if not isinstance(now_result, tuple) else force1(now_result)
-                if callable(now_result):
-                    # Curry it now, to sustain the chain in case we have too many (or too few) args for it.
-                    if not iscurried(now_result):
-                        now_result = curry(now_result)
-                    return now_result(*later_args, **later_kwargs)
-                # TODO: To handle later_kwargs here, we need named return values. See issue #32.
-                #   https://github.com/Technologicat/unpythonic/issues/32
-                if later_kwargs:
-                    raise NotImplementedError(f"Passing through named arguments to an outer curry context not implemented; got {later_kwargs}")
+                now_result = force1(now_result)  # just in case it's a `Lazy`
+
+                # Inspect the return value(s).
+                #  - Inject the appropriate items to `later_args` and `later_kwargs`.
+                if isinstance(now_result, Values):  # multiple-return-values
+                    if now_result.rets:
+                        # `leftmost`, not `first`, for unambiguous stack traces.
+                        leftmost, *others = now_result.rets
+                        leftmost = force1(leftmost)
+
+                        # Extra positional arguments (`later_args`) are passed through *on the right*.
+                        # Hence any further positional return values are inserted before them.
+                        if callable(leftmost):
+                            # If the leftmost return value is a callable, omit it from `later_args`,
+                            # since we will call it.
+                            later_args = tuple(others) + later_args
+                        else:
+                            later_args = (leftmost,) + tuple(others) + later_args
+                    else:
+                        # No positional return values; no changes to `later_args`.
+                        leftmost = None
+
+                    # In case of name conflicts, named return values override earlier extra named arguments.
+                    # (This follows the execution order: arguments were passed in, then the function ran.)
+                    # TODO: This way, or allow named arguments to override a named return value?
+                    # TODO: Which choice is more useful practically or mathematically?
+                    if now_result.kwrets:
+                        later_kwargs = {**later_kwargs, **now_result.kwrets}
+                else:
+                    # The only return value is also the leftmost one.
+                    leftmost = force1(now_result)
+                    if callable(leftmost):
+                        pass
+                    else:
+                        later_args = (leftmost,) + later_args
+
+                # If the first positional return value is a callable, curry it and recurse.
+                # Currying sustains the chain in case the next action is `_call_with_passthrough`
+                # or `_keep_currying`.
+                if callable(leftmost):
+                    if not iscurried(leftmost):
+                        leftmost = curry(leftmost)
+                    return leftmost(*later_args, **later_kwargs)
+
+                # The first positional return value is not a callable. Pass the return value(s) through
+                # to the curried procedure waiting in outerctx (e.g. in a curried compose chain).
+                #
+                # If there is no outer curry context (i.e. we are the top-level curry context),
+                # by default it is an error to have any args/kwargs left over, to avoid common
+                # human error. (To explicitly state such intent, `with dyn.let(curry_context=["whatever"])`.)
                 if not outerctx:
-                    raise TypeError(f"Top-level curry context exited with {len(later_args) + len(later_kwargs)} arg(s) remaining. Positional: {later_args}, named: {later_kwargs}")
-                # Pass through to the curried procedure waiting in outerctx (e.g. in a curried compose chain).
-                if isinstance(now_result, tuple):
-                    return now_result + later_args
-                return (now_result,) + later_args
+                    num_positional_msg = f"{len(later_args)} positional"
+                    num_named_msg = f"{len(later_kwargs)} named"
+                    num_sep = " and " if later_args and later_kwargs else ""
+                    plural = "s" if len(later_args) + len(later_kwargs) != 1 else ""
+                    positional_msg = f"positional: {later_args}"
+                    named_msg = f"named: {later_kwargs}"
+                    sep = "; " if later_args and later_kwargs else ""
+                    raise TypeError(f"Top-level curry context exited with {num_positional_msg}{num_sep}{num_named_msg} argument{plural} remaining; {positional_msg}{sep}{named_msg}")
+                return Values(*later_args, **later_kwargs)
 
             elif action is _keep_currying:
                 # Fail-fast: use our `partial` wrapper to type-check the partial call signature
@@ -564,37 +610,39 @@ def apply(f, arg0, *more, **kwargs):
 
 # Not marking this as lazy-aware works better with continuations (since this
 # is the default cont, and return values should be values, not lazy[])
-def identity(*args):
+def identity(*args, **kwargs):
     """Identity function.
 
-    Accepts any positional arguments, and returns them.
+    Accepts any args and kwargs, and returns them.
 
-    Packs into a tuple if there is more than one.
+    Packs into a `Values` if anything other than one positional arg.
 
     Example::
 
-        assert identity(1, 2, 3) == (1, 2, 3)
+        assert identity(1, 2, 3) == Values(1, 2, 3)
         assert identity(42) == 42
         assert identity() is None
     """
-    if not args:
+    from .collections import Values  # circular import
+    if not args and not kwargs:
         return None
-    return args if len(args) > 1 else args[0]
+    return Values(*args, **kwargs) if kwargs or len(args) > 1 else args[0]
 
 # In lazify, return values are always just values, so we have to force args
 # to compute the return value; as a shortcut, just don't mark this as lazy.
-def const(*args):
+def const(*args, **kwargs):
     """Constant function.
 
     Returns a function that accepts any arguments (also kwargs)
-    and returns the args given here (packed into a tuple if more than one).
+    and returns the args and kwargs given here (packed into a `Values`
+    if anything other than one positional arg).
 
     Example::
 
         c = const(1, 2, 3)
-        assert c(42, "foo") == (1, 2, 3)
-        assert c("anything") == (1, 2, 3)
-        assert c() == (1, 2, 3)
+        assert c(42, "foo") == Values(1, 2, 3)
+        assert c("anything") == Values(1, 2, 3)
+        assert c() == Values(1, 2, 3)
 
         c = const(42)
         assert c("anything") == 42
@@ -602,10 +650,11 @@ def const(*args):
         c = const()
         assert c("anything") is None
     """
-    if not args:
+    from .collections import Values  # circular import
+    if not args and not kwargs:
         ret = None
     else:
-        ret = args if len(args) > 1 else args[0]
+        ret = Values(*args, **kwargs) if kwargs or len(args) > 1 else args[0]
     def constant(*a, **kw):
         return ret
     return constant
@@ -681,7 +730,7 @@ def orf(*fs):  # Racket: disjoin
 def _make_compose1(direction):  # "left", "right"
     def compose1_two(f, g):
         # return lambda x: f(g(x))
-        return lambda x: maybe_force_args(f, maybe_force_args(g, x))
+        return lambda x: maybe_force_args(f, force1(maybe_force_args(g, x)))
     if direction == "right":
         compose1_two = flip(compose1_two)
     def compose1(fs):
@@ -737,28 +786,56 @@ def composel1i(iterable):
     """Like composel1, but read the functions from an iterable."""
     return _compose1_left(iterable)
 
-def _make_compose(direction):  # "left", "right"
+def _make_compose(direction):
+    """Make a function that composes functions from an iterable.
+
+    Return value is a function `compose(fs)` -> `composed(*args, **kwargs)`.
+
+    `direction`: str, one of "left", "right". Which way to compose.
+
+                 For example, let `fs = (f1, f2, f3)`.
+
+                 If `direction == "left"`, `composed` computes f3(f2(f1(...)));
+                 the functions apply leftmost first.
+
+                 If `direction == "right"`, `composed` computes f1(f2(f3(...)));
+                 the functions apply rightmost first.
+
+    Standard mathematical function composition notation f1 ∘ f2 ∘ f3 takes rightmost first,
+    but we refuse the temptation to guess. We provide only explicit `l` and `r` variants
+    of all the `compose` utilities.
+    """
     def compose_two(f, g):
-        def composed(*args):
+        """g is applied first, then f.
+
+        (f ∘ g)(...) ≡ f(g(...))
+        """
+        from .collections import Values  # circular import
+        def composed(*args, **kwargs):
             bindings = {}
             if iscurried(f):
-                # co-operate with curry: provide a top-level curry context
+                # Co-operate with curry: provide a top-level curry context
                 # to allow passthrough from the function that is applied first
                 # to the function that is applied second.
                 bindings = {"curry_context": dyn.curry_context + [composed]}
             with dyn.let(**bindings):
-                a = maybe_force_args(g, *args)
-            # we could duck-test for an iterable, but this is more predictable
-            # for the user (consider chaining functions that manipulate a
-            # generator), and tuple specifically is the pythonic
-            # multiple-return-values thing.
-            if isinstance(a, tuple):
-                return maybe_force_args(f, *a)
+                a = maybe_force_args(g, *args, **kwargs)
+                a = force1(a)  # just in case it's a `Lazy`
+            # We could duck-test for an iterable, but this is more predictable.
+            if isinstance(a, Values):
+                return maybe_force_args(f, *a.rets, **a.kwrets)
             return maybe_force_args(f, a)
         return composed
     if direction == "right":
         compose_two = flip(compose_two)
     def compose(fs):
+        """Compose functions from iterable `fs`.
+
+        **CAUTION**: This is a closure. Which way to compose (left or right)
+        was chosen when this closure instance was created. Please use the
+        public API functions whose names explicitly state the direction.
+        """
+        fs = force(fs)
         composed = reducel(compose_two, fs)  # op(elt, acc)
         if all(islazy(f) for f in fs):
             composed = passthrough_lazy_args(composed)
@@ -769,16 +846,15 @@ _compose_left = _make_compose("left")
 _compose_right = _make_compose("right")
 
 def composer(*fs):
-    """Compose functions accepting only positional args. Right to left.
+    """Compose functions. Right to left.
 
     This mirrors the standard mathematical convention (f ∘ g)(x) ≡ f(g(x)).
 
-    At each step, if the output from a function is a tuple,
-    it is unpacked to the argument list of the next function. Otherwise,
-    we assume the output is intended to be fed to the next function as-is.
+    We support passing both positional and named values.
 
-    Especially, generators, namedtuples and any custom classes will **not** be
-    unpacked, regardless of whether or not they support the iterator protocol.
+    At each step, if the output from a function is a `Values`, it is unpacked
+    to the args and kwargs of the next function. Otherwise, we feed the output
+    to the next function as a single positional argument.
     """
     return composeri(fs)
 
@@ -827,12 +903,15 @@ def composelci(iterable):
 def tokth(k, f):
     """Return a function to apply f to args[k], pass the rest through.
 
+    The output is a `Values`. Named arguments are passed through as-is.
+
     Negative indices also supported.
 
     Especially useful in multi-arg compose chains.
     See ``unpythonic.test.test_fun`` for examples.
     """
-    def apply_f_to_kth_arg(*args):
+    from .collections import Values  # circular import
+    def apply_f_to_kth_arg(*args, **kwargs):
         n = len(args)
         if not n:
             raise TypeError("Expected at least one argument")
@@ -844,7 +923,7 @@ def tokth(k, f):
         out.append(maybe_force_args(f, args[j]))  # mth argument
         if n > m:
             out.extend(args[m:])
-        return tuple(out)
+        return Values(*out, **kwargs)
     if islazy(f):
         apply_f_to_kth_arg = passthrough_lazy_args(apply_f_to_kth_arg)
     return apply_f_to_kth_arg

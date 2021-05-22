@@ -6,6 +6,7 @@ from ...test.fixtures import session, testset, returns_normally
 
 from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, autocurry, let  # noqa: F401, F811
 
+from ...collections import Values
 from ...ec import call_ec
 from ...fploop import looped
 from ...tco import trampolined, jump
@@ -19,7 +20,13 @@ def runtests():
             test[add1(2) == 3]
 
             def message(cc):
-                return ("hello", "there")
+                # The continuations system essentially deals with function composition,
+                # so we make a distinction between a single `tuple` return value and
+                # multiple-return-values.
+                #
+                # Use Values(...) to return multiple values from a function that you
+                # intend to `call_cc`.
+                return Values("hello", "there")
             def baz():
                 m, n = call_cc[message()]  # The cc arg is passed implicitly.
                 return [m, n]
@@ -28,8 +35,8 @@ def runtests():
             # The cc arg must be declared as the last one that has no default value,
             # or declared as by-name-only. It's always passed by name.
             def f(a, b, cc):
-                return 2 * a, 3 * b
-            test[f(3, 4) == (6, 12)]
+                return Values(2 * a, 3 * b)
+            test[f(3, 4) == Values(6, 12)]
             x, y = f(3, 4)
             test[x == 6 and y == 12]
 
@@ -49,7 +56,7 @@ def runtests():
             def h1(a, b):
                 x, y = call_cc[f(a, b)]
                 return None or f(3, 4)  # the f from the previous "with continuations" block
-            test[h1(3, 4) == (6, 12)]
+            test[h1(3, 4) == Values(6, 12)]
 
             def h2(a, b):
                 x, y = call_cc[f(a, b)]
@@ -60,7 +67,7 @@ def runtests():
             def h3(a, b):
                 x, y = call_cc[f(a, b)]
                 return None or False or f(3, 4)
-            test[h3(3, 4) == (6, 12)]
+            test[h3(3, 4) == Values(6, 12)]
 
             def h4(a, b):
                 x, y = call_cc[f(a, b)]
@@ -76,7 +83,7 @@ def runtests():
             def i1(a, b):
                 x, y = call_cc[f(a, b)]
                 return True and f(3, 4)
-            test[i1(3, 4) == (6, 12)]
+            test[i1(3, 4) == Values(6, 12)]
 
             def i2(a, b):
                 x, y = call_cc[f(a, b)]
@@ -87,7 +94,7 @@ def runtests():
             def i3(a, b):
                 x, y = call_cc[f(a, b)]
                 return True and 42 and f(3, 4)
-            test[i3(3, 4) == (6, 12)]
+            test[i3(3, 4) == Values(6, 12)]
 
             def i4(a, b):
                 x, y = call_cc[f(a, b)]
@@ -103,7 +110,7 @@ def runtests():
             def j1(a, b):
                 x, y = call_cc[f(a, b)]
                 return None or True and f(3, 4)
-            test[j1(3, 4) == (6, 12)]
+            test[j1(3, 4) == Values(6, 12)]
 
     with testset("let in tail position"):
         with continuations:
@@ -111,19 +118,19 @@ def runtests():
                 x, y = call_cc[f(a, b)]
                 return let[[c << a,  # noqa: F821
                             d << b] in f(c, d)]  # noqa: F821
-            test[j2(3, 4) == (6, 12)]
+            test[j2(3, 4) == Values(6, 12)]
 
     with testset("if-expression in tail position"):
         with continuations:
             def j3(a, b):
                 x, y = call_cc[f(a, b)]
                 return f(a, b) if True else None
-            test[j3(3, 4) == (6, 12)]
+            test[j3(3, 4) == Values(6, 12)]
 
             def j4(a, b):
                 x, y = call_cc[f(a, b)]
                 return None if False else f(a, b)
-            test[j4(3, 4) == (6, 12)]
+            test[j4(3, 4) == Values(6, 12)]
 
     with testset("integration with a lambda that has TCO"):
         with continuations:
@@ -194,8 +201,6 @@ def runtests():
                 #   and list() is a regular function, not a continuation-enabled one
                 #   (so it would immediately terminate the TCO chain; besides,
                 #   it takes only 1 argument and doesn't know what to do with "cc".)
-                # - list instead of tuple to return it as one value
-                #   (a tuple return value is interpreted as multiple-return-values)
                 return xs
             def doit():
                 lst = ['the call returned']
@@ -213,7 +218,7 @@ def runtests():
             def setk(*args, cc):  # noqa: F811, the previous one is no longer used.
                 nonlocal k
                 k = cc  # current continuation, i.e. where to go after setk() finishes
-                return args  # tuple means multiple-return-values
+                return Values(*args)  # multiple-return-values
             def doit():
                 lst = ['the call returned']
                 *more, = call_cc[setk('A')]
@@ -235,7 +240,7 @@ def runtests():
             def setk(*args, cc):  # noqa: F811, the previous one is no longer used.
                 nonlocal k
                 k = cc
-                return args  # tuple return value (if not literal, tested at run-time) --> multiple-values
+                return Values(*args)  # multiple-return-values
             x, y = call_cc[setk(*vals)]
             test[x, y == vals]
         # end the block to end capture, and start another one to resume programming

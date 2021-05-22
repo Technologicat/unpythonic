@@ -7,6 +7,7 @@ from ...test.fixtures import session, testset, returns_normally
 from ...syntax import (macros, tco, autoreturn, autocurry, do, let, letseq, dletrec,  # noqa: F401, F811
                        quicklambda, f, continuations, call_cc)
 
+from ...collections import Values
 from ...ec import call_ec
 from ...fploop import looped_over
 from ...fun import withself, curry
@@ -168,7 +169,7 @@ def runtests():
                 def setk(*args, cc):
                     nonlocal k
                     k = cc  # current continuation, i.e. where to go after setk() finishes
-                    return args  # tuple means multiple-return-values
+                    return Values(*args)  # multiple-return-values
                 def doit():
                     lst = ['the call returned']
                     *more, = call_cc[setk('A')]

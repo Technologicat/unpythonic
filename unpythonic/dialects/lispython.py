@@ -36,7 +36,7 @@ class Lispython(Dialect):
                                            local, delete, do, do0,
                                            let_syntax, abbrev, block, expr,
                                            cond)
-            from unpythonic import cons, car, cdr, ll, llist, nil, prod, dyn  # noqa: F401, F811
+            from unpythonic import cons, car, cdr, ll, llist, nil, prod, dyn, Values  # noqa: F401, F811
             with autoreturn, quicklambda, multilambda, tco, namedlambda:
                 __paste_here__  # noqa: F821, just a splicing marker.
         tree.body = splice_dialect(tree.body, template, "__paste_here__")

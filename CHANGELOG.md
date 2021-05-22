@@ -145,6 +145,15 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
   - Drop support for deprecated argument format for `raisef`. Now the usage is `raisef(exc)` or `raisef(exc, cause=...)`. These correspond exactly to `raise exc` and `raise exc from ...`, respectively.
 
 - **Other backward-incompatible API changes.**
+  - Multiple-return-value handling changed. Resolves issue [#32](https://github.com/Technologicat/unpythonic/issues/32).
+    - Multiple return values are now denoted as `Values`, available from the top-level namespace of `unpythonic`.
+    - The `Values` constructor accepts both positional and named arguments. Passing in named arguments creates **named return values**. This completes the symmetry between argument passing and returns.
+    - Most of the time, it's still fine to return a tuple and destructure that; but in contexts where it is important to distinguish between a single `tuple` return value and multiple return values, it is preferable to use `Values`.
+    - In any utilities that deal with function composition, if your intent is multiple-return-values, **it is now mandatory to return a `Values`** instead of a `tuple`:
+      - `curry`
+      - `pipe` family
+      - `compose` family
+      - All multiple-return-values in code using the `with continuations` macro. (The continuations system essentially composes continuation functions.)
   - The lazy evaluation tools `lazy`, `Lazy`, and the quick lambda `f` (underscore notation for Python) are now provided by `unpythonic` as `unpythonic.syntax.lazy`, `unpythonic.lazyutil.Lazy`, and `unpythonic.syntax.f`, because they used to be provided by `macropy`, and `mcpyrate` does not provide them.
     - **API differences.**
       - The macros `lazy` and `f` can be imported from the syntax interface module, `unpythonic.syntax`, and the class `Lazy` is available at the top level of `unpythonic`.

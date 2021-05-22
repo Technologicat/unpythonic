@@ -30,6 +30,7 @@ from ..it import (map, mapr, rmap, zipr, rzip,
                   subset, powerset,
                   allsame)
 
+from ..collections import Values
 from ..fun import composel, identity, curry
 from ..gmemo import imemoize, gmemoize
 from ..mathseq import s
@@ -73,11 +74,11 @@ def runtests():
         # but actually requires 2. Solution: use partial instead of curry.
         lzip2 = partial(map, identity)
         rzip2 = lambda *iterables: map(identity, *(rev(s) for s in iterables))
-        test[tuple(lzip2((1, 2, 3), (4, 5, 6), (7, 8))) == ((1, 4, 7), (2, 5, 8))]
-        test[tuple(rzip2((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))]
+        test[tuple(lzip2((1, 2, 3), (4, 5, 6), (7, 8))) == (Values(1, 4, 7), Values(2, 5, 8))]
+        test[tuple(rzip2((1, 2, 3), (4, 5, 6), (7, 8))) == (Values(3, 6, 8), Values(2, 5, 7))]
 
         rzip3 = partial(rmap, identity)
-        test[tuple(rzip3((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))]
+        test[tuple(rzip3((1, 2, 3), (4, 5, 6), (7, 8))) == (Values(3, 6, 8), Values(2, 5, 7))]
 
     with testset("first, second, nth, last"):
         test[first(range(5)) == 0]

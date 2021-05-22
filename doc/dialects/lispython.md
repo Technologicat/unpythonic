@@ -85,6 +85,7 @@ We also import some macros and functions to serve as dialect builtins:
   - All ``let[]`` and ``do[]`` constructs from ``unpythonic.syntax``
   - ``cons``, ``car``, ``cdr``, ``ll``, ``llist``, ``nil``, ``prod``
   - ``dyn``, for dynamic assignment
+  - ``Values``, for returning multiple values and/or named return values. (This ties in to `unpythonic`'s function composition subsystem, e.g. `curry`, the `pipe` family, the `compose` family, and the `with continuations` macro.)
 
 For detailed documentation of the language features, see [``unpythonic.syntax``](https://github.com/Technologicat/unpythonic/tree/master/doc/macros.md), especially the macros ``tco``, ``autoreturn``, ``multilambda``, ``namedlambda``, ``quicklambda``, ``let`` and ``do``.
 

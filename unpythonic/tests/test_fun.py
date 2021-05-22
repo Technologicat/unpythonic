@@ -6,6 +6,7 @@ from ..test.fixtures import session, testset, returns_normally
 from collections import Counter
 import sys
 
+from ..collections import Values
 from ..dispatch import generic
 from ..fun import (memoize, partial, curry, apply,
                    identity, const,
@@ -20,12 +21,12 @@ from ..dynassign import dyn
 
 def runtests():
     with testset("identity function"):
-        test[identity(1, 2, 3) == (1, 2, 3)]
+        test[identity(1, 2, 3) == Values(1, 2, 3)]
         test[identity(42) == 42]
         test[identity() is None]  # no args, default value
 
     with testset("constant function"):
-        test[const(1, 2, 3)(42, "foo") == (1, 2, 3)]
+        test[const(1, 2, 3)(42, "foo") == Values(1, 2, 3)]
         test[const(42)("anything") == 42]
         test[const()("anything") is None]
 
@@ -183,28 +184,36 @@ def runtests():
         a = curry(add)
         test[curry(a) is a]  # curry wrappers should not stack
 
-        # Curry passes through extra args on the right, like in Haskell. Each
-        # call consumes args up to the maximum arity of the function being
-        # called. If the return value is callable, it is the next function
-        # to be (implicitly curried and then) called.
+        # curry supports passthrough for any args/kwargs that can't be accepted by
+        # the function's call signature (too many positionals or unknown named args).
+        # Positionals are passed through on the right.
+        # If the first positional return value of an intermediate result is a callable,
+        # it is curried, and invoked on the remaining args/kwargs:
         @curry
         def f(x):  # note f takes only one arg
             return lambda y: x * y
         test[f(2, 21) == 42]
 
-        # Curry raises by default when the top-level curry context exits with
-        # args remaining. This is so that providing too many args will still
-        # raise `TypeError`.
+        # By default, `curry` raises `TypeError` when the top-level curry context exits
+        # with args/kwargs remaining. This is a safety feature: providing args/kwargs
+        # not consumed during the curry chain will raise an error, rather than silently
+        # produce results that are likely not what was intended.
         def double(x):
             return 2 * x
-        with test_raises[TypeError, "leftover args should not be allowed by default"]:
+        with test_raises[TypeError, "leftover positional args should not be allowed by default"]:
             curry(double, 2, "foo")
+        with test_raises[TypeError, "leftover named args should not be allowed by default"]:
+            curry(double, 2, nosucharg="foo")
 
-        # To disable the error, use this trick to explicitly state you want to do so:
-        with test["leftover args should be allowed with manually created surrounding context"]:
+        # The check can be disabled, by stating explicitly that you want to do so:
+        with test["leftover positional args should be allowed with manually created surrounding context"]:
             with dyn.let(curry_context=["whatever"]):  # any human-readable label is fine.
                 # a `with test` can optionally return a value, which becomes the asserted expr.
-                return curry(double, 2, "foo") == (4, "foo")
+                return the[curry(double, 2, "foo")] == Values(4, "foo")
+
+        with test["leftover named args should be allowed with manually created surrounding context"]:
+            with dyn.let(curry_context=["whatever"]):
+                return the[curry(double, 2, nosucharg="foo")] == Values(4, nosucharg="foo")
 
     # This doesn't occur on PyPy3.
     if sys.implementation.name == "cpython":  # pragma: no cover
@@ -300,7 +309,7 @@ def runtests():
 
     with testset("curry in compose chain"):
         def f1(a, b):
-            return 2 * a, 3 * b
+            return Values(2 * a, 3 * b)
         def f2(a, b):
             return a + b
         f1_then_f2_a = composelc(f1, f2)
@@ -308,22 +317,22 @@ def runtests():
         test[f1_then_f2_a(2, 3) == f1_then_f2_b(2, 3) == 13]
 
         def f3(a, b):
-            return a, b
+            return Values(a, b)
         def f4(a, b, c):
             return a + b + c
         f1_then_f3_then_f4 = composelc(f1, f3, f4)
         test[f1_then_f3_then_f4(2, 3, 5) == 18]  # extra arg passed through on the right
 
     with testset("to1st, to2nd, tolast, to (argument shunting)"):
-        test[to1st(double)(1, 2, 3) == (2, 2, 3)]
-        test[to2nd(double)(1, 2, 3) == (1, 4, 3)]
-        test[tolast(double)(1, 2, 3) == (1, 2, 6)]
+        test[to1st(double)(1, 2, 3) == Values(2, 2, 3)]
+        test[to2nd(double)(1, 2, 3) == Values(1, 4, 3)]
+        test[tolast(double)(1, 2, 3) == Values(1, 2, 6)]
 
         processor = to((0, double),
                        (-1, inc),
                        (1, composer(double, double)),
                        (0, inc))
-        test[processor(1, 2, 3) == (3, 8, 4)]
+        test[processor(1, 2, 3) == Values(3, 8, 4)]
 
     with testset("tokth error cases"):
         test_raises[TypeError, tokth(3, double)()]  # expect at least one argument
@@ -337,11 +346,11 @@ def runtests():
         test[(flip(f))(1, b=2) == (1, 2)]  # b -> kwargs
 
     with testset("rotate arglist"):
-        test[(rotate(-1)(identity))(1, 2, 3) == (3, 1, 2)]
-        test[(rotate(1)(identity))(1, 2, 3) == (2, 3, 1)]
+        test[(rotate(-1)(identity))(1, 2, 3) == Values(3, 1, 2)]
+        test[(rotate(1)(identity))(1, 2, 3) == Values(2, 3, 1)]
 
         # inner to outer: (a, b, c) -> (b, c, a) -> (a, c, b)
-        test[flip(rotate(-1)(identity))(1, 2, 3) == (1, 3, 2)]
+        test[flip(rotate(-1)(identity))(1, 2, 3) == Values(1, 3, 2)]
 
     with testset("rotate error cases"):
         test_raises[TypeError, (rotate(1)(identity))()]  # expect at least one argument
