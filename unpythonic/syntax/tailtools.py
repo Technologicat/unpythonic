@@ -372,9 +372,7 @@ def continuations(tree, *, syntax, expander, **kw):
      - To destructure positional multiple-values (from a `Values` return value),
        use a tuple assignment target (comma-separated names, as usual).
 
-       Destructuring named return values from a `call_cc` is currently not supported.
-       Instead, use a single assignment target to capture the whole `Values` object,
-       and then destructure it manually.
+       Destructuring *named* return values from a `call_cc` is currently not supported.
 
      - The last assignment target may be starred. It is transformed into
        the vararg (a.k.a. ``*args``) of the continuation function.

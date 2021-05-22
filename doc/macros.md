@@ -1260,7 +1260,7 @@ call_cc[f(...) if p else g(...)]
 
 **Assignment targets**:
 
- - To destructure a multiple-values (from a tuple return value), use a tuple assignment target (comma-separated names, as usual).
+ - To destructure positional multiple-values (from a `Values` return value), use a tuple assignment target (comma-separated names, as usual). Destructuring *named* return values from a `call_cc` is currently not supported.
 
  - The last assignment target may be starred. It is transformed into the vararg (a.k.a. ``*args``, star-args) of the continuation function. (It will capture a whole tuple, or any excess items, as usual.)
 
