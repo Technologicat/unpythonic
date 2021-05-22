@@ -280,7 +280,8 @@ def pipe(values0, *bodys):
 
     The only restriction is that the call and return signatures must match:
     each function must take those positional/named arguments the previous one
-    returns.
+    returns. Use a `Values` object to denote multiple-return-values, and/or
+    named return values.
 
     At each step, if the output from a function is a `Values`, it is unpacked
     to the args and kwargs of the next function. Otherwise, we feed the output
@@ -299,10 +300,19 @@ def pipe(values0, *bodys):
         a, b = pipe(Values(2, 3),
                     lambda x, y: Values(x + 1, 2 * y),
                     lambda x, y: Values(x * 2, y + 1))
+        # If a `Values` object has only positional values,
+        # it can be unpacked like a tuple. Hence we don't
+        # see a `Values` wrapper here.
         assert (a, b) == (6, 7)
 
         a, b, c = pipe(Values(2, 3),
                        lambda x, y: Values(x + 1, 2 * y, "foo"),
+                       lambda x, y, s: Values(x * 2, y + 1, f"got {s}"))
+        assert (a, b, c) == (6, 7, "got foo")
+
+        # Can bind arguments of the next step by name, too
+        a, b, c = pipe(Values(2, 3),
+                       lambda x, y: Values(x + 1, 2 * y, s="foo"),
                        lambda x, y, s: Values(x * 2, y + 1, f"got {s}"))
         assert (a, b, c) == (6, 7, "got foo")
 
@@ -351,7 +361,13 @@ def pipec(values0, *bodys):
 
 @passthrough_lazy_args
 class piped:
-    """Like piped1, but for any number of inputs/outputs at each step."""
+    """Like piped1, but for any number of inputs/outputs at each step.
+
+    The only restriction is that the call and return signatures must match:
+    each function must take those positional/named arguments the previous one
+    returns. Use a `Values` object to denote multiple-return-values, and/or
+    named return values.
+    """
     def __init__(self, *xs, **kws):
         """Set up a pipe and load the initial values xs and kws into it.
 
@@ -360,6 +376,10 @@ class piped:
         self._xs = Values(*xs, **kws)
     def __or__(self, f):
         """Pipe the values through the function f.
+
+        If the data currently in the pipe is a `Values`, it is unpacked
+        to the args and kwargs of `f`. Otherwise, we feed the data to `f`
+        as a single positional argument.
 
         Example::
 
@@ -387,6 +407,11 @@ class piped:
 @passthrough_lazy_args
 class lazy_piped:
     """Like lazy_piped1, but for any number of inputs/outputs at each step.
+
+    The only restriction is that the call and return signatures must match:
+    each function must take those positional/named arguments the previous one
+    returns. Use a `Values` object to denote multiple-return-values, and/or
+    named return values.
 
     Examples::
 
@@ -421,6 +446,10 @@ class lazy_piped:
         """Pipe the values into f; but just plan to do so, don't perform it yet.
 
         When f is `exitpipe`, perform the planned computation.
+
+        When the computation is performed, when this `f` is reached, if the data
+        currently in the pipe is a `Values`, it is unpacked to the args and kwargs
+        of `f`. Otherwise, we feed the data to `f` as a single positional argument.
 
         If the final return value is a `Values`, and contains only one positional
         return value, we unwrap it. Otherwise the `Values` object is returned as-is.
