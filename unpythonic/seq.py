@@ -100,7 +100,6 @@ def lazy_begin0(*bodys):
     return out
 
 # TODO: check use of maybe_force_args and force1 in all function composition utilities
-# TODO: finish the Values upgrade (grep: "multiple return values", "isinstance tuple")
 # TODO: test the new lazify support in piping constructs
 # TODO: test multiple-return-values support in all function composition utilities
 # TODO: expand tests of `continuations` to cases with named return values
