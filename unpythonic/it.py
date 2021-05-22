@@ -499,11 +499,16 @@ def flatten(iterable, pred=None):
     (or list), and return ``True`` if that tuple/list should be flattened.
     When ``pred`` returns False, that tuple/list is passed through as-is.
 
-    E.g. to flatten only those items that contain only tuples::
+    E.g. to flatten only those items that contain only lists or tuples::
 
         is_nested = lambda e: all(isinstance(x, (list, tuple)) for x in e)
         data = (((1, 2), (3, 4)), (5, 6))
         assert tuple(flatten(data, is_nested)) == ((1, 2), (3, 4), (5, 6))
+
+    Even with a predicate, flattening is still performed recursively::
+
+        data = (((1, 2), ((3, 4), ((5, 6), (7, 8))), (9, 10)))
+        assert tuple(flatten(data, is_nested)) == ((1, 2), (3, 4), (5, 6), (7, 8), (9, 10))
     """
     return _flatten(iterable, pred, recursive=True)
 
