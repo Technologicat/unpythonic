@@ -505,7 +505,8 @@ def flatten(iterable, pred=None):
         data = (((1, 2), (3, 4)), (5, 6))
         assert tuple(flatten(data, is_nested)) == ((1, 2), (3, 4), (5, 6))
 
-    Even with a predicate, flattening is still performed recursively::
+    Even with a predicate, flattening is still performed recursively
+    in any item that matches the predicate::
 
         data = (((1, 2), ((3, 4), ((5, 6), (7, 8))), (9, 10)))
         assert tuple(flatten(data, is_nested)) == ((1, 2), (3, 4), (5, 6), (7, 8), (9, 10))
