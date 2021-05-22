@@ -99,7 +99,6 @@ def lazy_begin0(*bodys):
         body()
     return out
 
-# TODO: check use of maybe_force_args and force1 in all function composition utilities
 # TODO: test the new lazify support in piping constructs
 # TODO: test multiple-return-values support in all function composition utilities
 # TODO: expand tests of `continuations` to cases with named return values
