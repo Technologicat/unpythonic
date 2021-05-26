@@ -166,7 +166,10 @@ def pipe1(value0, *bodys):
     # def x(loop, update, acc):
     #     return loop(update(acc))
     # return x
-    x = value0
+
+    # This is forced when it is passed to an eager body (or when a lazy body uses it),
+    # but we force it here just for symmetry with the multi-arg version of `pipe`.
+    x = force1(value0)
     for update in bodys:
         update = force1(update)
         x = maybe_force_args(update, x)
@@ -268,7 +271,12 @@ class lazy_piped1:
             v = self._x
             for g in self._funcs:
                 v = maybe_force_args(g, v)
-            return v
+            # In `unpythonic`, return values are never implicitly lazy.
+            # The final result here is a return value.
+            #
+            # It is legal to pipe the initial value immediately to `exitpipe`;
+            # in that case, in a `with lazify` block, it will be a promise.
+            return force(v)
         # just pass on the reference to the original x.
         cls = self.__class__
         return cls(x=self._x, _funcs=self._funcs + (force1(f),))
@@ -323,7 +331,10 @@ def pipe(values0, *bodys):
                     lambda x, y, s: Values(x + y, s))
         assert (a, b) == (13, "got foo")
     """
-    xs = values0
+    # We must force `values0` to analyze it, because we treat `Values` objects separately.
+    # Otherwise, in a `with lazify` block, the lazified `Values` object will get passed as
+    # one argument to the first body - not what we want.
+    xs = force1(values0)
     n = len(bodys)
     for k, update in enumerate(bodys):
         islast = (k == n - 1)
@@ -457,13 +468,20 @@ class lazy_piped:
             vs = self._xs
             for g in self._funcs:
                 if isinstance(vs, Values):
-                    vs = g(*vs.rets, **vs.kwrets)
+                    vs = maybe_force_args(g, *vs.rets, **vs.kwrets)
                 else:
-                    vs = g(vs)
+                    vs = maybe_force_args(g, vs)
             if isinstance(vs, Values):
-                return vs if vs.kwrets or len(vs.rets) > 1 else vs[0]
+                ret = vs if vs.kwrets or len(vs.rets) > 1 else vs[0]
             else:
-                return vs
+                ret = vs
+            # In `unpythonic`, return values are never implicitly lazy.
+            # The final result here is a return value.
+            #
+            # It is legal to pipe the initial value immediately to `exitpipe`;
+            # in that case, in a `with lazify` block, it will be a promise
+            # (or a `Values` of several promises).
+            return force(ret)
         # just pass on the references to the original xs.
         cls = self.__class__
         return cls(*self._xs.rets, _funcs=self._funcs + (force1(f),), **self._xs.kwrets)
