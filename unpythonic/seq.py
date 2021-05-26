@@ -99,9 +99,6 @@ def lazy_begin0(*bodys):
         body()
     return out
 
-# TODO: test `Values` handling in `with lazify`
-#  - The `Values` container itself should always be eager (so it can be inspected without forcing the return value; important for symmetry with case of one positional return value)
-#  - Anything we place into it should get the regular treatment, because return values are never implicitly lazy
 # TODO: test multiple-return-values support in all function composition utilities (`curry`, `compose` family, `pipe` family)
 # TODO: expand tests of `continuations` to cases with named return values
 # TODO: update code examples in docs

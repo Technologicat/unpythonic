@@ -373,6 +373,37 @@ def runtests():
             # letrec injects lambdas into its bindings, so test it too.
             test[letrec[[c << 42, d << e] in f(c, d)] == 42]
 
+    # In `unpythonic`, return values are never implicitly lazy.
+    # At the minimum, you can always inspect whether it is an object or a `Values` instance,
+    # representing multiple and/or named return values.
+    with testset("interaction with Values (multiple and named return values)"):
+        with lazify:
+            def multireturn1(a, b):
+                # As usual, the mention of `a` and `b` inside the function body forces the promises.
+                # It doesn't matter whether the mention occurs in a `Values(...)` call.
+                return Values(a, b)
+            test[isinstance(multireturn1(2, 3), Values)]
+            test[multireturn1(2, 3) == Values(2, 3)]
+
+            def multireturn2(a, b):
+                # Assignment to a temporary doesn't matter; `lazify` detects the `Values(...)` call anywhere.
+                tmp = Values(a, b)
+                return tmp
+            test[isinstance(multireturn2(2, 3), Values)]
+            test[multireturn2(2, 3) == Values(2, 3)]
+
+            def namedreturn1(x, y):
+                # Named return values can be given as named arguments.
+                return Values(x=x, y=y)
+            test[isinstance(namedreturn1(2, 3), Values)]
+            test[namedreturn1(2, 3) == Values(x=2, y=3)]
+
+            def namedreturn2(x, y):
+                tmp = Values(x=x, y=y)
+                return tmp
+            test[isinstance(namedreturn2(2, 3), Values)]
+            test[namedreturn2(2, 3) == Values(x=2, y=3)]
+
     # various higher-order functions, mostly from unpythonic.fun
     with testset("interaction with higher-order functions"):
         with lazify:
