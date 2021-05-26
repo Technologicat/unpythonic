@@ -434,7 +434,7 @@ def lazify(tree, *, syntax, expander, **kw):
 
 # lazy: syntax transformer, lazify a single expression
 def _lazy(tree):
-    return q[h[Lazy](lambda: a[tree], sourcecode=u[unparse(tree)])]
+    return q[h[Lazy](lambda: a[tree], sourcecode=u[f"lazy[{unparse(tree, debug=True)}]"])]
 
 # lazyrec: syntax transformer, recursively lazify elements in container literals
 #
