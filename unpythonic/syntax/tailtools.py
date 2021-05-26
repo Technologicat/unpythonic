@@ -751,6 +751,21 @@ def chain_conts(cc1, cc2, with_star=False):  # cc1=_pcc, cc2=cc
         if cc1 is not None:
             @passthrough_lazy_args
             def cc(return_value):
+                # Return values are never implicitly lazy in `unpythonic`,
+                # so why we need to `force1` here requires a comment.
+                #
+                # In general, we should treat these `cc` functions as lazy,
+                # so they won't force their args. Those args here are a return value,
+                # but due to `continuations`, it's not just a return, but a call
+                # into the `cc` function.
+                #
+                # Thus, returning a `Values` from a continuation-enabled function,
+                # that `Values` ends up here (or in the other branch, with no `cc1`).
+                # Because it's *technically* an argument for a lazy function, it gets
+                # a `lazy[]` wrapper added by `with lazify`.
+                #
+                # To determine whether we have one or multiple return values, we must
+                # force that wrapper promise, without touching anything inside.
                 return_value = force1(return_value)
                 if isinstance(return_value, Values):
                     return jump(cc1, cc=cc2, *return_value.rets, **return_value.kwrets)
