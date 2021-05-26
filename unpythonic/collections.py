@@ -22,7 +22,6 @@ import threading
 
 from .env import env
 from .dynassign import _Dyn
-from .lazyutil import passthrough_lazy_args
 from .llist import cons, Nil
 from .misc import getattrrec
 from .regutil import register_decorator
@@ -906,7 +905,6 @@ def _canonize_slice(s, length=None, wrap=None):  # convert negatives, inject def
 
 # -----------------------------------------------------------------------------
 
-@passthrough_lazy_args
 class Values:
     """Structured multiple-return-values.
 
