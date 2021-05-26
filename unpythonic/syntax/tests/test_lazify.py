@@ -18,6 +18,7 @@ from ...fun import (curry, memoize, flip, rotate, apply,
 from ...it import flatten
 from ...llist import ll
 from ...misc import call, callwith
+from ...seq import pipe1, piped1, lazy_piped1, pipe, pipec, piped, lazy_piped, exitpipe
 from ...tco import trampolined, jump
 
 from ...lazyutil import islazy, Lazy, force1, force  # Lazy usually not needed in client code; for our tests only
@@ -443,6 +444,125 @@ def runtests():
             fact = withself(lambda self, n, acc=1: self(n - 1, acc * n) if n > 1 else acc)  # linear process
             test[islazy(fact)]
             test[fact(5) == 120]
+
+    with testset("integration with pipes"):
+        # This is the testset from unpythonic/tests/test_seq.py, slightly modified.
+        with lazify:
+            double = lambda x: 2 * x
+            inc = lambda x: x + 1
+            test[pipe1(42, double, inc) == 85]  # 1-in-1-out
+            test[pipe1(42, inc, double) == 86]
+            test[pipe(42, double, inc) == 85]   # n-in-m-out, supports also 1-in-1-out
+            test[pipe(42, inc, double) == 86]
+
+            # 2-in-2-out
+            a, b = pipe(Values(2, 3),
+                        lambda x, y: Values(x + 1, 2 * y),
+                        lambda x, y: Values(x * 2, y + 1))
+            test[(a, b) == (6, 7)]
+
+            # 2-in-2-out, pass intermediate result by name
+            a, b = pipe(Values(2, 3),
+                        lambda x, y: Values(x=(x + 1), y=(2 * y)),
+                        lambda x, y: Values(x * 2, y + 1))
+            test[(a, b) == (6, 7)]
+
+            # 2-in-2-out, also return final result by name
+            v = pipe(Values(2, 3),
+                     lambda x, y: Values(x=(x + 1), y=(2 * y)),
+                     lambda x, y: Values(a=(x * 2), b=(y + 1)))
+            test[v == Values(a=6, b=7)]
+            test[v["a"] == 6 and v["b"] == 7]  # can access them via subscripting too
+
+            # 2-in-eventually-3-out
+            a, b, c = pipe(Values(2, 3),
+                           lambda x, y: Values(x + 1, 2 * y, "foo"),
+                           lambda x, y, z: Values(x * 2, y + 1, f"got {z}"))
+            test[(a, b, c) == (6, 7, "got foo")]
+
+            # 2-in-3-in-between-2-out
+            a, b = pipe(Values(2, 3),
+                        lambda x, y: Values(x + 1, 2 * y, "foo"),
+                        lambda x, y, s: Values(x * 2, y + 1, f"got {s}"),
+                        lambda x, y, s: Values(x + y, s))
+            test[(a, b) == (13, "got foo")]
+
+            # pipec: curry the functions before running the pipeline
+            a, b = pipec(Values(1, 2),
+                         lambda x: x + 1,  # extra values passed through by curry (positionals on the right)
+                         lambda x, y: Values(x * 2, y + 1))
+            test[(a, b) == (4, 3)]
+
+            with test_raises[TypeError, "should error when the curry context exits with args remaining"]:
+                a, b = pipec(Values(1, 2),
+                             lambda x: x + 1,
+                             lambda x: x * 2)
+
+            # optional shell-like syntax
+            test[piped1(42) | double | inc | exitpipe == 85]
+
+            y = piped1(42) | double
+            test[y | inc | exitpipe == 85]
+            test[y | exitpipe == 84]  # y is never modified by the pipe system
+
+            # multi-arg version
+            f = lambda x, y: Values(2 * x, y + 1)
+            g = lambda x, y: Values(x + 1, 2 * y)
+            x = piped(2, 3) | f | g | exitpipe  # --> (5, 8)
+            test[x == Values(5, 8)]
+
+            # abuse multi-arg version for single-arg case
+            test[piped(42) | double | inc | exitpipe == 85]
+
+    with testset("integration with lazy pipes (plan computations)"):
+        # This is the testset from unpythonic/tests/test_seq.py, slightly modified.
+        with lazify:
+            # lazy pipe: compute later
+            lst = [1]
+            def append_succ(lis):
+                lis.append(lis[-1] + 1)
+                return lis  # important, handed to the next function in the pipe
+            p = lazy_piped1(lst) | append_succ | append_succ  # plan a computation
+            test[lst == [1]]        # nothing done yet
+            p | exitpipe              # run the computation
+            test[lst == [1, 2, 3]]  # now the side effect has updated lst.
+
+            # lazy pipe as an unfold
+            fibos = []
+            def nextfibo(state):
+                a, b = state
+                fibos.append(a)      # store result by side effect
+                return (b, a + b)    # new state, handed to next function in the pipe
+            p = lazy_piped1((1, 1))  # load initial state into a lazy pipe
+            for _ in range(10):      # set up pipeline
+                p = p | nextfibo
+            p | exitpipe
+            test[fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]]
+
+            # multi-arg lazy pipe
+            p1 = lazy_piped(2, 3)
+            p2 = p1 | (lambda x, y: Values(x + 1, 2 * y, "foo"))
+            p3 = p2 | (lambda x, y, s: Values(x * 2, y + 1, f"got {s}"))
+            p4 = p3 | (lambda x, y, s: Values(x + y, s))
+            # nothing done yet, and all computations purely functional:
+            test[(p1 | exitpipe) == Values(2, 3)]
+            test[(p2 | exitpipe) == Values(3, 6, "foo")]      # runs the chain up to p2
+            test[(p3 | exitpipe) == Values(6, 7, "got foo")]  # runs the chain up to p3
+            test[(p4 | exitpipe) == Values(13, "got foo")]
+
+            # multi-arg lazy pipe as an unfold
+            fibos = []
+            def nextfibo(a, b):    # now two arguments
+                fibos.append(a)
+                return Values(a=b, b=(a + b))  # can return by name too
+            p = lazy_piped(1, 1)
+            for _ in range(10):
+                p = p | nextfibo
+            test[p | exitpipe == Values(a=89, b=144)]  # final state
+            test[fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]]
+
+            # abuse multi-arg version for single-arg case
+            test[lazy_piped(42) | double | inc | exitpipe == 85]
 
     with testset("integration with TCO"):
         with lazify:
