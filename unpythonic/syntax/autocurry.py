@@ -85,7 +85,10 @@ def _autocurry(block_body):
                 return tree
 
             hascurry = self.state.hascurry
-            if type(tree) is Call:
+            # Curry all calls; except as a small optimization, skip `Values(...)`,
+            # which accepts any args and kwargs, so currying it does not make sense.
+            # (It represents multiple-return-values in `unpythonic`.)
+            if type(tree) is Call and not isx(tree.func, "Values"):
                 if has_curry(tree):  # detect decorated lambda with manual curry
                     # the lambda inside the curry(...) is the next Lambda node we will descend into.
                     hascurry = True
