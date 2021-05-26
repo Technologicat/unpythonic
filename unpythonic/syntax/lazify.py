@@ -7,10 +7,11 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef, Call, Name, Attribute,
                  Starred, keyword, List, Tuple, Dict, Set, Subscript, Load)
 from functools import partial
 
-from mcpyrate.quotes import macros, q, a, h  # noqa: F401
+from mcpyrate.quotes import macros, q, u, a, h  # noqa: F401
 
 from mcpyrate.astfixers import fix_ctx
 from mcpyrate.quotes import capture_as_macro, is_captured_value
+from mcpyrate.unparser import unparse
 from mcpyrate.walkers import ASTTransformer
 
 from .util import (suggest_decorator_index, sort_lambda_decorators, detect_lambda,
@@ -433,7 +434,7 @@ def lazify(tree, *, syntax, expander, **kw):
 
 # lazy: syntax transformer, lazify a single expression
 def _lazy(tree):
-    return q[h[Lazy](lambda: a[tree])]
+    return q[h[Lazy](lambda: a[tree], sourcecode=u[unparse(tree)])]
 
 # lazyrec: syntax transformer, recursively lazify elements in container literals
 #

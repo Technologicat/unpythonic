@@ -34,11 +34,20 @@ _uninitialized = sym("_uninitialized")
 class Lazy:
     """Delayed evaluation, with memoization. (A.k.a. *promise* in Racket.)"""
 
-    def __init__(self, thunk):
-        """`thunk`: 0-argument callable to be stored for delayed evaluation."""
+    def __init__(self, thunk, *, sourcecode=None):
+        """Create a `Lazy` promise.
+
+        `thunk`: 0-argument callable to be stored for delayed evaluation.
+
+        `sourcecode`: str, optional, for use by the `lazy[]` macro.
+
+                      Source code of the thunk, if available. Used in the `repr`,
+                      for debug purposes.
+        """
         if not callable(thunk):
             raise TypeError(f"`thunk` must be a callable, got {type(thunk)} with value {repr(thunk)}")
         self.thunk = thunk
+        self.sourcecode = sourcecode
         self.value = _uninitialized
         self.thunk_returned_normally = _uninitialized
 
@@ -61,6 +70,11 @@ class Lazy:
             return self.value
         else:
             raise self.value
+
+    def __repr__(self):
+        if self.sourcecode:
+            return f'<unpythonic.lazyutil.Lazy object at 0x{id(self):x}, sourcecode="{self.sourcecode}">'
+        return f"<unpythonic.lazyutil.Lazy object at 0x{id(self):x}, no debug sourcecode>"
 
 def force1(x):
     """Force a ``Lazy`` promise.
