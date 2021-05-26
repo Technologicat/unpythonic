@@ -117,7 +117,7 @@ def maybe_force_args(f, *thunks, **kwthunks):
     If `not islazy(f)`, forces the given args and kwargs, and then calls `f` with them.
     If `islazy(f)`, calls `f` without forcing the args/kwargs.
     """
-    if f is jump:  # special case to avoid drastic performance hit in strict code
+    if f is jump:  # special case to avoid drastic performance hit in TCO'd strict code
         target, *argthunks = thunks
         return jump(force1(target), *argthunks, **kwthunks)
     if islazy(f):
