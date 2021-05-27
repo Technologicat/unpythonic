@@ -206,9 +206,6 @@ def pack(*args):
     In other words, the inverse of tuple unpacking, as a function.
     E.g. ``pack(a, b, c)`` is the same as ``(a, b, c)``.
 
-    Or, if we semantically consider a tuple as a representation for multiple
-    return values, this is the identity function, returning its args.
-
     We provide this because the default constructor `tuple(...)` requires an
     iterable, and there are use cases where it is useful to be able to say
     *pack these args into a tuple*.
