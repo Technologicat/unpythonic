@@ -10,7 +10,8 @@ from ..gmemo import gmemoize, imemoize, fimemoize
 
 from ..it import take, drop, last
 from ..fold import prod
-from ..misc import call, timer
+from ..funutil import call
+from ..misc import timer
 
 def runtests():
     with testset("multiple instances, interleaved"):

@@ -325,7 +325,7 @@ def bletrec(tree, *, args, syntax, expander, **kw):
     Because names inside a ``def`` have mutually recursive scope,
     an almost equivalent pure Python solution (no macros) is::
 
-        from unpythonic.misc import call
+        from unpythonic import call
 
         @call
         def result():

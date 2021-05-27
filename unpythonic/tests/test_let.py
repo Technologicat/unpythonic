@@ -6,7 +6,7 @@ from ..test.fixtures import session, testset
 from ..let import let, letrec, dlet, dletrec, blet, bletrec
 
 from ..env import env as _envcls
-from ..misc import call
+from ..funutil import call
 from ..seq import begin
 
 def runtests():

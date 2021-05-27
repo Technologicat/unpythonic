@@ -28,6 +28,7 @@ from .dispatch import (isgeneric, _resolve_multimethod, _format_callable,
                        _get_argument_type_mismatches, _raise_multiple_dispatch_error,
                        _list_multimethods, _extract_self_or_cls)
 from .dynassign import dyn, make_dynvar
+from .funutil import Values
 from .regutil import register_decorator
 from .symbol import sym
 
@@ -282,8 +283,6 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
     return named outputs. See:
         https://github.com/Technologicat/unpythonic/issues/32
     """
-    from .collections import Values  # circular import
-
     f = force(f)  # lazify support: we need the value of f
     # trivial case first: interaction with call_ec and other replace-def-with-value decorators
     if not callable(f):
@@ -622,7 +621,6 @@ def identity(*args, **kwargs):
         assert identity(42) == 42
         assert identity() is None
     """
-    from .collections import Values  # circular import
     if not args and not kwargs:
         return None
     return Values(*args, **kwargs) if kwargs or len(args) > 1 else args[0]
@@ -649,7 +647,6 @@ def const(*args, **kwargs):
         c = const()
         assert c("anything") is None
     """
-    from .collections import Values  # circular import
     if not args and not kwargs:
         ret = None
     else:
@@ -830,7 +827,6 @@ def _make_compose(direction):
 
         (f ∘ g)(...) ≡ f(g(...))
         """
-        from .collections import Values  # circular import
         def composed(*args, **kwargs):
             bindings = {}
             if iscurried(f):
@@ -927,7 +923,6 @@ def tokth(k, f):
     Especially useful in multi-arg compose chains.
     See ``unpythonic.test.test_fun`` for examples.
     """
-    from .collections import Values  # circular import
     def apply_f_to_kth_arg(*args, **kwargs):
         n = len(args)
         if not n:

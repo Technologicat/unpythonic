@@ -62,7 +62,7 @@ def prefix(tree, *, syntax, **kw):  # noqa: F811
 
         - How to pass named args::
 
-              from unpythonic.misc import call
+              from unpythonic import call
 
               with prefix:
                   (f, kw(myarg=3))  # ``kw(...)`` (syntax, not really a function!)

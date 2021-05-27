@@ -9,7 +9,7 @@ from ...syntax import macros, dbg  # noqa: F401, F811
 
 from ...syntax import dbgprint_block
 from ...dynassign import dyn
-from ...misc import call
+from ...funutil import call
 
 def runtests():
     # some usage examples

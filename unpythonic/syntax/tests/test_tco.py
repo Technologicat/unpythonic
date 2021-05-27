@@ -7,10 +7,10 @@ from ...test.fixtures import session, testset, returns_normally
 from ...syntax import (macros, tco, autoreturn, autocurry, do, let, letseq, dletrec,  # noqa: F401, F811
                        quicklambda, f, continuations, call_cc)
 
-from ...collections import Values
 from ...ec import call_ec
 from ...fploop import looped_over
 from ...fun import withself, curry
+from ...funutil import Values
 
 def runtests():
     # - any explicit return statement in a function body is TCO'd

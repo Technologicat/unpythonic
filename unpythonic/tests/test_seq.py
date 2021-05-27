@@ -3,7 +3,7 @@
 from ..syntax import macros, test, test_raises, fail  # noqa: F401
 from ..test.fixtures import session, testset
 
-from ..collections import Values
+from ..funutil import Values
 from ..seq import (begin, begin0, lazy_begin, lazy_begin0,
                    pipe1, pipe, pipec,
                    piped1, piped, exitpipe,

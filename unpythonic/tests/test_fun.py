@@ -6,7 +6,6 @@ from ..test.fixtures import session, testset, returns_normally
 from collections import Counter
 import sys
 
-from ..collections import Values
 from ..dispatch import generic
 from ..fun import (memoize, partial, curry, apply,
                    identity, const,
@@ -16,6 +15,7 @@ from ..fun import (memoize, partial, curry, apply,
                    composelc, composerc,
                    to1st, to2nd, tokth, tolast, to,
                    withself)
+from ..funutil import Values
 
 from ..dynassign import dyn
 

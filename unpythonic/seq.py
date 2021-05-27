@@ -10,10 +10,10 @@ __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
 from collections import namedtuple
 
 from .arity import arity_includes, UnknownArity
-from .collections import Values
 from .dynassign import dyn
 from .env import env
 from .fun import curry, iscurried
+from .funutil import Values
 from .lazyutil import force1, force, maybe_force_args, passthrough_lazy_args
 from .symbol import sym
 

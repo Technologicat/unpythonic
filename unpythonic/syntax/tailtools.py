@@ -34,9 +34,9 @@ from .util import (isx, isec,
                    suggest_decorator_index,
                    UnpythonicASTMarker, ExpandedContinuationsMarker)
 
-from ..collections import Values
 from ..dynassign import dyn
 from ..fun import identity
+from ..funutil import Values
 from ..it import uniqify
 from ..lazyutil import force1, passthrough_lazy_args
 from ..tco import trampolined, jump

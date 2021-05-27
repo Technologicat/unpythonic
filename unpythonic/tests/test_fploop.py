@@ -6,10 +6,11 @@ from ..test.fixtures import session, testset
 from ..fploop import looped, looped_over, breakably_looped, breakably_looped_over
 from ..tco import trampolined, jump
 
-from ..let import let
-from ..seq import begin
-from ..misc import call, timer
 from ..ec import catch, throw
+from ..funutil import call
+from ..let import let
+from ..misc import timer
+from ..seq import begin
 
 def runtests():
     with testset("basic usage"):

@@ -30,8 +30,8 @@ from ..it import (map, mapr, rmap, zipr, rzip,
                   subset, powerset,
                   allsame)
 
-from ..collections import Values
 from ..fun import composel, identity, curry
+from ..funutil import Values
 from ..gmemo import imemoize, gmemoize
 from ..mathseq import s
 from ..misc import Popper

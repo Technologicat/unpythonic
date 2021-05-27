@@ -8,7 +8,7 @@ from ...syntax import macros, test, the, test_raises  # noqa: F401
 from ...test.fixtures import session, testset
 
 from ...syntax import macros, continuations, call_cc, tco  # noqa: F401, F811
-from ...collections import Values
+from ...funutil import Values
 from ...misc import timer
 
 from types import FunctionType

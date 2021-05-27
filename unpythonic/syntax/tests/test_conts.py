@@ -6,11 +6,11 @@ from ...test.fixtures import session, testset, returns_normally
 
 from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, autocurry, let  # noqa: F401, F811
 
-from ...collections import Values
 from ...ec import call_ec
 from ...fploop import looped
-from ...tco import trampolined, jump
 from ...fun import withself
+from ...funutil import Values
+from ...tco import trampolined, jump
 
 def runtests():
     with testset("basic usage"):

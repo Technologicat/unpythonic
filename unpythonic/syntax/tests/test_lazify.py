@@ -10,14 +10,14 @@ from ...syntax import (macros, lazify, lazy, lazyrec,  # noqa: F811, F401
                        autocurry,
                        continuations, call_cc)
 
-from ...collections import frozendict, Values
+from ...collections import frozendict
 from ...ec import call_ec
 from ...excutil import raisef
 from ...fun import (curry, memoize, flip, rotate, apply,
                     notf, andf, orf, tokth, withself)
+from ...funutil import call, callwith, Values
 from ...it import flatten
 from ...llist import ll
-from ...misc import call, callwith
 from ...seq import pipe1, piped1, lazy_piped1, pipe, pipec, piped, lazy_piped, exitpipe
 from ...tco import trampolined, jump
 

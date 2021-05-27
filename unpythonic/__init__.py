@@ -44,8 +44,13 @@ from .symbol import *  # noqa: F401, F403
 from .tco import *  # noqa: F401, F403
 from .typecheck import *  # noqa: F401, F403
 
-# HACK: break dependency loop
+# HACK: break dependency loops for circular imports
 from .lazyutil import _init_module
 _init_module()
 del _init_module
 from .lazyutil import Lazy, force1, force  # noqa: F401
+
+from .funutil import _init_module
+_init_module()
+del _init_module
+from .funutil import *  # noqa: F401, F403
