@@ -13,7 +13,6 @@ from .dynassign import make_dynvar
 from .symbol import sym
 
 # HACK: break dependency loop llist -> fun -> lazyutil -> collections -> llist
-#from .collections import mogrify
 _init_done = False
 jump = sym("jump")  # doesn't matter what the value is, will be overwritten later
 def _init_module():  # called by unpythonic.__init__ when otherwise done

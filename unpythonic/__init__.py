@@ -28,7 +28,7 @@ from .gtco import *  # noqa: F401, F403
 from .it import *  # noqa: F401, F403
 from .let import *  # no guarantees on evaluation order (before Python 3.6), nice syntax # noqa: F401, F403
 
-# code generation target API for macros
+# As of 0.15.0, lispylet is nowadays primarily a code generation target API for macros.
 from .lispylet import (let as ordered_let, letrec as ordered_letrec,  # noqa: F401
                        dlet as ordered_dlet, dletrec as ordered_dletrec,
                        blet as ordered_blet, bletrec as ordered_bletrec)
@@ -44,10 +44,14 @@ from .symbol import *  # noqa: F401, F403
 from .tco import *  # noqa: F401, F403
 from .typecheck import *  # noqa: F401, F403
 
+# --------------------------------------------------------------------------------
 # HACK: break dependency loops for circular imports
+
 from .lazyutil import _init_module
 _init_module()
 del _init_module
+# We're slightly selective here, because user code likely doesn't need `islazy`, `passthrough_lazy_args`,
+# or `maybe_force_args`, although strictly speaking those functions are part of the public API.
 from .lazyutil import Lazy, force1, force  # noqa: F401
 
 from .funutil import _init_module
