@@ -623,6 +623,16 @@ def identity(*args, **kwargs):
         assert identity(1, 2, 3) == Values(1, 2, 3)
         assert identity(42) == 42
         assert identity() is None
+
+    **CAUTION**: Not lazy. In code using `with lazify`, all arguments
+    to `identity` will be forced. This is due to two reasons:
+
+      1. `identity` is the default continuation in `with continuations`,
+         producing the final return value in a continuation-enabled
+         computation.
+
+      2. `identity` just returns its arguments. Return values are
+         never implicitly lazy in `unpythonic`.
     """
     if not args and not kwargs:
         return None
@@ -649,6 +659,11 @@ def const(*args, **kwargs):
 
         c = const()
         assert c("anything") is None
+
+    **CAUTION**: Not lazy. In code using `with lazify`, all arguments
+    to `const` will be forced. This is because the function returned
+    by `const` just returns the arguments that were supplied to `const`;
+    return values are never implicitly lazy in `unpythonic`.
     """
     if not args and not kwargs:
         ret = None
