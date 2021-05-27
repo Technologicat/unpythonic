@@ -975,8 +975,7 @@ def _continuations(block_body):
         else:
             posargdefaults = []
 
-        # Name the continuation: f_cont, f_cont1, f_cont2, ...
-        # if multiple call_cc[]s in the same function body.
+        # Name the continuation: f_cont_UUID
         if owner:
             # TODO: robustness: use regexes, strip suf and any numbers at the end, until no match.
             # return prefix of s before the first occurrence of suf.
