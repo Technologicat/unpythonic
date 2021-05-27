@@ -64,7 +64,8 @@ def runtests():
         test[memotuple((1, 2, 3)) is memotuple((1, 2, 3))]
         test[memotuple((1, 2, 3)) is not memotuple((1, 2))]
 
-        # "memoize lambda": classic evaluate-at-most-once thunk
+        # "memoize lambda": classic evaluate-at-most-once thunk.
+        # See also the `lazy[]` macro.
         thunk = memoize(lambda: print("hi from thunk"))
         thunk()
         thunk()
