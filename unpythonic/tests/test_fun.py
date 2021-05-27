@@ -311,6 +311,17 @@ def runtests():
         test[inc2_then_double(3) == 10]
         test[double_then_inc2(3) == 8]
 
+    with testset("compose with multiple-return-values, named return values"):
+        f = lambda x, y: Values(2 * x, 3 * y)
+        g = lambda x, y: Values(x + 2, y + 3)
+        f_then_g = composel(f, g)
+        test[f_then_g(1, 2) == Values(4, 9)]
+
+        f = lambda x, y: Values(x=2 * x, y=3 * y)
+        g = lambda x, y: Values(x=x + 2, y=y + 3)
+        f_then_g = composel(f, g)
+        test[f_then_g(1, 2) == Values(x=4, y=9)]
+
     with testset("curry in compose chain"):
         def f1(a, b):
             return Values(2 * a, 3 * b)

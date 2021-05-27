@@ -99,7 +99,6 @@ def lazy_begin0(*bodys):
         body()
     return out
 
-# TODO: test multiple-return-values support in all function composition utilities (`curry`, `compose` family, `pipe` family)
 # TODO: expand tests of `continuations` to cases with named return values
 # TODO: update code examples in docs
 
