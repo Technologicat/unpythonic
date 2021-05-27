@@ -687,6 +687,7 @@ def andf(*fs):  # Racket: conjoin
         assert andf(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(42) is True
         assert andf(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(43) is False
     """
+    @passthrough_lazy_args
     def conjoined(*args, **kwargs):
         b = True
         for f in fs:
@@ -694,8 +695,6 @@ def andf(*fs):  # Racket: conjoin
             if not b:
                 return False
         return b
-    if all(islazy(f) for f in fs):
-        conjoined = passthrough_lazy_args(conjoined)
     return conjoined
 
 def orf(*fs):  # Racket: disjoin
@@ -715,6 +714,7 @@ def orf(*fs):  # Racket: disjoin
         assert orf(isstr, iseven)("foo") is True
         assert orf(isstr, iseven)(None) is False  # neither condition holds
     """
+    @passthrough_lazy_args
     def disjoined(*args, **kwargs):
         b = False
         for f in fs:
@@ -722,8 +722,6 @@ def orf(*fs):  # Racket: disjoin
             if b:
                 return b
         return False
-    if all(islazy(f) for f in fs):
-        disjoined = passthrough_lazy_args(disjoined)
     return disjoined
 
 def _make_compose1(direction):
@@ -769,8 +767,7 @@ def _make_compose1(direction):
         #  - if fs is empty, we output None
         #  - if fs contains only one item, we output it as-is
         composed = reducel(compose1_two, fs)  # op(elt, acc)
-        if all(islazy(f) for f in fs):
-            composed = passthrough_lazy_args(composed)
+        composed = passthrough_lazy_args(composed)
         return composed
     return compose1
 
@@ -858,8 +855,7 @@ def _make_compose(direction):
         """
         fs = force(fs)
         composed = reducel(compose_two, fs)  # op(elt, acc)
-        if all(islazy(f) for f in fs):
-            composed = passthrough_lazy_args(composed)
+        composed = passthrough_lazy_args(composed)
         return composed
     return compose
 
