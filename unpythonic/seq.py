@@ -99,7 +99,6 @@ def lazy_begin0(*bodys):
         body()
     return out
 
-# TODO: expand tests of `continuations` to cases with named return values
 # TODO: update code examples in docs
 
 # sequence one-input, one-output functions

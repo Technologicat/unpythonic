@@ -236,6 +236,21 @@ def runtests():
             test[k('again') == ['the call returned', 'again']]
             test[k('thrice', '!') == ['the call returned', 'thrice', '!']]
 
+    with testset("integration with named return values"):
+        # Named return values aren't supported as assignment targets in a `call_cc[]`
+        # due to syntactic limitations. But they can be used elsewhere in continuation-enabled code.
+        with continuations:
+            def f1(x, y):
+                return Values(x=x, y=y)  # named return values
+            def f2(*, x, y):  # note keyword-only parameters
+                return x, y  # one return value, a tuple (for multiple-return-values, use `Values(...)`)
+            # Think through carefully what this does: call `f1`, chain to `f2` as the continuation.
+            # The continuation is set here by explicitly providing a value for the implicit `cc` parameter.
+            #
+            # The named return values from `f1` are then unpacked, by the continuation machinery,
+            # into the kwargs of `f2`. Then `f2` takes those, and returns a tuple.
+            test[f1(2, 3, cc=f2) == (2, 3)]
+
     with testset("top level call_cc"):
         # A top-level "call_cc" is also allowed.
         #
