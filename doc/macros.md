@@ -1256,7 +1256,7 @@ call_cc[f(...) if p else g(...)]
 
 *NOTE*: ``*xs`` may need to be written as ``*xs,`` in order to explicitly make the LHS into a tuple. The variant without the comma seems to work when run from a ``.py`` file with the `macropython` bootstrapper from [`mcpyrate`](https://pypi.org/project/mcpyrate/), but fails in code run interactively in the `mcpyrate` REPL.
 
-*NOTE*: ``f()`` and ``g()`` must be **literal function calls**. Sneaky trickery (such as calling indirectly via ``unpythonic.misc.call`` or ``unpythonic.fun.curry``) is not supported. (The ``prefix`` and ``curry`` macros, however, **are** supported; just order the block macros as shown in the final section of this README.) This limitation is for simplicity; the ``call_cc[]`` needs to patch the ``cc=...`` kwarg of the call being made.
+*NOTE*: ``f()`` and ``g()`` must be **literal function calls**. Sneaky trickery (such as calling indirectly via ``unpythonic.funutil.call`` or ``unpythonic.fun.curry``) is not supported. (The ``prefix`` and ``curry`` macros, however, **are** supported; just order the block macros as shown in the final section of this README.) This limitation is for simplicity; the ``call_cc[]`` needs to patch the ``cc=...`` kwarg of the call being made.
 
 **Assignment targets**:
 
