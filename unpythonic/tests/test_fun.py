@@ -318,7 +318,7 @@ def runtests():
             return a + b
         f1_then_f2_a = composelc(f1, f2)
         f1_then_f2_b = composerc(f2, f1)
-        test[f1_then_f2_a(2, 3) == f1_then_f2_b(2, 3) == 13]
+        test[the[f1_then_f2_a(2, 3)] == the[f1_then_f2_b(2, 3)] == 13]
 
         def f3(a, b):
             return Values(a, b)
