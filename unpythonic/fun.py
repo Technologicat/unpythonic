@@ -86,7 +86,10 @@ def memoize(f):
 # because there are other places in the stdlib, particularly `inspect._signature_get_partial`
 # (as of Python 3.8), that expect the standard semantics.
 def partial(func, *args, **kwargs):
-    """Wrapper over `functools.partial` that type-checks the arguments against the type annotations on `func`.
+    """Type-checking `functools.partial`.
+
+    This is a wrapper that type-checks the arguments against the type annotations
+    on `func`, and if the type check passes, calls `functools.partial`.
 
     Arguments can be passed by position or by name; we compute their bindings
     to function parameters like Python itself does.
@@ -97,10 +100,10 @@ def partial(func, *args, **kwargs):
     Trying to pass an argument of a type that does not match the corresponding
     parameter's type specification raises `TypeError` immediately.
 
-    Any parameter that does not have a type annotation will not be type-checked.
+    Any parameter that does not have a type annotation will be ignored in the type check.
 
     Note the check still occurs at run time, but at the use site of `partial`,
-    when the partially applied function is constructed. This makes it fail-faster
+    when the partially applied function is constructed. This makes it fail-fast-er
     than an `isinstance` check inside the function.
 
     To conveniently make regular calls of the function type-check arguments, too,
@@ -108,7 +111,7 @@ def partial(func, *args, **kwargs):
     """
     # HACK: As of Python 3.8, `typing.get_type_hints` does not know about `functools.partial` objects,
     # HACK: but those objects have `args` and `keywords` attributes, so we can extract what we need.
-    # TODO: Remove this hack if `typing.get_type_hints` gets support for `functools.partial` at some point.
+    # TODO: Maybe remove this hack if `typing.get_type_hints` gets support for `functools.partial` at some point.
     if isinstance(func, functools_partial):
         thecallable = func.func
         collected_args = func.args + args
