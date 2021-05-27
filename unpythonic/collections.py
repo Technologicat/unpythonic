@@ -20,6 +20,11 @@ from inspect import isclass
 from operator import lt, le, ge, gt
 import threading
 
+# Some of these are used only to detect (and perhaps mogrify) our own cat food in `mogrify`.
+#
+# Still, importing these has the rather unpleasant consequence of creating dependency loops
+# (circular imports), because many other modules in `unpythonic` use definitions from the
+# `unpythonic.collections` module.
 from .env import env
 from .dynassign import _Dyn
 from .llist import cons, Nil
