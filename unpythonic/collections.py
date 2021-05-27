@@ -131,7 +131,7 @@ def mogrify(func, container):
         elif isinstance(x, MappingView):
             return {doit(elt) for elt in x}
         # env and dyn provide the Mapping API, but shouldn't get the general Mapping treatment here.
-        # (This is important for the curry and lazify macros.)
+        # (This is important for the autocurry and lazify macros.)
         elif isinstance(x, Mapping) and not isinstance(x, (env, _Dyn)):
             ctor = type(x)
             return ctor({k: doit(v) for k, v in x.items()})
