@@ -28,7 +28,7 @@ from .gtco import *  # noqa: F401, F403
 from .it import *  # noqa: F401, F403
 from .let import *  # no guarantees on evaluation order (before Python 3.6), nice syntax # noqa: F401, F403
 
-# guaranteed evaluation order, clunky syntax
+# code generation target API for macros
 from .lispylet import (let as ordered_let, letrec as ordered_letrec,  # noqa: F401
                        dlet as ordered_dlet, dletrec as ordered_dletrec,
                        blet as ordered_blet, bletrec as ordered_bletrec)
