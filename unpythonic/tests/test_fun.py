@@ -138,6 +138,9 @@ def runtests():
     with testset("partial (type-checking wrapper)"):
         def nottypedfunc(x):
             return "ok"
+        test[returns_normally(partial(nottypedfunc, 42))]
+        test[returns_normally(partial(nottypedfunc, "abc"))]
+
         def typedfunc(x: int):
             return "ok"
         test[returns_normally(partial(typedfunc, 42))]
