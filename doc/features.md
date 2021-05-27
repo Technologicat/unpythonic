@@ -1176,7 +1176,7 @@ it means the following. Let ``m1`` and ``m2`` be the minimum and maximum positio
  - If ``n < m1``, partially apply ``f`` to the given arguments, yielding a new function with smaller ``m1``, ``m2``. Then curry the result and return it.
    - Internally we stack ``functools.partial`` applications, but there will be only one ``curried`` wrapper no matter how many invocations are used to build up arguments before ``f`` eventually gets called.
 
-As of v0.15.0, the actual algorithm by which `curry` decides what to do, in the presence of kwargs, `@generic` functions, and `Values` multiple-return-values, is:
+As of v0.15.0, the actual algorithm by which `curry` decides what to do, in the presence of kwargs, `@generic` functions, and `Values` multiple-return-values (and named return values), is:
 
  - If `f` is **not** `@generic` or `@typed`:
    - Compute parameter bindings of the args and kwargs collected so far, against the call signature of `f`.
