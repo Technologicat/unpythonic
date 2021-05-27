@@ -911,9 +911,13 @@ def _continuations(block_body):
             before.append(stmt)
             if not after:
                 return before, None, []
+    # TODO: To support named return values (`kwrets` in a `Values` object) from the `call_cc`'d function,
+    # TODO: we need to change the syntax to something that allows us to specify which names are meant to
+    # TODO: capture the positional return values, and which ones the named return values. Doing so will
+    # TODO: likely break IDE support, because there's no standard name-binding construct we could abuse here.
     def analyze_callcc(stmt):
         starget = None  # "starget" = starred target, becomes the vararg for the cont
-        def maybe_starred(expr):  # return expr.id or set starget
+        def maybe_starred(expr):  # return [expr.id] or set starget
             nonlocal starget
             if type(expr) is Name:
                 return [expr.id]
@@ -930,7 +934,8 @@ def _continuations(block_body):
             target = stmt.targets[0]
             if type(target) in (Tuple, List):
                 rest, last = target.elts[:-1], target.elts[-1]
-                # TODO: limitation due to Python's vararg syntax - the "*args" must be after positional args.
+                # TODO: limitation due to Python's vararg syntax - the "*args" must be after positional args
+                # TODO: in a function definition (we're going to define the cont using these).
                 if any(type(x) is Starred for x in rest):
                     raise SyntaxError("in call_cc[], only the last assignment target may be starred")  # pragma: no cover
                 if not all(type(x) is Name for x in rest):

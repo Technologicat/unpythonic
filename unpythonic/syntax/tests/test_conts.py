@@ -34,6 +34,9 @@ def runtests():
 
             # The cc arg must be declared as the last one that has no default value,
             # or declared as by-name-only. It's always passed by name.
+            #
+            # If the function is going to be used as a target for `call_cc[]`,
+            # multiple return values must be packed into a `Values`.
             def f(a, b, cc):
                 return Values(2 * a, 3 * b)
             test[f(3, 4) == Values(6, 12)]
@@ -41,11 +44,15 @@ def runtests():
             test[x == 6 and y == 12]
 
             def g(a, b):
+                # `f` packs its multiple return values into a `Values`,
+                # so we can use an unpacking assignment to extract them.
                 x, y = call_cc[f(a, b)]
                 return x, y
                 fail["This line should not be reached."]  # pragma: no cover
             test[g(3, 4) == (6, 12)]
 
+            # Unpacking into a star-target (as the last target) sends any
+            # remaining positional return values there, as a tuple.
             xs, *a = call_cc[f(1, 2)]
             test[xs == 2 and a == (6,)]
 
