@@ -115,7 +115,8 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
   - Resolve issue [#61](https://github.com/Technologicat/unpythonic/issues/61): `curry` now supports kwargs properly.
     - We now analyze parameter bindings like Python itself does, so it should no longer matter whether arguments are passed by position or by name.
     - Positional passthrough works as before. Named passthrough added.
-    - Any remaining arguments (that cannot be accepted by the initial call) are passed through to a callable intermediate result.
+    - Any remaining arguments (that cannot be accepted by the initial call) are passed through to a callable intermediate result (if any), and then outward on the curry context stack as a `Values`. Since `curry` in this role is essentially a function-composition utility, the receiving curried function instance unpacks the `Values` into args and kwargs.
+    - If any extra arguments (positional or named) remain when the top-level curry context exits, then by default, `TypeError` is raised. To override, use `with dyn.let(curry_context=["whatever"])`, just like before. Then you'll get a `Values` object.
   - `unpythonic.conditions.signal`, when the signal goes unhandled, now returns the canonized input `condition`, with a nice traceback attached. This feature is intended for implementing custom error protocols on top of `signal`; `error` already uses it to produce a nice-looking error report.
   - The modules `unpythonic.dispatch` and `unpythonic.typecheck`, which provide the `@generic` and `@typed` decorators and the `isoftype` function, are no longer considered experimental. From this release on, they receive the same semantic versioning guarantees as the rest of `unpythonic`.
   - CI: Automated tests now run on Python 3.6, 3.7, 3.8, 3.9, and PyPy3 (language versions 3.6, 3.7).
