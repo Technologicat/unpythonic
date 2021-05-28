@@ -99,8 +99,6 @@ def lazy_begin0(*bodys):
         body()
     return out
 
-# TODO: update code examples in docs
-
 # sequence one-input, one-output functions
 @passthrough_lazy_args
 def pipe1(value0, *bodys):
