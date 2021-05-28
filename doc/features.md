@@ -915,6 +915,8 @@ This way, any assignments made in the ``do`` (which occur only after ``do`` gets
 
 ### ``pipe``, ``piped``, ``lazy_piped``: sequence functions
 
+**Changed in v0.15.0.** Multiple return values and named return values, for passing on to the next function in the pipe, as well as in the final return value from the pipe, are now represented as a `Values`.
+
 Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/). A pipe performs a sequence of operations, starting from an initial value, and then returns the final value. It's just function composition, but with an emphasis on data flow, which helps improve readability:
 
 ```python
@@ -969,11 +971,15 @@ from unpythonic import lazy_piped, exitpipe
 fibos = []
 def nextfibo(a, b):      # multiple arguments allowed
     fibos.append(a)      # store result by side effect
-    return (b, a + b)    # new state, handed to next function in the pipe
+    # New state, handed to next function in the pipe.
+    # As of v0.15.0, use `Values(...)` to represent multiple return values.
+    # Positional args will be passed positionally, named ones by name.
+    return Values(a=b, b=a + b)
 p = lazy_piped(1, 1)     # load initial state
 for _ in range(10):      # set up pipeline
     p = p | nextfibo
 p | exitpipe
+assert (p | exitpipe) == Values(a=89, b=144)  # final state
 assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 ```
 
