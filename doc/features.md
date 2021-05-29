@@ -74,7 +74,10 @@ The exception are the features marked **[M]**, which are primarily intended as a
   - [`valuify`](#valuify): convert pythonic multiple-return-values idiom of `tuple` into `Values`.
 
 [**Numerical tools**](#numerical-tools)
-  - `almosteq`, `fixpoint`, `partition_int`, `partition_int_triangular`, `ulp`.
+  - [`almosteq`: floating-point almost-equality](#almosteq-floating-point-almost-equality)
+  - [`fixpoint`: arithmetic fixed-point finder](#fixpoint-arithmetic-fixed-point-finder)
+  - [`partition_int`, `partition_int_triangular`: partition integers](#partition_int-partition_int_triangular-partition-integers)
+  - [``ulp``: unit in last place](#ulp-unit-in-last-place)
 
 [**Other**](#other)
 - [``callsite_filename``](#callsite-filename)
@@ -3763,21 +3766,26 @@ assert f(1, 2, 3) == Values(1, 2, 3)
 
 ## Numerical tools
 
-Overview:
+We briefly introduce the functions below. More details and examples can be found in the docstrings and [the unit tests](../unpythonic/tests/test_numutil.py**.
 
-- `almosteq`: test floating-point numbers for near-equality. Reverts to exact equality for non-floating-point types.
+**CAUTION** for anyone new to numerics:
 
-- `fixpoint`: arithmetic fixed-point finder (not to be confused with `fix`). **Added in v0.14.2.**
+When working with floating-point numbers, keep in mind that they are, very roughly speaking, a finite-precision logarithmic representation of [ℝ](https://en.wikipedia.org/wiki/Real_line). They are, necessarily, actually a subset of [ℚ](https://en.wikipedia.org/wiki/Rational_number), that's not even [dense](https://en.wikipedia.org/wiki/Dense_set). The spacing between adjacent floats depends on where you are on the real line; see `ulp` below.
 
-- `partition_int`: [partition](https://en.wikipedia.org/wiki/Partition_(number_theory)) a small positive integer, i.e., split it in all possible ways, into smaller integers that sum to it. Useful e.g. for determining how many letters the components of an anagram may have. **Added in v0.14.2.**
+For finer points concerning the behavior of floating-point numbers, see [David Goldberg (1991): What every computer scientist should know about floating-point arithmetic](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html), or for a [tl;dr](http://catplanet.org/tldr-cat-meme/) version, [the floating point guide](https://floating-point-gui.de/).
 
-  Not to be confused with `unpythonic.partition`, which partitions an iterable based on a predicate.
+Or you could look at [my lecture slides from 2018](https://github.com/Technologicat/python-3-scicomp-intro/tree/master/lecture_slides); particularly, [lecture 7](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/lecture_slides/lectures_tut_2018_7.pdf) covers the floating-point representation. It collects the most important details, and some more links to further reading.
 
-- `partition_int_triangular`: like `partition_int`, but accept only triangular numbers (1, 3, 6, 10, ...) as components of the partition. This function answers a timeless question: if I have `n` stackable plushies, what are the possible stack configurations? **Added in v0.15.0.**
 
-- ``ulp``: unit in last place. The numerical value of the least-significant bit of a floating-point number at a given point on the real line. **Added in v0.14.2.**
+### `almosteq`: floating-point almost-equality
 
-We provide more detailed documentation on some of these below. For the rest, see the docstrings and [the unit tests](../unpythonic/tests/test_numutil.py) for discussion and examples.
+Test floating-point numbers for near-equality. Beside the built-in `float`, we support also the arbitrary-precision software-implemented floating-point type `mpf` from `SymPy`'s `mpmath` package.
+
+Anything else, for example `SymPy` expressions, strings, and containers (regardless of content), is tested for exact equality.
+
+For ``mpmath.mpf``, we just delegate to ``mpmath.almosteq``, with the given tolerance.
+
+For ``float``, we use the strategy suggested in [the floating point guide](https://floating-point-gui.de/errors/comparison/), because naive absolute and relative comparisons against a tolerance fail in commonly encountered situations.
 
 
 ### `fixpoint`: arithmetic fixed-point finder
@@ -3810,11 +3818,47 @@ assert abs(sqrt_newton(2) - sqrt(2)) <= ulp(1.414)
 ```
 
 
+### `partition_int`, `partition_int_triangular`: partition integers
+
+**Added in v0.14.2.**
+
+**Changed in v0.15.0.** *Added `partition_int_triangular`.*
+
+The `partition_int` function [partitions](https://en.wikipedia.org/wiki/Partition_(number_theory)) a small positive integer, i.e., splits it in all possible ways, into smaller integers that sum to it. This is useful e.g. to determine the number of letters to allocate for each component of an anagram that may consist of several words.
+
+The `partition_int_triangular` function is like `partition_int`, but accepts only triangular numbers (1, 3, 6, 10, ...) as components of the partition. This function answers a timeless question: if I have `n` stackable plushies, what are the possible stack configurations?
+
+(These are not to be confused with `unpythonic.partition`, which partitions an iterable based on a predicate.)
+
+Examples:
+
+```python
+from unpythonic import partition_int, partition_int_triangular
+
+assert tuple(partition_int(4)) == ((4,), (3, 1), (2, 2), (2, 1, 1), (1, 3), (1, 2, 1), (1, 1, 2), (1, 1, 1, 1))
+assert tuple(partition_int(5, lower=2)) == ((5,), (3, 2), (2, 3))
+assert tuple(partition_int(5, lower=2, upper=3)) == ((3, 2), (2, 3))
+
+assert (frozenset(tuple(sorted(c)) for c in partition_int_triangular(78, lower=10)) ==
+        frozenset({(10, 10, 10, 10, 10, 28),
+                   (10, 10, 15, 15, 28),
+                   (15, 21, 21, 21),
+                   (21, 21, 36),
+                   (78,)}))
+```
+
+As the first example demonstrates, most of the splits are a ravioli consisting mostly of ones. It is much faster to not generate such splits than to filter them out from the result. Use the `lower` parameter to set the smallest acceptable value for one component of the split; the default value `lower=1` generates all splits. Similarly, the `upper` parameter sets the largest acceptable value for one component of the split. The default `upper=None` sets no upper limit.
+
+In `partition_int_triangular`, the `lower` and `upper` parameters work exactly the same. The only difference to `partition_int` is that each component of the split must be a triangular number.
+
+**CAUTION**: The number of possible partitions grows very quickly with `n`, so in practice these functions are only useful for small numbers, or with a lower limit that is not too much smaller than `n / 2`.
+
+
 ### ``ulp``: unit in last place
 
 **Added in v0.14.2.**
 
-Given a floating point number `x`, return the value of the *unit in the last place* (the "least significant bit"). This is the local size of a "tick", i.e. the difference between `x` and the next larger float. At `x = 1.0`, this is the [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon), by definition of the machine epsilon.
+Given a floating point number `x`, return the value of the *unit in the last place* (the "least significant bit"). This is the local size of a "tick", i.e. the difference between `x` and the *next larger* float. At `x = 1.0`, this is the [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon), by definition of the machine epsilon.
 
 The float format is [IEEE-754](https://en.wikipedia.org/wiki/IEEE_754), i.e. standard Python `float`.
 
@@ -3839,8 +3883,6 @@ print(ulp(2**52))
 ```
 
 When `x` is a round number in base-10, the ULP is not, because the usual kind of floats use base-2.
-
-For more reading, see [David Goldberg (1991): What every computer scientist should know about floating-point arithmetic](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html), or for a [tl;dr](http://catplanet.org/tldr-cat-meme/) version, [the floating point guide](https://floating-point-gui.de/).
 
 
 ## Other
