@@ -3691,6 +3691,8 @@ With `Values`, you can return multiple values positionally and by name. This com
 
 Having a `Values` type separate from `tuple` also helps with semantic accuracy. In `unpythonic` 0.15.0 and later, a `tuple` return value now means just that - one value that is a `tuple`. It is different from a `Values` that contains several positional return values (that are meant to be treated separately e.g. by a function composition utility).
 
+Inspired by the [`values`](https://docs.racket-lang.org/reference/values.html) form of Racket.
+
 #### When to use `Values`
 
 Most of the time, returning a tuple to denote multiple-return-values and unpacking it is just fine, and that is exactly what `unpythonic` does internally in many places.
