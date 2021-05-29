@@ -170,8 +170,10 @@ assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34,
 
 We bind arguments to parameters like Python itself does, so it does not matter whether arguments are passed by position or by name during currying. We support `@generic` multiple-dispatch functions.
 
+We also feature a Haskell-inspired passthrough system: any args and kwargs that are not accepted by the call signature will be passed through. This is useful when a curried function returns a new function, which is then the target for the passthrough. See the docs for details.
+
 ```python
-from unpythonic import curry, generic
+from unpythonic import curry, generic, foldr, composerc, cons, nil, ll
 
 @curry
 def f(x, y):
@@ -216,6 +218,11 @@ assert g(1.0)(2.0) == "float"
 
 assert g("cat") == "str"
 assert g(s="cat") == "str"
+
+# simple example of passthrough
+mymap = lambda f: curry(foldr, composerc(cons, f), nil)
+myadd = lambda a, b: a + b
+assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 ```
 </details>
 <details><summary>Multiple-dispatch generic functions, like in CLOS or Julia.</summary>
