@@ -6,8 +6,8 @@ from ..test.fixtures import session, testset
 from operator import add
 from functools import partial
 
-# `Values` is tested where function composition utilities that use it are; the class itself is trivial.
-from ..funutil import call, callwith
+# `Values` is also tested where function composition utilities that use it are.
+from ..funutil import call, callwith, Values
 
 def runtests():
     with testset("@call (def as code block)"):
@@ -93,6 +93,50 @@ def runtests():
                             lambda x: x**2,
                             lambda x: x**(1 / 2)])
         test[tuple(m) == (6, 9, 3**(1 / 2))]
+
+    # The `Values` abstraction is used by various parts of `unpythonic` that
+    # deal with function composition; particularly `curry`, the `compose` and
+    # `pipe` families, and the `with continuations` macro.
+    with testset("Values (multiple-return-values, named return values)"):
+        def f():
+            return Values(1, 2, 3)
+        result = f()
+        test[isinstance(result, Values)]
+        test[result.rets == (1, 2, 3)]
+        test[not result.kwrets]
+        test[result[0] == 1]
+        test[result[:-1] == (1, 2)]
+        a, b, c = result  # if no kwrets, can be unpacked like a tuple
+        a, b, c = f()
+
+        def g():
+            return Values(x=3)  # named return value
+        result = g()
+        test[isinstance(result, Values)]
+        test[not result.rets]
+        test[result.kwrets == {"x": 3}]  # actually a `frozendict`
+        test["x" in result]  # `in` looks in the named part
+        test[result["x"] == 3]
+        test[result.get("x", None) == 3]
+        test[result.get("y", None) is None]
+        test[tuple(result.keys()) == ("x",)]  # also `values()`, `items()`
+
+        def h():
+            return Values(1, 2, x=3)
+        result = h()
+        test[isinstance(result, Values)]
+        test[result.rets == (1, 2)]
+        test[result.kwrets == {"x": 3}]
+        a, b = result.rets  # positionals can always be unpacked explicitly
+        test[result[0] == 1]
+        test["x" in result]
+        test[result["x"] == 3]
+
+        def silly_but_legal():
+            return Values(42)
+        result = silly_but_legal()
+        test[result.rets[0] == 42]
+        test[result.ret == 42]  # shorthand for single-value case
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
