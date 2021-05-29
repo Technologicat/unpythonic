@@ -111,7 +111,7 @@ Since `unpythonic` is a relatively loose collection of language extensions and u
 
 To study a particular feature, just start from the entry point that piques your interest, and follow the definitions recursively. Use an IDE or Emacs's `anaconda-mode` ~for convenience~ to stay sane. Look at the automated tests; those double as usage examples, sometimes containing finer points that didn't make it to prose documentation.
 
-`curry` has some [cross-cutting concerns](https://en.wikipedia.org/wiki/Cross-cutting_concern), but nothing that a grep wouldn't find.
+`curry` has some [cross-cutting concerns](https://en.wikipedia.org/wiki/Cross-cutting_concern), but nothing that a grep wouldn't find. Same goes for the multiple-dispatch system (particularly `@generic`).
 
 The `lazify` and `continuations` macros are the most complex (and perhaps fearsome?) parts. As for the lazifier, grep also for `passthrough_lazy_args` and `maybe_force_args`. As for continuations, read the `tco` macro first, and keep in mind how that works when reading `continuations`. The `continuations` macro is essentially what [academics call](https://cs.brown.edu/~sk/Publications/Papers/Published/pmmwplck-python-full-monty/paper.pdf) *"a standard [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style) transformation"*, plus some technical details due to various bits of impedance mismatch.
 
