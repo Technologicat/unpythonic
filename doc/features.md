@@ -3048,7 +3048,7 @@ Conditions are one of the killer features of Common Lisp, so if you're new to co
 
 For Python, conditions were first implemented in [python-cl-conditions](https://github.com/svetlyak40wt/python-cl-conditions/) by Alexander Artemenko (2016).
 
-What we provide here is essentially a rewrite, based on studying that implementation. The main reasons for the rewrite are to give the condition system an API consistent with the style of `unpythonic`, to drop any and all historical baggage without needing to consider backward compatibility, and to allow interaction with (and customization taking into account) the other parts of `unpythonic`. If you specifically need a condition system, not a kitchen-sink language extension, then by all means go for `python-cl-conditions`!
+What we provide here is essentially a rewrite, based on studying that implementation. The main reasons for the rewrite are to give the condition system an API consistent with the style of `unpythonic`, to drop any and all historical baggage without needing to consider backward compatibility, and to allow interaction with (and customization taking into account) the other parts of `unpythonic`.
 
 The core idea can be expressed in fewer than 100 lines of Python; ours is (as of v0.14.2) 151 lines, not counting docstrings, comments, or blank lines. The main reason our module is over 700 lines are the docstrings.
 
@@ -3193,6 +3193,8 @@ The machinery itself is also missing some advanced features, such as matching th
 
 **CAUTION**: Multiple dispatch can be dangerous. Particularly, `@augment` can be dangerous to the readability of your codebase. If a new multimethod is added for a generic function defined elsewhere, for types defined elsewhere, this may lead to [*spooky action at a distance*](https://lexi-lambda.github.io/blog/2016/02/18/simple-safe-multimethods-in-racket/) (as in [action at a distance](https://en.wikipedia.org/wiki/Action_at_a_distance_(computer_programming))). In the Julia community, this is known as [*type piracy*](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy). Keep in mind that the multiple-dispatch table is global state!
 
+If you need multiple dispatch, but not the other features of `unpythonic`, see the [multipledispatch](https://github.com/mrocklin/multipledispatch) library, which likely runs faster.
+
 
 #### ``typed``: add run-time type checks with type annotation syntax
 
@@ -3293,7 +3295,7 @@ See [the unit tests](../unpythonic/tests/test_typecheck.py) for more.
 
 **CAUTION**: The `isoftype` function is one big hack. In Python 3.6 through 3.9, there is no consistent way to handle a type specification at run time. We must access some private attributes of the ``typing`` meta-utilities, because that seems to be the only way to get what we need to do this.
 
-For a similar tool for run-time type-checking, see also the [`typeguard`](https://github.com/agronholm/typeguard) library.
+If you need a run-time type checker, but not the other features of `unpythonic`, see the [`typeguard`](https://github.com/agronholm/typeguard) library.
 
 
 ## Exception tools

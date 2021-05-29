@@ -8,7 +8,8 @@ module.
 
 We currently provide `isoftype` (cf. `isinstance`), but no `issubtype` (cf. `issubclass`).
 
-If you need a run-time type checker for serious general use, consider `typeguard`:
+If you need a run-time type checker, but not the other features of `unpythonic`,
+see `typeguard`:
 
     https://github.com/agronholm/typeguard
 """

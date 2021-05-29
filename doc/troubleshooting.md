@@ -19,6 +19,7 @@
     - [Cannot import the name `macros`?](#cannot-import-the-name-macros)
     - [But I did run my program with `macropython`?](#but-i-did-run-my-program-with-macropython)
     - [I'm hacking a macro inside a module in `unpythonic.syntax`, and my changes don't take?](#im-hacking-a-macro-inside-a-module-in-unpythonicsyntax-and-my-changes-dont-take)
+    - [Both `unpythonic` and library `x` provide language-extension feature `y`. Which is better?](#both-unpythonic-and-library-x-provide-language-extension-feature-y-which-is-better)
 
 <!-- markdown-toc end -->
 
@@ -81,3 +82,12 @@ I might modify the `mcpyrate` analyzer in the future, but doing so will make the
 For now, we just note that this issue mainly concerns developers of large macro packages (such as `unpythonic.syntax`) that need to split - for factoring reasons - their macro definitions into separate modules, while presenting all macros to the user in one interface module. This issue does not affect the development of macro-using programs, or any programs where macros are imported from their original definition site (like they always were with MacroPy).
 
 Try clearing the bytecode cache in `unpythonic/`; this will force a recompile.
+
+
+### Both `unpythonic` and library `x` provide language-extension feature `y`. Which is better?
+
+The point of having these features in `unpythonic` is integration, and a consistent API. So if you need only one specific language-extension feature, then a library that concentrates on that particular feature is likely a good choice. If you need the kitchen sink, too, then it's better to use our implementation, since our implementations of the various features are designed to work together.
+
+In some cases (e.g. the condition system), our implementation may offer extra features not present in the original library that inspired it.
+
+In other cases (e.g. multiple dispatch), the *other* implementation may be better (e.g. runs much faster).
