@@ -71,6 +71,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope.
 - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
 - [`Values`: multiple and named return values](#values-multiple-and-named-return-values)
+  - [`valuify`](#valuify): convert pythonic multiple-return-values idiom of `tuple` into `Values`.
 
 [**Numerical tools**](#numerical-tools)
   - `almosteq`, `fixpoint`, `partition_int`, `partition_int_triangular`, `ulp`.
