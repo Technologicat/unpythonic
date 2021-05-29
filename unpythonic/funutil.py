@@ -224,7 +224,7 @@ class Values:
 
     Accordingly, various parts of `unpythonic` that deal with function
     composition use the `Values` abstraction; particularly `curry`, and
-    the `compose` and `pipe` families.
+    the `compose` and `pipe` families, and the `with continuations` macro.
 
     **Behavior**:
 
@@ -270,8 +270,8 @@ class Values:
         assert "x" in result  # `in` looks in the named part
         assert result["x"] == 3
         assert result.get("x", None) == 3
-        assert result.get("y", None) == None
-        assert tuple(results.keys()) == ("x",)  # also `values()`, `items()`
+        assert result.get("y", None) is None
+        assert tuple(result.keys()) == ("x",)  # also `values()`, `items()`
 
         def h():
             return Values(1, 2, x=3)
