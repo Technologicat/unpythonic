@@ -7,7 +7,7 @@ from functools import partial
 from itertools import tee, count, takewhile
 from operator import add, itemgetter
 from collections import deque
-from math import cos, sqrt
+from math import cos
 
 from ..it import (map, mapr, rmap, zipr, rzip,
                   map_longest, mapr_longest, rmap_longest,
@@ -22,10 +22,9 @@ from ..it import (map, mapr, rmap, zipr, rzip,
                   flatten, flatten1, flatten_in,
                   iterate1, iterate,
                   partition,
-                  partition_int,
                   inn, iindex, find,
                   window, chunked,
-                  within, fixpoint,
+                  within,
                   interleave,
                   subset, powerset,
                   allsame)
@@ -35,7 +34,6 @@ from ..funutil import Values
 from ..gmemo import imemoize, gmemoize
 from ..mathseq import s
 from ..misc import Popper
-from ..numutil import ulp
 
 def runtests():
     with testset("mapping and zipping"):
@@ -343,7 +341,9 @@ def runtests():
         S = {"cat", "lynx", "lion", "tiger"}  # unordered
         test[all(subset(tuple(s), S) for s in powerset(S))]
 
-    # repeated function application
+    # Repeated function application.
+    # If you want to compute arithmetic fixpoints (like we do here for testing),
+    # see `unpythonic.numutil.fixpoint`.
     with testset("iterate1, iterate"):
         test[last(take(100, iterate1(cos, 1.0))) == 0.7390851332151607]
 
@@ -373,47 +373,13 @@ def runtests():
                 yield 4
         test[tuple(within(0, g2())) == (1, 2, 3, 4, 4)]
 
-    # Arithmetic fixed points.
-    with testset("fixpoint (arithmetic fixed points)"):
-        c = fixpoint(cos, x0=1)
-        test[the[c] == the[cos(c)]]  # 0.7390851332151607
-
-        # Actually "Newton's" algorithm for the square root was already known to the
-        # ancient Babylonians, ca. 2000 BCE. (Carl Boyer: History of mathematics)
-        def sqrt_newton(n):
-            def sqrt_iter(x):  # has an attractive fixed point at sqrt(n)
-                return (x + n / x) / 2
-            return fixpoint(sqrt_iter, x0=n / 2)
-        # different algorithm, so not necessarily equal down to the last bit
-        # (caused by the fixpoint update becoming smaller than the ulp, so it
-        #  stops there, even if the limit is still one ulp away).
-        test[abs(the[sqrt_newton(2)] - the[sqrt(2)]) <= the[ulp(1.414)]]
-
     # partition: split an iterable according to a predicate
     with testset("partition"):
         iseven = lambda item: item % 2 == 0
         test[[tuple(it) for it in partition(iseven, range(10))] == [(1, 3, 5, 7, 9), (0, 2, 4, 6, 8)]]
 
-    # partition_int: split a small positive integer, in all possible ways, into smaller integers that sum to it
-    with testset("partition_int"):
-        test[tuple(partition_int(4)) == ((4,), (3, 1), (2, 2), (2, 1, 1), (1, 3), (1, 2, 1), (1, 1, 2), (1, 1, 1, 1))]
-        test[tuple(partition_int(5, lower=2)) == ((5,), (3, 2), (2, 3))]
-        test[tuple(partition_int(5, lower=2, upper=3)) == ((3, 2), (2, 3))]
-        test[tuple(partition_int(10, lower=3, upper=5)) == ((5, 5), (4, 3, 3), (3, 4, 3), (3, 3, 4))]
-        test[all(sum(terms) == 10 for terms in partition_int(10))]
-        test[all(sum(terms) == 10 for terms in partition_int(10, lower=3))]
-        test[all(sum(terms) == 10 for terms in partition_int(10, lower=3, upper=5))]
-
-        test_raises[TypeError, partition_int("not a number")]
-        test_raises[TypeError, partition_int(4, lower="not a number")]
-        test_raises[TypeError, partition_int(4, upper="not a number")]
-        test_raises[ValueError, partition_int(-3)]
-        test_raises[ValueError, partition_int(4, lower=-1)]
-        test_raises[ValueError, partition_int(4, lower=5)]
-        test_raises[ValueError, partition_int(4, upper=-1)]
-        test_raises[ValueError, partition_int(4, upper=5)]
-        test_raises[ValueError, partition_int(4, lower=3, upper=2)]
-
+    # Test whether all items of an iterable are equal.
+    # (Short-circuits at the first item that is different.)
     with testset("allsame"):
         test[allsame(())]
         test[allsame((1,))]

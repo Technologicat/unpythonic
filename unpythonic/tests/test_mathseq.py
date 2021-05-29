@@ -3,12 +3,12 @@
 from ..syntax import macros, test, test_raises, error, the  # noqa: F401
 from ..test.fixtures import session, testset
 
-from operator import mul
+from operator import add, mul
 from math import exp, trunc, floor, ceil
 
 from ..mathseq import (s, imathify, gmathify,
                        sadd, smul, spow, cauchyprod,
-                       primes, fibonacci,
+                       primes, fibonacci, triangular,
                        sign, log)
 from ..it import take, last
 from ..fold import scanl
@@ -359,10 +359,14 @@ def runtests():
     with testset("some special sequences"):
         test[tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)]
         test[tuple(take(10, fibonacci())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)]
+        test[tuple(take(10, triangular())) == (1, 3, 6, 10, 15, 21, 28, 36, 45, 55)]
 
         test[tuple(take(10, primes(optimize="speed"))) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)]
         test[tuple(take(10, primes(optimize="memory"))) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)]
-        test_raises[ValueError, primes(optimize="fun")]  # only "speed" and "memory" modes exist
+        test_raises[ValueError, primes(optimize="fun")]  # unfortunately only "speed" and "memory" modes exist
+
+        triangulars = imemoize(scanl(add, 1, s(2, 3, ...)))
+        test[tuple(take(10, triangulars)) == tuple(take(10, triangular()))]
 
         factorials = imemoize(scanl(mul, 1, s(1, 2, ...)))  # 0!, 1!, 2!, ...
         test[last(take(6, factorials())) == 120]

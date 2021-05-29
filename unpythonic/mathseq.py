@@ -413,7 +413,7 @@ def s(*spec):
         return imathify(arith() if n is infty else take(n, arith()))
     elif seqtype == "geom":
         if isinstance(k, _symExpr) or abs(k) >= 1:
-            def geoimathify():
+            def geom():
                 j = 0
                 while True:
                     yield x0 * (k**j)
@@ -425,12 +425,12 @@ def s(*spec):
             # Note that 1/(1/3) --> 3.0 even for floats, so we don't actually
             # need to modify the detection algorithm to account for this.
             kinv = 1 / k
-            def geoimathify():
+            def geom():
                 j = 0
                 while True:
                     yield x0 / (kinv**j)
                     j += 1
-        return imathify(geoimathify() if n is infty else take(n, geoimathify()))
+        return imathify(geom() if n is infty else take(n, geom()))
     else:  # seqtype == "power":
         if isinstance(k, _symExpr) or abs(k) >= 1:
             def power():
@@ -888,6 +888,28 @@ def fibonacci():
             yield a
             a, b = b, a + b
     return imathify(fibos())
+
+def triangular():
+    """Return the triangular numbers 1, 3, 6, 10, ... as a lazy sequence.
+
+    Etymology::
+
+            x
+           x x
+          x x x
+         x x x x
+        ...
+    """
+    # We could just use Gauss's result  n * (n + 1) / 2  (which can be proved by induction),
+    # but this algorithm is trivially correct.
+    def _triangular():
+        s = 1  # running total
+        r = 2  # places in the next row of the triangle
+        while True:
+            yield s
+            s += r
+            r += 1
+    return imathify(_triangular())
 
 # See test_gmemo.py for history. This is an FP-ized sieve of Eratosthenes.
 #

@@ -96,6 +96,8 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
   - Add `unpythonic.excutil.reraise_in` (expr form), `unpythonic.excutil.reraise` (block form): conveniently remap library exception types to application exception types. Idea from [Alexis King (2016): Four months with Haskell](https://lexi-lambda.github.io/blog/2016/06/12/four-months-with-haskell/).
   - Add variants of the above for the conditions-and-restarts system: `unpythonic.conditions.resignal_in`, `unpythonic.conditions.resignal`. The new signal is sent using the same error-handling protocol as the original signal, so that e.g. an `error` remains an `error` even if re-signaling changes its type.
   - Add `resolve_bindings_partial`, useful for analyzing partial application.
+  - Add `triangular`, to generate the triangular numbers (1, 3, 6, 10, ...).
+  - Add `partition_int_triangular` to answer a timeless question concerning stackable plushies.
   - All documentation files now have a quick navigation section to skip to another part of the docs. (For all except the README, it's at the top.)
   - Python 3.8 and 3.9 support added.
 
