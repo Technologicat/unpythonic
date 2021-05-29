@@ -166,6 +166,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
       - `f[]` now respects nesting: an invocation of `f[]` will not descend into another nested `f[]`.
       - The `with quicklambda` macro is still provided, and used just as before. Now it causes any `f[]` invocations lexically inside the block to expand before any other macros in that block do.
       - Since in `mcpyrate`, macros can be as-imported, you can rename `f` at import time to have any name you want. The `quicklambda` block macro respects the as-import, by internally querying the expander to determine the name(s) the macro `f` is currently bound to.
+  - For the benefit of code using the `with lazify` macro, laziness is now better respected by the `compose` family, `andf` and `orf`. The utilities themselves are marked lazy, and arguments will be forced only when a lazy function in the chain actually uses them, or when an eager (not lazy) function is encountered in the chain.
   - Rename the `curry` macro to `autocurry`, to prevent name shadowing of the `curry` function. The new name is also more descriptive.
   - Move the functions `force1` and `force` from `unpythonic.syntax` to `unpythonic`. Make the `Lazy` class (promise implementation) public. (They actually come from `unpythonic.lazyutil`.)
   - Change parameter ordering of `unpythonic.it.window` to make it curry-friendly. Usage is now `window(n, iterable)`.
@@ -178,7 +179,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
 - **Miscellaneous.**
   - The functions `raisef`, `tryf`, `equip_with_traceback`, and `async_raise` now live in `unpythonic.excutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
   - The functions `call` and `callwith` now live in `unpythonic.funutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
-  - The functions `almosteq` and `ulp` now live in `unpythonic.numutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
+  - The functions `almosteq`, `fixpoint`, `partition_int`, and `ulp` now live in `unpythonic.numutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
   - Remove the internal utility class `unpythonic.syntax.util.ASTMarker`. We now have `mcpyrate.markers.ASTMarker`, which is designed for data-driven communication between macros that work together. As a bonus, no markers are left in the AST at run time.
   - Rename contribution guidelines to `CONTRIBUTING.md`, which is the modern standard name. Old name was `HACKING.md`, which was correct, but nowadays obscure.
   - Python 3.4 and 3.5 support dropped, as these language versions have officially reached end-of-life.
