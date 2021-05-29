@@ -67,9 +67,15 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``async_raise``: inject an exception to another thread](#async_raise-inject-an-exception-to-another-thread) *(CPython only)*
 - [`reraise_in`, `reraise`: automatically convert exception types](#reraise_in-reraise-automatically-convert-exception-types)
 
-[**Other**](#other)
+[**Function call and return value tools**](#function-call-and-return-value-tools)
 - [``def`` as a code block: ``@call``](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope.
 - [``@callwith``: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
+- [`Values`: multiple and named return values](#values-multiple-and-named-return-values)
+
+[**Numerical tools**](#numerical-tools)
+  - `almosteq`, `fixpoint`, `partition_int`, `partition_int_triangular`, `ulp`.
+
+[**Other**](#other)
 - [``callsite_filename``](#callsite-filename)
 - [``safeissubclass``](#safeissubclass), convenience function.
 - [``pack``: multi-arg constructor for tuple](#pack-multi-arg-constructor-for-tuple)
@@ -78,7 +84,6 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``getattrrec``, ``setattrrec``: access underlying data in an onion of wrappers](#getattrrec-setattrrec-access-underlying-data-in-an-onion-of-wrappers)
 - [``arities``, ``kwargs``, ``resolve_bindings``: Function signature inspection utilities](#arities-kwargs-resolve_bindings-function-signature-inspection-utilities)
 - [``Popper``: a pop-while iterator](#popper-a-pop-while-iterator)
-- [``ulp``: unit in last place](#ulp-unit-in-last-place)
 
 For many examples, see [the unit tests](unpythonic/tests/), the docstrings of the individual features, and this guide.
 
@@ -1448,7 +1453,6 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
      - Can be useful for the occasional abuse of `collections.deque` as an *alist* [[1]](https://en.wikipedia.org/wiki/Association_list) [[2]](http://www.gigamonkeys.com/book/beyond-lists-other-uses-for-cons-cells.html). Use `.appendleft(...)` to add new items, and then this `find` to get the currently active association.
    - `running_minmax`, `minmax`: Extract both min and max in one pass over an iterable. The `running_` variant is a scan and returns a generator; the just-give-me-the-final-result variant is a fold. **Added in v0.14.2.**
  - *math-related*:
-   - `fixpoint`: arithmetic fixed-point finder (not to be confused with `fix`). **Added in v0.14.2.**
    - `within`: yield items from iterable until successive iterates are close enough. Useful with [Cauchy sequences](https://en.wikipedia.org/wiki/Cauchy_sequence). **Added in v0.14.2.**
    - `prod`: like the builtin `sum`, but compute the product. Oddly missing from the standard library.
    - `iterate1`, `iterate`: return an infinite generator that yields `x`, `f(x)`, `f(f(x))`, ...
@@ -1464,7 +1468,6 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
    - `slurp`: extract all items from a `queue.Queue` (until it is empty) to a list, returning that list. **Added in v0.14.2.**
    - `subset`: test whether an iterable is a subset of another. **Added in v0.14.3.**
    - `powerset`: yield the power set (set of all subsets) of an iterable. Works also for potentially infinite iterables, if only a finite prefix is ever requested. (But beware, both runtime and memory usage are exponential in the input size.) **Added in v0.14.2.**
-   - `partition_int`: split a small positive integer, in all possible ways, into smaller integers that sum to it. Useful e.g. for determining how many letters the components of an anagram may have. **Added in v0.14.2.**
    - `allsame`: test whether all elements of an iterable are the same. Sometimes useful in writing testing code. **Added in v0.14.3.**
 
 Examples:
@@ -1994,10 +1997,10 @@ We provide the [Cauchy product](https://en.wikipedia.org/wiki/Cauchy_product), a
 
 We also provide ``gmathify``, a decorator to mathify a gfunc, so that it will ``imathify()`` the generator instances it makes. Combo with ``imemoize`` for great justice, e.g. ``a = gmathify(imemoize(myiterable))``, and then ``a()`` to instantiate a memoized-and-mathified copy.
 
-Finally, we provide ready-made generators that yield some common sequences (currently, the Fibonacci numbers and the prime numbers). The prime generator is an FP-ized sieve of Eratosthenes.
+Finally, we provide ready-made generators that yield some common sequences (currently, the Fibonacci numbers, the triangular numbers, and the prime numbers). The prime generator is an FP-ized sieve of Eratosthenes.
 
 ```python
-from unpythonic import s, imathify, cauchyprod, take, last, fibonacci, primes
+from unpythonic import s, imathify, cauchyprod, take, last, fibonacci, triangular, primes
 
 assert tuple(take(10, s(1, ...))) == (1,)*10
 assert tuple(take(10, s(1, 2, ...))) == tuple(range(1, 11))
@@ -2025,6 +2028,7 @@ assert tuple(take(3, cauchyprod(s(1, 3, 5, ...), s(2, 4, 6, ...)))) == (2, 10, 2
 
 assert tuple(take(10, primes())) == (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
 assert tuple(take(10, fibonacci())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
+assert tuple(take(10, triangular())) == (1, 3, 6, 10, 15, 21, 28, 36, 45, 55)
 ```
 
 A math iterable (i.e. one that has infix math support) is an instance of the class ``imathify``:
@@ -3468,9 +3472,7 @@ Full details in docstrings.
 If you use the conditions-and-restarts system, see also `resignal_in`, `resignal`, which perform the same job for conditions. The new signal is sent using the same error handling protocol as the original signal, so e.g. an `error` will remain an `error` even if re-signaling changes its type.
 
 
-## Other
-
-Stuff that didn't fit elsewhere.
+## Function call and return value tools
 
 ### ``def`` as a code block: ``@call``
 
@@ -3661,9 +3663,176 @@ assert tuple(m) == (6, 9, 3**(1/2))
 Inspired by *Function application with $* in [LYAH: Higher Order Functions](http://learnyouahaskell.com/higher-order-functions).
 
 
+### `Values`: multiple and named return values
+
+**Added in v0.15.0.**
+
+`Values` is a structured multiple-return-values type. We also provide `valuify`, a decorator that converts the pythonic tuple-as-multiple-return-values idiom into `Values`.
+
+With `Values`, you can return multiple values positionally and by name. This completes the symmetry between passing function arguments and returning values from a function: Python itself allows passing arguments by name, but has no concept of returning values by name. This class adds that concept.
+
+Having a `Values` type separate from `tuple` also helps with semantic accuracy. In `unpythonic` 0.15.0 and later, a `tuple` return value now means just that - one value that is a `tuple`. It is different from a `Values` that contains several positional return values (that are meant to be treated separately e.g. by a function composition utility).
+
+#### When to use `Values`
+
+Most of the time, returning a tuple to denote multiple-return-values and unpacking it is just fine, and that is exactly what `unpythonic` does internally in many places.
+
+But the distinction is critically important in function composition, so that positional return values can be automatically mapped into positional arguments to the next function in the chain, and named return values into named arguments.
+
+Accordingly, various parts of `unpythonic` that deal with function composition use the `Values` abstraction; particularly `curry`, and the `compose` and `pipe` families, and the `with continuations` macro.
+
+#### Behavior
+
+`Values` is a duck-type with some features of both sequences and mappings, but not the full `collections.abc` API of either.
+
+Each operation that obviously and without ambiguity makes sense only for the positional or named part, accesses that part.
+
+The only exception is `__getitem__` (subscripting), which makes sense for both parts, unambiguously, because the key types differ. If the index expression is an `int` or a `slice`, it is an index/slice for the positional part. If it is an `str`, it is a key for the named part.
+
+If you need to explicitly access either part (and its full API), use the `rets` and `kwrets` attributes. The names are in analogy with `args` and `kwargs`.
+
+`rets` is a `tuple`, and `kwrets` is an `unpythonic.collections.frozendict`.
+
+`Values` objects can be compared for equality. Two `Values` objects are equal if both their `rets` and `kwrets` (respectively) are.
+
+Examples:
+
+```python
+def f():
+    return Values(1, 2, 3)
+result = f()
+assert isinstance(result, Values)
+assert result.rets == (1, 2, 3)
+assert not result.kwrets
+assert result[0] == 1
+assert result[:-1] == (1, 2)
+a, b, c = result  # if no kwrets, can be unpacked like a tuple
+a, b, c = f()
+
+def g():
+    return Values(x=3)  # named return value
+result = g()
+assert isinstance(result, Values)
+assert not result.rets
+assert result.kwrets == {"x": 3}  # actually a `frozendict`
+assert "x" in result  # `in` looks in the named part
+assert result["x"] == 3
+assert result.get("x", None) == 3
+assert result.get("y", None) is None
+assert tuple(result.keys()) == ("x",)  # also `values()`, `items()`
+
+def h():
+    return Values(1, 2, x=3)
+result = h()
+assert isinstance(result, Values)
+assert result.rets == (1, 2)
+assert result.kwrets == {"x": 3}
+a, b = result.rets  # positionals can always be unpacked explicitly
+assert result[0] == 1
+assert "x" in result
+assert result["x"] == 3
+
+def silly_but_legal():
+    return Values(42)
+result = silly_but_legal()
+assert result.rets[0] == 42
+assert result.ret == 42  # shorthand for single-value case
+```
+
+The last example is silly, but legal, because it is preferable to just omit the `Values` if it is known that there is only one return value. (This also applies when that value is a `tuple`, when the intent is to return it as a single `tuple`, in contexts where this distinction matters.)
+
+
+## Numerical tools
+
+Overview:
+
+- `almosteq`: test floating-point numbers for near-equality. Reverts to exact equality for non-floating-point types.
+
+- `fixpoint`: arithmetic fixed-point finder (not to be confused with `fix`). **Added in v0.14.2.**
+
+- `partition_int`: [partition](https://en.wikipedia.org/wiki/Partition_(number_theory)) a small positive integer, i.e., split it in all possible ways, into smaller integers that sum to it. Useful e.g. for determining how many letters the components of an anagram may have. **Added in v0.14.2.**
+
+  Not to be confused with `unpythonic.partition`, which partitions an iterable based on a predicate.
+
+- `partition_int_triangular`: like `partition_int`, but accept only triangular numbers (1, 3, 6, 10, ...) as components of the partition. This function answers a timeless question: if I have `n` stackable plushies, what are the possible stack configurations? **Added in v0.15.0.**
+
+- ``ulp``: unit in last place. The numerical value of the least-significant bit of a floating-point number at a given point on the real line. **Added in v0.14.2.**
+
+We provide more detailed documentation on some of these below. For the rest, see the docstrings and [the unit tests](../unpythonic/tests/test_numutil.py) for discussion and examples.
+
+
+### `fixpoint`: arithmetic fixed-point finder
+
+**Added in v0.14.2.**
+
+Compute the (arithmetic) fixed point of a function, starting from a given initial guess. The fixed point must be attractive for this to work. See the [Banach fixed point theorem](https://en.wikipedia.org/wiki/Banach_fixed-point_theorem).
+
+(Not to be confused with the logical fixed point with respect to the definedness ordering, which is what Haskell's `fix` function relates to.)
+
+If the fixed point is attractive, and the values are represented in floating point (hence finite precision), the computation should eventually converge down to the last bit (barring roundoff or catastrophic cancellation in the final few steps). Hence the default tolerance is zero; but a desired tolerance can be passed as an argument.
+
+**CAUTION**: an arbitrary function from ℝ to ℝ **does not** necessarily have a fixed point. Limit cycles and chaotic behavior of the function will cause non-termination. Keep in mind the classic example, [the logistic map](https://en.wikipedia.org/wiki/Logistic_map).
+
+Examples:
+
+```python
+from math import cos, sqrt
+from unpythonic import fixpoint, ulp
+
+c = fixpoint(cos, x0=1)
+
+# Actually "Newton's" algorithm for the square root was already known to the
+# ancient Babylonians, ca. 2000 BCE. (Carl Boyer: History of mathematics)
+def sqrt_newton(n):
+    def sqrt_iter(x):  # has an attractive fixed point at sqrt(n)
+        return (x + n / x) / 2
+    return fixpoint(sqrt_iter, x0=n / 2)
+assert abs(sqrt_newton(2) - sqrt(2)) <= ulp(1.414)
+```
+
+
+### ``ulp``: unit in last place
+
+**Added in v0.14.2.**
+
+Given a floating point number `x`, return the value of the *unit in the last place* (the "least significant bit"). This is the local size of a "tick", i.e. the difference between `x` and the next larger float. At `x = 1.0`, this is the [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon), by definition of the machine epsilon.
+
+The float format is [IEEE-754](https://en.wikipedia.org/wiki/IEEE_754), i.e. standard Python `float`.
+
+This is just a small convenience function that is for some reason missing from the `math` standard library.
+
+```python
+from unpythonic import ulp
+
+# in IEEE-754, exponent changes at integer powers of two
+print([ulp(x) for x in (0.25, 0.5, 1.0, 2.0, 4.0)])
+# --> [5.551115123125783e-17,
+#      1.1102230246251565e-16,
+#      2.220446049250313e-16,   # x = 1.0, so this is sys.float_info.epsilon
+#      4.440892098500626e-16,
+#      8.881784197001252e-16]
+print(ulp(1e10))
+# --> 1.9073486328125e-06
+print(ulp(1e100))
+# --> 1.942668892225729e+84
+print(ulp(2**52))
+# --> 1.0  # yes, exactly 1
+```
+
+When `x` is a round number in base-10, the ULP is not, because the usual kind of floats use base-2.
+
+For more reading, see [David Goldberg (1991): What every computer scientist should know about floating-point arithmetic](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html), or for a [tl;dr](http://catplanet.org/tldr-cat-meme/) version, [the floating point guide](https://floating-point-gui.de/).
+
+
+## Other
+
+Stuff that didn't fit elsewhere.
+
 ### ``callsite_filename``
 
 **Added in v0.14.3**.
+
+**Changed in v0.15.0.** *This utility now ignores `unpythonic`'s call helpers, and gives the filename from the deepest stack frame that does not match one of our helpers. This allows the testing framework report the source code filename correctly when testing code using macros that make use of these helpers (e.g. `autocurry`, `lazify`).*
 
 Return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
 
@@ -3902,36 +4071,3 @@ The input container must support either ``popleft()`` or ``pop(0)``. This is ful
 Per-iteration efficiency is O(1) for ``collections.deque``, and O(n) for a ``list``.
 
 Named after [Karl Popper](https://en.wikipedia.org/wiki/Karl_Popper).
-
-
-### ``ulp``: unit in last place
-
-**Added in v0.14.2.**
-
-Given a floating point number `x`, return the value of the *unit in the last place* (the "least significant bit"). This is the local size of a "tick", i.e. the difference between `x` and the next larger float. At `x = 1.0`, this is the [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon), by definition of the machine epsilon.
-
-The float format is [IEEE-754](https://en.wikipedia.org/wiki/IEEE_754), i.e. standard Python `float`.
-
-This is just a small convenience function that is for some reason missing from the `math` standard library.
-
-```python
-from unpythonic import ulp
-
-# in IEEE-754, exponent changes at integer powers of two
-print([ulp(x) for x in (0.25, 0.5, 1.0, 2.0, 4.0)])
-# --> [5.551115123125783e-17,
-#      1.1102230246251565e-16,
-#      2.220446049250313e-16,   # x = 1.0, so this is sys.float_info.epsilon
-#      4.440892098500626e-16,
-#      8.881784197001252e-16]
-print(ulp(1e10))
-# --> 1.9073486328125e-06
-print(ulp(1e100))
-# --> 1.942668892225729e+84
-print(ulp(2**52))
-# --> 1.0  # yes, exactly 1
-```
-
-When `x` is a round number in base-10, the ULP is not, because the usual kind of floats use base-2.
-
-For more reading, see [David Goldberg (1991): What every computer scientist should know about floating-point arithmetic](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html), or for a [tl;dr](http://catplanet.org/tldr-cat-meme/) version, [the floating point guide](https://floating-point-gui.de/).
