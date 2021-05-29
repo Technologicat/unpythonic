@@ -915,7 +915,11 @@ This way, any assignments made in the ``do`` (which occur only after ``do`` gets
 
 ### ``pipe``, ``piped``, ``lazy_piped``: sequence functions
 
-**Changed in v0.15.0.** Multiple return values and named return values, for passing on to the next function in the pipe, as well as in the final return value from the pipe, are now represented as a `Values`.
+**Changed in v0.15.0.** *Multiple return values and named return values, for unpacking to the args and kwargs of the next function in the pipe, as well as in the final return value from the pipe, are now represented as a `Values`.*
+
+*The variants `pipe` and `pipec` now expect a `Values` initial value if you want to unpack it into the args and kwargs of the first function in the pipe. Otherwise, the initial value is sent as a single positional argument (notably tuples too).*
+
+*The variants `piped` and `lazy_piped` pack the initial arguments automatically into a `Values`.*
 
 Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/). A pipe performs a sequence of operations, starting from an initial value, and then returns the final value. It's just function composition, but with an emphasis on data flow, which helps improve readability:
 
@@ -974,7 +978,7 @@ def nextfibo(a, b):      # multiple arguments allowed
     # New state, handed to next function in the pipe.
     # As of v0.15.0, use `Values(...)` to represent multiple return values.
     # Positional args will be passed positionally, named ones by name.
-    return Values(a=b, b=a + b)
+    return Values(a=b, b=(a + b))
 p = lazy_piped(1, 1)     # load initial state
 for _ in range(10):      # set up pipeline
     p = p | nextfibo
@@ -985,7 +989,7 @@ assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
 Both one-in-one-out (*1-to-1*) and n-in-m-out (*n-to-m*) pipes are provided. The 1-to-1 versions have names suffixed with ``1``. The use case is one-argument functions that return one value (which may also be a tuple).
 
-In the n-to-m versions, when a function returns a tuple, it is unpacked to the argument list of the next function in the pipe. At ``exitpipe`` time, the tuple wrapper (if any) around the final result is discarded if it contains only one item. (This allows the n-to-m versions to work also with a single value, as long as it is not a tuple.) The main use case is computations that deal with multiple values, the number of which may also change during the computation (as long as there are as many "slots" on both sides of each individual connection).
+In the n-to-m versions, when a function returns a `Values`, it is unpacked to the args and kwargs of the next function in the pipe. At ``exitpipe`` time, the `Values` wrapper (if any) around the final result is discarded if it contains only one positional value. The main use case is computations that deal with multiple values, the number of which may also change during the computation (as long as the args/kwargs of each output `Values` can be accepted as input by the next function in the pipe).
 
 
 ## Batteries
@@ -1005,7 +1009,7 @@ Things missing from the standard library.
    - **Changed in v0.15.0.** `unpythonic`'s multiple-dispatch system (`@generic`, `@typed`) is supported. `curry` looks for an exact match first, then a match with extra args/kwargs, and finally a partial match. If there is still no match, this implies that at least one parameter would get a binding that fails the type check. In such a case `TypeError` regarding failed multiple dispatch is raised.
    - **Changed in v0.15.0.** If the function being curried is `@generic` or `@typed`, or has type annotations on its parameters, the parameters being passed in are type-checked. A type mismatch immediately raises `TypeError`. This helps support [fail-fast](https://en.wikipedia.org/wiki/Fail-fast) in code using `curry`.
    - Passthrough for args/kwargs that are incompatible with the target function's call signature (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket).
-     - Here *incompatible* means too many positional args, or named args that have no corresponding parameter. (Note that if the function has a `**kwargs` parameter, then all named args are considered compatible, because it absorbs anything.)
+     - Here *incompatible* means too many positional args, or named args that have no corresponding parameter. Note that if the function has a `**kwargs` parameter, then all named args are considered compatible, because it absorbs anything.
      - Multiple return values (both positional and named) are denoted using `Values` (which see). A standard return value is considered to consist of one positional return value only.
      - Positional args are passed through **on the right**. Any positional return values of the curried function are prepended, on the left.
      - If the first positional return value of an intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining args and kwargs, after merging the rest of the return values into the args and kwargs. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
@@ -1017,15 +1021,17 @@ Things missing from the standard library.
    - **Caution**: If the signature of ``f`` cannot be inspected, currying fails, raising ``ValueError``, like ``inspect.signature`` does. This may happen with builtins such as ``list.append``, ``operator.add``, ``print``, or ``range``, depending on which version of Python you have (and whether CPython or PyPy3).
  - **Added in v0.15.0.** `partial` with run-time type checking, which helps a lot with fail-fast in code that uses partial application. This function type-checks arguments against type annotations, then delegates to `functools.partial`. Supports `unpythonic`'s `@generic` and `@typed` functions, too.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
-   - Any number of positional arguments is supported, with the same rules as in the pipe system. Multiple return values packed into a tuple are unpacked to the argument list of the next function in the chain.
-   - `composelc`, `composerc`: curry each function before composing them. Useful with passthrough.
-     - An implicit top-level curry context is inserted around all the functions except the one that is applied last.
-   - `composel1`, `composer1`: 1-in-1-out chains (faster; also useful for a single value that is a tuple).
+   - **Changed in v0.15.0.** *For the benefit of code using the `with lazify` macro, the compose functions are now marked lazy. Arguments will be forced only when a lazy function in the chain actually uses them, or when an eager (not lazy) function is encountered in the chain.*
+   - Any number of positional arguments is supported, with the same rules as in the pipe system. Multiple return values, or named return values, packed into a `Values`, are unpacked to the args and kwargs of the next function in the chain.
+   - `composelc`, `composerc`: curry each function before composing them. This comboes well with the passthrough of extra args/kwargs in `curry`.
+     - An implicit top-level curry context is inserted around all the functions except the one that is applied last, to allow passthrough to the top level while applying the composed function.
+   - `composel1`, `composer1`: 1-in-1-out chains (faster).
    - suffix `i` to use with an iterable that contains the functions (`composeli`, `composeri`, `composelci`, `composerci`, `composel1i`, `composer1i`)
  - `withself`: essentially, the Y combinator trick as a decorator. Allows a lambda to refer to itself.
    - The ``self`` argument is declared explicitly, but passed implicitly (as the first positional argument), just like the ``self`` argument of a method.
  - `apply`: the lispy approach to starargs. Mainly useful with the ``prefix`` [macro](macros.md).
  - `andf`, `orf`, `notf`: compose predicates (like Racket's `conjoin`, `disjoin`, `negate`).
+   - **Changed in v0.15.0.** *For the benefit of code using the `with lazify` macro, `andf` and `orf` are now marked lazy. Arguments will be forced only when a lazy predicate in the chain actually uses them, or when an eager (not lazy) predicate is encountered in the chain.*
  - `flip`: reverse the order of positional arguments.
  - `rotate`: a cousin of `flip`. Permute the order of positional arguments in a cycle.
  - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting 1-in-1-out functions into m-in-n-out compose chains. (Currying can eliminate the need for these.)
