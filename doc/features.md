@@ -3667,7 +3667,7 @@ Inspired by *Function application with $* in [LYAH: Higher Order Functions](http
 
 **Added in v0.15.0.**
 
-`Values` is a structured multiple-return-values type. We also provide `valuify`, a decorator that converts the pythonic tuple-as-multiple-return-values idiom into `Values`.
+`Values` is a structured multiple-return-values type.
 
 With `Values`, you can return multiple values positionally and by name. This completes the symmetry between passing function arguments and returning values from a function: Python itself allows passing arguments by name, but has no concept of returning values by name. This class adds that concept.
 
@@ -3740,6 +3740,24 @@ assert result.ret == 42  # shorthand for single-value case
 ```
 
 The last example is silly, but legal, because it is preferable to just omit the `Values` if it is known that there is only one return value. (This also applies when that value is a `tuple`, when the intent is to return it as a single `tuple`, in contexts where this distinction matters.)
+
+
+### `valuify`
+
+We also provide `valuify`, a decorator that converts the pythonic tuple-as-multiple-return-values idiom into `Values`, for compatibility with our function composition utilities.
+
+It converts a `tuple` return value, exactly; no subclasses.
+
+Demonstrating just the conversion:
+
+```python
+@valuify
+def f(x, y, z):
+    return x, y, z
+
+assert isinstance(f(1, 2, 3), Values)
+assert f(1, 2, 3) == Values(1, 2, 3)
+```
 
 
 ## Numerical tools
