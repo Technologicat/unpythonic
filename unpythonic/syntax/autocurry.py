@@ -88,6 +88,8 @@ def _autocurry(block_body):
             # Curry all calls; except as a small optimization, skip `Values(...)`,
             # which accepts any args and kwargs, so currying it does not make sense.
             # (It represents multiple-return-values in `unpythonic`.)
+            # This also allows other macros (that expand after `autocurry`) see
+            # the `Values(...)` call. Particularly, `lazify` is interested in it.
             if type(tree) is Call and not isx(tree.func, "Values"):
                 if has_curry(tree):  # detect decorated lambda with manual curry
                     # the lambda inside the curry(...) is the next Lambda node we will descend into.
