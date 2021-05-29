@@ -7,7 +7,7 @@ from operator import add
 from functools import partial
 
 # `Values` is also tested where function composition utilities that use it are.
-from ..funutil import call, callwith, Values
+from ..funutil import call, callwith, Values, valuify
 
 def runtests():
     with testset("@call (def as code block)"):
@@ -137,6 +137,13 @@ def runtests():
         result = silly_but_legal()
         test[result.rets[0] == 42]
         test[result.ret == 42]  # shorthand for single-value case
+
+    with testset("valuify (convert tuple as multiple-return-values into Values)"):
+        @valuify
+        def f(x, y, z):
+            return x, y, z
+        test[isinstance(f(1, 2, 3), Values)]
+        test[f(1, 2, 3) == Values(1, 2, 3)]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
