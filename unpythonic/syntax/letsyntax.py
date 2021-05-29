@@ -4,6 +4,16 @@
 # at macro expansion time. If you're looking for regular run-time let et al. macros,
 # see letdo.py.
 
+# TODO: Coverage of code using `with block` and `with expr` is not reported correctly.
+#
+# TODO: As this is a toy macro system within the real macro system, that is to be expected;
+# TODO: `mcpyrate` goes to some degree of trouble to produce correct coverage reporting for
+# TODO: the real macro system, and we haven't duplicated that effort here.
+#
+# TODO: With `mcpyrate`, we don't really need `let_syntax` and `abbrev` anymore, so we could
+# TODO: actually remove them; but their tests exercise some code paths that would otherwise
+# TODO: remain untested. As of v0.15.0, we're keeping them for now.
+
 __all__ = ["let_syntax", "abbrev", "expr", "block"]
 
 from mcpyrate.quotes import macros, q, a  # noqa: F401
