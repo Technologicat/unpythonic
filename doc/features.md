@@ -1031,7 +1031,7 @@ Things missing from the standard library.
    - **Caution**: If the signature of ``f`` cannot be inspected, currying fails, raising ``ValueError``, like ``inspect.signature`` does. This may happen with builtins such as ``list.append``, ``operator.add``, ``print``, or ``range``, depending on which version of Python you have (and whether CPython or PyPy3).
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - **Changed in v0.15.0.** *For the benefit of code using the `with lazify` macro, the compose functions are now marked lazy. Arguments will be forced only when a lazy function in the chain actually uses them, or when an eager (not lazy) function is encountered in the chain.*
-   - Any number of positional arguments is supported, with the same rules as in the pipe system. Multiple return values, or named return values, packed into a `Values`, are unpacked to the args and kwargs of the next function in the chain.
+   - Any number of positional and keyword arguments are supported, with the same rules as in the pipe system. Multiple return values, or named return values, represented as a `Values`, are automatically unpacked to the args and kwargs of the next function in the chain.
    - `composelc`, `composerc`: curry each function before composing them. This comboes well with the passthrough of extra args/kwargs in `curry`.
      - An implicit top-level curry context is inserted around all the functions except the one that is applied last, to allow passthrough to the top level while applying the composed function.
    - `composel1`, `composer1`: 1-in-1-out chains (faster).
@@ -1180,6 +1180,8 @@ The example we have here evaluates all items immediately, and specifically produ
 
 **Changed in v0.15.0.** *`curry` now supports kwargs, too, and binds parameters like Python itself does. Also, `@generic` and `@typed` functions are supported.*
 
+*For advanced examples, see [the unit tests](../unpythonic/tests/test_fun.py).*
+
 Our ``curry``, beside what it says on the tin, is effectively an explicit local modifier to Python's reduction rules, which allows some Haskell-like idioms. Let's consider a simple example with positional arguments only. When we say:
 
 ```python
@@ -1269,7 +1271,17 @@ curry(f, a, (g, x, y), b, c)
 
 because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by design; as with all things Python, *explicit is better than implicit*.
 
-**Note**: to code in curried style, a [contract system](https://en.wikipedia.org/wiki/Design_by_contract) (such as [icontract](https://github.com/Parquery/icontract) or [PyContracts](https://github.com/AndreaCensi/contracts)) or the [mypy static type checker](http://mypy-lang.org/) can be useful; also, be careful with variadic functions.
+**Note**: to code in curried style, a [contract system](https://en.wikipedia.org/wiki/Design_by_contract) or a type checker can be useful. Also, be careful with variadic functions, because any allowable arity will trigger the call.
+
+(The `map` function in the standard library is a particular offender here, since it requires at least one iterable to actually do anything but raise `TypeError`, but its call signature suggests it can be called without any iterables. Hence, for curry-friendliness we provide a wrapper `unpythonic.map` that *requires* at least one iterable.)
+
+- Contract systems for Python include [icontract](https://github.com/Parquery/icontract) and [PyContracts](https://github.com/AndreaCensi/contracts).
+
+- For static type checking, consider [mypy](http://mypy-lang.org/).
+
+- For run-time type checking, consider `@typed` or `@generic` right here in `unpythonic`.
+
+- You can also just use Python's type annotations; `unpythonic`'s `curry` type-checks the arguments before accepting the curried function. The annotations work if the stdlib function `typing.get_type_hints` can find them.
 
 
 #### ``fix``: break infinite recursion cycles

@@ -1177,8 +1177,9 @@ Code within a ``with continuations`` block is treated specially.
 > - In a function definition inside the ``with continuations`` block:
 >   - Most of the language works as usual; especially, any non-tail function calls can be made as usual.
 >   - ``return value`` or ``return v0, ..., vn`` is actually a tail-call into ``cc``, passing the given value(s) as arguments.
->     - As in other parts of ``unpythonic``, returning a tuple means returning multiple-values.
+>     - As in other parts of ``unpythonic``, returning a `Values` means returning multiple-return-values.
 >       - This is important if the return value is received by the assignment targets of a ``call_cc[]``. If you get a ``TypeError`` concerning the arguments of a function with a name ending in ``_cont``, check your ``call_cc[]`` invocations and the ``return`` in the call_cc'd function.
+>       - **Changed in v0.15.0.** *Up to v0.14.3, multiple return values used to be represented as a `tuple`. Now returning a `tuple` means returning one value that is a tuple.*
 >   - ``return func(...)`` is actually a tail-call into ``func``, passing along (by default) the current value of ``cc`` to become its ``cc``.
 >     - Hence, the tail call is inserted between the end of the current function body and the start of the continuation ``cc``.
 >     - To override which continuation to use, you can specify the ``cc=...`` kwarg, as in ``return func(..., cc=mycc)``.
@@ -1260,9 +1261,9 @@ call_cc[f(...) if p else g(...)]
 
 **Assignment targets**:
 
- - To destructure positional multiple-values (from a `Values` return value), use a tuple assignment target (comma-separated names, as usual). Destructuring *named* return values from a `call_cc` is currently not supported.
+ - To destructure positional multiple-values (from a `Values` return value of the function called by the `call_cc`), use a tuple assignment target (comma-separated names, as usual). Destructuring *named* return values from a `call_cc` is currently not supported due to syntactic limitations.
 
- - The last assignment target may be starred. It is transformed into the vararg (a.k.a. ``*args``, star-args) of the continuation function. (It will capture a whole tuple, or any excess items, as usual.)
+ - The last assignment target may be starred. It is transformed into the vararg (a.k.a. ``*args``, star-args) of the continuation function created by the `call_cc`. (It will capture a whole tuple, or any excess items, as usual.)
 
  - To ignore the return value, just omit the assignment part. Useful if ``func`` was called only to perform its side-effects (the classic side effect is to stash ``cc`` somewhere for later use).
 
@@ -1413,7 +1414,9 @@ In ``unpythonic`` specifically, a continuation is just a function. ([As John Shu
 
 The continuation function must be able to take as many positional arguments as the previous function in the TCO chain is trying to pass into it. Keep in mind that:
 
- - In ``unpythonic``, a tuple represents multiple return values. So a ``return a, b``, which is being fed into the continuation, implies that the continuation must be able to take two positional arguments.
+ - In ``unpythonic``, multiple return values are represented as a `Values` object. So if your function does ``return Values(a, b)``, and that is being fed into the continuation, this implies that the continuation must be able to take two positional arguments.
+
+   **Changed in v0.15.0.** *Up to v0.14.3, a `tuple` used to represent multiple-return-values; now it denotes a single return value that is a tuple. The `Values` type allows not only multiple return values, but also **named** return values. These are fed as kwargs.*
 
  - At the end of any function in Python, at least an implicit bare ``return`` always exists. It will try to pass in the value ``None`` to the continuation, so the continuation must be able to accept one positional argument. (This is handled automatically for continuations created by ``call_cc[]``. If no assignment targets are given, ``call_cc[]`` automatically creates one ignored positional argument that defaults to ``None``.)
 
