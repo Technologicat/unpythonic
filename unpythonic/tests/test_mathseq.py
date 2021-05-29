@@ -366,7 +366,7 @@ def runtests():
         test_raises[ValueError, primes(optimize="fun")]  # unfortunately only "speed" and "memory" modes exist
 
         triangulars = imemoize(scanl(add, 1, s(2, 3, ...)))
-        test[tuple(take(10, triangulars)) == tuple(take(10, triangular()))]
+        test[tuple(take(10, triangulars())) == tuple(take(10, triangular()))]
 
         factorials = imemoize(scanl(mul, 1, s(1, 2, ...)))  # 0!, 1!, 2!, ...
         test[last(take(6, factorials())) == 120]
