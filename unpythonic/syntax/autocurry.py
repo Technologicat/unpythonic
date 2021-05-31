@@ -90,7 +90,7 @@ def _autocurry(block_body):
                 # and allows other macros (particularly `lazify`) to be able to see the original calls.
                 # (It also generates cleaner expanded output.)
                 #   - `Values(...)` accepts any args and kwargs, so currying it does not make sense.
-                #   - `chain_conts(cc, pcc)(...)` handles a return value in `with continuations`.
+                #   - `(chain_conts(cc1, cc2))(...)` handles a return value in `with continuations`.
                 #     This has the effect that in `with continuations`, the tail-calls to continuation
                 #     functions won't be curried, but perhaps that's ok. This allows the Pytkell dialect's
                 #     `with lazify, autocurry` combo to work with an inner `with continuations`.
