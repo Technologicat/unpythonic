@@ -179,6 +179,16 @@ As of the first half of 2021, the main target platforms are **CPython 3.8** and 
   - When implementing something, if you run into an empty niche, add the missing utility, and implement your higher-level functionality in terms of it.
   - This keeps code at each level of abstraction short, and exposes parts that can later be combined in new ways.
 
+- **Compile-time or run-time?**
+  - For anyone new to making programming languages: there's a reason the terms static/lexical/compile-time and dynamic/run-time are grouped together.
+  - At compile time (macros), you have access to the source code (or AST), including its lexical structure. (I.e. what is defined inside what, in the source code text.)
+    - You also have access to the macro bindings of the current expander, because [*for the macros, it's run time*](https://github.com/Technologicat/mcpyrate/blob/master/doc/troubleshooting.md#macro-expansion-time-where-exactly).
+    - A block macro (`with mac:`) takes effect **for the lexical content of that block**.
+  - At run time (regular code), you have access to run-time bindings of names (e.g. whether `curry` refers to `unpythonic.fun.curry` or something else), and the call stack.
+    - Keep in mind that in Python, knowing what a name at the top level of a module (i.e. a "global variable") points to *is only possible at run time*. Although it's uncommon, not to mention bad practice in most cases, *any code anywhere* may change the top-level bindings in *any* module (via `sys.modules`).
+    - A run-time context manager (`with mgr:`) takes effect **for the dynamic extent of that block**.
+  - Try to take advantage of whichever is the most appropriate for what you're doing.
+
 - **Follow [PEP8](https://www.python.org/dev/peps/pep-0008/) style**, *including* the official recommendation to violate PEP8 when the guidelines do not apply. Specific to `unpythonic`:
   - Conserve vertical space when reasonable. Even on modern laptops, a display can only fit ~50 lines at a time.
   - `x = x or default` for initializing `x` inside the function body of `def f(x=None)` (when it makes no sense to publish the actual default value) is concise and very readable.
