@@ -85,20 +85,30 @@ def _autocurry(block_body):
                 return tree
 
             hascurry = self.state.hascurry
-            # Curry all calls; except as a small optimization, skip `Values(...)`,
-            # which accepts any args and kwargs, so currying it does not make sense.
-            # (It represents multiple-return-values in `unpythonic`.)
-            # This also allows other macros (that expand after `autocurry`) see
-            # the `Values(...)` call. Particularly, `lazify` is interested in it.
-            if type(tree) is Call and not isx(tree.func, "Values"):
-                if has_curry(tree):  # detect decorated lambda with manual curry
-                    # the lambda inside the curry(...) is the next Lambda node we will descend into.
-                    hascurry = True
-                if not isx(tree.func, _iscurry):
-                    tree.args = [tree.func] + tree.args
-                    tree.func = q[h[currycall]]
-                if hascurry:  # this must be done after the edit because the edit changes the children
-                    self.generic_withstate(tree, hascurry=True)
+            if type(tree) is Call:
+                # Don't auto-curry some calls we know not to need it. This is both a performance optimization
+                # and allows other macros (particularly `lazify`) to be able to see the original calls.
+                # (It also generates cleaner expanded output.)
+                #   - `Values(...)` accepts any args and kwargs, so currying it does not make sense.
+                #   - `chain_conts(cc, pcc)(...)` handles a return value in `with continuations`.
+                #     This has the effect that in `with continuations`, the tail-calls to continuation
+                #     functions won't be curried, but perhaps that's ok. This allows the Pytkell dialect's
+                #     `with lazify, autocurry` combo to work with an inner `with continuations`.
+                if (isx(tree.func, "Values") or
+                        (type(tree.func) is Call and isx(tree.func.func, "chain_conts"))):
+                    # However, *do* auto-curry in the positional and named args of the call.
+                    tree.args = self.visit(tree.args)
+                    tree.keywords = self.visit(tree.keywords)
+                    return tree
+                else:  # general case
+                    if has_curry(tree):  # detect decorated lambda with manual curry
+                        # the lambda inside the curry(...) is the next Lambda node we will descend into.
+                        hascurry = True
+                    if not isx(tree.func, _iscurry):
+                        tree.args = [tree.func] + tree.args
+                        tree.func = q[h[currycall]]
+                    if hascurry:  # this must be done after the edit because the edit changes the children
+                        self.generic_withstate(tree, hascurry=True)
 
             elif type(tree) in (FunctionDef, AsyncFunctionDef):
                 if not any(isx(item, _iscurry) for item in tree.decorator_list):  # no manual curry already

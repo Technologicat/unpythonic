@@ -714,30 +714,49 @@ def _lazify(body):
                         thelambda.body = self.visit(thelambda.body)
                     return tree
 
-                # namelambda() is used by let[] and do[]
-                # Lazy() is a strict function, takes a lambda, constructs a Lazy object
-                # _autoref_resolve doesn't need any special handling
-                # Values() doesn't need any special handling
+                # Don't lazify in calls to some specific functions we know to be strict.
+                # Some of these are performance optimizations; others must be left as-is
+                # for other macros to be able to see the original calls. (It also generates
+                # cleaner expanded output.)
+                #   - `namelambda` (emitted by `let[]`, `do[]`, and `test[]`)
+                #   - All known container constructor calls (listed in `_ctorcalls_all`).
+                #   - `Lazy` takes a lambda, constructs a `Lazy` object; if we're calling `Lazy`,
+                #     the expression is already lazy.
+                #   - `_autoref_resolve` does the name lookup in `with autoref` blocks.
+                #
+                # Don't lazify in calls to return-value utilities, because return values
+                # are never implicitly lazy in `unpythonic`.
+                #   - `Values` constructs a multiple-return-values and/or named return values.
+                #   - `(chain_conts(cc1, cc2))(args)` handles a return value in `with continuations`.
                 elif (isdo(tree) or is_decorator(tree.func, "namelambda") or
                       any(isx(tree.func, s) for s in _ctorcalls_all) or
                       isx(tree.func, _expanded_lazy_name) or
                       isx(tree.func, "_autoref_resolve") or
-                      isx(tree.func, "Values")):
-                    # here we know the operator (.func) to be one of specific names;
-                    # don't transform it to avoid confusing lazyrec[] (important if this
-                    # is an inner call in the arglist of an outer, lazy call, since it
-                    # must see any container constructor calls that appear in the args)
+                      isx(tree.func, "Values") or
+                      (type(tree.func) is Call and isx(tree.func.func, "chain_conts"))):
+                    # Here we know the operator (.func) to be one of specific names;
+                    # don't transform it to avoid confusing `lazyrec[]`.
+                    #
+                    # This is especially important, if this is an inner call in the
+                    # arglist of an outer, lazy call, since it must see any container
+                    # constructor calls that appear in the args.
+                    #
+                    # But *do* transform in the positional and named args of the call;
+                    # doing so generates the code to force any promises that are passed
+                    # to the function being called.
                     #
                     # TODO: correct forcing mode for recursion? We shouldn't need to forcibly use "full",
                     # since maybe_force_args() already fully forces any remaining promises
                     # in the args when calling a strict function.
+                    # NOTE v0.15.0: In practice, using whatever is the currently active mode seems to be fine.
                     tree.args = self.visit(tree.args)
                     tree.keywords = self.visit(tree.keywords)
                     return tree
 
-                else:
+                else:  # general case
                     thefunc = self.visit(tree.func)
 
+                    # Lazify the arguments of the call.
                     adata = []
                     for x in tree.args:
                         if type(x) is Starred:  # *args in Python 3.5+
