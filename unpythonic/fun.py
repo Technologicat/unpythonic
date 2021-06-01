@@ -32,8 +32,8 @@ from .funutil import Values
 from .regutil import register_decorator
 from .symbol import sym
 
-# we use @passthrough_lazy_args (and handle possible lazy args) to support unpythonic.syntax.lazify.
-from .lazyutil import passthrough_lazy_args, islazy, force, force1, maybe_force_args
+# We use `@passthrough_lazy_args` and `maybe_force_args` to support unpythonic.syntax.lazify.
+from .lazyutil import passthrough_lazy_args, islazy, force, maybe_force_args
 
 # --------------------------------------------------------------------------------
 
@@ -157,20 +157,22 @@ def partial(func, *args, **kwargs):
     # `functools.partial` already handles chaining partial applications, so send only the new args/kwargs to it.
     return functools_partial(func, *args, **kwargs)
 
+# --------------------------------------------------------------------------------
+
+#def curry_simple(f):  # essential idea, without any extra features
+#    min_arity, _ = arities(f)
+#    @wraps(f)
+#    def curried(*args, **kwargs):
+#        if len(args) < min_arity:
+#            return curry(partial(f, *args, **kwargs))
+#        return f(*args, **kwargs)
+#    return curried
+
 make_dynvar(curry_context=[])
-@passthrough_lazy_args
-def _currycall(f, *args, **kwargs):
-    """Co-operate with unpythonic.syntax.curry.
 
-    In a ``with autocurry`` block, we need to call `f` also when ``f()`` has
-    transformed to ``curry(f)``, but definitions can be curried as usual.
-
-    Hence we provide this separate mode to curry-and-call even if no args.
-
-    This mode no-ops when ``f`` is not inspectable, instead of raising
-    an ``unpythonic.arity.UnknownArity`` exception.
-    """
-    return curry(f, *args, _curry_force_call=True, _curry_allow_uninspectable=True, **kwargs)
+def iscurried(f):
+    """Return whether f is a curried function."""
+    return hasattr(f, "_is_curried_function")
 
 @register_decorator(priority=8)
 @passthrough_lazy_args
@@ -301,117 +303,17 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             return maybe_force_args(f, *args, **kwargs)
         return f
 
-    # Try to fail-fast with uninspectable builtins.
-    try:
-        signature(f)
-    except ValueError as err:  # inspection failed in inspect.signature()?
-        msg = err.args[0]
-        if "no signature found" in msg:
-            return fallback()
-        raise
-
-    # TODO: To make `curry` pay-as-you-go, look for opportunities to speed this up
-    # for non-`@generic` functions. Currently this more general `curry` for v0.15.0
-    # (that handles kwargs correctly) can be even 50% slower than the more limited one
-    # (based on positional arity only) that was in v0.14.3.
-
-    # actions
-    _call = sym("_call")
-    _call_with_passthrough = sym("_call_with_passthrough")
-    _keep_currying = sym("_keep_currying")
-    Analysis = namedtuple("Analysis", ["bound_arguments", "unbound_parameters", "extra_args", "extra_kwargs"])
-    def analyze_parameter_bindings(f, args, kwargs):
-        # `functools.partial()` doesn't remove an already-set kwarg from the signature (as seen by
-        # `inspect.signature`), but `functools.partial` objects have a `keywords` attribute, which
-        # contains what we want.
-        #
-        # To support kwargs properly, we must compute argument bindings anyway, so we also use the
-        # `func` and `args` attributes. This allows us to compute the bindings of all arguments
-        # against the original function.
-        if isinstance(f, functools_partial):
-            function = f.func
-            collected_args = f.args + args
-            collected_kwargs = {**f.keywords, **kwargs}
-        else:
-            function = f
-            collected_args = args
-            collected_kwargs = kwargs
-
-        def _bind_arguments(thecallable):
-            # For this check we look for a complete match, hence `_partial=False`.
-            bound_arguments, unbound_parameters, (extra_args, extra_kwargs) = _bind(signature(thecallable),
-                                                                                    collected_args,
-                                                                                    collected_kwargs,
-                                                                                    partial=False)
-            return Analysis(bound_arguments, unbound_parameters, extra_args, extra_kwargs)
-
-        # `@generic` functions have several call signatures, so we must aggregate the results
-        # in a sensible way. For non-generics, there's just one call signature.
-        if not isgeneric(function):
-            # For non-generics, the curry-time type check occurs when we later call `partial`,
-            # so we don't need to do that here. We just compute the bindings of arguments to parameters.
-            analysis = _bind_arguments(function)
-            if not analysis.unbound_parameters and not analysis.extra_args and not analysis.extra_kwargs:
-                return _call, analysis
-            elif not analysis.unbound_parameters and (analysis.extra_args or analysis.extra_kwargs):
-                return _call_with_passthrough, analysis
-            assert analysis.unbound_parameters
-            return _keep_currying, analysis
-
-        # Curry resolver for `@generic`/`@typed` (generic functions, multimethods, multiple dispatch).
-        #
-        # Iterate over multimethods, once per step:
-        #
-        # 1. If there is an exact match (all parameters bound, type check passes, no extra
-        #    `args`/`kwargs`), call it.
-        # 2. If there is a complete match (all parameters bound, type check passes), but
-        #    with extra `args`/`kwargs` (that cannot be accepted by the call signature),
-        #    call it, arranging passthrough for the extra `args`/`kwargs`.
-        # 3. If there is at least one partial match (type check passes for bound arguments,
-        #    unbound parameters remain), keep currying. In this case extra `args`/`kwargs`,
-        #    if any, do not matter. This will fall into case 1 or 2 above after we get
-        #    additional `args`/`kwargs` to complete a match.
-        #
-        # If none of the above match, we know at least one parameter got a binding
-        # that fails the type check. Raise `TypeError`.
-        #
-        # In steps 1 and 2, we use the same lookup order as the multiple dispatcher does;
-        # the first matching multimethod wins. Actual dispatch is still done by the dispatcher;
-        # we only compute the bindings to determine which case above the call falls into.
-        #
-        # `@typed` is a special case of `@generic` with just one multimethod registered.
-        # The resulting behavior is the same as for a non-generic function, because the
-        # above algorithm reduces to that.
-
-        # We can't use the public `list_methods` here, because on OOP methods,
-        # decorators live on the unbound method (raw function). Thus we must
-        # extract `self`/`cls` from the arguments of the call (for linked
-        # dispatcher lookup in the MRO).
-        multimethods = _list_multimethods(function,
-                                          _extract_self_or_cls(function,
-                                                               collected_args))
-        # Step 1: exact match
-        for thecallable, type_signature in multimethods:
-            analysis = _bind_arguments(thecallable)
-            if not analysis.unbound_parameters and not analysis.extra_args and not analysis.extra_kwargs:
-                if not _get_argument_type_mismatches(type_signature, analysis.bound_arguments):
-                    return _call, analysis
-        # Step 2: complete match, with extra args/kwargs
-        for thecallable, type_signature in multimethods:
-            analysis = _bind_arguments(thecallable)
-            if not analysis.unbound_parameters and (analysis.extra_args or analysis.extra_kwargs):
-                if not _get_argument_type_mismatches(type_signature, analysis.bound_arguments):
-                    return _call_with_passthrough, analysis
-        # Step 3: partial match
-        for thecallable, type_signature in multimethods:
-            analysis = _bind_arguments(thecallable)
-            if analysis.unbound_parameters:
-                if not _get_argument_type_mismatches(type_signature, analysis.bound_arguments):
-                    return _keep_currying, analysis
-        # No matter which multimethod we pick, at least one parameter gets a binding
-        # that fails the type check.
-        _raise_multiple_dispatch_error(function, collected_args, collected_kwargs,
-                                       candidates=multimethods, _partial=True)
+    # Try to fail-fast with uninspectable builtins, even if no arguments were passed.
+    # (If we get arguments, there's no landmine, because calling the curried function
+    # will perform the signature analysis.)
+    if not (args or kwargs):
+        try:
+            signature(f)
+        except ValueError as err:  # inspection failed in inspect.signature()?
+            msg = err.args[0]
+            if "no signature found" in msg:
+                return fallback()
+            raise
 
     @wraps(f)
     def curried(*args, **kwargs):
@@ -421,7 +323,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             # the parameter bindings. All of `f`'s parameters must be bound (whether by position or by
             # name) before calling `f`.
             try:
-                action, analysis = analyze_parameter_bindings(f, args, kwargs)
+                action, analysis = _analyze_parameter_bindings(f, args, kwargs)
             except ValueError as err:  # inspection failed in inspect.signature()?
                 msg = err.args[0]
                 if "no signature found" in msg:
@@ -457,7 +359,6 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                     if now_result.rets:
                         # `leftmost`, not `first`, for unambiguous stack traces.
                         leftmost, *others = now_result.rets
-                        leftmost = force1(leftmost)
 
                         # Extra positional arguments (`later_args`) are passed through *on the right*.
                         # Hence any further positional return values are inserted before them.
@@ -479,7 +380,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
                         later_kwargs = {**later_kwargs, **now_result.kwrets}
                 else:
                     # The only return value is also the leftmost one.
-                    leftmost = force1(now_result)
+                    leftmost = now_result
                     if callable(leftmost):
                         pass
                     else:
@@ -529,18 +430,123 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
         return maybe_force_args(curried, *args, **kwargs)
     return curried
 
-def iscurried(f):
-    """Return whether f is a curried function."""
-    return hasattr(f, "_is_curried_function")
+@passthrough_lazy_args
+def _currycall(f, *args, **kwargs):
+    """Co-operate with unpythonic.syntax.curry.
 
-#def curry_simple(f):  # essential idea, without any extra features
-#    min_arity, _ = arities(f)
-#    @wraps(f)
-#    def curried(*args, **kwargs):
-#        if len(args) < min_arity:
-#            return curry(partial(f, *args, **kwargs))
-#        return f(*args, **kwargs)
-#    return curried
+    In a ``with autocurry`` block, we need to call `f` also when ``f()`` has
+    transformed to ``curry(f)``, but definitions can be curried as usual.
+
+    Hence we provide this separate mode to curry-and-call even if no args.
+
+    This mode no-ops when ``f`` is not inspectable, instead of raising
+    an ``unpythonic.arity.UnknownArity`` exception.
+    """
+    return curry(f, *args, _curry_force_call=True, _curry_allow_uninspectable=True, **kwargs)
+
+# actions during currying
+_call = sym("_call")
+_call_with_passthrough = sym("_call_with_passthrough")
+_keep_currying = sym("_keep_currying")
+
+_Analysis = namedtuple("_Analysis", ["bound_arguments", "unbound_parameters", "extra_args", "extra_kwargs"])
+
+# Internal helper for `curry`.
+#
+# For performance, it is important to have this function defined once at the top level
+# of the module, instead of defining it as a closure each time `curry` is called.
+def _analyze_parameter_bindings(f, args, kwargs):
+    # `functools.partial()` doesn't remove an already-set kwarg from the signature (as seen by
+    # `inspect.signature`), but `functools.partial` objects have a `keywords` attribute, which
+    # contains what we want.
+    #
+    # To support kwargs properly, we must compute argument bindings anyway, so we also use the
+    # `func` and `args` attributes. This allows us to compute the bindings of all arguments
+    # against the original function.
+    if isinstance(f, functools_partial):
+        function = f.func
+        collected_args = f.args + args
+        collected_kwargs = {**f.keywords, **kwargs}
+    else:
+        function = f
+        collected_args = args
+        collected_kwargs = kwargs
+
+    def _bind_arguments(thecallable):
+        # For this check we look for a complete match, hence `_partial=False`.
+        bound_arguments, unbound_parameters, (extra_args, extra_kwargs) = _bind(signature(thecallable),
+                                                                                collected_args,
+                                                                                collected_kwargs,
+                                                                                partial=False)
+        return _Analysis(bound_arguments, unbound_parameters, extra_args, extra_kwargs)
+
+    # `@generic` functions have several call signatures, so we must aggregate the results
+    # in a sensible way. For non-generics, there's just one call signature.
+    if not isgeneric(function):
+        # For non-generics, the curry-time type check occurs when we later call `partial`,
+        # so we don't need to do that here. We just compute the bindings of arguments to parameters.
+        analysis = _bind_arguments(function)
+        if not analysis.unbound_parameters and not analysis.extra_args and not analysis.extra_kwargs:
+            return _call, analysis
+        elif not analysis.unbound_parameters and (analysis.extra_args or analysis.extra_kwargs):
+            return _call_with_passthrough, analysis
+        assert analysis.unbound_parameters
+        return _keep_currying, analysis
+
+    # Curry resolver for `@generic`/`@typed` (generic functions, multimethods, multiple dispatch).
+    #
+    # Iterate over multimethods, once per step:
+    #
+    # 1. If there is an exact match (all parameters bound, type check passes, no extra
+    #    `args`/`kwargs`), call it.
+    # 2. If there is a complete match (all parameters bound, type check passes), but
+    #    with extra `args`/`kwargs` (that cannot be accepted by the call signature),
+    #    call it, arranging passthrough for the extra `args`/`kwargs`.
+    # 3. If there is at least one partial match (type check passes for bound arguments,
+    #    unbound parameters remain), keep currying. In this case extra `args`/`kwargs`,
+    #    if any, do not matter. This will fall into case 1 or 2 above after we get
+    #    additional `args`/`kwargs` to complete a match.
+    #
+    # If none of the above match, we know at least one parameter got a binding
+    # that fails the type check. Raise `TypeError`.
+    #
+    # In steps 1 and 2, we use the same lookup order as the multiple dispatcher does;
+    # the first matching multimethod wins. Actual dispatch is still done by the dispatcher;
+    # we only compute the bindings to determine which case above the call falls into.
+    #
+    # `@typed` is a special case of `@generic` with just one multimethod registered.
+    # The resulting behavior is the same as for a non-generic function, because the
+    # above algorithm reduces to that.
+
+    # We can't use the public `list_methods` here, because on OOP methods,
+    # decorators live on the unbound method (raw function). Thus we must
+    # extract `self`/`cls` from the arguments of the call (for linked
+    # dispatcher lookup in the MRO).
+    multimethods = _list_multimethods(function,
+                                      _extract_self_or_cls(function,
+                                                           collected_args))
+    # Step 1: exact match
+    for thecallable, type_signature in multimethods:
+        analysis = _bind_arguments(thecallable)
+        if not analysis.unbound_parameters and not analysis.extra_args and not analysis.extra_kwargs:
+            if not _get_argument_type_mismatches(type_signature, analysis.bound_arguments):
+                return _call, analysis
+    # Step 2: complete match, with extra args/kwargs
+    for thecallable, type_signature in multimethods:
+        analysis = _bind_arguments(thecallable)
+        if not analysis.unbound_parameters and (analysis.extra_args or analysis.extra_kwargs):
+            if not _get_argument_type_mismatches(type_signature, analysis.bound_arguments):
+                return _call_with_passthrough, analysis
+    # Step 3: partial match
+    for thecallable, type_signature in multimethods:
+        analysis = _bind_arguments(thecallable)
+        if analysis.unbound_parameters:
+            if not _get_argument_type_mismatches(type_signature, analysis.bound_arguments):
+                return _keep_currying, analysis
+    # No matter which multimethod we pick, at least one parameter gets a binding
+    # that fails the type check.
+    _raise_multiple_dispatch_error(function, collected_args, collected_kwargs,
+                                   candidates=multimethods, _partial=True)
 
 # --------------------------------------------------------------------------------
 
