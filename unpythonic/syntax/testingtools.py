@@ -987,6 +987,7 @@ def _test_block(block_body, args):
             if not the_exprs and type(retval) is Compare:
                 # inject the implicit the[] on the LHS
                 retval.left = _inject_value_recorder(envname, retval.left)
+            break
     else:
         # When there is no return statement at the top level of the `with test` block,
         # we inject a `return True` to satisfy the test when the injected function
