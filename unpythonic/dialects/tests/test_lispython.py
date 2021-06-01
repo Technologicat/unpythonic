@@ -120,7 +120,7 @@ def runtests():
         test[x == 3]
 
     with testset("integration with continuations"):
-        with continuations:  # should be skipped by the implicit tco inserted by the dialect
+        with continuations:  # has TCO; should be skipped by the implicit `with tco` inserted by the dialect
             k = None  # kontinuation
             def setk(*args, cc):
                 nonlocal k
