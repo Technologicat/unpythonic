@@ -134,7 +134,7 @@ def partial(func, *args, **kwargs):
                                                                          _extract_self_or_cls(thecallable,
                                                                                               args)),
                                            _partial=True)
-    else:  # Not `@generic` or `@typed`; just a function that has type annotations.
+    else:  # Not `@generic` or `@typed`; just a function that might have type annotations.
         # It's not very unpythonic-ic to provide this since we already have `@typed` for this use case,
         # but it's much more pythonic, if the type-checking `partial` works properly for code that does
         # not opt in to `unpythonic`'s multiple-dispatch subsystem.
