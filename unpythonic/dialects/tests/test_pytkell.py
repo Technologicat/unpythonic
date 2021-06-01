@@ -74,8 +74,8 @@ def runtests():
         test[f(1, 2) == (1, 2)]
         test[(flip(f))(1, 2) == (2, 1)]  # NOTE flip reverses all (doesn't just flip the first two)  # noqa: F821
 
-        # # TODO: this doesn't work, because curry sees f's arities as (2, 2) (kwarg handling!)
-        # test[(flip(f))(1, b=2) == (1, 2)]  # b -> kwargs
+        # flip reverses only those arguments that are passed *positionally*
+        test[(flip(f))(1, b=2) == (1, 2)]  # b -> kwargs  # noqa: F821
 
     # http://www.cse.chalmers.se/~rjmh/Papers/whyfp.html
     with testset("iterables"):
@@ -200,7 +200,7 @@ def runtests():
                     if k == 1:
                         return acc
                     return f(k - 1, k * acc)
-                return f(n, 1)  # TODO: doesn't work as f(n, acc=1) due to curry's kwarg handling
+                return f(n, acc=1)
             test[fact(4) == 24]
 
             print("Performance...")
