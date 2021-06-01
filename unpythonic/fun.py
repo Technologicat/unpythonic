@@ -35,6 +35,8 @@ from .symbol import sym
 # we use @passthrough_lazy_args (and handle possible lazy args) to support unpythonic.syntax.lazify.
 from .lazyutil import passthrough_lazy_args, islazy, force, force1, maybe_force_args
 
+# --------------------------------------------------------------------------------
+
 _success = sym("_success")
 _fail = sym("_fail")
 @register_decorator(priority=10)
@@ -77,6 +79,7 @@ def memoize(f):
 #            memo[k] = f(*args, **kwargs)
 #        return memo[k]
 #    return memoized
+# --------------------------------------------------------------------------------
 
 # Parameter naming is consistent with `functools.partial`.
 #
@@ -545,6 +548,8 @@ def iscurried(f):
 #        return f(*args, **kwargs)
 #    return curried
 
+# --------------------------------------------------------------------------------
+
 def flip(f):
     """Decorator: flip (reverse) the positional arguments of f."""
     @wraps(f)
@@ -585,6 +590,8 @@ def rotate(k):
         return rotated
     return rotate_k
 
+# --------------------------------------------------------------------------------
+
 @passthrough_lazy_args
 def apply(f, arg0, *more, **kwargs):
     """Scheme/Racket-like apply.
@@ -608,6 +615,8 @@ def apply(f, arg0, *more, **kwargs):
         args = (arg0,) + more[:-1]
         lst = tuple(more[-1])
     return maybe_force_args(f, *(args + lst), **kwargs)
+
+# --------------------------------------------------------------------------------
 
 # Not marking this as lazy-aware works better with continuations (since this
 # is the default cont, and return values should be values, not lazy[])
@@ -672,6 +681,8 @@ def const(*args, **kwargs):
     def constant(*a, **kw):
         return ret
     return constant
+
+# --------------------------------------------------------------------------------
 
 def notf(f):  # Racket: negate
     """Return a function that returns the logical not of the result of f.
@@ -738,6 +749,8 @@ def orf(*fs):  # Racket: disjoin
                 return b
         return False
     return disjoined
+
+# --------------------------------------------------------------------------------
 
 def _make_compose1(direction):
     """Make a function that composes functions from an iterable.
@@ -930,6 +943,8 @@ def composelci(iterable):
     """Like composelc, but read the functions from an iterable."""
     return composeli(map(curry, iterable))
 
+# --------------------------------------------------------------------------------
+
 # Helpers to insert one-in-one-out functions into multi-arg compose chains
 def tokth(k, f):
     """Return a function to apply f to args[k], pass the rest through.
@@ -996,6 +1011,8 @@ def to(*specs):
         Function to (functionally) update args with the specs applied.
     """
     return composeli(tokth(k, f) for k, f in specs)
+
+# --------------------------------------------------------------------------------
 
 @register_decorator(priority=80)
 def withself(f):
