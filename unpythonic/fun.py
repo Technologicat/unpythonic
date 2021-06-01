@@ -280,15 +280,8 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
 
         assert f(y=2)(x=1) == (1, 2)
 
-    However, it is possible that the algorithm isn't perfect, so there may be small semantic
-    differences to regular one-step function calls. If you find any, please file an issue,
-    so these can at the very least be documented; and if doable with reasonable effort,
-    preferably fixed.
-
-    It is still an error if **named** arguments are left over for an outer curry context.
-    Treating this case would require generalizing return values so that functions could
-    return named outputs. See:
-        https://github.com/Technologicat/unpythonic/issues/32
+    If you notice any semantic differences in parameter binding when using `curry`, when compared
+    to regular one-step function calls, please file an issue.
     """
     f = force(f)  # lazify support: we need the value of f
     # trivial case first: interaction with call_ec and other replace-def-with-value decorators
