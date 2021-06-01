@@ -18,7 +18,7 @@ from .nameutil import isx, getname
 
 letf_name = "letter"  # must match what ``unpythonic.syntax.letdo._let_expr_impl`` uses in its output.
 dof_name = "dof"      # name must match what ``unpythonic.syntax.letdo.do`` uses in its output.
-currycall_name = "currycall"  # output of ``unpythonic.syntax.curry``
+currycall_name = "currycall"  # output of ``unpythonic.syntax.autocurry``
 
 def _get_subscript_slice(tree):
     assert type(tree) is Subscript

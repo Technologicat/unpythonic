@@ -432,7 +432,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
 
 @passthrough_lazy_args
 def _currycall(f, *args, **kwargs):
-    """Co-operate with unpythonic.syntax.curry.
+    """Co-operate with unpythonic.syntax.autocurry.
 
     In a ``with autocurry`` block, we need to call `f` also when ``f()`` has
     transformed to ``curry(f)``, but definitions can be curried as usual.

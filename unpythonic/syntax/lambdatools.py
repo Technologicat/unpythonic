@@ -259,7 +259,7 @@ def _namedlambda(block_body):
         return type(tree.args[-1]) is Lambda
 
     # Detect an autocurry from an already expanded "with autocurry".
-    # CAUTION: These must match what unpythonic.syntax.curry.autocurry uses in its output.
+    # CAUTION: These must match what unpythonic.syntax.autocurry.autocurry uses in its output.
     currycall_name = "currycall"
     iscurryf = lambda name: name in ("curryf", "curry")  # auto or manual curry in a "with autocurry"
     def isautocurrywithfinallambda(tree):
