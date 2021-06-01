@@ -113,6 +113,15 @@ def runtests():
     #
     # pythagorean triples
     with testset("nondeterministic evaluation"):
+        # TODO: This is very slow in Pytkell; investigate whether the cause is `lazify`, `autocurry`, or both.
+        #
+        # Running the same code in a macro-enabled IPython (i.e. without Pytkell), there is no noticeable delay
+        # after you press enter, before it gives the result. If you want to try it, you'll need to:
+        #
+        # %load_ext mcpyrate.repl.iconsole
+        # from unpythonic.syntax import macros, forall, test
+        # from unpythonic import insist
+        #
         pt = forall[z << range(1, 21),   # hypotenuse  # noqa: F821
                     x << range(1, z + 1),  # shorter leg  # noqa: F821
                     y << range(x, z + 1),  # longer leg  # noqa: F821
@@ -203,9 +212,23 @@ def runtests():
                 return f(n, acc=1)
             test[fact(4) == 24]
 
+            # **CAUTION**: Pytkell is slow, because so much happens at run time. On an i7-4710MQ:
+            #
+            # - The performance test below, `fact(5000)`, completes in about 500ms.
+            #
+            # **Without** Pytkell, using a macro-enabled IPython session:
+            #
+            # - `fact(5000)` with the same definition (the `with tco` block above) completes in about 15ms.
+            # - `prod(range(1, 5001))` completes in about 7ms. (This is `unpythonic.prod`, which uses
+            #   `unpythonic`'s custom fold implementation.)
+            # - The simplest thing that works:
+            #       n = 1
+            #       for k in range(1, 5001):
+            #           n *= k
+            #   completes in about 5ms.
             print("Performance...")
             with timer() as tictoc:
-                fact(5000)  # no crash, but Pytkell is a bit slow
+                fact(5000)  # no crash
             print("    Time taken for factorial of 5000: {:g}s".format(tictoc.dt))
 
 if __name__ == '__main__':
