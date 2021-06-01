@@ -145,7 +145,7 @@ def runtests():
         test[last(take(1001, s(0, 0.001, ...))) == 1]  # noqa: F821
 
         # iterables returned by s() support infix math
-        # (to add infix math support to some other iterable, m(iterable))
+        # (to add infix math support to some other iterable, imathify(iterable))
         c = s(1, 3, ...) + s(2, 4, ...)  # noqa: F821
         test[tuple(take(5, c)) == (3, 7, 11, 15, 19)]  # noqa: F821
         test[tuple(take(5, c)) == (23, 27, 31, 35, 39)]  # consumed!  # noqa: F821
