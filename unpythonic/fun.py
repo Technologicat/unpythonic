@@ -37,6 +37,16 @@ from .lazyutil import passthrough_lazy_args, islazy, force, force1, maybe_force_
 
 # --------------------------------------------------------------------------------
 
+#def memoize_simple(f):  # essential idea, without exception handling
+#    memo = {}
+#    @wraps(f)
+#    def memoized(*args, **kwargs):
+#        k = tuplify_bindings(resolve_bindings(f, *args, **kwargs))
+#        if k not in memo:
+#            memo[k] = f(*args, **kwargs)
+#        return memo[k]
+#    return memoized
+
 _success = sym("_success")
 _fail = sym("_fail")
 @register_decorator(priority=10)
@@ -70,15 +80,6 @@ def memoize(f):
         memoized = passthrough_lazy_args(memoized)
     return memoized
 
-#def memoize_simple(f):  # essential idea, without exception handling
-#    memo = {}
-#    @wraps(f)
-#    def memoized(*args, **kwargs):
-#        k = tuplify_bindings(resolve_bindings(f, *args, **kwargs))
-#        if k not in memo:
-#            memo[k] = f(*args, **kwargs)
-#        return memo[k]
-#    return memoized
 # --------------------------------------------------------------------------------
 
 # Parameter naming is consistent with `functools.partial`.
