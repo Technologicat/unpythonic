@@ -14,7 +14,7 @@ Instead, what we have here is essentially a tuple comprehension that:
 
   - Presents the source code in the same order as it actually runs.
 
-The implementation is based on the List monad. This is a hack with the bare
+The implementation is based on the list monad. This is a hack with the bare
 minimum of components to make it work, complete with a semi-usable syntax.
 
 If you use `mcpyrate`:
@@ -59,7 +59,7 @@ def forall(*lines):
     """Nondeterministically evaluate lines.
 
     This is essentially a bastardized variant of Haskell's do-notation,
-    specialized for the List monad.
+    specialized for the list monad.
 
     Examples::
 
@@ -83,8 +83,8 @@ def forall(*lines):
         - All choices are evaluated, depth first, and set of results is
           returned as a tuple.
 
-        - If a line returns an iterable, it is implicitly converted into a List
-          monad containing the same items.
+        - If a line returns an iterable, it is implicitly converted into a
+          list monad containing the same items.
 
           - This applies also to the RHS of a ``choice``.
 
@@ -94,11 +94,11 @@ def forall(*lines):
             This allows easily returning a tuple (as one result item) from the
             computation, as in the above pythagorean triples example.
 
-        - If a line returns a single item, it is wrapped into a singleton List
-          (a List containing that one item).
+        - If a line returns a single item, it is wrapped into a singleton
+          list monad (a MonadicList containing that one item).
 
         - The final result (containing all the results) is converted from
-          List monad to tuple for output.
+          the list monad to tuple for output.
 
         - The values currently picked by the choices are bound to names in
           the environment. To access it, use a ``lambda e: ...`` like in
@@ -212,7 +212,7 @@ def monadify(value, unpack=True):
             return MonadicList.from_iterable(value)
         except TypeError:
             pass  # fall through
-    return MonadicList(value)  # unit(List, value)
+    return MonadicList(value)  # unit(MonadicList, value)
 
 class MonadicList:  # TODO: This if anything is **the** place to use @typed.
     """A monadic list."""
@@ -223,7 +223,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         returns: M a
         """
         # Accept the sentinel nil as a special **item** that, when passed to
-        # the List constructor, produces an empty list.
+        # the MonadicList constructor, produces an empty list.
         if len(elts) == 1 and elts[0] is nil:
             self.x = ()
         else:
@@ -243,8 +243,8 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         """
         # bind ma f = join (fmap f ma)
         return self.fmap(f).join()
-        # done manually, essentially List.from_iterable(flatmap(lambda elt: f(elt), self.x))
-        #return List.from_iterable(result for elt in self.x for result in f(elt))
+        # done manually, essentially MonadicList.from_iterable(flatmap(lambda elt: f(elt), self.x))
+        # return MonadicList.from_iterable(result for elt in self.x for result in f(elt))
 
     def then(self, f):
         """Sequence, a.k.a. "then"; standard notation ">>" in Haskell.
@@ -257,7 +257,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         """
         cls = self.__class__
         if not isinstance(f, cls):
-            raise TypeError(f"Expected a List monad, got {type(f)} with value {repr(f)}")
+            raise TypeError(f"Expected a MonadicList, got {type(f)} with value {repr(f)}")
         return self >> (lambda _: f)
 
     @classmethod
@@ -282,10 +282,10 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
             cancels the rest of that branch of the computation.
         """
         if b:
-            return cls(True)  # List with one element; value not intended to be actually used.
-        return cls()  # 0-element List; short-circuit this branch of the computation.
+            return cls(True)  # MonadicList with one element; value not intended to be actually used.
+        return cls()  # 0-element MonadicList; short-circuit this branch of the computation.
 
-    # make List iterable so that "for result in f(elt)" works (when f outputs a List monad)
+    # make MonadicList iterable so that "for result in f(elt)" works (when f outputs a list monad)
     def __iter__(self):
         return iter(self.x)
     def __len__(self):
@@ -330,7 +330,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
 
     @classmethod
     def lift(cls, f):
-        """Lift a regular function into a List-producing one.
+        """Lift a regular function into a MonadicList-producing one.
 
         f: a -> b
         returns: a -> M b
@@ -355,7 +355,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         """
         cls = self.__class__
         if not all(isinstance(elt, cls) for elt in self.x):
-            raise TypeError(f"Expected a nested List monad, got {type(self.x)} with value {self.x}")
+            raise TypeError(f"Expected a nested MonadicList, got {type(self.x)} with value {self.x}")
         # list of lists - concat them
         return cls.from_iterable(elt for sublist in self.x for elt in sublist)
 
