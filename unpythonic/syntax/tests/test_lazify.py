@@ -2,10 +2,9 @@
 """Automatic lazy evaluation of function arguments."""
 
 from ...syntax import macros, test, test_raises, error, the  # noqa: F401
-from ...test.fixtures import session, testset, returns_normally
+from ...test.fixtures import session, testset
 
-from mcpyrate.quotes import macros, q  # noqa: F811
-from mcpyrate.compiler import run, temporary_module
+from mcpyrate.debug import macros, step_expansion  # noqa: F811
 
 from ...syntax import (macros, lazify, lazy, lazyrec,  # noqa: F811, F401
                        let, letseq, letrec, local,
@@ -351,40 +350,18 @@ def runtests():
             test[f14(21, 1 / 0) == 42]
 
     with testset("integration: expand nested inner macro invocations"):
-        # Here we need precise control over what the expander is doing,
-        # so we use `mcpyrate`'s run-time compiler access.
-        #
-        # Particularly, we need to enable expand-once mode to see whether the
-        # innermost macro expands correctly. This depends on `lazify` expanding
-        # inner macro invocations in recursive mode, regardless of the mode of
-        # the expander.
-        #
-        # If it doesn't, the innermost macro won't be expanded before `lazify`
-        # performs its own AST edits (editing also `Subscript` nodes), and in
-        # the result, it will no longer be a macro invocation, and will hence
-        # cause a `NameError` at run time.
-        #
-        # This block becomes a module. It's quoted, so macros won't expand
-        # when the parent module does. We're just constructing an AST here.
-        with q as quoted:
-            from mcpyrate.debug import macros, step_expansion  # noqa: F811
-            from unpythonic.syntax import macros, test  # noqa: F811
-
-            from unpythonic.syntax import macros, lazify, lazy  # noqa: F811, F401
-            # TODO: This prints a lot of stuff, because that's its primary purpose.
-            # TODO: Here it would be nicer to use a macro that only enables expand-once mode.
-            with step_expansion:
-                with lazify:
-                    # Here we need any macro that expands outside-in. The important thing is
-                    # it doesn't recurse (`expander.visit`) on its own, instead relying on the
-                    # expander's recursive mode to expand any remaining macro invocations inside
-                    # the tree. Here we use `with test` in this dummy role.
-                    with test:
-                        lazy[...]  # <-- this should get expanded, not raise NameError at run time
-        # And this is where we compile and run that AST, within a new temporary module.
-        # The filename should be descriptive, but not end in `.py`, since it's not an actual file.
-        with temporary_module(filename="tests in unpythonic.syntax.tests.test_lazify") as module:
-            test[returns_normally(run(quoted, module))]
+        # TODO: This prints a lot of stuff, because that's its primary purpose.
+        # TODO: Here it would be nicer to use a macro that only enables expand-once mode.
+        with step_expansion:
+            with lazify:
+                # Here we need any macro that expands outside-in. The important thing is
+                # it doesn't recurse (`expander.visit`) on its own, instead relying on the
+                # expander's recursive mode to expand any remaining macro invocations inside
+                # the tree.
+                #
+                # Here `with test` is nice, because it asserts the block returns normally at run time.
+                with test:
+                    lazy[...]  # <-- this should get expanded, not raise NameError at run time
 
     # let bindings have a role similar to function arguments, so we auto-lazify there
     with testset("integration with let, letseq, letrec"):
