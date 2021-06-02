@@ -350,6 +350,16 @@ def runtests():
             test[f14(21, 1 / 0) == 42]
 
     with testset("integration: expand nested inner macro invocations"):
+        # Here we need to enable expand-once mode to see whether the innermost
+        # macro expands correctly. This depends on `lazify` expanding inner
+        # macro invocations in recursive mode, regardless of the mode of the
+        # expander.
+        #
+        # If it doesn't, the innermost macro won't be expanded before `lazify`
+        # performs its own AST edits (editing also `Subscript` nodes), and in
+        # the result, it will no longer be a macro invocation, and will hence
+        # cause a `NameError` at run time.
+        #
         # TODO: This prints a lot of stuff, because that's its primary purpose.
         # TODO: Here it would be nicer to use a macro that only enables expand-once mode.
         with step_expansion:
