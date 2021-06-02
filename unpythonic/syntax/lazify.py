@@ -599,7 +599,10 @@ def _lazify(body):
     # Expand any inner macro invocations. Particularly, this expands away any `lazyrec[]` and `lazy[]`
     # so they become easier to work with. We also know that after this, any `Subscript` is really a
     # subscripting operation and not a macro invocation.
-    body = dyn._macro_expander.visit(body)
+    #
+    # We must explicitly use recursive mode to ensure we get rid of all macro invocations, because
+    # we may be running inside a `with step_expansion`, which uses the expand-once-only mode.
+    body = dyn._macro_expander.visit_recursively(body)
 
     # `lazify`'s analyzer needs the `ctx` attributes in `tree` to be filled in correctly.
     body = fix_ctx(body, copy_seen_nodes=False)  # TODO: or maybe copy seen nodes?
