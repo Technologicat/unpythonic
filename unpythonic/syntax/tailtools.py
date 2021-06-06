@@ -15,6 +15,7 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef,
                  Call, Name, Starred, Constant,
                  BoolOp, And, Or,
                  With, AsyncWith, If, IfExp, Try, Assign, Return, Expr,
+                 Await,
                  copy_location)
 import sys
 
@@ -1059,16 +1060,30 @@ def _continuations(block_body):
     class StrayCallccChecker(ASTVisitor):
         def examine(self, tree):
             if iscallcc(tree):
-                raise SyntaxError("call_cc[...] only allowed at the top level of a def or async def, or at the top level of the block; must appear as an expr or an assignment RHS")  # pragma: no cover
+                raise SyntaxError("call_cc[...] only allowed at the top level of a def, or at the top level of the block; must appear as an expr or an assignment RHS")  # pragma: no cover
             if type(tree) in (Assign, Expr):
                 v = tree.value
                 if type(v) is Call and type(v.func) is Name and v.func.id == "call_cc":
                     raise SyntaxError("call_cc(...) should be call_cc[...] (note brackets; it's a macro)")  # pragma: no cover
             self.generic_visit(tree)
 
+    # TODO: Interaction of `continuations` with async functions is not implemented.
+    # So for robustness, we raise a syntax error for now.
+    class AsyncDefChecker(ASTVisitor):
+        def examine(self, tree):
+            if type(tree) is AsyncFunctionDef:
+                raise SyntaxError("`with continuations` does not currently support `async` functions")
+            elif type(tree) is AsyncWith:
+                raise SyntaxError("`with continuations` does not currently support `async` context managers")
+            elif type(tree) is Await:
+                raise SyntaxError("`with continuations` does not currently support `await`")
+            self.generic_visit(tree)
+
     # -------------------------------------------------------------------------
     # Main processing logic begins here
     # -------------------------------------------------------------------------
+
+    AsyncDefChecker().visit(block_body)
 
     # Disallow return at the top level of the block, because it would behave
     # differently depending on whether placed before or after the first call_cc[]

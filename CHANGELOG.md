@@ -177,6 +177,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
     - This change fixes a `flake8` [E741](https://pycodestyle.pycqa.org/en/latest/intro.html#error-codes) warning, and the new name for the parameter is more descriptive.
 
 - **Miscellaneous.**
+  - Robustness: the `with continuations` macro now raises `SyntaxError` if async constructs (`async def` or `await`) appear lexically inside the block, because interaction of `with continuations` with Python's async subsystem has never been implemented. See [issue #4](https://github.com/Technologicat/unpythonic/issues/4).
   - The functions `raisef`, `tryf`, `equip_with_traceback`, and `async_raise` now live in `unpythonic.excutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
   - The functions `call` and `callwith` now live in `unpythonic.funutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
   - The functions `almosteq`, `fixpoint`, `partition_int`, and `ulp` now live in `unpythonic.numutil`. They are still available in the top-level namespace of `unpythonic`, as usual.
