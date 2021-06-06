@@ -576,10 +576,10 @@ def _is_literal_container(tree, maps_only=False):
 # it is too easy to accidentally set up an infinite recursion.
 #
 # This is ok:
-#   force1(lst)[0] = (10 * (force1(lst()[0]) if isinstance(lst, Lazy1) else force1(lst[0])))
+#   force1(lst)[0] = (10 * (force1(lst()[0]) if isinstance(lst, Lazy) else force1(lst[0])))
 #
 # but this blows up (by infinite recursion) later when we eventually force lst[0]:
-#   force1(lst)[0] = Lazy1(lambda: (10 * (force1(lst()[0]) if isinstance(lst, Lazy1) else force1(lst[0]))))
+#   force1(lst)[0] = Lazy(lambda: (10 * (force1(lst()[0]) if isinstance(lst, Lazy) else force1(lst[0]))))
 #
 # We **could** solve this by forcing and capturing the current value before assigning,
 # instead of allowing the RHS to refer to a lazy list element. But on the other hand,
