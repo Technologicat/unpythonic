@@ -2148,7 +2148,7 @@ The macros in ``unpythonic.syntax`` are designed to work together, but some care
 
 For simplicity, **the block macros make no attempt to prevent invalid combos** (unless there is a specific technical reason to do that for some particular combination). Be careful; e.g. don't nest several ``with tco`` blocks (lexically), that won't work.
 
-The **AST edits** performed by the block macros are designed to run **in the following order (leftmost first)**:
+The **AST edits** performed by the block macros are designed to run in the following order (leftmost first):
 
 ```
 prefix > autoreturn, quicklambda > multilambda > continuations or tco > ...
@@ -2167,13 +2167,27 @@ with mac:
         ...
 ```
 
-The invocation `with mac` is *lexically on the outside*, thus the macro expander sees it first. The expansion order is then:
+The invocation `with mac` is *lexically on the outside*, thus the macro expander sees it first. The expansion order then becomes:
 
  1. First pass (outside in) of `with mac`.
  2. Explicit recursion by `with mac`. This expands the `with cheese`.
  3. Second pass (inside out) of `with mac`.
 
-So, for example, even though `lazify` must *perform its AST editing* after `autocurry`, it is actually a two-pass macro. The first pass (outside in) only performs some preliminary analysis; the actual lazification happens in the second pass (inside out). So the correct invocation comboing these two is `with lazify, autocurry`. Similarly, `with lazify, continuations` is correct, even though the CPS transformation must occur first; these are both two-pass macros that perform their edits in the inside-out pass. See [the dialect examples](../unpythonic/dialects/) for combo invocations that are known to work.
+So, for example, even though `lazify` must *perform its AST editing* after `autocurry`, it happens to be a two-pass macro. The first pass (outside in) only performs some preliminary analysis; the actual lazification happens in the second pass (inside out). So the correct invocation comboing these two is `with lazify, autocurry`. Similarly, `with lazify, continuations` is correct, even though the CPS transformation must occur first; these are both two-pass macros that perform their edits in the inside-out pass.
+
+Considering that:
+
+ - Outside-in: `prefix`, `autoreturn`, `quicklambda`, `multilambda`
+ - Two-pass: `envify`, `lazify`, `namedlambda`, `autoref`, `autocurry`, `tco`/`continuations`
+
+the correct **xmas tree invocation** is:
+
+```python
+with prefix, autoreturn, quicklambda, multilambda, envify, lazify, namedlambda, autoref, autocurry, tco:
+    ...
+```
+
+[The dialect examples](dialects.md) use this ordering. See our [notes on macros](design-notes.md#detailed-notes-on-macros) for some more details.
 
 Example combo in the single-line format:
 
@@ -2191,15 +2205,12 @@ with autoreturn:
       ...
 ```
 
-Of these, `autoreturn` expands outside-in, while `lazify` and `tco` are both two-pass macros.
-
-We aim to improve the macro docs in the future. For now, to see if something is a two-pass macro, grep the codebase for `expander.visit_recursively`; that is the *explicit recursion* mentioned above, and means that within that function, anything below that line will run in the inside-out pass. See [the `mcpyrate` manual](https://github.com/Technologicat/mcpyrate/blob/master/doc/main.md#expand-macros-inside-out).
-
-See our [notes on macros](../doc/design-notes.md#detailed-notes-on-macros) for more information.
-
 **NOTE**: In MacroPy, there sometimes were [differences](https://github.com/azazel75/macropy/issues/21) between the behavior of the single-line and multi-line invocation format, but in `mcpyrate`, they should behave the same.
 
 With `mcpyrate`, there is still [a minor difference](https://github.com/Technologicat/mcpyrate/issues/3) if there are at least three nested macro invocations, and a macro is scanning the tree for another macro invocation; then the tree looks different depending on whether the single-line or the multi-line format was used. The differences in that are as one would expect knowing [how `with` statements look like](https://greentreesnakes.readthedocs.io/en/latest/nodes.html#With) in the Python AST. The reason the difference manifests only for three or more macro invocations is that `mcpyrate` pops the macro that is being expanded before it hands over the tree to the macro code; hence if there are only two, the inner tree will have only one "context manager" in its `with`.
+
+**NOTE** to the curious, and to future documentation maintainers: To see if something is a two-pass macro, grep the codebase for `expander.visit_recursively`; that is the *explicit recursion* mentioned above, and means that within that function, anything below that line will run in the inside-out pass. See [the `mcpyrate` manual](https://github.com/Technologicat/mcpyrate/blob/master/doc/main.md#expand-macros-inside-out).
+
 
 ### Emacs syntax highlighting
 
