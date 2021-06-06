@@ -32,8 +32,8 @@ Hence *dialects*.
 As examples of what can be done with a dialects system together with a kitchen-sink language extension macro package such as `unpythonic`, we currently provide the following dialects:
 
   - [**Lispython**: The love child of Python and Scheme](dialects/lispython.md)
-  - [**Pytkell**: Because it's good to have a kell](dialects/pytkell.md)
   - [**Listhell**: It's not Lisp, it's not Python, it's not Haskell](dialects/listhell.md)
+  - [**Pytkell**: Because it's good to have a kell](dialects/pytkell.md)
 
 All three dialects support `unpythonic`'s ``continuations`` block macro, to add ``call/cc`` to the language; but it is not enabled automatically.
 
