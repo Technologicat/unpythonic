@@ -98,7 +98,7 @@ If you need more stuff, `unpythonic` is effectively the standard library of Pytk
 
 ## What Pytkell is
 
-Pytkell is a dialect of Python implemented via macros and a thin whole-module AST transformation. The dialect definition lives in [`unpythonic.dialects.pytkell`](../../unpythonic/dialects/lispython.py). Usage examples can be found in [the unit tests](../../unpythonic/dialects/tests/test_pytkell.py).
+Pytkell is a dialect of Python implemented via macros and a thin whole-module AST transformation. The dialect definition lives in [`unpythonic.dialects.pytkell`](../../unpythonic/dialects/pytkell.py). Usage examples can be found in [the unit tests](../../unpythonic/dialects/tests/test_pytkell.py).
 
 Pytkell essentially makes Python feel slightly more haskelly.
 
