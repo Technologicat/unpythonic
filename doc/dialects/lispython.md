@@ -142,7 +142,7 @@ Lispython works with ``with continuations``, because:
 
   - The same applies to the outside-in pass of ``namedlambda``. Its inside-out pass, on the other hand, must come after ``continuations``, which it does, since the dialect's implicit ``with namedlambda`` is in a lexically outer position with respect to the ``with continuations``.
 
-Be aware, though, that the combination of the ``autoreturn`` implicit in the dialect and ``with continuations`` might have usability issues, because ``continuations`` handles tail calls specially (the target of a tail-call in a ``continuations`` block must be continuation-enabled; see the documentation of ``continuations``), and ``autoreturn`` makes it visually slightly less clear which positions are in factorial tail calls (since no explicit ``return``). Also, the top level of a ``with continuations`` block may not use ``return`` - while Lispython happily auto-injects a ``return`` to whatever is the last statement in any particular function.
+Be aware, though, that the combination of the ``autoreturn`` implicit in the dialect and ``with continuations`` might have usability issues, because ``continuations`` handles tail calls specially (the target of a tail-call in a ``continuations`` block must be continuation-enabled; see the documentation of ``continuations``), and ``autoreturn`` makes it visually slightly less clear which positions are in fact tail calls (since no explicit ``return``). Also, the top level of a ``with continuations`` block may not use ``return`` - while Lispython happily auto-injects a ``return`` to whatever is the last statement in any particular function.
 
 
 ## Why extend Python?
