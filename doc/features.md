@@ -3098,6 +3098,9 @@ In `unpythonic`, the terminology is as follows:
 
 The term *multimethod* distinguishes them from the OOP sense of *method*, already established in Python, as well as reminds that multiple arguments participate in dispatching.
 
+**CAUTION**: Code using the `with lazify` macro cannot usefully use `@generic` or `@typed`, because all arguments of each function call will be wrapped in a promise (`unpythonic.lazyutil.Lazy`) that carries no type information on its contents.
+
+
 #### ``generic``: multiple dispatch with type annotation syntax
 
 The ``generic`` decorator essentially allows replacing the `if`/`elif` dynamic type checking boilerplate of polymorphic functions with type annotations on the function parameters, with support for features from the `typing` stdlib module. This not only kills boilerplate, but makes the dispatch extensible, since the dispatcher lives outside the original function definition. There is no need to monkey-patch the original to add a new case.

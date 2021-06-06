@@ -234,6 +234,10 @@ def generic(f):
 
     See the limitations in `unpythonic.typecheck` for which features of the
     `typing` module are supported and which are not.
+
+    Code using the `with lazify` macro cannot usefully use `@generic` or `@typed`,
+    because all arguments of each function call will be wrapped in a promise
+    (`unpythonic.lazyutil.Lazy`) that carries no type information on its contents.
     """
     return _setup(_function_fullname(f), f)
 
@@ -299,6 +303,12 @@ def typed(f):
 
     Once a `@typed` function has been created, no more multimethods can be
     attached to it.
+
+    **CAUTION**:
+
+    Code using the `with lazify` macro cannot usefully use `@generic` or `@typed`,
+    because all arguments of each function call will be wrapped in a promise
+    (`unpythonic.lazyutil.Lazy`) that carries no type information on its contents.
     """
     s = generic(f)
     del s._register  # remove the ability to register more methods
