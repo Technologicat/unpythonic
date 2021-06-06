@@ -12,6 +12,8 @@ from mcpyrate.walkers import ASTTransformer
 
 from .util import (suggest_decorator_index, isx, has_curry, sort_lambda_decorators)
 
+from ..dynassign import dyn
+
 # CAUTION: unpythonic.syntax.lambdatools.namedlambda depends on the exact names
 # "curryf" and "currycall" to detect an auto-curried expression with a final lambda.
 from ..fun import curry as curryf, _currycall as currycall
@@ -68,9 +70,8 @@ def autocurry(tree, *, syntax, expander, **kw):  # technically a list of trees, 
     if syntax == "block" and kw['optional_vars'] is not None:
         raise SyntaxError("autocurry does not take an as-part")  # pragma: no cover
 
-    tree = expander.visit_recursively(tree)
-
-    return _autocurry(block_body=tree)
+    with dyn.let(_macro_expander=expander):
+        return _autocurry(block_body=tree)
 
 
 _iscurry = lambda name: name in ("curry", "currycall")
@@ -129,5 +130,6 @@ def _autocurry(block_body):
 
             return self.generic_visit(tree)
 
+    block_body = dyn._macro_expander.visit_recursively(block_body)
     newbody = AutoCurryTransformer(hascurry=False).visit(block_body)
     return sort_lambda_decorators(newbody)

@@ -11,6 +11,7 @@ from mcpyrate.splicing import splice_expression
 
 from .letdoutil import isenvassign, UnexpandedEnvAssignView
 from ..amb import monadify
+from ..dynassign import dyn
 from ..misc import namelambda
 
 from ..amb import insist, deny  # for re-export only  # noqa: F401
@@ -35,13 +36,17 @@ def forall(tree, *, syntax, expander, **kw):
     if syntax != "expr":
         raise SyntaxError("forall is an expr macro only")  # pragma: no cover
 
-    tree = expander.visit_recursively(tree)
-
-    return _forall(exprs=tree)
+    # Inside-out macro.
+    with dyn.let(_macro_expander=expander):
+        return _forall(exprs=tree)
 
 def _forall(exprs):
     if type(exprs) is not Tuple:  # pragma: no cover, let's not test macro expansion errors.
         raise SyntaxError("forall body: expected a sequence of comma-separated expressions")  # pragma: no cover
+
+    # Expand inside-out to easily support lexical scoping.
+    exprs = dyn._macro_expander.visit_recursively(exprs)
+
     itemno = 0
     def build(lines, tree):
         if not lines:

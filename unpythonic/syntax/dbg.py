@@ -103,12 +103,12 @@ def dbg(tree, *, args, syntax, expander, **kw):
     if syntax == "block" and kw['optional_vars'] is not None:
         raise SyntaxError("dbg (block mode) does not take an as-part")  # pragma: no cover
 
-    tree = expander.visit_recursively(tree)
-
-    if syntax == "expr":
-        return _dbg_expr(tree)
-    else:  # syntax == "block":
-        return _dbg_block(body=tree, args=args)
+    # Expand inside-out.
+    with dyn.let(_macro_expander=expander):
+        if syntax == "expr":
+            return _dbg_expr(tree)
+        else:  # syntax == "block":
+            return _dbg_block(body=tree, args=args)
 
 def dbgprint_block(ks, vs, *, filename=None, lineno=None, sep=", ", **kwargs):
     """Default debug printer for the ``dbg`` macro, block variant.
@@ -213,6 +213,9 @@ def _dbg_block(body, args):
         pfunc = q[h[dbgprint_block]]
         pname = "print"  # override standard print function within this block
 
+    # TODO: Do we really need to expand inside-out here?
+    body = dyn._macro_expander.visit_recursively(body)
+
     class DbgBlockTransformer(ASTTransformer):
         def transform(self, tree):
             if is_captured_value(tree):
@@ -231,6 +234,9 @@ def _dbg_block(body, args):
     return DbgBlockTransformer().visit(body)
 
 def _dbg_expr(tree):
+    # TODO: Do we really need to expand inside-out here?
+    tree = dyn._macro_expander.visit_recursively(tree)
+
     ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
     filename = q[h[callsite_filename]()]
     # Careful here! We must `h[]` the `dyn`, but not `dbgprint_expr` itself,
