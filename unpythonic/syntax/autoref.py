@@ -151,10 +151,20 @@ def autoref(tree, *, args, syntax, expander, **kw):
 
 @passthrough_lazy_args
 def _autoref_resolve(args):
-    *objs, s = [force1(x) for x in args]
+    """Perform an autoref lookup in a `with autoref` block.
+
+    `args`: list [obj0, ..., objN, attrname]
+
+    Each `obj` is tried, left to right, and the first one that
+    `hasattr(obj, attrname)` wins. The return value is the tuple
+    `(True, getattr(obj, attrname))`.
+
+    If no obj matches, the return value is `(False, None)`.
+    """
+    *objs, attrname = [force1(x) for x in args]
     for o in objs:
-        if hasattr(o, s):
-            return True, force1(getattr(o, s))
+        if hasattr(o, attrname):
+            return True, force1(getattr(o, attrname))
     return False, None
 
 def _autoref(block_body, args, asname):
