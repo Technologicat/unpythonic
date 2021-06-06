@@ -437,6 +437,7 @@ def _envify(block_body):
     # first pass, outside-in
     userlambdas = detect_lambda(block_body)
 
+    # Expand inside-out to easily support lexical scoping.
     block_body = dyn._macro_expander.visit_recursively(block_body)
 
     # second pass, inside-out
@@ -520,6 +521,10 @@ def _envify(block_body):
                         newvalue = self.visit(view.value)
                         return q[a[envset](u[view.name], a[newvalue])]
                 # transform references to currently active bindings
+                # x --> e14.x
+                # It doesn't matter if this hits an already expanded inner `with envify`,
+                # because the gensymmed environment name won't be in our bindings, and the "x"
+                # has become the `attr` in an `Attribute` node.
                 elif type(tree) is Name and tree.id in bindings.keys():
                     # We must be careful to preserve the Load/Store/Del context of the name.
                     # The default lets `mcpyrate` fix it later.
