@@ -103,7 +103,7 @@ def dbg(tree, *, args, syntax, expander, **kw):
     if syntax == "block" and kw['optional_vars'] is not None:
         raise SyntaxError("dbg (block mode) does not take an as-part")  # pragma: no cover
 
-    tree = expander.visit(tree)
+    tree = expander.visit_recursively(tree)
 
     if syntax == "expr":
         return _dbg_expr(tree)

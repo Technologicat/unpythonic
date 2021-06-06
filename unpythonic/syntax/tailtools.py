@@ -700,7 +700,7 @@ def _tco(block_body):
     userlambdas = detect_lambda(block_body)
     known_ecs = list(uniqify(detect_callec(block_body)))
 
-    block_body = dyn._macro_expander.visit(block_body)
+    block_body = dyn._macro_expander.visit_recursively(block_body)
 
     # second pass, inside-out
     transform_retexpr = partial(_transform_retexpr)
@@ -781,7 +781,7 @@ def _continuations(block_body):
     known_ecs = list(uniqify(detect_callec(block_body)))
 
     with _continuations_level.changed_by(+1):
-        block_body = dyn._macro_expander.visit(block_body)
+        block_body = dyn._macro_expander.visit_recursively(block_body)
 
     # second pass, inside-out
 

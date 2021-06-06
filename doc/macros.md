@@ -2193,7 +2193,7 @@ with autoreturn:
 
 Of these, `autoreturn` expands outside-in, while `lazify` and `tco` are both two-pass macros.
 
-We aim to improve the macro docs in the future. For now, to see if something is a two-pass macro, grep the codebase for `expander.visit`; that is the *explicit recursion* mentioned above, and means that within that function, anything below that line will run in the inside-out pass. See [the `mcpyrate` manual](https://github.com/Technologicat/mcpyrate/blob/master/doc/main.md#expand-macros-inside-out).
+We aim to improve the macro docs in the future. For now, to see if something is a two-pass macro, grep the codebase for `expander.visit_recursively`; that is the *explicit recursion* mentioned above, and means that within that function, anything below that line will run in the inside-out pass. See [the `mcpyrate` manual](https://github.com/Technologicat/mcpyrate/blob/master/doc/main.md#expand-macros-inside-out).
 
 See our [notes on macros](../doc/design-notes.md#detailed-notes-on-macros) for more information.
 

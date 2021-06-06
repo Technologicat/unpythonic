@@ -68,7 +68,7 @@ def autocurry(tree, *, syntax, expander, **kw):  # technically a list of trees, 
     if syntax == "block" and kw['optional_vars'] is not None:
         raise SyntaxError("autocurry does not take an as-part")  # pragma: no cover
 
-    tree = expander.visit(tree)
+    tree = expander.visit_recursively(tree)
 
     return _autocurry(block_body=tree)
 

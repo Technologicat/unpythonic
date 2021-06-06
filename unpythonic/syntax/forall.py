@@ -35,7 +35,7 @@ def forall(tree, *, syntax, expander, **kw):
     if syntax != "expr":
         raise SyntaxError("forall is an expr macro only")  # pragma: no cover
 
-    tree = expander.visit(tree)
+    tree = expander.visit_recursively(tree)
 
     return _forall(exprs=tree)
 

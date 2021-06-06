@@ -376,7 +376,7 @@ def _namedlambda(block_body):
     # outside in: transform in unexpanded let[] forms
     newbody = NamedLambdaTransformer().visit(block_body)
 
-    newbody = dyn._macro_expander.visit(newbody)
+    newbody = dyn._macro_expander.visit_recursively(newbody)
 
     # inside out: transform in expanded autocurry
     newbody = NamedLambdaTransformer().visit(newbody)
@@ -437,7 +437,7 @@ def _envify(block_body):
     # first pass, outside-in
     userlambdas = detect_lambda(block_body)
 
-    block_body = dyn._macro_expander.visit(block_body)
+    block_body = dyn._macro_expander.visit_recursively(block_body)
 
     # second pass, inside-out
     def getargs(tree):  # tree: FunctionDef, AsyncFunctionDef, Lambda

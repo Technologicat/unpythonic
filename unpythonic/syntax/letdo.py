@@ -376,14 +376,14 @@ def _let_expr_impl(bindings, body, mode):
     # (It is important we expand at least that immediately after, to resolve its local variables,
     #  because those may have the same lexical names as some of the let-bindings.)
     body = _implicit_do(body)
-    body = dyn._macro_expander.visit(body)
+    body = dyn._macro_expander.visit_recursively(body)
     if not bindings:
         # Optimize out a `let` with no bindings. The macro layer cannot trigger
         # this case, because our syntaxes always require at least one binding.
         # So this check is here just to protect against use with no bindings directly
         # from other syntax transformers, which in theory could attempt anything.
         return body  # pragma: no cover
-    bindings = dyn._macro_expander.visit(bindings)
+    bindings = dyn._macro_expander.visit_recursively(bindings)
 
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [getname(k, accept_attr=False) for k in names]  # any duplicates will be caught by env at run-time
@@ -510,13 +510,13 @@ def _let_decorator_impl(bindings, body, mode, kind):
     assert kind in ("decorate", "call")
     if type(body) not in (FunctionDef, AsyncFunctionDef):
         raise SyntaxError("Expected a function definition to decorate")  # pragma: no cover
-    body = dyn._macro_expander.visit(body)
+    body = dyn._macro_expander.visit_recursively(body)
     if not bindings:
         # Similarly as above, this cannot trigger from the macro layer no
         # matter what that layer does. This is here to optimize away a `dlet`
         # with no bindings, when used directly from other syntax transformers.
         return body  # pragma: no cover
-    bindings = dyn._macro_expander.visit(bindings)
+    bindings = dyn._macro_expander.visit_recursively(bindings)
 
     names, values = zip(*[b.elts for b in bindings])  # --> (k1, ..., kn), (v1, ..., vn)
     names = [getname(k, accept_attr=False) for k in names]  # any duplicates will be caught by env at run-time

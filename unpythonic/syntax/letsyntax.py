@@ -235,8 +235,8 @@ def _let_syntax_expr(bindings, body, *, expand_inside):
             target.append((name, args, value, "expr"))
 
     if expand_inside:
-        bindings = dyn._macro_expander.visit(bindings)
-        body = dyn._macro_expander.visit(body)
+        bindings = dyn._macro_expander.visit_recursively(bindings)
+        body = dyn._macro_expander.visit_recursively(body)
     register_bindings()
     body = _substitute_templates(templates, body)
     body = _substitute_barenames(barenames, body)
@@ -340,7 +340,7 @@ def _let_syntax_block(block_body, *, expand_inside):
         # `let_syntax` mode (expand_inside): respect lexical scoping of nested `let_syntax`/`abbrev`
         expanded = False
         if expand_inside and (is_let_syntax(stmt) or is_abbrev(stmt)):
-            stmt = dyn._macro_expander.visit(stmt)
+            stmt = dyn._macro_expander.visit_recursively(stmt)
             expanded = True
 
         stmt = _substitute_templates(templates, stmt)
@@ -351,14 +351,14 @@ def _let_syntax_block(block_body, *, expand_inside):
 
             check_stray_blocks_and_exprs(value)  # before expanding it!
             if expand_inside and not expanded:
-                value = dyn._macro_expander.visit(value)
+                value = dyn._macro_expander.visit_recursively(value)
 
             target = templates if args else barenames
             target.append((name, args, value, mode))
         else:
             check_stray_blocks_and_exprs(stmt)  # before expanding it!
             if expand_inside and not expanded:
-                stmt = dyn._macro_expander.visit(stmt)
+                stmt = dyn._macro_expander.visit_recursively(stmt)
 
             new_block_body.append(stmt)
     new_block_body = eliminate_ifones(new_block_body)

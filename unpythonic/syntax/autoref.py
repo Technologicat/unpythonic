@@ -164,7 +164,7 @@ def _autoref(block_body, args, asname):
     if not block_body:
         raise SyntaxError("expected at least one statement inside the 'with autoref' block")  # pragma: no cover
 
-    block_body = dyn._macro_expander.visit(block_body)
+    block_body = dyn._macro_expander.visit_recursively(block_body)
 
     # second pass, inside-out
 

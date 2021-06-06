@@ -90,12 +90,12 @@ def detect_lambda(tree):
     """Find lambdas in tree. Helper for two-pass block macros.
 
     A two-pass block macro first performs some processing outside-in, then calls
-    `expander.visit(tree)` to make any nested macro invocations expand, and then
-    performs some processing inside-out.
+    `expander.visit_recursively(tree)` to make any nested macro invocations expand,
+    and then performs some processing inside-out.
 
     Run ``detect_lambda(tree)`` in the outside-in pass, before calling
-    `expander.visit(tree)`, because nested macro invocations may generate
-    more lambdas that your block macro is not interested in.
+    `expander.visit_recursively(tree)`, because nested macro invocations
+    may generate more lambdas that your block macro is not interested in.
 
     The return value is a ``list``of ``id(lam)``, where ``lam`` is a Lambda node
     that appears in ``tree``. This list is suitable as ``userlambdas`` for the

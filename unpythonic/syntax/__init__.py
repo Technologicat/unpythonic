@@ -58,13 +58,13 @@ Requires `mcpyrate`.
 # def mymacrointerface(tree, *, expander, *kw):
 #    # perform your outside-in processing here
 #
-#    tree = expander.visit(tree)  # recurse explicitly
+#    tree = expander.visit_recursively(tree)  # recurse explicitly
 #
 #    # perform your inside-out processing here
 #
 #    return tree
 #
-# If the line `tree = expander.visit(tree)` is omitted, the macro expands outside-in.
+# If the line `tree = expander.visit_recursively(tree)` is omitted, the macro expands outside-in.
 # Note this default is different from MacroPy's!
 
 # TODO: 0.16: With `mcpyrate` we could start looking at values, not names, when the aim is to detect hygienically captured `unpythonic` constructs. See use sites of `isx`; refer to `mcpyrate.quotes.is_captured_value` and `mcpyrate.quotes.lookup_value`.
