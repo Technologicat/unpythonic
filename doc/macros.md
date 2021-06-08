@@ -2150,7 +2150,28 @@ Is this just a set of macros, a language extension, or a compiler for a new lang
 
 The macros in ``unpythonic.syntax`` are designed to work together, but some care needs to be taken regarding the order in which they expand. This complexity unfortunately comes with any pick-and-mix-your-own-language kit, because some features inevitably interact. For example, it is possible to lazify [continuation-enabled](https://en.wikipedia.org/wiki/Continuation-passing_style) code, but running the transformations the other way around produces nonsense.
 
-For simplicity, **the block macros make no attempt to prevent invalid combos** (unless there is a specific technical reason to do that for some particular combination). Be careful; e.g. don't nest several ``with tco`` blocks (lexically), that won't work.
+The correct **xmas tree invocation** is:
+
+```python
+with prefix, autoreturn, quicklambda, multilambda, envify, lazify, namedlambda, autoref, autocurry, tco:
+    ...
+```
+
+Here `tco` can be replaced with `continuations`, if needed.
+
+We have taken into account that:
+
+ - Outside-in: `prefix`, `autoreturn`, `quicklambda`, `multilambda`
+ - Two-pass: `envify`, `lazify`, `namedlambda`, `autoref`, `autocurry`, `tco`/`continuations`
+
+[The dialect examples](dialects.md) use this ordering.
+
+For simplicity, **the block macros make no attempt to prevent invalid combos**, unless there is a specific technical reason to do that for some particular combination. Be careful; e.g. don't nest several ``with tco`` blocks (lexically), that won't work.
+
+As an example of a specific technical reason, the `tco` macro skips already expanded `with continuations` blocks lexically contained within the `with tco`. This allows the [Lispython dialect](dialects/lispython.md) to support `continuations`.
+
+
+#### AST edit order vs. macro invocation order
 
 The **AST edits** performed by the block macros are designed to run in the following order (leftmost first):
 
@@ -2161,7 +2182,7 @@ prefix > autoreturn, quicklambda > multilambda > continuations or tco > ...
 
 The ``let_syntax`` (and ``abbrev``) block may be placed anywhere in the chain; just keep in mind what it does.
 
-The ``dbg`` block can be run at any position after ``prefix`` and before ``tco`` (or ``continuations``). (It must be able to see function calls in Python's standard format, for detecting calls to the print function.)
+The ``dbg`` block can be run at any position after ``prefix`` and before ``tco`` (or ``continuations``). It must be able to see function calls in Python's standard format, for detecting calls to the print function.
 
 The correct ordering for **block macro invocations** - which is the actual user-facing part - is somewhat complicated by the fact that some of the above are two-pass macros. Consider this artificial example, where `mac` is a two-pass macro:
 
@@ -2177,21 +2198,12 @@ The invocation `with mac` is *lexically on the outside*, thus the macro expander
  2. Explicit recursion by `with mac`. This expands the `with cheese`.
  3. Second pass (inside out) of `with mac`.
 
-So, for example, even though `lazify` must *perform its AST editing* after `autocurry`, it happens to be a two-pass macro. The first pass (outside in) only performs some preliminary analysis; the actual lazification happens in the second pass (inside out). So the correct invocation comboing these two is `with lazify, autocurry`. Similarly, `with lazify, continuations` is correct, even though the CPS transformation must occur first; these are both two-pass macros that perform their edits in the inside-out pass.
+So, for example, even though `lazify` must *perform its AST edits* after `autocurry`, it happens to be a two-pass macro. The first pass (outside in) only performs some preliminary analysis; the actual lazification happens in the second pass (inside out). So the correct invocation comboing these two is `with lazify, autocurry`. Similarly, `with lazify, continuations` is correct, even though the CPS transformation must occur first; these are both two-pass macros that perform their edits in the inside-out pass.
 
-Considering that:
+Further details on individual block macros can be found in our [notes on macros](design-notes.md#detailed-notes-on-macros).
 
- - Outside-in: `prefix`, `autoreturn`, `quicklambda`, `multilambda`
- - Two-pass: `envify`, `lazify`, `namedlambda`, `autoref`, `autocurry`, `tco`/`continuations`
 
-the correct **xmas tree invocation** is:
-
-```python
-with prefix, autoreturn, quicklambda, multilambda, envify, lazify, namedlambda, autoref, autocurry, tco:
-    ...
-```
-
-[The dialect examples](dialects.md) use this ordering. See our [notes on macros](design-notes.md#detailed-notes-on-macros) for some more details.
+#### Single-line vs. multiline invocation format
 
 Example combo in the single-line format:
 
@@ -2200,7 +2212,7 @@ with autoreturn, lazify, tco:
     ...
 ```
 
-In the multiline format:
+The same combo in the multiline format:
 
 ```python
 with autoreturn:
@@ -2209,7 +2221,7 @@ with autoreturn:
       ...
 ```
 
-**NOTE**: In MacroPy, there sometimes were [differences](https://github.com/azazel75/macropy/issues/21) between the behavior of the single-line and multi-line invocation format, but in `mcpyrate`, they should behave the same.
+In MacroPy (which was used up to v0.14.3), there sometimes were [differences](https://github.com/azazel75/macropy/issues/21) between the behavior of the single-line and multi-line invocation format, but in `mcpyrate` (which is used by v0.15.0 and later), they should behave the same.
 
 With `mcpyrate`, there is still [a minor difference](https://github.com/Technologicat/mcpyrate/issues/3) if there are at least three nested macro invocations, and a macro is scanning the tree for another macro invocation; then the tree looks different depending on whether the single-line or the multi-line format was used. The differences in that are as one would expect knowing [how `with` statements look like](https://greentreesnakes.readthedocs.io/en/latest/nodes.html#With) in the Python AST. The reason the difference manifests only for three or more macro invocations is that `mcpyrate` pops the macro that is being expanded before it hands over the tree to the macro code; hence if there are only two, the inner tree will have only one "context manager" in its `with`.
 
