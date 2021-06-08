@@ -168,6 +168,64 @@ The common denominator is programming. Some relate to language design, some to c
   - [Types vs. traits for dispatch](https://discourse.julialang.org/t/types-vs-traits-for-dispatch/46296) (discussion)
   - We have a demonstration in [unpythonic.tests.test_dispatch](../unpythonic/tests/test_dispatch.py).
 
+- [Pascal Costanza's Highly Opinionated Guide to Lisp (2013)](http://www.p-cos.net/lisp/guide.html)
+
+- R. Kent Dybvig, Simon Peyton Jones, Amr Sabry (2007). A Monadic Framework for Delimited Continuations. Journal of functional programming, 17(6), 687-730. Preprint [here](https://legacy.cs.indiana.edu/~dyb/pubs/monadicDC.pdf).
+  - Particularly approachable explanation of delimited continuations.
+  - Could try building that for `unpythonic` in a future version. While our outermost `call_cc` already somewhat acts like a prompt, we're currently missing the ability to set a prompt wherever (inside code that already uses `call_cc` somewhere) and terminate the capture there. So what we have right now is something between proper delimited continuations and classic whole-computation continuations - not really [co-values](http://okmij.org/ftp/continuations/undelimited.html), but not really delimited continuations, either.
+
+- [Wat: Concurrency and Metaprogramming for JS](https://github.com/manuel/wat-js)
+  - [pywat: Interpreter of the Wat language written in Python](https://github.com/piokuc/pywat)
+  - [Example of Wat in Manuel Simoni's blog (2013)](http://axisofeval.blogspot.com/2013/05/green-threads-in-browser-in-20-lines-of.html)
+  - This suggests building proper delimited continuations shouldn't be that hard in Python.
+
+- [Richard P. Gabriel, Kent M. Pitman (2001): Technical Issues of Separation in Function Cells and Value Cells](https://dreamsongs.com/Separation.html)
+  - A discussion of [Lisp-1 vs. Lisp-2](https://en.wikipedia.org/wiki/Lisp-1_vs._Lisp-2).
+
+- [`hoon`: The C of Functional Programming](https://github.com/cgyarvin/urbit/blob/master/doc/book/0-intro.markdown#hoon)
+  - *The above link points to an old version from 2013; see below for a link to the latest version. I have given the old link here first, because it explains the philosophy differently from the latest documentation.*
+  - Some days I wonder if this `unpythonic` endeavor even makes any sense, and then I [happen to run into something](http://axisofeval.blogspot.com/2015/07/what-i-learned-about-urbit-so-far.html) like `hoon`. From the doc linked above:
+
+    *So we could describe Hoon as a pure, strict, higher-order typed functional language. But don't do this in front of a Haskell purist, unless you put quotes around "typed," "functional," and possibly even "language." We could also say "object-oriented," with the same scare quotes for the cult of Eiffel.*
+
+    While I am not sure if I will ever *use* `hoon`, it is hard not to like a language that puts quotes around "language". Few languages go that far in shaking up preconceptions. Critically examining what we believe, and why, often leads to useful insights.
+
+    The claim that `hoon` is not a language, but a "language", fully makes sense after reading some of the documentation. `hoon` is essentially an *ab initio* language with an axiomatic approach to defining its operational semantics, similarly to how *Arc* approaches defining Lisp. Furthermore, `hoon` is the *functional equivalent of C* to the underlying virtual assembly language, `nock`. From a certain viewpoint, the "language" essentially consists of *glorified Nock macros*. Glorified assembly macros are pretty much all a *low-level* [HLL](https://en.wikipedia.org/wiki/High-level_programming_language) essentially is, so the claim seems about right.
+
+    Nock is a peculiar assembly language. According to the comments in [`hoon.hoon`](https://github.com/cgyarvin/urbit/blob/master/urb/zod/arvo/hoon.hoon), it is a *Turing-complete non-lambda automaton*. The instruction set is permanently frozen, as if it was a physical CPU chip. Opcodes are just natural numbers, 0 through 11, and it is very minimalistic. For example, there is not even a decrement opcode. This is because from an axiomatic viewpoint, decrement can be defined recursively via increment. At which point, every systems programmer objects, rightfully, that no one sane actually does so. Indeed, the `hoon` standard library uses C FFI to take advantage of the physical processor's instruction set to perform arithmetic operations. Each piece of C code used for such acceleration purposes is termed a *jet*.
+
+    Since - by the fact that the programmer called a particular standard library function - the system knows we want to compute a decrement (or a multiplication, a power, maybe some floating point operation, etc.), it can *accelerate* that particular operation by using the available hardware.
+
+    The important point is, you *could* write out a `nock` macro that does the same thing, only it would be unbearably slow. In the axiomatic perspective - which is about proving programs correct - speed does not matter. At the same time, FFI gives speed for the real world.
+
+    To summarize; as someone already put it, `hoon` offers a glimpse into an alternate universe of systems programming, where the functional camp won. It may also be a useful tool, or a source for further unconventional ideas - but to know for sure, I will have to read more about it.
+
+    *NOTE: Using natural numbers for the opcodes at first glance sounds like a [Gödel numbering](https://en.wikipedia.org/wiki/G%C3%B6del_numbering) for the program space; but actually, the input to the VM contains some linked-list structure, which is not represented that way. Also, **any** programming language imposes its own Gödel numbering on the program space. Just take, for example, the UTF-8 representation of the source code text (which, in Python terms, is a `bytes` object), and interpret those bytes as one single bignum.*
+
+    *Obviously, any interesting programs correspond to very large numbers, and are few and far between, so decoding random numbers via a Gödel numbering is not a practical way to generate interesting programs. [Genetic programming](https://en.wikipedia.org/wiki/Genetic_programming) works much better, because unlike Gödel numbering, it was actually designed specifically to do that. GP takes advantage of the semantic structure present in the source code (or AST) representation.*
+
+    *The purpose of the original Gödel numbering was to prove Gödel's incompleteness theorem. In the case of `nock`, my impression is that the opcodes are natural numbers just for flavoring purposes. If you are building an ab initio software stack, what better way to announce that than to use natural numbers as your virtual machine's opcodes?*
+
+  - From the language definition, [`hoon.hoon`](https://github.com/cgyarvin/urbit/blob/master/urb/zod/arvo/hoon.hoon):
+    ```
+    ++  doos                                              ::  sleep until
+                |=  hap=path  ^-  (unit ,@da)
+                (doze:(wink:(vent bud (dink (dint hap))) now 0 (beck ~)) now [hap ~])
+    ::
+    ```
+    The Lisp family (particularly the Common Lisp branch) has a reputation for silly terminology, but `hoon` takes that a step further.
+
+    However, I think I will adopt the verb *bunt*, meaning *to take the default value of*. That is such a common operation in programming that I find it hard to believe there is no standard abbreviation.
+
+    Judging by the docs, `hoon` is definitely ha-ha-only-serious, but I am not sure of whether it is serious-serious. It does advertise itself as the functional-programming equivalent of C. See the comments to the entry on Manuel Simoni's blog - some people do think `hoon` is actually useful.
+
+    So maybe there is a place for `unpythonic`, too.
+
+  - The development of `urbit` has [moved to a new repository](https://github.com/urbit/urbit).
+  - The [latest `hoon` docs](https://urbit.org/docs/hoon/).
+    - Interestingly, `hoon` has uniform support for *wide* and *tall* modes; it does not use parentheses, but uses a single space (in characteristic `hoon` fashion, termed an *ace*) versus multiple spaces (respectively, a *gap*). "Multiple spaces" allows also newlines, like in LaTeX.
+    - `hoon` does not have syntactic macros. The reason given in the docs is the same as sometimes heard in the Python community - having a limited number of standard control structures, you always know what you're looking at.
+
 
 # Python-related FP resources
 
