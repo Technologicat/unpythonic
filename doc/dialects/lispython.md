@@ -115,7 +115,7 @@ The main point of `Lispy`, compared to plain Python, is automatic TCO. The abili
 
 ### The `Lispython` variant
 
-In the `Lispython` variant, we implicitly import some macros and functions to serve as dialect builtins, keeping in line with expectations for a ~language in the~ somewhat distant relative of the Lisp family:
+In the `Lispython` variant, we implicitly import some macros and functions to serve as dialect builtins, keeping in line with expectations for a ~language in the~ *somewhat distant relative of the* Lisp family:
 
   - ``cons``, ``car``, ``cdr``, ``ll``, ``llist``, ``nil``, ``prod``.
   - All ``let[]`` and ``do[]`` constructs from ``unpythonic.syntax``.
@@ -132,7 +132,7 @@ The dialect builtin ``do[]`` constructs are ``do`` and ``do0``.
 
 ## What Lispython is
 
-Lispython is a dialect of Python implemented via macros and a thin whole-module AST transformation. The dialect definition lives in [`unpythonic.dialects.lispython`](../../unpythonic/dialects/lispython.py). Usage examples can be found in [the unit tests](../../unpythonic/dialects/tests/test_lispython.py).
+Lispython is a dialect of Python implemented via macros and a thin whole-module AST transformation. The dialect definition lives in [`unpythonic.dialects.lispython`](../../unpythonic/dialects/lispython.py). Usage examples can be found in the unit tests, [for `Lispy`](../../unpythonic/dialects/tests/test_lispy.py) and [for `Lispython`](../../unpythonic/dialects/tests/test_lispython.py).
 
 Lispython essentially makes Python feel slightly more lispy, in parts where that makes sense.
 
