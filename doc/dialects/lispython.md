@@ -208,7 +208,7 @@ foo = lambda n0: let[[n << n0] in
                      (lambda i: n << n + i)]
 ```
 
-This still sets up a separate place for the accumulator (that is, separate from the argument of the outer function). The modern pure Python solution avoids that, but needs many lines:
+This still sets up a separate place for the accumulator (that is, separate from the argument of the outer function). The pure Python 3 solution avoids that, but needs many lines:
 
 ```python
 def foo(n):
@@ -219,7 +219,17 @@ def foo(n):
     return accumulate
 ```
 
-The problem is that assignment to a lexical variable (including formal parameters) is a statement in Python. Python 3.8's walrus operator does not solve this, because `n := n + i` by itself is a syntax error, and even if parenthesized, `(n := n + i)` insists on creating a new local variable `n`.
+The Python 3.8+ solution, using the new walrus operator, is one line shorter:
+
+```python
+def foo(n):
+    def accumulate(i):
+        nonlocal n
+        return (n := n + i)
+    return accumulate
+```
+
+This is rather clean, but still needs the `nonlocal` declaration, which is a statement.
 
 If we abbreviate ``accumulate`` as a lambda, it needs a ``let`` environment to write in, to use `unpythonic`'s expression-assignment (`name << value`).
 
