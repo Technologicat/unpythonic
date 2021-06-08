@@ -71,7 +71,7 @@ It's also a minimal example of how to make an AST-transforming dialect.
 
 ## Comboability
 
-Only outside-in macros that should expand after ``curry`` (currently, `unpythonic` provides no such macros) and inside-out macros that should expand before ``curry`` (there are two, namely ``tco`` and ``continuations``) can be used in programs written in the Listhell dialect.
+Only outside-in macros that should expand after ``autocurry`` (currently, `unpythonic` provides no such macros) and inside-out macros that should expand before ``autocurry`` (there are two, namely ``tco`` and ``continuations``) can be used in programs written in the Listhell dialect.
 
 
 ## Notes

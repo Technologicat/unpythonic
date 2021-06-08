@@ -117,7 +117,7 @@ The aforementioned block macros are enabled implicitly for the whole module; thi
 
 Of the other block macros in ``unpythonic.syntax``, code written in Lispython supports only ``continuations``. ``autoref`` should also be harmless enough (will expand too early, but shouldn't matter).
 
-``prefix``, ``curry``, ``lazify`` and ``envify`` are **not compatible** with the ordering of block macros implicit in the Lispython dialect.
+``prefix``, ``autocurry``, ``lazify`` and ``envify`` are **not compatible** with the ordering of block macros implicit in the Lispython dialect.
 
 ``prefix`` is an outside-in macro that should expand first, so it should be placed in a lexically outer position with respect to the ones Lispython invokes implicitly; but nothing can be more outer than the dialect template.
 

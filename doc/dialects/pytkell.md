@@ -69,7 +69,7 @@ assert x == 42
 
 ## Features
 
-In terms of ``unpythonic.syntax``, we implicitly enable ``curry`` and ``lazify`` for the whole module.
+In terms of ``unpythonic.syntax``, we implicitly enable ``autocurry`` and ``lazify`` for the whole module.
 
 We also import some macros and functions to serve as dialect builtins:
 
@@ -107,9 +107,9 @@ It's also a minimal example of how to make an AST-transforming dialect.
 
 ## Comboability
 
-**Not** comboable with most of the block macros in ``unpythonic.syntax``, because ``curry`` and ``lazify`` appear in the dialect template, hence at the lexically outermost position.
+**Not** comboable with most of the block macros in ``unpythonic.syntax``, because ``autocurry`` and ``lazify`` appear in the dialect template, hence at the lexically outermost position.
 
-Only outside-in macros that should expand after ``lazify`` has recorded its userlambdas (currently, `unpythonic` provides no such macros) and inside-out macros that should expand before ``curry`` (there are two, namely ``tco`` and ``continuations``) can be used in programs written in the Pytkell dialect.
+Only outside-in macros that should expand after ``lazify`` has recorded its userlambdas (currently, `unpythonic` provides no such macros) and inside-out macros that should expand before ``autocurry`` (there are two, namely ``tco`` and ``continuations``) can be used in programs written in the Pytkell dialect.
 
 
 ## CAUTION
