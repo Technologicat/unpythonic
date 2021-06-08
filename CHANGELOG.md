@@ -156,16 +156,18 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
       - `pipe` family
       - `compose` family
       - All multiple-return-values in code using the `with continuations` macro. (The continuations system essentially composes continuation functions.)
-  - The lazy evaluation tools `lazy`, `Lazy`, and the quick lambda `f` (underscore notation for Python) are now provided by `unpythonic` as `unpythonic.syntax.lazy`, `unpythonic.lazyutil.Lazy`, and `unpythonic.syntax.f`, because they used to be provided by `macropy`, and `mcpyrate` does not provide them.
+  - The lazy evaluation tools `lazy`, `Lazy`, and the quick lambda `f` (underscore notation for Python) are now provided by `unpythonic` as `unpythonic.syntax.lazy`, `unpythonic.lazyutil.Lazy`, and `unpythonic.syntax.fn` (note name change!), because they used to be provided by `macropy`, and `mcpyrate` does not provide them.
     - **API differences.**
-      - The macros `lazy` and `f` can be imported from the syntax interface module, `unpythonic.syntax`, and the class `Lazy` is available at the top level of `unpythonic`.
-      - Unlike `macropy`'s `Lazy`, our `Lazy` does not define `__call__`; instead, it defines the method `force`, which has the same effect (it computes if necessary, and then returns the value of the promise).
-      - When you import the macro `quicklambda`, you **must** import also the macro `f`.
-      - The underscore `_` is no longer a macro on its own. The `f` macro treats the underscore magically, as before, but anywhere else it is available to be used as a regular variable.
+      - The quick lambda is now named `fn[]` instead of `f[]` (as in MacroPy). This was changed because `f` is often used as a function name in code examples, local temporaries, and similar. Also, `fn[]` is a less ambiguous abbreviation for a syntactic construct that means *function*, while remaining shorter than the equivalent `lambda`. Compare `fn[_ * 2]` and `lambda x: x * 2`, or `fn[_ * _]` and `lambda x, y: x * y`.
+        - Note that in `mcpyrate`, macros can be as-imported, so this change affects just the *default* name of `fn[]`. But that is exactly what is important: have a sensible default name, to remove the need to as-import so often.
+      - The macros `lazy` and `fn` can be imported from the syntax interface module, `unpythonic.syntax`, and the class `Lazy` is available at the top level of `unpythonic`.
+      - Unlike `macropy`'s `Lazy`, our `Lazy` does not define `__call__`; instead, it defines the method `force`, which has the same effect (it computes if necessary, and then returns the value of the promise). You can also use the function `unpythonic.force`, which has the extra advantage that it passes through a non-promise input unchanged (so you don't need to care whether `x` is a promise before calling `force(x)`; this is sometimes useful).
+      - When you import the macro `quicklambda`, you **must** import also the macro `fn`.
+      - The underscore `_` is no longer a macro on its own. The `fn` macro treats the underscore magically, as before, but anywhere else it is available to be used as a regular variable.
     - **Behavior differences.**
-      - `f[]` now respects nesting: an invocation of `f[]` will not descend into another nested `f[]`.
-      - The `with quicklambda` macro is still provided, and used just as before. Now it causes any `f[]` invocations lexically inside the block to expand before any other macros in that block do.
-      - Since in `mcpyrate`, macros can be as-imported, you can rename `f` at import time to have any name you want. The `quicklambda` block macro respects the as-import, by internally querying the expander to determine the name(s) the macro `f` is currently bound to.
+      - `fn[]` now respects nesting: an invocation of `fn[]` will not descend into another nested `fn[]`.
+      - The `with quicklambda` macro is still provided, and used just as before. Now it causes any `fn[]` invocations lexically inside the block to expand before any other macros in that block do.
+      - Since in `mcpyrate`, macros can be as-imported, you can rename `fn` at import time to have any name you want. The `quicklambda` block macro respects the as-import, by internally querying the expander to determine the name(s) the macro `fn` is currently bound to.
   - For the benefit of code using the `with lazify` macro, laziness is now better respected by the `compose` family, `andf` and `orf`. The utilities themselves are marked lazy, and arguments will be forced only when a lazy function in the chain actually uses them, or when an eager (not lazy) function is encountered in the chain.
   - Rename the `curry` macro to `autocurry`, to prevent name shadowing of the `curry` function. The new name is also more descriptive.
   - Move the functions `force1` and `force` from `unpythonic.syntax` to `unpythonic`. Make the `Lazy` class (promise implementation) public. (They actually come from `unpythonic.lazyutil`.)

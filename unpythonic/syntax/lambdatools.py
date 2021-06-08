@@ -3,7 +3,7 @@
 
 __all__ = ["multilambda",
            "namedlambda",
-           "f",
+           "fn",
            "quicklambda",
            "envify"]
 
@@ -124,64 +124,64 @@ def namedlambda(tree, *, syntax, expander, **kw):
     with dyn.let(_macro_expander=expander):
         return _namedlambda(block_body=tree)
 
-def f(tree, *, syntax, expander, **kw):
+def fn(tree, *, syntax, expander, **kw):
     """[syntax, expr] Underscore notation (quick lambdas) for Python.
 
     Usage::
 
-        f[body]
+        fn[body]
 
-    The ``f[]`` macro creates a lambda. Each underscore in ``body``
+    The ``fn[]`` macro creates a lambda. Each underscore in ``body``
     introduces a new parameter.
 
     Example::
 
-        func = f[_ * _]
+        func = fn[_ * _]
 
     expands to::
 
         func = lambda a0, a1: a0 * a1
 
-    The underscore is interpreted magically by ``f[]``; but ``_`` itself
-    is not a macro, and has no special meaning outside ``f[]``. The underscore
-    does **not** need to be imported for ``f[]`` to recognize it.
+    The underscore is interpreted magically by ``fn[]``; but ``_`` itself
+    is not a macro, and has no special meaning outside ``fn[]``. The underscore
+    does **not** need to be imported for ``fn[]`` to recognize it.
 
-    The macro does not descend into any nested ``f[]``.
+    The macro does not descend into any nested ``fn[]``.
     """
     if syntax != "expr":
         raise SyntaxError("f is an expr macro only")  # pragma: no cover
 
     # What's my name in the current expander? (There may be several names.)
     # https://github.com/Technologicat/mcpyrate/blob/master/doc/quasiquotes.md#hygienic-macro-recursion
-    bindings = extract_bindings(expander.bindings, f)
+    bindings = extract_bindings(expander.bindings, fn)
     mynames = list(bindings.keys())
 
-    return _f(tree, mynames)
+    return _fn(tree, mynames)
 
 def quicklambda(tree, *, syntax, expander, **kw):
-    """[syntax, block] Make ``f`` quick lambdas expand first.
+    """[syntax, block] Make ``fn`` quick lambdas expand first.
 
     To be able to transform correctly, the block macros in ``unpythonic.syntax``
     that transform lambdas (e.g. ``multilambda``, ``tco``) need to see all
     ``lambda`` definitions written with Python's standard ``lambda``.
 
-    However, the ``f`` macro uses the syntax ``f[...]``, which (to the analyzer)
+    However, the ``fn`` macro uses the syntax ``f[...]``, which (to the analyzer)
     does not look like a lambda definition. This macro changes the expansion
-    order, forcing any ``f[...]`` lexically inside the block to expand before
+    order, forcing any ``fn[...]`` lexically inside the block to expand before
     any other macros do.
 
-    Any expression of the form ``f[...]``, where ``f`` is any name bound in the
-    current macro expander to the macro `unpythonic.syntax.f`, is understood as
-    a quick lambda. (In plain English, this respects as-imports of the macro ``f``.)
+    Any expression of the form ``fn[...]``, where ``fn`` is any name bound in the
+    current macro expander to the macro `unpythonic.syntax.fn`, is understood as
+    a quick lambda. (In plain English, this respects as-imports of the macro ``fn``.)
 
     Example - a quick multilambda::
 
-        from unpythonic.syntax import macros, multilambda, quicklambda, f, local
+        from unpythonic.syntax import macros, multilambda, quicklambda, fn, local
 
         with quicklambda, multilambda:
-            func = f[[local[x << _],
-                      local[y << _],
-                      x + y]]
+            func = fn[[local[x << _],
+                       local[y << _],
+                       x + y]]
             assert func(1, 2) == 3
 
     (This is of course rather silly, as an unnamed argument can only be mentioned
@@ -200,7 +200,7 @@ def quicklambda(tree, *, syntax, expander, **kw):
     # the original expander. Thus it leaves all other macros alone. This is the
     # official `mcpyrate` way to immediately expand only some particular macros
     # inside the current macro invocation.
-    bindings = extract_bindings(expander.bindings, f)
+    bindings = extract_bindings(expander.bindings, fn)
     return MacroExpander(bindings, expander.filename).visit(tree)
 
 def envify(tree, *, syntax, expander, **kw):
@@ -411,7 +411,7 @@ def _namedlambda(block_body):
 #
 # Used under the MIT license.
 # Copyright (c) 2013-2018, Li Haoyi, Justin Holmgren, Alberto Berti and all the other contributors.
-def _f(tree, mynames=()):
+def _fn(tree, mynames=()):
     class UnderscoreTransformer(ASTTransformer):
         def transform(self, tree):
             if is_captured_value(tree):

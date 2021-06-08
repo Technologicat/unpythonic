@@ -4,7 +4,7 @@
 from ...syntax import macros, test, test_raises, warn  # noqa: F401
 from ...test.fixtures import session, testset
 
-from ...syntax import (macros, multilambda, namedlambda, quicklambda, f,  # noqa: F401, F811
+from ...syntax import (macros, multilambda, namedlambda, quicklambda, fn,  # noqa: F401, F811
                        envify, local, let, autocurry, autoreturn)
 
 from functools import wraps
@@ -173,9 +173,9 @@ def runtests():
         # Outside-in macros.
         with quicklambda:
             with multilambda:
-                func = f[[local[x << _],  # noqa: F821, F823, `quicklambda` implicitly defines `f[]` to mean `lambda`.
-                          local[y << _],  # noqa: F821
-                          x + y]]  # noqa: F821
+                func = fn[[local[x << _],  # noqa: F821, F823, `quicklambda` implicitly defines `fn[]` to mean `lambda`.
+                           local[y << _],  # noqa: F821
+                           x + y]]  # noqa: F821
                 test[func(1, 2) == 3]
 
     with testset("envify (formal parameters as an unpythonic env)"):

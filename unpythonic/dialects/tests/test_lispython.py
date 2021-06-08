@@ -73,10 +73,14 @@ def runtests():
         test[square(3) == 9]
         test[square.__name__ == "square"]
 
-        # the underscore (NOTE: due to this, "f" is a reserved name in lispython)
-        cube = f[_**3]  # noqa: F821
+        # the underscore (NOTE: due to this, "fn" is a reserved name in Lispython)
+        cube = fn[_**3]  # noqa: F821
         test[cube(3) == 27]
         test[cube.__name__ == "cube"]
+
+        my_mul = fn[_ * _]  # noqa: F821
+        test[my_mul(2, 3) == 6]
+        test[my_mul.__name__ == "my_mul"]
 
     # lambdas can have multiple expressions and local variables
     #

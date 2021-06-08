@@ -39,7 +39,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 [**Tools for lambdas**](#tools-for-lambdas)
 - [``multilambda``: supercharge your lambdas](#multilambda-supercharge-your-lambdas); multiple expressions, local variables.
 - [``namedlambda``: auto-name your lambdas](#namedlambda-auto-name-your-lambdas) by assignment.
-- [``f``: underscore notation (quick lambdas) for Python](#f-underscore-notation-quick-lambdas-for-python)
+- [``fn``: underscore notation (quick lambdas) for Python](#f-underscore-notation-quick-lambdas-for-python)
 - [``quicklambda``: expand quick lambdas first](#quicklambda-expand-quick-lambdas-first)
 - [``envify``: make formal parameters live in an unpythonic ``env``](#envify-make-formal-parameters-live-in-an-unpythonic-env)
 
@@ -704,37 +704,41 @@ The naming is performed using the function ``unpythonic.misc.namelambda``, which
 
 Support for other forms of assignment may or may not be added in a future version.
 
-### ``f``: underscore notation (quick lambdas) for Python.
+### ``fn``: underscore notation (quick lambdas) for Python.
 
-**Changed in v0.15.0.** *Up to 0.14.x, the `f[]` macro used to be provided by `macropy`, but now that we use `mcpyrate`, we provide this ourselves. The underscore `_` is no longer a macro on its own. The `f` macro treats the underscore magically, as before, but anywhere else the underscore is available to be used as a regular variable. If you use `f[]`, change your import of this macro to `from unpythonic.syntax import macros, f`.*
+**Changed in v0.15.0.** *Up to 0.14.x, the `f[]` macro used to be provided by `macropy`, but now that we use `mcpyrate`, we provide this ourselves.*
 
-The syntax ``f[...]`` creates a lambda, where each underscore in the ``...`` part introduces a new parameter. The macro does not descend into any nested ``f[]``.
+*The name is now `fn[]`. This was changed because `f` is often used as a function name in code examples, local temporaries, and similar. Also, `fn[]` is a less ambiguous abbreviation for a syntactic construct that means *function*, while remaining shorter than the equivalent `lambda`.*
+
+*The underscore `_` is no longer a macro on its own. The `fn` macro treats the underscore magically, as `f` did before, but anywhere else the underscore is available to be used as a regular variable. If you use `fn[]`, change your import of this macro to `from unpythonic.syntax import macros, fn`.*
+
+The syntax ``fn[...]`` creates a lambda, where each underscore in the ``...`` part introduces a new parameter. The macro does not descend into any nested ``fn[]``.
 
 Example:
 
 ```python
-func = f[_ * _]  # --> func = lambda x, y: x * y
+func = fn[_ * _]  # --> func = lambda x, y: x * y
 ```
 
-Since in `mcpyrate`, macros can be as-imported, you can rename `f` at import time to have any name you want. The `quicklambda` block macro (see below) respects the as-import. Now you **must** import also the macro `f` when you import the macro `quicklambda`, because `quicklambda` internally queries the expander to determine the name(s) the macro `f` is currently bound to.
+Since in `mcpyrate`, macros can be as-imported, you can rename `fn` at import time to have any name you want. The `quicklambda` block macro (see below) respects the as-import. Now you **must** import also the macro `fn` when you import the macro `quicklambda`, because `quicklambda` internally queries the expander to determine the name(s) the macro `fn` is currently bound to.
 
 ### ``quicklambda``: expand quick lambdas first
 
 To be able to transform correctly, the block macros in ``unpythonic.syntax`` that transform lambdas (e.g. ``multilambda``, ``tco``) need to see all ``lambda`` definitions written with Python's standard ``lambda``.
 
-However, the ``f`` macro uses the syntax ``f[...]``, which (to the analyzer) does not look like a lambda definition. This macro changes the expansion order, forcing any ``f[...]`` lexically inside the block to expand before any other macros do.
+However, the ``fn`` macro uses the syntax ``fn[...]``, which (to the analyzer) does not look like a lambda definition. This macro changes the expansion order, forcing any ``fn[...]`` lexically inside the block to expand before any other macros do.
 
-Any expression of the form ``f[...]``, where ``f`` is any name bound in the current macro expander to the macro `unpythonic.syntax.f`, is understood as a quick lambda. (In plain English, this respects as-imports of the macro ``f``.)
+Any expression of the form ``fn[...]``, where ``fn`` is any name bound in the current macro expander to the macro `unpythonic.syntax.fn`, is understood as a quick lambda. (In plain English, this respects as-imports of the macro ``fn``.)
 
 Example - a quick multilambda:
 
 ```python
-from unpythonic.syntax import macros, multilambda, quicklambda, f, local
+from unpythonic.syntax import macros, multilambda, quicklambda, fn, local
 
 with quicklambda, multilambda:
-    func = f[[local[x << _],
-              local[y << _],
-              x + y]]
+    func = fn[[local[x << _],
+               local[y << _],
+               x + y]]
     assert func(1, 2) == 3
 ```
 
@@ -744,10 +748,10 @@ This is of course rather silly, as an unnamed formal parameter can only be menti
 with quicklambda, tco:
     def g(x):
         return 2*x
-    func1 = f[g(3*_)]  # tail call
+    func1 = fn[g(3*_)]  # tail call
     assert func1(10) == 60
 
-    func2 = f[3*g(_)]  # no tail call
+    func2 = fn[3*g(_)]  # no tail call
     assert func2(10) == 60
 ```
 

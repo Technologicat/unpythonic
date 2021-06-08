@@ -77,8 +77,8 @@ In terms of ``unpythonic.syntax``, we implicitly enable ``tco``, ``autoreturn``,
   - TCO in both ``def`` and ``lambda``, fully automatic
   - Omit ``return`` in any tail position, like in Lisps
   - Multiple-expression lambdas, ``lambda x: [expr0, ...]``
-  - The underscore: ``f[_*3] --> lambda x: x*3`` (name ``f`` is **reserved**)
   - Automatically named lambdas whenever the machinery can figure out a name; when not, source location is auto-injected into the name.
+  - The underscore: e.g. `fn[_ * 3]` becomes `lambda x: x * 3`, and `fn[_ * _]` becomes `lambda x, y: x * y`.
 
 We also import some macros and functions to serve as dialect builtins:
 

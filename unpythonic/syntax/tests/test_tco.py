@@ -5,7 +5,7 @@ from ...syntax import macros, test, test_raises, fail  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
 from ...syntax import (macros, tco, autoreturn, autocurry, do, let, letseq, dletrec,  # noqa: F401, F811
-                       quicklambda, f, continuations, call_cc)
+                       quicklambda, fn, continuations, call_cc)
 
 from ...ec import call_ec
 from ...fploop import looped_over
@@ -143,7 +143,7 @@ def runtests():
             test[looped_over(range(10), acc=0)(lambda loop, x, acc: loop(acc + x)) == 45]
 
     with testset("integration with quicklambda"):
-        # f[] must expand first so that tco sees it as a lambda.
+        # Use `quicklambda` to force `fn[]` to expand first, so that tco sees it as a lambda.
         # `quicklambda` is an outside-in macro, so placed on the outside, it expands first.
         with quicklambda:
             with tco:
@@ -152,10 +152,10 @@ def runtests():
 
                 # TODO: Improve test to actually detect the tail call.
                 # TODO: Now we just test this runs without errors.
-                func1 = f[g(3 * _)]  # tail call  # noqa: F821, _ is magic.
+                func1 = fn[g(3 * _)]  # tail call  # noqa: F821, _ is magic.
                 test[func1(10) == 60]
 
-                func2 = f[3 * g(_)]  # no tail call  # noqa: F821, _ is magic.
+                func2 = fn[3 * g(_)]  # no tail call  # noqa: F821, _ is magic.
                 test[func2(10) == 60]
 
     with testset("integration with continuations"):
