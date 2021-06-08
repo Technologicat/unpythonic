@@ -8,7 +8,7 @@ from ...test.fixtures import session, testset
 
 from ...syntax import macros, continuations, call_cc  # noqa: F401, F811
 
-# `unpythonic` is effectively `lispython`'s stdlib; not everything gets imported by default.
+# `unpythonic` is effectively Lispython's stdlib; not everything gets imported by default.
 from ...fold import foldl
 
 # Of course, all of Python's stdlib is available too.
