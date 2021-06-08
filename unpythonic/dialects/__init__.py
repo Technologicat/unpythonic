@@ -8,7 +8,7 @@ These dialects, i.e. whole-module syntax transformations, are powered by
 We provide these dialects mainly to demonstrate how to use that subsystem
 to customize Python beyond what a local macro expander can do.
 
-For examples of how to use the dialects, see the unit tests.
+For examples of how to use these particular dialects, see the unit tests.
 """
 
 # re-exports
