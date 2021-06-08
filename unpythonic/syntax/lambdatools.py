@@ -21,8 +21,8 @@ from mcpyrate.utils import extract_bindings
 from mcpyrate.walkers import ASTTransformer
 
 from ..dynassign import dyn
-from ..misc import namelambda
 from ..env import env
+from ..misc import namelambda
 
 from .astcompat import getconstant, Str, NamedExpr
 from .letdo import _implicit_do, _do
