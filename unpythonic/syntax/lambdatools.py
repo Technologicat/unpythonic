@@ -3,7 +3,7 @@
 
 __all__ = ["multilambda",
            "namedlambda",
-           "fn",
+           "fn", "_",
            "quicklambda",
            "envify"]
 
@@ -23,6 +23,7 @@ from mcpyrate.walkers import ASTTransformer
 from ..dynassign import dyn
 from ..env import env
 from ..misc import namelambda
+from ..symbol import sym
 
 from .astcompat import getconstant, Str, NamedExpr
 from .letdo import _implicit_do, _do
@@ -146,6 +147,10 @@ def fn(tree, *, syntax, expander, **kw):
     is not a macro, and has no special meaning outside ``fn[]``. The underscore
     does **not** need to be imported for ``fn[]`` to recognize it.
 
+    But if you want to make your IDE happy, there is a symbol named ``_`` in
+    `unpythonic.syntax` you can import to silence any "undefined name" errors
+    regarding the use of ``_``. It is a regular run-time object, not a macro.
+
     The macro does not descend into any nested ``fn[]``.
     """
     if syntax != "expr":
@@ -157,6 +162,8 @@ def fn(tree, *, syntax, expander, **kw):
     mynames = list(bindings.keys())
 
     return _fn(tree, mynames)
+
+_ = sym("_")  # for those who want to make their IDEs happy
 
 def quicklambda(tree, *, syntax, expander, **kw):
     """[syntax, block] Make ``fn`` quick lambdas expand first.
@@ -177,6 +184,7 @@ def quicklambda(tree, *, syntax, expander, **kw):
     Example - a quick multilambda::
 
         from unpythonic.syntax import macros, multilambda, quicklambda, fn, local
+        from unpythonic.syntax import _  # optional, makes IDEs happy
 
         with quicklambda, multilambda:
             func = fn[[local[x << _],

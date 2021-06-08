@@ -710,7 +710,9 @@ Support for other forms of assignment may or may not be added in a future versio
 
 *The name is now `fn[]`. This was changed because `f` is often used as a function name in code examples, local temporaries, and similar. Also, `fn[]` is a less ambiguous abbreviation for a syntactic construct that means *function*, while remaining shorter than the equivalent `lambda`.*
 
-*The underscore `_` is no longer a macro on its own. The `fn` macro treats the underscore magically, as `f` did before, but anywhere else the underscore is available to be used as a regular variable. If you use `fn[]`, change your import of this macro to `from unpythonic.syntax import macros, fn`.*
+*The underscore `_` is no longer a macro on its own. The `fn` macro treats the underscore magically, as `f` did before, but anywhere else the underscore is available to be used as a regular variable. If you use `fn[]`, change your import of this macro to `from unpythonic.syntax import macros, fn`.**
+
+*The underscore does **not** need to be imported for `fn[]` to recognize it. But if you want to make your IDE happy, there is a symbol named `_` in `unpythonic.syntax` you can import to silence any "undefined name" errors regarding the use of `_`. It is a regular run-time object, not a macro.*
 
 The syntax ``fn[...]`` creates a lambda, where each underscore in the ``...`` part introduces a new parameter. The macro does not descend into any nested ``fn[]``.
 
@@ -734,6 +736,7 @@ Example - a quick multilambda:
 
 ```python
 from unpythonic.syntax import macros, multilambda, quicklambda, fn, local
+from unpythonic.syntax import _  # optional, makes IDEs happy
 
 with quicklambda, multilambda:
     func = fn[[local[x << _],
@@ -742,16 +745,16 @@ with quicklambda, multilambda:
     assert func(1, 2) == 3
 ```
 
-This is of course rather silly, as an unnamed formal parameter can only be mentioned once. If we're giving names to them, a regular ``lambda`` is shorter to write. A more realistic combo is:
+This is of course rather silly, as an unnamed formal parameter can only be mentioned once. If we are giving names to them, a regular ``lambda`` is shorter to write. A more realistic combo is:
 
 ```python
 with quicklambda, tco:
     def g(x):
-        return 2*x
-    func1 = fn[g(3*_)]  # tail call
+        return 2 * x
+    func1 = fn[g(3 * _)]  # tail call
     assert func1(10) == 60
 
-    func2 = fn[3*g(_)]  # no tail call
+    func2 = fn[3 * g(_)]  # no tail call
     assert func2(10) == 60
 ```
 
