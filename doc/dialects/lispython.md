@@ -18,6 +18,8 @@
 
 - [Lispython: The love child of Python and Scheme](#lispython-the-love-child-of-python-and-scheme)
     - [Features](#features)
+        - [The `Lispy` variant](#the-lispy-variant)
+        - [The `Lispython` variant](#the-lispython-variant)
     - [What Lispython is](#what-lispython-is)
     - [Comboability](#comboability)
     - [Lispython and continuations (call/cc)](#lispython-and-continuations-callcc)
@@ -55,9 +57,6 @@ square = lambda x: x**2
 assert square(3) == 9
 assert square.__name__ == "square"
 
-# - brackets denote a multiple-expression lambda body
-#   (if you want to have one expression that is a literal list,
-#    double the brackets: `lambda x: [[5 * x]]`)
 # - local[name << value] makes an expression-local variable
 g = lambda x: [local[y << 2 * x],
                y + 1]
@@ -72,30 +71,63 @@ assert ll(1, 2, 3) == llist((1, 2, 3))
 
 ## Features
 
-In terms of ``unpythonic.syntax``, we implicitly enable ``tco``, ``autoreturn``, ``multilambda``, ``namedlambda``, and ``quicklambda`` for the whole module:
+In terms of ``unpythonic.syntax``, we implicitly enable ``autoreturn``, ``tco``, ``multilambda``, ``namedlambda``, and ``quicklambda`` for the whole module:
 
-  - TCO in both ``def`` and ``lambda``, fully automatic
-  - Omit ``return`` in any tail position, like in Lisps
-  - Multiple-expression lambdas, ``lambda x: [expr0, ...]``
-  - Automatically named lambdas whenever the machinery can figure out a name; when not, source location is auto-injected into the name.
-  - The underscore: e.g. `fn[_ * 3]` becomes `lambda x: x * 3`, and `fn[_ * _]` becomes `lambda x, y: x * y`.
-
-We also import some macros and functions to serve as dialect builtins:
-
-  - All ``let[]`` and ``do[]`` constructs from ``unpythonic.syntax``
-  - ``cons``, ``car``, ``cdr``, ``ll``, ``llist``, ``nil``, ``prod``
-  - ``dyn``, for dynamic assignment
-  - ``Values``, for returning multiple values and/or named return values. (This ties in to `unpythonic`'s function composition subsystem, e.g. `curry`, the `pipe` family, the `compose` family, and the `with continuations` macro.)
-
-For detailed documentation of the language features, see [``unpythonic.syntax``](https://github.com/Technologicat/unpythonic/tree/master/doc/macros.md), especially the macros ``tco``, ``autoreturn``, ``multilambda``, ``namedlambda``, ``quicklambda``, ``let`` and ``do``.
+  - In tail position, the ``return`` keyword can be omitted, like in Lisps.
+    - In a `def`, the last statement at the top level of the `def` is in tail position.
+    - If the tail position contains an expression, a ``return`` will be automatically injected, with that expression as the return value.
+    - It is still legal to use `return` whenever you would in Python; this just makes the `return` keyword non-mandatory in places where a Lisp would not require it.
+      - To be technically correct, Schemers and Racketeers should read this as, *"in places where a Lisp would not require explicitly invoking an escape continuation"*.
+  - Automatic tail-call optimization (TCO) for both ``def`` and ``lambda``.
+    - In a `def`, the last statement at the top level of the `def` is in tail position.
+    - Tail positions *inside an expression* that itself appears in tail position are:
+      - Both the `body` and `orelse` branches of an if-expression. (Exactly one of them runs, hence both are in tail position.)
+      - The lexically last item of an `and`/`or` chain.
+        - Note the analysis is performed at compile time, whence it does **not** care about the short-circuit behavior that occurs at run time.
+      - The last item of a `do[]`.
+      - The last item of an implicit `do[]` in a `let[]` where the body uses the extra bracket syntax. (All `let` constructs provided by `unpythonic.syntax` are supported.)
+    - For the gritty details, see the source code of `unpythonic.syntax.tailtools._transform_retexpr`.
+  - Multiple-expression lambdas, using bracket syntax, for example ``lambda x: [expr0, ...]``.
+    - Brackets denote a multiple-expression lambda body. Technically, the brackets create a `do[]` environment.
+    - If you want your lambda to have one expression that is a literal list, double the brackets: `lambda x: [[5 * x]]`.
+  - Lambdas are automatically named whenever the machinery can figure out a name from the surrounding context.
+    - When not, source location is auto-injected into the name.
 
 The multi-expression lambda syntax uses ``do[]``, so it also allows lambdas to manage local variables using ``local[name << value]`` and ``delete[name]``. See the documentation of ``do[]`` for details.
 
-The builtin ``let[]`` constructs are ``let``, ``letseq``, ``letrec``, the decorator versions ``dlet``, ``dletseq``, ``dletrec``, the block versions (decorator, call immediately, replace def'd name with result) ``blet``, ``bletseq``, ``bletrec``, and the code-splicing variants ``let_syntax`` and ``abbrev``. Bindings may be made using any syntax variant supported by ``unpythonic.syntax``.
-
-The builtin ``do[]`` constructs are ``do`` and ``do0``.
-
 If you need more stuff, `unpythonic` is effectively the standard library of Lispython, on top of what Python itself already provides.
+
+There are **two variants** of the dialect, `Lispython` and `Lispy`.
+
+
+### The `Lispy` variant
+
+In the `Lispy` variant, that's it - the dialect changes the semantics only. Nothing is imported implicitly, except the macros injected by the dialect template (to perform the whole-module semantic changes at macro expansion time).
+
+This is the pythonic variant of Lispython, keeping in line with *explicit is better than implicit*. The rule is: *if a name appears in user code, it must be defined explicitly*, as is usual in Python.
+
+Note this implies that you must **explicitly import** the `local[]` macro if you want to declare local variables in a multiple-expression lambda, and the `fn[]` macro if you want to take advantage of the implicit `quicklambda`. Both are available in `unpythonic.syntax`, as usual.
+
+The point of the implicit `quicklambda` is that all invocations of `fn[]`, if there are any, will expand early, so that other macros that expect lambdas to be in standard Python notation will get exactly that. This includes other macros invoked by the dialect definition, namely `multilambda` and `namedlambda`.
+
+The main point of `Lispy`, compared to plain Python, is automatic TCO. The ability to omit `return` is a minor convenience, and the other three features only improve the usability of lambdas.
+
+
+### The `Lispython` variant
+
+In the `Lispython` variant, we implicitly import some macros and functions to serve as dialect builtins, keeping in line with expectations for a ~language in the~ somewhat distant relative of the Lisp family:
+
+  - ``cons``, ``car``, ``cdr``, ``ll``, ``llist``, ``nil``, ``prod``.
+  - All ``let[]`` and ``do[]`` constructs from ``unpythonic.syntax``.
+  - The underscore: e.g. `fn[_ * 3]` becomes `lambda x: x * 3`, and `fn[_ * _]` becomes `lambda x, y: x * y`.
+  - ``dyn``, for dynamic assignment.
+  - ``Values``, for returning multiple values and/or named return values. (This ties in to `unpythonic`'s function composition subsystem, e.g. `curry`, the `pipe` family, the `compose` family, and the `with continuations` macro.)
+
+For detailed documentation of the language features, see [``unpythonic.syntax``](../macros.md), especially the macros ``tco``, ``autoreturn``, ``multilambda``, ``namedlambda``, ``quicklambda``, ``let`` and ``do``.
+
+The dialect builtin ``let[]`` constructs are ``let``, ``letseq``, ``letrec``, the decorator versions ``dlet``, ``dletseq``, ``dletrec``, the block versions (decorator, call immediately, replace def'd name with result) ``blet``, ``bletseq``, ``bletrec``, and the code-splicing variants ``let_syntax`` and ``abbrev``. Bindings may be made using any syntax variant supported by ``unpythonic.syntax``.
+
+The dialect builtin ``do[]`` constructs are ``do`` and ``do0``.
 
 
 ## What Lispython is
@@ -142,7 +174,7 @@ Lispython works with ``with continuations``, because:
 
   - The same applies to the outside-in pass of ``namedlambda``. Its inside-out pass, on the other hand, must come after ``continuations``, which it does, since the dialect's implicit ``with namedlambda`` is in a lexically outer position with respect to the ``with continuations``.
 
-Be aware, though, that the combination of the ``autoreturn`` implicit in the dialect and ``with continuations`` might have usability issues, because ``continuations`` handles tail calls specially (the target of a tail-call in a ``continuations`` block must be continuation-enabled; see the documentation of ``continuations``), and ``autoreturn`` makes it visually slightly less clear which positions are in fact tail calls (since no explicit ``return``). Also, the top level of a ``with continuations`` block may not use ``return`` - while Lispython happily auto-injects a ``return`` to whatever is the last statement in any particular function.
+Be aware, though, that the combination of the ``autoreturn`` implicit in the dialect and ``with continuations`` might have usability issues, because ``continuations`` handles tail calls specially (the target of a tail-call in a ``continuations`` block must be continuation-enabled; see the documentation of ``continuations``), and ``autoreturn`` makes it visually slightly less clear which positions are in fact tail calls (since no explicit ``return``). Also, the top level of a ``with continuations`` block may not use ``return`` - while Lispython's implicit ``autoreturn`` happily auto-injects a ``return`` to whatever is the last statement in any particular function.
 
 
 ## Why extend Python?
@@ -151,7 +183,7 @@ Be aware, though, that the combination of the ``autoreturn`` implicit in the dia
 
 Python, on the other hand, has a slight edge in usability to the end-user programmer, and importantly, a huge ecosystem of libraries, second to ``None``. Python is where science happens (unless you're in CS). Python is an almost-Lisp that has delivered on [the productivity promise](http://paulgraham.com/icad.html) of Lisp. Python also gets many things right, such as well developed support for lazy sequences, and decorators.
 
-In certain other respects, Python the base language leaves something to be desired, if you have been exposed to Racket (or Haskell, but that's a different story). Writing macros is harder due to the irregular syntax, but thankfully MacroPy already exists, and any set of macros only needs to be created once.
+In certain other respects, Python the base language leaves something to be desired, if you have been exposed to Racket (or Haskell, but that's a different story). Writing macros is harder due to the irregular syntax, but thankfully macro expanders already exist, and any set of macros only needs to be created once.
 
 Practicality beats purity ([ZoP §9](https://www.python.org/dev/peps/pep-0020/)): hence, fix the minor annoyances that would otherwise quickly add up, and reap the benefits of both worlds. If Python is software glue, Lispython is an additive that makes it flow better.
 

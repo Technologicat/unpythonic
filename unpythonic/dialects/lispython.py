@@ -41,3 +41,32 @@ class Lispython(Dialect):
                 __paste_here__  # noqa: F821, just a splicing marker.
         tree.body = splice_dialect(tree.body, template, "__paste_here__")
         return tree
+
+
+class Lispy(Dialect):
+    """**Pythonistas rejoice!**
+
+    O language like Lisp, like Python!
+    Semantic changes sensibly carry,
+    Python's primary virtue vindicate.
+    Ire me not with implicit imports,
+    Let my IDE label mistakes.
+    """
+
+    def transform_ast(self, tree):  # tree is an ast.Module
+        with q as template:
+            __lang__ = "Lispy"  # noqa: F841, just provide it to user code.
+            from unpythonic.syntax import (macros, tco, autoreturn,  # noqa: F401, F811
+                                           multilambda, quicklambda, namedlambda)
+            # The important point is none of these expect the user code to look like
+            # anything but regular Python, so IDEs won't yell about undefined names;
+            # just the semantics are slightly different.
+            #
+            # Even if the user code uses `fn[]` (to make `quicklambda` actually do anything),
+            # that macro must be explicitly imported. It works, because `splice_dialect`
+            # hoists macro-imports from the top level of the user code into the top level
+            # of the template.
+            with autoreturn, quicklambda, multilambda, namedlambda, tco:
+                __paste_here__  # noqa: F821, just a splicing marker.
+        tree.body = splice_dialect(tree.body, template, "__paste_here__")
+        return tree
