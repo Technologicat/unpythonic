@@ -108,7 +108,7 @@ This is the pythonic variant of Lispython, keeping in line with *explicit is bet
 
 Note this implies that you must **explicitly import** the `local[]` macro if you want to declare local variables in a multiple-expression lambda, and the `fn[]` macro if you want to take advantage of the implicit `quicklambda`. Both are available in `unpythonic.syntax`, as usual.
 
-The point of the implicit `quicklambda` is that all invocations of `fn[]`, if there are any, will expand early, so that other macros that expect lambdas to be in standard Python notation will get exactly that. This includes other macros invoked by the dialect definition, namely `multilambda` and `namedlambda`.
+The point of the implicit `quicklambda` is that all invocations of `fn[]`, if there are any, will expand early, so that other macros that expect lambdas to be in standard Python notation will get exactly that. This includes other macros invoked by the dialect definition, namely `multilambda`, `namedlambda`, and `tco`.
 
 The main point of `Lispy`, compared to plain Python, is automatic TCO. The ability to omit `return` is a minor convenience, and the other three features only improve the usability of lambdas.
 
