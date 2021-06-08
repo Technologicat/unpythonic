@@ -77,8 +77,8 @@ In terms of ``unpythonic.syntax``, we implicitly enable ``tco``, ``autoreturn``,
   - TCO in both ``def`` and ``lambda``, fully automatic
   - Omit ``return`` in any tail position, like in Lisps
   - Multiple-expression lambdas, ``lambda x: [expr0, ...]``
-  - Named lambdas (whenever the machinery can figure out a name)
   - The underscore: ``f[_*3] --> lambda x: x*3`` (name ``f`` is **reserved**)
+  - Automatically named lambdas whenever the machinery can figure out a name; when not, source location is auto-injected into the name.
 
 We also import some macros and functions to serve as dialect builtins:
 
@@ -187,7 +187,7 @@ def foo(n):
     return accumulate
 ```
 
-The problem is that assignment to a lexical variable (including formal parameters) is a statement in Python. Python 3.8's walrus operator does not solve this, because `n := n + i` by itself is a syntax error.
+The problem is that assignment to a lexical variable (including formal parameters) is a statement in Python. Python 3.8's walrus operator does not solve this, because `n := n + i` by itself is a syntax error, and even if parenthesized, `(n := n + i)` insists on creating a new local variable `n`.
 
 If we abbreviate ``accumulate`` as a lambda, it needs a ``let`` environment to write in, to use `unpythonic`'s expression-assignment (`name << value`).
 
@@ -209,6 +209,8 @@ with envify:
 ```
 
 ``envify`` is not part of the Lispython dialect definition, because this particular, perhaps rarely used, feature is not really worth a global performance hit whenever a function is entered.
+
+Note that ``envify`` is **not** compatible with Lispython, because it would need to appear in a lexically outer position compared to macros already invoked by the dialect template. If you need an envified Lispython, copy `unpythonic/dialects/lispython.py` and modify the template therein. [The xmas tree combo](../macros.md#the-xmas-tree-combo) says `envify` should come lexically after `multilambda`, but before `namedlambda`.
 
 
 ## CAUTION
