@@ -38,6 +38,7 @@ The 0.15.x series should run on CPython 3.6, 3.7, 3.8 and 3.9, and PyPy3 (langua
 - [REPL server](doc/repl.md): interactively hot-patch your running Python program.
 - [Troubleshooting](doc/troubleshooting.md): possible solutions to possibly common issues.
 - [Design notes](doc/design-notes.md): for more insight into the design choices of ``unpythonic``.
+- [Essays](doc/essays.md): for writings on the philosophy of ``unpythonic``, things that inspired it, and related discoveries.
 - [Additional reading](doc/readings.md): links to material relevant in the context of ``unpythonic``.
 - [Contribution guidelines](CONTRIBUTING.md): for understanding the codebase, or if you're interested in making a code or documentation PR.
 

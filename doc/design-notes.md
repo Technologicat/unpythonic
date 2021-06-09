@@ -7,6 +7,7 @@
 - [REPL server](repl.md)
 - [Troubleshooting](troubleshooting.md)
 - **Design notes**
+- [Essays](essays.md)
 - [Additional reading](readings.md)
 - [Contribution guidelines](../CONTRIBUTING.md)
 
@@ -16,9 +17,7 @@
 - [Design Philosophy](#design-philosophy)
     - [Macros do not Compose](#macros-do-not-compose)
     - [Language Discontinuities](#language-discontinuities)
-    - [What Belongs in Python?](#what-belongs-in-python)
-    - [Killer features of Common Lisp](#killer-features-of-common-lisp)
-    - [Common Lisp, Python, and productivity](#common-lisp-python-and-productivity)
+    - [`unpythonic` and the Killer Features of Common Lisp](#unpythonic-and-the-killer-features-of-common-lisp)
     - [Python is not a Lisp](#python-is-not-a-lisp)
     - [On ``let`` and Python](#on-let-and-python)
     - [Assignment syntax](#assignment-syntax)
@@ -79,42 +78,7 @@ For another example, it is likely that e.g. `continuations` still does not integ
 For a third example, consider *decorated lambdas*. This is an `unpythonic` extension - essentially, a compiler feature implemented (by calling some common utility code) by each of the transformers of the pure-macro features - that understands a lambda enclosed in a nested sequence of single-argument function calls *as a decorated function definition*. This is painful, because the Python AST has no place to store the decorator list for a lambda; Python sees it just as a nested sequence of function calls, terminating in a lambda. This has to be papered over by the transformers. We also introduce a related complication, the decorator registry (see `regutil`), so that we can automatically sort decorator invocations - so that pure-macro features know at which index to inject a particular decorator (so it works properly) when they need to do that. Needing such a registry is already a complication, but the *decorated lambda* machinery feels the pain more acutely.
 
 
-## What Belongs in Python?
-
-If you feel [my hovercraft is full of eels](http://stupidpythonideas.blogspot.com/2015/05/spam-spam-spam-gouda-spam-and-tulips.html), it is because they come with the territory.
-
-Some have expressed the opinion [the statement-vs-expression dichotomy is a feature](http://stupidpythonideas.blogspot.com/2015/01/statements-and-expressions.html). The BDFL himself has famously stated that TCO has no place in Python [[1]](http://neopythonic.blogspot.com/2009/04/tail-recursion-elimination.html) [[2]](http://neopythonic.blogspot.fi/2009/04/final-words-on-tail-calls.html), and less famously that multi-expression lambdas or continuations have no place in Python [[3]](https://www.artima.com/weblogs/viewpost.jsp?thread=147358). Several potentially interesting PEPs have been deferred [[1]](https://www.python.org/dev/peps/pep-3150/) [[2]](https://www.python.org/dev/peps/pep-0403/) or rejected [[3]](https://www.python.org/dev/peps/pep-0511/) [[4]](https://www.python.org/dev/peps/pep-0463/) [[5]](https://www.python.org/dev/peps/pep-0472/).
-
-In general, I like Python. Also, my hat is off to the devs. It is no mean feat to create a high-level language that focuses on readability and approachability, keep it alive for 30 years and counting, and have a large part of the programming community adopt it. But regarding the particular points above, if I agreed, I would not have built `unpythonic`, or [`mcpyrate`](https://github.com/Technologicat/mcpyrate) either.
-
-I think that with macros, Python can be so much more than just a beginner's language. Language-level extensibility is just the logical endpoint of that. I do not share the sentiment of the Python community against metaprogramming, or toward some language-level features. For me, macros (and full-module transforms a.k.a. dialects) are just another tool for creating abstractions, at yet another level. We can already extract procedures, methods, and classes. Why limit that ability - namely, the ability to create abstractions - to what an [eager](https://en.wikipedia.org/wiki/Evaluation_strategy#Strict_evaluation) language can express at run time?
-
-If the point is to keep code understandable, I respect the goal; but that is a matter of education. It is perfectly possible to write unreadable code without macros, and in Python, no less. Just use a complex class hierarchy so that the programmer reading the code must hunt through everything to find each method definition; write big functions without abstracting the steps of the overall algorithm; keep lots of mutable state, and store it in top-level variables; and maybe top that off with an overuse of dependency injection. No one will be able to figure out how the program works, at least not in any reasonable amount of time.
-
-It is also perfectly possible to write readable code with macros. Just keep in mind that macros are a different kind of abstraction, and use them where that kind of abstraction lends itself to building a clean solution. I am willing to admit the technical objection that *macros do not compose*; but that does not make them useless.
-
-Of the particular points above, in my opinion TCO should at least be an option. I like that *by default*, Python will complain about a call stack overflow rather than hang, when entering an accidentally infinite mutual recursion. I do occasionally make such mistakes when developing complex algorithms - especially when quickly sketching out new ideas. But sometimes, it would be nice to enable TCO selectively. If you ask for it, you know what to expect. This is precisely why `unpythonic.syntax` has `with tco`. I am not very happy with a custom TCO layer on top of a language core that eschews the whole idea, because TCO support in the core (like Scheme and Racket have) would simplify the implementation of certain other language extensions; but then again, [this is exactly what Clojure did](https://clojuredocs.org/clojure.core/trampoline), in similar technical circumstances.
-
-As for a multi-expression `lambda`, on the surface it sounds like a good idea. But really the issue is that in Python, the `lambda` construct itself is broken. It is essentially a duplicate of `def`, but lacking some features. As of Python 3.8, the latest addition of insult to injury is the lack of support for type annotations. A more uniform solution would be to make `def` into an expression. Much of the time, anonymous functions are not a good idea, because names help understanding and debugging - especially when all you have is a traceback. But defining closures inline **is** a great idea - and sometimes, the most readily understandable presentation order for an algorithm requires to do that in an expression position. The convenience is similar to being able to nest `def` statements, an ability Python already has.
-
-The macros in `unpythonic.syntax` inject many lambdas, because that makes them much simpler to implement than if we had to always lift a `def` statement into the nearest enclosing statement context. Another case in point is [`pampy`](https://github.com/santinic/pampy). The code to perform a pattern match would read a lot nicer if one could define also slightly more complex actions inline (see [Racket's pattern matcher](https://docs.racket-lang.org/reference/match.html) for a comparison). It is unlikely that the action functions will be needed elsewhere, and it is just silly to define a bunch of functions *before* the call to `match`. If this is not a job for either something like `let-where` (to invert the presentation order locally) or a multi-expression lambda (to define the actions inline), I do not know what is.
-
-While on the topic of usability, why are lambdas strictly anonymous? In cases where it is useful to be able to omit a name, because sometimes many small helper functions may be needed and [naming is hard](https://martinfowler.com/bliki/TwoHardThings.html), why not include the source location information in the auto-generated name, instead of just `"<lambda>"`? (As of v0.15.0, the `with namedlambda` macro does this.)
-
-On a point raised [here](https://www.artima.com/weblogs/viewpost.jsp?thread=147358) with respect to indentation-sensitive vs. indentation-insensitive parser modes, having seen [SRFI-110: Sweet-expressions (t-expressions)](https://srfi.schemers.org/srfi-110/srfi-110.html), I think Python is confusing matters by linking the parser mode to statements vs. expressions. A workable solution is to make *everything* support both modes (or even preprocess the source code text to use only one of the modes), which *uniformly* makes parentheses an alternative syntax for grouping.
-
-It would be nice to be able to use indentation to structure expressions to improve their readability, like one can do in Racket with [sweet](https://docs.racket-lang.org/sweet/), but I suppose ``lambda x: [expr0, expr1, ...]`` will have to do for a multi-expression lambda. Unless I decide at some point to make a source filter for [`mcpyrate`](https://github.com/Technologicat/mcpyrate) to auto-convert between indentation and parentheses; but for Python this is somewhat difficult to do, because statements **must** use indentation whereas expressions **must** use parentheses, and this must be done before we can invoke the standard parser to produce an AST. (And I do not want to maintain a [Pyparsing](https://github.com/pyparsing/pyparsing) grammar to parse a modified version of Python.)
-
-As for true multi-shot continuations, `unpythonic.syntax` has `with continuations` for that, but I am not sure if I will ever use it in production code. Most of the time, it seems to me full continuations are a solution looking for a problem. (A very elegant solution, even if the usability of the `call/cc` interface leaves much to be desired.) For everyday use, one-shot continuations (a.k.a. resumable functions, a.k.a. generators in Python) are often all that is needed to simplify certain patterns, especially those involving backtracking. I am a big fan of the idea that, for example, you can make your anagram-making algorithm only yield valid anagrams, with the backtracking state (to eliminate dead-ends) implicitly stored in the paused generator! However, having multi-shot continuations is great for teaching the concept of continuations in a programming course, when teaching in Python.
-
-Finally, there is the issue of implicitly encouraging subtly incompatible Python-like languages (see the rejected [PEP 511](https://www.python.org/dev/peps/pep-0511/)). It is pretty much the point of language-level extensibility, to allow users to do that if they want. I would not worry about it. Racket is *designed* for extensibility, and its community seems to be doing just fine - they even *encourage* the creation of new languages to solve problems. On the other hand, Racket demands some sophistication on the part of its user, and it is not very popular in the programming community at large.
-
-What I can say is, `unpythonic` is not meant for the average Python project, either. If used intelligently, it can make code shorter, yet readable. For a lone developer who needs to achieve as much as possible in the fewest lines reasonably possible, it seems to me that language extension - and in general, as Alexis King put it, [climbing the infinite ladder of abstraction](https://lexi-lambda.github.io/blog/2016/08/11/climbing-the-infinite-ladder-of-abstraction/) - is the way to go. In a large project with a high developer turnover, the situation is different.
-
-For general programming in the early 2020s, Python still has the ecosystem advantage, so it does not make sense to move to anything else, at least yet. So, let us empower what we have. Even if we have to build something that could be considered *unpythonic*.
-
-
-## Killer features of Common Lisp
+## `unpythonic` and the Killer Features of Common Lisp
 
 In my opinion, Common Lisp has three legendary killer features:
 
@@ -143,27 +107,6 @@ But for those of us that [don't like parentheses](https://srfi.schemers.org/srfi
       - Due to being a JIT, PyPy doesn't speed up small one-shot programs, or typical unit tests; the code should have repetitive sections (such as loops), and run for at least a few seconds for the JIT to warm up. This is pretty much [the MATLAB execution model](https://blogs.mathworks.com/loren/2016/02/12/run-code-faster-with-the-new-matlab-execution-engine/), for Python (whereas CL performs ahead-of-time compilation).
       - PyPy (the JIT-enabled Python interpreter) itself is not the full story; the [RPython](https://rpython.readthedocs.io/en/latest/) toolchain from the PyPy project can *automatically produce a JIT for an interpreter for any new dynamic language implemented in the RPython language* (which is essentially a restricted dialect of Python 2.7). Now **that's** higher-order magic if anything is.
     - For the use case of numerics specifically, instead of Python, [Julia](https://docs.julialang.org/en/v1/manual/methods/) may be a better fit for writing high-level, yet performant code. It's a spiritual heir of Common Lisp, Fortran, *and Python*. Compilation to efficient machine code, with the help of gradual typing and automatic type inference, is a design goal.
-
-
-## Common Lisp, Python, and productivity
-
-The various essays by Paul Graham, especially [Revenge of the Nerds (2002)](http://paulgraham.com/icad.html), have given the initial impulse to many programmers for studying Lisp. The essays are well written and have provided a lot of exposure for Lisp. So how does the programming world look in that light now, 20 years later?
-
-The base abstraction level of programming languages, even those in popular use, has increased. The trend was visible already then, and was indeed noted in the essays. The focus on low-level languages such as C++ has decreased. Java is still popular, but high-level FP languages that compile to JVM bytecode (Kotlin, Scala, Clojure) are rising.
-
-Python has become highly popular, and is now also closer to Lisp than it was 20 years ago, especially after `MacroPy` introduced syntactic macros to Python (in 2013, [according to the git log](https://github.com/lihaoyi/macropy/commits/python2/macropy/__init__.py)). Python wasn't bad as a Lisp replacement even back in 2000 - see Peter Norvig's essay [Python for Lisp Programmers](https://norvig.com/python-lisp.html). Some more historical background, specifically on lexically scoped closures (and the initial lack thereof), can be found in [PEP 3104](https://www.python.org/dev/peps/pep-3104/), [PEP 227](https://www.python.org/dev/peps/pep-0227/), and [Historical problems with closures in JavaScript and Python](http://giocc.com/problems-with-closures-in-javascript-and-python.html).
-
-In 2020, does it still make sense to learn [the legendary](https://xkcd.com/297/) Common Lisp?
-
-To know exactly what it has to offer, yes. As baroque as some parts are, there are a lot of great ideas there. [Conditions](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) are one. [CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) is another. (Nowadays [Julia](https://docs.julialang.org/en/v1/manual/methods/) has CLOS-style [multiple-dispatch generic functions](https://docs.julialang.org/en/v1/manual/methods/).) More widely, in the ecosystem, Swank is one. Having more perspectives at one's disposal makes one a better programmer.
-
-But as a practical tool? Is CL hands-down better than Python? Maybe no. Python has already delivered on 90% of the productivity promise of Lisp. Both languages cut down significantly on [accidental complexity](https://en.wikipedia.org/wiki/No_Silver_Bullet). Python has a huge library ecosystem. [`mcpyrate`](https://github.com/Technologicat/mcpyrate) and `unpythonic` are trying to push the language-level features a further 5%. (A full 100% is likely impossible when extending an existing language; if nothing else, there will be seams.)
-
-As for productivity, [it may be](https://medium.com/smalltalk-talk/lisp-smalltalk-and-the-power-of-symmetry-8bd96aaa0c0c) that a form of code-data equivalence (symmetry!), not macros specifically, is what makes Lisp powerful. If so, there may be other ways to reach that equivalence. For example Smalltalk, like Lisp, *runs in the same context it's written in*. All Smalltalk data are programs. Smalltalk [may be making a comeback](https://hackernoon.com/how-to-evangelize-a-programming-language-0p7p3y02), in the form of [Pharo](https://pharo.org/).
-
-Haskell aims at code-data equivalence from a third angle (memoized pure functions are in essence infinite lookup tables), but I haven't used it in practice, so I don't have the experience to say whether this is enough to make it feel powerful in the same way.
-
-Image-based programming (live programming) is a common factor between Pharo and Common Lisp + Swank. This is another productivity booster that much of the programming world isn't that familiar with. It eliminates not only the edit/compile/restart cycle, but the edit/restart cycle as well, making the workflow a concurrent *edit/run* instead (without restarting the whole app at each change). Julia has [Revise.jl](https://github.com/timholy/Revise.jl) for something similar.
 
 
 ## Python is not a Lisp

@@ -7,6 +7,7 @@
 - [REPL server](repl.md)
 - [Troubleshooting](troubleshooting.md)
 - [Design notes](design-notes.md)
+- [Essays](essays.md)
 - [Additional reading](readings.md)
 - [Contribution guidelines](../CONTRIBUTING.md)
 
