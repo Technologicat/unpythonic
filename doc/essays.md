@@ -58,7 +58,7 @@ For general programming in the early 2020s, Python still has the ecosystem advan
 
 # `hoon`: The C of Functional Programming
 
-Some days I wonder if this `unpythonic` endeavor even makes any sense. Then, turning the pages of the [book of sand](https://en.wikipedia.org/wiki/The_Book_of_Sand) that is the web, I [happen to run into something](http://axisofeval.blogspot.com/2015/07/what-i-learned-about-urbit-so-far.html) like `hoon`.
+Some days I wonder if this whole `unpythonic` endeavor even makes any sense. Then, turning the pages of the [book of sand](https://en.wikipedia.org/wiki/The_Book_of_Sand) that is the web, I [happen to run into something](http://axisofeval.blogspot.com/2015/07/what-i-learned-about-urbit-so-far.html) like `hoon`.
 
 Its philosophy is best described by this gem from an [early version of its documentation](https://github.com/cgyarvin/urbit/blob/master/doc/book/0-intro.markdown#hoon):
 
