@@ -69,8 +69,8 @@ def runtests():
         test[a(3) == "odd"]
 
     # MacroPy #21; namedlambda must be in its own with block in the
-    # dialect implementation or this particular combination will fail
-    # (uncaught jump, __name__ not set).
+    # dialect implementation or the particular combination of macros
+    # invoked by Lispy will fail (uncaught jump, __name__ not set).
     #
     # With `mcpyrate` this shouldn't matter, but we're keeping the example.
     with testset("autonamed letrec lambdas, multiple-expression let body"):
