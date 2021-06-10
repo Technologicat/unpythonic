@@ -188,10 +188,18 @@ The common denominator is programming. Some relate to language design, some to c
 - [`hoon`: The C of Functional Programming](https://urbit.org/docs/hoon/)
   - Interesting take on an alternative computing universe where the functional camp won systems programming. These people have built [a whole operating system](https://github.com/urbit/urbit) on a Turing-complete non-lambda automaton, Nock.
   - For my take, see [the opinion piece in Essays](essays.md#hoon-the-c-of-functional-programming).
-  - Judging by the docs, `hoon` is definitely ha-ha-only-serious, but I am not sure of whether it is serious-serious. It does advertise itself as the functional-programming equivalent of C. See the comments to [the entry on Manuel Simoni's blog](http://axisofeval.blogspot.com/2015/07/what-i-learned-about-urbit-so-far.html) - some people do think `hoon` is actually useful.
+  - Judging by the docs, `hoon` is definitely ha-ha-only-serious, but I am not sure of whether it is serious-serious. See the comments to [the entry on Manuel Simoni's blog](http://axisofeval.blogspot.com/2015/07/what-i-learned-about-urbit-so-far.html) - some people do think `hoon` is actually useful.
   - Technical points:
     - `hoon` does not have syntactic macros. The reason given in the docs is the same as sometimes heard in the Python community - having a limited number of standard control structures, you always know what you are looking at.
-    - Interestingly, `hoon` has uniform support for *wide* and *tall* modes; it does not use parentheses, but uses a single space (in characteristic `hoon` fashion, termed an *ace*) versus multiple spaces (respectively, a *gap*). "Multiple spaces" allows also newlines, like in LaTeX. So [SRFI-110](https://srfi.schemers.org/srfi-110/srfi-110.html) is not alone.
+    - Interestingly, `hoon` has uniform support for *wide* and *tall* modes; it does not use parentheses, but uses a single space (in characteristic `hoon` fashion, termed an *ace*) versus multiple spaces (respectively, a *gap*). "Multiple spaces" allows also newlines, like in LaTeX. So [SRFI-110](https://srfi.schemers.org/srfi-110/srfi-110.html) is not the only attempt at a two-mode uniform grouping syntax.
+
+- *Ab initio* programming language efforts:
+  - `hoon`, see separate entry above.
+  - [Arc](http://www.paulgraham.com/arc.html) by Paul Graham and Robert Morris.
+  - [Discussion on](https://news.ycombinator.com/item?id=10535364) the Nile programming language developed by Ian Piumarta, Alan Kay, et al.
+    - Especially the low-level [Maru](https://www.piumarta.com/software/maru/) language by Ian Piumarta seems interesting.
+      - *Maru is a symbolic expression evaluator that can compile its own implementation language.*
+      - It compiles s-expressions to IA32 machine code, and has a metacircular evaluator implemented in less than 2k SLOC. It bootstraps from C.
 
 - [LtU: Why is there no widely accepted progress for 50 years?](http://lambda-the-ultimate.org/node/5590)
   - Discussion on how programming languages *have* improved.
