@@ -193,6 +193,10 @@ The common denominator is programming. Some relate to language design, some to c
     - `hoon` does not have syntactic macros. The reason given in the docs is the same as sometimes heard in the Python community - having a limited number of standard control structures, you always know what you are looking at.
     - Interestingly, `hoon` has uniform support for *wide* and *tall* modes; it does not use parentheses, but uses a single space (in characteristic `hoon` fashion, termed an *ace*) versus multiple spaces (respectively, a *gap*). "Multiple spaces" allows also newlines, like in LaTeX. So [SRFI-110](https://srfi.schemers.org/srfi-110/srfi-110.html) is not alone.
 
+- [LtU: Why is there no widely accepted progress for 50 years?](http://lambda-the-ultimate.org/node/5590)
+  - Discussion on how programming languages *have* improved.
+  - Contains interesting viewpoints, such as dmbarbour's suggestion that much of modern hardware is essentially "compiled" from a hardware description language such as VHDL.
+
 
 # Python-related FP resources
 
