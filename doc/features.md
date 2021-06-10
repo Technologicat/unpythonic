@@ -403,9 +403,13 @@ The fact that in Python creating bindings and updating (rebinding) them look the
 
 ### ``dyn``: dynamic assignment
 
-([As termed by Felleisen.](https://groups.google.com/forum/#!topic/racket-users/2Baxa2DxDKQ) Other names seen in the wild for variants of this feature include *parameters* (not to be confused with function parameters), *special variables*, *fluid variables*, *fluid let*, and even the misnomer *"dynamic scoping"*.)
+**Changed in v0.14.2.** *To bring this in line with [SRFI-39](https://srfi.schemers.org/srfi-39/srfi-39.html), `dyn` now supports rebinding, using assignment syntax such as `dyn.x = 42`, and the function `dyn.update(x=42, y=17, ...)`.*
 
-Like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly.
+([As termed by Felleisen.](https://groups.google.com/forum/#!topic/racket-users/2Baxa2DxDKQ) Other names seen in the wild for variants of this feature include *parameters* ([Scheme](https://srfi.schemers.org/srfi-39/srfi-39.html) and [Racket](https://docs.racket-lang.org/reference/parameters.html); not to be confused with function parameters), *special variables* (Common Lisp), *fluid variables*, *fluid let* (e.g. Emacs Lisp), and even the misnomer *"dynamic scoping"*.)
+
+The feature itself is *dynamic assignment*; the things it creates are *dynamic variables* (a.k.a. *dynvars*).
+
+Dynvars are like global variables, but better-behaved. Useful for sending some configuration parameters through several layers of function calls without changing their API. Best used sparingly.
 
 There's a singleton, `dyn`:
 
@@ -435,32 +439,30 @@ def g():
 g()
 ```
 
-Dynamic variables (a.k.a. *dynvars*) are created using `with dyn.let(k0=v0, ...)`. The syntax is in line with the nature of the assignment, which is in effect *for the dynamic extent* of the `with`. Exiting the `with` block pops the dynamic environment stack. Inner dynamic environments shadow outer ones.
+Dynvars are created using `with dyn.let(k0=v0, ...)`. The syntax is in line with the nature of the assignment, which is in effect *for the dynamic extent* of the `with`. Exiting the `with` block pops the dynamic environment stack. Inner dynamic environments shadow outer ones.
 
-The point of dynamic assignment is that dynvars are seen also by code that is outside the lexical scope where the `with dyn.let` resides. The use case is to avoid a function parameter definition cascade, when you need to pass some information through several layers that don't care about it. This is especially useful for passing "background" information, such as plotter settings in scientific visualization, or the macro expander instance in metaprogramming.
+The point of dynamic assignment is that dynvars are seen also by code that is *outside the lexical scope* where the `with dyn.let` resides. The use case is to avoid a function parameter definition cascade, when you need to pass some information through several layers that do not care about it. This is especially useful for passing "background" information, such as plotter settings in scientific visualization, or the macro expander instance in metaprogramming.
 
 To give a dynvar a top-level default value, use ``make_dynvar(k0=v0, ...)``. Usually this is done at the top-level scope of the module for which that dynvar is meaningful. Each dynvar, of the same name, should only have one default set; the (dynamically) latest definition always overwrites. However, we do not prevent overwrites, because in some codebases the same module may run its top-level initialization code multiple times (e.g. if a module has a ``main()`` for tests, and the file gets loaded both as a module and as the main program).
 
 To rebind existing dynvars, use `dyn.k = v`, or `dyn.update(k0=v0, ...)`. Rebinding occurs in the closest enclosing dynamic environment that has the target name bound. If the name is not bound in any dynamic environment (including the top-level one), ``AttributeError`` is raised.
 
-**CAUTION**: Use rebinding of dynvars carefully, if at all. Stealth updates of dynvars defined in an enclosing dynamic extent can destroy any chance of statically reasoning about the code.
+**CAUTION**: Use rebinding of dynvars carefully, if at all. Stealth updates of dynvars defined in an enclosing dynamic extent can destroy any chance of statically reasoning about your code.
 
 There is no `set` function or `<<` operator, unlike in the other `unpythonic` environments.
-
-**Changed in v0.14.2.** *To bring this in line with [SRFI-39](https://srfi.schemers.org/srfi-39/srfi-39.html), `dyn` now supports rebinding, using assignment syntax such as `dyn.x = 42`, and the function `dyn.update(x=42, y=17, ...)`.*
 
 <details>
 <summary>Each thread has its own dynamic scope stack. There is also a global dynamic scope for default values, shared between threads. </summary>
 A newly spawned thread automatically copies the then-current state of the dynamic scope stack **from the main thread** (not the parent thread!). Any copied bindings will remain on the stack for the full dynamic extent of the new thread. Because these bindings are not associated with any `with` block running in that thread, and because aside from the initial copying, the dynamic scope stacks are thread-local, any copied bindings will never be popped, even if the main thread pops its own instances of them.
 
-The source of the copy is always the main thread mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, PRs welcome!)
+The source of the copy is always the main thread mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, a PR is welcome!)
 
-Finally, there is one global dynamic scope shared between all threads, where the default values of dynvars live. The default value is used when ``dyn`` is queried for the value outside the dynamic extent of any ``with dyn.let()`` blocks. Having a default value is convenient for eliminating the need for ``if "x" in dyn`` checks, since the variable will always exist (after the global definition has been executed).
+Finally, there is one global dynamic scope shared between all threads, where the default values of dynvars live. The default value is used when ``dyn`` is queried for the value outside the dynamic extent of any ``with dyn.let()`` blocks. Having a default value is convenient for eliminating the need for ``if "x" in dyn`` checks, since the variable will always exist (at any time after the global definition has been executed).
 </details>
 
 For more details, see the methods of ``dyn``; particularly noteworthy are ``asdict`` and ``items``, which give access to a *live view* to dyn's contents in a dictionary format (intended for reading only!). The ``asdict`` method essentially creates a ``collections.ChainMap`` instance, while ``items`` is an abbreviation for ``asdict().items()``. The ``dyn`` object itself can also be iterated over; this creates a ``ChainMap`` instance and redirects to iterate over it. ``dyn`` also provides the ``collections.abc.Mapping`` API.
 
-To support dictionary-like idioms in iteration, dynvars can alternatively be accessed by subscripting; ``dyn["x"]`` has the same meaning as ``dyn.x``, so you can do things like:
+To support dictionary-like idioms in iteration, dynvars can alternatively be accessed by subscripting; ``dyn["x"]`` has the same meaning as ``dyn.x``, to allow things like:
 
 ```python
 print(tuple((k, dyn[k]) for k in dyn))
@@ -472,9 +474,9 @@ For some more details, see [the unit tests](../unpythonic/tests/test_dynassign.p
 
 ### Relation to similar features in Lisps
 
-This is essentially [SRFI-39: Parameter objects](https://srfi.schemers.org/srfi-39/), using the MzScheme approach in the presence of multiple threads.
+This is essentially [SRFI-39: Parameter objects](https://srfi.schemers.org/srfi-39/) for Python, using the MzScheme approach in the presence of multiple threads.
 
-[Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html) behaves similarly. However, Racket seems to be the state of the art in many lispy language design related things, so its take on the feature may have some finer points I haven't thought of.
+[Racket](http://racket-lang.org/)'s [`parameterize`](https://docs.racket-lang.org/guide/parameterize.html) behaves similarly. However, Racket seems to be the state of the art in many lispy language design related things, so its take on the feature may have some finer points I have not thought of.
 
 On Common Lisp's special variables, see [Practical Common Lisp by Peter Seibel](http://www.gigamonkeys.com/book/variables.html), especially footnote 10 in the linked chapter, for a definition of terms. Similarly, dynamic variables in our `dyn` have *indefinite scope* (because `dyn` is implemented as a module-level global, accessible from anywhere), but *dynamic extent*.
 
