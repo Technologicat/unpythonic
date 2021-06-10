@@ -12,6 +12,6 @@ For examples of how to use these particular dialects, see the unit tests.
 """
 
 # re-exports
-from .lispython import Lispython, Lispy  # noqa: F401
-from .listhell import Listhell  # noqa: F401
-from .pytkell import Pytkell  # noqa: F401
+from .lispython import *  # noqa: F401, F403
+from .listhell import *  # noqa: F401, F403
+from .pytkell import *  # noqa: F401, F403
