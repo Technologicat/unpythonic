@@ -4,7 +4,7 @@
 Powered by `mcpyrate` and `unpythonic`.
 """
 
-__all__ = ["Lispython"]
+__all__ = ["Lispython", "Lispy"]
 
 __version__ = '2.0.0'
 
