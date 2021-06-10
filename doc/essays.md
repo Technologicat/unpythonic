@@ -11,17 +11,21 @@
 - [Additional reading](readings.md)
 - [Contribution guidelines](../CONTRIBUTING.md)
 
+For now, essays are listed in chronological order, most recent last.
+
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
 - [What Belongs in Python?](#what-belongs-in-python)
-- [`hoon`: The C of Functional Programming](#hoon-the-c-of-functional-programming)
 - [Common Lisp, Python, and productivity](#common-lisp-python-and-productivity)
+- [`hoon`: The C of Functional Programming](#hoon-the-c-of-functional-programming)
 
 <!-- markdown-toc end -->
 
 
 # What Belongs in Python?
+
+*Originally written in 2020; updated 9 June 2021.*
 
 You may feel that [my hovercraft is full of eels](http://stupidpythonideas.blogspot.com/2015/05/spam-spam-spam-gouda-spam-and-tulips.html). It is because they come with the territory.
 
@@ -56,7 +60,38 @@ What I can say is, `unpythonic` is not meant for the average Python project, eit
 For general programming in the early 2020s, Python still has the ecosystem advantage, so it does not make sense to move to anything else, at least yet. So, let us empower what we have. Even if we have to build something that could be considered *unpythonic*.
 
 
+# Common Lisp, Python, and productivity
+
+*Originally written in 2020; updated 9 June 2021.*
+
+The various essays Paul Graham wrote near the turn of the millennium, especially [Revenge of the Nerds (2002)](http://paulgraham.com/icad.html), have given the initial impulse to many programmers for studying Lisp. The essays are well written and have provided a lot of exposure for the Lisp family of languages. So how does the programming world look in that light now, 20 years later?
+
+The base abstraction level of programming languages, even those in popular use, has increased. The trend was visible already then, and was indeed noted in the essays. The focus on low-level languages such as C++ has decreased. Java is still popular, but high-level FP languages that compile to JVM bytecode (Kotlin, Scala, Clojure) are rising.
+
+Python has become highly popular, and is now also closer to Lisp than it was 20 years ago, especially after `MacroPy` introduced syntactic macros to Python (in 2013, [according to the git log](https://github.com/lihaoyi/macropy/commits/python2/macropy/__init__.py)). Python was not bad as a Lisp replacement even back in 2000 - see Peter Norvig's essay [Python for Lisp Programmers](https://norvig.com/python-lisp.html). Some more historical background, specifically on lexically scoped closures (and the initial lack thereof), can be found in [PEP 3104](https://www.python.org/dev/peps/pep-3104/), [PEP 227](https://www.python.org/dev/peps/pep-0227/), and [Historical problems with closures in JavaScript and Python](http://giocc.com/problems-with-closures-in-javascript-and-python.html).
+
+In 2020, does it still make sense to learn [the legendary](https://xkcd.com/297/) Common Lisp?
+
+As a practical tool? Is CL hands-down better than Python? Maybe no. Python has already delivered on 90% of the productivity promise of Lisp. Both languages cut down significantly on [accidental complexity](https://en.wikipedia.org/wiki/No_Silver_Bullet). Python has a huge library ecosystem. [`mcpyrate`](https://github.com/Technologicat/mcpyrate) and `unpythonic` are trying to push the language-level features a further 5%. (A full 100% is likely impossible when extending an existing language; if nothing else, there will be seams.)
+
+As for productivity, [it may be](https://medium.com/smalltalk-talk/lisp-smalltalk-and-the-power-of-symmetry-8bd96aaa0c0c) that a form of code-data equivalence (symmetry!), not macros specifically, is what makes Lisp powerful. If so, there may be other ways to reach that equivalence. For example Smalltalk, like Lisp, *runs in the same context it's written in*. All Smalltalk data are programs. Smalltalk [may be making a comeback](https://hackernoon.com/how-to-evangelize-a-programming-language-0p7p3y02), in the form of [Pharo](https://pharo.org/).
+
+Haskell aims at code-data equivalence from a third angle (memoized pure functions are in essence infinite lookup tables), but I have not used it in practice, so I do not have the experience to say whether this is enough to make it feel powerful in a similar way.
+
+Image-based programming (live programming) is a common factor between Pharo and Common Lisp + Swank. This is another productivity booster that much of the programming world is not that familiar with. It eliminates not only the edit/compile/restart cycle, but the edit/restart cycle as well, making the workflow a concurrent *edit/run* instead - without restarting the whole app at each change. Julia has [Revise.jl](https://github.com/timholy/Revise.jl) for something similar. In web applications, [REST](https://en.wikipedia.org/wiki/Representational_state_transfer) is a small step in a somewhat similar direction (as long as one can restart the server app easily, to make it use the latest definitions).
+
+But to know exactly what Common Lisp has to offer, **yes**, it does make sense to learn it. As baroque as some parts are, there are a lot of great ideas there. [Conditions](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) are one. [CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) is another. (Nowadays [Julia](https://docs.julialang.org/en/v1/manual/methods/) has CLOS-style [multiple-dispatch generic functions](https://docs.julialang.org/en/v1/manual/methods/).) More widely, in the ecosystem, Swank is one.
+
+Having more perspectives at one's disposal makes one a better programmer - and that is what ultimately counts. As [Alan Perlis said in 1982](https://en.wikiquote.org/wiki/Alan_Perlis):
+
+*A language that doesn't affect the way you think about programming, is not worth knowing.*
+
+In this sense, Common Lisp is very much worth knowing. Although, if you want a beautiful, advanced Lisp, maybe go for [Racket](https://racket-lang.org/) first; but that is an essay for another day. 
+
+
 # `hoon`: The C of Functional Programming
+
+*9 June 2021*
 
 Some days I wonder if this whole `unpythonic` endeavor even makes any sense. Then, turning the pages of [the book of sand](https://en.wikipedia.org/wiki/The_Book_of_Sand) that is the web, I [happen to run into something](http://axisofeval.blogspot.com/2015/07/what-i-learned-about-urbit-so-far.html) like `hoon`.
 
@@ -144,30 +179,3 @@ Using natural numbers for the opcodes at first glance sounds like a [Gödel numb
 Obviously, any interesting programs correspond to very large numbers, and are few and far between, so decoding random numbers via a Gödel numbering is not a practical way to generate interesting programs. [Genetic programming](https://en.wikipedia.org/wiki/Genetic_programming) works much better, because unlike Gödel numbering, it was actually designed specifically to do that. GP takes advantage of the semantic structure present in the source code (or AST) representation.
 
 The purpose of the original Gödel numbering was to prove Gödel's incompleteness theorem. In the case of `nock`, my impression is that the opcodes are natural numbers just for flavoring purposes. If you are building an ab initio software stack, what better way to announce that than to use natural numbers as your virtual machine's opcodes?
-
-
-# Common Lisp, Python, and productivity
-
-The various essays Paul Graham wrote near the turn of the millennium, especially [Revenge of the Nerds (2002)](http://paulgraham.com/icad.html), have given the initial impulse to many programmers for studying Lisp. The essays are well written and have provided a lot of exposure for the Lisp family of languages. So how does the programming world look in that light now, 20 years later?
-
-The base abstraction level of programming languages, even those in popular use, has increased. The trend was visible already then, and was indeed noted in the essays. The focus on low-level languages such as C++ has decreased. Java is still popular, but high-level FP languages that compile to JVM bytecode (Kotlin, Scala, Clojure) are rising.
-
-Python has become highly popular, and is now also closer to Lisp than it was 20 years ago, especially after `MacroPy` introduced syntactic macros to Python (in 2013, [according to the git log](https://github.com/lihaoyi/macropy/commits/python2/macropy/__init__.py)). Python was not bad as a Lisp replacement even back in 2000 - see Peter Norvig's essay [Python for Lisp Programmers](https://norvig.com/python-lisp.html). Some more historical background, specifically on lexically scoped closures (and the initial lack thereof), can be found in [PEP 3104](https://www.python.org/dev/peps/pep-3104/), [PEP 227](https://www.python.org/dev/peps/pep-0227/), and [Historical problems with closures in JavaScript and Python](http://giocc.com/problems-with-closures-in-javascript-and-python.html).
-
-In 2020, does it still make sense to learn [the legendary](https://xkcd.com/297/) Common Lisp?
-
-As a practical tool? Is CL hands-down better than Python? Maybe no. Python has already delivered on 90% of the productivity promise of Lisp. Both languages cut down significantly on [accidental complexity](https://en.wikipedia.org/wiki/No_Silver_Bullet). Python has a huge library ecosystem. [`mcpyrate`](https://github.com/Technologicat/mcpyrate) and `unpythonic` are trying to push the language-level features a further 5%. (A full 100% is likely impossible when extending an existing language; if nothing else, there will be seams.)
-
-As for productivity, [it may be](https://medium.com/smalltalk-talk/lisp-smalltalk-and-the-power-of-symmetry-8bd96aaa0c0c) that a form of code-data equivalence (symmetry!), not macros specifically, is what makes Lisp powerful. If so, there may be other ways to reach that equivalence. For example Smalltalk, like Lisp, *runs in the same context it's written in*. All Smalltalk data are programs. Smalltalk [may be making a comeback](https://hackernoon.com/how-to-evangelize-a-programming-language-0p7p3y02), in the form of [Pharo](https://pharo.org/).
-
-Haskell aims at code-data equivalence from a third angle (memoized pure functions are in essence infinite lookup tables), but I have not used it in practice, so I do not have the experience to say whether this is enough to make it feel powerful in a similar way.
-
-Image-based programming (live programming) is a common factor between Pharo and Common Lisp + Swank. This is another productivity booster that much of the programming world is not that familiar with. It eliminates not only the edit/compile/restart cycle, but the edit/restart cycle as well, making the workflow a concurrent *edit/run* instead - without restarting the whole app at each change. Julia has [Revise.jl](https://github.com/timholy/Revise.jl) for something similar. In web applications, [REST](https://en.wikipedia.org/wiki/Representational_state_transfer) is a small step in a somewhat similar direction (as long as one can restart the server app easily, to make it use the latest definitions).
-
-But to know exactly what Common Lisp has to offer, **yes**, it does make sense to learn it. As baroque as some parts are, there are a lot of great ideas there. [Conditions](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) are one. [CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) is another. (Nowadays [Julia](https://docs.julialang.org/en/v1/manual/methods/) has CLOS-style [multiple-dispatch generic functions](https://docs.julialang.org/en/v1/manual/methods/).) More widely, in the ecosystem, Swank is one.
-
-Having more perspectives at one's disposal makes one a better programmer - and that is what ultimately counts. As [Alan Perlis said in 1982](https://en.wikiquote.org/wiki/Alan_Perlis):
-
-*A language that doesn't affect the way you think about programming, is not worth knowing.*
-
-In this sense, Common Lisp is very much worth knowing. Although, if you want a beautiful, advanced Lisp, maybe go for [Racket](https://racket-lang.org/) first; but that is an essay for another day. 
