@@ -341,7 +341,7 @@ def _namedlambda(block_body):
                 else:
                     tree.value = self.visit(tree.value)
                 return tree
-            elif type(tree) is NamedExpr:  # f := lambda ...: ...  (Python 3.8+, added in unpythonic 0.15)
+            elif type(tree) is NamedExpr:  # f := lambda ...: ...  (Python 3.8+, added in unpythonic 0.15.0)
                 tree.value, thelambda, match = nameit(getname(tree.target), tree.value)
                 if match:
                     thelambda.body = self.visit(thelambda.body)
