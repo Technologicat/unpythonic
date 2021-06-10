@@ -47,7 +47,7 @@ The features of `unpythonic` are built out of, in increasing order of [magic](ht
  - Pure Python (e.g. batteries for `itertools`),
  - Macros driving a pure-Python core (`do`, `let`),
  - Pure macros (e.g. `continuations`, `lazify`, `dbg`).
- - Whole-module transformations, a.k.a. dialects.
+ - Whole-module transformations, a.k.a. dialects (e.g. `Lispy`).
 
 This depends on the purpose of each feature, as well as ease-of-use considerations. See the design notes for more information.
 
@@ -348,7 +348,7 @@ If this sounds a lot like an exception system, that's because conditions are the
 
 Roughly, a [symbol](https://stackoverflow.com/questions/8846628/what-exactly-is-a-symbol-in-lisp-scheme) is a guaranteed-[interned](https://en.wikipedia.org/wiki/String_interning) string.
 
-A [gensym](http://clhs.lisp.se/Body/f_gensym.htm) is a guaranteed-unique string, which is useful as a nonce value. It's similar to the pythonic idiom `nonce = object()`, but with a nice repr, and object-identity-preserving pickle support.
+A [gensym](http://clhs.lisp.se/Body/f_gensym.htm) is a guaranteed-*unique* string, which is useful as a nonce value. It's similar to the pythonic idiom `nonce = object()`, but with a nice repr, and object-identity-preserving pickle support.
 
 ```python
 from unpythonic import sym  # lispy symbol
@@ -559,7 +559,8 @@ with session("simple framework demo"):
         test[returns_normally(g(2, 3))]
         test[g(2, 3) == 6]
         # Use `the[]` (or several) in a `test[]` to declare what you want to inspect if the test fails.
-        test[counter() < the[counter()]]
+        # Implicit `the[]`: in comparison, the LHS; otherwise the whole expression. Used if no explicit `the[]`.
+        test[the[counter()] < the[counter()]]
 
     with testset("outer"):
         with testset("inner 1"):
@@ -729,11 +730,11 @@ with continuations:  # enables also TCO automatically
 
 The [dialects subsystem of `mcpyrate`](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) makes Python into a language platform, à la [Racket](https://racket-lang.org/). We provide some example dialects based on `unpythonic`'s macro layer. See [documentation](doc/dialects.md).
 
-<details><summary>Lispython: The love child of Python and Scheme.</summary>
+<details><summary>Lispython: automatic TCO and an implicit return statement.</summary>
 
 [[docs](doc/dialects/lispython.md)]
 
-Python with automatic tail-call optimization, an implicit return statement, and automatically named, multi-expression lambdas.
+Also comes with automatically named, multi-expression lambdas.
 
 ```python
 from unpythonic.dialects import dialects, Lispython  # noqa: F401
@@ -760,11 +761,9 @@ g = lambda x: [local[y << 2 * x],
 assert g(10) == 21
 ```
 </details>  
-<details><summary>Pytkell: Because it's good to have a kell.</summary>
+<details><summary>Pytkell: Automatic currying and implicitly lazy functions.</summary>
 
 [[docs](doc/dialects/pytkell.md)]
-
-Python with automatic currying and implicitly lazy functions.
 
 ```python
 from unpythonic.dialects import dialects, Pytkell  # noqa: F401
@@ -786,11 +785,9 @@ assert my_prod(range(1, 5)) == 24
 assert tuple(my_map((lambda x: 2 * x), (1, 2, 3))) == (2, 4, 6)
 ```
 </details>  
-<details><summary>Listhell: It's not Lisp, it's not Python, it's not Haskell.</summary>
+<details><summary>Listhell: Prefix syntax for function calls, and automatic currying.</summary>
 
 [[docs](doc/dialects/listhell.md)]
-
-Python with prefix syntax for function calls, and automatic currying.
 
 ```python
 from unpythonic.dialects import dialects, Listhell  # noqa: F401
