@@ -102,15 +102,18 @@ Tools to bind identifiers in ways not ordinarily supported by Python.
 
 ### ``let``, ``letrec``: local bindings in an expression
 
-**NOTE**: This is primarily a code generation target API for the ``let[]`` family of [macros](macros.md), which make the constructs easier to use. Below is the documentation for the raw API.
+**NOTE**: This is primarily a code generation target API for the ``let[]`` family of [macros](macros.md), which make the constructs easier to use, and make the code look almost like normal Python. Below is the documentation for the raw API.
 
-Introduces bindings local to an expression, like Scheme's ``let`` and ``letrec``. For easy-to-use versions of these constructs that look almost like normal Python, see [our macros](macros.md).
+The `let` constructs introduce bindings local to an expression, like Scheme's ``let`` and ``letrec``.
+
+#### ``let``
 
 In ``let``, the bindings are independent (do not see each other). A binding is of the form ``name=value``, where ``name`` is a Python identifier, and ``value`` is any expression.
 
 Use a `lambda e: ...` to supply the environment to the body:
 
 ```python
+# These six are the constructs covered in this section of documentation.
 from unpythonic import let, letrec, dlet, dletrec, blet, bletrec
 
 u = lambda lst: let(seen=set(),
@@ -125,6 +128,8 @@ Generally speaking, `body` is a one-argument function, which takes in the enviro
 *Let over lambda*. Here the inner ``lambda`` is the definition of the function ``counter``:
 
 ```python
+from unpythonic import let, begin
+
 counter = let(x=0,
               body=lambda e:
                      lambda:
@@ -133,6 +138,21 @@ counter = let(x=0,
 counter()  # --> 1
 counter()  # --> 2
 ```
+
+For comparison, with the macro API, this becomes:
+
+```python
+from unpythonic.syntax import macros, let, do
+
+counter = let[[x << 0] in
+              (lambda:
+                 do[x << x + 1,
+                    x])]
+counter()  # --> 1
+counter()  # --> 2
+```
+
+(*The parentheses around the lambda are just to make the expression into syntactically valid Python. You can also use brackets instead, denoting a multiple-expression `let` body - which is also valid even if there is just one expression. The `do` makes a multiple-expression `lambda` body. For more, see the [macro documentation](macros.md).*)
 
 Compare the sweet-exp [Racket](http://racket-lang.org/) (see [SRFI-110](https://srfi.schemers.org/srfi-110/srfi-110.html) and [sweet](https://docs.racket-lang.org/sweet/)):
 
@@ -146,9 +166,13 @@ counter()  ; --> 1
 counter()  ; --> 2
 ```
 
+#### ``dlet``, ``blet``
+
 *Let over def* decorator ``@dlet``, to *let over lambda* more pythonically:
 
 ```python
+from unpythonic import dlet
+
 @dlet(x=0)
 def counter(*, env=None):  # named argument "env" filled in by decorator
     env.x += 1
@@ -157,9 +181,28 @@ counter()  # --> 1
 counter()  # --> 2
 ```
 
-In `letrec`, bindings may depend on ones above them in the same `letrec`, by using `lambda e: ...` (**Python 3.6+**):
+For comparison, with the macro API, this becomes:
 
 ```python
+from unpythonic.syntax import macros, dlet
+
+@dlet(x << 0)
+def counter():
+    x << x + 1
+    return x
+counter()  # --> 1
+counter()  # --> 2
+```
+
+The ``@blet`` decorator is otherwise the same as ``@dlet``, but instead of decorating a function definition in the usual manner, it runs the `def` block immediately, and upon exit, replaces the function definition with the return value. The name ``blet`` is an abbreviation of *block let*, since the role of the `def` is just a code block to be run immediately.
+
+#### ``letrec``
+
+In `letrec`, bindings may depend on ones above them in the same `letrec`, by using `lambda e: ...`:
+
+```python
+from unpythonic import letrec
+
 x = letrec(a=1,
            b=lambda e:
                   e.a + 1,
@@ -167,13 +210,27 @@ x = letrec(a=1,
                   e.b)  # --> 2
 ```
 
-In `letrec`, the ``value`` of each binding is either a simple value (non-callable, and doesn't use the environment), or an expression of the form ``lambda e: valexpr``, providing access to the environment as ``e``. If ``valexpr`` itself is callable, the binding **must** have the ``lambda e: ...`` wrapper to prevent any misunderstandings in the environment initialization procedure.
+The ordering of the definitions is respected, because Python 3.6 and later preserve the ordering of named arguments passed in a function call. See [PEP 468](https://www.python.org/dev/peps/pep-0468/).
+
+For comparison, with the macro API, this becomes:
+
+```python
+from unpythonic.syntax import macros, letrec
+
+x = letrec[[a << 1,
+            b << a + 1] in
+           b]
+```
+
+In the non-macro `letrec`, the ``value`` of each binding is either a simple value (non-callable, and doesn't use the environment), or an expression of the form ``lambda e: valexpr``, providing access to the environment as ``e``. If ``valexpr`` itself is callable, the binding **must** have the ``lambda e: ...`` wrapper to prevent any misunderstandings in the environment initialization procedure.
 
 In a non-callable ``valexpr``, trying to depend on a binding below it raises ``AttributeError``.
 
-A callable ``valexpr`` may depend on any bindings (also later ones) in the same `letrec`. Mutually recursive functions:
+A callable ``valexpr`` may depend on any bindings (also later ones) in the same `letrec`. For example, here is a pair of mutually recursive functions:
 
 ```python
+from unpythonic import letrec
+
 letrec(evenp=lambda e:
                lambda x:
                  (x == 0) or e.oddp(x - 1),
@@ -184,9 +241,24 @@ letrec(evenp=lambda e:
                e.evenp(42))  # --> True
 ```
 
+For comparison, with the macro API, this becomes:
+
+```python
+from unpythonic.syntax import macros, letrec
+
+letrec[[evenp << (lambda x:
+                   (x == 0) or oddp(x - 1)),
+        oddp <<  (lambda x:
+                   (x != 0) and evenp(x - 1))] in
+       evenp(42)]  # --> True
+```
+
+
 Order-preserving list uniqifier:
 
 ```python
+from unpythonic import letrec, begin
+
 u = lambda lst: letrec(seen=set(),
                        see=lambda e:
                               lambda x:
@@ -196,11 +268,22 @@ u = lambda lst: letrec(seen=set(),
                               [e.see(x) for x in lst if x not in e.seen])
 ```
 
-**CAUTION**: in Pythons older than 3.6, bindings are **initialized in an arbitrary order**, also in `letrec`. This is a limitation of the kwargs abuse. Hence mutually recursive functions are possible, but a non-callable `valexpr` cannot depend on other bindings in the same `letrec`.
+For comparison, with the macro API, this becomes:
 
-Trying to access `e.foo` from `e.bar` arbitrarily produces either the intended value of `e.foo`, or the uninitialized `lambda e: ...`, depending on whether `e.foo` has been initialized or not at the point of time when `e.bar` is being initialized.
+```python
+from unpythonic.syntax import macros, letrec, do
 
-This has been fixed in Python 3.6, see [PEP 468](https://www.python.org/dev/peps/pep-0468/).
+u = lambda lst: letrec[[seen << set(),
+                        see << (lambda x:
+                                  do[seen.add(x),
+                                     x])] in
+                       [[see(x) for x in lst if x not in seen]]]
+```
+
+(*The double brackets around the `letrec` body are needed because brackets denote a multiple-expression `letrec` body. So it is a multiple-expression body that contains just one expression, which is a list comprehension.*)
+
+The decorators ``@dletrec`` and ``@bletrec`` work otherwise exactly like ``@dlet`` and ``@blet``, respectively, but the bindings are scoped like in ``letrec`` (mutually recursive scope).
+
 
 #### Lispylet: alternative syntax
 
@@ -232,6 +315,24 @@ letrec((("evenp", lambda e:
 ```
 
 The syntax is `let(bindings, body)` (respectively `letrec(bindings, body)`), where `bindings` is `((name, value), ...)`, and `body` is like in the default variants. The same rules concerning `name` and `value` apply.
+
+For comparison, with the macro API, the above becomes:
+
+```python
+from unpythonic.syntax import macros, letrec
+
+letrec[[a << 1,
+        b << a + 1] in
+       b]
+
+letrec[[evenp << (lambda x:
+                   (x == 0) or oddp(x - 1)),
+        oddp <<  (lambda x:
+                   (x != 0) and evenp(x - 1))] in
+       evenp(42)]  # --> True
+```
+
+(*The transformations made by the macros may be the most apparent when comparing these examples. Note that the macros scope the `let` bindings lexically, automatically figuring out which `let` environment, if any, to refer to.*)
 
 
 ### ``env``: the environment
