@@ -34,7 +34,7 @@ On the other hand, `unpythonic` is a kitchen-sink language extension, and half o
 
 If you intend to **use** `unpythonic.syntax` or `unpythonic.dialects`, or if you intend to **develop** `unpythonic` (specifically: to be able to run its test suite), then you will need a macro expander.
 
-As of v0.15.0, specifically you'll need [`mcpyrate`](https://github.com/Technologicat/mcpyrate).
+As of v0.15.0, specifically you will need [`mcpyrate`](https://github.com/Technologicat/mcpyrate).
 
 
 ### Why `mcpyrate` and not MacroPy?
@@ -46,7 +46,7 @@ Beside the advanced features, the reason we use `mcpyrate` is that the `unpython
 
 ### Cannot import the name `macros`?
 
-In `mcpyrate`-based programs, there is no run-time object named `macros`, so failing to import that usually means that, for some reason, the macro expander was not active.
+In `mcpyrate`-based programs, there is no run-time object named `macros`, so failing to import that usually means that, for some reason, the macro expander is not enabled.
 
 Macro-enabled, `mcpyrate`-based programs expect to be run with `macropython` (included in the [`mcpyrate` PyPI package](https://pypi.org/project/mcpyrate/)) instead of bare `python3`.
 
@@ -70,13 +70,13 @@ This will force a recompile of the `.py` files the next time they are loaded. Th
 
 ### I'm hacking a macro inside a module in `unpythonic.syntax`, and my changes don't take?
 
-This is also likely due to a stale bytecode cache. As of `mcpyrate` 3.4.0, macro re-exports, used by `unpythonic.syntax.__init__`, may confuse the macro-dependency analyzer that determines bytecode cache validity.
+This is also likely due to a stale bytecode cache. As of `mcpyrate` 3.4.0, macro re-exports, used by `unpythonic.syntax.__init__`, are not seen by the macro-dependency analyzer that determines bytecode cache validity.
 
-The thing to realize here is that as per macropythonic tradition, in `mcpyrate`, a function being a macro is a property of its **use site**, not of its definition site. So how do we re-export a macro? We simply re-export the macro function, like we would do for any other function.
+The important point to realize here is that as per macropythonic tradition, in `mcpyrate`, a function being a macro is a property of its **use site**, not of its definition site. So how do we re-export a macro? We simply re-export the macro function, like we would do for any other function.
 
-Importantly, the import to make that re-export happen does not look like a macro-import. This is the right way to do it, since we want to make the object (macro function) available for clients to import, **not** establish bindings in the macro expander *for compiling the module `unpythonic.syntax.__init__` itself*. (The latter is what a macro-import does - it establishes macro bindings *for the module it lexically appears in*.)
+The import to make that re-export happen does not look like a macro-import. This is the right way to do it, since we want to make the object (macro function) available for clients to import, **not** establish bindings in the macro expander *for compiling the module `unpythonic.syntax.__init__` itself*. (The latter is what a macro-import does - it establishes macro bindings *for the module it lexically appears in*.)
 
-The problem is, the macro-dependency analyzer only looks at the macro-import dependency graph, not the full dependency graph, so when analyzing the user program (e.g. a unit test module in `unpythonic.syntax.tests`), it doesn't notice that the macro definition has changed.
+The problem is, the macro-dependency analyzer only looks at the macro-import dependency graph, not the full dependency graph, so when analyzing the user program (e.g. a unit test module in `unpythonic.syntax.tests`), it does not scan the re-export that points to the changed macro definition.
 
 I might modify the `mcpyrate` analyzer in the future, but doing so will make the dependency scan a lot slower than it needs to be in most circumstances, because a large majority of imports in Python have nothing to do with macros.
 
