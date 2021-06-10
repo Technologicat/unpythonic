@@ -652,6 +652,8 @@ In the second example, returning ``x`` separately is redundant, because the assi
 
 ### ``namedlambda``: auto-name your lambdas
 
+**Changed in v0.15.0.** *When `namedlambda` encounters a lambda definition it cannot infer a name for, it instead injects source location info into the name, provided that the AST node for that particular `lambda` has a line number for it. The result looks like `<lambda at some/path/mymod.py:201>`.*
+
 Who said lambdas have to be anonymous?
 
 ```python
@@ -695,41 +697,49 @@ The naming is performed using the function ``unpythonic.misc.namelambda``, which
  - **Added in v0.15.0**: Named expressions (a.k.a. walrus operator, Python 3.8+), ``f := lambda ...: ...``
 
  - Expression-assignment to an unpythonic environment, ``f << (lambda ...: ...)``
-   - Env-assignments are processed lexically, just like regular assignments.
+   - Env-assignments are processed lexically, just like regular assignments. This should not cause problems, because left-shifting by a literal lambda most often makes no sense (whence, that syntax is *almost* guaranteed to mean an env-assignment).
 
- - Let bindings, ``let[[f << (lambda ...: ...)] in ...]``, using any let syntax supported by unpythonic (here using the haskelly let-in just as an example).
+ - Let bindings, ``let[[f << (lambda ...: ...)] in ...]``, using any let syntax supported by unpythonic (here using the haskelly let-in with env-assign style bindings just as an example).
 
  - **Added in v0.14.2**: Named argument in a function call, as in ``foo(f=lambda ...: ...)``.
 
  - **Added in v0.14.2**: In a dictionary literal ``{...}``, an item with a literal string key, as in ``{"f": lambda ...: ...}``.
 
-Support for other forms of assignment may or may not be added in a future version.
+Support for other forms of assignment may or may not be added in a future version. We will maintain a list here; but if you want the gritty details, see the `_namedlambda` syntax transformer in [`unpythonic.syntax.lambdatools`](../unpythonic/syntax/lambdatools.py).
 
-### ``fn``: underscore notation (quick lambdas) for Python.
+### ``fn``: underscore notation (quick lambdas) for Python
 
-**Changed in v0.15.0.** *Up to 0.14.x, the `f[]` macro used to be provided by `macropy`, but now that we use `mcpyrate`, we provide this ourselves.*
+**Changed in v0.15.0.** *Up to 0.14.x, the `f[]` macro used to be provided by `macropy`, but now that we use `mcpyrate`, we provide this ourselves. Note that the name of the construct is now `fn[]`.*
 
-*The name is now `fn[]`. This was changed because `f` is often used as a function name in code examples, local temporaries, and similar. Also, `fn[]` is a less ambiguous abbreviation for a syntactic construct that means *function*, while remaining shorter than the equivalent `lambda`.*
-
-*The underscore `_` is no longer a macro on its own. The `fn` macro treats the underscore magically, as `f` did before, but anywhere else the underscore is available to be used as a regular variable. If you use `fn[]`, change your import of this macro to `from unpythonic.syntax import macros, fn`.**
-
-*The underscore does **not** need to be imported for `fn[]` to recognize it. But if you want to make your IDE happy, there is a symbol named `_` in `unpythonic.syntax` you can import to silence any "undefined name" errors regarding the use of `_`. It is a regular run-time object, not a macro.*
-
-The syntax ``fn[...]`` creates a lambda, where each underscore in the ``...`` part introduces a new parameter. The macro does not descend into any nested ``fn[]``.
-
-Example:
+The syntax ``fn[...]`` creates a lambda, where each underscore `_` in the ``...`` part introduces a new parameter:
 
 ```python
-func = fn[_ * _]  # --> func = lambda x, y: x * y
+from unpythonic.syntax import macros, fn
+from unpythonic.syntax import _  # optional, makes IDEs happy
+
+double = fn[_ * 2]  # --> double = lambda x: x * 2
+mul = fn[_ * _]  # --> mul = lambda x, y: x * y
 ```
 
-Since in `mcpyrate`, macros can be as-imported, you can rename `fn` at import time to have any name you want. The `quicklambda` block macro (see below) respects the as-import. Now you **must** import also the macro `fn` when you import the macro `quicklambda`, because `quicklambda` internally queries the expander to determine the name(s) the macro `fn` is currently bound to.
+The macro does not descend into any nested ``fn[]``, to allow the macro expander itself to expand those separately.
+
+We have named the construct `fn`, because `f` is often used as a function name in code examples, local temporaries, and similar. Also, `fn[]` is a less ambiguous abbreviation for a syntactic construct that means *function*, while remaining shorter than the equivalent `lambda`.
+
+The underscore `_` itself is not a macro. The `fn` macro treats the underscore magically, just like MacroPy's `f`, but anywhere else the underscore is available to be used as a regular variable.
+
+The underscore does not need to be imported for `fn[]` to recognize it, but if you want to make your IDE happy, there is a symbol named `_` in `unpythonic.syntax` you can import to silence any "undefined name" errors regarding the use of `_`. It is a regular run-time object, not a macro.
+
+(It *could* be made into a `@namemacro` that triggers a syntax error when it appears in an improper context, like starting with v0.15.0, many auxiliary constructs in similar roles already do. But it was decided that in this particular case, it is more valuable to have the name `_` available for other uses in other contexts, because it is a standard dummy name in Python. The lambdas created using `fn[]` are likely short enough that not automatically detecting misplaced underscores does not cause problems in practice.)
+
+Because in `mcpyrate`, macros can be as-imported, you can rename `fn` at import time to have any name you want. The `quicklambda` block macro (see below) respects the as-import. You **must** import also the macro `fn` if you use `quicklambda`, because `quicklambda` internally queries the expander to determine the name(s) the macro `fn` is currently bound to. If the `fn` macro is not bound to any name, `quicklambda` will do nothing.
+
+It is sufficient that `fn` has been macro-imported by the time when the `with quicklambda` expands. So it is possible, for example, for a dialect template to macro-import just `quicklambda` and inject an invocation for it, and leave macro-importing `fn` to the user code. The `Lispy` variant of the [Lispython dialect](dialects/lispython.md) does exactly this.
 
 ### ``quicklambda``: expand quick lambdas first
 
 To be able to transform correctly, the block macros in ``unpythonic.syntax`` that transform lambdas (e.g. ``multilambda``, ``tco``) need to see all ``lambda`` definitions written with Python's standard ``lambda``.
 
-However, the ``fn`` macro uses the syntax ``fn[...]``, which (to the analyzer) does not look like a lambda definition. This macro changes the expansion order, forcing any ``fn[...]`` lexically inside the block to expand before any other macros do.
+However, the ``fn`` macro uses the syntax ``fn[...]``, which (to the analyzer) does not look like a lambda definition. The `quicklambda` block macro changes the expansion order, forcing any ``fn[...]`` lexically inside the block to expand before any other macros do.
 
 Any expression of the form ``fn[...]``, where ``fn`` is any name bound in the current macro expander to the macro `unpythonic.syntax.fn`, is understood as a quick lambda. (In plain English, this respects as-imports of the macro ``fn``.)
 
@@ -1082,30 +1092,38 @@ See the docstring of ``unpythonic.syntax.tco`` for details.
 
 We provide **genuine multi-shot continuations for Python**. Compare generators and coroutines, which are resumable functions, or in other words, single-shot continuations. In single-shot continuations, once execution passes a certain point, it cannot be rewound. Multi-shot continuations [can be emulated](https://gist.github.com/yelouafi/858095244b62c36ec7ebb84d5f3e5b02), but this makes the execution time `O(n**2)`, because when we want to restart again at an already passed point, the execution must start from the beginning, replaying the history. In contrast, **we implement continuations that can natively resume execution multiple times from the same point.**
 
-This feature has some limitations and is mainly intended for teaching continuations in a Python setting.
+This feature has some limitations and is mainly intended for experimenting with, and teaching, multi-shot continuations in a Python setting.
 
-- Especially, there are seams between continuation-enabled code and regular Python code. (This happens with any feature that changes the semantics of only a part of a program.)
+- There are seams between continuation-enabled code and regular Python code. (This happens with any feature that changes the semantics of only a part of a program.)
 
-- There's no [`dynamic-wind`](https://docs.racket-lang.org/reference/cont.html#%28def._%28%28quote._~23~25kernel%29._dynamic-wind%29%29) (the generalization of `try/finally`, when control can jump back in to the block from outside it).
+- There is no [`dynamic-wind`](https://docs.racket-lang.org/reference/cont.html#%28def._%28%28quote._~23~25kernel%29._dynamic-wind%29%29) (the generalization of `try/finally`, when control can jump back in to the block from outside it).
 
-- Interaction of continuations with exceptions isn't fully thought out. Interaction with async functions **is currently not even implemented**. This is quite simply because this feature is primarily for teaching, and the implementation is already quite complex.
+- Interaction of continuations with exceptions is not fully thought out.
 
-- The implicit `cc` parameter might not be a good idea in the long run, and it might or might not change in a future release. It suffers from the same lack of transparency as the implicit `this` in many languages (e.g. C++ and JavaScript).
-  - Because it's implicit, it's easy to forget that each function definition implicitly introduces its own `cc`.
-    - This introduces a bug when one introduces an inner function, and attempts to use the outer `cc` inside the inner function body, forgetting that inside the inner function the name `cc` points to **the inner function's** own `cc`.
+- Interaction with async functions **is not even implemented**. An `async def` or `await` appearing inside a `with continuations` block is considered a syntax error.
+
+- The implicit `cc` parameter might not be a good idea in the long run.
+  - This design might or might not change in a future release. It suffers from the same lack of transparency, whence the same potential for bugs, as the implicit `this` in many languages (e.g. C++ and JavaScript).
+  - Because `cc` is *declared* implicitly, it is easy to forget that *every* function definition anywhere inside the `with continuations` block introduces its own `cc` parameter.
+    - This introduces a bug when one introduces an inner function, and attempts to use the outer `cc` inside the inner function body, forgetting that inside the inner function, the name `cc` points to **the inner function's** own `cc`.
+      - The correct pattern is to `outercc = cc` in the outer function, and then use `outercc` inside the inner function body.
     - Not introducing its own `this` [was precisely why](http://tc39wiki.calculist.org/es6/arrow-functions/) the arrow function syntax was introduced to JavaScript in ES6.
-  - Python gets `self` right in that while it's conveniently *passed* implicitly, it must be *declared* explicitly, eliminating the transparency issue.
-  - On the other hand, a semi-explicit `cc`, like Python's `self`, was tried in a previous release, and it led to a lot of boilerplate. It's especially bad that it effectively needs to be a keyword parameter, necessitating the user to write `def f(x, *, cc)`.
+  - Python gets `self` right in that while it is conveniently *passed* implicitly, it must be *declared* explicitly, eliminating the transparency issue.
+  - On the other hand, a semi-explicit `cc`, like Python's `self`, was tried in an early version of this continuations subsystem, and it led to a lot of boilerplate. It is especially bad that to avoid easily avoidable bugs regarding passing in the wrong arguments, `cc` effectively must be a keyword parameter, necessitating the user to write `def f(x, *, cc)`. Not having to type out the `, *, cc` is much nicer, albeit not as pythonic.
 
 #### General remarks on continuations
 
-If you're new to continuations, see the [short and easy Python-based explanation](https://www.ps.uni-saarland.de/~duchier/python/continuations.html) of the basic idea.
+If you are new to continuations, see the [short and easy Python-based explanation](https://www.ps.uni-saarland.de/~duchier/python/continuations.html) of the basic idea.
 
-We provide a very loose pythonification of Paul Graham's continuation-passing macros, chapter 20 in [On Lisp](http://paulgraham.com/onlisp.html).
+We essentially provide a very loose pythonification of Paul Graham's continuation-passing macros, chapter 20 in [On Lisp](http://paulgraham.com/onlisp.html).
 
 The approach differs from native continuation support (such as in Scheme or Racket) in that the continuation is captured only where explicitly requested with ``call_cc[]``. This lets most of the code work as usual, while performing the continuation magic where explicitly desired.
 
-As a consequence of the approach, our continuations are [*delimited*](https://en.wikipedia.org/wiki/Delimited_continuation) in the very crude sense that the captured continuation ends at the end of the body where the *currently dynamically outermost* ``call_cc[]`` was used (and it returns a value). Hence, if porting some code that uses ``call/cc`` from Racket to Python, in the Python version the ``call_cc[]`` may be need to be placed further out to capture the relevant part of the computation. For example, see ``amb`` in the demonstration below; a Scheme or Racket equivalent usually has the ``call/cc`` placed inside the ``amb`` operator itself, whereas in Python we must place the ``call_cc[]`` at the call site of ``amb``.
+As a consequence of the approach, our continuations are [*delimited*](https://en.wikipedia.org/wiki/Delimited_continuation) in the very crude sense that the captured continuation ends at the end of the body where the *currently dynamically outermost* ``call_cc[]`` was used. Notably, in `unpythonic`, a continuation eventually terminates and returns a value, without hijacking the rest of the whole-program execution.
+
+Hence, if porting some code that uses ``call/cc`` from Racket to Python, in the Python version the ``call_cc[]`` may be need to be placed further out to capture the relevant part of the computation. For example, see ``amb`` in the demonstration below; a Scheme or Racket equivalent usually has the ``call/cc`` placed inside the ``amb`` operator itself, whereas in Python we must place the ``call_cc[]`` at the call site of ``amb``.
+
+Observe that while our outermost `call_cc` already somewhat acts like a prompt (in the sense of delimited continuations), we are currently missing the ability to set a prompt wherever (inside code that already uses `call_cc` somewhere) and terminate the capture there. So what we have right now is something between proper delimited continuations and classic whole-computation continuations - not really [co-values](http://okmij.org/ftp/continuations/undelimited.html), but not really delimited continuations, either.
 
 For various possible program topologies that continuations may introduce, see [these clarifying pictures](callcc_topology.pdf).
 
