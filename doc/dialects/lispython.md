@@ -87,7 +87,7 @@ In terms of ``unpythonic.syntax``, we implicitly enable ``autoreturn``, ``tco``,
         - Note the analysis is performed at compile time, whence it does **not** care about the short-circuit behavior that occurs at run time.
       - The last item of a `do[]`.
       - The last item of an implicit `do[]` in a `let[]` where the body uses the extra bracket syntax. (All `let` constructs provided by `unpythonic.syntax` are supported.)
-    - For the gritty details, see the source code of `unpythonic.syntax.tailtools._transform_retexpr`.
+    - For the gritty details, see the syntax transformer `_transform_retexpr` in [`unpythonic.syntax.tailtools`](../../unpythonic/syntax/tailtools.py).
   - Multiple-expression lambdas, using bracket syntax, for example ``lambda x: [expr0, ...]``.
     - Brackets denote a multiple-expression lambda body. Technically, the brackets create a `do[]` environment.
     - If you want your lambda to have one expression that is a literal list, double the brackets: `lambda x: [[5 * x]]`.
