@@ -37,12 +37,35 @@ def _canonize_macroargs_node(macroargs):
         return macroargs.elts
     return [macroargs]  # anything that doesn't have at least one comma at the top level
 
-def canonize_bindings(elts, letsyntax_mode=False):  # public as of v0.14.3+
-    """Wrap a single binding without container into a length-1 `list`.
+# For analysis of let-bindings and env-assignments.
+def _isname(tree):
+    """Return whether `tree` is a lexical name.
 
-    Pass through multiple bindings as-is.
+    The actual `ast.Name` may be wrapped in a `mcpyrate.core.Done`, which is produced
+    by expanded `@namemacro`s; we accept a `Done` containing an `ast.Name`, too.
+
+    We don't accept hygienic captures, since those correspond to values, not names.
+    """
+    return type(tree) is Name or (isinstance(tree, Done) and _isname(tree.body))
+def _isbindingtarget(tree, letsyntax_mode):
+    """Return whether `tree` is a valid target for a let-binding or env-assignment.
+
+    letsyntax_mode: used by let_syntax to allow template definitions.
+    This allows, beside a bare name `k`, the formats `k(a0, ...)` and `k[a0, ...]`
+    to appear in the variable-name position.
+    """
+    return (_isname(tree) or
+            (letsyntax_mode and ((type(tree) is Call and _isname(tree.func)) or
+                                              (type(tree) is Subscript and _isname(tree.value)))))
+
+def canonize_bindings(elts, letsyntax_mode=False):  # public as of v0.14.3+
+    """Convert any `let` bindings format supported by `unpythonic` into a canonical format.
 
     Yell if the input format is invalid.
+
+    The canonical format is a `list` of `ast.Tuple`::
+
+        [Tuple(elts=[k0, v0]), ...]
 
     elts: `list` of bindings, one of::
         [(k0, v0), ...]    # multiple bindings contained in a tuple
@@ -59,22 +82,10 @@ def canonize_bindings(elts, letsyntax_mode=False):  # public as of v0.14.3+
     This allows, beside a bare name `k`, the formats `k(a0, ...)` and `k[a0, ...]`
     to appear in the variable-name position.
     """
-    def isname(tree):
-        # Note we don't accept hygienic captures.
-        # The `Done` may be produced by expanded `@namemacro`s.
-        return type(tree) is Name or (isinstance(tree, Done) and isname(tree.body))
-    def isbindingtarget(tree):
-        return (isname(tree) or
-                (letsyntax_mode and ((type(tree) is Call and isname(tree.func)) or
-                                                  (type(tree) is Subscript and isname(tree.value)))))
     def iskvpairbinding(lst):
-        return len(lst) == 2 and isbindingtarget(lst[0])
-    def isenvassignbinding(tree):
-        if not (type(tree) is BinOp and type(tree.op) is LShift):
-            return False
-        return isbindingtarget(tree.left)
+        return len(lst) == 2 and _isbindingtarget(lst[0], letsyntax_mode)
 
-    if len(elts) == 1 and isenvassignbinding(elts[0]):  # [k << v]
+    if len(elts) == 1 and isenvassign(elts[0], letsyntax_mode):  # [k << v]
         return [Tuple(elts=[elts[0].left, elts[0].right])]
     if len(elts) == 2 and iskvpairbinding(elts):  # [k, v]
         return [Tuple(elts=elts)]  # TODO: `mcpyrate`: just `q[t[elts]]`?
@@ -82,20 +93,23 @@ def canonize_bindings(elts, letsyntax_mode=False):  # public as of v0.14.3+
         return elts
     if all((type(b) is List and iskvpairbinding(b.elts)) for b in elts):  # [[k0, v0], ...]
         return [Tuple(elts=b.elts) for b in elts]
-    if all((isenvassign(b) and isbindingtarget(b.left)) for b in elts):  # [k0 << v0, ...]
+    if all(isenvassign(b, letsyntax_mode) for b in elts):  # [k0 << v0, ...]
         return [Tuple(elts=[b.left, b.right]) for b in elts]
     raise SyntaxError("expected bindings to be `(k0, v0), ...`, `[k0, v0], ...`, or `k0 << v0, ...`, or a single `k, v`, or `k << v`")  # pragma: no cover
 
-def isenvassign(tree):
+def isenvassign(tree, letsyntax_mode=False):
     """Detect whether tree is an unpythonic ``env`` assignment, ``name << value``.
 
     The only way this differs from a general left-shift is that the LHS must be
     an ``ast.Name``.
+
+    letsyntax_mode: used by let_syntax to allow template definitions.
+    This allows, beside a bare name `k`, the formats `k(a0, ...)` and `k[a0, ...]`
+    to appear in the variable-name position.
     """
     if not (type(tree) is BinOp and type(tree.op) is LShift):
         return False
-    # The `Done` may be produced by expanded `@namemacro`s.
-    return type(tree.left) is Name or (isinstance(tree.left, Done) and type(tree.body) is Name)
+    return _isbindingtarget(tree.left, letsyntax_mode)
 
 # TODO: This would benefit from macro destructuring in the expander.
 # TODO: See https://github.com/Technologicat/mcpyrate/issues/3
