@@ -115,15 +115,23 @@ The point behind providing `let` and `begin` (and the ``let[]`` and ``do[]`` [ma
 
 The oft-quoted single-expression limitation of the Python ``lambda`` is ultimately a herring, as this library demonstrates. The real problem is the statement/expression dichotomy. In Python, the looping constructs (`for`, `while`), the full power of `if`, and `return` are statements, so they cannot be used in lambdas. (This observation has been earlier made by others, too; see e.g. the [Wikipedia page on anonymous functions](https://en.wikipedia.org/wiki/Anonymous_function#Python).) We can work around some of this:
 
+ - The expr macro `do[]` gives us sequencing, i.e. allows to use, in any expression position, multiple expressions that run in the specified order.
  - The expr macro ``cond[]`` gives us a general ``if``/``elif``/``else`` expression.
    - Without it, the expression form of `if` (that Python already has) could be used, but readability suffers if nested, since it has no ``elif``. Actually, [`and` and `or` are sufficient for full generality](https://www.ibm.com/developerworks/library/l-prog/), but readability suffers even more.
    - So we use macros to define a ``cond`` expression, essentially duplicating a feature the language already almost has. See [our macros](macros.md).
- - Functional looping (with TCO, to boot) is possible. See the constructs in ``unpythonic.fploop``.
+ - Functional looping (with TCO) gives us equivalents of ``for`` and ``while``. See the constructs in ``unpythonic.fploop``, particularly ``looped`` and ``breakably_looped``.
  - ``unpythonic.ec.call_ec`` gives us ``return`` (the ec).
  - ``unpythonic.misc.raisef`` gives us ``raise``, and ``unpythonic.misc.tryf`` gives us ``try``/``except``/``else``/``finally``.
- - A lambda can be named (``unpythonic.misc.namelambda``, with some practical limitations on the fully qualified name of nested lambdas).
- - Even an anonymous function can recurse with some help (``unpythonic.fun.withself``).
+ - A lambda can be named, see ``unpythonic.misc.namelambda``.
+   - There are some practical limitations on the fully qualified name of nested lambdas.
+   - Note this does not bind the name to an identifier at the use site, so the name cannot be used to recurse. The point is that the name is available for inspection, and it will show in tracebacks.
+ - A lambda can recurse using ``unpythonic.fun.withself``. You will get a `self` argument that points to the lambda itself, and is passed implicitly, like `self` usually in Python.
+ - A lambda can define a class using the three-argument form of the builtin `type` function. For an example, see [Peter Corbett (2005): Statementless Python](https://gist.github.com/brool/1679908), a complete minimal Lisp interpreter implemented as a single Python expression.
+ - A lambda can import a module using the builtin `__import__`, or better, `importlib.import_module`.
+ - A lambda can assert by using an if-expression and then ``raisef`` to actually raise the ``AssertionError``.
+   - This can be packaged into a function ``assertf``, though that requires jumping through some hoops to produce a traceback that omits ``assertf`` itself. See ``equip_with_traceback``.
  - Context management (``with``) is currently **not** available for lambdas, even in ``unpythonic``.
+   - Aside from the `async` stuff, this is the last hold-out preventing full generality, so we will likely add an expression form of ``with`` in a future version. This is tracked in [issue #76](https://github.com/Technologicat/unpythonic/issues/76).
 
 Still, ultimately one must keep in mind that Python is not a Lisp. Not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful, even though it does have a side effect.
 
