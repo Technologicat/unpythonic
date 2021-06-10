@@ -171,14 +171,16 @@ The common denominator is programming. Some relate to language design, some to c
 
 - [Pascal Costanza's Highly Opinionated Guide to Lisp (2013)](http://www.p-cos.net/lisp/guide.html)
 
+- [Peter Seibel (2005): Practical Common Lisp](https://gigamonkeys.com/book/)
+  - This book is an excellent introduction that walks through Common Lisp, including some advanced features. It is also useful for non-lispers to take home interesting ideas from CL.
+
 - R. Kent Dybvig, Simon Peyton Jones, Amr Sabry (2007). A Monadic Framework for Delimited Continuations. Journal of functional programming, 17(6), 687-730. Preprint [here](https://legacy.cs.indiana.edu/~dyb/pubs/monadicDC.pdf).
   - Particularly approachable explanation of delimited continuations.
-  - Could try building that for `unpythonic` in a future version. While our outermost `call_cc` already somewhat acts like a prompt, we're currently missing the ability to set a prompt wherever (inside code that already uses `call_cc` somewhere) and terminate the capture there. So what we have right now is something between proper delimited continuations and classic whole-computation continuations - not really [co-values](http://okmij.org/ftp/continuations/undelimited.html), but not really delimited continuations, either.
+  - Could try building that for `unpythonic` in a future version.
 
 - [Wat: Concurrency and Metaprogramming for JS](https://github.com/manuel/wat-js)
   - [pywat: Interpreter of the Wat language written in Python](https://github.com/piokuc/pywat)
   - [Example of Wat in Manuel Simoni's blog (2013)](http://axisofeval.blogspot.com/2013/05/green-threads-in-browser-in-20-lines-of.html)
-  - This suggests building proper delimited continuations shouldn't be that hard in Python.
 
 - [Richard P. Gabriel, Kent M. Pitman (2001): Technical Issues of Separation in Function Cells and Value Cells](https://dreamsongs.com/Separation.html)
   - A discussion of [Lisp-1 vs. Lisp-2](https://en.wikipedia.org/wiki/Lisp-1_vs._Lisp-2).
