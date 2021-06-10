@@ -485,13 +485,15 @@ So what we have in `dyn` is almost exactly like Common Lisp's special variables,
 
 ## Containers
 
-We provide some additional containers.
+We provide some additional low-level containers beyond those provided by Python itself.
 
 The class names are lowercase, because these are intended as low-level utility classes in principle on par with the builtins. The immutable containers are hashable. All containers are pickleable (if their contents are).
 
 ### ``frozendict``: an immutable dictionary
 
-Given the existence of ``dict`` and ``frozenset``, this one is oddly missing from the standard library.
+**Changed in 0.14.2**. *[A bug in `frozendict` pickling](https://github.com/Technologicat/unpythonic/issues/55) has been fixed. Now also the empty `frozendict` pickles and unpickles correctly.*
+
+Given the existence of ``dict`` and ``frozenset``, this one is oddly missing from the language.
 
 ```python
 from unpythonic import frozendict
@@ -529,7 +531,7 @@ assert fd == {1: 2, 3: 4}
 
 **The usual caution** concerning immutable containers in Python applies: the container protects only the bindings against changes. If the values themselves are mutable, the container cannot protect from mutations inside them.
 
-All the usual read-access stuff works:
+All the usual read-access features work:
 
 ```python
 d7 = frozendict({1:2, 3:4})
@@ -559,15 +561,13 @@ assert hash(d7) == hash(frozendict({1:2, 3:4}))
 assert hash(d7) != hash(frozendict({1:2}))
 ```
 
-The abstract superclasses are virtual, just like for ``dict`` (i.e. they do not appear in the MRO).
+The abstract superclasses are virtual, just like for ``dict``. We mean *virtual* in the sense of [`abc.ABCMeta`](https://docs.python.org/3/library/abc.html#abc.ABCMeta), i.e. a virtual superclass does not appear in the MRO.
 
 Finally, ``frozendict`` obeys the empty-immutable-container singleton invariant:
 
 ```python
 assert frozendict() is frozendict()
 ```
-
-**Changed in 0.14.2**. *[A bug in `frozendict` pickling](https://github.com/Technologicat/unpythonic/issues/55) has been fixed. Now also the empty `frozendict` pickles and unpickles correctly.*
 
 
 ### `cons` and friends: pythonic lispy linked lists
