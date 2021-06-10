@@ -58,7 +58,7 @@ For general programming in the early 2020s, Python still has the ecosystem advan
 
 # `hoon`: The C of Functional Programming
 
-Some days I wonder if this whole `unpythonic` endeavor even makes any sense. Then, turning the pages of the [book of sand](https://en.wikipedia.org/wiki/The_Book_of_Sand) that is the web, I [happen to run into something](http://axisofeval.blogspot.com/2015/07/what-i-learned-about-urbit-so-far.html) like `hoon`.
+Some days I wonder if this whole `unpythonic` endeavor even makes any sense. Then, turning the pages of [the book of sand](https://en.wikipedia.org/wiki/The_Book_of_Sand) that is the web, I [happen to run into something](http://axisofeval.blogspot.com/2015/07/what-i-learned-about-urbit-so-far.html) like `hoon`.
 
 Its philosophy is best described by this gem from an [early version of its documentation](https://github.com/cgyarvin/urbit/blob/master/doc/book/0-intro.markdown#hoon):
 
@@ -74,7 +74,7 @@ Since - by the fact that the programmer called a particular standard library fun
 
 The important point is, you *could* write out a `nock` macro that does the same thing, only it would be unbearably slow. In the axiomatic perspective - which is about proving programs correct - speed does not matter. At the same time, FFI gives speed for the real world.
 
-To summarize; as someone already put it, `hoon` offers a glimpse into an alternate universe of systems programming, where the functional camp won. It may also be a useful tool, or a source for further unconventional ideas - but to know for sure, I will have to read more about it.
+To summarize; as someone already put it, `hoon` offers a glimpse into an alternative universe of systems programming, where the functional camp won. It may also be a useful tool, or a source for further unconventional ideas - but to know for sure, I will have to read more about it.
 
 I think the perfect place to end this piece is to quote a few lines from the language definition [`hoon.hoon`](https://github.com/cgyarvin/urbit/blob/master/urb/zod/arvo/hoon.hoon), to give a flavor:
 
@@ -125,9 +125,9 @@ The Lisp family (particularly the Common Lisp branch) has a reputation for silly
 
 I actually like the phonetic base, making numbers sound like [*sorreg-namtyv*](https://urbit.org/docs/hoon/hoon-school/nouns/); that is 5 702 400 for the rest of us. And I think I will, quite seriously, adopt the verb *bunt*, meaning *to take the default value of*. That is such a common operation in programming that I find it hard to believe there is no standard abbreviation. I wonder what other discoveries await.
 
-Finally, in some way I cannot quite put a finger on, to me the style has echoes of [Jorge Luis Borges](https://en.wikipedia.org/wiki/Jorge_Luis_Borges). I can imagine `hoon` as the *official* programming language of *[Tlön](https://en.wikipedia.org/wiki/Tl%C3%B6n%2C_Uqbar%2C_Orbis_Tertius)*.
+Finally, in some way I cannot quite put a finger on, to me the style has echoes of [Jorge Luis Borges](https://en.wikipedia.org/wiki/Jorge_Luis_Borges). Maybe it is that the `hoon` source code sounds like something out of [The Library of Babel](https://en.wikipedia.org/wiki/The_Library_of_Babel). The Borgesian flavor seems intentional, too; the company building the Urbit stack, which `hoon` is part of, is itself named *[Tlon](https://en.wikipedia.org/wiki/Tl%C3%B6n%2C_Uqbar%2C_Orbis_Tertius)*. Remaking the world by re-imagining it, indeed.
 
-So maybe there is a place for `unpythonic`, too.
+Maybe there is a place for `unpythonic`, too.
 
 
 **Links**
