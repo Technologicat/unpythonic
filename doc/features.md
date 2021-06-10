@@ -380,6 +380,8 @@ When the `with` block exits, the environment clears itself. The environment inst
 
 ### ``assignonce``
 
+*As of v0.15.0, `assignonce` is mostly a standalone curiosity that has never been integrated with the rest of `unpythonic`. But anything that works with arbitrary subclasses of `env`, for example `mogrify`, works with it, too.*
+
 In Scheme terms, make `define` and `set!` look different:
 
 ```python
@@ -392,7 +394,7 @@ with assignonce() as e:
     e.foo = "quux"          # AttributeError, e.foo already defined.
 ```
 
-It's a subclass of ``env``, so it shares most of the same [features](#env-the-environment) and allows similar usage.
+The `assignonce` construct is a subclass of ``env``, so it shares most of the same [features](#env-the-environment) and allows similar usage.
 
 #### Historical note
 
