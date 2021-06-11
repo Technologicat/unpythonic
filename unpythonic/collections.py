@@ -810,7 +810,7 @@ def in_slice(i, s, length=None):
     (if ``s.start`` or ``s.stop`` is ``None``).
 
     If ``length is None``, negative or missing ``s.start`` or ``s.stop`` may raise
-    ValueError. (A negative ``s.step`` by itself does not need ``l``.)
+    ValueError. (A negative ``s.step`` by itself does not need ``length``.)
     """
     if not isinstance(s, (slice, int)):
         raise TypeError(f"s must be slice or int, got {type(s)} with value {s}")
