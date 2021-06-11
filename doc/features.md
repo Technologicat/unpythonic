@@ -660,7 +660,9 @@ We provide a ``JackOfAllTradesIterator`` as a compromise that understands both t
 
 **Changed in v0.14.2**. *Accessing the `.x` attribute of a `box` directly is now deprecated. It will continue to work with `box` at least until 0.15, but it does not and cannot work with `ThreadLocalBox`, which must handle things differently due to implementation reasons. Use the API mentioned above; it supports both kinds of boxes with the same syntax.*
 
-No doubt anyone programming in an imperative language has run into the situation caricatured by this highly artificial example:
+#### ``box``
+
+Consider this highly artificial example:
 
 ```python
 animal = "dog"
@@ -672,7 +674,7 @@ f(animal)
 assert animal == "dog"
 ```
 
-Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to manually remember that it is supposed to hold only a single item), or (if the lexical structure of the particular piece of code allows it) using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
+Many solutions exist. Common pythonic ones are abusing a ``list`` to represent a box (and then trying to remember that it is supposed to hold only a single item), or (if the lexical structure of the particular piece of code allows it) using the ``global`` or ``nonlocal`` keywords to tell Python, on assignment, to overwrite a name that already exists in a surrounding scope.
 
 As an alternative to the rampant abuse of lists, we provide a rackety ``box``, which is a minimalistic mutable container that holds exactly one item. Any code that has a reference to the box can update the data in it:
 
@@ -741,11 +743,21 @@ assert "fox" in box3
 
 The expression ``item in b`` has the same meaning as ``unbox(b) == item``. Note ``box`` is a **mutable container**, so it is **not hashable**.
 
-The expression `unbox(b)` has the same meaning as `b.get()`, but because it is a function (instead of a method), it additionally sanity checks that `b` is a box, and if not, raises `TypeError`.
+The expression `unbox(b)` has the same meaning as `b.get()`, but because it is a function (instead of a method), it additionally sanity-checks that `b` is a box, and if not, raises `TypeError`.
 
 The expression `b << newitem` has the same meaning as `b.set(newitem)`. In both cases, the new value is returned as a convenience.
 
-`ThreadLocalBox` is otherwise exactly like `box`, but it's magic: its contents are thread-local. It also holds a default object, which is set initially when the `ThreadLocalBox` is instantiated. The default object is seen by threads that have not placed any object into the box.
+#### ``Some``
+
+We also provide an **immutable** box, `Some`. This can be useful to represent optional data.
+
+The idea is that the value, when present, is placed into a `Some`, such as `Some(42)`, `Some("cat")`, `Some(myobject)`. Then, the situation where the value is absent can be represented as a bare `None`. So specifically, `Some(None)` means that a value is present and this value is `None`, whereas a bare `None` means that there is no value.
+
+(It is like the `Some` constructor of a `Maybe` monad, but with no monadic magic. In this interpretation, the bare constant `None` plays the role of `Nothing`.)
+
+#### ``ThreadLocalBox``
+
+`ThreadLocalBox` is otherwise exactly like `box`, but magical: its contents are thread-local. It also holds a default object, which is set initially when the `ThreadLocalBox` is instantiated. The default object is seen by threads that have not placed any object into the box.
 
 ```python
 from unpythonic import ThreadLocalBox, unbox
@@ -802,16 +814,14 @@ tlb.clear()                 # When we clear the box in this thread...
 assert unbox(tlb) == "cat"  # ...this thread sees the current default object again.
 ```
 
-We also provide an **immutable** box, `Some`. This can be useful for optional data. The idea is that the value, when present, is placed into a `Some`, such as `Some(42)`, `Some("cat")`, `Some(myobject)`. Then, the situation where the value is absent can be represented as a bare `None`. So specifically, `Some(None)` means that a value is present and this value is `None`, whereas a bare `None` means that there is no value.
-
 
 ### ``Shim``: redirect attribute accesses
 
 **Added in v0.14.2**.
 
-A `Shim` is an attribute access proxy. The shim holds a `box` (or a `ThreadLocalBox`), and redirects attribute accesses on the shim to whatever object happens to currently be in the box. The point is that the object in the box can be replaced with a different one later (by sending another object into the box), and the code accessing the proxied object through the shim doesn't need to be aware that anything has changed.
+A `Shim` is an *attribute access proxy*. The shim holds a `box` (or a `ThreadLocalBox`; your choice), and redirects attribute accesses on the shim to whatever object happens to currently be in the box. The point is that the object in the box can be replaced with a different one later (by sending another object into the box), and the code accessing the proxied object through the shim does not need to be aware that anything has changed.
 
-For example, this can combo with `ThreadLocalBox` to redirect standard output only in particular threads. Place the stream object in a `ThreadLocalBox`, shim that box, then replace `sys.stdout` with the shim. See the source code of `unpythonic.net.server` for an example that actually does (and cleanly undoes) this.
+For example, `Shim` can combo with `ThreadLocalBox` to redirect standard output only in particular threads. Place the stream object in a `ThreadLocalBox`, shim that box, then replace `sys.stdout` with the shim. See the source code of `unpythonic.net.server` for an example that actually does (and cleanly undoes) this.
 
 Since deep down, attribute access is the whole point of objects, `Shim` is essentially a transparent object proxy. (For example, a method call is an attribute read (via a descriptor), followed by a function call.)
 
@@ -844,9 +854,9 @@ assert s.getme() == 42
 assert not hasattr(s, "y")  # The new TestTarget instance doesn't have "y".
 ```
 
-A shim can have an optional fallback object. It can be either any object, or a box if you want to replace the fallback later. **For attribute reads** (i.e. `__getattr__`), if the object in the primary box does not have the requested attribute, `Shim` will try to get it from the fallback. If `fallback` is boxed, the attribute read takes place on the object in the box. If it is not boxed, the attribute read takes place directly on `fallback`.
+A shim can have an optional fallback object. It can be either any object, or a `box` (or `ThreadLocalBox`) if you want to replace the fallback later. **For attribute reads** (i.e. `__getattr__`), if the object in the primary box does not have the requested attribute, `Shim` will try to get it from the fallback. If `fallback` is boxed, the attribute read takes place on the object in the box. If it is not boxed, the attribute read takes place directly on `fallback`.
 
-Any **attribute writes** (i.e. `__setattr__`, binding or rebinding an attribute) always take place on the object in the primary box.
+Any **attribute writes** (i.e. `__setattr__`, binding or rebinding an attribute) always take place on the object in the **primary** box. That is, binding or rebinding of attributes is never performed on the fallback object.
 
 ```python
 from unpythonic import Shim, box, unbox
@@ -889,8 +899,33 @@ assert s.y == "hi from Wai"
 assert s.z == "hi from Zee"
 ```
 
+Or, since the operation takes just one `elt` and an `acc`, we can also use `reducer` instead of `foldr`, shortening this by one line:
+
+```python
+from unpythonic import Shim, box, unbox, reducer
+
+class Ex:
+    x = "hi from Ex"
+class Wai:
+    x = "hi from Wai"
+    y = "hi from Wai"
+class Zee:
+    x = "hi from Zee"
+    y = "hi from Zee"
+    z = "hi from Zee"
+
+ # There will be tried from left to right.
+boxes = [box(obj) for obj in (Ex(), Wai(), Zee())]
+s = reducer(Shim, boxes)  # Shim(box, fallback) <-> op(elt, acc)
+assert s.x == "hi from Ex"
+assert s.y == "hi from Wai"
+assert s.z == "hi from Zee"
+```
+
 
 ### Container utilities
+
+**Changed in v0.15.0.** *The sequence length argument in `in_slice`, `index_in_slice` is now named `length`, not `l` (ell). This avoids an E741 warning in `flake8`, and is more descriptive.*
 
 **Inspect the superclasses** that a particular container type has:
 
