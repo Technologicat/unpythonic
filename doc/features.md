@@ -102,7 +102,7 @@ Tools to bind identifiers in ways not ordinarily supported by Python.
 
 ### ``let``, ``letrec``: local bindings in an expression
 
-**NOTE**: This is primarily a code generation target API for the ``let[]`` family of [macros](macros.md), which make the constructs easier to use, and make the code look almost like normal Python. Below is the documentation for the raw API.
+**NOTE**: *This is primarily a code generation target API for the ``let[]`` family of [macros](macros.md), which make the constructs easier to use, and make the code look almost like normal Python. Below is the documentation for the raw API.*
 
 The `let` constructs introduce bindings local to an expression, like Scheme's ``let`` and ``letrec``.
 
