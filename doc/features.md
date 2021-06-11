@@ -955,41 +955,53 @@ An optional length argument can be given to interpret negative indices. See the 
 
 Sequencing refers to running multiple expressions, in sequence, in place of one expression.
 
-Keep in mind the only reason to ever need multiple expressions: *side effects.* (Assignment is a side effect, too; it modifies the environment. In functional style, intermediate named definitions to increase readability are perhaps the most useful kind of side effect.)
+Keep in mind the only reason to ever need multiple expressions: *side effects.* Assignment is a side effect, too; it modifies the environment. In functional style, intermediate named definitions to increase readability are perhaps the most useful kind of side effect.
 
 See also ``multilambda`` in [macros](macros.md).
 
 
 ### ``begin``: sequence side effects
 
-**CAUTION**: the `begin` family of forms are provided **for use in pure-Python projects only** (and are a permanent part of the `unpythonic` API for that purpose). If your project uses macros, prefer the `do[]` and `do0[]` macros; these are the only sequencing constructs understood by other macros in `unpythonic.syntax` that need to perform tail-position analysis (e.g. `tco`, `autoreturn`, `continuations`). The `do[]` and `do0[]` macros also provide some convenience features, such as expression-local variables.
+**CAUTION**: the `begin` family of forms are provided **for use in pure-Python projects only**, and are a permanent part of the `unpythonic` API for that purpose. They are somewhat simpler and less flexible than the `do` family, described further below.
+
+*If your project uses macros, prefer the `do[]` and `do0[]` macros; those are the only sequencing constructs understood by other macros in `unpythonic.syntax` that need to perform tail-position analysis (e.g. `tco`, `autoreturn`, `continuations`). The `do[]` and `do0[]` macros also provide some convenience features, such as expression-local variables.*
 
 ```python
 from unpythonic import begin, begin0
 
 f1 = lambda x: begin(print("cheeky side effect"),
-                     42*x)
+                     42 * x)
 f1(2)  # --> 84
 
-f2 = lambda x: begin0(42*x,
+f2 = lambda x: begin0(42 * x,
                       print("cheeky side effect"))
 f2(2)  # --> 84
 ```
 
-Actually a tuple in disguise. If worried about memory consumption, use `lazy_begin` and `lazy_begin0` instead, which indeed use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`unpythonic.seq`](../unpythonic/seq.py) for details.
+The `begin` and `begin0` forms are actually tuples in disguise; evaluation of all items occurs before the `begin` or `begin0` form gets control. Items are evaluated left-to-right due to Python's argument passing rules.
+
+We provide also `lazy_begin` and `lazy_begin0`, which use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`unpythonic.seq`](../unpythonic/seq.py) for details.
 
 
 ### ``do``: stuff imperative code into an expression
 
-**NOTE**: This is primarily a code generation target API for the ``do[]`` [macro](macros.md), which makes the construct easier to use. Below is the documentation for the raw API.
+**NOTE**: *This is primarily a code generation target API for the ``do[]`` and ``do0[]`` [macros](macros.md), which make the constructs easier to use, and make the code look almost like normal Python. Below is the documentation for the raw API.*
 
-No monadic magic. Basically, ``do`` is:
+Basically, the ``do`` family is a more advanced and flexible variant of the ``begin`` family.
 
-  - An improved ``begin`` that can bind names to intermediate results and then use them in later items.
+  - ``do`` can bind names to intermediate results and then use them in later items.
 
-  - A ``let*`` (technically, ``letrec``) where making a binding is optional, so that some items can have only side effects if so desired. No semantically distinct ``body``; all items play the same role.
+  - ``do`` is effectively a ``let*`` (technically, ``letrec``) where making a binding is optional, so that some items can have only side effects if so desired. There is no semantically distinct ``body``; all items play the same role.
 
-Like in ``letrec`` (see below), use ``lambda e: ...`` to access the environment, and to wrap callable values (to prevent misunderstandings).
+  - Despite the name, there is no monadic magic.
+
+Like in ``letrec``, use ``lambda e: ...`` to access the environment, and to wrap callable values (to prevent misinterpretation by the machinery).
+
+Unlike ``begin`` (and ``begin0``), there is no separate ``lazy_do`` (``lazy_do0``), because using a ``lambda e: ...`` wrapper for an item will already delay its evaluation; and the main point of ``do``/``do0`` is that there is an environment that holds local definitions. If you want a lazy variant, just wrap each item with a ``lambda e: ...``, also those that don't otherwise need it.
+
+#### ``do``
+
+Like ``begin`` and ``lazy_begin``, the ``do`` form evaluates all items in order, and then returns the value of the **last** item.
 
 ```python
 from unpythonic import do, assign
@@ -1002,7 +1014,7 @@ y = do(assign(x=17),          # create and set e.x
 assert y == 42
 
 y = do(assign(x=17),
-       assign(z=lambda e: 2*e.x),
+       assign(z=lambda e: 2 * e.x),
        lambda e: e.z)
 assert y == 34
 
@@ -1013,16 +1025,91 @@ y = do(assign(x=5),
 assert y == 25
 ```
 
-If you need to return the first value instead of the last one, use this trick:
+For comparison, with the macro API, this becomes:
 
 ```python
+from unpythonic.syntax import macros, do, local
+
+y = do[local[x << 17],  # create and set an x local to the environment
+       print(x),
+       x << 23,         # overwrite x
+       print(x),
+       42]              # return value
+assert y == 42
+
+y = do[local[x << 17],
+       local[z << 2 * x],
+       z]
+assert y == 34
+
+y = do[local[x << 5],
+       local[f << (lambda x: x**2)],
+       print("hello from 'do'"),
+       f(x)]
+assert y == 25
+```
+
+*In the macro version, all items are delayed automatically; that is, **every** item has an implicit ``lambda e: ...``.*
+
+*Note that instead of the `assign` function, the macro version uses the syntax ``local[name << value]`` to **create** an expression-local variable. Updating an existing variable in the `do` environment is just ``name << value``. Finally, there is also ``delete[name]`.*
+
+When using the raw API, beware of this pitfall:
+
+```python
+from unpythonic import do
+
+do(lambda e: print("hello 2 from 'do'"),  # delayed because lambda e: ...
+   print("hello 1 from 'do'"),  # Python prints immediately before do()
+   "foo")                       # gets control, because technically, it is
+                                # **the return value** that is an argument
+                                # for do().
+```
+
+The above pitfall also applies to using escape continuations inside a ``do``. To do that, wrap the ec call into a ``lambda e: ...`` to delay its evaluation until the ``do`` actually runs:
+
+```python
+from unpythonic import call_ec, do, assign
+
+call_ec(
+  lambda ec:
+    do(assign(x=42),
+       lambda e: ec(e.x),                  # IMPORTANT: must delay this!
+       lambda e: print("never reached")))  # and this (as above)
+```
+
+This way, any assignments made in the ``do`` (which occur only after ``do`` gets control), performed above the line with the ``ec`` call, will have been performed when the ``ec`` is called.
+
+For comparison, with the macro API, the last example becomes:
+
+```python
+from unpythonic.syntax import macros, do, local
+from unpythonic import call_ec
+
+call_ec(
+  lambda ec:
+    do[local[x << 42],
+       ec(x),
+       print("never reached")])
+```
+
+*In the macro version, all items are delayed automatically, so there ``do``/``do0`` gets control before any items are evaluated. The `ec` fires when the `do` evaluates that item, and the `print` is indeed never reached.*
+
+#### ``do0``
+
+Like ``begin0`` and ``lazy_begin0``, the ``do0`` form evaluates all items in order, and then returns the value of the **first** item.
+
+It effectively does this internally:
+
+```python
+from unpythonic import do, assign
+
 y = do(assign(result=17),
        print("assigned 'result' in env"),
        lambda e: e.result)  # return value
 assert y == 17
 ```
 
-Or use ``do0``, which does it for you:
+So we can write:
 
 ```python
 from unpythonic import do0, assign
@@ -1038,29 +1125,26 @@ y = do0(assign(x=17),  # the first item of do0 can be an assignment, too
 assert y == 17
 ```
 
-Beware of this pitfall:
+For comparison, with the macro API, this becomes:
 
 ```python
-do(lambda e: print("hello 2 from 'do'"),  # delayed because lambda e: ...
-   print("hello 1 from 'do'"),  # Python prints immediately before do()
-   "foo")                       # gets control, because technically, it is
-                                # **the return value** that is an argument
-                                # for do().
+from unpythonic.syntax import macros, do, local
+
+y = do[local[result << 17],
+       print("assigned 'result' in env"),
+       result]
+assert y == 17
+
+y = do0[17,
+        local[x << 42],
+        print(x),
+        print("hello from 'do0'")]
+assert y == 17
+
+y = do0[local[x << 17],
+        print(x)]
+assert y == 17
 ```
-
-Unlike ``begin`` (and ``begin0``), there is no separate ``lazy_do`` (``lazy_do0``), because using a ``lambda e: ...`` wrapper will already delay evaluation of an item. If you want a lazy variant, just wrap each item (also those which don't otherwise need it).
-
-The above pitfall also applies to using escape continuations inside a ``do``. To do that, wrap the ec call into a ``lambda e: ...`` to delay its evaluation until the ``do`` actually runs:
-
-```python
-call_ec(
-  lambda ec:
-    do(assign(x=42),
-       lambda e: ec(e.x),                  # IMPORTANT: must delay this!
-       lambda e: print("never reached")))  # and this (as above)
-```
-
-This way, any assignments made in the ``do`` (which occur only after ``do`` gets control), performed above the line with the ``ec`` call, will have been performed when the ``ec`` is called.
 
 
 ### ``pipe``, ``piped``, ``lazy_piped``: sequence functions
