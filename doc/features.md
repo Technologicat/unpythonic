@@ -574,6 +574,8 @@ assert frozendict() is frozendict()
 
 *Laugh, it's funny.*
 
+**Changed in v0.14.2.** *`nil` is now a `Singleton`, so it is treated correctly by `pickle`. The `nil` instance refresh code inside the `cons` class has been removed, so the previous caveat about pickling a standalone `nil` value no longer applies.*
+
 ```python
 from unpythonic import (cons, nil, ll, llist,
                         car, cdr, caar, cdar, cadr, cddr,
