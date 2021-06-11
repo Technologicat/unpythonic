@@ -611,9 +611,9 @@ assert lzip(ll(1, 2, 3), ll(4, 5, 6)) == ll(ll(1, 4), ll(2, 5), ll(3, 6))
 
 Cons cells are immutable à la Racket (no `set-car!`/`rplaca`, `set-cdr!`/`rplacd`). Accessors are provided up to `caaaar`, ..., `cddddr`.
 
-Although linked lists are created with ``ll`` or ``llist``, the data type (for e.g. ``isinstance``) is ``cons``.
+Although linked lists are created with the functions ``ll`` or ``llist``, the data type (for e.g. ``isinstance``) is ``cons``.
 
-Iterators are supported to walk over linked lists (this also gives sequence unpacking support). When ``next()`` is called, we return the car of the current cell the iterator points to, and the iterator moves to point to the cons cell in the cdr, if any. When the cdr is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
+Iterators are supported, to walk over linked lists. This also gives sequence unpacking support. When ``next()`` is called, we return the `car` of the current cell the iterator points to, and the iterator moves to point to the cons cell in the `cdr`, if any. When the `cdr` is not a cons cell, it is the next (and last) item returned; except if it `is nil`, then iteration ends without returning the `nil`.
 
 Python's builtin ``reversed`` can be applied to linked lists; it will internally ``lreverse`` the list (which is O(n)), then return an iterator to that. The ``llist`` constructor is special-cased so that if the input is ``reversed(some_ll)``, it just returns the internal already reversed list. (This is safe because cons cells are immutable.)
 
@@ -639,7 +639,7 @@ For more, see the ``llist`` submodule.
 
 There is no ``copy`` method or ``lcopy`` function, because cons cells are immutable; which makes cons structures immutable.
 
-(However, for example, it is possible to ``cons`` a new item onto an existing linked list; that's fine because it produces a new cons structure - which shares data with the original, just like in Racket.)
+However, for example, it is possible to ``cons`` a new item onto an existing linked list; that is fine, because it produces a new cons structure - which shares data with the original, just like in Racket.
 
 In general, copying cons structures can be error-prone. Given just a starting cell it is impossible to tell if a given instance of a cons structure represents a linked list, or something more general (such as a binary tree) that just happens to locally look like one, along the path that would be traversed if it was indeed a linked list.
 
@@ -648,8 +648,6 @@ The linked list iteration strategy does not recurse in the ``car`` half, which c
 We provide a ``JackOfAllTradesIterator`` as a compromise that understands both trees and linked lists. Nested lists will be flattened, and in a tree any ``nil`` in a ``cdr`` position will be omitted from the output. ``BinaryTreeIterator`` and ``JackOfAllTradesIterator`` use an explicit data stack instead of implicitly using the call stack for keeping track of the recursion. All ``cons`` iterators work for arbitrarily deep cons structures without causing Python's call stack to overflow, and without the need for TCO.
 
 ``cons`` has no ``collections.abc`` virtual superclasses (except the implicit ``Hashable`` since ``cons`` provides ``__hash__`` and ``__eq__``), because general cons structures do not fit into the contracts represented by membership in those classes. For example, size cannot be known without iterating, and depends on which iteration scheme is used (e.g. ``nil`` dropping, flattening); which scheme is appropriate depends on the content.
-
-**Caution**: the ``nil`` singleton is freshly created in each session; newnil is not oldnil, so don't pickle a standalone ``nil``. The unpickler of ``cons`` automatically refreshes any ``nil`` instances inside a pickled cons structure, so that **cons structures** support the illusion that ``nil`` is a special value like ``None`` or ``...``. After unpickling, ``car(c) is nil`` and ``cdr(c) is nil`` still work as expected, even though ``id(nil)`` has changed between sessions.
 
 
 ### ``box``: a mutable single-item container
