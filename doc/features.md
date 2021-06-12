@@ -300,7 +300,7 @@ The decorators ``@dletrec`` and ``@bletrec`` work otherwise exactly like ``@dlet
 
 #### Lispylet: alternative syntax
 
-**NOTE**: This is primarily a code generation target API for the ``let[]`` family of [macros](macros.md), which make the constructs easier to use. Below is the documentation for the raw API.
+**NOTE**: *This is primarily a code generation target API for the ``let[]`` family of [macros](macros.md), which make the constructs easier to use. Below is the documentation for the raw API.*
 
 The `lispylet` module was originally created to allow guaranteed left-to-right initialization of `letrec` bindings in Pythons older than 3.6, hence the positional syntax and more parentheses. The only difference is the syntax; the behavior is identical with the other implementation. As of 0.15, the main role of `lispylet` is to act as the run-time backend for the `let` family of macros.
 
