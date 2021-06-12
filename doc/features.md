@@ -1905,7 +1905,7 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
    - `inn`: contains-check (``x in iterable``) with automatic termination for monotonic divergent infinite iterables.
      - Only applicable to monotonic divergent inputs (such as ``primes``). Increasing/decreasing is auto-detected from the first non-zero diff, but the function may fail to terminate if the input is actually not monotonic, or has an upper/lower bound.
    - `iindex`: like ``list.index``, but for a general iterable. Consumes the iterable, so only makes sense for memoized inputs.
-   - `CountingIterator`: count how many items have been yielded, as a side effect. The count is stored in the `.count` attribute. **Added in v0.14.2.**
+   - `CountingIterator`: use `CountingIterator(iterable)` instead of `iter(iterable)` to produce an iterator that, as a side effect, counts how many items have been yielded. The count is stored in the `.count` attribute. **Added in v0.14.2.**
    - `slurp`: extract all items from a `queue.Queue` (until it is empty) to a list, returning that list. **Added in v0.14.2.**
    - `subset`: test whether an iterable is a subset of another. **Added in v0.14.3.**
    - `powerset`: yield the power set (set of all subsets) of an iterable. Works also for potentially infinite iterables, if only a finite prefix is ever requested. (But beware, both runtime and memory usage are exponential in the input size.) **Added in v0.14.2.**
