@@ -1946,8 +1946,9 @@ def step2(k):  # x0, x0 + 2, x0 + 4, ...
 assert tuple(take(10, unfold1(step2, 10))) == (10, 12, 14, 16, 18, 20, 22, 24, 26, 28)
 
 def nextfibo(a, b):
-    # First positional is value; everything else is newstate,
-    # to be unpacked to `nextfibo`'s args/kwargs at the next iteration.
+    # First positional return value is the value to yield.
+    # Everything else is newstate, to be unpacked to `nextfibo`'s
+    # args/kwargs at the next iteration.
     return Values(a, a=b, b=a + b)
 assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 

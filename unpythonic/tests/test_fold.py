@@ -183,8 +183,9 @@ def runtests():
             return (k, k + 2)  # (value, newstate)
 
         def fibo(a, b):
-            # First positional is value; everything else is newstate,
-            # to be unpacked to `fibo`'s args/kwargs at the next iteration.
+            # First positional return value is the value to yield.
+            # Everything else is newstate, to be unpacked to `fibo`'s
+            # args/kwargs at the next iteration.
             return Values(a, a=b, b=a + b)
 
         def myiterate(f, x):  # x0, f(x0), f(f(x0)), ...
