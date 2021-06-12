@@ -1062,9 +1062,7 @@ y = do[local[x << 5],
 assert y == 25
 ```
 
-*In the macro version, all items are delayed automatically; that is, **every** item has an implicit ``lambda e: ...``.*
-
-*Note that instead of the `assign` function, the macro version uses the syntax ``local[name << value]`` to **create** an expression-local variable. Updating an existing variable in the `do` environment is just ``name << value``. Finally, there is also ``delete[name]`.*
+*In the macro version, all items are delayed automatically; that is, **every** item has an implicit ``lambda e: ...``. Note that instead of the `assign` function, the macro version uses the syntax ``local[name << value]`` to **create** an expression-local variable. Updating an existing variable in the `do` environment is just ``name << value``. Finally, there is also ``delete[name]``.*
 
 When using the raw API, beware of this pitfall:
 
