@@ -1830,7 +1830,7 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
    - Return the first ``n`` items and the ``k``th tail, in a tuple. Default is ``k = n``.
    - Use ``k > n`` to fast-forward, consuming the skipped items. Works by `drop`.
    - Use ``k < n`` to peek without permanently extracting an item. Works by [tee](https://docs.python.org/3/library/itertools.html#itertools.tee)ing; plan accordingly.
- - *folds, scans, unfold*:
+ - *fold, scan, unfold*:
    - `foldl`, `foldr` with support for multiple input iterables, like in Racket.
      - Like in Racket, `op(elt, acc)`; general case `op(e1, e2, ..., en, acc)`. Note Python's own `functools.reduce` uses the ordering `op(acc, elt)` instead.
      - No sane default for multi-input case, so the initial value for `acc` must be given.
