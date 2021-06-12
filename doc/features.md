@@ -209,7 +209,9 @@ The ``@blet`` decorator is otherwise the same as ``@dlet``, but instead of decor
 
 #### ``letrec``
 
-In `letrec`, bindings may depend on ones above them in the same `letrec`, by using `lambda e: ...`:
+The name of this construct comes from the Scheme family of Lisps, and stands for *let (mutually) recursive*. The "[mutually recursive](https://en.wikipedia.org/wiki/Mutual_recursion)" refers to the kind of scoping between the bindings in the same `letrec`.
+
+In plain English, in `letrec`, bindings may depend on ones above them in the same `letrec`. The raw API in `unpythonic` uses a `lambda e: ...` to provide the environment:
 
 ```python
 from unpythonic import letrec
@@ -233,11 +235,11 @@ x = letrec[[a << 1,
            b]
 ```
 
-In the non-macro `letrec`, the ``value`` of each binding is either a simple value (non-callable, and doesn't use the environment), or an expression of the form ``lambda e: valexpr``, providing access to the environment as ``e``. If ``valexpr`` itself is callable, the binding **must** have the ``lambda e: ...`` wrapper to prevent any misunderstandings in the environment initialization procedure.
+In the non-macro `letrec`, the ``value`` of each binding is either a simple value (non-callable, and doesn't use the environment), or an expression of the form ``lambda e: valexpr``, providing access to the environment as ``e``. If ``valexpr`` itself is callable, the binding **must** have the ``lambda e: ...`` wrapper to prevent misinterpretation by the machinery when the environment initialization procedure runs.
 
 In a non-callable ``valexpr``, trying to depend on a binding below it raises ``AttributeError``.
 
-A callable ``valexpr`` may depend on any bindings (also later ones) in the same `letrec`. For example, here is a pair of mutually recursive functions:
+A callable ``valexpr`` may depend on any bindings (**also later ones**) in the same `letrec`. For example, here is a pair of [mutually recursive](https://en.wikipedia.org/wiki/Mutual_recursion) functions:
 
 ```python
 from unpythonic import letrec
