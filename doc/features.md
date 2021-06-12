@@ -4073,7 +4073,7 @@ assert f(1, 2, 3) == Values(1, 2, 3)
 
 ## Numerical tools
 
-We briefly introduce the functions below. More details and examples can be found in the docstrings and [the unit tests](../unpythonic/tests/test_numutil.py**.
+We briefly introduce the functions below. More details and examples can be found in the docstrings and [the unit tests](../unpythonic/tests/test_numutil.py).
 
 **CAUTION** for anyone new to numerics:
 
