@@ -1153,12 +1153,24 @@ assert y == 17
 
 *The variants `pipe` and `pipec` now expect a `Values` initial value if you want to unpack it into the args and kwargs of the first function in the pipe. Otherwise, the initial value is sent as a single positional argument (notably tuples too).*
 
-*The variants `piped` and `lazy_piped` pack the initial arguments automatically into a `Values`.*
+*The variants `piped` and `lazy_piped` automatically pack the initial arguments into a `Values`.*
 
-Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/). A pipe performs a sequence of operations, starting from an initial value, and then returns the final value. It's just function composition, but with an emphasis on data flow, which helps improve readability:
+**Changed in v0.14.2**. *Both `getvalue` and `runpipe`, used in the shell-like syntax, are now known by the single unified name `exitpipe`. This is just a rename, with no functionality changes. The old names are deprecated in 0.14.2 and 0.14.3, and have been removed in 0.15.0.*
+
+Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/), but no macros. A pipe performs a sequence of operations, starting from an initial value, and then returns the final value. It is just function composition, but with an emphasis on data flow, which helps improve readability.
+
+Both one-in-one-out (*1-to-1*) and n-in-m-out (*n-to-m*) pipes are provided. The 1-to-1 versions have names suffixed with ``1``, and they are slightly faster than the general versions. The use case is one-argument functions that return one value.
+
+In the n-to-m versions, when a function returns a `Values`, it is unpacked to the args and kwargs of the next function in the pipeline. When a pipe exits, the `Values` wrapper (if any) around the final result is discarded if it contains only one positional value. The main use case is computations that deal with multiple values, the number of which may also change during the computation (as long as the args/kwargs of each output `Values` can be accepted as input by the next function in the pipe).
+
+Additional examples can be found in [the unit tests](../unpythonic/tests/test_seq.py).
+
+#### ``pipe``
+
+The function `pipe` represents a self-contained pipeline that starts from a given value (or values), applies some operations in sequence, and then exits:
 
 ```python
-from unpythonic import pipe
+from unpythonic import pipe, Values
 
 double = lambda x: 2 * x
 inc    = lambda x: x + 1
@@ -1167,11 +1179,43 @@ x = pipe(42, double, inc)
 assert x == 85
 ```
 
-We also provide ``pipec``, which curries the functions before applying them. Useful with passthrough (see below on ``curry``).
+To pass several positional values and/or named values, use a `Values` object:
 
-Optional **shell-like syntax**, with purely functional updates.
+```python
+from unpythonic import pipe, Values
 
-**Changed in v0.14.2**. *Both `getvalue` and `runpipe` are now known by the single unified name `exitpipe`. This is just a rename, with no functionality changes. The old names are now deprecated, and will be removed in 0.15.0.*
+a, b = pipe(Values(2, 3),
+            lambda x, y: Values(x=(x + 1), y=(2 * y)),
+            lambda x, y: Values(x * 2, y + 1))
+assert (a, b) == (6, 7)
+```
+
+In this example, we pass the initial values positionally into the first function in the pipeline; that function passes its return values by name; and the second function in the pipeline passes the final results positionally. Because there are only positional values in the final `Values` object, it can be unpacked like a tuple.
+
+#### ``pipec``
+
+The function ``pipec`` is otherwise exactly like ``pipe``, but it curries the functions before applying them. This is useful with the passthrough feature of ``curry``.
+
+With ``pipec`` you can do things like:
+
+```python
+from unpythonic import pipec, Values
+
+a, b = pipec(Values(1, 2),
+             lambda x: x + 1,  # extra values passed through by curry (positionals on the right)
+             lambda x, y: Values(x * 2, y + 1))
+assert (a, b) == (4, 3)
+```
+
+For more on passthrough, see the section on ``curry``.
+
+#### ``piped``
+
+We also provide a **shell-like syntax**, with purely functional updates.
+
+To set up a pipeline for use with the shell-like syntax, call ``piped`` to load the initial value(s). It is possible to provide both positional and named values. Each use of the pipe operator applies the given function, but keeps the result inside the pipeline, ready to accept another function.
+
+When done, pipe into the sentinel ``exitpipe`` to exit the pipeline and return the current value(s):
 
 ```python
 from unpythonic import piped, exitpipe
@@ -1184,9 +1228,33 @@ assert p | inc | exitpipe == 85
 assert p | exitpipe == 84  # p itself is never modified by the pipe system
 ```
 
-Set up a pipe by calling ``piped`` for the initial value. Pipe into the sentinel ``exitpipe`` to exit the pipe and return the current value.
+Multiple values work like in `pipe`, except the initial value(s) passed to ``piped`` are automatically packed into a `Values`. The pipe system then automatically unpacks a `Values` object into the args/kwargs of the next function in the pipeline.
 
-**Lazy pipes**, useful for mutable initial values. To perform the planned computation, pipe into the sentinel ``exitpipe``:
+To return multiple positional values and/or named values, return a `Values` object from your function.
+
+When ``exitpipe`` is applied, if the last function returned anything other than one positional value, you will get a ``Values`` object.
+
+```python
+from unpythonic import piped, exitpipe, Values
+
+f = lambda x, y: Values(2 * x, y + 1)
+g = lambda x, y: Values(x + 1, 2 * y)
+x = piped(2, 3) | f | g | exitpipe  # --> (5, 8)
+assert x == Values(5, 8)
+```
+
+Unpacking works also here, because in the final result, there are only positional values:
+
+```python
+from unpythonic import piped, exitpipe
+
+a, b = piped(2, 3) | f | g | exitpipe  # --> (5, 8)
+assert (a, b) == (5, 8)
+```
+
+#### ``lazy_piped``
+
+Lazy pipes are useful when you have mutable initial values. To perform the planned computation, pipe into the sentinel ``exitpipe``:
 
 ```python
 from unpythonic import lazy_piped1, exitpipe
@@ -1216,14 +1284,9 @@ def nextfibo(a, b):      # multiple arguments allowed
 p = lazy_piped(1, 1)     # load initial state
 for _ in range(10):      # set up pipeline
     p = p | nextfibo
-p | exitpipe
-assert (p | exitpipe) == Values(a=89, b=144)  # final state
+assert (p | exitpipe) == Values(a=89, b=144)  # run; check final state
 assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 ```
-
-Both one-in-one-out (*1-to-1*) and n-in-m-out (*n-to-m*) pipes are provided. The 1-to-1 versions have names suffixed with ``1``. The use case is one-argument functions that return one value (which may also be a tuple).
-
-In the n-to-m versions, when a function returns a `Values`, it is unpacked to the args and kwargs of the next function in the pipe. At ``exitpipe`` time, the `Values` wrapper (if any) around the final result is discarded if it contains only one positional value. The main use case is computations that deal with multiple values, the number of which may also change during the computation (as long as the args/kwargs of each output `Values` can be accepted as input by the next function in the pipe).
 
 
 ## Batteries

@@ -431,7 +431,7 @@ class lazy_piped:
         p = lazy_piped(1, 1)
         for _ in range(10):
             p = p | nextfibo
-        assert p | exitpipe == Values(a=89, b=144)  # final state
+        assert p | exitpipe == Values(a=89, b=144)  # run; check final state
         assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
     """
     def __init__(self, *xs, _funcs=None, **kws):
