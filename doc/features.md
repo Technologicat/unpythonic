@@ -1309,8 +1309,8 @@ Things missing from the standard library.
 ### Batteries for functools
 
  - `memoize`, with exception caching.
- - **Added in v0.15.0.** `partial` with run-time type checking, which helps a lot with fail-fast in code that uses partial application. This function type-checks arguments against type annotations, then delegates to `functools.partial`. Supports `unpythonic`'s `@generic` and `@typed` functions, too.
  - `curry`, with passthrough like in Haskell.
+ - **Added in v0.15.0.** `partial` with run-time type checking, which helps a lot with fail-fast in code that uses partial application. This function type-checks arguments against type annotations, then delegates to `functools.partial`. Supports `unpythonic`'s `@generic` and `@typed` functions, too.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - **Changed in v0.15.0.** *For the benefit of code using the `with lazify` macro, the compose functions are now marked lazy. Arguments will be forced only when a lazy function in the chain actually uses them, or when an eager (not lazy) function is encountered in the chain.*
    - Any number of positional and keyword arguments are supported, with the same rules as in the pipe system. Multiple return values, or named return values, represented as a `Values`, are automatically unpacked to the args and kwargs of the next function in the chain.
