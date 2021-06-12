@@ -50,10 +50,9 @@ The exception are the features marked **[M]**, which are primarily intended as a
   - [``lazy_piped``](#lazy_piped)
 
 [**Batteries**](#batteries) missing from the standard library.
-- [**Batteries for functools**](#batteries-for-functools): `memoize`, `curry`, `compose`, `withself`, `fix` and more.
+- [**Batteries for functools**](#batteries-for-functools): `curry`, `compose`, `withself`, and more.
   - [``memoize``](#memoize): a detailed explanation of the memoizer.
-  - [``curry``](#curry): a detailed explanation of the curry utility.
-  - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus Haskellness.
+  - [``curry``](#curry): a detailed explanation of the curry utility and its haskelly extra features.
   - [``fix``: break infinite recursion cycles](#fix-break-infinite-recursion-cycles)
 - [**Batteries for itertools**](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables, etc.
 - [**Batteries for network programming**](#batteries-for-network-programming): message protocol, PTY/socket proxy, etc.
@@ -1329,7 +1328,7 @@ Things missing from the standard library.
  - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting 1-in-1-out functions into m-in-n-out compose chains. (Currying can eliminate the need for these.)
  - `identity`, `const` which sometimes come in handy when programming with higher-order functions.
 
-We will discuss `memoize` and `curry` in more detail shortly; first, we will give some examples of the other utilities. Note that as always, more examples can be found in [the unit tests](../unpythonic/tests/test_fun.py). 
+We will discuss `memoize`, `curry` and `fix` in more detail shortly; but first, we will give some examples of the other utilities. Note that as always, more examples can be found in [the unit tests](../unpythonic/tests/test_fun.py).
 
 ```python
 from typing import NoReturn
@@ -1378,7 +1377,7 @@ assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))  # re
 
 #### ``memoize``
 
-The ``memoize`` decorator is meant for use with [pure functions](https://en.wikipedia.org/wiki/Pure_function). It caches the return value, so that *for each unique set of arguments*, the original function will be evaluated only once. All arguments must be hashable.
+[*Memoization*](https://en.wikipedia.org/wiki/Memoization) is a functional programming technique, meant to be used with [pure functions](https://en.wikipedia.org/wiki/Pure_function). It caches the return value, so that *for each unique set of arguments*, the original function will be evaluated only once. All arguments must be hashable.
 
 Our ``memoize`` caches also exceptions, à la the [Mischief package in Racket](https://docs.racket-lang.org/mischief/memoize.html). If the memoized function is called again with arguments with which it raised an exception the first time, **that same exception instance** is raised again.
 
@@ -1485,7 +1484,7 @@ thunk()
 
 *If the function being curried is `@generic` or `@typed`, or has type annotations on its parameters, the parameters being passed in are type-checked. A type mismatch immediately raises `TypeError`. This helps support [fail-fast](https://en.wikipedia.org/wiki/Fail-fast) in code using `curry`.*
 
-[Currying](https://en.wikipedia.org/wiki/Currying) is a technique in functional programming, where a function that takes multiple arguments is converted to a sequence of nested one-argument functions, each one *specializing* (fixing the value of) the leftmost remaining positional parameter.
+[*Currying*](https://en.wikipedia.org/wiki/Currying) is a technique in functional programming, where a function that takes multiple arguments is converted to a sequence of nested one-argument functions, each one *specializing* (fixing the value of) the leftmost remaining positional parameter.
 
 Some languages, such as Haskell, curry all functions natively. In languages that do not, like Python or [Racket](https://docs.racket-lang.org/reference/procedures.html#%28def._%28%28lib._racket%2Ffunction..rkt%29._curry%29%29), when currying is implemented as a library function, this is often done as a form of [partial application](https://en.wikipedia.org/wiki/Partial_application), which is a subtly different concept, but encompasses the curried behavior as a special case.
 
@@ -1591,7 +1590,7 @@ Finally, keep in mind the `mymap` example is intended as a feature demonstration
 The example we have here evaluates all items immediately, and specifically produces a linked list. It is just a nice example of function composition involving incompatible positional arities, thus demonstrating the kind of situation where the passthrough feature of `curry` is useful. It is taken from a paper by [John Hughes (1984)](https://www.cse.chalmers.se/~rjmh/Papers/whyfp.html).
 
 
-#### ``curry`` and reduction rules
+##### ``curry`` and reduction rules
 
 Our ``curry``, beside what it says on the tin, is effectively an explicit local modifier to Python's reduction rules, which allows some Haskell-like idioms. Let's consider a simple example with positional arguments only. When we say:
 
@@ -1697,9 +1696,13 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
 
 #### ``fix``: break infinite recursion cycles
 
-The name `fix` comes from the *least fixed point* with respect to the definedness relation, which is related to Haskell's `fix` function. However, this `fix` is not that function. Our `fix` breaks recursion cycles in strict functions - thus causing some non-terminating strict functions to return. (Here *strict* means that the arguments are evaluated eagerly.)
+The name `fix` comes from the *least fixed point* with respect to the definedness relation, which is related to Haskell's `fix` function. However, this `fix` is **not** that function. Our `fix` breaks recursion cycles in strict functions - thus causing some non-terminating strict functions to return. (Here [*strict*](https://en.wikipedia.org/wiki/Evaluation_strategy#Strict_evaluation) means that the arguments are evaluated eagerly.)
 
 **CAUTION**: Worded differently, this function solves a small subset of the halting problem. This should be hint enough that it will only work for the advertised class of special cases - i.e., a specific kind of recursion cycles.
+
+If you need `fix` for code that uses TCO, use `fixtco`. The implementations of recursion cycle breaking and TCO must interact in a very particular way to work properly; this is done by `fixtco`.
+
+For examples, see [the unit tests](../unpythonic/tests/test_fix.py). 
 
 Usage:
 
@@ -1723,11 +1726,11 @@ If no recursion cycle occurs, `f` returns normally. If a cycle occurs, the call 
 
  - In the latter example, the name `"f"` and the offending args are returned.
 
-**A cycle is detected when** `f` is called again with a set of args that have already been previously seen in the current call chain. Infinite mutual recursion is detected too, at the point where any `@fix`-instrumented function is entered again with a set of args already seen during the current call chain.
+**A cycle is detected when** `f` is called again with a set of args that have already been previously seen in the current call chain. Infinite *mutual recursion* is detected too, at the point where any `@fix`-instrumented function is entered again with a set of args already seen during the current call chain.
 
-**CAUTION**: The infinitely recursive call sequence `f(0) → f(1) → ... → f(k+1) → ...` contains no cycles in the sense detected by `fix`. The `fix` function will not catch all cases of infinite recursion, but only those where a previously seen set of arguments is seen again. (If `f` is pure, the same arguments appearing again implies the call will not return, so we can terminate it.)
+**CAUTION**: The infinitely recursive call sequence `f(0) → f(1) → ... → f(k+1) → ...` contains no cycles in the sense detected by `fix`. The `fix` function will **not** catch all cases of infinite recursion, but only those where a previously seen set of arguments is seen again. If `f` is [pure](https://en.wikipedia.org/wiki/Pure_function), the same arguments appearing again during recursion implies the call will not return, so we can terminate it.
 
-**CAUTION**: If we have a function `g(a, b)`, the argument lists of the invocations `g(1, 2)` and `g(a=1, b=2)` are in principle different. This is a Python gotcha that was originally noticed by the author of the `wrapt` library, and mentioned in [its documentation](https://wrapt.readthedocs.io/en/latest/decorators.html#processing-function-arguments). However, once arguments are bound to the formal parameters of `g`, the result is the same. We consider the *resulting bindings*, not the exact way the arguments were passed.
+**CAUTION**: If we have a function `g(a, b)`, the argument lists of the invocations `g(1, 2)` and `g(a=1, b=2)` are in principle different. However, we bind arguments like Python itself does, and consider the *resulting bindings* only. It does not matter how the arguments were passed.
 
 We can use `fix` to find the (arithmetic) fixed point of `cos`:
 
@@ -1772,7 +1775,7 @@ c = fixpoint(cos, x0=1)
 assert c == cos(c)
 ```
 
-**NOTE**: But see `unpythonic.fixpoint`, which is meant specifically for finding *arithmetic* fixed points, and `unpythonic.iterate1`, which produces a generator that iterates `f` without needing recursion.
+**NOTE**: *See `unpythonic.fixpoint`, which is meant specifically for finding arithmetic fixed points, and `unpythonic.iterate1`, which produces a generator that iterates `f` without needing recursion.*
 
 **Notes**:
 
@@ -1792,15 +1795,15 @@ assert c == cos(c)
 
   - `bottom` can be a callable, in which case the function name and args at the point where the cycle was detected are passed to it, and its return value becomes the final return value. This is useful e.g. for debug logging.
 
-  - The `memo` flag controls whether to memoize also intermediate results. It adds some additional function call layers between function entries from recursive calls; if that is a problem (due to causing Python's call stack to blow up faster), use `memo=False`. You can still memoize the final result if you want; just put `@memoize` on the outside.
+    The function name is provided, because we catch also infinite *mutual recursion*; so it can be a useful piece of information *which function* it was that was first called with already-seen arguments.
 
-**NOTE**: If you need `fix` for code that uses TCO, use `fixtco` instead. The implementations of recursion cycle breaking and TCO must interact in a very particular way to work properly; this is done by `fixtco`.
+  - The `memo` flag controls whether to memoize intermediate results. It adds some additional function call layers between function entries from recursive calls; if that is a problem (due to causing Python's call stack to blow up faster), use `memo=False`. You can still memoize the final result if you want; just put `@memoize` on the outside.
 
 ##### Real-world use and historical note
 
 This kind of `fix` is sometimes helpful in recursive pattern-matching definitions for parsers. When the pattern matcher gets stuck in an infinite left-recursion, it can return a customizable special value instead of not terminating. Being able to not care about non-termination may simplify definitions.
 
-This `fix` can also be used to find fixed points of functions, as in the above examples.
+This `fix` can also be used to find arithmetic fixed points of functions, as in the above examples.
 
 The idea comes from Matthew Might's article on [parsing with (Brzozowski's) derivatives](http://matt.might.net/articles/parsing-with-derivatives/), where it was a utility implemented in Racket as the `define/fix` form. It was originally ported to Python [by Per Vognsen](https://gist.github.com/pervognsen/8dafe21038f3b513693e) (linked from the article). The `fix` in `unpythonic` is a redesign with kwargs support, thread safety, and TCO support.
 
