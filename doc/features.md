@@ -1295,28 +1295,9 @@ Things missing from the standard library.
 
 ### Batteries for functools
 
- - `memoize`:
-   - Caches also exceptions à la Racket. If the memoized function is called again with arguments with which it raised an exception the first time, the same exception instance is raised again.
-   - Works also on instance methods, with results cached separately for each instance.
-     - This is essentially because ``self`` is an argument, and custom classes have a default ``__hash__``.
-     - Hence it doesn't matter that the memo lives in the ``memoized`` closure on the class object (type), where the method is, and not directly on the instances. The memo itself is shared between instances, but calls with a different value of ``self`` will create unique entries in it.
-     - For a solution that performs memoization at the instance level, see [this ActiveState recipe](https://github.com/ActiveState/code/tree/master/recipes/Python/577452_memoize_decorator_instance) (and to demystify the magic contained therein, be sure you understand [descriptors](https://docs.python.org/3/howto/descriptor.html)).
+ - `memoize`, with exception caching.
  - **Added in v0.15.0.** `partial` with run-time type checking, which helps a lot with fail-fast in code that uses partial application. This function type-checks arguments against type annotations, then delegates to `functools.partial`. Supports `unpythonic`'s `@generic` and `@typed` functions, too.
- - `curry`, with some extra features:
-   - **Changed in v0.15.0.** `curry` supports both positional and named arguments, and binds arguments to function parameters like Python itself does. The call triggers when all parameters are bound, regardless of whether they were passed by position or by name, and at which step of the currying process they were passed.
-   - **Changed in v0.15.0.** `unpythonic`'s multiple-dispatch system (`@generic`, `@typed`) is supported. `curry` looks for an exact match first, then a match with extra args/kwargs, and finally a partial match. If there is still no match, this implies that at least one parameter would get a binding that fails the type check. In such a case `TypeError` regarding failed multiple dispatch is raised.
-   - **Changed in v0.15.0.** If the function being curried is `@generic` or `@typed`, or has type annotations on its parameters, the parameters being passed in are type-checked. A type mismatch immediately raises `TypeError`. This helps support [fail-fast](https://en.wikipedia.org/wiki/Fail-fast) in code using `curry`.
-   - Passthrough for args/kwargs that are incompatible with the target function's call signature (à la Haskell; or [spicy](https://github.com/Technologicat/spicy) for Racket).
-     - Here *incompatible* means too many positional args, or named args that have no corresponding parameter. Note that if the function has a `**kwargs` parameter, then all named args are considered compatible, because it absorbs anything.
-     - Multiple return values (both positional and named) are denoted using `Values` (which see). A standard return value is considered to consist of one positional return value only.
-     - Positional args are passed through **on the right**. Any positional return values of the curried function are prepended, on the left.
-     - If the first positional return value of an intermediate result of a passthrough is callable, it is (curried and) invoked on the remaining args and kwargs, after merging the rest of the return values into the args and kwargs. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
-     - If more args/kwargs are still remaining when the top-level curry context exits, by default ``TypeError`` is raised.
-     - To override, set the dynvar ``curry_context``. It is a list representing the stack of currently active curry contexts. A context is any object, a human-readable label is fine. See below for an example.
-       - To set the dynvar, `from unpythonic import dyn`, and then `with dyn.let(curry_context=...):`.
-   - Can be used both as a decorator and as a regular function.
-     - As a regular function, `curry` itself is curried à la Racket. If it gets extra arguments (beside the function ``f``), they are the first step. This helps eliminate many parentheses.
-   - **Caution**: If the signature of ``f`` cannot be inspected, currying fails, raising ``ValueError``, like ``inspect.signature`` does. This may happen with builtins such as ``list.append``, ``operator.add``, ``print``, or ``range``, depending on which version of Python you have (and whether CPython or PyPy3).
+ - `curry`, with passthrough like in Haskell.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - **Changed in v0.15.0.** *For the benefit of code using the `with lazify` macro, the compose functions are now marked lazy. Arguments will be forced only when a lazy function in the chain actually uses them, or when an eager (not lazy) function is encountered in the chain.*
    - Any number of positional and keyword arguments are supported, with the same rules as in the pipe system. Multiple return values, or named return values, represented as a `Values`, are automatically unpacked to the args and kwargs of the next function in the chain.
@@ -1335,35 +1316,13 @@ Things missing from the standard library.
  - `identity`, `const` which sometimes come in handy when programming with higher-order functions.
  - `fix`: detect and break infinite recursion cycles. **Added in v0.14.2.**
 
-Examples (see also the next section):
+We will discuss `memoize` and `curry` in more detail shortly; first, we will give some examples of the other utilities. Note that as always, more examples can be found in [the unit tests](../unpythonic/tests/test_fun.py). 
 
 ```python
-from operator import add, mul
 from typing import NoReturn
-from unpythonic import (memoize, fix, andf, orf, flatmap, rotate, curry, dyn,
-                        zipr, rzip, foldl, foldr, composer, to1st, cons, nil, ll,
+from unpythonic import (fix, andf, orf, rotate,
+                        zipr, rzip, foldl, foldr,
                         withself)
-
-# memoize: cache the results of pure functions (arguments must be hashable)
-ncalls = 0
-@memoize  # <-- important part
-def square(x):
-    global ncalls
-    ncalls += 1
-    return x**2
-assert square(2) == 4
-assert ncalls == 1
-assert square(3) == 9
-assert ncalls == 2
-assert square(3) == 9
-assert ncalls == 2  # called only once for each unique set of arguments
-assert square(x=3) == 9
-assert ncalls == 2  # only the resulting bindings matter, not how you pass the args
-
- # "memoize lambda": classic evaluate-at-most-once thunk
-thunk = memoize(lambda: print("hi from thunk"))
-thunk()  # the message is printed only the first time
-thunk()
 
 # detect and break infinite recursion cycles:
 # a(0) -> b(1) -> a(2) -> b(0) -> a(1) -> b(2) -> a(0) -> ...
@@ -1375,6 +1334,7 @@ def b(k):
     return a((k + 1) % 3)
 assert a(0) is NoReturn  # the call does return, saying the original function wouldn't.
 
+# andf, orf: short-circuiting predicate combinators
 isint  = lambda x: isinstance(x, int)
 iseven = lambda x: x % 2 == 0
 isstr  = lambda s: isinstance(s, str)
@@ -1400,12 +1360,151 @@ assert myzipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
 # zip and reverse don't commute for inputs with different lengths
 assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((2, 5, 8), (1, 4, 7))  # zip first
 assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))  # reverse first
+```
 
-# curry with passthrough (positionals passed through on the right)
-# final result is a tuple of the result(s) and the leftover args
-double = lambda x: 2 * x
-with dyn.let(curry_context=["whatever"]):  # set a context to allow passthrough to the top level
-    assert curry(double, 2, "foo") == (4, "foo")   # arity of double is 1
+
+#### ``memoize``
+
+The ``memoize`` decorator is meant for use with [pure functions](https://en.wikipedia.org/wiki/Pure_function). It caches the return value, so that *for each unique set of arguments*, the original function will be evaluated only once. All arguments must be hashable.
+
+Our ``memoize`` caches also exceptions, à la the [Mischief package in Racket](https://docs.racket-lang.org/mischief/memoize.html). If the memoized function is called again with arguments with which it raised an exception the first time, **that same exception instance** is raised again.
+
+The decorator **works also on instance methods**, with results cached separately for each instance. This is essentially because ``self`` is an argument, and custom classes have a default ``__hash__``. Hence it doesn't matter that the memo lives in the ``memoized`` closure on the class object (type), where the method is, and not directly on the instances. The memo itself is shared between instances, but calls with a different value of ``self`` will create unique entries in it. (This approach does have the expected problem: if lots of instances are created and destroyed, and a memoized method is called for each, the memo will grow without bound.)
+
+*For a solution that performs memoization at the instance level, see [this ActiveState recipe](https://github.com/ActiveState/code/tree/master/recipes/Python/577452_memoize_decorator_instance) (and to demystify the magic contained therein, be sure you understand [descriptors](https://docs.python.org/3/howto/descriptor.html)).*
+
+There are some **important differences** to the nearest equivalents in the standard library, [`functools.cache`](https://docs.python.org/3/library/functools.html#functools.cache) (Python 3.9+) and [`functools.lru_cache`](https://docs.python.org/3/library/functools.html#functools.lru_cache):
+
+  - `memoize` **binds arguments** like Python itself does, so given this definition:
+
+    ```python
+    from unpythonic import memoize
+
+    @memoize
+    def f(a, b):
+        return a + b
+    ```
+
+    the calls `f(1, 2)`, `f(1, b=2)`, `f(a=1, b=2)`, and `f(b=2, a=1)` all hit **the same cache key**.
+
+    As of Python 3.9, in `functools.lru_cache` this is not so; see the internal function `functools._make_key` in [`functools.py`](https://github.com/python/cpython/blob/main/Lib/functools.py), where the comments explicitly say so.
+
+  - `memoize` **caches exceptions**, too. A pure function that crashed for some combination of arguments, if given the same inputs again, will just crash again with the same error, so there is no reason to run it again.
+
+  - `memoize` has **no** maximum cache size or hit/miss statistics counting.
+
+  - `memoize` does **not** have a `typed` mode to treat `42` and `42.0` as different keys to the memo. The function arguments are hashed, and both an `int` and an equal `float` happen to hash to the same value.
+
+    What the `typed` mode of the standard library functions is doing is actually a form of dispatch. Hence, you can use `@generic` (which see), and `@memoize` each individual multimethod:
+
+    ```python
+    from unpythonic import generic, memoize
+
+    @generic
+    @memoize
+    def thrice(x: int):
+        return 3 * x
+
+    @generic
+    @memoize
+    def thrice(x: float):
+        return 3.0 * x
+    ```
+
+    Without using ``@generic``, The essential idea is:
+
+    ```python
+    from unpythonic import memoize
+
+    def thrice(x):  # the dispatcher
+        if isinstance(x, int):
+           return thrice_int(x)
+        elif isinstance(x, float):
+            return thrice_float(x)
+        raise TypeError(type(x))
+
+    @memoize
+    def thrice_int(x):
+        return 3 * x
+
+    @memoize
+    def thrice_float(x):
+        return 3.0 * x
+    ```
+
+    Observe that we memoize **each implementation**, not the dispatcher.
+
+    This solution keeps dispatching and memoization orthogonal.
+
+Examples:
+
+```python
+from unpythonic import memoize
+
+ncalls = 0
+@memoize  # <-- important part
+def square(x):
+    global ncalls
+    ncalls += 1
+    return x**2
+assert square(2) == 4
+assert ncalls == 1
+assert square(3) == 9
+assert ncalls == 2
+assert square(3) == 9
+assert ncalls == 2  # called only once for each unique set of arguments
+assert square(x=3) == 9
+assert ncalls == 2  # only the resulting bindings matter, not how you pass the args
+
+# "memoize lambda": classic evaluate-at-most-once thunk
+# See also the `lazy[]` macro.
+thunk = memoize(lambda: print("hi from thunk"))
+thunk()  # the message is printed only the first time
+thunk()
+```
+
+
+#### `curry`
+
+**Changed in v0.15.0.** *`curry` supports both positional and named arguments, and binds arguments to function parameters like Python itself does. The call triggers when all parameters are bound, regardless of whether they were passed by position or by name, and at which step of the currying process they were passed.*
+
+*`unpythonic`'s multiple-dispatch system (`@generic`, `@typed`) is supported. `curry` looks for an exact match first, then a match with extra args/kwargs, and finally a partial match. If there is still no match, this implies that at least one parameter would get a binding that fails the type check. In such a case `TypeError` regarding failed multiple dispatch is raised.*
+
+*If the function being curried is `@generic` or `@typed`, or has type annotations on its parameters, the parameters being passed in are type-checked. A type mismatch immediately raises `TypeError`. This helps support [fail-fast](https://en.wikipedia.org/wiki/Fail-fast) in code using `curry`.*
+
+[Currying](https://en.wikipedia.org/wiki/Currying) is a technique in functional programming, where a function that takes multiple arguments is converted to a sequence of nested one-argument functions, each one *specializing* (fixing the value of) the leftmost remaining positional parameter.
+
+Some languages, such as Haskell, curry all functions natively. In languages that do not, like Python or [Racket](https://docs.racket-lang.org/reference/procedures.html#%28def._%28%28lib._racket%2Ffunction..rkt%29._curry%29%29), when currying is implemented as a library function, this is often done as a form of [partial application](https://en.wikipedia.org/wiki/Partial_application), which is a subtly different concept, but encompasses the curried behavior as a special case.
+
+Our ``curry`` can be used both as a decorator and as a regular function. As a decorator, `curry` takes no decorator arguments. As a regular function, `curry` itself is curried à la Racket. If any args or kwargs are given (beside the function to be curried), they are the first step. This helps eliminate many parentheses.
+
+**CAUTION**: If the signature of ``f`` cannot be inspected, currying fails, raising ``ValueError``, like ``inspect.signature`` does. This may happen with builtins such as ``list.append``, ``operator.add``, ``print``, or ``range``, depending on which version of Python is used (and whether it is CPython or PyPy3).
+
+Like Haskell, and [`spicy` for Racket](https://github.com/Technologicat/spicy), our `curry` supports *passthrough*; but we pass through **both positional and named arguments**.
+
+Any args and/or kwargs that are incompatible with the target function's call signature, are *passed through* in the sense that the function is called, and then its return value is merged with the remaining args and kwargs.
+
+If the *first positional return value* of the result of passthrough is callable, it is (curried and) invoked on the remaining args and kwargs, after the merging. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
+
+Some finer points concerning the passthrough feature:
+
+  - *Incompatible* means too many positional args, or named args that have no corresponding parameter. Note that if the function has a `**kwargs` parameter, then all named args are considered compatible, because it absorbs anything.
+
+  - Multiple return values (both positional and named) are denoted using `Values` (which see). A standard return value is considered to consist of *one positional return value* only (even if it is a `tuple`).
+
+  - Extra positional args are passed through **on the right**. Any positional return values of the curried function are prepended, on the left.
+
+  - Extra named args are passed through by name. They may be overridden by named return values (with the same name) from the curried function.
+
+  - If more args/kwargs are still remaining when the top-level curry context exits, by default ``TypeError`` is raised.
+     - To override this behavior, set the dynvar ``curry_context``. It is a list representing the stack of currently active curry contexts. A context is any object, a human-readable label is fine. See below for an example.
+       - To set the dynvar, `from unpythonic import dyn`, and then `with dyn.let(curry_context=["whatever"]):`.
+
+Examples:
+
+```python
+from operator import add, mul
+from unpythonic import curry, foldl, foldr, composer, to1st, cons, nil, ll, dyn, Values
 
 mysum = curry(foldl, add, 0)
 myprod = curry(foldl, mul, 1)
@@ -1417,6 +1516,15 @@ append_many = lambda *lsts: foldr(append_two, nil, lsts)  # see unpythonic.lappe
 assert mysum(append_many(a, b, c)) == 21
 assert myprod(b) == 12
 
+# curry with passthrough
+double = lambda x: 2 * x
+with dyn.let(curry_context=["whatever"]):  # set a context to allow passthrough to the top level
+    # positionals are passed through on the right
+    assert curry(double, 2, "foo") == Values(4, "foo")   # arity of double is 1
+    # named args are passed through by name
+    assert curry(double, 2, nosucharg="foo") == Values(4, nosucharg="foo")
+
+# actual use case for passthrough
 map_one = lambda f: curry(foldr, composer(cons, to1st(f)), nil)
 doubler = map_one(double)
 assert doubler((1, 2, 3)) == ll(2, 4, 6)
@@ -1424,9 +1532,11 @@ assert doubler((1, 2, 3)) == ll(2, 4, 6)
 assert curry(map_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 ```
 
-*Minor detail*: We could also write the last example as:
+We could also write the last example as:
 
 ```python
+from unpythonic import curry, foldl, composer, const, to1st, nil, lreverse
+
 double = lambda x: 2 * x
 rmap_one = lambda f: curry(foldl, composer(cons, to1st(f)), nil)  # essentially reversed(map(...))
 map_one = lambda f: composer(rmap_one(f), lreverse)
@@ -1435,33 +1545,37 @@ assert curry(map_one, double, ll(1, 2, 3)) == ll(2, 4, 6)
 
 which may be a useful pattern for lengthy iterables that could overflow the call stack (although not in ``foldr``, since our implementation uses a linear process).
 
-In ``rmap_one``, we can use either ``curry`` or ``functools.partial``. In this case it doesn't matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as (and only as soon as) it gets at least one more argument.
+In the example, in ``rmap_one``, we can use either ``curry`` or ``partial``. In this case it does not matter which, since we want just one partial application anyway. We provide two arguments, and the minimum arity of ``foldl`` is 3, so ``curry`` will trigger the call as soon as (and only as soon as) it gets at least one more argument.
 
-The final ``curry`` uses both of the extra features. It invokes passthrough, since ``map_one`` has arity 1. It also invokes a call to the callable returned from ``map_one``, with the remaining arguments (in this case just one, the ``ll(1, 2, 3)``).
+The final ``curry`` in the example uses the passthrough features. The function ``map_one`` has arity 1, but two positional arguments are given. It also invokes a call to the callable returned by ``map_one``, with the remaining arguments (in this case just one, the ``ll(1, 2, 3)``).
 
 Yet another way to write ``map_one`` is:
 
 ```python
+from unpythonic import curry, foldr, composer, cons, nil
+
 mymap = lambda f: curry(foldr, composer(cons, curry(f)), nil)
 ```
 
 The curried ``f`` uses up one argument (provided it is a one-argument function!), and the second argument is passed through on the right; these two values then end up as the arguments to ``cons``.
 
-Using a currying compose function (name suffixed with ``c``), the inner curry can be dropped:
+Using a **currying compose function** (name suffixed with ``c``), we can drop the inner curry:
 
 ```python
+from unpythonic import curry, foldr, composerc, cons, nil
+
 mymap = lambda f: curry(foldr, composerc(cons, f), nil)
 myadd = lambda a, b: a + b
 assert curry(mymap, myadd, ll(1, 2, 3), ll(2, 4, 6)) == ll(3, 6, 9)
 ```
 
-This is as close to ```(define (map f) (foldr (compose cons f) empty)``` (in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy)) as we're gonna get in Python.
+This is as close to ```(define (map f) (foldr (compose cons f) empty)``` (in ``#lang`` [``spicy``](https://github.com/Technologicat/spicy)) as we're gonna get in pure Python.
 
 Notice how the last two versions accept multiple input iterables; this is thanks to currying ``f`` inside the composition. An element from each of the iterables is taken by the processing function ``f``. Being the last argument, ``acc`` is passed through on the right. The output from the processing function - one new item - and ``acc`` then become two arguments, passed into cons.
 
-Finally, keep in mind this exercise is intended as a feature demonstration. In production code, the builtin ``map`` is much better. It produces a lazy iterable, and does not care which kind of actual data structure the items will be stored in (once computed).
+Finally, keep in mind the `mymap` example is intended as a feature demonstration. In production code, the builtin ``map`` is much better. It produces a lazy iterable, so it does not care which kind of actual data structure the items will be stored in (once they are computed). In other words, a lazy iterable is a much better model for a process that produces a sequence of values; how, and whether, to store that sequence is an orthogonal concern.
 
-The example we have here evaluates all items immediately, and specifically produces a linked list. It's just a nice example of function composition involving incompatible arities, thus demonstrating the kind of situation where the passthrough feature of `curry` is useful. It is taken from a paper by [John Hughes (1984)](https://www.cse.chalmers.se/~rjmh/Papers/whyfp.html).
+The example we have here evaluates all items immediately, and specifically produces a linked list. It is just a nice example of function composition involving incompatible positional arities, thus demonstrating the kind of situation where the passthrough feature of `curry` is useful. It is taken from a paper by [John Hughes (1984)](https://www.cse.chalmers.se/~rjmh/Papers/whyfp.html).
 
 
 #### ``curry`` and reduction rules
@@ -1494,7 +1608,7 @@ As of v0.15.0, the actual algorithm by which `curry` decides what to do, in the 
      - Note we keep track of which arguments were passed positionally and which by name. To avoid subtle errors, they are eventually passed to `f` the same way they were passed to `curry`. (Positional args are passed positionally, and kwargs are passed by name.)
    - If there are no unbound parameters, and no args/kwargs are left over, we have an exact match. Call `f` and return its result, like a normal function call.
      - Any sequence of curried calls that ends up binding all parameters of `f` triggers the call.
-     - As before, beware when working with variadic functions. Particularly, keep in mind that `*args` matches **zero or more** positional arguments (as the [Kleene star](https://en.wikipedia.org/wiki/Kleene_star)-ish notation indeed suggests).
+     - Beware when working with variadic functions. Particularly, keep in mind that `*args` matches **zero or more** positional arguments (as the [Kleene star](https://en.wikipedia.org/wiki/Kleene_star)-ish notation indeed suggests).
    - If there are no unbound parameters, but there are args/kwargs left over, arrange passthrough for the leftover args/kwargs (that were rejected by the call signature of `f`), and call `f`. Any leftover positional arguments are passed through **on the right**.
      - Merge the return value of `f` with the leftover args/kwargs, thus forming updated leftover args/kwargs.
        - If the return value of `f` is a `Values`: prepend positional return values into the leftover args (i.e. insert them **on the left**), and update the leftover kwargs with the named return values. (I.e. a key name conflict causes an overwrite in the leftover kwargs.)
@@ -1507,9 +1621,9 @@ As of v0.15.0, the actual algorithm by which `curry` decides what to do, in the 
    - First, try for an exact match that passes the type check. **If any such match is found**, pick that multimethod. Call it and return its result (as above).
    - Then, try for a match that passes the type check, but has extra args/kwargs. **If any such match is found**, pick that multimethod. Arrange passthrough... (as above).
    - Then, try for a partial match that passes the type check. **If any such match is found**, keep currying.
-   - If none of the above match, it implies that no matter which multimethod we pick, at least one parameter would get a binding that fails the type check. Raise `TypeError`.
+   - If none of the above match, it implies that no matter which multimethod we pick, at least one parameter will get a binding that fails the type check. Raise `TypeError`.
 
-(If *really* interested in the gritty details, look at the source code of `unpythonic.fun.curry`. It calls some functions from `unpythonic.dispatch` for its `@generic` support, but otherwise it's pretty much self-contained.)
+If interested in the gritty details, see [the source code](../unpythonic/fun.py) of `unpythonic.fun.curry`. It calls some functions from `unpythonic.dispatch` for its `@generic` support, but otherwise it is pretty much self-contained.
 
 Getting back to the simple case, in the above example:
 
@@ -1517,13 +1631,13 @@ Getting back to the simple case, in the above example:
 curry(mapl_one, double, ll(1, 2, 3))
 ```
 
-the callable ``mapl_one`` takes one argument, which is a function. It yields another function, let us call it ``g``. We are left with:
+the callable ``mapl_one`` takes one argument, which is a function. It returns another function, let us call it ``g``. We are left with:
 
 ```python
 curry(g, ll(1, 2, 3))
 ```
 
-The argument is then passed into ``g``; we obtain a result, and reduction is complete.
+The remaining argument is then passed into ``g``; we obtain a result, and reduction is complete.
 
 A curried function is also a curry context:
 
@@ -1533,7 +1647,7 @@ a2 = curry(add2)
 a2(a, b, c)  # same as curry(add2, a, b, c); reduces to (a + b, c)
 ```
 
-so on the last line, we don't need to say
+so on the last line, we do not need to say
 
 ```python
 curry(a2, a, b, c)
