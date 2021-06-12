@@ -211,7 +211,7 @@ The ``@blet`` decorator is otherwise the same as ``@dlet``, but instead of decor
 
 The name of this construct comes from the Scheme family of Lisps, and stands for *let (mutually) recursive*. The "[mutually recursive](https://en.wikipedia.org/wiki/Mutual_recursion)" refers to the kind of scoping between the bindings in the same `letrec`.
 
-In plain English, in `letrec`, bindings may depend on ones above them in the same `letrec`. The raw API in `unpythonic` uses a `lambda e: ...` to provide the environment:
+In plain English, in `letrec`, the value of a binding may depend on other bindings in the same `letrec`. The raw API in `unpythonic` uses a `lambda e: ...` to provide the environment:
 
 ```python
 from unpythonic import letrec
