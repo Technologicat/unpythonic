@@ -1588,10 +1588,6 @@ The example we have here evaluates all items immediately, and specifically produ
 
 #### ``curry`` and reduction rules
 
-**Changed in v0.15.0.** *`curry` now supports kwargs, too, and binds parameters like Python itself does. Also, `@generic` and `@typed` functions are supported.*
-
-*For advanced examples, see [the unit tests](../unpythonic/tests/test_fun.py).*
-
 Our ``curry``, beside what it says on the tin, is effectively an explicit local modifier to Python's reduction rules, which allows some Haskell-like idioms. Let's consider a simple example with positional arguments only. When we say:
 
 ```python
