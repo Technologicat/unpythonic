@@ -1848,8 +1848,9 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
      - `rscanl`, `rscanl1` reverse each input and then left-scan. This syncs the **right** ends.
    - `unfold1`, `unfold`: generate a sequence [corecursively](https://en.wikipedia.org/wiki/Corecursion). The counterpart of `foldl`.
      - `unfold1` is for 1-in-2-out functions. The input is `state`, the return value must be `(value, newstate)` or `None`.
-     - `unfold` is for n-in-(1+n)-out functions. The input is `*states`, the return value must be `(value, *newstates)` or `None`.
-     - Unfold returns a generator yielding the collected values. The output can be finite or infinite; to signify that a finite sequence ends, the user function must return `None`.
+     - `unfold` is for n-in-(1+n)-out functions.
+       - **Changed in v0.15.0.** *The initial args/kwargs are unpacked to the args/kwargs of the user function. The function must return a `Values` object, where the first positional return value is the value to be yielded, and anything else is unpacked to the args/kwargs of the user function at the next iteration.*
+     - Unfold returns a generator yielding the collected values. The output can be finite or infinite; to signify that a finite sequence ends, the user function must return `None`. (Beside a `Values` object, a bare `None` is the only other allowed return value from the user function.)
  - *mapping and zipping*:
    - `map_longest`: the final missing battery for `map`.
      - Essentially `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``.
@@ -1914,7 +1915,8 @@ from unpythonic import (scanl, scanr, foldl, foldr,
                         s, inn, iindex,
                         window,
                         subset, powerset,
-                        allsame)
+                        allsame,
+                        Values)
 
 assert tuple(scanl(add, 0, range(1, 5))) == (0, 1, 3, 6, 10)
 assert tuple(scanr(add, 0, range(1, 5))) == (0, 4, 7, 9, 10)
@@ -1929,7 +1931,9 @@ def step2(k):  # x0, x0 + 2, x0 + 4, ...
 assert tuple(take(10, unfold1(step2, 10))) == (10, 12, 14, 16, 18, 20, 22, 24, 26, 28)
 
 def nextfibo(a, b):
-    return (a, b, a + b)  # value, *newstates
+    # First positional is value; everything else is newstate,
+    # to be unpacked to `nextfibo`'s args/kwargs at the next iteration.
+    return Values(a, a=b, b=a + b)
 assert tuple(take(10, unfold(nextfibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 
 def fibos():
@@ -4116,7 +4120,7 @@ Most of the time, returning a tuple to denote multiple-return-values and unpacki
 
 But the distinction is critically important in function composition, so that positional return values can be automatically mapped into positional arguments to the next function in the chain, and named return values into named arguments.
 
-Accordingly, various parts of `unpythonic` that deal with function composition use the `Values` abstraction; particularly `curry`, and the `compose` and `pipe` families, and the `with continuations` macro.
+Accordingly, various parts of `unpythonic` that deal with function composition use the `Values` abstraction; particularly `curry`, `unfold`, the `compose` and `pipe` families, and the `with continuations` macro.
 
 #### Behavior
 

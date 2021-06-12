@@ -23,6 +23,7 @@ from itertools import zip_longest
 from operator import mul
 #from collections import deque
 
+from .funutil import Values
 #from .it import first, last, rev
 from .it import last, rev
 
@@ -297,29 +298,34 @@ def unfold1(proc, init):
         value, state = result
         yield value
 
-def unfold(proc, *inits):
+def unfold(proc, *inits, **kwinits):
     """Like unfold1, but for n-in-(1+n)-out proc.
 
     The current state is unpacked to the argument list of ``proc``.
-    It must return either ``(value, *newstates)``, or ``None`` to signify
-    that the sequence ends.
+    It must return either a ``Values`` object where the first positional
+    return value is the ``value`` to be yielded at this iteration, and
+    anything else is state to be unpacked to the args/kwargs of ``proc``
+    at the next iteration; or a bare ``None`` to signify that the sequence ends.
 
     If your state is something simple such as one number, see ``unfold1``.
 
     Example::
 
         def fibo(a, b):
-            return (a, b, a + b)
+            return Values(a, a=b, b=a + b)
 
         assert (tuple(take(10, unfold(fibo, 1, 1))) ==
                 (1, 1, 2, 3, 5, 8, 13, 21, 34, 55))
     """
-    states = inits
+    state = Values(*inits, **kwinits)
     while True:
-        result = proc(*states)
+        result = proc(*state.rets, **state.kwrets)
         if result is None:
             break
-        value, *states = result
+        if not isinstance(result, Values):
+            raise TypeError(f"Expected `None` (to terminate) or a `Values` (to continue), got {type(result)} with value {repr(result)}")
+        value, *rets = result.rets  # unpack the first positional return value, keep the rest
+        state = Values(*rets, **result.kwrets)
         yield value
 
 # This is **not** how to make a right map; the result is exactly the same

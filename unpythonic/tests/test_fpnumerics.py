@@ -13,6 +13,7 @@ from itertools import repeat
 from math import sin, pi, log2
 
 from ..fun import curry
+from ..funutil import Values
 from ..it import unpack, drop, take, tail, first, second, last, iterate1, within
 from ..fold import scanl, scanl1, unfold
 from ..mathseq import gmathify, imathify
@@ -132,7 +133,7 @@ def runtests():
         @gmathify
         def fibos():
             def nextfibo(a, b):
-                return a, b, a + b
+                return Values(a, a=b, b=a + b)
             return unfold(nextfibo, 1, 1)
         @gmathify
         def pows():

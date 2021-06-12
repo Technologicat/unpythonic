@@ -122,7 +122,7 @@ In the `Lispython` variant, we implicitly import some macros and functions to se
   - All ``let[]`` and ``do[]`` constructs from ``unpythonic.syntax``.
   - The underscore: e.g. `fn[_ * 3]` becomes `lambda x: x * 3`, and `fn[_ * _]` becomes `lambda x, y: x * y`.
   - ``dyn``, for dynamic assignment.
-  - ``Values``, for returning multiple values and/or named return values. (This ties in to `unpythonic`'s function composition subsystem, e.g. `curry`, the `pipe` family, the `compose` family, and the `with continuations` macro.)
+  - ``Values``, for returning multiple values and/or named return values. (This ties in to `unpythonic`'s function composition subsystem, e.g. `curry`, `unfold`, the `pipe` family, the `compose` family, and the `with continuations` macro.)
 
 For detailed documentation of the language features, see [``unpythonic.syntax``](../macros.md), especially the macros ``tco``, ``autoreturn``, ``multilambda``, ``namedlambda``, ``quicklambda``, ``let`` and ``do``.
 

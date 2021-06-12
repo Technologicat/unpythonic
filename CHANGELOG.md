@@ -155,6 +155,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
       - `curry`
       - `pipe` family
       - `compose` family
+      - `unfold`
       - All multiple-return-values in code using the `with continuations` macro. (The continuations system essentially composes continuation functions.)
   - The lazy evaluation tools `lazy`, `Lazy`, and the quick lambda `f` (underscore notation for Python) are now provided by `unpythonic` as `unpythonic.syntax.lazy`, `unpythonic.lazyutil.Lazy`, and `unpythonic.syntax.fn` (note name change!), because they used to be provided by `macropy`, and `mcpyrate` does not provide them.
     - **API differences.**

@@ -10,6 +10,7 @@ from ..fold import (scanl, scanr, scanl1, scanr1, rscanl, rscanl1,
                     foldl, foldr, reducel, reducer, rreducel, rfoldl,
                     unfold, unfold1, prod, running_minmax, minmax)
 from ..fun import curry, composer, composerc, composel, to1st, rotate
+from ..funutil import Values
 from ..llist import cons, nil, ll, lreverse
 from ..it import take, tail
 
@@ -182,15 +183,17 @@ def runtests():
             return (k, k + 2)  # (value, newstate)
 
         def fibo(a, b):
-            return (a, b, a + b)  # (value, *newstates)
+            # First positional is value; everything else is newstate,
+            # to be unpacked to `fibo`'s args/kwargs at the next iteration.
+            return Values(a, a=b, b=a + b)
 
         def myiterate(f, x):  # x0, f(x0), f(f(x0)), ...
-            return (x, f, f(x))
+            return Values(x, f=f, x=f(x))
 
         def zip_two(As, Bs):
             if len(As) and len(Bs):
                 (A0, *moreAs), (B0, *moreBs) = As, Bs
-                return ((A0, B0), moreAs, moreBs)
+                return Values((A0, B0), As=moreAs, Bs=moreBs)
 
         test[tuple(take(10, unfold1(step2, 10))) == (10, 12, 14, 16, 18, 20, 22, 24, 26, 28)]
         test[tuple(take(10, unfold(fibo, 1, 1))) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)]
