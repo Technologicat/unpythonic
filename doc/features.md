@@ -1310,6 +1310,7 @@ Things missing from the standard library.
 
  - `memoize`, with exception caching.
  - `curry`, with passthrough like in Haskell.
+ - `fix`: detect and break infinite recursion cycles. **Added in v0.14.2.**
  - **Added in v0.15.0.** `partial` with run-time type checking, which helps a lot with fail-fast in code that uses partial application. This function type-checks arguments against type annotations, then delegates to `functools.partial`. Supports `unpythonic`'s `@generic` and `@typed` functions, too.
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - **Changed in v0.15.0.** *For the benefit of code using the `with lazify` macro, the compose functions are now marked lazy. Arguments will be forced only when a lazy function in the chain actually uses them, or when an eager (not lazy) function is encountered in the chain.*
@@ -1327,7 +1328,6 @@ Things missing from the standard library.
  - `rotate`: a cousin of `flip`. Permute the order of positional arguments in a cycle.
  - `to1st`, `to2nd`, `tokth`, `tolast`, `to` to help inserting 1-in-1-out functions into m-in-n-out compose chains. (Currying can eliminate the need for these.)
  - `identity`, `const` which sometimes come in handy when programming with higher-order functions.
- - `fix`: detect and break infinite recursion cycles. **Added in v0.14.2.**
 
 We will discuss `memoize` and `curry` in more detail shortly; first, we will give some examples of the other utilities. Note that as always, more examples can be found in [the unit tests](../unpythonic/tests/test_fun.py). 
 
