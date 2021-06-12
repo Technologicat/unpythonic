@@ -42,6 +42,8 @@ The exception are the features marked **[M]**, which are primarily intended as a
 [**Sequencing**](#sequencing), run multiple expressions in any expression position (incl. inside a ``lambda``).
 - [``begin``: sequence side effects](#begin-sequence-side-effects)
 - [``do``: stuff imperative code into an expression](#do-stuff-imperative-code-into-an-expression) **[M]**
+  - [``do``](#do)
+  - [``do0``](#do0)
 - [``pipe``, ``piped``, ``lazy_piped``: sequence functions](#pipe-piped-lazy_piped-sequence-functions)
   - [``pipe``](#pipe)
   - [``piped``](#piped)
