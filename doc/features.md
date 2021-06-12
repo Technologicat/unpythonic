@@ -1819,7 +1819,7 @@ A simple way to explain Haskell's `fix` is:
 fix f = let x = f x in x
 ```
 
-so anywhere the argument is referred to in the definition of `f`, it is replaced by another application of `f`, recursively. This obviously yields a notation useful for corecursively defining infinite lazy lists.
+so anywhere the argument is referred to in the definition of `f`, it is replaced by another application of `f`, recursively. This obviously yields a notation useful for [corecursively](https://en.wikipedia.org/wiki/Corecursion) defining infinite lazy lists.
 
 For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[2]](https://www.vex.net/~trebla/haskell/fix.xhtml) [[3]](https://stackoverflow.com/questions/4787421/how-do-i-use-fix-and-how-does-it-work) [[4]](https://medium.com/@cdsmithus/fixpoints-in-haskell-294096a9fc10) [[5]](https://en.wikibooks.org/wiki/Haskell/Fix_and_recursion).
 
