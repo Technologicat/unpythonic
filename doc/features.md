@@ -1857,11 +1857,11 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
    - `unfold1`, `unfold`: generate a sequence [corecursively](https://en.wikipedia.org/wiki/Corecursion). The counterpart of `foldl`.
      - `unfold1` is for 1-in-2-out functions. The input is `state`, the return value must be `(value, newstate)` or `None`.
      - `unfold` is for n-in-(1+n)-out functions.
-       - **Changed in v0.15.0.** *The initial args/kwargs are unpacked to the args/kwargs of the user function. The function must return a `Values` object, where the first positional return value is the value to be yielded, and anything else is unpacked to the args/kwargs of the user function at the next iteration.*
+       - **Changed in v0.15.0.** *The initial args/kwargs are unpacked to the args/kwargs of the user function. The function must return a `Values` object, where the first positional return value is the value to yield, and anything else is unpacked to the args/kwargs of the user function at the next iteration.*
      - Unfold returns a generator yielding the collected values. The output can be finite or infinite; to signify that a finite sequence ends, the user function must return `None`. (Beside a `Values` object, a bare `None` is the only other allowed return value from the user function.)
  - *mapping and zipping*:
    - `map_longest`: the final missing battery for `map`.
-     - Essentially `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``.
+     - Essentially `starmap(func, zip_longest(*iterables))`, so it's [spanned](https://en.wikipedia.org/wiki/Linear_span) by ``itertools``, but it's convenient to have a named shorthand to do that.
    - `rmap`, `rzip`, `rmap_longest`, `rzip_longest`: reverse each input, then map/zip. For multiple inputs, syncs the **right** ends.
    - `mapr`, `zipr`, `mapr_longest`, `zipr_longest`: map/zip, then reverse the result. For multiple inputs, syncs the **left** ends.
    - `map`: curry-friendly wrapper for the builtin, making it mandatory to specify at least one iterable. **Added in v0.14.2.**
@@ -1881,7 +1881,7 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
  - *extracting items, subsequences*:
    - `take`, `drop`, `split_at`: based on `itertools` [recipes](https://docs.python.org/3/library/itertools.html#itertools-recipes).
      - Especially useful for testing generators.
-     - `islice` is maybe more pythonic than `take` and `drop`. We provide a utility that supports the slice syntax.
+     - `islice` is maybe more pythonic than `take` and `drop`; it enables slice syntax for any iterable.
    - `tail`: return the tail of an iterable. Same as `drop(1, iterable)`; common use case.
    - `butlast`, `butlastn`: return a generator that yields from iterable, dropping the last `n` items if the iterable is finite. Inspired by a similar utility in PG's [On Lisp](http://paulgraham.com/onlisp.html).
      - Works by using intermediate storage. **Do not** use the original iterator after a call to `butlast` or `butlastn`.
@@ -1897,7 +1897,7 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
    - `iterate1`, `iterate`: return an infinite generator that yields `x`, `f(x)`, `f(f(x))`, ...
      - `iterate1` is for 1-to-1 functions.
      - `iterate` is for n-to-n, unpacking the return value to the args/kwargs of the next call.
-       - **Changed in v0.15.0.** *Now the function must return a `Values` object in the same shape as it accepts args and kwargs.*
+       - **Changed in v0.15.0.** *In the n-to-n version, now the user function must return a `Values` object in the same shape as it accepts args and kwargs. This `Values` object is the `x` that is yielded at each iteration.*
  - *miscellaneous*:
    - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively), preserving the original ordering of the items.
    - `rev` is a convenience function that tries `reversed`, and if the input was not a sequence, converts it to a tuple and reverses that. The return value is a `reversed` object.
