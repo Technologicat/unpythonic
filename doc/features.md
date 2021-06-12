@@ -1333,8 +1333,9 @@ We will discuss `memoize`, `curry` and `fix` in more detail shortly; but first, 
 ```python
 from typing import NoReturn
 from unpythonic import (fix, andf, orf, rotate,
-                        zipr, rzip, foldl, foldr,
-                        withself)
+                        foldl, foldr,
+                        withself,
+                        composel)
 
 # detect and break infinite recursion cycles:
 # a(0) -> b(1) -> a(2) -> b(0) -> a(1) -> b(2) -> a(0) -> ...
@@ -1369,9 +1370,16 @@ myzipr = curry(foldr, zipper, ())
 assert myzipl((1, 2, 3), (4, 5, 6), (7, 8)) == ((1, 4, 7), (2, 5, 8))
 assert myzipr((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
 
-# zip and reverse don't commute for inputs with different lengths
-assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((2, 5, 8), (1, 4, 7))  # zip first
-assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))  # reverse first
+# composel: compose functions, applying the leftmost first
+with_n = lambda *args: (partial(f, n) for n, f in args)
+clip = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
+assert tuple(clip(5, 10)(range(20))) == tuple(range(5, 15))
+```
+
+In the last example, essentially we just want to `clip 5 10 (range 20)`, the grouping of the parentheses being pretty much an implementation detail. Using the passthrough in ``curry`` (more on which in the section on ``curry``, below), we can rewrite the last line as:
+
+```python
+assert tuple(curry(clip, 5, 10, range(20)) == tuple(range(5, 15))
 ```
 
 
@@ -1907,14 +1915,19 @@ Examples:
 
 ```python
 from functools import partial
+from itertools import count, takewhile
+from operator import add, mul
 from unpythonic import (scanl, scanr, foldl, foldr,
-                        mapr, zipr,
+                        mapr, zipr, rmap, rzip, identity,
                         uniqify, uniq,
                         flatten1, flatten, flatten_in, flatmap,
                         take, drop,
                         unfold, unfold1,
+                        unpack,
                         cons, nil, ll, curry,
-                        s, inn, iindex,
+                        imemoize, gmemoize,
+                        s, inn, iindex, find,
+                        partition, partition_int,
                         window,
                         subset, powerset,
                         allsame,
@@ -1965,8 +1978,9 @@ assert not inn(1337, primes())
 iseven = lambda x: x % 2 == 0
 assert [tuple(it) for it in partition(iseven, range(10))] == [(1, 3, 5, 7, 9), (0, 2, 4, 6, 8)]
 
+# CAUTION: not to be confused with:
 # partition_int: split a small positive integer, in all possible ways, into smaller integers that sum to it
-assert tuple(partition_int(4)) == ((1, 1, 1, 1), (1, 1, 2), (1, 2, 1), (1, 3), (2, 1, 1), (2, 2), (3, 1), (4,))
+assert tuple(partition_int(4)) == ((4,), (3, 1), (2, 2), (2, 1, 1), (1, 3), (1, 2, 1), (1, 1, 2), (1, 1, 1, 1))
 assert all(sum(terms) == 10 for terms in partition_int(10))
 
 # iindex: find index of item in iterable (mostly only makes sense for memoized input)
@@ -2009,16 +2023,31 @@ def msqrt(x):  # multivalued sqrt
         return (s, -s)
 assert tuple(flatmap(msqrt, (0, 1, 4, 9))) == (0., 1., -1., 2., -2., 3., -3.)
 
-# zipr reverses, then iterates.
-assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+# **CAUTION**: zip and reverse do NOT commute for inputs with different lengths:
+assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((2, 5, 8), (1, 4, 7))  # zip first
+assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))  # reverse first
 
-zipr2 = partial(mapr, identity)  # mapr works the same way.
-assert tuple(zipr2((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+# zipr syncs *left* ends, then iterates *from the right*.
+assert tuple(zipr((1, 2, 3), (4, 5, 6), (7, 8))) == ((2, 5, 8), (1, 4, 7))
 
-# foldr doesn't; it walks from the left, but collects results from the right:
+# so does mapr.
+zipr2 = partial(mapr, identity)
+assert tuple(zipr2((1, 2, 3), (4, 5, 6), (7, 8))) == (Values(2, 5, 8), Values(1, 4, 7))
+
+# rzip syncs *right* ends, then iterates from the right.
+assert tuple(rzip((1, 2, 3), (4, 5, 6), (7, 8))) == ((3, 6, 8), (2, 5, 7))
+
+# so does rmap.
+rzip2 = partial(rmap, identity)
+assert tuple(rzip2((1, 2, 3), (4, 5, 6), (7, 8))) == (Values(3, 6, 8), Values(2, 5, 7))
+
+# foldr syncs *left* ends, then collects results from the right:
+def zipper(*args):
+    *rest, acc = args
+    return acc + (tuple(rest),)
 zipr1 = curry(foldr, zipper, ())
 assert zipr1((1, 2, 3), (4, 5, 6), (7, 8)) == ((2, 5, 8), (1, 4, 7))
-# so the result is reversed(zip(...)), whereas zipr gives zip(*(reversed(s) for s in ...))
+# so the result is tuple(rev(zip(...))), whereas rzip gives tuple(zip(*(rev(s) for s in ...)))
 
 assert tuple(uniqify((1, 1, 2, 2, 2, 1, 2, 2, 4, 3, 4, 3, 3))) == (1, 2, 4, 3)  # all
 assert tuple(uniq((1, 1, 2, 2, 2, 1, 2, 2, 4, 3, 4, 3, 3))) == (1, 2, 1, 2, 4, 3, 4, 3)  # consecutive
@@ -2032,16 +2061,6 @@ assert tuple(flatten((((1, 2), (3, 4)), (5, 6)), is_nested)) == ((1, 2), (3, 4),
 data = (((1, 2), ((3, 4), (5, 6)), 7), ((8, 9), (10, 11)))
 assert tuple(flatten(data, is_nested))    == (((1, 2), ((3, 4), (5, 6)), 7), (8, 9), (10, 11))
 assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8, 9), (10, 11))
-
-with_n = lambda *args: (partial(f, n) for n, f in args)
-clip = lambda n1, n2: composel(*with_n((n1, drop), (n2, take)))
-assert tuple(clip(5, 10)(range(20))) == tuple(range(5, 15))
-```
-
-In the last example, essentially we just want to `clip 5 10 (range 20)`, the grouping of the parentheses being pretty much an implementation detail. With ``curry``, we can rewrite the last line as:
-
-```python
-assert tuple(curry(clip, 5, 10, range(20)) == tuple(range(5, 15))
 ```
 
 ### Batteries for network programming
