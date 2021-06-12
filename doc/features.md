@@ -30,6 +30,9 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``frozendict``: an immutable dictionary](#frozendict-an-immutable-dictionary)
 - [`cons` and friends: pythonic lispy linked lists](#cons-and-friends-pythonic-lispy-linked-lists)
 - [``box``: a mutable single-item container](#box-a-mutable-single-item-container)
+  - [``box``](#box)
+  - [``Some``](#some): immutable box, to explicitly indicate the presence of a value.
+  - [``ThreadLocalBox``](#threadlocalbox)
 - [``Shim``: redirect attribute accesses](#shim-redirect-attribute-accesses)
 - [Container utilities](#container-utilities): ``get_abcs``, ``in_slice``, ``index_in_slice``
 
