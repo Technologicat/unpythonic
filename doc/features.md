@@ -1395,7 +1395,7 @@ There are some **important differences** to the nearest equivalents in the stand
 
   - `memoize` does **not** have a `typed` mode to treat `42` and `42.0` as different keys to the memo. The function arguments are hashed, and both an `int` and an equal `float` happen to hash to the same value.
 
-    What the `typed` mode of the standard library functions is doing is actually a form of dispatch. Hence, you can use `@generic` (which see), and `@memoize` each individual multimethod:
+    The `typed` mode of the standard library functions is actually a form of dispatch. Hence, you can use `@generic` (which see), and `@memoize` each individual multimethod:
 
     ```python
     from unpythonic import generic, memoize
@@ -1411,7 +1411,7 @@ There are some **important differences** to the nearest equivalents in the stand
         return 3.0 * x
     ```
 
-    Without using ``@generic``, The essential idea is:
+    Without using ``@generic``, the essential idea is:
 
     ```python
     from unpythonic import memoize
