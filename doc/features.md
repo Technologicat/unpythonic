@@ -21,6 +21,9 @@ The exception are the features marked **[M]**, which are primarily intended as a
 
 [**Bindings**](#bindings)
 - [``let``, ``letrec``: local bindings in an expression](#let-letrec-local-bindings-in-an-expression) **[M]**
+  - [``let``](#let)
+  - [``dlet``, ``blet``](#dlet-blet): *let-over-def*, like the classic let-over-lambda.
+  - [``letrec``](#letrec)
   - [Lispylet: alternative syntax](#lispylet-alternative-syntax) **[M]**
 - [``env``: the environment](#env-the-environment)
 - [``assignonce``](#assignonce), a relative of ``env``.
@@ -1687,7 +1690,7 @@ because ``(g, x, y)`` is just a tuple of ``g``, ``x`` and ``y``. This is by desi
 
 - For run-time type checking, consider `@typed` or `@generic` right here in `unpythonic`.
 
-- You can also just use Python's type annotations; `unpythonic`'s `curry` type-checks the arguments before accepting the curried function. The annotations work if the stdlib function `typing.get_type_hints` can find them.
+- You can also just use Python's type annotations; `unpythonic`'s `curry` type-checks the arguments before accepting the curried function. The annotations work if the stdlib function [`typing.get_type_hints`](https://docs.python.org/3/library/typing.html#typing.get_type_hints) can find them.
 
 
 #### ``fix``: break infinite recursion cycles
