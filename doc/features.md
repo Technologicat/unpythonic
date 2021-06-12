@@ -37,9 +37,14 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``begin``: sequence side effects](#begin-sequence-side-effects)
 - [``do``: stuff imperative code into an expression](#do-stuff-imperative-code-into-an-expression) **[M]**
 - [``pipe``, ``piped``, ``lazy_piped``: sequence functions](#pipe-piped-lazy_piped-sequence-functions)
+  - [``pipe``](#pipe)
+  - [``piped``](#piped)
+  - [``lazy_piped``](#lazy_piped)
 
 [**Batteries**](#batteries) missing from the standard library.
 - [**Batteries for functools**](#batteries-for-functools): `memoize`, `curry`, `compose`, `withself`, `fix` and more.
+  - [``memoize``](#memoize): a detailed explanation of the memoizer.
+  - [``curry``](#curry): a detailed explanation of the curry utility.
   - [``curry`` and reduction rules](#curry-and-reduction-rules): we provide some extra features for bonus Haskellness.
   - [``fix``: break infinite recursion cycles](#fix-break-infinite-recursion-cycles)
 - [**Batteries for itertools**](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables, etc.
