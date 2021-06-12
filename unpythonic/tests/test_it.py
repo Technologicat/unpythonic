@@ -351,9 +351,9 @@ def runtests():
         # it doesn't matter where you start, the fixed point of cosine
         # remains the same.
         def cos3(a, b, c):
-            return cos(a), cos(b), cos(c)
+            return Values(cos(a), cos(b), cos(c))
         fp = 0.7390851332151607
-        test[the[last(take(100, iterate(cos3, 1.0, 2.0, 3.0)))] == (the[fp], fp, fp)]
+        test[the[last(take(100, iterate(cos3, 1.0, 2.0, 3.0)))] == Values(the[fp], fp, fp)]
 
     # within() - terminate a Cauchy sequence after a tolerance is reached.
     # The condition is `abs(a - b) <= tol` **for the last two yielded items**.

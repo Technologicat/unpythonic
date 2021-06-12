@@ -35,6 +35,8 @@ from operator import itemgetter
 from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby, takewhile
 from collections import deque
 
+from .funutil import Values
+
 def rev(iterable):
     """Reverse an iterable.
 
@@ -562,18 +564,26 @@ def iterate1(f, x):
         yield x
         x = f(x)
 
-def iterate(f, *args):
+def iterate(f, *args, **kwargs):
     """Multiple-argument version of iterate1.
 
-    The function ``f`` should return a tuple or list of as many elements as it
-    takes positional arguments; this will be unpacked to the argument list in
-    the next call.
+    The initial ``args`` and ``kwargs`` are packed into a ``Values`` object,
+    which we will below denote as ``x``. When calling ``f``, ``x`` is unpacked
+    to its args/kwargs.
 
-    Or in other words, yield args, f(*args), f(*f(*args)), ...
+    The function ``f`` must return a ``Values`` object in the same shape
+    as it takes args and kwargs; this then becomes the new ``x``.
+
+    Using this notation, this function behaves exactly like ``iterate1``:
+    the return value of ``iterate`` is an infinite generator that yields
+    x, f(x), f(f(x)), ...
     """
+    x = Values(*args, **kwargs)
     while True:
-        yield args
-        args = f(*args)
+        yield x
+        x = f(*x.rets, **x.kwrets)
+        if not isinstance(x, Values):
+            raise TypeError(f"Expected a `Values`, got {type(x)} with value {repr(x)}")
 
 def partition(pred, iterable):
     """Partition an iterable to entries satifying and not satisfying a predicate.

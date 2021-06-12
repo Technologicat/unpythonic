@@ -1887,7 +1887,9 @@ For more, see [[1]](https://www.parsonsmatt.org/2016/10/26/grokking_fix.html) [[
    - `within`: yield items from iterable until successive iterates are close enough. Useful with [Cauchy sequences](https://en.wikipedia.org/wiki/Cauchy_sequence). **Added in v0.14.2.**
    - `prod`: like the builtin `sum`, but compute the product. Oddly missing from the standard library.
    - `iterate1`, `iterate`: return an infinite generator that yields `x`, `f(x)`, `f(f(x))`, ...
-     - `iterate1` is for 1-to-1 functions; `iterate` for n-to-n, unpacking the return value to the argument list of the next call.
+     - `iterate1` is for 1-to-1 functions.
+     - `iterate` is for n-to-n, unpacking the return value to the args/kwargs of the next call.
+       - **Changed in v0.15.0.** *Now the function must return a `Values` object in the same shape as it accepts args and kwargs.*
  - *miscellaneous*:
    - `uniqify`, `uniq`: remove duplicates (either all or consecutive only, respectively), preserving the original ordering of the items.
    - `rev` is a convenience function that tries `reversed`, and if the input was not a sequence, converts it to a tuple and reverses that. The return value is a `reversed` object.
@@ -4120,7 +4122,7 @@ Most of the time, returning a tuple to denote multiple-return-values and unpacki
 
 But the distinction is critically important in function composition, so that positional return values can be automatically mapped into positional arguments to the next function in the chain, and named return values into named arguments.
 
-Accordingly, various parts of `unpythonic` that deal with function composition use the `Values` abstraction; particularly `curry`, `unfold`, the `compose` and `pipe` families, and the `with continuations` macro.
+Accordingly, various parts of `unpythonic` that deal with function composition use the `Values` abstraction; particularly `curry`, `unfold`, `iterate`, the `compose` and `pipe` families, and the `with continuations` macro.
 
 #### Behavior
 
