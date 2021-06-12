@@ -253,7 +253,10 @@ class Popper:
 class CountingIterator:
     """Iterator that counts how many elements it has yielded.
 
-    The count stops updating when the original iterable raises StopIteration.
+    Wraps the original iterator of `iterable`. Simply use
+    `CountingIterator(iterable)` in place of `iter(iterable)`.
+
+    The count stops updating when the original iterator raises StopIteration.
     """
     def __init__(self, iterable):
         self._it = iter(iterable)
