@@ -1966,7 +1966,7 @@ assert inn(42, evens())
 assert not inn(41, evens())
 
 @gmemoize
-def primes():
+def primes():  # FP sieve of Eratosthenes
     yield 2
     for n in count(start=3, step=2):
         if not any(n % p == 0 for p in takewhile(lambda x: x*x <= n, primes())):
