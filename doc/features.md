@@ -56,6 +56,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
   - [``fix``: break infinite recursion cycles](#fix-break-infinite-recursion-cycles)
 - [**Batteries for itertools**](#batteries-for-itertools): multi-input folds, scans (lazy partial folds); unfold; lazy partial unpacking of iterables, etc.
 - [**Batteries for network programming**](#batteries-for-network-programming): message protocol, PTY/socket proxy, etc.
+  - [`unpythonic.net.msg`](#unpythonic-net-msg): message protocol.
 - [``islice``: slice syntax support for ``itertools.islice``](#islice-slice-syntax-support-for-itertoolsislice)
 - [`gmemoize`, `imemoize`, `fimemoize`: memoize generators](#gmemoize-imemoize-fimemoize-memoize-generators), iterables and iterator factories.
 - [``fup``: functional update; ``ShadowedSequence``](#fup-functional-update-shadowedsequence): like ``collections.ChainMap``, but for sequences.
