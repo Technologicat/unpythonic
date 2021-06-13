@@ -2072,10 +2072,16 @@ assert tuple(flatten_in(data, is_nested)) == (((1, 2), (3, 4), (5, 6), 7),   (8,
 While all other pure-Python features of `unpythonic` live in the main `unpythonic` package, the network-related features are placed in the subpackage `unpythonic.net`. This subpackage also contains the [REPL server and client](repl.md) for hot-patching live processes.
 
 - `unpythonic.net.msg`: A simplistic message protocol for sending message data over a stream-based transport, such as TCP.
-- `unpythonic.net.ptyproxy`: Proxy between a Linux [PTY](https://en.wikipedia.org/wiki/Pseudoterminal) and a network socket. Useful for serving terminal utilities over the network. The selling point is this doesn't use `pty.spawn`, so it can be used for proxying also Python libraries that expect to run in a terminal.
+- `unpythonic.net.ptyproxy`: Proxy between a Linux [PTY](https://en.wikipedia.org/wiki/Pseudoterminal) and a network socket. Useful for serving terminal utilities over the network. The selling point is this does **not** use `pty.spawn`, so it can be used for proxying also Python libraries that expect to run in a terminal.
 - `unpythonic.net.util`: Miscellaneous small utilities.
 
-The thing about stream-based transports is that they have no concept of a message boundary [[1]](http://stupidpythonideas.blogspot.com/2013/05/sockets-are-byte-streams-not-message.html) [[2]](https://eli.thegreenplace.net/2011/08/02/length-prefix-framing-for-protocol-buffers) [[3]](https://docs.python.org/3/howto/sockets.html). This is where a message protocol comes in. We provide a [sans-io](https://sans-io.readthedocs.io/) implementation of a minimalistic custom protocol that adds rudimentary [message framing](https://blog.stephencleary.com/2009/04/message-framing.html) and [stream re-synchronization](https://en.wikipedia.org/wiki/Frame_synchronization). Example:
+For a usage example of `unpythonic.net.ptyproxy`, see the source code of `unpythonic.net.server`.
+
+More details can be found in the docstrings.
+
+#### `unpythonic.net.msg`
+
+The problem with stream-based transports, such as network sockets, is that they have no concept of a message boundary [[1]](http://stupidpythonideas.blogspot.com/2013/05/sockets-are-byte-streams-not-message.html) [[2]](https://eli.thegreenplace.net/2011/08/02/length-prefix-framing-for-protocol-buffers) [[3]](https://docs.python.org/3/howto/sockets.html). This is where a message protocol comes in. We provide a [sans-io](https://sans-io.readthedocs.io/) implementation of a minimalistic message protocol that adds rudimentary [message framing](https://blog.stephencleary.com/2009/04/message-framing.html) and [stream re-synchronization](https://en.wikipedia.org/wiki/Frame_synchronization). Example:
 
 ```python
 from io import BytesIO, SEEK_SET
@@ -2114,8 +2120,6 @@ assert decoder.decode() == b"cat"
 assert decoder.decode() == b"mew"
 assert decoder.decode() is None
 ```
-
-For a usage example of `unpythonic.net.PTYProxy`, see the source code of `unpythonic.net.server`.
 
 
 ### ``islice``: slice syntax support for ``itertools.islice`
