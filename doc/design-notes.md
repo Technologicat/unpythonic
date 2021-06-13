@@ -129,7 +129,8 @@ The oft-quoted single-expression limitation of the Python ``lambda`` is ultimate
  - A lambda can define a class using the three-argument form of the builtin `type` function. For an example, see [Peter Corbett (2005): Statementless Python](https://gist.github.com/brool/1679908), a complete minimal Lisp interpreter implemented as a single Python expression.
  - A lambda can import a module using the builtin `__import__`, or better, `importlib.import_module`.
  - A lambda can assert by using an if-expression and then ``raisef`` to actually raise the ``AssertionError``.
-   - This can be packaged into a function ``assertf``, though that requires jumping through some hoops to produce a traceback that omits ``assertf`` itself. See ``equip_with_traceback``.
+   - Or use the `test[]` macro, which also shows the source code for the asserted expression if the assertion fails.
+   - Technically, `test[]` will `signal` the `TestFailure` (part of the public API of `unpythonic.test.fixtures`), not raise it, but essentially, `test[]` is a more convenient assert that optionally hooks into a testing framework. The error signal, if unhandled, will automatically chain into raising a `ControlError` exception, which is often just fine.
  - Context management (``with``) is currently **not** available for lambdas, even in ``unpythonic``.
    - Aside from the `async` stuff, this is the last hold-out preventing full generality, so we will likely add an expression form of ``with`` in a future version. This is tracked in [issue #76](https://github.com/Technologicat/unpythonic/issues/76).
 
