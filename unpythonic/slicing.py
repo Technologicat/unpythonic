@@ -22,6 +22,9 @@ def islice(iterable):
         start or stop will force the iterable, because that is the only way to
         know its length.
 
+        The desired elements are held in an internal buffer until they are yielded
+        by iterating over the `islice`.
+
       - A single index (negative also allowed) is interpreted as a length-1
         islice starting at that index. The slice is then immediately evaluated
         and the item is returned.

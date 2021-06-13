@@ -2148,7 +2148,7 @@ As a convenience feature: a single index is interpreted as a length-1 `islice` s
 
 The slicing variant calls ``itertools.islice`` with the corresponding slicing parameters, after possibly converting negative `start` and `stop` to the appropriate positive values.
 
-**CAUTION**: When using negative `start` and/or `stop`, we must consume the whole iterable to determine where it ends, if at all. Obviously, this will not terminate for infinite iterables.
+**CAUTION**: When using negative `start` and/or `stop`, the whole iterable is consumed to determine where it ends, if at all. Obviously, this will not terminate for infinite iterables. The desired elements are then held in an internal buffer until they are yielded by iterating over the `islice`.
 
 **CAUTION**: Keep in mind that negative `step` is not supported, and that the slicing process consumes elements from the iterable.
 
