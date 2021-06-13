@@ -2121,7 +2121,7 @@ For a usage example of `unpythonic.net.PTYProxy`, see the source code of `unpyth
 
 **Changed in v0.14.2.** *Added support for negative `start` and `stop`.*
 
-Slice an iterable, using the regular slicing syntax:
+Slice any iterable, using the regular slicing syntax:
 
 ```python
 from unpythonic import islice, primes, s
@@ -2139,7 +2139,7 @@ assert tuple(islice(odds)[:5]) == (1, 3, 5, 7, 9)
 assert tuple(islice(odds)[:5]) == (11, 13, 15, 17, 19)  # five more
 ```
 
-As a convenience feature: a single index is interpreted as a length-1 islice starting at that index. The slice is then immediately evaluated and the item is returned.
+As a convenience feature: a single index is interpreted as a length-1 `islice` starting at that index. The slice is then immediately evaluated and the item is returned.
 
 The slicing variant calls ``itertools.islice`` with the corresponding slicing parameters, after possibly converting negative `start` and `stop` to the appropriate positive values.
 
@@ -2162,17 +2162,17 @@ Memoize iterables; like `itertools.tee`, but no need to know in advance how many
 
  - `gmemoize` is a decorator for a gfunc, which makes it memoize the instantiated generators.
    - If the gfunc takes arguments, they must be hashable. A separate memoized sequence is created for each unique set of argument values seen.
-   - For simplicity, the generator itself may use ``yield`` for output only; ``send`` is not supported.
+   - For simplicity, the generator itself may use ``yield`` for output only; ``send`` is **not** supported.
    - Any exceptions raised by the generator (except StopIteration) are also memoized, like in ``memoize``.
-   - Thread-safe. Calls to ``next`` on the memoized generator from different threads are serialized via a lock. Each memoized sequence has its own lock. This uses ``threading.RLock``, so re-entering from the same thread (e.g. in recursively defined sequences) is fine.
+   - Thread-safe. Calls to ``next`` on the memoized generator from different threads are serialized via a lock. Each memoized sequence has its own lock. This uses ``threading.RLock``, so re-entering from the same thread (e.g. in recursively defined mathematical sequences) is fine.
    - The whole history is kept indefinitely. For infinite iterables, use this only if you can guarantee that only a reasonable number of terms will ever be evaluated (w.r.t. available RAM).
-   - Typically, this should be the outermost decorator if several are used on the same gfunc.
+   - Typically, `gmemoize` should be the outermost decorator if several are used on the same gfunc.
  - `imemoize`: memoize an iterable. Like `itertools.tee`, but keeps the whole history, so more copies can be teed off later.
    - Same limitation: **do not** use the original iterator after it is memoized. The danger is that if anything other than the memoization mechanism advances the original iterator, some values will be lost before they can reach the memo.
    - Returns a gfunc with no parameters which, when called, returns a generator that yields items from the memoized iterable. The original iterable is used to retrieve more terms when needed.
    - Calling the gfunc essentially tees off a new instance, which begins from the first memoized item.
  - `fimemoize`: convert a factory function, that returns an iterable, into the corresponding gfunc, and `gmemoize` that. Return the memoized gfunc.
-   - Especially convenient with short lambdas, where `(yield from ...)` instead of `...` is just too much text.
+   - Especially convenient with short lambdas, where `(yield from ...)` instead of `...` is just too much text. See example below.
 
 ```python
 from itertools import count, takewhile
@@ -2256,7 +2256,7 @@ We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, b
 
 The function ``fupdate`` functionally updates sequences and mappings. Whereas ``ShadowedSequence`` reads directly from the original sequences at access time, ``fupdate`` makes a shallow copy, of the same type as the given input sequence, when it finalizes its output.
 
-**The preferred way** to use ``fupdate`` on sequences is through the ``fup`` utility function, which specializes ``fupdate`` to sequences, and adds support for Python's standard slicing syntax:
+**The preferred way** to use ``fupdate`` on sequences is through the ``fup`` utility function, which specializes ``fupdate`` to sequences, and adds support for Python's standard **slicing syntax**:
 
 ```python
 from unpythonic import fup
@@ -2284,7 +2284,7 @@ assert lst == [1, 2, 3]  # the original remains untouched
 assert out == [1, 42, 3]
 
 lst = [1, 2, 3]
-out = fupdate(lst, -1, 42)  # negative indices also supported
+out = fupdate(lst, -1, 42)  # negative indices are also supported
 assert lst == [1, 2, 3]
 assert out == [1, 2, 42]
 ```
