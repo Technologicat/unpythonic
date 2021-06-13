@@ -2154,6 +2154,8 @@ Inspired by Python itself.
 
 ### `gmemoize`, `imemoize`, `fimemoize`: memoize generators
 
+**Changed in v0.15.0.** *The generator instances created by the gfuncs returned by `gmemoize`, `imemoize`, and `fimemoize`, now support the `__len__` and `__getitem__` methods to access the already-yielded, memoized part. Note that they do **not** support all of the [`collections.abc.Sequence`](https://docs.python.org/3/library/collections.abc.html) API, because e.g. `__contains__` and `__reversed__` are missing, on purpose.*
+
 Make generator functions (gfunc, i.e. a generator definition) which create memoized generators, similar to how streams behave in Racket.
 
 Memoize iterables; like `itertools.tee`, but no need to know in advance how many copies of the iterator will be made. Provided for both iterables and for factory functions that make iterables.
@@ -2248,6 +2250,8 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
 
 ### ``fup``: Functional update; ``ShadowedSequence``
 
+**Changed in 0.15.0.** *Bug fixed: Now an infinite replacement sequence to pull items from is actually ok, as the documentation has always claimed.*
+
 We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). It supports slicing (read-only), equality comparison, ``str`` and ``repr``. Out-of-range read access to a single item emits a meaningful error, like in ``list``. See the docstring of ``ShadowedSequence`` for details.
 
 The function ``fupdate`` functionally updates sequences and mappings. Whereas ``ShadowedSequence`` reads directly from the original sequences at access time, ``fupdate`` makes a shallow copy, of the same type as the given input sequence, when it finalizes its output.
@@ -2301,6 +2305,33 @@ Slicing supports negative indices and steps, and default starts, stops and steps
 When ``fupdate`` constructs its output, the replacement occurs by walking *the input sequence* left-to-right, and pulling an item from the replacement sequence when the given replacement specification so requires. Hence the replacement sequence is not necessarily accessed left-to-right. (In the last example above, ``tuple(range(5))`` was read in the order ``(4, 3, 2, 1, 0)``.)
 
 The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored (so e.g. an infinite ``repeat`` is fine), but if the replacement is too short, ``IndexError`` is raised.
+
+Note that the replacement must have `__len__` and `__getitem__` methods if the replacement specification requires reading it backwards, and/or if you plan to iterate over the `ShadowedSequence` multiple times. If the replacement only needs to be read forwards, **AND** you only plan to iterate over the `ShadowedSequence` just once (e.g., as part of a `fup`/`fupdate` operation), then it is sufficient for the replacement to implement the `collections.abc.Iterator` API only (i.e. just `__iter__` and `__next__`).
+
+So, as of v0.15.0, this is supported:
+
+```python
+from itertools import repeat, count
+from unpythonic import fup
+
+lst = (1, 2, 3, 4, 5)
+assert fup(lst)[::] << repeat(42) == (42, 42, 42, 42, 42)
+assert fup(lst)[::] << count(start=10) == (10, 11, 12, 13, 14)
+```
+
+If you need to reverse-walk the start of an infinite replacement, then `imemoize(...)` to create a memoizing gfunc, and instantiate it:
+
+```python
+from itertools import count
+from unpythonic import fup, imemoize
+
+lst = (1, 2, 3, 4, 5)
+assert fup(lst)[::-1] << imemoize(count(start=10))() == (14, 13, 12, 11, 10)
+```
+
+Note that as before, due to the `[::-1]`, the *fifth* item of the memoized iterable is used first. The `fup` succeeds, because all five items are stored in the memo (which is internally a sequence).
+
+Once enough items have been yielded to perform the replacement, this will internally use `__getitem__` to retrieve the actual items. This supports any generator instance created by `imemoize`, `fimemoize`, or `gmemoize`.
 
 It is also possible to replace multiple individual items. These are treated as separate specifications, applied left to right (so later updates shadow earlier ones, if updating at the same index):
 

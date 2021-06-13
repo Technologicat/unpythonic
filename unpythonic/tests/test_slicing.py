@@ -4,9 +4,10 @@
 from ..syntax import macros, test, test_raises  # noqa: F401
 from ..test.fixtures import session, testset
 
-from itertools import repeat
+from itertools import count, repeat
 
 from ..slicing import fup, islice
+from ..gmemo import imemoize
 from ..mathseq import primes, s
 
 def runtests():
@@ -20,6 +21,10 @@ def runtests():
         test[fup(tup)[1::2] << tuple(repeat(10, 3)) == (1, 10, 3, 10, 5)]
         test[fup(tup)[::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)]
         test[fup(tup)[::-1] << tuple(range(5)) == (4, 3, 2, 1, 0)]
+        test[fup(tup)[0::2] << repeat(10) == (10, 2, 10, 4, 10)]  # infinite replacement
+        test[fup(tup)[0::2] << count(start=10) == (10, 2, 11, 4, 12)]
+        test[fup(tup)[::2] << imemoize(repeat(10))() == (10, 2, 10, 4, 10)]  # memoized infinite replacement backwards
+        test[fup(tup)[::-2] << imemoize(count(start=10))() == (12, 2, 11, 4, 10)]
         test[tup == (1, 2, 3, 4, 5)]
 
         test_raises[TypeError, fup(tup)[2, 3]]  # multidimensional indexing not supported

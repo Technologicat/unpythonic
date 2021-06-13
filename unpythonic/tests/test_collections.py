@@ -4,6 +4,7 @@ from ..syntax import macros, test, test_raises, the  # noqa: F401
 from ..test.fixtures import session, testset
 
 from collections.abc import Mapping, MutableMapping, Hashable, Container, Iterable, Sized
+from itertools import count, repeat
 from pickle import dumps, loads
 import threading
 
@@ -11,6 +12,7 @@ from ..collections import (box, ThreadLocalBox, Some, Shim, unbox,
                            frozendict, view, roview, ShadowedSequence, mogrify,
                            in_slice, index_in_slice)
 from ..fold import foldr
+from ..gmemo import imemoize
 from ..llist import cons, ll
 
 def runtests():
@@ -468,6 +470,16 @@ def runtests():
 
         s6 = ShadowedSequence(tpl, slice(2, 4), (23,))  # replacement too short...
         test_raises[IndexError, s6[3]]  # ...which is detected here
+
+        # infinite replacements
+        # Here we must `tuple()` the LHS so that the replacement *iterable*,
+        # which is not a sequence, is iterated over only once.
+        test[tuple(ShadowedSequence(tpl, slice(None, None, None), repeat(42))) == (42, 42, 42, 42, 42)]
+        test[tuple(ShadowedSequence(tpl, slice(None, None, None), count(start=10))) == (10, 11, 12, 13, 14)]
+
+        # reading the start of a memoized infinite replacement backwards
+        test[tuple(ShadowedSequence(tpl, slice(None, None, -1), imemoize(repeat(42))())) == (42, 42, 42, 42, 42)]
+        test[tuple(ShadowedSequence(tpl, slice(None, None, -1), imemoize(count(start=10))())) == (14, 13, 12, 11, 10)]
 
     # mogrify: in-place map for various data structures (see docstring for details)
     with testset("mogrify"):

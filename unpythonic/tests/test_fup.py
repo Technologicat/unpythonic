@@ -3,11 +3,12 @@
 from ..syntax import macros, test, test_raises, the  # noqa: F401
 from ..test.fixtures import session, testset
 
-from itertools import repeat
+from itertools import count, repeat
 from collections import namedtuple
 
 from ..fup import fupdate
 from ..collections import frozendict
+from ..gmemo import imemoize
 
 def runtests():
     with testset("mutable sequence"):
@@ -89,6 +90,24 @@ def runtests():
                       (tuple(repeat(2, 5)), tuple(repeat(3, 5))))
         test[tup == tuple(range(10))]
         test[out == (2, 3, 2, 3, 2, 3, 2, 3, 2, 3)]
+
+    with testset("infinite replacement"):
+        tup = (1, 2, 3, 4, 5)
+        out = fupdate(tup, slice(None, None, None), repeat(42))
+        test[out == (42, 42, 42, 42, 42)]
+
+        tup = (1, 2, 3, 4, 5)
+        out = fupdate(tup, slice(None, None, None), count(start=10))
+        test[out == (10, 11, 12, 13, 14)]
+
+    with testset("memoized infinite replacement, reading its start backwards"):
+        tup = (1, 2, 3, 4, 5)
+        out = fupdate(tup, slice(None, None, -1), imemoize(repeat(42))())
+        test[out == (42, 42, 42, 42, 42)]
+
+        tup = (1, 2, 3, 4, 5)
+        out = fupdate(tup, slice(None, None, -1), imemoize(count(start=10))())
+        test[out == (14, 13, 12, 11, 10)]
 
     with testset("mix and match"):
         tup = tuple(range(10))

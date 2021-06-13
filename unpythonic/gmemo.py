@@ -112,6 +112,7 @@ class _MemoizedGenerator:
         self.j = 0  # current position in memo
     def __repr__(self):
         return f"<_MemoizedGenerator object {self.g.__name__} at 0x{id(self):x}>"
+    # Support the `collections.abc.Iterable` API
     def __iter__(self):
         return self
     def __next__(self):
@@ -131,6 +132,16 @@ class _MemoizedGenerator:
             if kind is _fail:
                 raise value
             return value
+    # Support the `collections.abc.Sequence` API for already-computed items
+    def __len__(self):
+        return len(self.memo)
+    def __getitem__(self, k):
+        if k >= len(self.memo):
+            raise IndexError(f"Attempted to access index {k} of memoized generator; only {len(self.memo)} items available (at least so far)")
+        kind, value = self.memo[k]
+        if kind is _fail:
+            raise value
+        return value
 
 def imemoize(iterable):
     """Memoize an iterable.

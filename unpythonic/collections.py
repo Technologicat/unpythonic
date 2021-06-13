@@ -27,8 +27,9 @@ import threading
 from .env import env
 from .dynassign import _Dyn
 from .funutil import Values
+from .it import drop
 from .llist import cons, Nil
-from .misc import getattrrec
+from .misc import getattrrec, CountingIterator
 
 def get_abcs(cls):
     """Return a set of the collections.abc superclasses of cls (virtuals too)."""
@@ -743,16 +744,34 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
     Essentially, ``out[k] = v[index_in_slice(k, ix)] if in_slice(k, ix) else seq[k]``,
     but doesn't actually allocate ``out``.
 
-    ``ix`` may be integer (if ``v`` represents one item only) or slice (if ``v``
-    is intended as a sequence). The default ``None`` means ``out[k] = seq[k]``
+    ``ix`` may be integer (if ``v`` represents one item only) or ``slice`` (if ``v``
+    is intended as a sequence). The default ``ix=None`` means ``out[k] = seq[k]``
     with no shadower.
+
+    If ``ix`` is a ``slice``, then:
+
+      - If the replacement specification requires reading ``v`` backwards,
+        and/or if you plan to iterate over the ``ShadowedSequence`` more
+        than once, then ``v`` must implement ``collections.abc.Sequence``,
+        i.e. it must have ``__len__`` and ``__getitem__`` methods.
+
+      - If the replacement specification only needs reading ``v`` forwards,
+        **AND** if you plan to read the ``ShadowedSequence`` only once (e.g.
+        as part of a `fupdate` or `fup` operation), then it is sufficient
+        for ``v`` to implement only ``collections.abc.Iterator``, i.e. the
+        ``__iter__`` and ``__next__`` methods only.
     """
     def __init__(self, seq, ix=None, v=None):
         if ix is not None and not isinstance(ix, (slice, int)):
             raise TypeError(f"ix: expected slice or int, got {type(ix)} with value {ix}")
+        if not isinstance(seq, Sequence):
+            raise TypeError(f"seq: expected a sequence, got {type(seq)} with value {seq}")
+        if isinstance(ix, slice) and not isinstance(v, (Sequence, Iterable)):
+            raise TypeError(f"v: when ix is a slice, v must be a sequence or an iterable; got {type(v)} with value {v}")
         self.seq = seq
         self.ix = ix
         self.v = v
+        self._v_it = None
 
     # Provide __iter__ (even though implemented using len() and __getitem__())
     # so that our __getitem__ can raise IndexError when needed, without it
@@ -794,9 +813,29 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
                 return self.v  # just one item
             # we already know k is in ix, so skip validation for speed.
             i = _index_in_slice(k, ix, n, _validate=False)
-            if i >= len(self.v):
-                raise IndexError(f"Replacement sequence too short; attempted to access index {i} with len {len(self.v)} (items: {self.v})")
-            return self.v[i]
+            if isinstance(self.v, Sequence):
+                if i >= len(self.v):
+                    raise IndexError(f"Replacement sequence too short; attempted to access index {i} with len {len(self.v)} (items: {self.v})")
+                return self.v[i]
+            elif isinstance(self.v, Iterable):
+                if not self._v_it:
+                    self._v_it = CountingIterator(self.v)
+                if i < self._v_it.count:
+                    # Special case for `unpythonic.gmemo._MemoizedGenerator`,
+                    # to support reverse-walking a replacement that was created
+                    # using `imemoize`/`fimemoize`/`gmemoize`.
+                    bare_it = self._v_it._it
+                    if all(hasattr(bare_it, name) for name in ("__len__", "__getitem__")):
+                        assert i < len(bare_it)  # because we counted them!
+                        return bare_it[i]
+                    raise IndexError(f"Trying to read an already consumed item of a non-sequence iterable; attempted to access index {i} with {self._v_it.count} items already consumed.")
+                n_skip = i - self._v_it.count
+                assert n_skip >= 0
+                if n_skip:
+                    self._v_it = drop(n_skip, self._v_it)
+                return next(self._v_it)
+            else:
+                assert False
         return self.seq[k]  # not in slice
 
 def in_slice(i, s, length=None):
