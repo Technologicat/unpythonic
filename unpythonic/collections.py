@@ -822,8 +822,11 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
                     self._v_it = CountingIterator(self.v)
                 if i < self._v_it.count:
                     # Special case for `unpythonic.gmemo._MemoizedGenerator`,
-                    # to support reverse-walking a replacement that was created
-                    # using `imemoize`/`fimemoize`/`gmemoize`.
+                    # to support reverse-walking the start of a memoized infinite replacement
+                    # that was created using `imemoize`/`fimemoize`/`gmemoize`.
+                    # It has the `__len__` and `__getitem__` methods, but does
+                    # **not** support the full `collections.abc.Sequence` API.
+                    # At this point, the memo contains all the items accessed or dropped so far.
                     bare_it = self._v_it._it
                     if all(hasattr(bare_it, name) for name in ("__len__", "__getitem__")):
                         assert i < len(bare_it)  # because we counted them!
@@ -832,6 +835,7 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
                 n_skip = i - self._v_it.count
                 assert n_skip >= 0
                 if n_skip:
+                    # NOTE: If the iterable is memoized, the items we drop here will enter the memo.
                     self._v_it = drop(n_skip, self._v_it)
                 return next(self._v_it)
             else:
