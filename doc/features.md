@@ -2900,17 +2900,20 @@ Clojure's trampoline system is thus more explicit and simple than ours (the tram
 
 ### `looped`, `looped_over`: loops in FP style (with TCO)
 
-*Functional loop with automatic tail call optimization* (for calls re-invoking the loop body):
+In functional programming, looping can be represented as recursion. The loop body is written as a recursive function. To loop, the function tail-calls itself, possibly with new argument values. Both `for` and `while` loops can be expressed in this way.
+
+As a practical detail, tail-call optimization is important, to avoid growing the call stack at each iteration of the loop.
+
+Here is a functional loop using `unpythonic`, with automatic tail call optimization - no macros needed:
 
 ```python
-from unpythonic import looped, looped_over
+from unpythonic import looped
 
 @looped
 def s(loop, acc=0, i=0):
     if i == 10:
         return acc
-    else:
-        return loop(acc + i, i + 1)
+    return loop(acc + i, i + 1)
 print(s)  # 45
 ```
 
@@ -2927,49 +2930,23 @@ define s
 displayln s  ; 45
 ```
 
-The `@looped` decorator is essentially sugar. Behaviorally equivalent code:
-
-```python
-@trampolined
-def s(acc=0, i=0):
-    if i == 10:
-        return acc
-    else:
-        return jump(s, acc + i, i + 1)
-s = s()
-print(s)  # 45
-```
-
-In `@looped`, the function name of the loop body is the name of the final result, like in `@call`. The final result of the loop is just returned normally.
+In `@looped`, the function name of the loop body is the name of the final result, like in `@call`. To terminate the loop, just `return` the final result normally. This shuts down the loop and replaces the loop body definition (in the example, `s`) with the final result value.
 
 The first parameter of the loop body is the magic parameter `loop`. It is *self-ish*, representing a jump back to the loop body itself, starting a new iteration. Just like Python's `self`, `loop` can have any name; it is passed positionally.
 
-Note that `loop` is **a noun, not a verb.** This is because the expression `loop(...)` is essentially the same as `jump(...)` to the loop body itself. However, it also inserts the magic parameter `loop`, which can only be set up via this mechanism.
+Note that `loop` is **a noun, not a verb.** This is because the expression `loop(...)` is essentially the same as `jump(...)` to the loop body itself. However, it also arranges things so that the trampolined call inserts the magic parameter `loop`, which can only be set up via this mechanism.
 
 Additional arguments can be given to `loop(...)`. When the loop body is called, any additional positional arguments are appended to the implicit ones, and can be anything. Additional arguments can also be passed by name. The initial values of any additional arguments **must** be declared as defaults in the formal parameter list of the loop body. The loop is automatically started by `@looped`, by calling the body with the magic `loop` as the only argument.
 
-Any loop variables such as `i` in the above example are **in scope only in the loop body**; there is no `i` in the surrounding scope. Moreover, it's a fresh `i` at each iteration; nothing is mutated by the looping mechanism. (But be careful if you use a mutable object instance as a loop variable. The loop body is just a function call like any other, so the usual rules apply.)
+Any loop variables such as `i` in the above example are **in scope only in the loop body**; there is no `i` in the surrounding scope. Moreover, it is a fresh `i` at each iteration; nothing is mutated by the looping mechanism.
 
-FP loops don't have to be pure:
+**Be careful** if you use a mutable object instance as a loop variable: the loop body is just a function call like any other, so the usual rules apply.
 
-```python
-out = []
-@looped
-def _(loop, i=0):
-    if i <= 3:
-        out.append(i)  # cheeky side effect
-        return loop(i + 1)
-    # the implicit "return None" terminates the loop.
-assert out == [0, 1, 2, 3]
-```
-
-Keep in mind, though, that this pure-Python FP looping mechanism is slow, so it may make sense to use it only when "the FP-ness" (no mutation, scoping) is important.
-
-Also be aware that `@looped` is specifically neither a `for` loop nor a `while` loop; instead, it is a general looping mechanism that can express both kinds of loops.
-
-*Typical `while True` loop in FP style*:
+For another example of functional looping, here is a typical `while True` loop in FP style:
 
 ```python
+from unpythonic import looped
+
 @looped
 def _(loop):
     print("Enter your name (or 'q' to quit): ", end='')
@@ -2981,11 +2958,52 @@ def _(loop):
         return loop()
 ```
 
-#### FP loop over an iterable
-
-In Python, loops often run directly over the elements of an iterable, which markedly improves readability compared to dealing with indices. Enter `@looped_over`:
+Functional loops do not have to be pure. Here is a functional loop with a side effect:
 
 ```python
+from unpythonic import looped
+
+out = []
+@looped
+def _(loop, i=0):
+    if i <= 3:
+        out.append(i)  # cheeky side effect
+        return loop(i + 1)
+    # the implicit "return None" terminates the loop.
+assert out == [0, 1, 2, 3]
+```
+
+**CAUTION**: This pure-Python FP looping mechanism is slow, so it may make sense to use it only when "the FP-ness" (no mutation, scoping) is important.
+
+#### Relation to the TCO system
+
+The `@looped` decorator is essentially sugar. If you read the section further above on TCO, you may have guessed how it is implemented: the `loop` function is actually a jump record in disguise, and `@looped` installs a trampoline.
+
+Indeed, the following code is behaviorally equivalent to the first example:
+
+```python
+from unpythonic import trampolined, jump
+
+@trampolined
+def s(acc=0, i=0):
+    if i == 10:
+        return acc
+    return jump(s, acc + i, i + 1)
+s = s()
+print(s)  # 45
+```
+
+However, the actual implementation of `@looped` slightly differs from what would be implied by this straightforward translation, because the feature uses no macros.
+
+#### FP loop over an iterable
+
+In Python, loops often run directly over the elements of an iterable, which markedly improves readability compared to dealing with indices.
+
+For this use case, we provide `@looped_over`:
+
+```python
+from unpythonic import looped_over
+
 @looped_over(range(10), acc=0)
 def s(loop, x, acc):
     return loop(acc + x)
@@ -2995,27 +3013,33 @@ assert s == 45
 The `@looped_over` decorator is essentially sugar. Behaviorally equivalent code:
 
 ```python
+from unpythonic import call, looped
+
 @call
 def s(iterable=range(10)):
     it = iter(iterable)
     @looped
-    def _tmp(loop, acc=0):
+    def tmp(loop, acc=0):
         try:
             x = next(it)
-            return loop(acc + x)
+            return loop(acc + x)  # <-- the loop body
         except StopIteration:
             return acc
-    return _tmp
+    return tmp
 assert s == 45
 ```
 
-In `@looped_over`, the loop body takes three magic positional parameters. The first parameter `loop` works like in `@looped`. The second parameter `x` is the current element. The third parameter `acc` is initialized to the `acc` value given to `@looped_over`, and then (functionally) updated at each iteration, taking as the new value the first positional argument given to `loop(...)`, if any positional arguments were given. Otherwise `acc` retains its last value.
+In `@looped_over`, the loop body takes **three** magic positional parameters. The first parameter `loop` is similar to that in `@looped`. The second parameter `x` is the current element. The third parameter `acc` is initialized to the `acc` value given to `@looped_over`, and then (functionally) updated at each iteration.
 
-If `acc` is a mutable object, mutating it is allowed. For example, if `acc` is a list, it is perfectly fine to `acc.append(...)` and then just `loop()` with no arguments, allowing `acc` to retain its last value. To be exact, keeping the last value means *the binding of the name `acc` does not change*, so when the next iteration starts, the name `acc` still points to the same object that was mutated. This strategy can be used to pythonically construct a list in an FP loop.
+The new value of `acc` is the first positional argument given to `loop(...)`, if any positional arguments were given. Otherwise `acc` retains its last value.
+
+If `acc` is a mutable object, mutating it **is allowed**. For example, if `acc` is a list, it is perfectly fine to `acc.append(...)` and then just `loop()` with no arguments, allowing `acc` to retain its last value. To be exact, keeping the last value means *the binding of the name `acc` does not change*, so when the next iteration starts, the name `acc` still points to the same object that was mutated. This strategy can be used to pythonically construct a list in an FP loop.
 
 Additional arguments can be given to `loop(...)`. The same notes as above apply. For example, here we have the additional parameters `fruit` and `number`. The first one is passed positionally, and the second one by name:
 
 ```python
+from unpythonic import looped_over
+
 @looped_over(range(10), acc=0)
 def s(loop, x, acc, fruit="pear", number=23):
     print(fruit, number)
@@ -3025,13 +3049,15 @@ def s(loop, x, acc, fruit="pear", number=23):
 assert s == 45
 ```
 
-The loop body is called once for each element in the iterable. When the iterable runs out of elements, the last `acc` value that was given to `loop(...)` becomes the return value of the loop. If the iterable is empty, the body never runs; then the return value of the loop is the initial value of `acc`.
+The loop body is called once for each element in the iterable. When the iterable runs out of elements, the final value of `acc` becomes the return value of the loop. If the iterable is empty, the body never runs; then the return value of the loop is the initial value of `acc`.
 
-To terminate the loop early, just `return` your final result normally, like in `@looped`. (It can be anything, does not need to be `acc`.)
+To terminate the loop early, just `return` your final result normally, like in `@looped`. It can be anything, it does not need to be `acc`.
 
 Multiple input iterables work somewhat like in Python's `for`, except any sequence unpacking must be performed inside the body:
 
 ```python
+from unpythonic import looped_over
+
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=())
 def p(loop, item, acc):
     numb, lett = item
@@ -3050,6 +3076,8 @@ This is because while *tuple parameter unpacking* was supported in Python 2.x, i
 FP loops can be nested (also those over iterables):
 
 ```python
+from unpythonic import looped_over
+
 @looped_over(range(1, 4), acc=())
 def outer_result(outer_loop, y, outer_acc):
     @looped_over(range(1, 3), acc=())
@@ -3071,6 +3099,8 @@ As [the reference warns (note 6)](https://docs.python.org/3/library/stdtypes.htm
 Mutable sequence (Python `list`):
 
 ```python
+from unpythonic import looped_over
+
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=[])
 def p(loop, item, acc):
     numb, lett = item
@@ -3083,7 +3113,7 @@ assert p == ['1a', '2b', '3c']
 Linked list:
 
 ```python
-from unpythonic import cons, nil, ll
+from unpythonic import looped_over, cons, nil, ll, lreverse
 
 @lreverse
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
@@ -3099,6 +3129,8 @@ Note the unpythonic use of the `lreverse` function as a decorator. `@looped_over
 To get the output as a tuple, we can add `tuple` to the decorator chain:
 
 ```python
+from unpythonic import looped_over, cons, nil, ll, lreverse
+
 @tuple
 @lreverse
 @looped_over(zip((1, 2, 3), ('a', 'b', 'c')), acc=nil)
@@ -3119,9 +3151,11 @@ If you want to exit the function *containing* the loop from inside the loop, see
 
 #### `continue`
 
-The main way to *continue* an FP loop is, at any time, to `loop(...)` with the appropriate arguments that will make it proceed to the next iteration. Or package the appropriate `loop(...)` expression into your own function `cont`, and then use `cont(...)`:
+The main way to *continue* an FP loop is, at any time, to `loop(...)` with the appropriate arguments that will make the loop proceed to the next iteration. Or package the appropriate `loop(...)` expression into your own function `cont`, and then use `cont(...)`:
 
 ```python
+from unpythonic import looped
+
 @looped
 def s(loop, acc=0, i=0):
     cont = lambda newacc=acc: loop(newacc, i + 1)  # always increase i; by default keep current value of acc
@@ -3140,9 +3174,9 @@ This approach separates the computations of the new values for the iteration cou
 
 See `@breakably_looped` (offering `brk`) and `@breakably_looped_over` (offering `brk` and `cnt`).
 
-The point of `brk(value)` over just `return value` is that `brk` is first-class, so it can be passed on to functions called by the loop body (so that those functions then have the power to directly terminate the loop).
+The point of `brk(value)` over just `return value` is that `brk` is first-class, so it can be passed on to functions called by the loop body - so that those functions then have the power to directly terminate the loop.
 
-In `@looped`, a library-provided `cnt` wouldn't make sense, since all parameters except `loop` are user-defined. *The client code itself defines what it means to proceed to the "next" iteration*. Really the only way in a construct with this degree of flexibility is for the client code to fill in all the arguments itself.
+In `@looped`, a library-provided `cnt` would not make sense, since all parameters except `loop` are user-defined. *The client code itself defines what it means to proceed to the "next" iteration*. Really the only way in a construct with this degree of flexibility is for the client code to fill in all the arguments itself.
 
 Because `@looped_over` is a more specific abstraction, there the concept of *continue* is much more clear-cut. We define `cnt` to mean *proceed to take the next element from the iterable, keeping the current value of `acc`*. Essentially `cnt` is a partially applied `loop(...)` with the first positional argument set to the current value of `acc`.
 
@@ -3151,16 +3185,20 @@ Because `@looped_over` is a more specific abstraction, there the concept of *con
 Just call the `looped()` decorator manually:
 
 ```python
+from unpythonic import looped
+
 s = looped(lambda loop, acc=0, i=0:
              loop(acc + i, i + 1) if i < 10 else acc)
 print(s)
 ```
 
-It's not just a decorator; in Lisps, a construct like this would likely be named `call/looped`.
+It's not just a decorator; in the Scheme family of Lisps, a construct like this would likely be named `call/looped`.
 
 We can also use `let` to make local definitions:
 
 ```python
+from unpythonic import looped, let
+
 s = looped(lambda loop, acc=0, i=0:
              let(cont=lambda newacc=acc:
                         loop(newacc, i + 1),
@@ -3172,6 +3210,8 @@ print(s)
 The `looped_over()` decorator also works, if we just keep in mind that parameterized decorators in Python are actually decorator factories:
 
 ```python
+from unpythonic import looped_over
+
 r10 = looped_over(range(10), acc=0)
 s = r10(lambda loop, x, acc:
           loop(acc + x))
@@ -3180,14 +3220,38 @@ assert s == 45
 
 If you **really** need to make that into an expression, bind `r10` using `let` (if you use `letrec`, keeping in mind it is a callable), or to make your code unreadable, just inline it.
 
-With `curry`, this is also a possible solution:
+With `curry`, using its passthrough feature, this is also a possible solution:
 
 ```python
+from unpythonic import curry, looped_over
+
 s = curry(looped_over, range(10), 0,
             lambda loop, x, acc:
               loop(acc + x))
 assert s == 45
 ```
+
+As of v0.15.0, `curry` handles also named arguments, so we can make explicit what the `0` means:
+
+```python
+from unpythonic import curry, looped_over
+
+s = curry(looped_over, range(10), acc=0,
+            body=(lambda loop, x, acc:
+                    loop(acc + x)))
+assert s == 45
+```
+
+but because, due to syntactic limitations of Python, no positional arguments can be given *after* a named argument, you then have to know - in order to be able to provide the loop body - that the decorator returned by the factory `looped_over` calls it `body`.
+
+You can of course obtain such information by inspection (here shown in IPython running Python 3.8):
+
+```python
+In [2]: looped_over(range(10), acc=0)
+Out[2]: <function unpythonic.fploop.looped_over.<locals>.run(body)>
+```
+
+or by looking at [the source code](../unpythonic/fploop.py).
 
 ### `gtrampolined`: generators with TCO
 
