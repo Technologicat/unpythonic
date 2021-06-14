@@ -2726,13 +2726,15 @@ I am not completely sure if it is meaningful to provide a generic `Singleton` ab
 
 ## Control flow tools
 
-Tools related to control flow.
+Tools related to [control flow](https://en.wikipedia.org/wiki/Control_flow).
 
 ### `trampolined`, `jump`: tail call optimization (TCO) / explicit continuations
 
-Express algorithms elegantly without blowing the call stack - with explicit, clear syntax.
+*See also the `with tco` [macro](macros.md), which applies tail call optimization **automatically**.*
 
-*Tail recursion*:
+*Tail call optimization* is a technique to treat [tail calls](https://en.wikipedia.org/wiki/Tail_call) in such a way that they do not grow the call stack. It sometimes allows expressing algorithms very elegantly. Some functional programming patterns such as functional loops are based on tail calls.
+
+The factorial function is a classic example of *tail recursion*:
 
 ```python
 from unpythonic import trampolined, jump
@@ -2741,62 +2743,66 @@ from unpythonic import trampolined, jump
 def fact(n, acc=1):
     if n == 0:
         return acc
-    else:
-        return jump(fact, n - 1, n * acc)
+    return jump(fact, n - 1, n * acc)
 print(fact(4))  # 24
+fact(5000)  # no crash
 ```
 
-Functions that use TCO **must** be `@trampolined`. Calling a trampolined function normally starts the trampoline.
+Functions that use TCO **must** be `@trampolined`. The decorator wraps the original function with a [trampoline](https://en.wikipedia.org/wiki/Trampoline_(computing)#High-level_programming). Calling a trampolined function normally starts the trampoline.
 
 Inside a trampolined function, a normal call `f(a, ..., kw=v, ...)` remains a normal call.
 
-A tail call with target `f` is denoted `return jump(f, a, ..., kw=v, ...)`. This explicitly marks that it is indeed a tail call (due to the explicit `return`). Note that `jump` is **a noun, not a verb**. The `jump(f, ...)` part just evaluates to a `jump` instance, which on its own does nothing. Returning it to the trampoline actually performs the tail call.
+A tail call with target `f` is denoted `return jump(f, a, ..., kw=v, ...)`. This explicitly marks that it is indeed a tail call, due to the explicit `return`. Note that `jump` is **a noun, not a verb**. The `jump(f, ...)` part just evaluates to a `jump` instance, which on its own does nothing. Returning the `jump` instance to the trampoline actually performs the tail call.
 
-If the jump target has a trampoline, don't worry; the trampoline implementation will automatically strip it and jump into the actual entrypoint.
+If the jump target has a trampoline, the trampoline implementation will automatically strip it and jump into the actual entry point.
 
-Trying to `jump(...)` without the `return` does nothing useful, and will **usually** print an *unclaimed jump* warning. It does this by checking a flag in the `__del__` method of `jump`; any correctly used jump instance should have been claimed by a trampoline before it gets garbage-collected.
+To return a final result, just `return` it normally. Returning anything but a `jump` shuts down the trampoline, and returns the given value from the initial call (to the `@trampolined` function) that originally started that trampoline.
 
-(Some *unclaimed jump* warnings may appear also if the process is terminated by Ctrl+C (`KeyboardInterrupt`). This is normal; it just means that the termination occurred after a jump object was instantiated but before it was claimed by the trampoline.)
+**CAUTION**: Trying to `jump(...)` without the `return` does nothing useful, and will **usually** print an *unclaimed jump* warning. It does this by checking a flag in the `__del__` method of `jump`; any correctly used jump instance should have been claimed by a trampoline before it gets garbage-collected. It can only print a warning, not raise an exception or halt the program, due to the limitations of `__del__`.
 
-The final result is just returned normally. This shuts down the trampoline, and returns the given value from the initial call (to a `@trampolined` function) that originally started that trampoline.
+Some *unclaimed jump* warnings may appear also if the process is terminated by Ctrl+C (`KeyboardInterrupt`). This is normal; it just means that the termination occurred after a jump object was instantiated but before it was claimed by a trampoline.
 
+#### Tail recursion in a `lambda`
 
-*Tail recursion in a lambda*:
+To make a tail-recursive anonymous function, use `trampolined` together with `withself`. The `self` argument is declared explicitly, but passed implicitly, just like the `self` argument of a method:
 
 ```python
+from unpythonic import trampolined, jump, withself
+
 t = trampolined(withself(lambda self, n, acc=1:
                            acc if n == 0 else jump(self, n - 1, n * acc)))
 print(t(4))  # 24
 ```
 
-Here the jump is just `jump` instead of `return jump`, since lambda does not use the `return` syntax.
+Here the jump is just `jump` instead of `return jump`, because `lambda` does not use the `return` syntax.
 
-To denote tail recursion in an anonymous function, use `unpythonic.fun.withself`. The `self` argument is declared explicitly, but passed implicitly, just like the `self` argument of a method.
+#### Mutual recursion with TCO
 
-
-*Mutual recursion with TCO*:
+[Mutual recursion](https://en.wikipedia.org/wiki/Mutual_recursion) is also supported. Just ask the trampoline to `jump` into the desired function:
 
 ```python
+from unpythonic import trampolines,jump
+
 @trampolined
 def even(n):
     if n == 0:
         return True
-    else:
-        return jump(odd, n - 1)
+    return jump(odd, n - 1)
 @trampolined
 def odd(n):
     if n == 0:
         return False
-    else:
-        return jump(even, n - 1)
+    return jump(even, n - 1)
 assert even(42) is True
 assert odd(4) is False
 assert even(10000) is True  # no crash
 ```
 
-*Mutual recursion in `letrec` with TCO*:
+#### Mutual recursion in `letrec` with TCO
 
 ```python
+from unpythonic import letrec, trampolined, jump
+
 letrec(evenp=lambda e:
                trampolined(lambda x:
                              (x == 0) or jump(e.oddp, x - 1)),
@@ -2807,6 +2813,18 @@ letrec(evenp=lambda e:
                e.evenp(10000))
 ```
 
+For comparison, with the macro API of `letrec`, this becomes:
+
+```python
+from unpythonic.syntax import macros, letrec
+from unpythonic import trampolined, jump
+
+letrec[[evenp << trampolined(lambda x:
+                               (x == 0) or jump(oddp, x - 1)),
+        oddp <<  trampolined(lambda x:
+                               (x != 0) and jump(evenp, x - 1))] in
+       evenp(10000)]
+```
 
 #### Reinterpreting TCO as explicit continuations
 
@@ -2849,7 +2867,7 @@ Clojure has [`(trampoline ...)`](https://clojuredocs.org/clojure.core/trampoline
 
 The `return jump(...)` solution is essentially the same there (the syntax is `#(...)`), but in Clojure, the trampoline must be explicitly enabled at the call site, instead of baking it into the function definition, as our decorator does.
 
-Clojure's trampoline system is thus more explicit and simple than ours (the trampoline doesn't need to detect and strip the tail-call target's trampoline, if it has one - because with Clojure's solution, it never does), at some cost to convenience at each use site. We have chosen to emphasize use-site convenience.
+Clojure's trampoline system is thus more explicit and simple than ours (the trampoline does not need to detect and strip the tail-call target's trampoline, if it has one - because with Clojure's solution, it never does), at some cost to convenience at each use site. We have chosen to emphasize use-site convenience.
 
 
 ### `looped`, `looped_over`: loops in FP style (with TCO)
