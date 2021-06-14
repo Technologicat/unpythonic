@@ -2627,13 +2627,13 @@ assert cat is sym("cat")
 assert cat is not sym("dog")
 ```
 
-The constructor `sym` produces an ***interned symbol***. Whenever (in the same process) **the same name** is passed to the `sym` constructor, it gives **the same object instance**. Even unpickling a symbol that has the same name produces the same `sym` object instance as any other `sym` with that name.
+The constructor `sym` produces an ***interned symbol***. Whenever, in the same process, **the same name** is passed to the `sym` constructor, it gives **the same object instance**. Even unpickling a symbol that has the same name produces the same `sym` object instance as any other `sym` with that name.
 
 Thus a `sym` behaves like a Lisp symbol. Technically speaking, it's like a zen-minimalistic [Scheme/Racket symbol](https://stackoverflow.com/questions/8846628/what-exactly-is-a-symbol-in-lisp-scheme), since Common Lisp [stuffs all sorts of additional cruft in symbols](https://www.cs.cmu.edu/Groups/AI/html/cltl/clm/node27.html). If you insist on emulating that, note a `sym` is just a Python object you could customize in the usual ways, even though its instantiation logic plays by somewhat unusual rules.
 
 #### Gensym
 
-The function `gensym` creates an ***uninterned symbol***, also known as *a gensym*. The label given in the call to `gensym` is a short human-readable description, like the name of a named symbol, but it has no relation to object identity. Object identity is tracked by an [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier), which is automatically assigned when `gensym` creates the value. Even if `gensym` is called with the same label, the return value is a new unique symbol each time.
+The function `gensym`, which is an abbreviation for *generate symbol*, creates an ***uninterned symbol***, also known as *a gensym*. The label given in the call to `gensym` is a short human-readable description, like the name of a named symbol, but it has no relation to object identity. Object identity is tracked by an [UUID](https://en.wikipedia.org/wiki/Universally_unique_identifier), which is automatically assigned when `gensym` creates the value. Even if `gensym` is called with the same label, the return value is a new unique symbol each time.
 
 A gensym never conflicts with any named symbol; not even if one takes the UUID from a gensym and creates a named symbol using that as the name.
 
@@ -2653,7 +2653,7 @@ print(scottishfold)  # gensym:cat:94287f75-02b5-4138-9174-1e422e618d59
 
 Uninterned symbols are useful as guaranteed-unique sentinel or [nonce (sense 2, adapted to programming)](https://en.wiktionary.org/wiki/nonce#Noun) values, like the pythonic idiom `nonce = object()`, but they come with a human-readable label.
 
-They also have a superpower: with the help of the UUID automatically assigned by `gensym`, they survive a pickle roundtrip with object identity intact. Unpickling the *same* gensym value multiple times in the same process will produce just one object instance. (If the original return value from gensym is still alive, it is that same object instance.)
+They also have a superpower: with the help of the UUID automatically assigned by `gensym`, they survive a pickle roundtrip with object identity intact. Unpickling the *same* gensym value multiple times in the same process will produce just one object instance. If the original return value from gensym is still alive, it is that same object instance.
 
 The UUID is generated with the pseudo-random algorithm [`uuid.uuid4`](https://docs.python.org/3/library/uuid.html). Due to rollover of the time field, it is possible for collisions with current UUIDs (as of the early 21st century) to occur with those generated after (approximately) the year 3400. See [RFC 4122](https://tools.ietf.org/html/rfc4122).
 
@@ -2663,9 +2663,9 @@ Our `sym` is like a Lisp/Scheme/Racket symbol, which is essentially an [interned
 
 Our `gensym` is like the [Lisp `gensym`](http://clhs.lisp.se/Body/f_gensym.htm), and the [JavaScript `Symbol`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol).
 
-If you're familiar with `mcpyrate`'s `gensym` or MacroPy's `gen_sym`, those mean something different. Their purpose is to create, in a macro, a lexical identifier that is not already in use in the source code being compiled, whereas our `gensym` creates an uninterned symbol object for run-time use. Lisp macros use symbols to represent identifiers, hence the potential for confusion in Python, where that is not the case. (The symbols of `unpythonic` are a purely run-time abstraction.)
+If you're familiar with `mcpyrate`'s `gensym` or MacroPy's `gen_sym`, those mean something different. Their purpose is to create, in a macro, a lexical identifier that is not already in use in the source code being compiled, whereas our `gensym` creates an uninterned symbol object for run-time use. Lisp macros use symbols to represent identifiers, hence the potential for confusion in Python, where that is not the case. The symbols of `unpythonic` are a purely run-time abstraction.
 
-If your background is in C++ or Java, you may notice the symbol abstraction is a kind of a parametric [singleton](https://en.wikipedia.org/wiki/Singleton_pattern); each symbol with the same name is a singleton (as is any gensym with the same UUID).
+If your background is in C++ or Java, you may notice the symbol abstraction is a kind of a parametric [singleton](https://en.wikipedia.org/wiki/Singleton_pattern); each symbol with the same name is a singleton, as is any gensym with the same UUID.
 
 #### Singleton
 
@@ -2682,7 +2682,7 @@ class SingleXHolder(Singleton):
 h = SingleXHolder(17)
 s = pickle.dumps(h)
 h2 = pickle.loads(s)
-assert h2 is h  # it's the same instance
+assert h2 is h  # the same instance!
 ```
 
 Often the [singleton pattern](https://en.wikipedia.org/wiki/Singleton_pattern) is discussed in the context of classic relatively low-level, static languages such as C++ or Java. [In Python](https://stackoverflow.com/questions/6760685/creating-a-singleton-in-python), some of the classical issues, such as singletons being forced to use a clunky, nonstandard object construction syntax, are moot, because the language itself offers customization hooks that can be used to smooth away such irregularities.
@@ -2697,7 +2697,7 @@ We believe in the principles of [separation of concerns](https://en.wikipedia.or
 
 Another question arises due to Python having builtin support for object persistence, namely `pickle`. What *should* happen when a singleton is unpickled, while an instance of that singleton already exists? Arguably, by default, it should load the state from the pickle file into the existing instance, overwriting its current state.
 
-This design is based on considering the following scenario. During second and later runs, a program first initializes, which causes the singleton instance to be created, just like during the first run of that program. Then the program loads state from a pickle file, containing (among other data) the state the singleton instance was in when the program previously shut down. In this scenario, considering the singleton, the data in the file is more relevant than the defaults the program initialization feeds in. Hence the default should be to replace the state of the existing singleton instance with the data from the pickle file.
+This design is based on considering the following scenario. Consider a program that uses the singleton abstraction. During its second and later runs, the program first initializes, which causes the singleton instance to be created, just like during the first run of the program. Then the program loads state from a pickle file, containing (among other data) the state the singleton instance was in when the program previously shut down. Considering the singleton, the data in the file is more relevant than the defaults the program initialization step feeds in. Hence, the default should be to *replace the state of the existing singleton instance with the data from the pickle file*.
 
 Our `Singleton` abstraction is the result of these pythonifications applied to the classic pattern. For more documentation and examples, see the unit tests in [`unpythonic/tests/test_singleton.py`](../unpythonic/tests/test_singleton.py).
 
@@ -2710,11 +2710,11 @@ Our `Singleton` abstraction is the result of these pythonifications applied to t
 Most often, **don't**. `Singleton` is provided for the very rare occasion where it's the appropriate abstraction. There exist **at least** three categories of use cases where singleton-like instantiation semantics are desirable:
 
  1. **A process-wide unique marker value**, which has no functionality other than being quickly and uniquely identifiable as that marker.
-    - `sym` and `gensym` are the specific tools that cover this use case, depending on whether the intent is to allow that value to be independently "constructed" in several places yet always obtaining the same instance (`sym`), or if the implementation just happens to internally need a guaranteed-unique value that no value passed in from the outside could possibly clash with (`gensym`). For the latter case, sometimes a simple (and much faster) `nonce = object()` will do just as well, if you don't need the human-readable label and `pickle` support.
+    - `sym` and `gensym` are the specific tools that cover this use case, depending on whether the intent is to allow that value to be independently "constructed" in several places yet always obtaining the same instance (`sym`), or if the implementation just happens to internally need a guaranteed-unique value that no value passed in from the outside could possibly clash with (`gensym`). For the latter case, sometimes the simple (and much faster) pythonic idiom `nonce = object()` will do just as well, if you don't need a human-readable label, and `pickle` support.
     - If you need the singleton object to have extra functionality (e.g. our `nil` supports the iterator protocol), it's possible to subclass `sym` or `gsym`, but subclassing `Singleton` is also a possible solution.
  2. **An empty immutable collection**.
-    - It can't have elements added to it after construction, so there's no point in creating more than one instance of an empty *immutable* collection of any particular type.
-    - Unfortunately, a class can't easily be partly `Singleton` (i.e., only when the instance is empty). So this use case is better coded manually, like `frozendict` does. Also, for this use case silently returning the existing instance is the right thing to do.
+    - An immutable collection instance cannot have elements added to it after construction, so there is no point in creating more than one instance of an *empty* immutable collection of any particular type.
+    - Unfortunately, a class cannot easily be partly `Singleton` (i.e., only when the instance is empty). So this use case is better coded manually, like `frozendict` does. Also, for this use case silently returning the existing instance is the right thing to do.
  3. **A service that may have at most one instance** per process.
     - *But only if it is certain* that there can't arise a situation where multiple simultaneous instances of the service are needed.
     - The dynamic assignment controller `dyn` is an example, and it is indeed a `Singleton`.
