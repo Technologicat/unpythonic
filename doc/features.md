@@ -2450,7 +2450,7 @@ While ``fupdate`` lets you be more functional than Python otherwise allows, ``vi
 
 We store slice specs, not actual indices, so this works also if the underlying sequence undergoes length changes.
 
-Slicing a view returns a new view. Slicing anything else will usually copy, because the object being sliced does, before we get control. To slice lazily, first view the sequence itself and then slice that. The initial no-op view is optimized away, so it won't slow down accesses. Alternatively, pass a ``slice`` object into the ``view`` constructor.
+Slicing a view returns a new view. Slicing anything else will usually shallow-copy, because the object being sliced does, before we get control. To slice lazily, first view the sequence itself and then slice that. The initial no-op view is optimized away, so it won't slow down accesses. Alternatively, pass a ``slice`` object into the ``view`` constructor.
 
 The view can be efficiently iterated over. As usual, iteration assumes that no inserts/deletes in the underlying sequence occur during the iteration.
 
@@ -2458,7 +2458,9 @@ Getting/setting an item (subscripting) checks whether the index cache needs upda
 
 The ``unpythonic.collections`` module also provides the ``SequenceView`` and ``MutableSequenceView`` abstract base classes; ``view`` is a ``MutableSequenceView``.
 
-There is the read-only cousin ``roview``, which behaves the same except it has no ``__setitem__`` or ``reverse``. This can be useful for giving read-only access to an internal sequence. The constructor of the writable ``view`` checks that the input is not read-only (``roview``, or a ``Sequence`` that is not also a ``MutableSequence``) before allowing creation of the writable view.
+There is also the read-only cousin ``roview``, which is like ``view``, except it has no ``__setitem__`` or ``reverse``. This can be useful for providing explicit read-only access to a sequence, when it is undesirable to have clients write into it.
+
+The constructor of the writable ``view`` checks that the input is not read-only (``roview``, or a ``Sequence`` that is not also a ``MutableSequence``) before allowing creation of the writable view.
 
 
 ### ``mogrify``: update a mutable container in-place
