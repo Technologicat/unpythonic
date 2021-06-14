@@ -47,6 +47,7 @@ def runtests():
 
         # Actually "Newton's" algorithm for the square root was already known to the
         # ancient Babylonians, ca. 2000 BCE. (Carl Boyer: History of mathematics)
+        # Concerning naming, see also https://en.wikipedia.org/wiki/Stigler's_law_of_eponymy
         def sqrt_newton(n):
             def sqrt_iter(x):  # has an attractive fixed point at sqrt(n)
                 return (x + n / x) / 2

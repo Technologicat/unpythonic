@@ -118,7 +118,7 @@ def runtests():
         def nextfibo(state):
             a, b = state
             fibos.append(a)      # store result by side effect
-            return (b, a + b)    # new state, handed to next function in the pipe
+            return (b, a + b)    # new state, handed to the next function in the pipe
         p = lazy_piped1((1, 1))  # load initial state into a lazy pipe
         for _ in range(10):      # set up pipeline
             p = p | nextfibo

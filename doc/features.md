@@ -468,8 +468,8 @@ To rebind existing dynvars, use `dyn.k = v`, or `dyn.update(k0=v0, ...)`. Rebind
 
 There is no `set` function or `<<` operator, unlike in the other `unpythonic` environments.
 
-<details>
-<summary>Each thread has its own dynamic scope stack. There is also a global dynamic scope for default values, shared between threads. </summary>
+<details><summary>Each thread has its own dynamic scope stack. There is also a global dynamic scope for default values, shared between threads. </summary>
+
 A newly spawned thread automatically copies the then-current state of the dynamic scope stack **from the main thread** (not the parent thread!). Any copied bindings will remain on the stack for the full dynamic extent of the new thread. Because these bindings are not associated with any `with` block running in that thread, and because aside from the initial copying, the dynamic scope stacks are thread-local, any copied bindings will never be popped, even if the main thread pops its own instances of them.
 
 The source of the copy is always the main thread mainly because Python's `threading` module gives no tools to detect which thread spawned the current one. (If someone knows a simple solution, a PR is welcome!)
@@ -770,7 +770,7 @@ We also provide an **immutable** box, `Some`. This can be useful to represent op
 
 The idea is that the value, when present, is placed into a `Some`, such as `Some(42)`, `Some("cat")`, `Some(myobject)`. Then, the situation where the value is absent can be represented as a bare `None`. So specifically, `Some(None)` means that a value is present and this value is `None`, whereas a bare `None` means that there is no value.
 
-(It is like the `Some` constructor of a `Maybe` monad, but with no monadic magic. In this interpretation, the bare constant `None` plays the role of `Nothing`.)
+It is like the `Some` constructor of a `Maybe` monad, but with no monadic magic. In this interpretation, the bare constant `None` plays the role of `Nothing`.
 
 #### `ThreadLocalBox`
 
@@ -1292,7 +1292,7 @@ from unpythonic import lazy_piped, exitpipe
 fibos = []
 def nextfibo(a, b):      # multiple arguments allowed
     fibos.append(a)      # store result by side effect
-    # New state, handed to next function in the pipe.
+    # New state, handed to the next function in the pipe.
     # As of v0.15.0, use `Values(...)` to represent multiple return values.
     # Positional args will be passed positionally, named ones by name.
     return Values(a=b, b=(a + b))
@@ -1313,7 +1313,7 @@ Things missing from the standard library.
  - `memoize`, with exception caching.
  - `curry`, with passthrough like in Haskell.
  - `fix`: detect and break infinite recursion cycles. **Added in v0.14.2.**
- - **Added in v0.15.0.** `partial` with run-time type checking, which helps a lot with fail-fast in code that uses partial application. This function type-checks arguments against type annotations, then delegates to `functools.partial`. Supports `unpythonic`'s `@generic` and `@typed` functions, too.
+ - `partial` with run-time type checking, which helps a lot with fail-fast in code that uses partial application. This function type-checks arguments against type annotations, then delegates to `functools.partial`. Supports `unpythonic`'s `@generic` and `@typed` functions, too. **Added in v0.15.0.**
  - `composel`, `composer`: both left-to-right and right-to-left function composition, to help readability.
    - **Changed in v0.15.0.** *For the benefit of code using the `with lazify` macro, the compose functions are now marked lazy. Arguments will be forced only when a lazy function in the chain actually uses them, or when an eager (not lazy) function is encountered in the chain.*
    - Any number of positional and keyword arguments are supported, with the same rules as in the pipe system. Multiple return values, or named return values, represented as a `Values`, are automatically unpacked to the args and kwargs of the next function in the chain.
@@ -1505,7 +1505,7 @@ Our `curry` can be used both as a decorator and as a regular function. As a deco
 
 Like Haskell, and [`spicy` for Racket](https://github.com/Technologicat/spicy), our `curry` supports *passthrough*; but we pass through **both positional and named arguments**.
 
-Any args and/or kwargs that are incompatible with the target function's call signature, are *passed through* in the sense that the function is called, and then its return value is merged with the remaining args and kwargs.
+Any args and/or kwargs that are incompatible with the target function's call signature, are *passed through* in the sense that the function is called with the args and kwargs compatible with its call signature, and then its return value is merged with the remaining args and kwargs.
 
 If the *first positional return value* of the result of passthrough is callable, it is (curried and) invoked on the remaining args and kwargs, after the merging. This helps with some instances of [point-free style](https://en.wikipedia.org/wiki/Tacit_programming).
 
@@ -2257,7 +2257,7 @@ The only differences are the name of the decorator and `return` vs. `yield from`
 
 ### `fup`: Functional update; `ShadowedSequence`
 
-**Changed in 0.15.0.** *Bug fixed: Now an infinite replacement sequence to pull items from is actually ok, as the documentation has always claimed.*
+**Changed in v0.15.0.** *Bug fixed: Now an infinite replacement sequence to pull items from is actually ok, as the documentation has always claimed.*
 
 We provide three layers, in increasing order of the level of abstraction: `ShadowedSequence`, `fupdate`, and `fup`.
 
@@ -2613,7 +2613,7 @@ Inspired by Haskell.
 
 **Added in v0.14.2**.
 
-We provide **lispy symbols**, an **uninterned symbol generator**, and a **pythonic singleton abstraction**. These are all pickle-aware, and instantiation is thread-safe.
+We provide **lispy symbols**, an **uninterned symbol generator**, and a **pythonic singleton abstraction**. These are all pickle-aware and thread-safe.
 
 #### Symbol
 
@@ -2637,7 +2637,7 @@ The function `gensym` creates an ***uninterned symbol***, also known as *a gensy
 
 A gensym never conflicts with any named symbol; not even if one takes the UUID from a gensym and creates a named symbol using that as the name.
 
-*The return value is the only time you'll see that symbol object; take good care of it!*
+*The return value of `gensym` is the only time you will see that particular uninterned symbol object; take good care of it!*
 
 For example:
 
@@ -2693,11 +2693,11 @@ As the result of answering these questions, `unpythonic`'s idea of a singleton s
 
 However, Python can easily retrieve a singleton instance with syntax that looks like regular object construction, by customizing [`__new__`](https://docs.python.org/3/reference/datamodel.html#object.__new__). Hence no static accessor method is needed. This in turn raises the question, what should we do with constructor arguments, as we surely would like to (in general) to allow those, and they can obviously differ between call sites. Since there is only one object instance to load state into, we could either silently update the state, or silently ignore the new proposed arguments. Good luck tracking down bugs either way. But upon closer inspection, that question depends on an unfounded assumption. What we should be asking instead is, *what should happen* if the constructor of a singleton is called again, while an instance already exists?
 
-We believe in the principles of [separation of concerns](https://en.wikipedia.org/wiki/Separation_of_concerns) and [fail-fast](https://en.wikipedia.org/wiki/Fail-fast). The textbook singleton pattern conflates two concerns, possibly due to language limitations: the *management of object instances*, and the *enforcement of the at-most-one-instance-only guarantee*. If we wish to uncouple these responsibilities, then the obvious pythonic answer is that attempting to construct the singleton again while it already exists **should be considered a run-time error**. Since a singleton **type** does not support that operation, this situation should raise a `TypeError`. This makes the error explicit as early as possible, thus adhering to the fail-fast principle, hence making it difficult for bugs to hide (constructor arguments will either take effect, or the constructor call will explicitly fail).
+We believe in the principles of [separation of concerns](https://en.wikipedia.org/wiki/Separation_of_concerns) and [fail-fast](https://en.wikipedia.org/wiki/Fail-fast). The textbook singleton pattern conflates two concerns, possibly due to language limitations: the *management of object instances*, and the *enforcement of the at-most-one-instance-only guarantee*. If we wish to uncouple these responsibilities, then the obvious pythonic answer is that attempting to construct the singleton again while it already exists **should be considered a run-time error**. Since a singleton **type** does not support that operation, this situation should raise a `TypeError`. This makes the error explicit as early as possible, thus adhering to the fail-fast principle, hence making it difficult for bugs to hide. Constructor arguments will either take effect, or the constructor call will explicitly fail.
 
 Another question arises due to Python having builtin support for object persistence, namely `pickle`. What *should* happen when a singleton is unpickled, while an instance of that singleton already exists? Arguably, by default, it should load the state from the pickle file into the existing instance, overwriting its current state.
 
-(Scenario: during second and later runs, a program first initializes, which causes the singleton instance to be created, just like during the first run of that program. Then the program loads state from a pickle file, containing (among other data) the state the singleton instance was in when the program previously shut down. In this scenario, considering the singleton, the data in the file is more relevant than the defaults the program initialization feeds in. Hence the default should be to replace the state of the existing singleton instance with the data from the pickle file.)
+This design is based on considering the following scenario. During second and later runs, a program first initializes, which causes the singleton instance to be created, just like during the first run of that program. Then the program loads state from a pickle file, containing (among other data) the state the singleton instance was in when the program previously shut down. In this scenario, considering the singleton, the data in the file is more relevant than the defaults the program initialization feeds in. Hence the default should be to replace the state of the existing singleton instance with the data from the pickle file.
 
 Our `Singleton` abstraction is the result of these pythonifications applied to the classic pattern. For more documentation and examples, see the unit tests in [`unpythonic/tests/test_singleton.py`](../unpythonic/tests/test_singleton.py).
 
@@ -2721,7 +2721,7 @@ Most often, **don't**. `Singleton` is provided for the very rare occasion where 
 
 Cases 1 and 2 have no meaningful instance data. Case 3 may or may not, depending on the specifics. If your object does, and if you want it to support `pickle`, you may want to customize [`__getnewargs__`](https://docs.python.org/3/library/pickle.html#object.__getnewargs__) (called *at pickling time*), [`__setstate__`](https://docs.python.org/3/library/pickle.html#object.__setstate__), and sometimes maybe also [`__getstate__`](https://docs.python.org/3/library/pickle.html#object.__getstate__). Note that unpickling skips `__init__`, and calls just `__new__` (with the "newargs") and then `__setstate__`.
 
-I'm not completely sure if it's meaningful to provide a generic `Singleton` abstraction for Python, except for teaching purposes. Practical use cases may differ so much, and some of the implementation details of the specific singleton object (esp. related to pickling) may depend so closely on the implementation details of the singleton abstraction, that it may be easier to just roll your own singleton code when needed. If you're new to customizing this part of Python, the code we have here should at least demonstrate an approach for how to do this.
+I am not completely sure if it is meaningful to provide a generic `Singleton` abstraction for Python, except for teaching purposes. Practical use cases may differ so much, and some of the implementation details of the specific singleton object (especially related to pickling) may depend so closely on the implementation details of the singleton abstraction, that it may be easier to just roll your own singleton code when needed. If you are new to customizing this part of Python, the code we have here should at least demonstrate how to do that.
 
 
 ## Control flow tools
@@ -4335,6 +4335,7 @@ c = fixpoint(cos, x0=1)
 
 # Actually "Newton's" algorithm for the square root was already known to the
 # ancient Babylonians, ca. 2000 BCE. (Carl Boyer: History of mathematics)
+# Concerning naming, see also https://en.wikipedia.org/wiki/Stigler's_law_of_eponymy
 def sqrt_newton(n):
     def sqrt_iter(x):  # has an attractive fixed point at sqrt(n)
         return (x + n / x) / 2

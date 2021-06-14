@@ -491,7 +491,7 @@ from itertools import repeat
 from unpythonic import fup
 
 t = (1, 2, 3, 4, 5)
-s = fup(t)[0::2] << tuple(repeat(10, 3))
+s = fup(t)[0::2] << repeat(10)
 assert s == (10, 2, 10, 4, 10)
 assert t == (1, 2, 3, 4, 5)
 ```
