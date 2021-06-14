@@ -2283,7 +2283,7 @@ assert fup(tup)[0::2] << repeat(10) == (10, 2, 10, 4, 10)  # infinite replacemen
 
 Currently only one *update specification* is supported in a single ``fup()``. The low-level ``fupdate`` function supports more; see below.
 
-An *update specification* is a combination of **where** to update, and **what** to put there. The *where* part can be a single index or a slice. When it is a single index, the *what* is a single item; and when a slice, the *what* is a sequence or an iterable, which must contain at least as many items as are required to perform the update. (For details, see `fupdate` below.)
+An *update specification* is a combination of **where** to update, and **what** to put there. The *where* part can be a single index or a slice. When it is a single index, the *what* is a single item; and when a slice, the *what* is a sequence or an iterable, which must contain at least as many items as are required to perform the update. For details, see `fupdate` below.
 
 The ``fup`` function is essentially curried. It takes in the sequence to be functionally updated. The object returned by the call accepts a subscript to specify the index or indices. This then returns another object that accepts a left-shift to specify the values. Once the values are provided, the underlying call to ``fupdate`` triggers, and the result is returned.
 
