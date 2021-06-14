@@ -1170,7 +1170,9 @@ assert y == 17
 
 *The variants `piped` and `lazy_piped` automatically pack the initial arguments into a `Values`.*
 
-**Changed in v0.14.2**. *Both `getvalue` and `runpipe`, used in the shell-like syntax, are now known by the single unified name `exitpipe`. This is just a rename, with no functionality changes. The old names are deprecated in 0.14.2 and 0.14.3, and have been removed in 0.15.0.*
+*The deprecated names `getvalue` and `runpipe` have been removed.*
+
+**Changed in v0.14.2**. *Both `getvalue` and `runpipe`, used in the shell-like syntax, are now known by the single unified name `exitpipe`. This is just a rename, with no functionality changes. The old names are now deprecated.*
 
 Similar to Racket's [threading macros](https://docs.racket-lang.org/threading/), but no macros. A pipe performs a sequence of operations, starting from an initial value, and then returns the final value. It is just function composition, but with an emphasis on data flow, which helps improve readability.
 
@@ -2505,9 +2507,11 @@ For convenience, we support some special cases:
 
 ### `s`, `imathify`, `gmathify`: lazy mathematical sequences with infix arithmetic
 
-**Changed in v0.14.3.** *Added convenience mode to generate cyclic infinite sequences.*
+**Changed in v0.15.0.** *The deprecated names have been removed.*
 
-**Changed in v0.14.3.** *To improve descriptiveness, and for consistency with names of other abstractions in `unpythonic`, `m` has been renamed `imathify` and `mg` has been renamed `gmathify`. The old names work in v0.14.3, and have been removed in v0.15.0. This is a one-time change; it is not likely that these names will be changed ever again.*
+**Changed in v0.14.3.** *To improve descriptiveness, and for consistency with names of other abstractions in `unpythonic`, `m` has been renamed `imathify` and `mg` has been renamed `gmathify`. This is a one-time change; it is not likely that these names will be changed ever again. The old names are now deprecated.*
+
+**Changed in v0.14.3.** *Added convenience mode to generate cyclic infinite sequences.*
 
 We provide a compact syntax to create lazy constant, cyclic, arithmetic, geometric and power sequences: `s(...)`. Numeric (`int`, `float`, `mpmath`) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
 
@@ -3318,7 +3322,7 @@ last(take(10000, fibos()))  # no crash
 
 **Changed in v0.15.0.** *The deprecated names have been removed.*
 
-**Changed in v0.14.2.** *These constructs were previously named `setescape`, `escape`. The names have been changed to match the standard naming for this feature in several Lisps. Starting in 0.14.2, using the old names emits a `FutureWarning`.*
+**Changed in v0.14.2.** *These constructs were previously named `setescape`, `escape`. The names have been changed to match the standard naming for this feature in several Lisps. The old names are now deprecated.*
 
 Escape continuations can be used as a *multi-return*:
 
