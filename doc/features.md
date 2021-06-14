@@ -2467,11 +2467,11 @@ The constructor of the writable ``view`` checks that the input is not read-only 
 
 **Changed in v0.14.3.** *`mogrify` now skips `nil`, actually making it useful for processing `ll` linked lists.*
 
-Recurse on given container, apply a function to each atom. If the container is mutable, then update in-place; if not, then construct a new copy like ``map`` does.
+Recurse on a given container, apply a function to each atom. If the container is mutable, then update in-place; if not, then construct a new copy like ``map`` does.
 
 If the container is a mapping, the function is applied to the values; keys are left untouched.
 
-Unlike ``map`` and its cousins, only a single input container is supported. (Supporting multiple containers as input would require enforcing some compatibility constraints on their type and shape, since ``mogrify`` is not limited to sequences.)
+Unlike ``map`` and its cousins, **``mogrify`` only supports a single input container**. Supporting multiple containers as input would require enforcing some compatibility constraints on their type and shape, because ``mogrify`` is not limited to sequences.
 
 ```python
 from unpythonic import mogrify
@@ -2484,17 +2484,17 @@ assert lst2 is lst1
 
 Containers are detected by checking for instances of ``collections.abc`` superclasses (also virtuals are ok). Supported abcs are ``MutableMapping``, ``MutableSequence``, ``MutableSet``, ``Mapping``, ``Sequence`` and ``Set``. Any value that does not match any of these is treated as an atom. Containers can be nested, with an arbitrary combination of the types supported.
 
-For convenience, we introduce some special cases:
+For convenience, we support some special cases:
 
-  - Any classes created by ``collections.namedtuple``, because they do not conform to the standard constructor API for a ``Sequence``.
+  - Any classes created by ``collections.namedtuple``; they do not conform to the standard constructor API for a ``Sequence``.
 
-    Thus, for (an immutable) ``Sequence``, we first check for the presence of a ``._make()`` method, and if found, use it as the constructor. Otherwise we use the regular constructor.
+    Thus, to support also named tuples: for any immutable ``Sequence``, we first check for the presence of a ``._make()`` method, and if found, use it as the constructor. Otherwise we use the regular constructor.
 
   - ``str`` is treated as an atom, although technically a ``Sequence``.
 
-    It doesn't conform to the exact same API (its constructor does not take an iterable), and often we don't want to treat strings as containers anyway.
+    It does not conform to the exact same API (its constructor does not take an iterable), and often one does not want to treat strings as containers anyway.
 
-    If you want to process strings, implement it in your function that is called by ``mogrify``.
+    If you want to process strings, implement it in your function that is called by ``mogrify``. You can e.g. `tuple(thestring)` and then call ``mogrify`` on that.
 
   - The ``box``, `ThreadLocalBox` and `Some` containers from ``unpythonic.collections``. Although the first two are mutable, their update is not conveniently expressible by the ``collections.abc`` APIs.
 
