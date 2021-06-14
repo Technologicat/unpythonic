@@ -78,6 +78,9 @@ def runtests():
         test[tup == (1, 2, 3, 4, 5)]
         test[out == (4, 3, 2, 1, 0)]
 
+        out = fupdate(tup, slice(None, None, -1), range(5))  # no tuple() needed
+        test[out == (4, 3, 2, 1, 0)]
+
     with testset("multiple individual items"):
         tup = (1, 2, 3, 4, 5)
         out = fupdate(tup, (1, 2, 3), (17, 23, 42))
