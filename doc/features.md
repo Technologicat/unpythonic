@@ -60,6 +60,8 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [``islice``: slice syntax support for ``itertools.islice``](#islice-slice-syntax-support-for-itertoolsislice)
 - [`gmemoize`, `imemoize`, `fimemoize`: memoize generators](#gmemoize-imemoize-fimemoize-memoize-generators), iterables and iterator factories.
 - [``fup``: functional update; ``ShadowedSequence``](#fup-functional-update-shadowedsequence): like ``collections.ChainMap``, but for sequences.
+  - [`fup`](#fup): the high-level syntactic sugar to update a sequence functionally.
+  - [`fupdate`](#fupdate): the low-level workhorse.
 - [``view``: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
 - [``mogrify``: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
 - [``s``, ``imathify``, ``gmathify``: lazy mathematical sequences with infix arithmetic](#s-imathify-gmathify-lazy-mathematical-sequences-with-infix-arithmetic)
@@ -2257,9 +2259,15 @@ The only differences are the name of the decorator and ``return`` vs. ``yield fr
 
 **Changed in 0.15.0.** *Bug fixed: Now an infinite replacement sequence to pull items from is actually ok, as the documentation has always claimed.*
 
-We provide ``ShadowedSequence``, which is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). It supports slicing (read-only), equality comparison, ``str`` and ``repr``. Out-of-range read access to a single item emits a meaningful error, like in ``list``. See the docstring of ``ShadowedSequence`` for details.
+We provide three layers, in increasing order of the level of abstraction: `ShadowedSequence`, `fupdate`, and `fup`.
+
+The class ``ShadowedSequence`` is a bit like ``collections.ChainMap``, but for sequences, and only two levels (but it's a sequence; instances can be chained). It supports slicing (read-only), equality comparison, ``str`` and ``repr``. Out-of-range read access to a single item emits a meaningful error, like in ``list``. We will not discuss ``ShadowedSequence`` in more detail here, as it is a low-level tool; see its docstring for details.
 
 The function ``fupdate`` functionally updates sequences and mappings. Whereas ``ShadowedSequence`` reads directly from the original sequences at access time, ``fupdate`` makes a shallow copy, of the same type as the given input sequence, when it finalizes its output.
+
+Finally, the function ``fup`` provides a high-level API to functionally update a sequence, with nice syntax.
+
+#### `fup`
 
 **The preferred way** to use ``fupdate`` on sequences is through the ``fup`` utility function, which specializes ``fupdate`` to sequences, and adds support for Python's standard **slicing syntax**:
 
@@ -2267,18 +2275,23 @@ The function ``fupdate`` functionally updates sequences and mappings. Whereas ``
 from unpythonic import fup
 from itertools import repeat
 
-lst = (1, 2, 3, 4, 5)
-assert fup(lst)[3] << 42 == (1, 2, 3, 42, 5)
-assert fup(lst)[0::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)
+tup = (1, 2, 3, 4, 5)
+assert fup(tup)[3] << 42 == (1, 2, 3, 42, 5)
+assert fup(tup)[0::2] << tuple(repeat(10, 3)) == (10, 2, 10, 4, 10)
+assert fup(tup)[0::2] << repeat(10) == (10, 2, 10, 4, 10)  # infinite replacement
 ```
 
-Currently only one update specification is supported in a single ``fup()``. (The ``fupdate`` function supports more; see below.)
+Currently only one *update specification* is supported in a single ``fup()``. The low-level ``fupdate`` function supports more; see below.
+
+An *update specification* is a combination of **where** to update, and **what** to put there. The *where* part can be a single index or a slice. When it is a single index, the *what* is a single item; and when a slice, the *what* is a sequence or an iterable, which must contain at least as many items as are required to perform the update. (For details, see `fupdate` below.)
+
+The ``fup`` function is essentially curried. It takes in the sequence to be functionally updated. The object returned by the call accepts a subscript to specify the index or indices. This then returns another object that accepts a left-shift to specify the values. Once the values are provided, the underlying call to ``fupdate`` triggers, and the result is returned.
 
 The notation follows the ``unpythonic`` convention that ``<<`` denotes an assignment of some sort. Here it denotes a functional update, which returns a modified copy, leaving the original untouched.
 
-The ``fup`` call is essentially curried. It takes in the sequence to be functionally updated. The object returned by the call accepts a subscript to specify the index or indices. This then returns another object that accepts a left-shift to specify the values. Once the values are provided, the underlying call to ``fupdate`` triggers, and the result is returned.
+#### `fupdate`
 
-The ``fupdate`` function itself works as follows:
+The ``fupdate`` function itself, which is the next lower abstraction level, works as follows:
 
 ```python
 from unpythonic import fupdate
@@ -2294,80 +2307,92 @@ assert lst == [1, 2, 3]
 assert out == [1, 2, 42]
 ```
 
-Immutable input sequences are allowed. Replacing a slice of a tuple by a sequence:
+Because the update is functional - i.e. the result is a new object, without mutating the original - immutable update target sequences are allowed. For example, we can replace a slice of a tuple by a sequence:
 
 ```python
 from itertools import repeat
-lst = (1, 2, 3, 4, 5)
-assert fupdate(lst, slice(0, None, 2), tuple(repeat(10, 3))) == (10, 2, 10, 4, 10)
-assert fupdate(lst, slice(1, None, 2), tuple(repeat(10, 2))) == (1, 10, 3, 10, 5)
-assert fupdate(lst, slice(None, None, 2), tuple(repeat(10, 3))) == (10, 2, 10, 4, 10)
-assert fupdate(lst, slice(None, None, -1), tuple(range(5))) == (4, 3, 2, 1, 0)
+tup = (1, 2, 3, 4, 5)
+assert fupdate(tup, slice(0, None, 2), tuple(repeat(10, 3))) == (10, 2, 10, 4, 10)
+assert fupdate(tup, slice(1, None, 2), tuple(repeat(10, 2))) == (1, 10, 3, 10, 5)
+assert fupdate(tup, slice(None, None, 2), tuple(repeat(10, 3))) == (10, 2, 10, 4, 10)
+assert fupdate(tup, slice(None, None, -1), range(5)) == (4, 3, 2, 1, 0)
 ```
 
 Slicing supports negative indices and steps, and default starts, stops and steps, as usual in Python. Just remember ``a[start:stop:step]`` actually means ``a[slice(start, stop, step)]`` (with ``None`` replacing omitted ``start``, ``stop`` and ``step``), and everything should follow. Multidimensional arrays are **not** supported.
 
-When ``fupdate`` constructs its output, the replacement occurs by walking *the input sequence* left-to-right, and pulling an item from the replacement sequence when the given replacement specification so requires. Hence the replacement sequence is not necessarily accessed left-to-right. (In the last example above, ``tuple(range(5))`` was read in the order ``(4, 3, 2, 1, 0)``.)
+When ``fupdate`` constructs its output, the replacement occurs by walking *the input sequence* left-to-right, and pulling an item from the replacement sequence when the given replacement specification so requires. Hence the replacement sequence is not necessarily accessed left-to-right. In the last example above, the ``range(5)`` was read in the order ``4, 3, 2, 1, 0``. This is because when `slice(None, None, -1)` is applied to the input sequence, the first item of the input sequence is index `4` in the slice. So when replacing the first item, ``fupdate`` looked up index `4` in the replacement sequence. Because the replacement was just `range(5)`, the value at index `4` was also `4`.
 
-The replacement sequence must have at least as many items as the slice requires (when applied to the original input). Any extra items in the replacement sequence are simply ignored (so e.g. an infinite ``repeat`` is fine), but if the replacement is too short, ``IndexError`` is raised.
+The replacement sequence must have at least as many items as the slice requires, when the slice is applied to the original input sequence. Any extra items in the replacement sequence are simply ignored, but if the replacement is too short, ``IndexError`` is raised.
 
-Note that the replacement must have `__len__` and `__getitem__` methods if the replacement specification requires reading it backwards, and/or if you plan to iterate over the `ShadowedSequence` multiple times. If the replacement only needs to be read forwards, **AND** you only plan to iterate over the `ShadowedSequence` just once (e.g., as part of a `fup`/`fupdate` operation), then it is sufficient for the replacement to implement the `collections.abc.Iterator` API only (i.e. just `__iter__` and `__next__`).
+The replacement must have `__len__` and `__getitem__` methods if the slice (when treated as explained above) requires reading the replacement backwards, and/or if you plan to iterate over the `ShadowedSequence` multiple times. If the replacement only needs to be read forwards, **AND** you only plan to iterate over the `ShadowedSequence` just once (e.g., as part of a `fup`/`fupdate` operation), then it is sufficient for the replacement to implement the `collections.abc.Iterator` API only (i.e. just `__iter__` and `__next__`).
 
-So, as of v0.15.0, this is supported:
+##### Infinite replacements
+
+An infinite replacement causes `fupdate` (and `fup`) to pull as many items as are needed:
 
 ```python
 from itertools import repeat, count
 from unpythonic import fup
 
-lst = (1, 2, 3, 4, 5)
-assert fup(lst)[::] << repeat(42) == (42, 42, 42, 42, 42)
-assert fup(lst)[::] << count(start=10) == (10, 11, 12, 13, 14)
+tup = (1, 2, 3, 4, 5)
+assert fup(tup)[::] << repeat(42) == (42, 42, 42, 42, 42)
+assert fup(tup)[::] << count(start=10) == (10, 11, 12, 13, 14)
 ```
 
-If you need to reverse-walk the start of an infinite replacement, then `imemoize(...)` to create a memoizing gfunc, and instantiate it:
+The rest of the infinite replacement is considered as extra items, and is ignored.
+
+**CAUTION**: If converting existing code, **be careful** not to accidentally `tuple(...)` an infinite replacement. Python will happily fill all available RAM and essentially crash your machine trying to exhaust the infinite generator.
+
+If you need to reverse-walk the start of an infinite replacement: use `imemoize(...)` on the original iterable, instantiate the generator, and use that generator instance as the replacement:
 
 ```python
 from itertools import count
 from unpythonic import fup, imemoize
 
-lst = (1, 2, 3, 4, 5)
-assert fup(lst)[::-1] << imemoize(count(start=10))() == (14, 13, 12, 11, 10)
+tup = (1, 2, 3, 4, 5)
+assert fup(tup)[::-1] << imemoize(count(start=10))() == (14, 13, 12, 11, 10)
 ```
 
-Note that as before, due to the `[::-1]`, the *fifth* item of the memoized iterable is used first. The `fup` succeeds, because all five items are stored in the memo (which is internally a sequence).
+Just like above, due to the slice `[::-1]`, `fup` calculates that - when walking *the input sequence* left-to-right - it first needs to take the item at index `4` of the replacement. The `fup` succeeds, because when it retrieves this fifth item, all of the first five items are stored in the memo (which is internally a sequence). So `fup` can retrieve the fifth item, then the fourth, and so on - even though from the viewpoint of the original underlying iterable, the earlier items have already been consumed when the fifth item is accessed.
 
-Once enough items have been yielded to perform the replacement, this will internally use `__getitem__` to retrieve the actual items. This supports any generator instance created by `imemoize`, `fimemoize`, or `gmemoize`.
+`ShadowedSequence` (and thus also `fupdate` and `fup`) internally uses `__getitem__` to retrieve the actual previous items from the memo, so even the memoized generator is only iterated over once. This functionality supports any generator instance created by the gfuncs returned by `imemoize`, `fimemoize`, or `gmemoize`.
 
-It is also possible to replace multiple individual items. These are treated as separate specifications, applied left to right (so later updates shadow earlier ones, if updating at the same index):
+##### Multiple update specifications
+
+In `fupdate`, it is also possible to replace multiple individual items:
 
 ```python
-lst = (1, 2, 3, 4, 5)
-out = fupdate(lst, (1, 2, 3), (17, 23, 42))
-assert lst == (1, 2, 3, 4, 5)
+tup = (1, 2, 3, 4, 5)
+out = fupdate(tup, (1, 2, 3), (17, 23, 42))  # target, (*where), (*what)
+assert tup == (1, 2, 3, 4, 5)
 assert out == (1, 17, 23, 42, 5)
 ```
+
+These are treated as separate specifications, applied left to right. This means later updates shadow earlier ones, if updating at the same index:
 
 Multiple specifications can be used with slices and sequences as well:
 
 ```python
-lst = tuple(range(10))
-out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2)),
+tup = tuple(range(10))
+out = fupdate(tup, (slice(0, 10, 2), slice(1, 10, 2)),
                    (tuple(repeat(2, 5)), tuple(repeat(3, 5))))
-assert lst == tuple(range(10))
+assert tup == tuple(range(10))
 assert out == (2, 3, 2, 3, 2, 3, 2, 3, 2, 3)
 ```
 
 Strictly speaking, each specification can be either a slice/sequence pair or an index/item pair:
 
 ```python
-lst = tuple(range(10))
-out = fupdate(lst, (slice(0, 10, 2), slice(1, 10, 2), 6),
+tup = tuple(range(10))
+out = fupdate(tup, (slice(0, 10, 2), slice(1, 10, 2), 6),
                    (tuple(repeat(2, 5)), tuple(repeat(3, 5)), 42))
-assert lst == tuple(range(10))
+assert tup == tuple(range(10))
 assert out == (2, 3, 2, 3, 2, 3, 42, 3, 2, 3)
 ```
 
-Also mappings can be functionally updated:
+##### `fupdate` and mappings
+
+Mappings can be functionally updated, too:
 
 ```python
 d1 = {'foo': 'bar', 'fruit': 'apple'}
@@ -2378,7 +2403,9 @@ assert sorted(d2.items()) == [('foo', 'tavern'), ('fruit', 'apple')]
 
 For immutable mappings, ``fupdate`` supports ``frozendict`` (see below). Any other mapping is assumed mutable, and ``fupdate`` essentially just performs ``copy.copy()`` and then ``.update()``.
 
-We can also functionally update a namedtuple:
+##### `fupdate` and named tuples
+
+Named tuples can be functionally updated, too:
 
 ```python
 from collections import namedtuple
@@ -2389,9 +2416,10 @@ assert a == A(17, 23)
 assert out == A(42, 23)
 ```
 
-Namedtuples export only a sequence interface, so they cannot be treated as mappings.
+Named tuples export only a sequence interface, so they **cannot** be treated as mappings, even though their elements have names.
 
-Support for ``namedtuple`` requires an extra feature, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the input type has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
+Support for ``namedtuple`` uses an extra feature of ``fupdate``, which is available for custom classes, too. When constructing the output sequence, ``fupdate`` first checks whether the type of the input sequence has a ``._make()`` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
+
 
 ### ``view``: writable, sliceable view into a sequence
 
