@@ -3253,9 +3253,10 @@ Out[2]: <function unpythonic.fploop.looped_over.<locals>.run(body)>
 
 or by looking at [the source code](../unpythonic/fploop.py).
 
+
 ### `gtrampolined`: generators with TCO
 
-In `unpythonic`, a generator can tail-chain into another generator. This is like invoking `itertools.chain`, but as a tail call from inside the generator - so the generator itself can choose the next iterable in the chain. If the next iterable is a generator, it can again tail-chain into something else. If it is not a generator, it becomes the last iterable in the TCO chain.
+In `unpythonic`, a generator can tail-chain into another generator. This is like invoking `itertools.chain`, but as a tail call from inside the generator - so that the generator itself can choose the next iterable in the chain. If the next iterable is a generator, it can again tail-chain into something else. If it is not a generator, it becomes the last iterable in the TCO chain.
 
 Python provides a convenient hook to build things like this, in the guise of `return`:
 
@@ -3298,15 +3299,15 @@ def fibos():  # see numerics.py
 print(tuple(take(10, fibos())))  # --> (1, 1, 2), only 3 terms?!
 ```
 
-This sequence (technically iterable, but in the mathematical sense) is recursively defined, and the `return` shuts down the generator before it can yield more terms into `scanl`. With `yield from` instead of `return` the second example works (but since it is recursive, it eventually blows the call stack).
+This sequence (technically iterable, but in the mathematical sense) is recursively defined, and the `return` shuts down the generator before it can yield more terms into `scanl`. With `yield from` instead of `return` the second example works - but since it is recursive, it eventually blows the call stack.
 
 This particular example can be converted into a linear process with a different higher-order function, no TCO needed:
 
 ```python
-from unpythonic import unfold, take, last
+from unpythonic import unfold, take, last, Values
 def fibos():
     def nextfibo(a, b):
-        return a, b, a + b  # value, *newstates
+        return Values(a, a=b, b=a + b)
     return unfold(nextfibo, 1, 1)
 assert tuple(take(10, fibos())) == (1, 1, 2, 3, 5, 8, 13, 21, 34, 55)
 last(take(10000, fibos()))  # no crash
