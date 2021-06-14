@@ -494,6 +494,13 @@ t = (1, 2, 3, 4, 5)
 s = fup(t)[0::2] << repeat(10)
 assert s == (10, 2, 10, 4, 10)
 assert t == (1, 2, 3, 4, 5)
+
+from itertools import count
+from unpythonic import imemoize
+t = (1, 2, 3, 4, 5)
+s = fup(t)[::-2] << imemoize(count(start=10))()
+assert s == (12, 2, 11, 4, 10)
+assert t == (1, 2, 3, 4, 5)
 ```
 </details>  
 <details><summary>Live list slices.</summary>
